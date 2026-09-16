@@ -118,7 +118,9 @@ browser preview and generated firmware.
 
 Blackout, dimming and pattern intent are wires, not project settings. Add the
 control as a part — **Potentiometer**, **Button**, **Rotary Encoder** — then
-wire it to the property or named action it should control. Use **Control Map**
+wire it to the property or named action it should control. Right-click a
+runtime field and choose **Expose input** to draw that socket; dragging onto
+the property row exposes and connects it in one step. Use **Control Map**
 when you want one compact bundle, conversion, chaining or repeat settings.
 Dropping on its trailing socket asks what that control should do and mints a
 port named for the job, offering only the jobs this chain can actually carry
@@ -157,66 +159,62 @@ driver compatible.
 
 For **Segment Display**, **Info Display**, and built-in **Display Panel**
 screens, connect the source's **Display** output to the panel's **Display** input.
-RTC Clock selects a clock, Music Player selects transport information, and
-Pattern Slideshow selects its pattern status/browser. The TFT's presentation
-setting chooses between treatments of its connected source. There are no
-separate Title/Artist/Progress inputs on the physical panel.
+RTC Clock selects a clock, Music Player selects transport information,
+Pattern Slideshow selects its pattern status/browser, and an LED output
+selects **LED Status**. The TFT's presentation setting chooses between
+treatments of its connected source. There are no separate
+Title/Artist/Progress inputs on the physical panel.
 
-For fixed music touch, wire named Touch outputs such as **Play / Pause** straight
-to matching Music Player action inputs, or connect **Touch Controls → Control Map
-Controls In → Music Player Controls** when you want one compact bundle or need
-continuous volume/brightness. Custom screens publish their individual widget
-outputs on the companion Touch node. Fixed Show Status and Clock screens have no
-touch actions.
+For fixed music touch, wire named Touch outputs such as **Play / Pause**
+straight to matching Music Player action inputs, or connect **Touch
+Controls → Control Map Controls In → Music Player Controls** when you
+want one compact bundle or need continuous volume/brightness. Custom
+screens publish their individual widget outputs on the companion Touch
+node. Fixed Show Status and Clock screens have no touch actions.
 
 ### Design a custom screen
 
 1. Add a physical **Display panel** and choose its exact module. Set its
    GPIO/touch pins in Hardware.
-2. Click **Create screen design** on that panel's graph node. This adds a
-   screen document — not another hardware part — already sized to the panel's
-   mounted glass, connects its **Screen Design** output to the panel's
-   **Screen Design** input, and opens the editor. The new content wire replaces
-   any built-in Display wire the panel had. Use a separate document for each
-   panel for now.
-
-   Adding **Screen design** from the display menu instead leaves the document
-   unconnected, and it has no size and cannot be edited until you wire it to a
-   panel. Prefer the panel's own action.
-3. In **Design**, place widgets or a template, then edit labels, bounds, theme
-   and assets. Templates create ordinary widgets and ports; they do not connect
-   playback or supply live data. **Portrait**/**Landscape** rotates the
-   connected panel and re-fits the design to what it then shows, so the two can
-   never disagree.
-4. Return with **Graph**, or with the panel's own name in the breadcrumb to
-   land on it. A 0–1 Slider can drive a normal-sketch LED output's Brightness
-   input. For SD music playback, assign brightness/volume through **Control Map
-   → Music Player**. For track text, connect **Music Player Display →
-   Song Info Display**, then **Song Info Title → Text widget input**.
+2. Click **Create screen design** on that panel's graph node. This mints
+   a design on the panel itself — already sized to the glass — and opens
+   the editor. There is no second node and no Screen Design cable. The
+   panel keeps its Display wire: that source is what bound widgets read.
+3. In **Design**, place widgets or a template, then edit labels, bounds,
+   theme and assets. A template whose destination is unambiguous draws
+   ordinary graph wires when it is placed; **Connect template controls**
+   fills any that are still missing, without overriding a wire you
+   already drew. **Portrait**/**Landscape** rotates the panel and re-fits
+   the design to what it then shows, so the two can never disagree.
+4. Return with **Graph**, or with the panel's own name in the breadcrumb
+   to land on it. Widget outputs leave through the companion **Touch**
+   node. A 0–1 Slider can drive a normal-sketch LED output's Brightness
+   input. For SD music playback, assign fixture brightness through
+   **Control Map → Music Player**; a player's own Volume is a direct
+   property input. Bound readouts take a field of the panel's Display
+   source from the inspector's **Reads** row; use **Song Info** only when
+   you genuinely need one field on a cable.
 5. **Run** exercises local touch controls and repaints graph-fed readouts as
    the graph publishes them. It is a simulation, not a hardware connection:
    it does not verify physical touch calibration or on-device draw rate.
 6. Resolve Graph Health and resource issues, measure capacity, then upload.
 
-For a panel self-test, disconnect its Screen Design wire and choose
-**Diagnostics** in the panel's layout menu. The fixed Display wire can stay.
-Upload to check the physical panel and mapped XPT2046 touch coordinates; choose
-the previous layout and reconnect the document to restore content. Touch X/Y
-Min/Max properties take measured raw bounds for that exact module. Save and
-upload after changing them. Defaults are provisional and Diagnostics is not a
-raw sample collector. The companion Touch node's **Calibrate touch** wizard
-captures the four corners for you: choose the board's port, press **Upload
-calibration sketch**, and it flashes a temporary measuring sketch built from
-the panel alone, listens for the raw readings it prints, and guides you corner
-by corner. It works on a graph that cannot otherwise be deployed — a screen
-with no LED output, say — because the sketch is built from the panel, not the
-graph. Saving updates the Touch node and releases the port; upload your project
-again to run with the measured bounds.
-
-The panel/document software repairs are implemented; shared documents are
-refused, so use one per panel. Fresh compile runs and mounted-document bench
-checks remain open in [HW-02/03/06](../../todo.md). Historical compile records
-do not certify the current panel/document workflow.
+For a panel self-test, choose **Diagnostics** in the panel's layout menu.
+It overrides a screen design as well as the fixed layouts, so there is
+nothing to disconnect first, and the Display source wire can stay.
+Upload to check the physical panel and mapped XPT2046 touch coordinates;
+choose the previous layout to restore content. Touch X/Y Min/Max
+properties take measured raw bounds for that exact module. Save and
+upload after changing them. Defaults are provisional and Diagnostics is
+not a raw sample collector. The companion Touch node's **Calibrate
+touch** wizard captures the four corners for you: choose the board's
+port, press **Upload calibration sketch**, and it flashes a temporary
+measuring sketch built from the panel alone, listens for the raw
+readings it prints, and guides you corner by corner. It works on a graph
+that cannot otherwise be deployed — a screen with no LED output, say —
+because the sketch is built from the panel, not the graph. Saving
+updates the Touch node and releases the port; upload your project again
+to run with the measured bounds.
 
 Readout widgets receive values. Buttons publish boolean outputs. Toggles,
 sliders, and dials also have an optional **Set** input: touch owns a control

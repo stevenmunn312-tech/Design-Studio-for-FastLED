@@ -13,7 +13,8 @@ build/architecture overview aimed at contributors.
 
 - [Hardware workbench](user/hardware-workbench.md)
   — the current Hardware-branch workflow for choosing a board, adding physical
-    parts, assigning pins, wiring a knob or button through Control Map,
+    parts, assigning pins, wiring a knob or button to a property or named
+    action (Control Map remains the optional compact bundle),
     designing and wiring display widgets, switching LED preview
     routes, deploying firmware, and using the embedded Output/Serial console.
 - [Stereo VU Meter](user/stereo-vu-meter.md)
@@ -43,9 +44,11 @@ build/architecture overview aimed at contributors.
 
 - [Design notes](development/design/)
   - [Direct controls and LED output status](development/design/direct-controls-and-output-status.md)
-    — agreed next design: named Touch widget outputs, property inputs exposed
-      on demand, optional control bundles and LED-output status screens; includes
-      the ordered implementation checklist.
+    — named Touch widget outputs, property inputs exposed on demand,
+      optional control bundles and LED-output status screens; includes
+      the ordered implementation checklist and the four reference
+      workflows of the current model. Steps 1–9 and 11 landed; step 10
+      representative firmware compiled on both engines; bench still open.
   - [One canvas, four workspaces](development/design/workspace-tabs.md)
     — replacing the split graph/hardware canvas with Hardware · Build Diagram ·
     Graph · Upload tabs, why co-visibility was not what connected them, and how
@@ -103,7 +106,7 @@ build/architecture overview aimed at contributors.
     records the remaining Audio and Storage capability work.
   - [Auxiliary displays](development/design/auxiliary-displays.md)
     — 7-segment/OLED/TFT peripherals as hardware-owned root parts: the `string`
-    signal, segment/OLED/fixed TFT drivers, and the freeform `Display` editor
+    signal, segment/OLED/fixed TFT drivers, and the freeform screen editor
     and LVGL generators are implemented; physical validation remains separate.
     Records the touch/evaluate/publish/
     flush frame order, bus-aware pin sharing, why a display is a codegen
@@ -114,10 +117,11 @@ build/architecture overview aimed at contributors.
     relationship to larger panels, and what an unwired panel says instead of
     sitting blank.
   - [Large displays and control routing](development/design/large-displays-and-control-routing.md)
-    — the implemented tier 2/3 panel/document split and its open integration gaps: one panel node
-    plus a separate document node, `Display` and `Screen Design` as exclusive
-    typed inputs, Music Player's song fields moved to an unpacker node, and a
-    Control Map input that mints only the functions a build actually wires.
+    — colour-panel ownership and control routing: the panel owns its
+    screen design (`displayId`, no mount wire), Music Player's song
+    fields unpack through Song Info, and Control Map remains the
+    optional compact bundle beside the direct named actions in
+    [direct controls](development/design/direct-controls-and-output-status.md).
   - [Display firmware compile checks](development/display-compile-checks.md)
     — the eleven current-model fixtures, their Arduino CLI/fbuild figures and
     the commands that rebuild them, including the two refused shapes that must

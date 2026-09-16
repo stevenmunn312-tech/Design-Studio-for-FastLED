@@ -1,72 +1,45 @@
 # Large displays and control routing
 
-Status: panel/document split, exclusive content inputs, Song Info unpacker and
-dynamic Control Map assignments implemented on Hardware. Integration gaps
-were found on 2026-09-08; see [the branch review](../reports/hardware-branch-review.md)
-and [HW-01–08](../../../todo.md). This contract replaces the pre-split proposal.
+Status: the panel owns its screen design. There is no separate document
+node and no mount wire. Song Info unpacks a player's display envelope.
+Control Map remains the optional compact bundle; direct named actions
+and property inputs are specified in
+[direct controls](direct-controls-and-output-status.md). HW-01–08
+integration gaps from 2026-09-08 are closed. Remaining evidence for the
+direct-controls work is compilation and bench, recorded in that note.
 
-## One physical panel, a separate screen document
+## One physical panel, its own screen design
 
-`TransportDisplay` (current label **Transport Display**) owns exact part identity,
-SPI/touch pins, calibration, rotation and Enabled. It has three inputs: Display,
-Custom Display and Enabled. Its Controls output is the fixed-layout transport
-bundle. Hardware existence is independent of content choice.
+`TransportDisplay` (label **Display Panel**) owns exact part identity,
+SPI/touch pins, calibration, rotation, Enabled, and the screen drawn on
+it. The design is named by the panel's `displayId` property and stored
+in `graphStore.displayDocuments`. Widget input sockets stay on the
+panel, because the panel draws graph values into widgets. Widget output
+sockets leave through the paired Touch node. There is no `Display`
+node, no `customDisplay` input, and no mount edge.
 
-`Display` (current label **Custom Display**) owns a `displayId` and the design
-reference. `graphStore.displayDocuments` stores widgets/theme with undo history.
-It has no part, bus or pins. The static `customDisplay` output connects to a
-panel, while widget ports derive from stable widget ids and roles. The document
-does not join hardware registries. Edit display lives on the document node.
+**Create screen design** on the panel mints the document, sizes it to
+the glass, stamps `displayId`, and opens the editor. Duplicating the
+panel mints a fresh `displayId`, so the copy has its own design. A
+design shared by two panels, or left mounted on none, is unsayable
+rather than refused.
 
-The document's own `customDisplay` output is a library port and survives every
-document sync; widget ports are additive beside it. Replacing the whole set with
-widget ports stripped that output and dropped the mount wire on load and on
-every edit, so a saved screen came back unplugged from its panel.
+`customDisplayMountPlan` in `mountedDisplays.ts` is the list of panels
+that name a design. RAM pricing, asset baking, deploy validation and
+all three generators read it. The old `shared` / `unmounted` fields
+went with the states they reported.
 
-### One design, one panel
-
-A design drives one panel. Every symbol a screen emits — its LVGL screen object,
-its widget runtime array, each widget output variable — is keyed by the document
-node, so a second panel showing the same document declared all of them twice.
-Normal generation emitted that duplicate; the template planner refused it as an
-identifier collision, which named the wrong thing entirely and told the user to
-recreate a display that was fine.
-
-`customDisplayMountPlan` in `mountedDisplays.ts` is the one walk that decides
-which screens a build contains, and RAM pricing, asset baking, deploy validation
-and all three generators read it. It reports the two shapes that cannot be
-built:
-
-- **A document on more than one panel.** Refused, naming the panels, with the
-  repair: copy the `Display` node and wire a copy to each panel. Duplicating the
-  node already mints a fresh `displayId`, so the copy is independent. Sharing one
-  document across two panels would also be two fingers on one set of widgets with
-  no rule for which wins; independent copies avoid needing that rule. A build
-  forced through anyway emits the design once and lets the spare panel fall back
-  to its fixed layout, so the refused graph still produces well-formed C++.
-- **A document no panel shows, driving something.** Its widgets are never built,
-  so a wire out of it named a control variable the sketch never declared. The
-  wire is refused, and codegen declares the output at rest — the same answer a
-  disabled panel gives, for the same reason: there is nothing there for a finger
-  to move.
-
-A design nobody has plugged in and nobody has wired out of costs nothing and
-blocks nothing: no draw buffer, no widget caches, no LVGL heap, no artwork bake.
-Leaving spare designs in a workspace is ordinary, and an unused one with a broken
-image reference used to refuse an upload that never referenced it.
-
-Document fan-out to two panels stays out of scope until there is an answer for
-simultaneous touch; see [HW-03](../../../todo.md).
+Document fan-out to two panels stays out of scope until there is an
+answer for simultaneous touch.
 
 ### Geometry
 
-`mountedDisplays.ts` answers "how large is this design as mounted" once, from
-the panel. A mounted document's design size must equal the panel's rotated size;
-deploy validation checks it for every generator and the template plan resolves
-it through the same helper. The editor's Portrait/Landscape control rotates the
-panels a design is plugged into and sizes the design from what they then
-present, in one undoable action; an unmounted design swaps its own edges,
-because there is no panel to ask.
+`mountedDisplays.ts` answers how large this design is as mounted, once,
+from the panel. A design's size must equal the panel's rotated size;
+deploy validation checks it for every generator and the template plan
+resolves it through the same helper. The editor's Portrait/Landscape
+control rotates the panel and sizes the design from what it then
+presents, in one undoable action.
 
 ### Enabled
 
@@ -248,17 +221,20 @@ otherwise the bank names its button after the trailing add socket. Pending
 assignments are cancelled when the picker is dismissed. Loading unions declared
 functions with actual wired function ids so existing edges remain legible.
 
-Fixed music touch routes Panel Controls → Control Map → Music Player.
-Custom UI uses document widget outputs → named Control Map actions, or
-supported direct LED inputs. It does not acquire fixed transport actions merely
-by connecting its document to a touch panel.
+Fixed music touch may wire named Touch outputs straight to Music Player
+action inputs, or send the Controls bundle through Control Map. Custom
+UI publishes each widget from the companion Touch node. Direct named
+actions and property inputs are specified in
+[direct controls](direct-controls-and-output-status.md). A screen design
+does not acquire the fixed-layout transport actions; those outputs rest.
 
 ## Registration and implementation boundaries
 
 Physical panel changes span `hardware.ts`, `partOptions.ts`, `GPIO_PIN_PROPERTIES`,
 `BUS_ASSIGNMENTS`, `hardwareManifest.ts`, `PART_PIN_PLANS`, Hardware fixture lists
-and `playerDisplays.ts`. Hardware registry tests guard that inventory. Document
-nodes belong to none of those physical registries.
+and `playerDisplays.ts`. Hardware registry tests guard that inventory. A
+screen design is not a hardware part and belongs to none of those
+physical registries.
 
 The normal generator walks graph expressions. Show/player templates reuse
 `templateControlRouting.ts`, `controlGraph.ts` and `customDisplayControlGraph.ts`.
@@ -274,8 +250,10 @@ compatibility baseline only after it ships.
 
 ## Remaining decisions
 
-HW-01–08 cover selection, ownership, diagnostics, live preview,
-connected starters and generator-aware assignments. Broader structured bindings,
-Performance Generator as a real Display source, density/size thresholds and
-multi-screen scope are explicitly deferred in D-01/02. Useful driver, bus and
-asset contracts remain in [auxiliary displays](auxiliary-displays.md).
+HW-01–08 are closed. Direct-control compilation and bench evidence is
+still open in
+[direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
+Broader structured bindings, Performance Generator as a real Display
+source, density/size thresholds and multi-screen scope stay deferred.
+Driver, bus and asset contracts remain in
+[auxiliary displays](auxiliary-displays.md).

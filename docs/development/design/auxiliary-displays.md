@@ -1,16 +1,19 @@
 # Auxiliary displays — design note
 
-Status: fixed segment/OLED/TFT drivers, source envelopes, Song Info, custom
-documents/editor and LVGL generation implemented on Hardware. Updated 2026-09-08.
-The panel/document split is implemented but has unresolved integration defects;
-see [large displays](large-displays-and-control-routing.md) and
-[the branch review](../reports/hardware-branch-review.md). Physical support is
-recorded separately in the support matrix.
+Status: fixed segment/OLED/TFT drivers, source envelopes, Song Info,
+custom screen editor and LVGL generation implemented on Hardware.
+Updated 2026-09-15. A colour panel owns its screen design (`displayId`
+on the panel; no separate document node and no mount wire); see
+[large displays](large-displays-and-control-routing.md). Direct named
+controls, property inputs and LED-output status are specified in
+[direct controls](direct-controls-and-output-status.md). Physical
+support is recorded separately in the support matrix.
 
-An **LED output** is `MatrixOutput` in any supported form. A physical auxiliary
-display is a separate segment/OLED/TFT peripheral. A custom `Display` is now a
-screen document, not another physical device. This note keeps driver, asset,
-widget, runtime and bus contracts; active work is [root todo](../../../todo.md).
+An **LED output** is `MatrixOutput` in any supported form. A physical
+auxiliary display is a separate segment/OLED/TFT peripheral. A custom
+screen is a design on that panel, not another physical device and not
+another graph node. This note keeps driver, asset, widget, runtime and
+bus contracts; active work is [root todo](../../../todo.md).
 
 ## Support boundary
 
@@ -51,8 +54,8 @@ content input, `Display`, with no layout property at all — what is plugged in
 decides what the panel shows. That model, and what an unwired panel says instead
 of sitting blank, is in [simple displays](simple-displays.md); the rest of this
 note is about the parts themselves. `TransportDisplay` also consumes this
-envelope, or an exclusive custom-document input; it no longer takes per-field
-content wires. The document node has no hardware ownership.
+envelope, or a screen design named on the panel itself; it no longer
+takes per-field content wires. The design is not a hardware part.
 
 The Info Display's Pattern Browser screen reads the shared selection contract
 rather than tracking an index of its own — active versus highlighted, wrapping,
@@ -68,9 +71,10 @@ actions require a touch-capable module; a non-touch TFT cannot operate interacti
 widgets locally. Allowed widget display classes remain defined by the registry;
 the exact non-touch custom-screen product scope needs HW-07/D-02 reconciliation.
 
-`Display` owns `displayId` and stable widget-role ports. `TransportDisplay` owns
-pins/rotation and receives the document through `customDisplay`. A fixed screen
-is useful without creating a document. See the [large-display contract](large-displays-and-control-routing.md).
+`TransportDisplay` owns pins, rotation, Enabled, and the screen drawn on
+it (`displayId`). Widget inputs stay on the panel; widget outputs leave
+through the paired Touch node. A fixed screen is useful without creating
+a design. See the [large-display contract](large-displays-and-control-routing.md).
 
 ### Port identity
 
@@ -394,17 +398,14 @@ would be user-facing behaviour decided by accident.
 
 ### Displays are terminals
 
-The evaluator and normal generator derive physical terminals from input-bearing
-output-category nodes and ordinary sinks. This keeps an interactive panel in
-the root set even though it publishes Controls. The pinless Display document
-does not declare its widget inputs in NODE_LIBRARY and is not an unconditional
-root. Firmware reachability follows its customDisplay edge to a physical panel.
-A document used as a control source without a mounted panel must be diagnosed;
-that case currently generates undeclared symbols (HW-03).
-
-Display role values already reach the runtime store, but the editor does not
-yet draw passive graph-fed values. HW-05 completes the renderer and audits
-sample/evaluate/publish order; do not claim full browser/firmware parity yet.
+The evaluator and normal generator derive physical terminals from
+input-bearing output-category nodes and ordinary sinks. This keeps an
+interactive panel in the root set even though it publishes Controls.
+There is no pinless document node to miss: the design lives on the
+panel, so a screen that publishes widget outputs is the same terminal
+as the glass it is drawn on. The control-pass order is stated once in
+`src/state/controlPhases.ts` and held over what all three generators
+emit; see [direct controls](direct-controls-and-output-status.md#6-preserve-feedback-and-evaluation-order).
 
 ### Scheduling
 

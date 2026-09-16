@@ -7,6 +7,8 @@ Auto-generated inventory for the Step 1 audit of
 
 Status: classification settled; `NODE_LIBRARY` declarations landed in slices,
 with the remainder deferred for stated reasons rather than pending.
+Live versus bake-time player/show/group fields are locked in
+`src/state/runtimeControlScope.ts`.
 
 Implementation status:
 

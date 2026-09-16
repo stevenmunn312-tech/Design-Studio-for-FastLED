@@ -7,6 +7,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../src/state/nodeLibrary'
 import { catalogueDisplays } from '../src/state/partCatalogue'
 import { partOptionsFor } from '../src/state/partOptions'
 import { findPinConflicts } from '../src/utils/validateGraph'
+import { assertWireable } from '../src/test-utils/assertWireable'
 import { createDisplayDocument, addDisplayWidget } from '../src/state/displayEditor'
 import { displayWidgetSources } from '../src/state/displayRegistry'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../src/state/displayDocument'
@@ -89,6 +90,7 @@ const panel = (id: string, properties: Record<string, unknown> = {}) => node(id,
   touchSckPin: 12, touchMosiPin: 11, touchMisoPin: 13, touchCsPin: 6, touchIrqPin: 5,
   ...properties,
 })
+const touch = (panelId: string) => node(`${panelId}-touch`, 'TouchInput', { panelId })
 const groups = {
   pattern: {
     nodes: [node('fill', 'SolidColor'), node('end', 'GroupOutput')],
@@ -124,19 +126,25 @@ const playerDocument = fullDocument('screen', {
 const clockOptions = displayOptions({ screen: clockDocument })
 const showOptions = displayOptions({ screen: showDocument })
 const playerOptions = displayOptions({ screen: playerDocument })
-const controls = () => node('controls', 'ControlMap', { debounceMs: 0 })
+const controls = (...functions: string[]) => node('controls', 'ControlMap', {
+  debounceMs: 0, controls: functions,
+})
 const math = () => node('math', 'Math', { mathOp: 'multiply', b: 0.5 })
 const format = () => node('format', 'FormatNumber', { decimals: 2 })
 /** The panel showing one of the bound screens above, projection included. */
 const boundPanel = (design: DisplayDocument, properties: Record<string, unknown> = {}) => panel('custom-tft', {
   displayId: 'screen', widgetSources: displayWidgetSources(design), ...properties,
 })
-const common = [board(), output(), panel('custom-tft', { displayId: 'screen' }), controls(), math(), format()]
-const commonFor = (design: DisplayDocument) => [
-  board(), output(), boundPanel(design), controls(), math(), format(),
+const common = [
+  board(), output(), panel('custom-tft', { displayId: 'screen' }), touch('custom-tft'),
+  controls('brightness', 'playPause'), math(), format(),
+]
+const commonFor = (design: DisplayDocument, ...functions: string[]) => [
+  board(), output(), boundPanel(design), touch('custom-tft'),
+  controls(...(functions.length ? functions : ['brightness', 'playPause'])), math(), format(),
 ]
 const commonWires = [
-  edge('custom-tft', 'widget:slider:out', 'math', 'a'),
+  edge('custom-tft-touch', 'widget:slider:out', 'math', 'a'),
   edge('math', 'result', 'format', 'value'),
   edge('format', 'text', 'custom-tft', 'widget:text:value'),
   edge('math', 'result', 'custom-tft', 'widget:numeric-readout:value'),
@@ -151,10 +159,10 @@ const fixedPanel = () => panel('fixed-tft', {
   touchCsPin: 1, touchIrqPin: 2,
 })
 
-const normalNodes = [...commonFor(clockDocument), fixedPanel(), rtc(), node('fill', 'SolidColor')]
+const normalNodes = [...commonFor(clockDocument), fixedPanel(), touch('fixed-tft'), rtc(), node('fill', 'SolidColor')]
 const normalEdges = [
   ...commonWires,
-  edge('custom-tft', 'widget:button:out', 'controls', 'playPause'),
+  edge('custom-tft-touch', 'widget:button:out', 'controls', 'playPause'),
   edge('controls', 'controls', 'out', 'controls'),
   edge('fill', 'frame', 'out', 'frame'),
   edge('rtc', 'display', 'fixed-tft', 'display'),
@@ -164,12 +172,13 @@ const normalEdges = [
 ]
 
 const showNodes = [
-  ...commonFor(showDocument), fixedPanel(), node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
+  ...commonFor(showDocument, 'brightness', 'patternNext'), fixedPanel(), touch('fixed-tft'),
+  node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
   node('show', 'PatternSlideshow'),
 ]
 const showEdges = [
   ...commonWires,
-  edge('custom-tft', 'widget:button:out', 'controls', 'patternNext'),
+  edge('custom-tft-touch', 'widget:button:out', 'controls', 'patternNext'),
   edge('controls', 'controls', 'show', 'controls'),
   edge('collection', 'patternset', 'show', 'patternset'),
   edge('show', 'frame', 'out', 'frame'),
@@ -178,12 +187,13 @@ const showEdges = [
 ]
 
 const playerNodes = [
-  ...commonFor(playerDocument), fixedPanel(), node('player', 'PatternMaster'), node('song', 'SongInfo'),
+  ...commonFor(playerDocument), fixedPanel(), touch('fixed-tft'),
+  node('player', 'PatternMaster'), node('song', 'SongInfo'),
   node('sd', 'SDCard'), node('amp', 'Amplifier'),
 ]
 const playerEdges = [
   ...commonWires,
-  edge('custom-tft', 'widget:button:out', 'controls', 'playPause'),
+  edge('custom-tft-touch', 'widget:button:out', 'controls', 'playPause'),
   edge('controls', 'controls', 'player', 'controls'),
   edge('player', 'frame', 'out', 'frame'),
   edge('player', 'display', 'fixed-tft', 'display'),
@@ -271,6 +281,19 @@ const telemetryNodes = normalNodes.map((entry) => (entry.id === 'board'
   })
   : entry))
 
+for (const [name, graph, documents] of [
+  ['normal', { nodes: normalNodes, edges: normalEdges }, { screen: clockDocument }],
+  ['show', { nodes: showNodes, edges: showEdges }, { screen: showDocument }],
+  ['player', { nodes: playerNodes, edges: playerEdges }, { screen: playerDocument }],
+  ['telemetry', { nodes: telemetryNodes, edges: normalEdges }, { screen: clockDocument }],
+] as const) {
+  try {
+    assertWireable(graph.nodes, graph.edges, documents)
+  } catch (error) {
+    throw new Error(`${name}.ino is not a graph the editor can draw: ${error instanceof Error ? error.message : error}`)
+  }
+}
+
 const sketches: Record<string, string> = {
   normal: generateCpp(normalNodes, normalEdges, {}, clockOptions),
   show: generateShowSketch(showNodes, showEdges, groups, {
@@ -284,7 +307,7 @@ const sketches: Record<string, string> = {
   }),
   'isolated-tft': generateCpp([board(), fixedPanel(), rtc()], [edge('rtc', 'display', 'fixed-tft', 'display')]),
   headless: generateShowSketch(
-    [board(), output(), node('button', 'ButtonInput', { pin: 2 }), controls(),
+    [board(), output(), node('button', 'ButtonInput', { pin: 2 }), controls('patternNext'),
       node('collection', 'PatternCollection', { patternIds: ['pattern'] }), node('show', 'PatternSlideshow')],
     [edge('button', 'pressed', 'controls', 'patternNext'), edge('controls', 'controls', 'show', 'controls'),
       edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')],
@@ -367,7 +390,7 @@ const requiredSymbols: Record<string, readonly string[]> = {
   // through that build's own table, a `set` role, a float, and — where the build
   // has one — the flash table the reading needs. They are named per generator
   // because what a build can answer is a fact about the generator.
-  normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft',
+  normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_touch_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft',
     '_cdSetText(_cd_screen[13], _rtcClockText(', '_cdSetChecked(_cd_screen[2], (bool)((n_rtc_dateTime).valid))', '_cdSetInteger(_cd_screen[8], _cdScaled((float)(((float)(n_rtc_dateTime).second))'],
   show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft',
     '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],

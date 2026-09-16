@@ -449,8 +449,8 @@ function ShortcutsTab() {
  * Written for what the app does today. Touch and control routing were left as
  * short "being rebuilt" notes while their model was changing, on the grounds
  * that a help page documenting the previous week is worse than one with a gap
- * in it; both are now written against the shipped model — two nodes for a touch
- * panel, and Control Map as the one place a control is given a job.
+ * in it; both are now written against the shipped model: two nodes for a touch
+ * panel, direct wires to the owner, and Control Map as the optional compact bundle.
  *
  * What stays a note is the one thing still genuinely absent: serial output and
  * runtime debug readings on a panel.
@@ -464,10 +464,10 @@ function DisplaysTab() {
           Displays are output devices. They show what something else tells them to show, the same way an LED output renders the frame it is given.
         </div>
         <div className={styles.text}>
-          <strong>Information displays</strong> are the small ones — 7-segment digits and the 128x64 OLED family. They take one Display wire from a source (RTC Clock, Music Player, Pattern Slideshow) and draw the reading that source publishes. A 4-digit module can show a clock or a number and nothing more; an OLED has room for a line of text beside it. What the module can physically do decides what it is offered, so you cannot ask a segment display for artwork.
+          <strong>Information displays</strong> are the small ones — 7-segment digits and the 128x64 OLED family. They take one Display wire from a source (RTC Clock, Music Player, Pattern Slideshow, or an LED output) and draw the reading that source publishes. A 4-digit module can show a clock, a number, or an LED output as whole percent of effective brightness; an OLED has room for a line of text beside it. What the module can physically do decides what it is offered, so you cannot ask a segment display for artwork.
         </div>
         <div className={styles.text}>
-          <strong>Colour panels</strong> (ST7789 and friends) take the same single Display wire and draw a fuller version of the same reading — a clock face, a now-playing screen with artwork, a show status. The presentation is a property on the panel; the content is whatever is wired in.
+          <strong>Colour panels</strong> (ST7789 and friends) take the same single Display wire and draw a fuller version of the same reading — a clock face, a now-playing screen with artwork, a show status, or LED Status for a fixture. The presentation is a property on the panel; the content is whatever is wired in.
         </div>
         <div className={styles.note}>
           One wire, not fourteen. A Music Player publishes its whole reading — title, artist, elapsed, artwork, which pattern is playing — as a single Display signal. Wire that one cable and the panel has everything. Song Info unpacks individual fields onto their own wires when you genuinely need one on a cable.
@@ -488,7 +488,7 @@ function DisplaysTab() {
           Each readout has a <strong>Reads</strong> row in the inspector, listing what the panel&rsquo;s own source publishes — Title, Artist, Elapsed and so on for a Music Player; Time and Date for an RTC Clock. Pick one and the widget takes that reading straight off the wire already feeding the panel, with no cable of its own. Choose <strong>A wire from the graph</strong> instead and the widget mints a socket on the panel for you to connect anything else to.
         </div>
         <div className={styles.text}>
-          The <strong>Templates</strong> shelf is ordered the same way: the layouts your panel&rsquo;s source can fill are listed first. Place <strong>Now Playing</strong> on a panel wired to a Music Player and it is already showing the track — the readings arrive connected, and only its buttons are left for you to point somewhere.
+          The <strong>Templates</strong> shelf is ordered the same way: the layouts your panel&rsquo;s source can fill are listed first. Place <strong>Now Playing</strong> on a panel wired to a Music Player and it is already showing the track — the readings arrive connected. When the destination is unambiguous, <strong>Connect template controls</strong> draws the button and slider wires as ordinary graph edges (Volume straight to the player, Play/Pause through a Changed Trigger, Blackout through a Not) without overriding a connection you already made.
         </div>
         <div className={styles.note}>
           The design belongs to the panel it is drawn on, so its size, rotation and colour depth are settled facts rather than choices. A design made for a 240x320 panel cannot be silently half off the edge of a 240x240 one.
@@ -533,7 +533,7 @@ function DisplaysTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Connecting controls to displays</div>
         <div className={styles.lede}>
-          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing: a typed wire that can go straight to its owner, or through <strong>Control Map</strong> when you want a compact bundle.
+          Controls do not belong to displays. A screen, a button on a bench and a knob on a panel all produce the same thing: a typed wire that can go straight to its owner, or through <strong>Control Map</strong> when you want a compact bundle. Right-click a runtime field and choose <strong>Expose input</strong> to draw that socket; dragging onto the property row exposes and connects it in one step.
         </div>
         <div className={styles.text}>
           Drop a Control Map and it starts almost empty: one <strong>Controls In</strong> input for chaining, and one trailing <strong>Connect control…</strong> socket. Drag any control into that socket and a picker asks what the control is for. Choose, and the node grows a port named for the job — Play / Pause, Volume, Brightness, Next Pattern — with a fresh empty socket beneath it. You end up with a node that lists exactly the jobs you have given it instead of fourteen sockets you have to read past.
@@ -551,6 +551,9 @@ function DisplaysTab() {
         </div>
         <div className={styles.note}>
           Chain them with <strong>Controls In</strong> when controls live in different places — three buttons on the bench and a touch screen on the door. Presses combine rather than fight: either end pressing Play means play, and a knob wired nearer wins over one further away, because the nearer one is what somebody just touched.
+        </div>
+        <div className={styles.note}>
+          Port colour is the data type, before and after a connection. Dragging highlights compatible targets and names conversions such as Map Range; it does not recolour the socket. A held button is a pulse; a Toggle stores on/off. Mixing the two for Play/Pause or Blackout is what the visible adapter nodes are for.
         </div>
       </div>
 

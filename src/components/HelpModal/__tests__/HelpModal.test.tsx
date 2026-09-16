@@ -246,6 +246,9 @@ describe('HelpModal session state', () => {
     expect(view.getByText('One job per control')).toBeTruthy()
     // Readings can come from the panel's own source rather than a cable.
     expect(view.getByText(/listing what the panel/)).toBeTruthy()
+    // Direct property wires and template auto-wiring are the current model.
+    expect(view.getByText(/Expose input/)).toBeTruthy()
+    expect(view.getByText(/Connect template controls/)).toBeTruthy()
 
     const page = view.getByRole('tabpanel')
     expect(page.textContent).not.toContain('Being rebuilt')

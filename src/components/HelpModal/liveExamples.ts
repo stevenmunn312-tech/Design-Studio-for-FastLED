@@ -1449,7 +1449,7 @@ const TRANSPORT_DISPLAY_LIVE_EXAMPLE = namedExample(
     { key: 'color', type: 'SolidColor', properties: { r: 20, g: 55, b: 95 } },
   ],
   [{ source: 'player', sourceHandle: 'display', target: 'target', targetHandle: 'display' }],
-  'A Display Panel takes one Display wire, exactly like the smaller panels: a Music Player makes it a now-playing screen, a Pattern Slideshow makes it a show status screen. The layout property only chooses between the treatments that source already offers — Now Playing or Fixed Transport for a player — so it can change how a screen is drawn but never what it shows. Add the exact TFT module in the hardware workbench.',
+  'A Display Panel takes one Display wire, exactly like the smaller panels: a Music Player makes it a now-playing screen, a Pattern Slideshow makes it a show status screen, an LED output makes it LED Status. The layout property only chooses between the treatments that source already offers (Now Playing or Fixed Transport for a player), so it can change how a screen is drawn but never what it shows. Add the exact TFT module in the hardware workbench.',
   'The solid colour keeps the LED preview meaningful; the TFT is a separate physical display. Use Create screen design on the panel to draw your own screen instead of a fixed layout. On the ST7789V/XPT2046 module a Touch node comes with the panel: its Controls output is what a finger on the glass publishes.',
 )
 

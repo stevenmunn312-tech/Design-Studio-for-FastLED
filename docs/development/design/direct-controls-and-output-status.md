@@ -1,17 +1,10 @@
 # Direct controls and LED output status
 
-Status: in progress — step 1 inventory and contract are documented;
-steps 2, 3, 4, Match target range, step 5,
-step 6, step 7 and step 8 are landed; steps 9 and 10 are partly landed
-(step 10's software verification is complete; compilation and bench are not); fallback-backed
-`propertyInputs` declarations are landed from the catalogue; the
-direct-plus-bundle action collision gate is landed; explicit toggle initial
-state, repeat-step settings and Map Range repair are landed; the control pass
-phase model and the self-disabled-panel warning are landed; LED outputs
-publish their own status and the three panel classes render it; template
-controls resolve and connect their own destinations; the audio, palette and
-shape-colour property inputs are declared with guards behind them.
-2026-09-15. Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
+Status: in progress — steps 1–9 and step 11 are landed; step 10's
+software verification is complete except widget feedback under playback
+(that wants the bench); representative normal/show/player compilation is
+done on both engines; bench is not run. 2026-09-15.
+Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
 ## Brief explanation
@@ -608,19 +601,41 @@ drifts — a list beside one generator says nothing about the other two.
   holds the evaluator and the generator to one literal across 100+ comparisons,
   and derives the palette-declaration rule over the catalogue so the next node
   to grow a palette input joins it. Both refuse to pass on an empty parse.
-- [ ] Cover group boundaries and supported player/show pattern parameters.
+- [x] Cover group boundaries and supported player/show pattern parameters.
   Distinguish live parameters from bake-time settings, and report remaining
   exclusions explicitly. Never offer a control that only works in preview.
-  → Partly. The concrete case step 8 named is landed: a player's **Volume** is
-  now a direct continuous `PatternMaster.volume` input, consumed by preview and
-  the SD-player control graph, so a template's volume slider can wire straight
-  to the player. Remaining work in this item is the broader group-boundary and
-  player/show parameter audit, including explicit reporting of bake-time-only
-  exclusions.
-- [ ] Apply the step-1 visibility audit across the full existing node catalogue.
+  → `src/state/runtimeControlScope.ts` is the list. Live fields that already
+  have a verified property input: Music Player `volume` / `minTime` /
+  `maxTime` / `transitionSec`; Slideshow `interval`; Player Particles
+  `enabled` / `intensity` / `randomStyle` / `randomColor`; LED output
+  `enabled` / `outputBrightness`; every display's `enabled`. Bake-time
+  authoring knobs stay off that list on purpose (Music Player `seed`,
+  Slideshow order/transitions/audio-reactive/seed, every Performance
+  Generator generate-time field including `useGroupInputs`, Sequencer
+  interval/fade, Transition style knobs) so a socket cannot work in
+  preview and compile to the value frozen at Generate.
+  Group instances are not in `NODE_LIBRARY`. Their published ports are
+  minted from GroupInput nodes inside the subgraph and stay visible,
+  because they *are* the group's interface. Inner sliders of a collected
+  group are live only while that group is evaluated as a subgraph
+  (normal sketch, preview with `useGroupInputs`); a performance/SD show
+  bakes the envelope. Held by `runtimeControlScope.test.ts`.
+  Selection and text fields stay open: no node currently reads either
+  wire-then-field, so each is a code change per node rather than a
+  declaration. Boolean/trigger pulses stay deferred for the reason
+  already recorded above.
+- [x] Apply the step-1 visibility audit across the full existing node catalogue.
   Keep main data ports visible, expose optional properties/actions on demand and
   retain all connected sockets. Check loaded graphs, group interfaces and the
   consistency of the visible **Expose input…** affordance.
+  → The same module holds the catalogue to the step-1 rules rather than
+  restating them per node: main substance ports (`frame`, `display`,
+  `audio`, `field`, `patternset`, …) are never hideable; `defaultExposedInputs`
+  is bounded to actually exposable ports; **Expose input…** exists exactly
+  when the node declared a property or action input. Loaded graphs were
+  already covered by `propertyInputs.test.ts` (an edge always overrides
+  the list, including after save/reload). Group interfaces stay drawn
+  because they are published GroupInput ports, not optional tuning.
 
 ### 10. Verify the complete workflows
 
@@ -647,9 +662,13 @@ drifts — a list beside one generator says nothing about the other two.
   `deployGates.test.ts`), and the workflow file adds the two checks that need
   more than one feature at once: a button wired straight to a slideshow pattern
   step builds clean, and one press reaching the same action both directly and
-  through a Control Map is refused by name. Not exercised as a workflow:
-  fixture-versus-show dimming with multiple outputs, and widget feedback under
-  playback. Those want the bench more than they want another fixture.
+  through a Control Map is refused by name. Fixture versus show dimming with
+  two outputs is now `directControlDimmingWorkflow.test.ts`: a slideshow may
+  dim one of two fixtures with a direct Brightness wire, and a music-player
+  build cannot read an LED output field, so a dialled-down fixture is refused
+  by name and pointed at Control Map. Not exercised as a workflow: widget
+  feedback under playback. That wants the bench more than it wants another
+  fixture.
 - [x] Exercise template auto-wiring alongside manual edits and optional bundles;
   verify no duplicate actions or redirected connections. Review compact node
   layouts and confirm type colours remain stable through connection changes,
@@ -665,9 +684,17 @@ drifts — a list beside one generator says nothing about the other two.
   compilation and bench results separately; do not infer hardware success.
   → **Software: done.** `npm test` 5218 passed / 13 skipped, `tsc -b` clean,
   `npm run lint` clean, `npm run build` clean (PWA precache 149 entries).
-  → **Compilation: not run.** Representative normal/show/player firmware still
-  needs building; `scripts/generate-display-smoke.mjs` writes the fixtures and
-  `scripts/compile-display-smoke.py` builds them.
+  → **Compilation: done, 15 September 2026.** Representative normal, show
+  and player sketches compiled on both engines against hashes that still
+  regenerate. The smoke generator still took widget outputs from the panel;
+  after step 4 those ports live on the paired Touch node, so generation
+  refused the show sketch until the fixtures were retargeted. Arduino CLI
+  1.5.1 and fbuild 2.5.22, ESP32-S3 N16R8, LVGL 9.5.0. Figures and hashes
+  in [display compile checks](../display-compile-checks.md#step-10-representative-sketches-15-september-2026).
+  The rest of the HW-06 fixture matrix was not rerun. fbuild compiled the
+  three custom-screen sketches with no `LV_PART_x | LV_STATE_y` warnings,
+  which is the `_cdSel` emitter fix the previous Arduino-only table could
+  not see.
   → **Bench: not run**, and deliberately not inferred. Real touch,
   enable/re-enable, and LED/status response on hardware are the three readings
   nothing above substitutes for — the status panel bug found here was a naming
@@ -676,23 +703,155 @@ drifts — a list beside one generator says nothing about the other two.
 
 ### 11. Finish documentation and examples
 
-- [ ] Replace the four reference workflows with examples of the final model.
+- [x] Replace the four reference workflows with examples of the final model.
   Update Help, node references and user guides, including type/range mapping,
   momentary versus toggle controls, field exposure, compact bundles, template
   auto-wiring and its manual reconnect action, default port visibility and the
   distinction between type colours and compatibility highlights.
-- [ ] Reconcile auxiliary-display, simple-display and large-display/control
+  → The four workflows are below, replacing the 2026-09-08 review's live
+  graph / slideshow / SD player / utility-firmware table. Help's Displays
+  page, the node-reference articles, the workbench guide and
+  `docs/reference/displays.md` now describe the panel-owned design, LED
+  Status, Expose input, Connect template controls, Map Range hints and
+  the held-versus-toggle distinction.
+- [x] Reconcile auxiliary-display, simple-display and large-display/control
   design notes with the implemented ownership and routing. Remove superseded
   control paths, update root guidance where invariants changed, and link the
   verification evidence before marking this design implemented.
+  → Those three notes and `docs/NAVIGATOR.md` now point at panel-owned
+  designs and at this document for direct controls. Bench and widget
+  feedback under playback remain the open evidence from step 10; this
+  design is not marked implemented until those land.
+
+## Reference workflows
+
+These replace the four workflows in
+[the 2026-09-08 branch review](../reports/hardware-branch-review.md#how-the-workflow-should-read).
+Each is an ordinary graph of the current model. Wiring Test and Stream
+Receiver stay separate utility firmware: they do not run the authored UI.
+
+### 1. Live graph (normal sketch)
+
+A pattern with a status screen and two direct controls. No player, no
+slideshow, no Control Map.
+
+```text
+Juggle: Frame ----------------------> LED String: Frame
+Touch: Speed -----------------------> Juggle: Speed
+Touch: Brightness ------------------> LED String: Brightness
+LED String: Display ---------------> Display Panel: Display
+Physical Button: Pressed ----------> Display Panel: Enabled
+```
+
+Juggle keeps Frame visible and Speed hidden until **Expose input** or a
+drop on the Speed row draws the socket. The slider that drives Speed
+adopts that property's range on first connection if it had none of its
+own; an already-configured slider offers **Match target range** instead.
+The LED String publishes its own status (name, form, count, effective
+on/blackout and level) so the panel can use the **LED Status** layout
+without a music player. The physical button enables the panel while
+held. A Toggle widget, or a Button through Trigger in Toggle mode, is
+the persistent on/off; Graph Health warns if the panel's own Touch node
+is the sole origin of Enabled, because turning it off from the glass
+then has no way back on.
+
+Disconnecting Speed restores Juggle's saved slider value. Covered by
+`directControlWorkflow.test.ts`.
+
+### 2. Collection slideshow
+
+A show with two fixtures, independent dimming on one of them, and
+physical pattern browsing.
+
+```text
+Pattern Collection: Set -----------> Slideshow: Set
+Slideshow: Frame ------------------> Wash: Frame
+Slideshow: Frame ------------------> House: Frame
+Pot: Value ------------------------> Wash: Brightness
+Button: Pressed -------------------> Slideshow: Next Pattern
+Encoder: Position -----------------> Slideshow: Pattern Select
+Encoder: Pressed ------------------> Slideshow: Confirm
+Slideshow: Display ----------------> OLED: Display
+```
+
+Next Pattern and Confirm are named action inputs on the Slideshow.
+Control Map is optional here: useful for a compact bundle, not required
+for a single button. Wash's Brightness is a fixture field the show
+controller reads; House stays undimmed. That is fixture dimming, not
+show-wide brightness, and `directControlDimmingWorkflow.test.ts` holds
+the distinction. The OLED is a Pattern Browser: it reports the
+slideshow's cursor, it does not own it.
+
+Master Speed is still refused on a slideshow. Interval is a live
+property input; order, transition style and seed stay bake-time.
+
+### 3. SD music player
+
+A player with transport on the glass, volume as a direct value, and
+fixture lighting through Control Map.
+
+```text
+Music Player: Frame ---------------> Wash: Frame
+Music Player: Frame ---------------> House: Frame
+Music Player: Display -------------> Display Panel: Display
+Touch: Volume ---------------------> Music Player: Volume
+Touch: Play/Pause --> Trigger (Changed) --> Music Player: Play/Pause
+Touch: Blackout --> Not ----------> (not an LED Enabled wire)
+Control Map: Controls -------------> Music Player: Controls
+  (bundle carries show-wide dimming / lamp)
+SD Card + Amplifier reach the player
+```
+
+Volume is a continuous property input, so a template slider wires
+straight to the player. Play/Pause is a momentary action and the
+template's Play control is a Toggle, so **Connect template controls**
+places a Trigger in Changed mode between them: a visible, deletable
+adapter in the same undo as the wire. A music-player build cannot read
+an LED output Enabled/Brightness field; a dialled-down fixture is
+refused by name and pointed at Control Map. Show-wide dimming therefore
+lives on the player transport path, labelled as such, and is not applied
+again at each fixture.
+
+### 4. Template auto-wiring (any of the three builds)
+
+A panel already showing a source. Place a template, or choose
+**Connect template controls** later.
+
+```text
+Music Player: Display -------------> Display Panel: Display
+Display Panel owns its screen design (displayId, no mount wire)
+Touch: Volume ---------------------> Music Player: Volume
+Touch: Play/Pause --> Trigger (Changed) --> Music Player: Play/Pause
+```
+
+For an LED Status template on a panel showing an LED output:
+
+```text
+LED String: Display ---------------> Display Panel: Display
+Touch: Brightness ------------------> LED String: Brightness
+Touch: Lights --> Not -------------> LED String: Enabled
+```
+
+Blackout is true-means-dark and Enabled is true-means-lit, so a Not is
+placed between them. The plan declines an occupied input, including its
+own wire from a previous run, and does not retarget when the panel is
+re-pointed at a different source. Read-only layouts (Clock, Show Status,
+Waiting) produce no automatic control connections because they have no
+widgets carrying roles. An arbitrary Speed slider is left unwired: it
+cannot guess which Juggle to control.
+
+Covered by `templateControlPlan.test.ts` and
+`connectTemplateControls.test.ts`.
 
 ## Implementation starting points
 
-Use current code as the authority where older display notes describe the removed
-panel/document split. Start with `src/state/nodeLibrary.ts`,
+Use current code as the authority where older display notes describe the
+removed panel/document split. Start with `src/state/nodeLibrary.ts`,
+`src/state/propertyInputs.ts`, `src/state/runtimeControlScope.ts`,
 `src/state/playerControlAssignments.ts`, `src/state/displaySignal.ts`,
 `src/state/ledOutputRuntime.ts`, `src/state/graphEvaluator.ts`,
-`src/components/Canvas/StudioNode.tsx`, `src/codegen/playerDisplays.ts`, the three
-sketch generators and `src/utils/validateGraph.ts`. Follow their shared helpers
-for widget roles, property ports, screen state and persistence rather than
-creating a parallel routing system.
+`src/state/templateControlPlan.ts`, `src/components/Canvas/StudioNode.tsx`,
+`src/codegen/playerDisplays.ts`, the three sketch generators and
+`src/utils/validateGraph.ts`. Follow their shared helpers for widget
+roles, property ports, screen state and persistence rather than creating
+a parallel routing system.

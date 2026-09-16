@@ -1,6 +1,10 @@
 # Simple displays — design note
 
-Status: simple panels implemented; larger panels now also consume DisplaySignal. Updated 2026-09-08. See [large displays](large-displays-and-control-routing.md) for the implemented panel/document split and outstanding integration work.
+Status: simple panels implemented; larger panels consume the same
+DisplaySignal. Updated 2026-09-15. See [large displays](large-displays-and-control-routing.md)
+for colour-panel ownership (the panel owns its screen design; there is
+no separate document node) and [direct controls](direct-controls-and-output-status.md)
+for named Touch outputs, property inputs and LED-output status.
 
 What a small, non-touch display shows, and how it is told. Decided 2026-08-27,
 scoped 2026-08-29. The companion half of this note is [Pattern
@@ -24,11 +28,12 @@ Three tiers, separated by what a panel is physically good for:
    who does not want to author one.
 3. **Touch displays** — as above, plus touch as a control source.
 
-Larger panels now take exclusive `Display` and `Custom Display` content
-inputs, plus Enabled. Their implementation and remaining gaps are described in
-[large displays](large-displays-and-control-routing.md). Artwork is currently
-baked pattern artwork, not album art. A numerical tier boundary is a deferred
-product decision, not the current driver capability rule.
+Larger panels take the same `Display` input plus Enabled. A colour panel
+may also carry a screen design on itself (`displayId`); that is a
+property of the panel, not a second content socket. See
+[large displays](large-displays-and-control-routing.md). Artwork is
+baked pattern artwork, not album art. A numerical tier boundary is a
+deferred product decision, not the current driver capability rule.
 
 ## The model
 

@@ -3563,7 +3563,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SegmentDisplay: 'A 4 or 8-digit 7-segment module showing a number, clock, or index.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
   TransportDisplay: 'A colour TFT panel: a fixed transport or status layout, or a Screen Design.',
-  Display: 'A screen drawn widget by widget, shown by the Display Panel it is wired to.',
+  Display: 'A screen drawn widget by widget, owned by the Display Panel it was created for.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',
   ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
   BeatSin: 'Beat-synced sine oscillator — outputs a normalized low↔high value at a BPM.',

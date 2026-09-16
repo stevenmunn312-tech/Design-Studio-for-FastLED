@@ -1,10 +1,11 @@
 # Display node reference
 
-Physical displays are root-level Hardware parts. **Screen Design** is a
-separate screen document with widget ports; it has no GPIO. Connect it to the
-Screen Design input on a physical **Display Panel**. The
-[workbench guide](../user/hardware-workbench.md#add-and-connect-a-display) describes
-the current flow; in-app Help describes the same panel/document wiring.
+Physical displays are root-level Hardware parts. A colour panel may
+carry a **screen design** on itself (`displayId`); there is no separate
+document node and no Screen Design cable. Widget outputs leave through
+the companion **Touch** node. The
+[workbench guide](../user/hardware-workbench.md#add-and-connect-a-display)
+describes the current flow; in-app Help describes the same ownership.
 
 ## Choose the exact module
 
@@ -27,10 +28,11 @@ ESP32-S3 does not establish support for every board or display combination.
 
 ## Segment Display
 
-Connect one **Display** wire from RTC Clock, Music Player, or Pattern Slideshow.
-It shows the time, elapsed playback position, or pattern number respectively.
-Unwired digits show dashes. A raw float or a Format Number string does not fit
-this socket; use a Screen Design readout for those values.
+Connect one **Display** wire from RTC Clock, Music Player, Pattern Slideshow,
+or an LED output. It shows the time, elapsed playback position, pattern
+number, or whole percent of effective fixture brightness respectively.
+Unwired digits show dashes. A raw float or a Format Number string does not
+fit this socket; use a custom-screen readout for those values.
 
 Set brightness, leading zeros, decimals, colon, and enabled state on the graph
 node where applicable. The TM1637 has a colon; the MAX7219 module does not.
@@ -42,9 +44,9 @@ line.
 
 Connect the source's **Display** output to the OLED's **Display** input. RTC
 Clock supplies the clock screen, Music Player supplies now-playing information,
-and Pattern Slideshow supplies the pattern browser. There is no layout selector;
-an unwired panel explicitly reports that state. Rotation and enabled state are
-graph settings.
+Pattern Slideshow supplies the pattern browser, and an LED output supplies
+LED Status. There is no layout selector; an unwired panel explicitly reports
+that state. Rotation and enabled state are graph settings.
 
 The slideshow owns the current pattern and highlighted selection. The OLED
 reports that state; physical browsing controls go to Pattern Slideshow's named
@@ -58,20 +60,25 @@ and use the same SDA/SCL pair as the other I²C parts in the sketch.
 
 ## Display Panel
 
-Connect **Display** from RTC Clock, Music Player or Pattern Slideshow for Clock,
-Now Playing/Fixed Transport or Show Status respectively. The source chooses
-content; presentation only chooses among that source's treatments. Unwired
-panels say Waiting. Alternatively, connect a document's **Screen Design**
-output. The two content inputs are exclusive: the newest content wire replaces
-the other. Enabled remains a separate input/property.
+Connect **Display** from RTC Clock, Music Player, Pattern Slideshow or
+an LED output for Clock, Now Playing/Fixed Transport, Show Status or
+LED Status respectively. The source chooses content; presentation only
+chooses among that source's treatments. Unwired panels say Waiting. A
+custom screen is created on the panel with **Create screen design**;
+the panel keeps its Display wire, which bound widgets read. Enabled
+remains a separate input/property.
 
-For fixed music touch on XPT2046, wire named Touch outputs such as **Play /
-Pause** directly to matching Music Player action inputs, or route **Touch
-Controls → Control Map Controls In → Music Player Controls** when you want one
-compact bundle, continuous volume/brightness, chaining or repeat settings. Show
-Status and Clock are read-only. For custom touch, wire individual widget outputs
-from the companion **Touch** node; the fixed-layout Controls output does not
-replace those widget ports.
+For fixed music touch on XPT2046, wire named Touch outputs such as
+**Play / Pause** directly to matching Music Player action inputs, or
+route **Touch Controls → Control Map Controls In → Music Player
+Controls** when you want one compact bundle, continuous
+volume/brightness, chaining or repeat settings. Show Status and Clock
+are read-only. For custom touch, wire individual widget outputs from
+the companion **Touch** node; the fixed-layout Controls output does not
+replace those widget ports. **Connect template controls** draws the
+obvious wires (Volume direct, Play/Pause through a Changed Trigger,
+Blackout through a Not) without overriding a connection you already
+made.
 
 The normal generator can render a clock. Show/player templates only read their
 own supported source kinds, so an arbitrary RTC wire there remains unresolved.
@@ -147,8 +154,11 @@ a design, duplicate the panel — the copy gets a design of its own.
 
 Design adds and resizes widgets or inserts ordinary widget templates. Module,
 pins and mounted rotation belong to the panel. A template's readings arrive
-bound to whatever is wired into the panel (see **Widget ports** below); its
-controls are ordinary outputs and are not wired to actions for you.
+bound to whatever is wired into the panel (see **Widget ports** below). When
+the destination is unambiguous, **Connect template controls** draws the
+control wires as ordinary graph edges (Volume direct, Play/Pause through a
+Changed Trigger, Blackout through a Not) without overriding a connection
+you already made.
 
 Return with **Graph** to wire widget roles. Renaming/moving widgets retains
 connections; copying creates new identities; deleting a wired widget prompts
@@ -189,8 +199,10 @@ a first connection, add a Slider and Numeric Readout and connect the slider's
 Output on Touch to the readout's Value on the panel. For formatted text, insert
 Format Number between the slider and a Text widget. For music-player actions,
 connect widget outputs directly to named action inputs where available, or use
-Control Map when you need volume, brightness, chaining or a bundle. Route
-SD-player brightness and volume through that same chain.
+Control Map when you need chaining, repeat settings or a bundle. A player's
+Volume is a direct property input. SD-player fixture brightness still goes
+through Control Map; a direct LED output Brightness wire is refused on that
+build.
 
 A synchronized control belongs to the finger while held. After release, a wired
 **Set** value becomes authoritative. With Set unwired, the last local value is
@@ -261,9 +273,9 @@ evaluate every wire connected to it.
 
 | Symptom | What to check |
 | --- | --- |
-| No widget graph ports | Add widgets in Edit screen design; the empty document only has its Screen Design content output. |
+| No widget graph ports | Add widgets in Edit screen design; an empty design has no widget ports yet. Bound readouts mint none. Control outputs appear on the companion Touch node. |
 | Control snaps back after release | Inspect its Set wire; that source becomes authoritative after touch. |
-| Template does not control playback | Connect widget outputs from Touch to Music Player action inputs, or through Control Map when the control is continuous or bundled. |
+| Template does not control playback | Use **Connect template controls**, or wire Touch outputs to Music Player action inputs (or through Control Map when the control is bundled). |
 | Build reports an unsupported widget input | Replace the upstream path with supported scalar nodes, or use a normal sketch where that path is supported. |
 | Screen document size does not match | Reopen the editor after changing the mounted module or rotation and resolve the reported size/layout issue. |
 | Asset preparation or trust issue | Choose an installed asset and complete the project's trust review before building. |

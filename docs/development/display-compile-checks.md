@@ -1,12 +1,13 @@
 # Display firmware compile checks
 
-> **Evidence for the current model, Arduino CLI only.** Every figure below comes
-> from one run against the shipped graph: a `TransportDisplay` panel that owns
-> the screen drawn on it (no document node, no mount edge), touch on its own
-> node, Control Map, and widgets that read the panel's source instead of drawing
-> a cable. The second engine has not been run against this source yet, so there
-> are no fbuild rows — an absent row is the honest record of a build nobody has
-> made, not a gap to be filled in from an older one.
+> **Evidence for the current model.** The three generator paths (normal,
+> show, player) were rebuilt on 15 September 2026 on both engines against
+> sketches that still regenerate to the recorded hashes, with widget
+> outputs on the paired Touch node. See
+> [Step 10 representative sketches](#step-10-representative-sketches-15-september-2026).
+> The other fixtures in the 13 September Arduino CLI table were not
+> rerun; custom-screen hashes there predate the `_cdSel` emitter as
+> noted below.
 >
 > Earlier runs are not reproduced here. They were built from sketches that no
 > longer regenerate, so their sizes cannot be tied to anything in the tree and
@@ -159,6 +160,10 @@ The initial runs exposed these gaps, now covered by regression tests:
   completion marker and are retried. A version comment in the helper's sketch
   also invalidates Arduino's cached caller object when the audio API changes;
   identical rebuilds retain their source mtime and library cache.
+- The smoke generator still took widget outputs from the panel after those
+  ports moved to the paired Touch node. `generate-display-smoke.mjs` then
+  refused the show sketch. The fixtures mint a `TouchInput` per touch
+  panel; `assertWireable` holds the cables to what the editor can draw.
 
 ## Recorded environment
 
@@ -179,22 +184,19 @@ Every fixture passed. The source hash is the generated `.ino`, so a figure can
 be tied to the exact sketch that produced it, and each row matched the generator
 output at the time of the run.
 
-> **Six of these rows now predate the emitter.** After the run, the LVGL emitter
-> stopped composing style selectors as `LV_PART_x | LV_STATE_y` — LVGL 9.5
-> deprecates a bitwise operation between those two enum types — and emits
-> `_cdSel(part, state)` instead, which widens each operand to
-> `lv_style_selector_t` before the or. Only sketches that draw a custom screen
-> contain a selector, so **Normal, Generative show, SD player, Disabled panel,
-> Two panels and Bench telemetry** regenerate to a different hash than the table
-> records; **Isolated TFT, Headless controls, both Part families rows and Classic
-> ESP32** are untouched and still regenerate to exactly the hash below.
+> **Three of these rows now predate the emitter, and three were rebuilt.** After
+> the 13 September run, the LVGL emitter stopped composing style selectors as
+> `LV_PART_x | LV_STATE_y` and emits `_cdSel(part, state)` instead. **Disabled
+> panel, Two panels and Bench telemetry** still record the older hash.
+> **Normal, Generative show and SD player** were rebuilt on 15 September;
+> see that section. **Isolated TFT, Headless controls, both Part families
+> rows and Classic ESP32** never contained a selector and still regenerate
+> to the hash below.
 >
-> The change is warnings-only on the engine that reported them (fbuild: 66 per
-> custom-screen sketch) and invisible on the engine that produced this table,
-> since Arduino CLI compiles this path with `-w`. So the six rows remain evidence
-> that those shapes build, and are no longer evidence about the exact bytes: a
-> rerun is what would restore that, and is worth folding into the fbuild pass
-> rather than spending a second Arduino CLI matrix on.
+> Arduino CLI compiles this path with `-w`, so the 13 September table never
+> saw the 66 fbuild warnings per custom-screen sketch. The 15 September
+> fbuild pass compiled the three generator sketches with none of those
+> warnings.
 
 | Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | --- | ---: |
@@ -248,10 +250,50 @@ against their pre-regression records under a different source hash.
 
 ### Not established here
 
-fbuild has not been run against this source, so there are no second-engine rows.
-Its 66-warning selector deprecation is fixed in the emitter but unverified by a
-build; that fix is the first thing an fbuild pass should confirm, and doing so
-would refresh the six rows the note above marks as predating it.
-Physical behaviour is untouched by any of this: refresh speed, touch accuracy,
+The 13 September table's other eight fixtures were not rebuilt. Physical
+behaviour is untouched by any of this: refresh speed, touch accuracy,
 heap headroom under load, SPI coexistence and audio continuity all remain HW-11
 and HW-13 bench work.
+
+## Step 10 representative sketches, 15 September 2026
+
+The direct-controls checklist asked for representative normal, show and
+player firmware. The smoke generator still took widget outputs from the
+panel; after those ports moved to the paired Touch node, generation
+refused the show sketch (`control graph requires float` / `bool` on
+`TransportDisplay.widget:*:out`). The fixtures now mint a `TouchInput`
+per touch panel and leave widget *inputs* on the panel. `assertWireable`
+holds that, so a later port move fails at generate rather than at
+compile.
+
+Windows. Arduino CLI 1.5.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL
+9.5.0, player audio 3.0.12. fbuild 2.5.22 (vendored FastLED
+`e52abeb26d1b`, LVGL `85aa60d18b3d`, player audio `928c420d49fc`).
+Same S3 N16R8 FQBN as the table above. Arduino flash percents are
+against the 3 MB application partition; fbuild flash percents are
+against the 16 MB device, so they are not comparable as percentages.
+
+Each row's hash matches `artifacts/display-compile/manifest.json` after
+regeneration. fbuild compiled all three with no `LV_PART_x | LV_STATE_y`
+warnings; the sketches emit `_cdSel(part, state)` instead. That is the
+emitter fix the 13 September Arduino-only table could not see, because
+Arduino CLI compiles this path with `-w`.
+
+| Fixture | Engine | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | --- | ---: |
+| Normal | Arduino CLI | `b6fca447c50e` | Passed | 634,135 (20%) | 105,820 (32%) |
+| Generative show | Arduino CLI | `f4ad220196fc` | Passed | 638,195 (20%) | 106,252 (32%) |
+| SD player | Arduino CLI | `206a2b8072ec` | Passed | 1,318,575 (41%) | 122,052 (37%) |
+| Normal | fbuild | `b6fca447c50e` | Passed | 958,792 (6%) | 161,403 (49%) |
+| Generative show | fbuild | `f4ad220196fc` | Passed | 963,963 (6%) | 162,068 (50%) |
+| SD player | fbuild | `206a2b8072ec` | Passed | 1,635,779 (10%) | 176,865 (54%) |
+
+Arduino CLI against the 13 September rows of the same three shapes is
++8 / +20 / +44 bytes of flash. RAM is +8 / +8 / 0. That is the Touch
+node naming of widget output locals (`n_custom_tft_touch_widget_slider_out`)
+plus whatever else the intervening generator edits cost; it is not a
+claim that the `_cdSel` helper is free, because the previous Arduino
+rows already compiled the deprecated form with `-w`.
+
+Disabled, two-panel, telemetry and the part-family / isolated / headless
+/ classic-ESP32 fixtures were not part of this run.
