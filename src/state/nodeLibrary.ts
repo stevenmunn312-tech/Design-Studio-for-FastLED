@@ -17,7 +17,10 @@ import {
   oledAddressLabel, oledControllerFor, oledTransportFor,
   type OledController, type OledTransport,
 } from './oledSurface'
-import { tftControllerFor, type TftController } from './tftSurface'
+import {
+  tftControllerFor, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_PIN_KEYS,
+  type TftController,
+} from './tftSurface'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
 import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
@@ -3193,7 +3196,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       mosiPin: 23,
       misoPin: 19,
       csPin: 5,
-      dcPin: 16,
+      // GPIO9 rather than 16 because on a parallel module this same line is
+      // touch electrode X-, and 16 is ADC2 - readable on a bench and dead the
+      // moment Wi-Fi comes on. It is an ordinary output on an SPI panel, so
+      // moving it costs those nothing.
+      dcPin: 9,
       resetPin: 17,
       backlightPin: 4,
       touchCsPin: 15,
@@ -3203,6 +3210,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       touchSckPin: 18,
       touchMosiPin: 23,
       touchMisoPin: 19,
+      // 8-bit parallel lines, shown only for a parallel module. The four that
+      // double as touch electrodes - csPin, dcPin, d0Pin, d1Pin - default onto
+      // the ESP32-S3's ADC1 range so a fresh graph is not quietly placed on an
+      // ADC the radio disables.
+      wrPin: 33,
+      rdPin: 34,
+      d0Pin: 7,
+      d1Pin: 8,
+      d2Pin: 39,
+      d3Pin: 40,
+      d4Pin: 41,
+      d5Pin: 42,
+      d6Pin: 47,
+      d7Pin: 48,
       enabled: true,
     },
   },
@@ -5185,10 +5206,9 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
   // The panel node owns every pin; `Display` (the document) has none.
-  TransportDisplay: new Set([
-    'sckPin', 'mosiPin', 'misoPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
-    'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
-  ]),
+  // Both transports' lines, derived rather than restated: which of them a given
+  // panel actually shows is `transportDisplayPinKeysForProps`'s answer.
+  TransportDisplay: new Set([...Object.values(TFT_TRANSPORT_PINS).flat(), 'backlightPin']),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
@@ -5240,6 +5260,24 @@ export function gpioRequirementForProperty(
   if (nodeType === 'TransportDisplay'
     && (key === 'misoPin' || key === 'touchMisoPin' || key === 'touchIrqPin')) {
     return { capability: 'digitalInput', pullup: false }
+  }
+  /*
+   * On a bare resistive sheet four of the panel's own lines are also the touch
+   * electrodes, so they have to read analog as well as drive.
+   *
+   * `analogInput` is the binding half of that pair rather than an alternative
+   * to it: every analog-capable pin on these parts is also an output, so
+   * asking for the stricter capability satisfies both. Saying so here is what
+   * keeps touch off ADC2 without a rule of its own - `assignPartPins` already
+   * orders pins carrying an applicable caveat last, and the ESP32-S3's ADC2
+   * caveat is that analogRead may fail while Wi-Fi is active. A panel placed
+   * on ADC2 would work perfectly on a bench and go dead the moment anything
+   * turned the radio on.
+   */
+  if (nodeType === 'TransportDisplay'
+    && PARALLEL_TOUCH_PIN_KEYS.includes(key)
+    && tftTransportForProps(props) === 'parallel') {
+    return { capability: 'analogInput', pullup: false }
   }
   return { capability: 'digitalOutput', pullup: false }
 }
@@ -5479,6 +5517,9 @@ export function tftControllerForProps(properties: Record<string, unknown>): TftC
   return { ...base, width: resolution[0], height: resolution[1] }
 }
 
+/** Every pin property either colour transport wires, for the gate below. */
+const TFT_PIN_PROPERTIES = new Set([...Object.values(TFT_TRANSPORT_PINS).flat(), 'backlightPin'])
+
 const TRANSPORT_DISPLAY_BASE_PINS = [
   'sckPin', 'mosiPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
 ] as const
@@ -5514,10 +5555,21 @@ export function pinPropertyIsUnwired(nodeType: string, key: string, value: unkno
 /** Pins physically present for the selected catalogued colour-display module. */
 export function transportDisplayPinKeysForProps(properties: Record<string, unknown>): string[] {
   const display = partById(String(properties.partId ?? ''))?.display
-  if (!display?.interface.toLowerCase().includes('spi')) return []
+  if (!display) return []
+  if (tftTransportFor(display.interface) === 'parallel') {
+    // A parallel panel wires the same thirteen lines whether or not a touch
+    // sheet is fitted, because the sheet has no lines of its own.
+    return [...TFT_TRANSPORT_PINS.parallel]
+  }
+  // An SPI panel without a digitiser has no touch header to wire.
   return display.touchController
     ? [...TRANSPORT_DISPLAY_BASE_PINS, ...TRANSPORT_DISPLAY_TOUCH_PINS]
     : [...TRANSPORT_DISPLAY_BASE_PINS]
+}
+
+/** Whether this panel's module drives an 8-bit parallel bus. */
+export function tftTransportForProps(properties: Record<string, unknown>) {
+  return tftTransportFor(partById(String(properties.partId ?? ''))?.display?.interface)
 }
 
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
@@ -5535,9 +5587,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (OLED_PIN_PROPERTIES.has(key)) return OLED_TRANSPORT_PINS[transport].includes(key)
     if (key === 'i2cAddress') return transport === 'i2c'
   }
-  if (nodeType === 'TransportDisplay'
-    && (TRANSPORT_DISPLAY_BASE_PINS.includes(key as never)
-      || TRANSPORT_DISPLAY_TOUCH_PINS.includes(key as never))) {
+  // Every colour-panel pin property either transport can wire, so a line one
+  // transport does not have is hidden rather than left enabled by falling past
+  // the gate. Derived from the transport map: listing the two SPI groups here
+  // meant the parallel lines were not covered and showed on every SPI panel.
+  if (nodeType === 'TransportDisplay' && TFT_PIN_PROPERTIES.has(key)) {
     return transportDisplayPinKeysForProps(properties).includes(key)
   }
   if (nodeType === 'DMXInput') {

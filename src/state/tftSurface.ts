@@ -138,6 +138,56 @@ export function tftTransportFor(declaredInterface: string | undefined): TftTrans
 }
 
 /**
+ * The pin properties each transport actually wires.
+ *
+ * The colour sibling of `OLED_TRANSPORT_PINS`, and read the same way: a module
+ * offers the fields its wiring has and no others, so a parallel shield never
+ * shows an SCK field and an SPI breakout never shows eight data lines.
+ *
+ * Two names are worth stating. `dcPin` carries what a parallel board
+ * silkscreens LCD_RS: register select and data/command are the same signal, so
+ * it stays one graph property with an alias rather than a second field meaning
+ * the same thing. And a parallel panel has no MISO - nothing here reads the
+ * panel - so `rdPin` is a strobe to be held high, not a data line.
+ */
+export const TFT_TRANSPORT_PINS: Record<TftTransport, readonly string[]> = {
+  spi: [
+    'sckPin', 'mosiPin', 'csPin', 'dcPin', 'resetPin', 'backlightPin',
+    'misoPin', 'touchCsPin', 'touchIrqPin', 'touchSckPin', 'touchMosiPin', 'touchMisoPin',
+  ],
+  parallel: [
+    'csPin', 'dcPin', 'resetPin', 'wrPin', 'rdPin',
+    'd0Pin', 'd1Pin', 'd2Pin', 'd3Pin', 'd4Pin', 'd5Pin', 'd6Pin', 'd7Pin',
+  ],
+}
+
+/**
+ * The four panel pins a resistive touch panel reads, by the electrode each one
+ * becomes while it is being sampled.
+ *
+ * This board has no touch controller: the panel is a bare resistive sheet
+ * wired across four lines the LCD bus already owns. Reading it means driving a
+ * gradient across one axis and measuring the other, which is why these four
+ * need `analogInput` and the other nine do not.
+ *
+ * They are not a second claim on those GPIOs. The pins belong to the panel,
+ * are declared once by it, and the Touch node paired with it declares none -
+ * exactly as it declares none for an XPT2046, whose lines also live on the
+ * panel. There is no extra wire to connect and nothing for a collision check
+ * to find.
+ */
+export const PARALLEL_TOUCH_ELECTRODES = {
+  xp: 'd0Pin',
+  ym: 'd1Pin',
+  yp: 'csPin',
+  xm: 'dcPin',
+} as const
+
+/** The panel pin properties that double as touch electrodes on a bare sheet. */
+export const PARALLEL_TOUCH_PIN_KEYS: readonly string[] =
+  Object.values(PARALLEL_TOUCH_ELECTRODES)
+
+/**
  * The controller a catalogued part drives, by its declared controller string.
  *
  * Longest name first, which is not a stylistic preference: `ST7789V` starts

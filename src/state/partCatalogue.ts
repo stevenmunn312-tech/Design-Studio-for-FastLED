@@ -93,9 +93,17 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   clkPin: ['CLK', 'SCK', 'SCL'],
   dioPin: ['DIO', 'DATA', 'DIN'],
   dinPin: ['DIN', 'DATA', 'DIO'],
-  csPin: ['CS', 'LOAD'],
-  dcPin: ['DC'],
-  resetPin: ['RST', 'RESET', 'RES'],
+  csPin: ['CS', 'LOAD', 'LCD_CS'],
+  // A parallel board silkscreens register-select as RS; it is the same signal
+  // an SPI board prints DC, so one property carries both names.
+  dcPin: ['DC', 'RS', 'LCD_RS'],
+  resetPin: ['RST', 'RESET', 'RES', 'LCD_RST'],
+  wrPin: ['WR', 'LCD_WR'],
+  rdPin: ['RD', 'LCD_RD'],
+  ...Object.fromEntries(
+    // LCD_D0..LCD_D7 as a parallel board prints them.
+    Array.from({ length: 8 }, (_, bit) => [`d${bit}Pin`, [`D${bit}`, `LCD_D${bit}`]]),
+  ),
   sckPin: ['SCK', 'CLK', 'SCL', 'D0'],
   mosiPin: ['MOSI', 'SDA', 'DIN', 'DATA', 'D1'],
   misoPin: ['MISO', 'DO'],
