@@ -272,6 +272,52 @@ export function addDisplayWidget(document: DisplayDocument, type: DisplayWidgetT
   return { ...document, widgets: [...document.widgets, widget] }
 }
 
+/**
+ * Put a connected widget on the screen.
+ *
+ * It already exists, already has its port and already has its wire — all it
+ * gains here is geometry, and it gains it from `firstAvailableBounds`, the
+ * same free rectangle the palette's own entries land in. A control placed
+ * from the Connected group and one added from the palette therefore arrive
+ * the same way, rather than the group inventing a second placement rule.
+ */
+export function placeDisplayWidget(document: DisplayDocument, widgetId: string): DisplayDocument {
+  const widget = document.widgets.find((entry) => entry.id === widgetId)
+  if (!widget || isPlacedWidget(widget)) return document
+  const bounds = firstAvailableBounds(document, widget.type)
+  return {
+    ...document,
+    widgets: document.widgets.map((entry) => (
+      entry.id === widgetId ? { ...entry, bounds } : entry
+    )),
+  }
+}
+
+/**
+ * Take widgets off the screen without destroying them.
+ *
+ * Losing `bounds` is the whole of what "returned to the Connected group"
+ * means — there is no third state and no pending list — so this is how a
+ * placed control goes back to waiting while keeping its wire.
+ */
+export function unplaceDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+): DisplayDocument {
+  const ids = new Set(widgetIds)
+  let changed = false
+  const widgets = document.widgets.map((widget) => {
+    if (!ids.has(widget.id) || !isPlacedWidget(widget)) return widget
+    changed = true
+    // Rebuilt rather than destructured away, so the field is gone from the
+    // object rather than present and undefined — `'bounds' in widget` is what
+    // a normalize and a JSON round trip both go on. A field added to
+    // `DisplayWidget` later fails to compile here rather than being dropped.
+    return { id: widget.id, type: widget.type, label: widget.label, properties: widget.properties }
+  })
+  return changed ? { ...document, widgets } : document
+}
+
 export function updateDisplayWidget(
   document: DisplayDocument,
   widgetId: string,

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addDisplayWidget,
   createDisplayDocument,
   displayLayoutIssues,
+  placeDisplayWidget,
   resizeDisplayDocument,
   translateDisplayWidgets,
+  unplaceDisplayWidgets,
 } from '../displayEditor'
 import {
   isPlacedWidget,
@@ -163,5 +166,52 @@ describe('unplaced widgets', () => {
     const document = documentWith([connectedWidget('volume'), placedWidget('speed', 8, 8)])
     expect(placedWidgets(document)).toEqual(document.widgets.filter(isPlacedWidget))
     expect(placedWidgets(null)).toEqual([])
+  })
+
+  /*
+   * Crossing the line, both ways. Placing and unplacing are the whole of what
+   * the designer's Connected group does, so they are geometry operations and
+   * live beside the rest of them rather than in the component.
+   */
+
+  it('gives a connected widget the same free rectangle the palette would have', () => {
+    const document = documentWith([connectedWidget('volume')])
+    const placed = placeDisplayWidget(document, 'volume')
+
+    // The comparison is against what adding a Slider from the palette does to
+    // the same document: one placement rule, not one per entry point.
+    const fromPalette = addDisplayWidget(documentWith([]), 'Slider').widgets[0]
+    expect(placed.widgets[0].bounds).toEqual(fromPalette.bounds)
+    expect(displayLayoutIssues(placed)).toEqual([])
+  })
+
+  it('places into free space rather than on top of what is already drawn', () => {
+    const document = documentWith([placedWidget('speed', 0, 0), connectedWidget('volume')])
+    const placed = placeDisplayWidget(document, 'volume')
+
+    expect(placed.widgets[1].bounds).toBeDefined()
+    expect(displayLayoutIssues(placed).some((issue) => issue.code === 'collision')).toBe(false)
+  })
+
+  it('leaves a widget already on the screen exactly as it is', () => {
+    const document = documentWith([placedWidget('speed', 8, 8)])
+    expect(placeDisplayWidget(document, 'speed')).toBe(document)
+    expect(placeDisplayWidget(document, 'nobody')).toBe(document)
+  })
+
+  it('takes a widget off the screen without taking anything else from it', () => {
+    const document = documentWith([placedWidget('speed', 8, 8)])
+    const returned = unplaceDisplayWidgets(document, ['speed'])
+
+    // Losing bounds is the whole of it: the id the port is keyed on, the label
+    // and the adopted range all survive, because the wire still names them.
+    expect(returned.widgets[0]).toEqual({
+      id: 'speed',
+      type: 'Slider',
+      label: 'speed',
+      properties: { min: 0, max: 1, step: 0.01, orientation: 'horizontal' },
+    })
+    expect('bounds' in returned.widgets[0]).toBe(false)
+    expect(unplaceDisplayWidgets(returned, ['speed'])).toBe(returned)
   })
 })

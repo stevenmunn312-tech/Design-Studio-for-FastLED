@@ -594,3 +594,81 @@
     display: none;
   }
 }
+
+/*
+ * The Connected group: controls that exist and are wired but have no place on
+ * the screen yet. Its accent is the input accent rather than the palette's
+ * output one, because these arrived from the graph rather than from this list.
+ */
+.connected {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.connectedList {
+  display: grid;
+  gap: 5px;
+}
+
+/* The row is the place button plus a delete, so the two never share a hit
+   area — one is routine and the other takes the wire with it. */
+.connectedEntry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
+}
+
+.connectedPlace {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-glow);
+  border-left: 3px solid var(--accent-input);
+  border-radius: 4px;
+  background: var(--bg-node);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.connectedPlace:hover {
+  background: var(--bg-node-hover);
+  border-color: color-mix(in srgb, var(--accent-input) 55%, var(--border-glow));
+}
+
+.connectedPlace > span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+/* The destination, on its own line: three sliders in this group are told
+   apart by what they drive, not by their type. */
+.connectedPlace small {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connectedRemove {
+  width: 24px;
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: var(--bg-node);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.connectedRemove:hover {
+  border-color: color-mix(in srgb, var(--error) 60%, var(--border-glow));
+  color: var(--text-primary);
+}

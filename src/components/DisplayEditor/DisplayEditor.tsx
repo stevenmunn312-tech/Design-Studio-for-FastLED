@@ -15,6 +15,7 @@ import {
   rootGraphNodes,
   connectTemplateControls,
   useGraphStore,
+  type StudioEdge,
 } from '../../state/graphStore'
 import {
   DISPLAY_WIDGET_LIBRARY,
@@ -32,9 +33,11 @@ import {
   distributeDisplayWidgets,
   duplicateDisplayWidgets,
   pasteDisplayWidgets,
+  placeDisplayWidget,
   resizeDisplayDocument,
   removeDisplayWidgets,
   translateDisplayWidgets,
+  unplaceDisplayWidgets,
   updateDisplayWidget,
   type DisplayLayoutIssue,
 } from '../../state/displayEditor'
@@ -78,6 +81,7 @@ import {
   documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
 } from '../../state/mountedDisplays'
 import { displayWidgetTargetRangeRepair } from '../../state/displayControlRangeRepair'
+import { controlDestination, controlDestinationLabel, displayControlEdges } from '../../state/wireFirstControls'
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -378,16 +382,27 @@ export default function DisplayEditor() {
   // audition a control family without unexpectedly repainting their screen.
   const [controlThemeId, setControlThemeId] = useState(() => DISPLAY_THEME_PRESETS[0]?.id ?? '')
   const [announcement, setAnnouncement] = useState('Display editor opened.')
-  const graphNodesForRangeRepair = useGraphStore((state) => rootGraphNodes(state))
-  const graphEdgesForRangeRepair = useGraphStore((state) => rootGraphEdges(state))
+  const graphNodes = useGraphStore((state) => rootGraphNodes(state))
+  const graphEdges = useGraphStore((state) => rootGraphEdges(state))
   const targetRangeRepair = useMemo(() => {
     const current = draft ?? persisted
     if (!displayId || selectedIds.length !== 1 || !current) return null
     const widget = current.widgets.find((entry) => entry.id === selectedIds[0])
     return widget
-      ? displayWidgetTargetRangeRepair(displayId, widget, graphNodesForRangeRepair, graphEdgesForRangeRepair)
+      ? displayWidgetTargetRangeRepair(displayId, widget, graphNodes, graphEdges)
       : null
-  }, [displayId, draft, graphEdgesForRangeRepair, graphNodesForRangeRepair, persisted, selectedIds])
+  }, [displayId, draft, graphEdges, graphNodes, persisted, selectedIds])
+  /*
+   * What each control on this screen drives.
+   *
+   * Read for the Connected group's captions and for the delete rule below —
+   * a widget with a wire is returned to the group rather than destroyed — so
+   * both ask the graph the same question in the same walk.
+   */
+  const controlEdges = useMemo(
+    () => (displayId ? displayControlEdges(displayId, graphNodes, graphEdges) : new Map<string, StudioEdge>()),
+    [displayId, graphEdges, graphNodes],
+  )
 
   useEffect(() => {
     if (!displayId) return
@@ -470,6 +485,21 @@ export default function DisplayEditor() {
     commit(next, widget.bounds
       ? `${widget.type} added at ${widget.bounds.x}, ${widget.bounds.y}.`
       : `${widget.type} added.`)
+    setSelectedIds([widget.id])
+  }
+
+  /**
+   * Move a connected control out of the group and onto the screen.
+   *
+   * The widget is not created here — it was created the moment its wire was
+   * dropped on a property. It only gains bounds, which is the entire
+   * difference between waiting and live.
+   */
+  const place = (widgetId: string) => {
+    const next = placeDisplayWidget(document, widgetId)
+    if (next === document) return
+    const widget = next.widgets.find((entry) => entry.id === widgetId)!
+    commit(next, widgetAnnouncement(next, widgetId, displayLayoutIssues(next)))
     setSelectedIds([widget.id])
   }
 
@@ -664,6 +694,12 @@ export default function DisplayEditor() {
 
   const selectedWidgets = document.widgets.filter((widget) => selectedIds.includes(widget.id))
   const selected = selectedWidgets.length === 1 ? selectedWidgets[0] : null
+  /*
+   * The Connected group is derived, not a second list: it is exactly the
+   * widgets this document holds that have no bounds. Nothing has to be kept in
+   * step with it, and "placed" and "connected" cannot disagree.
+   */
+  const connectedWidgets = document.widgets.filter((widget) => !isPlacedWidget(widget))
 
   const matchTargetRange = () => {
     if (!selected || !targetRangeRepair) return
@@ -697,7 +733,45 @@ export default function DisplayEditor() {
 
   const removeSelection = async (widgetIds: readonly string[], action: 'cut' | 'deleted') => {
     if (widgetIds.length === 0) return
+    /*
+     * Deleting a wired control from the screen returns it to the Connected
+     * group; it does not destroy it.
+     *
+     * A control that has been placed, sized and themed must not evaporate
+     * because of one keystroke while its wire — drawn in another workspace,
+     * on another undo stack — is still there. Pressing Delete again, on the
+     * group entry, is the real removal, and that one still asks.
+     *
+     * Cut is deliberately exempt: it puts a copy on the clipboard, so its
+     * removal has to be real or the clipboard would hold a duplicate of
+     * something still in the document.
+     */
     const state = useGraphStore.getState()
+    // Asked of the live store rather than of `controlEdges`, which is this
+    // render's snapshot: whether a wire exists decides whether a widget is
+    // destroyed, so it is read at the moment of the decision.
+    const wired = displayControlEdges(displayId, rootGraphNodes(state), rootGraphEdges(state))
+    const returning = action === 'deleted'
+      ? widgetIds.filter((id) => {
+        const widget = document.widgets.find((entry) => entry.id === id)
+        return widget !== undefined && isPlacedWidget(widget) && wired.has(id)
+      })
+      : []
+    const doomed = widgetIds.filter((id) => !returning.includes(id))
+    if (returning.length > 0 && doomed.length === 0) {
+      commit(
+        unplaceDisplayWidgets(document, returning),
+        `${returning.length} ${returning.length === 1 ? 'control' : 'controls'} returned to Connected, still wired.`,
+      )
+      setSelectedIds([])
+      return
+    }
+    if (returning.length > 0) {
+      // A mixed selection: take the wired ones off the screen first, then fall
+      // through to the ordinary delete for the rest, so one keystroke still
+      // does one comprehensible thing to each widget.
+      commit(unplaceDisplayWidgets(document, returning))
+    }
     const displayNode = rootGraphNodes(state).find((node) => (
       node.data.nodeType === 'TransportDisplay'
       && String(node.data.properties.displayId ?? '') === displayId
@@ -708,8 +782,12 @@ export default function DisplayEditor() {
           && String(node.data.properties.panelId ?? '') === displayNode.id
         )) ?? null
       : null
-    const portIds = new Set(document.widgets
-      .filter((widget) => widgetIds.includes(widget.id))
+    // Through the draft rather than `document`: an unplace above has already
+    // replaced it, and removing from the stale one would put those widgets
+    // back on the screen.
+    const current = draftRef.current ?? document
+    const portIds = new Set(current.widgets
+      .filter((widget) => doomed.includes(widget.id))
       .flatMap((widget) => displayWidgetPorts(widget).map((port) => port.id)))
     const wiredEdges = displayNode
       ? rootGraphEdges(state).filter((edge) => (
@@ -719,8 +797,8 @@ export default function DisplayEditor() {
       : []
     if (wiredEdges.length > 0) {
       const ok = await requestConfirm({
-        title: widgetIds.length === 1 ? 'Delete wired widget?' : 'Delete wired widgets?',
-        message: `${wiredEdges.length} ${wiredEdges.length === 1 ? 'connection uses' : 'connections use'} the selected widget ${wiredEdges.length === 1 ? 'port' : 'ports'}. Deleting ${widgetIds.length === 1 ? 'it' : 'them'} will remove ${wiredEdges.length === 1 ? 'that connection' : 'those connections'} too.`,
+        title: doomed.length === 1 ? 'Delete wired widget?' : 'Delete wired widgets?',
+        message: `${wiredEdges.length} ${wiredEdges.length === 1 ? 'connection uses' : 'connections use'} the selected widget ${wiredEdges.length === 1 ? 'port' : 'ports'}. Deleting ${doomed.length === 1 ? 'it' : 'them'} will remove ${wiredEdges.length === 1 ? 'that connection' : 'those connections'} too.`,
         confirmLabel: action === 'cut' ? 'Cut and disconnect' : 'Delete and disconnect',
         cancelLabel: 'Keep widget',
         tone: 'danger',
@@ -728,13 +806,13 @@ export default function DisplayEditor() {
       if (!ok) return
     }
     if (action === 'cut') {
-      displayWidgetClipboard = document.widgets
-        .filter((widget) => widgetIds.includes(widget.id))
+      displayWidgetClipboard = current.widgets
+        .filter((widget) => doomed.includes(widget.id))
         .map((widget) => structuredClone(widget))
     }
     commit(
-      removeDisplayWidgets(document, widgetIds),
-      `${widgetIds.length} ${widgetIds.length === 1 ? 'widget' : 'widgets'} ${action}.`,
+      removeDisplayWidgets(current, doomed),
+      `${doomed.length} ${doomed.length === 1 ? 'widget' : 'widgets'} ${action}.`,
     )
     setSelectedIds([])
   }
@@ -904,6 +982,65 @@ export default function DisplayEditor() {
       <div className={`${styles.body} ${editorMode === 'run' ? styles.runBody : ''}`}>
         {editorMode === 'design' && (
           <aside className={styles.palette} aria-label="Widget palette">
+            {/*
+              * Controls created by dropping a wire on a property, waiting for
+              * somewhere to live. They are listed first because they are the
+              * ones this screen is already committed to drawing.
+              */}
+            {connectedWidgets.length > 0 && (
+              <section className={styles.connected} aria-label="Connected controls">
+                <h2>Connected</h2>
+                <p>Wired in the graph, waiting for a place on the screen.</p>
+                <div className={styles.connectedList}>
+                  {connectedWidgets.map((widget) => {
+                    const glyph = displayAsset(displayWidgetGlyphId(widget.type))
+                    const edge = controlEdges.get(widget.id)
+                    const drives = edge ? controlDestination(edge, graphNodes) : null
+                    const name = widget.label || widget.type
+                    /*
+                     * The property is dropped from the caption when the widget
+                     * is already named after it, which a wire-first control
+                     * always is. This column is narrow enough that "Juggle ·
+                     * Co…" spends the whole line repeating the line above it;
+                     * "Juggle" answers the only question left.
+                     */
+                    const caption = !drives
+                      ? 'Not connected'
+                      : drives.property && drives.property !== name
+                        ? `${drives.node} · ${drives.property}`
+                        : drives.node
+                    return (
+                      <div key={widget.id} className={styles.connectedEntry}>
+                        <button
+                          type="button"
+                          className={styles.connectedPlace}
+                          aria-label={`Place ${name} on the screen`}
+                          title={`Place ${name} on the screen`}
+                          onClick={() => place(widget.id)}
+                        >
+                          {glyph && <img className={styles.paletteGlyph} src={displayAssetUrl(glyph)} alt="" aria-hidden="true" />}
+                          <span>
+                            {name}
+                            <small title={(edge ? controlDestinationLabel(edge, graphNodes) : null) ?? caption}>
+                              {caption}
+                            </small>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.connectedRemove}
+                          aria-label={`Delete ${name} and its connection`}
+                          title="Delete this control and its connection"
+                          onClick={() => void removeSelection([widget.id], 'deleted')}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
             <h2>Widgets</h2>
             <p>Place readouts and controls on the touch screen.</p>
             <div className={styles.paletteList}>

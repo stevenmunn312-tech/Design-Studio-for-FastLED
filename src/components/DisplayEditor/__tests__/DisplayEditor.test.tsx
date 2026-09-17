@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
 import { createDisplayDocument } from '../../../state/displayEditor'
-import { useGraphStore } from '../../../state/graphStore'
+import { connectTouchControl, useGraphStore } from '../../../state/graphStore'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import { useUiStore } from '../../../state/uiStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
@@ -98,7 +98,13 @@ describe('DisplayEditor', () => {
     )
   })
 
-  it('confirms before deleting a wired widget and disconnects it atomically', async () => {
+  /*
+   * Delete on a wired control takes it off the screen and no further: the wire
+   * was drawn in another workspace, on another undo stack, and one keystroke
+   * here must not be able to cut it. Deleting the group entry is the real
+   * removal, and that one still asks before taking the connection with it.
+   */
+  it('returns a wired widget to Connected, and only destroys it on a second delete', async () => {
     const screen = {
       id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
@@ -125,11 +131,22 @@ describe('DisplayEditor', () => {
       }],
     })
     fireEvent.click(view.getByRole('button', { name: 'Delete widget' }))
+
+    // Off the screen, still in the document, still wired — and nothing was
+    // asked, because nothing was destroyed.
+    await waitFor(() => expect(
+      useGraphStore.getState().displayDocuments.panel.widgets[0].bounds,
+    ).toBeUndefined())
+    expect(confirm).not.toHaveBeenCalled()
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+    const remove = () => view.getByRole('button', { name: 'Delete Button and its connection' })
+
+    fireEvent.click(remove())
     await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1))
     expect(useGraphStore.getState().displayDocuments.panel.widgets).toHaveLength(1)
     expect(useGraphStore.getState().edges).toHaveLength(1)
 
-    fireEvent.click(view.getByRole('button', { name: 'Delete widget' }))
+    fireEvent.click(remove())
     await waitFor(() => expect(useGraphStore.getState().displayDocuments.panel.widgets).toHaveLength(0))
     expect(useGraphStore.getState().edges).toEqual([])
   })
@@ -211,6 +228,49 @@ describe('DisplayEditor', () => {
   // of the screen drawn on it.
   const panelNode = () => libraryNode('tft', 'TransportDisplay', {
     partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'panel',
+  })
+
+  /*
+   * The designer half of wire-first controls.
+   *
+   * The Connected group is derived from absent bounds, so the one fact that
+   * keeps a control off the screen is the same fact that puts it in the
+   * group — there is no pending list to keep in step, and placing it is the
+   * only thing that can take it out.
+   */
+  it('lists a control created by wiring it, says what it drives, and places it', () => {
+    useGraphStore.setState({
+      nodes: [
+        panelNode(),
+        libraryNode('touch', 'TouchInput', { panelId: 'tft' }),
+        libraryNode('juggle', 'Juggle', { count: 4 }),
+      ],
+      edges: [],
+    })
+    expect(connectTouchControl('touch', 'juggle', 'count').ok).toBe(true)
+
+    const view = render(<DisplayEditor />)
+    const entry = view.getByRole('button', { name: /^Place .* on the screen$/ })
+    // Captioned by its destination: a screen with three sliders waiting is
+    // read by what each one drives, not by its type.
+    // Named after its property, captioned with the node — the caption does not
+    // repeat "Count" in a column this narrow. The full destination is on the
+    // caption's own title, and it is the readable label rather than the key.
+    expect(entry.textContent).toBe('CountJuggle')
+    expect(entry.querySelector('small')?.getAttribute('title')).toBe('Juggle · Count')
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0].bounds).toBeUndefined()
+
+    fireEvent.click(entry)
+
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0]).toMatchObject({
+      type: 'Slider',
+      // Its range came from the property when the wire landed, and placing it
+      // does not re-derive anything.
+      properties: { min: 1, max: 8, step: 1 },
+      bounds: { x: 0, y: 0 },
+    })
+    expect(view.queryByRole('button', { name: /^Place .* on the screen$/ })).toBeNull()
+    expect(view.queryByRole('heading', { name: 'Connected' })).toBeNull()
   })
 
   it('offers an explicit repair to match a configured slider to its single target range', () => {

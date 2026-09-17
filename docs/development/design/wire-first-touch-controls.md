@@ -1,8 +1,9 @@
 # Wire-first touch controls
 
-Status: agreed 2026-09-17, from bench use. Steps 1 and 2 have landed — a
-control can now be created by wiring it, and waits unplaced until the designer
-half arrives. The checklist at the foot says what is outstanding.
+Status: agreed 2026-09-17, from bench use. Steps 1 to 3 have landed — a
+control is created by wiring it, waits in the designer's Connected group, and
+moves between that group and the screen. The checklist at the foot says what is
+outstanding.
 Target: Hardware, ahead of v1.0.0.
 
 ## Brief explanation
@@ -127,6 +128,44 @@ property. That is `displayControlRangeRepair`'s existing derivation, run at
 birth. Afterwards either side may be edited and the same module offers to
 re-sync, exactly as it does today. One mechanism, two moments — rather than a
 second copy of the derivation for the creation path.
+
+### How the designer half came out
+
+The group is `document.widgets.filter((widget) => !isPlacedWidget(widget))`,
+read where it is drawn. Placing and unplacing are two geometry functions in
+`displayEditor.ts` beside the rest of them — `placeDisplayWidget` gives a
+widget `firstAvailableBounds`, the *same* free rectangle the palette's own
+entries land in, so a control placed from the group and one added from the
+palette arrive by one rule rather than two; `unplaceDisplayWidgets` takes the
+field away rather than setting it to `undefined`, since `'bounds' in widget` is
+what a normalize and a JSON round trip both go on.
+
+Two decisions the flow above does not settle:
+
+**Click, not drag.** Every other palette entry is click-to-add, and inventing a
+second placement gesture for this one group would make the shelf inconsistent
+with itself to save one step.
+
+**Delete is two-stage.** Delete on a placed, wired control returns it to the
+group and asks nothing, because nothing is destroyed — the confirm that used to
+guard this case is now unreachable for it. Deleting the *group entry* is the
+real removal, and that one still asks before taking the wire. Cut is
+deliberately exempt and stays destructive: it puts a copy on the clipboard, so
+its removal has to be real or the clipboard would hold a duplicate of something
+still in the document. Whether a wire exists is asked of the live store at the
+moment of the decision rather than of the render's snapshot, since it decides
+whether a widget is destroyed.
+
+The caption under each entry names the destination, through one walk
+(`displayControlEdges`) that the range repair now resolves its own target
+through as well — the two cannot disagree about which wire a widget is on. It
+names the *node*, not the property, whenever the widget is already named after
+the property, which a wire-first control always is: this column is narrow
+enough that "Juggle · Co…" would spend the whole line repeating the line above
+it. `controlDestination` therefore returns the two halves apart and lets the
+caller compose; the full string is on the caption's `title`. Both are read
+through `nodeDisplayLabel` rather than `data.label`, because nothing persists a
+node label and an LED String would otherwise name itself "LED Matrix".
 
 ## The palette still promotes rather than filters
 
@@ -286,8 +325,8 @@ wire — so the widget and its wire say the same thing the same way.
 - [x] Drop on a property row mints widget + edge in one undo step
       (`connectTouchControl` in `graphStore.ts`), from the Touch node's own
       trailing `add-control` socket.
-- [ ] "Connected" group in the designer, derived from absent bounds.
-- [ ] Place / delete moves a widget between the group and the screen.
+- [x] "Connected" group in the designer, derived from absent bounds.
+- [x] Place / delete moves a widget between the group and the screen.
 - [ ] One inert predicate covering all three causes, on wire and widget.
 - [ ] Graph Health reports both directions with a repair; nothing auto-deletes.
 - [ ] Range adoption at *placement* (the widget-first path already shares the

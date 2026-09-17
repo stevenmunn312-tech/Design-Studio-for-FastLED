@@ -1,7 +1,8 @@
-import { isPropertyEnabled, propertyLabel, propertyMeta } from './nodeLibrary'
+import { isPropertyEnabled, nodeDisplayLabel, propertyLabel, propertyMeta } from './nodeLibrary'
 import { exposableInputsFor } from './propertyInputs'
 import type { DisplayWidget, DisplayWidgetProperty, DisplayWidgetType } from './displayDocument'
-import { defaultDisplayWidgetProperties } from './displayRegistry'
+import { defaultDisplayWidgetProperties, parseDisplayWidgetPortId } from './displayRegistry'
+import type { StudioEdge, StudioNode } from './graphStore'
 
 /**
  * What a touch control should be, read off the property it will drive.
@@ -168,4 +169,89 @@ function specFor(
  */
 export function touchControlWidget(id: string, spec: TouchControlSpec): DisplayWidget {
   return { id, type: spec.type, label: spec.label, properties: { ...spec.properties } }
+}
+
+/**
+ * The single edge each widget's `out` port drives, for one screen design.
+ *
+ * One walk rather than one per widget: the panel and its Touch node are found
+ * once, and the map is keyed on the widget id that `parseDisplayWidgetPortId`
+ * reads back out of the port. A widget driving two things is deliberately left
+ * out — "what does this control?" has no single answer then, and the Connected
+ * group would have to invent one.
+ */
+export function displayControlEdges(
+  displayId: string,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): Map<string, StudioEdge> {
+  const panels = nodes.filter((node) => (
+    node.data.nodeType === 'TransportDisplay'
+    && String(node.data.properties.displayId ?? '') === displayId
+  ))
+  if (panels.length !== 1) return new Map()
+  const touchIds = new Set(nodes
+    .filter((node) => (
+      node.data.nodeType === 'TouchInput'
+      && String(node.data.properties.panelId ?? '') === panels[0].id
+    ))
+    .map((node) => node.id))
+  if (touchIds.size !== 1) return new Map()
+
+  const found = new Map<string, StudioEdge>()
+  const ambiguous = new Set<string>()
+  for (const edge of edges) {
+    if (!touchIds.has(edge.source)) continue
+    const port = parseDisplayWidgetPortId(edge.sourceHandle ?? '')
+    if (port?.role !== 'out') continue
+    if (found.has(port.widgetId)) ambiguous.add(port.widgetId)
+    found.set(port.widgetId, edge)
+  }
+  for (const widgetId of ambiguous) found.delete(widgetId)
+  return found
+}
+
+/**
+ * What a control drives: the node and the property, kept apart.
+ *
+ * Apart because a caption in a narrow panel often has room for only one of
+ * them, and which one is worth keeping depends on what is beside it — a
+ * wire-first control is already named after its property, so repeating it
+ * there would spend the whole line saying the same word twice.
+ *
+ * The node is read through `nodeDisplayLabel` rather than off `node.data.label`,
+ * because nothing persists a node label — a load overwrites it with the
+ * library default, so an LED String would name itself "LED Matrix" here.
+ */
+export interface ControlDestination {
+  node: string
+  property: string | null
+}
+
+export function controlDestination(
+  edge: StudioEdge,
+  nodes: readonly StudioNode[],
+): ControlDestination | null {
+  const target = nodes.find((node) => node.id === edge.target)
+  if (!target || !edge.targetHandle) return null
+  const nodeType = target.data.nodeType
+  const input = exposableInputsFor(nodeType).find((port) => port.id === edge.targetHandle)
+  const node = nodeDisplayLabel(nodeType, target.data.properties, target.data.label)
+  if (!input) return { node, property: null }
+  return {
+    node,
+    property: input.propertyKey
+      ? readableLabel(nodeType, input.propertyKey, input.label)
+      : input.label,
+  }
+}
+
+/** Both halves, for somewhere with room for both: "Formula Field · Petals". */
+export function controlDestinationLabel(
+  edge: StudioEdge,
+  nodes: readonly StudioNode[],
+): string | null {
+  const destination = controlDestination(edge, nodes)
+  if (!destination) return null
+  return destination.property ? `${destination.node} · ${destination.property}` : destination.node
 }

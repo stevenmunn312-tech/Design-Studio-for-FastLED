@@ -1,8 +1,8 @@
 import type { DisplayWidget } from './displayDocument'
-import { displayWidgetPortId } from './displayRegistry'
 import type { StudioEdge, StudioNode } from './graphStore'
-import { propertyLabel, propertyMeta } from './nodeLibrary'
+import { nodeDisplayLabel, propertyLabel, propertyMeta } from './nodeLibrary'
 import { propertyInputsFor } from './propertyInputs'
+import { displayControlEdges } from './wireFirstControls'
 
 export interface DisplayWidgetTargetRangeRepair {
   targetNodeId: string
@@ -33,26 +33,12 @@ export function displayWidgetTargetRangeRepair(
   edges: readonly StudioEdge[],
 ): DisplayWidgetTargetRangeRepair | null {
   if (widget.type !== 'Slider' && widget.type !== 'Dial') return null
-  const panels = nodes.filter((node) =>
-    node.data.nodeType === 'TransportDisplay'
-    && String(node.data.properties.displayId ?? '') === displayId)
-  if (panels.length !== 1) return null
+  // The same panel -> Touch -> edge walk the Connected group reads, so the
+  // range offered here and the destination named there cannot disagree about
+  // which wire a widget is on.
+  const edge = displayControlEdges(displayId, nodes, edges).get(widget.id)
+  if (!edge) return null
 
-  const panelId = panels[0].id
-  const touchIds = new Set(nodes
-    .filter((node) =>
-      node.data.nodeType === 'TouchInput'
-      && String(node.data.properties.panelId ?? '') === panelId)
-    .map((node) => node.id))
-  if (touchIds.size !== 1) return null
-
-  const sourceHandle = displayWidgetPortId(widget.id, 'out')
-  const drivenEdges = edges.filter((edge) =>
-    touchIds.has(edge.source)
-    && edge.sourceHandle === sourceHandle)
-  if (drivenEdges.length !== 1) return null
-
-  const edge = drivenEdges[0]
   const target = nodes.find((node) => node.id === edge.target)
   if (!target || !edge.targetHandle) return null
   const input = propertyInputsFor(target.data.nodeType)
@@ -63,12 +49,16 @@ export function displayWidgetTargetRangeRepair(
   if (meta?.control !== 'slider') return null
 
   const label = propertyLabel(target.data.nodeType, input.propertyKey)
+  const propertyName = label === input.propertyKey ? input.label : label
+  // Through `nodeDisplayLabel`: nothing persists a node label, so reading
+  // `data.label` names an LED String "LED Matrix" on every reload.
+  const targetNodeLabel = nodeDisplayLabel(target.data.nodeType, target.data.properties, target.data.label)
   const repair = {
     targetNodeId: target.id,
-    targetNodeLabel: target.data.label,
+    targetNodeLabel,
     propertyKey: input.propertyKey,
-    propertyLabel: label === input.propertyKey ? input.label : label,
-    targetLabel: `${target.data.label} ${label === input.propertyKey ? input.label : label}`,
+    propertyLabel: propertyName,
+    targetLabel: `${targetNodeLabel} ${propertyName}`,
     min: meta.min,
     max: meta.max,
     step: meta.step,

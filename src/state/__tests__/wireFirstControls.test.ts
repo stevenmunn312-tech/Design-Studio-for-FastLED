@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { touchControlPlan } from '../wireFirstControls'
+import { controlDestinationLabel, displayControlEdges, touchControlPlan } from '../wireFirstControls'
 import { connectTouchControl, ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../graphStore'
 import { createDisplayDocument } from '../displayEditor'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -191,5 +191,54 @@ describe('connectTouchControl', () => {
       [],
     )
     expect(outputs()).not.toContain(TOUCH_CONTROL_ADD_HANDLE)
+  })
+})
+
+/*
+ * What a control drives, which the designer's Connected group captions each
+ * entry with and the range repair resolves its target through. One walk, so
+ * the two cannot disagree about which wire a widget is on.
+ */
+describe('displayControlEdges', () => {
+  const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
+  const touch = node('touch', 'TouchInput', { panelId: 'panel' })
+  const juggle = node('juggle', 'Juggle', { count: 4 })
+  const nodes = [panel, touch, juggle]
+  const edge = (id: string, sourceHandle: string, targetHandle: string) => ({
+    id, source: 'touch', sourceHandle, target: 'juggle', targetHandle,
+  })
+
+  it('keys the wire on the widget the port names, and says where it lands', () => {
+    const found = displayControlEdges('screen', nodes, [edge('a', 'widget:slider:out', 'count')] as never)
+    expect(found.get('slider')?.id).toBe('a')
+    // The readable property label, not the key, and the node's derived title
+    // rather than its unpersisted `data.label`.
+    expect(controlDestinationLabel(found.get('slider')!, nodes)).toBe('Juggle · Count')
+  })
+
+  it('ignores a port that is not a control output', () => {
+    const found = displayControlEdges('screen', nodes, [
+      edge('reading', 'widget:meter:value', 'count'),
+      edge('control', 'widget:slider:out', 'count'),
+    ] as never)
+    expect([...found.keys()]).toEqual(['slider'])
+  })
+
+  it('answers nothing for a widget driving two things rather than picking one', () => {
+    // "What does this control?" has no single answer then, and a caption that
+    // named one of them would be arbitrary.
+    const found = displayControlEdges('screen', nodes, [
+      edge('a', 'widget:slider:out', 'count'),
+      edge('b', 'widget:slider:out', 'speed'),
+    ] as never)
+    expect(found.has('slider')).toBe(false)
+  })
+
+  it('answers nothing when the design is not on exactly one panel with one Touch node', () => {
+    const second = node('panel-2', 'TransportDisplay', { displayId: 'screen' })
+    const wires = [edge('a', 'widget:slider:out', 'count')] as never
+    expect(displayControlEdges('screen', [...nodes, second], wires).size).toBe(0)
+    expect(displayControlEdges('elsewhere', nodes, wires).size).toBe(0)
+    expect(displayControlEdges('screen', [panel, juggle], wires).size).toBe(0)
   })
 })
