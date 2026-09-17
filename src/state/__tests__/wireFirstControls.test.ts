@@ -5,9 +5,11 @@ import {
   displayControlInertReason,
   displayControlIsUnconfigured,
   placeTouchControlIn,
+  touchControlDriver,
   touchControlPlan,
   touchControlWireInert,
 } from '../wireFirstControls'
+import { useDisplayRuntimeStore } from '../displayRuntimeStore'
 import {
   connectTouchControl,
   placeTouchControl,
@@ -95,6 +97,7 @@ describe('touchControlPlan', () => {
 describe('connectTouchControl', () => {
   afterEach(() => {
     vi.useRealTimers()
+    useDisplayRuntimeStore.getState().resetDisplayRuntime()
   })
 
   beforeEach(() => {
@@ -149,6 +152,23 @@ describe('connectTouchControl', () => {
     // wire into it.
     const target = useGraphStore.getState().nodes.find((entry) => entry.id === 'ff')!
     expect(target.data.exposedInputs).toContain('petals')
+
+    // Wiring must not jump the effect to the slider's min. The widget starts
+    // at the value petals already had (library default 5).
+    expect(useDisplayRuntimeStore.getState().sampleDisplayWidgetOutput(
+      'screen', widget.id, 1,
+    )).toBe(5)
+  })
+
+  it('names the screen widget a Touch output is', () => {
+    connectTouchControl('touch', 'ff', 'petals')
+    const edge = useGraphStore.getState().edges.at(-1)!
+    const driver = touchControlDriver(
+      { srcId: edge.source, srcPort: edge.sourceHandle ?? '' },
+      useGraphStore.getState().nodes,
+    )
+    const widget = document().widgets.at(-1)!
+    expect(driver).toEqual({ displayId: 'screen', widgetId: widget.id })
   })
 
   it('takes one undo to remove, wire and widget together', () => {

@@ -14,6 +14,7 @@ import {
 } from './displayRegistry'
 import { placeDisplayWidget } from './displayEditor'
 import type { StudioEdge, StudioNode } from './graphStore'
+import { useDisplayRuntimeStore } from './displayRuntimeStore'
 
 /**
  * What a touch control should be, read off the property it will drive.
@@ -191,6 +192,39 @@ export function touchControlWidget(id: string, spec: TouchControlSpec): DisplayW
  * out — "what does this control?" has no single answer then, and the Connected
  * group would have to invent one.
  */
+/**
+ * The screen widget a graph source is, when that source is a Touch output.
+ *
+ * A property driven by one of these is still adjustable in the graph: the
+ * slider is a remote for the widget, not a second control fighting it. A pot
+ * or an audio band has no such remote, so those rows stay read-only.
+ */
+export function touchControlDriver(
+  source: { srcId: string; srcPort: string } | undefined,
+  nodes: readonly StudioNode[],
+): { displayId: string; widgetId: string } | null {
+  if (!source) return null
+  const parsed = parseDisplayWidgetPortId(source.srcPort)
+  if (parsed?.role !== 'out') return null
+  const touch = nodes.find((node) => node.id === source.srcId)
+  if (touch?.data.nodeType !== 'TouchInput') return null
+  const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
+  const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  return displayId ? { displayId, widgetId: parsed.widgetId } : null
+}
+
+/** Set a widget the way the editor's Run surface does for a completed drag. */
+export function writeTouchControlValue(
+  displayId: string,
+  widgetId: string,
+  value: number | boolean,
+): void {
+  const store = useDisplayRuntimeStore.getState()
+  store.touchDisplayWidget(displayId, widgetId, value)
+  store.releaseDisplayWidget(displayId, widgetId)
+}
+
 export function displayControlEdges(
   displayId: string,
   nodes: readonly StudioNode[],

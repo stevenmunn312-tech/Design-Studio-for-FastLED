@@ -71,8 +71,8 @@ import {
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import { exposableInputsFor, exposedNodeInputs, propertyInputsFor } from '../../state/propertyInputs'
-import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
-import { touchControlPlan } from '../../state/wireFirstControls'
+import { parseDisplayWidgetPortId, TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
+import { touchControlDriver, touchControlPlan, writeTouchControlValue } from '../../state/wireFirstControls'
 import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../state/signalRange'
@@ -603,12 +603,24 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const displayLabel = propertyLabel(nodeType, key)
         const controlLabel = displayLabel
         const wired = drivenBy(key)
+        const touchSource = wired ? sourceMap.get(portFor(key)) : undefined
+        const drivenByTouchWidget = Boolean(
+          touchSource && parseDisplayWidgetPortId(touchSource.srcPort)?.role === 'out',
+        )
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
         const gated = !isPropertyEnabled(nodeType, key, props)
         const ownedByDesign = mountedScreenDesign && key === 'tftLayout'
-        const disabled = wired || gated || ownedByDesign || locked
+        const disabled = (wired && !drivenByTouchWidget) || gated || ownedByDesign || locked
         const live = wired ? liveFor(key) : undefined
+        const writeValue = (value: unknown) => {
+          if (drivenByTouchWidget && touchSource
+            && (typeof value === 'number' || typeof value === 'boolean')) {
+            const driver = touchControlDriver(touchSource, useGraphStore.getState().nodes)
+            if (driver) writeTouchControlValue(driver.displayId, driver.widgetId, value)
+          }
+          updateNodeProperty(nodeId, key, value)
+        }
         const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
         const expressionCapable = supportsScalarExpression(nodeType, key)
         const expressionResult = expressionCapable
@@ -631,7 +643,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   ? `Pin ${val} has no internal pull-up`
                   : pinWarningForCapability(gpioPin, gpioRequirement.capability) ?? gpioPin.note
         const rowTitle = wired
-          ? `Driven by ${describeSource(portFor(key))}. Disconnect to restore the saved value.`
+          ? drivenByTouchWidget
+            ? `Driven by ${describeSource(portFor(key))}. Drag here to set it from the graph; disconnect to restore the saved value.`
+            : `Driven by ${describeSource(portFor(key))}. Disconnect to restore the saved value.`
           : ownedByDesign
             ? 'This panel draws its own Screen Design, so the fixed layout is unused. Edit the design to change what it shows.'
             : gated
@@ -696,7 +710,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 value={selectValue}
                 aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
-                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+                onChange={(e) => writeValue(e.target.value)}
               >
                 {selectOptions.map((opt) => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -713,7 +727,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 max={meta.max}
                 disabled={disabled}
                 ariaLabel={`${controlLabel} value`}
-                onChange={(value) => updateNodeProperty(nodeId, key, value)}
+                onChange={(value) => writeValue(value)}
               />
             ) : meta?.control === 'slider' && typeof val === 'number' ? (
               <SliderProperty
@@ -723,7 +737,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 max={meta.max}
                 step={meta.step}
                 disabled={disabled}
-                onChange={(value) => updateNodeProperty(nodeId, key, value)}
+                onChange={(value) => writeValue(value)}
               />
             ) : typeof val === 'boolean' ? (
               <input
@@ -732,7 +746,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 disabled={disabled}
                 checked={typeof live === 'boolean' ? live : val}
                 aria-label={controlLabel}
-                onChange={(e) => updateNodeProperty(nodeId, key, e.target.checked)}
+                onChange={(e) => writeValue(e.target.checked)}
               />
             ) : isHexColor(val) ? (
               <input
@@ -741,7 +755,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 disabled={disabled}
                 value={isHexColor(live) ? live : val}
                 aria-label={`${controlLabel} color`}
-                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+                onChange={(e) => writeValue(e.target.value)}
               />
             ) : expressionCapable ? (
               <input
@@ -756,7 +770,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onChange={(e) => {
                   const raw = e.target.value
                   const n = Number(raw)
-                  updateNodeProperty(nodeId, key, raw.trim() !== '' && Number.isFinite(n) ? n : raw)
+                  writeValue(raw.trim() !== '' && Number.isFinite(n) ? n : raw)
                 }}
               />
             ) : typeof val === 'number' && !forceTextNumber ? (
@@ -770,7 +784,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => {
                   const n = Number(e.target.value)
-                  updateNodeProperty(nodeId, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
+                  writeValue(e.target.value === '' || !Number.isFinite(n) ? 0 : n)
                 }}
               />
             ) : typeof val === 'number' && forceTextNumber ? (
@@ -784,7 +798,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onWheelCapture={stopWheelWhileFocused}
                 onChange={(e) => {
                   const n = Number(e.target.value)
-                  updateNodeProperty(nodeId, key, e.target.value === '' || !Number.isFinite(n) ? 0 : n)
+                  writeValue(e.target.value === '' || !Number.isFinite(n) ? 0 : n)
                 }}
               />
             ) : typeof val === 'string' && /^#[0-9a-f]{6}$/i.test(val) ? (
@@ -794,7 +808,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 disabled={disabled}
                 value={isRGB(live) ? toHex(live.r, live.g, live.b) : typeof live === 'string' && /^#[0-9a-f]{6}$/i.test(live) ? live : val}
                 aria-label={`${controlLabel} color`}
-                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+                onChange={(e) => writeValue(e.target.value)}
               />
             ) : (
               <input
@@ -804,7 +818,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 value={wired && live !== undefined ? String(live) : String(val)}
                 aria-label={`${controlLabel} value`}
                 onWheelCapture={stopWheelWhileFocused}
-                onChange={(e) => updateNodeProperty(nodeId, key, e.target.value)}
+                onChange={(e) => writeValue(e.target.value)}
               />
             )}
             {!wired && isPinnableProperty(nodeType, key, val) && (() => {
@@ -1154,8 +1168,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       : def?.outputs ?? d.outputs ?? []) as PortDef[]
 
   // Which of this node's input ports are wired, and to which upstream port. When
-  // a port is wired the evaluator ignores the matching property, so its inline
-  // editor is disabled and shows the live value coming from the connection.
+  // a port is wired the evaluator ignores the matching property, so a pot or
+  // audio band makes the inline editor read-only. A touch widget is the
+  // exception: the slider is a remote for that widget, so it stays editable.
   // Selected as a stable string so the node only re-renders when its own wiring
   // changes; the parsed source map feeds the live-value lookup below.
   const incomingKey = useGraphStore((s) => incomingKeyFor(s.edges, id))
@@ -1163,7 +1178,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     const m = new Map<string, { srcId: string; srcPort: string }>()
     for (const part of incomingKey.split(';').filter(Boolean)) {
       const [handle, rest] = part.split('>')
-      const [srcId, srcPort] = rest.split(':')
+      // Widget ports are `widget:<id>:out`. Split only on the first colon so
+      // the source node id stays one token and the handle keeps its colons.
+      const split = rest.indexOf(':')
+      const srcId = split < 0 ? rest : rest.slice(0, split)
+      const srcPort = split < 0 ? '' : rest.slice(split + 1)
       m.set(handle, { srcId, srcPort })
     }
     return m

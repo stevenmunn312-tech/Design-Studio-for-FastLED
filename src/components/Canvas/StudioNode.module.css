@@ -623,8 +623,8 @@ span.connectionBlocked {
   outline: 1px solid var(--border-glow);
 }
 
-/* A property whose port is wired: the editor is disabled but still shows the
-   fallback value the connection overrides. */
+/* A property whose port is wired: a pot or audio band makes the editor
+   read-only. A touch widget leaves it enabled as a remote for that widget. */
 .propRow.wired .propKey {
   opacity: 0.5;
 }

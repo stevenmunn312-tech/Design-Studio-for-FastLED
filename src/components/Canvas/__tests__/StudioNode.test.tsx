@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, render, fireEvent, within, waitFor } from '@testing-library/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import StudioNode from '../StudioNode'
-import { useGraphStore } from '../../../state/graphStore'
+import { connectTouchControl, useGraphStore } from '../../../state/graphStore'
+import { createDisplayDocument } from '../../../state/displayEditor'
+import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import type { StudioNode as StudioNodeT, StudioNodeData } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { useMusicStore } from '../../../state/musicStore'
@@ -72,6 +74,7 @@ describe('StudioNode', () => {
     // table) so pin-picker tests aren't sensitive to another test's selection.
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
+    useDisplayRuntimeStore.getState().resetDisplayRuntime()
     // Collapsible property-group open/closed state is persisted per node type
     // across a whole browser session; reset it so tests don't leak into each
     // other (a group opened in one test would start already-open in the next).
@@ -267,6 +270,34 @@ describe('StudioNode', () => {
     fireEvent.click(view.getByRole('menuitem', { name: /Disconnect Count/ }))
     expect(useGraphStore.getState().edges).toEqual([])
     expect((view.getByLabelText('count value') as HTMLInputElement).disabled).toBe(false)
+  })
+
+  it('keeps a touch-driven property adjustable from the graph', () => {
+    // A pot on Count is read-only because the wire is the only source. A
+    // Touch widget is a control that also lives in this app, so the slider
+    // stays a remote for it — otherwise wiring Petals leaves no way to set it
+    // without opening the screen designer and switching to Run.
+    const formula = { ...makeNode('FormulaField', { formulaType: 'rose', petals: 5 }), id: 'ff' }
+    const panel = { ...makeNode('TransportDisplay', { displayId: 'screen' }), id: 'panel' }
+    const touch = { ...makeNode('TouchInput', { panelId: 'panel' }), id: 'touch' }
+    useGraphStore.getState().loadGraph([panel, touch, formula], [], {
+      nodes: [panel, touch, formula],
+      edges: [],
+      displayDocuments: { screen: createDisplayDocument('screen', 240, 320) },
+    } as never)
+    connectTouchControl('touch', 'ff', 'petals')
+    const current = useGraphStore.getState().nodes.find((node) => node.id === 'ff')!
+    function ConnectedNode() {
+      const node = useGraphStore((s) => s.nodes.find((entry) => entry.id === 'ff') ?? current)
+      return <StudioNode {...({ id: node.id, data: node.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
+    }
+    const view = render(<ConnectedNode />)
+    const slider = view.getByLabelText('petals value') as HTMLInputElement
+    expect(slider.disabled).toBe(false)
+    fireEvent.change(slider, { target: { value: '8' } })
+    const widgetId = useGraphStore.getState().displayDocuments.screen.widgets[0].id
+    expect(useDisplayRuntimeStore.getState().sampleDisplayWidgetOutput('screen', widgetId, 1)).toBe(8)
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'ff')?.data.properties.petals).toBe(8)
   })
 
   it('keeps connected optional inputs on loaded and collapsed nodes', () => {

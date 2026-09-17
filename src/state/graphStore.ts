@@ -75,6 +75,7 @@ import {
   placeTouchControlIn,
   touchControlPlan,
   touchControlWidget,
+  writeTouchControlValue,
   type TouchControlPlan,
 } from './wireFirstControls'
 import { mountedPanelGeometry } from './mountedDisplays'
@@ -3660,6 +3661,18 @@ export function connectTouchControl(
       ...syncDisplayNodesInContent({ nodes, edges }, displayDocuments),
     }
   })
+
+  // Start the widget at the value the property already had, so wiring it does
+  // not jump the effect to the slider's min. The runtime is transient; the
+  // property remains the disconnect restore.
+  const propertyKey = exposableInputsFor(target.data.nodeType)
+    .find((port) => port.id === targetPort)?.propertyKey
+  const current = propertyKey
+    ? (target.data.properties as Record<string, unknown>)[propertyKey]
+    : undefined
+  if (typeof current === 'number' || typeof current === 'boolean') {
+    writeTouchControlValue(displayId, widgetId, current)
+  }
 
   return plan
 }
