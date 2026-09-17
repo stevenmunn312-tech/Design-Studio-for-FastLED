@@ -18,6 +18,7 @@ import {
   type StudioNode,
 } from '../graphStore'
 import { createDisplayDocument } from '../displayEditor'
+import { NODE_LIBRARY } from '../nodeLibrary'
 import { controllableInputsFor, exposableInputsFor } from '../propertyInputs'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { placedWidgets } from '../displayDocument'
@@ -572,5 +573,41 @@ describe('placeTouchControlIn', () => {
     expect(displayControlIsUnconfigured({
       ...fresh, properties: { ...fresh.properties, source: 'title' },
     } as never)).toBe(false)
+  })
+})
+
+/*
+ * Every colour channel in the catalogue is reachable by dropping a wire on it,
+ * and the control it mints is a byte slider rather than the 0-1 guess that
+ * `adoptedControlRange` falls back to when nothing declares a range. Derived
+ * over the library so a colour node added later is held to the same thing
+ * instead of quietly arriving with a slider whose top is 1.
+ */
+describe('colour channels are wireable', () => {
+  const TRIPLES = [['r', 'g', 'b'], ['rA', 'gA', 'bA'], ['rB', 'gB', 'bB']] as const
+
+  it('mints a 0-255 slider on every channel of every complete triple', () => {
+    let seen = 0
+    for (const definition of NODE_LIBRARY) {
+      const defaults = definition.defaultProperties ?? {}
+      for (const triple of TRIPLES) {
+        if (!triple.every((key) => key in defaults)) continue
+        for (const key of triple) {
+          seen += 1
+          // The port has to exist and be declared as the property's own input,
+          // or the evaluator and the generator have nothing to read it through.
+          expect(definition.inputs.map((port) => port.id), `${definition.type}.${key}`).toContain(key)
+          expect(definition.propertyInputs?.[key], `${definition.type}.${key}`).toBe(key)
+
+          const plan = touchControlPlan(definition.type, key, defaults, false)
+          expect(plan.ok, `${definition.type}.${key}`).toBe(true)
+          if (!plan.ok) continue
+          expect(plan.spec.type, `${definition.type}.${key}`).toBe('Slider')
+          expect(plan.spec.properties, `${definition.type}.${key}`)
+            .toMatchObject({ min: 0, max: 255, step: 1 })
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(30)
   })
 })

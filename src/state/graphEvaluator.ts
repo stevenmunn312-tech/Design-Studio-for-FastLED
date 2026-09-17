@@ -6604,7 +6604,11 @@ function createEvalNode(
         const paletteWired = incoming.has(`${id}:paletteIn`)
         const color = (paletteWired || String(props.palette ?? 'none') !== 'none')
           ? samplePalette(pal(id, 'paletteIn', props, 'palette', 'rainbow'), 1 - level)
-          : { r: num(id, 'r', props, 'r', 255), g: num(id, 'g', props, 'g', 255), b: num(id, 'b', props, 'b', 255) }
+          : {
+            r: byte(num(id, 'r', props, 'r', 255) / 255),
+            g: byte(num(id, 'g', props, 'g', 255) / 255),
+            b: byte(num(id, 'b', props, 'b', 255) / 255),
+          }
         out = { frame: blendBeatFlash(baseFrame, level, color, intensity, blendMode, preserveBase, W, H) }
         break
       }
@@ -6758,8 +6762,11 @@ function createEvalNode(
 
       // The inverse of HSVToRGB — shares HueShift/Saturation's inline extraction.
       case 'RGBToHSV': {
-        const c = (input(id, 'rgb', null) as RGB | null)
-          ?? { r: Number(props.r ?? 0), g: Number(props.g ?? 0), b: Number(props.b ?? 0) }
+        const c = (input(id, 'rgb', null) as RGB | null) ?? {
+          r: byte(num(id, 'r', props, 'r', 0) / 255),
+          g: byte(num(id, 'g', props, 'g', 0) / 255),
+          b: byte(num(id, 'b', props, 'b', 0) / 255),
+        }
         const r = c.r / 255, g = c.g / 255, b = c.b / 255
         const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
         let h = 0
@@ -6791,8 +6798,16 @@ function createEvalNode(
         const ca = input(id, 'a', null) as RGB | null
         const cb = input(id, 'b', null) as RGB | null
         const mix = num(id, 't', props, 't', 0.5)
-        const a = ca ?? { r: Number(props.rA ?? 255), g: Number(props.gA ?? 0), b: Number(props.bA ?? 0) }
-        const b = cb ?? { r: Number(props.rB ?? 0), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
+        const a = ca ?? {
+          r: byte(num(id, 'rA', props, 'rA', 255) / 255),
+          g: byte(num(id, 'gA', props, 'gA', 0) / 255),
+          b: byte(num(id, 'bA', props, 'bA', 0) / 255),
+        }
+        const b = cb ?? {
+          r: byte(num(id, 'rB', props, 'rB', 0) / 255),
+          g: byte(num(id, 'gB', props, 'gB', 0) / 255),
+          b: byte(num(id, 'bB', props, 'bB', 255) / 255),
+        }
         out = {
           color: {
             r: Math.round(a.r * (1 - mix) + b.r * mix),
@@ -6911,16 +6926,32 @@ function createEvalNode(
       }
 
       case 'GradientFrame': {
-        const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: Number(props.rA ?? 0), g: Number(props.gA ?? 200), b: Number(props.bA ?? 255) }
-        const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: Number(props.rB ?? 255), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
+        const cA = (input(id, 'colorA', null) as RGB | null) ?? {
+          r: byte(num(id, 'rA', props, 'rA', 0) / 255),
+          g: byte(num(id, 'gA', props, 'gA', 200) / 255),
+          b: byte(num(id, 'bA', props, 'bA', 255) / 255),
+        }
+        const cB = (input(id, 'colorB', null) as RGB | null) ?? {
+          r: byte(num(id, 'rB', props, 'rB', 255) / 255),
+          g: byte(num(id, 'gB', props, 'gB', 0) / 255),
+          b: byte(num(id, 'bB', props, 'bB', 255) / 255),
+        }
         out = { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), W, H) }
         break
       }
 
       case 'GradientSampler': {
         const tt = num(id, 't', props, 't', 0)
-        const cA = (input(id, 'colorA', null) as RGB | null) ?? { r: Number(props.rA ?? 0), g: Number(props.gA ?? 200), b: Number(props.bA ?? 255) }
-        const cB = (input(id, 'colorB', null) as RGB | null) ?? { r: Number(props.rB ?? 255), g: Number(props.gB ?? 0), b: Number(props.bB ?? 255) }
+        const cA = (input(id, 'colorA', null) as RGB | null) ?? {
+          r: byte(num(id, 'rA', props, 'rA', 0) / 255),
+          g: byte(num(id, 'gA', props, 'gA', 200) / 255),
+          b: byte(num(id, 'bA', props, 'bA', 255) / 255),
+        }
+        const cB = (input(id, 'colorB', null) as RGB | null) ?? {
+          r: byte(num(id, 'rB', props, 'rB', 255) / 255),
+          g: byte(num(id, 'gB', props, 'gB', 0) / 255),
+          b: byte(num(id, 'bB', props, 'bB', 255) / 255),
+        }
         out = { color: { r: Math.round(cA.r*(1-tt)+cB.r*tt), g: Math.round(cA.g*(1-tt)+cB.g*tt), b: Math.round(cA.b*(1-tt)+cB.b*tt) } }
         break
       }
