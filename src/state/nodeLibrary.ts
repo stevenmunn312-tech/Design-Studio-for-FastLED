@@ -671,8 +671,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'audio', label: 'Audio', dataType: 'audio' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'gain', label: 'Gain', dataType: 'float' },
+      { id: 'smoothing', label: 'Smoothing', dataType: 'float' },
+      { id: 'tilt', label: 'Tilt', dataType: 'float' },
+      { id: 'peakHold', label: 'Peak Hold', dataType: 'float' },
+      { id: 'peakGravity', label: 'Peak Gravity', dataType: 'float' },
+      { id: 'waterfallSpeed', label: 'Waterfall Speed', dataType: 'float' },
     ],
-    propertyInputs: { palette: 'paletteIn' },
+    // `bands` is deliberately absent: it sizes the band array the generator
+    // emits and composes literals of its own, so there is nothing for a wire
+    // to change at runtime.
+    propertyInputs: {
+      palette: 'paletteIn',
+      gain: 'gain', smoothing: 'smoothing', tilt: 'tilt',
+      peakHold: 'peakHold', peakGravity: 'peakGravity',
+      waterfallSpeed: 'waterfallSpeed',
+    },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,

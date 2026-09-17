@@ -2831,9 +2831,46 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('SpectrumVisualizer · Bars')
     expect(cpp).toContain('float _svBands[16]')
     expect(cpp).toContain('_sum+=_audioSpectrum[_i]')
-    expect(cpp).toContain('_svHold_sv[_x]=_svNow+420U')
-    expect(cpp).toContain('_svVelocity_sv[_x]+=1.8000f*_svDt')
+    // The hold window is a per-frame local now that the knob can carry a
+    // wire, so the 420ms is in its initialiser rather than at the use.
+    expect(cpp).toContain('uint32_t _svHoldMs=(uint32_t)constrain((0.42)*1000.0f,0.0f,2000.0f)')
+    expect(cpp).toContain('_svHold_sv[_x]=_svNow+_svHoldMs')
+    expect(cpp).toContain('float _svGrav=constrain(1.8,0.2f,6.0f)')
+    expect(cpp).toContain('_svVelocity_sv[_x]+=_svGrav*_svDt')
     expect(cpp).toContain('ColorFromPalette(paldef_citrus')
+  })
+
+  /*
+   * A wired knob must arrive carrying the bound it had as a field.
+   *
+   * These are not normalised inputs, so an audio band or an LFO lands well
+   * outside domains like gain's 0.25-4. Dropping the clamp when the literal
+   * became an expression is the exact parity break declaring a property input
+   * is supposed to avoid — the preview bounds it, the firmware would not.
+   */
+  it('keeps a wired SpectrumVisualizer knob inside its declared domain', () => {
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const visualizer = node('sv', 'SpectrumVisualizer', 'pattern', { style: 'Bars' })
+    const cpp = generateCpp([lfo, visualizer, out], [
+      edge('e-gain', 'lfo', 'sv', 'value', 'gain'),
+      edge('e-grav', 'lfo', 'sv', 'value', 'peakGravity'),
+      edge('e-frame', 'sv', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('float _svGain=constrain(n_lfo_value,0.25f,4.0f)')
+    expect(cpp).toContain('float _svGrav=constrain(n_lfo_value,0.2f,6.0f)')
+    // The knobs nobody wired still fold to their own literals.
+    expect(cpp).toContain('float _svSmooth=constrain(0.58,0.0f,0.95f)')
+  })
+
+  it('emits the waterfall rate only in the branch that reads it', () => {
+    // An unused local is a warning per sketch, so the Bars arm must not
+    // declare a speed it never looks at.
+    const speedLocal = 'float _svWfSpeed='
+    for (const [style, present] of [['Waterfall', true], ['Bars', false]] as const) {
+      const visualizer = node('svs', 'SpectrumVisualizer', 'pattern', { style })
+      const cpp = generateCpp([visualizer, out], [edge('e', 'svs', 'out', 'frame', 'frame')])
+      expect(cpp.includes(speedLocal), style).toBe(present)
+    }
   })
 
   it('emits SpectrumVisualizer waterfall history and stays silent without wired audio', () => {

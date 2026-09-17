@@ -1963,6 +1963,18 @@ function evalSpectrumVisualizer(
   const bands = Math.max(4, Math.min(32, Math.round(params.bands)))
   const sampled = resampleSpectrumBins(source, bands)
   const retain = Math.pow(Math.max(0, Math.min(0.95, params.smoothing)), dt * 60)
+  /*
+   * Every knob is bounded to its own declared domain, and to the same bounds
+   * the generator emits. These were half-applied before - gain and tilt not at
+   * all, peakHold and peakGravity only from below - which cost nothing while
+   * the values could only arrive from a bounded slider. A wire has no such
+   * bound, so the halves that were missing are where preview and firmware
+   * would have parted company on a signal outside the domain.
+   */
+  const gain = Math.max(0.25, Math.min(4, params.gain))
+  const tilt = Math.max(0, Math.min(1, params.tilt))
+  const peakHold = Math.max(0, Math.min(2, params.peakHold))
+  const peakGravity = Math.max(0.2, Math.min(6, params.peakGravity))
 
   for (let x = 0; x < W; x++) {
     const position = W <= 1 ? 0 : x / (W - 1) * (bands - 1)
@@ -1971,15 +1983,15 @@ function evalSpectrumVisualizer(
     const mix = position - left
     const frequency = bands <= 1 ? 0 : position / (bands - 1)
     const raw = sampled[left] * (1 - mix) + sampled[right] * mix
-    const target = clamp01(raw * params.gain * (1 + frequency * params.tilt * 1.8))
+    const target = clamp01(raw * gain * (1 + frequency * tilt * 1.8))
     state.levels[x] = state.levels[x] * retain + target * (1 - retain)
 
     if (state.levels[x] >= state.peaks[x]) {
       state.peaks[x] = state.levels[x]
       state.peakVelocity[x] = 0
-      state.holdUntil[x] = t + Math.max(0, params.peakHold)
+      state.holdUntil[x] = t + peakHold
     } else if (t >= state.holdUntil[x]) {
-      state.peakVelocity[x] += Math.max(0.2, params.peakGravity) * dt
+      state.peakVelocity[x] += peakGravity * dt
       state.peaks[x] = Math.max(state.levels[x], state.peaks[x] - state.peakVelocity[x] * dt)
     }
   }
@@ -6249,13 +6261,16 @@ function createEvalNode(
         const palette = pal(id, 'paletteIn', props, 'palette', 'citrus')
         out = { frame: evalSpectrumVisualizer(stateKey(id), spectrum, {
           style: String(props.style ?? 'Bars'),
+          // `bands` sizes the band array and stays a property; the rest read
+          // wire-then-property, and `evalSpectrumVisualizer` bounds each to
+          // the same domain the generator emits.
           bands: Number(props.bands ?? 16),
-          gain: Number(props.gain ?? 1.25),
-          smoothing: Number(props.smoothing ?? 0.58),
-          tilt: Number(props.tilt ?? 0.2),
-          peakHold: Number(props.peakHold ?? 0.42),
-          peakGravity: Number(props.peakGravity ?? 1.8),
-          waterfallSpeed: Number(props.waterfallSpeed ?? 10),
+          gain: num(id, 'gain', props, 'gain', 1.25),
+          smoothing: num(id, 'smoothing', props, 'smoothing', 0.58),
+          tilt: num(id, 'tilt', props, 'tilt', 0.2),
+          peakHold: num(id, 'peakHold', props, 'peakHold', 0.42),
+          peakGravity: num(id, 'peakGravity', props, 'peakGravity', 1.8),
+          waterfallSpeed: num(id, 'waterfallSpeed', props, 'waterfallSpeed', 10),
         }, t, palette, W, H) }
         break
       }

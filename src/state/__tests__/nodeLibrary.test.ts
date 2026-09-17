@@ -400,7 +400,13 @@ describe('nodeLibrary', () => {
   it('SpectrumVisualizer exposes full-spectrum display and falling-peak controls', () => {
     const visualizer = NODE_LIBRARY.find((n) => n.type === 'SpectrumVisualizer')
     expect(visualizer?.subcategory).toBe('Audio-Reactive')
-    expect(visualizer?.inputs.map((p) => p.id)).toEqual(['audio', 'paletteIn'])
+    expect(visualizer?.inputs.map((p) => p.id)).toEqual([
+      'audio', 'paletteIn',
+      'gain', 'smoothing', 'tilt', 'peakHold', 'peakGravity', 'waterfallSpeed',
+    ])
+    // `bands` sizes the emitted band array, so it has no socket.
+    expect(visualizer?.inputs.map((p) => p.id)).not.toContain('bands')
+    expect(visualizer?.propertyInputs).not.toHaveProperty('bands')
     expect(visualizer?.defaultProperties).toMatchObject({
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
       peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',

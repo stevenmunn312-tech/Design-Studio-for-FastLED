@@ -3765,35 +3765,41 @@ export function generateCpp(
       case 'SpectrumVisualizer': {
         const ob = ownBuf()
         const style = String(p.style ?? 'Bars')
+        // `bands` sizes a stack array and composes literals of its own
+        // (`${bands - 1}.0f`), so it has nothing to branch on at runtime and
+        // stays a property. The rest become per-frame locals, each keeping the
+        // clamp it had as a TypeScript `Math.max`/`Math.min` so the bound still
+        // holds on a wired value — these knobs are not normalised, so an audio
+        // band wired straight in arrives outside every one of these domains.
         const bands = Math.max(4, Math.min(32, Math.round(Number(p.bands ?? 16))))
-        const gain = Math.max(0.25, Math.min(4, Number(p.gain ?? 1.25)))
-        const smoothing = Math.max(0, Math.min(0.95, Number(p.smoothing ?? 0.58)))
-        const tilt = Math.max(0, Math.min(1, Number(p.tilt ?? 0.2)))
-        const peakHoldMs = Math.max(0, Math.min(2000, Number(p.peakHold ?? 0.42) * 1000))
-        const peakGravity = Math.max(0.2, Math.min(6, Number(p.peakGravity ?? 1.8)))
-        const waterfallSpeed = Math.max(1, Math.min(30, Number(p.waterfallSpeed ?? 10)))
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const audioConnected = hasExplicitAudioInput(node.id)
         ln(`  { // SpectrumVisualizer · ${style}`)
         ln(`    static float _svLevel_${id}[WIDTH]={0},_svPeak_${id}[WIDTH]={0},_svVelocity_${id}[WIDTH]={0};`)
         ln(`    static uint32_t _svHold_${id}[WIDTH]={0},_svLast_${id}=0;`)
         ln(`    uint32_t _svNow=millis(); float _svDt=_svLast_${id} ? constrain((_svNow-_svLast_${id})/1000.0f,0.0f,0.1f) : (1.0f/60.0f); _svLast_${id}=_svNow;`)
+        ln(`    float _svGain=constrain(${f('gain', 'gain', 1.25)},0.25f,4.0f);`)
+        ln(`    float _svSmooth=constrain(${f('smoothing', 'smoothing', 0.58)},0.0f,0.95f);`)
+        ln(`    float _svTilt=constrain(${f('tilt', 'tilt', 0.2)},0.0f,1.0f)*1.8f;`)
+        ln(`    uint32_t _svHoldMs=(uint32_t)constrain((${f('peakHold', 'peakHold', 0.42)})*1000.0f,0.0f,2000.0f);`)
+        ln(`    float _svGrav=constrain(${f('peakGravity', 'peakGravity', 1.8)},0.2f,6.0f);`)
         ln(`    float _svBands[${bands}]={0};`)
         ln(`    for(int _b=0;_b<${bands};_b++){ int _lo=(_b*32)/${bands},_hi=max(_lo+1,((_b+1)*32)/${bands}); float _sum=0.0f; for(int _i=_lo;_i<_hi;_i++) _sum+=${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; _svBands[_b]=_sum/(_hi-_lo); }`)
-        ln(`    float _svRetain=powf(${smoothing.toFixed(4)}f,_svDt*60.0f);`)
+        ln(`    float _svRetain=powf(_svSmooth,_svDt*60.0f);`)
         ln(`    for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _pos=WIDTH<=1?0.0f:_x/(float)(WIDTH-1)*${bands - 1}.0f; int _left=(int)floorf(_pos),_right=min(${bands - 1},_left+1); float _mix=_pos-_left;`)
-        ln(`      float _freq=${bands <= 1 ? '0.0f' : `_pos/${bands - 1}.0f`}; float _raw=_svBands[_left]*(1.0f-_mix)+_svBands[_right]*_mix; float _target=constrain(_raw*${gain.toFixed(4)}f*(1.0f+_freq*${(tilt * 1.8).toFixed(4)}f),0.0f,1.0f);`)
+        ln(`      float _freq=${bands <= 1 ? '0.0f' : `_pos/${bands - 1}.0f`}; float _raw=_svBands[_left]*(1.0f-_mix)+_svBands[_right]*_mix; float _target=constrain(_raw*_svGain*(1.0f+_freq*_svTilt),0.0f,1.0f);`)
         ln(`      _svLevel_${id}[_x]=_svLevel_${id}[_x]*_svRetain+_target*(1.0f-_svRetain);`)
-        ln(`      if(_svLevel_${id}[_x]>=_svPeak_${id}[_x]){ _svPeak_${id}[_x]=_svLevel_${id}[_x]; _svVelocity_${id}[_x]=0.0f; _svHold_${id}[_x]=_svNow+${Math.round(peakHoldMs)}U; }`)
-        ln(`      else if((int32_t)(_svNow-_svHold_${id}[_x])>=0){ _svVelocity_${id}[_x]+=${peakGravity.toFixed(4)}f*_svDt; _svPeak_${id}[_x]=max(_svLevel_${id}[_x],_svPeak_${id}[_x]-_svVelocity_${id}[_x]*_svDt); }`)
+        ln(`      if(_svLevel_${id}[_x]>=_svPeak_${id}[_x]){ _svPeak_${id}[_x]=_svLevel_${id}[_x]; _svVelocity_${id}[_x]=0.0f; _svHold_${id}[_x]=_svNow+_svHoldMs; }`)
+        ln(`      else if((int32_t)(_svNow-_svHold_${id}[_x])>=0){ _svVelocity_${id}[_x]+=_svGrav*_svDt; _svPeak_${id}[_x]=max(_svLevel_${id}[_x],_svPeak_${id}[_x]-_svVelocity_${id}[_x]*_svDt); }`)
         ln(`    }`)
         ln(`    auto _svColor=[&](float _amount,float _brightness)->CRGB{ return ColorFromPalette(${pal},(uint8_t)(constrain(0.14f+_amount*0.82f,0.0f,1.0f)*255.0f),(uint8_t)(constrain(_brightness,0.0f,1.0f)*255.0f),LINEARBLEND); };`)
 
         if (style === 'Waterfall') {
           ln(`    static uint32_t _svWaterfall_${id}=0; if(!_svWaterfall_${id})_svWaterfall_${id}=_svNow;`)
-          ln(`    int _steps=min(HEIGHT,(int)((_svNow-_svWaterfall_${id})*${waterfallSpeed.toFixed(3)}f/1000.0f));`)
-          ln(`    if(_steps>0){ _svWaterfall_${id}+=(uint32_t)(_steps*(1000.0f/${waterfallSpeed.toFixed(3)}f)); for(int _step=0;_step<_steps;_step++){`)
+          ln(`    float _svWfSpeed=constrain(${f('waterfallSpeed', 'waterfallSpeed', 10)},1.0f,30.0f);`)
+          ln(`    int _steps=min(HEIGHT,(int)((_svNow-_svWaterfall_${id})*_svWfSpeed/1000.0f));`)
+          ln(`    if(_steps>0){ _svWaterfall_${id}+=(uint32_t)(_steps*(1000.0f/_svWfSpeed)); for(int _step=0;_step<_steps;_step++){`)
           ln(`      if(HEIGHT>1)::memmove(${ob},${ob}+WIDTH,sizeof(CRGB)*WIDTH*(HEIGHT-1));`)
           ln(`      for(int _x=0;_x<WIDTH;_x++){ float _lv=constrain(_svLevel_${id}[_x],0.0f,1.0f); ${ob}[(HEIGHT-1)*WIDTH+_x]=_lv<0.02f?CRGB::Black:_svColor(_lv,0.25f+_lv*0.75f); }`)
           ln(`    } }`)
