@@ -1,9 +1,9 @@
 # Wire-first touch controls
 
-Status: agreed 2026-09-17, from bench use. Steps 1 to 3 have landed — a
-control is created by wiring it, waits in the designer's Connected group, and
-moves between that group and the screen. The checklist at the foot says what is
-outstanding.
+Status: agreed 2026-09-17, from bench use. Steps 1 to 4 have landed — a
+control is created by wiring it, waits in the designer's Connected group, moves
+between that group and the screen, and says when it is doing nothing. The
+checklist at the foot says what is outstanding.
 Target: Hardware, ahead of v1.0.0.
 
 ## Brief explanation
@@ -115,6 +115,43 @@ edge dark with its packets dropped. A Formula Field knob belonging to another
 `formulaType` is the worked example. The other two causes should read the same
 way, on the wire and on the widget, through one predicate rather than three
 that drift.
+
+### How the one predicate came out
+
+`displayControlInertReason(widget, edge, nodes)` in `wireFirstControls.ts`
+answers `unplaced` | `unconnected` | `target-disabled` | `null`, and the
+existing `wiredPropertyIsInert` is what it asks for the third. Two readers:
+`GlowEdge` on the graph canvas and the widget in the designer.
+
+Which causes each reader can see falls out rather than needing a rule — a
+widget nobody placed has no pixels to dim but does have a wire, and a widget
+nobody wired has no wire to dim but does have pixels. Of the three, `unplaced`
+is reported ahead of `target-disabled` when both hold, because it is the one
+the author can act on from the screen they are looking at.
+
+`touchControlWireInert` is the wire-side lookup, and its `null` means "not a
+control wire" rather than "live": the caller falls back to the ordinary
+target-side rule, so answering `false` there would have quietly stopped dimming
+every other inert property wire in the graph.
+
+The scope rule above ("only four widget types are controls") is now derived
+rather than named: `displayWidgetIsControl` in `displayRegistry.ts` asks
+whether the type has an `out` role, since that role *is* the thing in question,
+and `isInteractiveDisplayWidget` — which had the four hand-listed — reads it.
+`displayRegistry.test.ts` pins the resulting set to those four so a widget that
+grows an output later fails until someone has thought about what it means for
+these rules.
+
+The widget marker is a fade **plus a neutral dashed outline**, which the wire
+does not need. A fade alone works on a noodle because every noodle starts from
+the same brightness; on a screen it does not, and a bright widget at 0.42 still
+reads livelier than a dull one at full strength — measured on the bench, not
+assumed. The outline is the half that does not depend on what the widget
+happens to be drawing, and it is neutral rather than a status hue for the
+reason given below. The fade is `calc()`-ed against the theme's own state
+opacity rather than replacing it, so a widget already muted by its theme state
+cannot get *brighter* for being inert; selecting it restores the fade and keeps
+the outline, because the next thing you do is edit it.
 
 An inert control is reported in Graph Health with a repair, in both directions:
 a placed widget nothing drives, and a connected widget nothing draws. The
@@ -327,7 +364,7 @@ wire — so the widget and its wire say the same thing the same way.
       trailing `add-control` socket.
 - [x] "Connected" group in the designer, derived from absent bounds.
 - [x] Place / delete moves a widget between the group and the screen.
-- [ ] One inert predicate covering all three causes, on wire and widget.
+- [x] One inert predicate covering all three causes, on wire and widget.
 - [ ] Graph Health reports both directions with a repair; nothing auto-deletes.
 - [ ] Range adoption at *placement* (the widget-first path already shares the
       derivation through `adoptedControlRange`; placement itself is step 4).

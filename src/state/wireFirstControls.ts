@@ -1,7 +1,16 @@
 import { isPropertyEnabled, nodeDisplayLabel, propertyLabel, propertyMeta } from './nodeLibrary'
-import { exposableInputsFor } from './propertyInputs'
-import type { DisplayWidget, DisplayWidgetProperty, DisplayWidgetType } from './displayDocument'
-import { defaultDisplayWidgetProperties, parseDisplayWidgetPortId } from './displayRegistry'
+import { exposableInputsFor, wiredPropertyIsInert } from './propertyInputs'
+import type {
+  DisplayDocument,
+  DisplayWidget,
+  DisplayWidgetProperty,
+  DisplayWidgetType,
+} from './displayDocument'
+import {
+  defaultDisplayWidgetProperties,
+  displayWidgetIsControl,
+  parseDisplayWidgetPortId,
+} from './displayRegistry'
 import type { StudioEdge, StudioNode } from './graphStore'
 
 /**
@@ -254,4 +263,91 @@ export function controlDestinationLabel(
   const destination = controlDestination(edge, nodes)
   if (!destination) return null
   return destination.property ? `${destination.node} · ${destination.property}` : destination.node
+}
+
+/**
+ * Why a touch control is doing nothing, or `null` if it is live.
+ *
+ * One predicate for all three causes rather than three that drift, because
+ * they are read in two places that must agree — the wire on the graph canvas
+ * and the widget in the designer — and because they are genuinely the same
+ * statement: this control exists and nothing is reaching the pixels or the
+ * firmware through it.
+ *
+ *   `unplaced`        — connected, but not on a screen, so no finger can reach it
+ *   `unconnected`     — on a screen, but nothing is wired to what it sets
+ *   `target-disabled` — wired, but the target ignores that property right now
+ *
+ * Which causes can be seen depends on where you are looking, and that falls
+ * out rather than needing a rule: a widget nobody placed has no pixels to dim
+ * but does have a wire, and a widget nobody wired has no wire to dim but does
+ * have pixels.
+ *
+ * Asked only of the four widget types with an `out` port
+ * (`displayWidgetIsControl`). A Label or a bound readout has no connection to
+ * be missing, and reporting one as inert would call most of a finished screen
+ * broken. See docs/development/design/wire-first-touch-controls.md.
+ */
+export type DisplayControlInertReason = 'unplaced' | 'unconnected' | 'target-disabled'
+
+export function displayControlInertReason(
+  widget: DisplayWidget,
+  edge: Pick<StudioEdge, 'target' | 'targetHandle'> | undefined,
+  nodes: readonly StudioNode[],
+): DisplayControlInertReason | null {
+  if (!displayWidgetIsControl(widget.type)) return null
+  if (!edge) return widget.bounds === undefined ? 'unplaced' : 'unconnected'
+  // Unplaced is reported ahead of a disabled target: both are true, and the
+  // one the author can act on from the screen they are looking at is the one
+  // worth saying.
+  if (widget.bounds === undefined) return 'unplaced'
+  const target = nodes.find((node) => node.id === edge.target)
+  if (!target) return 'unconnected'
+  return wiredPropertyIsInert(
+    target.data.nodeType,
+    edge.targetHandle,
+    target.data.properties as Record<string, unknown>,
+  ) ? 'target-disabled' : null
+}
+
+/** The reason as a sentence, for a tooltip or an announcement. */
+export function displayControlInertMessage(reason: DisplayControlInertReason): string {
+  if (reason === 'unplaced') return 'Wired, but not yet placed on the screen, so no finger can reach it.'
+  if (reason === 'unconnected') return 'On the screen, but nothing is wired to what it would set.'
+  return 'Wired, but the node it drives is ignoring that property under its current settings.'
+}
+
+/**
+ * The same question asked of a wire on the graph canvas, where the widget has
+ * to be found from the port the wire leaves.
+ *
+ * `null` means "not a control wire" — not "live" — so the caller falls back to
+ * the ordinary target-side rule every property wire is judged by. Almost every
+ * edge exits on the first line, which is what keeps this cheap enough to ask
+ * once per edge per render.
+ */
+export function touchControlWireInert(
+  state: {
+    nodes: readonly StudioNode[]
+    displayDocuments: Readonly<Record<string, DisplayDocument>>
+  },
+  source: string,
+  sourceHandle: string | null | undefined,
+  target: string,
+  targetHandle: string | null | undefined,
+): boolean | null {
+  const port = parseDisplayWidgetPortId(sourceHandle ?? '')
+  if (port?.role !== 'out') return null
+  const touch = state.nodes.find((node) => node.id === source)
+  if (!touch || touch.data.nodeType !== 'TouchInput') return null
+  const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
+  const panel = state.nodes.find((node) => (
+    node.id === panelId && node.data.nodeType === 'TransportDisplay'
+  ))
+  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  const widget = displayId
+    ? state.displayDocuments[displayId]?.widgets.find((entry) => entry.id === port.widgetId)
+    : undefined
+  if (!widget) return null
+  return displayControlInertReason(widget, { target, targetHandle }, state.nodes) !== null
 }

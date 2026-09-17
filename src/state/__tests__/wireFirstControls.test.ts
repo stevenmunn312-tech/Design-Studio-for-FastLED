@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { controlDestinationLabel, displayControlEdges, touchControlPlan } from '../wireFirstControls'
+import {
+  controlDestinationLabel,
+  displayControlEdges,
+  displayControlInertReason,
+  touchControlPlan,
+  touchControlWireInert,
+} from '../wireFirstControls'
 import { connectTouchControl, ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../graphStore'
 import { createDisplayDocument } from '../displayEditor'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -240,5 +246,76 @@ describe('displayControlEdges', () => {
     expect(displayControlEdges('screen', [...nodes, second], wires).size).toBe(0)
     expect(displayControlEdges('elsewhere', nodes, wires).size).toBe(0)
     expect(displayControlEdges('screen', [panel, juggle], wires).size).toBe(0)
+  })
+})
+
+/*
+ * One inert predicate, three causes. They are read in two places that have to
+ * agree — the wire on the graph canvas and the widget in the designer — and
+ * they are the same statement either way: this control exists and nothing is
+ * reaching the pixels or the firmware through it.
+ */
+describe('displayControlInertReason', () => {
+  const slider = (bounds?: { x: number; y: number; width: number; height: number }) => ({
+    id: 'slider', type: 'Slider' as const, label: 'Petals',
+    ...(bounds ? { bounds } : {}),
+    properties: { min: 1, max: 12, step: 1, orientation: 'horizontal' },
+  })
+  const placed = { x: 0, y: 0, width: 96, height: 48 }
+  const formula = (formulaType: string) => node('ff', 'FormulaField', { formulaType })
+  const wire = { target: 'ff', targetHandle: 'petals' }
+
+  it('names each of the three causes', () => {
+    expect(displayControlInertReason(slider(), undefined, [])).toBe('unplaced')
+    expect(displayControlInertReason(slider(placed), undefined, [])).toBe('unconnected')
+    expect(displayControlInertReason(slider(placed), wire, [formula('superformula')]))
+      .toBe('target-disabled')
+  })
+
+  it('says nothing about a control that is placed and driving a live property', () => {
+    expect(displayControlInertReason(slider(placed), wire, [formula('rose')])).toBeNull()
+  })
+
+  it('reports unplaced ahead of a disabled target, since that is the one to act on', () => {
+    // Both are true. The author is looking at a screen designer, and the thing
+    // they can do from there is place it.
+    expect(displayControlInertReason(slider(), wire, [formula('superformula')])).toBe('unplaced')
+  })
+
+  it('is silent about every widget that is not a control', () => {
+    // A Label can never have a wire and a bound readout mints no port at all;
+    // calling either inert would report most of a finished screen as broken.
+    for (const type of ['Text', 'Image/Icon', 'Progress', 'Value Meter'] as const) {
+      expect(displayControlInertReason(
+        { id: 'w', type, label: 'w', properties: {} }, undefined, [],
+      )).toBeNull()
+    }
+  })
+})
+
+describe('touchControlWireInert', () => {
+  const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
+  const touch = node('touch', 'TouchInput', { panelId: 'panel' })
+  const unplaced = { id: 'slider', type: 'Slider' as const, label: 'Petals', properties: {} }
+  const state = (widget: typeof unplaced, nodeType = 'rose') => ({
+    nodes: [panel, touch, node('ff', 'FormulaField', { formulaType: nodeType })],
+    displayDocuments: { screen: { widgets: [widget] } },
+  } as never)
+
+  it('dims the wire out of a control nobody has placed yet', () => {
+    expect(touchControlWireInert(state(unplaced), 'touch', 'widget:slider:out', 'ff', 'petals'))
+      .toBe(true)
+    expect(touchControlWireInert(
+      state({ ...unplaced, bounds: { x: 0, y: 0, width: 96, height: 48 } } as never),
+      'touch', 'widget:slider:out', 'ff', 'petals',
+    )).toBe(false)
+  })
+
+  it('answers null for a wire that is not a control wire, rather than calling it live', () => {
+    // Null sends the caller back to the ordinary target-side rule; answering
+    // false would quietly stop dimming every other inert property wire.
+    expect(touchControlWireInert(state(unplaced), 'touch', 'controls', 'ff', 'petals')).toBeNull()
+    expect(touchControlWireInert(state(unplaced), 'ff', 'widget:slider:out', 'ff', 'petals')).toBeNull()
+    expect(touchControlWireInert(state(unplaced), 'touch', 'widget:gone:out', 'ff', 'petals')).toBeNull()
   })
 })

@@ -672,3 +672,32 @@
   border-color: color-mix(in srgb, var(--error) 60%, var(--border-glow));
   color: var(--text-primary);
 }
+
+/*
+ * A control that is doing nothing: wired to a property its node is ignoring,
+ * or on the screen with nothing wired to it. No status hue — widget colours
+ * already carry theme meaning, and colour-only status fails for colour-blind
+ * users — so this is a fade plus a neutral dashed outline.
+ *
+ * The outline is not decoration. A fade alone is what the wire uses, and it
+ * works there because every noodle starts from the same brightness; on a
+ * screen it does not, and a bright widget at 0.42 still reads livelier than a
+ * dull one at full strength. The outline is the part that does not depend on
+ * what the widget happens to be drawing.
+ *
+ * `calc` rather than a flat number so this multiplies the theme's own state
+ * opacity instead of replacing it — a widget already muted by its theme state
+ * must not get *brighter* for being inert.
+ */
+.widget.inertWidget {
+  opacity: calc(var(--widget-state-opacity, 1) * 0.42);
+  outline: 1px dashed color-mix(in srgb, var(--text-secondary) 70%, transparent);
+  outline-offset: 2px;
+  transition: opacity 180ms ease-out;
+}
+
+/* Selecting it brings the fade back, because the next thing you do is edit it.
+   The outline stays, so the state is still said while you work. */
+.widget.inertWidget.selected {
+  opacity: var(--widget-state-opacity, 1);
+}

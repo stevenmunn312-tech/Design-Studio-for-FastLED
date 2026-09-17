@@ -4,6 +4,7 @@ import type { EdgeProps } from '@xyflow/react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { useGraphStore } from '../../state/graphStore'
 import { wiredPropertyIsInert } from '../../state/propertyInputs'
+import { touchControlWireInert } from '../../state/wireFirstControls'
 import { usePreviewStore } from '../../state/previewStore'
 import { useUiStore } from '../../state/uiStore'
 import { familyMotion, signalFamily } from './noodleMotion'
@@ -53,7 +54,20 @@ function GlowEdge({
   const targetNode = getNode(target)
   const targetData = targetNode?.data as
     { nodeType?: string; properties?: Record<string, unknown> } | undefined
-  const inert = wiredPropertyIsInert(
+  /*
+   * A wire out of a touch control is judged by the control predicate instead,
+   * which asks this same target-side question *and* the one only a control
+   * has: a widget that has been wired but never placed on a screen is a
+   * control no finger can reach, so the wire is as inert as one landing on a
+   * property the node is ignoring. `null` means this is not a control wire —
+   * not that it is live — so the ordinary rule still answers for every other
+   * property wire. Both read the target each render, so changing a variant or
+   * placing the widget re-lights the wire with nothing to keep in step.
+   */
+  const controlInert = useGraphStore((state) => (
+    touchControlWireInert(state, source, sourceHandleId, target, targetHandleId)
+  ))
+  const inert = controlInert ?? wiredPropertyIsInert(
     targetData?.nodeType ?? '', targetHandleId, targetData?.properties ?? {})
   const category = (sourceNode?.data as { category?: string })?.category ?? 'output'
   const sourceType = (sourceNode?.data as { outputs?: Array<{ id: string; dataType: string }> } | undefined)?.outputs

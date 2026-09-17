@@ -273,6 +273,51 @@ describe('DisplayEditor', () => {
     expect(view.queryByRole('heading', { name: 'Connected' })).toBeNull()
   })
 
+  /*
+   * The widget half of the one inert predicate. Only two of its three causes
+   * can appear here — a widget nobody placed has no pixels to dim — and that
+   * falls out of what is on the screen rather than from a rule.
+   */
+  it('dims a placed control that is driving nothing, and lights it when wired', () => {
+    useGraphStore.setState({
+      nodes: [
+        panelNode(),
+        libraryNode('touch', 'TouchInput', { panelId: 'tft' }),
+        libraryNode('juggle', 'Juggle', { count: 4 }),
+      ],
+      edges: [],
+    })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+
+    const slider = () => view.getByRole('button', { name: /Slider, Slider\. Position/ })
+    expect(slider().className).toMatch(/inertWidget/)
+    expect(slider().getAttribute('title')).toContain('nothing is wired')
+
+    act(() => useGraphStore.setState({
+      edges: [{
+        id: 'wired', source: 'touch', sourceHandle: 'widget:slider:out',
+        target: 'juggle', targetHandle: 'count',
+      }],
+    }))
+    expect(slider().className).not.toMatch(/inertWidget/)
+    expect(slider().getAttribute('title')).toBeNull()
+  })
+
+  /*
+   * A readout is not a control and can never be inert for want of a wire — a
+   * bound one deliberately mints no port at all. Applying the rule to every
+   * widget would report most of a finished screen as broken.
+   */
+  it('leaves a widget that is not a control alone', () => {
+    useGraphStore.setState({ nodes: [panelNode(), libraryNode('touch', 'TouchInput', { panelId: 'tft' })], edges: [] })
+    const view = render(<DisplayEditor />)
+    fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
+
+    expect(view.getByRole('button', { name: /Text, Text\. Position/ }).className)
+      .not.toMatch(/inertWidget/)
+  })
+
   it('offers an explicit repair to match a configured slider to its single target range', () => {
     useGraphStore.setState({
       nodes: [

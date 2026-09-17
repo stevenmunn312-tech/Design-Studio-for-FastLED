@@ -81,7 +81,13 @@ import {
   documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
 } from '../../state/mountedDisplays'
 import { displayWidgetTargetRangeRepair } from '../../state/displayControlRangeRepair'
-import { controlDestination, controlDestinationLabel, displayControlEdges } from '../../state/wireFirstControls'
+import {
+  controlDestination,
+  controlDestinationLabel,
+  displayControlEdges,
+  displayControlInertMessage,
+  displayControlInertReason,
+} from '../../state/wireFirstControls'
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
@@ -700,6 +706,16 @@ export default function DisplayEditor() {
    * step with it, and "placed" and "connected" cannot disagree.
    */
   const connectedWidgets = document.widgets.filter((widget) => !isPlacedWidget(widget))
+  /*
+   * Why each control is doing nothing, from the one predicate the wire on the
+   * graph canvas is drawn from. Only two of its three causes can appear here —
+   * a widget nobody placed has no pixels to dim — and that falls out of what
+   * is on the screen rather than needing a rule.
+   */
+  const inertReasons = new Map(document.widgets.flatMap((widget) => {
+    const reason = displayControlInertReason(widget, controlEdges.get(widget.id), graphNodes)
+    return reason ? [[widget.id, reason] as const] : []
+  }))
 
   const matchTargetRange = () => {
     if (!selected || !targetRangeRepair) return
@@ -1146,13 +1162,15 @@ export default function DisplayEditor() {
               ) : placedWidgets(document).map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
                 const isSelected = selectedIds.includes(widget.id)
+                const inert = inertReasons.get(widget.id)
                 const widgetIssues = issuesByWidget.get(widget.id) ?? []
                 const issueDescriptionId = widgetIssues.length > 0 ? `display-widget-issues-${widget.id}` : undefined
                 return (
                   <button
                     key={widget.id}
                     type="button"
-                    className={`${styles.widget} ${isSelected ? styles.selected : ''} ${geometryIssueIds.has(widget.id) ? styles.collision : ''}`}
+                    className={`${styles.widget} ${isSelected ? styles.selected : ''} ${geometryIssueIds.has(widget.id) ? styles.collision : ''} ${inert ? styles.inertWidget : ''}`}
+                    title={inert ? displayControlInertMessage(inert) : undefined}
                     style={{
                       left: widget.bounds.x,
                       top: widget.bounds.y,
@@ -1162,7 +1180,9 @@ export default function DisplayEditor() {
                     }}
                     data-widget-state="default"
                     data-widget-type={widget.type}
-                    aria-label={widgetAnnouncement(document, widget.id)}
+                    aria-label={inert
+                      ? `${widgetAnnouncement(document, widget.id)} ${displayControlInertMessage(inert)}`
+                      : widgetAnnouncement(document, widget.id)}
                     aria-describedby={issueDescriptionId}
                     aria-invalid={widgetIssues.length > 0}
                     aria-pressed={isSelected}
