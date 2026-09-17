@@ -3545,7 +3545,35 @@ describe('Saturation / RGBToHSV (codegen)', () => {
       t: 0.25,
     })
     const cpp = generateCpp([bc], [])
-    expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10,20,30), CRGB(110,220,130), (uint8_t)((0.25) * 255));')
+    expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10, 20, 30), CRGB(110, 220, 130), (uint8_t)((0.25) * 255));')
+  })
+
+  /*
+   * Both gradient nodes declare Color A / Color B inputs and the evaluator has
+   * always followed them, but the generator baked the rA..bB fields and never
+   * looked at the wire — so a Temperature into Color A moved the preview and
+   * left the firmware on the default. Exactly the parity break a property
+   * input is not allowed to introduce, found while giving the channels
+   * themselves sockets.
+   */
+  it('follows a wire into a gradient end rather than baking the field', () => {
+    const temp = node('tp', 'Temperature', 'color', {})
+    for (const type of ['GradientFrame', 'GradientSampler'] as const) {
+      const grad = node('g', type, type === 'GradientFrame' ? 'pattern' : 'color', {
+        rA: 10, gA: 20, bA: 30, rB: 200, gB: 210, bB: 220,
+      })
+      const unwired = generateCpp([grad, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+      expect(unwired, type).toContain('CRGB(10, 20, 30)')
+
+      const wired = generateCpp([grad, temp, outputNode], [
+        edge('e', 'g', 'out', 'frame', 'frame'),
+        edge('e2', 'tp', 'g', 'color', 'colorA'),
+      ])
+      expect(wired, type).toContain('n_tp_color')
+      // The end that is still a field keeps its swatch; only A moved.
+      expect(wired, type).not.toContain('CRGB(10, 20, 30)')
+      expect(wired, type).toContain('CRGB(200, 210, 220)')
+    }
   })
 
   it('RGBToHSV emits h/s/v floats via rgb2hsv_approximate', () => {
@@ -3571,7 +3599,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
   it('RGBToHSV emits its editable color fallback when unwired', () => {
     const rh = node('rh', 'RGBToHSV', 'color', { r: 0, g: 255, b: 0 })
     const cpp = generateCpp([rh], [])
-    expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(CRGB(0,255,0));')
+    expect(cpp).toContain('CHSV _hsv_rh = rgb2hsv_approximate(CRGB(0, 255, 0));')
   })
 })
 

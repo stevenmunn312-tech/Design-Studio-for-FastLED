@@ -97,7 +97,7 @@ import { displayHasTouch, partById } from '../state/partCatalogue'
 import { asDateTimeTextMode } from '../state/displayText'
 import { particleRadius } from '../state/particleScale'
 import { buildXYTable, rotatePoint, tileRotationAt } from '../state/xyLayout'
-import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, type RGB } from '../state/customPalette'
+import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette } from '../state/customPalette'
 import { animartrixCppLines } from '../animartrix/codegen'
 import { compositionDims, corkscrewMapFor, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, ringMapFor } from '../state/outputRouting'
 import { isLinearForm, outputCanvasDims, outputForm, outputLedTotal } from '../state/ledOutputForm'
@@ -1888,13 +1888,6 @@ export function generateCpp(
     return fallback
   }
 
-  function colorPropExpr(nodeProps: Record<string, unknown>, rKey: string, gKey: string, bKey: string, fallback: RGB): string {
-    const r = intProp(nodeProps[rKey], fallback.r, 0, 255)
-    const g = intProp(nodeProps[gKey], fallback.g, 0, 255)
-    const b = intProp(nodeProps[bKey], fallback.b, 0, 255)
-    return `CRGB(${r},${g},${b})`
-  }
-
   // Canonical ids of every palette `fastledPalette` resolves below. The emit
   // pass runs before the declarations are written, so this set is complete by
   // the time it gates them.
@@ -2060,15 +2053,29 @@ export function generateCpp(
      * slider. Rounding is `+ 0.5f` into an integer cast rather than `roundf`,
      * matching how every other channel in this file is quantised.
      */
-    const channelColor = (port: string, dr: number, dg: number, db: number): string => {
-      if (incoming.get(`${node.id}:${port}`)) return colorExpr(node.id, port)
-      const channel = (key: 'r' | 'g' | 'b', def: number) => (
+    const channelColor = (
+      port: string | null,
+      dr: number,
+      dg: number,
+      db: number,
+      keys: readonly [string, string, string] = ['r', 'g', 'b'],
+    ): string => {
+      if (port && incoming.get(`${node.id}:${port}`)) return colorExpr(node.id, port)
+      const channel = (key: string, def: number) => (
         incoming.get(`${node.id}:${key}`)
           ? `(uint8_t)(constrain(${f(key, key, def)}, 0.0f, 255.0f) + 0.5f)`
           : String(Number(p[key] ?? def))
       )
-      return `CRGB(${channel('r', dr)}, ${channel('g', dg)}, ${channel('b', db)})`
+      return `CRGB(${channel(keys[0], dr)}, ${channel(keys[1], dg)}, ${channel(keys[2], db)})`
     }
+
+    /*
+     * One channel of a linear A-to-B mix, rounded rather than truncated: the
+     * evaluator rounds both gradient nodes with `Math.round`, and a cast alone
+     * left the firmware a count under the preview across the whole ramp.
+     */
+    const gradientChannel = (a: string, b: string, channel: string, t: string) =>
+      `(uint8_t)(${a}.${channel}*(1-${t})+${b}.${channel}*${t}+0.5f)`
 
     // This node's own frame buffer (registers it for global declaration).
     const fbuf = `buf_${id}`
@@ -2321,7 +2328,7 @@ export function generateCpp(
 
       // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
       case 'RGBToHSV': {
-        const rgb = colorExpr(node.id, 'rgb', colorPropExpr(p, 'r', 'g', 'b', { r: 0, g: 0, b: 0 }))
+        const rgb = channelColor('rgb', 0, 0, 0)
         ln(`  CHSV _hsv_${id} = rgb2hsv_approximate(${rgb});`)
         ln(`  float ${v('h')} = _hsv_${id}.hue / 255.0f * 360.0f;`)
         ln(`  float ${v('s')} = _hsv_${id}.sat / 255.0f;`)
@@ -2340,8 +2347,8 @@ export function generateCpp(
         break
 
       case 'BlendColors': {
-        const ca = colorExpr(node.id, 'a', colorPropExpr(p, 'rA', 'gA', 'bA', { r: 255, g: 0, b: 0 }))
-        const cb = colorExpr(node.id, 'b', colorPropExpr(p, 'rB', 'gB', 'bB', { r: 0, g: 0, b: 255 }))
+        const ca = channelColor('a', 255, 0, 0, ['rA', 'gA', 'bA'])
+        const cb = channelColor('b', 0, 0, 255, ['rB', 'gB', 'bB'])
         const mix = f('t', 't', 0.5)
         ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, (uint8_t)((${mix}) * 255));`)
         break
@@ -3988,9 +3995,7 @@ export function generateCpp(
         const paletteWired = incoming.has(`${node.id}:paletteIn`)
         const usePalette = paletteWired || String(p.palette ?? 'none') !== 'none'
         const flashPal = usePalette ? paletteExpr(node.id, 'paletteIn', p) : null
-        const cr = intProp(p.r, 255, 0, 255)
-        const cg = intProp(p.g, 255, 0, 255)
-        const cb = intProp(p.b, 255, 0, 255)
+        const flashColor = channelColor(null, 255, 255, 255)
         ln(`  {`)
         ln(`    ${seedFrom('frame')}`)
         ln(`    static float _flash_${id} = 0; static bool _flashRise_${id} = false;`)
@@ -4001,7 +4006,7 @@ export function generateCpp(
         ln(`    else _flash_${id} *= ${decay};`)
         ln(`    if (_flash_${id} >= 0.003f) {`)
         ln(`      float _feff_${id} = max(0.0f, _flash_${id} * ${intensity});`)
-        ln(`      CRGB _fc_${id} = ${flashPal ? `ColorFromPalette(${flashPal}, (uint8_t)((1.0f - _flash_${id}) * 255))` : `CRGB(${cr}, ${cg}, ${cb})`};`)
+        ln(`      CRGB _fc_${id} = ${flashPal ? `ColorFromPalette(${flashPal}, (uint8_t)((1.0f - _flash_${id}) * 255))` : flashColor};`)
         ln(`      for (int _i = 0; _i < NUM_LEDS; _i++) {`)
         if (!preserveBase) {
           ln(`        ${ob}[_i] = CRGB((uint8_t)min(255.0f, _fc_${id}.r * _feff_${id}), (uint8_t)min(255.0f, _fc_${id}.g * _feff_${id}), (uint8_t)min(255.0f, _fc_${id}.b * _feff_${id}));`)
@@ -5076,20 +5081,23 @@ export function generateCpp(
 
       case 'GradientFrame': {
         const ob = ownBuf()
-        const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)
-        const rB = Number(p.rB ?? 255), gB = Number(p.gB ?? 0), bB = Number(p.bB ?? 255)
+        // Both ends are hoisted to locals so a wired Color A/B is honoured:
+        // the evaluator has always followed those wires and this baked the
+        // fields instead, which is the parity break the port registry forbids.
+        const cA = `_gfA_${id}`, cB = `_gfB_${id}`
         const vert = incoming.get(`${node.id}:vertical`) ? null : Boolean(p.vertical)
-        ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+        ln(`  { CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
+        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`    float _t=${vert === null ? `((${boolExpr(node.id, 'vertical')}) ? _y/(HEIGHT-1.0f) : _x/(WIDTH-1.0f))` : vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
-        ln(`    ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(${rA}*(1-_t)+${rB}*_t),(uint8_t)(${gA}*(1-_t)+${gB}*_t),(uint8_t)(${bA}*(1-_t)+${bB}*_t));}}`)
+        ln(`    ${ob}[_y*WIDTH+_x]=CRGB(${gradientChannel(cA, cB, 'r', '_t')},${gradientChannel(cA, cB, 'g', '_t')},${gradientChannel(cA, cB, 'b', '_t')});}}`)
         break
       }
 
       case 'GradientSampler': {
-        const tt = f('t', 't', 0)
-        const rA = Number(p.rA ?? 0), gA = Number(p.gA ?? 200), bA = Number(p.bA ?? 255)
-        const rB = Number(p.rB ?? 255), gB = Number(p.gB ?? 0), bB = Number(p.bB ?? 255)
-        ln(`  CRGB ${v('color')} = CRGB((uint8_t)(${rA}*(1-(${tt}))+${rB}*(${tt})),(uint8_t)(${gA}*(1-(${tt}))+${gB}*(${tt})),(uint8_t)(${bA}*(1-(${tt}))+${bB}*(${tt})));`)
+        const tt = `(${f('t', 't', 0)})`
+        const cA = `_gsA_${id}`, cB = `_gsB_${id}`
+        ln(`  CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
+        ln(`  CRGB ${v('color')} = CRGB(${gradientChannel(cA, cB, 'r', tt)},${gradientChannel(cA, cB, 'g', tt)},${gradientChannel(cA, cB, 'b', tt)});`)
         break
       }
 
