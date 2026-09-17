@@ -260,11 +260,24 @@
 }
 
 .slider .thumb {
+  --widget-thumb-size: 16px;
+
   position: absolute;
   top: 50%;
-  left: var(--widget-fill);
-  width: 16px;
-  height: 16px;
+  /* The knob travels inside the track, the way LVGL's own slider draws it.
+     Placing its centre on the raw fill hangs half the knob past the track at
+     0 and at full scale, which is outside the widget's box and, for a control
+     against the edge of the screen, outside the panel that clips it — so a
+     slider at rest read as a knob with a slice missing. Half the knob is
+     subtracted from each end rather than clipped, so preview and glass agree
+     on where a value sits. */
+  left: clamp(
+    calc(var(--widget-thumb-size) / 2),
+    var(--widget-fill),
+    calc(100% - var(--widget-thumb-size) / 2)
+  );
+  width: var(--widget-thumb-size);
+  height: var(--widget-thumb-size);
   border-radius: 50%;
   background: var(--widget-state-thumb, white);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
