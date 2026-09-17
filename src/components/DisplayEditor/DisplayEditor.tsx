@@ -33,7 +33,6 @@ import {
   distributeDisplayWidgets,
   duplicateDisplayWidgets,
   pasteDisplayWidgets,
-  placeDisplayWidget,
   resizeDisplayDocument,
   removeDisplayWidgets,
   translateDisplayWidgets,
@@ -87,6 +86,7 @@ import {
   displayControlEdges,
   displayControlInertMessage,
   displayControlInertReason,
+  placeTouchControlIn,
 } from '../../state/wireFirstControls'
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
@@ -502,7 +502,10 @@ export default function DisplayEditor() {
    * difference between waiting and live.
    */
   const place = (widgetId: string) => {
-    const next = placeDisplayWidget(document, widgetId)
+    // Through the same helper Graph Health's repair uses, so a control placed
+    // from the group and one placed from the drawer land in the same rectangle
+    // and adopt their target's range on the same terms.
+    const next = placeTouchControlIn(document, displayId, widgetId, graphNodes, graphEdges)
     if (next === document) return
     const widget = next.widgets.find((entry) => entry.id === widgetId)!
     commit(next, widgetAnnouncement(next, widgetId, displayLayoutIssues(next)))

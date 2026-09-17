@@ -3,6 +3,8 @@ import {
   controlDestinationLabel,
   displayControlEdges,
   displayControlInertReason,
+  displayControlIsUnconfigured,
+  placeTouchControlIn,
   touchControlPlan,
   touchControlWireInert,
 } from '../wireFirstControls'
@@ -317,5 +319,77 @@ describe('touchControlWireInert', () => {
     expect(touchControlWireInert(state(unplaced), 'touch', 'controls', 'ff', 'petals')).toBeNull()
     expect(touchControlWireInert(state(unplaced), 'ff', 'widget:slider:out', 'ff', 'petals')).toBeNull()
     expect(touchControlWireInert(state(unplaced), 'touch', 'widget:gone:out', 'ff', 'petals')).toBeNull()
+  })
+})
+
+/*
+ * The range flows at two moments — when a control is wired and when it is
+ * placed — through one derivation rather than a copy per path. Placement is a
+ * real second moment: a widget drawn from the palette, wired, then deleted
+ * from the screen waits in the Connected group with a live wire, and the
+ * property may have moved on in between.
+ */
+describe('placeTouchControlIn', () => {
+  const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
+  const touch = node('touch', 'TouchInput', { panelId: 'panel' })
+  const juggle = node('juggle', 'Juggle', { count: 4 })
+  const nodes = [panel, touch, juggle]
+  const edges = [{
+    id: 'w', source: 'touch', sourceHandle: 'widget:slider:out',
+    target: 'juggle', targetHandle: 'count',
+  }] as never
+  const document = (widget: Record<string, unknown>) => ({
+    ...createDisplayDocument('screen', 240, 320),
+    widgets: [widget],
+  } as never)
+  const fresh = {
+    id: 'slider', type: 'Slider', label: 'Slider',
+    properties: { min: 0, max: 1, step: 0.01, orientation: 'horizontal' },
+  }
+
+  it('takes the target range and label with it when the control is untouched', () => {
+    const placed = placeTouchControlIn(document(fresh), 'screen', 'slider', nodes, edges)
+    expect(placed.widgets[0]).toMatchObject({
+      label: 'Count',
+      bounds: { x: 0, y: 0 },
+      properties: { min: 1, max: 8, step: 1 },
+    })
+  })
+
+  it('keeps a range somebody chose rather than reverting it', () => {
+    // A deliberately coarse slider on a wider property is a decision. The
+    // explicit "Match target range" repair stays the way to change one's mind.
+    const configured = { ...fresh, properties: { ...fresh.properties, min: 0, max: 4, step: 1 } }
+    const placed = placeTouchControlIn(document(configured), 'screen', 'slider', nodes, edges)
+    expect(placed.widgets[0]).toMatchObject({
+      label: 'Slider',
+      properties: { min: 0, max: 4, step: 1 },
+    })
+    expect(placed.widgets[0].bounds).toBeDefined()
+  })
+
+  it('places a control with no wire, and finds no range to adopt', () => {
+    const placed = placeTouchControlIn(document(fresh), 'screen', 'slider', nodes, [])
+    expect(placed.widgets[0].bounds).toBeDefined()
+    expect(placed.widgets[0].properties).toMatchObject({ min: 0, max: 1, step: 0.01 })
+  })
+
+  it('declines a widget that is already on the screen or gone', () => {
+    const already = document({ ...fresh, bounds: { x: 8, y: 8, width: 96, height: 48 } })
+    expect(placeTouchControlIn(already, 'screen', 'slider', nodes, edges)).toBe(already)
+    const missing = document(fresh)
+    expect(placeTouchControlIn(missing, 'screen', 'nobody', nodes, edges)).toBe(missing)
+  })
+
+  it('agrees with the connect-time path about what counts as untouched', () => {
+    expect(displayControlIsUnconfigured(fresh as never)).toBe(true)
+    expect(displayControlIsUnconfigured({ ...fresh, label: 'Brightness' } as never)).toBe(false)
+    expect(displayControlIsUnconfigured({
+      ...fresh, properties: { ...fresh.properties, max: 4 },
+    } as never)).toBe(false)
+    // A bound widget has a source contract of its own.
+    expect(displayControlIsUnconfigured({
+      ...fresh, properties: { ...fresh.properties, source: 'title' },
+    } as never)).toBe(false)
   })
 })

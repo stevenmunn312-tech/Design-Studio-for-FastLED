@@ -8,9 +8,11 @@ import type {
 } from './displayDocument'
 import {
   defaultDisplayWidgetProperties,
+  displayWidgetDefinition,
   displayWidgetIsControl,
   parseDisplayWidgetPortId,
 } from './displayRegistry'
+import { placeDisplayWidget } from './displayEditor'
 import type { StudioEdge, StudioNode } from './graphStore'
 
 /**
@@ -350,4 +352,64 @@ export function touchControlWireInert(
     : undefined
   if (!widget) return null
   return displayControlInertReason(widget, { target, targetHandle }, state.nodes) !== null
+}
+
+/**
+ * Whether a control still carries everything its widget type shipped with.
+ *
+ * The gate on adopting a target's range, at both moments it can happen: when
+ * an existing control is wired to a property, and when a connected one is
+ * placed on a screen. A control whose label or range has been edited has a
+ * contract of its own — a deliberately coarse 0–10 slider on a 0–255 property
+ * is a decision, not a mistake — so adoption declines rather than reverting
+ * it, and the explicit "Match target range" repair stays the way to change
+ * one's mind.
+ */
+export function displayControlIsUnconfigured(widget: DisplayWidget): boolean {
+  const defaults = defaultDisplayWidgetProperties(widget.type)
+  return widget.label === displayWidgetDefinition(widget.type).label
+    && widget.properties.source === undefined
+    && widget.properties.min === defaults.min
+    && widget.properties.max === defaults.max
+    && widget.properties.step === defaults.step
+}
+
+/**
+ * Put a connected control on its screen, taking its target's range with it.
+ *
+ * Placement is the second moment the range can flow, and it is a real one: a
+ * control drawn from the palette, wired, then deleted from the screen waits in
+ * the Connected group as an unconfigured widget with a live wire, and the
+ * property it drives may have changed in between. One derivation
+ * (`adoptedControlRange`), two moments — rather than a second copy for this
+ * path. A control that has been edited keeps what it was given.
+ */
+export function placeTouchControlIn(
+  document: DisplayDocument,
+  displayId: string,
+  widgetId: string,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): DisplayDocument {
+  const placed = placeDisplayWidget(document, widgetId)
+  if (placed === document) return document
+  const widget = placed.widgets.find((entry) => entry.id === widgetId)
+  if (!widget || !displayControlIsUnconfigured(widget)) return placed
+
+  const edge = displayControlEdges(displayId, nodes, edges).get(widgetId)
+  const target = edge ? nodes.find((node) => node.id === edge.target) : undefined
+  if (!edge || !target) return placed
+  const input = exposableInputsFor(target.data.nodeType).find((port) => port.id === edge.targetHandle)
+  if (!input?.propertyKey) return placed
+  const adopted = adoptedControlRange(target.data.nodeType, input.propertyKey, input.label)
+  if (!adopted) return placed
+
+  return {
+    ...placed,
+    widgets: placed.widgets.map((entry) => entry.id === widgetId ? {
+      ...entry,
+      label: adopted.label,
+      properties: { ...entry.properties, min: adopted.min, max: adopted.max, step: adopted.step },
+    } : entry),
+  }
 }

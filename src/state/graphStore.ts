@@ -55,11 +55,9 @@ import {
   type DisplayDocumentRegistry,
 } from './displayDocument'
 import {
-  defaultDisplayWidgetProperties,
   displayDocumentInputPorts,
   displayDocumentPorts,
   displayDocumentTouchOutputPorts,
-  displayWidgetDefinition,
   displayWidgetSources,
   displayWidgetPortId,
   parseDisplayWidgetPortId,
@@ -71,6 +69,7 @@ import { libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nod
 import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } from './displayEditor'
 import {
   adoptedControlRange,
+  displayControlIsUnconfigured,
   touchControlPlan,
   touchControlWidget,
   type TouchControlPlan,
@@ -667,14 +666,11 @@ function withAdoptedDisplayControlRange(
   if (!document || !widget || (widget.type !== 'Slider' && widget.type !== 'Dial')) {
     return { nodes, edges, displayDocuments: s.displayDocuments }
   }
-  const definition = displayWidgetDefinition(widget.type)
-  const defaults = defaultDisplayWidgetProperties(widget.type)
-  const unconfigured = widget.label === definition.label
-    && widget.properties.source === undefined
-    && widget.properties.min === defaults.min
-    && widget.properties.max === defaults.max
-    && widget.properties.step === defaults.step
-  if (!unconfigured) return { nodes, edges, displayDocuments: s.displayDocuments }
+  // The same gate placement applies, so a control adopts a range on exactly
+  // the same terms whichever of the two moments reaches it first.
+  if (!displayControlIsUnconfigured(widget)) {
+    return { nodes, edges, displayDocuments: s.displayDocuments }
+  }
 
   // Only a brand-new semantic control adopts a target; configured or shared
   // controls keep their source contract and need an explicit mapper/repair.
