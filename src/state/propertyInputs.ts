@@ -40,6 +40,49 @@ const EXPOSABLES = new Map(NODE_LIBRARY.map((definition) => {
   return [definition.type, [...propertyInputs, ...actionInputs]]
 }))
 
+/*
+ * Every input a control could drive, including the ones the node always draws.
+ *
+ * `EXPOSABLES` answers a narrower question — which sockets the inspector may
+ * *draw on demand* — and a port the node draws unconditionally has nothing to
+ * expose, so it is deliberately absent from that list. A touch control does
+ * not care whether a socket is hidden: what it needs is a property behind the
+ * port to set. Reading the narrower list refused a control on every
+ * always-visible property port — Field → Frame's Brightness, Field Noise's
+ * Speed, Master Speed's own Speed, sixty-odd more — on the stated grounds
+ * that they were "not controllable properties", which is the opposite of true
+ * and reads as a broken gesture rather than a rule.
+ *
+ * A port qualifies here on the same evidence `propertyInputs` requires, only
+ * derived rather than declared: the node's `defaultProperties` carries a key
+ * of that name, which is exactly what makes the evaluator's and the
+ * generator's wire-then-property reads (`num(id, 'x', props, 'x', …)` /
+ * `f('x', 'x', …)`) resolve to it. Keep the two lists separate: widening
+ * `EXPOSABLES` instead would hand every one of these ports a property row as
+ * well as the port row it already has, which is the duplicate-socket trap the
+ * registry's three derived readers exist to avoid.
+ */
+const CONTROLLABLES = new Map(NODE_LIBRARY.map((definition) => {
+  const exposable = EXPOSABLES.get(definition.type) ?? []
+  const declared = new Set(exposable.map((port) => port.id))
+  const defaults = definition.defaultProperties ?? {}
+  const implicit = definition.inputs.flatMap((port): ExposableInput[] => (
+    declared.has(port.id) || !(port.id in defaults)
+      ? []
+      : [{ ...port, kind: 'property', propertyKey: port.id }]
+  ))
+  return [definition.type, [...exposable, ...implicit]]
+}))
+
+/**
+ * The inputs a wired touch control may be created on, hidden socket or not.
+ * Use this for "can a control drive it"; use `exposableInputsFor` only for
+ * "may the inspector draw this socket on demand".
+ */
+export function controllableInputsFor(nodeType: string): readonly ExposableInput[] {
+  return CONTROLLABLES.get(nodeType) ?? EMPTY_EXPOSABLE
+}
+
 export function propertyInputsFor(nodeType: string): readonly PropertyInput[] {
   return INPUTS.get(nodeType) ?? EMPTY
 }

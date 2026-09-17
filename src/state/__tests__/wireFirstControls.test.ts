@@ -18,6 +18,7 @@ import {
   type StudioNode,
 } from '../graphStore'
 import { createDisplayDocument } from '../displayEditor'
+import { controllableInputsFor, exposableInputsFor } from '../propertyInputs'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { placedWidgets } from '../displayDocument'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../displayRegistry'
@@ -91,6 +92,62 @@ describe('touchControlPlan', () => {
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.refusal.code).toBe('not-a-property-input')
+  })
+})
+
+/*
+ * The gate is "is there a property behind this port", not "is this port one
+ * the inspector hides until asked". Those are different questions, and asking
+ * the second refused a control on the majority of the ports worth one — every
+ * always-drawn property port in the library — with a message saying they were
+ * not controllable properties.
+ */
+describe('which inputs can take a wired control', () => {
+  it('offers a control on an always-drawn property port, not only a hidden one', () => {
+    // Field -> Frame draws Brightness unconditionally and has never had a
+    // propertyInputs row, so there is nothing to expose and it was refused.
+    expect(exposableInputsFor('FieldToFrame').some((port) => port.id === 'brightness')).toBe(false)
+    expect(controllableInputsFor('FieldToFrame').some((port) => port.id === 'brightness')).toBe(true)
+
+    const plan = touchControlPlan('FieldToFrame', 'brightness', { brightness: 1 })
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.spec).toMatchObject({ type: 'Slider', label: 'Brightness' })
+  })
+
+  it('still refuses a port with no value of its own behind it', () => {
+    // A frame arrives from another node; there is no property to set.
+    const plan = touchControlPlan('FieldToFrame', 'field', {})
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.refusal.code).toBe('not-a-property-input')
+  })
+
+  /*
+   * The two lists must stay different. Widening the exposable one instead
+   * would give every always-drawn port a property row as well as the port row
+   * it already has — the duplicate-socket trap its three derived readers (the
+   * inspector, the accessible input count, the node-card generator) exist to
+   * avoid.
+   */
+  it('keeps the exposable list narrower than the controllable one', () => {
+    let widened = 0
+    for (const definition of NODE_LIBRARY) {
+      const exposable = exposableInputsFor(definition.type)
+      const controllable = controllableInputsFor(definition.type)
+      for (const port of exposable) {
+        expect(controllable.some((entry) => entry.id === port.id)).toBe(true)
+      }
+      widened += controllable.length - exposable.length
+      // Everything the widening adds is a declared input backed by a property
+      // of the same name — the evidence a wire-then-property read needs.
+      for (const port of controllable) {
+        if (exposable.some((entry) => entry.id === port.id)) continue
+        expect(definition.inputs.some((input) => input.id === port.id)).toBe(true)
+        expect(definition.defaultProperties?.[port.propertyKey!]).toBeDefined()
+      }
+    }
+    expect(widened).toBeGreaterThan(0)
   })
 })
 

@@ -70,7 +70,9 @@ import {
 } from '../../state/transportDisplay'
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
-import { exposableInputsFor, exposedNodeInputs, propertyInputsFor } from '../../state/propertyInputs'
+import {
+  controllableInputsFor, exposableInputsFor, exposedNodeInputs, propertyInputsFor,
+} from '../../state/propertyInputs'
 import { parseDisplayWidgetPortId, TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
 import { touchControlDriver, touchControlPlan, writeTouchControlValue } from '../../state/wireFirstControls'
 import PropertyInputMenu from './PropertyInputMenu'
@@ -1785,9 +1787,28 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           const output = outputs[i]
           const inputColor = input ? portColor(input.dataType) : null
           const outputColor = output ? portColor(output.dataType) : null
-          const inputHint = input ? connectionTargetHint(d.nodeType, input, connectionDrag) : null
+          /*
+           * An always-drawn input is still backed by a property, so it is a
+           * drop target for the Touch node's add-control socket exactly as a
+           * hidden property row is — tagged the same way, read off the DOM by
+           * the canvas. Judged with this node's own properties and whether
+           * the port is already driven, or the hint in the air would claim a
+           * control is possible on a port that will refuse it on release.
+           */
+          const controllable = input
+            && controllableInputsFor(d.nodeType).some((port) => port.id === input.id)
+          const inputHint = input
+            ? connectionTargetHint(d.nodeType, input, connectionDrag, controllable
+              ? { properties: d.properties ?? {}, driven: sourceMap.has(input.id) }
+              : undefined)
+            : null
           return (
-            <div key={i} className={`${styles.portRow}${inputHint ? ` ${connectionHintClass(inputHint)}` : ''}`}>
+            <div
+              key={i}
+              className={`${styles.portRow}${inputHint ? ` ${connectionHintClass(inputHint)}` : ''}`}
+              data-property-input={controllable && input ? `${id}|${input.id}` : undefined}
+              data-property-type={controllable && input ? input.dataType : undefined}
+            >
               {input && inputColor && (
                 <>
                   <Handle

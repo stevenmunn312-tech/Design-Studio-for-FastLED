@@ -657,6 +657,30 @@ function NodeGraphCanvasInner() {
         setCanvasMenu({ x: pt.clientX, y: pt.clientY, fx: fp.x, fy: fp.y, connectFrom: origin })
         return
       }
+      /*
+       * The add-control socket landing on a real input handle.
+       *
+       * React Flow has already refused this one: the socket's own `newcontrol`
+       * type deliberately matches nothing, so `isValidConnection` said no and
+       * no edge was made. But a socket dot is what a person aims at, and this
+       * drag does not mean "connect these two ports" — it means "make me a
+       * control for whatever is behind that port", which is judged by the
+       * property, not by type compatibility. Routing it here is what stops an
+       * aimed drop reading as blocked while the same drop a few pixels away,
+       * on the row, works.
+       */
+      if (origin?.handleId === TOUCH_CONTROL_ADD_HANDLE && state?.toHandle?.nodeId) {
+        const plan = connectTouchControl(
+          origin.nodeId, state.toHandle.nodeId, state.toHandle.id ?? '',
+        )
+        setStatus(
+          plan.ok
+            ? `${plan.spec.label} control added — place it in the screen designer`
+            : plan.refusal.message,
+          plan.ok ? 'success' : 'error',
+        )
+        return
+      }
       if (state && !state.isValid) {
         setStatus('Incompatible port types — connection blocked', 'error')
       }

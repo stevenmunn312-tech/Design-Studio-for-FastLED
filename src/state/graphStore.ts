@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react'
 import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
-import { exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
+import { controllableInputsFor, exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
@@ -3634,7 +3634,8 @@ export function connectTouchControl(
 
     // Draw the socket the wire lands on: a property input is a field until
     // something is wired to it, and an edge into a socket nobody can see is
-    // the state `exposedPropertyInputs` exists to prevent.
+    // the state `exposedPropertyInputs` exists to prevent. Exposable, not
+    // controllable — a port the node always draws has nothing to expose.
     let nodes = s.nodes
     const current = normalizeExposedInputs(target.data.nodeType, target.data.exposedInputs)
     if (exposableInputsFor(target.data.nodeType).some((port) => port.id === targetPort)
@@ -3666,7 +3667,7 @@ export function connectTouchControl(
   // Start the widget at the value the property already had, so wiring it does
   // not jump the effect to the slider's min. The runtime is transient; the
   // property remains the disconnect restore.
-  const propertyKey = exposableInputsFor(target.data.nodeType)
+  const propertyKey = controllableInputsFor(target.data.nodeType)
     .find((port) => port.id === targetPort)?.propertyKey
   const current = propertyKey
     ? (target.data.properties as Record<string, unknown>)[propertyKey]

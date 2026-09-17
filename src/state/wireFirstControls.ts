@@ -1,5 +1,5 @@
 import { isPropertyEnabled, nodeDisplayLabel, propertyLabel, propertyMeta } from './nodeLibrary'
-import { exposableInputsFor, wiredPropertyIsInert } from './propertyInputs'
+import { controllableInputsFor, wiredPropertyIsInert } from './propertyInputs'
 import type {
   DisplayDocument,
   DisplayWidget,
@@ -63,14 +63,16 @@ export function touchControlPlan(
   driven = false,
 ): TouchControlPlan {
   // Both kinds, because both are things a finger can drive: a property input
-  // takes a value, an action input takes a press.
-  const input = exposableInputsFor(nodeType).find((port) => port.id === portId)
+  // takes a value, an action input takes a press. Controllable, not merely
+  // exposable — a port the node always draws is still backed by a property,
+  // and refusing those was refusing most of the ports worth a control.
+  const input = controllableInputsFor(nodeType).find((port) => port.id === portId)
   if (!input) {
     return {
       ok: false,
       refusal: {
         code: 'not-a-property-input',
-        message: 'That input is not a controllable property, so there is nothing for a control to set.',
+        message: 'That input takes a signal from another node, not a value of its own, so there is nothing for a control to set.',
       },
     }
   }
@@ -280,7 +282,7 @@ export function controlDestination(
   const target = nodes.find((node) => node.id === edge.target)
   if (!target || !edge.targetHandle) return null
   const nodeType = target.data.nodeType
-  const input = exposableInputsFor(nodeType).find((port) => port.id === edge.targetHandle)
+  const input = controllableInputsFor(nodeType).find((port) => port.id === edge.targetHandle)
   const node = nodeDisplayLabel(nodeType, target.data.properties, target.data.label)
   if (!input) return { node, property: null }
   return {
@@ -433,7 +435,7 @@ export function placeTouchControlIn(
   const edge = displayControlEdges(displayId, nodes, edges).get(widgetId)
   const target = edge ? nodes.find((node) => node.id === edge.target) : undefined
   if (!edge || !target) return placed
-  const input = exposableInputsFor(target.data.nodeType).find((port) => port.id === edge.targetHandle)
+  const input = controllableInputsFor(target.data.nodeType).find((port) => port.id === edge.targetHandle)
   if (!input?.propertyKey) return placed
   const adopted = adoptedControlRange(target.data.nodeType, input.propertyKey, input.label)
   if (!adopted) return placed
