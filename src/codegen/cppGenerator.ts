@@ -3498,7 +3498,7 @@ export function generateCpp(
       case 'Rainbow': {
         needsT.v = true
         const ob = ownBuf()
-        const deltaHue = Math.max(0, Math.min(255, Math.round(Number(p.deltaHue ?? 6))))
+        const deltaHue = `(uint8_t)constrain(${f('deltaHue', 'deltaHue', 6)},0.0f,255.0f)`
         const rate = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Rainbow)
         ln(`  fill_rainbow(${ob}, NUM_LEDS, (uint8_t)(t * ${rate}), ${deltaHue});`)
         break
@@ -3573,11 +3573,11 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.45), SPEED_MAX.Scanner)
-        const width = Math.max(1, Number(p.width ?? 2))
+        const width = `fmaxf(1.0f,${f('width', 'width', 2)})`
         const fade = `constrain((${f('fade', 'fade', 0.6)}),0.0f,1.0f)`
         const horizontal = String(p.axis ?? 'horizontal') !== 'vertical'
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        ln(`  { float _spd=${speed},_w=${width.toFixed(3)}f,_fd=${fade};`)
+        ln(`  { float _spd=${speed},_w=${width},_fd=${fade};`)
         ln(`    float _span=${horizontal ? 'WIDTH' : 'HEIGHT'};`)
         ln(`    float _ph=fmodf(t*_spd,2.0f); if(_ph<0)_ph+=2.0f;`)
         ln(`    float _travel=_ph<=1.0f?_ph:2.0f-_ph;`)
@@ -3660,7 +3660,14 @@ export function generateCpp(
         const sparking = f('sparking', 'sparking', 120)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const direction = String(p.direction ?? 'up')
-        const spread = Math.max(0, Math.round(Number(p.turbulence ?? 1)))
+        // The diffusion window is a loop bound and a divisor, not an array
+        // size, so both become runtime reads of one local.
+        const spread = `_fireSpread_${id}`
+        const spreadDecl = `    int ${spread}=(int)constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f);`
+        // The palette blend picks between two emitted blocks, so the mix arm is
+        // emitted whenever the knob can move — wired, or already below 1.
+        const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
+        const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
         const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
         const mirrorP = Boolean(p.mirror)
         const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
@@ -3671,6 +3678,7 @@ export function generateCpp(
           ? `((_fireLcg_${id}=_fireLcg_${id}*1664525u+1013904223u)/4294967296.0f)`
           : `(random8()/255.0f)`
         ln(`  { // Fire pattern`)
+        ln(spreadDecl)
         ln(`    static uint8_t ${HB}[${P}][${S}];`)
         if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
         ln(`    float _cool=max(0.0f,min(255.0f,${cooling}))*(55.0f/255.0f);`)
@@ -3682,14 +3690,17 @@ export function generateCpp(
         // 3-wide/4-sample kernel exactly). Mirrors evalFire in graphEvaluator.ts.
         ln(`    for (int _p = (${P})-1; _p >= 1; _p--) for (int _s = 0; _s < ${S}; _s++) {`)
         ln(`      int _sum=0; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-1][max(0,min((${S})-1,_s+_ds))];`)
-        ln(`      ${HB}[_p][_s] = (${HB}[_p][_s] + _sum) / ${spread * 2 + 2}; }`)
+        ln(`      ${HB}[_p][_s] = (${HB}[_p][_s] + _sum) / (${spread}*2+2); }`)
         ln(`    for (int _s = 0; _s < ${S}; _s++)`)
         ln(`      if (${rnd01} < _spark) ${HB}[0][_s] = (uint8_t)(200 + ${rnd01}*55);`)
         ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
         const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
         ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-        if (paletteMixP >= 1) {
+        if (paletteMixP >= 1 && !paletteMixWired) {
           ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
+        } else if (paletteMixWired) {
+          ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
         } else {
           const keep = floatLit(1 - paletteMixP)
           const mix = floatLit(paletteMixP)
@@ -6927,7 +6938,14 @@ export function generateCpp(
         const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const direction = String(p.direction ?? 'up')
-        const spread = Math.max(0, Math.round(Number(p.turbulence ?? 1)))
+        // The diffusion window is a loop bound and a divisor, not an array
+        // size, so both become runtime reads of one local.
+        const spread = `_fireSpread_${id}`
+        const spreadDecl = `    int ${spread}=(int)constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f);`
+        // The palette blend picks between two emitted blocks, so the mix arm is
+        // emitted whenever the knob can move — wired, or already below 1.
+        const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
+        const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
         const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
         const mirrorP = Boolean(p.mirror)
         const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
@@ -6938,6 +6956,7 @@ export function generateCpp(
           ? `((_fireLcg_${id}=_fireLcg_${id}*1664525u+1013904223u)/4294967296.0f)`
           : `(random8()/255.0f)`
         ln(`  { // Fire2012`)
+        ln(spreadDecl)
         ln(`    static uint8_t ${HB}[${P}][${S}] = {};`)
         if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
         ln(`    for(int _p=0;_p<${P};_p++) for(int _s=0;_s<${S};_s++)`)
@@ -6947,13 +6966,16 @@ export function generateCpp(
         // reproduces the original fixed 4-sample kernel). Mirrors evalFire2012.
         ln(`    for(int _p=(${P})-1;_p>=2;_p--) for(int _s=0;_s<${S};_s++) {`)
         ln(`      int _sum=${HB}[_p-1][_s]; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-2][max(0,min((${S})-1,_s+_ds))];`)
-        ln(`      ${HB}[_p][_s]=_sum/${spread * 2 + 2}; }`)
+        ln(`      ${HB}[_p][_s]=_sum/(${spread}*2+2); }`)
         ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
         ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
         const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
         ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-        if (paletteMixP >= 1) {
+        if (paletteMixP >= 1 && !paletteMixWired) {
           ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
+        } else if (paletteMixWired) {
+          ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
+          ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
         } else {
           const keep = floatLit(1 - paletteMixP)
           const mix = floatLit(paletteMixP)

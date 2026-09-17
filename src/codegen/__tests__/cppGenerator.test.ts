@@ -1022,10 +1022,31 @@ describe('generateCpp', () => {
     })
 
     it('turbulence widens the sideways diffusion window', () => {
+      // The window is a loop bound and a divisor, never an array size, so the
+      // knob reads from a per-frame local and the value is in its initialiser.
       const narrow = generateCpp([node('f', type, 'pattern', { turbulence: 0 })], [])
       const wide = generateCpp([node('f', type, 'pattern', { turbulence: 2 })], [])
-      expect(narrow).toContain('_ds=-0; _ds<=0')
-      expect(wide).toContain('_ds=-2; _ds<=2')
+      expect(narrow).toContain('int _fireSpread_f=(int)constrain(0,0.0f,2.0f)')
+      expect(wide).toContain('int _fireSpread_f=(int)constrain(2,0.0f,2.0f)')
+      for (const cpp of [narrow, wide]) {
+        expect(cpp).toContain('_ds=-_fireSpread_f; _ds<=_fireSpread_f')
+        expect(cpp).toContain('(_fireSpread_f*2+2)')
+      }
+    })
+
+    it('blends at runtime only once palette mix can move', () => {
+      // Wiring the knob means the generator can no longer pick between the two
+      // blocks, so the mix arm is emitted with a live factor. Left unwired at
+      // its default it still emits the plain assignment and costs nothing.
+      const plain = generateCpp([node('f', type, 'pattern', {})], [])
+      expect(plain).not.toContain('_pmix')
+      const lfo = node('lfo', 'LFO', 'input', {})
+      const wired = generateCpp(
+        [lfo, node('f', type, 'pattern', {})],
+        [edge('e', 'lfo', 'f', 'value', 'paletteMix')],
+      )
+      expect(wired).toContain('float _pmix=constrain(n_lfo_value,0.0f,1.0f)')
+      expect(wired).toContain('_h*_pkeep+_c.r*_pmix')
     })
 
     it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {

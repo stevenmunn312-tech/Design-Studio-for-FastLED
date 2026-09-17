@@ -6162,7 +6162,7 @@ function createEvalNode(
 
       case 'Rainbow': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)
-        const deltaHue = Number(props.deltaHue ?? 6)
+        const deltaHue = Math.max(0, Math.min(255, num(id, 'deltaHue', props, 'deltaHue', 6)))
         out = { frame: evalRainbow(t * speed, deltaHue, W, H) }
         break
       }
@@ -6192,7 +6192,7 @@ function createEvalNode(
 
       case 'Scanner': {
         const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Scanner)
-        const width = Math.max(1, Number(props.width ?? 2))
+        const width = Math.max(1, num(id, 'width', props, 'width', 2))
         const fade = num(id, 'fade', props, 'fade', 0.6)
         const axis = String(props.axis ?? 'horizontal')
         const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
@@ -6224,8 +6224,8 @@ function createEvalNode(
         const sparking = num(id, 'sparking', props, 'sparking', 120)
         const palette = pal(id, 'paletteIn', props, 'palette', 'fire')
         const direction = (String(props.direction ?? 'up')) as FireDirection
-        const turbulence = Math.max(0, Number(props.turbulence ?? 1))
-        const paletteMix = Number(props.paletteMix ?? 1)
+        const turbulence = Math.max(0, Math.min(2, num(id, 'turbulence', props, 'turbulence', 1)))
+        const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
         const mirror = Boolean(props.mirror)
         const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
         out = { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
@@ -8653,8 +8653,8 @@ function createEvalNode(
         const sparking = num(id, 'sparking', props, 'sparking', 120)
         const palette = pal(id, 'paletteIn', props, 'palette', 'heat')
         const direction = (String(props.direction ?? 'up')) as FireDirection
-        const turbulence = Math.max(0, Number(props.turbulence ?? 1))
-        const paletteMix = Number(props.paletteMix ?? 1)
+        const turbulence = Math.max(0, Math.min(2, num(id, 'turbulence', props, 'turbulence', 1)))
+        const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
         const mirror = Boolean(props.mirror)
         const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
         out = { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
