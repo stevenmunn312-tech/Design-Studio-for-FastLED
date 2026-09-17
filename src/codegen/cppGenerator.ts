@@ -4872,21 +4872,45 @@ export function generateCpp(
         break
       }
 
-      // Curated stateful point/trajectory generators — exact same math as
-      // evalFormulaPoints in graphEvaluator.ts (no algorithm drift), one
-      // dedicated block per formulaType baked at generation time (the variant
-      // isn't wired, so there's nothing to branch on at runtime). See
-      // docs/development/design/formula-pattern-nodes.md.
+      /*
+       * Curated stateful point/trajectory generators — exact same math as
+       * evalFormulaPoints in graphEvaluator.ts (no algorithm drift), one
+       * dedicated block per formulaType. The *variant* is still baked at
+       * generation time, because `formulaType` is a select with nothing to
+       * branch on at runtime; every numeric knob is not, since each one is a
+       * property input a control or an LFO can be driving live.
+       *
+       * So each knob is hoisted to a per-frame local fed by `floatExpr`: an
+       * unwired one folds to its literal in the initialiser and costs
+       * nothing, and the clamps that used to happen here in TypeScript are
+       * emitted as `constrain`/`fmaxf` so they still hold on a wired value.
+       * Leaving the bakes in place while declaring the ports would be the
+       * exact parity break the registry forbids — preview follows the wire,
+       * firmware ignores it. See docs/development/design/formula-pattern-nodes.md.
+       */
       case 'FormulaPoints': {
         const ob = ownBuf()
         const formulaType = String(p.formulaType ?? 'phyllotaxis')
         const pal = paletteExpr(node.id, 'paletteIn', p)
-        const dotSize = Math.max(0.1, Number(p.dotSize ?? 1))
-        const R = Math.max(0.5, particleRadius(width, height) * dotSize)
-        const Rf = floatLit(R)
-        const speed01 = Math.max(0, Math.min(1, Number(p.speed ?? 0.3)))
-        const count = Math.max(1, Math.min(300, Math.round(Number(p.count ?? 60))))
         const A = `_fp_${id}`
+        // The matrix is fixed at generation time, so only the dot *scale* is
+        // live: the base radius stays a literal and is scaled by the knob.
+        const baseR = floatLit(particleRadius(width, height))
+        const Rf = `${A}R`
+        const count = `${A}N`
+        const speedVar = `${A}S`
+        const persistVar = `${A}P`
+        // Only what this variant reads: an unused local is a warning per
+        // sketch, and every knob here belongs to some variants and not others.
+        const usesCount = formulaType === 'phyllotaxis' || formulaType === 'logisticMap'
+          || formulaType === 'attractor' || !['lissajousPath', 'rosePath'].includes(formulaType)
+        const usesSpeed = ['phyllotaxis', 'lissajousPath', 'rosePath'].includes(formulaType)
+          || !['logisticMap', 'attractor'].includes(formulaType)
+        const usesPersist = ['attractor', 'lissajousPath', 'rosePath'].includes(formulaType)
+        ln(`  float ${Rf}=fmaxf(0.5f, ${baseR}*fmaxf(0.1f, ${f('dotSize', 'dotSize', 1)}));`)
+        if (usesCount) ln(`  int ${count}=(int)constrain(${f('count', 'count', 60)}, 1.0f, 300.0f);`)
+        if (usesSpeed) ln(`  float ${speedVar}=constrain(${f('speed', 'speed', 0.3)}, 0.0f, 1.0f);`)
+        if (usesPersist) ln(`  float ${persistVar}=constrain(${f('persistence', 'persistence', 0.85)}, 0.0f, 1.0f);`)
         if (formulaType === 'phyllotaxis' || formulaType === 'lissajousPath' || formulaType === 'rosePath') needsT.v = true
 
         // Splats one soft disc of `colorExpr` at (xExpr, yExpr) into `buf` —
@@ -4905,10 +4929,9 @@ export function generateCpp(
 
         switch (formulaType) {
           case 'logisticMap': {
-            const chaos = floatLit(Math.max(0, Math.min(4, Number(p.chaos ?? 3.8))))
             ln(`  { // Formula Points: logisticMap`)
             ln(`    static float ${A}x=0.5f;`)
-            ln(`    float _r=${chaos};`)
+            ln(`    float _r=constrain(${f('chaos', 'chaos', 3.8)}, 0.0f, 4.0f);`)
             ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
             ln(`    for(int _i=0;_i<${count};_i++){`)
             ln(`      ${A}x=_r*${A}x*(1.0f-${A}x);`)
@@ -4930,10 +4953,9 @@ export function generateCpp(
             // would end this `//` comment and inject the rest as code.
             const presetName = String(p.preset ?? 'classic') in presets ? String(p.preset ?? 'classic') : 'classic'
             const [pa, pb, pc, pd] = presets[presetName]
-            const persist = Math.max(0, Math.min(1, Number(p.persistence ?? 0.85)))
             ln(`  { // Formula Points: attractor (de Jong, ${presetName})`)
             ln(`    static float ${A}ax=0.1f, ${A}ay=0.1f;`)
-            ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(${floatLit(1 - persist)}*255.0f));`)
+            ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
             ln(`    for(int _i=0;_i<${count};_i++){`)
             ln(`      float _nx=sinf(${floatLit(pa)}*${A}ay)-cosf(${floatLit(pb)}*${A}ax);`)
             ln(`      float _ny=sinf(${floatLit(pc)}*${A}ax)-cosf(${floatLit(pd)}*${A}ay);`)
@@ -4945,13 +4967,12 @@ export function generateCpp(
           }
 
           case 'lissajousPath': {
-            const persist = Math.max(0, Math.min(1, Number(p.persistence ?? 0.85)))
-            const freqA = floatLit(Math.max(1, Number(p.freqA ?? 3)))
-            const freqB = floatLit(Math.max(1, Number(p.freqB ?? 2)))
-            const speedMax = floatLit(speed01 * 2) // FORMULA_POINTS_SPEED_MAX.lissajousPath
+            const freqA = `fmaxf(1.0f, ${f('freqA', 'freqA', 3)})`
+            const freqB = `fmaxf(1.0f, ${f('freqB', 'freqB', 2)})`
             ln(`  { // Formula Points: lissajousPath`)
-            ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(${floatLit(1 - persist)}*255.0f));`)
-            ln(`    float _phase=t*${speedMax};`)
+            ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+            // FORMULA_POINTS_SPEED_MAX.lissajousPath
+            ln(`    float _phase=t*(${speedVar}*2.0f);`)
             ln(`    float _cx=sinf(${freqA}*_phase), _cy=sinf(${freqB}*_phase);`)
             ln(`    float _hue=fmodf(_phase/6.2831853f,1.0f); if(_hue<0.0f)_hue+=1.0f;`)
             splat(`(_cx+1.0f)/2.0f*(WIDTH-1)`, `(_cy+1.0f)/2.0f*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(_hue*255.0f))`, ob)
@@ -4960,13 +4981,11 @@ export function generateCpp(
           }
 
           case 'rosePath': {
-            const persist = Math.max(0, Math.min(1, Number(p.persistence ?? 0.85)))
-            const k = floatLit(Math.max(1, Number(p.petals ?? 5)))
-            const speedMax = floatLit(speed01 * 2) // FORMULA_POINTS_SPEED_MAX.rosePath
             ln(`  { // Formula Points: rosePath`)
-            ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)(${floatLit(1 - persist)}*255.0f));`)
-            ln(`    float _phase=t*${speedMax};`)
-            ln(`    float _rr=cosf(${k}*_phase);`)
+            ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
+            // FORMULA_POINTS_SPEED_MAX.rosePath
+            ln(`    float _phase=t*(${speedVar}*2.0f);`)
+            ln(`    float _rr=cosf(fmaxf(1.0f, ${f('petals', 'petals', 5)})*_phase);`)
             ln(`    float _cx=_rr*cosf(_phase), _cy=_rr*sinf(_phase);`)
             ln(`    float _hue=fmodf(_phase/6.2831853f,1.0f); if(_hue<0.0f)_hue+=1.0f;`)
             splat(`(_cx+1.0f)/2.0f*(WIDTH-1)`, `(_cy+1.0f)/2.0f*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(_hue*255.0f))`, ob)
@@ -4982,9 +5001,9 @@ export function generateCpp(
             // rounding would drift the outer spiral arms visibly out of sync
             // with the preview's full-precision angle.
             const goldenAngle = floatLit(2 * Math.PI * (1 - 1 / 1.618033988749895), 8)
-            const speedMax = floatLit(speed01 * 1) // FORMULA_POINTS_SPEED_MAX.phyllotaxis
             ln(`  { // Formula Points: phyllotaxis`)
-            ln(`    float _spin=t*${speedMax};`)
+            // FORMULA_POINTS_SPEED_MAX.phyllotaxis
+            ln(`    float _spin=t*(${speedVar}*1.0f);`)
             ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
             ln(`    for(int _i=0;_i<${count};_i++){`)
             ln(`      float _ang=_i*${goldenAngle}+_spin, _rr=sqrtf((float)_i/${count});`)

@@ -6836,20 +6836,21 @@ function createEvalNode(
 
       // Curated stateful point/trajectory generators (phyllotaxis/Lissajous/
       // rose paths/logistic map/de Jong attractor) — see
-      // docs/development/design/formula-pattern-nodes.md. No wired inputs
-      // besides the optional palette; every control is a property.
+      // docs/development/design/formula-pattern-nodes.md. Every numeric knob
+      // reads wire-then-property; the two selects are baked by the generator
+      // and so stay properties.
       case 'FormulaPoints': {
         const fp: FormulaPointsParams = {
           formulaType: String(props.formulaType ?? 'phyllotaxis'),
-          speed: Number(props.speed ?? 0.3),
-          dotSize: Number(props.dotSize ?? 1),
+          speed: num(id, 'speed', props, 'speed', 0.3),
+          dotSize: num(id, 'dotSize', props, 'dotSize', 1),
           palette: pal(id, 'paletteIn', props, 'palette', 'rainbow'),
-          count: Number(props.count ?? 60),
-          persistence: Number(props.persistence ?? 0.85),
-          freqA: Number(props.freqA ?? 3),
-          freqB: Number(props.freqB ?? 2),
-          petals: Number(props.petals ?? 5),
-          chaos: Number(props.chaos ?? 3.8),
+          count: num(id, 'count', props, 'count', 60),
+          persistence: num(id, 'persistence', props, 'persistence', 0.85),
+          freqA: num(id, 'freqA', props, 'freqA', 3),
+          freqB: num(id, 'freqB', props, 'freqB', 2),
+          petals: num(id, 'petals', props, 'petals', 5),
+          chaos: num(id, 'chaos', props, 'chaos', 3.8),
           preset: String(props.preset ?? 'classic'),
         }
         out = { frame: evalFormulaPoints(stateKey(id), fp, t, W, H) }

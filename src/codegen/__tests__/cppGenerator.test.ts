@@ -2494,10 +2494,13 @@ describe('Formula Points codegen', () => {
     expect(cpp).toContain('_i*2.39996323f') // golden angle, 8-digit precision (see codegen comment)
   })
 
-  it('logisticMap is not time-driven (no needsT) and bakes chaos', () => {
+  it('logisticMap is not time-driven (no needsT) and reads chaos through its port', () => {
     const cpp = gen('logisticMap', { chaos: 3.9 })
     expect(cpp).not.toContain('float t = millis()')
-    expect(cpp).toContain('float _r=3.9f;')
+    // Unwired, the knob folds to its own literal and costs nothing; the
+    // clamp that used to be applied here in TypeScript is emitted instead,
+    // so it still holds when something is driving the port.
+    expect(cpp).toContain('float _r=constrain(3.9, 0.0f, 4.0f);')
     expect(cpp).toContain('static float _fp_fpx=0.5f;')
   })
 
@@ -2516,19 +2519,20 @@ describe('Formula Points codegen', () => {
 
   it('attractor and the trail variants fade the persistent buffer by (1 - persistence)', () => {
     const cpp = gen('attractor', { persistence: 0.9 })
-    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, (uint8_t)(0.1f*255.0f));')
+    expect(cpp).toContain('float _fp_fpP=constrain(0.9, 0.0f, 1.0f);')
+    expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, (uint8_t)((1.0f-_fp_fpP)*255.0f));')
   })
 
-  it('lissajousPath bakes frequency ratios and cycles hue with phase', () => {
+  it('lissajousPath reads both frequencies through their ports and cycles hue with phase', () => {
     const cpp = gen('lissajousPath', { freqA: 5, freqB: 4 })
     expect(cpp).toContain('// Formula Points: lissajousPath')
-    expect(cpp).toContain('sinf(5.0f*_phase), _cy=sinf(4.0f*_phase)')
+    expect(cpp).toContain('sinf(fmaxf(1.0f, 5)*_phase), _cy=sinf(fmaxf(1.0f, 4)*_phase)')
     expect(cpp).toContain('_hue=fmodf(_phase/6.2831853f,1.0f)')
   })
 
-  it('rosePath bakes the petal count', () => {
+  it('rosePath reads the petal count through its port', () => {
     const cpp = gen('rosePath', { petals: 7 })
-    expect(cpp).toContain('float _rr=cosf(7.0f*_phase);')
+    expect(cpp).toContain('float _rr=cosf(fmaxf(1.0f, 7)*_phase);')
   })
 
   it('unknown formulaType falls back to the phyllotaxis block', () => {
@@ -2538,16 +2542,41 @@ describe('Formula Points codegen', () => {
 
   it('dotSize scales the rendered point radius (visible on a larger matrix)', () => {
     const out32 = node('out', 'MatrixOutput', 'output', { width: 32, height: 32 })
-    const small = generateCpp(
-      [node('fp', 'FormulaPoints', 'pattern', { formulaType: 'phyllotaxis', dotSize: 1 }), out32],
+    const radius = (dotSize: number) => generateCpp(
+      [node('fp', 'FormulaPoints', 'pattern', { formulaType: 'phyllotaxis', dotSize }), out32],
       [edge('e', 'fp', 'out', 'frame', 'frame')],
     )
-    const big = generateCpp(
-      [node('fp', 'FormulaPoints', 'pattern', { formulaType: 'phyllotaxis', dotSize: 2 }), out32],
-      [edge('e', 'fp', 'out', 'frame', 'frame')],
+    // The matrix is fixed at generation time so the base radius is still a
+    // literal; only the knob scaling it is live, and the splat reads the one
+    // local rather than a number baked into each coordinate.
+    expect(radius(1)).toContain('float _fp_fpR=fmaxf(0.5f, 1.0f*fmaxf(0.1f, 1));')
+    expect(radius(2)).toContain('float _fp_fpR=fmaxf(0.5f, 1.0f*fmaxf(0.1f, 2));')
+    expect(radius(1)).toContain('_sx-_fp_fpR-1.0f')
+  })
+
+  /*
+   * The point of the ports: a wired knob has to reach the firmware too.
+   * Declaring the inputs while the generator went on baking the properties
+   * would be the exact parity break propertyInputs forbids — the preview
+   * would follow the wire and the device would not.
+   */
+  it('follows a wire into any of its knobs, not just the saved property', () => {
+    const out8 = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
+    const wired = (port: string) => generateCpp(
+      [
+        node('fp', 'FormulaPoints', 'pattern', { formulaType: 'lissajousPath' }),
+        node('w', 'Wave', 'signal', {}),
+        out8,
+      ],
+      [
+        edge('e', 'fp', 'out', 'frame', 'frame'),
+        edge('k', 'w', 'fp', 'value', port),
+      ],
     )
-    expect(small).toContain('_sx-1.0f-1.0f')
-    expect(big).toContain('_sx-2.0f-1.0f')
+    expect(wired('speed')).toContain('float _fp_fpS=constrain(n_w_value, 0.0f, 1.0f);')
+    expect(wired('persistence')).toContain('float _fp_fpP=constrain(n_w_value, 0.0f, 1.0f);')
+    expect(wired('freqA')).toContain('sinf(fmaxf(1.0f, n_w_value)*_phase)')
+    expect(wired('dotSize')).toContain('fmaxf(0.1f, n_w_value)')
   })
 })
 

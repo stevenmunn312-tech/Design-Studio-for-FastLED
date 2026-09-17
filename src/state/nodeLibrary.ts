@@ -1245,10 +1245,42 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'Formula Points',
     category: 'pattern',
     subcategory: 'Simulations',
+    /*
+     * Every numeric knob is a property input, so a touch control or an LFO can
+     * drive the shape live — the same treatment FormulaField has, and for the
+     * same reason: these are all values that mean something at runtime.
+     *
+     * The two selects stay properties. `formulaType` picks which block the
+     * generator emits and `preset` picks the de Jong constants it bakes, both
+     * at generation time, so neither has anything to branch on at runtime.
+     *
+     * Only the knobs `isPropertyEnabled` allows for the chosen variant do
+     * anything; a wire into another variant's knob is inert by construction
+     * (the generator emits one block, the evaluator reads one variant's
+     * params) rather than by a rule anyone has to maintain.
+     */
     inputs: [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'dotSize', label: 'Dot Size', dataType: 'float' },
+      { id: 'count', label: 'Count', dataType: 'float' },
+      { id: 'persistence', label: 'Persistence', dataType: 'float' },
+      { id: 'freqA', label: 'Freq A', dataType: 'float' },
+      { id: 'freqB', label: 'Freq B', dataType: 'float' },
+      { id: 'petals', label: 'Petals', dataType: 'float' },
+      { id: 'chaos', label: 'Chaos', dataType: 'float' },
     ],
-    propertyInputs: { palette: 'paletteIn' },
+    propertyInputs: {
+      palette: 'paletteIn',
+      speed: 'speed',
+      dotSize: 'dotSize',
+      count: 'count',
+      persistence: 'persistence',
+      freqA: 'freqA',
+      freqB: 'freqB',
+      petals: 'petals',
+      chaos: 'chaos',
+    },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       formulaType: 'phyllotaxis',

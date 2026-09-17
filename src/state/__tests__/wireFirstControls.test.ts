@@ -115,6 +115,35 @@ describe('which inputs can take a wired control', () => {
     expect(plan.spec).toMatchObject({ type: 'Slider', label: 'Brightness' })
   })
 
+  it('offers a control on every Formula Points knob, with the range it declares', () => {
+    // The node the gate fix could not help: it declared no ports for these at
+    // all, so there was nowhere for a wire to land until the evaluator and
+    // the generator were taught to read them.
+    for (const [port, label] of [
+      ['speed', 'Speed'], ['dotSize', 'Dot Size'], ['count', 'Count'],
+      ['persistence', 'Persistence'], ['freqA', 'Freq A'], ['freqB', 'Freq B'],
+      ['petals', 'Petals'], ['chaos', 'Chaos'],
+    ] as const) {
+      const properties = { formulaType: 'phyllotaxis', preset: 'classic' }
+      const plan = touchControlPlan('FormulaPoints', port, properties)
+      // Variant-gated knobs are refused with a reason rather than silently
+      // minting a control that could do nothing — the stance the plan already
+      // takes, and the reason those knobs are inert by construction.
+      if (!plan.ok) {
+        expect(plan.refusal.code).toBe('disabled')
+        continue
+      }
+      expect(plan.spec.type).toBe('Slider')
+      expect(plan.spec.label).toBe(label)
+    }
+
+    // The two selects stay properties: the generator bakes one variant's
+    // block and one preset's constants, so neither has anything to drive.
+    for (const port of ['formulaType', 'preset']) {
+      expect(touchControlPlan('FormulaPoints', port, {}).ok).toBe(false)
+    }
+  })
+
   it('still refuses a port with no value of its own behind it', () => {
     // A frame arrives from another node; there is no property to set.
     const plan = touchControlPlan('FieldToFrame', 'field', {})
