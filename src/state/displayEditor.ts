@@ -16,10 +16,13 @@ import {
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
   displayControlHitBounds,
+  displayWidgetCaptionLayout,
+  displayWidgetOnScreenCaption,
   displayWidgetValidationIssues,
   isDisplayTouchTarget,
   type DisplayClass,
 } from './displayRegistry'
+import { displayWidgetTextTokens } from './displayTheme'
 import { canonicalDisplayTemplateBounds } from './displayTemplates'
 
 /**
@@ -534,6 +537,30 @@ export function displayLayoutIssues(
     if (x < 0 || y < 0 || width < 1 || height < 1
       || x + width > document.designSize.width || y + height > document.designSize.height) {
       issues.push({ widgetId: widget.id, code: 'bounds', message: `${widget.label} extends beyond the screen.` })
+    }
+    /*
+     * A caption is drawn *inside* the widget's own box, so it is charged to
+     * the widget rather than to the screen, and a box with no room for both
+     * silently drops the caption in either renderer. Say so instead: the
+     * author ticked one box and the thing they asked for did not appear.
+     *
+     * The shrunken control underneath is deliberately *not* reported. It is
+     * true that a captioned Slider's object is shorter than the registry's
+     * finger target, but the emitter has never extended a control's click
+     * area to that target in the first place — the DOM preview's grown hit
+     * region has no `lv_obj_set_ext_click_area` behind it — so reporting the
+     * shrink while never reporting its absence would fire on the ordinary
+     * case and explain nothing. Restore the target in the emitter first.
+     */
+    const caption = displayWidgetCaptionLayout(
+      widget, displayWidgetTextTokens(widget, document.theme).fontSize, height,
+    )
+    if (!caption && displayWidgetOnScreenCaption(widget)) {
+      issues.push({
+        widgetId: widget.id,
+        code: 'bounds',
+        message: `${widget.label} is too short to show its label as well.`,
+      })
     }
     for (const other of onScreen.slice(index + 1)) {
       if (boundsIntersect(widget.bounds, other.bounds)) {

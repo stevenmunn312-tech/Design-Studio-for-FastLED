@@ -21,6 +21,7 @@ import {
   displayWidgetTakesValue,
   displayWidgetGlyphId,
   displayWidgetPorts,
+  displayWidgetShowsLabel,
 } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
@@ -1005,6 +1006,17 @@ export default function DisplayEditor() {
           {selected ? (
             <>
               <label>Label<input value={selected.label} maxLength={80} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({ ...widget, label: event.target.value })))} /></label>
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={displayWidgetShowsLabel(selected)}
+                  onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({
+                    ...widget,
+                    properties: { ...widget.properties, showLabel: event.target.checked },
+                  })))}
+                />
+                Show Label
+              </label>
               {isPlacedWidget(selected) && (
                 <div className={styles.bounds}>
                   {(['x', 'y', 'width', 'height'] as const).map((key) => (

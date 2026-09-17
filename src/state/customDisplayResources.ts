@@ -1,5 +1,6 @@
 import { displayAsset, type DisplayAssetEntry } from './displayAssets'
 import { placedWidgets, type DisplayDocument, type DisplayWidget, type PlacedDisplayWidget } from './displayDocument'
+import { displayWidgetCaptionLayout, displayWidgetContentBounds } from './displayRegistry'
 import { displayWidgetTextTokens } from './displayTheme'
 
 /** Font sizes supplied by LVGL 9.5's pinned Montserrat bitmap set. */
@@ -67,27 +68,37 @@ export function customDisplayFontSize(size: number): number {
 export function customDisplayFontSizes(document: DisplayDocument): number[] {
   const sizes = new Set<number>()
   for (const widget of placedWidgets(document)) {
+    const fontSize = displayWidgetTextTokens(widget, document.theme).fontSize
     const hasText = widget.type === 'Text'
       || widget.type === 'Numeric Readout'
       || widget.type === 'Timecode'
       || widget.type === 'Pattern Browser'
       || widget.type === 'Button'
       || widget.type === 'Toggle'
-    if (hasText) sizes.add(customDisplayFontSize(displayWidgetTextTokens(widget, document.theme).fontSize))
+    if (hasText) sizes.add(customDisplayFontSize(fontSize))
+    // A caption is set smaller than the widget it names, so it pins a face of
+    // its own rather than riding the widget's — a screen of nothing but
+    // captioned sliders paints text the list above would not have pinned.
+    const caption = displayWidgetCaptionLayout(widget, fontSize, widget.bounds.height)
+    if (caption) sizes.add(customDisplayFontSize(caption.fontSize))
   }
   // Helpers and empty screens still use the pinned default font safely.
   return sizes.size > 0 ? [...sizes].sort((a, b) => a - b) : [14]
 }
 
 function assetDimensions(widget: PlacedDisplayWidget, asset: DisplayAssetEntry, document: DisplayDocument): { width: number; height: number } {
-  if (widget.type === 'Image/Icon') return widget.bounds
+  // The art is baked for the widget's own box, which a caption has already
+  // taken its strip out of — bake it for the authored bounds and an
+  // icon-only control's glyph arrives taller than the control drawing it.
+  const textHeight = displayWidgetTextTokens(widget, document.theme).fontSize
+  const box = displayWidgetContentBounds(widget, textHeight)
+  if (widget.type === 'Image/Icon') return { width: box.width, height: box.height }
   // Control icons match the DOM preview's 1.6em high glyph, or fill an
   // icon-only control. Preserve the source aspect ratio without a device-side
   // scaler.
   const presentation = stringProperty(widget, 'presentation', 'text')
-  const textHeight = displayWidgetTextTokens(widget, document.theme).fontSize
-  const height = Math.max(1, Math.min(widget.bounds.height, presentation === 'icon' ? widget.bounds.height : Math.round(textHeight * 1.6)))
-  return { width: Math.max(1, Math.min(widget.bounds.width, Math.round(height * asset.width / Math.max(1, asset.height)))), height }
+  const height = Math.max(1, Math.min(box.height, presentation === 'icon' ? box.height : Math.round(textHeight * 1.6)))
+  return { width: Math.max(1, Math.min(box.width, Math.round(height * asset.width / Math.max(1, asset.height)))), height }
 }
 
 function requestKey(assetId: string, width: number, height: number, fit: 'fill' | 'contain', format: CustomDisplayAssetFormat, tintColor?: string): string {

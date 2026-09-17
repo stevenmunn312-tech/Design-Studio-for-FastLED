@@ -424,6 +424,13 @@ export function normalizeDisplayWidgetProperties(
       if (id) result[key] = id
       continue
     }
+    if (key === 'showLabel') {
+      // Widget-level, like Label itself: every type can caption itself, so it
+      // is not restated in each inspector list. Missing means no caption, so
+      // an imported document draws what it was drawn as.
+      if (typeof raw === 'boolean') result[key] = raw
+      continue
+    }
     const definition = definitions.get(key)
     if (!definition) continue
     const control = definition.control
@@ -638,6 +645,103 @@ export function displayDocumentTouchOutputPorts(
 
 export function defaultDisplayWidgetProperties(type: DisplayWidgetType): Record<string, DisplayWidgetProperty> {
   return { ...DISPLAY_WIDGET_LIBRARY[type].defaultProperties }
+}
+
+/**
+ * Whether this widget draws its name on the glass as a caption of its own.
+ *
+ * Opt in, so a saved design and a shipped template render exactly as they
+ * were authored and a freshly placed widget does not paint its own type name
+ * on the screen. Missing therefore means no.
+ */
+export function displayWidgetShowsLabel(widget: Pick<DisplayWidget, 'properties'>): boolean {
+  return widget.properties.showLabel === true
+}
+
+/**
+ * The label is drawn once: as the widget's own content by default, or as a
+ * caption above it when the author asks for one. These two are the halves of
+ * that single rule, and nothing else may decide where a label goes — two
+ * copies of the same word is what a reader takes for a fault.
+ */
+export function displayWidgetOnScreenCaption(
+  widget: Pick<DisplayWidget, 'label' | 'properties'>,
+): string {
+  return displayWidgetShowsLabel(widget) ? widget.label.trim() : ''
+}
+
+/**
+ * Label used as on-glass content when the widget has no other string. Empty
+ * once the label has moved to a caption, so a wired Text reads as the value
+ * it is being told rather than repeating its own caption while it waits.
+ */
+export function displayWidgetBodyFallback(
+  widget: Pick<DisplayWidget, 'label' | 'properties'>,
+): string {
+  return displayWidgetShowsLabel(widget) ? '' : widget.label
+}
+
+/** Caption type scale, relative to the widget's own resolved text size. */
+export const DISPLAY_CAPTION_SCALE = 0.72
+export const DISPLAY_CAPTION_LINE_HEIGHT = 1.15
+/** Blank rows between the caption and the widget's own box. */
+export const DISPLAY_CAPTION_GAP = 2
+/** A widget still has to be worth drawing under its caption. */
+export const DISPLAY_CAPTION_MIN_BODY = 8
+
+export interface DisplayCaptionLayout {
+  text: string
+  fontSize: number
+  /** The caption row itself. */
+  height: number
+  gap: number
+  /** Rows the caption takes off the top of the authored bounds. */
+  offset: number
+}
+
+/**
+ * Where the caption sits and what the widget has left, in pixels.
+ *
+ * The caption comes *out of* the widget's own box rather than floating over
+ * it: a name painted across a slider's track is unreadable, and the box is
+ * the only space the author gave us. Both renderers must therefore agree on
+ * the exact strip, so the numbers are resolved here once — the DOM preview
+ * lays the caption out in these pixels instead of ems, and the LVGL emitter
+ * offsets the widget object by the same {@link DisplayCaptionLayout.offset}.
+ * Returns null when there is no caption, or when the box cannot carry both.
+ */
+export function displayWidgetCaptionLayout(
+  widget: Pick<DisplayWidget, 'label' | 'properties'>,
+  fontSize: number,
+  boxHeight?: number,
+): DisplayCaptionLayout | null {
+  const text = displayWidgetOnScreenCaption(widget)
+  if (!text) return null
+  const captionSize = Math.max(8, Math.round((Number.isFinite(fontSize) ? fontSize : 14) * DISPLAY_CAPTION_SCALE))
+  const height = Math.ceil(captionSize * DISPLAY_CAPTION_LINE_HEIGHT)
+  const offset = height + DISPLAY_CAPTION_GAP
+  if (boxHeight !== undefined && boxHeight - offset < DISPLAY_CAPTION_MIN_BODY) return null
+  return { text, fontSize: captionSize, height, gap: DISPLAY_CAPTION_GAP, offset }
+}
+
+/**
+ * The widget's own drawing area: its bounds less any caption strip. Every
+ * reader that means "how big is the thing itself" — the emitter's object, a
+ * baked icon's height, a finger's target — asks this rather than the authored
+ * bounds, or the caption is charged to nobody.
+ */
+export function displayWidgetContentBounds(
+  widget: Pick<PlacedDisplayWidget, 'label' | 'properties' | 'bounds'>,
+  fontSize: number,
+): DisplayBounds {
+  const caption = displayWidgetCaptionLayout(widget, fontSize, widget.bounds.height)
+  if (!caption) return { ...widget.bounds }
+  return {
+    x: widget.bounds.x,
+    y: widget.bounds.y + caption.offset,
+    width: widget.bounds.width,
+    height: widget.bounds.height - caption.offset,
+  }
 }
 
 export function defaultDisplayWidgetBounds(type: DisplayWidgetType, x = 0, y = 0): DisplayBounds {

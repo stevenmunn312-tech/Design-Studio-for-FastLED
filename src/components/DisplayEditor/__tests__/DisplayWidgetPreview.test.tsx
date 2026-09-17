@@ -58,6 +58,25 @@ describe('display widget preview artwork', () => {
     expect(retired.container.textContent).toContain('Play')
   })
 
+  it('draws a caption from the widget label only once Show Label is on', () => {
+    const slider: DisplayWidget = {
+      id: 'slider',
+      type: 'Slider',
+      label: 'Volume',
+      bounds: { x: 0, y: 0, width: 120, height: 48 },
+      properties: { ...DISPLAY_WIDGET_LIBRARY.Slider.defaultProperties, showLabel: true },
+    }
+    const on = draw(slider)
+    expect(on.container.textContent).toContain('Volume')
+    // Sized in the pixels the emitter offsets its object by, not in ems.
+    const caption = on.container.querySelector<HTMLElement>('span[style*="font-size"]')
+    expect(caption?.style.height).toBe('14px')
+    expect(caption?.style.fontSize).toBe('12px')
+
+    expect(draw({ ...slider, properties: { ...slider.properties, showLabel: false } }).container.textContent)
+      .not.toContain('Volume')
+  })
+
   it('leaves a text presentation alone even when art is chosen', () => {
     const view = draw(control('Button', { text: 'Play', assetId: PLAY, presentation: 'text' }))
     expect(view.container.querySelector('img')).toBeNull()

@@ -14,7 +14,13 @@ import {
   type DisplayWidgetProperty,
   type PlacedDisplayWidget,
 } from '../state/displayDocument'
-import { displayWidgetDefinition, type DisplayWidgetPortRoleId } from '../state/displayRegistry'
+import {
+  displayWidgetBodyFallback,
+  displayWidgetCaptionLayout,
+  displayWidgetContentBounds,
+  displayWidgetDefinition,
+  type DisplayWidgetPortRoleId,
+} from '../state/displayRegistry'
 import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../state/displayTheme'
 import { DISPLAY_TEXT_BUFFER_BYTES, cppStringLiteral, displayString, normalizeNumberFormat } from '../state/displayText'
 import {
@@ -209,18 +215,22 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   const obj = object(emit, index)
   const rt = runtime(emit, index)
   const b = widget.bounds
+  const text = displayWidgetTextTokens(widget, emit.document.theme)
+  // A captioned widget is drawn in what the caption leaves it, exactly as the
+  // preview lays it out. Both sides read the one layout in displayRegistry.
+  const caption = displayWidgetCaptionLayout(widget, text.fontSize, b.height)
+  const box = displayWidgetContentBounds(widget, text.fontSize)
   const lines = [
     `  ${rt}.lastInteger = INT32_MIN;`,
     `  ${rt}.lastColor = UINT32_MAX;`,
     `  ${obj} = ${widgetCreateExpression(widget, `_cdScreen_${safeId(emit.id)}`)};`,
-    `  lv_obj_set_pos(${obj}, ${b.x}, ${b.y});`,
-    `  lv_obj_set_size(${obj}, ${b.width}, ${b.height});`,
+    `  lv_obj_set_pos(${obj}, ${box.x}, ${box.y});`,
+    `  lv_obj_set_size(${obj}, ${box.width}, ${box.height});`,
     `  lv_obj_set_style_radius(${obj}, ${theme.cornerRadius}, LV_PART_MAIN);`,
     `  lv_obj_set_style_border_width(${obj}, ${theme.borderWidth}, LV_PART_MAIN);`,
     ...styleLines(obj, base),
   ]
 
-  const text = displayWidgetTextTokens(widget, emit.document.theme)
   if (lvglWidgetClass(widget) === 'lv_label') {
     lines.push(
       `  lv_obj_set_style_text_font(${obj}, &lv_font_montserrat_${customDisplayFontSize(text.fontSize)}, LV_PART_MAIN);`,
@@ -282,7 +292,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   }
 
   if (widget.type === 'Text') {
-    const fallbackText = stringProperty(widget, 'text') || widget.label
+    const fallbackText = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
     lines.push(`  _cdSetText(${rt}, ${cppStringLiteral(displayString(fallbackText))});`)
   } else if (widget.type === 'Numeric Readout') {
     const format = normalizeNumberFormat(widget.properties)
@@ -309,10 +319,25 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
       lines.push(`  lv_obj_center(_cdLabel_${safeId(emit.id)}_${index});`)
     }
   } else if (widget.type === 'Button') {
-    lines.push(...controlContentsLines(emit, widget, index, obj, text.fontSize, stringProperty(widget, 'text', widget.label || 'Button')))
+    lines.push(...controlContentsLines(emit, widget, index, obj, text.fontSize, stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)))
   } else if (widget.type === 'Toggle') {
     const label = stringProperty(widget, 'offLabel', 'Off')
     lines.push(...controlContentsLines(emit, widget, index, obj, text.fontSize, label))
+  }
+
+  if (caption) {
+    const cap = `_cdCaption_${safeId(emit.id)}_${index}`
+    const screen = `_cdScreen_${safeId(emit.id)}`
+    lines.push(
+      `  lv_obj_t *${cap} = lv_label_create(${screen});`,
+      `  lv_obj_set_pos(${cap}, ${b.x}, ${b.y});`,
+      `  lv_obj_set_size(${cap}, ${b.width}, ${caption.height});`,
+      `  lv_obj_set_style_text_font(${cap}, &lv_font_montserrat_${customDisplayFontSize(caption.fontSize)}, LV_PART_MAIN);`,
+      `  lv_obj_set_style_text_color(${cap}, lv_color_hex(${colorHex(base.textColor)}), LV_PART_MAIN);`,
+      `  lv_obj_set_style_text_align(${cap}, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);`,
+      `  lv_label_set_long_mode(${cap}, LV_LABEL_LONG_MODE_DOTS);`,
+      `  lv_label_set_text(${cap}, ${cppStringLiteral(displayString(caption.text))});`,
+    )
   }
 
   return lines
@@ -339,7 +364,7 @@ function controlContentsLines(
       ? `  lv_obj_center(${image});`
       : `  lv_obj_align(${image}, LV_ALIGN_LEFT_MID, 4, 0);`)
   }
-  if (presentation !== 'icon' || assetIndex === null) {
+  if (label && (presentation !== 'icon' || assetIndex === null)) {
     const text = `_cdLabel_${safeId(emit.id)}_${index}`
     lines.push(`  lv_obj_t *${text} = lv_label_create(${obj});`)
     lines.push(`  lv_obj_set_style_text_font(${text}, &lv_font_montserrat_${customDisplayFontSize(fontSize)}, LV_PART_MAIN);`)

@@ -7,6 +7,11 @@ import {
   displayControlHitBounds,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
+  displayWidgetBodyFallback,
+  displayWidgetCaptionLayout,
+  displayWidgetContentBounds,
+  displayWidgetOnScreenCaption,
+  displayWidgetShowsLabel,
   displayDocumentInputPorts,
   displayDocumentPorts,
   displayDocumentTouchOutputPorts,
@@ -157,6 +162,61 @@ describe('display widget registry', () => {
     expect(normalizeDisplayWidgetProperties('Slider', {
       min: Number.NaN, max: 2_000_000, step: -4, orientation: 'round',
     }, 160, 24)).toEqual({ max: 1_000_000, step: 0.0001 })
+
+    expect(normalizeDisplayWidgetProperties('Slider', { showLabel: false }, 160, 24)).toEqual({ showLabel: false })
+    expect(normalizeDisplayWidgetProperties('Slider', { showLabel: true }, 160, 24)).toEqual({ showLabel: true })
+    expect(normalizeDisplayWidgetProperties('Slider', { showLabel: 'yes' }, 160, 24)).toEqual({})
+  })
+
+  /*
+   * The label is drawn once. Off, it is the widget's own content — which is
+   * what every design saved before captions existed, and every template, was
+   * drawn as, so the default has to be off. On, it moves out to a caption and
+   * the body falls back to nothing, so a wired Text reads as the value it is
+   * being told instead of repeating its own caption underneath it.
+   */
+  it('moves a widget label between its content and its caption, and never draws both', () => {
+    expect(defaultDisplayWidgetProperties('Slider').showLabel).toBeUndefined()
+    expect(displayWidgetShowsLabel({ properties: {} })).toBe(false)
+    expect(displayWidgetShowsLabel({ properties: { showLabel: false } })).toBe(false)
+    expect(displayWidgetShowsLabel({ properties: { showLabel: true } })).toBe(true)
+
+    const off = widget({ label: 'Volume' })
+    expect(displayWidgetOnScreenCaption(off)).toBe('')
+    expect(displayWidgetBodyFallback(off)).toBe('Volume')
+
+    const on = widget({ label: 'Volume', properties: { showLabel: true } })
+    expect(displayWidgetOnScreenCaption(on)).toBe('Volume')
+    expect(displayWidgetBodyFallback(on)).toBe('')
+
+    // A blank name is not a caption, whatever the box says.
+    expect(displayWidgetOnScreenCaption(widget({ label: '  ', properties: { showLabel: true } }))).toBe('')
+  })
+
+  /*
+   * The caption is charged to the widget's own box rather than floating over
+   * it, because a name painted across a slider's track cannot be read. The
+   * LVGL emitter offsets its object by exactly this, so these numbers are the
+   * contract between the two renderers.
+   */
+  it('takes the caption strip out of the widget, and refuses a box too short to hold both', () => {
+    const on = widget({ label: 'Volume', properties: { showLabel: true } })
+    const layout = displayWidgetCaptionLayout(on, 16, on.bounds.height)!
+    expect(layout).toMatchObject({ text: 'Volume', fontSize: 12, height: 14, gap: 2, offset: 16 })
+    expect(displayWidgetContentBounds(on, 16)).toEqual({ x: 8, y: 24, width: 120, height: 32 })
+
+    // Uncaptioned, the widget keeps every pixel it was given.
+    expect(displayWidgetContentBounds(widget({ label: 'Volume' }), 16)).toEqual(on.bounds)
+
+    // Too short for a caption and a widget both: no caption on either side,
+    // rather than one renderer squeezing and the other overlapping.
+    const squeezed = widget({ label: 'Volume', properties: { showLabel: true }, bounds: { x: 0, y: 0, width: 120, height: 20 } })
+    expect(displayWidgetCaptionLayout(squeezed, 16, squeezed.bounds.height)).toBeNull()
+    expect(displayWidgetContentBounds(squeezed, 16)).toEqual(squeezed.bounds)
+
+    // Asked without a box — the font pass, which needs the size whether or
+    // not this particular widget ends up drawing it.
+    expect(displayWidgetCaptionLayout(on, 16)).not.toBeNull()
   })
 
   it('sizes every touch target for a finger and grows its hit region past the track it paints', () => {

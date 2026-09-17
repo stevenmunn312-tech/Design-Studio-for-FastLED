@@ -1,6 +1,11 @@
 import type { CSSProperties, ReactElement } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
-import type { DisplayPreviewRenderer, DisplayWidgetState } from '../../state/displayRegistry'
+import {
+  displayWidgetBodyFallback,
+  displayWidgetCaptionLayout,
+  type DisplayPreviewRenderer,
+  type DisplayWidgetState,
+} from '../../state/displayRegistry'
 import { displayAsset, displayAssetUrl } from '../../state/displayAssets'
 import { displayWidgetTextTokens } from '../../state/displayTheme'
 import { rgbToHex } from '../../state/customPalette'
@@ -94,13 +99,16 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     '--widget-text-line-height': `${typography.lineHeight}px`,
     '--widget-text-lines': typography.maxLines,
   } as CSSProperties
-  const text = typeof value === 'string' ? value : stringProperty(widget, 'text', widget.label)
+  const text = typeof value === 'string' && value.length > 0
+    ? value
+    : stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
   const active = state === 'active'
   const pressed = state === 'pressed'
 
+  const body = (() => {
   switch (renderer) {
     case 'text':
-      return <span className={`${styles.text} ${typography.wrap ? styles.wrappedText : ''}`} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }}>{text || widget.label}</span>
+      return <span className={`${styles.text} ${typography.wrap ? styles.wrappedText : ''}`} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }}>{text}</span>
     case 'numeric': {
       const decimals = Math.max(0, Math.min(4, Math.round(numberProperty(widget, 'decimals', 1))))
       return <span className={styles.numeric} style={textStyle}>{stringProperty(widget, 'prefix')}{numericValue(value, 42).toFixed(decimals)}{stringProperty(widget, 'suffix')}</span>
@@ -158,9 +166,10 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     }
     case 'button': {
       const { icon, showText } = controlIcon(widget)
+      const face = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
       return (
         <span className={`${styles.button} ${pressed ? styles.pressed : ''} ${icon && !showText ? styles.iconOnly : ''}`}>
-          {icon}{showText ? stringProperty(widget, 'text', widget.label) : null}
+          {icon}{showText ? face : null}
         </span>
       )
     }
@@ -178,4 +187,28 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     case 'dial':
       return <span className={styles.dial} style={{ '--dial-angle': `${-135 + amount * 270}deg` } as CSSProperties}><span /></span>
   }
+  })()
+
+  // Laid out in the pixels displayRegistry resolved, not in ems: the caption
+  // takes the same strip out of the widget here as it does on the glass.
+  const caption = displayWidgetCaptionLayout(widget, typography.fontSize, widget.bounds?.height)
+  if (!caption) return body
+  return (
+    <span
+      className={styles.labeled}
+      style={{ '--widget-caption-gap': `${caption.gap}px` } as CSSProperties}
+    >
+      <span
+        className={styles.caption}
+        style={{
+          height: caption.height,
+          fontSize: caption.fontSize,
+          lineHeight: `${caption.height}px`,
+        }}
+      >
+        {caption.text}
+      </span>
+      {body}
+    </span>
+  )
 }

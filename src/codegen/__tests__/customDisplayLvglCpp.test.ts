@@ -17,7 +17,9 @@ import {
   DISPLAY_WIDGET_LIBRARY,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
+  displayWidgetCaptionLayout,
 } from '../../state/displayRegistry'
+import { displayWidgetTextTokens } from '../../state/displayTheme'
 import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displayDocument'
 import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../../state/customDisplayResources'
 import { customDisplayAssetsCpp } from '../customDisplayAssetsCpp'
@@ -81,6 +83,42 @@ describe('custom Display LVGL object emitter', () => {
     expect(gradient).toContain('lv_color_hex(0x112233)')
     expect(gradient).toContain('lv_color_hex(0x445566)')
     expect(gradient).toContain('LV_GRAD_DIR_VER')
+  })
+
+  /*
+   * The caption is the one thing on a screen drawn by two renderers at once,
+   * so it is the one most able to disagree with itself. It takes its strip
+   * out of the widget's own box rather than floating over it — the slider
+   * below is pushed down by the offset and loses the same height — and both
+   * numbers come from displayWidgetCaptionLayout, which the DOM preview lays
+   * itself out with. A caption painted at the widget's own origin still
+   * compiles, still passes a text-level check, and puts the word across the
+   * slider's track on the glass.
+   */
+  it('takes the caption strip out of the widget it names', () => {
+    const item = widget('Slider', 0)
+    item.label = 'Volume'
+    item.bounds = { x: 10, y: 20, width: 120, height: 48 }
+    item.properties.showLabel = true
+    const on = emitted({ id: 'panel', document: document([item]) })
+
+    const layout = displayWidgetCaptionLayout(item, displayWidgetTextTokens(item, document([]).theme).fontSize, 48)!
+    expect(on).toContain(`lv_obj_set_pos(_cdCaption_panel_0, 10, 20);`)
+    expect(on).toContain(`lv_obj_set_size(_cdCaption_panel_0, 120, ${layout.height});`)
+    expect(on).toContain('lv_label_set_text(_cdCaption_panel_0, "Volume");')
+    // The widget itself starts below the caption and is shorter by it.
+    expect(on).toContain(`lv_obj_set_pos(_cd_panel[0].object, 10, ${20 + layout.offset});`)
+    expect(on).toContain(`lv_obj_set_size(_cd_panel[0].object, 120, ${48 - layout.offset});`)
+    // Set smaller than the widget it names, and pinned as its own face.
+    expect(layout.fontSize).toBeLessThan(displayWidgetTextTokens(item, document([]).theme).fontSize)
+
+    item.properties.showLabel = false
+    const off = emitted({ id: 'panel', document: document([item]) })
+    expect(off).not.toContain('_cdCaption_panel_0')
+    expect(off).not.toContain('"Volume"')
+    // Uncaptioned, it keeps every pixel it was authored with.
+    expect(off).toContain('lv_obj_set_pos(_cd_panel[0].object, 10, 20);')
+    expect(off).toContain('lv_obj_set_size(_cd_panel[0].object, 120, 48);')
   })
 
   it('uses the Text label when no separate fallback text is entered', () => {

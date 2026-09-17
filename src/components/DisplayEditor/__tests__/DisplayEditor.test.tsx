@@ -49,6 +49,26 @@ describe('DisplayEditor', () => {
     expect(view.getByText('output · bool')).toBeTruthy()
   })
 
+  /*
+   * Opt in, not opt out: a caption is drawn *inside* the widget's box, so on
+   * by default would re-lay-out every design saved before it existed and put
+   * the word "Slider" on the glass the moment one is placed.
+   */
+  it('offers Show Label on every widget, off until the author asks', () => {
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+    fireEvent.change(view.getByLabelText('Label'), { target: { value: 'Volume' } })
+
+    const checkbox = view.getByRole('checkbox', { name: 'Show Label' })
+    expect((checkbox as HTMLInputElement).checked).toBe(false)
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0].properties.showLabel).toBeUndefined()
+    expect(view.queryByText('Volume')).toBeNull()
+
+    fireEvent.click(checkbox)
+    expect(useGraphStore.getState().displayDocuments.panel.widgets[0].properties.showLabel).toBe(true)
+    expect(view.getByText('Volume')).toBeTruthy()
+  })
+
   it('keeps typed port details in the inspector without covering the design canvas', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
