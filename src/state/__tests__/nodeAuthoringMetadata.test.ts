@@ -4,6 +4,7 @@ import {
   NODE_LIBRARY,
   PALETTE_BUILDER_NODE_TYPES,
   portsCompatible,
+  propertyMeta,
   spliceTargetPorts,
 } from '../nodeLibrary'
 
@@ -89,6 +90,63 @@ describe('splice targets', () => {
             && portsCompatible(source, port.dataType))
           expect(ports.inPort, `${def.type} <- ${source}`).toBe(override?.id ?? first.id)
         }
+      }
+    }
+  })
+})
+
+/*
+ * A colour channel's range is derived from the shape of the node's own
+ * defaults, because the names collide: `b` is blue on one node and an operand
+ * on another. Without a range, a wire dropped on the row mints a 0-1 slider
+ * for a 0-255 byte — the value is off by a factor of 255 and nothing says so.
+ */
+describe('colour channels', () => {
+  const CHANNELS = ['r', 'g', 'b', 'rA', 'gA', 'bA', 'rB', 'gB', 'bB']
+
+  it('gives every complete triple a 0-255 byte range', () => {
+    const triples = [['r', 'g', 'b'], ['rA', 'gA', 'bA'], ['rB', 'gB', 'bB']]
+    let seen = 0
+    for (const def of NODE_LIBRARY) {
+      const defaults = def.defaultProperties ?? {}
+      for (const triple of triples) {
+        if (!triple.every((key) => key in defaults)) continue
+        seen += 1
+        for (const key of triple) {
+          expect(propertyMeta(def.type, key), `${def.type}.${key}`)
+            .toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+          // The declared default has to be sayable on the control that shows it.
+          const value = Number(defaults[key])
+          expect(value, `${def.type}.${key}`).toBeGreaterThanOrEqual(0)
+          expect(value, `${def.type}.${key}`).toBeLessThanOrEqual(255)
+        }
+      }
+    }
+    // Guards against the rule passing by matching nothing.
+    expect(seen).toBeGreaterThan(10)
+  })
+
+  it('leaves a lone operand that happens to be named b alone', () => {
+    // Formula Field and Custom Formula carry `a` and `b` as superformula
+    // operands. An incomplete triple is not a colour, and giving one a byte
+    // range would silently restate its domain.
+    for (const def of NODE_LIBRARY) {
+      const defaults = def.defaultProperties ?? {}
+      const complete = ['r', 'g', 'b'].every((key) => key in defaults)
+      if (complete || !('b' in defaults)) continue
+      expect(propertyMeta(def.type, 'b'), `${def.type}.b`)
+        .not.toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    }
+    expect(propertyMeta('FormulaField', 'b')).toEqual({ control: 'slider', min: 0.2, max: 3, step: 0.05 })
+  })
+
+  it('never lets a channel range reach a node that declares none', () => {
+    for (const def of NODE_LIBRARY) {
+      const defaults = def.defaultProperties ?? {}
+      for (const key of CHANNELS) {
+        if (key in defaults) continue
+        expect(propertyMeta(def.type, key), `${def.type}.${key}`)
+          .not.toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
       }
     }
   })

@@ -4157,6 +4157,36 @@ const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchYMax: { control: 'slider', min: 0, max: 4095, step: 1 },
 }
 
+/*
+ * Colour channels are 0-255 bytes, but the property names that carry them
+ * collide: `b` is a blue channel on Solid Color and a superformula operand on
+ * Formula Field, so a global `b` slider would put a 0-255 range on a knob whose
+ * domain is nothing of the sort. They are therefore derived per node type from
+ * the one fact that distinguishes them — a colour triple is *complete*. A node
+ * declaring all of r/g/b (or all of rA/gA/bA, or rB/gB/bB) means the channels;
+ * a node declaring `a` and `b` alone means two operands.
+ *
+ * Deriving it rather than listing the fourteen node types is what keeps a
+ * colour node added later from silently falling back to the 0-1 guess that
+ * `adoptedControlRange` uses when nothing declares a range — which is what a
+ * dropped wire would otherwise mint its slider from.
+ */
+const COLOR_CHANNEL_TRIPLES = [['r', 'g', 'b'], ['rA', 'gA', 'bA'], ['rB', 'gB', 'bB']] as const
+const COLOR_CHANNEL_CONTROL: PropertyControl = { control: 'slider', min: 0, max: 255, step: 1 }
+
+const DERIVED_COLOR_CHANNEL_META: Record<string, Record<string, PropertyControl>> = (() => {
+  const out: Record<string, Record<string, PropertyControl>> = {}
+  for (const definition of NODE_LIBRARY) {
+    const defaults = definition.defaultProperties ?? {}
+    for (const triple of COLOR_CHANNEL_TRIPLES) {
+      if (!triple.every((key) => key in defaults)) continue
+      out[definition.type] ??= {}
+      for (const key of triple) out[definition.type][key] = COLOR_CHANNEL_CONTROL
+    }
+  }
+  return out
+})()
+
 // Per-node overrides for property names that collide across nodes with a
 // different meaning or range. Most `speed`/`scale` sliders are 0–1 (normalised
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
@@ -4745,7 +4775,11 @@ export function isInternalProperty(key: string): boolean {
 }
 
 export function propertyMeta(nodeType: string, key: string): PropertyControl | undefined {
-  return PROPERTY_META_OVERRIDES[nodeType]?.[key] ?? PROPERTY_META[key]
+  // A hand-written override still wins: the derived colour-channel range is a
+  // default for the shape, not a claim about a node that states its own.
+  return PROPERTY_META_OVERRIDES[nodeType]?.[key]
+    ?? DERIVED_COLOR_CHANNEL_META[nodeType]?.[key]
+    ?? PROPERTY_META[key]
 }
 
 /**
