@@ -5813,9 +5813,9 @@ function createEvalNode(
       case 'SolidColor': {
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 255) / 255),
-          g: byte(Number(props.g ?? 0)   / 255),
-          b: byte(Number(props.b ?? 128) / 255),
+          r: byte(num(id, 'r', props, 'r', 255)  / 255),
+          g: byte(num(id, 'g', props, 'g', 0)    / 255),
+          b: byte(num(id, 'b', props, 'b', 128)  / 255),
         }
         out = { frame: solidFrame(color, W, H) }
         break
@@ -5832,9 +5832,9 @@ function createEvalNode(
         const scrollAxis: 'horizontal' | 'vertical' = props.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 0)   / 255),
-          g: byte(Number(props.g ?? 255) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
+          r: byte(num(id, 'r', props, 'r', 0)    / 255),
+          g: byte(num(id, 'g', props, 'g', 255)  / 255),
+          b: byte(num(id, 'b', props, 'b', 255)  / 255),
         }
         const x = num(id, 'x', props, 'x', 0.5)
         const y = num(id, 'y', props, 'y', 0.5)
@@ -5849,9 +5849,9 @@ function createEvalNode(
         const mode = String(props.displayMode ?? 'Digital HH:MM')
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 255) / 255),
-          g: byte(Number(props.g ?? 220) / 255),
-          b: byte(Number(props.b ?? 90) / 255),
+          r: byte(num(id, 'r', props, 'r', 255)  / 255),
+          g: byte(num(id, 'g', props, 'g', 220)  / 255),
+          b: byte(num(id, 'b', props, 'b', 90)  / 255),
         }
         // DateTime is the normal one-wire clock feed. It carries health as
         // well as fields, so a stale/unsynced source cannot quietly present a
@@ -6013,9 +6013,9 @@ function createEvalNode(
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 0)   / 255),
-          g: byte(Number(props.g ?? 200) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
+          r: byte(num(id, 'r', props, 'r', 0)    / 255),
+          g: byte(num(id, 'g', props, 'g', 200)  / 255),
+          b: byte(num(id, 'b', props, 'b', 255)  / 255),
         }
         const x0 = num(id, 'x1', props, 'x1', 0), y0 = num(id, 'y1', props, 'y1', 0)
         const x1 = num(id, 'x2', props, 'x2', 0), y1 = num(id, 'y2', props, 'y2', 0)
@@ -6063,9 +6063,9 @@ function createEvalNode(
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 255) / 255),
-          g: byte(Number(props.g ?? 220) / 255),
-          b: byte(Number(props.b ?? 80)  / 255),
+          r: byte(num(id, 'r', props, 'r', 255)  / 255),
+          g: byte(num(id, 'g', props, 'g', 220)  / 255),
+          b: byte(num(id, 'b', props, 'b', 80)   / 255),
         }
         const tt = clamp01(num(id, 't', props, 't', 0))
         const scale = Math.max(0, num(id, 'scale', props, 'scale', 0.8))
@@ -6089,9 +6089,9 @@ function createEvalNode(
         const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 0)   / 255),
-          g: byte(Number(props.g ?? 200) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
+          r: byte(num(id, 'r', props, 'r', 0)    / 255),
+          g: byte(num(id, 'g', props, 'g', 200)  / 255),
+          b: byte(num(id, 'b', props, 'b', 255)  / 255),
         }
         const mesh = resolveWireframeMesh(props.model, props.mesh)
         const projection = props.projection === 'perspective' ? 'perspective' : 'orthographic'
@@ -6703,7 +6703,11 @@ function createEvalNode(
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const colorIn = input(id, 'color', null) as RGB | null
-        const color = colorIn ?? { r: Number(props.r ?? 80), g: Number(props.g ?? 160), b: Number(props.b ?? 255) }
+        const color = colorIn ?? {
+          r: byte(num(id, 'r', props, 'r', 80) / 255),
+          g: byte(num(id, 'g', props, 'g', 160) / 255),
+          b: byte(num(id, 'b', props, 'b', 255) / 255),
+        }
         out = { frame: evalGravityWell(bass, energy, speed, color, t, W, H) }
         break
       }
@@ -6881,7 +6885,11 @@ function createEvalNode(
         // the reflection. Kept in lockstep with cppGenerator.
         const glowAmt = Math.max(0, Math.min(1, num(id, 'glowAmount', props, 'glowAmount', 0.35)))
         const tint = (input(id, 'color', null) as RGB | null)
-          ?? { r: Number(props.r ?? 255), g: Number(props.g ?? 255), b: Number(props.b ?? 255) }
+          ?? {
+            r: byte(num(id, 'r', props, 'r', 255) / 255),
+            g: byte(num(id, 'g', props, 'g', 255) / 255),
+            b: byte(num(id, 'b', props, 'b', 255) / 255),
+          }
         const gCh = (base: number, add: number, tintCh: number) => Math.min(255, base + add * (tintCh / 255) * glowAmt)
         out = { frame: buildFrame(W, H, (x, y) => {
           // base = the mirrored source pixel (min-side of the reflection)
@@ -7327,9 +7335,9 @@ function createEvalNode(
         const colorMode = String(props.colorMode ?? 'solid')
         const colorIn = input(id, 'color', null) as RGB | null
         const color = colorIn ?? {
-          r: byte(Number(props.r ?? 120) / 255),
-          g: byte(Number(props.g ?? 200) / 255),
-          b: byte(Number(props.b ?? 255) / 255),
+          r: byte(num(id, 'r', props, 'r', 120)  / 255),
+          g: byte(num(id, 'g', props, 'g', 200)  / 255),
+          b: byte(num(id, 'b', props, 'b', 255)  / 255),
         }
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, palette, colorMode, t, W, H, normalizedSeed(props.seed)) }

@@ -475,7 +475,7 @@ describe('nodeLibrary', () => {
 
   it('Path exposes base/color/t inputs with selectable curve presets', () => {
     const path = NODE_LIBRARY.find((n) => n.type === 'Path')
-    expect(path?.inputs.map((p) => p.id)).toEqual(['base', 'color', 't', 'scale', 'thickness'])
+    expect(path?.inputs.map((p) => p.id)).toEqual(['base', 'color', 't', 'scale', 'thickness', 'r', 'g', 'b'])
     expect(path?.defaultProperties).toMatchObject({ pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25 })
     expect(propertyMeta('Path', 'pathShape')).toMatchObject({ control: 'select' })
     expect((propertyMeta('Path', 'pathShape') as { options?: string[] }).options).toEqual(['circle', 'heart', 'lissajous', 'rose'])
@@ -575,6 +575,7 @@ describe('nodeLibrary', () => {
     expect(clock?.subcategory).toBe('Shapes & Text')
     expect(clock?.inputs.map((port) => port.id)).toEqual([
       'dateTime', 'base', 'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
+      'r', 'g', 'b',
     ])
     expect(clock?.outputs.map((port) => port.id)).toEqual(['frame', 'seconds', 'done'])
     expect(clock?.defaultProperties).toMatchObject({

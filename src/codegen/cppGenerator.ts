@@ -2046,6 +2046,30 @@ export function generateCpp(
     const v = (port: string) => `n_${id}_${port}`
     const f = (port: string, pk: string, def: number) => floatExpr(node.id, port, p, pk, def)
 
+    /*
+     * A colour whose channels can each carry a wire. The whole-colour input
+     * still wins wherever it is connected, exactly as it won over the channel
+     * fields before they had sockets, so a wire into a channel underneath it
+     * is the same no-op that field already was.
+     *
+     * An unwired channel folds to its own literal, so a node nobody has wired
+     * emits the identical CRGB it always did. A wired one is clamped and
+     * rounded here because the evaluator resolves the same channel through
+     * `byte()`, which clamps to 0-255 and rounds; a plain cast truncates, and
+     * the firmware would sit a count under the preview all the way up the
+     * slider. Rounding is `+ 0.5f` into an integer cast rather than `roundf`,
+     * matching how every other channel in this file is quantised.
+     */
+    const channelColor = (port: string, dr: number, dg: number, db: number): string => {
+      if (incoming.get(`${node.id}:${port}`)) return colorExpr(node.id, port)
+      const channel = (key: 'r' | 'g' | 'b', def: number) => (
+        incoming.get(`${node.id}:${key}`)
+          ? `(uint8_t)(constrain(${f(key, key, def)}, 0.0f, 255.0f) + 0.5f)`
+          : String(Number(p[key] ?? def))
+      )
+      return `CRGB(${channel('r', dr)}, ${channel('g', dg)}, ${channel('b', db)})`
+    }
+
     // This node's own frame buffer (registers it for global declaration).
     const fbuf = `buf_${id}`
     const ownBuf = () => { frameBufs.add(id); return fbuf }
@@ -2878,8 +2902,7 @@ export function generateCpp(
 
       case 'SolidColor': {
         const ob = ownBuf()
-        const r = Number(p.r ?? 255), g = Number(p.g ?? 0), b = Number(p.b ?? 128)
-        const color = incoming.has(`${node.id}:color`) ? colorExpr(node.id, 'color') : `CRGB(${r}, ${g}, ${b})`
+        const color = channelColor('color', 255, 0, 128)
         ln(`  fill_solid(${ob}, NUM_LEDS, ${color});`)
         break
       }
@@ -2928,9 +2951,7 @@ export function generateCpp(
 
       case 'Line': {
         const ob = ownBuf()
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        const colorE = channelColor('color', 0, 200, 255)
         const x1 = f('x1', 'x1', 0), y1 = f('y1', 'y1', 0)
         const x2 = f('x2', 'x2', 0), y2 = f('y2', 'y2', 0)
         ln(`  { ${seedFrom('base')}`)
@@ -3020,9 +3041,7 @@ export function generateCpp(
 
       case 'Path': {
         const ob = ownBuf()
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 80)})`
+        const colorE = channelColor('color', 255, 220, 80)
         const shape = String(p.pathShape ?? 'circle')
         const scale = Number(p.scale ?? 0.8)
         const thickness = Number(p.thickness ?? 1.25)
@@ -3072,9 +3091,7 @@ export function generateCpp(
         const strength = Math.max(0, Math.min(1, Number(p.perspectiveStrength ?? 0.4)))
         const camDist = WIREFRAME_CAM_FAR - strength * (WIREFRAME_CAM_FAR - WIREFRAME_CAM_NEAR)
         const depthShade = p.depthShade !== false
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        const colorE = channelColor('color', 0, 200, 255)
         ln(`  { ${seedFrom('base')}`)
         ln(`    static const float _vtx_${id}[] = {${mesh.vertices.map((n) => `${n.toFixed(6)}f`).join(',')}};`)
         ln(`    static const uint8_t _edg_${id}[] = {${mesh.edges.join(',')}};`)
@@ -3135,9 +3152,7 @@ export function generateCpp(
           .map((line, index) => ({ ...line, index }))
           .filter((line) => line.cols.length > 0)
         const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 0)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
+        const colorE = channelColor('color', 0, 255, 255)
         ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
         for (const line of renderableLines) {
           ln(`    static const uint8_t _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
@@ -3188,9 +3203,7 @@ export function generateCpp(
         const transport = mode === 'Stopwatch' || mode === 'Timer'
         const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
         const vAlign = textAlignMode(p.vAlign ?? 'middle', 'top', 'bottom')
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 220)}, ${Number(p.b ?? 90)})`
+        const colorE = channelColor('color', 255, 220, 90)
         const xExpr = f('x', 'x', 0.5)
         const yExpr = f('y', 'y', 0.5)
         const dateTimeUp = incoming.get(`${node.id}:dateTime`)
@@ -4290,9 +4303,7 @@ export function generateCpp(
         const bass = f('bass', 'bass', 0.5)
         const energy = f('energy', 'energy', 0.7)
         const speed = f('speed', 'speed', 1)
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 80)}, ${Number(p.g ?? 160)}, ${Number(p.b ?? 255)})`
+        const colorE = channelColor('color', 80, 160, 255)
         ln(`  { // GravityWell`)
         ln(`    float _level=min(1.0f,max(0.0f,${bass})),_strength=min(1.0f,max(0.0f,${energy}));`)
         ln(`    float _cx0=(WIDTH-1)/2.0f,_cy0=(HEIGHT-1)/2.0f;`)
@@ -5050,9 +5061,7 @@ export function generateCpp(
           // additive bloom: base + glowAmount× the discarded partner, tinted
           // per-channel by the `color` input (white neutral). scale8 chain = g/255.
           const g = f('glowAmount', 'glowAmount', 0.35)
-          const tintE = incoming.get(`${node.id}:color`)
-            ? colorExpr(node.id, 'color')
-            : `CRGB(${Number(p.r ?? 255)}, ${Number(p.g ?? 255)}, ${Number(p.b ?? 255)})`
+          const tintE = channelColor('color', 255, 255, 255)
           ln(`    int _ax=_x,_ay=_y;`)
           if (mode === 'horizontal' || mode === 'quad') ln(`    _ax=max(_x,WIDTH-1-_x);`)
           if (mode === 'vertical' || mode === 'quad') ln(`    _ay=max(_y,HEIGHT-1-_y);`)
@@ -6102,9 +6111,7 @@ export function generateCpp(
         const coh = f('cohesion', 'cohesion', 0.4), range = f('visualRange', 'visualRange', 4)
         const colorMode = String(p.colorMode ?? 'solid')
         if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
-        const colorE = incoming.get(`${node.id}:color`)
-          ? colorExpr(node.id, 'color')
-          : `CRGB(${Number(p.r ?? 120)}, ${Number(p.g ?? 200)}, ${Number(p.b ?? 255)})`
+        const colorE = channelColor('color', 120, 200, 255)
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const seed = seedProp(p)
         const bx = `_bx_${id}`, by = `_by_${id}`, bvx = `_bvx_${id}`, bvy = `_bvy_${id}`

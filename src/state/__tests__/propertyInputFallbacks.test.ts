@@ -38,20 +38,39 @@ interface Fallback { node: string; port: string; key: string; literal: string }
  * the only thing read out is a call shape that cannot appear before the first
  * case or after the last.
  */
-function fallbacks(file: string, call: RegExp): Fallback[] {
+function fallbacks(file: string, call: RegExp, extra?: (body: string) => Omit<Fallback, 'node'>[]): Fallback[] {
   const source = readFileSync(path.join(process.cwd(), 'src', file), 'utf8')
   const parts = source.split(/\n {6}case '([A-Za-z0-9_]+)': \{/)
   const found: Fallback[] = []
   const seen = new Set<string>()
   for (let index = 1; index < parts.length; index += 2) {
     const node = parts[index]
-    for (const match of parts[index + 1].matchAll(call)) {
-      const [, port, key, literal] = match
-      const id = `${node}|${port}|${key}`
+    const body = parts[index + 1]
+    const here = [...body.matchAll(call)].map(([, port, key, literal]) => ({ port, key, literal: literal.trim() }))
+    for (const one of [...here, ...(extra?.(body) ?? [])]) {
+      const id = `${node}|${one.port}|${one.key}`
       if (seen.has(id)) continue
       seen.add(id)
-      found.push({ node, port, key, literal: literal.trim() })
+      found.push({ node, ...one })
     }
+  }
+  return found
+}
+
+/*
+ * The generator resolves a colour triple through one `channelColor` call
+ * rather than three `f()` calls, so its three literals sit outside the parse
+ * above — and an unparsed literal is not a passing comparison, it is no
+ * comparison, which is the one failure this file exists to prevent. Expanded
+ * here so the triples are held to the same agreement as every other knob.
+ */
+const CHANNEL_COLOR = /channelColor\('[A-Za-z0-9_]+',\s*(\d+),\s*(\d+),\s*(\d+)\)/g
+function channelFallbacks(body: string): Omit<Fallback, 'node'>[] {
+  const found: Omit<Fallback, 'node'>[] = []
+  for (const match of body.matchAll(CHANNEL_COLOR)) {
+    ;(['r', 'g', 'b'] as const).forEach((key, index) => {
+      found.push({ port: key, key, literal: match[index + 1] })
+    })
   }
   return found
 }
@@ -63,6 +82,7 @@ const EVALUATOR = fallbacks(
 const GENERATOR = fallbacks(
   'codegen/cppGenerator.ts',
   /\bf\(\s*'([A-Za-z0-9_]+)',\s*'([A-Za-z0-9_]+)',\s*([^,)]+)\)/g,
+  channelFallbacks,
 )
 
 /** A plain number, or null for a computed fallback there is nothing to compare. */
