@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
+import LiveTouchScreen from '../LiveTouchScreen'
 import { createDisplayDocument, displayLayoutIssues } from '../../../state/displayEditor'
 import { displayAsset, displayAssetUrl } from '../../../state/displayAssets'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
@@ -26,9 +27,17 @@ describe('DisplayEditor portrait templates', () => {
     useUiStore.setState({
       workspaceMode: 'graph',
       designWorkspaceView: { kind: 'display', displayId: 'panel' },
+      liveTouchScreenDisplayId: null,
       fitViewRequest: { nonce: 0 },
     })
   })
+
+  const renderEditor = () => render(
+    <>
+      <DisplayEditor />
+      <LiveTouchScreen />
+    </>,
+  )
 
   const libraryNode = (id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode => {
     const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -57,7 +66,7 @@ describe('DisplayEditor portrait templates', () => {
       ],
       edges: [{ id: 'e-clock', source: 'rtc', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
     })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     expect(view.getByRole('heading', { name: 'Mapped to RTC Clock' })).toBeTruthy()
     expect(view.getByRole('heading', { name: 'Other layouts' })).toBeTruthy()
     // Reachable either way — the grouping promotes, it does not filter.
@@ -70,7 +79,7 @@ describe('DisplayEditor portrait templates', () => {
    * Nothing wired, nothing to map against: one ungrouped list, as before.
    */
   it('leaves the shelf ungrouped while the panel has no source', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     expect(view.queryByRole('heading', { name: /^Mapped to / })).toBeNull()
     expect(view.queryByRole('heading', { name: 'Other layouts' })).toBeNull()
   })
@@ -78,7 +87,7 @@ describe('DisplayEditor portrait templates', () => {
   it.each(DISPLAY_TEMPLATES)(
     'inserts and renders the $label 240x320 composition at its authored bounds',
     (template) => {
-      const view = render(<DisplayEditor />)
+      const view = renderEditor()
       fireEvent.change(view.getByLabelText('Icon theme'), { target: { value: ICON_THEME } })
       fireEvent.click(view.getByRole('button', { name: `Insert ${template.label} template` }))
 
@@ -91,8 +100,8 @@ describe('DisplayEditor portrait templates', () => {
       expect(view.getByRole('status', { name: 'Display validation status' }).textContent)
         .toContain('Layout valid.')
 
-      const screen = view.getByTestId('display-screen')
-      const renderedWidgets = [...screen.querySelectorAll<HTMLElement>('[data-widget-type]')]
+      const designScreen = view.getByTestId('display-screen')
+      const renderedWidgets = [...designScreen.querySelectorAll<HTMLElement>('[data-widget-type]')]
       expect(renderedWidgets).toHaveLength(template.portraitWidgets.length)
 
       for (const [index, element] of renderedWidgets.entries()) {
@@ -116,7 +125,8 @@ describe('DisplayEditor portrait templates', () => {
       }
 
       fireEvent.click(view.getByRole('button', { name: 'Run' }))
-      const runWidgets = [...screen.querySelectorAll<HTMLElement>('[data-widget-type]')]
+      const runScreen = screen.getByTestId('live-touch-screen')
+      const runWidgets = [...runScreen.querySelectorAll<HTMLElement>('[data-widget-type]')]
       for (const [index, element] of runWidgets.entries()) {
         const placed = document.widgets[index]
         if (!isDisplayTouchTarget(placed.type)) continue

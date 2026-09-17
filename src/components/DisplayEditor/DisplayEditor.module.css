@@ -28,7 +28,6 @@
   gap: 8px;
 }
 
-.modeSwitch,
 .orientationSwitch {
   display: flex;
   gap: 2px;
@@ -38,13 +37,11 @@
   background: var(--bg-primary);
 }
 
-.modeSwitch button,
 .orientationSwitch button {
   border-color: transparent;
   background: transparent;
 }
 
-.modeSwitch button[aria-pressed='true'],
 .orientationSwitch button[aria-pressed='true'] {
   border-color: color-mix(in srgb, var(--accent-output) 55%, var(--border-glow));
   background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
@@ -108,9 +105,6 @@
   grid-template-columns: 182px minmax(240px, 1fr) 210px;
 }
 
-.runBody {
-  grid-template-columns: minmax(240px, 1fr);
-}
 
 .palette,
 .inspector {

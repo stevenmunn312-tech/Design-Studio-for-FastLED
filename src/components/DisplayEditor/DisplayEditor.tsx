@@ -4,8 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
@@ -21,7 +19,6 @@ import {
   DISPLAY_WIDGET_LIBRARY,
   displaySourceFieldsForWidget,
   displayWidgetTakesValue,
-  displayControlHitBounds,
   displayWidgetGlyphId,
   displayWidgetPorts,
 } from '../../state/displayRegistry'
@@ -48,10 +45,8 @@ import {
   type DisplayOrientation,
   type DisplayWidget,
   type DisplayWidgetType,
-  type PlacedDisplayWidget,
 } from '../../state/displayDocument'
 import {
-  displayWidgetVisualState,
   resolveDisplayThemeTokens,
 } from '../../state/displayTheme'
 import {
@@ -75,7 +70,6 @@ import {
   displayThemeBackgroundFor,
   displayThemePreset,
 } from '../../state/displayThemePresets'
-import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import {
   documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
 } from '../../state/mountedDisplays'
@@ -91,20 +85,11 @@ import {
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
-import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
 import {
   displayBackgroundStyle as backgroundStyle,
   displayThemeVariables as editorVariables,
   displayWidgetThemeVariables as widgetThemeVariables,
 } from './displayPreviewStyles'
-import {
-  dialValueFromDrag,
-  displayControlRange,
-  isInteractiveDisplayWidget,
-  sliderValueFromPoint,
-  stepDisplayControlValue,
-  type DisplayControlValue,
-} from './displayRunPreview'
 import styles from './DisplayEditor.module.css'
 
 type Gesture = {
@@ -115,18 +100,6 @@ type Gesture = {
   start: { x: number; y: number }
   bounds: DisplayBounds
   document: DisplayDocument
-}
-
-type DisplayEditorMode = 'design' | 'run'
-
-interface RunDisplayWidgetProps {
-  widget: PlacedDisplayWidget
-  theme: DisplayDocument['theme']
-  value: unknown
-  /** `held` marks a value the finger still owns, so the runtime store knows a
-   * wired graph value must not win it back yet. */
-  onValue: (value: DisplayControlValue, held: boolean) => void
-  onRelease: () => void
 }
 
 let displayWidgetClipboard: DisplayWidget[] = []
@@ -152,152 +125,6 @@ const CONTROL_LABELS: Readonly<Record<string, string>> = {
 }
 
 const TOGGLE_CONTROL_ICONS = new Set(['play-pause', 'led-toggle', 'shuffle', 'auto-advance', 'freeze'])
-
-function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDisplayWidgetProps) {
-  const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
-  const interactive = isInteractiveDisplayWidget(widget)
-  const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
-  const suppressToggleClick = useRef(false)
-  const [touchOwned, setTouchOwned] = useState(false)
-  const range = displayControlRange(widget)
-  const numericValue = typeof value === 'number' ? value : range.min
-  const booleanValue = value === true
-  const visualState = displayWidgetVisualState(widget, value, { pressed: touchOwned })
-  const hitBounds = displayControlHitBounds(widget)
-  const role = widget.type === 'Toggle'
-    ? 'switch'
-    : widget.type === 'Slider' || widget.type === 'Dial'
-      ? 'slider'
-      : widget.type === 'Button'
-        ? 'button'
-        : undefined
-
-  const setSliderFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-    onValue(sliderValueFromPoint(
-      widget,
-      { x: event.clientX, y: event.clientY },
-      event.currentTarget.getBoundingClientRect(),
-    ), true)
-  }
-
-  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!interactive || event.button !== 0) return
-    event.preventDefault()
-    event.stopPropagation()
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    setTouchOwned(true)
-    if (widget.type === 'Button') onValue(true, true)
-    else if (widget.type === 'Toggle') {
-      suppressToggleClick.current = true
-      onValue(!booleanValue, true)
-    }
-    else if (widget.type === 'Slider') setSliderFromPointer(event)
-    else if (widget.type === 'Dial') {
-      drag.current = { pointerId: event.pointerId, startY: event.clientY, startValue: numericValue }
-      onValue(numericValue, true)
-    }
-  }
-
-  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (widget.type === 'Slider' && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      setSliderFromPointer(event)
-    } else if (widget.type === 'Dial' && drag.current?.pointerId === event.pointerId) {
-      onValue(dialValueFromDrag(widget, drag.current.startValue, event.clientY - drag.current.startY), true)
-    }
-  }
-
-  const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-    setTouchOwned(false)
-    if (widget.type === 'Button') onValue(false, false)
-    else onRelease()
-    if (event.type === 'pointercancel') suppressToggleClick.current = false
-    if (drag.current?.pointerId === event.pointerId) drag.current = null
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (!interactive) return
-    if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
-      event.preventDefault()
-      onValue(true, true)
-      return
-    }
-    if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
-      event.preventDefault()
-      if (!event.repeat) {
-        suppressToggleClick.current = true
-        onValue(!booleanValue, true)
-      }
-      return
-    }
-    if (widget.type !== 'Slider' && widget.type !== 'Dial') return
-    if (event.key === 'Home' || event.key === 'End') {
-      event.preventDefault()
-      onValue(event.key === 'Home' ? range.min : range.max, false)
-      return
-    }
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
-    event.preventDefault()
-    const decrease = event.key === 'ArrowLeft' || event.key === 'ArrowDown'
-    onValue(stepDisplayControlValue(widget, numericValue, decrease ? -1 : 1), false)
-  }
-
-  return (
-    <div
-      className={`${styles.widget} ${styles.runWidget} ${interactive ? styles.interactiveWidget : ''}`}
-      style={{
-        left: widget.bounds.x,
-        top: widget.bounds.y,
-        width: widget.bounds.width,
-        height: widget.bounds.height,
-        ...widgetThemeVariables(theme, visualState),
-        // The element paints its declared bounds; the pointer region is grown
-        // to the registry touch minimum the way LVGL extends a click area.
-        '--widget-hit-inset-x': `${(widget.bounds.width - hitBounds.width) / 2}px`,
-        '--widget-hit-inset-y': `${(widget.bounds.height - hitBounds.height) / 2}px`,
-      } as CSSProperties}
-      data-widget-state={visualState}
-      data-widget-type={widget.type}
-      role={role}
-      tabIndex={interactive ? 0 : undefined}
-      aria-label={interactive ? `${widget.label || definition.label} run preview` : undefined}
-      aria-pressed={widget.type === 'Button' ? booleanValue : undefined}
-      aria-checked={widget.type === 'Toggle' ? booleanValue : undefined}
-      aria-valuemin={widget.type === 'Slider' || widget.type === 'Dial' ? range.min : undefined}
-      aria-valuemax={widget.type === 'Slider' || widget.type === 'Dial' ? range.max : undefined}
-      aria-valuenow={widget.type === 'Slider' || widget.type === 'Dial' ? numericValue : undefined}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endPointer}
-      onPointerCancel={endPointer}
-      onClick={(event) => {
-        event.stopPropagation()
-        if (widget.type !== 'Toggle') return
-        if (suppressToggleClick.current) {
-          suppressToggleClick.current = false
-          return
-        }
-        // Assistive activation can arrive as a click with no preceding pointer
-        // or key event. The pending-intent bit still gives it one graph sample.
-        onValue(!booleanValue, false)
-      }}
-      onKeyDown={onKeyDown}
-      onKeyUp={(event) => {
-        if (widget.type === 'Button' && (event.key === ' ' || event.key === 'Enter')) {
-          event.preventDefault()
-          onValue(false, false)
-        } else if (widget.type === 'Toggle' && (event.key === ' ' || event.key === 'Enter')) {
-          event.preventDefault()
-          onRelease()
-        }
-      }}
-    >
-      <DisplayWidgetPreview widget={widget} renderer={definition.previewRenderer} theme={theme} state={visualState} value={value} />
-    </div>
-  )
-}
 
 function issuesForWidget(issues: readonly DisplayLayoutIssue[], widgetId: string): DisplayLayoutIssue[] {
   return issues.filter((issue) => issue.widgetId === widgetId || issue.otherWidgetId === widgetId)
@@ -347,6 +174,7 @@ export default function DisplayEditor() {
   const view = useUiStore((state) => state.designWorkspaceView)
   const fitViewRequest = useUiStore((state) => state.fitViewRequest)
   const closeDisplayWorkspace = useUiStore((state) => state.closeDisplayWorkspace)
+  const openLiveTouchScreen = useUiStore((state) => state.openLiveTouchScreen)
   const requestConfirm = useUiStore((state) => state.requestConfirm)
   const focusNode = useGraphStore((state) => state.focusNode)
   const displayId = view.kind === 'display' ? view.displayId : ''
@@ -382,7 +210,6 @@ export default function DisplayEditor() {
   const draftRef = useRef<DisplayDocument | null>(persisted ?? null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [zoom, setZoom] = useState(1)
-  const [editorMode, setEditorMode] = useState<DisplayEditorMode>('design')
   // This picker chooses the icon *set*, while the Screen theme in the
   // inspector controls colour tokens. Keeping them separate lets an author
   // audition a control family without unexpectedly repainting their screen.
@@ -412,8 +239,6 @@ export default function DisplayEditor() {
 
   useEffect(() => {
     if (!displayId) return
-    setEditorMode('design')
-    useDisplayRuntimeStore.getState().resetDisplayRuntime(displayId)
     enterDisplayHistoryScope(displayId)
     return () => leaveDisplayHistoryScope(displayId)
   }, [displayId])
@@ -836,16 +661,6 @@ export default function DisplayEditor() {
     setSelectedIds([])
   }
 
-  const setMode = (mode: DisplayEditorMode) => {
-    gesture.current = null
-    if (displayId) useDisplayRuntimeStore.getState().resetDisplayRuntime(displayId)
-    setEditorMode(mode)
-    setSelectedIds([])
-    setAnnouncement(mode === 'run'
-      ? 'Run preview active. Touch controls are local to this preview.'
-      : 'Design mode active. Touch controls are locked for editing.')
-  }
-
   /*
    * Orientation is the *panel's* property, not the document's.
    *
@@ -881,20 +696,7 @@ export default function DisplayEditor() {
     const next = matchingBackground
       ? { ...resized, theme: { ...resized.theme, background: { kind: 'image' as const, assetId: matchingBackground.id } } }
       : resized
-    if (editorMode === 'run') setMode('design')
     commit(next, `${orientation === '0' ? 'Portrait' : 'Landscape'} view applied at ${designSize.width} × ${designSize.height}.`)
-  }
-
-  const writeRunValue = (widgetId: string, value: DisplayControlValue, held: boolean) => {
-    if (!displayId) return
-    const store = useDisplayRuntimeStore.getState()
-    store.touchDisplayWidget(displayId, widgetId, value)
-    if (!held) store.releaseDisplayWidget(displayId, widgetId)
-  }
-
-  const releaseRunValue = (widgetId: string) => {
-    if (!displayId) return
-    useDisplayRuntimeStore.getState().releaseDisplayWidget(displayId, widgetId)
   }
 
   return (
@@ -902,7 +704,6 @@ export default function DisplayEditor() {
       className={styles.editor}
       aria-label={`Display editor for ${displayId}`}
       onKeyDown={(event) => {
-        if (editorMode === 'run') return
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
         const direction = event.key
         const mod = event.ctrlKey || event.metaKey
@@ -976,21 +777,20 @@ export default function DisplayEditor() {
           <span className={styles.resolution}>{document.designSize.width} × {document.designSize.height}</span>
         </div>
         <div className={styles.toolbar} aria-label="Display canvas controls">
-          <div className={styles.modeSwitch} role="group" aria-label="Display editor mode">
-            <button type="button" aria-pressed={editorMode === 'design'} onClick={() => setMode('design')}>Design</button>
-            <button type="button" aria-pressed={editorMode === 'run'} onClick={() => setMode('run')}>Run</button>
-          </div>
+          <button
+            type="button"
+            onClick={() => { if (displayId) openLiveTouchScreen(displayId) }}
+            title="Open a live touch screen on the graph"
+          >
+            Run
+          </button>
           <div className={styles.orientationSwitch} role="group" aria-label="Display orientation">
             <button type="button" aria-pressed={document.designSize.height >= document.designSize.width} onClick={() => setDisplayOrientation('0')}>Portrait</button>
             <button type="button" aria-pressed={document.designSize.width > document.designSize.height} onClick={() => setDisplayOrientation('90')}>Landscape</button>
           </div>
-          {editorMode === 'design' && (
-            <>
-              <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={document.widgets.length === 0}>Select all</button>
-              <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
-              <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
-            </>
-          )}
+          <button type="button" onClick={() => { const ids = document.widgets.map((widget) => widget.id); setSelectedIds(ids); setAnnouncement(selectionAnnouncement(document, ids, issues)) }} disabled={document.widgets.length === 0}>Select all</button>
+          <button type="button" onClick={copySelection} disabled={selectedWidgets.length === 0}>Copy</button>
+          <button type="button" onClick={pasteSelection} disabled={displayWidgetClipboard.length === 0}>Paste</button>
           <button type="button" onClick={() => setZoom((value) => Math.max(0.35, value - 0.1))} aria-label="Zoom out">−</button>
           <output aria-label="Display zoom">{Math.round(zoom * 100)}%</output>
           <button type="button" onClick={() => setZoom((value) => Math.min(2, value + 0.1))} aria-label="Zoom in">＋</button>
@@ -998,9 +798,8 @@ export default function DisplayEditor() {
         </div>
       </header>
 
-      <div className={`${styles.body} ${editorMode === 'run' ? styles.runBody : ''}`}>
-        {editorMode === 'design' && (
-          <aside className={styles.palette} aria-label="Widget palette">
+      <div className={styles.body}>
+        <aside className={styles.palette} aria-label="Widget palette">
             {/*
               * Controls created by dropping a wire on a property, waiting for
               * somewhere to live. They are listed first because they are the
@@ -1133,12 +932,11 @@ export default function DisplayEditor() {
               {templates.other.map(templateButton)}
             </div>
           </aside>
-        )}
 
         <div ref={viewportRef} className={styles.viewport} onPointerMove={continueGesture} onPointerUp={endGesture} onPointerCancel={endGesture}>
           <div className={styles.screenSizer} style={{ width: document.designSize.width * zoom, height: document.designSize.height * zoom }}>
             <div
-              className={`${styles.screen} ${editorMode === 'run' ? styles.runScreen : ''}`}
+              className={styles.screen}
               data-testid="display-screen"
               style={{
                 ...backgroundStyle(resolveDisplayThemeTokens(document.theme).background),
@@ -1147,22 +945,9 @@ export default function DisplayEditor() {
                 height: document.designSize.height,
                 transform: `scale(${zoom})`,
               }}
-              onPointerDown={() => { if (editorMode === 'design') select(null) }}
+              onPointerDown={() => select(null)}
             >
-              {editorMode === 'run' ? (
-                <DisplayRuntimeWidgets displayId={displayId} document={document}>
-                  {(widget, value) => (
-                    <RunDisplayWidget
-                      key={widget.id}
-                      widget={widget}
-                      theme={document.theme}
-                      value={value}
-                      onValue={(next, held) => writeRunValue(widget.id, next, held)}
-                      onRelease={() => releaseRunValue(widget.id)}
-                    />
-                  )}
-                </DisplayRuntimeWidgets>
-              ) : placedWidgets(document).map((widget) => {
+              {placedWidgets(document).map((widget) => {
                 const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
                 const isSelected = selectedIds.includes(widget.id)
                 const inert = inertReasons.get(widget.id)
@@ -1215,7 +1000,7 @@ export default function DisplayEditor() {
           </div>
         </div>
 
-        {editorMode === 'design' && <aside className={styles.inspector} aria-label="Widget inspector">
+        <aside className={styles.inspector} aria-label="Widget inspector">
           <h2>{selected ? selected.type : selectedWidgets.length > 1 ? `${selectedWidgets.length} widgets` : 'Screen'}</h2>
           {selected ? (
             <>
@@ -1386,7 +1171,7 @@ export default function DisplayEditor() {
               {issues.slice(0, 4).map((issue, index) => <p key={`${issue.widgetId}-${issue.code}-${index}`}>{issue.message}</p>)}
             </div>
           )}
-        </aside>}
+        </aside>
       </div>
       <div className={styles.srOnly} role="status" aria-label="Display editor announcements" aria-live="polite" aria-atomic="true">{announcement}</div>
       <div className={styles.srOnly} role="status" aria-label="Display validation status" aria-live="polite" aria-atomic="true">

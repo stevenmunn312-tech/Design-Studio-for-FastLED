@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { useUiStore } from './state/uiStore'
+import { useUiStore, visibleLiveTouchScreen } from './state/uiStore'
 import { rootGraphNodes, useGraphStore } from './state/graphStore'
 import { useAudioStore } from './state/audioStore'
 import { useShowPlayback } from './state/showPlayback'
@@ -36,6 +36,7 @@ import { enterStagePresentation, exitStagePresentation } from './utils/stagePres
 import HardwarePane from './components/Hardware/HardwarePane'
 import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/HardwarePartsShelf'
 import WorkspaceTabs from './components/Layout/WorkspaceTabs'
+import LiveTouchScreen from './components/DisplayEditor/LiveTouchScreen'
 import styles from './App.module.css'
 
 const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/PerformanceDeck'))
@@ -494,6 +495,10 @@ export default function App() {
           useUiStore.getState().closeDisplayWorkspace()
           return
         }
+        if (visibleLiveTouchScreen(useUiStore.getState())) {
+          useUiStore.getState().closeLiveTouchScreen()
+          return
+        }
         if (useUiStore.getState().performanceMode) {
           useUiStore.getState().setPerformanceMode(false)
           return
@@ -717,6 +722,7 @@ export default function App() {
       </div>
       <div className={styles.statusShell}><StatusBar /></div>
       <PerformanceDeckMidiBridge />
+      <LiveTouchScreen />
       <Suspense fallback={null}>
         <AppDialogHost />
         {/* Headless. Drives the live capacity check from here rather than a

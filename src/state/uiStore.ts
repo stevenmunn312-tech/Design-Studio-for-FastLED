@@ -270,6 +270,15 @@ interface UiState {
   closeBuildDiagram: () => void
   openDisplayWorkspace: (displayId: string) => void
   closeDisplayWorkspace: () => void
+  /**
+   * Which screen design is shown as a live touch overlay on Graph.
+   * Session-only: Run in the designer leaves the editor and opens this
+   * instead of an in-editor preview, so finger values reach the same
+   * runtime the graph already samples.
+   */
+  liveTouchScreenDisplayId: string | null
+  openLiveTouchScreen: (displayId: string) => void
+  closeLiveTouchScreen: () => void
   toggleSidebar: () => void
   togglePreviewPanel: () => void
   setSidebarWidth: (px: number) => void
@@ -353,6 +362,28 @@ let flashTimer: ReturnType<typeof setTimeout> | null = null
 /** Dismiss the display editor when a workspace is chosen, and refit the canvas
  *  it hands back to. Empty when no editor is open, so it composes into a `set`
  *  without disturbing anything. */
+/**
+ * The screen design the live touch overlay is actually showing, or null.
+ *
+ * `liveTouchScreenDisplayId` deliberately survives a tab switch and a trip
+ * back into the designer, so the overlay returns with the Graph tab rather
+ * than having to be reopened. That makes "one is open" and "one is on
+ * screen" different questions, and every consumer must ask the second: the
+ * overlay itself to decide whether to render, and Escape to decide whether
+ * there is anything here to close. Asking the first let Escape on the
+ * Hardware tab close an invisible overlay and never reach Performance mode.
+ */
+export function visibleLiveTouchScreen(state: {
+  liveTouchScreenDisplayId: string | null
+  workspaceMode: WorkspaceMode
+  designWorkspaceView: DesignWorkspaceView
+}): string | null {
+  if (!state.liveTouchScreenDisplayId) return null
+  if (state.workspaceMode !== 'graph') return null
+  if (state.designWorkspaceView.kind !== 'graph') return null
+  return state.liveTouchScreenDisplayId
+}
+
 function leavingDisplayEditor(state: UiState): Partial<UiState> {
   if (state.designWorkspaceView.kind === 'graph') return {}
   return {
@@ -366,6 +397,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   statusLevel: 'idle',
   workspaceMode: 'graph',
   designWorkspaceView: { kind: 'graph' },
+  liveTouchScreenDisplayId: null,
   sidebarOpen: true,
   previewPanelOpen: true,
   sidebarWidth: load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
@@ -483,6 +515,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     designWorkspaceView: { kind: 'graph' },
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
   })),
+  openLiveTouchScreen: (displayId) => set((state) => ({
+    liveTouchScreenDisplayId: displayId,
+    workspaceMode: 'graph',
+    ...leavingDisplayEditor(state),
+  })),
+  closeLiveTouchScreen: () => set({ liveTouchScreenDisplayId: null }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
   setSidebarWidth: (px) => {

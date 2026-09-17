@@ -1,13 +1,23 @@
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
+import LiveTouchScreen from '../LiveTouchScreen'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { connectTouchControl, useGraphStore } from '../../../state/graphStore'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import { useUiStore } from '../../../state/uiStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import type { StudioNode } from '../../../state/graphStore'
+
+function renderEditor() {
+  return render(
+    <>
+      <DisplayEditor />
+      <LiveTouchScreen />
+    </>,
+  )
+}
 
 describe('DisplayEditor', () => {
   beforeEach(() => {
@@ -18,12 +28,13 @@ describe('DisplayEditor', () => {
     useUiStore.setState({
       workspaceMode: 'graph',
       designWorkspaceView: { kind: 'display', displayId: 'panel' },
+      liveTouchScreenDisplayId: null,
       fitViewRequest: { nonce: 0 },
     })
   })
 
   it('opens the separate display surface and adds a registry-backed widget', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
 
     expect(view.getByRole('region', { name: 'Display editor for panel' })).toBeTruthy()
     expect(view.getByText('320 × 240')).toBeTruthy()
@@ -39,7 +50,7 @@ describe('DisplayEditor', () => {
   })
 
   it('keeps typed port details in the inspector without covering the design canvas', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
 
     expect(view.container.querySelector('[data-display-port-id]')).toBeNull()
@@ -48,7 +59,7 @@ describe('DisplayEditor', () => {
   })
 
   it('nudges the selected widget on the document grid without touching graph nodes', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
     const widget = view.getByRole('button', { name: /Button, Button\. Position/ })
     fireEvent.keyDown(widget, { key: 'ArrowRight' })
@@ -58,7 +69,7 @@ describe('DisplayEditor', () => {
   })
 
   it('multi-selects, aligns, copies, pastes, and deletes widgets as a group', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
     fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }), { ctrlKey: true })
@@ -78,7 +89,7 @@ describe('DisplayEditor', () => {
   })
 
   it('announces validation changes and associates each issue with its widgets', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
     fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }), { ctrlKey: true })
@@ -122,7 +133,7 @@ describe('DisplayEditor', () => {
     useGraphStore.setState({ nodes: [screen, touch] })
     const confirm = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
     useUiStore.setState({ requestConfirm: confirm })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
     useGraphStore.setState({
       edges: [{
@@ -167,7 +178,7 @@ describe('DisplayEditor', () => {
         },
       } as unknown as StudioNode],
     })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Insert Minimal Transport template' }))
 
@@ -189,20 +200,24 @@ describe('DisplayEditor', () => {
 
   it('keeps every portrait template control visible and interactive in Run mode', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Insert Pattern Deck template' }))
     fireEvent.click(view.getByRole('button', { name: 'Run' }))
 
-    expect(view.getByRole('button', { name: 'Previous run preview' })).toBeTruthy()
-    expect(view.getByRole('button', { name: 'Confirm run preview' })).toBeTruthy()
-    expect(view.getByRole('button', { name: 'Next run preview' })).toBeTruthy()
-    expect(view.getByRole('switch', { name: 'Shuffle run preview' })).toBeTruthy()
-    expect(view.getByRole('switch', { name: 'Auto advance run preview' })).toBeTruthy()
+    expect(useUiStore.getState()).toMatchObject({
+      designWorkspaceView: { kind: 'graph' },
+      liveTouchScreenDisplayId: 'panel',
+    })
+    expect(screen.getByRole('button', { name: 'Previous run preview' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Confirm run preview' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Next run preview' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Shuffle run preview' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Auto advance run preview' })).toBeTruthy()
   })
 
   it('renders a template control inside its saved border-box footprint', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Insert Minimal Transport template' }))
     const play = view.getByRole('button', { name: /Toggle, Play\. Position/ })
     expect(play.className).toContain('widget')
@@ -210,7 +225,7 @@ describe('DisplayEditor', () => {
   })
 
   it('identifies Progress widgets for the fixed-height track treatment', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Progress widget' }))
     expect(view.getByRole('button', { name: /Progress, Progress. Position/ }).getAttribute('data-widget-type')).toBe('Progress')
   })
@@ -249,7 +264,7 @@ describe('DisplayEditor', () => {
     })
     expect(connectTouchControl('touch', 'juggle', 'count').ok).toBe(true)
 
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     const entry = view.getByRole('button', { name: /^Place .* on the screen$/ })
     // Captioned by its destination: a screen with three sliders waiting is
     // read by what each one drives, not by its type.
@@ -287,7 +302,7 @@ describe('DisplayEditor', () => {
       ],
       edges: [],
     })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
 
     const slider = () => view.getByRole('button', { name: /Slider, Slider\. Position/ })
@@ -311,7 +326,7 @@ describe('DisplayEditor', () => {
    */
   it('leaves a widget that is not a control alone', () => {
     useGraphStore.setState({ nodes: [panelNode(), libraryNode('touch', 'TouchInput', { panelId: 'tft' })], edges: [] })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
 
     expect(view.getByRole('button', { name: /Text, Text\. Position/ }).className)
@@ -327,7 +342,7 @@ describe('DisplayEditor', () => {
       ],
       edges: [],
     })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
     fireEvent.change(view.getByLabelText('Minimum'), { target: { value: '-2' } })
     fireEvent.change(view.getByLabelText('Maximum'), { target: { value: '2' } })
@@ -353,7 +368,7 @@ describe('DisplayEditor', () => {
   it('switches a design between portrait and landscape, retaining a valid layout', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
     useGraphStore.setState({ nodes: [panelNode()] })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Insert LED Performance template' }))
     fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
 
@@ -377,7 +392,7 @@ describe('DisplayEditor', () => {
   it('rotates the panel a mounted design is plugged into, and sizes the design from it', () => {
     useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel', 240, 320))
     useGraphStore.setState({ nodes: [panelNode()], edges: [] })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Landscape' }))
 
     const panel = () => useGraphStore.getState().nodes.find((node) => node.id === 'tft')
@@ -397,7 +412,7 @@ describe('DisplayEditor', () => {
     // The panel states the size, so the editor should not leave the author to
     // find it again on the canvas (HW-07).
     useGraphStore.setState({ nodes: [panelNode()], edges: [] })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
 
     const back = view.getByRole('button', { name: 'Display Panel' })
     fireEvent.click(back)
@@ -410,12 +425,12 @@ describe('DisplayEditor', () => {
   // drawn on, so the way back to that panel is always there.
   it('always names the panel it belongs to', () => {
     useGraphStore.setState({ nodes: [panelNode()], edges: [] })
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     expect(view.getByRole('button', { name: 'Display Panel' })).toBeTruthy()
   })
 
   it('shows the pack artwork on the widget palette and the template list', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
 
     const slider = view.getByRole('button', { name: 'Add Slider widget' })
     expect(slider.querySelector('img')?.getAttribute('src')).toBe('/display-assets/widgets/slider.svg')
@@ -425,7 +440,7 @@ describe('DisplayEditor', () => {
   })
 
   it('switches the sidebar icon set and applies it to added controls and templates', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
 
     fireEvent.change(view.getByLabelText('Icon theme'), { target: { value: 'theme:03-synthwave' } })
     const previous = view.getByRole('button', { name: 'Add Synthwave Sunset Previous Track control' })
@@ -459,7 +474,7 @@ describe('DisplayEditor', () => {
   })
 
   it('applies a pack theme and paints a baked background', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
 
     fireEvent.change(view.getByLabelText('Theme'), { target: { value: 'theme:03-synthwave' } })
     const themed = useGraphStore.getState().displayDocuments.panel.theme
@@ -483,13 +498,13 @@ describe('DisplayEditor', () => {
   })
 
   it('returns to the graph through the breadcrumb', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Graph' }))
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
   })
 
   it('keeps design editing separate from the interactive run preview', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
@@ -497,15 +512,20 @@ describe('DisplayEditor', () => {
 
     fireEvent.click(view.getByRole('button', { name: 'Run' }))
 
+    expect(useUiStore.getState()).toMatchObject({
+      designWorkspaceView: { kind: 'graph' },
+      liveTouchScreenDisplayId: 'panel',
+    })
     expect(view.queryByRole('complementary', { name: 'Widget palette' })).toBeNull()
     expect(view.queryByRole('complementary', { name: 'Widget inspector' })).toBeNull()
-    const button = view.getByRole('button', { name: 'Button run preview' })
+    expect(screen.getByRole('dialog', { name: /touch screen/i })).toBeTruthy()
+    const button = screen.getByRole('button', { name: 'Button run preview' })
     fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
     expect(button.getAttribute('aria-pressed')).toBe('true')
     fireEvent.pointerUp(button, { button: 0, pointerId: 1 })
     expect(button.getAttribute('aria-pressed')).toBe('false')
 
-    const toggle = view.getByRole('switch', { name: 'Toggle run preview' })
+    const toggle = screen.getByRole('switch', { name: 'Toggle run preview' })
     expect(toggle.getAttribute('data-widget-state')).toBe('inactive')
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('true')
@@ -515,7 +535,7 @@ describe('DisplayEditor', () => {
     expect(runtime.readDisplayWidget('panel', 'button')).toMatchObject({ touchValue: false, touchOwned: false })
     expect(runtime.readDisplayWidget('panel', 'toggle')).toMatchObject({ touchValue: true, touchOwned: false })
 
-    const slider = view.getByRole('slider', { name: 'Slider run preview' })
+    const slider = screen.getByRole('slider', { name: 'Slider run preview' })
     fireEvent.keyDown(slider, { key: 'ArrowRight' })
     expect(slider.getAttribute('aria-valuenow')).toBe('0.01')
     expect(runtime.readDisplayWidget('panel', 'slider')).toMatchObject({ touchValue: 0.01, touchOwned: false })
@@ -527,17 +547,35 @@ describe('DisplayEditor', () => {
     expect(slider.getAttribute('style')).toContain('--widget-hit-inset-y: 0px')
     expect(useGraphStore.getState().displayDocuments.panel).toEqual(before)
 
-    fireEvent.click(view.getByRole('button', { name: 'Design' }))
-    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'toggle')).toBeUndefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit design' }))
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'toggle')).toMatchObject({
+      touchValue: true, touchOwned: false,
+    })
     expect(view.getByRole('complementary', { name: 'Widget palette' })).toBeTruthy()
     expect(view.getByRole('button', { name: /Button, Button\. Position/ })).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: /touch screen/i })).toBeNull()
+  })
+
+  it('closes the live touch overlay without wiping finger values', () => {
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Run' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Toggle run preview' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close touch screen' }))
+    expect(useUiStore.getState().liveTouchScreenDisplayId).toBeNull()
+    expect(screen.queryByRole('dialog', { name: /touch screen/i })).toBeNull()
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', 'toggle')).toMatchObject({
+      touchValue: true, touchOwned: false,
+    })
   })
 
   it('lets touch own a synchronized control until release, then shows the wired value', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Run' }))
-    const toggle = view.getByRole('switch', { name: 'Toggle run preview' })
+    const toggle = screen.getByRole('switch', { name: 'Toggle run preview' })
     const runtime = useDisplayRuntimeStore.getState()
     runtime.publishDisplayRoleValue('panel', 'toggle', 'set', false)
 
@@ -553,13 +591,13 @@ describe('DisplayEditor', () => {
   })
 
   it('repaints a passive readout when the graph publishes its value role', () => {
-    const view = render(<DisplayEditor />)
+    const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Numeric Readout widget' }))
     fireEvent.click(view.getByRole('button', { name: 'Run' }))
 
-    expect(view.getByText('42.0')).toBeTruthy()
+    expect(screen.getByText('42.0')).toBeTruthy()
     act(() => useDisplayRuntimeStore.getState()
       .publishDisplayRoleValue('panel', 'numeric-readout', 'value', 0.625))
-    expect(view.getByText('0.6')).toBeTruthy()
+    expect(screen.getByText('0.6')).toBeTruthy()
   })
 })

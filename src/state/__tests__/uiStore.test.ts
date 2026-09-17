@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { useUiStore } from '../uiStore'
+import { useUiStore, visibleLiveTouchScreen } from '../uiStore'
 
 describe('uiStore.setStatus auto-clear', () => {
   beforeEach(() => {
@@ -310,5 +310,48 @@ describe('leaving the display editor', () => {
     const before = useUiStore.getState().fitViewRequest.nonce
     useUiStore.getState().setWorkspaceMode('hardware')
     expect(useUiStore.getState().fitViewRequest.nonce).toBe(before)
+  })
+
+  it('opens a live touch overlay on Graph without wiping finger values', () => {
+    openEditor()
+    const before = useUiStore.getState().fitViewRequest.nonce
+    useUiStore.getState().openLiveTouchScreen('panel')
+    expect(useUiStore.getState()).toMatchObject({
+      workspaceMode: 'graph',
+      designWorkspaceView: { kind: 'graph' },
+      liveTouchScreenDisplayId: 'panel',
+    })
+    expect(useUiStore.getState().fitViewRequest.nonce).toBe(before + 1)
+
+    useUiStore.getState().openDisplayWorkspace('panel')
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
+    expect(useUiStore.getState().liveTouchScreenDisplayId).toBe('panel')
+
+    useUiStore.getState().closeLiveTouchScreen()
+    expect(useUiStore.getState().liveTouchScreenDisplayId).toBeNull()
+  })
+
+  /*
+   * The overlay returns with the Graph tab rather than having to be reopened,
+   * so the id outlives its own visibility. Escape reads the same selector the
+   * overlay renders from: asking only whether one is *open* let Escape on the
+   * Hardware tab close something nobody could see, swallowing the keystroke
+   * before it reached Performance mode.
+   */
+  it('separates a live touch screen being open from it being on screen', () => {
+    openEditor()
+    useUiStore.getState().openLiveTouchScreen('panel')
+    expect(visibleLiveTouchScreen(useUiStore.getState())).toBe('panel')
+
+    useUiStore.getState().setWorkspaceMode('hardware')
+    expect(useUiStore.getState().liveTouchScreenDisplayId).toBe('panel')
+    expect(visibleLiveTouchScreen(useUiStore.getState())).toBeNull()
+
+    useUiStore.getState().setWorkspaceMode('graph')
+    expect(visibleLiveTouchScreen(useUiStore.getState())).toBe('panel')
+
+    // Reopening the designer hides it the same way, without forgetting it.
+    useUiStore.getState().openDisplayWorkspace('panel')
+    expect(visibleLiveTouchScreen(useUiStore.getState())).toBeNull()
   })
 })
