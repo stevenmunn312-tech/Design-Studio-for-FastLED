@@ -1731,7 +1731,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Interval',
     label: 'Interval',
     category: 'signal',
-    inputs: [],
+    inputs: [
+            { id: 'interval', label: 'Interval', dataType: 'float' },
+    ],
+    propertyInputs: { interval: 'interval' },
+
     outputs: [{ id: 'pulse', label: 'Pulse', dataType: 'bool' }],
     defaultProperties: { interval: 0.5 },
   },
@@ -1743,7 +1747,13 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Envelope',
     label: 'Envelope',
     category: 'signal',
-    inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
+    inputs: [
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'attack', label: 'Attack', dataType: 'float' },
+      { id: 'decay', label: 'Decay', dataType: 'float' },
+    ],
+    propertyInputs: { attack: 'attack', decay: 'decay' },
+
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: { attack: 0, decay: 0.5 },
   },
@@ -1814,7 +1824,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'Smooth',
     label: 'Smooth',
     category: 'math',
-    inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    inputs: [
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'response', label: 'Response', dataType: 'float' },
+    ],
+    propertyInputs: { response: 'response' },
+
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: { value: 0, response: 0.25 },
   },
@@ -2172,7 +2187,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'BeatSin',
     label: 'BeatSin',
     category: 'signal',
-    inputs: [],
+    inputs: [
+            { id: 'bpm', label: 'BPM', dataType: 'float' },
+    ],
+    propertyInputs: { bpm: 'bpm' },
+
     outputs: [{ id: 'value', label: 'Value (0–1)', dataType: 'float' }],
     defaultProperties: { bpm: 60, low: 0, high: 1 },
   },
@@ -2189,7 +2208,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'tap', label: 'Tap Tempo', dataType: 'bool' },
       { id: 'sync', label: 'Sync', dataType: 'bool' },
       { id: 'reset', label: 'Reset', dataType: 'bool' },
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
+      { id: 'beatsPerBar', label: 'Beats/Bar', dataType: 'float' },
+      { id: 'subdivision', label: 'Subdivision', dataType: 'float' },
     ],
+    propertyInputs: { bpm: 'bpm', beatsPerBar: 'beatsPerBar', subdivision: 'subdivision' },
+
     outputs: [
       { id: 'bpm', label: 'BPM', dataType: 'float' },
       { id: 'phase', label: 'Phase (0–1)', dataType: 'float' },
@@ -3370,7 +3394,12 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'DMXChannel',
     label: 'DMX Channel',
     category: 'signal',
-    inputs: [{ id: 'dmx', label: 'DMX', dataType: 'dmx' }],
+    inputs: [
+      { id: 'dmx', label: 'DMX', dataType: 'dmx' },
+      { id: 'activeThreshold', label: 'Threshold', dataType: 'float' },
+    ],
+    propertyInputs: { activeThreshold: 'activeThreshold' },
+
     outputs: [
       { id: 'value', label: 'Value (0–1)', dataType: 'float' },
       { id: 'byte', label: 'Byte (0–255)', dataType: 'float' },

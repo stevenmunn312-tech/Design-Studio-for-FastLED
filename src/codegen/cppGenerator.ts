@@ -2304,9 +2304,9 @@ export function generateCpp(
       // Metronome — a boolean pulse every `interval` seconds, via a millis timer.
       // Mirrors the stateful `Interval` case in graphEvaluator.ts.
       case 'Interval': {
-        const ms = Math.max(50, Math.round(Number(p.interval ?? 0.5) * 1000))
         ln(`  static uint32_t _iv_${id} = 0; bool ${v('pulse')} = false;`)
-        ln(`  if (millis() - _iv_${id} >= ${ms}u) { _iv_${id} = millis(); ${v('pulse')} = true; }`)
+        ln(`  uint32_t _ivMs_${id} = (uint32_t)fmaxf(50.0f, (${f('interval', 'interval', 0.5)})*1000.0f);`)
+        ln(`  if (millis() - _iv_${id} >= _ivMs_${id}) { _iv_${id} = millis(); ${v('pulse')} = true; }`)
         break
       }
 
@@ -2695,10 +2695,12 @@ export function generateCpp(
 
       case 'DMXChannel': {
         const channel = intProp(p.channel, 1, 1, 512)
-        const threshold = intProp(p.activeThreshold, 1, 0, 255)
+        const threshold = `_dmxThr_${id}`
+        const thresholdDecl = `  uint8_t ${threshold} = (uint8_t)constrain(${f('activeThreshold', 'activeThreshold', 1)},0.0f,255.0f);`
         const up = incoming.get(`${node.id}:dmx`)
         const src = up ? nodeMap.get(up.srcId) : null
         const srcId = src?.data.nodeType === 'DMXInput' ? safeId(up!.srcId) : ''
+        ln(thresholdDecl)
         ln(`  uint8_t _dmxByte_${id} = ${srcId ? `_dmxData_${srcId}[${channel - 1}]` : '0'};`)
         ln(`  static bool _dmxSeen_${id} = false;`)
         ln(`  static uint8_t _dmxPrev_${id} = 0;`)
@@ -5261,12 +5263,17 @@ export function generateCpp(
       // seconds, seeded from the first sample. Mirrors the evaluator's Smooth.
       case 'Smooth': {
         const resp = Math.max(0, Number(p.response ?? 0.25))
+        const respWired = incoming.has(`${node.id}:response`)
+        const respE = `fmaxf(0.0f,${f('response', 'response', resp)})`
         const val = f('value', 'value', 0)
-        if (resp <= 0.01) { ln(`  float ${v('result')} = ${val};`); break }
+        // A response at rest is a passthrough, and the generator can only pick
+        // that arm while the knob cannot move.
+        if (resp <= 0.01 && !respWired) { ln(`  float ${v('result')} = ${val};`); break }
         ln(`  static float ${v('result')} = 0; static uint32_t _smT_${id} = 0; static bool _smI_${id} = false;`)
         ln(`  { float _in = ${val}; uint32_t _now = millis();`)
         ln(`    if (!_smI_${id}) { ${v('result')} = _in; _smI_${id} = true; }`)
-        ln(`    else ${v('result')} += (_in - ${v('result')}) * (1.0f - expf(-(float)(_now - _smT_${id}) / 1000.0f / ${resp.toFixed(3)}f));`)
+        ln(`    float _smResp = fmaxf(0.0001f, ${respE});`)
+        ln(`    else ${v('result')} += (_in - ${v('result')}) * (1.0f - expf(-(float)(_now - _smT_${id}) / 1000.0f / _smResp));`)
         ln(`    _smT_${id} = _now; }`)
         break
       }
@@ -5294,12 +5301,20 @@ export function generateCpp(
         const decayProp = Number(p.decay ?? 0.5)
         const attackMs = Number.isFinite(attackProp) ? Math.max(0, Math.round(attackProp * 1000)) : 0
         const decayMs = Number.isFinite(decayProp) ? Math.max(50, Math.round(decayProp * 1000)) : 500
+        const attackWired = incoming.has(`${node.id}:attack`)
+        const atkE = `_envAtk_${id}`
+        const decE = `_envDec_${id}`
+        const envKnobs = [
+          `  float ${atkE} = fmaxf(0.0f, (${f('attack', 'attack', attackMs / 1000)})*1000.0f);`,
+          `  float ${decE} = fmaxf(50.0f, (${f('decay', 'decay', decayMs / 1000)})*1000.0f);`,
+        ]
+        for (const line of envKnobs) ln(line)
         ln(`  static uint32_t _envT_${id} = 0; static bool _envF_${id} = false, _envP_${id} = false;`)
         ln(`  { bool _t = (${trig}); if (_t && !_envP_${id}) { _envT_${id} = millis(); _envF_${id} = true; } _envP_${id} = _t; }`)
         ln(`  float ${v('result')} = 0.0f;`)
         ln(`  if (_envF_${id}) { uint32_t _envAge_${id} = millis() - _envT_${id};`)
-        if (attackMs > 0) ln(`    ${v('result')} = _envAge_${id} < ${attackMs}u ? constrain(_envAge_${id} / ${attackMs}.0f, 0.0f, 1.0f) : constrain(1.0f - (_envAge_${id} - ${attackMs}u) / ${decayMs}.0f, 0.0f, 1.0f);`)
-        else ln(`    ${v('result')} = constrain(1.0f - _envAge_${id} / ${decayMs}.0f, 0.0f, 1.0f);`)
+        if (attackMs > 0 || attackWired) ln(`    ${v('result')} = ${atkE} > 0.0f && _envAge_${id} < (uint32_t)${atkE} ? constrain(_envAge_${id} / ${atkE}, 0.0f, 1.0f) : constrain(1.0f - (_envAge_${id} - (${atkE} > 0.0f ? (uint32_t)${atkE} : 0u)) / ${decE}, 0.0f, 1.0f);`)
+        else ln(`    ${v('result')} = constrain(1.0f - _envAge_${id} / ${decE}, 0.0f, 1.0f);`)
         ln(`  }`)
         break
       }
@@ -6928,9 +6943,11 @@ export function generateCpp(
 
       case 'BeatSin': {
         const bpmProp = Number(p.bpm ?? 60)
-        const bpm = Number.isFinite(bpmProp) ? bpmProp : 60
+        // `f` would emit NaN for a non-numeric stored bpm, so the sanitised
+        // value is what it falls back to.
+        const bpm = `fmaxf(1.0f,${f('bpm', 'bpm', Number.isFinite(bpmProp) ? bpmProp : 60)})`
         const lo = Number(p.low ?? 0), hi = Number(p.high ?? 1)
-        ln(`  float ${v('value')} = ${lo.toFixed(3)}f + ((sinf(((millis() / 1000.0f) * ${bpm.toFixed(3)}f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f);`)
+        ln(`  float ${v('value')} = ${lo.toFixed(3)}f + ((sinf(((millis() / 1000.0f) * ${bpm} / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f);`)
         break
       }
 
@@ -6939,12 +6956,18 @@ export function generateCpp(
       // beat/bar/subdivision edge semantics) so preview and firmware timing
       // match.
       case 'Clock': {
-        const bpmProp = Math.max(1, Number(p.bpm ?? 120))
-        const beatsPerBar = Math.max(1, Math.round(Number(p.beatsPerBar ?? 4)))
-        const subdivision = Math.max(1, Math.round(Number(p.subdivision ?? 2)))
+        const bpmProp = `_clkBpmP_${id}`
+        const beatsPerBar = `_clkBar_${id}`
+        const subdivision = `_clkSub_${id}`
+        const clockKnobs = [
+          `  float ${bpmProp} = fmaxf(1.0f,${f('bpm', 'bpm', 120)});`,
+          `  int ${beatsPerBar} = (int)fmaxf(1.0f,${f('beatsPerBar', 'beatsPerBar', 4)});`,
+          `  int ${subdivision} = (int)fmaxf(1.0f,${f('subdivision', 'subdivision', 2)});`,
+        ]
         const tap = boolExpr(node.id, 'tap')
         const sync = boolExpr(node.id, 'sync')
         const reset = boolExpr(node.id, 'reset')
+        for (const line of clockKnobs) ln(line)
         ln(`  static uint32_t _clkOrigin_${id} = 0; static bool _clkInit_${id} = false;`)
         ln(`  static uint32_t _clkLastPulse_${id} = 0; static bool _clkHasPulse_${id} = false;`)
         ln(`  static float _clkTapBpm_${id} = 0; static bool _clkHasTap_${id} = false;`)
@@ -6960,13 +6983,13 @@ export function generateCpp(
         ln(`      _clkLastPulse_${id} = _now; _clkHasPulse_${id} = true; _clkOrigin_${id} = _now; }`)
         ln(`    if (_resetNow && !_clkPReset_${id}) { _clkOrigin_${id} = millis(); _clkHasPulse_${id} = false; _clkHasTap_${id} = false; _clkLastBeat_${id} = 0; _clkLastSub_${id} = 0; }`)
         ln(`    _clkPTap_${id} = _tapNow; _clkPSync_${id} = _syncNow; _clkPReset_${id} = _resetNow; }`)
-        ln(`  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${floatLit(bpmProp)};`)
+        ln(`  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${bpmProp};`)
         ln(`  float _clkElapsed_${id} = ((millis() - _clkOrigin_${id}) / 60000.0f) * ${v('bpm')};`)
         ln(`  float ${v('phase')} = _clkElapsed_${id} - (uint32_t)_clkElapsed_${id};`)
         ln(`  uint32_t _clkBeatCount_${id} = (uint32_t)_clkElapsed_${id};`)
         ln(`  bool ${v('beat')} = _clkBeatCount_${id} > _clkLastBeat_${id};`)
-        ln(`  bool ${v('bar')} = ${v('beat')} && (_clkBeatCount_${id} % ${beatsPerBar}u == 0u);`)
-        ln(`  uint32_t _clkSubCount_${id} = (uint32_t)(_clkElapsed_${id} * ${subdivision}.0f);`)
+        ln(`  bool ${v('bar')} = ${v('beat')} && (_clkBeatCount_${id} % (uint32_t)${beatsPerBar} == 0u);`)
+        ln(`  uint32_t _clkSubCount_${id} = (uint32_t)(_clkElapsed_${id} * (float)${subdivision});`)
         ln(`  bool ${v('sub')} = _clkSubCount_${id} > _clkLastSub_${id};`)
         ln(`  _clkLastBeat_${id} = _clkBeatCount_${id}; _clkLastSub_${id} = _clkSubCount_${id};`)
         break

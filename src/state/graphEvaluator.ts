@@ -7041,7 +7041,7 @@ function createEvalNode(
       // millis()-based version the C++ generator emits.
       case 'Smooth': {
         const value = num(id, 'value', props, 'value', 0)
-        const response = Math.max(0, Number(props.response ?? 0.25))
+        const response = Math.max(0, num(id, 'response', props, 'response', 0.25))
         const key = stateKey(id)
         const prev = smoothState.get(key)
         let v = value
@@ -7081,8 +7081,8 @@ function createEvalNode(
       // linear decay to 0 (wire through Ease for a shaped curve).
       case 'Envelope': {
         const trig = Boolean(input(id, 'trigger', false))
-        const attackProp = Number(props.attack ?? 0)
-        const decayProp = Number(props.decay ?? 0.5)
+        const attackProp = num(id, 'attack', props, 'attack', 0)
+        const decayProp = num(id, 'decay', props, 'decay', 0.5)
         const attack = Number.isFinite(attackProp) ? Math.max(0, attackProp) : 0
         const decay = Number.isFinite(decayProp) ? Math.max(0.05, decayProp) : 0.5
         const key = stateKey(id)
@@ -8547,8 +8547,8 @@ function createEvalNode(
       }
 
       case 'BeatSin': {
-        const bpmProp = Number(props.bpm ?? 60)
-        const bpm = Number.isFinite(bpmProp) ? bpmProp : 60
+        const bpmProp = num(id, 'bpm', props, 'bpm', 60)
+        const bpm = Math.max(1, Number.isFinite(bpmProp) ? bpmProp : 60)
         const lo  = Number(props.low  ?? 0)
         const hi  = Number(props.high ?? 1)
         const phase = (t * bpm / 60) % 1
@@ -8572,9 +8572,9 @@ function createEvalNode(
         const tapIn = Boolean(input(id, 'tap', false))
         const syncIn = Boolean(input(id, 'sync', false))
         const resetIn = Boolean(input(id, 'reset', false))
-        const beatsPerBar = Math.max(1, Math.round(Number(props.beatsPerBar ?? 4)))
-        const subdivision = Math.max(1, Math.round(Number(props.subdivision ?? 2)))
-        const baseBpm = Math.max(1, Number(props.bpm ?? 120))
+        const beatsPerBar = Math.max(1, Math.round(num(id, 'beatsPerBar', props, 'beatsPerBar', 4)))
+        const subdivision = Math.max(1, Math.round(num(id, 'subdivision', props, 'subdivision', 2)))
+        const baseBpm = Math.max(1, num(id, 'bpm', props, 'bpm', 120))
 
         // A tap/sync rising edge re-zeros phase and, from the second pulse on,
         // blends a live BPM estimate from the pulse interval (an out-of-range
@@ -8633,7 +8633,7 @@ function createEvalNode(
       // (module-level intervalLast), keyed per group instance like other stateful
       // nodes. Mirrors the millis()-based timer the C++ generator emits.
       case 'Interval': {
-        const interval = Math.max(0.05, Number(props.interval ?? 0.5))
+        const interval = Math.max(0.05, num(id, 'interval', props, 'interval', 0.5))
         const key = stateKey(id)
         const last = intervalLast.get(key)
         let pulse = false
@@ -8752,7 +8752,7 @@ function createEvalNode(
         const snapshot = input(id, 'dmx', blankDmxSnapshot()) as DmxSnapshot
         const channel = clampDmxChannel(props.channel ?? 1, 1)
         const byte = clampDmxByte(snapshot.channels[channel - 1] ?? 0, 0)
-        const threshold = clampDmxByte(props.activeThreshold ?? 1, 1)
+        const threshold = clampDmxByte(num(id, 'activeThreshold', props, 'activeThreshold', 1), 1)
         const key = stateKey(id)
         const prev = dmxChannelState.get(key)
         const changed = prev?.seen === true && prev.last !== byte

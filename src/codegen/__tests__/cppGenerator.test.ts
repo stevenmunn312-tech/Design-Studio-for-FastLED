@@ -716,7 +716,8 @@ describe('generateCpp', () => {
   it('emits BeatSin node with bpm/low/high', () => {
     const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 1 })
     const cpp = generateCpp([bs], [])
-    expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * 120.000f / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
+    // BPM reads wire-then-property, so it arrives as a bounded expression.
+    expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * fmaxf(1.0f,120) / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
   })
 
   it('resolves matrix expressions before emitting scalar properties', () => {
@@ -732,7 +733,7 @@ describe('generateCpp', () => {
       edge('e4', 'bx', 'b1', 'value', 'brightness'),
       edge('e5', 'rx', 'b2', 'value', 'brightness'),
     ])
-    expect(cpp).toContain('* 80.000f / 60.0f')
+    expect(cpp).toContain('fmaxf(1.0f,80) / 60.0f')
     expect(cpp).toContain('3.500f')
     expect(cpp).toContain('(8.000f - 3.500f)')
     expect(cpp).toContain('float n_rx_value = 7.0f + (random16() / 65535.0f) * 9.0f;')
@@ -750,8 +751,10 @@ describe('generateCpp', () => {
     const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
     const cpp = generateCpp([clk], [])
     expect(cpp).toContain('_clkOrigin_clk')
-    expect(cpp).toContain('128.0f')
-    expect(cpp).toContain('% 4u == 0u')
+    expect(cpp).toContain('float _clkBpmP_clk = fmaxf(1.0f,128);')
+    expect(cpp).toContain('int _clkBar_clk = (int)fmaxf(1.0f,4);')
+    expect(cpp).toContain('int _clkSub_clk = (int)fmaxf(1.0f,2);')
+    expect(cpp).toContain('% (uint32_t)_clkBar_clk == 0u')
     expect(cpp).toContain('float n_clk_bpm')
     expect(cpp).toContain('float n_clk_phase')
     expect(cpp).toContain('bool n_clk_beat')
@@ -3303,7 +3306,7 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0.25 }), ...t.nodes], t.edges)
     expect(cpp).toContain('static float n_sm_result')
     expect(cpp).toContain('expf(')
-    expect(cpp).toContain('0.250f')
+    expect(cpp).toContain('float _smResp = fmaxf(0.0001f, fmaxf(0.0f,0.25));')
   })
 
   it('Smooth with ~0 response is a passthrough', () => {
@@ -3335,7 +3338,8 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const cpp = generateCpp([iv, node('env', 'Envelope', 'signal', { decay: 0.5 }), ...t.nodes],
       [edge('e0', 'iv', 'env', 'pulse', 'trigger'), ...t.edges])
     expect(cpp).toContain('static uint32_t _envT_env')
-    expect(cpp).toContain('constrain(1.0f - _envAge_env / 500.0f, 0.0f, 1.0f)')
+    expect(cpp).toContain('float _envDec_env = fmaxf(50.0f, (0.5)*1000.0f);')
+    expect(cpp).toContain('constrain(1.0f - _envAge_env / _envDec_env, 0.0f, 1.0f)')
   })
 
   it('Envelope emits an attack ramp when configured', () => {
@@ -3343,9 +3347,10 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const iv = node('iv', 'Interval', 'signal', { interval: 1 })
     const cpp = generateCpp([iv, node('env', 'Envelope', 'signal', { attack: 0.25, decay: 0.5 }), ...t.nodes],
       [edge('e0', 'iv', 'env', 'pulse', 'trigger'), ...t.edges])
-    expect(cpp).toContain('_envAge_env < 250u')
-    expect(cpp).toContain('_envAge_env / 250.0f')
-    expect(cpp).toContain('(_envAge_env - 250u) / 500.0f')
+    expect(cpp).toContain('float _envAtk_env = fmaxf(0.0f, (0.25)*1000.0f);')
+    expect(cpp).toContain('_envAge_env < (uint32_t)_envAtk_env')
+    expect(cpp).toContain('_envAge_env / _envAtk_env')
+    expect(cpp).toContain('(_envAge_env - (_envAtk_env > 0.0f ? (uint32_t)_envAtk_env : 0u)) / _envDec_env')
   })
 
   it('Trigger debounce emits a millis()-based stability window', () => {
