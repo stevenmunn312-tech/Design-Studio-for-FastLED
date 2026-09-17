@@ -6616,10 +6616,12 @@ function createEvalNode(
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'volcano')
+        // `count` sizes the firmware's static shock pool, so it stays a
+        // property; the multipliers are read wire-then-property.
         const count = Math.max(1, Math.round(Number(props.count ?? 8)))
-        const decay = Number(props.decay ?? 1)
-        const thickness = Number(props.thickness ?? 1)
-        const spawnSpread = Number(props.spawnSpread ?? 0)
+        const decay = num(id, 'decay', props, 'decay', 1)
+        const thickness = num(id, 'thickness', props, 'thickness', 1)
+        const spawnSpread = num(id, 'spawnSpread', props, 'spawnSpread', 0)
         const tiles = num(id, 'tiles', props, 'tiles', 1)
         const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
         out = { frame: evalKickShock(stateKey(id), kick, snare, hihat, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode, tiles) }
@@ -6663,10 +6665,12 @@ function createEvalNode(
         const snare = num(id, 'snare', props, 'snare', 0)
         const hihat = num(id, 'hihat', props, 'hihat', 0)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        // `count` sizes the firmware's static blob pool, so it stays a
+        // property; the multipliers are read wire-then-property.
         const count = Math.max(1, Math.round(Number(props.count ?? 12)))
-        const size = Number(props.size ?? 1)
-        const decay = Number(props.decay ?? 1)
-        const spawnSpread = Number(props.spawnSpread ?? 1)
+        const size = num(id, 'size', props, 'size', 1)
+        const decay = num(id, 'decay', props, 'decay', 1)
+        const spawnSpread = num(id, 'spawnSpread', props, 'spawnSpread', 1)
         const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
         out = { frame: evalPercussionBlobs(stateKey(id), kick, snare, hihat, t, palette, W, H, count, size, decay, spawnSpread, blendMode) }
         break
@@ -6709,10 +6713,12 @@ function createEvalNode(
         const energy = num(id, 'energy', props, 'energy', 0.7)
         const speed = num(id, 'speed', props, 'speed', 1)
         const palette = pal(id, 'paletteIn', props, 'palette', 'laguna')
+        // `count` sizes the firmware's static ripple arrays, so it stays a
+        // property; the three multipliers are read wire-then-property.
         const count = Math.max(1, Math.round(Number(props.count ?? 8)))
-        const decay = Number(props.decay ?? 1)
-        const thickness = Number(props.thickness ?? 1)
-        const spawnSpread = Number(props.spawnSpread ?? 1)
+        const decay = num(id, 'decay', props, 'decay', 1)
+        const thickness = num(id, 'thickness', props, 'thickness', 1)
+        const spawnSpread = num(id, 'spawnSpread', props, 'spawnSpread', 1)
         const blendMode = String(props.blendMode ?? 'max') === 'add' ? 'add' : 'max'
         out = { frame: evalRainRipples(stateKey(id), trigger, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
         break

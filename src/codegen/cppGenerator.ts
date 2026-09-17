@@ -4017,16 +4017,18 @@ export function generateCpp(
         const speed = f('speed', 'speed', 1)
         const tiles = f('tiles', 'tiles', 1)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        // `count` sizes the static shock pool below and stays a property;
+        // the multipliers are per-frame locals, so a control can drive them.
         const CAP = Math.max(1, Math.round(Number(p.count ?? 8)))
-        const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
-        const bandMult = Math.max(0.05, Number(p.thickness ?? 1))
-        const spread = Math.max(0, Math.min(1, Number(p.spawnSpread ?? 0)))
-        const spreadF = floatLit(spread)
+        const spreadF = `_ksSpread`
         const additive = String(p.blendMode ?? 'add') !== 'max'
-        const lifeK = (1.9 * lifeMult).toFixed(4), lifeS = (1.0 * lifeMult).toFixed(4)
-        const bandK = (0.10 * bandMult).toFixed(4), bandS = (0.055 * bandMult).toFixed(4)
+        const lifeK = '1.9f*_ksLife', lifeS = '1.0f*_ksLife'
+        const bandK = '0.10f*_ksBand', bandS = '0.055f*_ksBand'
         ln(`  { // KickShock`)
         ln(`    static float _ksBorn_${id}[${CAP}]; static float _ksX_${id}[${CAP}]; static float _ksY_${id}[${CAP}]; static uint8_t _ksKind_${id}[${CAP}]; static bool _ksAlive_${id}[${CAP}]; static bool _ksInit_${id}=false; static uint8_t _ksNext_${id}=0; static bool _ksPrevKick_${id}=false,_ksPrevSnare_${id}=false;`)
+        ln(`    float _ksSpread=constrain(${f('spawnSpread', 'spawnSpread', 0)}, 0.0f, 1.0f);`)
+        ln(`    float _ksLife=fmaxf(0.05f, ${f('decay', 'decay', 1)});`)
+        ln(`    float _ksBand=fmaxf(0.05f, ${f('thickness', 'thickness', 1)});`)
         ln(`    if(!_ksInit_${id}){ for(int _i=0;_i<${CAP};_i++) _ksAlive_${id}[_i]=false; _ksInit_${id}=true; }`)
         ln(`    float _spd=${speed},_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
         ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f;`)
@@ -4036,8 +4038,8 @@ export function generateCpp(
         ln(`    _ksPrevKick_${id}=_kickHit; _ksPrevSnare_${id}=_snareHit;`)
         // Divide by lifeMult so total travel (speed*life) stays constant
         // regardless of decay — mirrors the evaluator (see evalKickShock).
-        ln(`    float _spdK=(0.35f+_strength*0.5f)*max(0.2f,_spd)/${lifeMult.toFixed(4)}f, _spdS=_spdK*1.8f;`)
-        ln(`    const float _lifeK=${lifeK}f,_lifeS=${lifeS}f,_bandK=${bandK}f,_bandS=${bandS}f;`)
+        ln(`    float _spdK=(0.35f+_strength*0.5f)*max(0.2f,_spd)/_ksLife, _spdS=_spdK*1.8f;`)
+        ln(`    const float _lifeK=${lifeK},_lifeS=${lifeS},_bandK=${bandK},_bandS=${bandS};`)
         ln(`    float _maxD=max(1e-6f,sqrtf(_ksCx*_ksCx+_ksCy*_ksCy));`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _lx=fmodf((_x+0.5f)*_tiles,WIDTH)/_tiles-0.5f,_ly=fmodf((_y+0.5f)*_tiles,HEIGHT)/_tiles-0.5f;`)
@@ -4173,16 +4175,18 @@ export function generateCpp(
         const snare = f('snare', 'snare', 0)
         const hihat = f('hihat', 'hihat', 0)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        // `count` sizes the static blob pool below and stays a property;
+        // the multipliers are per-frame locals, so a control can drive them.
         const CAP = Math.max(1, Math.round(Number(p.count ?? 12)))
-        const sizeMult = Math.max(0.1, Number(p.size ?? 1))
-        const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
-        const spread = Math.max(0, Math.min(1, Number(p.spawnSpread ?? 1)))
-        const spreadF = floatLit(spread)
+        const spreadF = `_pbSpread`
         const additive = String(p.blendMode ?? 'add') !== 'max'
-        const pr = [0.34, 0.20, 0.10].map((v) => (v * sizeMult).toFixed(4))
-        const pl = [1.4, 0.7, 0.35].map((v) => (v * lifeMult).toFixed(4))
+        const pr = [0.34, 0.20, 0.10].map((v) => `${floatLit(v)}*_pbSize`)
+        const pl = [1.4, 0.7, 0.35].map((v) => `${floatLit(v)}*_pbLife`)
         ln(`  { // PercussionBlobs`)
         ln(`    static float _pbx_${id}[${CAP}],_pby_${id}[${CAP}],_pbt_${id}[${CAP}]; static uint8_t _pbk_${id}[${CAP}]; static bool _pbAlive_${id}[${CAP}]; static bool _pbInit_${id}=false; static uint8_t _pbNext_${id}=0; static bool _pbPrevKick_${id}=false,_pbPrevSnare_${id}=false,_pbPrevHihat_${id}=false;`)
+        ln(`    float _pbSpread=constrain(${f('spawnSpread', 'spawnSpread', 1)}, 0.0f, 1.0f);`)
+        ln(`    float _pbSize=fmaxf(0.1f, ${f('size', 'size', 1)});`)
+        ln(`    float _pbLife=fmaxf(0.05f, ${f('decay', 'decay', 1)});`)
         ln(`    if(!_pbInit_${id}){ for(int _i=0;_i<${CAP};_i++) _pbAlive_${id}[_i]=false; _pbInit_${id}=true; }`)
         ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f, _hihatHit=(${hihat})>0.55f;`)
         ln(`    float _pbCx=WIDTH/2.0f,_pbCy=HEIGHT/2.0f;`)
@@ -4190,7 +4194,7 @@ export function generateCpp(
         ln(`    if(_snareHit && !_pbPrevSnare_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=1; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
         ln(`    if(_hihatHit && !_pbPrevHihat_${id}){ _pbx_${id}[_pbNext_${id}]=_pbCx+(random8()/255.0f*WIDTH-_pbCx)*${spreadF}; _pby_${id}[_pbNext_${id}]=_pbCy+(random8()/255.0f*HEIGHT-_pbCy)*${spreadF}; _pbt_${id}[_pbNext_${id}]=t; _pbk_${id}[_pbNext_${id}]=2; _pbAlive_${id}[_pbNext_${id}]=true; _pbNext_${id}=(uint8_t)((_pbNext_${id}+1)%${CAP}); }`)
         ln(`    _pbPrevKick_${id}=_kickHit; _pbPrevSnare_${id}=_snareHit; _pbPrevHihat_${id}=_hihatHit;`)
-        ln(`    const float _pr[3]={${pr[0]}f,${pr[1]}f,${pr[2]}f}, _pl[3]={${pl[0]}f,${pl[1]}f,${pl[2]}f};`)
+        ln(`    const float _pr[3]={${pr[0]},${pr[1]},${pr[2]}}, _pl[3]={${pl[0]},${pl[1]},${pl[2]}};`)
         ln(`    float _minDim=min((float)WIDTH,(float)HEIGHT);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _field=0;`)
@@ -4317,22 +4321,30 @@ export function generateCpp(
         const energy = f('energy', 'energy', 0.7)
         const speed = f('speed', 'speed', 1)
         const pal = paletteExpr(node.id, 'paletteIn', p)
+        /*
+         * `count` stays a property: it is the length of the static ripple
+         * arrays below, fixed when the sketch is built. The three multipliers
+         * are only ever read inside expressions, so each is hoisted to a
+         * per-frame local fed by `floatExpr` — unwired it folds to its own
+         * literal, and the clamps that used to run here are emitted so they
+         * still hold on a wired value.
+         */
         const CAP = Math.max(1, Math.round(Number(p.count ?? 8)))
-        const lifeMult = Math.max(0.05, Number(p.decay ?? 1))
-        const bandMult = Math.max(0.05, Number(p.thickness ?? 1))
-        const spread = Math.max(0, Math.min(1, Number(p.spawnSpread ?? 1)))
-        const spreadF = floatLit(spread)
+        const spreadF = `_rrSpread`
         const additive = String(p.blendMode ?? 'max') === 'add'
         ln(`  { // RainRipples`)
         ln(`    static float _rrx_${id}[${CAP}],_rry_${id}[${CAP}],_rrt_${id}[${CAP}]; static bool _rrAlive_${id}[${CAP}]; static bool _rrInit_${id}=false; static uint8_t _rrNext_${id}=0; static bool _rrPrevTrig_${id}=false;`)
         ln(`    if(!_rrInit_${id}){ for(int _i=0;_i<${CAP};_i++) _rrAlive_${id}[_i]=false; _rrInit_${id}=true; }`)
+        ln(`    float ${spreadF}=constrain(${f('spawnSpread', 'spawnSpread', 1)}, 0.0f, 1.0f);`)
+        ln(`    float _rrLife=fmaxf(0.05f, ${f('decay', 'decay', 1)});`)
+        ln(`    float _rrBand=fmaxf(0.05f, ${f('thickness', 'thickness', 1)});`)
         ln(`    bool _trig=(${trigger});`)
         ln(`    float _rrCx=WIDTH/2.0f,_rrCy=HEIGHT/2.0f;`)
         ln(`    if(_trig && !_rrPrevTrig_${id}){ _rrx_${id}[_rrNext_${id}]=_rrCx+(random8()/255.0f*WIDTH-_rrCx)*${spreadF}; _rry_${id}[_rrNext_${id}]=_rrCy+(random8()/255.0f*HEIGHT-_rrCy)*${spreadF}; _rrt_${id}[_rrNext_${id}]=t; _rrAlive_${id}[_rrNext_${id}]=true; _rrNext_${id}=(uint8_t)((_rrNext_${id}+1)%${CAP}); }`)
         ln(`    _rrPrevTrig_${id}=_trig;`)
         ln(`    float _strength=min(1.0f,max(0.0f,${energy})); float _spd=max(0.2f,${speed});`)
-        ln(`    float _life=(1.6f/_spd)*${lifeMult.toFixed(4)}f; float _speedPx=max((float)WIDTH,(float)HEIGHT)*0.9f/_life;`)
-        ln(`    float _band=(0.9f+(1.0f-_strength)*0.6f)*${bandMult.toFixed(4)}f;`)
+        ln(`    float _life=(1.6f/_spd)*_rrLife; float _speedPx=max((float)WIDTH,(float)HEIGHT)*0.9f/_life;`)
+        ln(`    float _band=(0.9f+(1.0f-_strength)*0.6f)*_rrBand;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _v=0;`)
         ln(`      for(int _r=0;_r<${CAP};_r++){ if(!_rrAlive_${id}[_r]) continue;`)

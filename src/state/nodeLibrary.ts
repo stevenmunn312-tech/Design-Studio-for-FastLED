@@ -963,8 +963,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'tiles', label: 'Tiles', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'decay', label: 'Decay', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
+      { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
-    propertyInputs: { hihat: 'hihat', kick: 'kick', snare: 'snare', energy: 'energy', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
+    propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', hihat: 'hihat', kick: 'kick', snare: 'snare', energy: 'energy', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -1048,8 +1051,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'snare', label: 'Snare', dataType: 'float' },
       { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'size', label: 'Size', dataType: 'float' },
+      { id: 'decay', label: 'Decay', dataType: 'float' },
+      { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
-    propertyInputs: { hihat: 'hihat', kick: 'kick', snare: 'snare', palette: 'paletteIn' },
+    propertyInputs: { size: 'size', decay: 'decay', spawnSpread: 'spawnSpread', hihat: 'hihat', kick: 'kick', snare: 'snare', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -1137,8 +1143,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'decay', label: 'Decay', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
+      { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
-    propertyInputs: { energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       energy: 0.7, speed: 1.0, palette: 'laguna',

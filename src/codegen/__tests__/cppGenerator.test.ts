@@ -3934,22 +3934,30 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
   it('KickShock divides speed by decay so total ring travel stays constant', () => {
     const ks = node('ks3', 'KickShock', 'pattern', { decay: 2 })
     const cpp = generateCpp([ks, outputNode], [edge('e', 'ks3', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('/2.0000f, _spdS=_spdK*1.8f;')
-    expect(cpp).toContain('_lifeK=3.8000f')
+    // Both the divisor and the ring lifetimes read the one decay local, so
+    // the relationship holds whatever is driving it.
+    expect(cpp).toContain('float _ksLife=fmaxf(0.05f, 2);')
+    expect(cpp).toContain('/_ksLife, _spdS=_spdK*1.8f;')
+    expect(cpp).toContain('_lifeK=1.9f*_ksLife')
   })
 
   it('KickShock spawnSpread=0 keeps every ring spawn at the shared centre', () => {
     const ks = node('ks4', 'KickShock', 'pattern', {})
     const cpp = generateCpp([ks, outputNode], [edge('e', 'ks4', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('-_ksCx)*0.0f')
+    expect(cpp).toContain('float _ksSpread=constrain(0, 0.0f, 1.0f);')
+    expect(cpp).toContain('-_ksCx)*_ksSpread')
   })
 
-  it('PercussionBlobs bakes count/size/decay/blendMode', () => {
+  it('PercussionBlobs bakes only count, and scales its radii and lifetimes live', () => {
     const pb = node('pb', 'PercussionBlobs', 'pattern', { count: 6, size: 2, decay: 0.5, blendMode: 'max' })
     const cpp = generateCpp([pb, outputNode], [edge('e', 'pb', 'out', 'frame', 'frame')])
+    // The pool length is fixed when the sketch is built; the per-kind radii
+    // and lifetimes are the authored ratios scaled by a live multiplier.
     expect(cpp).toContain('_pbx_pb[6]')
-    expect(cpp).toContain('_pr[3]={0.6800f,0.4000f,0.2000f}')
-    expect(cpp).toContain('_pl[3]={0.7000f,0.3500f,0.1750f}')
+    expect(cpp).toContain('float _pbSize=fmaxf(0.1f, 2);')
+    expect(cpp).toContain('float _pbLife=fmaxf(0.05f, 0.5);')
+    expect(cpp).toContain('_pr[3]={0.34f*_pbSize,0.2f*_pbSize,0.1f*_pbSize}')
+    expect(cpp).toContain('_pl[3]={1.4f*_pbLife,0.7f*_pbLife,0.35f*_pbLife}')
     expect(cpp).toContain('_field=max(_field,')
   })
 
@@ -3959,13 +3967,27 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
     expect(cpp).toContain('_field+=_decay*(_radius*_radius)')
   })
 
-  it('RainRipples bakes count/thickness/decay and defaults to max combine', () => {
+  it('RainRipples bakes only count, reads the multipliers, and defaults to max combine', () => {
     const rr = node('rr', 'RainRipples', 'pattern', { count: 4, thickness: 2, decay: 0.5 })
     const cpp = generateCpp([rr, outputNode], [edge('e', 'rr', 'out', 'frame', 'frame')])
+    // `count` is the length of the static ripple arrays, so it is still fixed
+    // when the sketch is built; the multipliers are per-frame locals.
     expect(cpp).toContain('_rrx_rr[4]')
-    expect(cpp).toContain('_life=(1.6f/_spd)*0.5000f')
-    expect(cpp).toContain('_band=(0.9f+(1.0f-_strength)*0.6f)*2.0000f')
+    expect(cpp).toContain('float _rrLife=fmaxf(0.05f, 0.5);')
+    expect(cpp).toContain('float _rrBand=fmaxf(0.05f, 2);')
+    expect(cpp).toContain('_life=(1.6f/_spd)*_rrLife')
+    expect(cpp).toContain('_band=(0.9f+(1.0f-_strength)*0.6f)*_rrBand')
     expect(cpp).toContain('_v=max(_v,_ring*(1.0f-_age/_life));')
+  })
+
+  it('RainRipples follows a wire into a multiplier', () => {
+    const rr = node('rrw', 'RainRipples', 'pattern', {})
+    const wave = node('w', 'Wave', 'signal', {})
+    const cpp = generateCpp(
+      [rr, wave, outputNode],
+      [edge('e', 'rrw', 'out', 'frame', 'frame'), edge('k', 'w', 'rrw', 'value', 'thickness')],
+    )
+    expect(cpp).toContain('float _rrBand=fmaxf(0.05f, n_w_value);')
   })
 
   it('RainRipples blendMode="add" switches to additive combine', () => {
@@ -3977,7 +3999,8 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
   it('RainRipples spawnSpread defaults to 1 (fully random)', () => {
     const rr = node('rr3', 'RainRipples', 'pattern', {})
     const cpp = generateCpp([rr, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('-_rrCx)*1.0f')
+    expect(cpp).toContain('float _rrSpread=constrain(1, 0.0f, 1.0f);')
+    expect(cpp).toContain('-_rrCx)*_rrSpread')
   })
 })
 
