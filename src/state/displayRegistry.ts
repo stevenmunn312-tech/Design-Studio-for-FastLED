@@ -529,6 +529,21 @@ export function displayWidgetIsBound(widget: Pick<DisplayWidget, 'properties'>):
   return typeof source === 'string' && source !== '' && source !== DISPLAY_SOURCE_FROM_GRAPH
 }
 
+/**
+ * Whether a finger can drive this widget, and so whether it wants a wire.
+ *
+ * Derived from the `out` role rather than listed, because that role *is* the
+ * thing being asked about: Button, Toggle, Slider and Dial have one and
+ * everything else either only reads a value or draws nothing but itself. Every
+ * rule of the form "a control with no connection is inert" has to be asked
+ * through this and no other way — applied to all widgets it would call most of
+ * a finished screen broken, since a Label can never have a wire and a bound
+ * readout deliberately mints no port at all.
+ */
+export function displayWidgetIsControl(type: DisplayWidgetType): boolean {
+  return DISPLAY_WIDGET_LIBRARY[type].portRoles.some((port) => port.direction === 'output')
+}
+
 /** Whether this widget shows a reading at all, and so has something to bind. */
 export function displayWidgetTakesValue(type: DisplayWidgetType): boolean {
   return DISPLAY_WIDGET_LIBRARY[type].portRoles.some((port) => port.direction === 'input')

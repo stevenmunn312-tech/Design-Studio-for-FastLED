@@ -1,4 +1,5 @@
 import type { DisplayWidget } from '../../state/displayDocument'
+import { displayWidgetIsControl } from '../../state/displayRegistry'
 import {
   resolvedDisplayControlValue,
   type DisplayWidgetRuntime,
@@ -30,10 +31,9 @@ function numberProperty(widget: DisplayWidget, key: string, fallback: number): n
 }
 
 export function isInteractiveDisplayWidget(widget: DisplayWidget): boolean {
-  return widget.type === 'Button'
-    || widget.type === 'Toggle'
-    || widget.type === 'Slider'
-    || widget.type === 'Dial'
+  // Through the registry rather than by naming the four: the `out` role is
+  // what makes a widget finger-driven, so a fifth control joins this for free.
+  return displayWidgetIsControl(widget.type)
 }
 
 export function initialDisplayControlValue(widget: DisplayWidget): DisplayControlValue | undefined {

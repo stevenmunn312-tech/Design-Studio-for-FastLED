@@ -10,6 +10,7 @@ import {
   displayDocumentInputPorts,
   displayDocumentPorts,
   displayDocumentTouchOutputPorts,
+  displayWidgetIsControl,
   displayWidgetPortId,
   displayWidgetPorts,
   displayWidgetValidationIssues,
@@ -187,5 +188,25 @@ describe('display widget registry', () => {
     }), 'touch-tft')).toEqual([
       { code: 'property', message: 'Choose an image or icon asset.' },
     ])
+  })
+
+  /*
+   * Which widgets are controls is derived from the `out` role rather than
+   * listed, so a fifth control joins every "a control with no connection is
+   * inert" rule for free. The four are named here so the *set* stays a
+   * decision: a widget that grows an output later fails this until someone has
+   * looked at what that means for the inert rules and for the Connected group.
+   */
+  it('counts exactly the widgets with an out port as controls', () => {
+    const controls = Object.values(DISPLAY_WIDGET_LIBRARY)
+      .filter((definition) => displayWidgetIsControl(definition.type))
+      .map((definition) => definition.type)
+      .sort()
+    expect(controls).toEqual(['Button', 'Dial', 'Slider', 'Toggle'])
+
+    // And it is the port that decides, not the name: a readout with an input
+    // role only is not a control however finger-like it looks.
+    expect(displayWidgetIsControl('Progress')).toBe(false)
+    expect(displayWidgetIsControl('Image/Icon')).toBe(false)
   })
 })
