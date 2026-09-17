@@ -7127,7 +7127,7 @@ function createEvalNode(
         let result = false
         switch (opType) {
           case 'debounce': {
-            const stableTime = Math.max(0.005, Number(props.stableTime ?? 0.05))
+            const stableTime = Math.max(0.005, num(id, 'stableTime', props, 'stableTime', 0.05))
             if (trig !== st.candidate) { st.candidate = trig; st.candidateSince = t }
             if (trig === st.candidate && t - st.candidateSince >= stableTime) st.committed = trig
             result = st.committed
@@ -7143,13 +7143,13 @@ function createEvalNode(
             break
           }
           case 'oneShot': {
-            const holdTime = Math.max(0.01, Number(props.holdTime ?? 0.1))
+            const holdTime = Math.max(0.01, num(id, 'holdTime', props, 'holdTime', 0.1))
             if (trig && !st.prevTrig) st.firedAt = t
             result = t - st.firedAt < holdTime
             break
           }
           case 'pulseDivider': {
-            const divideBy = Math.max(2, Math.round(Number(props.divideBy ?? 2)))
+            const divideBy = Math.max(2, Math.round(num(id, 'divideBy', props, 'divideBy', 2)))
             if (trig && !st.prevTrig) {
               st.count += 1
               if (st.count >= divideBy) { st.count = 0; result = true }
@@ -7157,7 +7157,7 @@ function createEvalNode(
             break
           }
           case 'delay': {
-            const delayTime = Math.max(0.01, Number(props.delayTime ?? 0.5))
+            const delayTime = Math.max(0.01, num(id, 'delayTime', props, 'delayTime', 0.5))
             if (trig && !st.prevTrig) st.scheduled = t + delayTime
             if (st.scheduled != null && t >= st.scheduled) { result = true; st.scheduled = null }
             break
@@ -7285,7 +7285,7 @@ function createEvalNode(
       case 'FractalNoise': {
         const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FractalNoise)
         const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FractalNoise)
-        const octaves = Number(props.octaves ?? 4)
+        const octaves = num(id, 'octaves', props, 'octaves', 4)
         const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
         out = { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed)) }
         break
@@ -8338,7 +8338,7 @@ function createEvalNode(
       case 'FieldNoise': {
         const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FieldNoise)
         const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
-        const octaves = Number(props.octaves ?? 4)
+        const octaves = num(id, 'octaves', props, 'octaves', 4)
         out = { field: evalFieldNoise(speed, scale, octaves, t, W, H, normalizedSeed(props.seed)) }
         break
       }

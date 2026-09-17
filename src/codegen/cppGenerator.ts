@@ -5741,26 +5741,26 @@ export function generateCpp(
           ln(`  static bool _trP_${id} = false, _trInit_${id} = false; bool ${outVar} = false;`)
           ln(`  { bool _t = (${trig}); if (!_trInit_${id}) { _trP_${id} = _t; _trInit_${id} = true; } else { ${outVar} = (_t != _trP_${id}); _trP_${id} = _t; } }`)
         } else if (op === 'oneShot') {
-          const ms = Math.max(20, Math.round(Number(p.holdTime ?? 0.1) * 1000))
+          ln(`  uint32_t _trMs_${id} = (uint32_t)fmaxf(20.0f, (${f('holdTime', 'holdTime', 0.1)})*1000.0f);`)
           ln(`  static uint32_t _trT_${id} = 0xFFFFFFFFu; static bool _trP_${id} = false;`)
           ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) _trT_${id} = millis(); _trP_${id} = _t; }`)
-          ln(`  bool ${outVar} = (millis() - _trT_${id}) < ${ms}u;`)
+          ln(`  bool ${outVar} = (millis() - _trT_${id}) < _trMs_${id};`)
         } else if (op === 'pulseDivider') {
-          const n = Math.max(2, Math.round(Number(p.divideBy ?? 2)))
+          ln(`  uint8_t _trN_${id} = (uint8_t)constrain(${f('divideBy', 'divideBy', 2)},2.0f,255.0f);`)
           ln(`  static uint8_t _trC_${id} = 0; static bool _trP_${id} = false; bool ${outVar} = false;`)
-          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= ${n}) { _trC_${id} = 0; ${outVar} = true; } } _trP_${id} = _t; }`)
+          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trC_${id}++; if (_trC_${id} >= _trN_${id}) { _trC_${id} = 0; ${outVar} = true; } } _trP_${id} = _t; }`)
         } else if (op === 'delay') {
-          const ms = Math.max(10, Math.round(Number(p.delayTime ?? 0.5) * 1000))
+          ln(`  uint32_t _trMs_${id} = (uint32_t)fmaxf(10.0f, (${f('delayTime', 'delayTime', 0.5)})*1000.0f);`)
           ln(`  static uint32_t _trS_${id} = 0; static bool _trA_${id} = false, _trP_${id} = false; bool ${outVar} = false;`)
-          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trS_${id} = millis() + ${ms}u; _trA_${id} = true; } _trP_${id} = _t; }`)
+          ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) { _trS_${id} = millis() + _trMs_${id}; _trA_${id} = true; } _trP_${id} = _t; }`)
           ln(`  if (_trA_${id} && millis() >= _trS_${id}) { ${outVar} = true; _trA_${id} = false; }`)
         } else { // debounce
-          const ms = Math.max(5, Math.round(Number(p.stableTime ?? 0.05) * 1000))
+          ln(`  uint32_t _trMs_${id} = (uint32_t)fmaxf(5.0f, (${f('stableTime', 'stableTime', 0.05)})*1000.0f);`)
           ln(`  static bool _trC_${id} = false, _trCommit_${id} = false, _trInit_${id} = false; static uint32_t _trSince_${id} = 0;`)
           ln(`  { bool _t = (${trig});`)
           ln(`    if (!_trInit_${id}) { _trC_${id} = _t; _trCommit_${id} = _t; _trSince_${id} = millis(); _trInit_${id} = true; }`)
           ln(`    else { if (_t != _trC_${id}) { _trC_${id} = _t; _trSince_${id} = millis(); }`)
-          ln(`      if (_t == _trC_${id} && (millis() - _trSince_${id}) >= ${ms}u) _trCommit_${id} = _t; } }`)
+          ln(`      if (_t == _trC_${id} && (millis() - _trSince_${id}) >= _trMs_${id}) _trCommit_${id} = _t; } }`)
           ln(`  bool ${outVar} = _trCommit_${id};`)
         }
         break
@@ -6007,7 +6007,8 @@ export function generateCpp(
         needsT.v = true
         const ob = ownBuf()
         const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FractalNoise), scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FractalNoise)
-        const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
+        const octaves = `_octv_${id}`
+        const octavesDecl = `    int ${octaves}=(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f);`
         const pal = paletteExpr(node.id, 'paletteIn', p)
         const seed = seedProp(p)
         const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
@@ -6015,6 +6016,7 @@ export function generateCpp(
         ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*40);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
+        ln(octavesDecl)
         ln(`      for(int _o=0;_o<${octaves};_o++){`)
         ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
         ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
@@ -6582,13 +6584,15 @@ export function generateCpp(
         const of = ownField()
         const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
         const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
-        const octaves = Math.max(1, Math.min(6, Math.floor(Number(p.octaves ?? 4))))
+        const octaves = `_octv_${id}`
+        const octavesDecl = `    int ${octaves}=(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f);`
         const seed = seedProp(p)
         const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
         ln(`  { // Field noise (fBm via inoise8)`)
         ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*40);`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
+        ln(octavesDecl)
         ln(`      for(int _o=0;_o<${octaves};_o++){`)
         ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
         ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)

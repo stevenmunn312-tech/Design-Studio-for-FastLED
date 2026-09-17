@@ -1885,10 +1885,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Toggle/Flip-Flop, One Shot, Pulse Divider, or Trigger Delay. All share the same
     // bool-in/bool-out signature; the variant-specific timing/count property is
     // gated by isPropertyEnabled. See PROPERTY_META.triggerOp.
+    /*
+     * The four timing knobs are deliberately NOT property inputs yet. Trigger
+     * is emitted twice — by `cppGenerator.ts` and, for physical control
+     * chains, by `codegen/scalarControlCpp.ts` — and only the first reads them
+     * wire-then-property. Declaring the ports without teaching the second
+     * would let a control-chain build ignore a wire the preview follows, which
+     * is the parity break the property-input registry exists to prevent.
+     * `scalarControlInputDefaults` has to resolve them first.
+     */
     type: 'Trigger',
     label: 'Trigger',
     category: 'math',
-    inputs: [{ id: 'trigger', label: 'Trigger', dataType: 'bool' }],
+    inputs: [
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+    ],
+
     outputs: [{ id: 'out', label: 'Out', dataType: 'bool' }],
     defaultProperties: {
       triggerOp: 'debounce',
@@ -2247,8 +2259,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'octaves', label: 'Octaves', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn', octaves: 'octaves' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest', seed: 0 },
   },
@@ -2842,7 +2855,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'octaves', label: 'Octaves', dataType: 'float' },
     ],
+    propertyInputs: { octaves: 'octaves' },
+
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0 },
   },

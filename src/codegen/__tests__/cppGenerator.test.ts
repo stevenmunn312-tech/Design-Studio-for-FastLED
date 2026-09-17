@@ -1725,7 +1725,10 @@ describe('generateCpp', () => {
     const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0.3, scale: 0.15, octaves: 4, palette: 'forest' })
     const cpp = generateCpp([fn, outputNode], [edge('e', 'fn', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise8(')
-    expect(cpp).toContain('_o<4')
+    // Octaves is a loop bound, so it reads from a local and the count is in
+    // that local's initialiser.
+    expect(cpp).toContain('constrain(4,1.0f,6.0f)')
+    expect(cpp).toContain('_o<_octv_')
     expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
@@ -3512,7 +3515,8 @@ describe('FieldNoise / FrameToField', () => {
     )
     expect(cpp).toContain('float field_fn[NUM_LEDS];')
     expect(cpp).toContain('inoise8(')
-    expect(cpp).toContain('for(int _o=0;_o<3;_o++){')
+    expect(cpp).toContain('constrain(3,1.0f,6.0f)')
+    expect(cpp).toContain('for(int _o=0;_o<_octv_')
   })
 
   it('FrameToField extracts average brightness per pixel', () => {
