@@ -54,9 +54,15 @@ export default function LiveTouchScreen() {
   }
   const onHeaderMove = (event: ReactPointerEvent<HTMLElement>) => {
     if (drag.current?.pointerId !== event.pointerId) return
+    // Kept on screen at both ends. Clamping only the near edges lets the
+    // window be dragged out through the far ones, and a floating window with
+    // no grab handle left on screen cannot be brought back.
+    const box = event.currentTarget.parentElement?.getBoundingClientRect()
+    const maxX = Math.max(8, globalThis.innerWidth - (box?.width ?? 0) - 8)
+    const maxY = Math.max(8, globalThis.innerHeight - (box?.height ?? 0) - 8)
     setPosition({
-      x: Math.max(8, drag.current.originX + event.clientX - drag.current.startX),
-      y: Math.max(8, drag.current.originY + event.clientY - drag.current.startY),
+      x: Math.min(maxX, Math.max(8, drag.current.originX + event.clientX - drag.current.startX)),
+      y: Math.min(maxY, Math.max(8, drag.current.originY + event.clientY - drag.current.startY)),
     })
   }
   const onHeaderUp = (event: ReactPointerEvent<HTMLElement>) => {
@@ -74,6 +80,13 @@ export default function LiveTouchScreen() {
       aria-label={`${title} touch screen`}
       style={{ left: position.x, top: position.y }}
     >
+      {/*
+        * The bar carries no title: the panel names itself on the glass below
+        * and on the dialog, and a floating window this small spends its width
+        * better on the screen than on saying which one it is. What is left is
+        * the grab handle, so it keeps a grip rather than reading as an empty
+        * strip nobody would think to hold.
+        */}
       <header
         className={styles.header}
         onPointerDown={onHeaderDown}
@@ -81,10 +94,17 @@ export default function LiveTouchScreen() {
         onPointerUp={onHeaderUp}
         onPointerCancel={onHeaderUp}
       >
-        <strong>{title}</strong>
+        <span className={styles.grip} aria-hidden="true" />
         <div className={styles.actions}>
           <button type="button" onClick={() => openDisplayWorkspace(displayId)}>Edit design</button>
-          <button type="button" onClick={closeLiveTouchScreen} aria-label="Close touch screen">Close</button>
+          <button
+            type="button"
+            className={styles.close}
+            onClick={closeLiveTouchScreen}
+            aria-label="Close touch screen"
+          >
+            ×
+          </button>
         </div>
       </header>
       <div

@@ -26,12 +26,18 @@
   cursor: grabbing;
 }
 
-.header strong {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 0.88rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* The whole bar drags, so the grip is only an affordance: it says the strip
+   is a handle now that no title does. */
+.grip {
+  flex: none;
+  width: 26px;
+  height: 10px;
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--text-primary) 42%, transparent) 1px,
+    transparent 1.2px
+  );
+  background-size: 5px 5px;
 }
 
 .actions {
@@ -51,6 +57,13 @@
 .actions button:hover {
   border-color: var(--accent-output);
   color: var(--accent-output);
+}
+
+.close {
+  width: 24px;
+  padding: 4px 0;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .bezel {

@@ -538,7 +538,11 @@ describe('DisplayEditor', () => {
     })
     expect(view.queryByRole('complementary', { name: 'Widget palette' })).toBeNull()
     expect(view.queryByRole('complementary', { name: 'Widget inspector' })).toBeNull()
-    expect(screen.getByRole('dialog', { name: /touch screen/i })).toBeTruthy()
+    // The bar is a handle, not a caption: it carries the two actions and
+    // nothing else, and the dialog's own name is what says which panel this
+    // is. A title here only narrows the screen it is floating above.
+    const overlay = screen.getByRole('dialog', { name: /touch screen/i })
+    expect(overlay.querySelector('header')?.textContent).toBe('Edit design×')
     const button = screen.getByRole('button', { name: 'Button run preview' })
     fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
     expect(button.getAttribute('aria-pressed')).toBe('true')
