@@ -1,9 +1,10 @@
 # Wire-first touch controls
 
-Status: agreed 2026-09-17, from bench use. Steps 1 to 4 have landed — a
-control is created by wiring it, waits in the designer's Connected group, moves
-between that group and the screen, and says when it is doing nothing. The
-checklist at the foot says what is outstanding.
+Status: **complete**, agreed 2026-09-17 from bench use and landed the same day.
+A control is created by wiring it, waits in the designer's Connected group,
+moves between that group and the screen, says when it is doing nothing, and is
+reported in Graph Health in both directions. The checklist at the foot is the
+record of what that took.
 Target: Hardware, ahead of v1.0.0.
 
 ## Brief explanation
@@ -158,6 +159,27 @@ a placed widget nothing drives, and a connected widget nothing draws. The
 second is worth saying out loud — it is a control the firmware can read and no
 finger can reach.
 
+Both are **warnings**, and only one carries a performing repair. Placing one
+control the author asked for, into the first free rectangle, is the same act
+the Connected group's button performs, so `place-touch-control` does it; the
+rejection of auto-placement above was about doing it *uninvited* on connect,
+not about doing it when asked. The other direction needs a wire aimed at one
+particular property, which only the author can choose, so it names the gesture
+and frames the nodes rather than pretending to guess. Nothing is removed by
+either: a control drawn before its wire, or wired before it is composed onto
+the screen, is an ordinary half-finished state.
+
+The third cause is deliberately **not** reported here. It is already drawn on
+the wire, it is one dropdown away from being live, and a Formula Field with a
+knob belonging to another variant is a correct graph — a warning that fires on
+one of those teaches people to stop reading the drawer, which this codebase has
+said before about pattern tags and signal ranges.
+
+`GraphDiagnostic.repair` became a discriminated union to carry the second
+repair, rather than growing a second optional field, so the drawer's one
+handler stays exhaustive: a repair that forgets its branch fails to compile
+instead of rendering a button that does nothing.
+
 ## The range flows at adoption
 
 When a widget is placed, it takes `min`/`max`/`step` and its label from the
@@ -165,6 +187,20 @@ property. That is `displayControlRangeRepair`'s existing derivation, run at
 birth. Afterwards either side may be edited and the same module offers to
 re-sync, exactly as it does today. One mechanism, two moments — rather than a
 second copy of the derivation for the creation path.
+
+It came out as `placeTouchControlIn`, which every placement goes through: the
+Connected group's own button, and Graph Health's repair. Placement is a real
+second moment rather than a formality, because a control drawn from the
+palette, wired, then deleted from the screen waits in the group with a live
+wire, and the property may have moved on in between.
+
+Both moments are gated by the same `displayControlIsUnconfigured` — label,
+`source` and all three range fields still as the widget type shipped them —
+which the connect-time path already had inline and now shares. That gate is
+the load-bearing half: without it, deleting a control from the screen and
+placing it again would silently revert a range somebody chose, and a
+deliberately coarse 0–10 slider on a 0–255 property is a decision, not a
+mistake. Changing one's mind stays the explicit "Match target range" repair.
 
 ### How the designer half came out
 
@@ -365,7 +401,7 @@ wire — so the widget and its wire say the same thing the same way.
 - [x] "Connected" group in the designer, derived from absent bounds.
 - [x] Place / delete moves a widget between the group and the screen.
 - [x] One inert predicate covering all three causes, on wire and widget.
-- [ ] Graph Health reports both directions with a repair; nothing auto-deletes.
-- [ ] Range adoption at *placement* (the widget-first path already shares the
-      derivation through `adoptedControlRange`; placement itself is step 4).
+- [x] Graph Health reports both directions with a repair; nothing auto-deletes.
+- [x] Range adoption at *placement* (`placeTouchControlIn`), sharing
+      `adoptedControlRange` and the unconfigured gate with the wiring moment.
 - [x] A second wire onto a driven property input is refused with a reason.
