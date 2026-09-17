@@ -56,6 +56,16 @@ build/architecture overview aimed at contributors.
       until it is placed. Nothing auto-deletes — one inert state with three
       causes, dimmed on the wire and on the widget, and reported in Graph
       Health in both directions. Complete.
+  - [The live touch screen](development/design/live-touch-screen.md)
+    — why Run left the screen designer and floats over the graph instead, the
+      difference between an overlay being open and being on screen, driving a
+      touch-widget property from the graph as a second remote, and the one
+      rule that replaced the editor's old runtime reset. Complete.
+  - [On-glass widget labels](development/design/on-glass-widget-labels.md)
+    — Show Label, the rule that a label is drawn once (as content, or as a
+      caption, never both), why the caption takes its strip out of the widget's
+      own box and what that makes the two renderers agree on. Browser side
+      complete; the LVGL half is asserted but not yet on glass.
   - [One canvas, four workspaces](development/design/workspace-tabs.md)
     — replacing the split graph/hardware canvas with Hardware · Build Diagram ·
     Graph · Upload tabs, why co-visibility was not what connected them, and how

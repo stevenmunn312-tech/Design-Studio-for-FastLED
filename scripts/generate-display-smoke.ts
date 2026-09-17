@@ -49,6 +49,19 @@ function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {
   ] as const) document = addDisplayWidget(document, type)
   const icon = document.widgets.find((widget) => widget.type === 'Image/Icon')!
   icon.properties = { ...icon.properties, assetId: 'icon:power', tint: true }
+  /*
+   * Two of them caption themselves on the glass. A caption is a second LVGL
+   * object per widget, pinning a smaller Montserrat face of its own and
+   * offsetting the widget it names, so it is the one part of the screen
+   * restructure a compile can disagree with — and captioning every widget
+   * instead would say less, since a fixture where they all have one cannot
+   * show that an uncaptioned widget still gets its full box. A control and a
+   * readout, because the two take their strip from different geometry.
+   */
+  for (const type of ['Slider', 'Numeric Readout'] as const) {
+    const widget = document.widgets.find((entry) => entry.type === type)!
+    widget.properties = { ...widget.properties, showLabel: true }
+  }
   for (const [widgetId, field] of Object.entries(bindings)) {
     const widget = document.widgets.find((entry) => entry.id === widgetId)
     if (!widget) throw new Error(`${id}: no widget ${widgetId} to bind to ${field}`)

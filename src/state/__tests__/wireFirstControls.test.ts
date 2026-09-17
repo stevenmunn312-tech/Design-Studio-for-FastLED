@@ -184,6 +184,55 @@ describe('connectTouchControl', () => {
     expect(document().widgets).toHaveLength(0)
   })
 
+  /*
+   * Touch values outlive the designer on purpose, so nothing else clears
+   * them, and a widget id is a deterministic stem the next widget of that
+   * type is handed as soon as the last one frees it. A reading must therefore
+   * belong to a widget that exists — otherwise deleting a control you had
+   * dragged to one end and adding a fresh one hands the new control the old
+   * one's value, with nothing on screen to explain it.
+   */
+  it('does not hand a new widget the reading of the deleted one whose id it reuses', () => {
+    connectTouchControl('touch', 'ff', 'petals')
+    const first = document().widgets.at(-1)!
+    const runtime = useDisplayRuntimeStore.getState()
+    runtime.touchDisplayWidget('screen', first.id, 9)
+    runtime.releaseDisplayWidget('screen', first.id)
+    expect(runtime.readDisplayWidget('screen', first.id)?.touchValue).toBe(9)
+
+    useGraphStore.getState().setDisplayDocument({
+      ...document(),
+      widgets: document().widgets.filter((widget) => widget.id !== first.id),
+    })
+    expect(runtime.readDisplayWidget('screen', first.id)).toBeUndefined()
+
+    // The stem is free again, so the replacement is handed the same id.
+    connectTouchControl('touch', 'ff', 'petals')
+    const second = document().widgets.at(-1)!
+    expect(second.id).toBe(first.id)
+    expect(runtime.sampleDisplayWidgetOutput('screen', second.id, 5)).toBe(5)
+  })
+
+  /* Undo and a workspace load never call setDisplayDocument — they replace
+   * the registry wholesale — so the reconciliation hangs off the registry's
+   * own identity rather than off that one writer. */
+  it('clears a widget that undo removed, and a whole display that a load dropped', () => {
+    connectTouchControl('touch', 'ff', 'petals')
+    const widget = document().widgets.at(-1)!
+    vi.advanceTimersByTime(400)
+    const runtime = useDisplayRuntimeStore.getState()
+    runtime.touchDisplayWidget('screen', widget.id, 7)
+    runtime.releaseDisplayWidget('screen', widget.id)
+
+    useGraphStore.temporal.getState().undo()
+    expect(document().widgets).toHaveLength(0)
+    expect(runtime.readDisplayWidget('screen', widget.id)).toBeUndefined()
+
+    runtime.touchDisplayWidget('screen', widget.id, 7)
+    useGraphStore.getState().loadGraph([], [])
+    expect(runtime.readDisplayWidget('screen', widget.id)).toBeUndefined()
+  })
+
   it('refuses the second control on one property and changes nothing', () => {
     expect(connectTouchControl('touch', 'ff', 'petals').ok).toBe(true)
     const before = useGraphStore.getState()

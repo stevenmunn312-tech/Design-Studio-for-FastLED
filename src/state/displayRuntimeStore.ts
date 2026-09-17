@@ -67,6 +67,18 @@ interface DisplayRuntimeState {
   takeDirtyDisplayWidgets: (displayId: string) => string[]
   setDisplayWidgetDiagnostic: (displayId: string, widgetId: string, message?: string) => void
   displayRuntimeDiagnostics: (displayId: string) => DisplayRuntimeDiagnostic[]
+  /**
+   * Keep only the widgets still on a screen: any display absent from `live`
+   * is dropped whole, and any widget absent from its display's list with it.
+   *
+   * Touch values outlive the designer on purpose, so nothing else clears
+   * them, and a widget id is a deterministic stem (`slider`, `slider-2`) that
+   * the next widget of that type is handed the moment the last one frees it.
+   * Without this, deleting a control you had dragged to one end and adding a
+   * fresh one gave the new control the old one's reading. Takes ids rather
+   * than documents so this store still knows nothing about what a screen is.
+   */
+  retainDisplayWidgets: (live: Readonly<Record<string, readonly string[]>>) => void
   resetDisplayRuntime: (displayId?: string) => void
 }
 
@@ -194,6 +206,36 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
         if (runtime.diagnostic) diagnostics.push({ widgetId, message: runtime.diagnostic })
       }
       return diagnostics
+    },
+
+    retainDisplayWidgets: (live) => {
+      const displays = get().displays
+      const revisions = get().displayRevisions
+      let changed = false
+      for (const displayId of [...displays.keys()]) {
+        const keep = live[displayId]
+        if (!keep) {
+          displays.delete(displayId)
+          revisions.delete(displayId)
+          displayListeners.get(displayId)?.forEach((listener) => listener())
+          changed = true
+          continue
+        }
+        const widgets = displays.get(displayId)
+        if (!widgets) continue
+        const wanted = new Set(keep)
+        let dropped = false
+        for (const widgetId of [...widgets.keys()]) {
+          if (wanted.has(widgetId)) continue
+          widgets.delete(widgetId)
+          dropped = true
+        }
+        if (dropped) {
+          bumpDisplayRevision(displayId)
+          changed = true
+        }
+      }
+      if (changed) set({ diagnosticsVersion: get().diagnosticsVersion + 1 })
     },
 
     resetDisplayRuntime: (displayId) => {

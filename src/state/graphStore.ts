@@ -79,6 +79,7 @@ import {
   type TouchControlPlan,
 } from './wireFirstControls'
 import { mountedPanelGeometry } from './mountedDisplays'
+import { useDisplayRuntimeStore } from './displayRuntimeStore'
 import { useUploadStore } from './uploadStore'
 import { assignPartPins } from './partPinAssignment'
 import {
@@ -3849,3 +3850,25 @@ export function getGroupRegistry(): GroupRegistry {
   }
   return reg
 }
+
+/*
+ * Reconcile the transient display runtime against the documents, wherever
+ * they came from.
+ *
+ * Touch values deliberately outlive the designer — an author sets a control,
+ * goes and fixes the graph behind it, and comes back to it still set — so no
+ * editor lifecycle clears them any more. That leaves exactly one rule to
+ * keep: a reading exists only for a widget that does. Hanging it off the
+ * registry's own identity covers every way the set of widgets can change,
+ * including the two that never call `setDisplayDocument` at all (undo/redo
+ * rebases the registry directly, and loading a workspace replaces it), rather
+ * than a cleanup call at each writer that the next writer would forget.
+ */
+useGraphStore.subscribe((state, previous) => {
+  if (state.displayDocuments === previous.displayDocuments) return
+  const live: Record<string, string[]> = {}
+  for (const [displayId, document] of Object.entries(state.displayDocuments)) {
+    live[displayId] = document.widgets.map((widget) => widget.id)
+  }
+  useDisplayRuntimeStore.getState().retainDisplayWidgets(live)
+})
