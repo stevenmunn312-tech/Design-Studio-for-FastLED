@@ -2789,7 +2789,9 @@ describe('generateCpp — INMP441 audio engine', () => {
     // _audioMids/_audioTreble globals (which ignored `bands` entirely).
     expect(cpp).toContain('float _fftBands_fft[24];')
     expect(cpp).toContain('_sum += _audioSpectrum[_i];')
-    expect(cpp).toContain('n_fft_bass_target = constrain(n_fft_bass_raw * 1.000f')
+    // Gain is a per-frame local now that the knob can carry a wire.
+    expect(cpp).toContain('float _fftGain_fft=constrain(1,0.25f,4.0f)')
+    expect(cpp).toContain('n_fft_bass_target = constrain(n_fft_bass_raw * _fftGain_fft')
     expect(cpp).not.toContain('n_fft_bass_target = constrain(_audioBass')
     expect(cpp).not.toContain('float n_fft_bass = 0.5f')
   })
@@ -2803,9 +2805,11 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e2', 'fft', 'bp', 'bass', 'bass'),
       edge('e3', 'bp', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('n_fft_bass_raw * 1.500f')
-    expect(cpp).toContain('_smooth * 0.800f')
-    expect(cpp).toContain('* 0.200f')
+    expect(cpp).toContain('float _fftGain_fft=constrain(1.5,0.25f,4.0f)')
+    expect(cpp).toContain('float _fftSm_fft=constrain(0.8,0.0f,0.95f)')
+    expect(cpp).toContain('n_fft_bass_raw * _fftGain_fft')
+    expect(cpp).toContain('_smooth * _fftSm_fft')
+    expect(cpp).toContain('(1.0f-_fftSm_fft)')
   })
 
   it("FFTAnalyzer's bands property changes the generated resample resolution", () => {
@@ -3068,7 +3072,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('updateAudio()')
     expect(cpp).toContain('_sum += 0.0f;')
-    expect(cpp).toContain('constrain(n_fft_bass_raw * 1.000f')
+    expect(cpp).toContain('constrain(n_fft_bass_raw * _fftGain_fft')
     expect(cpp).toContain('float n_fft_bass = n_fft_bass_smooth')
   })
 
@@ -3087,7 +3091,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     ], {}, { externalAudio: true })
     expect(cpp).toContain('_sum += _audioSpectrum[_i];')   // live global, not the 0.0f placeholder
     expect(cpp).not.toContain('_sum += 0.0f;')
-    expect(cpp).toContain('constrain(n_fft_bass_raw * 1.000f')
+    expect(cpp).toContain('constrain(n_fft_bass_raw * _fftGain_fft')
     expect(cpp).not.toContain('void updateAudio()')          // engine is the host's job
     expect(cpp).not.toContain('driver/i2s.h')
     expect(cpp).not.toContain('setupAudio();')

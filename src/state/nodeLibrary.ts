@@ -108,7 +108,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'FFTAnalyzer',
     label: 'FFT Analyzer',
     category: 'audio',
-    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'gain', label: 'Gain', dataType: 'float' },
+      { id: 'smoothing', label: 'Smoothing', dataType: 'float' },
+      { id: 'tilt', label: 'Tilt', dataType: 'float' },
+    ],
+    propertyInputs: {
+      gain: 'gain', smoothing: 'smoothing', tilt: 'tilt',
+    },
+
     outputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
@@ -120,7 +129,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'BeatDetect',
     label: 'Beat Detect',
     category: 'audio',
-    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'threshold', label: 'Threshold', dataType: 'float' },
+      { id: 'attack', label: 'Attack', dataType: 'float' },
+      { id: 'decay', label: 'Decay', dataType: 'float' },
+    ],
+    propertyInputs: {
+      threshold: 'threshold', attack: 'attack', decay: 'decay',
+    },
+
     outputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'bpm', label: 'BPM', dataType: 'float' },
@@ -139,7 +157,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'PercussionDetect',
     label: 'Percussion Detect',
     category: 'audio',
-    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'sensitivity', label: 'Sensitivity', dataType: 'float' },
+      { id: 'decay', label: 'Decay', dataType: 'float' },
+      { id: 'separation', label: 'Separation', dataType: 'float' },
+    ],
+    propertyInputs: {
+      sensitivity: 'sensitivity', decay: 'decay', separation: 'separation',
+    },
+
     outputs: [
       { id: 'kick', label: 'Kick', dataType: 'float' },
       { id: 'snare', label: 'Snare', dataType: 'float' },
@@ -151,7 +178,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     type: 'AudioFeatures',
     label: 'Audio Features',
     category: 'audio',
-    inputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'sensitivity', label: 'Sensitivity', dataType: 'float' },
+      { id: 'gate', label: 'Gate', dataType: 'float' },
+      { id: 'smoothing', label: 'Smoothing', dataType: 'float' },
+    ],
+    propertyInputs: {
+      sensitivity: 'sensitivity', gate: 'gate', smoothing: 'smoothing',
+    },
+
     outputs: [
       { id: 'vocals', label: 'Vocals', dataType: 'float' },
       { id: 'energy', label: 'Energy', dataType: 'float' },
@@ -1942,7 +1978,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'bass',   label: 'Bass',   dataType: 'float' },
       { id: 'mids',   label: 'Mids',   dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'bassWeight', label: 'Bass Weight', dataType: 'float' },
+      { id: 'midsWeight', label: 'Mids Weight', dataType: 'float' },
+      { id: 'trebleWeight', label: 'Treble Weight', dataType: 'float' },
     ],
+    propertyInputs: {
+      bassWeight: 'bassWeight', midsWeight: 'midsWeight', trebleWeight: 'trebleWeight',
+    },
+
     outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
     // bass/mids/treble match the evaluator's own hardcoded fallback
     // (graphEvaluator.ts) so an unwired node still renders sliders instead of

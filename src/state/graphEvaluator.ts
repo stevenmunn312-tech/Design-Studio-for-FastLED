@@ -5413,11 +5413,6 @@ function createEvalNode(
     return typeof v === 'string' ? v : fallback
   }
 
-  function normProp(value: unknown, fallback: number): number {
-    const n = Number(value)
-    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
-  }
-
   function evalNode(id: string): Record<string, PortValue> {
     if (memo.has(id)) return memo.get(id)!
     // Re-entering a node still on the stack means the graph has a cycle.
@@ -5603,17 +5598,21 @@ function createEvalNode(
                 treble: (Math.sin(t * 5.3 + 2.0) + 1) / 2,
               }
             : { bass: 0, mids: 0, treble: 0 }
-        const gain = Math.max(0.25, Math.min(4, Number(props.gain ?? 1)))
+        const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1)))
         // Early builds stored smoothing as an integer (default 3) but never
         // used it. Interpret that legacy value as quarters so saved graphs get
         // the intended 0.75 response instead of becoming almost frozen.
         const smoothingProp = Number(props.smoothing ?? 0.72)
-        const smoothing = Math.max(0, Math.min(0.95, smoothingProp > 1 ? smoothingProp / 4 : smoothingProp))
+        // The >1 fixup belongs to the stored field only; a wire carries no
+        // legacy scale, so it is folded into the fallback rather than applied
+        // to whatever the wire supplies.
+        const smoothing = Math.max(0, Math.min(0.95,
+          num(id, 'smoothing', props, 'smoothing', smoothingProp > 1 ? smoothingProp / 4 : smoothingProp)))
         // Real-world audio (and raw, unweighted FFT magnitude) carries far more
         // energy in the bass than the treble, so treble reads weak by default.
         // `tilt` (0–1) counteracts that with a rising per-band boost — bass is
         // left alone, mids get a partial lift, treble gets the most.
-        const tilt = Math.max(0, Math.min(1, Number(props.tilt ?? 0)))
+        const tilt = Math.max(0, Math.min(1, num(id, 'tilt', props, 'tilt', 0)))
         const target = {
           bass: Math.min(1, raw.bass * gain),
           mids: Math.min(1, raw.mids * gain * (1 + tilt * 0.6)),
@@ -5650,9 +5649,9 @@ function createEvalNode(
             cooldownMs: 0,
           }
         } else {
-          const threshold = denormalizeBeatParam('threshold', normProp(props.threshold, 0.2))
-          const attack = denormalizeBeatParam('attack', normProp(props.attack, 0.55))
-          const decay = denormalizeBeatParam('decay', normProp(props.decay, 0.25))
+          const threshold = denormalizeBeatParam('threshold', num(id, 'threshold', props, 'threshold', 0.2))
+          const attack = denormalizeBeatParam('attack', num(id, 'attack', props, 'attack', 0.55))
+          const decay = denormalizeBeatParam('decay', num(id, 'decay', props, 'decay', 0.25))
           const prev = beatLevels.get(key)
           if (audio?.active) {
             const result = updateBeatDetectorFromSpectrum(audio.detectorSpectrum ?? audio.spectrum ?? [], t * 1000, prev ?? createBeatDetectorState(), { threshold, attack, decay })
@@ -5697,9 +5696,9 @@ function createEvalNode(
 
       case 'PercussionDetect': {
         const key = stateKey(id)
-        const sensitivity = normProp(props.sensitivity, 0.55)
-        const decay = Math.max(0, Math.min(0.98, Number(props.decay ?? 0.72)))
-        const separation = normProp(props.separation, 0.4)
+        const sensitivity = Math.max(0, Math.min(1, num(id, 'sensitivity', props, 'sensitivity', 0.55)))
+        const decay = Math.max(0, Math.min(0.98, num(id, 'decay', props, 'decay', 0.72)))
+        const separation = Math.max(0, Math.min(1, num(id, 'separation', props, 'separation', 0.4)))
         const audioValue = input(id, 'audio', null)
         const audio = isAudioSignal(audioValue) ? audioValue : null
         if (audio?.active) {
@@ -5765,9 +5764,9 @@ function createEvalNode(
 
       case 'AudioFeatures': {
         const key = stateKey(id)
-        const sensitivity = normProp(props.sensitivity, 0.5)
-        const gate = normProp(props.gate, 0.12)
-        const smoothing = Math.max(0, Math.min(0.95, Number(props.smoothing ?? 0.8)))
+        const sensitivity = Math.max(0, Math.min(1, num(id, 'sensitivity', props, 'sensitivity', 0.5)))
+        const gate = Math.max(0, Math.min(1, num(id, 'gate', props, 'gate', 0.12)))
+        const smoothing = Math.max(0, Math.min(0.95, num(id, 'smoothing', props, 'smoothing', 0.8)))
         const audioValue = input(id, 'audio', null)
         const audio = isAudioSignal(audioValue) ? audioValue : null
         if (audio?.active) {
@@ -8684,9 +8683,14 @@ function createEvalNode(
         // The 0.5/0.3/0.2 mix used to be hardcoded here and in cppGenerator;
         // it is now the default of three editable weights. Missing properties
         // (older saves) fall back to exactly that mix, so the hue is unchanged.
-        const bw = audioHueWeight(props.bassWeight,   0.5)
-        const mw = audioHueWeight(props.midsWeight,   0.3)
-        const tw = audioHueWeight(props.trebleWeight, 0.2)
+        // `num` reads the stored property straight, and `??` does not catch a
+        // non-numeric one — so the sanitising half of `audioHueWeight` is
+        // applied to the result, covering a bad field and a bad wire alike.
+        const weight = (key: string, def: number) =>
+          audioHueWeight(num(id, key, props, key, def), def)
+        const bw = weight('bassWeight',   0.5)
+        const mw = weight('midsWeight',   0.3)
+        const tw = weight('trebleWeight', 0.2)
         out = { hue: (bass * bw + mids * mw + treble * tw) * 360 }
         break
       }
