@@ -8,7 +8,13 @@ import {
   touchControlPlan,
   touchControlWireInert,
 } from '../wireFirstControls'
-import { connectTouchControl, ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../graphStore'
+import {
+  connectTouchControl,
+  placeTouchControl,
+  ROOT_GRAPH_ID,
+  useGraphStore,
+  type StudioNode,
+} from '../graphStore'
 import { createDisplayDocument } from '../displayEditor'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { placedWidgets } from '../displayDocument'
@@ -186,6 +192,26 @@ describe('connectTouchControl', () => {
     const second = touchControlPlan(
       target.data.nodeType, 'petals', target.data.properties as Record<string, unknown>, driven)
     expect(second.ok).toBe(false)
+  })
+
+  /*
+   * The repair Graph Health names, performed from outside the designer. It is
+   * the same act the Connected group's button performs, so the two cannot
+   * place differently.
+   */
+  it('places a connected control from outside the designer, once', () => {
+    connectTouchControl('touch', 'ff', 'petals')
+    const widgetId = document().widgets.at(-1)!.id
+
+    const placed = placeTouchControl('screen', widgetId)
+    expect(placed?.bounds).toMatchObject({ x: 0, y: 0 })
+    expect(document().widgets.at(-1)!.bounds).toBeDefined()
+
+    // A diagnostic can be read after the thing it names has been dealt with,
+    // so a second press says it found nothing rather than moving the widget.
+    expect(placeTouchControl('screen', widgetId)).toBeNull()
+    expect(placeTouchControl('screen', 'nobody')).toBeNull()
+    expect(placeTouchControl('no-such-screen', widgetId)).toBeNull()
   })
 
   it('offers the trailing socket only while there is a screen design to add to', () => {

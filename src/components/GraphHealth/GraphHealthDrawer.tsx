@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react'
-import { insertMapRangeOnEdge, ROOT_GRAPH_ID, useGraphStore, useRootNodes } from '../../state/graphStore'
+import {
+  insertMapRangeOnEdge,
+  placeTouchControl,
+  ROOT_GRAPH_ID,
+  useGraphStore,
+  useRootNodes,
+} from '../../state/graphStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
@@ -30,6 +36,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
   if (action === 'insert-map-range') return 'Insert Map Range'
+  if (action === 'place-touch-control') return 'Place on screen'
   return 'Open library'
 }
 
@@ -76,7 +83,7 @@ export default function GraphHealthDrawer() {
       openBoardPopup()
       return
     }
-    if (issue.action === 'insert-map-range' && issue.repair) {
+    if (issue.repair?.kind === 'signal-range') {
       const { edgeId, outMin, outMax } = issue.repair
       const done = insertMapRangeOnEdge(edgeId, outMin, outMax)
       setStatus(
@@ -84,6 +91,20 @@ export default function GraphHealthDrawer() {
           ? `Map Range inserted, mapping 0–1 to ${outMin}–${outMax}`
           : 'That wire is no longer there — the graph has changed since this was reported',
         done ? 'success' : 'info',
+      )
+      return
+    }
+    if (issue.repair?.kind === 'place-touch-control') {
+      const { displayId, widgetId } = issue.repair
+      const placed = placeTouchControl(displayId, widgetId)
+      // A diagnostic can be read after the thing it names has been dealt with,
+      // so the repair says it found nothing rather than reporting a success it
+      // did not have — the same stance `insertMapRangeOnEdge` takes.
+      setStatus(
+        placed
+          ? `${placed.label || placed.type} placed at ${placed.bounds.x}, ${placed.bounds.y}`
+          : 'That control is no longer waiting — the screen design has changed since this was reported',
+        placed ? 'success' : 'info',
       )
       return
     }

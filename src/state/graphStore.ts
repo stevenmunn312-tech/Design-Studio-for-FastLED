@@ -49,10 +49,12 @@ import {
 } from './performanceDeck'
 import { restoreMusicLibrary, type PersistedMusicEntry } from './musicLibraryPersistence'
 import {
+  isPlacedWidget,
   normalizeDisplayDocument,
   normalizeDisplayDocuments,
   type DisplayDocument,
   type DisplayDocumentRegistry,
+  type PlacedDisplayWidget,
 } from './displayDocument'
 import {
   displayDocumentInputPorts,
@@ -70,6 +72,7 @@ import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } fro
 import {
   adoptedControlRange,
   displayControlIsUnconfigured,
+  placeTouchControlIn,
   touchControlPlan,
   touchControlWidget,
   type TouchControlPlan,
@@ -3659,6 +3662,33 @@ export function connectTouchControl(
   })
 
   return plan
+}
+
+/**
+ * Put a connected control onto its screen, from outside the designer.
+ *
+ * The repair Graph Health names for a control nobody placed. It is the same
+ * act the designer's Connected group performs and lands in the same free
+ * rectangle, so the two entry points cannot place differently — and it takes
+ * the target's range with it, since placement is the second moment that range
+ * can flow.
+ *
+ * Declines rather than guessing when the widget has already been placed or is
+ * gone: a diagnostic can be read after the thing it names has been dealt with.
+ */
+export function placeTouchControl(
+  displayId: string,
+  widgetId: string,
+): PlacedDisplayWidget | null {
+  const state = useGraphStore.getState()
+  const document = state.displayDocuments[displayId]
+  if (!document) return null
+  const next = placeTouchControlIn(document, displayId, widgetId, state.nodes, state.edges)
+  if (next === document) return null
+  const placed = next.widgets.find((widget) => widget.id === widgetId)
+  if (!placed || !isPlacedWidget(placed)) return null
+  state.setDisplayDocument(next)
+  return placed
 }
 
 /**

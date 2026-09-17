@@ -3,7 +3,8 @@ import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWar
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
-import { NODE_LIBRARY } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
+import { createDisplayDocument } from '../../state/displayEditor'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -152,7 +153,7 @@ describe('validateGraph', () => {
       // The repair is named *and* carried, so the drawer can perform it
       // rather than open the node library and leave the rest to the user.
       action: 'insert-map-range',
-      repair: { edgeId: 'w', outMin: 0, outMax: 255 },
+      repair: { kind: 'signal-range', edgeId: 'w', outMin: 0, outMax: 255 },
     }))
   })
 
@@ -1952,5 +1953,94 @@ describe('findPanelEnableRecoveryIssues', () => {
       [panel(), node('btn', 'ButtonInput', { pin: 12 })],
       [wire('a', 'btn', 'pressed', 'tft', 'enabled')],
     )).toEqual([])
+  })
+})
+
+/*
+ * Both halves of a touch control that is doing nothing. Neither is repaired by
+ * removing anything: a control drawn before its wire, or wired before it is
+ * composed onto the screen, is an ordinary half-finished state.
+ */
+describe('inert touch controls', () => {
+  const panel = libraryNode('tft', 'TransportDisplay', { displayId: 'panel' })
+  const touch = libraryNode('touch', 'TouchInput', { panelId: 'tft' })
+  const juggle = libraryNode('juggle', 'Juggle', { count: 4 })
+  const slider = (bounds?: { x: number; y: number; width: number; height: number }) => ({
+    id: 'slider', type: 'Slider' as const, label: 'Count',
+    ...(bounds ? { bounds } : {}),
+    properties: { min: 1, max: 8, step: 1, orientation: 'horizontal' },
+  })
+  const documents = (widget: ReturnType<typeof slider>) => ({
+    panel: { ...createDisplayDocument('panel', 240, 320), widgets: [widget] },
+  })
+  const wire = [{
+    id: 'w', source: 'touch', sourceHandle: 'widget:slider:out',
+    target: 'juggle', targetHandle: 'count',
+  }] as unknown as StudioEdge[]
+
+  it('reports a wired control nobody placed, and carries the repair', () => {
+    // Nothing on the canvas shows this: the widget lives in a screen design one
+    // workspace away, and the firmware can read a control no finger can reach.
+    const found = buildGraphDiagnostics([panel, touch, juggle], wire, {
+      displayDocuments: documents(slider()),
+    }).filter((issue) => issue.id.startsWith('inert-control'))
+
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({
+      severity: 'warning',
+      title: 'This control has nowhere to be touched',
+      action: 'place-touch-control',
+      repair: { kind: 'place-touch-control', displayId: 'panel', widgetId: 'slider' },
+    })
+    expect(found[0].nodeIds).toContain('touch')
+  })
+
+  it('reports a placed control nothing drives, and names the gesture rather than guessing', () => {
+    // No performing repair: the wire has to be aimed at one property, and only
+    // the author can choose which.
+    const found = buildGraphDiagnostics([panel, touch, juggle], [], {
+      displayDocuments: documents(slider({ x: 0, y: 0, width: 96, height: 48 })),
+    }).filter((issue) => issue.id.startsWith('inert-control'))
+
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ severity: 'warning', title: 'This control sets nothing' })
+    expect(found[0].action).toBeUndefined()
+    expect(found[0].fix).toMatch(/Add control/)
+  })
+
+  it('says nothing about a control that is both placed and driving something', () => {
+    expect(buildGraphDiagnostics([panel, touch, juggle], wire, {
+      displayDocuments: documents(slider({ x: 0, y: 0, width: 96, height: 48 })),
+    }).filter((issue) => issue.id.startsWith('inert-control'))).toEqual([])
+  })
+
+  it('stays quiet about a wire into a property the node is currently ignoring', () => {
+    /*
+     * The third inert cause is deliberately left to the wire, which already
+     * draws it dark. A Formula Field knob belonging to another variant is a
+     * correct graph, and a warning that fires on one of those teaches people to
+     * stop reading the drawer.
+     */
+    const formula = libraryNode('ff', 'FormulaField', {
+      ...libraryDefaults('FormulaField'), formulaType: 'superformula',
+    })
+    const petals = [{
+      id: 'w', source: 'touch', sourceHandle: 'widget:slider:out',
+      target: 'ff', targetHandle: 'petals',
+    }] as unknown as StudioEdge[]
+
+    expect(buildGraphDiagnostics([panel, touch, formula], petals, {
+      displayDocuments: documents(slider({ x: 0, y: 0, width: 96, height: 48 })),
+    }).filter((issue) => issue.id.startsWith('inert-control'))).toEqual([])
+  })
+
+  it('says nothing about a widget that is not a control', () => {
+    const text = {
+      id: 'title', type: 'Text' as const, label: 'Title',
+      properties: { text: 'x', align: 'left', fontSize: 16, wrap: false, maxLines: 1 },
+    }
+    expect(buildGraphDiagnostics([panel, touch], [], {
+      displayDocuments: { panel: { ...createDisplayDocument('panel', 240, 320), widgets: [text] } },
+    }).filter((issue) => issue.id.startsWith('inert-control'))).toEqual([])
   })
 })

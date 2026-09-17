@@ -37,6 +37,7 @@ import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import { displayControlEdges, displayControlInertReason } from '../state/wireFirstControls'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
@@ -1406,15 +1407,26 @@ export type GraphDiagnosticCategory =
   | 'board'
   | 'show'
 
-export type GraphDiagnosticAction = 'open-node-library' | 'choose-board' | 'insert-map-range'
+export type GraphDiagnosticAction =
+  | 'open-node-library'
+  | 'choose-board'
+  | 'insert-map-range'
+  | 'place-touch-control'
 
-/** Everything `insert-map-range` needs to perform the repair it names: the
- *  wire to splice, and the domain the target actually reads. */
-export interface SignalRangeRepair {
-  edgeId: string
-  outMin: number
-  outMax: number
-}
+/**
+ * Everything a repairing action needs to perform what it names.
+ *
+ * A discriminated union rather than an optional field per repair, so the
+ * drawer's one handler stays exhaustive: adding a repair that forgets its
+ * branch fails to compile instead of rendering a button that does nothing.
+ * Only actions that *perform* something carry one — most diagnostics name a
+ * fix the author has to aim themselves.
+ */
+export type GraphRepair =
+  /** The wire to splice a Map Range into, and the domain the target reads. */
+  | { kind: 'signal-range'; edgeId: string; outMin: number; outMax: number }
+  /** The connected control to put on its screen, and the screen to put it on. */
+  | { kind: 'place-touch-control'; displayId: string; widgetId: string }
 
 export interface GraphDiagnostic {
   id: string
@@ -1431,7 +1443,7 @@ export interface GraphDiagnostic {
   propertyKey?: string
   action?: GraphDiagnosticAction
   /** Present only on diagnostics whose action performs a repair. */
-  repair?: SignalRangeRepair
+  repair?: GraphRepair
 }
 
 export interface GraphDiagnosticOptions {
@@ -2177,6 +2189,71 @@ export function findPanelEnableRecoveryIssues(
   return issues
 }
 
+interface InertControlIssue {
+  id: string
+  reason: 'unplaced' | 'unconnected'
+  panelId: string
+  touchNodeId: string
+  displayId: string
+  widgetId: string
+  widgetLabel: string
+  panelLabel: string
+}
+
+/**
+ * Touch controls that exist and are doing nothing, in both directions.
+ *
+ * A control created by wiring it and never placed is the one worth saying out
+ * loud: the firmware can read it and no finger can reach it, and there is
+ * nothing on the canvas to see, because the widget lives in a screen design
+ * one workspace away. The other direction — placed, driving nothing — is
+ * visible in the designer but not from the graph.
+ *
+ * Warnings, and nothing is removed. A control drawn before its wire, or wired
+ * before it is composed onto the screen, is an ordinary half-finished state
+ * rather than a fault, and deleting either half to resolve it would throw away
+ * work the author has not finished doing.
+ *
+ * The third inert cause — wired to a property the node currently ignores —
+ * is deliberately **not** reported here. It is already said on the wire, it is
+ * one dropdown away from being live, and a Formula Field with a knob belonging
+ * to another variant is a correct graph; a warning that fires on one of those
+ * teaches people to stop reading the drawer.
+ */
+function inertControlIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  displayDocuments?: DisplayDocumentRegistry,
+): InertControlIssue[] {
+  if (!displayDocuments) return []
+  const issues: InertControlIssue[] = []
+  for (const panel of nodes.filter((node) => node.data.nodeType === 'TransportDisplay')) {
+    const displayId = String(panel.data.properties.displayId ?? '')
+    const document = displayId ? displayDocuments[displayId] : undefined
+    if (!document) continue
+    const touch = nodes.find((node) => node.data.nodeType === 'TouchInput'
+      && String(node.data.properties.panelId ?? '') === panel.id)
+    if (!touch) continue
+
+    const wired = displayControlEdges(displayId, nodes, edges)
+    for (const widget of document.widgets) {
+      const reason = displayControlInertReason(widget, wired.get(widget.id), nodes)
+      if (reason !== 'unplaced' && reason !== 'unconnected') continue
+      issues.push({
+        id: `${panel.id}-${widget.id}-${reason}`,
+        reason,
+        panelId: panel.id,
+        touchNodeId: touch.id,
+        displayId,
+        widgetId: widget.id,
+        widgetLabel: widget.label.trim() || widget.type,
+        panelLabel: nodeLabel(panel),
+      })
+    }
+  }
+  return issues
+}
+
 interface SignalRangeIssue {
   edgeId: string
   sourceId: string
@@ -2493,7 +2570,12 @@ export function buildGraphDiagnostics(
       // Map Range, place it, splice it and type four numbers that the
       // diagnostic had already worked out.
       action: 'insert-map-range',
-      repair: { edgeId: issue.edgeId, outMin: issue.range.min, outMax: issue.range.max },
+      repair: {
+        kind: 'signal-range',
+        edgeId: issue.edgeId,
+        outMin: issue.range.min,
+        outMax: issue.range.max,
+      },
     })
   }
   for (const use of collectPinUses(nodes)) {
@@ -2908,6 +2990,45 @@ export function buildGraphDiagnostics(
       message: issue.message,
       fix: issue.fix,
       nodeIds: [issue.panelId, issue.touchNodeId],
+      nodeLabel: issue.panelLabel,
+    })
+  }
+
+  /*
+   * Both halves of an inert touch control, and neither is repaired by
+   * removing anything.
+   *
+   * Only the unplaced half carries a performing action. Placing one control
+   * the author asked for, into the first free rectangle, is the same act the
+   * Connected group's own button performs — unlike auto-placing on connect,
+   * which this design rejects because six wires would drop six overlapping
+   * widgets onto a composition uninvited. The other half needs a wire aimed at
+   * a particular property, which only the author can choose, so it names the
+   * gesture and frames the nodes instead of pretending to guess.
+   */
+  for (const issue of inertControlIssues(nodes, edges, options.displayDocuments)) {
+    diagnostics.push(issue.reason === 'unplaced' ? {
+      id: `inert-control-unplaced-${issue.id}`,
+      severity: 'warning',
+      category: 'connection',
+      title: 'This control has nowhere to be touched',
+      message: `${issue.widgetLabel} is wired and the firmware can read it, but it is not on `
+        + `${issue.panelLabel}'s screen, so no finger can reach it.`,
+      fix: 'Place it on the screen — from here, or by dragging it out of the designer’s Connected group.',
+      nodeIds: [issue.panelId, issue.touchNodeId],
+      nodeLabel: issue.panelLabel,
+      action: 'place-touch-control',
+      repair: { kind: 'place-touch-control', displayId: issue.displayId, widgetId: issue.widgetId },
+    } : {
+      id: `inert-control-unconnected-${issue.id}`,
+      severity: 'warning',
+      category: 'connection',
+      title: 'This control sets nothing',
+      message: `${issue.widgetLabel} is drawn on ${issue.panelLabel}'s screen, but nothing is wired `
+        + 'to what it would set, so pressing it on the panel does nothing.',
+      fix: 'Drag from the Touch node’s Add control… socket onto the property it should drive, or delete '
+        + 'the widget from the screen design.',
+      nodeIds: [issue.touchNodeId, issue.panelId],
       nodeLabel: issue.panelLabel,
     })
   }
