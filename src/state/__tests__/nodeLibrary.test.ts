@@ -333,7 +333,14 @@ describe('nodeLibrary', () => {
     const trails = NODE_LIBRARY.find((n) => n.type === 'ColorTrails')
     expect(trails?.subcategory).toBe('Audio-Reactive')
     expect(NODE_DESCRIPTIONS.ColorTrails).toContain('Stefan Petrick')
-    expect(trails?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'beat', 'paletteIn'])
+    // Every flow knob is a port as well as a field: the evaluator and the
+    // generator already read each one wire-then-property, so declaring them
+    // only decides whether a socket can be drawn on it.
+    expect(trails?.inputs.map((p) => p.id)).toEqual([
+      'bass', 'mids', 'treble', 'beat', 'paletteIn',
+      'xSpeed', 'xAmplitude', 'xFrequency', 'ySpeed', 'yAmplitude', 'yFrequency',
+      'displacement', 'endpointSpeed', 'colorSpeed', 'persistence',
+    ])
     expect(trails?.defaultProperties).toMatchObject({
       injectionMode: 'Moving Line', flowMode: 'Scrolling',
       xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
@@ -354,7 +361,7 @@ describe('nodeLibrary', () => {
     expect(animartrix?.subcategory).toBe('Audio-Reactive')
     expect(NODE_DESCRIPTIONS.Animartrix).toContain('Stefan Petrick')
     expect(animartrix?.inputs.map((p) => p.id)).toEqual([
-      'bass', 'mids', 'treble', 'kick', 'snare', 'hihat', 'beat', 'speed',
+      'bass', 'mids', 'treble', 'kick', 'snare', 'hihat', 'beat', 'speed', 'audioAmount',
     ])
     expect(animartrix?.defaultProperties).toMatchObject({ effect: 'Water', speed: 0.65, audioAmount: 1 })
     // Each band is a field as well as a socket, holding exactly the reading the
@@ -453,7 +460,7 @@ describe('nodeLibrary', () => {
 
   it('Confetti exposes normalized speed, palette input, and fading speckle defaults', () => {
     const cf = NODE_LIBRARY.find((n) => n.type === 'Confetti')
-    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn'])
+    expect(cf?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'density', 'fade'])
     expect(cf?.defaultProperties).toMatchObject({ speed: 0.45, density: 0.45, fade: 0.28, palette: 'party' })
     expect(propertyMeta('Confetti', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })

@@ -556,8 +556,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'density', label: 'Density', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { density: 'density', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, density: 0.5, palette: 'party', seed: 0 },
   },
@@ -586,8 +587,10 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'density', label: 'Density', dataType: 'float' },
+      { id: 'fade', label: 'Fade', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { density: 'density', fade: 'fade', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party', seed: 0 },
   },
@@ -1023,8 +1026,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'energy', label: 'Energy', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'tiles', label: 'Tiles', dataType: 'float' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { tiles: 'tiles', bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -1190,8 +1194,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'arms', label: 'Arms', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { arms: 'arms', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.5, arms: 2, palette: 'rainbow' },
   },
@@ -2265,8 +2270,18 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'xSpeed', label: 'X Speed', dataType: 'float' },
+      { id: 'xAmplitude', label: 'X Amplitude', dataType: 'float' },
+      { id: 'xFrequency', label: 'X Frequency', dataType: 'float' },
+      { id: 'ySpeed', label: 'Y Speed', dataType: 'float' },
+      { id: 'yAmplitude', label: 'Y Amplitude', dataType: 'float' },
+      { id: 'yFrequency', label: 'Y Frequency', dataType: 'float' },
+      { id: 'displacement', label: 'Displacement', dataType: 'float' },
+      { id: 'endpointSpeed', label: 'Endpoint Speed', dataType: 'float' },
+      { id: 'colorSpeed', label: 'Color Speed', dataType: 'float' },
+      { id: 'persistence', label: 'Persistence', dataType: 'float' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', palette: 'paletteIn' },
+    propertyInputs: { xSpeed: 'xSpeed', xAmplitude: 'xAmplitude', xFrequency: 'xFrequency', ySpeed: 'ySpeed', yAmplitude: 'yAmplitude', yFrequency: 'yFrequency', displacement: 'displacement', endpointSpeed: 'endpointSpeed', colorSpeed: 'colorSpeed', persistence: 'persistence', bass: 'bass', mids: 'mids', treble: 'treble', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
@@ -2295,8 +2310,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'audioAmount', label: 'Audio Amount', dataType: 'float' },
     ],
-    propertyInputs: { bass: 'bass', hihat: 'hihat', kick: 'kick', mids: 'mids', snare: 'snare', treble: 'treble', speed: 'speed' },
+    propertyInputs: { audioAmount: 'audioAmount', bass: 'bass', hihat: 'hihat', kick: 'kick', mids: 'mids', snare: 'snare', treble: 'treble', speed: 'speed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
