@@ -6096,14 +6096,18 @@ function createEvalNode(
         const mesh = resolveWireframeMesh(props.model, props.mesh)
         const projection = props.projection === 'perspective' ? 'perspective' : 'orthographic'
         const verts = projectWireframeVertices(mesh, {
-          spinX: Number(props.spinX ?? 0),
-          spinY: Number(props.spinY ?? 40),
-          spinZ: Number(props.spinZ ?? 0),
+          spinX: num(id, 'spinX', props, 'spinX', 0),
+          spinY: num(id, 'spinY', props, 'spinY', 40),
+          spinZ: num(id, 'spinZ', props, 'spinZ', 0),
           t,
-          scale: Math.max(0.05, Number(props.scale ?? 1)),
+          scale: Math.max(0.05, num(id, 'scale', props, 'scale', 1)),
           W, H,
           projection,
-          perspectiveStrength: normProp(props.perspectiveStrength, 0.4),
+          // `num` has already applied the fallback, so only the clamp half of
+          // `normProp` is left to do — and it has to stay, because a wired
+          // value arrives unbounded where the field came off a 0-1 slider.
+          perspectiveStrength: Math.max(0, Math.min(1,
+            num(id, 'perspectiveStrength', props, 'perspectiveStrength', 0.4))),
         })
         const depthShade = props.depthShade !== false
         const edgeCount = mesh.edges.length / 2

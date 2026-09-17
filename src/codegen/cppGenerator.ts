@@ -3090,23 +3090,35 @@ export function generateCpp(
         const vertCount = mesh.vertices.length / 3
         const edgeCount = mesh.edges.length / 2
         const radius = meshBoundingRadius(mesh)
-        const spinX = Number(p.spinX ?? 0)
-        const spinY = Number(p.spinY ?? 40)
-        const spinZ = Number(p.spinZ ?? 0)
-        const scaleMul = Math.max(0.05, Number(p.scale ?? 1))
+        const spinX = f('spinX', 'spinX', 0)
+        const spinY = f('spinY', 'spinY', 40)
+        const spinZ = f('spinZ', 'spinZ', 0)
+        // The evaluator's own floor, re-emitted so it still holds on a wired
+        // value: a scale of zero collapses every vertex onto the centre.
+        const scaleMul = `fmaxf(0.05f, ${f('scale', 'scale', 1)})`
         const perspective = p.projection === 'perspective'
-        const strength = Math.max(0, Math.min(1, Number(p.perspectiveStrength ?? 0.4)))
-        const camDist = WIREFRAME_CAM_FAR - strength * (WIREFRAME_CAM_FAR - WIREFRAME_CAM_NEAR)
+        // Camera distance was folded at generation time. It is one expression
+        // over the strength knob, so it becomes a local instead — emitted only
+        // under perspective, since an orthographic sketch never reads it and
+        // an unused local is a warning per sketch.
+        const strength = `constrain(${f('perspectiveStrength', 'perspectiveStrength', 0.4)}, 0.0f, 1.0f)`
+        const camDist = `_wfCam_${id}`
         const depthShade = p.depthShade !== false
         const colorE = channelColor('color', 0, 200, 255)
         ln(`  { ${seedFrom('base')}`)
         ln(`    static const float _vtx_${id}[] = {${mesh.vertices.map((n) => `${n.toFixed(6)}f`).join(',')}};`)
         ln(`    static const uint8_t _edg_${id}[] = {${mesh.edges.join(',')}};`)
         ln(`    CRGB _wfColor = ${colorE};`)
-        ln(`    float _ax = ${spinX.toFixed(3)}f * t * 0.017453293f, _ay = ${spinY.toFixed(3)}f * t * 0.017453293f, _az = ${spinZ.toFixed(3)}f * t * 0.017453293f;`)
+        ln(`    float _ax = (${spinX}) * t * 0.017453293f, _ay = (${spinY}) * t * 0.017453293f, _az = (${spinZ}) * t * 0.017453293f;`)
+        if (perspective) {
+          // Both constants go through toFixed: WIREFRAME_CAM_FAR is a whole
+          // number, and `6f` is not a C++ literal — an integer cannot take the
+          // float suffix, so it has to be emitted as `6.0000f`.
+          ln(`    float ${camDist} = ${WIREFRAME_CAM_FAR.toFixed(4)}f - (${strength}) * ${(WIREFRAME_CAM_FAR - WIREFRAME_CAM_NEAR).toFixed(4)}f;`)
+        }
         ln(`    float _cx1=cosf(_ax),_sx1=sinf(_ax),_cy1=cosf(_ay),_sy1=sinf(_ay),_cz1=cosf(_az),_sz1=sinf(_az);`)
         ln(`    float _ccx=(WIDTH-1)*0.5f,_ccy=(HEIGHT-1)*0.5f;`)
-        ln(`    float _fit=(min((float)WIDTH,(float)HEIGHT)*0.5f)*${WIREFRAME_FIT_MARGIN}f*${scaleMul.toFixed(4)}f;`)
+        ln(`    float _fit=(min((float)WIDTH,(float)HEIGHT)*0.5f)*${WIREFRAME_FIT_MARGIN}f*${scaleMul};`)
         ln(`    float _sxp[${vertCount}], _syp[${vertCount}], _sdp[${vertCount}];`)
         ln(`    for (int _i = 0; _i < ${vertCount}; _i++) {`)
         ln(`      float _x=_vtx_${id}[_i*3]/${radius.toFixed(6)}f,_y=_vtx_${id}[_i*3+1]/${radius.toFixed(6)}f,_z=_vtx_${id}[_i*3+2]/${radius.toFixed(6)}f;`)
@@ -3114,7 +3126,7 @@ export function generateCpp(
         ln(`      float _rx=_x*_cy1+_z*_sy1; _rz=-_x*_sy1+_z*_cy1; _x=_rx; _z=_rz;`)
         ln(`      _rx=_x*_cz1-_y*_sz1; _ry=_x*_sz1+_y*_cz1; _x=_rx; _y=_ry;`)
         if (perspective) {
-          ln(`      float _factor=${camDist.toFixed(4)}f/(${camDist.toFixed(4)}f-_z);`)
+          ln(`      float _factor=${camDist}/(${camDist}-_z);`)
           ln(`      _sxp[_i]=_ccx+_x*_factor*_fit; _syp[_i]=_ccy-_y*_factor*_fit;`)
         } else {
           ln(`      _sxp[_i]=_ccx+_x*_fit; _syp[_i]=_ccy-_y*_fit;`)

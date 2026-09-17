@@ -381,8 +381,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
-    ],    propertyInputs: { r: 'r', g: 'g', b: 'b' },
-
+      { id: 'spinX', label: 'Spin X', dataType: 'float' },
+      { id: 'spinY', label: 'Spin Y', dataType: 'float' },
+      { id: 'spinZ', label: 'Spin Z', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'perspectiveStrength', label: 'Perspective', dataType: 'float' },
+    ],
+    propertyInputs: {
+      r: 'r', g: 'g', b: 'b',
+      spinX: 'spinX', spinY: 'spinY', spinZ: 'spinZ',
+      scale: 'scale', perspectiveStrength: 'perspectiveStrength',
+    },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       model: 'cube',
