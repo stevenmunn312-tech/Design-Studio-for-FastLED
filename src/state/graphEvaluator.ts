@@ -6867,12 +6867,21 @@ function createEvalNode(
         const rate = num(id, 'rate', props, 'rate', 0.3)
         const decay = num(id, 'decay', props, 'decay', 0.92)
         const palette = pal(id, 'paletteIn', props, 'palette', 'party')
+        /*
+         * Each knob is bounded to the domain its own slider declares, and to
+         * the same bounds the generator emits. Only the floors were applied
+         * before, which cost nothing while a bounded slider was the only
+         * source; a wire has no ceiling of its own.
+         *
+         * `count` stays a property — the swarm variant sizes its pool from it,
+         * so the firmware has to know it when the array is declared.
+         */
         const opts: ParticleOpts = {
-          size: Math.max(0.1, Number(props.size ?? 1)),
+          size: Math.max(0.25, Math.min(3, num(id, 'size', props, 'size', 1))),
           count: Math.max(2, Number(props.count ?? 24)),
-          spread: Math.max(0, Number(props.spread ?? 1)),
-          gravity: Math.max(0, Number(props.gravity ?? 1)),
-          bounce: Math.max(0, Number(props.bounce ?? 1)),
+          spread: Math.max(0, Math.min(2, num(id, 'spread', props, 'spread', 1))),
+          gravity: Math.max(0, Math.min(3, num(id, 'gravity', props, 'gravity', 1))),
+          bounce: Math.max(0, Math.min(1.5, num(id, 'bounce', props, 'bounce', 1))),
         }
         out = { frame: evalParticles(stateKey(id), mode, rate, palette, decay, t, W, H, opts, normalizedSeed(props.seed)) }
         break

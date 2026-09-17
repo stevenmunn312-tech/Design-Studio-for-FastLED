@@ -1295,8 +1295,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'rate', label: 'Rate', dataType: 'float' },
       { id: 'decay', label: 'Decay', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'size', label: 'Size', dataType: 'float' },
+      { id: 'spread', label: 'Spread', dataType: 'float' },
+      { id: 'gravity', label: 'Gravity', dataType: 'float' },
+      { id: 'bounce', label: 'Bounce', dataType: 'float' },
     ],
-    propertyInputs: { rate: 'rate', decay: 'decay', palette: 'paletteIn' },
+    /*
+     * `count` and `seed` are deliberately absent. The swarm variant sizes its
+     * particle pool from `count`, so it must be known when the array is
+     * declared; `seed` is read once behind a one-shot guard, so a wire into it
+     * would be sampled on the first frame and never again.
+     */
+    propertyInputs: {
+      rate: 'rate', decay: 'decay', palette: 'paletteIn',
+      size: 'size', spread: 'spread', gravity: 'gravity', bounce: 'bounce',
+    },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       particleType: 'fountain', rate: 0.3, decay: 0.92, palette: 'party',

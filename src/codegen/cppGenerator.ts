@@ -4777,11 +4777,14 @@ export function generateCpp(
         // Extra variant-specific controls — see PARTICLE_*_MODES in
         // nodeLibrary.ts for which mode reads which. Compile-time constants
         // (not wired ports), mirroring the evaluator's ParticleOpts.
-        const sizeP = Number(p.size ?? 1)
+        // `count` stays a property. It is only a loop bound in most variants,
+        // but `swarm` sizes its pool from it directly — the cap is what bounds
+        // that mode's O(N^2) neighbour step — so it has to be known when the
+        // array is declared. The other four become per-frame locals, each
+        // bounded to the domain its own slider declares so the bound still
+        // holds on a wired value.
         const countP = Math.max(2, Math.min(80, Math.round(Number(p.count ?? 24))))
-        const spreadP = Number(p.spread ?? 1)
-        const gravityP = Number(p.gravity ?? 1)
-        const bounceP = Number(p.bounce ?? 1)
+        const sizeE = `constrain(${f('size', 'size', 1)},0.25f,3.0f)`
         const seed = seedProp(p)
         // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot. swarm keeps every
         // slot live (boids), so its pool is sized directly from `count` (capped
@@ -4796,6 +4799,17 @@ export function generateCpp(
         // per-particle colour slots stay well-formed; render colours by life below.
         ln(`    float _rate=${rate}; CRGB _pc=ColorFromPalette(${pal},180);`)
 
+        /*
+         * The spawn/update variants read different knobs — one mode scales its
+         * spawn spread, another applies gravity, a third also bounces — so
+         * their locals are emitted only where something reads them, or every
+         * mode carries an unused local and a warning with it.
+         *
+         * Which mode uses which is not listed here: the branch's lines are
+         * buffered, and each local is emitted only if the text that came out
+         * mentions it. A variant added later joins the rule for free.
+         */
+        const variantLines: string[] = []
         if (mode === 'swarm') {
           ln(`    if(!${A}init){ for(int i=0;i<_PN;i++){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.6f; ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; } ${A}init=true; }`)
           ln(`    float _R=max(3.0f, min(WIDTH,HEIGHT)*0.5f); static float ${A}nvx[_PN], ${A}nvy[_PN];`)
@@ -4807,15 +4821,16 @@ export function generateCpp(
           ln(`      float sp=sqrtf(vx*vx+vy*vy); if(sp>0.7f){ vx=vx/sp*0.7f; vy=vy/sp*0.7f; } ${A}nvx[i]=vx; ${A}nvy[i]=vy; }`)
           ln(`    for(int i=0;i<_PN;i++){ ${A}vx[i]=${A}nvx[i]; ${A}vy[i]=${A}nvy[i]; ${A}x[i]=fmodf(${A}x[i]+${A}vx[i]+WIDTH,WIDTH); ${A}y[i]=fmodf(${A}y[i]+${A}vy[i]+HEIGHT,HEIGHT); }`)
         } else {
+          const ln = (line: string) => { variantLines.push(line) }
           ln(`    if(!${A}init){ for(int i=0;i<_PN;i++) ${A}l[i]=0; ${A}init=true; }`)
 
           // ── spawn ──
           // Width-spawning modes centre their random x on WIDTH/2 and scale the
           // deviation by `spreadP` (spreadP=1 reproduces the old full-width
           // random8()/255.0f*WIDTH distribution exactly).
-          const spreadF = floatLit(spreadP)
-          const gravityF = floatLit(gravityP)
-          const bounceF = floatLit(bounceP)
+          const spreadF = '_paSpread'
+          const gravityF = '_paGrav'
+          const bounceF = '_paBounce'
           const spawnX = `(WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*${spreadF})`
           if (mode === 'fountain')
             ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; ${A}r[i]=_pc.r; ${A}g[i]=_pc.g; ${A}b[i]=_pc.b; break; } }`)
@@ -4899,21 +4914,33 @@ export function generateCpp(
             ln(`      ${A}vy[i]+=0.025f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f*${bounceF}; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=${decayL}*0.995f; }`)
         }
 
+        for (const [name, expr] of [
+          ['_paSpread', `constrain(${f('spread', 'spread', 1)},0.0f,2.0f)`],
+          ['_paGrav', `constrain(${f('gravity', 'gravity', 1)},0.0f,3.0f)`],
+          ['_paBounce', `constrain(${f('bounce', 'bounce', 1)},0.0f,1.5f)`],
+        ] as const) {
+          if (variantLines.some((line) => line.includes(name))) ln(`    float ${name}=${expr};`)
+        }
+        for (const line of variantLines) ln(line)
+
         // ── render (shared) ── every particle is coloured by its life through the
         // palette, so young/bright particles land at the palette's hot end and cool
         // toward its start as they fade (mirrors evalParticles).
         // Blob radius baked from the panel's configured WIDTH/HEIGHT — mirrors
         // the evaluator's particleScale.ts so firmware matches preview.
         // `sizeP` further scales it, same as the evaluator's `size` opt.
-        const R = Math.max(0.5, particleRadius(width, height) * sizeP)
-        const Rf = Number.isInteger(R) ? R.toFixed(1) : String(R)
+        // The panel's own radius is still folded — it comes from the configured
+        // WIDTH/HEIGHT, which no wire can change — and only the `size` scale
+        // is live.
+        const Rf = '_paR'
+        ln(`    float _paR=fmaxf(0.5f, ${floatLit(particleRadius(width, height))}*${sizeE});`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; float _k=min(1.0f,${A}l[i]), _sx=${A}x[i], _sy=${A}y[i];`)
-        ln(`      int _x0=max(0,(int)floorf(_sx-${Rf}f-1.0f)), _x1=min(WIDTH-1,(int)ceilf(_sx+${Rf}f+1.0f));`)
-        ln(`      int _y0=max(0,(int)floorf(_sy-${Rf}f-1.0f)), _y1=min(HEIGHT-1,(int)ceilf(_sy+${Rf}f+1.0f));`)
+        ln(`      int _x0=max(0,(int)floorf(_sx-${Rf}-1.0f)), _x1=min(WIDTH-1,(int)ceilf(_sx+${Rf}+1.0f));`)
+        ln(`      int _y0=max(0,(int)floorf(_sy-${Rf}-1.0f)), _y1=min(HEIGHT-1,(int)ceilf(_sy+${Rf}+1.0f));`)
         ln(`      CRGB _pcol=ColorFromPalette(${pal},(uint8_t)(_k*255)); _pcol.nscale8((uint8_t)(_k*255));`)
         ln(`      for(int _y=_y0;_y<=_y1;_y++) for(int _x=_x0;_x<=_x1;_x++){`)
-        ln(`        float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy; float _cov=constrain(${Rf}f+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
+        ln(`        float _dx=(_x+0.5f)-_sx,_dy=(_y+0.5f)-_sy; float _cov=constrain(${Rf}+0.5f-sqrtf(_dx*_dx+_dy*_dy),0.0f,1.0f);`)
         ln(`        if(_cov<=0.0f) continue; CRGB _add=_pcol; _add.nscale8((uint8_t)(_cov*255.0f)); ${ob}[_y*WIDTH+_x]+=_add; } } }`)
         break
       }

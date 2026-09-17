@@ -2447,14 +2447,49 @@ describe('generateCpp — Particles modes', () => {
   })
 
   it("spread widens/narrows a width-spawning mode's spawn area", () => {
-    expect(gen('fountain', { spread: 0.5 })).toContain('WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*0.5f')
-    expect(gen('waterfall', { spread: 2 })).toContain('(random8()/255.0f-0.5f)*0.3f*WIDTH*2.0f')
+    // The knob is a per-frame local now that it can carry a wire, so the value
+    // is in the local's initialiser and the spawn scales by the local.
+    const fountain = gen('fountain', { spread: 0.5 })
+    expect(fountain).toContain('float _paSpread=constrain(0.5,0.0f,2.0f)')
+    expect(fountain).toContain('WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*_paSpread')
+    const waterfall = gen('waterfall', { spread: 2 })
+    expect(waterfall).toContain('float _paSpread=constrain(2,0.0f,2.0f)')
+    expect(waterfall).toContain('(random8()/255.0f-0.5f)*0.3f*WIDTH*_paSpread')
   })
 
   it("gravity and bounce scale a mode's built-in accel/restitution constants", () => {
     const cpp = gen('gravity', { gravity: 2, bounce: 0.5 })
-    expect(cpp).toContain('0.045f*2.0f')
-    expect(cpp).toContain('-0.55f*0.5f')
+    expect(cpp).toContain('float _paGrav=constrain(2,0.0f,3.0f)')
+    expect(cpp).toContain('float _paBounce=constrain(0.5,0.0f,1.5f)')
+    expect(cpp).toContain('0.045f*_paGrav')
+    expect(cpp).toContain('-0.55f*_paBounce')
+  })
+
+  it('declares a spawn knob only in the modes that read it', () => {
+    // Every mode carrying every local costs an unused-variable warning apiece,
+    // so the emitter derives which to declare from the lines it just produced.
+    for (const knob of ['_paSpread', '_paGrav', '_paBounce']) {
+      const cpp = gen('swarm')
+      expect(cpp.includes(`float ${knob}=`), `swarm ${knob}`).toBe(false)
+      expect(cpp.includes(knob), `swarm ${knob}`).toBe(false)
+    }
+    expect(gen('snow')).toContain('float _paSpread=')
+    // Snow drifts rather than falling under gravity, so it reads neither.
+    expect(gen('snow')).not.toContain('float _paGrav=')
+  })
+
+  it('keeps a wired Particles knob inside its declared domain', () => {
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const cpp = generateCpp(
+      [lfo, node('pp', 'Particles', 'pattern', { particleType: 'gravity' }), out],
+      [
+        edge('e-g', 'lfo', 'pp', 'value', 'gravity'),
+        edge('e-s', 'lfo', 'pp', 'value', 'size'),
+        edge('e-f', 'pp', 'out', 'frame', 'frame'),
+      ],
+    )
+    expect(cpp).toContain('float _paGrav=constrain(n_lfo_value,0.0f,3.0f)')
+    expect(cpp).toContain('constrain(n_lfo_value,0.25f,3.0f)')
   })
 
   it('size scales the rendered particle radius (visible on a larger matrix)', () => {
@@ -2467,8 +2502,12 @@ describe('generateCpp — Particles modes', () => {
       [node('pp', 'Particles', 'pattern', { particleType: 'fountain', size: 2 }), out32],
       [edge('e', 'pp', 'out', 'frame', 'frame')],
     )
-    expect(cppSmall).toContain('floorf(_sx-1.0f-1.0f)')
-    expect(cppBig).toContain('floorf(_sx-2.0f-1.0f)')
+    // The panel's own radius is still folded — no wire can change WIDTH or
+    // HEIGHT — and only the size scale is live, so the difference between the
+    // two shows up in the local's initialiser rather than at every use.
+    expect(cppSmall).toContain('float _paR=fmaxf(0.5f, 1.0f*constrain(1,0.25f,3.0f))')
+    expect(cppBig).toContain('float _paR=fmaxf(0.5f, 1.0f*constrain(2,0.25f,3.0f))')
+    expect(cppSmall).toContain('floorf(_sx-_paR-1.0f)')
   })
 })
 
