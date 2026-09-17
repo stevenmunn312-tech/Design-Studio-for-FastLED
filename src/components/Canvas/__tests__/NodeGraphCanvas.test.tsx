@@ -6,6 +6,9 @@ import NodeGraphCanvas from '../NodeGraphCanvas'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
+import { createDisplayDocument } from '../../../state/displayEditor'
+import { libraryDefaults } from '../../../state/nodeLibrary'
+import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
 
 const fitViewMock = vi.fn().mockResolvedValue(undefined)
 const screenToFlowPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })
@@ -389,6 +392,9 @@ describe('NodeGraphCanvas start screen', () => {
       sourceNodeType: 'PotInput',
       sourcePortId: 'value',
       sourceDataType: 'float',
+      // A Pot has no screen of its own, so the place-on-drop shortcut has
+      // nowhere to go and the hint must not offer it.
+      canPlaceOnVisibleScreen: false,
     })
     onConnectEnd(new MouseEvent('mouseup', { clientX: 30, clientY: 30 }), { toHandle: null })
     expect(useUiStore.getState().connectionDrag).toBeNull()
@@ -409,6 +415,90 @@ describe('NodeGraphCanvas start screen', () => {
 
     pointer.mockRestore()
     row.remove()
+  })
+
+  /*
+   * The wire-first control gesture, end to end through the canvas: a noodle
+   * from the Touch node's trailing socket dropped on a property row. The plain
+   * drop leaves the control in the Connected group; the same drop with Ctrl
+   * held places it, but only because the live touch overlay is showing this
+   * very panel. The store owns that second gate — what is asserted here is
+   * that the canvas reads the modifier off the drop at all, which nothing else
+   * covers.
+   */
+  it('places a wired touch control on the screen being watched when Ctrl is held', () => {
+    useGraphStore.getState().loadGraph([
+      {
+        id: 'panel', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          nodeType: 'TransportDisplay', label: 'Panel', category: 'output',
+          properties: { ...libraryDefaults('TransportDisplay'), displayId: 'screen' },
+          inputs: [], outputs: [],
+        },
+      },
+      {
+        id: 'touch', type: 'studioNode', position: { x: 0, y: 200 },
+        data: {
+          nodeType: 'TouchInput', label: 'Touch', category: 'input',
+          properties: { ...libraryDefaults('TouchInput'), panelId: 'panel' },
+          inputs: [], outputs: [],
+        },
+      },
+      {
+        id: 'juggle', type: 'studioNode', position: { x: 260, y: 0 },
+        data: {
+          nodeType: 'Juggle', label: 'Juggle', category: 'pattern',
+          properties: { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' },
+          inputs: [
+            { id: 'speed', label: 'Speed', dataType: 'float' },
+            { id: 'count', label: 'Count', dataType: 'float' },
+          ],
+          outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+        },
+      },
+    ], [], {
+      nodes: [], edges: [],
+      displayDocuments: { screen: createDisplayDocument('screen', 240, 320) },
+    } as never)
+    getNodeMock.mockImplementation((id: string) =>
+      useGraphStore.getState().nodes.find((node) => node.id === id))
+    useUiStore.getState().openLiveTouchScreen('screen')
+
+    render(<NodeGraphCanvas />)
+    const onConnectStart = reactFlowProps.onConnectStart as (event: unknown, params: { nodeId: string; handleId: string; handleType: string }) => void
+    const onConnectEnd = reactFlowProps.onConnectEnd as (event: MouseEvent, state: { toHandle: null }) => void
+    const row = document.createElement('div')
+    row.setAttribute('data-property-input', 'juggle|count')
+    row.setAttribute('data-property-type', 'float')
+    document.body.appendChild(row)
+    const pointer = vi.spyOn(document, 'elementsFromPoint').mockReturnValue([row])
+    const design = () => useGraphStore.getState().displayDocuments.screen
+
+    // The drag knows a Ctrl-drop has somewhere to land, which is what the row
+    // hint reads to offer the shortcut.
+    onConnectStart({}, { nodeId: 'touch', handleId: TOUCH_CONTROL_ADD_HANDLE, handleType: 'source' })
+    expect(useUiStore.getState().connectionDrag?.canPlaceOnVisibleScreen).toBe(true)
+
+    // Plain drop: connected, waiting.
+    onConnectEnd(new MouseEvent('mouseup', { clientX: 30, clientY: 30 }), { toHandle: null })
+    expect(design().widgets).toHaveLength(1)
+    expect(design().widgets[0].bounds).toBeUndefined()
+    expect(useUiStore.getState().statusText).toContain('place it in the screen designer')
+
+    // Ctrl drop on a second property: placed, and said so.
+    row.setAttribute('data-property-input', 'juggle|speed')
+    onConnectStart({}, { nodeId: 'touch', handleId: TOUCH_CONTROL_ADD_HANDLE, handleType: 'source' })
+    onConnectEnd(
+      new MouseEvent('mouseup', { clientX: 30, clientY: 30, ctrlKey: true }),
+      { toHandle: null },
+    )
+    expect(design().widgets).toHaveLength(2)
+    expect(design().widgets[1].bounds).toBeDefined()
+    expect(useUiStore.getState().statusText).toContain('placed on the screen')
+
+    pointer.mockRestore()
+    row.remove()
+    useUiStore.getState().closeLiveTouchScreen()
   })
 
   it('tidies after an existing loose node is spliced into a connection', () => {

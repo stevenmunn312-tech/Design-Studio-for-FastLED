@@ -46,6 +46,13 @@ export interface ConnectionDragHint {
   sourceNodeType: string
   sourcePortId: string
   sourceDataType: string
+  /**
+   * Whether a Ctrl-drop from this source would land its new control on glass
+   * the author can see. Resolved once when the drag starts — the live touch
+   * overlay cannot open or change panels mid-noodle — so a property row can
+   * offer the shortcut without each row asking the store.
+   */
+  canPlaceOnVisibleScreen?: boolean
 }
 
 export interface HelpNodeReferenceState {

@@ -1,6 +1,8 @@
 # Wire-first touch controls
 
 Status: **complete**, agreed 2026-09-17 from bench use and landed the same day.
+Extended the same day with the doubly gated Ctrl-drop placement below, which
+revisits this note's own rejection of auto-placement.
 A control is created by wiring it, waits in the designer's Connected group,
 moves between that group and the screen, says when it is doing nothing, and is
 reported in Graph Health in both directions. The checklist at the foot is the
@@ -240,6 +242,44 @@ caller compose; the full string is on the caption's `title`. Both are read
 through `nodeDisplayLabel` rather than `data.label`, because nothing persists a
 node label and an LED String would otherwise name itself "LED Matrix".
 
+## Placing on drop, doubly gated
+
+The objection above was to placing *uninvited*, not to placing. Held Ctrl (or
+Cmd — Ctrl-click is the secondary click on macOS) at the moment of the drop is
+consent, per control, at the only moment the author can still change their
+mind. That alone is not enough, because it still leaves "which screen?"
+unanswered on a graph with two panels; the second gate answers it by not
+asking. `visibleLiveTouchScreen` names exactly one panel, so the control goes
+on the glass the author is looking at or it does not go anywhere:
+
+- the noodle's own Touch node must draw on the screen the live touch overlay
+  is currently showing — another panel's design falls back to the group
+- an overlay that is *open but not on screen* does not count, which is the
+  distinction `visibleLiveTouchScreen` exists to make
+- a touch drag carries no modifier, so it keeps the unplaced default without
+  needing a case of its own
+
+What makes the bad-layout objection survivable is that the result is in front
+of you with an Edit design button beside it. A placement you did not want is a
+drag away from one you do, and it is visible within the same second — unlike
+an uninvited placement on a panel in another workspace, which is the thing
+that was actually rejected.
+
+Two implementation rules hold the seams:
+
+**One placement rule, not two.** The drop places through `placeTouchControlIn`
+like every other placement, after the edge exists. Adoption is a no-op on this
+path (a wire-first control is born carrying the property's range, so
+`displayControlIsUnconfigured` is already false), but giving the creation path
+its own call to the bare geometry is exactly how the two would drift.
+
+**The shortcut is advertised, not hidden.** A modifier nobody would guess at
+needs a surface, and the row hint already runs `touchControlPlan` while the
+noodle is in the air. `ConnectionDragHint.canPlaceOnVisibleScreen` is resolved
+once at drag start — the overlay cannot open or change panels mid-noodle — and
+the hint appends the offer only where the gate would grant it, so it never
+promises a placement that would quietly not happen.
+
 ## The palette still promotes rather than filters
 
 The template shelf's own stance, and the reason is written beside it: "Nothing
@@ -271,7 +311,12 @@ rule to every widget would delete most of a finished screen.
 **Auto-place the widget on connect.** Invents no new state at all, which is
 genuinely attractive. Rejected because a screen is a composition on a 240x320
 surface: wiring six controls would drop six overlapping widgets onto a design
-you were in the middle of, uninvited.
+you were in the middle of, uninvited — and `firstAvailableBounds` degrades
+worst exactly where it would be used most, returning the top-left candidate
+when it finds no free rectangle, so a full screen collects a stack.
+
+**Ctrl-drop onto the screen you are watching** is the same act with both of
+those answered, and it is what shipped — see below.
 
 **Choose the target from the widget's inspector.** This is how *readouts*
 already bind (`displaySourceFields`, `widgetSources`), so it would make the two
@@ -405,3 +450,6 @@ wire — so the widget and its wire say the same thing the same way.
 - [x] Range adoption at *placement* (`placeTouchControlIn`), sharing
       `adoptedControlRange` and the unconfigured gate with the wiring moment.
 - [x] A second wire onto a driven property input is refused with a reason.
+- [x] Ctrl/Cmd on the drop places the control, gated on the live touch overlay
+      showing that same panel (`placeOnVisibleScreen` in `connectTouchControl`),
+      with the offer named on the row hint while the noodle is in the air.

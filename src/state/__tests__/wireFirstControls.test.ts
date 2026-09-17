@@ -22,6 +22,7 @@ import { controllableInputsFor, exposableInputsFor } from '../propertyInputs'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { placedWidgets } from '../displayDocument'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../displayRegistry'
+import { useUiStore } from '../uiStore'
 
 /*
  * Creating a touch control by wiring it. The property being dropped on is the
@@ -317,6 +318,84 @@ describe('connectTouchControl', () => {
     runtime.touchDisplayWidget('screen', widget.id, 7)
     useGraphStore.getState().loadGraph([], [])
     expect(runtime.readDisplayWidget('screen', widget.id)).toBeUndefined()
+  })
+
+  /*
+   * Ctrl-drop places the control immediately, which the design note first
+   * rejected as auto-placement. What makes it safe is the second gate: the
+   * live touch overlay has to be showing this very panel, so "which screen?"
+   * is answered by what is on screen rather than guessed, and the layout the
+   * placement produces is visible the instant it lands. Each half of the gate
+   * is asserted on its own, because either one alone would put a widget on
+   * glass nobody is looking at.
+   */
+  describe('placing on the visible screen', () => {
+    afterEach(() => {
+      useUiStore.getState().closeLiveTouchScreen()
+    })
+
+    it('places the control when the modifier is held and this screen is the one being watched', () => {
+      useUiStore.getState().openLiveTouchScreen('screen')
+      const plan = connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+
+      expect(plan.ok).toBe(true)
+      if (!plan.ok) return
+      expect(plan.placed).toBe(true)
+      const widget = document().widgets.at(-1)!
+      expect(widget.bounds).toBeDefined()
+      expect(placedWidgets(document())).toHaveLength(1)
+      // Placement does not cost it the range it was born with.
+      expect(widget.properties).toMatchObject({ min: 1, max: 12, step: 1 })
+    })
+
+    it('leaves it in the Connected group when no modifier was held', () => {
+      useUiStore.getState().openLiveTouchScreen('screen')
+      const plan = connectTouchControl('touch', 'ff', 'petals')
+
+      expect(plan.ok).toBe(true)
+      if (!plan.ok) return
+      expect(plan.placed).toBe(false)
+      expect(document().widgets.at(-1)!.bounds).toBeUndefined()
+    })
+
+    it('will not place on another panel\'s glass', () => {
+      // The overlay is showing a different screen, so this drop has no visible
+      // destination of its own and falls back to waiting.
+      useUiStore.getState().openLiveTouchScreen('other-screen')
+      const plan = connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+
+      expect(plan.ok).toBe(true)
+      if (!plan.ok) return
+      expect(plan.placed).toBe(false)
+      expect(document().widgets.at(-1)!.bounds).toBeUndefined()
+    })
+
+    it('will not place on an overlay that is open but not on screen', () => {
+      // `liveTouchScreenDisplayId` survives a tab switch on purpose, so "one
+      // is open" and "one is on screen" are different questions and this gate
+      // has to ask the second.
+      useUiStore.getState().openLiveTouchScreen('screen')
+      useUiStore.getState().setWorkspaceMode('hardware')
+      const plan = connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+
+      expect(plan.ok).toBe(true)
+      if (!plan.ok) return
+      expect(plan.placed).toBe(false)
+      expect(document().widgets.at(-1)!.bounds).toBeUndefined()
+      useUiStore.getState().setWorkspaceMode('graph')
+    })
+
+    it('still takes one undo to remove, bounds and wire together', () => {
+      useUiStore.getState().openLiveTouchScreen('screen')
+      connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+      expect(placedWidgets(document())).toHaveLength(1)
+      vi.advanceTimersByTime(400)
+
+      useGraphStore.temporal.getState().undo()
+
+      expect(useGraphStore.getState().edges).toHaveLength(0)
+      expect(document().widgets).toHaveLength(0)
+    })
   })
 
   it('refuses the second control on one property and changes nothing', () => {

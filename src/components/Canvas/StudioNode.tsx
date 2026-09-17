@@ -189,11 +189,18 @@ function connectionTargetHint(
   if (drag.sourcePortId === TOUCH_CONTROL_ADD_HANDLE) {
     const plan = touchControlPlan(
       targetNodeType, targetPort.id, target?.properties ?? {}, target?.driven ?? false)
+    // The shortcut is named only where it would do something. It is offered
+    // on the row rather than announced afterwards for the same reason the
+    // refusal is: while the noodle is in the air is when it can still change
+    // what you do with it.
+    const place = drag.canPlaceOnVisibleScreen
+      ? ' Hold Ctrl/Cmd to place it on the screen you are watching.'
+      : ''
     return plan.ok
       ? {
           kind: 'compatible',
-          title: `Creates a ${plan.spec.type} for ${plan.spec.label}.`,
-          aria: `Creates a ${plan.spec.type} control for ${plan.spec.label}.`,
+          title: `Creates a ${plan.spec.type} for ${plan.spec.label}.${place}`,
+          aria: `Creates a ${plan.spec.type} control for ${plan.spec.label}.${place}`,
         }
       : { kind: 'blocked', title: plan.refusal.message, aria: plan.refusal.message }
   }

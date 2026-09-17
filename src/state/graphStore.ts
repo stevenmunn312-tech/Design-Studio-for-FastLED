@@ -28,7 +28,7 @@ import {
   USER_PINS_KEY,
 } from './pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
-import { useUiStore } from './uiStore'
+import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
@@ -73,10 +73,12 @@ import {
   adoptedControlRange,
   displayControlIsUnconfigured,
   placeTouchControlIn,
+  touchControlDisplayId,
   touchControlPlan,
   touchControlWidget,
   writeTouchControlValue,
-  type TouchControlPlan,
+  type TouchControlRefusal,
+  type TouchControlSpec,
 } from './wireFirstControls'
 import { mountedPanelGeometry } from './mountedDisplays'
 import { useDisplayRuntimeStore } from './displayRuntimeStore'
@@ -3572,6 +3574,17 @@ export function connectTemplateControls(panelId: string): TemplateControlPlan & 
 }
 
 /**
+ * What a wiring gesture did, or the reason it did nothing.
+ *
+ * `placed` is the outcome's answer, not the caller's request: a Ctrl-drop
+ * asks, and the gate below decides. The caller words its status line from
+ * what happened rather than from what it asked for.
+ */
+export type TouchControlOutcome =
+  | { ok: true; spec: TouchControlSpec; placed: boolean }
+  | { ok: false; refusal: TouchControlRefusal }
+
+/**
  * Create a touch control by wiring it, in one undoable step.
  *
  * The gesture is a noodle dragged from a Touch node's trailing socket and
@@ -3580,18 +3593,31 @@ export function connectTemplateControls(panelId: string): TemplateControlPlan & 
  * a single `set`, because a control whose wire survived its own undo would be
  * a control nothing can explain.
  *
- * The widget arrives with **no bounds**: it exists, it has a port, the edge is
- * real, and it waits in the designer's Connected group until someone says
- * where it goes. See docs/development/design/wire-first-touch-controls.md.
+ * The widget normally arrives with **no bounds**: it exists, it has a port,
+ * the edge is real, and it waits in the designer's Connected group until
+ * someone says where it goes. See
+ * docs/development/design/wire-first-touch-controls.md.
  *
- * Returns the plan so the caller can say why nothing happened — every refusal
+ * `placeOnVisibleScreen` is the one exception, and it is doubly gated on
+ * purpose. Placing uninvited was rejected because six wires would drop six
+ * widgets onto a composition the author was in the middle of, somewhere they
+ * were not looking. A held modifier answers the first half — it is consent at
+ * the moment of the gesture — and `visibleLiveTouchScreen` answers the
+ * second: it names exactly one panel, so "which screen?" never has to be
+ * guessed, and the layout the placement produces is on screen beside an Edit
+ * design button the instant it lands. A drop from a Touch node whose panel is
+ * *not* the one being shown falls back to the Connected group rather than
+ * placing on glass the author cannot see.
+ *
+ * Returns the outcome so the caller can say what happened — every refusal
  * carries a sentence rather than a dead gesture.
  */
 export function connectTouchControl(
   touchNodeId: string,
   targetId: string,
   targetPort: string,
-): TouchControlPlan {
+  options: { placeOnVisibleScreen?: boolean } = {},
+): TouchControlOutcome {
   const state = useGraphStore.getState()
   const touch = state.nodes.find((node) => node.id === touchNodeId)
   const target = state.nodes.find((node) => node.id === targetId)
@@ -3599,9 +3625,7 @@ export function connectTouchControl(
     return { ok: false, refusal: { code: 'not-a-property-input', message: 'That control has nothing to connect from.' } }
   }
 
-  const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
-  const panel = state.nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
-  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  const displayId = touchControlDisplayId(touch, state.nodes)
   const document = displayId ? state.displayDocuments[displayId] : undefined
   if (!document) {
     return {
@@ -3624,13 +3648,16 @@ export function connectTouchControl(
 
   const widgetId = nextDisplayWidgetId(document, plan.spec.type)
   const sourceHandle = displayWidgetPortId(widgetId, 'out')
+  // Asked for, and granted only for the glass actually in front of the author.
+  const placing = options.placeOnVisibleScreen === true
+    && visibleLiveTouchScreen(useUiStore.getState()) === displayId
+  let placed = false
 
   useGraphStore.setState((s) => {
-    const nextDocument: DisplayDocument = {
+    let nextDocument: DisplayDocument = {
       ...document,
       widgets: [...document.widgets, touchControlWidget(widgetId, plan.spec)],
     }
-    const displayDocuments = { ...s.displayDocuments, [displayId]: nextDocument }
 
     // Draw the socket the wire lands on: a property input is a field until
     // something is wired to it, and an edge into a socket nobody can see is
@@ -3656,6 +3683,20 @@ export function connectTouchControl(
       style: { stroke: edgeStrokeForPort(touch, sourceHandle) },
     } as unknown as StudioEdge]
 
+    // Through `placeTouchControlIn` rather than the bare geometry, so every
+    // placement in the app arrives by one rule — and after the edge exists,
+    // since that is the walk it resolves a target's range through. Adoption
+    // is a no-op here (this control was born carrying the property's range),
+    // but giving the creation path a placement rule of its own is exactly how
+    // the two would come to disagree.
+    if (placing) {
+      nextDocument = placeTouchControlIn(nextDocument, displayId, widgetId, nodes, edges)
+      placed = nextDocument.widgets.some((widget) => (
+        widget.id === widgetId && isPlacedWidget(widget)
+      ))
+    }
+    const displayDocuments = { ...s.displayDocuments, [displayId]: nextDocument }
+
     // Ports are resynced in the same write, so the Touch node gains the new
     // widget's output at the moment the edge referencing it appears.
     return {
@@ -3676,7 +3717,7 @@ export function connectTouchControl(
     writeTouchControlValue(displayId, widgetId, current)
   }
 
-  return plan
+  return { ok: true, spec: plan.spec, placed }
 }
 
 /**

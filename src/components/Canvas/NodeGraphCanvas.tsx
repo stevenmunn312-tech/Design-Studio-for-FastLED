@@ -28,9 +28,10 @@ import '@xyflow/react/dist/style.css'
 import { useShallow } from 'zustand/react/shallow'
 import { connectTouchControl, useGraphStore } from '../../state/graphStore'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
-import type { StudioEdge } from '../../state/graphStore'
+import { touchControlDisplayId } from '../../state/wireFirstControls'
+import type { StudioEdge, StudioNode as StudioGraphNode } from '../../state/graphStore'
 import { findSignalRangeHints } from '../../utils/validateGraph'
-import { useUiStore } from '../../state/uiStore'
+import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
 import { exposableInputsFor, exposedNodeInputs } from '../../state/propertyInputs'
@@ -139,6 +140,42 @@ function propertyInputUnder(
 function hoveredNodeId(eventTarget: EventTarget | null): string | undefined {
   if (!(eventTarget instanceof Element)) return undefined
   return eventTarget.closest('.react-flow__node')?.getAttribute('data-id') ?? undefined
+}
+
+/**
+ * Whether this drop is asking for its control to be placed straight away.
+ *
+ * Ctrl or Cmd, because Ctrl-click is the secondary click on macOS and the
+ * canvas's other shortcuts already accept either. A touch drag carries both
+ * as `false`, which is the right answer rather than a case to guard: a finger
+ * cannot hold a modifier, so a touch gesture keeps the unplaced default.
+ */
+function placementModifier(event: MouseEvent | TouchEvent): boolean {
+  return event.ctrlKey || event.metaKey
+}
+
+/**
+ * Whether a modifier held on this drag would have anywhere to place.
+ *
+ * True only when the noodle's own Touch node draws on the very screen the
+ * live touch overlay is showing — the same gate `connectTouchControl`
+ * applies, asked early so the row hint can offer the shortcut rather than
+ * advertise one that would quietly do nothing. A screen that is open but not
+ * on screen, and another panel's glass, both answer false.
+ */
+function isTouchControlPlaceable(nodes: readonly StudioGraphNode[], sourceNodeId: string): boolean {
+  const visible = visibleLiveTouchScreen(useUiStore.getState())
+  if (!visible) return false
+  return touchControlDisplayId(nodes.find((node) => node.id === sourceNodeId), nodes) === visible
+}
+
+/** What a wired control did, said once for both drop paths. */
+function touchControlAddedStatus(
+  outcome: { spec: { label: string }; placed: boolean },
+): string {
+  return outcome.placed
+    ? `${outcome.spec.label} control placed on the screen — drag it in Edit design`
+    : `${outcome.spec.label} control added — place it in the screen designer`
 }
 
 function NodeGraphCanvasInner() {
@@ -583,11 +620,18 @@ function NodeGraphCanvasInner() {
           ?.find((p) => p.id === (params.handleId ?? undefined))
         if (out) {
           connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
+          const graphNodes = useGraphStore.getState().nodes
           setConnectionDrag({
             sourceNodeId: params.nodeId,
             sourceNodeType: String(srcData?.nodeType ?? ''),
             sourcePortId: out.id,
             sourceDataType: out.dataType,
+            // Whether a modifier has anywhere to place, decided once at the
+            // start of the drag rather than per property row per render: the
+            // overlay cannot open or change panels while a noodle is in the
+            // air. This is what lets the row hint offer the shortcut only
+            // where it would actually do something.
+            canPlaceOnVisibleScreen: isTouchControlPlaceable(graphNodes, params.nodeId),
           })
         }
         return
@@ -633,12 +677,14 @@ function NodeGraphCanvasInner() {
           // property can take rather than by port compatibility — its own type
           // deliberately matches nothing.
           if (origin.handleId === TOUCH_CONTROL_ADD_HANDLE) {
-            const plan = connectTouchControl(origin.nodeId, property.nodeId, property.portId)
-            if (plan.ok) {
-              setStatus(`${plan.spec.label} control added — place it in the screen designer`, 'success')
-            } else {
-              setStatus(plan.refusal.message, 'error')
-            }
+            const plan = connectTouchControl(
+              origin.nodeId, property.nodeId, property.portId,
+              { placeOnVisibleScreen: placementModifier(event) },
+            )
+            setStatus(
+              plan.ok ? touchControlAddedStatus(plan) : plan.refusal.message,
+              plan.ok ? 'success' : 'error',
+            )
             return
           }
           if (!portsCompatible(origin.dataType, property.dataType)) {
@@ -672,11 +718,10 @@ function NodeGraphCanvasInner() {
       if (origin?.handleId === TOUCH_CONTROL_ADD_HANDLE && state?.toHandle?.nodeId) {
         const plan = connectTouchControl(
           origin.nodeId, state.toHandle.nodeId, state.toHandle.id ?? '',
+          { placeOnVisibleScreen: placementModifier(event) },
         )
         setStatus(
-          plan.ok
-            ? `${plan.spec.label} control added — place it in the screen designer`
-            : plan.refusal.message,
+          plan.ok ? touchControlAddedStatus(plan) : plan.refusal.message,
           plan.ok ? 'success' : 'error',
         )
         return

@@ -356,6 +356,29 @@ export function displayControlInertMessage(reason: DisplayControlInertReason): s
 }
 
 /**
+ * The screen design a Touch node draws on, or `''` when it has none.
+ *
+ * A Touch node names its panel with an internal `panelId` link and the panel
+ * names its design with `displayId`, so every question about "which screen is
+ * this control on" is that same two-hop walk. It is asked from three places
+ * now — the inert lookup below, the wiring action, and the canvas deciding
+ * whether the glass in front of the author is this node's — so it is one
+ * function rather than three copies that could disagree about what a missing
+ * panel means.
+ */
+export function touchControlDisplayId(
+  touchNode: StudioNode | undefined,
+  nodes: readonly StudioNode[],
+): string {
+  if (!touchNode || touchNode.data.nodeType !== 'TouchInput') return ''
+  const panelId = String((touchNode.data.properties as Record<string, unknown>).panelId ?? '')
+  const panel = nodes.find((node) => (
+    node.id === panelId && node.data.nodeType === 'TransportDisplay'
+  ))
+  return panel ? String(panel.data.properties.displayId ?? '') : ''
+}
+
+/**
  * The same question asked of a wire on the graph canvas, where the widget has
  * to be found from the port the wire leaves.
  *
@@ -378,11 +401,7 @@ export function touchControlWireInert(
   if (port?.role !== 'out') return null
   const touch = state.nodes.find((node) => node.id === source)
   if (!touch || touch.data.nodeType !== 'TouchInput') return null
-  const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
-  const panel = state.nodes.find((node) => (
-    node.id === panelId && node.data.nodeType === 'TransportDisplay'
-  ))
-  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  const displayId = touchControlDisplayId(touch, state.nodes)
   const widget = displayId
     ? state.displayDocuments[displayId]?.widgets.find((entry) => entry.id === port.widgetId)
     : undefined

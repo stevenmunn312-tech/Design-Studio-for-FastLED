@@ -14,6 +14,7 @@ import { useNodeDefaults } from '../../../state/nodeDefaults'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { useHardwareInputStore } from '../../../state/hardwareInputStore'
+import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
 import { INMP441_NO_BOARD_MESSAGE, INMP441_UNSUPPORTED_MESSAGE } from '../../../state/micPinDefaults'
 
@@ -298,6 +299,43 @@ describe('StudioNode', () => {
     const widgetId = useGraphStore.getState().displayDocuments.screen.widgets[0].id
     expect(useDisplayRuntimeStore.getState().sampleDisplayWidgetOutput('screen', widgetId, 1)).toBe(8)
     expect(useGraphStore.getState().nodes.find((node) => node.id === 'ff')?.data.properties.petals).toBe(8)
+  })
+
+  it('offers the place-on-screen shortcut only where it would do something', () => {
+    // The row hint is the whole discovery surface for a modifier nobody would
+    // guess at, so it is named while the noodle is in the air — and only when
+    // the drag's own panel is the one the live overlay is showing, since
+    // advertising it anywhere else would promise a placement the gate refuses.
+    const formula = { ...makeNode('FormulaField', { formulaType: 'rose', petals: 5 }), id: 'ff' }
+    const panel = { ...makeNode('TransportDisplay', { displayId: 'screen' }), id: 'panel' }
+    const touch = { ...makeNode('TouchInput', { panelId: 'panel' }), id: 'touch' }
+    useGraphStore.getState().loadGraph([panel, touch, formula], [], {
+      nodes: [panel, touch, formula],
+      edges: [],
+      displayDocuments: { screen: createDisplayDocument('screen', 240, 320) },
+    } as never)
+    const drag = {
+      sourceNodeId: 'touch',
+      sourceNodeType: 'TouchInput',
+      sourcePortId: TOUCH_CONTROL_ADD_HANDLE,
+      sourceDataType: TOUCH_CONTROL_ADD_DATA_TYPE,
+    }
+    const current = useGraphStore.getState().nodes.find((node) => node.id === 'ff')!
+    const props = { id: 'ff', data: current.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+
+    useUiStore.setState({ connectionDrag: { ...drag, canPlaceOnVisibleScreen: true } })
+    const view = render(<StudioNode {...props} />)
+    const row = () => view.container.querySelector('[data-property-input="ff|petals"]') as HTMLElement
+    expect(row().title).toContain('Creates a Slider for Petals')
+    expect(row().title).toContain('Hold Ctrl')
+
+    // Same drop, no visible glass of its own: the control still gets made, so
+    // the hint still says what it will make — it just stops promising more.
+    useUiStore.setState({ connectionDrag: { ...drag, canPlaceOnVisibleScreen: false } })
+    view.rerender(<StudioNode {...props} />)
+    expect(row().title).toContain('Creates a Slider for Petals')
+    expect(row().title).not.toContain('Hold Ctrl')
+    useUiStore.setState({ connectionDrag: null })
   })
 
   it('keeps connected optional inputs on loaded and collapsed nodes', () => {
