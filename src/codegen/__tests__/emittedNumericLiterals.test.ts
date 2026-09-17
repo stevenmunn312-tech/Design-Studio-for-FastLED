@@ -90,6 +90,45 @@ describe('emitted numeric literals', () => {
     expect(offenders).toEqual([])
   })
 
+  /*
+   * The other half of the same mistake.
+   *
+   * A generator that baked a number wrote `${R}f` at each use, because `R` was
+   * a literal and the suffix belonged to it. The moment that value becomes a
+   * per-frame local the suffix stops being a suffix: `${Rf}f` emits `_paRf`,
+   * an identifier nothing declares. It compiles as a hard error, and the fix
+   * is to drop the `f` — but nothing in a text-level test notices, because the
+   * emitted line still looks like arithmetic.
+   */
+  const DECLARED = /\b(?:float|double|int|long|uint8_t|uint16_t|uint32_t|int32_t|bool|CRGB|CHSV)\s+(_\w+)/g
+
+  function suffixedLocals(cpp: string): string[] {
+    const declared = new Set([...cpp.matchAll(DECLARED)].map((match) => match[1]))
+    const offenders: string[] = []
+    for (const name of declared) {
+      // `<local>f` is only a real identifier if something declares it too;
+      // otherwise the `f` is a leftover literal suffix.
+      if (declared.has(`${name}f`)) continue
+      if (new RegExp(`\\b${name}f\\b`).test(cpp)) offenders.push(`${name}f`)
+    }
+    return offenders.sort()
+  }
+
+  it('never suffixes a local as though it were a literal', () => {
+    const offenders: string[] = []
+    for (const { type, cpp } of sketchesForEveryPatternNode()) {
+      for (const name of suffixedLocals(cpp)) offenders.push(`${type}: ${name}`)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('spots a suffixed local and leaves a real one alone', () => {
+    expect(suffixedLocals('float _paR=1.0f;\nint _x=_paRf+1;')).toEqual(['_paRf'])
+    // A local genuinely named with a trailing f is fine when it is declared.
+    expect(suffixedLocals('float _paR=1.0f;\nfloat _paRf=2.0f;\nint _x=_paRf;')).toEqual([])
+    expect(suffixedLocals('float _paR=1.0f;\nint _x=_paR+1;')).toEqual([])
+  })
+
   it('fails on the spelling it exists to catch', () => {
     // The checker has to be able to fail, and has to leave the legal
     // spellings alone.
