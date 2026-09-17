@@ -18,7 +18,6 @@ import {
   type StudioNode,
 } from '../graphStore'
 import { createDisplayDocument } from '../displayEditor'
-import { NODE_LIBRARY } from '../nodeLibrary'
 import { controllableInputsFor, exposableInputsFor } from '../propertyInputs'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { placedWidgets } from '../displayDocument'
