@@ -1283,6 +1283,75 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
   })
 
+  it('clamps a wired blend amount the way the evaluator does', () => {
+    // The evaluator clamps to 0-1 and the knob is a 0-1 slider, so only a wire
+    // can be out of range - and an unclamped 1.5 wraps through the uint8_t
+    // cast to a blend the preview never shows.
+    const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 0.5 })
+    const lvl = node('lvl', 'PotInput', 'input', {})
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, lvl, sx, outputNode], [
+      edge('e0', 'lvl', 'pb', 'value', 'amount'),
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toMatch(/uint8_t _amt = \(uint8_t\)\(constrain\([^)]*n_lvl_value[^)]*, 0\.0f, 1\.0f\) \* 255\.0f\)/)
+  })
+
+  it('ships only the palettes a Palette Bank holds', () => {
+    // The whole point of the node: a build carries the author's palettes and no
+    // others. Each declaration is 48 bytes of RAM, so an ungated bank would
+    // spend the catalogue on a graph that names three.
+    const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava', 'forest'] })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, sx, outputNode], [
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('CRGBPalette16 paldef_ocean(')
+    expect(cpp).toContain('CRGBPalette16 paldef_lava(')
+    expect(cpp).toContain('CRGBPalette16 paldef_forest(')
+    // Every other palette in the catalogue stays out of the build.
+    expect(cpp).not.toContain('CRGBPalette16 paldef_heat(')
+    expect(cpp).not.toContain('CRGBPalette16 paldef_party(')
+    // Selected at runtime, and consumed downstream as an ordinary builder.
+    expect(cpp).toContain('_pbPal_pb[] = {&paldef_ocean, &paldef_lava, &paldef_forest}')
+    expect(cpp).toContain('CRGBPalette16 pal_pb = *_pbPal_pb[_pbIdx_pb];')
+    expect(cpp).toContain('ColorFromPalette(pal_pb,')
+  })
+
+  it('wraps a Palette Bank press at both ends and cancels opposing presses', () => {
+    const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'] })
+    const btn = node('btn', 'ButtonInput', 'input', { pin: 4 })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, btn, sx, outputNode], [
+      edge('e0', 'btn', 'pb', 'pressed', 'next'),
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+
+    // The modulo is what wraps; the sign fix is what makes Previous wrap too.
+    expect(cpp).toContain('int _n = ((int)_pbIdx_pb + _delta) % 2;')
+    expect(cpp).toContain('_pbIdx_pb = (uint8_t)(_n < 0 ? _n + 2 : _n);')
+    // One delta from two buttons, so pressing both nets to nothing.
+    expect(cpp).toContain('if (_fired) _delta += (_i == 0) ? 1 : -1;')
+  })
+
+  it('still produces a palette when the bank is empty', () => {
+    // Everything downstream reads a palette, so an empty bank renders the
+    // library default rather than refusing to build. Graph Health says so.
+    const pb = node('pb', 'PaletteBank', 'color', { palettes: [] })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, sx, outputNode], [
+      edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+
+    expect(cpp).toContain('CRGBPalette16 pal_pb = paldef_rainbow;')
+    expect(cpp).not.toContain('_pbIdx_pb')
+  })
+
   it('builds a CRGBPalette16 from a CustomPalette and uses it downstream', () => {
     const c1 = node('c1', 'CHSV', 'color', { hue: 0, sat: 255, val: 255 })
     const c2 = node('c2', 'CHSV', 'color', { hue: 120, sat: 255, val: 255 })

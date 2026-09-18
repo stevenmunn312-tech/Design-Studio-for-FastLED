@@ -48,6 +48,7 @@ import {
 } from './playerControlsCpp'
 import { controlInputCpp } from './controlInputCpp'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
+import { paletteBankEntries, paletteBankLabel, PALETTE_BANK_FALLBACK } from '../state/paletteBank'
 import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX,
@@ -6934,13 +6935,60 @@ export function generateCpp(
         break
       }
 
+      case 'PaletteBank': {
+        // Only the presets the author ticked are named here, so `usedPalettes`
+        // records exactly those and `customPaletteDeclarationsCpp` declares
+        // exactly those — the bank costs 48 bytes of RAM per palette it holds
+        // rather than one for every palette in the catalogue.
+        const entries = paletteBankEntries(p)
+        const refs = entries.map((entry) => fastledPalette(entry))
+        if (refs.length === 0) {
+          // Nothing ticked: still produce a palette, because everything
+          // downstream reads one. `findPaletteBankIssues` is what says so.
+          ln(`  CRGBPalette16 pal_${id} = ${fastledPalette(PALETTE_BANK_FALLBACK)};`)
+          ln(`  const char* ${v('name')} = ${cppStringLiteral(paletteBankLabel(PALETTE_BANK_FALLBACK))};`)
+          ln(`  float ${v('index')} = 0.0f;`)
+          break
+        }
+        const edge = normalizeButtonEdgeSettings(p)
+        const count = refs.length
+        ln(`  static const CRGBPalette16* const _pbPal_${id}[] = {${refs.map((ref) => `&${ref}`).join(', ')}};`)
+        ln(`  static const char* const _pbName_${id}[] = {${entries.map((entry) => cppStringLiteral(paletteBankLabel(entry))).join(', ')}};`)
+        ln(`  static uint8_t _pbIdx_${id} = 0;`)
+        // Two buttons, one debounce rule, the numbers read from
+        // state/transportBridge.ts so a press means here what it means in the
+        // preview. Held together they cancel, as they do there.
+        ln(`  { static bool _raw[2] = {false, false}, _stable[2] = {false, false};`)
+        ln(`    static uint32_t _changed[2] = {0, 0}, _repeatAt[2] = {0, 0};`)
+        ln(`    const bool _in[2] = {${boolExpr(node.id, 'next')}, ${boolExpr(node.id, 'previous')}};`)
+        ln(`    uint32_t _now = millis(); int _delta = 0;`)
+        ln(`    for (int _i = 0; _i < 2; _i++) { bool _fired = false;`)
+        ln(`      if (_in[_i] != _raw[_i]) { _raw[_i] = _in[_i]; _changed[_i] = _now; }`)
+        ln(`      if (_stable[_i] != _raw[_i] && _now - _changed[_i] >= ${edge.debounceMs}) {`)
+        ln(`        _stable[_i] = _raw[_i];`)
+        ln(`        if (_stable[_i]) { _repeatAt[_i] = _now + ${edge.repeatDelayMs}; _fired = true; } }`)
+        ln(`      else if (_stable[_i] && (int32_t)(_now - _repeatAt[_i]) >= 0) {`)
+        ln(`        _repeatAt[_i] += ${edge.repeatIntervalMs}; _fired = true; }`)
+        ln(`      if (_fired) _delta += (_i == 0) ? 1 : -1; }`)
+        ln(`    if (_delta != 0) { int _n = ((int)_pbIdx_${id} + _delta) % ${count};`)
+        ln(`      _pbIdx_${id} = (uint8_t)(_n < 0 ? _n + ${count} : _n); } }`)
+        ln(`  CRGBPalette16 pal_${id} = *_pbPal_${id}[_pbIdx_${id}];`)
+        ln(`  const char* ${v('name')} = _pbName_${id}[_pbIdx_${id}];`)
+        ln(`  float ${v('index')} = (float)_pbIdx_${id};`)
+        break
+      }
+
       case 'PaletteBlend': {
         // Build a CRGBPalette16 by blending both palettes entry-by-entry.
         const a = paletteExpr(node.id, 'paletteA', { palette: p.paletteA })
         const b = paletteExpr(node.id, 'paletteB', { palette: p.paletteB })
         const amt = f('amount', 'amount', 0.5)
         ln(`  CRGBPalette16 pal_${id};`)
-        ln(`  { uint8_t _amt = (uint8_t)((${amt}) * 255); for (int _i = 0; _i < 16; _i++) { uint8_t _p = (uint8_t)(_i * 255 / 15);`)
+        // Clamped like the evaluator's `Math.max(0, Math.min(1, ...))` and the
+        // 0-1 slider the knob draws: unwired it can only be in range, but a
+        // wire is free to hand over anything, and an unclamped 1.5 wraps
+        // through this uint8_t cast to a blend nobody asked for.
+        ln(`  { uint8_t _amt = (uint8_t)(constrain(${amt}, 0.0f, 1.0f) * 255.0f); for (int _i = 0; _i < 16; _i++) { uint8_t _p = (uint8_t)(_i * 255 / 15);`)
         ln(`    pal_${id}[_i] = blend(ColorFromPalette(${a}, _p), ColorFromPalette(${b}, _p), _amt); } }`)
         break
       }
