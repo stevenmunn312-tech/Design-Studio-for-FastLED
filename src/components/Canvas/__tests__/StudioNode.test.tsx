@@ -1236,13 +1236,16 @@ describe('StudioNode', () => {
       paletteMode: 'mood',
       fixedPalette: 'rainbow',
     })
+    // PerformanceGeneratorBody is lazy, and waiting on its text raced the
+    // dynamic import: the window was widened to 5s once already and a single
+    // extra test file in the parallel run was enough to lose again. Importing
+    // the module first is not a longer wait, it is no wait at all — `lazy`
+    // resolves from the module cache on the next microtask, so no timeout here
+    // has to be guessed at.
+    await import('../PerformanceGeneratorBody')
     const { container, findByText } = renderNode(node)
-    // PerformanceGeneratorBody is lazy, so this races a dynamic import.
-    // findByText's 1s default is not enough under a loaded parallel run — the
-    // same reason the palette editor's mount is awaited explicitly.
     expect(await findByText(
       'Analyse music in a Music Library node, then preview the timed show here.',
-      {}, { timeout: 5000 },
     )).toBeTruthy()
     expect((container.firstElementChild as HTMLElement).style.width).toBe('300px')
     // paletteMode/fixedPalette live in the collapsible "Palette" group.
