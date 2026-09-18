@@ -51,6 +51,29 @@ describe('measured pad geometry', () => {
     expect(seen.size).toBe(points.length)
   })
 
+  /*
+   * The XC4630's bottom row sits a pad right of its own printed labels.
+   *
+   * The render's silkscreen is a pad out — the five LCD lines are on J3's 2nd
+   * through 6th positions, not its 1st — so anyone re-measuring this row
+   * against the artwork's text rather than its pads would move every wire onto
+   * its neighbour. This is the assertion that says the offset is a decision.
+   */
+  it('keeps the XC4630 off the pad its silkscreen names', () => {
+    const shield = MODULE_PAD_GEOMETRY['ili9341-xc4630-parallel-touch-320x240']
+    const bottom = shield.slice(12).map(([x]) => x * 944)
+    expect(bottom).toHaveLength(8)
+    // J3's first pad, where the printed LCD_RST sits, carries no point.
+    expect(bottom.some((x) => Math.abs(x - 152.2) < 1)).toBe(false)
+    // The five LCD lines run from J3's second pad at the header's own pitch.
+    expect(bottom[0]).toBeCloseTo(182.7, 1)
+    // Measured off the render, so the pitch carries a tenth of a pixel of
+    // noise — near enough to say "the next pad", far from "the one after".
+    for (let i = 1; i < 5; i++) {
+      expect(bottom[i] - bottom[i - 1], `pad ${i}`).toBeCloseTo(30.5, 0)
+    }
+  })
+
   // A header that runs down an edge rather than across the bottom is the case
   // the old row-of-xs shape could not describe at all.
   it('describes a vertical header', () => {

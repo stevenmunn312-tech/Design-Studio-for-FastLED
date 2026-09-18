@@ -301,15 +301,23 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
    * J2 and J1 along the top edge, J3 and J4 along the bottom. The order below
    * follows `pinLabelsLeftToRight` exactly — the whole top edge left to right,
    * then the whole bottom edge — and skips each header's unlabelled positions
-   * (J2's first two, J1's last two, J3's last, and three of J4's), because a
+   * (J2's first two, J1's last two, J3's first, and three of J4's), because a
    * pad point exists per *catalogued* pin rather than per physical pin.
+   *
+   * The bottom row is deliberately one 30.5px pitch right of where the render's
+   * own silkscreen prints those names: on the board, the five LCD lines land on
+   * J3's pads 2-6 and the supply pads on J4's 2, 4 and 5, which is also the
+   * shape an UNO power header has — its first position is not one of these
+   * signals. The artwork is a pad out and needs re-rendering from the Blender
+   * source; until it is, re-measuring this row against the printed labels would
+   * put every wire back on its neighbour, so measure against the *pads*.
    */
   'ili9341-xc4630-parallel-touch-320x240': [
     ...padRow(
       [219.9, 250.4, 280.8, 311.3, 341.8, 372.3, 430.1, 460.6, 491.1, 521.6, 552, 582.5],
       944, 40, 644,
     ),
-    ...padRow([152.2, 182.7, 213.2, 243.6, 274.1, 376.6, 437.6, 468], 944, 590.8, 644),
+    ...padRow([182.7, 213.2, 243.6, 274.1, 304.6, 407.1, 468.1, 498.5], 944, 590.8, 644),
   ],
 }
 
