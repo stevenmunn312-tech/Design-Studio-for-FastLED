@@ -52,14 +52,15 @@ describe('measured pad geometry', () => {
   })
 
   /*
-   * The XC4630's bottom row sits a pad right of its own printed labels.
+   * The XC4630's bottom row starts on its second pad.
    *
-   * The render's silkscreen is a pad out — the five LCD lines are on J3's 2nd
-   * through 6th positions, not its 1st — so anyone re-measuring this row
-   * against the artwork's text rather than its pads would move every wire onto
-   * its neighbour. This is the assertion that says the offset is a decision.
+   * Both this table and the render's silkscreen once had these names a pad to
+   * the left, and the wires went with them; the Blender source was corrected
+   * and re-rendered. The first position carries no point, which is the part
+   * worth holding — it is what a re-measurement that trusted the old artwork
+   * would undo.
    */
-  it('keeps the XC4630 off the pad its silkscreen names', () => {
+  it('starts the XC4630 bottom row on its second pad', () => {
     const shield = MODULE_PAD_GEOMETRY['ili9341-xc4630-parallel-touch-320x240']
     const bottom = shield.slice(12).map(([x]) => x * 944)
     expect(bottom).toHaveLength(8)

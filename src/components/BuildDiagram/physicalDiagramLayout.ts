@@ -304,13 +304,15 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
    * (J2's first two, J1's last two, J3's first, and three of J4's), because a
    * pad point exists per *catalogued* pin rather than per physical pin.
    *
-   * The bottom row is deliberately one 30.5px pitch right of where the render's
-   * own silkscreen prints those names: on the board, the five LCD lines land on
-   * J3's pads 2-6 and the supply pads on J4's 2, 4 and 5, which is also the
-   * shape an UNO power header has — its first position is not one of these
-   * signals. The artwork is a pad out and needs re-rendering from the Blender
-   * source; until it is, re-measuring this row against the printed labels would
-   * put every wire back on its neighbour, so measure against the *pads*.
+   * The bottom row starts on each header's *second* position: the five LCD
+   * lines on J3's pads 2-6, the supply pads on J4's 2, 4 and 5 — the shape an
+   * UNO power header has, its first position not being one of these signals.
+   *
+   * Both this table and the render's own silkscreen had them a pad to the left,
+   * because the table was measured from labels that were themselves wrong, so
+   * every bottom wire attached to its neighbour. The Blender source was fixed
+   * and re-rendered with it (`generate_xc4630_shield_part.py`, which places
+   * each label by pin index), and the two now agree to within a pixel.
    */
   'ili9341-xc4630-parallel-touch-320x240': [
     ...padRow(
