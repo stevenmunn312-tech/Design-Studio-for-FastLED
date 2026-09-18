@@ -50,7 +50,9 @@ describe('custom display panel driver', () => {
     expect(setup).toContain('_cdPanelCmd_screen(0x01); delay(150);') // SWRESET
     expect(setup).toContain('_cdPanelCmd_screen(0x11); delay(120);') // SLPOUT
     expect(setup).toContain('uint8_t colmod = 0x55')
-    expect(setup).toContain('uint8_t porch[5] = { 0x0C, 0x0C, 0x00, 0x33, 0x33 }')
+    // The ST7789 porch bytes, now from the one table both drivers read
+    // (codegen/tftInitSequence.ts) rather than a block copied into each.
+    expect(setup).toContain('{ 0x0C, 0x0C, 0x00, 0x33, 0x33 }')
     expect(setup).toContain('_cdPanelCmd_screen(0x20);') // INVOFF: bench-tested ST7789V polarity
     expect(setup).toContain('_cdPanelCmd_screen(0x13); delay(10);') // NORON
     expect(setup).toContain('_cdPanelCmd_screen(0x29); delay(100);') // DISPON
@@ -116,6 +118,24 @@ describe('custom display panel driver', () => {
     expect(helpers).toContain('_cdWrite8_screen((uint8_t)(pixels[i] >> 8));')
     expect(helpers).toContain('_cdWrite8_screen((uint8_t)pixels[i]);')
     expect(helpers).toContain('lv_display_flush_ready(disp);')
+  })
+
+  it('sends ILI9341 silicon its own power-on sequence, not the ST7789 one', () => {
+    /*
+     * These opcodes are not the same registers on the two controllers: 0xBB and
+     * 0xD0 are undefined on an ILI9341, 0xB2 is a different register with a
+     * different argument count, and the power, VCOM and gamma set it does need
+     * was never sent at all. A panel left unconfigured that way comes up dark,
+     * which is indistinguishable from a wiring fault.
+     */
+    const setup = customDisplayPanelSetupCpp(emit({ controller: TFT_CONTROLLERS.ILI9341 })).join('\n')
+    expect(setup).toContain('0xC1')
+    expect(setup).toContain('0xC5')
+    expect(setup).toContain('0xE0')
+    expect(setup).toContain('0xE1')
+    expect(setup).not.toContain('0xBB')
+    expect(setup).not.toContain('0xD0')
+    expect(setup).not.toContain('{ 0x0C, 0x0C, 0x00, 0x33, 0x33 }')
   })
 
   it('addresses controller RAM from the rotation-derived window origin, not always zero', () => {

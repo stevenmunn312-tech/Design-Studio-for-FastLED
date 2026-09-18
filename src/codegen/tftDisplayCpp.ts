@@ -31,6 +31,7 @@
 // is exactly how the 2.4-inch module is wired.
 
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
+import { tftInitStreamCpp } from './tftInitSequence'
 import { cppStringLiteral, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
 import {
   TFT_LETTER_SPACING, tftMadctl, tftRotatedSize, tftWindowOrigin,
@@ -419,7 +420,8 @@ static void _tftBegin(TftPanel &p, uint8_t cs, uint8_t dc, uint8_t rst, uint8_t 
                       uint16_t colStart, uint16_t rowStart, uint8_t madctl,
                       bool invert, uint16_t background,
                       const uint8_t *dataPins = nullptr,
-                      uint8_t wr = 255, uint8_t rd = 255) {
+                      uint8_t wr = 255, uint8_t rd = 255,
+                      const uint8_t *init = nullptr, uint16_t initLen = 0) {
   p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi; p.bl = bl;
   p.parallel = (dataPins != nullptr);
   p.wr = wr; p.rd = rd;
@@ -476,19 +478,17 @@ static void _tftBegin(TftPanel &p, uint8_t cs, uint8_t dc, uint8_t rst, uint8_t 
   _tftCommandData(p, TFT_COLMOD, &colmod, 1);
   _tftCommandData(p, TFT_MADCTL, &p.madctl, 1);
 
-  // Porch, gate and power settings from the ST7789 application notes. They are
-  // the panel's electrical setup rather than anything the layout knows about,
-  // which is why they are constants here and not on the descriptor.
-  uint8_t porch[5] = { 0x0C, 0x0C, 0x00, 0x33, 0x33 };
-  _tftCommandData(p, 0xB2, porch, 5);
-  uint8_t gate = 0x35;  _tftCommandData(p, 0xB7, &gate, 1);
-  uint8_t vcom = 0x19;  _tftCommandData(p, 0xBB, &vcom, 1);
-  uint8_t lcm  = 0x2C;  _tftCommandData(p, 0xC0, &lcm, 1);
-  uint8_t vdv[2] = { 0x01, 0xFF }; _tftCommandData(p, 0xC2, vdv, 2);
-  uint8_t vrh  = 0x12;  _tftCommandData(p, 0xC3, &vrh, 1);
-  uint8_t vdvs = 0x20;  _tftCommandData(p, 0xC4, &vdvs, 1);
-  uint8_t frc  = 0x0F;  _tftCommandData(p, 0xC6, &frc, 1);
-  uint8_t pwr[2] = { 0xA4, 0xA1 }; _tftCommandData(p, 0xD0, pwr, 2);
+  // The panel's electrical setup - power, porch or charge pump, VCOM, gamma -
+  // walked from the stream its own controller needs rather than one sequence
+  // sent to every part. See codegen/tftInitSequence.ts: these opcodes do not
+  // mean the same thing on ST7789 and ILI9341 silicon, and a panel sent the
+  // wrong set comes up dark. Each entry is: opcode, count, bytes...
+  for (uint16_t i = 0; init != nullptr && i + 1 < initLen; ) {
+    uint8_t cmd = init[i];
+    uint8_t count = init[i + 1];
+    _tftCommandData(p, cmd, &init[i + 2], count);
+    i += 2 + count;
+  }
 
   // IPS glass on both catalogued modules is wired normally-black, so a
   // controller left in its normal mode renders a photographic negative.
@@ -777,10 +777,16 @@ export function tftDisplaySetupCpp(display: TftDisplayEmit): string[] {
   const madctl = tftMadctl(display.controller, display.rotation)
   const geometry = `${size.width}, ${size.height}, ${origin.col}, ${origin.row}, `
     + `0x${madctl.toString(16).padStart(2, '0')}, ${display.controller.invert}, TFT_C_BG`
+  // The controller's own power-on registers, as a byte stream `_tftBegin`
+  // walks. Emitted per panel because two panels in one sketch can be different
+  // silicon wanting different sequences.
+  const init = tftInitStreamCpp(`_tftInit_${display.id}`, display.controller.id)
   if (!display.parallel) {
     return [
+      ...init.lines,
       `  _tftBegin(_tft_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, `
-        + `${display.sckPin}, ${display.mosiPin}, ${display.backlightPin}, ${geometry});`,
+        + `${display.sckPin}, ${display.mosiPin}, ${display.backlightPin}, ${geometry}, `
+        + `nullptr, 255, 255, ${init.name}, sizeof(${init.name}));`,
     ]
   }
   // The data lines are handed over as an array because `_tftBegin` decides the
@@ -789,10 +795,12 @@ export function tftDisplaySetupCpp(display: TftDisplayEmit): string[] {
   // nothing drives.
   const lines = display.parallel.dataPins.join(', ')
   return [
+    ...init.lines,
     `  static const uint8_t _tftData_${display.id}[8] = { ${lines} };`,
     `  _tftBegin(_tft_${display.id}, ${display.csPin}, ${display.dcPin}, ${display.resetPin}, `
       + `255, 255, ${display.backlightPin}, ${geometry}, `
-      + `_tftData_${display.id}, ${display.parallel.wrPin}, ${display.parallel.rdPin});`,
+      + `_tftData_${display.id}, ${display.parallel.wrPin}, ${display.parallel.rdPin}, `
+      + `${init.name}, sizeof(${init.name}));`,
   ]
 }
 

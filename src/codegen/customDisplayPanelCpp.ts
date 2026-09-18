@@ -26,6 +26,7 @@ import { displayHasTouch } from '../state/partCatalogue'
 import { emittedTouchBounds } from '../state/transportTouch'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
 import { customDisplayId } from './customDisplayId'
+import { tftInitSequence } from './tftInitSequence'
 import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from './deviceTelemetryCpp'
 import { tftTouchIrqSetupCpp } from './tftTouchCpp'
 
@@ -402,15 +403,18 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
     `  _cdPanelCmd_${id}(0x11); delay(120);`, // SLPOUT
     `  { uint8_t colmod = 0x55; _cdPanelCmdData_${id}(0x3A, &colmod, 1); }`, // 16 bpp
     `  { uint8_t v = ${hex2(madctl)}; _cdPanelCmdData_${id}(0x36, &v, 1); }`, // MADCTL
-    `  { uint8_t porch[5] = { 0x0C, 0x0C, 0x00, 0x33, 0x33 }; _cdPanelCmdData_${id}(0xB2, porch, 5); }`,
-    `  { uint8_t v = 0x35; _cdPanelCmdData_${id}(0xB7, &v, 1); }`,
-    `  { uint8_t v = 0x19; _cdPanelCmdData_${id}(0xBB, &v, 1); }`,
-    `  { uint8_t v = 0x2C; _cdPanelCmdData_${id}(0xC0, &v, 1); }`,
-    `  { uint8_t v[2] = { 0x01, 0xFF }; _cdPanelCmdData_${id}(0xC2, v, 2); }`,
-    `  { uint8_t v = 0x12; _cdPanelCmdData_${id}(0xC3, &v, 1); }`,
-    `  { uint8_t v = 0x20; _cdPanelCmdData_${id}(0xC4, &v, 1); }`,
-    `  { uint8_t v = 0x0F; _cdPanelCmdData_${id}(0xC6, &v, 1); }`,
-    `  { uint8_t v[2] = { 0xA4, 0xA1 }; _cdPanelCmdData_${id}(0xD0, v, 2); }`,
+    // Power, porch or charge pump, VCOM and gamma, from the sequence this
+    // controller actually needs rather than one block sent to every part. The
+    // ST7789 set this used to send unconditionally is undefined on ILI9341
+    // silicon, and a panel left unconfigured that way comes up dark.
+    ...tftInitSequence(emit.controller.id).map((step) => {
+      // Upper case, matching every other register literal in this file.
+      const byte = (value: number) => `0x${(value & 0xff).toString(16).toUpperCase().padStart(2, '0')}`
+      const data = step.data ?? []
+      const bytes = data.map(byte).join(', ')
+      return `  { uint8_t v[${data.length}] = { ${bytes} }; `
+        + `_cdPanelCmdData_${id}(${byte(step.cmd)}, v, ${data.length}); }`
+    }),
     // IPS glass on both catalogued modules is wired normally-black.
     `  _cdPanelCmd_${id}(${emit.controller.invert ? '0x21' : '0x20'});`, // INVON / INVOFF
     `  _cdPanelCmd_${id}(0x13); delay(10);`, // NORON
