@@ -72,6 +72,19 @@ export interface CustomDisplayLvglEmit {
   assets?: readonly BakedCustomDisplayAsset[]
   /** Bindings grouped by widget id. Unknown roles are harmlessly ignored. */
   bindings?: Readonly<Record<string, readonly CustomDisplayLvglBinding[]>>
+  /**
+   * What each control reads before a finger has moved it, by widget id.
+   *
+   * A widget's value is runtime state, not something the document stores, so
+   * without this the struct's zero-initialised `floatValue` is what a build
+   * starts from — a slider driving an LED output's brightness reported 0 and
+   * the strip stayed dark until someone touched glass that may not even be
+   * fitted. The app has never behaved that way: `connectTouchControl` seeds a
+   * new control from the property it drives precisely so wiring one does not
+   * drop the effect to its minimum, and this is that same value reaching
+   * firmware. Absent for a widget driving nothing, which keeps its minimum.
+   */
+  initialValues?: Readonly<Record<string, number | boolean>>
 }
 
 
@@ -271,6 +284,15 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     lines.push(`  ${rt}.minimum = ${floatLiteral(numberProperty(widget, 'min', 0))};`)
     lines.push(`  ${rt}.maximum = ${floatLiteral(numberProperty(widget, 'max', 1))};`)
     lines.push(`  ${rt}.step = ${floatLiteral(numberProperty(widget, 'step', 0.01))};`)
+    // Seeded before the range is applied below, so the object and the runtime
+    // agree from the first pass rather than after the first touch.
+    const seeded = emit.initialValues?.[widget.id]
+    const minimum = numberProperty(widget, 'min', 0)
+    const maximum = numberProperty(widget, 'max', 1)
+    if (typeof seeded === 'number' && maximum > minimum) {
+      const clamped = Math.min(maximum, Math.max(minimum, seeded))
+      lines.push(`  ${rt}.floatValue = ${floatLiteral(clamped)};`)
+    }
     if (widget.type === 'Slider') {
       lines.push(`  lv_slider_set_range(${obj}, 0, CD_VALUE_SCALE);`)
       if (stringProperty(widget, 'orientation', 'horizontal') === 'vertical') {
@@ -279,6 +301,15 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     } else {
       lines.push(`  lv_arc_set_range(${obj}, 0, CD_VALUE_SCALE);`)
       lines.push(`  lv_arc_set_bg_angles(${obj}, 135, 45);`)
+    }
+    // The knob has to show the seeded reading too, or the glass says minimum
+    // while the graph is being driven with something else.
+    if (typeof seeded === 'number' && maximum > minimum) {
+      const clamped = Math.min(maximum, Math.max(minimum, seeded))
+      const raw = Math.round(((clamped - minimum) / (maximum - minimum)) * CUSTOM_DISPLAY_LVGL_VALUE_SCALE)
+      lines.push(widget.type === 'Slider'
+        ? `  lv_slider_set_value(${obj}, ${raw}, LV_ANIM_OFF);`
+        : `  lv_arc_set_value(${obj}, ${raw});`)
     }
   }
 

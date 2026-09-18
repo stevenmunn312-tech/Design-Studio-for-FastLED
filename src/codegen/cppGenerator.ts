@@ -49,6 +49,8 @@ import {
 import { controlInputCpp } from './controlInputCpp'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { paletteBankEntries, paletteBankLabel, PALETTE_BANK_FALLBACK } from '../state/paletteBank'
+import { displayControlEdges } from '../state/wireFirstControls'
+import { propertyInputsFor } from '../state/propertyInputs'
 import { masterClockLoopCpp, masterSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX,
@@ -5450,11 +5452,36 @@ export function generateCpp(
             bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
           }
 
+          /*
+           * What each control reads before anyone touches it.
+           *
+           * A widget's value is runtime state the document does not store, so
+           * a build started every control at zero: a slider wired to an LED
+           * output's brightness reported 0 and the strip stayed dark, on a
+           * panel that may not even be fitted yet. The app seeds a new control
+           * from the property it drives for exactly this reason
+           * (`connectTouchControl`), and this is that same value reaching
+           * firmware — read through the one panel-to-Touch-to-edge walk rather
+           * than a second opinion about which wire a widget is on.
+           */
+          const initialValues: Record<string, number | boolean> = {}
+          for (const [widgetId, controlEdge] of displayControlEdges(documentId, nodes, edges)) {
+            const target = nodeMap.get(controlEdge.target)
+            const key = controlEdge.targetHandle ?? ''
+            if (!target || !key) continue
+            const driven = propertyInputsFor(target.data.nodeType)
+              .find((port) => port.id === key)?.propertyKey ?? key
+            const current = (target.data.properties as Record<string, unknown>)[driven]
+            if (typeof current === 'number' && Number.isFinite(current)) initialValues[widgetId] = current
+            else if (typeof current === 'boolean') initialValues[widgetId] = current
+          }
+
           const custom: CustomDisplayLvglEmit = {
             id: docId, document, bindings: bindingsByWidget,
             // Keyed by the design, because the artwork belongs to the screen
             // rather than to the glass it happens to be drawn on.
             assets: opts.customDisplayAssets?.[documentId],
+            initialValues,
           }
           const touchNode = nodes.find((entry) => entry.data.nodeType === 'TouchInput'
             && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)

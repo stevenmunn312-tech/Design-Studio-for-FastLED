@@ -275,3 +275,46 @@ describe('custom Display LVGL object emitter', () => {
     expect(customDisplayLvglTimingLoopCpp()).toBe('  _cdServiceLvgl();')
   })
 })
+
+describe('a control starts where the graph already is', () => {
+  /*
+   * A widget's value is runtime state the document does not store, so the
+   * emitted struct's zero-initialised floatValue was what every build started
+   * from. A slider wired to an LED output's brightness therefore reported 0 and
+   * the strip stayed dark until a finger moved it — on a panel that might not
+   * be fitted, or working, yet. The app has never behaved that way, seeding a
+   * new control from the property it drives, and this is that value arriving in
+   * firmware.
+   */
+  const slider = widget('Slider', 0)
+
+  it('seeds the runtime and the knob from the driven property', () => {
+    const cpp = emitted({
+      id: 'panel',
+      document: document([slider]),
+      initialValues: { [slider.id]: 0.52 },
+    })
+    expect(cpp).toContain('.floatValue = 0.52f;')
+    // 0.52 of a 0-1 slider, in LVGL's own integer scale.
+    expect(cpp).toContain('lv_slider_set_value(_cd_panel[0].object, 5200, LV_ANIM_OFF);')
+  })
+
+  it('leaves a control driving nothing at its minimum', () => {
+    const cpp = emitted({ id: 'panel', document: document([slider]) })
+    // `_cdSetInteger` names both of these in the shared helpers, so the check
+    // has to be the per-widget seeding call rather than the bare function.
+    expect(cpp).not.toContain('_cd_panel[0].floatValue =')
+    expect(cpp).not.toContain('lv_slider_set_value(_cd_panel[0].object,')
+  })
+
+  it('never seeds a value the control cannot reach', () => {
+    // A property outside the widget's own range would otherwise put the knob
+    // somewhere the user cannot return it to.
+    const cpp = emitted({
+      id: 'panel',
+      document: document([slider]),
+      initialValues: { [slider.id]: 9 },
+    })
+    expect(cpp).toContain('.floatValue = 1.0f;')
+  })
+})
