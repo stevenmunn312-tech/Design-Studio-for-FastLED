@@ -35,6 +35,7 @@ import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SI
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
 import HardwarePane from './components/Hardware/HardwarePane'
 import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/HardwarePartsShelf'
+import { UPLOAD_CONTROLS_HOST_ID } from './components/Upload/uploadControlsHost'
 import WorkspaceTabs from './components/Layout/WorkspaceTabs'
 import LiveTouchScreen from './components/DisplayEditor/LiveTouchScreen'
 import styles from './App.module.css'
@@ -118,7 +119,16 @@ export default function App() {
   const [capacityWatcherReady, setCapacityWatcherReady] = useState(false)
   const displayEditorOpen = designWorkspaceView.kind === 'display'
   const workspaceSidebarVisible = !displayEditorOpen && workspaceMode !== 'build'
-  const sidebarLabel = workspaceMode === 'hardware' ? 'parts shelf' : 'node library'
+  // What the left panel holds follows the workspace: parts on the bench,
+  // the deploy controls while flashing, the node library where a graph is
+  // being drawn. Upload has no graph to add nodes to, so the library there
+  // was a panel of dead weight beside the one thing the tab is for.
+  const sidebarHostId = workspaceMode === 'hardware' ? HARDWARE_SHELF_HOST_ID
+    : workspaceMode === 'upload' ? UPLOAD_CONTROLS_HOST_ID
+    : 'node-library'
+  const sidebarLabel = workspaceMode === 'hardware' ? 'parts shelf'
+    : workspaceMode === 'upload' ? 'upload tools'
+    : 'node library'
 
   // CapacityWatcher assembles the exact firmware text used by a later manual
   // capacity check. It must remain mounted after startup so stale readings are
@@ -633,8 +643,8 @@ export default function App() {
                     aria-hidden={!sidebarOpen}
                     inert={!sidebarOpen}
                   >
-                    {workspaceMode === 'hardware'
-                      ? <div id={HARDWARE_SHELF_HOST_ID} className={styles.sidebarShelfHost} />
+                    {workspaceMode === 'hardware' || workspaceMode === 'upload'
+                      ? <div id={sidebarHostId} className={styles.sidebarShelfHost} />
                       : <Sidebar />}
                   </div>
                 </div>
@@ -656,7 +666,7 @@ export default function App() {
                   onClick={toggleSidebar}
                   aria-label={`${sidebarOpen ? 'Hide' : 'Show'} ${sidebarLabel}`}
                   aria-expanded={sidebarOpen}
-                  aria-controls={workspaceMode === 'hardware' ? HARDWARE_SHELF_HOST_ID : 'node-library'}
+                  aria-controls={sidebarHostId}
                   title={`${sidebarOpen ? 'Hide' : 'Show'} ${sidebarLabel}`}
                 >
                   <span className={styles.sidebarHandleArrow} aria-hidden="true">{sidebarOpen ? '‹' : '›'}</span>

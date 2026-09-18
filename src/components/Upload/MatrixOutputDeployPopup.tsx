@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
@@ -45,17 +46,26 @@ const CAPACITY_LEVEL_CLASS = {
  * pane's Upload tab, where these tools now live — uploading is a bench
  * activity, and the bench is drawn right there. The floating dialog remains
  * for the times the pane is collapsed to nothing, which it is allowed to be.
+ *
+ * `controlsHost` moves the controls column into the workspace sidebar, which
+ * on the Upload tab holds these tools rather than the node library — there is
+ * no graph to add nodes to while flashing — leaving the console the rest of
+ * the pane. With no host (the sidebar collapsed to nothing, or a test
+ * rendering this on its own) the controls fall back to their own column
+ * beside the console, so the tools are never merely absent.
  */
 interface MatrixOutputDeployPopupProps {
   inline?: boolean
   leftInset?: number
   rightInset?: number
+  controlsHost?: HTMLElement | null
 }
 
 export default function MatrixOutputDeployPopup({
   inline = false,
   leftInset = 0,
   rightInset = 0,
+  controlsHost = null,
 }: MatrixOutputDeployPopupProps = {}) {
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
@@ -819,33 +829,42 @@ export default function MatrixOutputDeployPopup({
         </section>
 
         {streamError && <div className={styles.streamError}>{streamError}</div>}
-        {codeViewOpen && (
-          <CodeViewPopup
-            code={code}
-            onUpload={handleUpload}
-            uploadDisabled={!canBuild || !uploadReady || busy}
-            uploadTitle={
-              busy ? status.message
-              : !hasBuildOutput ? 'Connect a frame to enable upload'
-              : blockingErrors.length > 0 ? blockingErrors.join('\n')
-              : readinessIssues.length > 0 ? readinessIssues.join('\n')
-              : 'Compile & upload to the board'
-            }
-            busy={busy}
-          />
-        )}
-        {validationAction && (
-          <HardwareValidationPopup
-            nodes={nodes}
-            edges={edges}
-            selectedFqbn={selectedFqbn}
-            helper={helper}
-            capacityResult={capacityResult}
-            initialAction={validationAction}
-            onClose={() => setValidationAction(null)}
-          />
-        )}
     </div>
+  )
+
+  /* Both of these paint a fixed-position overlay, so they are deliberately not
+     part of `controls`: portaled into the sidebar they would sit under its
+     `will-change: transform`, which makes that panel the containing block and
+     would confine a full-screen dialog to the sidebar's own width. */
+  const modals = (
+    <>
+      {codeViewOpen && (
+        <CodeViewPopup
+          code={code}
+          onUpload={handleUpload}
+          uploadDisabled={!canBuild || !uploadReady || busy}
+          uploadTitle={
+            busy ? status.message
+            : !hasBuildOutput ? 'Connect a frame to enable upload'
+            : blockingErrors.length > 0 ? blockingErrors.join('\n')
+            : readinessIssues.length > 0 ? readinessIssues.join('\n')
+            : 'Compile & upload to the board'
+          }
+          busy={busy}
+        />
+      )}
+      {validationAction && (
+        <HardwareValidationPopup
+          nodes={nodes}
+          edges={edges}
+          selectedFqbn={selectedFqbn}
+          helper={helper}
+          capacityResult={capacityResult}
+          initialAction={validationAction}
+          onClose={() => setValidationAction(null)}
+        />
+      )}
+    </>
   )
 
   const body = (
@@ -856,13 +875,21 @@ export default function MatrixOutputDeployPopup({
   )
 
   if (inline) {
+    const docked = controlsHost !== null
     return (
-      <div
-        className={styles.inlineDeploy}
-        style={{ marginLeft: leftInset, marginRight: rightInset }}
-      >
-        {body}
-      </div>
+      <>
+        {docked && createPortal(
+          <div className={styles.deployDock}>{controls}</div>,
+          controlsHost,
+        )}
+        <div
+          className={styles.inlineDeploy}
+          style={{ marginLeft: leftInset, marginRight: rightInset }}
+        >
+          {docked ? <OutputConsole embedded /> : body}
+          {modals}
+        </div>
+      </>
     )
   }
 
@@ -877,6 +904,7 @@ export default function MatrixOutputDeployPopup({
         tabIndex={-1}
       >
         {body}
+        {modals}
       </div>
     </div>
   )

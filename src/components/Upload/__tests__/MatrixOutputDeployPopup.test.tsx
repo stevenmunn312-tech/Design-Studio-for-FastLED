@@ -270,6 +270,32 @@ describe('MatrixOutputDeployPopup', () => {
     expect(getByText('Live control')).toBeTruthy()
   })
 
+  it('docks the deploy controls in the host panel and leaves the console the pane', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const { getByRole, getByText } = render(
+      <MatrixOutputDeployPopup inline controlsHost={host} />)
+
+    // The tools move whole: the heading, the upload button and the sections
+    // are all in the panel that replaced the node library.
+    expect(host.contains(getByText('Deploy to hardware'))).toBe(true)
+    expect(host.contains(getByRole('button', { name: '↑ Upload' }))).toBe(true)
+    expect(host.contains(getByText('Firmware'))).toBe(true)
+    // The console stays where it was, outside the docked panel.
+    expect(host.contains(getByRole('log', { name: 'Upload and serial output' }))).toBe(false)
+
+    host.remove()
+  })
+
+  it('keeps the controls beside the console when there is no host panel', () => {
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup inline />)
+
+    // A collapsed sidebar removes the host, and the tools must not go with it.
+    const workbench = getByRole('log', { name: 'Upload and serial output' }).parentElement
+    expect(workbench?.contains(getByText('Deploy to hardware'))).toBe(true)
+  })
+
   it('shows normal upload tools for a display-only build', () => {
     setDisplayOnlyGraph()
 

@@ -67,6 +67,7 @@ import HardwarePartsShelf, {
   type HardwareShelfCategory,
   type HardwareShelfItem,
 } from './HardwarePartsShelf'
+import { UPLOAD_CONTROLS_HOST_ID } from '../Upload/uploadControlsHost'
 import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
 import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
@@ -610,6 +611,7 @@ export default function HardwarePane() {
   const dismissControllerHint = useUiStore((state) => state.dismissControllerHint)
   const setInspectorNodeId = useUiStore((state) => state.setHardwareInspectorNodeId)
   const [shelfHost, setShelfHost] = useState<HTMLElement | null>(null)
+  const [uploadControlsHost, setUploadControlsHost] = useState<HTMLElement | null>(null)
   const [boardMenu, setBoardMenu] = useState<{ anchor: PlacementBox } | null>(null)
   const [itemMenu, setItemMenu] = useState<
     { anchor: PlacementBox; kind: string; mode: 'actions' | 'settings' } | null
@@ -629,6 +631,7 @@ export default function HardwarePane() {
 
   useLayoutEffect(() => {
     setShelfHost(document.getElementById(HARDWARE_SHELF_HOST_ID))
+    setUploadControlsHost(document.getElementById(UPLOAD_CONTROLS_HOST_ID))
   }, [paneTab])
 
   useEffect(() => {
@@ -1774,7 +1777,12 @@ export default function HardwarePane() {
 
       {paneTab === 'upload' && (
         <Suspense fallback={<div className={styles.lazyPanelStatus} role="status">Loading upload tools…</div>}>
-          <MatrixOutputDeployPopup inline leftInset={leftInset} rightInset={rightInset} />
+          <MatrixOutputDeployPopup
+            inline
+            controlsHost={uploadControlsHost}
+            leftInset={leftInset}
+            rightInset={rightInset}
+          />
         </Suspense>
       )}
 

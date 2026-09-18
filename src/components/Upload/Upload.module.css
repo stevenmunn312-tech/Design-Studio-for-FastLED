@@ -400,6 +400,22 @@
   padding-right: 3px;
 }
 
+/* Docked in the workspace sidebar, which on the Upload tab holds these
+   controls in place of the node library. The column owns the panel rather
+   than a grid track, so it takes its padding from the dock. */
+.deployDock {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  padding: 12px 8px 14px 12px;
+}
+
+.deployDock .deployControls {
+  flex: 1;
+  min-width: 0;
+}
+
 .targetBig.deployTarget {
   margin-top: 0;
   text-align: left;

@@ -68,6 +68,31 @@ subject is that board. While the bench holds nothing else, rings contract onto
 the controller to say where to click; they stop the moment a part is added,
 because a hint that never ends is a distraction.
 
+**The left panel follows the workspace.** It is one dock holding whichever
+palette the current tab works from: the parts shelf on Hardware, the node
+library on Graph, and the deploy controls — the *Deploy to hardware* column,
+header and all — on Upload, where the console then has the pane to itself.
+Upload has no graph to add nodes to, so the node library there was a panel of
+dead weight beside the one thing the tab is for.
+
+`App.tsx` renders an empty host element for the two portaled palettes and
+names the panel after what it holds, so the resize handle and the collapse
+button read "parts shelf", "node library" or "upload tools" rather than one
+generic label. The deploy controls reach their host the same way the parts
+shelf does — `HardwarePane` resolves the id and `MatrixOutputDeployPopup`
+portals into it — and fall back to their own column beside the console when
+there is no host, which is what keeps the tools present for a test rendering
+the popup alone. The two overlay dialogs the controls can open (code view,
+hardware validation) are deliberately *not* part of the portaled column: the
+sidebar panel sets `will-change: transform`, which makes it the containing
+block for a `position: fixed` child, and a full-screen dialog portaled inside
+it would be confined to the sidebar's own width.
+
+Collapsing the panel hides the deploy controls exactly as it hides the parts
+shelf, and the handle ("Show upload tools") is how they come back. The
+floating upload dialog stays as the other way in, for the times the pane is
+collapsed to nothing.
+
 Both full-canvas workspaces draw the same ambient field behind their content,
 from one palette in `src/themes/tokens.css`. The graph keeps its interactive
 layers — cursor wake, focus veil, the live-signal overrides — since those
