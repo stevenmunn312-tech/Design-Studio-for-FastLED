@@ -181,7 +181,14 @@ describe('capacityStore', () => {
     expect(useCapacityStore.getState().result?.busy).toBe(true)
   })
 
-  it('abandons an in-flight check when the graph changes under it', async () => {
+  it('keeps saying it is checking while the target moves under a running check', async () => {
+    // Abandoning the check here used to reset the meter to "capacity not
+    // checked" while the helper compiled on to completion — aborting the
+    // request never stopped the build, only our listening. A press then looked
+    // like it had done nothing, and a full toolchain build was spent on an
+    // answer nobody saw. The key is not only the sketch text: `usbCdcOnBoot`
+    // comes from the *detected port*, so a board enumerating mid-check was
+    // enough to do it.
     const { useCapacityStore } = await freshStore()
     const { setTarget, check } = useCapacityStore.getState()
 
@@ -193,11 +200,60 @@ describe('capacityStore', () => {
     expect(useCapacityStore.getState().status).toBe('checking')
 
     setTarget({ ...TARGET, code: 'SOMETHING ELSE' })
+    expect(useCapacityStore.getState().status).toBe('checking')
+
     release({ ok: true, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null })
     await vi.advanceTimersByTimeAsync(0)
 
-    // The answer described the graph as it was, not as it is.
+    // The reading is real, and describes the design as it was — which is
+    // exactly what `stale` is for, rather than being thrown away.
+    expect(useCapacityStore.getState().result?.ok).toBe(true)
+    expect(useCapacityStore.getState().status).toBe('stale')
+  })
+
+  it('drops an in-flight check when there is no longer anything to measure', async () => {
+    // The exception to the rule above: an unbuildable target has nothing for a
+    // reading to be stale *against*, and the stored one is dropped here for the
+    // same reason.
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+
+    let release: (value: unknown) => void = () => {}
+    compileCheck.mockReturnValueOnce(new Promise((resolve) => { release = resolve }) as never)
+
+    setTarget(TARGET)
+    check()
+    setTarget({ ...TARGET, code: null })
+
+    release({ ok: true, overflow: false, target: 'esp32:esp32:esp32', flash: null, ram: null })
+    await vi.advanceTimersByTimeAsync(0)
+
     expect(useCapacityStore.getState().result).toBeNull()
-    expect(useCapacityStore.getState().status).toBe('idle')
+    expect(useCapacityStore.getState().status).toBe('nothing-to-measure')
+  })
+
+  it('does not let an older check land on top of a newer one', async () => {
+    const { useCapacityStore } = await freshStore()
+    const { setTarget, check } = useCapacityStore.getState()
+
+    let releaseFirst: (value: unknown) => void = () => {}
+    compileCheck.mockReturnValueOnce(new Promise((resolve) => { releaseFirst = resolve }) as never)
+
+    setTarget(TARGET)
+    check()
+    setTarget({ ...TARGET, code: 'SOMETHING ELSE' })
+    check()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(useCapacityStore.getState().status).toBe('measured')
+    expect(useCapacityStore.getState().result?.target).toBe('esp32:esp32:esp32')
+
+    // The first compile finishes late. It measured a design two edits ago and
+    // must not replace the reading that describes the current one.
+    releaseFirst({ ok: false, overflow: true, target: 'stale-board', flash: null, ram: null })
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(useCapacityStore.getState().status).toBe('measured')
+    expect(useCapacityStore.getState().result?.target).toBe('esp32:esp32:esp32')
   })
 })

@@ -139,15 +139,23 @@ function targetKey(t: Omit<CapacityTarget, 'key'>): string {
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null
 let inFlightController: AbortController | null = null
+/** The target a running check is measuring, so `setTarget` can tell whether one
+ *  is in flight and leave its status alone. */
+let inFlightKey: string | null = null
 // The target the most recent completed reading was measured against. Compared
 // with the live target to decide 'measured' vs 'stale'.
 let measuredKey: string | null = null
+// Which run each result belongs to, so a check abandoned mid-flight and then
+// restarted cannot have the older answer land on top of the newer one.
+let checkSeq = 0
+let appliedSeq = 0
 
 function cancelInFlight() {
   if (retryTimer) clearTimeout(retryTimer)
   retryTimer = null
   inFlightController?.abort()
   inFlightController = null
+  inFlightKey = null
 }
 
 export const useCapacityStore = create<CapacityState>((set, get) => ({
@@ -163,13 +171,25 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     const state = get()
     if (state.target?.key === key && state.target.toolchainReady === next.toolchainReady) return
 
-    // A check in flight was for the old target — its answer would describe a
-    // graph that has since moved on.
-    if (state.status === 'checking') cancelInFlight()
-
+    // A check in flight is deliberately *not* abandoned here when the new
+    // target is still buildable. Aborting the request never stopped the
+    // helper's compile (see `cancelBuild` in backendClient) — it only stopped
+    // us listening, so the build ran to completion and its answer was thrown
+    // away, leaving the meter back on "capacity not checked" as though the
+    // press had done nothing. That is not hypothetical: `usbCdcOnBoot` is part
+    // of the key and is derived from the *detected port*, so a board
+    // enumerating or dropping mid-check silently discarded a full toolchain
+    // build. A finished reading always lands now, labelled `stale` when the
+    // target has moved on — which is the state that already exists for exactly
+    // this, a real measurement of a design that has since changed.
     if (next.code === null) {
       // Drop the reading rather than leaving it: it described a graph that no
       // longer exists, and a number with nothing behind it is worse than none.
+      // Nothing to compare an answer against, so a check in flight is
+      // genuinely pointless now: its reading would describe a design this
+      // target says cannot be built at all, and the branch below drops the
+      // stored one for the same reason.
+      cancelInFlight()
       measuredKey = null
       const status = next.preparationError
         ? 'preparation-failed'
@@ -179,14 +199,20 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       return
     }
     if (!next.toolchainReady) {
+      cancelInFlight()
       set({ target, status: 'toolchain-missing' })
       return
     }
     set({
       target,
-      status: !state.result || measuredKey === null
-        ? 'idle'
-        : measuredKey === key ? 'measured' : 'stale',
+      // A running check keeps saying so. It is the same compile either way,
+      // and a press that goes quiet for the minute it takes reads as a button
+      // that did nothing.
+      status: inFlightKey !== null
+        ? 'checking'
+        : !state.result || measuredKey === null
+          ? 'idle'
+          : measuredKey === key ? 'measured' : 'stale',
     })
   },
 
@@ -198,16 +224,34 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     const { code, fqbn, key, flashMb, usbCdcOnBoot } = target
     let attempt = 0
 
+    const seq = ++checkSeq
+    // 'measured' only while the reading still describes the live target; a
+    // target that moved during the compile makes the very same answer stale.
+    const landed = () => (get().target?.key === key ? 'measured' as const : 'stale' as const)
+    // An abandoned run's answer must never overwrite a newer one's.
+    const superseded = () => seq < appliedSeq
+
     const run = () => {
-      // The target moved while we were waiting to retry — whatever this would
-      // measure is no longer what anyone asked about.
-      if (get().target?.key !== key) return
+      // Letting a *running* compile finish is worth it — it is already paid
+      // for. Starting a new one for a target nobody is on is not, so a
+      // busy-retry stops here rather than spending a build on the old design.
+      if (attempt > 0 && get().target?.key !== key) {
+        inFlightController = null
+        inFlightKey = null
+        set((s) => ({
+          status: !s.result || measuredKey === null
+            ? 'idle'
+            : measuredKey === s.target?.key ? 'measured' : 'stale',
+        }))
+        return
+      }
       const controller = new AbortController()
       inFlightController = controller
+      inFlightKey = key
       set({ status: 'checking' })
       compileCheck(code, fqbn, controller.signal, flashMb, usbCdcOnBoot)
         .then((res) => {
-          if (controller.signal.aborted || get().target?.key !== key) return
+          if (controller.signal.aborted || superseded()) return
           if (res.busy && attempt < BUSY_RETRY_LIMIT) {
             // Nothing was measured — the helper was serializing this behind
             // another build, which during an Upload is the normal case.
@@ -215,19 +259,25 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
             retryTimer = setTimeout(run, BUSY_RETRY_MS)
             return
           }
+          inFlightController = null
+          inFlightKey = null
           measuredKey = key
+          appliedSeq = seq
           set((s) => ({
-            status: 'measured',
+            status: landed(),
             result: res,
             previousResult: s.result && s.result.target === res.target ? s.result : s.previousResult,
             subject: target.subject,
           }))
         })
         .catch(() => {
-          if (controller.signal.aborted || get().target?.key !== key) return
+          if (controller.signal.aborted || superseded()) return
+          inFlightController = null
+          inFlightKey = null
           measuredKey = key
+          appliedSeq = seq
           set({
-            status: 'measured',
+            status: landed(),
             result: {
               ok: false, overflow: false, target: fqbn, flash: null, ram: null,
               error: 'Capacity check unavailable — helper offline?',
@@ -242,6 +292,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
   clear: () => {
     cancelInFlight()
     measuredKey = null
+    appliedSeq = checkSeq
     set({ status: 'idle', result: null, previousResult: null, subject: 'sketch', target: null })
   },
 }))
