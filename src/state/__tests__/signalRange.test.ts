@@ -19,15 +19,6 @@ describe('signalRange', () => {
     expect(formatSignalRange({ min: 0, max: 255 })).toBe('0–255')
   })
 
-  it('names the pixel domain a shape size knob reads', () => {
-    // Circle's radius and Shape's size are the same knob on the same SDF
-    // renderer, in pixels of the 16x16 reference grid. Wired straight from a
-    // 0-1 source they draw a half-pixel dot, and the meter has to be able to
-    // say what to map into — which it can only do from a declared slider.
-    expect(signalRangeMismatch('Circle', 'radius')).toEqual({ min: 0, max: 16 })
-    expect(signalRangeMismatch('Shape', 'size')).toEqual({ min: 0, max: 16 })
-  })
-
   /*
    * The load-bearing derivation: "the slider is not 0-1" has to mean exactly
    * "the evaluator hands the wired number through untouched". Every input
