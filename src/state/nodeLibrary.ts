@@ -5890,7 +5890,27 @@ export function pinPropertyIsUnwired(nodeType: string, key: string, value: unkno
 /** Pins physically present for the selected catalogued colour-display module. */
 export function transportDisplayPinKeysForProps(properties: Record<string, unknown>): string[] {
   const display = partById(String(properties.partId ?? ''))?.display
-  if (!display) return []
+  /*
+   * A module the catalogue cannot resolve is still built, so it must still
+   * claim pins.
+   *
+   * Every other reader of a panel answers an unknown `partId` with a real
+   * panel: the nine `tftControllerForProps(...) ?? TFT_CONTROLLERS.ST7789*`
+   * sites give it ST7789 silicon, and the generators emit its whole header
+   * from their own `intProp` pin defaults. This one answered `[]`, which is
+   * the one answer that is never true of something being flashed — and
+   * because `collectPinUses` walks these keys, those pins became invisible to
+   * collision checking, board-availability checking and allocation while the
+   * sketch drove them. A graph with a data line on a GPIO the chip does not
+   * have, and an LED string sharing a pin with a touch IRQ, reported "pins
+   * ok" and uploaded.
+   *
+   * The touch header is included because that is what the fallback panel
+   * emits: the generators gate touch on the graph publishing controls, not on
+   * the catalogue naming a digitiser, and they take those five pins from the
+   * same defaults. Claiming what is driven is the whole contract here.
+   */
+  if (!display) return [...TRANSPORT_DISPLAY_BASE_PINS, ...TRANSPORT_DISPLAY_TOUCH_PINS]
   if (tftTransportFor(display.interface) === 'parallel') {
     // A parallel panel wires the same thirteen lines whether or not a touch
     // sheet is fitted, because the sheet has no lines of its own.

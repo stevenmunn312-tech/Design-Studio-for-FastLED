@@ -34,6 +34,48 @@ function moduleNode(nodeType: string, partId: string): StudioNode {
   }
 }
 
+describe('a display whose module cannot be resolved', () => {
+  /*
+   * The bug this pins: a panel with an unresolvable `partId` claimed **no
+   * pins at all**, so collision and board-availability checking saw a panel
+   * wired to nothing while the generator emitted its whole header from its
+   * own defaults. A graph with a data line on a GPIO the chip does not have,
+   * and an LED string sharing a pin with the touch IRQ, reported "pins ok"
+   * and uploaded.
+   *
+   * Every module in the catalogue is exercised by the contracts below; this
+   * is the case where the catalogue answers nothing, which is the one answer
+   * that used to be treated as "claims nothing" rather than "claims the
+   * panel it will be built as".
+   */
+  for (const partId of ['', 'a-module-that-was-never-in-the-catalogue']) {
+    const label = partId === '' ? 'no module named' : 'an unknown module named'
+
+    it(`claims the pins its build drives with ${label}`, () => {
+      const node = moduleNode('TransportDisplay', partId)
+      const claimed = collectPinUses([node]).map((use) => use.propertyKey)
+
+      // The panel every other reader falls back to is an SPI ST7789, and the
+      // generators emit its touch header too, so all of those are driven.
+      expect(claimed).toContain('mosiPin')
+      expect(claimed).toContain('sckPin')
+      expect(claimed).toContain('touchIrqPin')
+      expect(partById(partId)).toBeUndefined()
+    })
+
+    it(`keeps those same pins editable with ${label}`, () => {
+      // The inspector gate and the pin walk read one helper, so a pin that is
+      // claimed is a pin the author can move. Claiming a pin no field can
+      // change would leave a reported collision with no way to fix it.
+      const node = moduleNode('TransportDisplay', partId)
+      const properties = node.data.properties as Record<string, unknown>
+      for (const key of collectPinUses([node]).map((use) => use.propertyKey)) {
+        expect(isPropertyEnabled('TransportDisplay', key, properties)).toBe(true)
+      }
+    })
+  }
+})
+
 describe('display node registration contracts', () => {
   it('includes every fixed, module-selecting display', () => {
     expect(displays.map((node) => node.type).sort())

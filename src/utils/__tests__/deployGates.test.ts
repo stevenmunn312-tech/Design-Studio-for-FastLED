@@ -81,6 +81,31 @@ const CASES: GateCase[] = [
     diagnostic: 'pin-5',
   },
   {
+    /*
+     * The panel itself is the fault, not any one pin. Everything downstream
+     * falls back to a plausible ST7789 and flashes it, so a graph that named
+     * no module built against a guess — and, because the pin walk answered
+     * "no pins" rather than "the panel it will be built as", did it with
+     * nothing checking the pins that guess drives.
+     */
+    name: 'a display naming a module the catalogue does not have',
+    nodes: [
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
+      node('panel', 'TransportDisplay', {
+        partId: '', displayId: 'screen',
+        csPin: 10, dcPin: 11, resetPin: 12, sckPin: 13, mosiPin: 14,
+        backlightPin: 15, misoPin: 16, touchCsPin: 17, touchIrqPin: 21,
+        touchSckPin: 13, touchMosiPin: 14, touchMisoPin: 16,
+      }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /has no module selected/,
+    names: ['module', /pins cannot be checked/],
+    diagnostic: 'display-generator-error-0',
+  },
+  {
     name: 'a pin the selected chip cannot use for that role',
     nodes: [
       node('sc', 'SolidColor'),

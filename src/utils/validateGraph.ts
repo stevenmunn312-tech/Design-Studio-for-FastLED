@@ -1885,6 +1885,32 @@ export function findDisplayGeneratorIssues(
   const errors: string[] = []
   const warnings: string[] = []
 
+  /*
+   * A display naming a module the catalogue does not have is a build nobody
+   * can check.
+   *
+   * Everything downstream falls back to a plausible panel rather than
+   * refusing — the controller resolvers to ST7789, the generators to their
+   * own pin defaults — so the sketch is emitted against a guess, and the
+   * guess is what gets flashed. Naming it here is the only place the *cause*
+   * is visible; without it the graph reports either nothing at all or a
+   * scattering of pin errors about a module the author never chose.
+   */
+  for (const display of displays) {
+    // Scoped to the colour panel, which is where the claim is true. An OLED
+    // or a segment module resolves its transport to a default rather than to
+    // nothing, so its pins are still collected and still checked; only this
+    // node had a reader that answered an unknown module with no pins at all.
+    if (display.data.nodeType !== 'TransportDisplay') continue
+    const props = display.data.properties as Record<string, unknown>
+    const partId = String(props.partId ?? '')
+    if (partById(partId)) continue
+    errors.push(
+      `${nodeLabel(display)} has no module selected${partId ? ` ("${partId}" is not a known part)` : ''}`
+      + ', so its pins cannot be checked against the board. Choose the module on the node.',
+    )
+  }
+
   const build = resolveBuildMode(nodes, edges)
   const generator = build.mode
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
