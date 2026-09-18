@@ -104,10 +104,17 @@ describe('custom display panel driver', () => {
     expect(customDisplayPanelHelpersCpp(touchEmit())).not.toContain('touchx=%u')
   })
 
-  it('flushes a band by reading logical RGB565 values and letting SPI.transfer16 handle wire order', () => {
+  it('flushes a band by reading logical RGB565 values, high byte first', () => {
     const helpers = customDisplayPanelHelpersCpp(emit())
+    // Reading through a uint16_t* recovers each pixel's logical value whatever
+    // the host's byte order, so nothing here depends on how LVGL laid the
+    // buffer out in memory.
     expect(helpers).toContain('const uint16_t *pixels = (const uint16_t *)px_map;')
-    expect(helpers).toContain('SPI.transfer16(pixels[i]);')
+    // The pair is written explicitly rather than as one 16-bit transfer,
+    // because the byte is what the bus primitive knows how to send on either
+    // transport. High byte first is the order the controller reads a pixel in.
+    expect(helpers).toContain('_cdWrite8_screen((uint8_t)(pixels[i] >> 8));')
+    expect(helpers).toContain('_cdWrite8_screen((uint8_t)pixels[i]);')
     expect(helpers).toContain('lv_display_flush_ready(disp);')
   })
 

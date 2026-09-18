@@ -7488,7 +7488,14 @@ export function generateCpp(
     // `_resPoint` calls `_touchMap`, which lives in the block above, so it is
     // only ever appended after it - and only when a bare sheet is fitted,
     // since an SPI-only build has no use for the analog reads.
-    if (tftTouches.some((touch) => touch.resistive)) lines.push(RESISTIVE_TOUCH_CPP_HELPERS)
+    // A bare sheet can be read by either half — a fixed layout or a screen
+    // design — so the analog reads are gated on any panel in the build having
+    // one, not on the fixed-layout list alone. Asking only that list emitted a
+    // screen design's `_resPoint` call with nothing defining it.
+    if (tftTouches.some((touch) => touch.resistive)
+      || customDisplayPanels.some((panel) => panel.resistive)) {
+      lines.push(RESISTIVE_TOUCH_CPP_HELPERS)
+    }
     xptPointHelpersEmitted = true
   }
   if (tftDisplays.length > 0) {

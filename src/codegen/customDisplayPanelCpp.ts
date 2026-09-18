@@ -14,11 +14,12 @@
 // `_xptPoint`, and this module's indev callback is a thin wrapper around it.
 
 import {
-  asTftRotation, TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin,
+  asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, tftMadctl, tftRotatedSize,
+  tftWindowOrigin,
   type TftController, type TftRotation,
 } from '../state/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
-import { tftControllerForProps } from '../state/nodeLibrary'
+import { tftControllerForProps, tftTransportForProps } from '../state/nodeLibrary'
 import { displayHasTouch } from '../state/partCatalogue'
 import { emittedTouchBounds } from '../state/transportTouch'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
@@ -68,8 +69,22 @@ export interface CustomDisplayPanelEmit {
   sckPin: number
   mosiPin: number
   backlightPin: number
+  /**
+   * Set only for an 8-bit parallel module, and the whole of what selects the
+   * transport — an SPI panel leaves it undefined and emits exactly what it did
+   * before. A parallel panel has no SCK or MOSI to name, which is why one
+   * cannot be driven by falling back to the SPI defaults: those are pins it
+   * never had, on a bus it does not speak.
+   */
+  parallel?: { dataPins: readonly number[]; wrPin: number; rdPin: number }
   /** Present only for a touch-capable module. */
   touch?: CustomDisplayPanelTouch
+  /**
+   * A bare resistive sheet reads four of the panel's own LCD lines as
+   * electrodes rather than naming a digitiser of its own, so these are the
+   * panel's pins borrowed — the same map the fixed layouts read.
+   */
+  resistive?: { xpPin: number; xmPin: number; ypPin: number; ymPin: number }
   /** Template controllers sample touch explicitly before evaluating controls. */
   manualTouch?: boolean
   /**
@@ -91,11 +106,30 @@ export function customDisplayPanelFromProps(
     const value = Math.round(Number(p[key] ?? fallback))
     return Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback
   }
+  // The module's own bus, from the part rather than from anything the graph
+  // says — the same question `tftTransportForProps` answers for a fixed layout.
+  const parallel = tftTransportForProps(p) === 'parallel'
   return {
     id: customDisplayId(id), controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V,
     rotation: asTftRotation(p.tftRotation),
     csPin: integer('csPin', 5), dcPin: integer('dcPin', 16), resetPin: integer('resetPin', 17),
     sckPin: integer('sckPin', 18), mosiPin: integer('mosiPin', 23), backlightPin: integer('backlightPin', 4),
+    ...(parallel
+      ? {
+        parallel: {
+          dataPins: Array.from({ length: 8 }, (_, bit) => integer(`d${bit}Pin`, bit)),
+          wrPin: integer('wrPin', 33),
+          rdPin: integer('rdPin', 34),
+        },
+        // Borrowed lines, not a second claim: exactly what the fixed layouts do.
+        resistive: {
+          xpPin: integer(PARALLEL_TOUCH_ELECTRODES.xp, 7),
+          xmPin: integer(PARALLEL_TOUCH_ELECTRODES.xm, 9),
+          ypPin: integer(PARALLEL_TOUCH_ELECTRODES.yp, 5),
+          ymPin: integer(PARALLEL_TOUCH_ELECTRODES.ym, 8),
+        },
+      }
+      : {}),
     touch: displayHasTouch(String(p.partId ?? '')) ? {
       csPin: integer('touchCsPin', 15), irqPin: integer('touchIrqPin', 2),
       sckPin: integer('touchSckPin', 18), mosiPin: integer('touchMosiPin', 23), misoPin: integer('touchMisoPin', 19),
@@ -124,6 +158,8 @@ export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): strin
     `struct CustomDisplayPanel_${id} {`,
     `  uint8_t cs, dc, rst, sck, mosi, bl;`,
     `  uint16_t colStart, rowStart;`,
+    `  bool parallel;`,
+    `  uint8_t d[8], wr, rd;`,
     `};`,
     `static CustomDisplayPanel_${id} _cdPanel_${id};`,
     `static SPISettings _cdPanelSpi_${id}(40000000, MSBFIRST, SPI_MODE0);`,
@@ -149,23 +185,40 @@ export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): strin
  * SPISettings would only add a coupling neither side needs. */
 function panelBusCpp(emit: CustomDisplayPanelEmit): string {
   const id = emit.id
-  return `static void _cdPanelCmd_${id}(uint8_t value) {
-  SPI.beginTransaction(_cdPanelSpi_${id});
+  return `static inline void _cdTxnBegin_${id}() {
+  if (!_cdPanel_${id}.parallel) SPI.beginTransaction(_cdPanelSpi_${id});
+}
+static inline void _cdTxnEnd_${id}() {
+  if (!_cdPanel_${id}.parallel) SPI.endTransaction();
+}
+static inline void _cdWrite8_${id}(uint8_t value) {
+  if (_cdPanel_${id}.parallel) {
+    for (uint8_t b = 0; b < 8; b++) digitalWrite(_cdPanel_${id}.d[b], (value >> b) & 1);
+    // The controller latches on WR's rising edge, so the low pulse comes first
+    // and the line is left high ready for the next byte.
+    digitalWrite(_cdPanel_${id}.wr, LOW);
+    digitalWrite(_cdPanel_${id}.wr, HIGH);
+  } else {
+    SPI.transfer(value);
+  }
+}
+static void _cdPanelCmd_${id}(uint8_t value) {
+  _cdTxnBegin_${id}();
   digitalWrite(_cdPanel_${id}.dc, LOW);
   digitalWrite(_cdPanel_${id}.cs, LOW);
-  SPI.transfer(value);
+  _cdWrite8_${id}(value);
   digitalWrite(_cdPanel_${id}.cs, HIGH);
-  SPI.endTransaction();
+  _cdTxnEnd_${id}();
 }
 static void _cdPanelCmdData_${id}(uint8_t command, const uint8_t *data, uint8_t count) {
-  SPI.beginTransaction(_cdPanelSpi_${id});
+  _cdTxnBegin_${id}();
   digitalWrite(_cdPanel_${id}.dc, LOW);
   digitalWrite(_cdPanel_${id}.cs, LOW);
-  SPI.transfer(command);
+  _cdWrite8_${id}(command);
   digitalWrite(_cdPanel_${id}.dc, HIGH);
-  for (uint8_t i = 0; i < count; i++) SPI.transfer(data[i]);
+  for (uint8_t i = 0; i < count; i++) _cdWrite8_${id}(data[i]);
   digitalWrite(_cdPanel_${id}.cs, HIGH);
-  SPI.endTransaction();
+  _cdTxnEnd_${id}();
 }
 static void _cdPanelWindow_${id}(int32_t x, int32_t y, int32_t w, int32_t h) {
   uint16_t x0 = (uint16_t)(x + _cdPanel_${id}.colStart);
@@ -196,14 +249,20 @@ function panelFlushCpp(emit: CustomDisplayPanelEmit): string {
   _cdPanelWindow_${id}(area->x1, area->y1, w, h);
   uint32_t count = (uint32_t)w * (uint32_t)h;
   const uint16_t *pixels = (const uint16_t *)px_map;
-  SPI.beginTransaction(_cdPanelSpi_${id});
+  _cdTxnBegin_${id}();
   digitalWrite(_cdPanel_${id}.dc, LOW);
   digitalWrite(_cdPanel_${id}.cs, LOW);
-  SPI.transfer((uint8_t)0x2C);
+  _cdWrite8_${id}((uint8_t)0x2C);
   digitalWrite(_cdPanel_${id}.dc, HIGH);
-  for (uint32_t i = 0; i < count; i++) SPI.transfer16(pixels[i]);
+  // High byte first: the order the controller reads a pixel in, and what the
+  // serial path sent as one 16-bit word. A transport changes how a byte
+  // leaves, never the order the panel expects them in.
+  for (uint32_t i = 0; i < count; i++) {
+    _cdWrite8_${id}((uint8_t)(pixels[i] >> 8));
+    _cdWrite8_${id}((uint8_t)pixels[i]);
+  }
   digitalWrite(_cdPanel_${id}.cs, HIGH);
-  SPI.endTransaction();
+  _cdTxnEnd_${id}();
   lv_display_flush_ready(disp);
 }`
 }
@@ -223,7 +282,10 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   static int16_t x = 0, y = 0;
   uint16_t rawX = 0, rawY = 0;
   if (!_cdPanelOn_${id}) { data->state = LV_INDEV_STATE_RELEASED; return; }
-  bool pressed = _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
+  bool pressed = ${emit.resistive
+    ? `_resPoint(${emit.resistive.xpPin}, ${emit.resistive.xmPin}, `
+      + `${emit.resistive.ypPin}, ${emit.resistive.ymPin}, `
+    : `_xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `}`
     + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, `
     + `${emit.controller.width}, ${emit.controller.height}, ${rotationCode(emit.rotation)}, x, y, rawX, rawY);
   data->point.x = x;
@@ -292,17 +354,36 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
     `  _cdPanel_${id}.cs = ${emit.csPin}; _cdPanel_${id}.dc = ${emit.dcPin}; _cdPanel_${id}.rst = ${emit.resetPin};`,
     `  _cdPanel_${id}.sck = ${emit.sckPin}; _cdPanel_${id}.mosi = ${emit.mosiPin}; _cdPanel_${id}.bl = ${emit.backlightPin};`,
     `  _cdPanel_${id}.colStart = ${origin.col}; _cdPanel_${id}.rowStart = ${origin.row};`,
+    `  _cdPanel_${id}.parallel = ${emit.parallel ? 'true' : 'false'};`,
+    ...(emit.parallel
+      ? [
+        `  _cdPanel_${id}.wr = ${emit.parallel.wrPin}; _cdPanel_${id}.rd = ${emit.parallel.rdPin};`,
+        ...emit.parallel.dataPins.map((pin, bit) => `  _cdPanel_${id}.d[${bit}] = ${pin};`),
+        // Data lines idle low and WR idles high, so the first strobe is a real
+        // edge. RD is driven high and left there: floating or low lets the
+        // controller drive the data lines back, and every write then collides
+        // with its own output — which presents as a dead panel, not a bus fault.
+        `  for (uint8_t b = 0; b < 8; b++) { pinMode(_cdPanel_${id}.d[b], OUTPUT); digitalWrite(_cdPanel_${id}.d[b], LOW); }`,
+        `  pinMode(_cdPanel_${id}.wr, OUTPUT); digitalWrite(_cdPanel_${id}.wr, HIGH);`,
+        `  pinMode(_cdPanel_${id}.rd, OUTPUT); digitalWrite(_cdPanel_${id}.rd, HIGH);`,
+      ]
+      : []),
     `  pinMode(_cdPanel_${id}.cs, OUTPUT); pinMode(_cdPanel_${id}.dc, OUTPUT); digitalWrite(_cdPanel_${id}.cs, HIGH);`,
     `  if (_cdPanel_${id}.rst != 255) pinMode(_cdPanel_${id}.rst, OUTPUT);`,
     `  if (_cdPanel_${id}.bl != 255) { pinMode(_cdPanel_${id}.bl, OUTPUT); digitalWrite(_cdPanel_${id}.bl, LOW); }`,
-    `#if defined(ESP32)`,
-    `  SPI.begin(_cdPanel_${id}.sck, -1, _cdPanel_${id}.mosi, -1);`,
-    `#elif defined(ESP8266)`,
-    `  SPI.pins(_cdPanel_${id}.sck, MISO, _cdPanel_${id}.mosi, -1);`,
-    `  SPI.begin();`,
-    `#else`,
-    `  SPI.begin();`,
-    `#endif`,
+    // A parallel panel starts no SPI bus: it would claim an SCK and MOSI this
+    // module does not have, on pins that are either in use here or absent from
+    // the board entirely.
+    ...(emit.parallel ? [] : [
+      `#if defined(ESP32)`,
+      `  SPI.begin(_cdPanel_${id}.sck, -1, _cdPanel_${id}.mosi, -1);`,
+      `#elif defined(ESP8266)`,
+      `  SPI.pins(_cdPanel_${id}.sck, MISO, _cdPanel_${id}.mosi, -1);`,
+      `  SPI.begin();`,
+      `#else`,
+      `  SPI.begin();`,
+      `#endif`,
+    ]),
     `  if (_cdPanel_${id}.rst != 255) {`,
     `    digitalWrite(_cdPanel_${id}.rst, HIGH); delay(10);`,
     `    digitalWrite(_cdPanel_${id}.rst, LOW);  delay(10);`,
