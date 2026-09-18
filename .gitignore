@@ -30,6 +30,8 @@ backend/.arduino-libraries/
 # arduino-cli sketch workspaces — one reused directory per sketch name, whose
 # stable path is what lets arduino-cli find its own build cache
 backend/sketches/
+# Firmware images kept for Export Binary to download (last few only)
+backend/exports/
 # Scratch output of the dependency refresh in backend/DEPENDENCIES.md — the
 # resolver report and the throwaway venv used to verify the pinned set.
 backend/deps-report.json

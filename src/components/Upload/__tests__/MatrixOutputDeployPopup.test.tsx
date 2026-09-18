@@ -162,6 +162,7 @@ describe('MatrixOutputDeployPopup', () => {
       runLastUpload: vi.fn(),
       runShowUpload: vi.fn(),
       exportIno: vi.fn(),
+      exportBinary: vi.fn(),
     })
   })
 
@@ -374,6 +375,51 @@ describe('MatrixOutputDeployPopup', () => {
 
     fireEvent.click(wiringButton)
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  function buildableGraph() {
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, {
+        id: 'sc', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Solid Color', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] },
+      }] as never[],
+      edges: [{ id: 'e', source: 'sc', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }] as never[],
+      trusted: true,
+    })
+  }
+
+  it('compiles the current sketch for Export Binary, below Export .ino', async () => {
+    const exportBinary = vi.fn()
+    buildableGraph()
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+      exportBinary,
+    })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    const exportIno = getByRole('button', { name: /Export .ino/ })
+    const exportBin = getByRole('button', { name: /Export Binary/ })
+    expect(exportIno.nextElementSibling).toBe(exportBin)
+
+    // Regenerated at the click, like Upload — not the memoized View Code text.
+    vi.mocked(generateCpp).mockReturnValue('// freshly regenerated sketch')
+    fireEvent.click(exportBin)
+
+    await waitFor(() => expect(exportBinary).toHaveBeenCalledWith(
+      '// freshly regenerated sketch',
+      undefined,
+    ))
+  })
+
+  it('cannot export a binary with no helper to compile it', () => {
+    // The .ino is generated in the browser and needs no toolchain; an image
+    // does, so the two buttons do not share a disabled rule.
+    buildableGraph()
+    useUploadStore.setState({ helper: null })
+
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    expect((getByRole('button', { name: /Export .ino/ }) as HTMLButtonElement).disabled).toBe(false)
+    expect((getByRole('button', { name: /Export Binary/ }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('regenerates the normal sketch when Upload is clicked', async () => {

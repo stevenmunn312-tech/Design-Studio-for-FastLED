@@ -79,6 +79,7 @@ export default function MatrixOutputDeployPopup({
     helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
     openBoardPopup, openCliPopup, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
+    exportBinary,
     cancelUpload, setEngine,
     cardReader, setCardReader,
   } = useUploadStore()
@@ -464,6 +465,19 @@ export default function MatrixOutputDeployPopup({
     })()
   }
 
+  /* The same compile an upload runs, stopping at the image instead of the
+     board — so it asks the same trust question and generates the sketch at
+     the same point Upload does, rather than exporting whatever View Code
+     happens to be memoizing. */
+  function handleExportBinary() {
+    void (async () => {
+      if (!(await confirmUploadIfUntrusted())) return
+      const exportCode = generateCurrentCode()
+      if (!exportCode) return
+      await exportBinary(exportCode, usePsram ? psramChoice?.opt : undefined)
+    })()
+  }
+
   const phaseClass =
     status.phase === 'error' ? styles.stError
     : status.phase === 'done' ? styles.stDone
@@ -712,6 +726,21 @@ export default function MatrixOutputDeployPopup({
             title={!hasBuildOutput ? 'Connect a frame to enable export' : blockingErrors.length > 0 ? blockingErrors.join('\n') : 'Download the generated .ino sketch'}
           >
             ↓ Export .ino
+          </button>
+
+          <button
+            className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
+            disabled={busy || !hasBuildOutput || blockingErrors.length > 0 || !activeEngineReady}
+            onClick={handleExportBinary}
+            title={
+              !hasBuildOutput ? 'Connect a frame to enable export'
+              : blockingErrors.length > 0 ? blockingErrors.join('\n')
+              : !activeEngineReady ? 'Start the local helper to compile a firmware image'
+              : busy ? status.message
+              : 'Compile this design and download the firmware image (nothing is sent to the board)'
+            }
+          >
+            ↓ Export Binary
           </button>
 
           <button

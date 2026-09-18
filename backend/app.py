@@ -39,6 +39,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -47,7 +48,7 @@ import threading
 
 from fastapi import Body, FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 # ── arduino-cli resolution ────────────────────────────────────────────────────
 # Resolve the CLI (saved path > env override > PATH > the IDE's bundled binary >
@@ -1733,7 +1734,7 @@ def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) 
 
 
 @_reports_total_time
-def _compile_upload(label, sketch_dir, fqbn, port):
+def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None):
     """Compile, then (if a port is given) upload a sketch. Returns
     (exit code, phase) where phase is "compile" or "upload" — the phase the
     run ended in, so callers can tailor the failure message (a compile failure
@@ -1777,6 +1778,11 @@ def _compile_upload(label, sketch_dir, fqbn, port):
             "--build-property", "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
             "--build-property", "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
         ]
+    if output_dir is not None:
+        # arduino-cli keeps its artifacts in a cache directory it names itself;
+        # this copies them somewhere the caller can read. Only the firmware
+        # export asks for it, so an ordinary upload's build is unchanged.
+        compile_args += ["--output-dir", str(output_dir)]
     compile_args.append(str(sketch_dir))
     rc = yield from _run_phase(
         f"{label} · compile", compile_args,
@@ -3531,6 +3537,162 @@ def compile_check(payload: dict = Body(...)):
         # without the endpoint always shipping the full compile transcript.
         "log": None if ok else "".join(lines)[-4000:],
     })
+
+
+# -- Firmware image export ----------------------------------------------------
+# Exporting a compiled image is two requests, not one. The POST streams the
+# compile exactly as an upload does, because a build is minutes long and a
+# silent wait reads as a hang; it ends in a marker line naming what it built.
+# The browser then GETs that artifact by id. Returning the bytes from the same
+# request would mean either holding the stream back until the end (the silent
+# wait again) or base64 inside the log, split across chunk boundaries.
+_EXPORT_DIR = _DATA_DIR / "exports"
+# Read by the frontend to turn a finished stream into a download. Named in
+# src/utils/logView.ts's ALWAYS_KEEP so the condensed console still shows it.
+_EXPORT_MARKER = "[binary]"
+# A firmware image is a megabyte or two and regenerable; keep the last few so a
+# second export can't be served the first one's file, and no more.
+_EXPORT_KEEP = 3
+
+# What is worth handing someone, most useful first. An ESP32 `.merged.bin`
+# flashes at offset 0 with nothing else needed, which is why it wins over the
+# application image beside it: that one wants 0x10000 plus a bootloader and
+# partition table already on the board. `firmware.bin` is fbuild's name for the
+# application image; the bare `*.bin`/`*.hex` entries are the last resort for a
+# toolchain that names its output something else entirely.
+_EXPORT_PREFERENCE = (
+    "*.merged.bin",
+    "*.ino.bin",
+    "firmware.bin",
+    "*.ino.hex",
+    "firmware.hex",
+    "*.ino.uf2",
+    "firmware.uf2",
+    "*.bin",
+    "*.hex",
+)
+
+
+def _prune_exports(keep=_EXPORT_KEEP):
+    """Drop all but the newest `keep` exported artifacts."""
+    try:
+        kept = sorted(
+            (path for path in _EXPORT_DIR.iterdir() if path.is_dir()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return
+    for stale in kept[keep:]:
+        shutil.rmtree(stale, ignore_errors=True)
+
+
+def _export_artifact(build_dir: Path) -> Path | None:
+    """The one file worth exporting out of a finished build's artifacts."""
+    for pattern in _EXPORT_PREFERENCE:
+        matches = sorted(build_dir.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
+
+
+def _export_name(payload: dict, artifact: Path) -> str:
+    """`<project><the artifact's own suffixes>`, with the project name reduced to
+    something a filesystem and a Content-Disposition header both accept."""
+    raw = str(payload.get("name") or SKETCH).strip()
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", raw).strip("-._") or SKETCH
+    # `.ino.merged.bin` carries which image this is, and that matters when
+    # flashing; `.ino` on its own does not.
+    suffix = "".join(artifact.suffixes).replace(".ino", "") or artifact.suffix
+    return f"{safe}{suffix}"
+
+
+@app.post("/api/compile-binary")
+def compile_binary(payload: dict = Body(...)):
+    """Compile a sketch and keep the firmware image for download.
+
+    Body: {"ino": ..., "fqbn": ..., "flashMb": ..., "usbCdcOnBoot": ..., "name": ...}.
+    Streams the compile log as text/plain, ending in either
+    `[binary] id=<id> name=<file> bytes=<n>` or `[binary] failed`. Nothing is
+    sent to the board: this is the same compile an upload runs, with no port.
+    """
+    engine = _active_engine()
+    if engine == "fbuild" and not _FBUILD_BIN:
+        return JSONResponse({"ok": False, "error": "fbuild not found"}, status_code=400)
+    if engine == "arduino-cli" and not _ARDUINO_CLI:
+        return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
+
+    ino = (payload.get("ino") or "").strip()
+    fqbn = (payload.get("fqbn") or _DEFAULT_FQBN).strip()
+    if not ino:
+        return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
+    flash_mb = _flash_mb_from(payload)
+    usb_cdc = _usb_cdc_from(payload)
+
+    def stream():
+        _EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+        _prune_exports(_EXPORT_KEEP - 1)
+        out_dir = _EXPORT_DIR / uuid.uuid4().hex
+        out_dir.mkdir()
+        try:
+            if engine == "fbuild":
+                rc, _phase = yield from _compile_upload_fbuild(
+                    "Export binary", ino, fqbn, "", flash_mb, usb_cdc)
+                # fbuild builds in place, so the artifacts have to be fetched
+                # from the env's own output directory rather than directed to
+                # one — the same env id the build itself resolved.
+                env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
+                built = (
+                    _FBUILD_PROJECT_DIR / ".fbuild" / "build" / env / "release"
+                    if env else None
+                )
+            else:
+                with _sketch_workspace(SKETCH, ino) as sketch_dir:
+                    rc, _phase = yield from _compile_upload(
+                        "Export binary", sketch_dir, fqbn, "", output_dir=out_dir)
+                built = out_dir
+            if rc != 0:
+                yield f"\n{_EXPORT_MARKER} failed\n"
+                return
+            artifact = _export_artifact(built) if built and built.is_dir() else None
+            if artifact is None:
+                yield ("\n  The compile succeeded but produced no firmware image "
+                       "this helper recognises.\n")
+                yield f"{_EXPORT_MARKER} failed\n"
+                return
+            if artifact.parent != out_dir:
+                artifact = Path(shutil.copy2(artifact, out_dir / artifact.name))
+            # arduino-cli's --output-dir copies everything it built, and the
+            # .elf/.map beside a 4MB image are 80MB nobody asked for. Only
+            # `out_dir` is ever swept: on the fbuild path `built` is the
+            # engine's own build directory, whose contents it still needs.
+            for spare in out_dir.iterdir():
+                if spare != artifact and spare.is_file():
+                    spare.unlink(missing_ok=True)
+            name = _export_name(payload, artifact)
+            size = artifact.stat().st_size
+            yield f"\n  Built {name} ({size // 1024} KB).\n"
+            yield f"{_EXPORT_MARKER} id={out_dir.name} name={name} bytes={size}\n"
+        except Exception as exc:  # the stream is the only channel back
+            yield f"\n*** export failed: {exc} ***\n"
+            yield f"{_EXPORT_MARKER} failed\n"
+
+    return StreamingResponse(stream(), media_type="text/plain")
+
+
+@app.get("/api/compile-binary/{artifact_id}")
+def compile_binary_download(artifact_id: str):
+    """Serve an image `/api/compile-binary` just built, by its id."""
+    # The id is ours, and a request naming anything else is not asking for an
+    # artifact — resolve it as a plain directory name rather than a path.
+    if not re.fullmatch(r"[0-9a-f]{32}", artifact_id or ""):
+        return JSONResponse({"ok": False, "error": "unknown artifact"}, status_code=404)
+    out_dir = _EXPORT_DIR / artifact_id
+    artifact = _export_artifact(out_dir) if out_dir.is_dir() else None
+    if artifact is None:
+        return JSONResponse({"ok": False, "error": "unknown artifact"}, status_code=404)
+    return FileResponse(
+        artifact, media_type="application/octet-stream", filename=artifact.name)
 
 
 @app.post("/api/upload-show")

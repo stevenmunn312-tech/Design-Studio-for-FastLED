@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import {
   checkBackend, listPorts, listCores, uploadSketch, uploadShow, locateCli, installCli, installCore,
   monitorSerial, checkCoreUpdates, upgradeCores as requestCoreUpgrade, setEngine as requestSetEngine,
-  copyToSdCard, compileCheck, cancelBuild,
+  copyToSdCard, compileCheck, cancelBuild, exportBinary as requestBinaryExport,
   type BackendHealth, type SerialPort, type ShowUploadFile, type CoreUpdate,
 } from '../utils/backendClient'
 import { useProjectStore } from './projectStore'
@@ -451,6 +451,9 @@ interface UploadState {
   /** Answer the open prompt: a drive path to continue, or null to cancel. */
   resolveSdPrompt: (drive: string | null) => void
   exportIno: (code: string, filename?: string) => void
+  /** Compile `code` and download the firmware image it produces. The
+   *  compile streams into the output console, same as an upload. */
+  exportBinary: (code: string, fqbnOpt?: string) => Promise<void>
   locate: (path: string) => Promise<{ ok: boolean; error?: string }>
   installCli: () => Promise<void>
   installCore: (core: string) => Promise<void>
@@ -879,6 +882,59 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  },
+
+  exportBinary: async (code, fqbnOpt) => {
+    const { selectedFqbn, busy, helper } = get()
+    if (busy) return
+    if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
+    clearStatusReset()
+    const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
+    const projectName = useProjectStore.getState().projects
+      .find((project) => project.id === useProjectStore.getState().currentProjectId)?.name
+    // The same compile an upload runs, so it wants the same two facts the
+    // FQBN cannot carry — see runUpload.
+    const rootNodes = rootGraphNodes(useGraphStore.getState())
+    const flashMb = selectedBoardFlashMb(rootNodes)
+    const controller = controllerSettings(rootNodes)
+    const selectedSerialPort = get().ports.find((port) => port.address === get().selectedPort)
+    const usbCdcOnBoot = boardHasUsbCdc(selectedFqbn)
+      && resolveUsbCdcOnBoot(controller.serialRoute, selectedSerialPort)
+    set({
+      busy: true, consoleOpen: true,
+      log: `Compiling a firmware image for ${fqbn}…\n`,
+      status: { phase: 'working', message: 'Compiling…' },
+    })
+    try {
+      const built = await requestBinaryExport(code, fqbn, (chunk) => {
+        const log = (get().log + chunk).slice(-60000)
+        set({ log, status: parseStatus(log) })
+      }, { name: projectName, flashMb, usbCdcOnBoot })
+      if (!built.url) {
+        set({ status: { phase: 'error', message: 'Build failed' } })
+        return
+      }
+      // Fetched rather than linked: the helper is a different origin, so a
+      // plain anchor would navigate the app away instead of downloading.
+      const res = await fetch(built.url)
+      if (!res.ok) throw new Error(`helper returned ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = built.filename ?? 'firmware.bin'
+      a.click()
+      URL.revokeObjectURL(url)
+      get().appendLog(`  Saved ${built.filename}.\n`)
+      set({ status: { phase: 'done', message: 'Binary exported' } })
+    } catch (err) {
+      get().appendLog(`\n[error] ${err}\n`)
+      set({ status: { phase: 'error', message: 'Export failed' } })
+    } finally {
+      set({ busy: false })
+      const phase = get().status.phase
+      if (phase === 'done' || phase === 'error') scheduleStatusReset(set, get, phase)
+    }
   },
 
   locate: async (path) => {

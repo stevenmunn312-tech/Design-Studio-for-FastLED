@@ -350,6 +350,51 @@ export async function uploadSketch(
   await pipeStream(res, onLog)
 }
 
+export interface BinaryExport {
+  /** Fetch the finished image. Absent when the compile failed. */
+  url?: string
+  filename?: string
+  bytes?: number
+}
+
+/**
+ * Compile a sketch and hand back where its firmware image can be downloaded.
+ *
+ * Two requests rather than one: the compile streams to `onLog` exactly as an
+ * upload does, because it takes as long as one and a silent wait reads as a
+ * hang, and the helper ends the stream with a marker naming the artifact it
+ * produced. A failed compile resolves with no `url` — the log already said
+ * why, so there is nothing to throw.
+ */
+export async function exportBinary(
+  ino: string,
+  fqbn: string,
+  onLog: (chunk: string) => void,
+  opts: { name?: string; flashMb?: number; usbCdcOnBoot?: boolean } = {},
+  signal?: AbortSignal,
+): Promise<BinaryExport> {
+  const res = await fetch(`${BACKEND_URL}/api/compile-binary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ino, fqbn, ...opts }),
+    signal,
+  })
+  let tail = ''
+  await pipeStream(res, (chunk) => {
+    // The marker can land split across two chunks, so match on the running
+    // tail rather than on whatever this chunk happens to contain.
+    tail = (tail + chunk).slice(-400)
+    onLog(chunk)
+  })
+  const found = /\[binary\] id=([0-9a-f]{32}) name=(\S+) bytes=(\d+)/.exec(tail)
+  if (!found) return {}
+  return {
+    url: `${BACKEND_URL}/api/compile-binary/${found[1]}`,
+    filename: found[2],
+    bytes: Number(found[3]),
+  }
+}
+
 /**
  * Stop the build in progress. Resolves `false` when there was nothing running.
  *
