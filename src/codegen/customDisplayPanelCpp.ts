@@ -19,7 +19,9 @@ import {
   type TftController, type TftRotation,
 } from '../state/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
-import { tftControllerForProps, tftTransportForProps } from '../state/nodeLibrary'
+import {
+  tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps,
+} from '../state/nodeLibrary'
 import { displayHasTouch } from '../state/partCatalogue'
 import { emittedTouchBounds } from '../state/transportTouch'
 import { MAX_PIN_NUMBER } from '../state/boardGpio'
@@ -113,7 +115,14 @@ export function customDisplayPanelFromProps(
     id: customDisplayId(id), controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V,
     rotation: asTftRotation(p.tftRotation),
     csPin: integer('csPin', 5), dcPin: integer('dcPin', 16), resetPin: integer('resetPin', 17),
-    sckPin: integer('sckPin', 18), mosiPin: integer('mosiPin', 23), backlightPin: integer('backlightPin', 4),
+    sckPin: integer('sckPin', 18), mosiPin: integer('mosiPin', 23),
+    // 255 is the absent value every reader of this field already guards on.
+    // A module with no backlight line to name must not be given one: the
+    // default below is a real GPIO, and driving a pin this shield never had is
+    // at best wasted and at worst somebody else's wire.
+    backlightPin: transportDisplayPinKeysForProps(p).includes('backlightPin')
+      ? integer('backlightPin', 4)
+      : 255,
     ...(parallel
       ? {
         parallel: {
@@ -417,10 +426,25 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
   if (emit.touch) {
     const t = emit.touch
     lines.push(
-      `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
-      `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
-      `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
-      ...tftTouchIrqSetupCpp(t.irqPin),
+      /*
+       * A bare resistive sheet claims no pins of its own — the same rule
+       * `tftTouchSetupCpp` already states for the fixed layouts. Its four
+       * lines are the panel's, configured by the panel's own setup, and each
+       * read borrows and returns them.
+       *
+       * Claiming them here did more than fight that: with no digitiser to
+       * describe, these fall back to XPT2046 defaults, and one of them is a
+       * GPIO that does not exist on an ESP32-S3. `pinMode` asserts on an
+       * invalid pin, so the board aborted here — in setup, before
+       * `FastLED.addLeds` — and came back with no screen, no LEDs, and a USB
+       * CDC port that enumerates but will not open.
+       */
+      ...(emit.resistive ? [] : [
+        `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
+        `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
+        `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
+        ...tftTouchIrqSetupCpp(t.irqPin),
+      ]),
       `  _cdIndev_${id} = lv_indev_create();`,
       `  lv_indev_set_type(_cdIndev_${id}, LV_INDEV_TYPE_POINTER);`,
       `  lv_indev_set_read_cb(_cdIndev_${id}, _cdIndevRead_${id});`,

@@ -130,6 +130,32 @@ describe('the colour driver speaks through one bus abstraction', () => {
     expect(parallelSetup).toContain('digitalWrite(_cdPanel_panel.rd, HIGH)')
   })
 
+  it('claims no digitiser pins for a bare resistive sheet', () => {
+    /*
+     * The fault that kept a board dark through three other fixes.
+     *
+     * This panel's touch has no controller, so there are no CS/SCK/MOSI/MISO
+     * or IRQ lines to name and the emitter fell back to XPT2046 defaults. One
+     * of those is GPIO23, which does not exist on an ESP32-S3: `pinMode`
+     * asserts on an invalid pin, so the sketch aborted here — in setup, before
+     * `FastLED.addLeds` — and the board came back with no screen, no LEDs and
+     * a USB CDC port that enumerates but will not open. The fixed-layout
+     * driver has stated this rule all along; this one had not.
+     */
+    expect(parallelSetup).not.toMatch(/pinMode\(23[,)]/)
+    expect(parallelSetup).not.toContain('pinMode(15, OUTPUT)')
+    expect(parallelSetup).not.toContain('pinMode(19, INPUT)')
+    // The sheet is still read: only the pin claiming goes, not the input device.
+    expect(parallelSetup).toContain('lv_indev_create();')
+    expect(parallelPanel).toContain('_resPoint(')
+  })
+
+  it('gives a module with no backlight line none', () => {
+    // 255 is the absent value every reader already guards on. The default is a
+    // real GPIO, and this shield has no backlight pin to drive.
+    expect(parallelSetup).toContain('_cdPanel_panel.bl = 255;')
+  })
+
   it('keeps an SPI screen design exactly as it was', () => {
     const spi = customDisplayPanelSetupCpp(customDisplayPanelFromProps('panel', {
       partId: 'st7789v-xpt2046-touch-240x320',
