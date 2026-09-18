@@ -1,0 +1,141 @@
+/* The bank's chip grid. Mirrors TransitionPickerBody's section/grid language so
+   two "pick a set from a catalogue" nodes read the same on the canvas. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+}
+
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.03em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sectionToggle:hover,
+.sectionToggle:focus-visible { color: var(--text-primary); }
+.sectionToggle:focus-visible {
+  outline: 1px solid var(--accent-composite);
+  outline-offset: 2px;
+}
+
+.sectionCaret {
+  display: inline-block;
+  width: 8px;
+  transition: transform 120ms ease-out;
+}
+
+.sectionCaretOpen { transform: rotate(90deg); }
+
+.sectionCount {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+.setActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+/* What the bank costs, stated where the ticking happens: each palette is a
+   48-byte CRGBPalette16 global in the generated sketch. */
+.cost {
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: 9px;
+}
+
+.allBtn {
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 9px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.allBtn:hover { color: var(--text-primary); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border-glow);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card:hover { color: var(--text-primary); }
+
+.on {
+  border-color: var(--accent-composite);
+  color: var(--text-primary);
+}
+
+/* The swatch is the palette itself — a name alone is not how anyone picks one. */
+.swatch {
+  height: 10px;
+  border-radius: 3px;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Position in the bank, because that is the order Next steps through. */
+.order {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  min-width: 10px;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--accent-composite);
+  color: var(--bg-primary);
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+}

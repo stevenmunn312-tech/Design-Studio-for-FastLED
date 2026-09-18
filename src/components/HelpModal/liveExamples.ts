@@ -501,6 +501,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     PaletteFromImage: ['image'],
     Poline: ['colorA', 'colorB', 'colorC'],
     PaletteBlend: ['paletteA', 'paletteB', 'amount'],
+    PaletteBank: ['next'],
     Math: ['a', 'b'],
     Clamp: ['value'],
     MapRange: ['value'],

@@ -10,6 +10,7 @@ import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm
 import { isLedOutputPassThrough, ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
+import { paletteBankEntries } from '../state/paletteBank'
 import type { SignalRangeMismatch } from '../state/signalRange'
 import { playerControlFunction } from '../state/playerControlAssignments'
 import { audioOutputMissing } from '../state/audioOutput'
@@ -2582,6 +2583,21 @@ export function buildGraphDiagnostics(
       fix: 'Give each job its own button or knob, or remove the extra rows from Control Map.',
       nodeIds: nodes.filter((node) => node.data.nodeType === 'ControlMap').map((node) => node.id),
       nodeLabel: 'Control Map',
+    })
+  }
+  for (const bank of nodes.filter((node) => node.data.nodeType === 'PaletteBank')) {
+    // A bank with nothing ticked still builds — everything downstream reads a
+    // palette, so it reports the library default rather than refusing — which
+    // is exactly why it needs saying: the node looks wired and does nothing a
+    // Palette Selector would not do.
+    if (paletteBankEntries(bank.data.properties as Record<string, unknown>).length > 0) continue
+    diagnostics.push({
+      id: `palette-bank-empty-${bank.id}`, severity: 'warning', category: 'connection',
+      title: 'Palette Bank is empty',
+      message: `${nodeLabel(bank)} holds no palettes, so it reports the default and Next does nothing.`,
+      fix: 'Tick the palettes to ship in the bank on the node.',
+      nodeIds: [bank.id],
+      nodeLabel: nodeLabel(bank),
     })
   }
   for (const issue of signalRangeIssues(nodes, edges)) {

@@ -14,6 +14,10 @@ import {
   buttonEdge, blankButtonEdgeState, normalizeButtonEdgeSettings, type ButtonEdgeState,
 } from './transportBridge'
 import {
+  clampPaletteBankIndex, paletteBankEntries, paletteBankLabel, paletteBankSelection,
+  stepPaletteBankIndex,
+} from './paletteBank'
+import {
   clampSegmentBrightness, segmentDashes, renderSegmentClock,
   renderSegmentIndex,
   renderSegmentLevel, segmentFrameText, blankSegmentFrame, segmentControllerFor,
@@ -236,6 +240,12 @@ interface PlayerControlsState {
   patternEncoder?: PatternSelectionState
 }
 const playerControlsState = new Map<string, PlayerControlsState>()
+/** Palette Bank cursors — one per node instance, like every other stateful node. */
+const paletteBankState = new Map<string, {
+  lastT: number
+  index: number
+  buttons: Record<string, ButtonEdgeState>
+}>()
 const transportDisplayTouchState = new Map<string, { pressed: boolean }>()
 
 /**
@@ -6997,6 +7007,39 @@ function createEvalNode(
         const position = applySweepEase(String(props.easing ?? 'sine'), pingPong)
         const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
         out = { color: samplePalette(palette, position) }
+        break
+      }
+
+      case 'PaletteBank': {
+        const entries = paletteBankEntries(props)
+        const key = stateKey(id)
+        const nowMs = t * 1000
+        let state = paletteBankState.get(key)
+        if (!state || t < state.lastT) {
+          state = { lastT: t, index: 0, buttons: {} }
+          paletteBankState.set(key, state)
+        }
+        state.lastT = t
+        // The same debounce/rising-edge rules a transport button uses, from the
+        // one module that owns them — a press has to mean the same thing here
+        // as it does on a player, and as it will on the board.
+        const edgeSettings = normalizeButtonEdgeSettings(props)
+        const press = (port: string): boolean => {
+          let bs = state!.buttons[port]
+          if (!bs) {
+            bs = blankButtonEdgeState(nowMs)
+            state!.buttons[port] = bs
+          }
+          return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, true, edgeSettings)
+        }
+        // Pressed together they cancel, the way +step and -step in one frame net
+        // to nothing — no precedence rule needed.
+        const held = clampPaletteBankIndex(state.index, entries.length)
+        const delta = (press('next') ? 1 : 0) - (press('previous') ? 1 : 0)
+        const index = delta === 0 ? held : stepPaletteBankIndex(held, entries.length, delta)
+        state.index = index
+        const selected = paletteBankSelection(entries, index)
+        out = { palette: selected, name: displayString(paletteBankLabel(selected)), index }
         break
       }
 

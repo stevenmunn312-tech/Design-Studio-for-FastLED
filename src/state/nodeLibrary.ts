@@ -2196,6 +2196,31 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
   },
   {
+    // An ordered bank of presets the author ships, stepped by Next/Previous and
+    // wrapping at both ends — the palette answer to Pattern Collection.
+    //
+    // A *builder*, not a selector: it carries no `palette` property, so
+    // `PALETTE_BUILDER_NODE_TYPES` derives that on its own and downstream nodes
+    // reference its generated `pal_<id>` rather than one preset constant. That
+    // is what makes the bank cost what it holds — the generator names only the
+    // presets ticked here, and `customPaletteDeclarationsCpp` declares only the
+    // palettes a sketch names, at 48 bytes of RAM each.
+    type: 'PaletteBank',
+    label: 'Palette Bank',
+    category: 'color',
+    subcategory: 'Palettes',
+    inputs: [
+      { id: 'next', label: 'Next', dataType: 'bool' },
+      { id: 'previous', label: 'Previous', dataType: 'bool' },
+    ],
+    outputs: [
+      { id: 'palette', label: 'Palette', dataType: 'palette' },
+      { id: 'name', label: 'Name', dataType: 'string' },
+      { id: 'index', label: 'Index', dataType: 'float' },
+    ],
+    defaultProperties: { palettes: [] },
+  },
+  {
     type: 'BeatSin',
     label: 'BeatSin',
     category: 'signal',
@@ -3831,6 +3856,7 @@ export function isPaletteBuilderNodeType(nodeType: string): boolean {
 }
 
 export const NODE_DESCRIPTIONS: Record<string, string> = {
+  PaletteBank: 'An ordered bank of palettes Next/Previous steps through, wrapping at both ends.',
   // audio
   FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',

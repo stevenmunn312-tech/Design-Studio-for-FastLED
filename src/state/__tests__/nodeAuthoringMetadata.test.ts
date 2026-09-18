@@ -22,7 +22,7 @@ describe('palette producers', () => {
     // derived from the one thing that already tells them apart — a selector
     // carries a `palette` property, a builder makes one out of its inputs.
     expect([...PALETTE_BUILDER_NODE_TYPES].sort())
-      .toEqual(['CustomPalette', 'PaletteBlend', 'PaletteFromImage', 'Poline'])
+      .toEqual(['CustomPalette', 'PaletteBank', 'PaletteBlend', 'PaletteFromImage', 'Poline'])
     expect(isPaletteBuilderNodeType('PaletteSelector')).toBe(false)
     expect(isPaletteBuilderNodeType('Fire2012')).toBe(false)
   })

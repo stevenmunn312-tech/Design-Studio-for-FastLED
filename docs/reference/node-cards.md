@@ -404,6 +404,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Blend Palettes example graph](../../public/node-cards/graphs/palette-blend.svg)
 
+### Palette Bank
+
+![Palette Bank node](../../public/node-cards/palette-bank.svg)
+
+![Palette Bank example graph](../../public/node-cards/graphs/palette-bank.svg)
+
 ## Patterns
 
 ### Solid Color

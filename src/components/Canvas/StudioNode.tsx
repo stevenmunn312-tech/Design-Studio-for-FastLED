@@ -83,6 +83,7 @@ const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody'))
 const PatternCollectionBody = lazy(() => import('./PatternCollectionBody'))
 const TransitionSetBody = lazy(() => import('./TransitionSetBody'))
+const PaletteBankBody = lazy(() => import('./PaletteBankBody'))
 const TransitionPickerBody = lazy(() => import('./TransitionPickerBody').then((m) => ({ default: m.TransitionBody })))
 const CustomPaletteEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.CustomPaletteEditorBody })))
 const PolineEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.PolineEditorBody })))
@@ -1871,6 +1872,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}
           {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
+          {d.nodeType === 'PaletteBank' && <PaletteBankBody nodeId={id} />}
 
 
         </Suspense>
