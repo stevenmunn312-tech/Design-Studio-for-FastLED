@@ -4357,6 +4357,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 // speedRange.ts), so the slider is uniform even where the underlying range
 // differs.
 const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
+// A shape's own size, in pixels of the 16x16 reference grid that
+// `matrixSizeScale` multiplies up — shared by Circle's radius and Shape's
+// size, which are the same knob on the same SDF renderer.
+const SHAPE_SIZE_PX: PropertyControl = { control: 'slider', min: 0, max: 16, step: 0.5 }
 const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
   touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -4480,6 +4484,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Circle: {
     cx: N01,
     cy: N01,
+    // Pixels on the 16x16 reference grid, multiplied by `scaleWithMatrix`
+    // afterwards — so 16 already overruns a square matrix, and a bigger panel
+    // gets its reach from the scale rather than from a bigger number here.
+    // Declaring the domain is also what lets Graph Health say so: a 0-1 source
+    // wired straight in draws a half-pixel dot, and `signalRangeMismatch`
+    // derives the range it must be mapped into from this slider.
+    radius: SHAPE_SIZE_PX,
     thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
   Text: {
@@ -4833,6 +4844,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Shape: {
     cx:        N01,
     cy:        N01,
+    // The same knob as Circle's radius — a circle is this node's ellipse at
+    // aspect 1 — so it carries the same domain.
+    size:      SHAPE_SIZE_PX,
     shape:     { control: 'select', options: ['rect', 'ellipse', 'polygon'] },
     aspect:    { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     // Fractional sides morph the polygon between vertex counts.
