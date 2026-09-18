@@ -47,9 +47,15 @@ export default defineConfig(() => {
     server: {
       headers: crossOriginIsolationHeaders,
       allowedHosts: namedLocalHosts,
+      // A build writing here is not a source change, and watching it is worse
+      // than useless: chokidar throws EBUSY on a compiler's open output file
+      // and the error kills the dev server mid-session. Every toolchain output
+      // directory under backend/ belongs in this list.
       watch: {
         ignored: [
           '**/backend/.fbuild-project/**',
+          '**/backend/sketches/**',
+          '**/backend/exports/**',
           '**/backend/__pycache__/**',
           '**/backend/.pytest_cache/**',
         ],
