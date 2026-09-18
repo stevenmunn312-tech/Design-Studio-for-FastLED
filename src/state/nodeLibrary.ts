@@ -2213,6 +2213,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'next', label: 'Next', dataType: 'bool' },
       { id: 'previous', label: 'Previous', dataType: 'bool' },
     ],
+    // A press, not a value — so a touch control minted on one of these is a
+    // momentary Button rather than a latch. Declaring them here is what makes
+    // the Touch node's add-control socket able to land on them at all;
+    // `controllableInputsFor` reaches a port through a backing property or
+    // through this list, and Next has no property behind it to find.
+    actionInputs: ['next', 'previous'],
+    // Declaring an action input takes the socket out of the always-drawn rows,
+    // so both are exposed by default and the node looks exactly as it did.
+    defaultExposedInputs: ['next', 'previous'],
     outputs: [
       { id: 'palette', label: 'Palette', dataType: 'palette' },
       { id: 'name', label: 'Name', dataType: 'string' },

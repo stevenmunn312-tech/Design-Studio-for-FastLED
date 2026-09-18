@@ -72,6 +72,28 @@ export function clampPaletteBankIndex(index: number, count: number): number {
   return Math.min(count - 1, Math.max(0, whole))
 }
 
+/**
+ * Move one entry to another position, as a drag does.
+ *
+ * Order is the bank's contract — Next steps through it — so this is a real
+ * edit, not a view concern, and it lives here with the rest of the bank's
+ * rules. Out-of-range indices are clamped rather than refused: a drop past
+ * the end of the list means the end of the list, which is what the gesture
+ * looks like.
+ */
+export function movePaletteBankEntry(
+  entries: readonly string[], from: number, to: number,
+): string[] {
+  const next = [...entries]
+  if (next.length < 2) return next
+  const source = clampPaletteBankIndex(from, next.length)
+  const target = clampPaletteBankIndex(to, next.length)
+  if (source === target) return next
+  const [moved] = next.splice(source, 1)
+  next.splice(target, 0, moved)
+  return next
+}
+
 /** How a palette reads on a screen — the catalogue's own label. */
 export function paletteBankLabel(id: string): string {
   return PALETTE_DEFS.find((palette) => palette.id === id)?.label ?? id

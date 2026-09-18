@@ -5,9 +5,12 @@ import {
   paletteBankEntries,
   paletteBankLabel,
   paletteBankSelection,
+  movePaletteBankEntry,
   stepPaletteBankIndex,
 } from '../paletteBank'
 import { evaluateScalarSeries } from '../graphEvaluator'
+import { touchControlPlan } from '../wireFirstControls'
+import { exposedNodeInputs } from '../propertyInputs'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -43,6 +46,40 @@ describe('paletteBankEntries', () => {
   })
 })
 
+describe('reordering the bank', () => {
+  it('moves an entry to the dropped position', () => {
+    expect(movePaletteBankEntry(['ocean', 'lava', 'forest'], 2, 0))
+      .toEqual(['forest', 'ocean', 'lava'])
+    expect(movePaletteBankEntry(['ocean', 'lava', 'forest'], 0, 2))
+      .toEqual(['lava', 'forest', 'ocean'])
+  })
+
+  it('leaves the order alone when nothing moved', () => {
+    const bank = ['ocean', 'lava']
+    expect(movePaletteBankEntry(bank, 1, 1)).toEqual(bank)
+    expect(movePaletteBankEntry(['ocean'], 0, 1)).toEqual(['ocean'])
+    expect(movePaletteBankEntry([], 0, 0)).toEqual([])
+  })
+
+  it('reads a drop past the end as the end', () => {
+    // The gesture means "last", so it is clamped rather than refused.
+    expect(movePaletteBankEntry(['ocean', 'lava', 'forest'], 0, 9))
+      .toEqual(['lava', 'forest', 'ocean'])
+    expect(movePaletteBankEntry(['ocean', 'lava', 'forest'], 2, -4))
+      .toEqual(['forest', 'ocean', 'lava'])
+  })
+
+  it('never drops or duplicates a palette', () => {
+    const bank = ['ocean', 'lava', 'forest', 'ice']
+    for (let from = 0; from < bank.length; from++) {
+      for (let to = 0; to < bank.length; to++) {
+        const moved = movePaletteBankEntry(bank, from, to)
+        expect([...moved].sort(), `${from}->${to}`).toEqual([...bank].sort())
+      }
+    }
+  })
+})
+
 describe('the bank cursor', () => {
   it('wraps at both ends', () => {
     expect(stepPaletteBankIndex(2, 3, 1)).toBe(0)
@@ -68,6 +105,35 @@ describe('the bank cursor', () => {
 
   it('names a palette the way the catalogue does', () => {
     expect(paletteBankLabel('cottoncandy')).toBe('Cotton Candy')
+  })
+})
+
+describe('driving a bank from a touch control', () => {
+  it('accepts a control on Next and Previous, as a momentary button', () => {
+    // A wire dropped from the Touch node's add-control socket reaches a port
+    // through a backing property or through `actionInputs`; Next has no
+    // property behind it, so without that declaration the drop is refused and
+    // the gesture reads as broken.
+    for (const port of ['next', 'previous']) {
+      const plan = touchControlPlan('PaletteBank', port, {}, false)
+      expect(plan.ok, port).toBe(true)
+      // A press, never a latch: a Toggle would keep saying "pressed" after the
+      // finger left and step the bank every frame.
+      if (plan.ok) expect(plan.spec.type, port).toBe('Button')
+    }
+  })
+
+  it('keeps both sockets drawn by default', () => {
+    // Declaring an action input takes its socket out of the always-drawn rows,
+    // so the node would silently lose the two ports it is steered by if they
+    // were not also exposed by default.
+    expect(exposedNodeInputs('PaletteBank', undefined, new Set()).map((port) => port.id))
+      .toEqual(['next', 'previous'])
+  })
+
+  it('still refuses a control on an input that takes a signal', () => {
+    // The bank's own outputs are not controls, and neither is a palette wire.
+    expect(touchControlPlan('PaletteBank', 'palette', {}, false).ok).toBe(false)
   })
 })
 

@@ -1,20 +1,24 @@
 import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { PALETTE_DEFS } from '../../state/paletteCatalog'
-import { paletteBankEntries } from '../../state/paletteBank'
+import { movePaletteBankEntry, paletteBankEntries, paletteBankLabel } from '../../state/paletteBank'
 import styles from './PaletteBankBody.module.css'
 
 const PALETTE_BANK_OPEN_KEY = 'fls.paletteBank.open'
 
+/** A palette's own stops, for the swatch both lists draw. */
+function stopsFor(id: string): readonly string[] {
+  return PALETTE_DEFS.find((palette) => palette.id === id)?.stops ?? []
+}
+
 /**
- * The bank's chip grid.
+ * The bank's contents, then the catalogue to add from.
  *
- * Order is the node's whole contract — Next steps through this list in the
- * order it was ticked — so each chip carries its position rather than leaving
- * the author to infer it from the catalogue's order, which is not the bank's.
- * Ticking appends and unticking removes, so re-ordering is untick/retick; a
- * drag reorder would be the better tool and is deliberately not invented here
- * before anyone has asked for it.
+ * Two lists rather than one, because they answer different questions. Order is
+ * the node's whole contract — Next steps through the bank in this order — and
+ * that order is not the catalogue's, so the bank is drawn as its own ordered
+ * strip you can drag, while the grid below stays in catalogue order for
+ * finding a palette by sight.
  */
 export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
   const [open, setOpen] = useState(() => {
@@ -28,9 +32,23 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
     (s) => s.nodes.find((n) => n.id === nodeId)?.data.properties as Record<string, unknown> | undefined,
   )
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
+  // Which row is being dragged, and where it would land. Held here rather than
+  // read back out of the drag event, because `dragover` fires on the row being
+  // crossed and only this side knows what started moving.
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
   // Read through the same normalizer the evaluator and the generator use, so
   // the chips can never show a bank different from the one that renders.
   const bank = paletteBankEntries(properties ?? {})
+
+  const reorder = (from: number, to: number) => {
+    const next = movePaletteBankEntry(bank, from, to)
+    if (next.join() !== bank.join()) updateNodeProperty(nodeId, 'palettes', next)
+  }
+  const endDrag = () => {
+    setDragFrom(null)
+    setDragOver(null)
+  }
 
   const toggle = (id: string) => {
     const next = bank.includes(id) ? bank.filter((entry) => entry !== id) : [...bank, id]
@@ -72,6 +90,72 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
               {allOn ? 'clear' : 'all'}
             </button>
           </div>
+          {bank.length > 0 && (
+            <ol
+              className={styles.bank}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault()
+                if (dragFrom !== null && dragOver !== null) reorder(dragFrom, dragOver)
+                endDrag()
+              }}
+            >
+              {bank.map((id, position) => (
+                <li
+                  key={id}
+                  className={[
+                    styles.bankRow,
+                    dragFrom === position ? styles.bankRowDragging : '',
+                    dragOver === position && dragFrom !== position ? styles.bankRowOver : '',
+                  ].filter(Boolean).join(' ')}
+                  draggable
+                  onDragStart={(event) => {
+                    setDragFrom(position)
+                    setDragOver(position)
+                    // Firefox starts no drag at all without payload on the event.
+                    event.dataTransfer.setData('text/plain', id)
+                    event.dataTransfer.effectAllowed = 'move'
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                    setDragOver(position)
+                  }}
+                  onDragEnd={endDrag}
+                >
+                  <span className={styles.bankOrder}>{position + 1}</span>
+                  <span
+                    className={styles.bankSwatch}
+                    style={{ background: `linear-gradient(90deg, ${stopsFor(id).join(', ')})` }}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.label}>{paletteBankLabel(id)}</span>
+                  {/* Drag is the tool; these are the same edit for anyone not
+                      using a pointer, and what the reorder tests drive. */}
+                  <span className={styles.bankMoves}>
+                    <button
+                      type="button"
+                      className={styles.moveBtn}
+                      disabled={position === 0}
+                      aria-label={`Move ${paletteBankLabel(id)} earlier`}
+                      onClick={() => reorder(position, position - 1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.moveBtn}
+                      disabled={position === bank.length - 1}
+                      aria-label={`Move ${paletteBankLabel(id)} later`}
+                      onClick={() => reorder(position, position + 1)}
+                    >
+                      ▼
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
           <div className={styles.grid}>
             {PALETTE_DEFS.map((palette) => {
               const position = bank.indexOf(palette.id)

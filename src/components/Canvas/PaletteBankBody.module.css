@@ -139,3 +139,70 @@
   font-weight: 700;
   text-align: center;
 }
+
+/* The bank itself: an ordered strip you can drag, above the catalogue grid.
+   Drawn separately because its order is the node's contract and is not the
+   catalogue's order. */
+.bank {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bankRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  cursor: grab;
+}
+
+.bankRow:active { cursor: grabbing; }
+
+.bankRowDragging { opacity: 0.45; }
+
+/* Where the row would land. A top edge rather than a fill, so the gap being
+   dropped into is what is marked, not the row being crossed. */
+.bankRowOver { border-top-color: var(--accent-composite); }
+
+.bankOrder {
+  min-width: 9px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.bankSwatch {
+  width: 22px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.bankMoves {
+  margin-left: auto;
+  display: flex;
+  gap: 1px;
+}
+
+.moveBtn {
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 8px;
+  line-height: 1;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+.moveBtn:hover:not(:disabled) { color: var(--text-primary); }
+.moveBtn:disabled { opacity: 0.25; cursor: default; }
