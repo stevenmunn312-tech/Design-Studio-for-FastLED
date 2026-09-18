@@ -33,33 +33,45 @@
 </g>
 <text x="8" y="213" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">rA</text>
 <g>
-<rect x="160" y="201" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="213" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">0</text>
+<rect x="120" y="207" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="207" width="0.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="120.0" cy="209" r="5" fill="#d633ff"/>
+<text x="232" y="213" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
 </g>
 <text x="8" y="234" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">gA</text>
 <g>
-<rect x="160" y="222" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="234" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">200</text>
+<rect x="120" y="228" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="228" width="56.5" height="4" rx="2" fill="#d633ff"/>
+<circle cx="176.5" cy="230" r="5" fill="#d633ff"/>
+<text x="232" y="234" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">200</text>
 </g>
 <text x="8" y="255" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bA</text>
 <g>
-<rect x="160" y="243" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="255" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">255</text>
+<rect x="120" y="249" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="249" width="72.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="192.0" cy="251" r="5" fill="#d633ff"/>
+<text x="232" y="255" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">255</text>
 </g>
 <text x="8" y="276" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">rB</text>
 <g>
-<rect x="160" y="264" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="276" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">255</text>
+<rect x="120" y="270" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="270" width="72.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="192.0" cy="272" r="5" fill="#d633ff"/>
+<text x="232" y="276" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">255</text>
 </g>
 <text x="8" y="297" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">gB</text>
 <g>
-<rect x="160" y="285" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="297" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">0</text>
+<rect x="120" y="291" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="291" width="0.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="120.0" cy="293" r="5" fill="#d633ff"/>
+<text x="232" y="297" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
 </g>
 <text x="8" y="318" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bB</text>
 <g>
-<rect x="160" y="306" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="318" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">255</text>
+<rect x="120" y="312" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="312" width="72.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="192.0" cy="314" r="5" fill="#d633ff"/>
+<text x="232" y="318" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">255</text>
 </g>
 <text x="8" y="339" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
 <g>
