@@ -410,7 +410,7 @@ matrix, not a reason to postpone testing earlier changes.
   control chain are ordinary wires, and a reading taken from the panel's own
   source instead of a cable says so in one place, the widget's **Reads** row in
   the inspector (HW-30). No template carries a binding that is not shown there.
-- [ ] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
+- [x] **HW-08 · Starters, visual QA and help (M; after HW-07).** Connected live
   dimming, slideshow browse/confirm and music transport/readback examples;
   update in-app Help, descriptions/cards and guides together. Snapshot fixed
   layouts, widget states, launch themes and templates at supported sizes and
@@ -514,6 +514,14 @@ matrix, not a reason to postpone testing earlier changes.
   measured bounds remain HW-11 work. No new physical validation is claimed by
   these software checks. `npm test` (4,790 passed, 13 skipped), `npm run lint`
   and `tsc -b` pass.
+
+  **Closed 2026-09-21.** Regenerated and visually reviewed all seven fixed-layout
+  and template contact sheets across the 128x64, 240x240, 240x320 and 320x240
+  surfaces. The surface, theme-preset and theme golden suites pass together
+  (124 tests), confirming the recorded layouts and all nineteen themes remain
+  in step with the reviewed output. This closes the software visual-QA exit;
+  guided calibration and physical panel measurements remain correctly scoped to
+  HW-11.
 - [x] **HW-09 · Collection freshness/music completeness (M).** Both open
   questions from [collection-driven
   performance](docs/development/design/collection-driven-performance.md#open-questions)
