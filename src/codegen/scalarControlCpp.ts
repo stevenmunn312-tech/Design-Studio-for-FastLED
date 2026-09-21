@@ -124,6 +124,8 @@ export function scalarControlCpp(
   return {
     loop: loop ?? [`  ${SCALAR_CONTROL_NODES[type].type} ${output} = ${expression};`],
     needsMapFloat: type === 'MapRange',
-    needsDisplayText: type === 'TextValue' || type === 'FormatNumber',
+    // TextValue is already a baked C string. Only runtime number formatting
+    // calls the generated display-number helper.
+    needsDisplayText: type === 'FormatNumber',
   }
 }

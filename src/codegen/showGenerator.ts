@@ -47,7 +47,7 @@ import {
   segmentDisplaySetupCpp, segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
 import {
-  tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
+  tftDisplayHelperProfile, tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
 import {
@@ -604,6 +604,7 @@ function showDisplaysCpp(
       touch: display.touch!,
     }))
   const touchBundleIds = new Set([...controls.touchIds].map(safeId))
+  const hasSpiTft = tftEmits.some((display) => !display.parallel)
 
   // The header follows the driver, not the transport: the shared OLED driver
   // compiles its Wire branch whichever bus the panel is on, so an SPI-only
@@ -614,7 +615,7 @@ function showDisplaysCpp(
   return {
     includes: [
       ...(hasInfo ? ['#include <Wire.h>'] : []),
-      ...(hasTft ? [TFT_DISPLAY_CPP_INCLUDES] : []),
+      ...(hasSpiTft ? [TFT_DISPLAY_CPP_INCLUDES] : []),
     ],
     forwards: [
       ...(hasInfo ? [INFO_DISPLAY_CPP_FORWARD] : []),
@@ -628,7 +629,7 @@ function showDisplaysCpp(
       browsers.length > 0 ? patternThumbnailTableCpp(SHOW_SELECTION_STEM, thumbnails) : '',
       hasSegment ? SEGMENT_DISPLAY_CPP_HELPERS : '',
       hasSegment ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
-      hasTft ? tftDisplayHelpersCpp() : '',
+      hasTft ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
       hasArtwork ? transportArtworkTableCpp(SHOW_SELECTION_STEM, artworks) : '',
       touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
       touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',

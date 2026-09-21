@@ -3821,6 +3821,7 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('n_rtc_valid = true;')
     expect(cpp).toContain('n_rtc_secondsOfDay = (float)_rtcSecondsOfDay_rtc + _rtcMillisRema_rtc / 1000.0f;')
     expect(cpp).toContain('_RtcDateTimeValue n_rtc_dateTime = { n_rtc_valid, n_rtc_synced, n_rtc_stale')
+    expect(cpp).not.toContain('_rtcNtpConfigured_rtc')
   })
 
   it('emits a manual firmware clock seed when requested', () => {
@@ -3837,6 +3838,14 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('_rtcSeedValid_rtc = _rtcValidDateTime(2026, 12, 31, 23, 59, 58);')
     expect(cpp).toContain('_rtcBaseDays_rtc = _rtcDaysFromCivil(2026, 12, 31);')
     expect(cpp).toContain('_rtcBaseSeconds_rtc = (uint32_t)(23) * 3600u + (uint32_t)(59) * 60u + (uint32_t)(58);')
+    expect(cpp).not.toContain('_rtcNtpConfigured_rtc')
+  })
+
+  it('emits NTP configuration state only for an NTP clock', () => {
+    const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP' })
+    const cpp = generateCpp([rtc], [])
+    expect(cpp).toContain('static bool _rtcNtpConfigured_rtc = false;')
+    expect(cpp).toContain('if (_wifiConnected() && !_rtcNtpConfigured_rtc)')
   })
 
   it('reads a DS3231 directly over Wire without a third-party RTC library', () => {
@@ -3855,6 +3864,7 @@ describe('RTCInput (codegen)', () => {
     expect(cpp).toContain('n_rtc_stale = _rtcChipStale_rtc;')
     expect(cpp).not.toContain('#include <RTClib.h>')
     expect(cpp).not.toContain('_rtcParseBuildStamp(__DATE__, __TIME__, _rtcBuild_rtc);')
+    expect(cpp).not.toContain('_rtcNtpConfigured_rtc')
   })
 
   it('uses an exact Espressif board profile when its Wire pins differ from the generic target', () => {

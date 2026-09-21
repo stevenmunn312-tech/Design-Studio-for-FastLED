@@ -3,6 +3,7 @@ import {
   TFT_DISPLAY_CPP_FORWARD,
   TFT_DISPLAY_CPP_INCLUDES,
   TFT_PANEL_RAM_BYTES,
+  tftDisplayHelperProfile,
   tftDisplayHelpersCpp,
   tftDisplayGlobalCpp,
   tftDisplayLoopCpp,
@@ -40,6 +41,50 @@ const emit = (over: Partial<TftDisplayEmit> = {}): TftDisplayEmit => ({
 })
 
 const helpers = tftDisplayHelpersCpp()
+
+describe('per-sketch helper specialization', () => {
+  it('sizes a clock panel for only the cache and helpers it reads', () => {
+    const profile = tftDisplayHelperProfile([emit({ layout: 'Clock' })])
+    const source = tftDisplayHelpersCpp(profile)
+
+    expect(profile).toMatchObject({ textSlots: 3, valueSlots: 0, spi: true, parallel: false })
+    expect(source).toContain('#define TFT_TEXT_SLOTS 3')
+    expect(source).toContain('#define TFT_VALUE_SLOTS 0')
+    expect(source).not.toContain('int32_t value[TFT_VALUE_SLOTS]')
+    expect(source).not.toContain('_tftValueDirty')
+    expect(source).not.toContain('static void _tftBar(')
+    expect(source).not.toContain('static long _tftWhole(')
+    expect(source).not.toContain('static void _tftTime(')
+    expect(source).not.toContain('static void _tftArt(')
+    expect(source).not.toContain('bool parallel;')
+    expect(source).not.toContain('uint8_t d[8];')
+    expect(source).toContain('SPI.transfer(value);')
+  })
+
+  it('removes SPI state and calls from a parallel-only sketch', () => {
+    const panel = emit({
+      layout: 'Waiting',
+      parallel: { dataPins: [1, 2, 3, 4, 5, 6, 7, 8], wrPin: 9, rdPin: 10 },
+    })
+    const source = tftDisplayHelpersCpp(tftDisplayHelperProfile([panel]))
+
+    expect(source).not.toContain('SPISettings')
+    expect(source).not.toMatch(/\bSPI\./)
+    expect(source).not.toContain('bool parallel;')
+    expect(source).toContain('uint8_t d[8];')
+    expect(source).toContain('digitalWrite(p.wr, HIGH);')
+  })
+
+  it('keeps the discriminator only when both transports occur', () => {
+    const source = tftDisplayHelpersCpp(tftDisplayHelperProfile([
+      emit(),
+      emit({ id: 'parallel', parallel: { dataPins: [1, 2, 3, 4, 5, 6, 7, 8], wrPin: 9, rdPin: 10 } }),
+    ]))
+
+    expect(source).toContain('bool parallel;')
+    expect(source).toContain('if (!p.parallel) { SPI.transfer(value); return; }')
+  })
+})
 
 describe('the sketch preamble', () => {
   // The Arduino .ino preprocessor hoists a prototype for every function above

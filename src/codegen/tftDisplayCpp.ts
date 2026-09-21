@@ -143,6 +143,88 @@ const TFT_MIN_INTERVAL_MS = 80
  */
 const TFT_CHUNK_PIXELS = 32
 
+export interface TftDisplayHelperProfile {
+  textSlots: number
+  valueSlots: number
+  spi: boolean
+  parallel: boolean
+  rect: boolean
+  bar: boolean
+  whole: boolean
+  time: boolean
+  artwork: boolean
+}
+
+const FULL_TFT_HELPER_PROFILE: TftDisplayHelperProfile = {
+  textSlots: TFT_TEXT_SLOTS,
+  valueSlots: TFT_VALUE_SLOTS,
+  spi: true,
+  parallel: true,
+  rect: true,
+  bar: true,
+  whole: true,
+  time: true,
+  artwork: true,
+}
+
+/** The smallest shared runtime capable of serving every TFT in one sketch. */
+export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): TftDisplayHelperProfile {
+  let textSlots = 0
+  let valueSlots = 0
+  let bar = false
+  let rect = false
+  let whole = false
+  let time = false
+  let artwork = false
+
+  for (const display of displays) {
+    switch (display.layout) {
+      case 'Now Playing':
+        textSlots = Math.max(textSlots, Object.keys(NOW_PLAYING_TEXT_SLOTS).length)
+        valueSlots = Math.max(valueSlots, Object.keys(NOW_PLAYING_VALUE_SLOTS).length)
+        bar = true
+        rect = true
+        time = true
+        if (display.artwork) { artwork = true; whole = true }
+        break
+      case 'Show Status':
+        textSlots = Math.max(textSlots, Object.keys(SHOW_STATUS_TEXT_SLOTS).length)
+        whole = true
+        break
+      case 'LED Status':
+        textSlots = Math.max(textSlots, Object.keys(LED_STATUS_TEXT_SLOTS).length)
+        break
+      case 'Fixed Transport':
+        textSlots = Math.max(textSlots, Object.keys(FIXED_TRANSPORT_TEXT_SLOTS).length)
+        valueSlots = Math.max(valueSlots, Object.keys(FIXED_TRANSPORT_VALUE_SLOTS).length)
+        bar = true
+        rect = true
+        break
+      case 'Clock':
+        textSlots = Math.max(textSlots, Object.keys(CLOCK_TEXT_SLOTS).length)
+        break
+      case 'Diagnostics':
+        rect = true
+        if (display.diagnosticTouch) textSlots = Math.max(textSlots, 3)
+        break
+      case 'Waiting':
+        break
+    }
+  }
+
+  return {
+    textSlots,
+    valueSlots,
+    spi: displays.some((display) => !display.parallel),
+    parallel: displays.some((display) => !!display.parallel),
+    rect,
+    bar,
+    whole,
+    time,
+    artwork,
+  }
+}
+
 function alignTo4(bytes: number): number {
   return Math.ceil(bytes / 4) * 4
 }
@@ -161,14 +243,17 @@ function alignTo4(bytes: number): number {
  * measures the real figure.
  */
 export const TFT_PANEL_RAM_BYTES = (() => {
-  const pins = 6                                   // cs, dc, rst, sck, mosi, bl
+  // Worst case: a mixed SPI/parallel sketch needs the transport discriminator,
+  // eight data lines and WR. Reset, SCK, MOSI and RD are setup-only arguments
+  // and are no longer retained in every panel instance.
+  const pinsAndTransport = 3 + 1 + 8 + 1           // cs, dc, bl, parallel, d[8], wr
   const flags = 3                                  // madctl, lit, painted
   const dims = 8                                   // w, h, colStart, rowStart
   const cache = TFT_TEXT_SLOTS * (TFT_SLOT_CHARS + 1)
   const scratch = TFT_CHUNK_PIXELS * 2
   const values = TFT_VALUE_SLOTS * 4
   const clocks = 8                                 // lastPaintMs, lastFullMs
-  return alignTo4(pins + flags + dims + cache + scratch) + values + clocks
+  return alignTo4(pinsAndTransport + flags + dims + cache + scratch) + values + clocks
 })()
 
 /**
@@ -209,9 +294,169 @@ function hex16(value: number): string {
 const ALIGN_CPP: Record<TftField['align'], number> = { left: 0, center: 1, right: 2 }
 
 /** Driver, primitives and the glyph table, emitted once per sketch. */
-export function tftDisplayHelpersCpp(): string {
+export function tftDisplayHelpersCpp(
+  profile: TftDisplayHelperProfile = FULL_TFT_HELPER_PROFILE,
+): string {
   const font = fontTableCpp()
   const c = TRANSPORT_COLORS
+  const mixedTransport = profile.spi && profile.parallel
+  const spiGlobals = profile.spi
+    ? `static SPISettings _tftSpi(40000000, MSBFIRST, SPI_MODE0);\nstatic bool _tftSpiStarted = false;`
+    : ''
+  const transportFields = mixedTransport
+    ? `  bool parallel;\n  uint8_t d[8];\n  uint8_t wr;`
+    : profile.parallel
+      ? `  uint8_t d[8];\n  uint8_t wr;`
+      : ''
+  const textCacheField = profile.textSlots > 0
+    ? `  char text[TFT_TEXT_SLOTS][TFT_SLOT_CHARS + 1];`
+    : ''
+  const valueCacheField = profile.valueSlots > 0
+    ? `  int32_t value[TFT_VALUE_SLOTS];`
+    : ''
+  const busFunctions = mixedTransport
+    ? `static inline void _tftTxnBegin(TftPanel &p) {
+  if (!p.parallel) SPI.beginTransaction(_tftSpi);
+}
+
+static inline void _tftTxnEnd(TftPanel &p) {
+  if (!p.parallel) SPI.endTransaction();
+}
+
+static inline void _tftWrite8(TftPanel &p, uint8_t value) {
+  if (!p.parallel) { SPI.transfer(value); return; }
+  for (uint8_t b = 0; b < 8; b++) digitalWrite(p.d[b], (value >> b) & 1);
+  digitalWrite(p.wr, LOW);
+  digitalWrite(p.wr, HIGH);
+}`
+    : profile.parallel
+      ? `static inline void _tftTxnBegin(TftPanel &) {}
+
+static inline void _tftTxnEnd(TftPanel &) {}
+
+static inline void _tftWrite8(TftPanel &p, uint8_t value) {
+  for (uint8_t b = 0; b < 8; b++) digitalWrite(p.d[b], (value >> b) & 1);
+  digitalWrite(p.wr, LOW);
+  digitalWrite(p.wr, HIGH);
+}`
+      : `static inline void _tftTxnBegin(TftPanel &) { SPI.beginTransaction(_tftSpi); }
+
+static inline void _tftTxnEnd(TftPanel &) { SPI.endTransaction(); }
+
+static inline void _tftWrite8(TftPanel &, uint8_t value) { SPI.transfer(value); }`
+  const transportAssignments = mixedTransport
+    ? `  p.parallel = (dataPins != nullptr);
+  p.wr = wr;
+  for (uint8_t b = 0; b < 8; b++) p.d[b] = p.parallel ? dataPins[b] : 255;`
+    : profile.parallel
+      ? `  p.wr = wr;
+  for (uint8_t b = 0; b < 8; b++) p.d[b] = dataPins[b];`
+      : ''
+  const spiBegin = `if (!_tftSpiStarted) {
+#if defined(ESP32)
+    // The GPIO matrix routes the peripheral to whichever pins the build chose,
+    // so an arbitrary pinout still gets hardware SPI.
+    SPI.begin(sck, -1, mosi, -1);
+#elif defined(ESP8266)
+    // ESP8266 exposes pin selection separately from begin().
+    SPI.pins(sck, MISO, mosi, -1);
+    SPI.begin();
+#else
+    SPI.begin();
+#endif
+    _tftSpiStarted = true;
+  }`
+  const parallelBegin = `for (uint8_t b = 0; b < 8; b++) { pinMode(p.d[b], OUTPUT); digitalWrite(p.d[b], LOW); }
+  pinMode(p.wr, OUTPUT); digitalWrite(p.wr, HIGH);
+  if (rd != 255) { pinMode(rd, OUTPUT); digitalWrite(rd, HIGH); }`
+  const beginBus = mixedTransport
+    ? `if (p.parallel) {
+    ${parallelBegin.replaceAll('\n', '\n    ')}
+  } else ${spiBegin}`
+    : profile.parallel
+      ? parallelBegin
+      : spiBegin
+  const textDirtyHelper = profile.textSlots > 0
+    ? `static bool _tftTextDirty(TftPanel &p, uint8_t slot, const char *text) {
+  if (slot >= TFT_TEXT_SLOTS) return true;
+  if (text == 0) text = "";
+  if (strncmp(p.text[slot], text, TFT_SLOT_CHARS) == 0) return false;
+  strncpy(p.text[slot], text, TFT_SLOT_CHARS);
+  p.text[slot][TFT_SLOT_CHARS] = 0;
+  return true;
+}`
+    : ''
+  const valueDirtyHelper = profile.valueSlots > 0
+    ? `static bool _tftValueDirty(TftPanel &p, uint8_t slot, int32_t value) {
+  if (slot >= TFT_VALUE_SLOTS) return true;
+  if (p.value[slot] == value) return false;
+  p.value[slot] = value;
+  return true;
+}`
+    : ''
+  const rectHelper = profile.rect
+    ? `static void _tftRect(TftPanel &p, int x, int y, int w, int h, uint16_t color) {
+  if (w <= 0 || h <= 0) return;
+  _tftFillRect(p, x, y, w, 1, color);
+  _tftFillRect(p, x, y + h - 1, w, 1, color);
+  _tftFillRect(p, x, y, 1, h, color);
+  _tftFillRect(p, x + w - 1, y, 1, h, color);
+}`
+    : ''
+  const barHelpers = profile.bar
+    ? `static int _tftBarFill(int w, float value) {
+  int inner = w - 2;
+  if (inner <= 0) return 0;
+  float v = value;
+  if (!isfinite(v) || v < 0) v = 0;
+  if (v > 1) v = 1;
+  return (int)lroundf(inner * v);
+}
+
+static void _tftBar(TftPanel &p, int x, int y, int w, int h, float value,
+                    uint16_t fill, uint16_t track, uint16_t outline) {
+  if (w <= 2 || h <= 2) return;
+  _tftRect(p, x, y, w, h, outline);
+  int filled = _tftBarFill(w, value);
+  _tftFillRect(p, x + 1, y + 1, filled, h - 2, fill);
+  _tftFillRect(p, x + 1 + filled, y + 1, w - 2 - filled, h - 2, track);
+}`
+    : ''
+  const wholeHelper = profile.whole
+    ? `static long _tftWhole(float value) {
+  if (!isfinite(value)) return 0;
+  if (value > 2147483000.0f) return 2147483000L;
+  if (value < -2147483000.0f) return -2147483000L;
+  return (long)lroundf(value);
+}`
+    : ''
+  const timeHelper = profile.time
+    ? `static long _tftFloorWhole(float value) {
+  if (!isfinite(value)) return 0;
+  if (value > 2147483000.0f) return 2147483000L;
+  if (value < -2147483000.0f) return -2147483000L;
+  return (long)floorf(value);
+}
+
+static void _tftTime(char *dst, size_t dstSize, float seconds) {
+  long total = _tftFloorWhole(seconds > 0 ? seconds : 0);
+  snprintf(dst, dstSize, "%ld:%02ld", total / 60, total % 60);
+}`
+    : ''
+  const artworkHelper = profile.artwork
+    ? `static void _tftArt(TftPanel &p, int x, int y, int w, int h, const uint8_t *data) {
+  _tftWindow(p, x, y, w, h);
+  uint32_t count = (uint32_t)w * (uint32_t)h * 2;
+  _tftTxnBegin(p);
+  digitalWrite(p.dc, LOW);
+  digitalWrite(p.cs, LOW);
+  _tftWrite8(p, TFT_RAMWR);
+  digitalWrite(p.dc, HIGH);
+  for (uint32_t i = 0; i < count; i++) _tftWrite8(p, pgm_read_byte(&data[i]));
+  digitalWrite(p.cs, HIGH);
+  _tftTxnEnd(p);
+}`
+    : ''
   return `// ── Colour TFT (ST7789 / ST7789V) ───────────────────────────────────────────
 // Mirrors src/state/tftSurface.ts and src/state/transportDisplay.ts so the
 // panel draws what the preview drew.
@@ -219,8 +464,8 @@ export function tftDisplayHelpersCpp(): string {
 #define TFT_FONT_H    ${FONT_H}
 #define TFT_SPACING   ${TFT_LETTER_SPACING}
 #define TFT_SLOT_CHARS ${TFT_SLOT_CHARS}
-#define TFT_TEXT_SLOTS ${TFT_TEXT_SLOTS}
-#define TFT_VALUE_SLOTS ${TFT_VALUE_SLOTS}
+#define TFT_TEXT_SLOTS ${profile.textSlots}
+#define TFT_VALUE_SLOTS ${profile.valueSlots}
 #define TFT_CHUNK     ${TFT_CHUNK_PIXELS}
 // Longest gap between field repaints when nothing changed, so a panel that was
 // unplugged and returned redraws itself without the loop polling it. The
@@ -266,26 +511,21 @@ static const uint8_t _tftFont[${font.count} * TFT_FONT_W] = { ${font.table} };
 // One transaction speed for every panel on the bus. 40 MHz is inside the
 // ST7789's rated write clock and is what the 2.4-inch module's ribbon will
 // take; touch and SD open their own transactions at their own speeds.
-static SPISettings _tftSpi(40000000, MSBFIRST, SPI_MODE0);
-// The bus is started once however many panels are fitted, and an SD card on
-// the same pins has already started it.
-static bool _tftSpiStarted = false;
+${spiGlobals}
 
 struct TftPanel {
-  uint8_t cs, dc, rst, sck, mosi;
+  uint8_t cs, dc;
   // Backlight. 255 means the module ties it high and there is nothing to drive.
   uint8_t bl;
   // Which bus this panel speaks. The same controller ships on both: an ILI9341
   // is an ILI9341 whether its bytes arrive down one data line or eight, so the
   // command set, windowing and every layout above are shared and only the three
   // bus primitives below branch.
-  bool parallel;
+${transportFields}
   // 8-bit parallel only. Data lines least-significant first, then the write
   // strobe the controller latches on, then the read strobe. RD is never
   // pulsed - nothing here reads the panel - but it is held high so the panel
   // does not drive the bus back while we are writing it.
-  uint8_t d[8];
-  uint8_t wr, rd;
   // Visible size as mounted, so a rotated panel is not a special case here.
   int16_t w, h;
   // Where the visible window starts in controller RAM at this rotation. Zero
@@ -297,8 +537,8 @@ struct TftPanel {
   bool painted;
   // What each field last drew. This is the dirty model: with no framebuffer to
   // compare, a field repaints when the thing it says changes.
-  char text[TFT_TEXT_SLOTS][TFT_SLOT_CHARS + 1];
-  int32_t value[TFT_VALUE_SLOTS];
+${textCacheField}
+${valueCacheField}
   uint16_t scratch[TFT_CHUNK];
   uint32_t lastPaintMs, lastFullMs;
 };
@@ -313,24 +553,7 @@ struct TftPanel {
  * an SPI breakout and a parallel shield.
  */
 
-static inline void _tftTxnBegin(TftPanel &p) {
-  // A parallel bus has no transaction to open: CS alone selects the panel, and
-  // its data lines belong to it for the whole build.
-  if (!p.parallel) SPI.beginTransaction(_tftSpi);
-}
-
-static inline void _tftTxnEnd(TftPanel &p) {
-  if (!p.parallel) SPI.endTransaction();
-}
-
-static inline void _tftWrite8(TftPanel &p, uint8_t value) {
-  if (!p.parallel) { SPI.transfer(value); return; }
-  // Eight lines, then a low-going strobe: the controller latches the byte on
-  // WR's rising edge, so the pulse has to close before the next byte is set up.
-  for (uint8_t b = 0; b < 8; b++) digitalWrite(p.d[b], (value >> b) & 1);
-  digitalWrite(p.wr, LOW);
-  digitalWrite(p.wr, HIGH);
-}
+${busFunctions}
 
 static void _tftCommand(TftPanel &p, uint8_t value) {
   _tftTxnBegin(p);
@@ -393,13 +616,7 @@ static void _tftFillRect(TftPanel &p, int x, int y, int w, int h, uint16_t color
   _tftRun(p, color, (uint32_t)w * (uint32_t)h);
 }
 
-static void _tftRect(TftPanel &p, int x, int y, int w, int h, uint16_t color) {
-  if (w <= 0 || h <= 0) return;
-  _tftFillRect(p, x, y, w, 1, color);
-  _tftFillRect(p, x, y + h - 1, w, 1, color);
-  _tftFillRect(p, x, y, 1, h, color);
-  _tftFillRect(p, x + w - 1, y, 1, h, color);
-}
+${rectHelper}
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 
@@ -422,48 +639,21 @@ static void _tftBegin(TftPanel &p, uint8_t cs, uint8_t dc, uint8_t rst, uint8_t 
                       const uint8_t *dataPins = nullptr,
                       uint8_t wr = 255, uint8_t rd = 255,
                       const uint8_t *init = nullptr, uint16_t initLen = 0) {
-  p.cs = cs; p.dc = dc; p.rst = rst; p.sck = sck; p.mosi = mosi; p.bl = bl;
-  p.parallel = (dataPins != nullptr);
-  p.wr = wr; p.rd = rd;
-  for (uint8_t b = 0; b < 8; b++) p.d[b] = p.parallel ? dataPins[b] : 255;
+  p.cs = cs; p.dc = dc; p.bl = bl;
+${transportAssignments}
   p.w = w; p.h = h; p.colStart = colStart; p.rowStart = rowStart;
   p.madctl = madctl;
   p.lit = false; p.painted = false;
   p.lastPaintMs = 0; p.lastFullMs = 0;
-  for (uint8_t s = 0; s < TFT_TEXT_SLOTS; s++) p.text[s][0] = 0;
-  for (uint8_t s = 0; s < TFT_VALUE_SLOTS; s++) p.value[s] = INT32_MIN;
+${profile.textSlots > 0 ? '  for (uint8_t s = 0; s < TFT_TEXT_SLOTS; s++) p.text[s][0] = 0;' : ''}
+${profile.valueSlots > 0 ? '  for (uint8_t s = 0; s < TFT_VALUE_SLOTS; s++) p.value[s] = INT32_MIN;' : ''}
 
   pinMode(cs, OUTPUT); pinMode(dc, OUTPUT);
   digitalWrite(cs, HIGH);
   if (rst != 255) pinMode(rst, OUTPUT);
   if (bl != 255) { pinMode(bl, OUTPUT); digitalWrite(bl, LOW); }
 
-  if (p.parallel) {
-    // The eight data lines idle low and WR idles high, so the first strobe of
-    // the first byte is a real edge rather than a level the panel was already
-    // sitting at.
-    for (uint8_t b = 0; b < 8; b++) { pinMode(p.d[b], OUTPUT); digitalWrite(p.d[b], LOW); }
-    pinMode(p.wr, OUTPUT); digitalWrite(p.wr, HIGH);
-    // RD is never pulsed here - nothing reads the panel - but it has to be
-    // driven high and left there. Floating or low, the controller drives the
-    // data lines back at us and every write collides with its output.
-    if (p.rd != 255) { pinMode(p.rd, OUTPUT); digitalWrite(p.rd, HIGH); }
-  } else if (!_tftSpiStarted) {
-#if defined(ESP32)
-    // The GPIO matrix routes the peripheral to whichever pins the build chose,
-    // so an arbitrary pinout still gets hardware SPI. There is no MISO and no
-    // hardware chip select: this panel is write-only and its CS is driven here.
-    SPI.begin(sck, -1, mosi, -1);
-#elif defined(ESP8266)
-    // ESP8266 exposes pin selection separately from begin(). MISO is unused by
-    // this write-only panel but remains part of that core's four-pin API.
-    SPI.pins(sck, MISO, mosi, -1);
-    SPI.begin();
-#else
-    SPI.begin();
-#endif
-    _tftSpiStarted = true;
-  }
+${beginBus}
 
   if (rst != 255) {
     digitalWrite(rst, HIGH); delay(10);
@@ -522,21 +712,9 @@ static bool _tftPaint(TftPanel &p, bool &full) {
 
 // Always called, never short-circuited past, or the cache goes stale behind a
 // full repaint and the next pass reports a change that already happened.
-static bool _tftTextDirty(TftPanel &p, uint8_t slot, const char *text) {
-  if (slot >= TFT_TEXT_SLOTS) return true;
-  if (text == 0) text = "";
-  if (strncmp(p.text[slot], text, TFT_SLOT_CHARS) == 0) return false;
-  strncpy(p.text[slot], text, TFT_SLOT_CHARS);
-  p.text[slot][TFT_SLOT_CHARS] = 0;
-  return true;
-}
+${textDirtyHelper}
 
-static bool _tftValueDirty(TftPanel &p, uint8_t slot, int32_t value) {
-  if (slot >= TFT_VALUE_SLOTS) return true;
-  if (p.value[slot] == value) return false;
-  p.value[slot] = value;
-  return true;
-}
+${valueDirtyHelper}
 
 // ── Drawing ─────────────────────────────────────────────────────────────────
 
@@ -607,29 +785,7 @@ static void _tftField(TftPanel &p, int x, int y, int w, int h, int scale, int al
 // Matches tftBarFill(): the driver compares this integer rather than the float
 // behind it, because a progress value moves every frame and the drawn bar
 // does not.
-static int _tftBarFill(int w, float value) {
-  int inner = w - 2;
-  if (inner <= 0) return 0;
-  float v = value;
-  if (!isfinite(v) || v < 0) v = 0;
-  if (v > 1) v = 1;
-  return (int)lroundf(inner * v);
-}
-
-static void _tftBar(TftPanel &p, int x, int y, int w, int h, float value,
-                    uint16_t fill, uint16_t track, uint16_t outline) {
-  if (w <= 2 || h <= 2) return;
-  _tftRect(p, x, y, w, h, outline);
-  int filled = _tftBarFill(w, value);
-  _tftFillRect(p, x + 1, y + 1, filled, h - 2, fill);
-  _tftFillRect(p, x + 1 + filled, y + 1, w - 2 - filled, h - 2, track);
-}
-
-static void _tftIndicator(TftPanel &p, int x, int y, int size, bool on,
-                          uint16_t color, uint16_t off) {
-  if (on) _tftFillRect(p, x, y, size, size, color);
-  else _tftRect(p, x, y, size, size, off);
-}
+${barHelpers}
 
 // A wire's float as a whole number, safely.
 //
@@ -637,25 +793,9 @@ static void _tftIndicator(TftPanel &p, int x, int y, int size, bool on,
 // these values come off a graph edge: an unwired port, a division that went
 // wrong upstream, or a count that has not arrived yet. The browser helpers
 // return 0 for the same input, so this is parity as well as safety.
-static long _tftWhole(float value) {
-  if (!isfinite(value)) return 0;
-  if (value > 2147483000.0f) return 2147483000L;
-  if (value < -2147483000.0f) return -2147483000L;
-  return (long)lroundf(value);
-}
+${wholeHelper}
 
-static long _tftFloorWhole(float value) {
-  if (!isfinite(value)) return 0;
-  if (value > 2147483000.0f) return 2147483000L;
-  if (value < -2147483000.0f) return -2147483000L;
-  return (long)floorf(value);
-}
-
-// Elapsed/duration as M:SS, matching formatTransportTime().
-static void _tftTime(char *dst, size_t dstSize, float seconds) {
-  long total = _tftFloorWhole(seconds > 0 ? seconds : 0);
-  snprintf(dst, dstSize, "%ld:%02ld", total / 60, total % 60);
-}
+${timeHelper}
 
 /**
  * Blit baked RGB565 artwork from PROGMEM.
@@ -665,18 +805,7 @@ static void _tftTime(char *dst, size_t dstSize, float seconds) {
  * a second implementation on this side would be a second thing to disagree
  * with it. The same rule the 1-bit pattern thumbnails follow.
  */
-static void _tftArt(TftPanel &p, int x, int y, int w, int h, const uint8_t *data) {
-  _tftWindow(p, x, y, w, h);
-  uint32_t count = (uint32_t)w * (uint32_t)h * 2;
-  _tftTxnBegin(p);
-  digitalWrite(p.dc, LOW);
-  digitalWrite(p.cs, LOW);
-  _tftWrite8(p, TFT_RAMWR);
-  digitalWrite(p.dc, HIGH);
-  for (uint32_t i = 0; i < count; i++) _tftWrite8(p, pgm_read_byte(&data[i]));
-  digitalWrite(p.cs, HIGH);
-  _tftTxnEnd(p);
-}
+${artworkHelper}
 `
 }
 

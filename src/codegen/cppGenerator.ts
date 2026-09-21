@@ -30,7 +30,7 @@ import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
 import { CPP_SHIM_HELPERS, cppRewriteShims, usesShims } from '../state/fastledShims'
 import { isNodeFormulaValid } from '../state/formulaLang'
 import {
-  DISPLAY_TEXT_CPP_HELPERS, formatDateTimeCpp, textValueCpp,
+  displayTextCppHelpers, formatDateTimeCpp, textValueCpp,
 } from './displayTextCpp'
 import { SONG_INFO_PORTS } from '../state/songInfo'
 import {
@@ -64,7 +64,7 @@ import {
 import { infoLayoutForKind } from '../state/infoDisplay'
 import { DISPLAY_SOURCE_NODE_TYPES, SKETCH_DISPLAY_SOURCE_KINDS } from '../state/displaySignal'
 import {
-  tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
+  tftDisplayHelperProfile, tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
 import {
@@ -1979,7 +1979,7 @@ export function generateCpp(
   const needsT = { v: false }
   const needsShims = { v: false }
   const needsPhi = { v: false }
-  const needsDisplayText = { v: false }
+  const needsDisplayText = { number: false, dateTime: false }
   const segmentDisplays: SegmentDisplayEmit[] = []
   const infoDisplays: InfoDisplayEmit[] = []
   const tftDisplays: TftDisplayEmit[] = []
@@ -2222,7 +2222,7 @@ export function generateCpp(
     if (scalar) {
       scalar.loop.forEach(ln)
       needsMapFloat[0] ||= scalar.needsMapFloat
-      needsDisplayText.v ||= scalar.needsDisplayText
+      needsDisplayText.number ||= scalar.needsDisplayText
       return
     }
 
@@ -2733,7 +2733,7 @@ export function generateCpp(
         const ntp = source === 'NTP'
         const ds3231 = source === 'DS3231'
         ln(`  static bool _rtcInit_${id} = false, _rtcSeedValid_${id} = false;`)
-        ln(`  static bool _rtcNtpConfigured_${id} = false;`)
+        if (ntp) ln(`  static bool _rtcNtpConfigured_${id} = false;`)
         ln(`  static int32_t _rtcBaseDays_${id} = 0;`)
         ln(`  static uint32_t _rtcBaseSeconds_${id} = 0, _rtcLastMillis_${id} = 0;`)
         ln(`  static uint64_t _rtcElapsedMillis_${id} = 0;`)
@@ -5329,7 +5329,6 @@ export function generateCpp(
       }
 
       case 'InfoDisplay': {
-        needsDisplayText.v = true
         // One content input, and a normal sketch has exactly one source it can
         // answer for: an RTC. A player or a slideshow plugged in here builds a
         // different generator, which validation reports before upload; the
@@ -5381,7 +5380,6 @@ export function generateCpp(
       }
 
       case 'TransportDisplay': {
-        needsDisplayText.v = true
         // A panel draws its own screen design when it has one, and one of the
         // fixed layouts otherwise (see
         // docs/development/design/large-displays-and-control-routing.md).
@@ -5400,6 +5398,12 @@ export function generateCpp(
         // the panel is called.
         const documentId = String(p.displayId ?? '')
         const document = documentId ? opts.displayDocuments?.[documentId] : undefined
+        // Fixed layouts format their own fields. Only a screen-design Numeric
+        // Readout calls the shared graph number formatter; Text and Timecode
+        // use the LVGL runtime's own helpers.
+        if (document?.widgets.some((widget) => widget.type === 'Numeric Readout')) {
+          needsDisplayText.number = true
+        }
         // What this sketch can answer for a bound widget: a clock, and the
         // LED output it is driving. Not a player or a slideshow — one of those
         // in a normal sketch renders as a black fill, so its fields are the
@@ -5748,7 +5752,7 @@ export function generateCpp(
       }
 
       case 'FormatDateTime': {
-        needsDisplayText.v = true
+        needsDisplayText.dateTime = true
         const dtUp = incoming.get(`${node.id}:dateTime`)
         const dtExpr = dtUp ? `n_${safeId(dtUp.srcId)}_${safeId(dtUp.srcPort)}` : null
         for (const line of formatDateTimeCpp(v('text'), dtExpr, asDateTimeTextMode(p.dateTimeFormat))) ln(line)
@@ -6468,7 +6472,6 @@ export function generateCpp(
         // track to report. Blanks rather than omitted variables: anything
         // downstream already names these, and a missing definition would fail
         // the build on a line no generator wrote.
-        needsDisplayText.v = true
         for (const port of SONG_INFO_PORTS) {
           const name = `n_${id}_${safeId(port.id)}`
           if (port.dataType === 'string') ln(textValueCpp(name, ''))
@@ -7369,7 +7372,9 @@ export function generateCpp(
   // time. The OLED beside it needs no include for exactly the opposite reason.
   // A custom Display's own panel driver needs the same library, so one push
   // covers both rather than risking two identical #include lines.
-  if (tftDisplays.length > 0 || customDisplayPanels.length > 0) lines.push(TFT_DISPLAY_CPP_INCLUDES)
+  if (tftDisplays.some((display) => !display.parallel) || customDisplayPanels.length > 0) {
+    lines.push(TFT_DISPLAY_CPP_INCLUDES)
+  }
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_INCLUDE)
   if (needsWifi) {
     lines.push(`#if defined(ESP32)`)
@@ -7479,8 +7484,8 @@ export function generateCpp(
     lines.push(``)
   }
 
-  if (needsDisplayText.v) {
-    lines.push(DISPLAY_TEXT_CPP_HELPERS)
+  if (needsDisplayText.number || needsDisplayText.dateTime) {
+    lines.push(displayTextCppHelpers({ ...needsDisplayText, copy: false }))
     lines.push(``)
   }
 
@@ -7526,7 +7531,7 @@ export function generateCpp(
     xptPointHelpersEmitted = true
   }
   if (tftDisplays.length > 0) {
-    lines.push(tftDisplayHelpersCpp())
+    lines.push(tftDisplayHelpersCpp(tftDisplayHelperProfile(tftDisplays)))
     if (tftTouches.length > 0) emitXptPointHelpersOnce()
     for (const touch of tftTouches) lines.push(tftTouchGlobalCpp(touch))
     for (const display of tftDisplays) lines.push(tftDisplayGlobalCpp(display))

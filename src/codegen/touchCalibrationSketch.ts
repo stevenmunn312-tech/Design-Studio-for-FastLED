@@ -136,7 +136,11 @@ export function generateTouchCalibrationSketch(target: TouchCalibrationSketchTar
     '',
     TFT_DISPLAY_CPP_FORWARD,
     '',
-    tftDisplayHelpersCpp(),
+    tftDisplayHelpersCpp({
+      textSlots: 0, valueSlots: 0,
+      spi: true, parallel: false,
+      rect: true, bar: false, whole: false, time: false, artwork: false,
+    }),
     TFT_TOUCH_CPP_HELPERS,
     '',
     'static TftPanel _calPanel;',

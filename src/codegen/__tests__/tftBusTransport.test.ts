@@ -167,7 +167,8 @@ describe('the colour driver speaks through one bus abstraction', () => {
   it('holds RD high so the panel never drives the bus back', () => {
     // Floating or low, the controller drives the data lines and every write
     // collides with its output - a fault that reads as a dead panel.
-    expect(cpp).toMatch(/pinMode\(p\.rd, OUTPUT\); digitalWrite\(p\.rd, HIGH\)/)
+    expect(cpp).toMatch(/pinMode\(rd, OUTPUT\); digitalWrite\(rd, HIGH\)/)
+    expect(cpp).not.toContain('uint8_t wr, rd;')
   })
 
   it('starts the SPI peripheral only for a panel that has one', () => {

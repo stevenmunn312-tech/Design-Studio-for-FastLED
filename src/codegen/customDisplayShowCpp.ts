@@ -10,7 +10,7 @@ import {
   customDisplayPanelEnableCpp, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp,
 } from './customDisplayPanelCpp'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
-import { DISPLAY_TEXT_CPP_HELPERS } from './displayTextCpp'
+import { displayTextCppHelpers } from './displayTextCpp'
 import { TFT_TOUCH_CPP_HELPERS } from './tftTouchCpp'
 
 export type CustomDisplayAssets = Record<string, readonly BakedCustomDisplayAsset[]>
@@ -32,7 +32,9 @@ export function customDisplayShowCpp(
   if (displays.length) {
     includes.push(CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_PANEL_CPP_INCLUDES)
     forwards.push(CUSTOM_DISPLAY_LVGL_FORWARD)
-    shared.push(DISPLAY_TEXT_CPP_HELPERS)
+    if (displays.some((display) => display.emit.document.widgets.some((widget) => widget.type === 'Numeric Readout'))) {
+      shared.push(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
+    }
     helpers.push(CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (displays.some((display) => display.panel.touch)) helpers.push(TFT_TOUCH_CPP_HELPERS)
     setup.push('  lv_init();', customDisplayLvglTimingSetupCpp())

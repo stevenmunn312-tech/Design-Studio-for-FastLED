@@ -20,8 +20,14 @@ import {
   type DateTimeTextMode,
 } from '../state/displayText'
 
+export interface DisplayTextHelperProfile {
+  number: boolean
+  dateTime: boolean
+  copy: boolean
+}
+
 /**
- * Shared runtime helpers, emitted once when a sketch contains any string node.
+ * Shared runtime helpers, specialized to the string operations in a sketch.
  *
  * `_dsFormatNumber` reproduces `formatNumberText`: scale, round half away from
  * zero, then print the integer and fractional halves separately. It does not
@@ -35,17 +41,20 @@ import {
  * `_dsFormatDateTime` reproduces `formatDateTimeText`, including its dashed
  * masks: an invalid clock reads as a clock with no time, never as midnight.
  */
-export const DISPLAY_TEXT_CPP_HELPERS = `// ── Display text ────────────────────────────────────────────────────────────
+export function displayTextCppHelpers(profile: DisplayTextHelperProfile): string {
+  if (!profile.number && !profile.dateTime && !profile.copy) return ''
+  const parts = [`// ── Display text ────────────────────────────────────────────────────────────
 // Mirrors src/state/displayText.ts so preview and firmware format identically.
-#define DS_TEXT_BYTES ${DISPLAY_TEXT_BUFFER_BYTES}
+#define DS_TEXT_BYTES ${DISPLAY_TEXT_BUFFER_BYTES}`]
 
-static const char *_dsWeekday(int weekday) {
+  if (profile.dateTime) parts.push(`static const char *_dsWeekday(int weekday) {
   static const char *_names[7] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
   int i = weekday % 7;
   if (i < 0) i += 7;
   return _names[i];
-}
+}`)
 
+  if (profile.copy || profile.dateTime) parts.push(`
 // Copies at most DS_TEXT_BYTES-1 bytes and always terminates. Copying stops on
 // a UTF-8 continuation byte boundary so a truncated multi-byte character is
 // dropped whole rather than left as bytes no decoder accepts.
@@ -55,9 +64,9 @@ static void _dsCopy(char *dst, const char *src) {
   while (n > 0 && ((unsigned char)src[n] & 0xC0) == 0x80) n--;
   memcpy(dst, src, n);
   dst[n] = 0;
-}
+}`)
 
-static void _dsFormatNumber(char *dst, double value, int decimals, int padWidth,
+  if (profile.number) parts.push(`static void _dsFormatNumber(char *dst, double value, int decimals, int padWidth,
                             bool showSign, int maxIntegerDigits,
                             const char *prefix, const char *suffix) {
   if (!isfinite(value)) {
@@ -91,8 +100,9 @@ static void _dsFormatNumber(char *dst, double value, int decimals, int padWidth,
   } else {
     snprintf(dst, DS_TEXT_BYTES, "%s%s%0*llu%s", prefix, sign, padWidth, whole, suffix);
   }
-}
+}`)
 
+  if (profile.dateTime) parts.push(`
 // mode indices match DATE_TIME_TEXT_MODES in src/state/displayText.ts.
 static void _dsFormatDateTime(char *dst, int mode, bool valid, int hour, int minute,
                               int second, int weekday, int day, int month, int year) {
@@ -116,8 +126,12 @@ static void _dsFormatDateTime(char *dst, int mode, bool valid, int hour, int min
     case 5: snprintf(dst, DS_TEXT_BYTES, "%s %02d:%02d", _dsWeekday(weekday), hh, mm); return;
     default: snprintf(dst, DS_TEXT_BYTES, "%02d:%02d", hh, mm); return;
   }
+}`)
+  return `${parts.join('\n\n')}\n`
 }
-`
+
+/** Full bundle retained for callers and tests that deliberately need all operations. */
+export const DISPLAY_TEXT_CPP_HELPERS = displayTextCppHelpers({ number: true, dateTime: true, copy: true })
 
 /**
  * Mode index for the generated switch.

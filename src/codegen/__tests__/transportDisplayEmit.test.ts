@@ -10,6 +10,7 @@ import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
+const PARALLEL = 'ili9341-xc4630-parallel-touch-320x240'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)!
@@ -37,6 +38,12 @@ describe('a sketch with a colour panel', () => {
   // that way, so this driver uses the Arduino SPI library and has to say so.
   it('includes SPI, which the OLED never needed', () => {
     expect(src).toContain('#include <SPI.h>')
+  })
+
+  it('omits SPI entirely for a parallel-only panel', () => {
+    const parallel = build({ partId: PARALLEL })
+    expect(parallel).not.toContain('#include <SPI.h>')
+    expect(parallel).not.toMatch(/\bSPI\./)
   })
 
   it('forward-declares the panel struct and then defines it', () => {

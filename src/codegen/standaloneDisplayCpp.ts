@@ -18,7 +18,8 @@ import {
 } from './segmentDisplayCpp'
 import {
   TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
-  tftDisplayGlobalCpp, tftDisplayHelpersCpp, tftDisplayLoopCpp, tftDisplaySetupCpp,
+  tftDisplayGlobalCpp, tftDisplayHelperProfile, tftDisplayHelpersCpp,
+  tftDisplayLoopCpp, tftDisplaySetupCpp,
   type TftDisplayEmit,
 } from './tftDisplayCpp'
 import {
@@ -103,7 +104,9 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
     helpers: [
       ...(hasInfo ? [infoDisplayHelpersCpp(), info.map(infoDisplayGlobalCpp).join('\n')] : []),
       ...(hasSegment ? [SEGMENT_DISPLAY_CPP_HELPERS, segment.map(segmentDisplayGlobalCpp).join('\n')] : []),
-      ...(hasTft ? [tftDisplayHelpersCpp(), tft.map(tftDisplayGlobalCpp).join('\n')] : []),
+      ...(hasTft
+        ? [tftDisplayHelpersCpp(tftDisplayHelperProfile(tft)), tft.map(tftDisplayGlobalCpp).join('\n')]
+        : []),
       ...(touch.length > 0 ? [TFT_TOUCH_CPP_HELPERS, touch.map(tftTouchGlobalCpp).join('\n')] : []),
     ],
     setup: [

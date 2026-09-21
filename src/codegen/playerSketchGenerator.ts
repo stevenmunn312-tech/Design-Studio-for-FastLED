@@ -5,7 +5,7 @@ import { playerControlApplyCpp } from './playerControlGraph'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp } from './playerControlsCpp'
 import { controlBundleVariable } from './templateControlRouting'
-import { DISPLAY_TEXT_CPP_HELPERS } from './displayTextCpp'
+import { displayTextCppHelpers } from './displayTextCpp'
 // Generates the ESP32-S3 player sketch that:
 //   - plays MP3 from SD card via I2S
 //   - reads the companion .show file
@@ -29,7 +29,7 @@ import {
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp,
 } from './infoDisplayCpp'
 import {
-  tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
+  tftDisplayHelperProfile, tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
   tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
 import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
@@ -396,7 +396,9 @@ export function generatePlayerSketch(
     ? customDisplayShowCpp(graphRouting.custom, opts.customDisplayAssets, opts.telemetry === true)
     : null
   const graphShared = new Set([...(compiledGraph?.helpers ?? []), ...(customDisplays?.shared ?? []),
-    ...(graphRouting?.hasSongSources ? [DISPLAY_TEXT_CPP_HELPERS] : [])])
+    ...(graphRouting?.hasSongSources
+      ? [displayTextCppHelpers({ number: false, dateTime: false, copy: true })]
+      : [])])
   const controls = (graphRouting ? undefined : opts.controls) ?? { bindings: {}, ...DEFAULT_CONTROL_SETTINGS }
   const particleFx = opts.particleFx?.enabled ? opts.particleFx : null
   const displays = opts.displays ?? { info: [], segment: [], tft: [], unresolved: [] }
@@ -916,7 +918,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     hasPatternSelection ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
     hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
-    hasTftDisplays ? tftDisplayHelpersCpp() : '',
+    hasTftDisplays ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
     hasTftDisplays && playerArtworks.length > 0
       ? transportArtworkTableCpp(PLAYER_SELECTION_STEM, playerArtworks)
       : '',

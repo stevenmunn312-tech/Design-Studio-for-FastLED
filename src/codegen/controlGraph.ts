@@ -5,7 +5,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { compositionDims } from '../state/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
-import { DISPLAY_TEXT_CPP_HELPERS } from './displayTextCpp'
+import { displayTextCppHelpers } from './displayTextCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 
 export const MAX_CONTROL_GRAPH_NODES = 256
@@ -114,7 +114,7 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
     })!
     loop.push(...emitted.loop)
     if (emitted.needsMapFloat) helpers.add(MAP_FLOAT_CPP)
-    if (emitted.needsDisplayText) helpers.add(DISPLAY_TEXT_CPP_HELPERS)
+    if (emitted.needsDisplayText) helpers.add(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
   }
   return { setup: [...setup], helpers: [...helpers], loop }
 }

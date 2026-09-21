@@ -4,6 +4,7 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import {
   DISPLAY_TEXT_CPP_HELPERS,
   DATE_TIME_CPP_MODE_INDEX,
+  displayTextCppHelpers,
   textValueCpp,
   formatNumberCpp,
   formatDateTimeCpp,
@@ -80,6 +81,18 @@ describe('display text C++ helpers', () => {
     expect(DISPLAY_TEXT_CPP_HELPERS).not.toMatch(/\bString\b/)
     expect(DISPLAY_TEXT_CPP_HELPERS).toContain('snprintf')
   })
+
+  it('emits only the requested runtime operations', () => {
+    const number = displayTextCppHelpers({ number: true, dateTime: false, copy: false })
+    expect(number).toContain('_dsFormatNumber')
+    expect(number).not.toContain('_dsFormatDateTime')
+    expect(number).not.toContain('_dsCopy')
+
+    const copy = displayTextCppHelpers({ number: false, dateTime: false, copy: true })
+    expect(copy).toContain('_dsCopy')
+    expect(copy).not.toContain('_dsFormatNumber')
+    expect(copy).not.toContain('_dsFormatDateTime')
+  })
 })
 
 describe('textValueCpp', () => {
@@ -127,10 +140,10 @@ describe('formatDateTimeCpp', () => {
 })
 
 describe('generateCpp with text nodes', () => {
-  it('emits the helper block once when a text node is present', () => {
+  it('bakes a constant text node without runtime formatting helpers', () => {
     const src = sketchOf([node('t', 'TextValue', 'math', { text: 'HELLO' })])
-    const occurrences = src.split('static void _dsFormatNumber').length - 1
-    expect(occurrences).toBe(1)
+    expect(src).not.toContain('DS_TEXT_BYTES')
+    expect(src).not.toContain('_dsFormatNumber')
     expect(src).toContain('static const char n_t_text[] = "HELLO";')
   })
 
@@ -148,6 +161,7 @@ describe('generateCpp with text nodes', () => {
     const src = sketchOf(nodes, [edge('e', 'm', 'f', 'result', 'value')])
     expect(src).toContain('char n_f_text[DS_TEXT_BYTES];')
     expect(src).toMatch(/_dsFormatNumber\(n_f_text, \(double\)\(n_m_result\), 1, 1, false, 6, "", "C"\)/)
+    expect(src).not.toContain('_dsFormatDateTime')
   })
 
   it('bounds a TextValue at generation time using the shared model', () => {
