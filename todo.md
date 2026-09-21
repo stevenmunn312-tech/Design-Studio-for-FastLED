@@ -951,7 +951,10 @@ matrix, not a reason to postpone testing earlier changes.
   separate unless user research establishes a better model; merger is not required.
 - [ ] **D-05 · Hardware expansion.** Wanted, with viable use cases, and split
   here because the three classes cost very different amounts rather than being
-  one list. **Signal inputs** — human presence sensors (PIR, mmWave), IR and
+  one list. The prioritised candidate families and their shared definition of
+  done are maintained in the
+  [hardware expansion roadmap](docs/development/plans/hardware-expansion-roadmap.md).
+  **Signal inputs** — human presence sensors (PIR, mmWave), IR and
   remote control — are the cheapest: a presence sensor is `MotionInput`'s
   sibling. The IR/remote-control design is now specified in
   [IR remote controls for graph properties](docs/development/plans/ir-remote-controls.md):

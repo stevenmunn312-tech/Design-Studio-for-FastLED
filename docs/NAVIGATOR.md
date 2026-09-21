@@ -149,6 +149,10 @@ build/architecture overview aimed at contributors.
     tab, and the four runs plus one-hour soak whose numbers become the
     acceptance budgets. Tables deliberately empty until measured.
 - [Plans](development/plans/)
+  - [Hardware expansion roadmap](development/plans/hardware-expansion-roadmap.md)
+    — prioritised candidate modules for switching, monitoring, sensing,
+      networking, power conversion and additional controller profiles, plus
+      the evidence and safety gates required before any item is supported.
   - [IR remote controls for graph properties](development/plans/ir-remote-controls.md)
     — planned wire-first IR receiver input, learned stable button mappings,
       repeat semantics and the Step Value adapter used to change runtime graph

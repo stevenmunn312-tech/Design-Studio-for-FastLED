@@ -119,6 +119,19 @@ describe('StudioNode', () => {
     expect(getByText('Color')).toBeTruthy()          // input port label
   })
 
+  it('draws every channel on the selected relay module', () => {
+    // NODE_LIBRARY declares the one-channel default. The selected physical
+    // module is what determines the real port count on this instance.
+    const view = renderNode(makeNode('RelayOutput', { partId: 'relay-module-8ch-5v' }))
+
+    for (let channel = 1; channel <= 8; channel += 1) {
+      expect(view.getByRole('button', {
+        name: new RegExp(`Connect to Relay Module Channel ${channel} input`),
+      })).toBeTruthy()
+      expect(view.container.querySelector(`[data-handle="target:channel${channel}"]`)).toBeTruthy()
+    }
+  })
+
   it('exposes Juggle property sockets from the menu and context menu, preserving their type colours', () => {
     const n = makeNode('Juggle', { speed: 0.5, count: 4, fade: 0.22, palette: 'rainbow' })
     useGraphStore.setState({ nodes: [n], edges: [] })

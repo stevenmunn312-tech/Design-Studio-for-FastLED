@@ -44,6 +44,7 @@ import RtcInputBody from './RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../state/boardGpio'
 import { buttonBankOutputs } from '../../state/buttonBank'
 import { playerControlInputs } from '../../state/playerControlAssignments'
+import { relayInputs } from '../../state/relayModule'
 import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -1170,6 +1171,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     ? d.inputs ?? def?.inputs ?? []
     : d.nodeType === 'ControlMap'
       ? playerControlInputs(rawProps.controls)
+      : d.nodeType === 'RelayOutput'
+        ? relayInputs(rawProps.partId)
       : def?.inputs ?? d.inputs ?? []) as PortDef[]
   const outputs = (d.nodeType === 'ButtonBank'
     ? buttonBankOutputs(rawProps.buttons)
