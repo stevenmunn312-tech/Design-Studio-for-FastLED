@@ -71,6 +71,34 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('describes every active channel on the selected relay module', () => {
+    const relay = node('relay', 'RelayOutput', {
+      partId: 'relay-module-4ch-5v',
+      in1Pin: 5,
+      in2Pin: 16,
+      in3Pin: 17,
+      in4Pin: 18,
+    })
+    const manifest = buildHardwareManifest([relay], [], 'esp32:esp32:esp32s3')
+
+    expect(collectPinUses([relay]).map((use) => [use.propertyKey, use.pin])).toEqual([
+      ['in1Pin', 5],
+      ['in2Pin', 16],
+      ['in3Pin', 17],
+      ['in4Pin', 18],
+    ])
+    expect(manifest.primaryItems[0]).toMatchObject({
+      kind: 'relay-output',
+      supported: true,
+      facts: {
+        partId: 'relay-module-4ch-5v',
+        channels: 4,
+        trigger: 'active-low',
+        contacts: 'SPDT (NO/COM/NC)',
+      },
+    })
+  })
+
   it('reports every Button Bank row as an independently validated GPIO use', () => {
     const bank = node('bank', 'ButtonBank', {
       buttons: [

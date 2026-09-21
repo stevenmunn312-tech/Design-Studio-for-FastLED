@@ -123,6 +123,7 @@ import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRA
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
+import { relayPinKeys } from '../state/relayModule'
 import {
   STEREO_VU_CPP_FORWARD,
   STEREO_VU_CPP_HELPERS,
@@ -2605,6 +2606,20 @@ export function generateCpp(
       case 'LightInput':
         ln(`  float ${v('level')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
         break
+
+      case 'RelayOutput': {
+        // These modules are active-low. Drive the inactive level into the
+        // output latch before switching the pin to OUTPUT so reset/setup does
+        // not produce a brief relay click.
+        const fallbacks = [5, 16, 17, 18, 19, 21, 22, 23]
+        for (const [index, key] of relayPinKeys(p.partId).entries()) {
+          const pin = sanitizePin(p[key], fallbacks[index])
+          pinSetupLines.add(`  digitalWrite(${pin}, HIGH);`)
+          pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+          ln(`  digitalWrite(${pin}, ${boolExpr(node.id, `channel${index + 1}`)} ? LOW : HIGH);`)
+        }
+        break
+      }
 
       case 'DMXInput': {
         const inputMode = String(p.inputMode ?? 'Art-Net')

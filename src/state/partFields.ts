@@ -13,6 +13,16 @@ type PartField =
   | { key: string; label: string; kind: 'number'; min: number; max: number }
 
 export const PART_FIELDS: Record<string, readonly PartField[]> = {
+  RelayOutput: [
+    { key: 'in1Pin', label: 'IN1', kind: 'pin' },
+    { key: 'in2Pin', label: 'IN2', kind: 'pin' },
+    { key: 'in3Pin', label: 'IN3', kind: 'pin' },
+    { key: 'in4Pin', label: 'IN4', kind: 'pin' },
+    { key: 'in5Pin', label: 'IN5', kind: 'pin' },
+    { key: 'in6Pin', label: 'IN6', kind: 'pin' },
+    { key: 'in7Pin', label: 'IN7', kind: 'pin' },
+    { key: 'in8Pin', label: 'IN8', kind: 'pin' },
+  ],
   MicInput: [
     { key: 'channel', label: 'Channel', kind: 'select', options: ['Left', 'Right'] },
   ],

@@ -107,6 +107,7 @@ import { DISPLAY_SOURCE_NODE_TYPES } from './displaySignal'
 import { asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
 import { asTftRotation } from './tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './transportTouch'
+import { relayInputs } from './relayModule'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -574,7 +575,9 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     }
     const inputs = nodeType === 'ControlMap'
       ? playerControlInputs(properties.controls)
-      : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
+      : nodeType === 'RelayOutput'
+        ? relayInputs(properties.partId)
+        : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
     const outputs = nodeType === 'ButtonBank'
       ? buttonBankOutputs(properties.buttons)
       : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
@@ -723,6 +726,9 @@ function withAdoptedDisplayControlRange(
 function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }> {
   if (node.data.nodeType === 'ControlMap') {
     return playerControlInputs(node.data.properties.controls)
+  }
+  if (node.data.nodeType === 'RelayOutput') {
+    return relayInputs(node.data.properties.partId).map(({ id, label }) => ({ id, label }))
   }
   return (node.data.inputs ?? []) as Array<{ id: string; label: string }>
 }

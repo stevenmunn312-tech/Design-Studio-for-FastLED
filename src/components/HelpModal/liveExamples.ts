@@ -1371,6 +1371,19 @@ const STEREO_VU_METER_LIVE_EXAMPLE = namedExample(
   'The LED Matrix preview stays a calm solid colour while the separate Stereo VU Meter node shows both live rails. Mono sources intentionally move both sides together; stereo sources can move them independently.',
 )
 
+const RELAY_OUTPUT_LIVE_EXAMPLE = namedExample(
+  'RelayOutput',
+  'Switch a relay from a boolean signal',
+  [
+    { key: 'button', type: 'ButtonInput' },
+    { key: 'target', type: 'RelayOutput', properties: { partId: 'relay-module-1ch-5v', in1Pin: 5 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 22, g: 58, b: 92 } },
+  ],
+  [{ source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'channel1' }],
+  'Relay Module is a hardware-owned terminal. Add the exact 1, 2, 4, or 8-channel board from Hardware, then feed each channel a boolean signal. The common modules are active-low; generated firmware handles that electrical detail and initializes every relay inactive before enabling its GPIO output.',
+  'Press the Button node to energize channel 1. The solid colour keeps the LED preview visible because the relay switches a separate physical load rather than producing pixels.',
+)
+
 // The three text nodes produce a `string`, which is bound for an auxiliary
 // display rather than the LED frame — see
 // docs/development/design/auxiliary-displays.md. Until display nodes exist
@@ -1489,6 +1502,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
   TransportDisplay: TRANSPORT_DISPLAY_LIVE_EXAMPLE,
   StereoVuMeter: STEREO_VU_METER_LIVE_EXAMPLE,
+  RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

@@ -42,6 +42,7 @@ import { OLED_TRANSPORT_PINS } from './oledSurface'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
 import { integratedPinsFor } from './integratedBoardHardware'
+import { relayPinKeys } from './relayModule'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -153,6 +154,14 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
      * are a tidy choice rather than a hardware constraint.
      */
     requests: [{ key: 'i2sBclk' }, { key: 'i2sLrc' }, { key: 'i2sDout' }],
+  },
+  RelayOutput: {
+    keys: relayPinKeys('relay-module-8ch-5v'),
+    keysFor: (properties) => relayPinKeys(properties.partId),
+    requests: relayPinKeys('relay-module-8ch-5v').map((key) => ({
+      key,
+      capability: 'digitalOutput',
+    })),
   },
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },

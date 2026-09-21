@@ -392,6 +392,31 @@ describe('generateCpp', () => {
     for (const pin of [18, 19, 21]) expect(cpp2).toContain(`pinMode(${pin}, INPUT);`)
   })
 
+  it('initializes active-low relay channels inactive before enabling their GPIOs', () => {
+    const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
+    const relay = node('relay', 'RelayOutput', 'output', {
+      partId: 'relay-module-4ch-5v',
+      in1Pin: 5,
+      in2Pin: 16,
+      in3Pin: 17,
+      in4Pin: 18,
+      in5Pin: 19,
+    })
+    const cpp = generateCpp(
+      [button, relay],
+      [edge('relay-trigger', 'btn', 'relay', 'pressed', 'channel2')],
+    )
+
+    for (const pin of [5, 16, 17, 18]) {
+      const inactive = cpp.indexOf(`digitalWrite(${pin}, HIGH);`)
+      const output = cpp.indexOf(`pinMode(${pin}, OUTPUT);`)
+      expect(inactive).toBeGreaterThanOrEqual(0)
+      expect(output).toBeGreaterThan(inactive)
+    }
+    expect(cpp).not.toContain('pinMode(19, OUTPUT);')
+    expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? LOW : HIGH);')
+  })
+
   it('rounds and clamps out-of-range pins to a valid GPIO instead of emitting them literally', () => {
     // A fractional/negative/too-large pin must never reach generated C++ as-is
     // (the shared sanitizePin helper) — mirrors the same clamp MicInput's I2S

@@ -43,7 +43,7 @@ WEBP_QUALITY = 82
 
 CATEGORIES = {
     "microphone", "amplifier", "storage", "led-output",
-    "input-control", "audio-source", "support", "display",
+    "input-control", "audio-source", "support", "display", "switching-power",
 }
 
 # Spellings the modelling pipeline emits that mean an existing category. The
@@ -124,6 +124,21 @@ def read_part(part_dir: Path) -> dict | None:
     # The pixel geometry an LED output needs: form plus count or width/height.
     if data.get("ledLayout"):
         entry["ledLayout"] = data["ledLayout"]
+    relay = data.get("relay")
+    if relay:
+        channels = relay.get("channels")
+        if isinstance(channels, int) and 1 <= channels <= 8:
+            entry["relay"] = {
+                "channels": channels,
+                "coilVoltage": relay.get("coilVoltage") or "5 V DC",
+                "trigger": relay.get("trigger") or "active-low",
+                "contacts": relay.get("contacts") or "SPDT (NO/COM/NC)",
+                "contactRating": relay.get("contactRating") or "",
+                "optoIsolated": bool(relay.get("optoIsolated")),
+            }
+        else:
+            print(f"  ! {part_id}: relay block has no channel count from 1 to 8 — skipped",
+                  file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

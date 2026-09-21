@@ -114,6 +114,15 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  RelayOutput: {
+    property: 'partId',
+    options: [
+      { id: 'relay-module-1ch-5v', label: '1-channel relay', summary: 'One active-low 5 V SPDT relay' },
+      { id: 'relay-module-2ch-5v', label: '2-channel relay', summary: 'Two active-low 5 V SPDT relays' },
+      { id: 'relay-module-4ch-5v', label: '4-channel relay', summary: 'Four active-low 5 V SPDT relays' },
+      { id: 'relay-module-8ch-5v', label: '8-channel relay', summary: 'Eight active-low 5 V SPDT relays' },
+    ],
+  },
   Amplifier: {
     property: 'model',
     options: [

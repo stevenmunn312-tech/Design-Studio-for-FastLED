@@ -26,6 +26,7 @@ import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
+import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -3459,6 +3460,27 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { channel: 1, activeThreshold: 1 },
   },
   {
+    // Opto-isolated 5 V relay bank. The selected physical module determines
+    // whether one, two, four, or eight boolean inputs are present; graph load
+    // normalization re-derives that port set from `partId`.
+    type: 'RelayOutput',
+    label: 'Relay Module',
+    category: 'output',
+    inputs: relayInputs(DEFAULT_RELAY_PART_ID),
+    outputs: [],
+    defaultProperties: {
+      partId: DEFAULT_RELAY_PART_ID,
+      in1Pin: 5,
+      in2Pin: 16,
+      in3Pin: 17,
+      in4Pin: 18,
+      in5Pin: 19,
+      in6Pin: 21,
+      in7Pin: 22,
+      in8Pin: 23,
+    },
+  },
+  {
     // A 1-bit OLED with one content input and no layout property: what is
     // plugged into `Display` decides what it shows, one layout per source. The
     // port set is therefore stable by construction rather than by discipline,
@@ -3890,6 +3912,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
   SDCard: 'SD card and audio pins for the music-sync player; a bench part, not wired.',
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
+  RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
@@ -4839,6 +4862,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   LightInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  RelayOutput: Object.fromEntries(
+    relayPinKeys('relay-module-8ch-5v').map((key) => [key, {
+      control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
+    }]),
+  ),
   EncoderInput: {
     pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5572,6 +5600,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   MotionInput: new Set(['pin']),
   LightInput: new Set(['pin']),
+  RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
@@ -5612,6 +5641,7 @@ export function gpioRequirementForProperty(
   if (nodeType === 'RTCInput') return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   if (nodeType === 'MotionInput') return { capability: 'digitalInput', pullup: false }
+  if (nodeType === 'RelayOutput') return { capability: 'digitalOutput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }

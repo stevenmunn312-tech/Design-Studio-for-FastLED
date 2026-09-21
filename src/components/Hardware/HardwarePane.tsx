@@ -72,6 +72,7 @@ import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
 import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
 import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/stereoVuSizing'
+import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from '../../state/relayModule'
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
@@ -184,6 +185,7 @@ const MODULE_PIN_LABELS: Record<string, string> = Object.fromEntries(
 
 function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly string[] | null {
   const entry = partById(String(moduleId ?? ''))
+  if (nodeType === 'RelayOutput') return relayPinKeys(moduleId)
   // A 7-pin SPI SH1106 and a 4-pin I2C SSD1306 are one node with two headers.
   // Asking the board for the union would reserve five pins for a module with
   // two, and drawing it would label wires the module does not bring out.
@@ -204,6 +206,16 @@ function fixturePinRequests(nodeType: string, moduleId: string | undefined): rea
 }
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
+  {
+    nodeType: 'RelayOutput',
+    partId: 'relay-output',
+    label: 'Relay module',
+    hint: 'Switches an isolated load from boolean graph signals',
+    footprint: partDimensionsMm(DEFAULT_RELAY_PART_ID, { width: 50, height: 26 }),
+    render: partRenderSrc(DEFAULT_RELAY_PART_ID) ?? undefined,
+    pinFields: [{ key: 'in1Pin', label: 'IN1' }],
+    pinRequests: [{ key: 'in1Pin', capability: 'digitalOutput' }],
+  },
   {
     nodeType: 'StereoVuMeter',
     partId: 'stereo-vu-meter',
@@ -1517,7 +1529,7 @@ export default function HardwarePane() {
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
           ...vuSizing,
         },
-        inputs: definition.inputs,
+        inputs: entry.nodeType === 'RelayOutput' ? relayInputs(moduleId) : definition.inputs,
         outputs: definition.outputs,
       },
     } as never)
@@ -1672,6 +1684,7 @@ export default function HardwarePane() {
   const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
   const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
   const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
+  const relayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'RelayOutput')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
       ? 'One stereo VU meter per board'
@@ -1730,6 +1743,12 @@ export default function HardwarePane() {
         // added from the panel rather than taken off a shelf of physical
         // parts it was never one of.
       ],
+    },
+    {
+      id: 'switching-power',
+      label: 'Switching power',
+      hint: 'Relay modules for isolated on/off loads',
+      items: moduleItems('RelayOutput', relayFixture),
     },
     {
       id: 'led-outputs',

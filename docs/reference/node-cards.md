@@ -1038,6 +1038,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Stereo VU Meter example graph](../../public/node-cards/graphs/stereo-vu-meter.svg)
 
+### Relay Module
+
+![Relay Module node](../../public/node-cards/relay-output.svg)
+
+![Relay Module example graph](../../public/node-cards/graphs/relay-output.svg)
+
 ### Info Display
 
 ![Info Display node](../../public/node-cards/info-display.svg)

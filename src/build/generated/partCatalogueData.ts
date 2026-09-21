@@ -732,6 +732,169 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "relay-module-1ch-5v": {
+    "partId": "relay-module-1ch-5v",
+    "label": "1-channel 5 V relay module",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 50.0,
+      "height": 26.0
+    },
+    "manufacturer": "generic / Songle SRD-05VDC-SL-C class",
+    "logicVoltage": "5 V coil; 3.3-5 V active-low logic",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "IN1",
+      "VCC"
+    ],
+    "notes": [
+      "1-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
+      "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
+      "This single-channel board layout has no separate JD-VCC configuration jumper block.",
+      "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
+      "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
+      "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
+    ],
+    "relay": {
+      "channels": 1,
+      "coilVoltage": "5 V DC",
+      "trigger": "active-low",
+      "contacts": "SPDT (NO/COM/NC)",
+      "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
+      "optoIsolated": true
+    },
+    "render": {
+      "file": "parts/relay-module-1ch-5v.webp",
+      "widthPx": 620,
+      "heightPx": 332,
+      "pxPerMm": 12.0
+    }
+  },
+  "relay-module-2ch-5v": {
+    "partId": "relay-module-2ch-5v",
+    "label": "2-channel 5 V relay module",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 50.0,
+      "height": 41.0
+    },
+    "manufacturer": "generic / Songle SRD-05VDC-SL-C class",
+    "logicVoltage": "5 V coil; 3.3-5 V active-low logic",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "IN1",
+      "IN2",
+      "VCC"
+    ],
+    "notes": [
+      "2-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
+      "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
+      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. Remove the jumper when using a separately powered relay-coil supply and follow the markings on the owned board.",
+      "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
+      "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
+      "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
+    ],
+    "relay": {
+      "channels": 2,
+      "coilVoltage": "5 V DC",
+      "trigger": "active-low",
+      "contacts": "SPDT (NO/COM/NC)",
+      "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
+      "optoIsolated": true
+    },
+    "render": {
+      "file": "parts/relay-module-2ch-5v.webp",
+      "widthPx": 620,
+      "heightPx": 512,
+      "pxPerMm": 12.0
+    }
+  },
+  "relay-module-4ch-5v": {
+    "partId": "relay-module-4ch-5v",
+    "label": "4-channel 5 V relay module",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 76.0,
+      "height": 55.0
+    },
+    "manufacturer": "generic / Songle SRD-05VDC-SL-C class",
+    "logicVoltage": "5 V coil; 3.3-5 V active-low logic",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "IN1",
+      "IN2",
+      "IN3",
+      "IN4",
+      "VCC"
+    ],
+    "notes": [
+      "4-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
+      "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
+      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. Remove the jumper when using a separately powered relay-coil supply and follow the markings on the owned board.",
+      "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
+      "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
+      "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
+    ],
+    "relay": {
+      "channels": 4,
+      "coilVoltage": "5 V DC",
+      "trigger": "active-low",
+      "contacts": "SPDT (NO/COM/NC)",
+      "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
+      "optoIsolated": true
+    },
+    "render": {
+      "file": "parts/relay-module-4ch-5v.webp",
+      "widthPx": 932,
+      "heightPx": 680,
+      "pxPerMm": 12.0
+    }
+  },
+  "relay-module-8ch-5v": {
+    "partId": "relay-module-8ch-5v",
+    "label": "8-channel 5 V relay module",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 137.0,
+      "height": 56.0
+    },
+    "manufacturer": "generic / Songle SRD-05VDC-SL-C class",
+    "logicVoltage": "5 V coil; 3.3-5 V active-low logic",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "IN1",
+      "IN2",
+      "IN3",
+      "IN4",
+      "IN5",
+      "IN6",
+      "IN7",
+      "IN8",
+      "VCC"
+    ],
+    "notes": [
+      "8-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
+      "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
+      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. Remove the jumper when using a separately powered relay-coil supply and follow the markings on the owned board.",
+      "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
+      "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
+      "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
+    ],
+    "relay": {
+      "channels": 8,
+      "coilVoltage": "5 V DC",
+      "trigger": "active-low",
+      "contacts": "SPDT (NO/COM/NC)",
+      "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
+      "optoIsolated": true
+    },
+    "render": {
+      "file": "parts/relay-module-8ch-5v.webp",
+      "widthPx": 1200,
+      "heightPx": 502,
+      "pxPerMm": 8.613
+    }
+  },
   "sh1106-oled-096-128x64-spi": {
     "partId": "sh1106-oled-096-128x64-spi",
     "label": "SH1106 0.96-inch 128x64 OLED SPI",

@@ -1,7 +1,8 @@
 # Hardware nodes and the two-view model
 
 Status: implemented on `Hardware`; microphone, PCM1802 line-in, player-decoder
-Audio sources, and self-growing button banks shipped · Owner: app · Updated: 2026-08-25
+Audio sources, self-growing button banks, and 1/2/4/8-channel relay modules
+shipped · Owner: app · Updated: 2026-09-21
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -31,6 +32,7 @@ workbench's **Add Hardware** menu is the creation path for:
 
 - signal inputs: INMP441 microphone, PCM1802 line-in ADC, button, button bank,
   potentiometer, encoder, PIR motion, ambient light, and RTC modules;
+- switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
 - LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel outputs.
 
@@ -54,11 +56,18 @@ data lead or choose a new pin.
 
 - `MicInput`, `LineInput`, `ButtonInput`, `ButtonBank`, `PotInput`, and `EncoderInput`;
 - `MotionInput` and `LightInput`;
-- `RTCInput`; and
+- `RTCInput` and `RelayOutput`; and
 - `MatrixOutput` (the implementation type behind all five LED-output forms).
 
 `Board`, `SDCard`, and `Amplifier` are hardware-only. They carry configuration,
 not graph data.
+
+`RelayOutput` is a terminal sink whose selected physical module determines its
+one to eight boolean channel inputs and matching GPIO assignments. Generated
+firmware writes the inactive HIGH level before changing each GPIO to OUTPUT,
+preventing an active-low relay click during setup. Relay contact ratings and
+mains-voltage warnings remain attached to the exact catalogue part; the app
+does not treat switched-load terminals as low-voltage GPIO wiring.
 
 Deleting a hardware-managed signal node on the canvas removes its signal edges
 but retains the part. Removing it through the workbench deletes the root-graph

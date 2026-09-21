@@ -16,7 +16,7 @@ import { PART_CATALOGUE_DATA } from '../build/generated/partCatalogueData'
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
-  | 'input-control' | 'audio-source' | 'support' | 'display'
+  | 'input-control' | 'audio-source' | 'support' | 'display' | 'switching-power'
 
 export interface PartRenderAsset {
   /** Path relative to the site root, e.g. `parts/max98357a-i2s-amplifier.webp`. */
@@ -68,6 +68,16 @@ export interface PartDisplaySpec {
   touchSurface?: 'resistive-shared' | null
 }
 
+/** Electrical identity carried by an imported relay-module asset. */
+export interface PartRelaySpec {
+  channels: number
+  coilVoltage: string
+  trigger: 'active-low' | 'active-high' | string
+  contacts: string
+  contactRating: string
+  optoIsolated: boolean
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -80,6 +90,8 @@ export interface PartCatalogueEntry {
   pinLabelsLeftToRight?: string[]
   notes?: string[]
   ledLayout?: PartLedLayout
+  /** Present exactly on switching-power relay modules. */
+  relay?: PartRelaySpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset
@@ -126,6 +138,9 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   touchSckPin: ['T_CLK'],
   touchMosiPin: ['T_DIN'],
   touchMisoPin: ['T_DO'],
+  ...Object.fromEntries(
+    Array.from({ length: 8 }, (_, index) => [`in${index + 1}Pin`, [`IN${index + 1}`]]),
+  ),
 }
 
 /** The exact label printed on a catalogued part for one graph pin property. */

@@ -469,6 +469,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'button-input': [['SIG']],
   'pot-input': [['SIG']],
   'encoder-input': [['A'], ['B'], ['SW']],
+  'relay-output': Array.from({ length: 8 }, (_, index) => [`IN${index + 1}`]),
 }
 
 /**
@@ -496,7 +497,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
   // Audio modules take the 5 V rail: a class-D amp's output power comes from
   // its supply, and 3.3 V would make it quiet rather than broken — the kind of
   // wrong that reads as a bad speaker.
-  if (item.kind === 'amplifier' || item.kind === 'line-input') return 'v5'
+  if (item.kind === 'amplifier' || item.kind === 'line-input' || item.kind === 'relay-output') return 'v5'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.

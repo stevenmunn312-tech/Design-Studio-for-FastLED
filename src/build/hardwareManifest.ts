@@ -30,6 +30,7 @@ import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/buttonBank'
+import { relayPinKeys } from '../state/relayModule'
 
 export interface HardwarePinUse {
   label: string
@@ -70,7 +71,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'relay-output' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -104,6 +105,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'Amplifier',
   'MotionInput',
   'LightInput',
+  'RelayOutput',
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
@@ -301,6 +303,11 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
         push(node, `${baseLabel} pin B`, 'pinB', props.pinB)
         push(node, `${baseLabel} switch pin`, 'pinSW', props.pinSW)
+        break
+      case 'RelayOutput':
+        for (const [index, key] of relayPinKeys(props.partId).entries()) {
+          push(node, `${baseLabel} IN${index + 1}`, key, props[key])
+        }
         break
       case 'RTCInput':
         if (String(props.timeSource ?? 'Compile Time') !== 'DS3231') break
@@ -598,6 +605,26 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...buildPeripheralItem(node, 'light-input', 'LDR analog light sensor', pins),
           facts: { partId: 'photosensitive-ldr-module' },
         }
+      case 'RelayOutput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? 'relay-module-1ch-5v')
+        const entry = partById(partId)
+        const keys = relayPinKeys(partId)
+        const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
+        return {
+          ...buildPeripheralItem(node, 'relay-output', entry?.label ?? '5 V relay module', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: complete,
+          facts: {
+            partId,
+            channels: entry?.relay?.channels ?? keys.length,
+            trigger: entry?.relay?.trigger ?? 'active-low',
+            contacts: entry?.relay?.contacts ?? 'SPDT (NO/COM/NC)',
+            contactRating: entry?.relay?.contactRating ?? '',
+          },
+          reasons: complete ? undefined : ['This relay module does not have every active channel input pin configured.'],
+        }
+      }
       case 'RTCInput':
         return {
           ...buildPeripheralItem(node, 'rtc-input', 'DS3231 battery-backed I²C clock', pins),

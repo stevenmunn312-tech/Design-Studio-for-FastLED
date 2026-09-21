@@ -957,9 +957,12 @@ matrix, not a reason to postpone testing earlier changes.
   [IR remote controls for graph properties](docs/development/plans/ir-remote-controls.md):
   one learned event source plus a general Step Value adapter, wired into the
   existing property-input and action model rather than mutating graph fields.
-  **Switching power** — relays, transistors, MOSFETs — is a node category
-  that does not exist yet: controlling a load is neither rendering nor sensing,
-  and it is where wrong advice damages hardware rather than failing to light up.
+  **Switching power** — the first slice now ships as exact 1, 2, 4, and
+  8-channel active-low 5 V relay modules, with dynamic channel ports, GPIO
+  validation, Build Diagram parts, and inactive-before-output firmware setup.
+  Transistors and MOSFETs remain: controlling a load is neither rendering nor
+  sensing, and it is where wrong advice damages hardware rather than failing to
+  light up.
   **Energy** — batteries, charging modules, balancers, BMS — is not a part but a
   dimension the power model lacks: the Build Diagram budgets against a PSU
   (`15.4 A` on the current bench), while a pack means state of charge, discharge
