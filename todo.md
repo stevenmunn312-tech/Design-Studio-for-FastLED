@@ -953,8 +953,11 @@ matrix, not a reason to postpone testing earlier changes.
   here because the three classes cost very different amounts rather than being
   one list. **Signal inputs** — human presence sensors (PIR, mmWave), IR and
   remote control — are the cheapest: a presence sensor is `MotionInput`'s
-  sibling, and IR needs a decode the app lacks but is still pin to value to
-  graph. **Switching power** — relays, transistors, MOSFETs — is a node category
+  sibling. The IR/remote-control design is now specified in
+  [IR remote controls for graph properties](docs/development/plans/ir-remote-controls.md):
+  one learned event source plus a general Step Value adapter, wired into the
+  existing property-input and action model rather than mutating graph fields.
+  **Switching power** — relays, transistors, MOSFETs — is a node category
   that does not exist yet: controlling a load is neither rendering nor sensing,
   and it is where wrong advice damages hardware rather than failing to light up.
   **Energy** — batteries, charging modules, balancers, BMS — is not a part but a
@@ -967,6 +970,70 @@ matrix, not a reason to postpone testing earlier changes.
   four-pin SSD1306, board profiles at `visual-match-only`, and an I2C module
   falling through to the SPI signal table. Fix that once and a dozen families
   cost about what one costs.
+
+  **D-05a · IR remote controls — ordered implementation checklist.** Execute
+  in order; software, compilation and bench support are separate gates.
+
+  - [ ] **1. Freeze the v1 contract.** Confirm one root-owned receiver, learned
+    recognized protocol/address/command mappings, stable mapping ids, per-key
+    `once`/`held` repeat policy, runtime reset to authored initial values, and
+    no transmitter/raw-replay/persistent-value scope.
+  - [ ] **2. Add pure mapping primitives.** Implement bounded normalization,
+    stable output-handle derivation, canonical protocol allow-listing,
+    duplicate detection and the decode/repeat reducer. Cover malformed imports,
+    stale repeats, unknown frames and rename/remove behavior with unit tests.
+  - [ ] **3. Add the `StepValue` adapter.** Define Increase/Decrease/Reset
+    boolean inputs, Value output, initial/min/max/step/wrap properties, and
+    graph-instance-scoped state. Match evaluator and C++ behavior for clamp,
+    wrap, reset, rounding and repeated pulses; document reboot semantics.
+  - [ ] **4. Register `IRRemoteInput` as hardware.** Add the node definition,
+    dynamic learned-button outputs, root ownership/library hiding, GPIO picker
+    and digital-input requirement, exclusive pin topology, pin-retarget plan,
+    pin-use collection, hardware manifest and Build Diagram support.
+  - [ ] **5. Add the physical receiver to the workbench.** Import one verified
+    demodulating receiver asset with measured dimensions and pad labels, add the
+    Hardware shelf fixture/inspector and singleton behavior, and extend the
+    derived hardware-registry, render, pin-assignment and collision tests.
+  - [ ] **6. Build browser simulation and editing.** Give the node body
+    press/hold controls through transient hardware-input state; add, rename and
+    remove learned mappings with stable wires, confirmation for connected
+    removals and atomic undo/redo. Preserve mapped outputs across save/reload.
+  - [ ] **7. Implement the learning workflow.** Generate and upload a trusted,
+    receiver-only diagnostic sketch with `cache: false`; parse a versioned
+    `FLS_IR` serial record; accept one recognized non-repeat frame; confirm it
+    into the graph in one undo step; cancel/error/close without leaking the
+    serial port. Retain validated manual code entry.
+  - [ ] **8. Integrate the pinned firmware dependency.** Select and pin an
+    Arduino-IRremote version; emit only required protocol decoders; add shared
+    include/setup/poll code; support arduino-cli readiness/export instructions
+    and fbuild lazy vendoring/library isolation. Prove IR-free sketches carry
+    no IR library cost.
+  - [ ] **9. Wire all three generators.** Feed decoded events through the
+    normal graph, slideshow controller and SD/performance-player control graph;
+    teach direct action/control assignment about dynamic IR outputs. Add IR
+    sampling to the shared input phase before graph resolution and destination
+    application.
+  - [ ] **10. Add shared validation and repairs.** Block unsupported boards,
+    duplicate receivers/mappings, invalid codes, missing mapped outputs and bad
+    Step Value domains through `findDeployBlockingErrors`; reuse pin collision
+    and signal-range diagnostics, naming the node, key, property and repair.
+  - [ ] **11. Prove the property workflows.** Add end-to-end tests for Power →
+    Trigger/Toggle → LED-output Enabled and Brightness Up/Down → Step Value →
+    an exposed numeric property, including repeat, bounds, save/reload,
+    undo/redo and preview/firmware parity in normal/show/player modes.
+  - [ ] **12. Complete documentation and catalogue upkeep.** Add node/property
+    descriptions, Help live examples, README inventory/count, generated node
+    cards, Hardware workbench guidance, dependency/export notes and Graph
+    Health troubleshooting. Keep support experimental in the beta matrix.
+  - [ ] **13. Run software and compile gates.** Pass focused tests, `npm test`,
+    `npm run lint`, `npm run build` and backend tests; compile representative
+    IR graphs with arduino-cli and fbuild for every claimed board family, with
+    emitted include/symbol/order and no-IR negative fixtures.
+  - [ ] **14. Bench and promote deliberately.** Record receiver/remote/board/
+    FQBN/GPIO/library/toolchain, verify tap/hold/alternate/unknown/rapid keys in
+    all three build modes, and stress reception during long clockless LED
+    `show()` calls. Document measured limits or warnings; add a support-matrix
+    row only after the reference workflow is reliable on glass and LEDs.
 - [ ] **D-04 · Code/field fidelity.** Code-node overflow, persistent globals,
   timing macros/includes/palette/XY support and richer inference; writable
   FieldFormula buffers. VU expansion beyond the current contract (clocked

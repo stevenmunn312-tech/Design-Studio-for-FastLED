@@ -149,6 +149,10 @@ build/architecture overview aimed at contributors.
     tab, and the four runs plus one-hour soak whose numbers become the
     acceptance budgets. Tables deliberately empty until measured.
 - [Plans](development/plans/)
+  - [IR remote controls for graph properties](development/plans/ir-remote-controls.md)
+    — planned wire-first IR receiver input, learned stable button mappings,
+      repeat semantics and the Step Value adapter used to change runtime graph
+      properties without mutating authored fields.
   - [Workspace shelves handoff](development/plans/workspace-shelves-handoff.md)
     — what the workspace tabs exposed: a sidebar still stocked for the graph
     while standing on the bench, and an LED preview that does not survive the
