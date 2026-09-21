@@ -1077,7 +1077,7 @@ export default function LEDPreview() {
           </div>
         ) : (
           <div className={styles.previewIdentity}>
-            <span className={styles.previewTitle}>LED Preview</span>
+            <span className={styles.previewTitle}>LED Output</span>
             <span className={styles.previewMeta}>Output bay</span>
           </div>
         )}
