@@ -89,7 +89,7 @@ def test_streams_the_compile_then_names_the_artifact(client, monkeypatch, tmp_pa
     monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
     monkeypatch.setattr(app, "_EXPORT_DIR", tmp_path / "exports")
 
-    def fake_compile_upload(label, sketch_dir, fqbn, port, output_dir=None):
+    def fake_compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False):
         # Nothing is flashed, and the artifacts must land where we can read them.
         assert port == ""
         assert output_dir is not None
@@ -129,7 +129,7 @@ def test_says_so_when_the_compile_fails(client, monkeypatch, tmp_path):
     monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
     monkeypatch.setattr(app, "_EXPORT_DIR", tmp_path / "exports")
 
-    def fake_compile_upload(label, sketch_dir, fqbn, port, output_dir=None):
+    def fake_compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False):
         yield "error: 'frame' was not declared in this scope\n"
         return 1, "compile"
 

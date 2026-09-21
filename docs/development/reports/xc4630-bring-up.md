@@ -47,13 +47,8 @@ Note the helper compiles every upload from one reused directory, so flashing a
 diagnostic overwrites the generated sketch on disk; regenerate it with one
 Upload from the app before instrumenting.
 
-## Two bugs found here, not yet fixed
+## One bug found here, not yet fixed
 
-- **`usbCdcOnBoot` is dropped on the arduino-cli path.** `/api/upload` reads it
-  and passes it only to `_compile_upload_fbuild`; `_compile_upload` never sees
-  it. Every arduino-cli build therefore has *USB CDC On Boot: Disabled* and
-  `Serial` goes to UART0 on GPIO 43/44, not the USB socket. No build made by
-  this app can talk to its own serial console on an S3.
 - **A wired fixture can be silently retargeted.** `MatrixOutput` is in
   `PART_PIN_PLANS` with `dataPin` retargetable, so adding a part can move a
   strip's data pin with nothing to say the physical wire is now wrong.

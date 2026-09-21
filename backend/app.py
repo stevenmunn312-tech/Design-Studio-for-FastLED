@@ -776,6 +776,31 @@ def _usb_cdc_from(payload: dict) -> bool:
     return payload.get("usbCdcOnBoot") is True
 
 
+def _arduino_fqbn(fqbn: str, usb_cdc: bool = False) -> str:
+    """Add Arduino's native-USB menu choice without dropping other options.
+
+    The frontend carries this as a separate hardware fact because it describes
+    which socket the cable is in.  arduino-cli, unlike fbuild, expects that
+    fact in the FQBN itself (``CDCOnBoot=cdc``), alongside options such as
+    ``PSRAM=opi``.  Boards without the native-USB choice keep their FQBN
+    untouched.
+    """
+    base, _ = _parse_fqbn(fqbn)
+    if not usb_cdc or not _PIO_BOARDS.get(base, {}).get("usb_cdc"):
+        return fqbn
+
+    parts = fqbn.split(":", 3)
+    options = parts[3].split(",") if len(parts) == 4 and parts[3] else []
+    replaced = False
+    for index, option in enumerate(options):
+        if option.partition("=")[0] == "CDCOnBoot":
+            options[index] = "CDCOnBoot=cdc"
+            replaced = True
+    if not replaced:
+        options.append("CDCOnBoot=cdc")
+    return f"{base}:{','.join(options)}"
+
+
 def _fbuild_env_for_fqbn(
     fqbn: str, flash_mb: int | None = None, usb_cdc: bool = False,
 ) -> str | None:
@@ -1734,7 +1759,7 @@ def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) 
 
 
 @_reports_total_time
-def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None):
+def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False):
     """Compile, then (if a port is given) upload a sketch. Returns
     (exit code, phase) where phase is "compile" or "upload" — the phase the
     run ended in, so callers can tailor the failure message (a compile failure
@@ -1751,6 +1776,7 @@ def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None):
             "Point the helper at a binary or install one from Board & Port, "
             "or switch the engine to fbuild.",
         ))
+    fqbn = _arduino_fqbn(fqbn, usb_cdc)
     compile_lines = []
     uses_lvgl = any(
         _LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
@@ -3442,7 +3468,8 @@ def upload(payload: dict = Body(...)):
 
     def stream():
         with _sketch_workspace(SKETCH, ino) as sketch_dir:
-            rc, phase = yield from _compile_upload("Sketch", sketch_dir, fqbn, port)
+            rc, phase = yield from _compile_upload(
+                "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc)
             yield from _upload_result_lines(rc, phase, port)
 
     return StreamingResponse(stream(), media_type="text/plain")
@@ -3497,8 +3524,10 @@ def compile_check(payload: dict = Body(...)):
             if estimate.get("flash") or estimate.get("ram"):
                 sizes = estimate
     else:
+        usb_cdc = _usb_cdc_from(payload)
         with _sketch_workspace(SKETCH, ino) as sketch_dir:
-            lines, (rc, phase) = _drain_compile(_compile_upload("Capacity check", sketch_dir, fqbn, ""))
+            lines, (rc, phase) = _drain_compile(_compile_upload(
+                "Capacity check", sketch_dir, fqbn, "", usb_cdc=usb_cdc))
             sizes = _size_bytes_report(lines)
 
     ok = rc == 0
@@ -3649,7 +3678,8 @@ def compile_binary(payload: dict = Body(...)):
             else:
                 with _sketch_workspace(SKETCH, ino) as sketch_dir:
                     rc, _phase = yield from _compile_upload(
-                        "Export binary", sketch_dir, fqbn, "", output_dir=out_dir)
+                        "Export binary", sketch_dir, fqbn, "", output_dir=out_dir,
+                        usb_cdc=usb_cdc)
                 built = out_dir
             if rc != 0:
                 yield f"\n{_EXPORT_MARKER} failed\n"
@@ -3753,7 +3783,8 @@ async def upload_show(
         if engine == "fbuild":
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
         with _sketch_workspace(label.split()[0].lower(), ino) as sketch_dir:
-            return (yield from _compile_upload(label, sketch_dir, fqbn, use_port))
+            return (yield from _compile_upload(
+                label, sketch_dir, fqbn, use_port, usb_cdc=usb_cdc))
 
     def stream():
         if not port:
