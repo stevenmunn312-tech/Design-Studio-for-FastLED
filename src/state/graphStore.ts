@@ -2396,6 +2396,7 @@ export const useGraphStore = create<GraphState>()(
           // Hardware is root-graph content, so retargeting reads and rewrites
           // the root graph even while a pattern group is the active one.
           const hardwareNodes = rootGraphNodes(s)
+          const hardwareEdges = rootGraphEdges(s)
           // The Board node's profile knows which pads this exact board exposes,
           // where the FQBN only names the chip. Falls back to the FQBN table.
           const profile = selectedPhysicalBoardProfile(hardwareNodes)
@@ -2413,7 +2414,9 @@ export const useGraphStore = create<GraphState>()(
             })
             : hardwareNodes
 
-          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn, previousBoard)
+          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn, previousBoard, {
+            edges: hardwareEdges,
+          })
           moved += result.moved
           // No-op when nothing moved, so re-selecting the same effective
           // wiring doesn't push an empty step onto the undo stack.

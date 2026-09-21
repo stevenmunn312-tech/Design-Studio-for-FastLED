@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isPinAppOwned, retargetHardwarePins, withAssignedPins } from '../pinRetarget'
-import type { StudioNode } from '../graphStore'
+import type { StudioEdge, StudioNode } from '../graphStore'
 import { boardProfileById, type PhysicalBoardProfile } from '../../build/boardProfiles'
 
 function part(id: string, nodeType: string, properties: Record<string, unknown>): StudioNode {
@@ -8,6 +8,10 @@ function part(id: string, nodeType: string, properties: Record<string, unknown>)
     id, type: 'studioNode', position: { x: 0, y: 0 },
     data: { label: id, nodeType, category: 'input', properties, inputs: [], outputs: [] },
   } as unknown as StudioNode
+}
+
+function frameWire(target: string): StudioEdge {
+  return { id: `frame-${target}`, source: 'pattern', sourceHandle: 'frame', target, targetHandle: 'frame' } as unknown as StudioEdge
 }
 
 /** A board exposing a general pool and, optionally, an I2S mic trio. */
@@ -71,6 +75,62 @@ describe('pin ownership', () => {
 })
 
 describe('retargetHardwarePins', () => {
+  it('does not retarget the data pin of a connected LED output', () => {
+    /*
+     * A frame wire means this is not a loose fixture sitting on the shelf any
+     * more. The build diagram and the bench both say the data lead is on this
+     * GPIO, so a board change must not silently flash firmware for a different
+     * wire.
+     */
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    const output = part('out', 'MatrixOutput', withAssignedPins(
+      { form: 'matrix', width: 8, height: 8, chipset: 'WS2812B' },
+      { dataPin: 2 },
+      first.id,
+    ))
+
+    const result = retargetHardwarePins([output], second, ESP32_S3, first.id, {
+      edges: [frameWire('out')],
+    })
+
+    expect(result.moved).toBe(0)
+    expect(result.nodes[0].data.properties.dataPin).toBe(2)
+  })
+
+  it('claims a connected LED output data pin while assigning the rest of the board', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    const output = part('out', 'MatrixOutput', withAssignedPins(
+      { form: 'strip', ledCount: 60, chipset: 'WS2812B' },
+      { dataPin: 21 },
+      first.id,
+    ))
+    const button = part('button', 'ButtonInput', withAssignedPins({ label: 'Next' }, { pin: 4 }, first.id))
+
+    const result = retargetHardwarePins([output, button], second, ESP32_S3, first.id, {
+      edges: [frameWire('out')],
+    })
+
+    expect(result.nodes.find((node) => node.id === 'out')!.data.properties.dataPin).toBe(21)
+    expect(result.nodes.find((node) => node.id === 'button')!.data.properties.pin).toBe(33)
+  })
+
+  it('still retargets a loose LED output before it is wired into the graph', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    const output = part('out', 'MatrixOutput', withAssignedPins(
+      { form: 'matrix', width: 8, height: 8, chipset: 'WS2812B' },
+      { dataPin: 2 },
+      first.id,
+    ))
+
+    const result = retargetHardwarePins([output], second, ESP32_S3, first.id, { edges: [] })
+
+    expect(result.moved).toBe(1)
+    expect(result.nodes[0].data.properties.dataPin).toBe(21)
+  })
+
   /*
    * Parts on fixed pins have to be handed out first, so the pool the rest
    * allocate from already has those pins out of it. Whether a part *is* fixed

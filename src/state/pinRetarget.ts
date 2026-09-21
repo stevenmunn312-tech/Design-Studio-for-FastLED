@@ -26,7 +26,7 @@
 // build and wrong for one that already exists, and only the user knows which
 // they have. Remembering what they chose is how the app stops asking.
 
-import type { StudioNode } from './graphStore'
+import type { StudioEdge, StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
@@ -368,6 +368,23 @@ export interface RetargetResult {
   moved: number
 }
 
+interface RetargetOptions {
+  /**
+   * Root graph edges let retargeting distinguish a loose hardware part from an
+   * LED fixture that is already part of the running graph. Once an LED output
+   * has a frame/show wire, changing its data GPIO rewrites a physical cable
+   * fact, so the retargeter treats that one pin as user-owned.
+   */
+  edges?: readonly StudioEdge[]
+}
+
+function connectedMatrixOutputIds(edges: readonly StudioEdge[] | undefined): Set<string> {
+  if (!edges) return new Set()
+  return new Set(edges
+    .filter((edge) => edge.target && ['frame', 'sdcard'].includes(String(edge.targetHandle ?? '')))
+    .map((edge) => String(edge.target)))
+}
+
 /** Button Bank pins live in stable rows rather than top-level properties. */
 function retargetButtonBankPins(
   inputNodes: StudioNode[],
@@ -463,6 +480,7 @@ export function retargetHardwarePins(
    * it be remembered there and released everywhere else.
    */
   previousBoard?: string,
+  options: RetargetOptions = {},
 ): RetargetResult {
   const bankResult = retargetButtonBankPins(inputNodes, profile, fqbn, previousBoard)
   const nodes = bankResult.nodes
@@ -478,6 +496,7 @@ export function retargetHardwarePins(
    * other as if their pinouts matched.
    */
   const boardKey = profile?.id ?? fqbn
+  const connectedOutputs = connectedMatrixOutputIds(options.edges)
   const updates = new Map<string, { pins: Record<string, number>; memory: PinsByBoard; mine: string[] }>()
   const claimed = new Set<number>()
   /*
@@ -512,6 +531,25 @@ export function retargetHardwarePins(
     const stampedFor = properties[ASSIGNED_BOARD_KEY]
     const remembered = userPinsByBoard(properties)[boardKey] ?? {}
     const out: Record<string, number> = { ...remembered }
+    /*
+     * A connected LED output is already a fixture, not a loose new part. Its
+     * data wire goes to the GPIO printed on the build diagram and soldered on
+     * the bench; silently moving it during a board change flashes firmware for
+     * a different cable than the one that exists.
+     *
+     * Only the data pin is locked here, and only for addressable outputs that
+     * are actually fed by the graph. A loose LED output can still receive the
+     * new board's suggested starting pin, and HUB75 stays on its ribbon-pin
+     * validation path.
+     */
+    if (
+      node.data.nodeType === 'MatrixOutput'
+      && connectedOutputs.has(node.id)
+      && outputForm(properties) !== 'hub75'
+    ) {
+      const pin = Number(properties.dataPin)
+      if (Number.isFinite(pin)) out.dataPin = pin
+    }
     /*
      * Live edits count only while this really is the board they were made on.
      * An unstamped node is *not* treated as belonging to the board being

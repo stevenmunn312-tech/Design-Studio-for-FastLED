@@ -42,6 +42,12 @@ Changing boards retargets assignments made by Studio and preserves explicit
 user choices. User-selected pins are remembered by part and board so switching
 away and back restores the intended wiring.
 
+An LED output with a Frame/show wire is treated as an existing fixture: its
+`dataPin` is preserved during board retargeting rather than silently moved to
+the new board's starter GPIO. If that retained pin does not match the selected
+board's LED starter pins, Graph Health warns the user to confirm the physical
+data lead or choose a new pin.
+
 ## Which parts appear in the graph
 
 `isHardwareManagedSignalNodeType` defines the parts visible in both views:

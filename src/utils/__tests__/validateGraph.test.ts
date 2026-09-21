@@ -312,6 +312,50 @@ describe('validateGraph', () => {
     }))
   })
 
+  it('warns when a connected LED output keeps a non-starter data pin after a board change', () => {
+    const nodes = [
+      node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+      node('solid', 'SolidColor'),
+      node('out', 'MatrixOutput', {
+        width: 8,
+        height: 8,
+        chipset: 'WS2812B',
+        dataPin: 21,
+        assignedPins: { dataPin: 21 },
+        assignedPinsBoard: 'old-board',
+      }),
+    ]
+    const wires = [edge('e1', 'solid', 'out', 'frame')]
+
+    expect(validateGraph(nodes, wires, 'esp32:esp32:esp32').warnings)
+      .toContainEqual(expect.stringContaining('kept GPIO 21 after the board change'))
+    expect(buildGraphDiagnostics(nodes, wires)).toContainEqual(expect.objectContaining({
+      id: 'out-retained-data-pin',
+      severity: 'warning',
+      category: 'pins',
+      propertyKey: 'dataPin',
+      nodeIds: ['out'],
+    }))
+  })
+
+  it('does not warn when a retained LED output data pin matches the board starter pin', () => {
+    const nodes = [
+      node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+      node('solid', 'SolidColor'),
+      node('out', 'MatrixOutput', {
+        width: 8,
+        height: 8,
+        chipset: 'WS2812B',
+        dataPin: 18,
+        assignedPins: { dataPin: 18 },
+        assignedPinsBoard: 'old-board',
+      }),
+    ]
+
+    expect(buildGraphDiagnostics(nodes, [edge('e1', 'solid', 'out', 'frame')]))
+      .not.toContainEqual(expect.objectContaining({ id: 'out-retained-data-pin' }))
+  })
+
   // findPinConflicts and buildGraphDiagnostics are two walks over the same pin
   // data, and they drifted apart once already — the drawer kept calling a
   // deliberately shared pin an error after deploy validation had stopped. They
