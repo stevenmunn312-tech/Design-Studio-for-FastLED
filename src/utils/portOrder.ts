@@ -5,23 +5,36 @@ export interface OrderedPort {
 }
 
 /**
- * Library order, then any order the graph has saved.
+ * Library order, permuted by any order the graph has saved.
  *
- * Ports the library has grown since the save append at the end. Ports the
- * library no longer has are dropped. A save that never reordered anything
- * comes back unchanged.
+ * A saved order may only rearrange the ports it actually names. Those ports
+ * are permuted among the *positions they already occupy*; every other port
+ * keeps its library position. Ports the library no longer has are dropped, and
+ * a save that never reordered anything comes back unchanged.
+ *
+ * Sorting the whole list by saved rank instead — appending anything the save
+ * did not name — reads a stale save as a deliberate reorder, and the two are
+ * not distinguishable by rank alone. It moved `PerformanceGenerator`'s Music
+ * input behind Patterns for any workspace saved before Music existed, and put
+ * a Control Map's trailing `add-control` socket ahead of the rows it mints
+ * from its own wires, since those rows are not in a pre-feature save either.
+ * Permuting in place says what a Tidy swap means and nothing more: only the
+ * ports in the crossed bundle move, which is what `untanglePortOrders` below
+ * does in the first place.
  */
 export function orderPorts<T extends OrderedPort>(canonical: readonly T[], saved: readonly OrderedPort[] | undefined): T[] {
   if (!saved?.length) return [...canonical]
   const rank = new Map(saved.map((port, index) => [port.id, index]))
-  return [...canonical].sort((a, b) => {
-    const ar = rank.get(a.id)
-    const br = rank.get(b.id)
-    if (ar === undefined && br === undefined) return 0
-    if (ar === undefined) return 1
-    if (br === undefined) return -1
-    return ar - br
-  })
+  const slots = canonical.reduce<number[]>((found, port, index) => {
+    if (rank.has(port.id)) found.push(index)
+    return found
+  }, [])
+  const permuted = slots
+    .map((index) => canonical[index])
+    .sort((a, b) => rank.get(a.id)! - rank.get(b.id)!)
+  const ordered = [...canonical]
+  slots.forEach((index, position) => { ordered[index] = permuted[position] })
+  return ordered
 }
 
 export interface UntangleNode {

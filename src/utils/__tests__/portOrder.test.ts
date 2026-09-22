@@ -12,6 +12,36 @@ describe('orderPorts', () => {
   it('leaves library order alone when nothing was saved', () => {
     expect(orderPorts([port('a'), port('b')], undefined).map((p) => p.id)).toEqual(['a', 'b'])
   })
+
+  /*
+   * A stale save is not a reorder.
+   *
+   * A workspace saved before a port existed names every port but that one, and
+   * a rank-sorted merge cannot tell that from a Tidy swap — it appends the
+   * unnamed port at the end. Permuting only the named ports among the slots
+   * they already hold leaves every other port where the library put it.
+   */
+  it('keeps a port the save never named in its library position', () => {
+    const canonical = [port('a'), port('b'), port('c')]
+    expect(orderPorts(canonical, [port('b')]).map((p) => p.id)).toEqual(['a', 'b', 'c'])
+    expect(orderPorts(canonical, [port('a'), port('c')]).map((p) => p.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  // A trailing socket stays trailing. The rows a Control Map mints from its
+  // own wires are absent from a pre-feature save, and landing them after
+  // `add-control` puts the "add one" affordance in the middle of the list.
+  it('keeps a trailing socket last when newer ports arrive before it', () => {
+    const canonical = [port('in'), port('playPause'), port('brightness'), port('add-control')]
+    expect(orderPorts(canonical, [port('in'), port('add-control')]).map((p) => p.id))
+      .toEqual(['in', 'playPause', 'brightness', 'add-control'])
+  })
+
+  // The swap Tidy actually records: the full list, in the order it chose.
+  it('applies a saved swap that names every port', () => {
+    const canonical = [port('a'), port('b'), port('c')]
+    expect(orderPorts(canonical, [port('c'), port('b'), port('a')]).map((p) => p.id))
+      .toEqual(['c', 'b', 'a'])
+  })
 })
 
 describe('untanglePortOrders', () => {
