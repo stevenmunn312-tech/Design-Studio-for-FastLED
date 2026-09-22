@@ -1191,6 +1191,28 @@ matrix, not a reason to postpone testing earlier changes.
   live FFT and beat response against the INMP441 on the same fixture and
   source, since a profile swap is heard rather than reasoned about.
   See [the plan](docs/development/plans/audio-part-expansion.md#phases).
+
+  *The INMP441-only naming came out 2026-09-23*, which was the half of this
+  item's exit still outstanding in software. The banner refusing a microphone
+  on an incompatible board said "The inmp441 microphone does not work with
+  this board" — so two of three owners were told the wrong module name by the
+  one message whose job is to say the *board* is at fault. It resolves the
+  label through `micModuleFor` now, from the node's own property, at all four
+  call sites; the board-capability wrappers lost the prefix with it, since
+  what they answer is whether the board has a usable I2S capture backend,
+  equally true of all three. The Microphone help article describes the Module
+  property and what the choice does and does not change, rather than telling
+  people to add an INMP441.
+
+  Hardware validation was the one that mattered: its bench feature string was
+  a constant, so an ICS-43434 graph matched the recorded INMP441 row and
+  reported **no gap** — claiming evidence nobody had produced, which is the
+  one thing that file exists to refuse. The feature is per module now, and any
+  module with no recorded row anywhere is filed as a gap; both derived from
+  `MIC_MODULES` and the recorded rows, so a bench row retires its own gap and
+  a fourth module files its own without this being edited.
+
+  **Left: the compile and the bench rows**, unchanged — no firmware path moved.
 - [ ] **HW-20 · Audio chain/amplifiers (L; after HW-19).** Record the DAC →
   power amplifier → speaker decision (Option B is the current proposal), resolve
   roles rather than first Amplifier, then DX-0809/PAM8610. Verify SPH0645LM4H
