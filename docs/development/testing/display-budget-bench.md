@@ -141,6 +141,14 @@ four are constrained by this board rather than by the software under test.
   measurements** rather than the gap being closed at a wrong number. The CYD now
   declares it too. See `src/build/ramBudgets.ts` and HW-25 in `todo.md`.
 
+- **Run 3 cannot be done on this board, and now for a measured reason.** The
+  slot's pins were found on 2026-09-22 (CS 5 / SCK 18 / MISO 19 / MOSI 23) and
+  they are the second SPI host, where the panel is on SCK 14 / MOSI 13 /
+  MISO 12 — so card and display never share a bus and there is no contention
+  here to measure. Audio is separately unreachable: the onboard amplifier is
+  analog and the internal-DAC path does not work on this core, while GPIO22 and
+  GPIO27 leave no room for an external I2S one. The original reasoning follows.
+
 - **Run 3 cannot be done on this board at all.** It wants TFT, SD and touch
   sharing one bus with audio playing. This board's onboard microSD and speaker
   amplifier are exactly the pins HW-12 left unrecorded rather than taken from

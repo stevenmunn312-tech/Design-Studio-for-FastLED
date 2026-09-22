@@ -52,6 +52,33 @@ export const CYD_TOUCH_DISPLAY: IntegratedTouchDisplay = {
   },
 }
 
+/**
+ * The ESP32-2432S028R's onboard microSD slot, measured on the bench unit.
+ *
+ * HW-12 deliberately left these unrecorded rather than copy them from family
+ * documentation, because a pin map from a forum post and one measured on the
+ * board look identical in the source and only one of them is evidence. The
+ * probe in `codegen/sdPinProbeSketch.ts` was flashed to this unit on
+ * 2026-09-22 and mounted a 29,820 MB SDHC card on these pins, listing its root.
+ *
+ * The bus matters as much as the pins. These are the *second* SPI host — the
+ * panel is on SCK 14 / MOSI 13 / MISO 12 — so on this board the card and the
+ * display never contend, which is what decides that HW-11's shared-bus run is
+ * not reachable here. The probe tried the panel's own bus as its second
+ * candidate precisely so that could be established rather than assumed.
+ *
+ * Pins only: unlike the fitted panel, an empty card slot is not something every
+ * project wants a node for, so nothing is materialised from this. It exists so
+ * the pins are reserved with a reason and so a future SD feature has one place
+ * to read them from.
+ */
+export const CYD_SD_PINS: Readonly<Record<string, number>> = {
+  sdCsPin: 5,
+  sdSckPin: 18,
+  sdMisoPin: 19,
+  sdMosiPin: 23,
+}
+
 const INTEGRATED_TOUCH_DISPLAYS = new Map(
   [CYD_TOUCH_DISPLAY].map((display) => [display.boardProfileId, display]),
 )

@@ -776,13 +776,21 @@ matrix, not a reason to postpone testing earlier changes.
   board's onboard microSD, RGB LED, light sensor and amplifier pins, left
   unrecorded rather than taken from family documentation.
 
-  *An instrument for the microSD half exists, 2026-09-22.*
-  `src/codegen/sdPinProbeSketch.ts` tries candidate pinouts on the unit and
-  reports which mounts a card, so the pins can be recorded as measured rather
-  than copied. It answers a second question at the same time: its candidates say
-  which SPI host each set belongs to, so the run settles whether the card shares
-  the panel's bus — which is what decides whether HW-11's run 3 shared-bus test
-  is possible on this board at all. Generated but **not yet flashed**.
+  *The microSD half is measured, 2026-09-22.* `src/codegen/sdPinProbeSketch.ts`
+  was flashed to the bench unit and mounted a 29,820 MB SDHC card, listing its
+  root, on **CS 5 / SCK 18 / MISO 19 / MOSI 23** — recorded as `CYD_SD_PINS` in
+  `integratedBoardHardware.ts` and reserved with that reason. The family
+  documentation turned out to be right, which is not the same as having known
+  it: the probe tried the panel's own bus as its second candidate so the answer
+  would be evidence either way.
+
+  **That closes HW-11's run 3 on this board, in the negative.** Those pins are
+  the *second* SPI host; the panel is on SCK 14 / MOSI 13 / MISO 12. So the card
+  and the display never contend, and the shared-bus test the run 3 exit
+  describes cannot be performed here — not for want of effort, but because this
+  board does not have that fault to find. Pins only, deliberately: nothing is
+  materialised from the map, since an empty slot is not a node every project
+  wants.
 
   *The amplifier half is not worth measuring.* This board's onboard speaker amp
   is analog, and the internal-DAC path is dead under IDF 5 — verified in the

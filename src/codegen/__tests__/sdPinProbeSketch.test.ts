@@ -91,3 +91,54 @@ describe('the SD pin probe', () => {
     expect(sketch).not.toMatch(/FILE_WRITE|SD\.remove|SD\.mkdir|\.print\(/)
   })
 })
+
+/*
+ * The trap this sketch actually fell into, and it is not specific to this file.
+ *
+ * Generated C++ lives inside TypeScript template literals, where `\n` is a real
+ * newline and only `\n` survives into the C source as an escape. Get it wrong
+ * and every `printf` string is split across two lines: the literal terminates at
+ * the line end and its remaining text becomes code. The compiler then reports
+ * whatever that text happens to start with — here "extended character — is not
+ * valid in an identifier", pointing at an em dash that was never the problem.
+ *
+ * CLAUDE.md already records the backtick version of this trap. Rather than add
+ * a second thing to remember, assert the property that fails: a C string cannot
+ * span a line, so every line of the emitted sketch must have balanced quotes.
+ */
+describe('the emitted sketch survives its own template literal', () => {
+  const BACKSLASH = String.fromCharCode(92)
+
+  /** Quotes on one line, ignoring escaped ones and character literals. */
+  function unescapedQuotes(line: string): number {
+    let count = 0
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] !== '"') continue
+      let backslashes = 0
+      for (let j = i - 1; j >= 0 && line[j] === BACKSLASH; j--) backslashes++
+      if (backslashes % 2 === 0) count++
+    }
+    return count
+  }
+
+  it('never leaves a string literal open at the end of a line', () => {
+    const offenders = cyd().split('\n')
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => unescapedQuotes(line) % 2 !== 0)
+      .map(({ line, index }) => `${index + 1}: ${line.trim()}`)
+    expect(offenders, 'a C string cannot span a line: check the newline escapes').toEqual([])
+  })
+
+  it('emits newline escapes rather than actual newlines inside strings', () => {
+    /*
+     * Both forms are built rather than written, because writing them is the
+     * mistake: in a test about an escape that does not survive its own source,
+     * a literal would be subject to the very substitution under test.
+     */
+    const escaped = BACKSLASH + 'n'
+    const real = String.fromCharCode(10)
+    const sketch = cyd()
+    expect(sketch).toContain('no card mounted on these pins' + escaped)
+    expect(sketch).not.toContain('no card mounted on these pins' + real)
+  })
+})

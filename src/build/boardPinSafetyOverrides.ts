@@ -18,7 +18,7 @@
 import type { BoardPinSafety } from './boardCapabilities'
 import { CLASSIC_ESP32_RAM_BUDGET_BYTES } from './ramBudgets'
 import { NO_PIN } from '../state/boardGpio'
-import { integratedTouchDisplayForBoard } from '../state/integratedBoardHardware'
+import { CYD_SD_PINS, integratedTouchDisplayForBoard } from '../state/integratedBoardHardware'
 
 export interface AuthoredBoardPinSafety {
   pinSafety: BoardPinSafety
@@ -101,6 +101,12 @@ const CYD_PIN_SAFETY: AuthoredBoardPinSafety = {
     },
     boardReservedOrNotExposed: {
       ...fittedHardwarePins(CYD_PROFILE_ID),
+      // Measured 2026-09-22, not copied — see `CYD_SD_PINS`. Derived from that
+      // one map so a bench correction there carries through to the advice.
+      ...Object.fromEntries(Object.entries(CYD_SD_PINS).map(([key, pin]) => [
+        pin,
+        `Wired to this board's own microSD slot (${pinPropertyLabel(key.replace(/^sd/, ''))}).`,
+      ])),
       1: 'UART0 TX, wired to the onboard USB-serial bridge that uploads and the serial console use.',
       3: 'UART0 RX, wired to the onboard USB-serial bridge that uploads and the serial console use.',
     },
@@ -108,7 +114,8 @@ const CYD_PIN_SAFETY: AuthoredBoardPinSafety = {
   safetyNotes: [
     'This board brings out four GPIO pads — GPIO35, GPIO22, GPIO21 and GPIO27 — on its JST connectors. Every other GPIO is either soldered to the board’s own hardware or not brought out at all.',
     'GPIO21 is the fitted panel’s backlight, so the board’s default I2C bus is GPIO27/GPIO22 rather than the classic ESP32 GPIO21/GPIO22.',
-    'The onboard microSD slot, RGB LED, light sensor and speaker amplifier have not been confirmed on a bench unit, so their pins carry no advice here.',
+    'The onboard microSD slot is GPIO5/GPIO18/GPIO19/GPIO23, measured on a bench unit. It is the second SPI host, so the card and the fitted panel never share a bus.',
+    'The RGB LED, light sensor and speaker amplifier have not been confirmed on a bench unit, so their pins carry no advice here. The amplifier is analog, and the internal-DAC path it would need does not work on this core, so its pins would not help.',
   ],
 }
 

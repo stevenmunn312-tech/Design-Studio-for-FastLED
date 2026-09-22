@@ -116,14 +116,14 @@ static const char* cardTypeName(uint8_t type) {
  * call it a pass unless the card names itself and has a non-zero capacity.
  */
 static bool tryCandidate(const SdCandidate& c) {
-  Serial.printf("${MARKER} trying cs=%u sck=%u miso=%u mosi=%u  (%s)\n",
+  Serial.printf("${MARKER} trying cs=%u sck=%u miso=%u mosi=%u  (%s)\\n",
                 c.cs, c.sck, c.miso, c.mosi, c.label);
   pinMode(c.cs, OUTPUT);
   digitalWrite(c.cs, HIGH);
   probeBus.begin(c.sck, c.miso, c.mosi, c.cs);
   bool mounted = SD.begin(c.cs, probeBus);
   if (!mounted) {
-    Serial.printf("${MARKER}   no card mounted on these pins\n");
+    Serial.printf("${MARKER}   no card mounted on these pins\\n");
     SD.end();
     probeBus.end();
     return false;
@@ -131,19 +131,19 @@ static bool tryCandidate(const SdCandidate& c) {
   uint8_t type = SD.cardType();
   uint64_t bytes = SD.cardSize();
   if (type == CARD_NONE || bytes == 0) {
-    Serial.printf("${MARKER}   mounted but the card does not answer — treating as a miss\n");
+    Serial.printf("${MARKER}   mounted but the card does not answer — treating as a miss\\n");
     SD.end();
     probeBus.end();
     return false;
   }
-  Serial.printf("${MARKER} FOUND cs=%u sck=%u miso=%u mosi=%u type=%s size=%lluMB  (%s)\n",
+  Serial.printf("${MARKER} FOUND cs=%u sck=%u miso=%u mosi=%u type=%s size=%lluMB  (%s)\\n",
                 c.cs, c.sck, c.miso, c.mosi, cardTypeName(type),
                 (unsigned long long)(bytes / (1024ULL * 1024ULL)), c.label);
   File root = SD.open("/");
   if (root) {
-    Serial.printf("${MARKER}   root listing:\n");
+    Serial.printf("${MARKER}   root listing:\\n");
     for (File entry = root.openNextFile(); entry; entry = root.openNextFile()) {
-      Serial.printf("${MARKER}     %s%s  %lu\n", entry.name(),
+      Serial.printf("${MARKER}     %s%s  %lu\\n", entry.name(),
                     entry.isDirectory() ? "/" : "", (unsigned long)entry.size());
     }
     root.close();
@@ -156,20 +156,20 @@ static bool tryCandidate(const SdCandidate& c) {
 void setup() {
   Serial.begin(115200);
   delay(300);
-  Serial.printf("\n${MARKER} onboard SD pin probe — %u candidate(s)\n", (unsigned)CANDIDATE_COUNT);
+  Serial.printf("\\n${MARKER} onboard SD pin probe — %u candidate(s)\\n", (unsigned)CANDIDATE_COUNT);
 ${deselect.length > 0 ? `  // Hold every other device on the board off the bus before clocking it.
   for (size_t i = 0; i < DESELECT_COUNT; i++) { pinMode(DESELECT[i], OUTPUT); digitalWrite(DESELECT[i], HIGH); }
-  Serial.printf("${MARKER} holding %u other chip select(s) high\n", (unsigned)DESELECT_COUNT);` : ''}
+  Serial.printf("${MARKER} holding %u other chip select(s) high\\n", (unsigned)DESELECT_COUNT);` : ''}
 }
 
 void loop() {
   bool found = false;
   for (size_t i = 0; i < CANDIDATE_COUNT && !found; i++) found = tryCandidate(CANDIDATES[i]);
   if (!found) {
-    Serial.printf("${MARKER} no candidate mounted a card.\n");
-    Serial.printf("${MARKER} Check a card is inserted and formatted FAT32, then wait for the retry.\n");
+    Serial.printf("${MARKER} no candidate mounted a card.\\n");
+    Serial.printf("${MARKER} Check a card is inserted and formatted FAT32, then wait for the retry.\\n");
   }
-  Serial.printf("${MARKER} retrying in ${Math.round(retryMs / 1000)}s\n\n");
+  Serial.printf("${MARKER} retrying in ${Math.round(retryMs / 1000)}s\\n\\n");
   delay(${retryMs});
 }
 `
