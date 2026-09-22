@@ -1292,10 +1292,39 @@ matrix, not a reason to postpone testing earlier changes.
     shared `scalarControlCpp.ts` emitter implement one six-decimal contract for
     normal/template generators; focused state, evaluator, C++ and range-hint
     tests pass, and the design plan records volatile reboot/reset behavior.
-  - [ ] **4. Register `IRRemoteInput` as hardware.** Add the node definition,
-    dynamic learned-button outputs, root ownership/library hiding, GPIO picker
-    and digital-input requirement, exclusive pin topology, pin-retarget plan,
-    pin-use collection, hardware manifest and Build Diagram support.
+  - [x] **4. Register `IRRemoteInput` as hardware.** Done 2026-09-23. A
+    hardware-managed, root-owned signal node claiming one exclusive digital
+    input with no pull-up — a receiver module drives the line itself, so a
+    pull-up would fight its output stage, the same reason the PIR has none.
+    The pin needs no `busTopology` row: an exclusive claim is what the default
+    already means. Retarget plan, pin-use collection, manifest kind
+    (`ir-input`) and Build Diagram pads all landed; the diagram draws its three
+    legs from the uncatalogued pad table, as the button, pot and encoder
+    modules do, until step 5 brings a verified render.
+
+    Its outputs are the learned keys, derived from `buttons` the way a Button
+    Bank derives its own — a key is an identity in a saved mapping rather than
+    a pin, so the node grows a port per key and still costs one GPIO however
+    many it has. Load normalization unions the stored mappings with the handles
+    its edges already leave from, so a damaged save cannot take a live wire
+    down with it; the retained row keeps an empty protocol, which is visibly
+    invalid to validation rather than a plausible mapping nobody authored.
+
+    The live example had to be named rather than generic, and the reason is
+    worth keeping: the generic bool builder wires `outputs[0]`, which here is
+    the trailing Learn socket — an invitation, not a signal — so inserting it
+    would have left an edge on a placeholder no key backs.
+    `liveExamples.test.ts` now refuses that from any example, held there rather
+    than in the IR example's own test because the fault is in the generic
+    builder. The example shows the workflow the feature exists for: two keys
+    into Step Value into a pattern's Speed, since a key is an event and a
+    property wants a value.
+
+    `irRemoteRegistration.test.ts` covers ownership, the pin contract, one pin
+    per node, the manifest item and the four port cases (mint, damaged-save
+    retention, no key invented from a Learn-socket wire, rename keeps wires).
+    `npm test` (5,572), `npm run lint` and `tsc -b` pass. No compile run —
+    nothing emits IR firmware yet; that is step 8.
   - [ ] **5. Add the physical receiver to the workbench.** Import one verified
     demodulating receiver asset with measured dimensions and pad labels, add the
     Hardware shelf fixture/inspector and singleton behavior, and extend the
