@@ -15,6 +15,7 @@ import {
 import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { controllableInputsFor, exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
+import { orderPorts } from '../utils/portOrder'
 import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
@@ -573,14 +574,22 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
         ...playerControlIdsFromEdges(n.id, edges),
       ])
     }
-    const inputs = nodeType === 'ControlMap'
-      ? playerControlInputs(properties.controls)
-      : nodeType === 'RelayOutput'
-        ? relayInputs(properties.partId)
-        : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : [])
-    const outputs = nodeType === 'ButtonBank'
-      ? buttonBankOutputs(properties.buttons)
-      : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])
+    // A Tidy swap is remembered as the saved port order. The list above is
+    // still which ports exist; ports added by a newer library append at the end.
+    const inputs = orderPorts(
+      nodeType === 'ControlMap'
+        ? playerControlInputs(properties.controls)
+        : nodeType === 'RelayOutput'
+          ? relayInputs(properties.partId)
+          : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
+      Array.isArray(data.inputs) ? data.inputs : undefined,
+    )
+    const outputs = orderPorts(
+      nodeType === 'ButtonBank'
+        ? buttonBankOutputs(properties.buttons)
+        : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : []),
+      Array.isArray(data.outputs) ? data.outputs : undefined,
+    )
     // A hardware-only part is hidden wherever it came from — a template, an
     // older save, a share link — rather than relying on every creation path to
     // remember. Board has always been forced this way; the rest join it.

@@ -8,7 +8,9 @@
  * stream through the store (the same pause trick `enterGraph` uses).
  */
 import { useGraphStore } from '../state/graphStore'
+import { exposableInputsFor } from '../state/propertyInputs'
 import { useUiStore } from '../state/uiStore'
+import { untanglePortOrders, type OrderedPort } from './portOrder'
 import { tidyLayout } from './tidyLayout'
 
 const FALLBACK_W = 240
@@ -17,6 +19,19 @@ const TIDY_ANIM_MS = 200
 const HISTORY_LIMIT = 100 // graphStore's zundo `limit`
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+
+/** 0 at the top of the node, 1 at the bottom, at the middle of this port's row. */
+function portFraction(ports: readonly OrderedPort[], handle: string | null | undefined): number | undefined {
+  if (!handle || ports.length === 0) return undefined
+  const index = ports.findIndex((port) => port.id === handle)
+  if (index < 0) return undefined
+  return (index + 0.5) / ports.length
+}
+
+function asPorts(value: unknown): OrderedPort[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((port): port is OrderedPort => !!port && typeof port === 'object' && typeof port.id === 'string')
+}
 
 interface RunTidyOptions {
   /** Ignore a multi-selection and arrange the complete active graph. */
@@ -32,6 +47,24 @@ export function runTidy(options: RunTidyOptions = {}): number {
   const requestFitView = useUiStore.getState().requestFitView
   const fitNodeIds = scope.map((n) => n.id)
 
+  const scopeById = new Map(scope.map((n) => [n.id, n]))
+  const reordered = untanglePortOrders(
+    scope.map((node) => ({
+      id: node.id,
+      nodeType: String(node.data.nodeType ?? ''),
+      inputs: asPorts(node.data.inputs),
+      outputs: asPorts(node.data.outputs),
+    })),
+    s.edges,
+  )
+  const portsOf = (id: string, side: 'inputs' | 'outputs') => {
+    const swapped = reordered.get(id)
+    const node = scopeById.get(id)
+    const ports = swapped?.[side] ?? asPorts(node?.data[side])
+    if (side === 'outputs') return ports
+    const hidden = new Set(exposableInputsFor(String(node?.data.nodeType ?? '')).map((port) => port.id))
+    return ports.filter((port) => !hidden.has(port.id))
+  }
   const targets = tidyLayout(
     scope.map((n) => ({
       id: n.id,
@@ -40,7 +73,14 @@ export function runTidy(options: RunTidyOptions = {}): number {
       width: n.measured?.width ?? FALLBACK_W,
       height: n.measured?.height ?? FALLBACK_H,
     })),
-    s.edges,
+    s.edges.map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      // Port order is what keeps a bundle of wires from crossing. The centre
+      // of a tall node is the same answer for every wire into it.
+      sourcePort: portFraction(portsOf(edge.source, 'outputs'), edge.sourceHandle),
+      targetPort: portFraction(portsOf(edge.target, 'inputs'), edge.targetHandle),
+    })),
   )
 
   const start = new Map<string, { x: number; y: number }>()
@@ -49,7 +89,7 @@ export function runTidy(options: RunTidyOptions = {}): number {
     if (to && (to.x !== n.position.x || to.y !== n.position.y)) start.set(n.id, { ...n.position })
   }
   const setStatus = useUiStore.getState().setStatus
-  if (start.size === 0) {
+  if (start.size === 0 && reordered.size === 0) {
     if (fitNodeIds.length > 0) requestFitView(fitNodeIds)
     setStatus('Layout already tidy', 'info')
     return 0
@@ -66,12 +106,16 @@ export function runTidy(options: RunTidyOptions = {}): number {
   const apply = (t: number) => {
     useGraphStore.setState((state) => ({
       nodes: state.nodes.map((n) => {
+        const ports = reordered.get(n.id)
         const from = start.get(n.id)
         const to = targets.get(n.id)
-        if (!from || !to) return n
+        if (!ports && (!from || !to)) return n
         return {
           ...n,
-          position: { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t },
+          position: from && to
+            ? { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
+            : n.position,
+          ...(ports ? { data: { ...n.data, inputs: ports.inputs, outputs: ports.outputs } } : {}),
         }
       }),
     }))

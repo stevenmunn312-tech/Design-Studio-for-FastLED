@@ -115,6 +115,45 @@ describe('tidyLayout', () => {
     }
   })
 
+  it('stacks feeds in port order so wires into a tall node do not cross', () => {
+    // high currently sits above low, but it feeds the bottom port. Leaving
+    // them in that order draws an X across the target.
+    const result = tidyLayout(
+      [box('high', 0, 0, 180, 80), box('low', 0, 300, 180, 80), box('player', 400, 0, 220, 400)],
+      [
+        { source: 'high', target: 'player', targetPort: 0.9 },
+        { source: 'low', target: 'player', targetPort: 0.1 },
+      ],
+    )
+    expect(result.get('low')!.y).toBeLessThan(result.get('high')!.y)
+
+    const again = tidyLayout(
+      [
+        { ...box('high', 0, 0, 180, 80), ...result.get('high')! },
+        { ...box('low', 0, 300, 180, 80), ...result.get('low')! },
+        { ...box('player', 400, 0, 220, 400), ...result.get('player')! },
+      ],
+      [
+        { source: 'high', target: 'player', targetPort: 0.9 },
+        { source: 'low', target: 'player', targetPort: 0.1 },
+      ],
+    )
+    expect(again.get('low')).toEqual(result.get('low'))
+    expect(again.get('high')).toEqual(result.get('high'))
+    expect(again.get('player')).toEqual(result.get('player'))
+  })
+
+  it('stacks consumers in the order of the output ports they leave', () => {
+    const result = tidyLayout(
+      [box('player', 0, 0, 220, 400), box('lower', 400, 0, 180, 80), box('upper', 400, 300, 180, 80)],
+      [
+        { source: 'player', target: 'upper', sourcePort: 0.1 },
+        { source: 'player', target: 'lower', sourcePort: 0.9 },
+      ],
+    )
+    expect(result.get('upper')!.y).toBeLessThan(result.get('lower')!.y)
+  })
+
   it('is idempotent — tidying an already-tidy layout is a no-op', () => {
     // Fan-out plus a chain: the shapes that drift when column stacking only
     // pushes downward.

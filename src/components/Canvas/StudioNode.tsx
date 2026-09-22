@@ -2,6 +2,7 @@ import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import { hasDerivedDisplayPorts, rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
@@ -1169,18 +1170,28 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // library for a Touch node's outputs returns the declared `controls` bundle
   // alone, which draws a node with none of the named controls its screen
   // publishes even though the wiring and the saved file both have them.
-  const declaredInputs = (hasDerivedDisplayPorts(d.nodeType)
-    ? d.inputs ?? def?.inputs ?? []
-    : d.nodeType === 'ControlMap'
-      ? playerControlInputs(rawProps.controls)
-      : d.nodeType === 'RelayOutput'
-        ? relayInputs(rawProps.partId)
-      : def?.inputs ?? d.inputs ?? []) as PortDef[]
-  const outputs = (d.nodeType === 'ButtonBank'
-    ? buttonBankOutputs(rawProps.buttons)
-    : hasDerivedDisplayPorts(d.nodeType)
-      ? d.outputs ?? def?.outputs ?? []
-      : def?.outputs ?? d.outputs ?? []) as PortDef[]
+  // `data.inputs` / `data.outputs` remember a Tidy swap. The library (or the
+  // derived list) is still which ports exist; the saved list is only their order.
+  const savedInputs = Array.isArray(d.inputs) ? d.inputs : undefined
+  const savedOutputs = Array.isArray(d.outputs) ? d.outputs : undefined
+  const declaredInputs = orderPorts(
+    (hasDerivedDisplayPorts(d.nodeType)
+      ? d.inputs ?? def?.inputs ?? []
+      : d.nodeType === 'ControlMap'
+        ? playerControlInputs(rawProps.controls)
+        : d.nodeType === 'RelayOutput'
+          ? relayInputs(rawProps.partId)
+        : def?.inputs ?? d.inputs ?? []) as PortDef[],
+    savedInputs,
+  )
+  const outputs = orderPorts(
+    (d.nodeType === 'ButtonBank'
+      ? buttonBankOutputs(rawProps.buttons)
+      : hasDerivedDisplayPorts(d.nodeType)
+        ? d.outputs ?? def?.outputs ?? []
+        : def?.outputs ?? d.outputs ?? []) as PortDef[],
+    savedOutputs,
+  )
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so a pot or

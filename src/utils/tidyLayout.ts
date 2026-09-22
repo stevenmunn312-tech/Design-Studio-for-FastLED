@@ -7,9 +7,11 @@
  *    first consumer, so a lone Time node doesn't sit columns away from the
  *    node it feeds.
  * 2. Rows within a column are ordered by barycenter sweeps — each node seeks
- *    the average y-centre of its neighbours, alternating left→right (follow
- *    inputs) and right→left (follow outputs) — which is what untangles
- *    crossing noodles.
+ *    the average y of the ports it shares with its neighbours, alternating
+ *    left→right (follow the output port a wire leaves) and right→left (follow
+ *    the input port a wire arrives at). Using the node's centre instead
+ *    stacks every feed of a tall node on one line, so a wire into its bottom
+ *    port crosses a wire into its top port.
  * 3. The result is anchored to the scope's current top-left corner and snapped
  *    to the canvas grid, so tidying doesn't fling the graph elsewhere.
  * 4. Isolated nodes (no edge to anything in scope) stay where the user put
@@ -31,6 +33,19 @@ export interface TidyItem {
 export interface TidyEdge {
   source: string
   target: string
+  /**
+   * Where the wire leaves the source, as a fraction of that node's height.
+   * 0 is the top edge, 1 is the bottom. Omit to use the node's centre.
+   */
+  sourcePort?: number
+  /** Where the wire arrives on the target, same fraction as `sourcePort`. */
+  targetPort?: number
+}
+
+interface Link {
+  id: string
+  /** Port fraction on the neighbour. Incoming links carry the source's output port. */
+  port?: number
 }
 
 export interface TidyOptions {
@@ -54,15 +69,19 @@ export function tidyLayout(
     (e) => e.source !== e.target && byId.has(e.source) && byId.has(e.target),
   )
 
-  const inputs = new Map<string, string[]>()   // target → sources feeding it
-  const outputs = new Map<string, string[]>()  // source → targets it feeds
+  // One entry per wire. The same neighbour can appear twice when two ports
+  // connect the pair — each port is a different height, and both have to vote.
+  const incoming = new Map<string, Link[]>() // target → wires arriving
+  const outgoing = new Map<string, Link[]>() // source → wires leaving
   for (const e of scoped) {
-    inputs.set(e.target, [...(inputs.get(e.target) ?? []), e.source])
-    outputs.set(e.source, [...(outputs.get(e.source) ?? []), e.target])
+    incoming.set(e.target, [...(incoming.get(e.target) ?? []), { id: e.source, port: e.sourcePort }])
+    outgoing.set(e.source, [...(outgoing.get(e.source) ?? []), { id: e.target, port: e.targetPort }])
   }
+  const sourceIds = (id: string) => (incoming.get(id) ?? []).map((link) => link.id)
+  const targetIds = (id: string) => (outgoing.get(id) ?? []).map((link) => link.id)
 
   // Isolated nodes stay where the user put them.
-  const connected = items.filter((i) => inputs.has(i.id) || outputs.has(i.id))
+  const connected = items.filter((i) => incoming.has(i.id) || outgoing.has(i.id))
   if (connected.length === 0) return new Map()
 
   // ── 1. Columns: longest path from a source, cycle-safe ──────────────────
@@ -73,7 +92,7 @@ export function tidyLayout(
     if (memo !== undefined) return memo
     if (inStack.has(id)) return 0 // back edge in a cycle — break it here
     inStack.add(id)
-    const sources = inputs.get(id) ?? []
+    const sources = sourceIds(id)
     const d = sources.length ? Math.max(...sources.map(depth)) + 1 : 0
     inStack.delete(id)
     col.set(id, d)
@@ -83,8 +102,8 @@ export function tidyLayout(
 
   // Pull each source up against its nearest consumer.
   for (const n of connected) {
-    if ((inputs.get(n.id) ?? []).length === 0) {
-      const targets = outputs.get(n.id) ?? []
+    if (sourceIds(n.id).length === 0) {
+      const targets = targetIds(n.id)
       if (targets.length) {
         col.set(n.id, Math.max(0, Math.min(...targets.map((t) => col.get(t)!)) - 1))
       }
@@ -94,7 +113,11 @@ export function tidyLayout(
   const maxCol = Math.max(...connected.map((n) => col.get(n.id)!))
   const allColumns: TidyItem[][] = Array.from({ length: maxCol + 1 }, () => [])
   for (const n of connected) allColumns[col.get(n.id)!].push(n)
-  const columns = allColumns.filter((c) => c.length > 0)
+  // Store order is not visual order. A tie in the first sweep has to keep
+  // the column reading top-to-bottom, or two feeds of one node swap and cross.
+  const columns = allColumns
+    .filter((c) => c.length > 0)
+    .map((c) => [...c].sort((a, b) => a.y - b.y || a.x - b.x))
 
   // Column x positions, anchored at the scope's current left edge.
   const left = snap(Math.min(...connected.map((n) => n.x)), grid)
@@ -128,20 +151,28 @@ export function tidyLayout(
       order.reduce((a, n) => a + cy.get(n.id)!, 0) / order.length
     for (const n of order) cy.set(n.id, cy.get(n.id)! + shift)
   }
-  const desiredCentre = (n: TidyItem, neighbours: string[]) =>
-    neighbours.length
-      ? neighbours.reduce((a, m) => a + cy.get(m)!, 0) / neighbours.length
+  // Height of the port the wire uses, not the neighbour's middle. Two wires
+  // into one tall node then ask for two different rows.
+  const anchor = (id: string, port: number | undefined) => {
+    const item = byId.get(id)!
+    const mid = cy.get(id)!
+    const frac = port === undefined ? 0.5 : port
+    return mid - item.height / 2 + frac * item.height
+  }
+  const desiredCentre = (n: TidyItem, links: Link[]) =>
+    links.length
+      ? links.reduce((sum, link) => sum + anchor(link.id, link.port), 0) / links.length
       : cy.get(n.id)!
 
   const sweepRight = () => {
     for (const c of columns) {
-      placeColumn(c, new Map(c.map((n) => [n.id, desiredCentre(n, inputs.get(n.id) ?? [])])))
+      placeColumn(c, new Map(c.map((n) => [n.id, desiredCentre(n, incoming.get(n.id) ?? [])])))
     }
   }
   const sweepLeft = () => {
     for (let i = columns.length - 1; i >= 0; i--) {
       const c = columns[i]
-      placeColumn(c, new Map(c.map((n) => [n.id, desiredCentre(n, outputs.get(n.id) ?? [])])))
+      placeColumn(c, new Map(c.map((n) => [n.id, desiredCentre(n, outgoing.get(n.id) ?? [])])))
     }
   }
   for (let pass = 0; pass < 2; pass++) {
@@ -163,7 +194,7 @@ export function tidyLayout(
   // ── 4. Park stray unconnected nodes that would obscure the graph ────────
   // An isolated node clear of the tidied layout stays where the user put it;
   // one sitting on top of the layout is moved into a row beneath it.
-  const isolated = items.filter((i) => !inputs.has(i.id) && !outputs.has(i.id))
+  const isolated = items.filter((i) => !incoming.has(i.id) && !outgoing.has(i.id))
   if (isolated.length) {
     let minX = Infinity
     let minY = Infinity
