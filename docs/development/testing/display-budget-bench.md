@@ -93,8 +93,35 @@ four are constrained by this board rather than by the software under test.
 - **A custom screen does not fit.** The LVGL heap is pinned at 64 KiB and a
   custom screen overruns a classic ESP32 by 22,496 bytes (HW-25). Run 1 is
   therefore measured with a **fixed layout**, not a custom screen design, and
-  says so in its row. The custom-screen half of the budget needs an S3 rig or
-  HW-25's per-board heap; it is not a figure this board can produce.
+  says so in its row.
+
+  This board is deliberately left able to *attempt* it. Unlike the generic
+  classic-ESP32 profiles, `esp32-2432s028r` declares no
+  `internalRamBudgetBytes`, so HW-24's pre-compile refusal returns nothing and
+  the build proceeds to the linker. That is an inconsistency — the same absent-
+  data-reads-as-complete shape HW-12 found in this board's pin safety — and it
+  is being **held open on purpose until HW-25 has its number**, because a
+  refusal before the compile is a refusal before the measurement. Do not close
+  it by declaring a budget for this board until the run below is recorded.
+  See HW-25 in `todo.md`.
+
+  **Run 0, then: the overflow itself.** Build a custom screen for this board and
+  let it fail. The linker error is the measurement — HW-23's formatter names the
+  region and the exact overage — and it is a *static* figure, so it needs no
+  device. Record it here beside the figure the estimate predicted, since a
+  disagreement means the estimate needs correcting rather than the measurement.
+
+  | Figure | Predicted | Measured | Notes |
+  | --- | --- | --- | --- |
+  | Region | | | `dram` / `bss` / `data` — which one overflowed |
+  | Overage bytes | 22,496 | | the estimate's figure against the linker's |
+  | Screen complexity | | | widget count, so "per complexity" means something |
+
+  Its other half is runtime, and comes free from run 1: `heap` and `minheap` on
+  a *fixed-layout* build on this board say how much internal RAM is actually
+  free with the panel running, which is the ceiling any smaller LVGL heap has
+  to fit under. The two together are what HW-25's exit asks for; neither alone
+  is.
 - **Run 3 cannot be done on this board at all.** It wants TFT, SD and touch
   sharing one bus with audio playing. This board's onboard microSD and speaker
   amplifier are exactly the pins HW-12 left unrecorded rather than taken from

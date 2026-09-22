@@ -862,6 +862,19 @@ matrix, not a reason to postpone testing earlier changes.
   link time. Exit: a measured minimum heap per screen complexity, chosen against
   HW-11's numbers rather than picked to clear one overflow.
 
+  *One inconsistency is being held open on purpose (decided 2026-09-22).* The
+  CYD profile declares no `internalRamBudgetBytes`, while both generic
+  classic-ESP32 profiles declare 48 KiB — so `findFirmwareRamBudgetIssue`
+  returns `null` for it and a custom-screen build on the one board with a
+  soldered screen reaches the linker instead of being refused. That is the same
+  absent-data-reads-as-complete shape HW-12 found in this board's pin safety,
+  and the fix is known (derive the budget from the target family, so no imported
+  profile can be missed the same way). It is **not** being applied yet: a
+  refusal before the compile is a refusal before the measurement, and this
+  item's exit wants a measured number rather than an estimated one. Close it
+  once the overflow is recorded — [the bench procedure](docs/development/testing/display-budget-bench.md)
+  carries the table, beside the runtime half that comes free from HW-11's run 1.
+
 - [x] **HW-26 · P2 · A crowded classic ESP32 could not be pin-allocated, and
   said so badly (S/M).** Three defects, all found building HW-08's music
   transport starter, all fixed.
