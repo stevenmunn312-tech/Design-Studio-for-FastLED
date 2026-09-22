@@ -213,14 +213,16 @@ function connectionTargetHint(
       aria: `Incompatible with dragged ${drag.sourceDataType} output.`,
     }
   }
-  const range = isNormalizedOutput(drag.sourceNodeType, drag.sourcePortId)
-    ? signalRangeMismatch(targetNodeType, targetPort.id)
-    : null
+  const sourceRange = drag.sourceRange ?? (isNormalizedOutput(drag.sourceNodeType, drag.sourcePortId)
+    ? { min: 0, max: 1 }
+    : null)
+  const range = sourceRange ? signalRangeMismatch(targetNodeType, targetPort.id, sourceRange) : null
   if (range) {
     const span = formatSignalRange(range)
+    const sourceSpan = formatSignalRange(sourceRange!)
     return {
       kind: 'range',
-      title: `Compatible type, but this 0-1 source only covers the bottom of ${span}. Use Map Range for full control.`,
+      title: `Compatible type, but this ${sourceSpan} source differs from ${span}. Use Map Range for full control.`,
       aria: `Compatible, with range warning. Use Map Range for the ${span} target range.`,
     }
   }

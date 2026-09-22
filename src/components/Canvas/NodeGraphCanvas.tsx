@@ -50,6 +50,7 @@ import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
 import { isHardwareLibraryHiddenNodeType } from '../../state/hardware'
 import { BUTTON_BANK_ADD_HANDLE } from '../../state/buttonBank'
+import { outputSignalRange } from '../../state/signalRange'
 import styles from './NodeGraphCanvas.module.css'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -615,10 +616,11 @@ function NodeGraphCanvasInner() {
       // drop can offer a compatible-node picker.
       if (params.handleType === 'source' && params.nodeId) {
         const srcNode = getNode(params.nodeId)
-        const srcData = srcNode?.data as { nodeType?: string; outputs?: Array<{ id: string; dataType: string }> } | undefined
+        const srcData = srcNode?.data as { nodeType?: string; properties?: Record<string, unknown>; outputs?: Array<{ id: string; dataType: string }> } | undefined
         const out = srcData?.outputs
           ?.find((p) => p.id === (params.handleId ?? undefined))
         if (out) {
+          const sourceRange = outputSignalRange(String(srcData?.nodeType ?? ''), out.id, srcData?.properties)
           connectFrom.current = { nodeId: params.nodeId, handleId: out.id, dataType: out.dataType }
           const graphNodes = useGraphStore.getState().nodes
           setConnectionDrag({
@@ -626,6 +628,7 @@ function NodeGraphCanvasInner() {
             sourceNodeType: String(srcData?.nodeType ?? ''),
             sourcePortId: out.id,
             sourceDataType: out.dataType,
+            ...(sourceRange ? { sourceRange } : {}),
             // Whether a modifier has anywhere to place, decided once at the
             // start of the drag rather than per property row per render: the
             // overlay cannot open or change panels while a noodle is in the

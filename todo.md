@@ -1255,14 +1255,21 @@ matrix, not a reason to postpone testing earlier changes.
     recognized protocol/address/command mappings, stable mapping ids, per-key
     `once`/`held` repeat policy, runtime reset to authored initial values, and
     no transmitter/raw-replay/persistent-value scope.
-  - [ ] **2. Add pure mapping primitives.** Implement bounded normalization,
+  - [x] **2. Add pure mapping primitives.** Implement bounded normalization,
     stable output-handle derivation, canonical protocol allow-listing,
     duplicate detection and the decode/repeat reducer. Cover malformed imports,
     stale repeats, unknown frames and rename/remove behavior with unit tests.
-  - [ ] **3. Add the `StepValue` adapter.** Define Increase/Decrease/Reset
+    Evidence: `src/state/irRemote.ts` is receiver/library-independent and
+    `src/state/__tests__/irRemote.test.ts` covers the listed import, identity,
+    edit and reducer cases.
+  - [x] **3. Add the `StepValue` adapter.** Define Increase/Decrease/Reset
     boolean inputs, Value output, initial/min/max/step/wrap properties, and
     graph-instance-scoped state. Match evaluator and C++ behavior for clamp,
     wrap, reset, rounding and repeated pulses; document reboot semantics.
+    Evidence: `src/state/stepValue.ts`, the `graphEvaluator.ts` state map and
+    shared `scalarControlCpp.ts` emitter implement one six-decimal contract for
+    normal/template generators; focused state, evaluator, C++ and range-hint
+    tests pass, and the design plan records volatile reboot/reset behavior.
   - [ ] **4. Register `IRRemoteInput` as hardware.** Add the node definition,
     dynamic learned-button outputs, root ownership/library hiding, GPIO picker
     and digital-input requirement, exclusive pin topology, pin-retarget plan,

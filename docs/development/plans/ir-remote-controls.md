@@ -4,9 +4,12 @@ Active execution is tracked by the ordered checkbox list under
 [D-05a in the root todo](../../../todo.md). This document defines the feature
 contract so the checklist does not have to repeat the design.
 
-Status: **planned, not implemented.** Keep the feature experimental until a
-generated sketch has been compiled on every claimed board family and the
-receiver, repeat handling and LED timing have been exercised on hardware.
+Status: **in progress.** The receiver-independent mapping primitives and the
+general Step Value adapter are implemented; receiver registration, learning,
+firmware dependency integration and hardware evidence remain. Keep the feature
+experimental until a generated sketch has been compiled on every claimed board
+family and the receiver, repeat handling and LED timing have been exercised on
+hardware.
 
 ## Goal
 
@@ -93,9 +96,13 @@ edges so a valid connection is never hidden by damaged metadata.
 `StepValue` has boolean `increase`, `decrease` and `reset` inputs, a float
 `value` output, and authored `initial`, `minimum`, `maximum`, `step` and
 `wrap` properties. Increase/decrease react to rising event pulses, clamp by
-default, optionally wrap, and reset to the sanitized initial value. Stateful
-evaluation is keyed through the graph/group instance exactly like other
-stateful nodes, so two pattern instances do not share a value.
+default, optionally wrap, and reset to the sanitized initial value. Values are
+rounded to six decimal places after each step so browser arithmetic and the
+generated `float` state do not drift apart. Reset wins a simultaneous pass;
+simultaneous Increase and Decrease edges cancel. Stateful evaluation is keyed
+through the graph/group instance exactly like other stateful nodes, so two
+pattern instances do not share a value. Runtime state is deliberately volatile:
+resetting the preview or rebooting the controller starts again at `initial`.
 
 ## Event and repeat semantics
 

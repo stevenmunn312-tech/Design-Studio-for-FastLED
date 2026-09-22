@@ -46,6 +46,8 @@ export interface ConnectionDragHint {
   sourceNodeType: string
   sourcePortId: string
   sourceDataType: string
+  /** Authored numeric domain when the source declares one (for range hints). */
+  sourceRange?: { min: number; max: number }
   /**
    * Whether a Ctrl-drop from this source would land its new control on glass
    * the author can see. Resolved once when the drag starts — the live touch

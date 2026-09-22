@@ -3474,6 +3474,21 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(cpp).toContain('n_iv_pulse')
   })
 
+  it('StepValue emits the same bounded, rounded rising-edge state machine as preview', () => {
+    const t = tail('step', 'value')
+    const pulse = node('iv', 'Interval', 'signal', { interval: 1 })
+    const cpp = generateCpp([
+      pulse,
+      node('step', 'StepValue', 'math', { initial: 0.1, minimum: 0, maximum: 0.3, step: 0.1, wrap: true }),
+      ...t.nodes,
+    ], [edge('e0', 'iv', 'step', 'pulse', 'increase'), ...t.edges])
+    expect(cpp).toContain('static float n_step_value = 0.1f;')
+    expect(cpp).toContain('_svInc_step && !_svIncPrev_step')
+    expect(cpp).toContain('roundf((n_step_value + (_svIncEdge_step ? 0.1f : -0.1f)) * 1000000.0f)')
+    expect(cpp).toContain('if (_svNext_step > 0.3f) n_step_value = 0.0f;')
+    expect(cpp).toContain('else if (_svNext_step < 0.0f) n_step_value = 0.3f;')
+  })
+
   it('Switch emits a ternary over both live inputs', () => {
     const t = tail('sw', 'result')
     const cpp = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)

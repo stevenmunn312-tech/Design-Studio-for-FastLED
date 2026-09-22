@@ -3509,6 +3509,24 @@ describe('signal utility nodes', () => {
     expect(evaluateScalar(graph(1, 0.2), edges, 'sh1', 'result', 5)).toBe(0.2)
   })
 
+  it('StepValue keeps per-node state and applies repeated rising pulses', () => {
+    resetEvaluatorState()
+    const graph = (increase: number) => [
+      boolSrc('step-up', increase),
+      node('step', 'StepValue', 'math', { initial: 0.1, minimum: 0, maximum: 0.3, step: 0.1, wrap: false }),
+      node('other-step', 'StepValue', 'math', { initial: 0.8, minimum: 0, maximum: 1, step: 0.1, wrap: false }),
+    ]
+    const edges = [edge('step-edge', 'step-up', 'result', 'step', 'increase')]
+    const value = (tick: number, increase: number, id = 'step') => evaluateScalar(graph(increase), edges, id, 'value', tick)
+
+    expect(value(0, 0)).toBe(0.1)
+    expect(value(1, 1)).toBe(0.2)
+    expect(value(2, 1)).toBe(0.2)
+    expect(value(3, 0)).toBe(0.2)
+    expect(value(4, 1)).toBe(0.3)
+    expect(value(5, 0, 'other-step')).toBe(0.8)
+  })
+
   it('Envelope jumps to 1 on a trigger and decays linearly to 0', () => {
     const graph = (on: number) => [boolSrc('envt', on), node('env1', 'Envelope', 'signal', { decay: 0.5 })]
     const edges = [edge('e', 'envt', 'result', 'env1', 'trigger')]

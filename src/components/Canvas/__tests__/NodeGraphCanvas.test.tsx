@@ -392,6 +392,7 @@ describe('NodeGraphCanvas start screen', () => {
       sourceNodeType: 'PotInput',
       sourcePortId: 'value',
       sourceDataType: 'float',
+      sourceRange: { min: 0, max: 1 },
       // A Pot has no screen of its own, so the place-on-drop shortcut has
       // nowhere to go and the hint must not offer it.
       canPlaceOnVisibleScreen: false,

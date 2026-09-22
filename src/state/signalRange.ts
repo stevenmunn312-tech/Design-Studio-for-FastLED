@@ -27,6 +27,9 @@
 // wrong wire, because the first teaches people to ignore the drawer.
 
 import { inputClampRange } from './nodeLibrary'
+import { normalizeStepValueSettings } from './stepValue'
+
+export interface SignalRange { min: number; max: number }
 
 /**
  * Outputs that are 0–1 by contract, not by happening to land there.
@@ -36,8 +39,9 @@ import { inputClampRange } from './nodeLibrary'
  * read from the same normalised run-state map. Everything else with a float
  * output is either already scaled by the author (Map Range, Math, Lerp), in
  * units of its own (BPM, hours, a pixel index, an encoder count), or carries a
- * range that its own properties set (BeatSin's low↔high), so none of them can
- * state a range here.
+ * range that its own properties set. Step Value is the deliberate exception:
+ * its authored minimum/maximum are explicit enough for `outputSignalRange` to
+ * return dynamically rather than pretending they are a fixed registry fact.
  */
 export const NORMALIZED_OUTPUTS: Readonly<Record<string, readonly string[]>> = {
   FFTAnalyzer: ['bass', 'mids', 'treble'],
@@ -50,6 +54,21 @@ export const NORMALIZED_OUTPUTS: Readonly<Record<string, readonly string[]>> = {
 /** Whether this output is 0–1 by contract. */
 export function isNormalizedOutput(nodeType: string, portId: string | null | undefined): boolean {
   return !!portId && (NORMALIZED_OUTPUTS[nodeType]?.includes(portId) ?? false)
+}
+
+/** Authored source domain when it is explicit enough to compare to a target. */
+export function outputSignalRange(
+  nodeType: string,
+  portId: string | null | undefined,
+  properties: Record<string, unknown> = {},
+): SignalRange | null {
+  if (!portId) return null
+  if (isNormalizedOutput(nodeType, portId)) return { min: 0, max: 1 }
+  if (nodeType === 'StepValue' && portId === 'value') {
+    const settings = normalizeStepValueSettings(properties)
+    return { min: settings.minimum, max: settings.maximum }
+  }
+  return null
 }
 
 export interface SignalRangeMismatch {
@@ -68,11 +87,12 @@ export interface SignalRangeMismatch {
 export function signalRangeMismatch(
   targetNodeType: string,
   targetPortId: string | null | undefined,
+  sourceRange: SignalRange = { min: 0, max: 1 },
 ): SignalRangeMismatch | null {
   if (!targetPortId) return null
   const range = inputClampRange(targetNodeType, targetPortId)
   if (!range) return null
-  if (range.min === 0 && range.max === 1) return null
+  if (range.min === sourceRange.min && range.max === sourceRange.max) return null
   return range
 }
 

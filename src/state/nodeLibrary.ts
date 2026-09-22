@@ -27,6 +27,7 @@ import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './mast
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
+import { STEP_VALUE_DEFAULTS } from './stepValue'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -1661,6 +1662,21 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
+  },
+  {
+    // Event-to-value adapter for buttons, touch actions and (later) IR keys.
+    // Runtime state is intentionally not persisted: a board/app restart begins
+    // again at `initial`.
+    type: 'StepValue',
+    label: 'Step Value',
+    category: 'math',
+    inputs: [
+      { id: 'increase', label: 'Increase', dataType: 'bool' },
+      { id: 'decrease', label: 'Decrease', dataType: 'bool' },
+      { id: 'reset', label: 'Reset', dataType: 'bool' },
+    ],
+    outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    defaultProperties: { ...STEP_VALUE_DEFAULTS },
   },
   {
     type: 'Sin',
@@ -3917,6 +3933,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
   MapRange: 'Remaps a value from one range to another.',
+  StepValue: 'Turns Increase, Decrease and Reset event pulses into a bounded numeric value.',
   Sin: 'Sine of the input (×2π).',
   Cos: 'Cosine of the input (×2π).',
   Wave: 'Oscillator — sine, triangle, square or sawtooth over time.',
@@ -4457,6 +4474,12 @@ const DERIVED_COLOR_CHANNEL_META: Record<string, Record<string, PropertyControl>
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  StepValue: {
+    initial: { control: 'slider', min: -100, max: 100, step: 0.01 },
+    minimum: { control: 'slider', min: -100, max: 100, step: 0.01 },
+    maximum: { control: 'slider', min: -100, max: 100, step: 0.01 },
+    step: { control: 'slider', min: 0.01, max: 100, step: 0.01 },
+  },
   TransportDisplay: {
     tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'] },
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
@@ -5119,6 +5142,13 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  StepValue: {
+    initial: 'Value used at preview start, board reboot and each Reset pulse.',
+    minimum: 'Lowest runtime value. Decrease clamps here unless Wrap is enabled.',
+    maximum: 'Highest runtime value. Increase clamps here unless Wrap is enabled.',
+    step: 'Amount applied on each rising Increase or Decrease event pulse.',
+    wrap: 'Crossing a bound jumps to the opposite bound instead of clamping.',
+  },
   TouchInput: {
     touchXMin: 'Measured raw X minimum for this touch module (0-4095). Use Calibrate touch rather than typing these.',
     touchFlipX: 'Set when this digitiser reads its X axis right-to-left. Measured by Calibrate touch.',

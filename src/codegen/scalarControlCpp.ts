@@ -1,5 +1,6 @@
 // Pure scalar operations shared by the normal graph and template control graphs.
 import { displayString, normalizeNumberFormat } from '../state/displayText'
+import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../state/stepValue'
 import { formatNumberCpp, textValueCpp } from './displayTextCpp'
 
 export type ControlDataType = 'float' | 'bool' | 'string'
@@ -9,6 +10,7 @@ export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlD
   Lerp: { port: 'result', type: 'float' },
   Clamp: { port: 'result', type: 'float' },
   MapRange: { port: 'result', type: 'float' },
+  StepValue: { port: 'value', type: 'float' },
   Sin: { port: 'result', type: 'float' },
   Cos: { port: 'result', type: 'float' },
   Compare: { port: 'result', type: 'bool' },
@@ -27,6 +29,7 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
     case 'Lerp': return { a: 0, b: 1, t: 0.5 }
     case 'Clamp': return { value: 0, min: 0, max: 1 }
     case 'MapRange': return { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 }
+    case 'StepValue': return { increase: 0, decrease: 0, reset: 0 }
     case 'Sin': case 'Cos': return { x: 0 }
     case 'Compare': return { a: 0, b: 0.5 }
     case 'Trigger': return { trigger: 0 }
@@ -36,7 +39,8 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
 }
 
 export function scalarControlInputType(type: string, port: string): ControlDataType {
-  if (type === 'Trigger' && port === 'trigger') return 'bool'
+  if ((type === 'Trigger' && port === 'trigger')
+    || (type === 'StepValue' && ['increase', 'decrease', 'reset'].includes(port))) return 'bool'
   return 'float'
 }
 
@@ -70,6 +74,31 @@ export function scalarControlCpp(
     case 'Lerp': expression = `(${f.a}) + ((${f.b}) - (${f.a})) * (${f.t})`; break
     case 'Clamp': expression = `constrain(${f.value}, ${f.min}, ${f.max})`; break
     case 'MapRange': expression = `mapFloat(${f.value}, ${f.inMin}, ${f.inMax}, ${f.outMin}, ${f.outMax})`; break
+    case 'StepValue': {
+      const settings = normalizeStepValueSettings(props)
+      const lit = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : String(value)}f`
+      const initial = lit(settings.initial), minimum = lit(settings.minimum)
+      const maximum = lit(settings.maximum), step = lit(settings.step)
+      loop = [
+        `  static float ${output} = ${initial};`,
+        `  static bool _svIncPrev_${id} = false, _svDecPrev_${id} = false, _svResetPrev_${id} = false;`,
+        `  { bool _svInc_${id} = (${f.increase}), _svDec_${id} = (${f.decrease}), _svReset_${id} = (${f.reset});`,
+        `    bool _svIncEdge_${id} = _svInc_${id} && !_svIncPrev_${id};`,
+        `    bool _svDecEdge_${id} = _svDec_${id} && !_svDecPrev_${id};`,
+        `    bool _svResetEdge_${id} = _svReset_${id} && !_svResetPrev_${id};`,
+        `    ${output} = constrain(${output}, ${minimum}, ${maximum});`,
+        `    if (_svResetEdge_${id}) ${output} = ${initial};`,
+        `    else if (_svIncEdge_${id} != _svDecEdge_${id}) {`,
+        `      float _svNext_${id} = roundf((${output} + (_svIncEdge_${id} ? ${step} : -${step})) * ${STEP_VALUE_SCALE}.0f) / ${STEP_VALUE_SCALE}.0f;`,
+        `      if (_svNext_${id} > ${maximum}) ${output} = ${settings.wrap ? minimum : maximum};`,
+        `      else if (_svNext_${id} < ${minimum}) ${output} = ${settings.wrap ? maximum : minimum};`,
+        `      else ${output} = _svNext_${id};`,
+        `    }`,
+        `    ${output} = roundf(constrain(${output}, ${minimum}, ${maximum}) * ${STEP_VALUE_SCALE}.0f) / ${STEP_VALUE_SCALE}.0f;`,
+        `    _svIncPrev_${id} = _svInc_${id}; _svDecPrev_${id} = _svDec_${id}; _svResetPrev_${id} = _svReset_${id}; }`,
+      ]
+      break
+    }
     case 'Sin': expression = `sin((${f.x}) * TWO_PI)`; break
     case 'Cos': expression = `cos((${f.x}) * TWO_PI)`; break
     case 'Compare': expression = `(${f.a}) > (${f.b})`; break

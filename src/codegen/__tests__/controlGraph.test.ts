@@ -79,6 +79,21 @@ describe('typed control graph', () => {
     expect(emitted.loop.join('\n')).not.toContain('String(')
   })
 
+  it('shares the StepValue state machine between normal and template control paths', () => {
+    const nodes = [
+      node('button', 'ButtonInput'),
+      node('step', 'StepValue', { initial: 0.25, minimum: 0, maximum: 1, step: 0.25, wrap: true }),
+    ]
+    const edges = [edge('button', 'pressed', 'step', 'increase')]
+    const graph = createControlGraph(nodes, edges)
+    expect(graph.resolve('step', 'value', 'float')).toEqual({ nodeId: 'step', port: 'value', type: 'float' })
+    const emitted = controlGraphCpp(graph).loop
+    const normal = generateCpp(nodes, edges)
+    for (const line of emitted) expect(normal).toContain(line)
+    expect(emitted.join('\n')).toContain('_svIncEdge_step')
+    expect(emitted.join('\n')).toContain('if (_svNext_step > 1.0f) n_step_value = 0.0f;')
+  })
+
   it('retains operation identities, zero-span mapping and interpolation defaults', () => {
     const nodes = [node('multiply', 'Math', { mathOp: 'multiply' }), node('divide', 'Math', { mathOp: 'divide', b: 0 }),
       node('map', 'MapRange', { value: 6, inMin: 3, inMax: 3, outMin: 7 }),

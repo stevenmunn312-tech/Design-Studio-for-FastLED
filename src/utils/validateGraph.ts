@@ -9,7 +9,7 @@ import {
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { isLedOutputPassThrough, ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
-import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../state/signalRange'
+import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../state/signalRange'
 import { paletteBankEntries } from '../state/paletteBank'
 import type { SignalRangeMismatch } from '../state/signalRange'
 import { playerControlFunction } from '../state/playerControlAssignments'
@@ -2371,8 +2371,9 @@ function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRang
     const source = byId.get(edge.source)
     const target = byId.get(edge.target)
     if (!source || !target) continue
-    if (!isNormalizedOutput(source.data.nodeType, edge.sourceHandle)) continue
-    const range = signalRangeMismatch(target.data.nodeType, edge.targetHandle)
+    const sourceRange = outputSignalRange(source.data.nodeType, edge.sourceHandle, source.data.properties)
+    if (!sourceRange) continue
+    const range = signalRangeMismatch(target.data.nodeType, edge.targetHandle, sourceRange)
     if (!range) continue
     const sourcePort = (source.data.outputs as { id: string; label?: string }[] | undefined)
       ?.find((port) => port.id === edge.sourceHandle)
@@ -2381,15 +2382,18 @@ function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRang
     const sourceName = `${nodeLabel(source)} ${sourcePort?.label ?? edge.sourceHandle}`
     const targetName = `${nodeLabel(target)} ${targetPort?.label ?? edge.targetHandle}`
     const span = formatSignalRange(range)
+    const sourceSpan = formatSignalRange(sourceRange)
     issues.push({
       edgeId: String(edge.id),
       sourceId: source.id,
       targetId: target.id,
       targetLabel: nodeLabel(target),
       title: `${targetName} reads ${span}, not 0–1`,
-      message: `${sourceName} carries 0–1, so ${targetName} only ever sees the bottom of its ${span} range.`,
-      fix: `Insert a Map Range between them with In 0–1 and Out ${span}.`,
-      hint: `${targetName} reads ${span}, not 0–1 — insert a Map Range with Out ${span}`,
+      message: `${sourceName} carries ${sourceSpan}, which does not match ${targetName}'s ${span} range.`,
+      fix: `Insert a Map Range between them with In ${sourceSpan} and Out ${span}.`,
+      hint: sourceRange.min === 0 && sourceRange.max === 1
+        ? `${targetName} reads ${span}, not 0–1 — insert a Map Range with Out ${span}`
+        : `${targetName} reads ${span}, not ${sourceSpan} — insert a Map Range with Out ${span}`,
       range,
     })
   }

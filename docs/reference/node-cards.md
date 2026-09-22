@@ -222,6 +222,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Map Range example graph](../../public/node-cards/graphs/map-range.svg)
 
+### Step Value
+
+![Step Value node](../../public/node-cards/step-value.svg)
+
+![Step Value example graph](../../public/node-cards/graphs/step-value.svg)
+
 ### Lerp
 
 ![Lerp node](../../public/node-cards/lerp.svg)

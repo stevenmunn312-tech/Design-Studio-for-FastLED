@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatSignalRange, isNormalizedOutput, NORMALIZED_OUTPUTS, signalRangeMismatch } from '../signalRange'
+import { formatSignalRange, isNormalizedOutput, NORMALIZED_OUTPUTS, outputSignalRange, signalRangeMismatch } from '../signalRange'
 import { inputClampRange, NODE_LIBRARY } from '../nodeLibrary'
 import {
   FORMULA_FIELD_SPEED_MAX,
@@ -74,5 +74,12 @@ describe('signalRange', () => {
     // paletteMix is 0-1, so an audio band drives it exactly as intended.
     expect(inputClampRange('Fire2012', 'paletteMix')).toEqual({ min: 0, max: 1 })
     expect(signalRangeMismatch('Fire2012', 'paletteMix')).toBeNull()
+  })
+
+  it('carries StepValue authored bounds into range comparisons', () => {
+    const source = outputSignalRange('StepValue', 'value', { minimum: 1, maximum: 8 })
+    expect(source).toEqual({ min: 1, max: 8 })
+    expect(signalRangeMismatch('Juggle', 'count', source!)).toBeNull()
+    expect(signalRangeMismatch('Fire2012', 'sparking', source!)).toEqual({ min: 0, max: 255 })
   })
 })

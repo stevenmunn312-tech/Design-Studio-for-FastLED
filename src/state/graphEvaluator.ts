@@ -86,6 +86,7 @@ import { useDecoderAudioStore } from './decoderAudioStore'
 import { resolveStorageCapabilitySource } from './storageCapabilities'
 import { usePlayerTransport } from './playerTransport'
 import { buttonBankHandle, normalizeButtonBankEntries } from './buttonBank'
+import { reduceStepValue, type StepValueState } from './stepValue'
 import { playerControlActionPortsFor, playerControlActionRepeats } from './playerControlAssignments'
 import { resolveStereoLevels } from '../audio/stereoLevels'
 import {
@@ -141,6 +142,8 @@ const intervalLast = new Map<string, number>()
 const smoothState = new Map<string, { v: number; t: number }>()
 // SampleHold node — the latched value + previous trigger level (edge detect).
 const holdState = new Map<string, { v: number; prev: boolean }>()
+// Step Value — a bounded numeric latch with independent rising-edge inputs.
+const stepValueState = new Map<string, StepValueState>()
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = new Map<string, { fire: number; prev: boolean }>()
 const dmxChannelState = new Map<string, { last: number; seen: boolean }>()
@@ -715,7 +718,7 @@ type StateMap = { delete: (key: string) => boolean; clear: () => void }
 let _stateMaps: StateMap[] | null = null
 function stateMaps(): StateMap[] {
   return _stateMaps ??= [
-    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState,
+    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState, stepValueState,
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, rtcManualPreviewState, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState, patternSlideshowFadeState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
@@ -792,7 +795,7 @@ export function getEvaluatorMemoryStats(): {
     fireHeat: fireHeat.size, fire2012Heat: fire2012Heat.size, fireRngState: fireRngState.size,
     seededRngState: seededRngState.size, flashLevel: flashLevel.size, counterVals: counterVals.size,
     intervalLast: intervalLast.size, smoothState: smoothState.size, holdState: holdState.size,
-    envState: envState.size, dmxChannelState: dmxChannelState.size, triggerState: triggerState.size, scheduleState: scheduleState.size, rtcManualPreviewState: rtcManualPreviewState.size, clockState: clockState.size,
+    envState: envState.size, stepValueState: stepValueState.size, dmxChannelState: dmxChannelState.size, triggerState: triggerState.size, scheduleState: scheduleState.size, rtcManualPreviewState: rtcManualPreviewState.size, clockState: clockState.size,
     trailState: trailState.size, frameFeedbackState: frameFeedbackState.size,
     fftLevels: fftLevels.size, beatLevels: beatLevels.size, percussionLevels: percussionLevels.size,
     audioFeatureLevels: audioFeatureLevels.size, particleState: particleState.size,
@@ -5509,6 +5512,18 @@ function createEvalNode(
         const outHi = num(id, 'outMax', props, 'outMax', 1)
         const t2 = inHi === inLo ? 0 : (val - inLo) / (inHi - inLo)
         out = { result: outLo + t2 * (outHi - outLo) }
+        break
+      }
+
+      case 'StepValue': {
+        const key = stateKey(id)
+        const next = reduceStepValue(stepValueState.get(key), {
+          increase: Boolean(input(id, 'increase', false)),
+          decrease: Boolean(input(id, 'decrease', false)),
+          reset: Boolean(input(id, 'reset', false)),
+        }, props)
+        stepValueState.set(key, next)
+        out = { value: next.value }
         break
       }
 
