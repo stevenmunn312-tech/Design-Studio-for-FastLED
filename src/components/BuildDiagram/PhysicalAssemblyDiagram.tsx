@@ -9,7 +9,6 @@ import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-
 import xiaoBoardRender from '../../assets/boards/seeed-xiao-esp32s3.webp'
 import devKit38BoardRender from '../../assets/boards/esp32-generic-devkit-38pin.webp'
 import lolinS3BoardRender from '../../assets/boards/lolin-s3-40pin.webp'
-import microphoneRender from '../../assets/components/inmp441-breakout.webp'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.webp'
 import buttonModuleRender from '../../assets/components/button-module.webp'
 import potentiometerModuleRender from '../../assets/components/potentiometer-module.webp'
@@ -899,6 +898,11 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
 function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
   const { y, item } = layout
   const box = microphoneRenderBox(layout)
+  // The exact module's own picture, resolved the way every other peripheral
+  // resolves one. The bundled artwork this used to name is byte-identical to
+  // the INMP441's catalogue asset, so the default build is unchanged and the
+  // other two modules stop being drawn as an INMP441.
+  const render = peripheralRender(item)
   const terminal = (role: MicrophoneTerminalRole, className: string, label: string) => {
     const point = microphoneTerminalPoint(layout, role)
     return <g data-terminal={`${item.id}-${role}`} data-microphone-role={role}>
@@ -909,16 +913,18 @@ function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayo
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <text x={box.x + (box.width / 2)} y={y - 16} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
-      <image
-        data-component-render="inmp441-breakout"
-        href={microphoneRender}
-        x={box.x}
-        y={box.y}
-        width={box.width}
-        height={box.height}
-        preserveAspectRatio="xMidYMid meet"
-        className={styles.physicalBoardRender}
-      />
+      {render && (
+        <image
+          data-component-render={render.id}
+          href={render.href}
+          x={box.x}
+          y={box.y}
+          width={box.width}
+          height={box.height}
+          preserveAspectRatio="xMidYMid meet"
+          className={styles.physicalBoardRender}
+        />
+      )}
       {terminal('vdd', styles.microphoneVddTerminal, 'VDD · 3V3')}
       {connections.map((connection) => {
         const presentation = microphoneSignalPresentation(connection)

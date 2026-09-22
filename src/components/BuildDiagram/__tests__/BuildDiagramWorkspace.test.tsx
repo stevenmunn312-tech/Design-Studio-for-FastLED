@@ -472,7 +472,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(outputWirePath).toMatch(/H66V570H266V342H350$/)
     expect(diagram?.querySelector('[data-component-render="330ohm-blue-axial-resistor"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
-    expect(diagram?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-component-render="inmp441-i2s-microphone"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cy')).toBe('41')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cx')).toBe('35')
@@ -526,7 +526,7 @@ describe('BuildDiagramWorkspace', () => {
     // which the box letterboxes — so the dots drifted off the pad column,
     // worst at its ends. Pin them to the rendered <image> instead of to
     // literal coordinates, so the artwork and the dots can only move together.
-    const micRender = diagram?.querySelector('[data-component-render="inmp441-breakout"]')
+    const micRender = diagram?.querySelector('[data-component-render="inmp441-i2s-microphone"]')
     const num = (element: Element | null | undefined, attribute: string) =>
       Number(element?.getAttribute(attribute))
     const renderTop = num(micRender, 'y')
@@ -1089,12 +1089,12 @@ describe('BuildDiagramWorkspace', () => {
     // All: every layer present.
     expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
     expect(diagram()?.querySelector('[data-common-net-callout]')).toBeTruthy()
-    expect(diagram()?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-component-render="inmp441-i2s-microphone"]')).toBeTruthy()
 
     fireEvent.click(getByRole('tab', { name: 'Audio' }))
     // The mic sheet keeps its own device and I2S runs but sheds the LED chain,
     // the level shifter, and the whole PSU plan.
-    expect(diagram()?.querySelector('[data-component-render="inmp441-breakout"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-component-render="inmp441-i2s-microphone"]')).toBeTruthy()
     expect(diagram()?.querySelector('[data-wire="mic-input:mic:i2sSck"]')).toBeTruthy()
     expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeNull()
     expect(diagram()?.querySelector('[data-output-card="output:out"]')).toBeNull()
@@ -1110,7 +1110,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram()?.querySelector('[data-output-card="output:out"]')).toBeTruthy()
     expect(diagram()?.querySelector('[data-wire="output:out-data-in"]')).toBeNull()
     expect(diagram()?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeNull()
-    expect(diagram()?.querySelector('[data-component-render="inmp441-breakout"]')).toBeNull()
+    expect(diagram()?.querySelector('[data-component-render="inmp441-i2s-microphone"]')).toBeNull()
     // No signal runs means no signal pins on the controller either, but its
     // ground stub stays because the common net spans every sheet.
     expect(diagram()?.querySelector('[data-terminal="controller-output:out:dataPin"]')).toBeNull()

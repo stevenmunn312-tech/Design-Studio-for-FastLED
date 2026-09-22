@@ -8,6 +8,7 @@ import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../state/hardware'
+import { MIC_MODULES } from '../../../state/micModules'
 
 class ResizeObserverStub {
   observe() {}
@@ -171,6 +172,32 @@ describe('HardwarePane', () => {
       partId: 'ds3231-rtc-module',
     })
     expect(within(document.body).getByText('SDA 21 · SCL 22')).toBeTruthy()
+  })
+
+  /*
+   * The microphone stopped being a single-module part once the vendored
+   * FastLED shipped a factory for more than one. A row per module, each
+   * stamping its own `partId`, is the shape the two RTC modules already use.
+   */
+  it.each(MIC_MODULES.map((module) => [module.label, module] as const))(
+    'adds the %s as a microphone naming its own module',
+    (_label, module) => {
+      render(<HardwarePane />)
+
+      addPart('Inputs', `${module.label} microphone`)
+
+      const mic = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'MicInput')
+      expect(mic).toBeTruthy()
+      expect((mic!.data.properties as Record<string, unknown>).partId).toBe(module.partId)
+    },
+  )
+
+  it("labels the microphone pin fields with the module's own silkscreen", () => {
+    render(<HardwarePane />)
+    // The ICS-43434 breakout prints LRCL/BCLK/DOUT where the INMP441 prints
+    // WS/SCK/SD. Same three signals, same three properties, different board.
+    addPart('Inputs', 'ICS-43434 microphone')
+    expect(within(document.body).getByText(/LRCL \d+ · BCLK \d+ · DOUT \d+/)).toBeTruthy()
   })
 
   it('adds the XC4630 with every parallel line assigned so the Build Diagram can draw it', () => {

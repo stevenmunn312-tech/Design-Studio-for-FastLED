@@ -30,7 +30,8 @@ across layout changes.
 Hardware node types are hidden from the Node Library and canvas picker. The
 workbench's **Add Hardware** menu is the creation path for:
 
-- signal inputs: INMP441 microphone, PCM1802 line-in ADC, button, button bank,
+- signal inputs: I2S MEMS microphone (INMP441, ICS-43434 or generic), PCM1802
+  line-in ADC, button, button bank,
   potentiometer, encoder, PIR motion, ambient light, and RTC modules;
 - switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and

@@ -12,6 +12,7 @@
 // module states its name instead of pretending to offer alternatives.
 
 import { partById, type PartCatalogueEntry } from './partCatalogue'
+import { MIC_MODULES } from './micModules'
 
 export interface PartOption {
   /** Catalogue part id when the part is modelled, else a plain slug. */
@@ -59,17 +60,23 @@ export interface PartIdentity {
 /**
  * The modules each hardware node can be, and the property holding the choice.
  *
- * The microphone has exactly one entry because the generator has exactly one:
- * `fl::audio::Config::CreateInmp441` and `MicProfile::INMP441` are hard-bound,
- * so a second option would be a claim the firmware cannot keep. What varies by
+ * The microphone's rows are derived from `micModules.ts` rather than restated
+ * here, because the rule deciding which modules may be offered is the same rule
+ * the generator needs: a module earns a row when FastLED ships a
+ * `fl::audio::Config` factory and a `MicProfile` for it. It had exactly one row
+ * for as long as `CreateInmp441` was the only factory; the vendored FastLED now
+ * also carries `CreateIcs43434` and `CreateGenericMEMS`. What still varies by
  * board is the *capture backend*, not the microphone.
  */
 export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
   MicInput: {
     property: 'partId',
-    options: [
-      { id: 'inmp441-i2s-microphone', label: 'INMP441' },
-    ],
+    options: MIC_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
   },
   LineInput: {
     property: 'partId',

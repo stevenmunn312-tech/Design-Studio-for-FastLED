@@ -180,6 +180,27 @@ does not block it.
 
 - **Phase 1 — ICS-43434 and Generic I2S MEMS.** No firmware invention;
       both factories exist. Ends with a compile proof and an ESP32-S3 bench row.
+
+      *Software landed 2026-09-22.* `src/state/micModules.ts` is the one list
+      of offered modules, carrying each one's `Config` factory and `MicProfile`
+      because those are the two facts that decide whether a module may be
+      offered at all: `partOptions.ts`'s rows, the Add Hardware shelf entries
+      and the generator's factory choice all derive from it, so a fourth module
+      cannot reach the menu without the generator being asked to build it. The
+      emitted banner, the `StudioI2sMicInput` wrapper class (renamed from
+      `StudioInmp441Input`) and the Build Diagram picture all follow the chosen
+      module; the three I2S signals resolve to each board's own silkscreen
+      through `PART_PIN_PROPERTY_ALIASES`, so an ICS-43434's pin fields read
+      LRCL/BCLK/DOUT. On the three wrapper backends the generated sketch states
+      in a comment that no profile is applied, rather than leaving that to be
+      found by diffing two sketches.
+
+      *Outstanding:* the compile proof, and the bench row for each module
+      described under **Bench evidence** below. Both are recorded as
+      experimental in the support matrix until then. The Build Diagram draws
+      each module's own photograph but still places its pad dots from a stale
+      hand-written column — a pre-existing fault, equally wrong for the
+      INMP441, tracked separately.
 - **Phase 2 — the Option A/B decision**, recorded here with its reasoning
       before any amplifier row is added.
 - **Phase 3 — the chosen amplifier model**, then DX-0809 and PAM8610.

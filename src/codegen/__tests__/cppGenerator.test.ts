@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp as generateCppImpl, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_FONT, textColumns } from '../../state/font'
+import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/micModules'
 import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/ledOutputForm'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -3134,9 +3135,59 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(micGraph('Right')).toContain('fl::audio::AudioChannel::Right')
   })
 
+  /*
+   * Every offered module, from the one list that decides which may be offered.
+   * Derived rather than a case per module, so a fourth factory cannot be added
+   * to the menu without the generator being asked to call it.
+   */
+  const micModuleGraph = (profileId: string, partId: string) => {
+    const board = node('board', 'Board', 'hardware', { profileId })
+    const mic = node('mic', 'MicInput', 'hardware', { i2sWs: 39, i2sSck: 40, i2sSd: 41, partId })
+    const fft = node('fft', 'FFTAnalyzer', 'audio', {})
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    return generateCpp([board, mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
+  }
+
+  it.each(MIC_MODULES.map((module) => [module.label, module] as const))(
+    'builds the %s with its own FastLED factory on ESP32 and its own profile on Teensy',
+    (_label, module) => {
+      const esp32 = micModuleGraph('espressif-esp32-s3-devkitc-1', module.partId)
+      expect(esp32).toContain(`fl::audio::Config::${module.factory}(MIC_WS, MIC_SD, MIC_SCK`)
+      expect(esp32).toContain(`// ── FastLED ${module.label} audio reactivity`)
+      for (const other of MIC_MODULES) {
+        if (other.factory !== module.factory) expect(esp32).not.toContain(other.factory)
+      }
+      // Teensy takes the profile explicitly rather than through a factory.
+      const teensy = micModuleGraph('teensy-4-0', module.partId)
+      expect(teensy).toContain(`fl::audio::MicProfile::${module.profile}`)
+    },
+  )
+
+  it('says so when the capture backend applies no response profile', () => {
+    // The hand-written wrapper is plain I2S with nowhere to put a MicProfile,
+    // so on those boards a module swap is a naming change and the sketch says
+    // which. The two FastLED-owned backends must not carry the note.
+    const pico = micModuleGraph('raspberry-pi-pico', 'ics-43434-i2s-microphone')
+    expect(pico).toContain('This capture backend applies no mic response profile')
+    expect(pico).toContain('ICS-43434')
+    expect(micModuleGraph('espressif-esp32-s3-devkitc-1', 'ics-43434-i2s-microphone'))
+      .not.toContain('applies no mic response profile')
+    expect(micModuleGraph('teensy-4-0', 'ics-43434-i2s-microphone'))
+      .not.toContain('applies no mic response profile')
+  })
+
+  it('reads a stale module choice as the default rather than emitting nothing', () => {
+    expect(micModuleGraph('espressif-esp32-s3-devkitc-1', 'a-module-that-was-retired'))
+      .toContain(`fl::audio::Config::${DEFAULT_MIC_MODULE.factory}`)
+  })
+
   it.each([
     ['teensy-4-0', 'CreateTeensyI2S', '#include <Audio.h>'],
-    ['raspberry-pi-pico', 'class StudioInmp441Input', '#include <I2S.h>'],
+    ['raspberry-pi-pico', 'class StudioI2sMicInput', '#include <I2S.h>'],
     ['adafruit-feather-m4-express', 'Adafruit_ZeroI2S _i2s', '#include <Adafruit_ZeroI2S.h>'],
     ['weact-black-pill-f411ce', 'STM32 SPI2/I2S2 polling receiver', 'SPI2->I2SCFGR'],
   ])('emits the %s capture adapter while keeping the shared processor contract', (profileId, capture, include) => {

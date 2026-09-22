@@ -117,6 +117,7 @@ import {
   inmp441FqbnForBoardProfile,
   type Inmp441FirmwareBackend,
 } from '../state/micPinDefaults'
+import { DEFAULT_MIC_MODULE, micModuleFor, type MicModule } from '../state/micModules'
 import { sanitizePin } from './hardwarePins'
 import { emittedTouchBounds, TRANSPORT_TOUCH_ACTION_TYPES, type TransportTouchAction } from '../state/transportTouch'
 import { resolveWireframeMesh, meshBoundingRadius, WIREFRAME_FIT_MARGIN, WIREFRAME_CAM_FAR, WIREFRAME_CAM_NEAR } from '../state/wireframeModel'
@@ -390,7 +391,7 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
   return nodes.filter((n) => keep.has(n.id))
 }
 
-// FastLED 3.10.3+ owns the live INMP441 pipeline: capture, signal
+// FastLED 3.10.3+ owns the live I2S microphone pipeline: capture, signal
 // conditioning, shared FFT, adaptive frequency-band normalization, equalizer,
 // and beat detection. Studio keeps the small _audio* global interface used by
 // generated nodes and controller sketches, but no longer emits a second I2S
@@ -408,6 +409,7 @@ function audioEngineCpp(
   serialDebug = false,
   source: 'microphone' | 'line-in' = 'microphone',
   mclk = -1,
+  micModule: MicModule = DEFAULT_MIC_MODULE,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
@@ -423,12 +425,22 @@ function audioEngineCpp(
         '  _audioProcessor = FastLED.add(_lineInput);',
       ]
     : backend === 'fastled-esp32'
-    ? [`  auto config = fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
+    ? [`  auto config = fl::audio::Config::${micModule.factory}(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
     : backend === 'fastled-teensy'
-      ? [`  auto config = fl::audio::Config::CreateTeensyI2S(fl::audio::TeensyI2S::I2SPort::I2S1, ${audioChannel}, 44100, 16, fl::audio::MicProfile::INMP441);`, '  _audioProcessor = FastLED.add(config);']
-      : ['  _audioProcessor = FastLED.add(fl::make_shared<StudioInmp441Input>());']
+      ? [`  auto config = fl::audio::Config::CreateTeensyI2S(fl::audio::TeensyI2S::I2SPort::I2S1, ${audioChannel}, 44100, 16, fl::audio::MicProfile::${micModule.profile});`, '  _audioProcessor = FastLED.add(config);']
+      : ['  _audioProcessor = FastLED.add(fl::make_shared<StudioI2sMicInput>());']
+  // Only FastLED's own two capture paths take a MicProfile. The hand-written
+  // wrapper below is plain I2S with nowhere to hand one, so on those boards
+  // choosing a different module changes the wiring picture and the name and
+  // nothing in the signal — said here rather than left to be discovered by
+  // comparing two sketches.
+  const profileApplies = backend === 'fastled-esp32' || backend === 'fastled-teensy'
   return [
-    `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : 'INMP441'} audio reactivity ─────────────────────────────────`,
+    `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule.label} audio reactivity ─────────────────────────────────`,
+    ...(source === 'microphone' && !profileApplies
+      ? [`// This capture backend applies no mic response profile, so the ${micModule.label}`,
+         '// is read with the same plain I2S path as any other I2S MEMS module.']
+      : []),
     `#define MIC_WS    ${ws}`,
     `#define MIC_SCK   ${sck}`,
     `#define MIC_SD    ${sd}`,
@@ -637,9 +649,9 @@ function audioCaptureAdapterCpp(
     return [
       '',
       '// Earle Philhower RP2040/RP2350 PIO-I2S -> FastLED PCM adapter.',
-      'class StudioInmp441Input final : public fl::audio::IInput {',
+      'class StudioI2sMicInput final : public fl::audio::IInput {',
       ' public:',
-      '  StudioInmp441Input() : _i2s(INPUT) {}',
+      '  StudioI2sMicInput() : _i2s(INPUT) {}',
       '  void start() noexcept override {',
       '    if (MIC_WS != MIC_SCK + 1) { _failed = true; return; }',
       '    _i2s.setBCLK(MIC_SCK);  // this core assigns LRCLK to BCLK + 1',
@@ -680,9 +692,9 @@ function audioCaptureAdapterCpp(
       '#ifndef PIN_I2S_SD',
       '#define PIN_I2S_SD MIC_SD',
       '#endif',
-      'class StudioInmp441Input final : public fl::audio::IInput {',
+      'class StudioI2sMicInput final : public fl::audio::IInput {',
       ' public:',
-      '  StudioInmp441Input() : _i2s(MIC_WS, MIC_SCK, PIN_I2S_SD, MIC_SD) {}',
+      '  StudioI2sMicInput() : _i2s(MIC_WS, MIC_SCK, PIN_I2S_SD, MIC_SD) {}',
       '  void start() noexcept override {',
       '    _failed = !_i2s.begin(I2S_32_BIT, 44100);',
       '    if (!_failed) _i2s.enableRx();',
@@ -719,7 +731,7 @@ function audioCaptureAdapterCpp(
     '',
     '// STM32 SPI2/I2S2 polling receiver -> FastLED PCM adapter.',
     '// PB12=WS, PB13=BCLK, PB15=SD on the supported F1/F4 board profiles.',
-    'class StudioInmp441Input final : public fl::audio::IInput {',
+    'class StudioI2sMicInput final : public fl::audio::IInput {',
     ' public:',
     '  void start() noexcept override {',
     '#if defined(STM32F1xx)',
@@ -1147,6 +1159,10 @@ export function audioEngineForGraph(
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
+  // Which module: the exact part the node names, resolved the same way the
+  // hardware views resolve it, so the factory the sketch calls and the picture
+  // the Build Diagram draws come from one answer.
+  const micModule = micModuleFor(p.partId)
   const savedChannel = String(p.channel ?? (lineInput ? 'Both' : 'Left'))
   const channel: 'Left' | 'Right' | 'Both' = savedChannel === 'Right'
     ? 'Right'
@@ -1159,7 +1175,7 @@ export function audioEngineForGraph(
     // indexed forms; aliases here keep exported sketches compilable without
     // modifying the user's FastLED installation.
     preInclude: !lineInput && backend === 'samd51-zero-i2s' ? [
-      '// The INMP441 + clockless LED path does not need SAMD hardware SPI.',
+      '// The I2S microphone + clockless LED path does not need SAMD hardware SPI.',
       '#define FASTLED_FORCE_SOFTWARE_SPI 1',
       '#if defined(__SAMD51__)',
       '#ifndef PORT_PMUX_PMUXO_A',
@@ -1172,7 +1188,7 @@ export function audioEngineForGraph(
       '#endif',
     ] : [],
     include: [
-      `// ${lineInput ? 'PCM1802 line-in' : 'INMP441'} capture feeds the same FastLED Processor contract as preview.`,
+      `// ${lineInput ? 'PCM1802 line-in' : micModule.label} capture feeds the same FastLED Processor contract as preview.`,
       ...(lineInput ? [
         '#include <esp_idf_version.h>',
         '#if ESP_IDF_VERSION_MAJOR >= 5',
@@ -1198,6 +1214,7 @@ export function audioEngineForGraph(
       p.serialDebug === true,
       lineInput ? 'line-in' : 'microphone',
       lineInput ? sanitizePin(p.i2sMclk, 14) : -1,
+      micModule,
     ),
     fqbn,
     backend,

@@ -28,6 +28,7 @@ import { PART_FIELDS } from '../state/partFields'
 import type { BusAssignment } from '../state/busTopology'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
+import { micModuleFor } from '../state/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
@@ -576,7 +577,12 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       case 'StereoVuMeter':
         return buildStereoVuMeterItems(node, pins)
       case 'MicInput':
-        return buildPeripheralItem(node, 'mic-input', 'INMP441 microphone input', pins)
+        return buildPeripheralItem(
+          node,
+          'mic-input',
+          `${micModuleFor((node.data.properties as Record<string, unknown>).partId).label} microphone input`,
+          pins,
+        )
       case 'LineInput':
         return {
           ...buildPeripheralItem(node, 'line-input', 'PCM1802 stereo line-level ADC', pins),

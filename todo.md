@@ -851,6 +851,42 @@ matrix, not a reason to postpone testing earlier changes.
   pads found by its own labels. The full 4,583-test suite, `tsc -b` and targeted lint
   pass.
 
+- [ ] **HW-31 · P2 · The Build Diagram draws the microphone's pads down the
+  wrong edge (S).** The microphone is the one module whose pad points are
+  hand-written rather than scanned: `PhysicalAssemblyDiagram.tsx` places them
+  as a column at x=121 of an 1100x800 artwork, six centres on a 114.1 pitch, in
+  a fixed BCLK/WS/L-R/DOUT/VDD/GND order. No microphone render is that picture.
+  All three — `inmp441-i2s-microphone.webp` (byte-identical to the bundled
+  `inmp441-breakout.webp` the graphic used to name), `ics-43434-i2s-microphone`
+  and `generic-i2s-mems-microphone` — are 400-wide boards with a six-pad row
+  along the bottom edge, in three different silkscreen orders. So every
+  terminal dot and every I2S wire end is drawn down the left margin of a board
+  whose pads are underneath them. Pre-existing and equally wrong for the
+  INMP441, so HW-19's two new modules did not make it worse.
+
+  Measured already, by the scan method in the pad-geometry note (the generic
+  board needed a strict gold mask rather than the usual warm one, its solder
+  mask being dark red), and checked by drawing each back over its render:
+  `inmp441-i2s-microphone` x 33.7/100/166.6/232.5/298.5/365.2 at y 243.9 of
+  400x282; `ics-43434-i2s-microphone` x 104.7/142.4/180.7/218.4/256.6/294.4 at
+  y 255.8 of 400x286; `generic-i2s-mems-microphone` x
+  41.7/104.1/168/231/294.8/357.2 at y 204.4 of 400x248.
+
+  The fix is not just those three rows. Going through `peripheralPadPoint` (the
+  right answer — pads by silkscreen, derived, as every other module does it,
+  and `micTerminalPadIndex` plus `'VDD'` in `POWER_PAD_LABELS` is all the
+  lookup needs) also needs the microphone's *routing* re-planned, which is why
+  this is its own row: a pad column gave each of the three I2S wires its own y
+  for free, and a pad row does not. Lanes below the module land in the
+  controller's detour band; lanes above it land among the left rail's pin
+  exits; and the corridor band the microphone shares with the output data wires
+  (x 266..290, kept disjoint from the control corridors at 296..328 by
+  `BuildDiagramWorkspace.test.tsx`) is exactly where those exits end. Whether
+  the microphone should keep its bespoke top-of-sheet lane at all is the first
+  question — folding it into the ordinary peripheral row would inherit lanes,
+  corridors and stubs already solved and tested, at the cost of porting its
+  L/R-to-ground stub and its per-signal wire colours.
+
 - [x] **HW-22 · P2 · Undo in the display editor leaves the node's ports behind (S).**
   Reproduced with a template-era display snapshot crossing an ordinary graph
   history step. `restoreStashedHistory` rebased each graph snapshot to the
@@ -1093,6 +1129,31 @@ matrix, not a reason to postpone testing earlier changes.
   catalogue/assets, thread module identity to existing factory/profile selection,
   remove INMP441-only banners/wrapper naming and tests, compile affected paths,
   record bench rows. Audio expansion phase 1 and its five implementation subitems.
+
+  *Software landed 2026-09-22; the compile and the bench rows are what is left.*
+  The rule deciding which microphones may be offered is the same rule the
+  generator needs — a module earns a row when FastLED ships a `Config` factory
+  and a `MicProfile` for it — so it is stated once, in
+  `src/state/micModules.ts`, and the option rows, the Add Hardware shelf
+  entries and the emitted factory all derive from it. A fourth module therefore
+  cannot reach the menu without the generator being asked to build it, which is
+  the failure the old one-microphone rule was written to prevent and would have
+  had to be re-argued per site otherwise.
+
+  Two things fell out of it worth keeping. The three I2S signals now resolve to
+  whatever each board silkscreens, through the existing
+  `PART_PIN_PROPERTY_ALIASES`, so an ICS-43434's pin fields read LRCL/BCLK/DOUT
+  and the Build Diagram finds its pads by name — no per-module list. And the
+  honesty gap the plan predicted is stated where it bites: only FastLED's own
+  ESP32 and Teensy paths take a profile, so on Pico, SAMD51 and STM32 the
+  generated sketch says in a comment that the module choice changed the name
+  and the wiring picture and nothing in the signal.
+
+  `npm test`, `npm run lint` and `tsc -b` pass. Both modules are recorded as
+  **experimental** in the support matrix, with what a bench row has to show:
+  live FFT and beat response against the INMP441 on the same fixture and
+  source, since a profile swap is heard rather than reasoned about.
+  See [the plan](docs/development/plans/audio-part-expansion.md#phases).
 - [ ] **HW-20 · Audio chain/amplifiers (L; after HW-19).** Record the DAC →
   power amplifier → speaker decision (Option B is the current proposal), resolve
   roles rather than first Amplifier, then DX-0809/PAM8610. Verify SPH0645LM4H

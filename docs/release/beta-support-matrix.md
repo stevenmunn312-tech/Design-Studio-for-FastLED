@@ -421,6 +421,18 @@ Unless a future row says otherwise, treat the following as experimental:
   - **Helper-backed Art-Net preview** is browser + helper only and never
     touches a board, so it graduates with the Art-Net firmware run rather than
     as its own row. Note that preview holds exactly one live universe.
+- **The ICS-43434 and Generic I2S MEMS microphones.** Both are offered because
+  the vendored FastLED ships a capture factory and a response profile for each
+  (`CreateIcs43434`/`MicProfile::ICS43434`,
+  `CreateGenericMEMS`/`MicProfile::GenericMEMS`), so no firmware was invented
+  for them — but only the INMP441 has a hardware row, and a profile swap is
+  exactly the kind of change that has to be *heard* rather than reasoned about.
+  Graduating either needs live FFT and beat response driving an LED output,
+  compared against the INMP441 on the same fixture and the same source, so a
+  quieter or hotter module shows up as a difference. Note also that the generic
+  entry names an average MEMS correction, not a measurement of any particular
+  clone. On the Pico, SAMD51 and STM32 backends no profile is applied at all,
+  and the generated sketch says so in a comment.
 - **Input peripherals other than the recorded LDR row above** — Button,
   Potentiometer, Encoder, and PIR Motion have no hardware record of any
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the

@@ -22,6 +22,7 @@ import {
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
+import { MIC_MODULES } from '../../state/micModules'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
@@ -322,24 +323,41 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   },
 ]
 
+/*
+ * One shelf row per microphone module, matching the convention the two RTC
+ * modules already follow: an input part names its module in `properties`, and
+ * `inputParts` finds the entry back by that stamped id. Derived from
+ * `MIC_MODULES` so the shelf, the Add Hardware menu and the generator's factory
+ * table cannot disagree about which modules exist.
+ *
+ * Pin labels come from each module's own silkscreen — an ICS-43434 prints
+ * LRCL/BCLK/DOUT where an INMP441 prints WS/SCK/SD — resolved through the
+ * catalogue rather than restated per entry.
+ */
+const MIC_PIN_KEYS = ['i2sWs', 'i2sSck', 'i2sSd'] as const
+const MIC_FALLBACK_PIN_LABELS: Record<string, string> = { i2sWs: 'WS', i2sSck: 'SCK', i2sSd: 'SD' }
+
+const MIC_INPUT_PARTS: readonly InputPartEntry[] = MIC_MODULES.map((module, index) => ({
+  nodeType: MIC_NODE_TYPE,
+  // The first keeps the bare `mic` id the bench layout has always stored.
+  partId: index === 0 ? 'mic' : `mic-${module.partId}`,
+  label: `${module.label} microphone`,
+  hint: module.summary,
+  // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
+  // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
+  footprint: partDimensionsMm(module.partId, INMP441_FOOTPRINT_MM),
+  signalPort: 'audio',
+  pinRequests: [],
+  pinFields: MIC_PIN_KEYS.map((key) => ({
+    key,
+    label: partPinLabelForProperty(module.partId, key) ?? MIC_FALLBACK_PIN_LABELS[key],
+  })),
+  singleton: true,
+  properties: { partId: module.partId },
+}))
+
 const INPUT_PARTS: readonly InputPartEntry[] = [
-  {
-    nodeType: MIC_NODE_TYPE,
-    partId: 'mic',
-    label: 'INMP441 microphone',
-    hint: 'Available through the Audio node',
-    // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
-    // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
-    footprint: partDimensionsMm('inmp441-i2s-microphone', INMP441_FOOTPRINT_MM),
-    signalPort: 'audio',
-    pinRequests: [],
-    pinFields: [
-      { key: 'i2sWs', label: 'WS' },
-      { key: 'i2sSck', label: 'SCK' },
-      { key: 'i2sSd', label: 'SD' },
-    ],
-    singleton: true,
-  },
+  ...MIC_INPUT_PARTS,
   {
     nodeType: 'LineInput',
     partId: 'line-in',

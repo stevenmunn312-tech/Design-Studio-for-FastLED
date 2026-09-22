@@ -1,14 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import { PART_OPTIONS, partOptionProperty, partOptionsFor, resolvePartIdentity } from '../partOptions'
 import { partById } from '../partCatalogue'
+import { DEFAULT_MIC_MODULE, MIC_MODULES, micModuleFor } from '../micModules'
 
 describe('part options', () => {
-  it('offers the microphone exactly one module', () => {
-    // The generator is hard-bound to it: CreateInmp441 and MicProfile::INMP441.
-    // A second option would be a claim the firmware cannot keep — what varies
-    // per board is the capture backend, not the microphone.
-    expect(partOptionsFor('MicInput')).toHaveLength(1)
-    expect(resolvePartIdentity('MicInput', {})!.hasChoice).toBe(false)
+  it('offers exactly the microphones the firmware has a factory for', () => {
+    // A module earns a row when FastLED ships a `Config` factory and a
+    // `MicProfile` for it, and not otherwise — offering one the generator
+    // cannot call would be a claim the firmware cannot keep. Derived from
+    // MIC_MODULES rather than restated, so the two cannot drift.
+    expect(partOptionsFor('MicInput').map((option) => option.id))
+      .toEqual(MIC_MODULES.map((module) => module.partId))
+    expect(resolvePartIdentity('MicInput', {})!.hasChoice).toBe(true)
+  })
+
+  it('names a microphone module every option can be built with', () => {
+    for (const module of MIC_MODULES) {
+      expect(module.factory, module.label).toMatch(/^Create[A-Za-z0-9]+$/)
+      expect(module.profile, module.label).toMatch(/^[A-Za-z0-9]+$/)
+      expect(partById(module.partId), module.label).toBeDefined()
+    }
+    // No two modules may share a factory: the option list exists to name a
+    // difference, and two rows resolving to one capture config would not be one.
+    expect(new Set(MIC_MODULES.map((module) => module.factory)).size).toBe(MIC_MODULES.length)
+  })
+
+  it('resolves a stale or absent microphone choice to the default', () => {
+    expect(micModuleFor(undefined)).toBe(DEFAULT_MIC_MODULE)
+    expect(micModuleFor('a-module-that-was-retired')).toBe(DEFAULT_MIC_MODULE)
+    expect(micModuleFor('ics-43434-i2s-microphone').factory).toBe('CreateIcs43434')
   })
 
   it('offers the RTC clock module choices', () => {
