@@ -338,11 +338,11 @@ covers.
 | --- | --- | --- | --- | --- |
 | Flash | | 639,879 (48%) | +8,924 | |
 | Static RAM | | 106,368 (32%) | +948 | 221,312 left for locals |
-| Free heap at rest | | | | device |
-| Lowest heap over the run | | | | device |
-| Frames/sec | | | | against 1b's 50.0, the cost of rendering and transitions |
-| Longest loop pass | | | | against 1b's 2.0 ms idle |
-| Worst touch response | | | | against 1b's 29.2 ms |
+| Free heap at rest | | 238,564 B | −1,548 | flat after boot; see below |
+| Lowest heap over the run | | 211,392 B | | `minheap`, a boot dip |
+| Frames/sec | | 48.40 mean (40.3–50.4) | −1.6 | the cost of rendering and transitions |
+| Longest loop pass | | 2.8 ms idle, 338 ms at boot | +0.8 idle | boot is LVGL init |
+| Worst touch response | | **67.9 ms** (median 14.4) | +38.7 | the real cost — see below |
 
 **The show controller is nearly free in RAM.** Two patterns, the transition
 machine with its `showA` / `showB` buffers, the pattern name table and the
@@ -351,9 +351,35 @@ flash over the same board's custom-screen build. That is the useful surprise
 here: on this rig the screen is the expensive thing and the show is not, which
 is the reverse of how the two are usually discussed.
 
-The device figures are the ones still open, and frames/sec is the one to watch:
-rendering Plasma or Fire2012 into 32 pixels and crossfading between them is real
-per-frame work where 1b's Juggle was not.
+**Measured 2026-09-22**, 2-minute capture, 59 samples, 0 resets, 0 truncated
+lines. Note the interval is **six seconds, not the default twenty** — chosen so
+a short capture crosses transitions at all. These are therefore deliberate
+stress readings, not what a show costs in normal use.
+
+**The heap is flat, and a drift figure here would be wrong.** The tool reported
+−799 bytes/hour, which is an artifact: the heap takes exactly **two** values all
+run — 238,828 on the first sample at `uptime=3`, and 238,564 for every sample
+after. That is one 264-byte allocation settling during startup, not a leak, and
+a least-squares slope across a two-minute window that includes boot turns it
+into a trend it is not. Read the distinct-values list, not the slope, on any
+capture this short.
+
+**Touch is where the show controller actually costs something.** Worst
+press-to-painted-frame rises from 29.2 ms to **67.9 ms**, and the median from
+2.7 ms to 14.4 ms — roughly double either way. A press waits for the next
+painted frame, and the frame now renders Plasma or Fire2012 and may be
+compositing a crossfade. Still inside the ~100 ms where touch feels immediate,
+but this is the figure a budget on this board should constrain, and it is the
+only one of the five runs where a number moved meaningfully in the wrong
+direction. Frames/sec, by contrast, costs only 1.6 — much less than expected.
+
+**The soak was run on the lighter build.** The procedure says to soak
+"whichever of the three is heaviest", and run 4 was captured on 1b before run 2
+existed. 1b allocates nothing at all once running; run 2 exercises pattern
+rotation and transitions, which 1b's hour never touched. Nothing here suggests
+a leak — the heap is flat after boot across 59 samples — but "flat over two
+minutes" is not the claim an hour makes. A soak on run 2 is the honest way to
+close run 4, and the one measurement this rig still owes.
 
 ### 3. SD player, with the bus shared
 
