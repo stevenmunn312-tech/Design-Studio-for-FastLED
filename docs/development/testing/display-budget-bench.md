@@ -329,14 +329,31 @@ The slideshow's `display` output is wired into the panel, where 1b's panel had
 no source — a show whose screen shows nothing is not a shape anyone builds, and
 the Pattern Browser on that design is the widget with something to say here.
 
-| Figure | Budget | Measured | Notes |
-| --- | --- | --- | --- |
-| Flash | | | |
-| Free heap at rest | | | |
-| Lowest heap over the run | | | |
-| Frames/sec | | | |
-| Longest loop pass | | | |
-| Worst touch response | | | |
+**Link-checked 2026-09-22**, Arduino CLI 1.5.1, `esp32:esp32:esp32`, source
+`159bebb36927`, 1m 26s on a warm cache. It compiles — the show generator and a
+custom screen on a classic ESP32, a combination nothing in the pass matrix
+covers.
+
+| Figure | Budget | Measured | vs run 1b | Notes |
+| --- | --- | --- | --- | --- |
+| Flash | | 639,879 (48%) | +8,924 | |
+| Static RAM | | 106,368 (32%) | +948 | 221,312 left for locals |
+| Free heap at rest | | | | device |
+| Lowest heap over the run | | | | device |
+| Frames/sec | | | | against 1b's 50.0, the cost of rendering and transitions |
+| Longest loop pass | | | | against 1b's 2.0 ms idle |
+| Worst touch response | | | | against 1b's 29.2 ms |
+
+**The show controller is nearly free in RAM.** Two patterns, the transition
+machine with its `showA` / `showB` buffers, the pattern name table and the
+selection cursor together cost **948 bytes** of static RAM and about 9 KB of
+flash over the same board's custom-screen build. That is the useful surprise
+here: on this rig the screen is the expensive thing and the show is not, which
+is the reverse of how the two are usually discussed.
+
+The device figures are the ones still open, and frames/sec is the one to watch:
+rendering Plasma or Fire2012 into 32 pixels and crossfading between them is real
+per-frame work where 1b's Juggle was not.
 
 ### 3. SD player, with the bus shared
 
