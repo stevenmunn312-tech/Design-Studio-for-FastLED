@@ -1431,10 +1431,27 @@ matrix, not a reason to postpone testing earlier changes.
     decode, the once/held lines, direct `patternNext` / `next` actions in the
     show and player sketches, the performance-player control graph, and the
     phase order on all three generators.
-  - [ ] **10. Add shared validation and repairs.** Block unsupported boards,
-    duplicate receivers/mappings, invalid codes, missing mapped outputs and bad
-    Step Value domains through `findDeployBlockingErrors`; reuse pin collision
-    and signal-range diagnostics, naming the node, key, property and repair.
+  - [x] **10. Add shared validation and repairs.** Done 2026-09-23. One
+    structured finding feeds both `findDeployBlockingErrors` and Graph Health,
+    so Upload cannot refuse an IR/Step Value graph without the drawer naming
+    the node, key/property and repair. It blocks the second root receiver,
+    empty/unsupported/invalid/duplicate key mappings, an orphaned learned-key
+    handle, unsupported selected targets, and every invalid Step Value domain
+    (non-finite values, non-positive step, unordered bounds, initial outside
+    the bounds).
+
+    Board support derives from the architecture field published by the pinned
+    Arduino-IRremote 4.7.1 release rather than a Studio board allow-list, with
+    its explicitly unsupported ESP32-S3 target removed. That keeps custom
+    boards on a supported core working while the chosen FQBN remains the gate.
+    Existing `findPinCollisions` and `signalRangeIssues` remain the sole pin
+    and range authorities; IR validation does not restate them.
+
+    Evidence: `findIrRemoteErrors`, `findStepValueErrors`,
+    `irRemoteSupportedForFqbn`, `irRemoteValidation.test.ts`, and seven new
+    `deployGates.test.ts` cases. The gate tests assert exact agreement with
+    `validateGraph` plus an error diagnostic carrying node ids and a concrete
+    fix. `npm test` (5,645), `npm run lint`, and `tsc -b` pass.
   - [ ] **11. Prove the property workflows.** Add end-to-end tests for Power →
     Trigger/Toggle → LED-output Enabled and Brightness Up/Down → Step Value →
     an exposed numeric property, including repeat, bounds, save/reload,

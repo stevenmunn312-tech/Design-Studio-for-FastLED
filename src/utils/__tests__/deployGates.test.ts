@@ -52,6 +52,7 @@ function edge(id: string, source: string, target: string, th = 'frame'): StudioE
 }
 
 const S3 = 'esp32:esp32:esp32s3'
+const ESP32 = 'esp32:esp32:esp32'
 
 interface GateCase {
   /** The failure class being provoked. */
@@ -288,6 +289,105 @@ const CASES: GateCase[] = [
     blocks: /LED On \/ Off reaches MatrixOutput twice/,
     names: ['LED On / Off', 'MatrixOutput', 'Control Map route'],
     diagnostic: 'direct-control-collision-out-ledToggle-btn-pressed',
+  },
+  {
+    name: 'more than one IR receiver using the library global decoder',
+    nodes: [
+      node('ir-a', 'IRRemoteInput', { pin: 12, buttons: [{ id: 'a', label: 'A', protocol: 'NEC', address: 0, command: 1, repeat: 'once' }] }),
+      node('ir-b', 'IRRemoteInput', { pin: 13, buttons: [{ id: 'b', label: 'B', protocol: 'NEC', address: 0, command: 2, repeat: 'once' }] }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: ESP32,
+    blocks: /Only one IR receiver can be active/,
+    names: ['IRRemoteInput', '2 IR receivers', 'Keep one IR Receiver'],
+    diagnostic: 'ir-remote-count',
+  },
+  {
+    name: 'an IR receiver with no learned keys',
+    nodes: [
+      node('ir', 'IRRemoteInput', { pin: 12, buttons: [] }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: ESP32,
+    blocks: /IR Receiver has no learned keys/,
+    names: ['IRRemoteInput', 'no learned key mappings', 'Learn button'],
+    diagnostic: 'ir-buttons-empty',
+  },
+  {
+    name: 'an invalid learned IR code',
+    nodes: [
+      node('ir', 'IRRemoteInput', { pin: 12, buttons: [{ id: 'power', label: 'Power', protocol: 'NEC', address: -1, command: 69, repeat: 'once' }] }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: ESP32,
+    blocks: /IR key address is invalid/,
+    names: ['IRRemoteInput', 'Power', 'address -1'],
+    diagnostic: 'ir-address-0',
+  },
+  {
+    name: 'two learned IR keys with the same identity',
+    nodes: [
+      node('ir', 'IRRemoteInput', { pin: 12, buttons: [
+        { id: 'power', label: 'Power', protocol: 'NEC', address: 0, command: 69, repeat: 'once' },
+        { id: 'also-power', label: 'Other Power', protocol: 'NEC', address: 0, command: 69, repeat: 'held' },
+      ] }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: ESP32,
+    blocks: /Two IR keys use the same code/,
+    names: ['Power', 'Other Power', 'NEC address 0, command 69'],
+    diagnostic: 'ir-duplicate-power-also-power',
+  },
+  {
+    name: 'an IR output wire whose stable mapping is gone',
+    nodes: [
+      node('ir', 'IRRemoteInput', { pin: 12, buttons: [{ id: 'power', label: 'Power', protocol: 'NEC', address: 0, command: 69, repeat: 'once' }] }),
+      node('step', 'StepValue'),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [
+      edge('e1', 'sc', 'out'),
+      { id: 'missing', source: 'ir', sourceHandle: 'button-volume-up', target: 'step', targetHandle: 'increase' } as unknown as StudioEdge,
+    ],
+    fqbn: ESP32,
+    blocks: /A wired IR key has no mapping/,
+    names: ['button-volume-up', 'mapping id volume-up', 'orphaned wire'],
+    diagnostic: 'ir-mapping-missing-volume-up',
+  },
+  {
+    name: 'IR receive on a board the pinned dependency does not support',
+    nodes: [
+      node('ir', 'IRRemoteInput', { pin: 12, buttons: [{ id: 'power', label: 'Power', protocol: 'NEC', address: 0, command: 69, repeat: 'once' }] }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /IR receive is incompatible with the selected board/,
+    names: ['Arduino-IRremote 4.7.1', S3, 'supported target'],
+    diagnostic: 'ir-board-ir',
+  },
+  {
+    name: 'a Step Value with an inverted authored domain',
+    nodes: [
+      node('step', 'StepValue', { minimum: 2, maximum: 1, initial: 1.5, step: 0.1 }),
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /Step Value bounds are inverted/,
+    names: ['StepValue', 'minimum 2', 'maximum 1'],
+    diagnostic: 'step-bounds',
   },
 ]
 

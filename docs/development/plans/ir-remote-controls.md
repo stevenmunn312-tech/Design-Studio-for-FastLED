@@ -7,12 +7,12 @@ contract so the checklist does not have to repeat the design.
 Status: **in progress.** Mapping primitives, the Step Value adapter, receiver
 registration, the two bench parts, and browser press/hold plus key editing are
 implemented, including the diagnostic learn workflow, the pinned
-Arduino-IRremote 4.7.1 dependency, and project-sketch polling in the normal,
-slideshow, and SD/performance-player generators. Deploy validation and hardware
-evidence remain. Keep the feature
-experimental until a generated sketch has been compiled on every claimed board
-family and the receiver, repeat handling and LED timing have been exercised on
-hardware.
+Arduino-IRremote 4.7.1 dependency, project-sketch polling in the normal,
+slideshow, and SD/performance-player generators, and shared deploy/Graph Health
+validation. End-to-end workflow, compile, and hardware evidence remain. Keep
+the feature experimental until a generated sketch has been compiled on every
+claimed board family and the receiver, repeat handling and LED timing have been
+exercised on hardware.
 
 ## Goal
 
@@ -195,6 +195,13 @@ Graph Health and the deploy gate must share these failures:
 - IR present on a board/toolchain for which the pinned dependency is unsupported;
 - a `StepValue` with non-finite values, zero/negative step, inverted bounds or
   an initial value outside its bounds.
+
+Implemented by one structured issue walk projected into both
+`findDeployBlockingErrors` and `buildGraphDiagnostics`. Selected-board support
+follows Arduino-IRremote 4.7.1's declared architecture list, excluding the
+ESP32-S3 target that the pinned release explicitly marks unsupported. Pin
+collisions and signal-range mismatches continue through their existing shared
+diagnostics rather than being duplicated here.
 
 Range mismatches remain ordinary graph concerns. `StepValue.value` carries the
 authored min/max domain into the connection hint where possible; the destination

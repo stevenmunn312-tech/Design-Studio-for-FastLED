@@ -67,6 +67,13 @@ import { partOptionsFor } from '../state/partOptions'
 import { displayHasTouch, partById } from '../state/partCatalogue'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
+import {
+  duplicateIrRemoteMappings,
+  irRemoteButtonIdFromHandle,
+  irRemoteHandlesFromEdges,
+  normalizeIrRemoteButtons,
+} from '../state/irRemote'
+import { STEP_VALUE_DEFAULTS } from '../state/stepValue'
 
 export interface ValidationResult {
   errors:   string[]
@@ -93,6 +100,26 @@ export function isClassicEsp32(fqbn: string): boolean {
 }
 
 const HUB75_SUPPORTED_FQBNS = new Set([...CLASSIC_ESP32_FQBNS, 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3'])
+
+/** Architectures advertised by the pinned Arduino-IRremote 4.7.1 release.
+ *
+ * Match the architecture segment of the FQBN rather than maintaining a second
+ * board list: custom boards using a supported core should not be refused just
+ * because Studio has never seen their board id. ESP32-S3 is the one explicit
+ * exception in the pinned release's Supported Boards notes (the broad
+ * `architectures=esp32` declaration otherwise includes it).
+ */
+const IR_REMOTE_SUPPORTED_ARCHITECTURES: ReadonlySet<string> = new Set([
+  'avr', 'megaavr', 'samd', 'esp8266', 'esp32', 'stm32', 'stm32f1',
+  'mbed', 'mbed_nano', 'rp2040', 'mbed_rp2040', 'renesas_uno', 'riscv', 'nrf5',
+])
+
+export function irRemoteSupportedForFqbn(fqbn: string): boolean {
+  if (!fqbn) return true
+  const [, architecture = '', board = ''] = fqbn.toLowerCase().split(':')
+  if (!IR_REMOTE_SUPPORTED_ARCHITECTURES.has(architecture)) return false
+  return architecture !== 'esp32' || !board.includes('s3')
+}
 
 // Nodes whose live preview reads a browser-only API with no embedded-hardware
 // equivalent (mirrors the PREVIEW_NOTES on-node caption in StudioNode.tsx).
@@ -1449,6 +1476,8 @@ export function findDeployBlockingErrors(
     ...findAudioCapabilityErrors(nodes, edges),
     ...findStorageCapabilityErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
+    ...findIrRemoteErrors(nodes, edges, selectedFqbn),
+    ...findStepValueErrors(nodes),
     ...findHub75ConfigErrors(nodes),
     ...findScalarExpressionErrors(nodes),
     ...findFormulaErrors(nodes),
@@ -1526,6 +1555,184 @@ const POWER_WARN_MA = 5_000
 
 function nodeLabel(node: StudioNode): string {
   return String(node.data.label ?? node.data.nodeType)
+}
+
+function validationIssueMessage(issue: GraphDiagnostic): string {
+  return `${issue.title}: ${issue.message} — ${issue.fix}`
+}
+
+function irRemoteValidationIssues(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  selectedFqbn: string,
+): GraphDiagnostic[] {
+  const issues: GraphDiagnostic[] = []
+  const receivers = nodes.filter((node) => node.data.nodeType === 'IRRemoteInput')
+  if (receivers.length > 1) {
+    issues.push({
+      id: 'ir-remote-count', severity: 'error', category: 'connection',
+      title: 'Only one IR receiver can be active',
+      message: `${receivers.map(nodeLabel).join(', ')} add ${receivers.length} IR receivers, but the generated firmware has one global decoder.`,
+      fix: 'Keep one IR Receiver in the root Hardware workbench and remove the others.',
+      nodeIds: receivers.map((node) => node.id),
+      nodeLabel: 'IR receivers',
+    })
+  }
+
+  for (const receiver of receivers) {
+    const label = nodeLabel(receiver)
+    const props = receiver.data.properties as Record<string, unknown>
+    const rawButtons = props.buttons
+    const buttons = normalizeIrRemoteButtons(rawButtons)
+    const requiredHandles = irRemoteHandlesFromEdges(receiver.id, edges)
+    const requiredHandleSet = new Set(requiredHandles)
+    const storedHandles = new Set(buttons.map((button) => `button-${button.id}`))
+
+    if (selectedFqbn && !irRemoteSupportedForFqbn(selectedFqbn)) {
+      issues.push({
+        id: `${receiver.id}-board-ir`, severity: 'error', category: 'board',
+        title: 'IR receive is incompatible with the selected board',
+        message: `${label} cannot use Arduino-IRremote 4.7.1 on ${selectedFqbn}; that target is outside the pinned release's supported receiver architectures.`,
+        fix: 'Choose a supported target such as AVR, ESP8266, classic ESP32 / ESP32-C3, SAMD, STM32, RP2040, or remove the IR Receiver.',
+        nodeIds: [receiver.id], nodeLabel: label, action: 'choose-board',
+      })
+    }
+
+    if (buttons.length === 0 && requiredHandles.length === 0) {
+      issues.push({
+        id: `${receiver.id}-buttons-empty`, severity: 'error', category: 'connection',
+        title: 'IR Receiver has no learned keys',
+        message: `${label} has no learned key mappings, so it cannot publish a control event.`,
+        fix: 'Use Learn button… on the IR Receiver, or add a key manually and enter its protocol, address, and command.',
+        nodeIds: [receiver.id], nodeLabel: label, propertyKey: 'buttons',
+      })
+    }
+
+    for (const handle of requiredHandles.filter((candidate) => !storedHandles.has(candidate))) {
+      const mappingId = irRemoteButtonIdFromHandle(handle) ?? handle
+      issues.push({
+        id: `${receiver.id}-mapping-missing-${mappingId}`, severity: 'error', category: 'connection',
+        title: 'A wired IR key has no mapping',
+        message: `${label} output ${handle} is wired, but no learned key with mapping id ${mappingId} exists.`,
+        fix: 'Repair that key on the IR Receiver with its protocol, address, and command, or remove the orphaned wire.',
+        nodeIds: [receiver.id], nodeLabel: label, propertyKey: 'buttons',
+      })
+    }
+
+    for (const button of buttons) {
+      if (button.protocol) continue
+      const wired = requiredHandleSet.has(`button-${button.id}`)
+      issues.push({
+        id: `${receiver.id}-protocol-${button.id}`, severity: 'error', category: 'connection',
+        title: wired ? 'A wired IR key has no valid mapping' : 'IR key protocol is missing or unsupported',
+        message: wired
+          ? `${label} key ${button.label} is wired from mapping id ${button.id}, but has no recognized protocol.`
+          : `${label} key ${button.label} has no recognized protocol in its protocol property.`,
+        fix: `Learn ${button.label} again, choose a supported protocol on its key row${wired ? ', or remove its wire' : ''}.`,
+        nodeIds: [receiver.id], nodeLabel: label, propertyKey: 'buttons',
+      })
+    }
+
+    if (Array.isArray(rawButtons)) {
+      rawButtons.forEach((candidate, index) => {
+        if (!candidate || typeof candidate !== 'object') return
+        const raw = candidate as Record<string, unknown>
+        const keyLabel = String(raw.label ?? `Button ${index + 1}`).trim() || `Button ${index + 1}`
+        for (const propertyKey of ['address', 'command'] as const) {
+          const numeric = Number(raw[propertyKey])
+          if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 0xffff_ffff) continue
+          issues.push({
+            id: `${receiver.id}-${propertyKey}-${index}`, severity: 'error', category: 'connection',
+            title: `IR key ${propertyKey} is invalid`,
+            message: `${label} key ${keyLabel} has ${propertyKey} ${String(raw[propertyKey])}; it must be a whole number from 0 to 4294967295.`,
+            fix: `Learn ${keyLabel} again, or enter a valid ${propertyKey} on its key row.`,
+            nodeIds: [receiver.id], nodeLabel: label, propertyKey: 'buttons',
+          })
+        }
+      })
+    }
+
+    const byId = new Map(buttons.map((button) => [button.id, button]))
+    for (const duplicate of duplicateIrRemoteMappings(rawButtons)) {
+      const duplicateButtons = duplicate.buttonIds.map((id) => byId.get(id)).filter(Boolean)
+      const names = duplicateButtons.map((button) => button!.label).join(', ')
+      issues.push({
+        id: `${receiver.id}-duplicate-${duplicate.buttonIds.join('-')}`, severity: 'error', category: 'connection',
+        title: 'Two IR keys use the same code',
+        message: `${label} keys ${names} both use ${duplicate.identity.protocol} address ${duplicate.identity.address}, command ${duplicate.identity.command}.`,
+        fix: 'Learn one of those keys again or correct its protocol, address, or command so each mapping is unique.',
+        nodeIds: [receiver.id], nodeLabel: label, propertyKey: 'buttons',
+      })
+    }
+  }
+  return issues
+}
+
+function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
+  const issues: GraphDiagnostic[] = []
+  for (const node of nodes.filter((candidate) => candidate.data.nodeType === 'StepValue')) {
+    const label = nodeLabel(node)
+    const props = node.data.properties as Record<string, unknown>
+    const numeric = {
+      initial: Number(props.initial ?? STEP_VALUE_DEFAULTS.initial),
+      minimum: Number(props.minimum ?? STEP_VALUE_DEFAULTS.minimum),
+      maximum: Number(props.maximum ?? STEP_VALUE_DEFAULTS.maximum),
+      step: Number(props.step ?? STEP_VALUE_DEFAULTS.step),
+    }
+    for (const propertyKey of ['initial', 'minimum', 'maximum', 'step'] as const) {
+      if (Number.isFinite(numeric[propertyKey])) continue
+      issues.push({
+        id: `${node.id}-${propertyKey}-finite`, severity: 'error', category: 'expression',
+        title: `Step Value ${propertyKey} is not finite`,
+        message: `${label} ${propertyKey} is ${String(props[propertyKey])}, so preview and firmware would fall back to different authored intent.`,
+        fix: `Enter a finite number for ${propertyKey} on ${label}.`,
+        nodeIds: [node.id], nodeLabel: label, propertyKey,
+      })
+    }
+    if (Number.isFinite(numeric.step) && numeric.step <= 0) {
+      issues.push({
+        id: `${node.id}-step-positive`, severity: 'error', category: 'expression',
+        title: 'Step Value step must be positive',
+        message: `${label} step is ${numeric.step}, so Increase and Decrease cannot advance by a valid amount.`,
+        fix: `Set ${label} step to a number greater than zero.`,
+        nodeIds: [node.id], nodeLabel: label, propertyKey: 'step',
+      })
+    }
+    const boundsValid = Number.isFinite(numeric.minimum) && Number.isFinite(numeric.maximum)
+      && numeric.maximum > numeric.minimum
+    if (Number.isFinite(numeric.minimum) && Number.isFinite(numeric.maximum) && !boundsValid) {
+      issues.push({
+        id: `${node.id}-bounds`, severity: 'error', category: 'expression',
+        title: 'Step Value bounds are inverted',
+        message: `${label} minimum ${numeric.minimum} is not below maximum ${numeric.maximum}.`,
+        fix: `Set ${label} minimum below its maximum.`,
+        nodeIds: [node.id], nodeLabel: label, propertyKey: 'minimum',
+      })
+    }
+    if (boundsValid && Number.isFinite(numeric.initial)
+      && (numeric.initial < numeric.minimum || numeric.initial > numeric.maximum)) {
+      issues.push({
+        id: `${node.id}-initial-range`, severity: 'error', category: 'expression',
+        title: 'Step Value initial value is outside its bounds',
+        message: `${label} initial ${numeric.initial} is outside ${numeric.minimum}–${numeric.maximum}.`,
+        fix: `Move ${label} initial inside its minimum and maximum, or widen those bounds.`,
+        nodeIds: [node.id], nodeLabel: label, propertyKey: 'initial',
+      })
+    }
+  }
+  return issues
+}
+
+export function findIrRemoteErrors(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  selectedFqbn = '',
+): string[] {
+  return irRemoteValidationIssues(nodes, edges, selectedFqbn).map(validationIssueMessage)
+}
+
+export function findStepValueErrors(nodes: StudioNode[]): string[] {
+  return stepValueValidationIssues(nodes).map(validationIssueMessage)
 }
 
 interface PlayerControlMappingIssue {
@@ -2563,6 +2770,12 @@ export function buildGraphDiagnostics(
       propertyKey: 'sourceId',
     })
   }
+
+  // The compact deploy errors and these rich drawer entries are projected
+  // from the same structured findings. Keep this ahead of incidental pin and
+  // disconnected-node warnings so the actual authored repair is prominent.
+  diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
+  diagnostics.push(...stepValueValidationIssues(nodes))
 
   for (const meter of nodes.filter((node) => node.data.nodeType === 'StereoVuMeter')) {
     const props = meter.data.properties as Record<string, unknown>
