@@ -6,8 +6,9 @@ an internal record.
 
 - **Current repository pin:** 2.5.26 (`backend/requirements.txt` and
   `backend/constraints.txt`), moved from 2.5.22 on 2026-09-22 after the four
-  version-dependent probes and one current-model display fixture passed. The
-  full twelve-fixture fbuild matrix remains the separately labelled 2.5.22 run.
+  version-dependent probes passed. The complete twelve-fixture fbuild matrix
+  was then regenerated and passed on 2.5.26 at the same source hashes as the
+  Arduino CLI half.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
@@ -726,10 +727,12 @@ the issue sections, but test every surviving workaround against 2.5.26 before
 calling it current.
 
 The 2.5.26 move does not remove a workaround. It does reduce ESP32 output and
-improve framework-library selection: the `normal` fixture at the same source
-hash fell from 971,878 to 934,748 flash bytes (37,130 fewer) and from 161,300
-to 161,137 RAM bytes. The first build still hit the Windows LVGL archive limit;
-the response-file recovery completed in 1.2s and the retry passed.
+improve framework-library selection: all twelve current-model fixtures passed
+at the same hashes as the 2.5.22 matrix, with flash down 25,518–37,274 bytes and
+static RAM down 62–164 bytes per fixture. The initial `normal` smoke still hit
+the Windows LVGL archive limit; the response-file recovery completed in 1.2s
+and the retry passed. The complete rerun exercised the same recovery for the
+SD-player and disabled-panel fixtures, taking 1.0s each.
 
 | Our issue | Upstream change | Version | Confidence |
 |---|---|---|---|

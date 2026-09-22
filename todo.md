@@ -810,10 +810,10 @@ matrix, not a reason to postpone testing earlier changes.
   matrix. The separate firmware paths and physical bench matrix below remain
   open.*
 
-  The repository moved from fbuild 2.5.22 to 2.5.26 later that day. The same
-  `normal` source hash passes the new engine with lower flash/RAM use, but only
-  that representative fixture was rerun; the complete twelve-fixture fbuild
-  table remains explicitly labelled 2.5.22 in the compile record.
+  The repository moved from fbuild 2.5.22 to 2.5.26 later that day. All twelve
+  fixtures were regenerated and the complete fbuild half was rerun at the same
+  source hashes as the Arduino CLI half; every row passed. The compile record
+  now carries the 2.5.26 fbuild measurements.
 
   That run earned its keep. It found two defects no unit test could see, because
   in both the emitted text is correct and only its order or its type is wrong:
@@ -1099,12 +1099,12 @@ matrix, not a reason to postpone testing earlier changes.
 
   **Upgraded to 2.5.26 on 2026-09-22.** Both repository pins and both local
   helper environments now use 2.5.26. The four version-dependent probes still
-  reproduce and the architectural lock remains necessary; the `normal` display
-  fixture passes at the same source hash with 37,130 fewer flash bytes and 163
-  fewer RAM bytes. The LVGL archive still hit `os error 206` and recovered via
-  the response file. An unchanged rebuild took 1.5s inside fbuild. The complete
-  twelve-fixture table remains the labelled 2.5.22 run rather than being
-  silently relabelled from this one-fixture smoke.
+  reproduce and the architectural lock remains necessary. All twelve display
+  fixtures were regenerated and passed at the same source hashes as the prior
+  matrix; flash fell by 25,518–37,274 bytes and static RAM by 62–164 bytes per
+  fixture. The LVGL archive still hit `os error 206` and recovered via the
+  response file for the initial `normal` smoke and for two rows in the complete
+  rerun. An unchanged rebuild took 1.5s inside fbuild.
 
 ## 4. Close release readiness
 

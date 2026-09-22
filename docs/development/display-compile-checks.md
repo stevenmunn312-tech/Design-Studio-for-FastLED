@@ -137,7 +137,8 @@ The initial runs exposed these gaps, now covered by regression tests:
 - The generic SD player emitted a silence fade even for collections with no
   audio analysis, referencing undeclared band levels. The fade now requires
   baked or live analysis; nonreactive patterns remain visible without it.
-- fbuild 2.5.22's LVGL archive command exceeded Windows' command-length limit.
+- The LVGL archive command in fbuild 2.5.22 and 2.5.26 exceeded Windows'
+  command-length limit.
   The helper recognizes that specific failure, validates the archiver and every
   object path, archives the same objects through a response file, then retries
   fbuild once to finish linking and produce its normal size report. It does not
@@ -167,11 +168,13 @@ The initial runs exposed these gaps, now covered by regression tests:
 
 ## Current-model matrix, 21–22 September 2026
 
-All twelve fixtures regenerated immediately before this run and passed on both
-engines. Arduino CLI was 1.5.1 with ESP32 core 3.3.11, FastLED 3.10.5 and LVGL
-9.5.0. fbuild was 2.5.22 with vendored FastLED `e52abeb26d1b`, LVGL
-`85aa60d18b3d` and player audio `928c420d49fc`. The first eleven rows target the
-ESP32-S3 N16R8 FQBN documented above; the last targets `esp32:esp32:esp32`.
+All twelve fixtures passed on both engines at the matching source hashes shown
+below. The Arduino CLI half was recorded first with Arduino CLI 1.5.1, ESP32
+core 3.3.11, FastLED 3.10.5 and LVGL 9.5.0. The fixtures were regenerated and
+the complete fbuild half was rerun on 22 September with fbuild 2.5.26, vendored
+FastLED `e52abeb26d1b`, LVGL `85aa60d18b3d` and player audio `928c420d49fc`.
+The first eleven rows target the ESP32-S3 N16R8 FQBN documented above; the last
+targets `esp32:esp32:esp32`.
 
 Percentages use each engine's own reported partition: Arduino CLI reports S3
 flash against the 3 MiB application partition, while fbuild reports it against
@@ -179,37 +182,31 @@ the 16 MiB device. The byte counts, not the flash percentages, are comparable.
 
 | Fixture | Source SHA-256 | Arduino flash | Arduino RAM | fbuild flash | fbuild RAM |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Normal | `a16d8252b038` | 647,159 (20%) | 105,716 (32%) | 971,878 (6%) | 161,300 (49%) |
-| Generative show | `45a34865db9e` | 649,555 (20%) | 106,164 (32%) | 975,432 (6%) | 161,976 (49%) |
-| SD player | `b80c29c7caab` | 1,330,039 (42%) | 122,068 (37%) | 1,646,264 (10%) | 176,886 (54%) |
-| Isolated TFT | `a5c3f529cbee` | 300,932 (9%) | 22,904 (6%) | 625,172 (4%) | 75,571 (23%) |
-| Headless controls | `6fc1c5e68731` | 427,151 (13%) | 27,636 (8%) | 743,117 (4%) | 80,855 (25%) |
-| Disabled panel | `5b4ed7271cd8` | 640,479 (20%) | 105,444 (32%) | 965,130 (6%) | 161,024 (49%) |
-| Two panels, two designs | `fa6345d91c7d` | 642,859 (20%) | 115,260 (35%) | 967,567 (6%) | 170,844 (52%) |
-| Part families (SPI) | `afce392a0b73` | 472,411 (15%) | 37,660 (11%) | 793,774 (5%) | 94,259 (29%) |
-| Part families (I²C) | `3f833eec394d` | 460,311 (14%) | 31,012 (9%) | 778,834 (5%) | 87,552 (27%) |
-| Part families (parallel) | `e2118c1e714b` | 440,071 (13%) | 27,860 (8%) | 758,784 (4%) | 83,610 (26%) |
-| Bench telemetry | `fbe29416f82b` | 651,599 (20%) | 105,764 (32%) | 976,210 (6%) | 161,341 (49%) |
-| Classic ESP32, fixed layouts | `3b786d2a38e2` | 428,039 (32%) | 31,396 (9%) | 668,948 (16%) | 31,437 (10%) |
+| Normal | `a16d8252b038` | 647,159 (20%) | 105,716 (32%) | 934,748 (6%) | 161,137 (49%) |
+| Generative show | `45a34865db9e` | 649,555 (20%) | 106,164 (32%) | 938,322 (6%) | 161,833 (49%) |
+| SD player | `b80c29c7caab` | 1,330,039 (42%) | 122,068 (37%) | 1,614,807 (10%) | 176,783 (54%) |
+| Isolated TFT | `a5c3f529cbee` | 300,932 (9%) | 22,904 (6%) | 595,261 (4%) | 75,418 (23%) |
+| Headless controls | `6fc1c5e68731` | 427,151 (13%) | 27,636 (8%) | 710,922 (4%) | 80,691 (25%) |
+| Disabled panel | `5b4ed7271cd8` | 640,479 (20%) | 105,444 (32%) | 928,072 (6%) | 160,870 (49%) |
+| Two panels, two designs | `fa6345d91c7d` | 642,859 (20%) | 115,260 (35%) | 930,427 (6%) | 170,680 (52%) |
+| Part families (SPI) | `afce392a0b73` | 472,411 (15%) | 37,660 (11%) | 761,129 (4%) | 94,106 (29%) |
+| Part families (I²C) | `3f833eec394d` | 460,311 (14%) | 31,012 (9%) | 746,322 (4%) | 87,398 (27%) |
+| Part families (parallel) | `e2118c1e714b` | 440,071 (13%) | 27,860 (8%) | 726,333 (4%) | 83,456 (26%) |
+| Bench telemetry | `fbe29416f82b` | 651,599 (20%) | 105,764 (32%) | 938,936 (6%) | 161,178 (49%) |
+| Classic ESP32, fixed layouts | `3b786d2a38e2` | 428,039 (32%) | 31,396 (9%) | 643,430 (15%) | 31,375 (10%) |
 
 The Arduino telemetry leg was an environmental timing outlier: about 51 minutes
 end to end while its log continued to grow and sixteen compiler children stayed
 active. It passed and no other fixture reproduced that duration, so it is kept as
 a timing observation rather than treated as a firmware failure.
 
-### fbuild 2.5.26 upgrade smoke, 22 September 2026
-
-The repository pin moved after the complete matrix above. The `normal` fixture
-was compiled at the same `a16d8252b038` source hash with fbuild 2.5.26 and passed
-at **934,748 flash bytes** and **161,137 RAM bytes**: 37,130 fewer flash bytes
-and 163 fewer RAM bytes than 2.5.22. Its cold-version run still hit Windows
-`os error 206` while archiving LVGL; the helper's response-file recovery took
-1.2s and the retry passed. An immediate unchanged rebuild then took 1.5s inside
-fbuild and 2.6s end to end.
-
-This is an upgrade smoke, not a replacement twelve-fixture matrix. The table
-above remains the last complete two-engine run and is labelled with its 2.5.22
-toolchain accordingly.
+Against the earlier 2.5.22 run of the same hashes, 2.5.26 reduced flash by
+25,518–37,274 bytes and static RAM by 62–164 bytes across all twelve fixtures.
+The initial `normal` upgrade smoke still hit Windows `os error 206` while
+archiving LVGL; the helper's response-file recovery took 1.2s and the retry
+passed. An immediate unchanged rebuild then took 1.5s inside fbuild and 2.6s end
+to end. In the complete matrix rerun, the SD-player and disabled-panel builds
+also exercised the recovery, each completing the response-file archive in 1.0s.
 
 ## Recorded environment
 
