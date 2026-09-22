@@ -1325,10 +1325,43 @@ matrix, not a reason to postpone testing earlier changes.
     retention, no key invented from a Learn-socket wire, rename keeps wires).
     `npm test` (5,572), `npm run lint` and `tsc -b` pass. No compile run —
     nothing emits IR firmware yet; that is step 8.
-  - [ ] **5. Add the physical receiver to the workbench.** Import one verified
-    demodulating receiver asset with measured dimensions and pad labels, add the
-    Hardware shelf fixture/inspector and singleton behavior, and extend the
-    derived hardware-registry, render, pin-assignment and collision tests.
+  - [x] **5. Add the physical receiver to the workbench.** Done 2026-09-23 —
+    **two** receivers, not one, and the reason is the whole of this row.
+
+    The three-legged demodulating receivers are not pin-compatible with each
+    other. A KY-022 breakout puts its supply on the centre pin; a bare Vishay
+    TSOP38238 puts ground there. Anything that treated "an IR receiver" as one
+    part would put the supply rail on a GPIO for half its users, so
+    `src/state/irModules.ts` is the one list saying which exist, and the shelf
+    rows, the Add Hardware menu and the part options all derive from it — the
+    shape `MIC_MODULES` already has.
+
+    Both assets were modelled and rendered at 160 Cycles samples
+    (`Scripts/generate_ir_receiver_parts.py` in the Blender workspace) and
+    imported. Pad names are what each board prints rather than what would be
+    convenient: the KY-022 reads `-`, `+`, `S`, so `+` and `-` joined the
+    supply and ground label tables and `S` joined the signal names; the TSOP
+    has no silkscreen at all, so its names are functional and its notes say so.
+
+    The KY-022's caveat rides on its module entry rather than being averaged
+    away — the centre pin is the supply on every documented variant, but
+    suppliers swap the outer two, so the part id names a *design* rather than a
+    guarantee, the stance the catalogue already takes for the ST7789V touch
+    panel. Only the TSOP's pinout comes from a manufacturer drawing (Vishay doc
+    82491 Rev 2.1, cross-checked against Adafruit's product copy for the
+    viewing direction), which is why it is catalogued beside the module rather
+    than the module being trusted alone.
+
+    Tests derive from `IR_RECEIVER_MODULES` rather than listing part ids, so a
+    third receiver is checked the day it lands; one case asserts the centre
+    pins stay *different* as a difference rather than as two literals.
+    `npm test` (5,580), `npm run lint` and `tsc -b` pass.
+
+    **Worth correcting upstream:** the hardware-expansion roadmap pairs
+    "VS1838B / TSOP38238" as though they were one entry. They are not
+    interchangeable, and the VS1838B is itself documented both ways by
+    different suppliers — which is why the bare part modelled here is the
+    Vishay one.
   - [ ] **6. Build browser simulation and editing.** Give the node body
     press/hold controls through transient hardware-input state; add, rename and
     remove learned mappings with stable wires, confirmation for connected
