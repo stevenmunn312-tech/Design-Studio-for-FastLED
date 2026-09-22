@@ -3,6 +3,7 @@ import { targetFamilyFromFqbn } from './buildProfile'
 import { BOARD_CAPABILITY_DATA, GENERATED_BOARD_PROFILES } from './generated/boardCapabilityData'
 import { boardI2cDefault } from './boardI2cDefaults'
 import { boardPinSafetyOverride } from './boardPinSafetyOverrides'
+import { CLASSIC_ESP32_RAM_BUDGET_BYTES, ESP32_S3_RAM_BUDGET_BYTES } from './ramBudgets'
 import type {
   BoardCapabilityData,
   BoardPeripheralPins,
@@ -489,7 +490,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     // ESP32-S3 has substantially more usable internal SRAM than classic
     // ESP32. Keep room for the Arduino core, Wi-Fi and generator libraries;
     // this allowance is for the allocations estimateFirmwareRam owns.
-    internalRamBudgetBytes: 192 * 1024,
+    internalRamBudgetBytes: ESP32_S3_RAM_BUDGET_BYTES,
     psramMode: 'opi',
     moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('Generic ESP32-S3 N16R8', '#ffd166', 'USB-C', 'Pinout verified'),
@@ -527,7 +528,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     // would have mis-sized the board on a true-relative-scale diagram.
     dimensionsMm: { width: 62.74, height: 25.4 },
     confidence: 'manufacturer-verified',
-    internalRamBudgetBytes: 192 * 1024,
+    internalRamBudgetBytes: ESP32_S3_RAM_BUDGET_BYTES,
     moduleSilk: 'ESP32-S3-WROOM-1',
     previewSvg: boardSvg('Espressif DevKitC-1', '#58d68d', 'USB', 'Manufacturer verified'),
     notes: [
@@ -550,9 +551,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32', 'esp32:esp32:nodemcu-32s'],
     dimensionsMm: { width: 55, height: 28 },
     confidence: 'pinout-verified',
-    // Calibrated below the classic ESP32 linker ceiling so the unmodelled
-    // Arduino/FastLED/network baseline still fits beside graph allocations.
-    internalRamBudgetBytes: 48 * 1024,
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
     moduleSilk: 'ESP32-WROOM-32',
     previewSvg: boardSvg('Generic ESP32 38-pin', '#8ad0ff', 'USB-C', 'Pinout verified'),
     notes: [
@@ -578,7 +577,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     compatibleFqbns: ['esp32:esp32:esp32doit-devkit-v1', 'esp32:esp32:esp32'],
     dimensionsMm: { width: 51.5, height: 28.5 },
     confidence: 'pinout-verified',
-    internalRamBudgetBytes: 48 * 1024,
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
     previewSvg: boardSvg('ESP32 DevKit v1 (ESP-32D)', '#7ee2cf', 'USB', 'Pinout verified'),
     notes: [
       'Two 15-pin rails; GPIO0 has no header pad, so the BOOT button is its only connection.',
@@ -625,7 +624,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     // so without this the build, and the capacity meter reading it, target
     // 8MB on a 16MB part. Confirmed on the bench with esptool.
     memory: { flashMb: 16, psramMb: 8 },
-    internalRamBudgetBytes: 192 * 1024,
+    internalRamBudgetBytes: ESP32_S3_RAM_BUDGET_BYTES,
     psramMode: 'opi',
     moduleSilk: 'ESP32-S3-WROOM',
     previewSvg: boardSvg('LOLIN S3', '#c9a0ff', 'USB-C', 'Pinout verified'),
@@ -652,7 +651,7 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     // Seeed's figures: 21.0 mm along the rails, 17.8 mm across them.
     dimensionsMm: { width: 21, height: 17.8 },
     confidence: 'manufacturer-verified',
-    internalRamBudgetBytes: 192 * 1024,
+    internalRamBudgetBytes: ESP32_S3_RAM_BUDGET_BYTES,
     moduleSilk: 'ESP32-S3',
     previewSvg: boardSvg('Seeed XIAO ESP32S3', '#7aa2ff', 'USB-C', 'Compact layout'),
     notes: [
@@ -725,7 +724,8 @@ const MERGED_AUTHORED: PhysicalBoardProfile[] = AUTHORED_PROFILES.map((profile) 
     ...profile,
     processor: profile.processor ?? imported?.processor,
     memory: profile.memory ?? imported?.memory,
-    internalRamBudgetBytes: profile.internalRamBudgetBytes ?? imported?.internalRamBudgetBytes,
+    internalRamBudgetBytes: profile.internalRamBudgetBytes
+      ?? authored?.internalRamBudgetBytes ?? imported?.internalRamBudgetBytes,
     pinSafety: profile.pinSafety ?? authored?.pinSafety ?? imported?.pinSafety,
     peripheralPins: withoutI2cBusCollisions(profile.id, profile.peripheralPins ?? imported?.peripheralPins),
     render: profile.render ?? imported?.render,
@@ -760,7 +760,7 @@ const IMPORTED_PROFILES: PhysicalBoardProfile[] = GENERATED_BOARD_PROFILES
       pins: generated.pins as PhysicalBoardPinProfile[],
       processor: capability.processor,
       memory: capability.memory,
-      internalRamBudgetBytes: capability.internalRamBudgetBytes,
+      internalRamBudgetBytes: authored?.internalRamBudgetBytes ?? capability.internalRamBudgetBytes,
       pinSafety: authored?.pinSafety ?? capability.pinSafety,
       peripheralPins: withoutI2cBusCollisions(generated.id, capability.peripheralPins),
       render: capability.render,

@@ -134,11 +134,12 @@ four are constrained by this board rather than by the software under test.
   *usable* is run 1's `heap` / `minheap` question, not this one.
 
   On why the build was attemptable at all: unlike the generic classic-ESP32
-  profiles, `esp32-2432s028r` declares no `internalRamBudgetBytes`, so HW-24's
-  pre-compile refusal returns nothing. That was recorded as an inconsistency to
-  close later — and closing it at 48 KiB would have refused a build that fits
-  with 222 KB to spare, which is now an argument about the *budget*, not about
-  the gap. See HW-25 in `todo.md`.
+  profiles, `esp32-2432s028r` declared no `internalRamBudgetBytes`, so HW-24's
+  pre-compile refusal returned nothing. Closing that gap at 48 KiB would have
+  refused a build that fits with 222 KB to spare — so the gap was held open
+  until this run existed, and **the budget was then raised to 96 KiB from these
+  measurements** rather than the gap being closed at a wrong number. The CYD now
+  declares it too. See `src/build/ramBudgets.ts` and HW-25 in `todo.md`.
 
 - **Run 3 cannot be done on this board at all.** It wants TFT, SD and touch
   sharing one bus with audio playing. This board's onboard microSD and speaker

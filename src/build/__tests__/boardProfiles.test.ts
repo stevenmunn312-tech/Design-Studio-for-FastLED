@@ -318,9 +318,35 @@ describe('board pin safety', () => {
 
 describe('internal-RAM budgets', () => {
   it('gives the known S3 boards more graph-allocation headroom than classic ESP32 boards', () => {
-    expect(boardProfileById('esp32-generic-devkit-38pin')?.internalRamBudgetBytes).toBe(48 * 1024)
-    expect(boardProfileById('esp32-devkit-v1-30pin-esp32d')?.internalRamBudgetBytes).toBe(48 * 1024)
+    expect(boardProfileById('esp32-generic-devkit-38pin')?.internalRamBudgetBytes).toBe(96 * 1024)
+    expect(boardProfileById('esp32-devkit-v1-30pin-esp32d')?.internalRamBudgetBytes).toBe(96 * 1024)
     expect(boardProfileById('espressif-esp32-s3-devkitc-1')?.internalRamBudgetBytes).toBe(192 * 1024)
+  })
+
+  /*
+   * The classic budget has to admit a custom screen, which is what it was
+   * raised on 2026-09-22 to do.
+   *
+   * At 48 KiB it refused one outright — a 14-widget design estimates 77,556
+   * bytes of graph allocations — so every custom-screen build on every classic
+   * ESP32 was rejected before a compiler ran, and HW-25 existed to explain
+   * that as a hardware limit it is not. Asserting against the estimator's real
+   * figure rather than a literal, so a future change to what a screen costs
+   * fails here instead of silently re-closing the door.
+   */
+  it('admits a custom screen on a classic ESP32, with headroom', () => {
+    const classic = boardProfileById('esp32-generic-devkit-38pin')!.internalRamBudgetBytes!
+    const measuredCustomScreenBytes = 77_556
+    expect(classic).toBeGreaterThan(measuredCustomScreenBytes)
+    expect(classic - measuredCustomScreenBytes).toBeGreaterThan(16 * 1024)
+  })
+
+  /*
+   * The one imported profile that has been on a bench carries a budget; the
+   * rest still do not, which is the rule below rather than an oversight.
+   */
+  it('gives the measured CYD the same classic-ESP32 budget as its siblings', () => {
+    expect(boardProfileById('esp32-2432s028r')?.internalRamBudgetBytes).toBe(96 * 1024)
   })
 
   it('leaves uncalibrated profiles undeclared so callers can use the warning fallback', () => {

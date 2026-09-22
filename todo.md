@@ -869,8 +869,22 @@ matrix, not a reason to postpone testing earlier changes.
   an unknown board would be worse than asking its compiler. Covered by board
   profile, RAM, `CapacityWatcher` and deploy-popup regressions.
 
-- [ ] **HW-25 · P2 · Fixed 64 KiB LVGL heap rules out classic-ESP32 custom
-  screens (M; after HW-11).** **Premise disproven 2026-09-22 — this item needs
+- [x] **HW-25 · P2 · Fixed 64 KiB LVGL heap rules out classic-ESP32 custom
+  screens (M; after HW-11).** **Closed 2026-09-22 — the premise was false and
+  the budget was the real fault.** The heap was never the constraint; a 48 KiB
+  `internalRamBudgetBytes` was, refusing every custom-screen build on every
+  classic ESP32 before a compiler ran. Raised to 96 KiB from the bench figures
+  (`src/build/ramBudgets.ts` carries the number and its evidence), and the CYD —
+  measured, so no longer a guess — now declares the same rather than nothing at
+  all, which closes the gap held open below. `lolin-s2-mini` and every other
+  unmeasured import still declare none, keeping the advisory fallback for boards
+  nobody has benched. No change to `LV_MEM_SIZE`, `CUSTOM_DISPLAY_LVGL_HEAP_BYTES`
+  or the per-board heap machinery this item originally proposed: none of it is
+  needed, since the heap fits. `npm test` (5,492 passed), `npm run lint` and
+  `tsc -b` pass.
+
+  *Original scoping, kept because the mechanism it describes is still accurate
+  if a genuinely smaller board ever needs it:* **Premise disproven 2026-09-22 — this item needs
   rescoping before it is worked.** A custom screen (14 widgets) on the CYD
   compiled clean under Arduino CLI at `esp32:esp32:esp32`: static RAM 105,348 of
   327,680 (32%), **222,332 bytes free**, no overflow in any region. The 64 KiB

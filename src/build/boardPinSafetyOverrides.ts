@@ -16,6 +16,7 @@
  */
 
 import type { BoardPinSafety } from './boardCapabilities'
+import { CLASSIC_ESP32_RAM_BUDGET_BYTES } from './ramBudgets'
 import { NO_PIN } from '../state/boardGpio'
 import { integratedTouchDisplayForBoard } from '../state/integratedBoardHardware'
 
@@ -23,6 +24,15 @@ export interface AuthoredBoardPinSafety {
   pinSafety: BoardPinSafety
   /** Prose shown beside the pin list. Displayed, never parsed for pin numbers. */
   safetyNotes?: string[]
+  /**
+   * Graph-allocation ceiling, for an imported profile that has been measured.
+   *
+   * An imported board normally carries no budget and falls back to the
+   * advisory warning, because guessing a limit is worse than asking the
+   * compiler. This field is for the case that is no longer a guess: a board
+   * someone has actually put on a bench.
+   */
+  internalRamBudgetBytes?: number
 }
 
 /** `touchMisoPin` → `touch miso`, so a derived reason reads as a sentence. */
@@ -71,6 +81,19 @@ function fittedHardwarePins(boardProfileId: string): Record<number, string> {
 const CYD_PROFILE_ID = 'esp32-2432s028r'
 
 const CYD_PIN_SAFETY: AuthoredBoardPinSafety = {
+  /*
+   * Measured on this board, 2026-09-22, rather than inherited or guessed.
+   *
+   * Its classic-ESP32 siblings declare the same 96 KiB; the CYD had no budget
+   * at all, which meant the one board in the catalogue with a screen soldered
+   * to it was the one nothing checked. It was held that way deliberately while
+   * HW-25 was measured — a refusal before the compile is a refusal before the
+   * measurement — and the measurement is now in:
+   * [the bench](../../docs/development/testing/display-budget-bench.md) has a
+   * 14-widget custom screen running here on 106,368 bytes of static RAM with
+   * 238,564 free, flat.
+   */
+  internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
   pinSafety: {
     safeGeneralPurpose: [22, 27],
     useWithCaution: {

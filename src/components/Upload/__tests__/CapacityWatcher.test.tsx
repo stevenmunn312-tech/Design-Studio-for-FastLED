@@ -354,30 +354,37 @@ describe('CapacityWatcher', () => {
 
   it('publishes an instant blocker instead of a compile target when the selected board budget is exceeded', async () => {
     setGraph(true)
-    const document = createDisplayDocument('screen-document')
+    /*
+     * Three screens and a 64x64 matrix, where this used to be one screen.
+     *
+     * The classic-ESP32 graph-allocation budget was raised from 48 KiB to
+     * 96 KiB on 2026-09-22 after a custom screen was measured running on that
+     * chip, so a single design is now something the gate should admit rather
+     * than refuse. What this test is actually about is unchanged: an
+     * over-budget graph must publish an instant blocker instead of going near
+     * a toolchain. Three designs plus a real matrix is over by a clear margin —
+     * the LVGL heap is charged once and the per-screen buffers three times.
+     */
+    const documents = ['a', 'b', 'c'].map((id) => createDisplayDocument(`screen-${id}`))
     const board = {
       ...output,
       id: 'board',
       data: { ...output.data, nodeType: 'Board', properties: { profileId: 'esp32-generic-devkit-38pin' } },
     }
-    const panel = {
+    const panels = documents.map((document, index) => ({
       ...output,
-      id: 'panel',
+      id: `panel-${index}`,
       data: { ...output.data, nodeType: 'TransportDisplay',
-        properties: { partId: 'st7789v-xpt2046-touch-240x320' } },
-    }
-    const screen = {
+        properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: document.displayId } },
+    }))
+    const leds = {
       ...output,
-      id: 'screen',
-      data: { ...output.data, nodeType: 'TransportDisplay', properties: { displayId: document.displayId } },
+      id: 'big-matrix',
+      data: { ...output.data, properties: { ...output.data.properties, width: 64, height: 64 } },
     }
     useGraphStore.setState({
-      nodes: [...useGraphStore.getState().nodes, board, panel, screen] as never[],
-      edges: [...useGraphStore.getState().edges, {
-        id: 'mount', source: 'screen', sourceHandle: 'customDisplay',
-        target: 'panel', targetHandle: 'customDisplay',
-      }] as never[],
-      displayDocuments: { [document.displayId]: document },
+      nodes: [...useGraphStore.getState().nodes, board, leds, ...panels] as never[],
+      displayDocuments: Object.fromEntries(documents.map((document) => [document.displayId, document])),
     })
 
     render(<CapacityWatcher />)

@@ -123,22 +123,41 @@ describe('custom display firmware RAM', () => {
     expect(estimateFirmwareRam(nodes, edges, { a: withImage })!.displayBytes).toBe(ram.displayBytes)
   })
 
+  /*
+   * Three screens, where this used to use one.
+   *
+   * At the old 48 KiB budget a single empty design was over, so one screen
+   * made the point. The classic-ESP32 budget was raised to 96 KiB on
+   * 2026-09-22 because a custom screen was measured running on that chip with
+   * 238,564 bytes of heap free — so one screen is now something the gate
+   * should *admit*, and the case below asserts exactly that. Three panels each
+   * carrying their own design is over by a clear margin (the LVGL heap is
+   * charged once, the per-screen buffers three times), and display allocations
+   * are still the largest contributor, which is what this test is really for.
+   */
   it('blocks a declared board budget and names the largest internal allocation', () => {
-    const document = createDisplayDocument('a')
-    const mounted = graph(screen('a'))
+    const documents = {
+      a: createDisplayDocument('a'), b: createDisplayDocument('b'), c: createDisplayDocument('c'),
+    }
+    // A 64x64 matrix rather than the 4x4 the other cases share: three screens
+    // alone come to 94,964 bytes and slip under, and a build with three panels
+    // but sixteen LEDs is not the thing anyone is protected from.
+    const leds = node('leds', 'MatrixOutput', { width: 64, height: 64 })
+    const panels = [screen('a'), screen('b'), screen('c')]
+    const mounted = { nodes: [leds, ...panels.flatMap((one) => one.nodes)], edges: [] as StudioEdge[] }
     const classic = node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
     const nodes = [...mounted.nodes, classic]
-    const issue = findFirmwareRamBudgetIssue(nodes, mounted.edges, { a: document })
+    const issue = findFirmwareRamBudgetIssue(nodes, mounted.edges, documents)
 
     expect(issue).toMatchObject({
       profile: { id: 'esp32-generic-devkit-38pin' },
-      budgetBytes: 48 * 1024,
+      budgetBytes: 96 * 1024,
       largestContributor: { label: 'display allocations' },
     })
     expect(issue!.largestContributor.bytes).toBe(issue!.estimate.displayBytes)
     expect(issue!.message).toContain('Largest contributor: display allocations')
-    expect(validateGraph(nodes, mounted.edges, '', { a: document }).errors).toContain(issue!.message)
-    expect(buildGraphDiagnostics(nodes, mounted.edges, { displayDocuments: { a: document } }))
+    expect(validateGraph(nodes, mounted.edges, '', documents).errors).toContain(issue!.message)
+    expect(buildGraphDiagnostics(nodes, mounted.edges, { displayDocuments: documents }))
       .toContainEqual(expect.objectContaining({
         severity: 'error',
         category: 'memory',
