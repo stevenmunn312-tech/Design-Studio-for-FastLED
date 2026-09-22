@@ -12,6 +12,7 @@ import { createDisplayDocument, addDisplayWidget } from '../src/state/displayEdi
 import { displayWidgetSources } from '../src/state/displayRegistry'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../src/state/displayDocument'
 import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../src/state/customDisplayResources'
+import { CYD_TOUCH_DISPLAY } from '../src/state/integratedBoardHardware'
 import { generateCpp } from '../src/codegen/cppGenerator'
 import { generateShowSketch } from '../src/codegen/showGenerator'
 import { buildShowPlayer } from '../src/utils/showUpload'
@@ -325,6 +326,74 @@ for (const [name, graph, documents] of [
   }
 }
 
+/*
+ * HW-11's display-budget bench, on the repository's ESP32-2432S028R unit.
+ *
+ * Not part of the pass matrix: these exist so the bench's own numbers are
+ * reproducible rather than generated ad hoc and described afterwards. Both take
+ * the board's fitted wiring from `integratedBoardHardware.ts` rather than
+ * restating pins, so a bench correction there carries into the fixtures. The
+ * LED output is the rig's actual strip — 32 pixels on GPIO27, one of the two
+ * pads this board leaves free.
+ *
+ * `cyd-custom` is run 0: a custom screen on a classic ESP32, built expecting
+ * the overflow HW-25 rests on. It does not overflow, which is the measurement.
+ * `cyd-run1` is the fixed-layout baseline and the one carrying
+ * `reportTelemetry`, because it is built to be flashed and read where run 0
+ * only ever has to link. Its panel is driven by an RTC, so the layout resolves
+ * to Clock — read-only, which is why run 1 yields no touch figure.
+ */
+const cydBoard = (properties: Record<string, unknown> = {}) =>
+  node('board', 'Board', { profileId: 'esp32-2432s028r', ...properties })
+const cydPanel = (properties: Record<string, unknown> = {}) =>
+  node('panel', 'TransportDisplay', { ...CYD_TOUCH_DISPLAY.panelProperties, tftRotation: '0', ...properties })
+const cydStrip = () => node('out', 'MatrixOutput', {
+  form: 'strip', ledCount: 32, width: 32, height: 1,
+  dataPin: 27, chipset: 'WS2812B', colorOrder: 'GRB',
+})
+const cydCustomDocument = fullDocument('cyd-screen')
+const cydCustomNodes = [
+  cydBoard(), cydPanel({ displayId: 'cyd-screen' }), touch('panel'),
+  node('juggle', 'Juggle'), cydStrip(),
+]
+const cydCustomEdges = [edge('juggle', 'frame', 'out', 'frame')]
+/*
+ * No SDA/SCL on the clock, deliberately.
+ *
+ * `Manual` needs no DS3231, so `isPropertyEnabled` disables both pins and
+ * `collectPinUses` claims neither — stating them anyway would read to the next
+ * person as a collision with the strip on GPIO27, which on a DS3231 it would
+ * genuinely be (`findPinCollisions` calls that "mixes a shared bus line with
+ * another role"). This board has GPIO22 and GPIO27 free and the strip holds
+ * one, so a real I2C clock does not fit here at all; the bench does not need
+ * one, because the panel only has to be drawing something.
+ */
+const cydRun1Nodes = [
+  cydBoard({ reportTelemetry: true }), cydPanel(), touch('panel'),
+  node('rtc', 'RTCInput', {
+    timeSource: 'Manual', startYear: 2026, startMonth: 9, startDay: 22, startHour: 12, startMinute: 0,
+  }),
+  node('juggle', 'Juggle'), cydStrip(),
+]
+const cydRun1Edges = [
+  edge('juggle', 'frame', 'out', 'frame'),
+  edge('rtc', 'display', 'panel', 'display'),
+]
+
+/*
+ * The same board and strip, but the custom screen with telemetry on.
+ *
+ * Run 1 above cannot produce two of the bench's own rows: a Clock layout is
+ * read-only, so `touchms` is never emitted, and a fixed layout allocates no
+ * LVGL draw buffer, so `drawbuf` has nothing to report. Both come from a custom
+ * screen — and run 0 showed one links on this board with 222 KB to spare, so
+ * the runtime question HW-25 actually needs answering is reachable.
+ */
+const cydCustomTelemetryNodes = [
+  cydBoard({ reportTelemetry: true }), cydPanel({ displayId: 'cyd-screen' }), touch('panel'),
+  node('juggle', 'Juggle'), cydStrip(),
+]
+
 const sketches: Record<string, string> = {
   normal: generateCpp(normalNodes, normalEdges, {}, clockOptions),
   show: generateShowSketch(showNodes, showEdges, groups, {
@@ -374,6 +443,9 @@ const sketches: Record<string, string> = {
   ),
   telemetry: generateCpp(telemetryNodes, normalEdges, {}, clockOptions),
   'classic-esp32-fixed': generateCpp(classicNodes, classicEdges),
+  'cyd-custom': generateCpp(cydCustomNodes, cydCustomEdges, {}, displayOptions({ 'cyd-screen': cydCustomDocument }) as never),
+  'cyd-run1': generateCpp(cydRun1Nodes, cydRun1Edges),
+  'cyd-custom-telemetry': generateCpp(cydCustomTelemetryNodes, cydCustomEdges, {}, displayOptions({ 'cyd-screen': cydCustomDocument }) as never),
 }
 
 /*
@@ -391,6 +463,9 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   'part-parallel': { nodes: [board(), output(), rtc(), ...parallelNodes], edges: [] },
   telemetry: { nodes: telemetryNodes, edges: normalEdges },
   'classic-esp32-fixed': { nodes: classicNodes, edges: classicEdges },
+  'cyd-custom': { nodes: cydCustomNodes, edges: cydCustomEdges },
+  'cyd-run1': { nodes: cydRun1Nodes, edges: cydRun1Edges },
+  'cyd-custom-telemetry': { nodes: cydCustomTelemetryNodes, edges: cydCustomEdges },
 }
 for (const [name, graph] of Object.entries(fixtureGraphs)) {
   const conflicts = findPinConflicts(graph.nodes)

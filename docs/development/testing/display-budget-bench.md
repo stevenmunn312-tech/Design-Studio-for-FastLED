@@ -174,6 +174,19 @@ screen design cannot be one of this board's figures.
 | Longest loop pass | | | |
 | Worst touch response | | | |
 
+**Two rows cannot be filled by this run, and that is a property of the layout,
+not of the board.** A Clock layout is read-only — only Fixed Transport and Now
+Playing expose touch regions, and both need a player source this board cannot
+host — so `touchms` is never emitted. And a fixed layout allocates no LVGL draw
+buffer, so `drawbuf` has nothing to report. Both are marked n/a above. They are
+measured instead by the custom-screen build below, which run 0 showed links here
+with 222 KB to spare.
+
+Fixture: `artifacts/display-compile/cyd-run1.ino`, from
+`node scripts/generate-display-smoke.mjs`. Its clock is `Manual`, so it claims
+no I2C pins — a DS3231 would need two, this board has GPIO22 and GPIO27 free,
+and the strip holds one, so a real I2C clock does not fit here at all.
+
 On the CYD rig this graph's *own* allocations come to 452 bytes — a fixed TFT
 layout keeps no framebuffer, so it costs field caches and little else, and the
 32-pixel strip is 96 bytes. Almost everything the device reports here is
@@ -182,6 +195,30 @@ chose, which is what makes it the baseline run. The nearest existing comparable
 is the `classic-esp32-fixed` compile fixture at **31,396 bytes** of static RAM
 under Arduino CLI; a device figure far from that wants explaining before the
 later runs are trusted.
+
+### 1b. Custom screen, with telemetry
+
+The run that answers HW-25. Run 0 proved a custom screen *links* on this board;
+this one says whether it **runs** — and it is the only build on this rig that
+reports a touch latency or a draw buffer at all.
+
+Fixture: `artifacts/display-compile/cyd-custom-telemetry.ino`. Same board, panel
+and 32-pixel strip as run 1, with the 14-widget design of run 0 and
+`reportTelemetry` on.
+
+| Figure | Budget | Measured | Notes |
+| --- | --- | --- | --- |
+| Boots at all | | | the first question; a failed LVGL heap init shows here |
+| Free heap at rest | | | against run 1's figure, the cost of the screen |
+| Lowest heap over the run | | | |
+| Draw buffer | | | `drawbuf`, against the estimate's 9,600 |
+| Frames/sec | | | against run 1, the cost of driving LVGL |
+| Longest loop pass | | | |
+| Worst touch response | | | press the glass, or this stays absent |
+
+If this boots and holds its heap, HW-25's premise is finished rather than merely
+unreproduced, and the open question becomes whether the 48 KiB
+`internalRamBudgetBytes` on the generic classic profiles is too conservative.
 
 ### 2. Generative show
 
