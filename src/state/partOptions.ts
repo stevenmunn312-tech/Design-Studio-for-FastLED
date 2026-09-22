@@ -12,6 +12,7 @@
 // module states its name instead of pretending to offer alternatives.
 
 import { partById, type PartCatalogueEntry } from './partCatalogue'
+import { IR_RECEIVER_MODULES } from './irModules'
 import { MIC_MODULES } from './micModules'
 
 export interface PartOption {
@@ -72,6 +73,15 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
   MicInput: {
     property: 'partId',
     options: MIC_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
+  },
+  IRRemoteInput: {
+    property: 'partId',
+    options: IR_RECEIVER_MODULES.map((module) => ({
       id: module.partId,
       label: module.label,
       summary: module.summary,

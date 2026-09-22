@@ -22,6 +22,8 @@ import {
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
+import { IR_RECEIVER_MODULES } from '../../state/irModules'
+import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
 import { MIC_MODULES } from '../../state/micModules'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
@@ -356,8 +358,38 @@ const MIC_INPUT_PARTS: readonly InputPartEntry[] = MIC_MODULES.map((module, inde
   properties: { partId: module.partId },
 }))
 
+/*
+ * One shelf row per IR receiver, derived from `IR_RECEIVER_MODULES` for the
+ * same reason the microphones are: the shelf, the Add Hardware menu and the
+ * part catalogue cannot then disagree about which receivers exist.
+ *
+ * The pin label comes from each module's own silkscreen — a KY-022 prints S
+ * where Vishay's datasheet names the pin OUT — resolved through the catalogue
+ * rather than restated here. These two are not pin-compatible, so showing the
+ * name the board in front of you actually carries is the point.
+ */
+const IR_INPUT_PARTS: readonly InputPartEntry[] = IR_RECEIVER_MODULES.map((module, index) => ({
+  nodeType: 'IRRemoteInput',
+  partId: index === 0 ? 'ir-remote' : `ir-remote-${module.partId}`,
+  label: module.label,
+  hint: module.summary,
+  footprint: partDimensionsMm(module.partId, { width: 22.06, height: 17.13 }),
+  signalPort: IR_REMOTE_LEARN_HANDLE,
+  dataType: 'bool',
+  pinRequests: [{ key: 'pin' }],
+  pinFields: [{
+    key: 'pin',
+    label: partPinLabelForProperty(module.partId, 'pin') ?? 'OUT',
+  }],
+  // The firmware library's receiver API is global, so one per bench until
+  // there is a tested multi-instance design.
+  singleton: true,
+  properties: { partId: module.partId },
+}))
+
 const INPUT_PARTS: readonly InputPartEntry[] = [
   ...MIC_INPUT_PARTS,
+  ...IR_INPUT_PARTS,
   {
     nodeType: 'LineInput',
     partId: 'line-in',

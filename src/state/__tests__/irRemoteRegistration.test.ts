@@ -10,7 +10,17 @@ import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from
 import { busAssignmentFor } from '../busTopology'
 import { collectPinUses, buildHardwareManifest } from '../../build/hardwareManifest'
 import { IR_REMOTE_LEARN_HANDLE, irRemoteButtonHandle } from '../irRemote'
+import { IR_RECEIVER_MODULES, irReceiverModuleFor } from '../irModules'
+import { partById } from '../partCatalogue'
+import { resolvePartIdentity } from '../partOptions'
+import {
+  peripheralGroundPadIndex,
+  peripheralPadLabel,
+  peripheralPowerPadIndex,
+  peripheralSignalPadIndex,
+} from '../../components/BuildDiagram/physicalDiagramLayout'
 import type { StudioEdge, StudioNode } from '../graphStore'
+import type { HardwareManifestItem } from '../../build/hardwareManifest'
 
 /*
  * The registration half of the IR receiver: the surfaces a hardware part has
@@ -146,5 +156,79 @@ describe('IRRemoteInput ports follow its learned keys', () => {
     expect(outputsOf('ir')).toEqual([irRemoteButtonHandle('power'), IR_REMOTE_LEARN_HANDLE])
     expect((nodeOf('ir')?.data.outputs as Array<{ label: string }>)[0].label).toBe('On / Off')
     expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+})
+
+describe('the offered IR receivers', () => {
+  const itemFor = (partId: string): HardwareManifestItem => ({
+    id: 'ir-input:ir', kind: 'ir-input', title: 'IR Remote', subtitle: '',
+    sourceNodeId: 'ir', supported: true,
+    pins: [{ propertyKey: 'pin' }] as HardwareManifestItem['pins'],
+    facts: { partId },
+  } as HardwareManifestItem)
+
+  it.each(IR_RECEIVER_MODULES.map((module) => [module.partId] as const))(
+    'catalogues %s with a render and a measured size',
+    (partId) => {
+      const entry = partById(partId)
+      expect(entry, `${partId} is not in the catalogue`).toBeDefined()
+      expect(entry!.render?.file).toBeTruthy()
+      expect(entry!.dimensionsMm.width).toBeGreaterThan(0)
+      expect(entry!.pinLabelsLeftToRight).toHaveLength(3)
+    },
+  )
+
+  it.each(IR_RECEIVER_MODULES.map((module) => [module.partId] as const))(
+    'finds supply, ground and signal on %s by the name it prints',
+    (partId) => {
+      const item = itemFor(partId)
+      const label = (index: number) => peripheralPadLabel(item, index)
+      // Every role resolves to a distinct pad. A name the tables cannot see
+      // falls back to a guess, which is how a wire lands on its neighbour.
+      const power = peripheralPowerPadIndex(item)
+      const ground = peripheralGroundPadIndex(item)
+      const signal = peripheralSignalPadIndex(item, 0)
+      expect(new Set([power, ground, signal]).size, `${partId}: ${label(power)}/${label(ground)}/${label(signal)}`).toBe(3)
+      expect(label(signal)).toMatch(/^(S|OUT)$/)
+      expect(label(ground)).toMatch(/^(GND|-)$/)
+      expect(label(power)).toMatch(/^(\+|VS)$/)
+    },
+  )
+
+  /*
+   * The fact the whole two-part split exists for.
+   *
+   * A KY-022 puts its supply on the centre pin and a TSOP38238 puts ground
+   * there, so the two cannot share one catalogue entry however similar they
+   * look on a shelf. Asserted as a difference rather than as two literals, so
+   * it still means something if either module's own labels are re-measured.
+   */
+  it('keeps the two receivers on different centre pins', () => {
+    const roleOfCentre = (partId: string) => {
+      const item = itemFor(partId)
+      if (peripheralPowerPadIndex(item) === 1) return 'supply'
+      if (peripheralGroundPadIndex(item) === 1) return 'ground'
+      return 'signal'
+    }
+    expect(roleOfCentre('ky-022-ir-receiver-module')).toBe('supply')
+    expect(roleOfCentre('tsop38238-ir-receiver')).toBe('ground')
+  })
+
+  it('resolves an unset or stale module to the one the shelf offers first', () => {
+    expect(irReceiverModuleFor(undefined)).toBe(IR_RECEIVER_MODULES[0])
+    expect(irReceiverModuleFor('a-receiver-nobody-catalogued')).toBe(IR_RECEIVER_MODULES[0])
+    expect(resolvePartIdentity('IRRemoteInput', {})?.option.id).toBe(IR_RECEIVER_MODULES[0].partId)
+    expect(resolvePartIdentity('IRRemoteInput', { partId: 'tsop38238-ir-receiver' })?.option.id)
+      .toBe('tsop38238-ir-receiver')
+  })
+
+  it('names the module on the manifest item it builds', () => {
+    const manifest = buildHardwareManifest(
+      [node('ir', 'IRRemoteInput', { pin: 13, partId: 'tsop38238-ir-receiver' })],
+      [],
+      'esp32:esp32:esp32s3',
+    )
+    const item = manifest.primaryItems.find((entry) => entry.sourceNodeType === 'IRRemoteInput')
+    expect(item?.facts.partId).toBe('tsop38238-ir-receiver')
   })
 })

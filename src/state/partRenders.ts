@@ -50,6 +50,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'HC-SR501 PIR sensor',
     src: partRenderSrc('hc-sr501-pir-sensor') ?? '',
   },
+  IRRemoteInput: {
+    label: 'KY-022 IR receiver module',
+    src: partRenderSrc('ky-022-ir-receiver-module') ?? '',
+  },
   LightInput: {
     label: 'LDR light sensor',
     src: partRenderSrc('photosensitive-ldr-module') ?? '',

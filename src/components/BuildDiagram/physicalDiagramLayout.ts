@@ -423,8 +423,10 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
 }
 
 /** Supply and ground, found by the name printed beside the pad. */
-const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', '3V3', '3V', 'V+']
-const GROUND_PAD_LABELS = ['GND', 'G', '0V']
+// `+` and `VS` join the list for the IR receivers: a KY-022 prints its
+// supply as a bare plus, and Vishay's datasheet names the pin VS.
+const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V', 'V+', '+']
+const GROUND_PAD_LABELS = ['GND', 'G', '0V', '-']
 
 /**
  * The pad that picks which I2S slot a MEMS microphone talks in, tied low for
@@ -515,7 +517,8 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'segment-display': [['CLK', 'SCK'], ['DIO', 'DIN', 'DATA'], ['CS', 'LOAD']],
   'rtc-input': [['SDA'], ['SCL']],
   'motion-input': [['OUT', 'SIG']],
-  'ir-input': [['OUT', 'SIG', 'DAT']],
+  // A KY-022 prints S, a bare Vishay receiver's datasheet names it OUT.
+  'ir-input': [['S', 'OUT', 'SIG', 'DAT']],
   'light-input': [['S', 'SIG', 'OUT', 'AO', 'DO']],
   'button-input': [['SIG']],
   'pot-input': [['SIG']],

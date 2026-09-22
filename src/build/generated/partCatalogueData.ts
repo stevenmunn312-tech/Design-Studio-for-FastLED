@@ -406,6 +406,35 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 26.0
     }
   },
+  "ky-022-ir-receiver-module": {
+    "partId": "ky-022-ir-receiver-module",
+    "label": "KY-022 infrared receiver module",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 22.06,
+      "height": 17.13
+    },
+    "manufacturer": "Keyes (KY-022 / HW-490 form)",
+    "logicVoltage": "3.3-5 V supply; demodulated output follows the supply rail",
+    "pinLabelsLeftToRight": [
+      "-",
+      "+",
+      "S"
+    ],
+    "notes": [
+      "The board carries a VS1838B receiver, a current-limiting resistor and an indicator LED that blinks while a carrier is being received.",
+      "Pin order here is the Keyes layout: minus for ground on the left, the supply in the centre, and S for the demodulated signal on the right.",
+      "The centre pin is the supply on every documented variant, but the outer two are not standardised - some clones swap minus and S. Read the silkscreen on the board in hand before wiring it, because a swap puts the supply rail on a GPIO.",
+      "This part id names the module design, not the board that arrives in the post. A clone with a mirrored header is the same design wired differently and needs its own check.",
+      "Not pin-compatible with a bare TSOP38238, whose centre pin is ground rather than the supply."
+    ],
+    "render": {
+      "file": "parts/ky-022-ir-receiver-module.webp",
+      "widthPx": 400,
+      "heightPx": 315,
+      "pxPerMm": 17.226
+    }
+  },
   "max7219-8digit-7segment": {
     "partId": "max7219-8digit-7segment",
     "label": "MAX7219 8-digit 7-segment display",
@@ -1301,6 +1330,35 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 512,
       "heightPx": 296,
       "pxPerMm": 12.0
+    }
+  },
+  "tsop38238-ir-receiver": {
+    "partId": "tsop38238-ir-receiver",
+    "label": "TSOP38238 38 kHz IR receiver",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 8.25,
+      "height": 12.45
+    },
+    "manufacturer": "Vishay Semiconductors",
+    "logicVoltage": "2.0-5.5 V supply; demodulated output drives a logic input directly",
+    "pinLabelsLeftToRight": [
+      "OUT",
+      "GND",
+      "VS"
+    ],
+    "notes": [
+      "Pin order is the manufacturer's: viewed from the lens side with the leads pointing down, pin 1 (left) is OUT, pin 2 (centre) is GND, pin 3 (right) is VS.",
+      "The package carries no silkscreen, so the pad names here are functional rather than printed. Identity comes from the lens face and the lead order, which is why the render is taken from that face.",
+      "Not interchangeable with a VS1838B by position: the common clone puts its supply on the centre pin. Check the part in hand before wiring one in place of the other.",
+      "38 kHz is the carrier NEC-family remotes use, which is the protocol the app learns first. Vishay's own \"best choice for NEC\" footnote is against the AGC4 sibling TSOP38438 rather than this AGC2 part, so the two are worth comparing on a bench before one is promoted.",
+      "Lead length is shown trimmed for breadboard use; the datasheet dimensions the uncut lead, so only the body dimensions are datasheet-exact."
+    ],
+    "render": {
+      "file": "parts/tsop38238-ir-receiver.webp",
+      "widthPx": 400,
+      "heightPx": 589,
+      "pxPerMm": 45.091
     }
   },
   "uda1334a-i2s-dac": {
