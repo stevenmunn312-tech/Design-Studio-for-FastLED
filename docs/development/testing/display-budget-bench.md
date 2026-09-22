@@ -246,9 +246,9 @@ verified), 95-second capture, 47 telemetry samples. **It boots and runs.**
 | Lowest heap over the run | | 212,672 B | | `minheap`, a boot dip |
 | Heap drift | | none measurable | | flat to the byte |
 | Draw buffer | | **9,600 B** | new | exactly the estimate's figure |
-| Frames/sec | | 50.0 | −5.4 | steady, no variance across 47 samples |
-| Longest loop pass | | **2.0 ms** | −30.5 | *lower* than the fixed layout — see below |
-| Worst touch response | | **not captured** | | nobody pressed the glass; absent ≠ zero |
+| Frames/sec | | 50.0 idle, 41.0 worst under touch | −5.4 | idle is steady to 0.1 across 47 samples |
+| Longest loop pass | | **2.0 ms** idle, 29.3 under touch | −30.5 | *lower* than the fixed layout — see below |
+| Worst touch response | | **29.2 ms** | | 37 samples; median 11.9, best 2.5 — see below |
 
 ```
 FLS_STAT uptime=45 heap=240112 minheap=212672 fps=50.0 loopmax=2.0 psram=0 psramtotal=0 drawbuf=9600
@@ -274,9 +274,30 @@ rate (55.4 → 50.0) but is much better behaved per pass. Run 1's warning that
 "timing, not RAM, is the risk on this board" was right about which number
 mattered and wrong about which build it would hurt.
 
-**Touch is still unmeasured.** `touchms` is absent because the glass was not
-pressed during the capture, which is the instrument working as designed rather
-than a missing reading. It needs a second capture with someone at the board.
+**Touch, measured on the second capture.** The first fixture carried the
+library's generic XPT2046 calibration (200-3900, no flip) rather than this
+glass, so it was reflashed with the guided calibration recorded for this unit on
+2026-09-14 — `408 / 3646 / 331 / 3674`, `touchFlipX` set. The emitted span comes
+out descending (`_xptPoint(..., 3646, 408, 331, 3674, ...)`), which is
+`orientedTouchSpan` swapping the endpoints rather than storing a minimum above
+its maximum: the rule CLAUDE.md states, exercised on a real reversed axis rather
+than only in tests. Raw samples during the run ran 817-3565, inside the
+calibrated span.
+
+Press-to-painted-frame over 37 samples: **best 2.5 ms, median 11.9 ms, worst
+29.2 ms.** The values cluster rather than spread — roughly 2.5, 12, 14 and 28 —
+which is what a press landing at different points in LVGL's refresh cycle looks
+like, not noise. Even the worst is far below the ~100 ms where a touch stops
+feeling immediate, so this panel is comfortably responsive.
+
+What touch costs while it is happening: the longest loop pass rises from 2.0 ms
+to ~29 ms and frame rate dips from 50.0 to 41.0 at worst. That is the same
+~28 ms repaint the fixed layout pays on *every* field refresh — here it is paid
+only when something is actually touched.
+
+**The heap did not move under interaction.** 240,112 bytes, identical across
+both captures and every press. LVGL is not allocating per touch, which is the
+single most useful thing this run says about a long soak.
 
 ### 2. Generative show
 

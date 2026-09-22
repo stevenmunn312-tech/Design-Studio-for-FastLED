@@ -389,8 +389,29 @@ const cydRun1Edges = [
  * screen — and run 0 showed one links on this board with 222 KB to spare, so
  * the runtime question HW-25 actually needs answering is reachable.
  */
+/*
+ * This unit's own touch calibration, not the library defaults.
+ *
+ * `touch()` mints a TouchInput on `touchXMin` 200 / `touchXMax` 3900 with both
+ * flips clear, which is a generic XPT2046 and not this glass: the bench unit
+ * reads X right-to-left, so an uncalibrated build lands every press at its
+ * mirror. The numbers are the guided calibration recorded in the support matrix
+ * for this exact board on 2026-09-14. Direction is a separate fact from range
+ * and cannot be expressed as a descending one — `touchXMin` stays the smaller
+ * value and `touchFlipX` carries the reversal.
+ *
+ * Only run 1b takes it. `cyd-custom` is link-only, so calibration cannot change
+ * its result, and its recorded run 0 figures are keyed to hash 4c09d5cb35c2;
+ * `cyd-run1` draws a read-only Clock layout that samples no touch at all. Both
+ * are left byte-identical to what was measured.
+ */
+const cydTouch = () => node('panel-touch', 'TouchInput', {
+  panelId: 'panel',
+  touchXMin: 408, touchXMax: 3646, touchYMin: 331, touchYMax: 3674,
+  touchFlipX: true, touchFlipY: false,
+})
 const cydCustomTelemetryNodes = [
-  cydBoard({ reportTelemetry: true }), cydPanel({ displayId: 'cyd-screen' }), touch('panel'),
+  cydBoard({ reportTelemetry: true }), cydPanel({ displayId: 'cyd-screen' }), cydTouch(),
   node('juggle', 'Juggle'), cydStrip(),
 ]
 
