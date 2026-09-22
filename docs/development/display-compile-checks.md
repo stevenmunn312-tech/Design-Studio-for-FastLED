@@ -197,6 +197,20 @@ end to end while its log continued to grow and sixteen compiler children stayed
 active. It passed and no other fixture reproduced that duration, so it is kept as
 a timing observation rather than treated as a firmware failure.
 
+### fbuild 2.5.26 upgrade smoke, 22 September 2026
+
+The repository pin moved after the complete matrix above. The `normal` fixture
+was compiled at the same `a16d8252b038` source hash with fbuild 2.5.26 and passed
+at **934,748 flash bytes** and **161,137 RAM bytes**: 37,130 fewer flash bytes
+and 163 fewer RAM bytes than 2.5.22. Its cold-version run still hit Windows
+`os error 206` while archiving LVGL; the helper's response-file recovery took
+1.2s and the retry passed. An immediate unchanged rebuild then took 1.5s inside
+fbuild and 2.6s end to end.
+
+This is an upgrade smoke, not a replacement twelve-fixture matrix. The table
+above remains the last complete two-engine run and is labelled with its 2.5.22
+toolchain accordingly.
+
 ## Recorded environment
 
 Windows, 13 September 2026. Arduino CLI 1.5.1 with ESP32 core 3.3.11, FastLED

@@ -34,7 +34,7 @@ remains available.
   Player, `ESP32-audioI2S` are vendored into `.fbuild-project/lib/` because the
   helper cannot rely on fbuild's registry dependency resolution to fetch them
   consistently (the workaround was introduced against fbuild 2.4.0 and is
-  retained with the currently pinned 2.5.22). Custom Display builds similarly
+  retained with the currently pinned 2.5.26). Custom Display builds similarly
   vendor LVGL 9.5.0 on first use. Optional libraries are selected by generated
   include markers, so a cached LVGL checkout is hidden from unrelated board
   builds. Generated source is written as

@@ -4,10 +4,10 @@ Every accommodation `backend/app.py` makes for the **fbuild** build engine, why 
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
-- **Current repository pin:** 2.5.22 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.21 on 2026-09-11 for the issue 9 fix.
-  Deliberately not 2.5.23, which is upstream's latest but has no measurement behind it
-  here; the pin follows the evidence, not the release feed.
+- **Current repository pin:** 2.5.26 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.22 on 2026-09-22 after the four
+  version-dependent probes and one current-model display fixture passed. The
+  full twelve-fixture fbuild matrix remains the separately labelled 2.5.22 run.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
@@ -15,7 +15,8 @@ an internal record.
   imports the helper under whichever interpreter invokes it — ran **2.5.22** out of the
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
-  than assuming the pin, and say which version a result is about.
+  than assuming the pin, and say which version a result is about. Both the active
+  Espressif Python and `backend/.venv` now hold 2.5.26.
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
@@ -25,9 +26,9 @@ an internal record.
   See `_compile_upload_fbuild` in [`backend/app.py`](../../../backend/app.py).
 
 > [!IMPORTANT]
-> **Verify before sending upstream.** Items marked *confirmed against 2.4.0* were
-> diagnosed on an older fbuild and have **not** been re-tested on 2.5.21. Several may
-> already be fixed. Re-check each one before reporting it, so the list stays credible.
+> **Verify before sending upstream.** Items marked only against an older fbuild may
+> already be fixed. Re-check each one against the current pin before reporting it, so
+> the list stays credible.
 > The upgrade record below explains which workarounds were already removed.
 
 ---
@@ -38,16 +39,16 @@ an internal record.
 |---|-------|-------------------|----------------|---------------|
 | 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | **Fixed in 2.5.21 — vendoring kept for FastLED alone, see below** |
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
-| 3 | Shared scaffold corrupts under concurrent builds | Architecture, rechecked with 2.5.22 | External process-wide lock | Yes — the helper writes one shared source before invoking fbuild |
+| 3 | Shared scaffold corrupts under concurrent builds | Architecture, rechecked with 2.5.26 | External process-wide lock | Yes — the helper writes one shared source before invoking fbuild |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
-| 5 | No size summary on hard linker overflow | **2.5.22** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-22 |
+| 5 | No size summary on hard linker overflow | **2.5.26** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-22 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
-| 7 | `deploy` unimplemented for some compilable platforms | **2.5.22** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-22 |
+| 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-22 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
-| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.22, see below** |
-| 10 | Every directory in `lib/` is compiled, used or not | **2.5.22** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410), re-confirmed 2026-09-22 |
-| 11 | A build over the board's limits reports success | **2.5.22** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409), re-confirmed 2026-09-22 |
-| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.22** | Re-archive with a response file, then continue | Yes — not yet reported |
+| 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
+| 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410), re-confirmed 2026-09-22 |
+| 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409), re-confirmed 2026-09-22 |
+| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — not yet reported |
 
 ---
 
@@ -259,6 +260,11 @@ RAM` and `region dram0_0_seg overflowed by 134008 bytes`, but no `Flash:` or
 134,008-byte overage and emitted `[size-error]`; the two raw inputs still support
 the byte estimate (327,680 + 134,008 = 461,688 bytes, 141%).
 
+**Re-confirmed after upgrading to 2.5.26 (2026-09-22).** The probe still emitted
+no size summary: only the 320 KiB board budget and a 133,856-byte
+`dram0_0_seg` overflow. The helper classified it as RAM and emitted the exact
+overage plus `[size-error]`. The run took 2m 40s.
+
 ---
 
 ## 6. Successful ESP32 builds report an impossible RAM percentage
@@ -296,7 +302,7 @@ problem is fixed* when RAM had merely stopped being measurable.
 
 ## 7. `deploy` is unimplemented for platforms fbuild can compile
 
-**Re-confirmed on 2.5.22 (2026-09-22).** A non-destructive deploy against
+**Re-confirmed on 2.5.26 (2026-09-22).** A non-destructive deploy against
 `COM255` reached the platform dispatcher and failed with exactly `deployer for
 Espressif8266 not yet implemented`. No board was opened and no build was needed;
 the helper's `[engine-gap]` guidance remains necessary.
@@ -381,6 +387,10 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 > dependency staging and report collection. The preceding identical-source run
 > took 113.711s because the shared scaffold had just changed from the classic
 > ESP32 fixture back to the S3 fixture; it was a repeat source, not a no-op build.
+>
+> **Still fast on 2.5.26.** After the representative `normal` fixture populated
+> the new core/archive cache, an immediate unchanged rebuild reported the same
+> fingerprint reuse and took **1.5s inside fbuild, 2.6s end to end**.
 >
 > Read the other two runs of that session carefully rather than as contradictions.
 > `normal` took 6m 51s around a 38.7s compile and `player` 5m 24s around a 24.8s one,
@@ -609,6 +619,11 @@ and then failed in the unrelated `Adafruit_ZeroDMA.cpp` on its SAMD-only
 `malloc.h` include. The sketch did not name ZeroDMA. Hiding unrequested local
 libraries for each run is still required.
 
+**Still present on 2.5.26.** The identical plain Uno sketch again compiled the
+unreferenced `Adafruit_ZeroDMA` directory and failed on `malloc.h`. The new
+reached-library selection in 2.5.25/2.5.26 applies to ESP32 framework libraries,
+not project-local directories under `lib/`.
+
 **Impact.** Hardware-specific libraries contaminate unrelated targets: one cached ESP32
 or SAMD library makes every other board's build fail.
 
@@ -644,6 +659,10 @@ again linked and produced both `.elf` and `.hex`. fbuild reported success at
 42,606 bytes flash (132.1%) and 42,009 bytes RAM (2051.2%). The helper then
 converted that false success to `[size-error]`, returned a compile failure and
 never reached the supplied upload port.
+
+**Still present on 2.5.26.** The same probe again emitted `.elf` and `.hex` and
+reported success at exactly 42,606 bytes flash (132.1%) and 42,009 bytes RAM
+(2051.2%). The helper converted it to `[size-error]` before the supplied port.
 
 **Impact.** This is the one that could put bad firmware on a board. The upload path
 treats a successful compile as proof the design fits — arduino-cli earns that by
@@ -700,11 +719,17 @@ registry. Worth a documentation note upstream, since the failure looks random.
 
 ## Upgrade record from 2.5.4
 
-This repository now pins **`fbuild==2.5.22`**. The original audit was written
+This repository now pins **`fbuild==2.5.26`**. The original audit was written
 against 2.5.4 and compared the 2.5.5–2.5.14 release notes; subsequent upgrades
-continued through 2.5.16, 2.5.18, 2.5.21 and 2.5.22. Keep the historical confirmations in
-the issue sections, but test every surviving workaround against 2.5.22 before
+continued through 2.5.16, 2.5.18, 2.5.21, 2.5.22 and 2.5.26. Keep the historical confirmations in
+the issue sections, but test every surviving workaround against 2.5.26 before
 calling it current.
+
+The 2.5.26 move does not remove a workaround. It does reduce ESP32 output and
+improve framework-library selection: the `normal` fixture at the same source
+hash fell from 971,878 to 934,748 flash bytes (37,130 fewer) and from 161,300
+to 161,137 RAM bytes. The first build still hit the Windows LVGL archive limit;
+the response-file recovery completed in 1.2s and the retry passed.
 
 | Our issue | Upstream change | Version | Confidence |
 |---|---|---|---|
@@ -722,11 +747,10 @@ valuable half of anything sent upstream.
 The same is true of both open bench findings, re-checked against 2.5.21 on `2026-08-27`.
 The first is now filed as
 [FastLED/fbuild#1407](https://github.com/FastLED/fbuild/issues/1407).
-A pinned `platform = espressif32@<version>` is still discarded by
-`Platform::from_platform_str`, which lowercases the value and substring-matches it, so
-everything after the `@` is dropped with no warning — and
-`parse_platform_packages_entry` returns `None` for a bare registry version pin as well, so
-both spellings of a version pin are silently inert. The URL forms
+A pinned `platform = espressif32@<version>` is still unsupported. Since 2.5.24
+fbuild warns and falls back to its stable pioarduino package instead of silently
+discarding the pin, and `platform = <release archive URL>` is now honoured. The
+older URL forms
 (`platform_packages = platform-espressif32@<URL>#<sha>` and
 `framework-arduinoespressif32@<URL>#<sha>`, FastLED/fbuild#672) *are* honoured for ESP32
 and are the supported way to pin a core. For the deploy/serial-port failure, nothing in
@@ -810,13 +834,13 @@ RP2040/RP2350 hardware coverage is still required.
 
 ### Re-verification procedure
 
-1. Remove one workaround at a time and test whether 2.5.22 still reproduces the
+1. Remove one workaround at a time and test whether 2.5.26 still reproduces the
    original failure.
 2. Run the focused helper tests and a clean dependency install on all three
    desktop OS families.
 3. Re-run hardware validation on at least ESP32-S3 and ESP8266 before deleting
    a deploy-path workaround. An RP2040 pass would add new coverage.
-4. Report only failures reproduced on 2.5.22 with the smallest remaining
+4. Report only failures reproduced on 2.5.26 with the smallest remaining
    workaround.
 
 ---
@@ -842,7 +866,7 @@ private-cache read and the linker-message parsing in §5.
 
 ## 12. Archiving LVGL on Windows exceeds the command-length limit
 
-**Not yet reported upstream.** Confirmed on 2.5.22, 2026-09-10.
+**Not yet reported upstream.** Confirmed through 2.5.26, most recently 2026-09-22.
 
 **Symptom.** fbuild passes every object file on the archiver's command line
 (`library_compiler.rs`, `archive_objects`). LVGL 9.5.0 has enough of them that the line

@@ -2028,7 +2028,7 @@ def _drain_compile(gen):
 def _fbuild_lvgl_archive_command(lines, env, toolchain_root=None):
     """Recognize only fbuild's Windows LVGL archiver spawn failure.
 
-    fbuild 2.5.22 passes every object on the command line (library_compiler.rs,
+    fbuild through 2.5.26 passes every object on the command line (library_compiler.rs,
     archive_objects), exceeding CreateProcess's limit for LVGL 9.5.0. Restrict
     recovery to existing objects in this environment and an installed fbuild
     toolchain; compiler diagnostics must never become arbitrary commands.

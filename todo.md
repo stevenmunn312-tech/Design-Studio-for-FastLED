@@ -810,6 +810,11 @@ matrix, not a reason to postpone testing earlier changes.
   matrix. The separate firmware paths and physical bench matrix below remain
   open.*
 
+  The repository moved from fbuild 2.5.22 to 2.5.26 later that day. The same
+  `normal` source hash passes the new engine with lower flash/RAM use, but only
+  that representative fixture was rerun; the complete twelve-fixture fbuild
+  table remains explicitly labelled 2.5.22 in the compile record.
+
   That run earned its keep. It found two defects no unit test could see, because
   in both the emitted text is correct and only its order or its type is wrong:
   the generator dropped every edge into a panel before ordering nodes — not just
@@ -1087,9 +1092,19 @@ matrix, not a reason to postpone testing earlier changes.
   no upstream daemon change can make concurrent helper writes safe without
   per-request source/project isolation. Together with the current matrix's
   response-file recovery and the strict no-op measurement above, every surviving
-  workaround now has current evidence in the
-  [fbuild report](docs/development/reports/fbuild-workarounds.md). No workaround
-  was removed, no dependency was upgraded, and no hardware support claim changed.
+  workaround had current evidence in the
+  [fbuild report](docs/development/reports/fbuild-workarounds.md). At closure no
+  workaround was removed, no dependency was upgraded, and no hardware support
+  claim changed.
+
+  **Upgraded to 2.5.26 on 2026-09-22.** Both repository pins and both local
+  helper environments now use 2.5.26. The four version-dependent probes still
+  reproduce and the architectural lock remains necessary; the `normal` display
+  fixture passes at the same source hash with 37,130 fewer flash bytes and 163
+  fewer RAM bytes. The LVGL archive still hit `os error 206` and recovered via
+  the response file. An unchanged rebuild took 1.5s inside fbuild. The complete
+  twelve-fixture table remains the labelled 2.5.22 run rather than being
+  silently relabelled from this one-fixture smoke.
 
 ## 4. Close release readiness
 
