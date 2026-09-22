@@ -72,7 +72,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'relay-output' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -106,6 +106,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'Amplifier',
   'MotionInput',
   'LightInput',
+  'IRRemoteInput',
   'RelayOutput',
   'SegmentDisplay',
   'InfoDisplay',
@@ -295,6 +296,11 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} pin`, 'pin', props.pin)
         break
       case 'MotionInput':
+        push(node, `${baseLabel} OUT pin`, 'pin', props.pin)
+        break
+      // One pin whatever the remote has: the receiver demodulates every key
+      // onto the same line, so the learned buttons cost no GPIO of their own.
+      case 'IRRemoteInput':
         push(node, `${baseLabel} OUT pin`, 'pin', props.pin)
         break
       case 'LightInput':
@@ -606,6 +612,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...buildPeripheralItem(node, 'motion-input', 'HC-SR501 PIR motion sensor', pins),
           facts: { partId: 'hc-sr501-pir-sensor' },
         }
+      case 'IRRemoteInput':
+        return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
       case 'LightInput':
         return {
           ...buildPeripheralItem(node, 'light-input', 'LDR analog light sensor', pins),

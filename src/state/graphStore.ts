@@ -93,6 +93,11 @@ import {
   normalizeButtonBankEntries,
 } from './buttonBank'
 import {
+  irRemoteHandlesFromEdges,
+  irRemoteOutputs,
+  normalizeIrRemoteButtons,
+} from './irRemote'
+import {
   PLAYER_CONTROL_ADD_HANDLE, normalizePlayerControlIds, playerControlFunction,
   playerControlIdsFromEdges, playerControlInputs,
   withPlayerControlAssignment, withoutPlayerControlAssignment,
@@ -574,6 +579,17 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
         ...playerControlIdsFromEdges(n.id, edges),
       ])
     }
+    // An IR receiver mints one output per learned key, so a damaged or
+    // truncated `buttons` list would take live wires down with it. The handles
+    // its edges already leave from are passed in as required, which is what
+    // retains a mapping the save mangled — visibly invalid rather than absent,
+    // so validation can name it and the wire survives to be repaired.
+    if (nodeType === 'IRRemoteInput') {
+      properties.buttons = normalizeIrRemoteButtons(
+        properties.buttons,
+        irRemoteHandlesFromEdges(n.id, edges),
+      )
+    }
     // A Tidy swap is remembered as the saved port order. The list above is
     // still which ports exist; ports added by a newer library append at the end.
     const inputs = orderPorts(
@@ -587,7 +603,9 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const outputs = orderPorts(
       nodeType === 'ButtonBank'
         ? buttonBankOutputs(properties.buttons)
-        : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : []),
+        : nodeType === 'IRRemoteInput'
+          ? irRemoteOutputs(properties.buttons)
+          : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : []),
       Array.isArray(data.outputs) ? data.outputs : undefined,
     )
     // A hardware-only part is hidden wherever it came from — a template, an

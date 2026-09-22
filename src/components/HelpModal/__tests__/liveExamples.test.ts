@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, portsCompatible } from '../../../state/nodeLibrary'
 import { playerControlInputs } from '../../../state/playerControlAssignments'
+import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/irRemote'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
@@ -27,7 +28,13 @@ describe('node-reference live examples', () => {
         const target = byKey.get(edge.target)
         const sourceDefinition = NODE_LIBRARY.find((node) => node.type === source?.type)
         const targetDefinition = NODE_LIBRARY.find((node) => node.type === target?.type)
-        const sourcePort = sourceDefinition?.outputs.find((port) => port.id === edge.sourceHandle)
+        // IR Remote mints one output per learned key, the mirror of the
+        // Control Map case below — its library entry declares only the
+        // trailing Learn socket, which an example must never wire.
+        const sourceOutputs = source?.type === 'IRRemoteInput'
+          ? irRemoteOutputs((source.properties as Record<string, unknown> | undefined)?.buttons)
+          : sourceDefinition?.outputs
+        const sourcePort = sourceOutputs?.find((port) => port.id === edge.sourceHandle)
         // Control Map mints one port per assigned function, so its ports
         // follow the example's own properties rather than the library entry.
         const targetInputs = target?.type === 'ControlMap'
@@ -42,6 +49,17 @@ describe('node-reference live examples', () => {
           portsCompatible(sourcePort!.dataType, targetPort!.dataType),
           `${featured.type}: ${sourcePort!.dataType} → ${targetPort!.dataType}`,
         ).toBe(true)
+        /*
+         * A trailing "add one" socket is an invitation, never a signal.
+         *
+         * The generic bool example builds from `node.outputs[0]`, which for an
+         * IR Remote is the Learn socket — so an example inserted from the
+         * reference would have created an edge on a placeholder that no
+         * learned key backs. Held here rather than in the IR example's own
+         * test, because the failure comes from the generic builder.
+         */
+        expect(edge.sourceHandle, `${featured.type} wires a placeholder socket`)
+          .not.toBe(IR_REMOTE_LEARN_HANDLE)
       }
     }
   })

@@ -16,6 +16,7 @@ import { tidyLayout } from '../../utils/tidyLayout'
 import type { NodeDefinition, NodePort } from '../../types'
 import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../state/ledOutputForm'
 import { playerControlInputs } from '../../state/playerControlAssignments'
+import { irRemoteButtonHandle, irRemoteOutputs } from '../../state/irRemote'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
@@ -160,10 +161,25 @@ class ExampleBuilder {
     return definition(this.typeOf(key)).inputs
   }
 
+  /**
+   * The outputs a placed node actually has.
+   *
+   * The mirror of `inputsOf`, for the other node that mints ports from its
+   * own properties: an IR Remote grows one per learned key, so the library
+   * definition declares only the trailing Learn socket.
+   */
+  private outputsOf(key: string): Array<{ id: string }> {
+    const placed = this.nodes.find((node) => node.key === key)
+    if (placed?.type === 'IRRemoteInput') {
+      return irRemoteOutputs((placed.properties as Record<string, unknown> | undefined)?.buttons)
+    }
+    return definition(this.typeOf(key)).outputs
+  }
+
   wire(source: string, sourceHandle: string, target: string, targetHandle: string): void {
     const sourceNode = definition(this.typeOf(source))
     const targetNode = definition(this.typeOf(target))
-    if (!sourceNode.outputs.some((port) => port.id === sourceHandle)) {
+    if (!this.outputsOf(source).some((port) => port.id === sourceHandle)) {
       throw new Error(`${sourceNode.type}.${sourceHandle} is not an output`)
     }
     if (!this.inputsOf(target).some((port) => port.id === targetHandle)) {
@@ -1371,6 +1387,46 @@ const STEREO_VU_METER_LIVE_EXAMPLE = namedExample(
   'The LED Matrix preview stays a calm solid colour while the separate Stereo VU Meter node shows both live rails. Mono sources intentionally move both sides together; stereo sources can move them independently.',
 )
 
+/*
+ * The headline IR workflow, and the reason Step Value exists.
+ *
+ * An IR key is an *event* and a graph property wants a sustained value, so the
+ * two keys do not reach Speed directly — Step Value is the adapter that turns
+ * a pair of pulses into a bounded number. Wiring a key straight at a property
+ * is the thing this feature deliberately does not do.
+ *
+ * The example's outputs are the node's learned keys, derived from `buttons`
+ * the way a Button Bank derives its own, so it cannot be built from the
+ * library definition's ports alone — that declares only the trailing Learn
+ * socket, which is an invitation rather than a key and must never be wired.
+ */
+const IR_REMOTE_LIVE_EXAMPLE = namedExample(
+  'IRRemoteInput',
+  'Change a pattern speed from a handheld remote',
+  [
+    {
+      key: 'remote',
+      type: 'IRRemoteInput',
+      properties: {
+        pin: 13,
+        buttons: [
+          { id: 'up', label: 'Speed +', protocol: 'NEC', address: 0, command: 21, repeat: 'held' },
+          { id: 'down', label: 'Speed −', protocol: 'NEC', address: 0, command: 7, repeat: 'held' },
+        ],
+      },
+    },
+    { key: 'step', type: 'StepValue', properties: { initial: 0.5, minimum: 0.05, maximum: 2, step: 0.05, wrap: false } },
+    { key: 'pattern', type: 'Juggle', properties: { palette: 'rainbow', count: 6, fade: 0.22 } },
+  ],
+  [
+    { source: 'remote', sourceHandle: irRemoteButtonHandle('up'), target: 'step', targetHandle: 'increase' },
+    { source: 'remote', sourceHandle: irRemoteButtonHandle('down'), target: 'step', targetHandle: 'decrease' },
+    { source: 'step', sourceHandle: 'value', target: 'pattern', targetHandle: 'speed' },
+  ],
+  'IR Remote is a hardware-owned input: add the receiver from Hardware, then learn each key off your own remote. Every learned key becomes a boolean output that pulses once when the key is pressed, or repeatedly while it is held. A key is an event rather than a value, so Step Value is what carries it to a numeric property — it holds a bounded number that Speed + raises and Speed − lowers, clamped to its own minimum and maximum.',
+  'Press Speed + and Speed − to move Juggle between a slow drift and a fast scramble. The value holds between presses and stops at each end of its range rather than wrapping.',
+)
+
 const RELAY_OUTPUT_LIVE_EXAMPLE = namedExample(
   'RelayOutput',
   'Switch a relay from a boolean signal',
@@ -1502,6 +1558,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   InfoDisplay: INFO_DISPLAY_LIVE_EXAMPLE,
   TransportDisplay: TRANSPORT_DISPLAY_LIVE_EXAMPLE,
   StereoVuMeter: STEREO_VU_METER_LIVE_EXAMPLE,
+  IRRemoteInput: IR_REMOTE_LIVE_EXAMPLE,
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,

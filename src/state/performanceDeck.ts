@@ -133,6 +133,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   ButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   MotionInput: new Set(['pin']),
+  IRRemoteInput: new Set(['pin']),
   LightInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }

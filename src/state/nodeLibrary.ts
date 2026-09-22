@@ -22,6 +22,7 @@ import {
   type TftController,
 } from './tftSurface'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
+import { IR_REMOTE_LEARN_HANDLE } from './irRemote'
 import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
@@ -3378,6 +3379,28 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { buttons: [] },
   },
   {
+    /*
+     * A three-pin demodulating IR receiver, one per bench.
+     *
+     * Its outputs are the buttons someone has learned off a handheld remote,
+     * derived from `buttons` the way a Button Bank derives its own — an IR key
+     * is an identity in a saved mapping, not a pin, so the node grows a port
+     * per learned key and claims exactly one GPIO however many keys it has.
+     * The trailing socket invites the next one.
+     *
+     * A key is an *event*, so what it can drive directly is an action or a
+     * Trigger. Reaching a numeric property goes through Step Value, which is
+     * what turns two keys into a bounded value; nothing here writes into
+     * another node's saved properties.
+     */
+    type: 'IRRemoteInput',
+    label: 'IR Remote',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: IR_REMOTE_LEARN_HANDLE, label: 'Learn button…', dataType: 'bool' }],
+    defaultProperties: { pin: 13, buttons: [] },
+  },
+  {
     // HC-SR501 PIR module. One digital line that goes high while it sees
     // movement and stays high for the module's own hold time — the sensitivity
     // and hold are trimmer pots on the board, not properties here, because
@@ -3917,6 +3940,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
   ButtonBank: 'Grows named hardware-button outputs as you connect them.',
+  IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
   LightInput: 'Reads an LDR light sensor as a 0\u20131 value.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
@@ -4882,6 +4906,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   MotionInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  IRRemoteInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   LightInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
@@ -5380,7 +5407,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput',
+  'MotionInput', 'LightInput', 'IRRemoteInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard',
 ])
@@ -5637,6 +5664,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   MotionInput: new Set(['pin']),
   LightInput: new Set(['pin']),
+  IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
@@ -5677,7 +5705,12 @@ export function gpioRequirementForProperty(
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput') return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
-  if (nodeType === 'MotionInput') return { capability: 'digitalInput', pullup: false }
+  // A receiver module drives the line both ways through its own open-collector
+  // output stage and its module pull-up, the same as a PIR — a pull-up here
+  // would fight it rather than hold the idle level.
+  if (nodeType === 'MotionInput' || nodeType === 'IRRemoteInput') {
+    return { capability: 'digitalInput', pullup: false }
+  }
   if (nodeType === 'RelayOutput') return { capability: 'digitalOutput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }

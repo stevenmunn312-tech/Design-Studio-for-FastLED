@@ -1,0 +1,150 @@
+import { describe, expect, it } from 'vitest'
+import { useGraphStore } from '../graphStore'
+import {
+  NODE_LIBRARY,
+  gpioRequirementForProperty,
+  isGpioPinProperty,
+  libraryDefaults,
+} from '../nodeLibrary'
+import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
+import { busAssignmentFor } from '../busTopology'
+import { collectPinUses, buildHardwareManifest } from '../../build/hardwareManifest'
+import { IR_REMOTE_LEARN_HANDLE, irRemoteButtonHandle } from '../irRemote'
+import type { StudioEdge, StudioNode } from '../graphStore'
+
+/*
+ * The registration half of the IR receiver: the surfaces a hardware part has
+ * to appear on before anything can be wired to it or built from it. The mapping
+ * primitives themselves are `irRemote.test.ts`; this file is about the node.
+ */
+
+function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
+  const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+  return {
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: {
+      label: def?.label ?? nodeType, nodeType, category: def?.category ?? 'input',
+      properties: { ...libraryDefaults(nodeType), ...properties },
+      inputs: def?.inputs ?? [], outputs: def?.outputs ?? [],
+    },
+  } as unknown as StudioNode
+}
+
+const edge = (id: string, s: string, sh: string, t: string, th: string): StudioEdge =>
+  ({ id, source: s, sourceHandle: sh, target: t, targetHandle: th }) as unknown as StudioEdge
+
+const button = (id: string, label: string, command: number, repeat: 'once' | 'held' = 'once') =>
+  ({ id, label, protocol: 'NEC', address: 0, command, repeat })
+
+const nodeOf = (id: string) => useGraphStore.getState().nodes.find((entry) => entry.id === id)
+const outputsOf = (id: string) => ((nodeOf(id)?.data.outputs ?? []) as Array<{ id: string }>)
+  .map((port) => port.id)
+const buttonsOf = (id: string) =>
+  (nodeOf(id)?.data.properties.buttons ?? []) as Array<{ id: string; label: string; protocol: string }>
+
+describe('IRRemoteInput is registered as hardware', () => {
+  it('is owned by the bench and kept out of the node library', () => {
+    // Both, and for different reasons: it carries a signal, so it lives in the
+    // root graph and draws on the canvas; but it is a physical part, so it can
+    // only arrive by being added to the bench.
+    expect(isHardwareManagedSignalNodeType('IRRemoteInput')).toBe(true)
+    expect(isHardwareLibraryHiddenNodeType('IRRemoteInput')).toBe(true)
+  })
+
+  it('claims one exclusive digital-input pin with no pull-up', () => {
+    expect(isGpioPinProperty('IRRemoteInput', 'pin')).toBe(true)
+    // A receiver drives the line itself. A pull-up would fight its output
+    // stage rather than hold an idle level, as it would on a PIR.
+    expect(gpioRequirementForProperty('IRRemoteInput', 'pin', {}))
+      .toEqual({ capability: 'digitalInput', pullup: false })
+    // Nothing shares the line, so it needs no bus row of its own — the
+    // default claim is what an exclusive pin means.
+    expect(busAssignmentFor('IRRemoteInput', 'pin')).toEqual({ kind: 'none', role: 'exclusive' })
+  })
+
+  it('costs one pin however many keys are learned', () => {
+    const remote = node('ir', 'IRRemoteInput', {
+      pin: 13,
+      buttons: [button('power', 'Power', 69), button('up', 'Up', 70), button('down', 'Down', 71)],
+    })
+    const uses = collectPinUses([remote]).filter((use) => use.nodeType === 'IRRemoteInput')
+    expect(uses).toHaveLength(1)
+    expect(uses[0].pin).toBe(13)
+    expect(uses[0].propertyKey).toBe('pin')
+  })
+
+  it('reaches the build manifest as its own peripheral kind', () => {
+    const manifest = buildHardwareManifest(
+      [node('ir', 'IRRemoteInput', { pin: 13, buttons: [button('power', 'Power', 69)] })],
+      [],
+      'esp32:esp32:esp32s3',
+    )
+    const item = manifest.primaryItems.find((entry) => entry.sourceNodeType === 'IRRemoteInput')
+    expect(item?.kind).toBe('ir-input')
+    expect(item?.supported).toBe(true)
+    expect(item?.pins).toHaveLength(1)
+  })
+})
+
+describe('IRRemoteInput ports follow its learned keys', () => {
+  it('mints one output per key, with the Learn socket trailing', () => {
+    useGraphStore.getState().loadGraph(
+      [node('ir', 'IRRemoteInput', { buttons: [button('power', 'Power', 69), button('up', 'Up', 70)] })],
+      [],
+    )
+    expect(outputsOf('ir')).toEqual([
+      irRemoteButtonHandle('power'), irRemoteButtonHandle('up'), IR_REMOTE_LEARN_HANDLE,
+    ])
+  })
+
+  it('keeps a wired key whose saved mapping was lost', () => {
+    /*
+     * A damaged save must not take a live wire with it. The retained row has
+     * no protocol, which is what makes it visibly invalid to validation rather
+     * than a plausible mapping nobody authored — the wire survives to be
+     * repaired instead of disappearing from the canvas.
+     */
+    useGraphStore.getState().loadGraph(
+      [
+        node('ir', 'IRRemoteInput', { buttons: 'not an array' }),
+        node('step', 'StepValue'),
+      ],
+      [edge('e1', 'ir', irRemoteButtonHandle('power'), 'step', 'increase')],
+    )
+
+    expect(outputsOf('ir')).toEqual([irRemoteButtonHandle('power'), IR_REMOTE_LEARN_HANDLE])
+    expect(buttonsOf('ir').map((entry) => entry.id)).toEqual(['power'])
+    expect(buttonsOf('ir')[0].protocol).toBe('')
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+
+  it('does not invent a key from a wire on the Learn socket', () => {
+    // That socket is an invitation, not a signal. A stray edge on it must not
+    // become a mapping nobody learned.
+    useGraphStore.getState().loadGraph(
+      [node('ir', 'IRRemoteInput'), node('step', 'StepValue')],
+      [edge('e1', 'ir', IR_REMOTE_LEARN_HANDLE, 'step', 'increase')],
+    )
+    expect(buttonsOf('ir')).toEqual([])
+    expect(outputsOf('ir')).toEqual([IR_REMOTE_LEARN_HANDLE])
+  })
+
+  it('keeps every wire across a save and reload when a key is renamed', () => {
+    const remote = node('ir', 'IRRemoteInput', { buttons: [button('power', 'Power', 69)] })
+    useGraphStore.getState().loadGraph([remote, node('step', 'StepValue')], [
+      edge('e1', 'ir', irRemoteButtonHandle('power'), 'step', 'increase'),
+    ])
+
+    // The handle comes from the entry id, never the label, so the label is
+    // free to change.
+    const renamed = JSON.parse(JSON.stringify(nodeOf('ir'))) as StudioNode
+    renamed.data.properties.buttons = [button('power', 'On / Off', 69)]
+    useGraphStore.getState().loadGraph([renamed, node('step', 'StepValue')], [
+      edge('e1', 'ir', irRemoteButtonHandle('power'), 'step', 'increase'),
+    ])
+
+    expect(outputsOf('ir')).toEqual([irRemoteButtonHandle('power'), IR_REMOTE_LEARN_HANDLE])
+    expect((nodeOf('ir')?.data.outputs as Array<{ label: string }>)[0].label).toBe('On / Off')
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+})

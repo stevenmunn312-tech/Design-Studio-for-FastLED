@@ -169,6 +169,23 @@ export function irRemoteOutputs(value: unknown, includeLearnHandle = true): Node
   return outputs
 }
 
+/**
+ * The button handles this node's edges already leave from.
+ *
+ * Outputs, not inputs: a learned key drives something, so the wire starts
+ * here. Passed to `normalizeIrRemoteButtons` as required handles so a save
+ * that lost or mangled its mapping list cannot take a live wire with it.
+ */
+export function irRemoteHandlesFromEdges(
+  nodeId: string,
+  edges: readonly { source: string; sourceHandle?: string | null }[],
+): string[] {
+  return [...new Set(edges
+    .filter((edge) => edge.source === nodeId)
+    .map((edge) => edge.sourceHandle ?? '')
+    .filter((handle) => irRemoteButtonIdFromHandle(handle) !== null))]
+}
+
 export function renameIrRemoteButton(value: unknown, id: string, label: unknown): IrRemoteButton[] {
   const nextLabel = String(label ?? '').trim().slice(0, IR_REMOTE_LABEL_LENGTH)
   return normalizeIrRemoteButtons(value).map((button) => button.id === id

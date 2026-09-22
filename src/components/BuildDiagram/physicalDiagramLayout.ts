@@ -395,6 +395,9 @@ function isThreeVoltSd(item: HardwareManifestItem) {
 const UNCATALOGUED_PADS: Record<string, string[]> = {
   // The three modules that predate the catalogue and have no `part.json` yet.
   'button-input': ['VCC', 'SIG', 'GND'],
+  // A demodulating receiver's own three legs, in the order every VS1838-form
+  // module prints them. Awaiting a verified render like the rest of this list.
+  'ir-input': ['OUT', 'GND', 'VCC'],
   'pot-input': ['VCC', 'SIG', 'GND'],
   'encoder-input': ['VCC', 'A', 'B', 'SW', 'GND'],
 }
@@ -512,6 +515,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'segment-display': [['CLK', 'SCK'], ['DIO', 'DIN', 'DATA'], ['CS', 'LOAD']],
   'rtc-input': [['SDA'], ['SCL']],
   'motion-input': [['OUT', 'SIG']],
+  'ir-input': [['OUT', 'SIG', 'DAT']],
   'light-input': [['S', 'SIG', 'OUT', 'AO', 'DO']],
   'button-input': [['SIG']],
   'pot-input': [['SIG']],

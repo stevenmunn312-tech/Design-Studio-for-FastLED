@@ -48,6 +48,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Button Bank example graph](../../public/node-cards/graphs/button-bank.svg)
 
+### IR Remote
+
+![IR Remote node](../../public/node-cards/ir-remote-input.svg)
+
+![IR Remote example graph](../../public/node-cards/graphs/ir-remote-input.svg)
+
 ### Motion Sensor
 
 ![Motion Sensor node](../../public/node-cards/motion-input.svg)
