@@ -216,10 +216,12 @@ describe('control pass phase order', () => {
 
   it('names a prior-sample boundary on exactly the phases that read ahead of themselves', () => {
     const readsAhead = CONTROL_PHASES.filter((phase) => phase.priorSample).map((phase) => phase.id)
+    // sample-ir reads the receiver, not a latch a later phase writes, so it
+    // is an input phase without a prior-sample boundary.
     expect(readsAhead).toEqual(['sample-touch', 'snapshot-controls'])
+    expect(CONTROL_PHASES.map((phase) => phase.id)).toContain('sample-ir')
     for (const phase of CONTROL_PHASES) {
-      if (phase.half === 'input') expect(phase.priorSample, phase.id).toBeTruthy()
-      else expect(phase.priorSample, phase.id).toBeUndefined()
+      if (phase.half === 'output') expect(phase.priorSample, phase.id).toBeUndefined()
     }
   })
 })

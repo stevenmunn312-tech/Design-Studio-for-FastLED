@@ -832,6 +832,7 @@ export function generateShowSketch(
   for (const d of overclockDefineCpp(sharedHw)) L.push(d)
   if (audio) L.push(...audio.preInclude)
   L.push('#include <FastLED.h>')
+  for (const line of controlGraph.includes) L.push(line)
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
   for (const include of new Set([...displays.includes, ...customDisplays.includes])) L.push(include)
@@ -952,6 +953,8 @@ export function generateShowSketch(
     L.push(...deviceTelemetryGlobalsCpp(telemetryEmitFromSource(L)))
   }
 
+  for (const line of controlGraph.globals) L.push(line)
+  if (controlGraph.globals.length > 0) L.push('')
   L.push('void setup() {')
   if (emitTelemetry) L.push(TELEMETRY_SERIAL_BEGIN_CPP)
   L.push(...amplifierIdle.setup)

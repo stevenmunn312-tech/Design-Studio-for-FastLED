@@ -406,8 +406,8 @@ drifts — a list beside one generator says nothing about the other two.
   apply destination state, publish status/widget feedback, then refresh screens.
   Specify the prior-sample boundary wherever feedback needs state; do not ignore
   arbitrary graph cycles to make a screen connection pass validation.
-  → `src/state/controlPhases.ts` states the six phases once, splits them into
-  an **input** half (sample, snapshot) and an **output** half (resolve, apply,
+  → `src/state/controlPhases.ts` states the seven phases once, splits them into
+  an **input** half (sample touch, snapshot controls, sample IR) and an **output** half (resolve, apply,
   publish, refresh), and names the emitted anchors each phase leaves behind.
   The split is load-bearing rather than cosmetic: the input half must *close*
   before anything acts on it, so every binding — including feedback that
@@ -417,11 +417,12 @@ drifts — a list beside one generator says nothing about the other two.
   `controlPhaseOrder.test.ts` asserts the order over what all three generators
   actually emit, plus the generated compile fixtures when they are present, and
   carries a negative control so a checker that cannot fail is caught.
-  **Prior-sample boundary:** both input phases read the panel's own Enabled
+  **Prior-sample boundary:** sample-touch and snapshot-controls read the panel's own Enabled
   latch (`_cdPanelOn_<id>`), which the apply phase writes later in the same
   pass, so on the one frame a wired Enabled changes they see the previous
   value. That is deliberate — the alternative is evaluating the same expression
-  at three sites that can disagree. Cycles are unchanged and stay narrow:
+  at three sites that can disagree. sample-ir reads the receiver, which nothing
+  later in the pass writes, so it has no prior-sample boundary. Cycles are unchanged and stay narrow:
   `cppGenerator.ts` drops only edges whose `targetHandle` parses as
   `widget:<id>:<role>` from the topological sort, never `display` or `enabled`,
   which remain real dependencies (`emittedDeclarationOrder.test.ts`).

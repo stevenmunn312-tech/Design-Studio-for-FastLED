@@ -6,8 +6,9 @@ contract so the checklist does not have to repeat the design.
 
 Status: **in progress.** Mapping primitives, the Step Value adapter, receiver
 registration, the two bench parts, and browser press/hold plus key editing are
-implemented, including the diagnostic learn workflow and the pinned
-Arduino-IRremote 4.7.1 dependency. Project-sketch polling and hardware
+implemented, including the diagnostic learn workflow, the pinned
+Arduino-IRremote 4.7.1 dependency, and project-sketch polling in the normal,
+slideshow, and SD/performance-player generators. Deploy validation and hardware
 evidence remain. Keep the feature
 experimental until a generated sketch has been compiled on every claimed board
 family and the receiver, repeat handling and LED timing have been exercised on

@@ -80,7 +80,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const label = (id: string) => byId.get(id)?.data.label || id
   const unsupported = (id: string, port: string) => errors.add(
     `${label(id)}: ${context.label} cannot evaluate the wire feeding ${port}. `
-    + 'Use supported scalar nodes with buttons, potentiometers, encoders or custom touch widgets, or build a normal sketch for other control logic.',
+    + 'Use supported scalar nodes with buttons, potentiometers, encoders, an IR receiver or custom touch widgets, or build a normal sketch for other control logic.',
   )
 
   const sourceExpr = (target: StudioNode, port: string, type: 'bool' | 'float'): string | null => {

@@ -47,6 +47,7 @@ import {
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
 } from './playerControlsCpp'
 import { controlInputCpp } from './controlInputCpp'
+import { irRemoteProjectEmission, type IrRemoteProjectNode } from './irRemoteCpp'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { paletteBankEntries, paletteBankLabel, PALETTE_BANK_FALLBACK } from '../state/paletteBank'
 import { displayControlEdges } from '../state/wireFirstControls'
@@ -1961,6 +1962,11 @@ export function generateCpp(
   // pinMode(...) calls contributed by hardware-input nodes, emitted in setup().
   // A Set so two nodes reading the same pin don't emit it twice.
   const pinSetupLines = new Set<string>()
+  // Collected while walking, emitted once ahead of the walk. A pattern body
+  // is this loop copied into render_pN, which would decode during the render
+  // and a second time if the controller also polls, so those compilations
+  // leave the receiver to the controller.
+  const irNodes: IrRemoteProjectNode[] = []
   const setupLines: string[] = []
   if (needsWire) {
     /*
@@ -2608,6 +2614,10 @@ export function generateCpp(
         for (const line of emit.loop) ln(line)
         break
       }
+
+      case 'IRRemoteInput':
+        if (opts.aliasTerminalBuffer !== false) irNodes.push({ id, pin: sanitizePin(p.pin, 13), buttons: p.buttons })
+        break
 
       case 'MotionInput': {
         // HC-SR501's OUT idles low and goes high on movement — the opposite
@@ -7385,6 +7395,8 @@ export function generateCpp(
 
   // Emit all node snippets first to collect needsMapFloat and needsT flags
   for (const node of sorted) emit(node)
+  const irEmission = irRemoteProjectEmission(irNodes)
+  for (const line of irEmission.setup) pinSetupLines.add(line)
   loopLines.push(...customDisplayPublication)
 
   const lines: string[] = []
@@ -7397,6 +7409,7 @@ export function generateCpp(
   lines.push(...overclockDefineCpp(overclockHw))
   if (audio) lines.push(...audio.preInclude)
   lines.push(FASTLED_INCLUDE)
+  lines.push(...irEmission.includes)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsWireHeader) lines.push(`#include <Wire.h>`)
   // The colour panel is driven through the Arduino SPI library rather than
@@ -7741,6 +7754,10 @@ export function generateCpp(
   if (globalLines.length) {
     lines.push(...globalLines)
   }
+  if (irEmission.globals.length) {
+    lines.push(...irEmission.globals)
+    lines.push('')
+  }
 
   if (nativeMultiRender) {
     // One source render body, instantiated once per distinct shape. Template
@@ -7856,6 +7873,9 @@ export function generateCpp(
     lines.push(panel.enabledExpr === 'true' ? `  ${read}` : `  if (_cdPanelOn_${panel.id}) ${read}`)
   }
   lines.push(...customDisplaySamples)
+  // After the snapshot and before the walk, including a multi-output render
+  // function that reads these bools from file scope. One decode per pass.
+  lines.push(...irEmission.sample)
   if (nativeMultiRender) {
     renderPasses.forEach((pass, index) => {
       const call = `renderOutputPass<${index}, ${pass.width}, ${pass.height}>(${needsT.v ? 't' : '0.0f'})`

@@ -1414,12 +1414,23 @@ matrix, not a reason to postpone testing earlier changes.
     Evidence: `irRemoteCpp.test.ts` (selective macros, empty header, IR-free
     `generateCpp`), `irLearnSketch.test.ts`, `backend/tests/test_irremote_lib.py`,
     and the optional-library hide test in `test_engine.py`. Project sketches
-    do not poll yet — that wiring is step 9.
-  - [ ] **9. Wire all three generators.** Feed decoded events through the
-    normal graph, slideshow controller and SD/performance-player control graph;
-    teach direct action/control assignment about dynamic IR outputs. Add IR
-    sampling to the shared input phase before graph resolution and destination
-    application.
+    did not poll in this step; that wiring is step 9.
+  - [x] **9. Wire all three generators.** Done 2026-09-23. One
+    `IrReceiver.decode()` per pass, from `irRemoteProjectEmission`, runs in the
+    `sample-ir` input phase after the control snapshot and before destination
+    apply. The normal sketch, the slideshow controller and the
+    SD/performance-player control graph all use it. Each learned key is a bool
+    (`n_<id>_button_<key>`): `once` drops repeat frames, `held` keeps them, and
+    a key with no protocol stays false without pulling in the library. Direct
+    actions and Control Map resolve that bool the same way they resolve a
+    button.
+
+    Evidence: `irRemoteProjectEmission`, `controlInputCpp` (`IRRemoteInput`),
+    `controlGraphCpp`, and the `sample-ir` phase. `irRemoteCpp.test.ts`,
+    `irRemoteGenerators.test.ts` and `controlPhaseOrder.test.ts` cover one
+    decode, the once/held lines, direct `patternNext` / `next` actions in the
+    show and player sketches, the performance-player control graph, and the
+    phase order on all three generators.
   - [ ] **10. Add shared validation and repairs.** Block unsupported boards,
     duplicate receivers/mappings, invalid codes, missing mapped outputs and bad
     Step Value domains through `findDeployBlockingErrors`; reuse pin collision

@@ -5,6 +5,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { compositionDims } from '../state/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
+import { irRemoteProjectEmission, type IrRemoteProjectNode } from './irRemoteCpp'
 import { displayTextCppHelpers } from './displayTextCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 
@@ -100,8 +101,13 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
 export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
   if (graph.errors.size) throw new Error([...graph.errors].join('\n'))
   const setup = new Set<string>(), helpers = new Set<string>(), loop: string[] = []
+  const irNodes: IrRemoteProjectNode[] = []
   for (const instruction of graph.instructions) {
     if (instruction.kind === 'gpio') {
+      if (instruction.emission.ir) {
+        irNodes.push(instruction.emission.ir)
+        continue
+      }
       instruction.emission.setup.forEach((line) => setup.add(line))
       loop.push(...instruction.emission.loop)
       continue
@@ -116,5 +122,16 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
     if (emitted.needsMapFloat) helpers.add(MAP_FLOAT_CPP)
     if (emitted.needsDisplayText) helpers.add(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
   }
-  return { setup: [...setup], helpers: [...helpers], loop }
+  // Ahead of every other producer: a key bool has to exist before the scalar
+  // that reads it, and the decode has to be the input half's sample rather
+  // than whichever line the dependency walk reached the receiver.
+  const ir = irRemoteProjectEmission(irNodes)
+  for (const line of ir.setup) setup.add(line)
+  return {
+    setup: [...setup],
+    helpers: [...helpers],
+    includes: ir.includes,
+    globals: ir.globals,
+    loop: [...ir.sample, ...loop],
+  }
 }

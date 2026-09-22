@@ -892,6 +892,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   }))
 
   const displayHelpersCpp = [...new Set([
+    ...(compiledGraph?.globals ?? []),
     ...graphShared,
     ...(graphRouting ? [PLAYER_CONTROLS_CPP] : []),
     ...(customDisplays?.helpers ?? []),
@@ -1022,7 +1023,7 @@ ${overclockDefines}// The audio header MUST come before <FastLED.h>. FastLED shi
 // which is what upstream v3 wants.
 #include <Audio.h>       // ESP32-audioI2S
 #include <FastLED.h>
-${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
+${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 #include <SPI.h>${i2cIncludeCpp}
 ${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').join('\n') ?? ''}
 // Explicit FastLED-typed declarations keep the Arduino preprocessor from

@@ -10,11 +10,12 @@
  * is what holds the generators to it over their emitted text rather than over
  * their source.
  *
- * The order matters because the two input phases read state the output half
- * writes later in the same pass. Those reads are *deliberately* one pass
- * behind (see `priorSample`); the alternative is evaluating the same
+ * The order matters because sample-touch and snapshot-controls read state the
+ * output half writes later in the same pass. Those reads are *deliberately*
+ * one pass behind (see `priorSample`); the alternative is evaluating the same
  * expression at three sites that can disagree, which is worse than a single
- * frame of lag on the one frame a gate changes.
+ * frame of lag on the one frame a gate changes. sample-ir reads the receiver,
+ * which nothing later in the pass writes.
  *
  * This is not a scheduler. Nothing here runs the phases — it names them, says
  * what each may assume, and gives the emitted anchors a test can find.
@@ -23,6 +24,7 @@
 export type ControlPhaseId =
   | 'sample-touch'
   | 'snapshot-controls'
+  | 'sample-ir'
   | 'resolve-graph'
   | 'apply-destinations'
   | 'publish-feedback'
@@ -80,6 +82,15 @@ export const CONTROL_PHASES: readonly ControlPhase[] = [
       + 'screen, or across two screens, without either side reading a value the other half-wrote.',
     anchors: [/_cd(?:Bool|Float)Output\(/],
     priorSample: 'the panel Enabled latch, which rests the outputs of a dark panel',
+  },
+  {
+    id: 'sample-ir',
+    title: 'Sample IR',
+    half: 'input',
+    summary: 'Decode at most one infrared frame into the learned key outputs, after every touch '
+      + 'read and the control snapshot. A key and a widget from this pass then agree, and nothing '
+      + 'applies a destination until the frame has been taken.',
+    anchors: [/IrReceiver\.decode\(/],
   },
   {
     id: 'resolve-graph',

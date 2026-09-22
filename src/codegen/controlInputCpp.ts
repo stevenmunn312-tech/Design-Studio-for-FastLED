@@ -1,16 +1,24 @@
 // GPIO controls shared by normal sketches and the fixed show controller.
 import { sanitizePin } from './hardwarePins'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
+import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/irRemote'
+import type { IrRemoteProjectNode } from './irRemoteCpp'
 
 export interface ControlInputEmission {
   setup: string[]
   loop: string[]
   outputs: Record<string, 'bool' | 'float'>
+  /**
+   * Set for an IR receiver. The poll itself is not in `loop`: one decode
+   * serves every key, so the caller aggregates these and emits it once.
+   */
+  ir?: IrRemoteProjectNode
 }
 
 export function controlInputCpp(nodeType: string, id: string, p: Record<string, unknown>): ControlInputEmission | null {
   const setup: string[] = [], loop: string[] = []
   const outputs: ControlInputEmission['outputs'] = {}
+  let ir: IrRemoteProjectNode | undefined
   const v = (port: string) => `n_${id}_${port.replace(/[^a-zA-Z0-9_]/g, '_')}`
   const button = (port: string, pin: number, pullup: boolean) => {
     setup.push(`  pinMode(${pin}, ${pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
@@ -46,7 +54,13 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.position = 'float'
       break
     }
+    case 'IRRemoteInput': {
+      const buttons = normalizeIrRemoteButtons(p.buttons)
+      for (const button of buttons) outputs[irRemoteButtonHandle(button.id)] = 'bool'
+      ir = { id, pin: sanitizePin(p.pin, 13), buttons }
+      break
+    }
     default: return null
   }
-  return { setup, loop, outputs }
+  return { setup, loop, outputs, ...(ir ? { ir } : {}) }
 }
