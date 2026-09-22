@@ -258,6 +258,11 @@ _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-D
 _FBUILD_ZERO_I2S_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroI2S"
 _FBUILD_ZERO_DMA_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroDMA"
 _FBUILD_LVGL_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "lvgl"
+# IR receive (D-05a). Pinned, and fetched only when a sketch includes it, so a
+# graph with no receiver does not compile or link the decoder.
+_FBUILD_IRREMOTE_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "IRremote"
+_IRREMOTE_VERSION = "4.7.1"
+_IRREMOTE_INCLUDE = "#include <IRremote.hpp>"
 _FBUILD_LV_CONF_PATH = _FBUILD_LVGL_LIB_DIR.parent / "lv_conf.h"
 _FBUILD_OPTIONAL_LIB_STASH_DIR = _FBUILD_PROJECT_DIR / ".optional-libs"
 
@@ -400,6 +405,7 @@ _FBUILD_OPTIONAL_LIBRARIES = (
     # search path together.
     (_FBUILD_ZERO_DMA_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
     (_FBUILD_LVGL_LIB_DIR, (_LVGL_INCLUDE_MARKER,)),
+    (_FBUILD_IRREMOTE_LIB_DIR, (_IRREMOTE_INCLUDE,)),
 )
 
 
@@ -1301,6 +1307,70 @@ def _ensure_fbuild_lvgl_lib(ino: str = ""):
     _fbuild_lvgl_lib_ready = True
 
 
+_fbuild_irremote_lib_ready = False
+
+
+def _irremote_checkout_matches_pin(path: Path) -> bool:
+    """True only for a complete checkout of the pinned Arduino-IRremote release."""
+    properties = path / "library.properties"
+    header = path / "src" / "IRremote.hpp"
+    try:
+        versions = {
+            line.partition("=")[2].strip()
+            for line in properties.read_text(encoding="utf-8").splitlines()
+            if line.startswith("version=")
+        }
+    except (OSError, UnicodeDecodeError):
+        return False
+    return header.is_file() and versions == {_IRREMOTE_VERSION}
+
+
+def _ensure_fbuild_irremote_lib():
+    """Vendor the pinned Arduino-IRremote release the first time a sketch includes it.
+
+    A checkout of a different version is discarded. The pin is what the
+    generated decoder macros were written against, so a cached newer tag is
+    not a compatible substitute.
+    """
+    global _fbuild_irremote_lib_ready
+    if _fbuild_irremote_lib_ready and _irremote_checkout_matches_pin(_FBUILD_IRREMOTE_LIB_DIR):
+        return
+    if _irremote_checkout_matches_pin(_FBUILD_IRREMOTE_LIB_DIR):
+        _fbuild_irremote_lib_ready = True
+        return
+    yield f"\n=== vendoring Arduino-IRremote {_IRREMOTE_VERSION} (first IR build only) ===\n"
+    _FBUILD_IRREMOTE_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    if _FBUILD_IRREMOTE_LIB_DIR.exists():
+        _remove_build_cache_tree(_FBUILD_IRREMOTE_LIB_DIR)
+    rc = yield from _run_phase(
+        "vendor Arduino-IRremote",
+        ["git", "clone", "--progress", "--branch", f"v{_IRREMOTE_VERSION}", "--depth", "1",
+         "https://github.com/Arduino-IRremote/Arduino-IRremote.git", str(_FBUILD_IRREMOTE_LIB_DIR)],
+    )
+    if rc != 0 or not _irremote_checkout_matches_pin(_FBUILD_IRREMOTE_LIB_DIR):
+        yield (
+            f"[error] failed to vendor Arduino-IRremote {_IRREMOTE_VERSION}. "
+            f"IR sketches need that exact release: arduino-cli lib install IRremote@{_IRREMOTE_VERSION}\n"
+        )
+        return
+    _fbuild_irremote_lib_ready = True
+
+
+def _ensure_arduino_irremote_lib():
+    """Ask arduino-cli for the same Arduino-IRremote release fbuild vendors."""
+    rc = yield from _run_phase(
+        f"install Arduino-IRremote {_IRREMOTE_VERSION}",
+        _ARDUINO_BASE + ["lib", "install", f"IRremote@{_IRREMOTE_VERSION}", "--no-deps"],
+    )
+    if rc != 0:
+        yield (
+            f"[error] failed to install Arduino-IRremote {_IRREMOTE_VERSION}. Check the network connection or run "
+            f"'arduino-cli lib install IRremote@{_IRREMOTE_VERSION}' and try again.\n"
+        )
+        return rc
+    return 0
+
+
 _arduino_lvgl_lib_ready = False
 
 
@@ -1430,6 +1500,10 @@ def _sketch_workspace(name: str, ino: str):
         # library. Tie source identity to the pinned API without discarding
         # the expensive library cache on every build.
         ino = f"// FLS-PLAYER-AUDIO: {_PLAYER_AUDIO_VERSION}\n{ino}"
+    if _IRREMOTE_INCLUDE in ino:
+        # Same reason: a pin bump must change the sketch bytes arduino-cli
+        # hashes, or it will link an IR sketch against the previous release.
+        ino = f"// FLS-IRREMOTE: {_IRREMOTE_VERSION}\n{ino}"
     lock = _sketch_dir_lock(name)
     if lock.acquire(blocking=False):
         try:
@@ -1787,6 +1861,11 @@ def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=Fals
         if rc != 0:
             return rc, "compile"
     compile_args = _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
+    uses_ir = any(_IRREMOTE_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_ir:
+        rc = yield from _ensure_arduino_irremote_lib()
+        if rc != 0:
+            return rc, "compile"
     uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
     if uses_audio:
         rc = yield from _ensure_arduino_audio_lib()
@@ -2159,6 +2238,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
             yield from _ensure_fbuild_zero_i2s_lib()
         if _LVGL_INCLUDE_MARKER in ino:
             yield from _ensure_fbuild_lvgl_lib(ino)
+        if _IRREMOTE_INCLUDE in ino:
+            yield from _ensure_fbuild_irremote_lib()
         env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"

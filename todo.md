@@ -1394,11 +1394,27 @@ matrix, not a reason to postpone testing earlier changes.
     `irRemote.test.ts` and `irLearnStore.test.ts` cover the line, the
     uncached upload, the ignored repeat, the single undo, the untrusted
     refusal, and cancel.
-  - [ ] **8. Integrate the pinned firmware dependency.** Select and pin an
-    Arduino-IRremote version; emit only required protocol decoders; add shared
-    include/setup/poll code; support arduino-cli readiness/export instructions
-    and fbuild lazy vendoring/library isolation. Prove IR-free sketches carry
-    no IR library cost.
+  - [x] **8. Integrate the pinned firmware dependency.** Done 2026-09-23.
+    Arduino-IRremote **4.7.1** is the pin, the same string in
+    `src/codegen/irRemoteCpp.ts` and `backend/app.py`. `irRemoteHeader`
+    defines only the `DECODE_*` families the saved keys use, and defines them
+    before `#include <IRremote.hpp>`, which is what turns the library's
+    "enable everything" default off. No protocols means no include. The learn
+    sketch uses that header with every savable family, because it does not
+    know the remote yet, and its begin line is `irRemoteBeginLine`.
+
+    fbuild clones tag `v4.7.1` the first time a sketch includes the header,
+    refuses a checkout whose `library.properties` is a different version, and
+    hides the cached tree from every other sketch (`_FBUILD_OPTIONAL_LIBRARIES`).
+    arduino-cli installs `IRremote@4.7.1`. A pin bump rewrites
+    `// FLS-IRREMOTE:` on the sketch so the Arduino build cache cannot keep
+    the previous release. The install line is the comment an exported sketch
+    carries. A normal sketch with no receiver does not mention IRremote.
+
+    Evidence: `irRemoteCpp.test.ts` (selective macros, empty header, IR-free
+    `generateCpp`), `irLearnSketch.test.ts`, `backend/tests/test_irremote_lib.py`,
+    and the optional-library hide test in `test_engine.py`. Project sketches
+    do not poll yet — that wiring is step 9.
   - [ ] **9. Wire all three generators.** Feed decoded events through the
     normal graph, slideshow controller and SD/performance-player control graph;
     teach direct action/control assignment about dynamic IR outputs. Add IR

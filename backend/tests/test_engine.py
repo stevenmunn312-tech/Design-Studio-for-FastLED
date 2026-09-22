@@ -698,7 +698,8 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
     zero_i2s = lib_root / "Adafruit_ZeroI2S"
     zero_dma = lib_root / "Adafruit_ZeroDMA"
     lvgl = lib_root / "lvgl"
-    for path in (audio, dmx, zero_i2s, zero_dma, lvgl):
+    irremote = lib_root / "IRremote"
+    for path in (audio, dmx, zero_i2s, zero_dma, lvgl, irremote):
         path.mkdir(parents=True)
         (path / "sentinel.txt").write_text(path.name, encoding="utf-8")
 
@@ -710,6 +711,7 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
         (zero_i2s, ("#include <Adafruit_ZeroI2S.h>",)),
         (zero_dma, ("#include <Adafruit_ZeroI2S.h>",)),
         (lvgl, ("#include <lvgl.h>",)),
+        (irremote, ("#include <IRremote.hpp>",)),
     ))
 
     with app._fbuild_libraries_for_sketch("#include <Adafruit_ZeroI2S.h>"):
@@ -718,9 +720,10 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
         assert zero_i2s.exists()
         assert zero_dma.exists()
         assert not lvgl.exists()
+        assert not irremote.exists()
         assert (stash / audio.name).exists()
 
-    assert all(path.exists() for path in (audio, dmx, zero_i2s, zero_dma, lvgl))
+    assert all(path.exists() for path in (audio, dmx, zero_i2s, zero_dma, lvgl, irremote))
     assert not stash.exists()
 
 
