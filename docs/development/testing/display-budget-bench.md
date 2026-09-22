@@ -303,6 +303,32 @@ single most useful thing this run says about a long soak.
 
 Same rig, the show controller. Adds pattern rendering and transitions.
 
+Fixture: `artifacts/display-compile/cyd-run2.ino`. Deliberately **run 1b with
+one thing changed** — same board, panel, calibration, strip and screen design,
+because the bench keeps a figure per generator and the delta should be the
+generator, not the display. `isPatternShow` keys the show generator on the
+PatternSlideshow, nothing about the screen.
+
+Two differences from 1b are deliberate and both matter to the figure:
+
+- **Two patterns, not one.** Every other fixture in this repository uses a
+  single-pattern collection, which is fine for a compile — but with one pattern
+  the slideshow never advances and the generator emits essentially no
+  transition code (the shared `show.ino` has *one* line mentioning transitions;
+  this fixture has the whole `compositeTransition` machine plus the `showA` /
+  `showB` buffers). A run measuring "pattern rendering and transitions" against
+  a build containing neither would measure nothing. It uses its own group
+  registry so the existing show and player fixtures keep the exact bytes their
+  records are keyed to.
+- **Plasma and Fire2012, and a six-second interval.** A solid fill costs nothing
+  per frame, so it would understate the show's real rendering cost; and the
+  default twenty-second interval would cross only a handful of transitions in an
+  hour, where six crosses hundreds.
+
+The slideshow's `display` output is wired into the panel, where 1b's panel had
+no source — a show whose screen shows nothing is not a shape anyone builds, and
+the Pattern Browser on that design is the widget with something to say here.
+
 | Figure | Budget | Measured | Notes |
 | --- | --- | --- | --- |
 | Flash | | | |

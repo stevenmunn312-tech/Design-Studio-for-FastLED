@@ -415,6 +415,61 @@ const cydCustomTelemetryNodes = [
   node('juggle', 'Juggle'), cydStrip(),
 ]
 
+/*
+ * Run 2: the same rig again, built by the show controller instead.
+ *
+ * The bench keeps a figure per generator because the three allocate
+ * differently, so this is deliberately 1b with one thing changed — same board,
+ * panel, calibration, strip and screen design, and `isPatternShow` keys the
+ * show generator on the PatternSlideshow rather than on anything about the
+ * display. What it adds over 1b is pattern rendering and transitions, so the
+ * delta between them is the generator and the show, not the screen.
+ *
+ * One difference is unavoidable and worth stating: the slideshow's `display`
+ * output is wired into the panel, where 1b's panel had no source. A show with
+ * a screen showing nothing is not a shape anyone builds, and the Pattern
+ * Browser on that design is the widget with something to say here.
+ */
+/*
+ * Two patterns, and a registry of its own.
+ *
+ * The shared `groups` above holds one group, which every other fixture uses
+ * because a compile only has to reach the code. A *bench* fixture cannot: with
+ * one pattern the slideshow never advances, so the generator emits no
+ * transition arm at all and the board renders one frame forever — measuring
+ * none of the pattern rendering and transitions this run exists to price. A
+ * separate registry rather than extra keys on the shared one, so the existing
+ * show and player fixtures keep the exact bytes their records are keyed to.
+ *
+ * Plasma and Fire2012 rather than two SolidColors: a bench figure for "the
+ * show generator" should include the per-frame cost of patterns someone would
+ * actually put in a collection, and a solid fill costs nothing to render.
+ */
+const cydGroups = {
+  'pattern-a': {
+    nodes: [node('plasma', 'Plasma'), node('end-a', 'GroupOutput')],
+    edges: [edge('plasma', 'frame', 'end-a', 'frame')],
+  },
+  'pattern-b': {
+    nodes: [node('fire', 'Fire2012'), node('end-b', 'GroupOutput')],
+    edges: [edge('fire', 'frame', 'end-b', 'frame')],
+  },
+}
+const cydShowNodes = [
+  cydBoard({ reportTelemetry: true }), cydPanel({ displayId: 'cyd-screen' }), cydTouch(),
+  node('collection', 'PatternCollection', { patternIds: ['pattern-a', 'pattern-b'] }),
+  // Six seconds rather than the default twenty, so an hour's soak crosses
+  // hundreds of transitions instead of a handful, and a 90-second capture sees
+  // any at all.
+  node('show', 'PatternSlideshow', { order: 'Sequential', interval: 6, transitionsEnabled: true, transitionSec: 1.5 }),
+  cydStrip(),
+]
+const cydShowEdges = [
+  edge('collection', 'patternset', 'show', 'patternset'),
+  edge('show', 'frame', 'out', 'frame'),
+  edge('show', 'display', 'panel', 'display'),
+]
+
 const sketches: Record<string, string> = {
   normal: generateCpp(normalNodes, normalEdges, {}, clockOptions),
   show: generateShowSketch(showNodes, showEdges, groups, {
@@ -467,6 +522,10 @@ const sketches: Record<string, string> = {
   'cyd-custom': generateCpp(cydCustomNodes, cydCustomEdges, {}, displayOptions({ 'cyd-screen': cydCustomDocument }) as never),
   'cyd-run1': generateCpp(cydRun1Nodes, cydRun1Edges),
   'cyd-custom-telemetry': generateCpp(cydCustomTelemetryNodes, cydCustomEdges, {}, displayOptions({ 'cyd-screen': cydCustomDocument }) as never),
+  'cyd-run2': generateShowSketch(cydShowNodes, cydShowEdges, cydGroups, {
+    ...displayOptions({ 'cyd-screen': cydCustomDocument }),
+    patternNames: { show: ['Aurora Drift', 'Ember Wash'] },
+  } as never),
 }
 
 /*
@@ -487,6 +546,7 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   'cyd-custom': { nodes: cydCustomNodes, edges: cydCustomEdges },
   'cyd-run1': { nodes: cydRun1Nodes, edges: cydRun1Edges },
   'cyd-custom-telemetry': { nodes: cydCustomTelemetryNodes, edges: cydCustomEdges },
+  'cyd-run2': { nodes: cydShowNodes, edges: cydShowEdges },
 }
 for (const [name, graph] of Object.entries(fixtureGraphs)) {
   const conflicts = findPinConflicts(graph.nodes)
