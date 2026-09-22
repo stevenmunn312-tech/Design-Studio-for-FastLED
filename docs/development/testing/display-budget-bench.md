@@ -95,51 +95,51 @@ so a reader of this page does not have to reconstruct the rig from another one.
 Recorded before the runs rather than discovered during them, because two of the
 four are constrained by this board rather than by the software under test.
 
-- **A custom screen does not fit.** The LVGL heap is pinned at 64 KiB and a
-  custom screen overruns a classic ESP32 by 22,496 bytes (HW-25). Run 1 is
-  therefore measured with a **fixed layout**, not a custom screen design, and
-  says so in its row.
-
-  This board is deliberately left able to *attempt* it. Unlike the generic
-  classic-ESP32 profiles, `esp32-2432s028r` declares no
-  `internalRamBudgetBytes`, so HW-24's pre-compile refusal returns nothing and
-  the build proceeds to the linker. That is an inconsistency — the same absent-
-  data-reads-as-complete shape HW-12 found in this board's pin safety — and it
-  is being **held open on purpose until HW-25 has its number**, because a
-  refusal before the compile is a refusal before the measurement. Do not close
-  it by declaring a budget for this board until the run below is recorded.
-  See HW-25 in `todo.md`.
-
-  **Run 0, then: the overflow itself.** Build a custom screen for this board and
-  let it fail. The linker error is the measurement — HW-23's formatter names the
-  region and the exact overage — and it is a *static* figure, so it needs no
-  device. Record it here beside the figure the estimate predicted, since a
-  disagreement means the estimate needs correcting rather than the measurement.
+- **A custom screen does fit. Measured 2026-09-22, and it reverses what this
+  row used to say.** Run 0 was built expecting a linker failure and **passed**:
+  flash 615,715 / 1,310,720 (46%), static RAM 105,348 / 327,680 (32%), leaving
+  222,332 bytes. Run 1 is still recorded with a fixed layout so it stays a clean
+  baseline — but not because a custom screen is impossible on this board.
 
   | Figure | Predicted | Measured | Notes |
   | --- | --- | --- | --- |
-  | Region | | | `dram` / `bss` / `data` — which one overflowed |
-  | Overage bytes | 22,496 | | the earlier linker figure, against this one |
-  | Graph allocations | 75,476 | n/a | estimate, on an empty design (below) |
-  | Screen complexity | empty design | | widget count, so "per complexity" means something |
+  | Result | linker failure | **passed** | Arduino CLI 1.5.1, `esp32:esp32:esp32`, 8m 59s |
+  | Region | `dram` | none | nothing overflowed |
+  | Overage bytes | 22,496 | 0 | prediction not reproduced; see below |
+  | Static RAM | — | 105,348 (32%) | 222,332 bytes left |
+  | Flash | — | 615,715 (46%) | default 4 MB partition |
+  | Cost over a fixed layout | 77,556 | 73,952 | estimate is 4.6% conservative |
+  | Screen complexity | 14 widgets | 14 widgets | the design every custom fixture uses |
+  | Source SHA-256 | — | `4c09d5cb35c2` | `artifacts/display-compile/cyd-custom.ino` |
 
-  Those predictions are the current code's, taken against this exact board:
-  `estimateFirmwareRam` puts an **empty** custom design on the CYD at 75,476
-  bytes of graph allocations — the 65,536-byte LVGL heap, a 9,600-byte
-  240x20 RGB565 draw buffer, the 96-byte LED array and change. An empty design
-  is the floor, so a real screen is worse; and the earlier 22,496-byte linker
-  overflow was measured with a design on it, which is why the two numbers are
-  not the same measurement and get their own rows.
+  Reproduce with `python scripts/compile-display-smoke.py arduino-cli
+  artifacts/display-compile/cyd-custom.ino --fqbn "esp32:esp32:esp32" --tag cyd`.
 
-  Confirmed while writing this: the deploy gate returns **nothing** for that
-  graph, so the build does proceed to the linker rather than being refused.
-  That is the held-open gap above working as intended, not an oversight.
+  **The accounting checks out, which is why the result is believable.** Against
+  the `classic-esp32-fixed` fixture on the same FQBN (31,396 bytes static RAM),
+  the custom screen costs **+73,952 bytes** where `estimateFirmwareRam`
+  predicted 77,556 — 3,604 bytes (4.6%) conservative. That agreement also
+  settles something the estimate rested on: LVGL's 64 KiB heap is a *static*
+  allocation and is counted by the linker, not taken from free heap at runtime.
 
-  Its other half is runtime, and comes free from run 1: `heap` and `minheap` on
-  a *fixed-layout* build on this board say how much internal RAM is actually
-  free with the panel running, which is the ceiling any smaller LVGL heap has
-  to fit under. The two together are what HW-25's exit asks for; neither alone
-  is.
+  **The 22,496-byte overflow could not be reproduced, and no record of it
+  exists.** It appears only in HW-25's own prose, referring to "the overflow
+  above"; there is no build log, fixture or report behind it in this repository.
+  It may have been a larger graph or a different board. Do not quote it as a
+  measured figure again until something produces it.
+
+  **Linking is not running, and this row must not be read as a promotion.** It
+  says the image fits. The remaining 222 KB still has to cover LVGL's runtime
+  working set, FastLED, the framework and the stack, so whether the screen is
+  *usable* is run 1's `heap` / `minheap` question, not this one.
+
+  On why the build was attemptable at all: unlike the generic classic-ESP32
+  profiles, `esp32-2432s028r` declares no `internalRamBudgetBytes`, so HW-24's
+  pre-compile refusal returns nothing. That was recorded as an inconsistency to
+  close later — and closing it at 48 KiB would have refused a build that fits
+  with 222 KB to spare, which is now an argument about the *budget*, not about
+  the gap. See HW-25 in `todo.md`.
+
 - **Run 3 cannot be done on this board at all.** It wants TFT, SD and touch
   sharing one bus with audio playing. This board's onboard microSD and speaker
   amplifier are exactly the pins HW-12 left unrecorded rather than taken from

@@ -850,7 +850,26 @@ matrix, not a reason to postpone testing earlier changes.
   profile, RAM, `CapacityWatcher` and deploy-popup regressions.
 
 - [ ] **HW-25 · P2 · Fixed 64 KiB LVGL heap rules out classic-ESP32 custom
-  screens (M; after HW-11).** The overflow above was 22,496 bytes against a
+  screens (M; after HW-11).** **Premise disproven 2026-09-22 — this item needs
+  rescoping before it is worked.** A custom screen (14 widgets) on the CYD
+  compiled clean under Arduino CLI at `esp32:esp32:esp32`: static RAM 105,348 of
+  327,680 (32%), **222,332 bytes free**, no overflow in any region. The 64 KiB
+  heap does not rule the board out; it costs +73,952 bytes over the same board's
+  fixed-layout fixture, against an estimate of 77,556, so the estimate is 4.6%
+  conservative and LVGL's heap is confirmed to be a static allocation the linker
+  counts. The 22,496-byte overflow this item was built on **could not be
+  reproduced and has no record** — no log, fixture or report behind it anywhere
+  in the repository, only this item's own prose. Figures and reproduction in
+  [the bench procedure](docs/development/testing/display-budget-bench.md).
+
+  What survives: whether the screen *runs*, which linking cannot answer, and
+  which HW-11's run 1 `heap`/`minheap` will. If it does, the remaining question
+  inverts — not "can a classic ESP32 drive a custom screen" but "is the 48 KiB
+  `internalRamBudgetBytes` on the generic classic profiles too conservative",
+  since that budget would refuse a build with 222 KB to spare. The original text
+  follows, for the mechanism, which is unaffected.
+
+  The overflow was believed to be 22,496 bytes against a
   65,536-byte heap, so a 32 KiB heap would fit with room to spare and a classic
   ESP32 could drive a custom screen at all. `LV_MEM_SIZE` is pinned in one
   `lv_conf.h` the helper already specializes per build — the `// FLS-LVGL-FONTS:`
