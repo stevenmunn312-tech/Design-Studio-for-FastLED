@@ -82,7 +82,7 @@ export interface PartFootprintMm {
 }
 
 /** INMP441 breakout, the module in `inmp441-i2s-microphone.webp`. */
-export const INMP441_FOOTPRINT_MM: PartFootprintMm = { width: 20.5, height: 14.5 }
+export const MIC_FALLBACK_FOOTPRINT_MM: PartFootprintMm = { width: 20.5, height: 14.5 }
 
 /**
  * The pitch one WS2812B occupies, wherever it is drawn.

@@ -416,10 +416,17 @@ describe('validateGraph', () => {
       .toEqual(['a', 'b'])
   })
 
-  it('allows INMP441-capable boards and blocks incompatible boards', () => {
+  it('allows I2S-capable boards and blocks incompatible boards', () => {
     const nodes = [node('mic', 'MicInput')]
     expect(findBoardCompatibilityErrors(nodes, 'arduino:avr:uno')).toEqual([
-      'The inmp441 microphone does not work with this board',
+      'The INMP441 microphone does not work with this board',
+    ])
+    // The refusal names the module on the graph, since the board refuses each
+    // of the three the same way and a wrong name sends the reader to their
+    // wiring rather than to Board & Port.
+    const ics = [node('mic', 'MicInput', { partId: 'ics-43434-i2s-microphone' })]
+    expect(findBoardCompatibilityErrors(ics, 'arduino:avr:uno')).toEqual([
+      'The ICS-43434 microphone does not work with this board',
     ])
     for (const fqbn of [
       'esp32:esp32:esp32s3',

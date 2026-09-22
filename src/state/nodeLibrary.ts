@@ -58,7 +58,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
     // Gain maps to FastLED Processor::setGain in preview and firmware; i2s*
-    // pins + channel configure FastLED's INMP441 input (ESP32). The pins below
+    // pins + channel configure FastLED's microphone input (ESP32). The pins below
     // are common ESP32-S3 wiring and are the fallback only — a node created
     // while another ESP32 variant is selected takes that board's pins from
     // `micPinDefaults.ts`, since GPIO40/41 don't exist on the classic ESP32,
@@ -3911,7 +3911,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
   Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
-  MicInput: 'INMP441 Hardware provider selected through the Audio node.',
+  MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware

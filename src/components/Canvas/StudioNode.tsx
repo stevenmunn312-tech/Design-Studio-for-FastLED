@@ -50,9 +50,9 @@ import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import {
-  inmp441SupportedForBoardProfile,
-  INMP441_NO_BOARD_MESSAGE,
-  INMP441_UNSUPPORTED_MESSAGE,
+  micSupportedForBoardProfile,
+  MIC_NO_BOARD_MESSAGE,
+  micUnsupportedMessage,
 } from '../../state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
@@ -1357,10 +1357,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // change once dialled in (mic pins, matrix wiring).
   const showSetDefault = d.nodeType === 'MicInput' || d.nodeType === 'MatrixOutput'
   const micUnavailable = d.nodeType === 'MicInput'
-    && (!selectedBoardProfile || !inmp441SupportedForBoardProfile(selectedBoardProfile))
+    && (!selectedBoardProfile || !micSupportedForBoardProfile(selectedBoardProfile))
   const micUnavailableMessage = !selectedBoardProfile
-    ? INMP441_NO_BOARD_MESSAGE
-    : INMP441_UNSUPPORTED_MESSAGE
+    ? MIC_NO_BOARD_MESSAGE
+    : micUnsupportedMessage(d.properties.partId)
   const isCustomDefault = useNodeDefaults((s) => d.nodeType === 'MicInput'
     ? selectedFqbn in s.micOverridesByFqbn
     : d.nodeType in s.overrides)

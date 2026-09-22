@@ -142,7 +142,7 @@ const CASES: GateCase[] = [
     edges: [edge('e1', 'sc', 'out'), edge('e2', 'mic', 'out', 'brightness')],
     fqbn: 'arduino:avr:uno',
     blocks: /does not work with this board/,
-    names: ['inmp441', 'this board'],
+    names: ['INMP441', 'this board'],
     diagnostic: 'mic-board',
   },
   {

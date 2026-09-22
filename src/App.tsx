@@ -12,7 +12,7 @@ import NodeGraphCanvas from './components/Canvas/NodeGraphCanvas'
 import LEDPreview from './components/Preview/LEDPreview'
 import StatusBar from './components/StatusBar/StatusBar'
 import { useUploadStore } from './state/uploadStore'
-import { inmp441SupportedForBoardProfile } from './state/micPinDefaults'
+import { micSupportedForBoardProfile } from './state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from './build/boardProfiles'
 import { usePatternLibrary } from './state/patternLibrary'
 import { useMusicStore } from './state/musicStore'
@@ -112,7 +112,7 @@ export default function App() {
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const audioInputSupported = audioInputNode?.data.nodeType === 'LineInput'
     ? selectedBoardProfile?.compatibleFqbns.some((fqbn) => fqbn.startsWith('esp32:esp32:esp32s3')) === true
-    : inmp441SupportedForBoardProfile(selectedBoardProfile)
+    : micSupportedForBoardProfile(selectedBoardProfile)
   const hadAudioInputNode = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)

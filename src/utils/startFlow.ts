@@ -3,7 +3,7 @@ import { useAudioStore } from '../state/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/starterTemplates'
 import { useUiStore } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
-import { inmp441SupportedForBoardProfile } from '../state/micPinDefaults'
+import { micSupportedForBoardProfile } from '../state/micPinDefaults'
 import { useUploadStore } from '../state/uploadStore'
 import { runTidy } from './tidyGraph'
 
@@ -86,7 +86,7 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     const ui = useUiStore.getState()
     if (ui.testSignal) ui.toggleTestSignal()
     const boardProfile = selectedPhysicalBoardProfile(useGraphStore.getState().nodes)
-    if (inmp441SupportedForBoardProfile(boardProfile)) {
+    if (micSupportedForBoardProfile(boardProfile)) {
       void useAudioStore.getState().startAudio().catch(() => {
         ui.setStatus('Microphone could not start. Check browser permission and the selected audio input.', 'error')
       })

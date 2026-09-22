@@ -113,9 +113,9 @@ import {
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { controllerSettings, ledPropsWithController, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import {
-  inmp441FirmwareBackendForBoard,
-  inmp441FqbnForBoardProfile,
-  type Inmp441FirmwareBackend,
+  micFirmwareBackendForBoard,
+  micFqbnForBoardProfile,
+  type MicFirmwareBackend,
 } from '../state/micPinDefaults'
 import { DEFAULT_MIC_MODULE, micModuleFor, type MicModule } from '../state/micModules'
 import { sanitizePin } from './hardwarePins'
@@ -400,7 +400,7 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
 // The SD-card player intentionally does not use this block: it supplies the
 // same globals from its baked song envelope.
 function audioEngineCpp(
-  backend: Inmp441FirmwareBackend,
+  backend: MicFirmwareBackend,
   ws: number,
   sck: number,
   sd: number,
@@ -639,7 +639,7 @@ function pcm1802CaptureAdapterCpp(channel: 'Left' | 'Right' | 'Both'): string[] 
 }
 
 function audioCaptureAdapterCpp(
-  backend: Inmp441FirmwareBackend,
+  backend: MicFirmwareBackend,
   channel: 'Left' | 'Right',
 ): string[] {
   if (backend === 'fastled-esp32' || backend === 'fastled-teensy') return []
@@ -1138,7 +1138,7 @@ export function hub75SetupCpp(hw: Hub75Hardware): string[] {
 export function audioEngineForGraph(
   nodes: StudioNode[],
   capabilityNodes: StudioNode[] = nodes,
-): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: Inmp441FirmwareBackend } | null {
+): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend } | null {
   const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
     .map((node) => resolveAudioCapabilitySource(capabilityNodes, (node.data.properties as Record<string, unknown>).sourceId)?.node)
@@ -1147,8 +1147,8 @@ export function audioEngineForGraph(
   if (!sourceNode) return null
   // The Board node is the sole target authority. MatrixOutput's legacy board
   // field and the upload store are intentionally not consulted here.
-  const fqbn = inmp441FqbnForBoardProfile(selectedPhysicalBoardProfile(capabilityNodes))
-  const backend = fqbn ? inmp441FirmwareBackendForBoard(fqbn) : undefined
+  const fqbn = micFqbnForBoardProfile(selectedPhysicalBoardProfile(capabilityNodes))
+  const backend = fqbn ? micFirmwareBackendForBoard(fqbn) : undefined
   if (!fqbn || !backend) return null
   const lineInput = sourceNode.data.nodeType === 'LineInput'
   // PCM1802's MCLK path is implemented against the ESP32 I2S peripheral. The

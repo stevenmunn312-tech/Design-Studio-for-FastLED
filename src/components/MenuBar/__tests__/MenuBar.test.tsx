@@ -10,7 +10,7 @@ import type { SavedProject } from '../../../state/projectStore'
 import { openCommunityTab, postToCommunityTab } from '../../../utils/communityUpload'
 import { captureSharePreview } from '../../../utils/sharePreviewCapture'
 import { useUploadStore } from '../../../state/uploadStore'
-import { INMP441_NO_BOARD_MESSAGE, INMP441_UNSUPPORTED_MESSAGE } from '../../../state/micPinDefaults'
+import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../state/micPinDefaults'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
 import { createDisplayDocument } from '../../../state/displayEditor'
 
@@ -185,12 +185,12 @@ describe('MenuBar file menu', () => {
     useAudioStore.setState({ micActive: true, active: true })
 
     const { getByRole } = render(<MenuBar />)
-    const mic = getByRole('button', { name: INMP441_UNSUPPORTED_MESSAGE })
+    const mic = getByRole('button', { name: micUnsupportedMessage(undefined) })
 
     expect((mic as HTMLButtonElement).disabled).toBe(true)
     expect(mic.textContent).toBe('Mic Off')
     expect(mic.getAttribute('aria-pressed')).toBe('false')
-    expect(mic.getAttribute('title')).toBe(INMP441_UNSUPPORTED_MESSAGE)
+    expect(mic.getAttribute('title')).toBe(micUnsupportedMessage(undefined))
     await waitFor(() => expect(useAudioStore.getState().micActive).toBe(false))
   })
 
@@ -204,12 +204,12 @@ describe('MenuBar file menu', () => {
     useAudioStore.setState({ micActive: true, active: true })
 
     const { getByRole } = render(<MenuBar />)
-    const mic = getByRole('button', { name: INMP441_NO_BOARD_MESSAGE })
+    const mic = getByRole('button', { name: MIC_NO_BOARD_MESSAGE })
 
     expect((mic as HTMLButtonElement).disabled).toBe(true)
     expect(mic.textContent).toBe('Mic Off')
     expect(mic.getAttribute('aria-pressed')).toBe('false')
-    expect(mic.getAttribute('title')).toBe(INMP441_NO_BOARD_MESSAGE)
+    expect(mic.getAttribute('title')).toBe(MIC_NO_BOARD_MESSAGE)
     await waitFor(() => expect(useAudioStore.getState().micActive).toBe(false))
   })
 

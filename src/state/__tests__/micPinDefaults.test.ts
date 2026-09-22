@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   MIC_PIN_DEFAULTS_BY_FQBN,
-  inmp441FirmwareBackendForBoard,
-  inmp441SupportedForBoard,
+  micFirmwareBackendForBoard,
+  micSupportedForBoard,
   micPinDefaultsForBoard,
   micPinsFromProfile,
   retargetedMicPins,
@@ -37,19 +37,19 @@ describe('board-aware MicInput pin defaults', () => {
 
     expect(compatible).not.toHaveLength(0)
     for (const board of compatible) {
-      expect(inmp441SupportedForBoard(board.fqbn), board.label).toBe(true)
+      expect(micSupportedForBoard(board.fqbn), board.label).toBe(true)
       expect(micPinDefaultsForBoard(board.fqbn), board.label).toBeDefined()
-      expect(inmp441FirmwareBackendForBoard(board.fqbn), board.label).toBeDefined()
+      expect(micFirmwareBackendForBoard(board.fqbn), board.label).toBeDefined()
     }
   })
 
   it('routes each family to a real firmware capture backend', () => {
-    expect(inmp441FirmwareBackendForBoard('esp32:esp32:esp32s3')).toBe('fastled-esp32')
-    expect(inmp441FirmwareBackendForBoard('teensy:avr:teensy40')).toBe('fastled-teensy')
-    expect(inmp441FirmwareBackendForBoard('rp2040:rp2040:rpipico')).toBe('pico-i2s')
-    expect(inmp441FirmwareBackendForBoard('adafruit:samd:adafruit_feather_m4')).toBe('samd51-zero-i2s')
-    expect(inmp441FirmwareBackendForBoard('STMicroelectronics:stm32:blackpill_f411ce')).toBe('stm32-i2s')
-    expect(inmp441FirmwareBackendForBoard('arduino:avr:uno')).toBeUndefined()
+    expect(micFirmwareBackendForBoard('esp32:esp32:esp32s3')).toBe('fastled-esp32')
+    expect(micFirmwareBackendForBoard('teensy:avr:teensy40')).toBe('fastled-teensy')
+    expect(micFirmwareBackendForBoard('rp2040:rp2040:rpipico')).toBe('pico-i2s')
+    expect(micFirmwareBackendForBoard('adafruit:samd:adafruit_feather_m4')).toBe('samd51-zero-i2s')
+    expect(micFirmwareBackendForBoard('STMicroelectronics:stm32:blackpill_f411ce')).toBe('stm32-i2s')
+    expect(micFirmwareBackendForBoard('arduino:avr:uno')).toBeUndefined()
   })
 
   it('uses pins exposed safely by every supported catalogue target', () => {
@@ -84,7 +84,7 @@ describe('board-aware MicInput pin defaults', () => {
       'arduino:renesas_uno:unor4wifi',
       'adafruit:nrf52:feather52840',
     ]) {
-      expect(inmp441SupportedForBoard(fqbn), fqbn).toBe(false)
+      expect(micSupportedForBoard(fqbn), fqbn).toBe(false)
       expect(micPinDefaultsForBoard(fqbn), fqbn).toBeUndefined()
     }
   })

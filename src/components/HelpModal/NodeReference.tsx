@@ -1094,7 +1094,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <div>
           <div className={styles.eyebrow}><i style={{ background: accent }} />Audio source</div>
           <h1>Microphone</h1>
-          <p>Add an INMP441 microphone to Hardware, then select it from Audio for browser preview and generated firmware.</p>
+          <p>Add an I2S MEMS microphone to Hardware, then select it from Audio for browser preview and generated firmware.</p>
         </div>
         <div className={styles.articleMeta}>0 inputs · 1 output · 6 properties</div>
       </header>
@@ -1109,7 +1109,8 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
           <div className={styles.sectionKicker}>What it does</div>
           <h2>Overview</h2>
           <p>The microphone is a physical Hardware provider. The graph-facing <b>Audio</b> node selects it and becomes the single starting point for audio-reactive patches.</p>
-          <p>Connect Audio to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node. During editing Studio analyses browser microphone samples; generated firmware uses FastLED's native INMP441 processor.</p>
+          <p>Connect Audio to FFT Analyzer, Beat Detect, Percussion Detect, or any other audio-processing node. During editing Studio analyses browser microphone samples; generated firmware uses FastLED's native I2S capture.</p>
+          <p><b>Module</b> picks which breakout is fitted — INMP441, ICS-43434 or a generic I2S MEMS board. All three wire the same three signals; the choice changes the response correction the firmware applies, the names the pin fields use, and the picture on the Build Diagram. Only FastLED's own ESP32 and Teensy paths apply that correction, so on a Pico, SAMD51 or STM32 build the module choice changes the wiring picture and nothing in the signal.</p>
           <p>Gain maps to <b>FastLED Processor::setGain</b> in both preview and firmware. FastLED owns signal conditioning, adaptive band normalization, equalizer bins, and beat detection at its native 44.1 kHz rate; the I2S settings define the pins and left/right channel used on the ESP32.</p>
         </section>
       </div>
@@ -1118,7 +1119,7 @@ function MicrophoneArticle({ node }: { node: NodeDefinition }) {
         <PortPanel title="Inputs" ports={node.inputs} direction="input" />
         <PropertyPanel
           node={node}
-          note="Gain shapes both FastLED analysis paths. I2S pins and channel configure FastLED's INMP441 input in generated ESP32 firmware."
+          note="Gain shapes both FastLED analysis paths. Module picks the fitted breakout and its response correction; I2S pins and channel configure FastLED's microphone input in generated ESP32 firmware."
         />
         <PortPanel title="Outputs" ports={node.outputs} direction="output" />
       </div>

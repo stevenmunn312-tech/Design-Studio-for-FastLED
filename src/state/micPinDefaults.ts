@@ -1,4 +1,9 @@
-// Board-aware INMP441 compatibility and starting pins.
+// Board-aware I2S microphone compatibility and starting pins.
+//
+// Every module in `MIC_MODULES` wires the same three signals through the same
+// capture backends, so what this answers is a fact about the *board*, not
+// about which microphone is plugged into it. The names here used to say
+// INMP441 because that was the only module the app offered.
 //
 // This table is deliberately keyed by the exact upload FQBN. A chip may have
 // an I2S peripheral while a particular board exposes different pads, and the
@@ -7,6 +12,7 @@
 // knowing what to put in its three pin fields.
 
 import { useUploadStore } from './uploadStore'
+import { micModuleFor } from './micModules'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
 export interface MicI2sPins { i2sWs: number; i2sSck: number; i2sSd: number }
@@ -14,15 +20,27 @@ export interface MicI2sPins { i2sWs: number; i2sSck: number; i2sSd: number }
 /** The capture layer used by generated firmware. Every layer ultimately feeds
  * signed 16-bit mono PCM into FastLED's Processor, which is also the contract
  * implemented by the browser preview. */
-export type Inmp441FirmwareBackend =
+export type MicFirmwareBackend =
   | 'fastled-esp32'
   | 'fastled-teensy'
   | 'pico-i2s'
   | 'samd51-zero-i2s'
   | 'stm32-i2s'
 
-export const INMP441_NO_BOARD_MESSAGE = 'No board selected'
-export const INMP441_UNSUPPORTED_MESSAGE = 'The inmp441 microphone does not work with this board'
+export const MIC_NO_BOARD_MESSAGE = 'No board selected'
+
+/**
+ * Why a microphone cannot be previewed or built on the selected board.
+ *
+ * Named after the module the node actually carries, resolved the same way the
+ * generator resolves it. A fixed "the inmp441 microphone…" was right while the
+ * app offered one module and wrong for two of the three it offers now — and
+ * the board is the thing refusing, so a reader told the wrong module name
+ * would go looking at their wiring.
+ */
+export function micUnsupportedMessage(partId: unknown): string {
+  return `The ${micModuleFor(partId).label} microphone does not work with this board`
+}
 
 const ESP32_S3_PINS: MicI2sPins = { i2sWs: 39, i2sSck: 40, i2sSd: 41 }
 const ESP32_CLASSIC_PINS: MicI2sPins = { i2sWs: 32, i2sSck: 33, i2sSd: 34 }
@@ -86,7 +104,7 @@ export const MIC_PIN_DEFAULTS_BY_FQBN: Readonly<Record<string, MicI2sPins>> = {
   // each board variant's Arduino digital-pin numbers. The common F103C8 Blue
   // Pill is deliberately excluded: its medium-density SPI block exposes only
   // the I2S-mode bit, not the full I2S configuration/prescaler registers needed
-  // to clock an INMP441.
+  // to clock an I2S MEMS microphone.
   'STMicroelectronics:stm32:blackpill_f411ce': { i2sWs: 27, i2sSck: 28, i2sSd: 30 },
   'STMicroelectronics:stm32:nucleo_f429zi': { i2sWs: 19, i2sSck: 18, i2sSd: 17 },
   'STMicroelectronics:stm32:nucleo_f439zi': { i2sWs: 19, i2sSck: 18, i2sSd: 17 },
@@ -96,17 +114,17 @@ export function micPinDefaultsForBoard(fqbn: string): MicI2sPins | undefined {
   return MIC_PIN_DEFAULTS_BY_FQBN[fqbn]
 }
 
-export function inmp441SupportedForBoard(fqbn: string): boolean {
+export function micSupportedForBoard(fqbn: string): boolean {
   return micPinDefaultsForBoard(fqbn) !== undefined
 }
 
 /** Capture backend for an exact upload target. Capability and code generation
  * deliberately share this function so the UI cannot enable a board for which
  * the exporter would silently emit a null FastLED input. */
-export function inmp441FirmwareBackendForBoard(
+export function micFirmwareBackendForBoard(
   fqbn: string,
-): Inmp441FirmwareBackend | undefined {
-  if (!inmp441SupportedForBoard(fqbn)) return undefined
+): MicFirmwareBackend | undefined {
+  if (!micSupportedForBoard(fqbn)) return undefined
   if (fqbn.startsWith('esp32:esp32:')) return 'fastled-esp32'
   if (fqbn.startsWith('teensy:avr:')) return 'fastled-teensy'
   if (fqbn.startsWith('rp2040:rp2040:')) return 'pico-i2s'
@@ -116,21 +134,21 @@ export function inmp441FirmwareBackendForBoard(
 }
 
 /** Exact mic-capable FQBN represented by a Board node profile. */
-export function inmp441FqbnForBoardProfile(
+export function micFqbnForBoardProfile(
   profile: { compatibleFqbns: readonly string[] } | undefined,
 ): string | undefined {
   return profile?.compatibleFqbns.find((fqbn) =>
-    inmp441FirmwareBackendForBoard(fqbn) !== undefined)
+    micFirmwareBackendForBoard(fqbn) !== undefined)
 }
 
-export function inmp441SupportedForBoardProfile(
+export function micSupportedForBoardProfile(
   profile: { compatibleFqbns: readonly string[] } | undefined,
 ): boolean {
-  return profile?.compatibleFqbns.some(inmp441SupportedForBoard) ?? false
+  return profile?.compatibleFqbns.some(micSupportedForBoard) ?? false
 }
 
 /**
- * The board profile's own INMP441 pins, when it carries them.
+ * The board profile's own I2S microphone pins, when it carries them.
  *
  * Preferred over the FQBN table because an FQBN names a chip, not a board: a
  * XIAO ESP32S3 and an ESP32-S3-DevKitC-1 are both `esp32:esp32:esp32s3`, and

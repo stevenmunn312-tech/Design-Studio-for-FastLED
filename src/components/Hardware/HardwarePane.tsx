@@ -34,7 +34,7 @@ import {
   BUTTON_MODULE_FOOTPRINT_MM,
   DEFAULT_BOARD_PROFILE_ID,
   ENCODER_MODULE_FOOTPRINT_MM,
-  INMP441_FOOTPRINT_MM,
+  MIC_FALLBACK_FOOTPRINT_MM,
   isHardwareManagedSignalNodeType,
   ledPitchMm,
   MAX98357A_FOOTPRINT_MM,
@@ -345,7 +345,7 @@ const MIC_INPUT_PARTS: readonly InputPartEntry[] = MIC_MODULES.map((module, inde
   hint: module.summary,
   // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
   // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
-  footprint: partDimensionsMm(module.partId, INMP441_FOOTPRINT_MM),
+  footprint: partDimensionsMm(module.partId, MIC_FALLBACK_FOOTPRINT_MM),
   signalPort: 'audio',
   pinRequests: [],
   pinFields: MIC_PIN_KEYS.map((key) => ({

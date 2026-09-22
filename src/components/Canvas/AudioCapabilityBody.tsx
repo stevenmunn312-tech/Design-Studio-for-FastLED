@@ -11,9 +11,9 @@ import { useNodeDefaults } from '../../state/nodeDefaults'
 import { useUploadStore } from '../../state/uploadStore'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import {
-  inmp441SupportedForBoardProfile,
-  INMP441_NO_BOARD_MESSAGE,
-  INMP441_UNSUPPORTED_MESSAGE,
+  micSupportedForBoardProfile,
+  MIC_NO_BOARD_MESSAGE,
+  micUnsupportedMessage,
 } from '../../state/micPinDefaults'
 import styles from './AudioCapabilityBody.module.css'
 
@@ -42,10 +42,10 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
     ? partRenderForNodeType('MicInput', selectedProperties ?? {})
     : null
   const boardProfile = selectedMic ? selectedPhysicalBoardProfile(rootNodes) : undefined
-  const micUnavailable = Boolean(selectedMic && !inmp441SupportedForBoardProfile(boardProfile))
+  const micUnavailable = Boolean(selectedMic && !micSupportedForBoardProfile(boardProfile))
   const micUnavailableMessage = boardProfile
-    ? INMP441_UNSUPPORTED_MESSAGE
-    : INMP441_NO_BOARD_MESSAGE
+    ? micUnsupportedMessage(selectedProperties?.partId)
+    : MIC_NO_BOARD_MESSAGE
   const storedGain = Number(selectedProperties?.gain ?? 1)
   const gain = Number.isFinite(storedGain)
     ? Math.max(0, Math.min(MIC_MAX_GAIN, storedGain))

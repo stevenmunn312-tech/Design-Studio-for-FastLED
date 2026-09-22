@@ -59,7 +59,7 @@ import { integratedPinsFor } from '../state/integratedBoardHardware'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { recommendedSupplyCurrentMa } from '../build/powerSupplySizing'
 import { pinWarningForCapability } from '../state/boardGpio'
-import { inmp441SupportedForBoard, INMP441_UNSUPPORTED_MESSAGE } from '../state/micPinDefaults'
+import { micSupportedForBoard, micUnsupportedMessage } from '../state/micPinDefaults'
 import { controllerSettings } from '../state/controllerSettings'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../state/pinRetarget'
@@ -1299,8 +1299,14 @@ export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNod
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
   const errors: string[] = []
-  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'MicInput') && !inmp441SupportedForBoard(selectedFqbn)) {
-    errors.push(INMP441_UNSUPPORTED_MESSAGE)
+  if (selectedFqbn && !micSupportedForBoard(selectedFqbn)) {
+    // One message per module on the graph, not per node: the board refuses
+    // them all for the same reason, and naming the module is what tells a
+    // reader the fault is the board rather than the microphone they wired.
+    const refused = new Set(nodes
+      .filter((node) => node.data.nodeType === 'MicInput')
+      .map((node) => micUnsupportedMessage((node.data.properties as Record<string, unknown>).partId)))
+    errors.push(...refused)
   }
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'LineInput') && !selectedFqbn.startsWith('esp32:esp32:esp32s3')) {
     errors.push('PCM1802 line-in firmware currently requires an ESP32-S3 board so Studio can generate its synchronized MCLK/BCLK/LRCLK receive path')
@@ -2925,13 +2931,13 @@ export function buildGraphDiagnostics(
     })
   }
 
-  if (options.selectedFqbn && !inmp441SupportedForBoard(options.selectedFqbn)) {
+  if (options.selectedFqbn && !micSupportedForBoard(options.selectedFqbn)) {
     for (const node of nodes.filter((entry) => entry.data.nodeType === 'MicInput')) {
       diagnostics.push({
         id: `${node.id}-board`, severity: 'error', category: 'board',
         title: 'Microphone is incompatible with the selected board',
-        message: INMP441_UNSUPPORTED_MESSAGE,
-        fix: 'Choose a board with INMP441 support in Board & Port, or remove the Microphone node.',
+        message: micUnsupportedMessage((node.data.properties as Record<string, unknown>).partId),
+        fix: 'Choose a board with I2S microphone support in Board & Port, or remove the Microphone node.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }

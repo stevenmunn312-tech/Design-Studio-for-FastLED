@@ -11,9 +11,9 @@ import { useShowPlayback } from '../../state/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import {
-  inmp441SupportedForBoardProfile,
-  INMP441_NO_BOARD_MESSAGE,
-  INMP441_UNSUPPORTED_MESSAGE,
+  micSupportedForBoardProfile,
+  MIC_NO_BOARD_MESSAGE,
+  micUnsupportedMessage,
 } from '../../state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
@@ -146,11 +146,13 @@ export default function MenuBar() {
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const audioInputType = useGraphStore((s) => graphAudioCapabilitySource(rootGraphNodes(s))?.node.data.nodeType)
+  const audioInputPartId = useGraphStore((s) => (graphAudioCapabilitySource(rootGraphNodes(s))
+    ?.node.data.properties as Record<string, unknown> | undefined)?.partId)
   const audioSourceKind = useGraphStore((s) => graphAudioCapabilityKind(rootGraphNodes(s)))
   const hasMicNode = audioInputType === 'MicInput'
   const hasLineInputNode = audioInputType === 'LineInput'
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
-  const micSupported = inmp441SupportedForBoardProfile(selectedBoardProfile)
+  const micSupported = micSupportedForBoardProfile(selectedBoardProfile)
   const lineInputSupported = selectedBoardProfile?.compatibleFqbns
     .some((fqbn) => fqbn.startsWith('esp32:esp32:esp32s3')) === true
   const micActive = useAudioStore((s) => s.micActive)
@@ -162,11 +164,11 @@ export default function MenuBar() {
     : !hasMicNode && !hasLineInputNode
     ? 'Add a microphone in the Hardware bench below to enable'
     : !selectedBoardProfile
-      ? INMP441_NO_BOARD_MESSAGE
+      ? MIC_NO_BOARD_MESSAGE
       : hasLineInputNode && !lineInputSupported
         ? 'PCM1802 line-in preview requires an ESP32-S3 board.'
         : hasMicNode && !micSupported
-          ? INMP441_UNSUPPORTED_MESSAGE
+          ? micUnsupportedMessage(audioInputPartId)
           : null
   const effectiveMicActive = micActive && micUnavailableMessage === null
   const deckOpen = usePerformanceDeckSession((s) => s.deckOpen)

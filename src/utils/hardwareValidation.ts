@@ -5,6 +5,7 @@ import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
 import { controllerSettings } from '../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
+import { micModuleFor, MIC_MODULES } from '../state/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/ledOutputForm'
 
 export type HardwareValidationAction =
@@ -293,7 +294,8 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   if (!isLinearForm(form) && layout === 'custom') features.push('Custom XY map')
   if (matrixProps.usePsram === true) features.push(`PSRAM (${String(matrixProps.psramMode ?? 'default')})`)
   if (!isLinearForm(form) && matrixProps.supersample === true) features.push('2× supersampling')
-  if (nodes.some((node) => nodeType(node) === 'MicInput')) features.push('INMP441/on-device microphone')
+  const micNode = nodes.find((node) => nodeType(node) === 'MicInput')
+  if (micNode) features.push(micFeatureLabel((micNode.data.properties as Record<string, unknown>).partId))
   if (nodes.some((node) => nodeType(node) === 'LineInput')) features.push('PCM1802/on-device line input')
 
   if (master) {
@@ -379,6 +381,18 @@ const RECORDED_HARDWARE_TARGETS: RecordedHardwareTarget[] = [
   },
 ]
 
+/**
+ * The bench feature one microphone module stands for.
+ *
+ * Keyed by module rather than by "a microphone is present", because the
+ * recorded rows are per module: an INMP441 run is evidence about an INMP441.
+ * Matching an ICS-43434 graph against it would claim a validation nobody made,
+ * which is the one thing this file exists to refuse.
+ */
+export function micFeatureLabel(partId: unknown): string {
+  return `${micModuleFor(partId).label}/on-device microphone`
+}
+
 function matchingRecordedTargets(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): RecordedHardwareTarget[] {
   const m = profile.matrix
   return RECORDED_HARDWARE_TARGETS.filter((record) =>
@@ -426,6 +440,21 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     ['SD show provisioning/player', 'SD provisioning, file transfer, player flashing, playback, and sync are awaiting a full hardware record.'],
     ['PCM1802/on-device line input', 'PCM1802 capture compiles for ESP32-S3 but still needs a dated end-to-end hardware record.'],
   ])
+  /*
+   * Any microphone module with no recorded row anywhere is a gap.
+   *
+   * Derived from the two lists rather than named here, so adding a module to
+   * `MIC_MODULES` files it as experimental on its own and recording a bench
+   * row for it retires that gap — neither needs this map edited. A module the
+   * recorded rows *do* cover is left out, so the ordinary recorded-feature
+   * check below decides it per target as before.
+   */
+  const recordedAnywhere = new Set(RECORDED_HARDWARE_TARGETS.flatMap((record) => record.features ?? []))
+  for (const module of MIC_MODULES) {
+    const feature = micFeatureLabel(module.partId)
+    if (recordedAnywhere.has(feature)) continue
+    advanced.set(feature, `${module.label} capture is offered but has no dated hardware record on any target.`)
+  }
   const recordedFeatures = new Set(recordedTargets.flatMap((record) => record.features ?? []))
   for (const feature of profile.features) {
     if (recordedFeatures.has(feature)) continue
@@ -450,7 +479,7 @@ function makeChecks(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>)
     { id: 'reconnect', label: 'Reconnect/re-upload', detail: 'The board could be disconnected/reconnected and flashed again.' },
   ]
   if (profile.matrix.powerLimit) checks.push({ id: 'power-cap', label: 'Power cap', detail: 'The configured voltage/current cap visibly limited output as expected.' })
-  if (profile.features.includes('INMP441/on-device microphone')) checks.push({ id: 'microphone', label: 'Microphone input', detail: 'Live audio drove the expected FFT/beat behavior on-device.' })
+  if (profile.features.some((feature) => feature.endsWith('/on-device microphone'))) checks.push({ id: 'microphone', label: 'Microphone input', detail: 'Live audio drove the expected FFT/beat behavior on-device.' })
   if (profile.features.includes('PCM1802/on-device line input')) checks.push({ id: 'line-input', label: 'PCM1802 line input', detail: 'Left, right, and stereo source material drove the expected FFT/beat behavior on-device without clipping or channel inversion.' })
   if (profile.action === 'wiring-test') {
     const foldedHub75 = profile.matrix.chipset === 'HUB75'

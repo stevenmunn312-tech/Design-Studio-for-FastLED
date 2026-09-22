@@ -16,7 +16,7 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { useHardwareInputStore } from '../../../state/hardwareInputStore'
 import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
-import { INMP441_NO_BOARD_MESSAGE, INMP441_UNSUPPORTED_MESSAGE } from '../../../state/micPinDefaults'
+import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../state/micPinDefaults'
 
 // React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
 // node-body tests can also assert the absolute port geometry.
@@ -817,17 +817,33 @@ describe('StudioNode', () => {
     expect(useNodeDefaults.getState().micOverridesByFqbn['esp32:esp32:esp32s3']?.i2sWs).toBe(5)
   })
 
-  it('disables an INMP441 node and shows the board message on an incompatible board', () => {
+  it('disables a microphone node and shows the board message on an incompatible board', () => {
     useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
     const mic = renderNode(makeNode('MicInput', {
       gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
     }))
 
-    expect(mic.getByText(INMP441_UNSUPPORTED_MESSAGE)).toBeTruthy()
+    expect(mic.getByText(micUnsupportedMessage(undefined))).toBeTruthy()
+    expect(mic.getByText(/INMP441 microphone does not work/)).toBeTruthy()
     expect(Array.from(mic.container.querySelectorAll('input, select')).every((control) => (
       (control as HTMLInputElement | HTMLSelectElement).disabled
     ))).toBe(true)
     expect(mic.container.querySelector('[data-handle="source:audio"]')?.getAttribute('aria-disabled')).toBe('true')
+  })
+
+  // The board is what refuses, so the banner has to name the module the node
+  // actually carries. A fixed "the inmp441 microphone..." was right while the
+  // app offered one module and sends the owner of either other module looking
+  // at their wiring instead of their board.
+  it('names the module the node carries in the board message', () => {
+    useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
+    const mic = renderNode(makeNode('MicInput', {
+      gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
+      partId: 'ics-43434-i2s-microphone',
+    }))
+
+    expect(mic.getByText(/ICS-43434 microphone does not work/)).toBeTruthy()
+    expect(mic.queryByText(/INMP441/)).toBeNull()
   })
 
   it('disables an INMP441 node and says when no board is selected', () => {
@@ -835,7 +851,7 @@ describe('StudioNode', () => {
       gain: 1, i2sWs: 39, i2sSck: 40, i2sSd: 41, channel: 'Left', serialDebug: false,
     }), { board: false })
 
-    expect(mic.getByText(INMP441_NO_BOARD_MESSAGE)).toBeTruthy()
+    expect(mic.getByText(MIC_NO_BOARD_MESSAGE)).toBeTruthy()
     expect(Array.from(mic.container.querySelectorAll('input, select')).every((control) => (
       (control as HTMLInputElement | HTMLSelectElement).disabled
     ))).toBe(true)
