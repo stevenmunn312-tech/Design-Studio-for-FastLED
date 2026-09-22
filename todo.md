@@ -882,7 +882,7 @@ matrix, not a reason to postpone testing earlier changes.
   BMS and 100 W charge/discharge control, already built and running. That matters
   most for D-05's second and third classes, which this gates. Exit:
   audit/corrections recorded against `build-diagram-handoff.md`.
-- [ ] **HW-15 · Helper workarounds (M).** Recheck fbuild repeat/no-op latency and
+- [x] **HW-15 · Helper workarounds (M).** Recheck fbuild repeat/no-op latency and
   remaining workarounds against a deliberately selected version; keep reproductions
   and remove workarounds only with regression evidence. Follow the fbuild report;
   Arduino CLI remains the documented recommended ESP32 path. No automatic
@@ -894,9 +894,26 @@ matrix, not a reason to postpone testing earlier changes.
   end through the helper, versus 181.5s on 2.5.21. The current twelve-fixture
   matrix also re-exercised optional-library staging and the Windows LVGL archive
   recovery; the disabled-panel build hit `os error 206`, re-archived through the
-  validated response file in 1.2s and then passed. The remaining lock, hard
-  overflow, unsupported-deploy, eager-local-library and over-capacity probes stay
-  open; none is removed merely because ordinary builds passed.
+  validated response file in 1.2s and then passed.
+
+  **Closed 2026-09-22 against the deliberately pinned 2.5.22.** All four
+  version-dependent probes still reproduce. ESP8266 deploy reports `not yet
+  implemented`; an AVR sketch that never includes ZeroDMA still compiles and
+  fails in that cached local library; a 400 KiB ESP32-S3 `.bss` overflow prints
+  no native size summary; and an Arduino Uno image at 132.1% flash / 2051.2%
+  RAM still links, emits artifacts and reports success. The helper's existing
+  fallbacks caught each case: unused libraries were hidden, hard-overflow bytes
+  were reconstructed from the board budget and linker region, and a false
+  capacity success became `[size-error]` before deploy.
+
+  The build lock is retained for an architectural reason rather than a version
+  quirk: every request writes the same `src/main.ino` before fbuild reads it, so
+  no upstream daemon change can make concurrent helper writes safe without
+  per-request source/project isolation. Together with the current matrix's
+  response-file recovery and the strict no-op measurement above, every surviving
+  workaround now has current evidence in the
+  [fbuild report](docs/development/reports/fbuild-workarounds.md). No workaround
+  was removed, no dependency was upgraded, and no hardware support claim changed.
 
 ## 4. Close release readiness
 

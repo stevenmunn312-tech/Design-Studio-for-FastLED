@@ -38,15 +38,15 @@ an internal record.
 |---|-------|-------------------|----------------|---------------|
 | 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | **Fixed in 2.5.21 — vendoring kept for FastLED alone, see below** |
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
-| 3 | Shared scaffold corrupts under concurrent builds | 2.4.0 | External process-wide lock | Likely (design-level) |
+| 3 | Shared scaffold corrupts under concurrent builds | Architecture, rechecked with 2.5.22 | External process-wide lock | Yes — the helper writes one shared source before invoking fbuild |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
-| 5 | No size summary on hard linker overflow | **2.5.21** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-03 |
+| 5 | No size summary on hard linker overflow | **2.5.22** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-22 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
-| 7 | `deploy` unimplemented for some compilable platforms | **2.5.21** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-03 |
+| 7 | `deploy` unimplemented for some compilable platforms | **2.5.22** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-22 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.22, see below** |
-| 10 | Every directory in `lib/` is compiled, used or not | **2.5.21** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410) |
-| 11 | A build over the board's limits reports success | **2.5.21** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409) |
+| 10 | Every directory in `lib/` is compiled, used or not | **2.5.22** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410), re-confirmed 2026-09-22 |
+| 11 | A build over the board's limits reports success | **2.5.22** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409), re-confirmed 2026-09-22 |
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.22** | Re-archive with a response file, then continue | Yes — not yet reported |
 
 ---
@@ -157,6 +157,15 @@ queueing every later request forever with no output.
 hash) or a documented statement that concurrent invocations against one project are
 unsupported. Right now it's silently unsafe.
 
+**Still required with 2.5.22, by construction (2026-09-22).** This is not a
+release-note question: the helper writes each request's generated program to the
+same `.fbuild-project/src/main.ino` *before* it invokes fbuild. Without the lock,
+request B can replace that file between request A's write and its compiler read,
+regardless of whether fbuild serialises its own daemon work. Removing the lock
+therefore needs per-request source/project isolation in the helper, not merely a
+newer fbuild. The token, stale-holder and progress-touch tests continue to hold
+the bounded serialisation contract.
+
 ---
 
 ## 4. A no-op incremental build prints no size report
@@ -243,6 +252,13 @@ _fbuild_overflow_estimate  -> ram 464440 / 327680 bytes = 142%
 327,680 (the `Memory:` budget) + 136,760 (ld's overflow) = 464,440. So the user is told
 "142% of RAM" rather than "build failed", which is the whole point of the workaround.
 
+**Re-confirmed on 2.5.22 (2026-09-22).** The same 400 KiB `.bss` probe on the
+ESP32-S3 failed after 4m 17s. fbuild printed `Memory: 8.00MB Flash, 320.00KB
+RAM` and `region dram0_0_seg overflowed by 134008 bytes`, but no `Flash:` or
+`RAM:` size summary. The helper classified the region as RAM, named the exact
+134,008-byte overage and emitted `[size-error]`; the two raw inputs still support
+the byte estimate (327,680 + 134,008 = 461,688 bytes, 141%).
+
 ---
 
 ## 6. Successful ESP32 builds report an impossible RAM percentage
@@ -280,8 +296,10 @@ problem is fixed* when RAM had merely stopped being measurable.
 
 ## 7. `deploy` is unimplemented for platforms fbuild can compile
 
-**Confirmed on 2.5.4** — a historical confirmation that still needs a focused
-2.5.21 re-test before an upstream report.
+**Re-confirmed on 2.5.22 (2026-09-22).** A non-destructive deploy against
+`COM255` reached the platform dispatcher and failed with exactly `deployer for
+Espressif8266 not yet implemented`. No board was opened and no build was needed;
+the helper's `[engine-gap]` guidance remains necessary.
 
 **Symptom.** `fbuild deploy` fails with `not yet implemented` for Espressif8266, which
 fbuild compiles successfully.
@@ -585,6 +603,12 @@ lib/Adafruit_ZeroDMA/Adafruit_ZeroDMA.cpp:30:10: fatal error: malloc.h: No such 
 Nothing in that sketch includes `Adafruit_ZeroDMA`. It is a SAMD51 library being compiled
 for an ATmega328P because it happens to sit in `lib/`.
 
+**Re-confirmed on 2.5.22 (2026-09-22).** With all cached optional libraries left
+in the real helper scaffold, a plain Arduino Uno FastLED sketch compiled FastLED
+and then failed in the unrelated `Adafruit_ZeroDMA.cpp` on its SAMD-only
+`malloc.h` include. The sketch did not name ZeroDMA. Hiding unrequested local
+libraries for each run is still required.
+
 **Impact.** Hardware-specific libraries contaminate unrelated targets: one cached ESP32
 or SAMD library makes every other board's build fail.
 
@@ -614,6 +638,12 @@ build succeeded in 1.2s (flash: 43662 bytes, ram: 42184 bytes)
 ```
 
 Exit code 0. The sketch is fourteen static arrays; nothing exotic.
+
+**Re-confirmed on 2.5.22 (2026-09-22).** Fourteen initialised 3,000-byte arrays
+again linked and produced both `.elf` and `.hex`. fbuild reported success at
+42,606 bytes flash (132.1%) and 42,009 bytes RAM (2051.2%). The helper then
+converted that false success to `[size-error]`, returned a compile failure and
+never reached the supplied upload port.
 
 **Impact.** This is the one that could put bad firmware on a board. The upload path
 treats a successful compile as proof the design fits — arduino-cli earns that by
