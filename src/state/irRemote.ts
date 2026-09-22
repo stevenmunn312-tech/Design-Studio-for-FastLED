@@ -62,6 +62,10 @@ export const MAX_IR_REMOTE_BUTTONS = 32
 export const IR_REMOTE_ID_LENGTH = 48
 export const IR_REMOTE_LABEL_LENGTH = 64
 export const IR_REMOTE_REPEAT_HOLD_MS = 250
+/** Browser hold simulation cadence. Real firmware gets naturally separated
+ * decoder frames; preview must leave false passes between them so downstream
+ * rising-edge nodes such as Step Value see each held repeat as a new event. */
+export const IR_REMOTE_PREVIEW_REPEAT_MS = 100
 const UINT32_MAX = 0xffff_ffff
 
 const protocolByKey = new Map(
@@ -336,7 +340,9 @@ export function stepIrRemotePreview(
       active.add(button.id)
       continue
     }
-    const reduced = reduceIrRemoteFrame(repeat, buttons, was
+    const repeatFrame = was && nowMs >= repeat.lastFrameAtMs
+    if (repeatFrame && nowMs - repeat.lastFrameAtMs < IR_REMOTE_PREVIEW_REPEAT_MS) continue
+    const reduced = reduceIrRemoteFrame(repeat, buttons, repeatFrame
       ? { repeat: true }
       : { protocol: button.protocol, address: button.address, command: button.command, repeat: false }, nowMs)
     repeat = reduced.state

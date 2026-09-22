@@ -1452,10 +1452,28 @@ matrix, not a reason to postpone testing earlier changes.
     `deployGates.test.ts` cases. The gate tests assert exact agreement with
     `validateGraph` plus an error diagnostic carrying node ids and a concrete
     fix. `npm test` (5,645), `npm run lint`, and `tsc -b` pass.
-  - [ ] **11. Prove the property workflows.** Add end-to-end tests for Power →
-    Trigger/Toggle → LED-output Enabled and Brightness Up/Down → Step Value →
-    an exposed numeric property, including repeat, bounds, save/reload,
-    undo/redo and preview/firmware parity in normal/show/player modes.
+  - [x] **11. Prove the property workflows.** Done 2026-09-23. One realistic
+    graph wires Power → Trigger/Toggle → LED-output Enabled and Brightness
+    Up/Down/Reset → Step Value → the output's exposed Brightness property.
+    Preview assertions exercise the once key, held repeats, the false pass
+    between repeat pulses, both bounds, reset, and the second Power press.
+
+    That false pass fixed the integration fault the workflow exposed:
+    `stepIrRemotePreview` previously returned `true` on every preview frame
+    while a held key was down, so Step Value's intentional rising-edge reducer
+    advanced only once. The simulator now emits held frames at a 100 ms cadence
+    with idle passes between them, matching the naturally separated decoder
+    frames firmware receives.
+
+    Rename → undo → redo → JSON save/reload keeps the stable `button-up`
+    handle and all four mapping ids. The same IR → Trigger/Step Value program
+    is asserted in normal, slideshow, and SD/player firmware. The player uses
+    Control Map for LED Toggle/Brightness because its generator deliberately
+    rejects controls wired straight to the LED output; the graph makes that
+    route explicit rather than weakening the player gate.
+
+    Evidence: `irRemoteWorkflow.test.ts` and the repeat-spacing assertion in
+    `irRemote.test.ts`. `npm test` (5,650), `npm run lint`, and `tsc -b` pass.
   - [ ] **12. Complete documentation and catalogue upkeep.** Add node/property
     descriptions, Help live examples, README inventory/count, generated node
     cards, Hardware workbench guidance, dependency/export notes and Graph

@@ -9,10 +9,11 @@ registration, the two bench parts, and browser press/hold plus key editing are
 implemented, including the diagnostic learn workflow, the pinned
 Arduino-IRremote 4.7.1 dependency, project-sketch polling in the normal,
 slideshow, and SD/performance-player generators, and shared deploy/Graph Health
-validation. End-to-end workflow, compile, and hardware evidence remain. Keep
-the feature experimental until a generated sketch has been compiled on every
-claimed board family and the receiver, repeat handling and LED timing have been
-exercised on hardware.
+validation. The end-to-end Power/brightness property workflow is covered in
+preview and all three firmware paths. Compile and hardware evidence remain.
+Keep the feature experimental until a generated sketch has been compiled on
+every claimed board family and the receiver, repeat handling and LED timing
+have been exercised on hardware.
 
 ## Goal
 
@@ -221,6 +222,14 @@ minimum end-to-end workflow is:
 4. save, reload and undo/redo without changing port identities;
 5. verify browser simulation and generated firmware produce the same steps,
    bounds, wrapping and repeat behavior in normal, show and player builds.
+
+`src/state/__tests__/irRemoteWorkflow.test.ts` holds this workflow as one graph.
+The SD/player variant routes LED Toggle and continuous Brightness through
+Control Map into Music Player, because that generator deliberately rejects
+runtime controls wired straight to the LED output. Browser-held keys emit
+repeat pulses at a 100 ms simulation cadence with false passes between them;
+those idle passes are what let Step Value's rising-edge contract observe every
+repeat just as it does between physical decoder frames.
 
 Hardware completion requires a support-matrix/bench record with the exact
 receiver, remote, board, FQBN, GPIO, library version and toolchain. Exercise

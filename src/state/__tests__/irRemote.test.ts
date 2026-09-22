@@ -122,6 +122,7 @@ describe('IR remote mapping primitives', () => {
 
     down.add('brighter')
     expect([...step(2000)]).toEqual(['brighter'])
+    expect([...step(2050)], 'repeat frames stay separated by a false preview pass').toEqual([])
     expect([...step(2100)]).toEqual(['brighter'])
   })
 
