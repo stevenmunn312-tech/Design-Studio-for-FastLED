@@ -281,6 +281,35 @@ describe('BoardNodeBody', () => {
     expect(screen.getByText(/Pin advice stays chip-level/)).toBeTruthy()
   })
 
+  /*
+   * The switch three generators read had no control anywhere: grouped property
+   * controls draw on the canvas node, and Board is hidden there, so the Bench
+   * group PROPERTY_GROUPS.Board declares never rendered. The Upload tab's
+   * telemetry card and the Touch calibration wizard both instruct the user to
+   * turn this on, which is what made its absence a dead end rather than a gap.
+   */
+  it('offers the telemetry switch and writes it to the Board node', () => {
+    reset([boardNode('b1', 'esp32-generic-devkit-38pin')])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    const toggle = screen.getByLabelText('Report telemetry') as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    fireEvent.click(toggle)
+    const board = useGraphStore.getState().nodes.find((node) => node.id === 'b1')
+    expect(board?.data.properties.reportTelemetry).toBe(true)
+  })
+
+  // Gated on exactly what the generator gates emission on, so the switch can
+  // never promise Serial output an AVR build has no printf to produce.
+  it('says so instead on a board that cannot report', () => {
+    useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno', selectedPort: '', ports: [] } as never)
+    reset([boardNode('b1', 'arduino-uno-r3-dip')])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    expect(screen.queryByLabelText('Report telemetry')).toBeNull()
+    expect(screen.getByText(/Telemetry needs an ESP32 or ESP8266 target/)).toBeTruthy()
+  })
+
   it('flags a second Board node rather than silently picking one', () => {
     reset([boardNode('b1'), boardNode('b2')])
     render(<BoardNodeBody nodeId="b1" />)

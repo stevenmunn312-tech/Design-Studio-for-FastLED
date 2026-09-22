@@ -28,6 +28,8 @@ import {
 import CodeViewPopup from './CodeViewPopup'
 import HardwareValidationPopup from './HardwareValidationPopup'
 import OutputConsole from './OutputConsole'
+import DeviceTelemetryCard from './DeviceTelemetryCard'
+import { useDeviceTelemetryStore } from '../../state/deviceTelemetryStore'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
@@ -70,6 +72,7 @@ export default function MatrixOutputDeployPopup({
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
   const nodes = useRootNodes()
+  const telemetryRun = useDeviceTelemetryStore((state) => state.run)
   const edges = useRootEdges()
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
@@ -515,6 +518,16 @@ export default function MatrixOutputDeployPopup({
     : status.phase === 'error' ? '✗ Error'
     : status.message
 
+  /*
+   * The bench instrument appears when it was asked for, and stays while it has
+   * something to say. Keyed on the Board's own property rather than on the
+   * serial connection, so it is visible *before* the upload that makes it
+   * report — and kept visible while a run exists, so turning the property off
+   * mid-soak cannot take the evidence off screen with it.
+   */
+  const telemetryAsked = useMemo(() => nodes.some((node) => node.data.nodeType === 'Board'
+    && node.data.properties?.reportTelemetry === true), [nodes])
+  const showTelemetry = telemetryAsked || telemetryRun !== null
 
   const controls = (
     <div className={styles.deployControls}>
@@ -896,10 +909,20 @@ export default function MatrixOutputDeployPopup({
     </>
   )
 
+  /* The card reads the console's one serial connection, so it travels with the
+     console rather than with `controls` — the docked branch below renders the
+     console alone, and the card has to follow it there too. */
+  const consolePane = (
+    <>
+      <OutputConsole embedded />
+      {showTelemetry && <DeviceTelemetryCard />}
+    </>
+  )
+
   const body = (
     <div className={styles.deployWorkbench}>
       {controls}
-      <OutputConsole embedded />
+      {consolePane}
     </div>
   )
 
@@ -915,7 +938,7 @@ export default function MatrixOutputDeployPopup({
           className={styles.inlineDeploy}
           style={{ marginLeft: leftInset, marginRight: rightInset }}
         >
-          {docked ? <OutputConsole embedded /> : body}
+          {docked ? consolePane : body}
           {modals}
         </div>
       </>

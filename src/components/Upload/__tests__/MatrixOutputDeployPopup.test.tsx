@@ -297,6 +297,57 @@ describe('MatrixOutputDeployPopup', () => {
     expect(workbench?.contains(getByText('Deploy to hardware'))).toBe(true)
   })
 
+  /*
+   * The bench instrument, and the one place it can go missing.
+   *
+   * HW-11's four runs and its hour-long soak read this card and nothing else,
+   * and the card was unmounted once already when telemetry stopped being a
+   * user-facing feature. The docked branch is the hazard: it renders the
+   * console alone rather than the whole workbench, so a card attached to the
+   * workbench body would simply not exist on the Upload tab — which is the
+   * only place anyone would look for it.
+   */
+  describe('the device telemetry card', () => {
+    const askForTelemetry = () => {
+      useGraphStore.setState({
+        nodes: [...useGraphStore.getState().nodes, {
+          id: 'board', type: 'studioNode', position: { x: 0, y: 0 },
+          data: {
+            label: 'Board', nodeType: 'Board', category: 'output',
+            properties: { profileId: 'esp32-generic-devkit-38pin', reportTelemetry: true },
+            inputs: [], outputs: [],
+          },
+        }] as never[],
+      })
+    }
+
+    it('stays out of the way until the Board asks for it', () => {
+      const { queryByText } = render(<MatrixOutputDeployPopup inline />)
+      expect(queryByText('Device telemetry')).toBeNull()
+    })
+
+    it('appears once the Board property is on, before any upload', () => {
+      askForTelemetry()
+      const { getByText } = render(<MatrixOutputDeployPopup inline />)
+      expect(getByText('Device telemetry')).toBeTruthy()
+    })
+
+    it('follows the console into the docked layout rather than the controls', () => {
+      askForTelemetry()
+      const host = document.createElement('div')
+      document.body.appendChild(host)
+
+      const { getByText } = render(<MatrixOutputDeployPopup inline controlsHost={host} />)
+
+      const card = getByText('Device telemetry')
+      expect(card).toBeTruthy()
+      // Beside the console, not portaled into the sidebar with the controls.
+      expect(host.contains(card)).toBe(false)
+
+      host.remove()
+    })
+  })
+
   it('shows normal upload tools for a display-only build', () => {
     setDisplayOnlyGraph()
 

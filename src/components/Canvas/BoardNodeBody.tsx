@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
+import { propertyDescription } from '../../state/nodeLibrary'
+import { boardSupportsTelemetry } from '../../codegen/deviceTelemetryCpp'
 import { serialRouteSummary } from '../../state/serialRouting'
 import { estimatePowerLoad } from '../../utils/validateGraph'
 import BoardPinoutPicker from './BoardPinoutPicker'
@@ -47,6 +49,20 @@ export default function BoardNodeBody({ nodeId }: Props) {
     return typeof props?.profileId === 'string' ? props.profileId : ''
   }, [graphNodes, nodeId])
 
+  /*
+   * Read straight off the node rather than through `controllerSettings`.
+   *
+   * That type is durable controller *policy* — settings the firmware can only
+   * apply once, which travel with the project. Telemetry is the opposite: an
+   * instrument switched on for one measuring session and off again, which is
+   * what the property's own description already says.
+   */
+  const reportTelemetry = useMemo(() => {
+    const node = graphNodes.find((n) => n.id === nodeId)
+    const props = node?.data.properties as Record<string, unknown> | undefined
+    return props?.reportTelemetry === true
+  }, [graphNodes, nodeId])
+
   // One board per sketch is a fact of codegen, not a preference — a second
   // Board node has no meaning, so say so rather than silently letting one win.
   const boardNodeCount = useMemo(
@@ -59,6 +75,9 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const psramOptions = boardTarget?.psram
   const psramSupported = !!psramOptions || !!profile?.psramMode
   const hasUsbCdc = boardHasUsbCdc(selectedFqbn)
+  // The same question the generator asks before emitting any of it, so the
+  // switch below cannot offer output the build would not produce.
+  const telemetrySupported = boardSupportsTelemetry(profile?.targetFamilies)
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
   const power = useMemo(() => estimatePowerLoad(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
@@ -288,6 +307,40 @@ export default function BoardNodeBody({ nodeId }: Props) {
             </label>
           </div>
         )}
+
+        {/*
+          * The Bench group `PROPERTY_GROUPS.Board` has always declared, finally
+          * given somewhere to draw. Grouped property controls render on the
+          * canvas node, and Board is hidden there, so the one switch three
+          * generators read has no control anywhere unless it is hand-added
+          * here — while the Upload tab's telemetry card tells you to turn it
+          * on.
+          *
+          * Restored for HW-11. It was removed once, correctly, when touch
+          * calibration stopped needing it: the wizard flashes its own
+          * measuring sketch now, so nothing a *user* does requires knowing the
+          * word. But the display-budget bench does — four runs and an hour's
+          * soak read this switch and nothing else — and an instrument that
+          * cannot be switched on is not an instrument. It stays a bench
+          * control: off by default, and the note below says to leave it off.
+          */}
+        <div className={styles.psramBlock}>
+          {telemetrySupported ? (
+            <label className={styles.checkField} title={propertyDescription('Board', 'reportTelemetry')}>
+              <input type="checkbox" checked={reportTelemetry} aria-label="Report telemetry"
+                onChange={(event) => updateNodeProperty(nodeId, 'reportTelemetry', event.target.checked)} />
+              <span>Report telemetry</span>
+            </label>
+          ) : (
+            <p className={styles.pending}>Telemetry needs an ESP32 or ESP8266 target.</p>
+          )}
+          <small className={styles.benchNote}>
+            A bench instrument: prints heap, frame rate, touch response and the
+            draw buffer to Serial, for the Upload tab’s telemetry card. Upload
+            after changing it, and leave it off for a finished build. Touch
+            calibration does not need it — that wizard flashes its own sketch.
+          </small>
+        </div>
       </div>
 
       {boardNodeCount > 1 && (

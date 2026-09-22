@@ -221,3 +221,11 @@
 }
 
 .psramBlock { display: grid; gap: 7px; }
+
+/* The line under a switch that needs an upload before it means anything. */
+.benchNote {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+  opacity: 0.85;
+}

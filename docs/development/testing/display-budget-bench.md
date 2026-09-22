@@ -5,22 +5,23 @@
 > below, not before them — a budget invented at a desk is a number that gets
 > argued with rather than measured against.
 
-The software half is built: a Board property makes the firmware report itself,
-and a card reads those reports. Neither is currently reachable from the UI (see
-below). What remains is a rig, four runs and an hour.
+The software half is built and reachable: a Board property makes the firmware
+report itself, and a card in the Upload tab reads those reports. What remains is
+a rig, four runs and an hour.
 
 ## What the device reports
 
-> **Currently not reachable from the UI.** `reportTelemetry` is still a Board
-> property and all three generators still honour it, but the control that set
-> it and the Upload tab's telemetry card were both removed: telemetry existed
-> for touch calibration, which now flashes its own measuring sketch and needs
-> no user-facing switch. `DeviceTelemetryCard.tsx` is kept for this bench —
-> running HW-11 means mounting it again and setting the property, either from
-> a restored control or in a saved workspace.
+**Report telemetry** is a checkbox in the Hardware tab's board settings, below
+the PSRAM controls. It is off by default and belongs off in a finished build —
+it is an instrument, not a feature. It appears only on an ESP32 or ESP8266
+target, which is the same question the generator asks before emitting any of
+it, so the switch cannot offer output the build would not produce. Changing it
+needs an upload before it means anything.
 
-With `reportTelemetry` set on the Board node, every two seconds the sketch
-prints one line:
+Touch calibration does **not** need it: that wizard flashes its own measuring
+sketch. This switch exists for the four runs below.
+
+With it set on the Board node, every two seconds the sketch prints one line:
 
 ```
 FLS_STAT uptime=3600 heap=142112 minheap=138904 fps=58.9 loopmax=21 psram=4194304 psramtotal=8388608 touchms=12 drawbuf=9600
