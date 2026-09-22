@@ -10,7 +10,11 @@ implemented, including the diagnostic learn workflow, the pinned
 Arduino-IRremote 4.7.1 dependency, project-sketch polling in the normal,
 slideshow, and SD/performance-player generators, and shared deploy/Graph Health
 validation. The end-to-end Power/brightness property workflow is covered in
-preview and all three firmware paths. Compile and hardware evidence remain.
+preview and all three firmware paths. Node reference assets, Help, README,
+[Hardware workbench guidance](../../user/hardware-workbench.md#add-an-ir-remote-receiver),
+dependency/export notes, Graph Health repairs, and the experimental
+[beta-matrix boundary](../../release/beta-support-matrix.md#experimental-until-validated)
+are complete. Compile and hardware evidence remain.
 Keep the feature experimental until a generated sketch has been compiled on
 every claimed board family and the receiver, repeat handling and LED timing
 have been exercised on hardware.

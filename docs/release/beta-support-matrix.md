@@ -438,6 +438,15 @@ Unless a future row says otherwise, treat the following as experimental:
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the
   GPIO2/ADC1 result is suggestive for it, but resemblance is not a pass. See
   [input-peripheral bench records](../development/reports/input-peripheral-bench.md).
+- **IR remote receive on every board, receiver and remote combination.** The
+  current evidence is software and generated-firmware coverage only. The
+  Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's
+  advertised architectures and explicitly blocks ESP32-S3; passing the gate
+  is not a hardware result. Graduation requires a dated row naming the receiver
+  part, remote model/protocol, board/FQBN, signal GPIO and build engine. It must
+  exercise short presses, holds/repeats, alternating and unknown keys, and
+  rapid presses in normal, slideshow and SD/player firmware, including a long
+  clockless LED run while `show()` is active.
 - **Wi-Fi-dependent firmware generally**, including NTP time sync for the RTC
   Clock node — no board has confirmed a real network connection, and neither
   the software clock's drift nor an actual NTP sync has been validated.

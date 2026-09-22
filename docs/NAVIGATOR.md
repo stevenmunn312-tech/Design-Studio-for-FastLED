@@ -13,8 +13,8 @@ build/architecture overview aimed at contributors.
 
 - [Hardware workbench](user/hardware-workbench.md)
   — the current Hardware-branch workflow for choosing a board, adding physical
-    parts, assigning pins, wiring a knob or button to a property or named
-    action (Control Map remains the optional compact bundle),
+    parts, assigning pins, learning an IR remote, wiring a knob or button to a
+    property or named action (Control Map remains the optional compact bundle),
     designing and wiring display widgets, switching LED preview
     routes, deploying firmware, and using the embedded Output/Serial console.
 - [Stereo VU Meter](user/stereo-vu-meter.md)
@@ -154,9 +154,10 @@ build/architecture overview aimed at contributors.
       networking, power conversion and additional controller profiles, plus
       the evidence and safety gates required before any item is supported.
   - [IR remote controls for graph properties](development/plans/ir-remote-controls.md)
-    — planned wire-first IR receiver input, learned stable button mappings,
+    — the implemented wire-first IR receiver contract, learned stable button mappings,
       repeat semantics and the Step Value adapter used to change runtime graph
-      properties without mutating authored fields.
+      properties without mutating authored fields; compile and hardware
+      qualification remain open.
   - [Workspace shelves handoff](development/plans/workspace-shelves-handoff.md)
     — what the workspace tabs exposed: a sidebar still stocked for the graph
     while standing on the bench, and an LED preview that does not survive the

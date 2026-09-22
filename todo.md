@@ -1273,10 +1273,14 @@ matrix, not a reason to postpone testing earlier changes.
   **D-05a · IR remote controls — ordered implementation checklist.** Execute
   in order; software, compilation and bench support are separate gates.
 
-  - [ ] **1. Freeze the v1 contract.** Confirm one root-owned receiver, learned
+  - [x] **1. Freeze the v1 contract.** Done 2026-09-23. The
+    [feature contract](docs/development/plans/ir-remote-controls.md) fixes one
+    root-owned receiver, learned
     recognized protocol/address/command mappings, stable mapping ids, per-key
     `once`/`held` repeat policy, runtime reset to authored initial values, and
-    no transmitter/raw-replay/persistent-value scope.
+    no transmitter/raw-replay/persistent-value scope. The later mapping,
+    registration, workflow and validation steps implement and test that exact
+    boundary; this box had simply remained stale after the contract landed.
   - [x] **2. Add pure mapping primitives.** Implement bounded normalization,
     stable output-handle derivation, canonical protocol allow-listing,
     duplicate detection and the decode/repeat reducer. Cover malformed imports,
@@ -1474,10 +1478,19 @@ matrix, not a reason to postpone testing earlier changes.
 
     Evidence: `irRemoteWorkflow.test.ts` and the repeat-spacing assertion in
     `irRemote.test.ts`. `npm test` (5,650), `npm run lint`, and `tsc -b` pass.
-  - [ ] **12. Complete documentation and catalogue upkeep.** Add node/property
-    descriptions, Help live examples, README inventory/count, generated node
-    cards, Hardware workbench guidance, dependency/export notes and Graph
-    Health troubleshooting. Keep support experimental in the beta matrix.
+  - [x] **12. Complete documentation and catalogue upkeep.** Done 2026-09-23.
+    The existing node/property descriptions, Help live example, exact README
+    inventory/count and generated node/graph/preview cards were audited and
+    retained. The README and Hardware workbench now document exact receiver
+    selection, the learn → wire → re-upload workflow, Once/Held semantics,
+    Trigger/Step Value/Control Map routes, the pinned lazy dependency and `.ino`
+    install instruction, and a repair table for every IR/Step Value Graph
+    Health blocker. The beta matrix keeps every IR combination experimental
+    and names the evidence required to graduate one. `readmeModuleList.test.ts`
+    continues to enforce all 178 inventory entries, including IR Remote and
+    Step Value; `npm run gen:node-cards` reproduced all 178 reference sets
+    without a diff. Focused documentation/workflow tests (41), `npm test`
+    (5,650), `npm run lint`, and `tsc -b` pass.
   - [ ] **13. Run software and compile gates.** Pass focused tests, `npm test`,
     `npm run lint`, `npm run build` and backend tests; compile representative
     IR graphs with arduino-cli and fbuild for every claimed board family, with

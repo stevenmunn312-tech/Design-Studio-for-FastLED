@@ -28,8 +28,9 @@ an unknown device falls back to UART unless the user overrides it.
 
 Use **Add Hardware** in the workbench. The current categories are:
 
-- **Inputs** — microphone, PCM1802 line-in ADC, button, button bank, potentiometer, encoder,
-  PIR motion sensor, ambient-light sensor, and RTC module;
+- **Inputs** — microphone, PCM1802 line-in ADC, button, button bank,
+  demodulating IR receiver, potentiometer, encoder, PIR motion sensor,
+  ambient-light sensor, and RTC module;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the supported I2S DAC/amplifier and analog amplifier
   modules;
@@ -44,6 +45,61 @@ on-node button to test it in preview. Click the bank in Hardware to change its
 GPIO or internal pull-up; unplugging a graph noodle does not erase the physical
 button or its wiring. Remove the row from that Hardware inspector when the
 physical button is no longer part of the build.
+
+### Add an IR remote receiver
+
+Choose **Add Hardware → Inputs → IR Receiver**, then choose the exact receiver
+you own. The module choice is electrical, not cosmetic: a KY-022 breakout puts
+supply on its centre pin, while a bare TSOP38238 puts ground there. KY-022
+clones can also swap their outer signal and ground pins, so check the board's
+silkscreen or data sheet before applying power. Configure the signal GPIO in
+the Hardware inspector; the receiver itself drives that line, so Studio does
+not enable an internal pull-up.
+
+The receiver's graph node starts with **Learn button…** and no usable key
+outputs. To create a mapping:
+
+1. Click **Learn button…**, name the key, choose the board's serial port, and
+   upload the temporary learning sketch. Studio deliberately does not reuse a
+   cached project build for this diagnostic.
+2. Press the remote key once. Studio records its protocol, address and command
+   under a stable mapping id. Manual entry is available when a receiver cannot
+   be connected during authoring.
+3. Choose **Once** for an action that should fire on the first decoded frame,
+   or **Held** when the remote's repeat frames should keep firing.
+4. Wire a learned boolean output to an action. For numeric properties, wire
+   increase/decrease/reset keys into **Step Value**, then wire its Value output
+   to the property's exposed input. Power commonly goes through a
+   **Trigger** in Toggle mode. In an SD/player graph, route player and LED
+   controls through **Control Map → Music Player**.
+5. Upload the project again after learning; the temporary learner is not the
+   project firmware. Cancelling or completing the learner releases the serial
+   port.
+
+The learning upload is refused until the workspace is trusted. Project builds
+pin Arduino-IRremote 4.7.1: the helper installs or vendors it lazily, an
+exported `.ino` carries the exact `arduino-cli lib install IRremote@4.7.1`
+instruction, and a project without an IR receiver does not include the
+library. Board acceptance follows the architectures advertised by that pinned
+release plus its explicit exclusions; in particular, ESP32-S3 is blocked.
+
+Resolve these Graph Health findings before upload or export:
+
+| Finding | Repair |
+| --- | --- |
+| More than one IR receiver | Keep one root-owned receiver and move every mapping to it. |
+| No learned keys | Learn a key or enter a complete mapping manually. |
+| Blank, unsupported or out-of-range mapping | Relearn the key, or correct its protocol, address and command. |
+| Duplicate key identity | Relearn or edit one row so protocol, address and command are unique. |
+| Wired output has no mapping | Repair the retained mapping row or remove the stale wire. |
+| Selected board is unsupported | Choose a supported FQBN or remove the receiver. |
+| Receiver GPIO conflicts | Move the signal to a free digital-input GPIO. |
+| Invalid Step Value range | Use finite values, a positive step, `Max > Min`, and an initial value inside the range. |
+
+IR receive remains experimental until a row in the beta support matrix records
+the exact receiver, remote, board, pin and press/hold behavior under active LED
+output. A minimal learner succeeding is not evidence that long, interrupt-
+blocking LED writes will preserve every repeat frame.
 
 Hardware entries are intentionally absent from the Node Library. Creating the
 part from the workbench means Studio knows which board owns it and can assign

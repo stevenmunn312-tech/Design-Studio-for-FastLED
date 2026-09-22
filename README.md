@@ -122,7 +122,7 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 The workspace deliberately separates the physical rig from its signal flow:
 
-- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, sensors, RTC modules, SD cards, amplifiers/DACs, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
+- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, IR receivers, sensors, RTC modules, SD cards, amplifiers/DACs, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
 - Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
 - The graph owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay workbench-only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
@@ -139,6 +139,8 @@ Select the workbench’s **Upload** tab for readiness, capacity, firmware action
 - **Upload show to SD** — provision the separate music-synced playback workflow.
 
 Graph Health continuously explains incomplete wiring, pin conflicts, output power, controller compatibility, show structure, and memory pressure. **Check capacity** performs a real compile-only check against the selected board and reports measured flash/RAM use when the toolchain can provide it.
+
+Projects with an IR receiver pin Arduino-IRremote 4.7.1. The local helper installs or vendors that exact version only when an IR sketch is built; IR-free sketches do not acquire the dependency. An exported `.ino` includes the matching `arduino-cli lib install IRremote@4.7.1` instruction. Graph Health blocks unsupported selected boards and invalid learned-key or Step Value mappings before upload or export.
 
 When it is time to build the rig rather than the patch, switch to **View → Build Diagram** for a physical wiring workspace derived from the same graph: the selected controller drawn to scale with its real pin map, power distribution and fuse blocks, a parts list and connection list you can export as CSV, and printable assembly sheets.
 
@@ -178,6 +180,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 <summary><strong>Advanced and experimental workflows</strong></summary>
 
 - **Audio reactive:** live microphone and PCM1802 line-in analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, on-device I2S MEMS microphone support (INMP441, ICS-43434, or a generic MSM261-class board), and decoded-PCM analysis for SD-player collection shows.
+- **IR remote control:** learn named keys from a demodulating receiver, use once or held-repeat events for actions, and route increment/decrement/reset keys through Step Value to drive an exposed numeric property. IR hardware support remains experimental; use the [Hardware guide](docs/user/hardware-workbench.md#add-an-ir-remote-receiver) and [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated) before choosing a board or receiver.
 - **Fields and simulations:** scalar-field math and warping, reaction diffusion, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
 - **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
 - **Physical layouts:** strings, rings, unwrapped-cylinder corkscrew authoring, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
