@@ -4,6 +4,7 @@ import {
   buildGraphDiagnostics,
   validateGraph,
 } from '../validateGraph'
+import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../../state/starterTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 /**
@@ -331,6 +332,52 @@ describe('deploy gates — each failure class blocks with an actionable message'
     expect(findDeployBlockingErrors(nodes, edges, S3)).toEqual([])
     expect(validateGraph(nodes, edges, S3).errors).toEqual([])
     expect(buildGraphDiagnostics(nodes, edges, { selectedFqbn: S3 }).filter((d) => d.severity === 'error')).toEqual([])
+  })
+
+  /*
+   * The other direction: the gate refuses nothing that actually builds.
+   *
+   * Six classes (Audio and Storage capabilities, Stereo VU Meter configuration,
+   * display-generator and output-runtime issues, error-severity show-engine
+   * issues) started blocking deploy on 2026-09-11. Each was already a
+   * `validateGraph` error and no test broke, which is exactly why a graph that
+   * uploaded before that date could be refused after it with nothing to say so.
+   * The two-node graph above cannot find that: it has no capability, no screen,
+   * no control route and no show engine to trip.
+   *
+   * The starters are the realistic corpus the repository actually ships, and
+   * between them they carry every newly-enforced class — a decoder and a
+   * microphone capability, a card and an amplifier, two OLED panels, a Control
+   * Map into an output's Controls, a Music Player and a Pattern Slideshow.
+   * Board-aware, because that is the only build the app performs, and on both
+   * reference boards, because the allocator's answer differs between them.
+   *
+   * `starterTemplates.test.ts` already holds `validateGraph` over the same
+   * sweep. This is the gate itself: the two agree per failure class above, but
+   * nothing held them together on a graph that is meant to pass.
+   */
+  it.each([
+    ['Generic ESP32', 'esp32-generic-devkit-38pin', 'esp32:esp32:esp32'],
+    ['Generic ESP32-S3', 'generic-esp32-s3-n16r8-44pin-dual-usbc', 'esp32:esp32:esp32s3'],
+  ])('refuses no shipped starter on %s', (_, profileId, fqbn) => {
+    const board = {
+      id: 'board-root',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'Board',
+        label: 'Board',
+        category: 'output',
+        properties: { profileId },
+        inputs: [],
+        outputs: [],
+      },
+    } as unknown as StudioNode
+
+    for (const template of STARTER_TEMPLATES) {
+      const { nodes, edges } = buildBoardAwareStarter(template, [board], fqbn)
+      expect(findDeployBlockingErrors(nodes, edges, fqbn), `${template.id} blocked`).toEqual([])
+    }
   })
 
   it('blocks an unwired output through the graph-shape check rather than this gate', () => {

@@ -942,6 +942,23 @@ matrix, not a reason to postpone testing earlier changes.
     meter mid-configuration, a screen whose bindings do not resolve. Exit: one
     pass over the reference bench graphs; treat a refusal you disagree with as a
     gate bug to report, not a graph to rewire.
+
+    *The shipped half is closed, 2026-09-22.* `deployGates.test.ts` now runs
+    every starter through `findDeployBlockingErrors` board-aware on both
+    reference boards, and all eleven pass on both — no starter is refused. That
+    corpus is what makes it worth running: between them the starters carry every
+    newly-enforced class (a decoder and a microphone capability, a card and an
+    amplifier, two OLED panels, a Control Map into an output's Controls, a Music
+    Player and a Pattern Slideshow), where the gate's existing pass-case was a
+    two-node graph with none of them. The file already held each class's
+    refusal; it now holds the other direction too, so a future gate rule that
+    starts refusing a shipped starter fails here rather than on someone's first
+    upload.
+
+    *Still open:* the maintainer's own reference bench graphs. A starter is a
+    clean graph by construction — the thing this sub-item is actually afraid of
+    is a real, accreted graph that built before the 11th, and nothing in the
+    repository is one.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing/notarization
   before publishing. Exit: per-platform launch/install, helper discovery,
