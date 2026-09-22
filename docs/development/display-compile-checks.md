@@ -1,13 +1,10 @@
 # Display firmware compile checks
 
-> **Evidence for the current model.** The three generator paths (normal,
-> show, player) were rebuilt on 15 September 2026 on both engines against
-> sketches that still regenerate to the recorded hashes, with widget
-> outputs on the paired Touch node. See
-> [Step 10 representative sketches](#step-10-representative-sketches-15-september-2026).
-> The other fixtures in the 13 September Arduino CLI table were not
-> rerun; custom-screen hashes there predate the `_cdSel` emitter as
-> noted below.
+> **Evidence for the current model.** All twelve generated fixtures were
+> regenerated and compiled on both engines on 21–22 September 2026, including
+> the newer parallel-interface catalogue fixture. Every Arduino CLI and fbuild
+> row uses the same source hash. See
+> [Current-model matrix](#current-model-matrix-21-22-september-2026).
 >
 > Earlier runs are not reproduced here. They were built from sketches that no
 > longer regenerate, so their sizes cannot be tied to anything in the tree and
@@ -62,7 +59,9 @@ python scripts/compile-display-smoke.py fbuild artifacts/display-compile/player.
 The shapes that have no generator of their own but fail in their own ways —
 a TFT with no LED output beside it, a control build with no display half, a
 panel switched off, two panels each showing their own design, and every
-catalogued module in as few sketches as their I²C addresses allow:
+catalogued module in as few sketches as their buses and I²C addresses allow.
+The commands below show fbuild; repeat them with `arduino-cli` as the engine to
+reproduce the other half of the current matrix:
 
 ```powershell
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/isolated-tft.ino
@@ -71,6 +70,7 @@ python scripts/compile-display-smoke.py fbuild artifacts/display-compile/disable
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/multi-panel.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families-i2c.ino
+python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-parallel.ino
 ```
 
 There is no fixture for a design on two panels or on none. Those shapes were
@@ -164,6 +164,38 @@ The initial runs exposed these gaps, now covered by regression tests:
   ports moved to the paired Touch node. `generate-display-smoke.mjs` then
   refused the show sketch. The fixtures mint a `TouchInput` per touch
   panel; `assertWireable` holds the cables to what the editor can draw.
+
+## Current-model matrix, 21–22 September 2026
+
+All twelve fixtures regenerated immediately before this run and passed on both
+engines. Arduino CLI was 1.5.1 with ESP32 core 3.3.11, FastLED 3.10.5 and LVGL
+9.5.0. fbuild was 2.5.22 with vendored FastLED `e52abeb26d1b`, LVGL
+`85aa60d18b3d` and player audio `928c420d49fc`. The first eleven rows target the
+ESP32-S3 N16R8 FQBN documented above; the last targets `esp32:esp32:esp32`.
+
+Percentages use each engine's own reported partition: Arduino CLI reports S3
+flash against the 3 MiB application partition, while fbuild reports it against
+the 16 MiB device. The byte counts, not the flash percentages, are comparable.
+
+| Fixture | Source SHA-256 | Arduino flash | Arduino RAM | fbuild flash | fbuild RAM |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Normal | `a16d8252b038` | 647,159 (20%) | 105,716 (32%) | 971,878 (6%) | 161,300 (49%) |
+| Generative show | `45a34865db9e` | 649,555 (20%) | 106,164 (32%) | 975,432 (6%) | 161,976 (49%) |
+| SD player | `b80c29c7caab` | 1,330,039 (42%) | 122,068 (37%) | 1,646,264 (10%) | 176,886 (54%) |
+| Isolated TFT | `a5c3f529cbee` | 300,932 (9%) | 22,904 (6%) | 625,172 (4%) | 75,571 (23%) |
+| Headless controls | `6fc1c5e68731` | 427,151 (13%) | 27,636 (8%) | 743,117 (4%) | 80,855 (25%) |
+| Disabled panel | `5b4ed7271cd8` | 640,479 (20%) | 105,444 (32%) | 965,130 (6%) | 161,024 (49%) |
+| Two panels, two designs | `fa6345d91c7d` | 642,859 (20%) | 115,260 (35%) | 967,567 (6%) | 170,844 (52%) |
+| Part families (SPI) | `afce392a0b73` | 472,411 (15%) | 37,660 (11%) | 793,774 (5%) | 94,259 (29%) |
+| Part families (I²C) | `3f833eec394d` | 460,311 (14%) | 31,012 (9%) | 778,834 (5%) | 87,552 (27%) |
+| Part families (parallel) | `e2118c1e714b` | 440,071 (13%) | 27,860 (8%) | 758,784 (4%) | 83,610 (26%) |
+| Bench telemetry | `fbe29416f82b` | 651,599 (20%) | 105,764 (32%) | 976,210 (6%) | 161,341 (49%) |
+| Classic ESP32, fixed layouts | `3b786d2a38e2` | 428,039 (32%) | 31,396 (9%) | 668,948 (16%) | 31,437 (10%) |
+
+The Arduino telemetry leg was an environmental timing outlier: about 51 minutes
+end to end while its log continued to grow and sixteen compiler children stayed
+active. It passed and no other fixture reproduced that duration, so it is kept as
+a timing observation rather than treated as a firmware failure.
 
 ## Recorded environment
 

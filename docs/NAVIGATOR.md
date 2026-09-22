@@ -140,7 +140,7 @@ build/architecture overview aimed at contributors.
     optional compact bundle beside the direct named actions in
     [direct controls](development/design/direct-controls-and-output-status.md).
   - [Display firmware compile checks](development/display-compile-checks.md)
-    — the eleven current-model fixtures, their Arduino CLI/fbuild figures and
+    — the twelve current-model fixtures, their Arduino CLI/fbuild figures and
     the commands that rebuild them, including the two refused shapes that must
     still generate well-formed C++.
 - [Testing](development/testing/)

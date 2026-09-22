@@ -356,6 +356,14 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 > **47.4s compile inside a 47.5s total** — a fixed cost of roughly a tenth of a second
 > where this section measured 181.5s.
 >
+> **Strict no-op confirmed 2026-09-22.** An immediate second compile of the
+> unchanged `normal` fixture and unchanged ESP32-S3 target printed `No-op
+> fingerprint matched; reusing existing ESP32 artifacts`, reported **1.9s** in
+> fbuild's own timer and took **11.443s end to end** through the helper, including
+> dependency staging and report collection. The preceding identical-source run
+> took 113.711s because the shared scaffold had just changed from the classic
+> ESP32 fixture back to the S3 fixture; it was a repeat source, not a no-op build.
+>
 > Read the other two runs of that session carefully rather than as contradictions.
 > `normal` took 6m 51s around a 38.7s compile and `player` 5m 24s around a 24.8s one,
 > but both logs carry an `[archive LVGL]` phase that `show` does not: they hit
@@ -364,12 +372,9 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 > helper and then ran again. Minutes of real work and a retry, not a no-op decision.
 > `show` is the clean measurement precisely because it needed no recovery.
 >
-> Two caveats. It is not a strict no-op — `show` compiled 47 seconds of real work — so
-> it demonstrates the *fixed floor* is gone rather than re-running the exact experiment
-> below; a true no-op re-run would settle it outright. And it was taken on 2.5.22 while
-> the repository still pinned 2.5.21 — the pin moved to 2.5.22 the next day, so a clean
-> install now gets the measured version. The account below is kept as the record of
-> what 2.5.21 does, not as current behaviour.
+> The 10 September `show` run was not a strict no-op — it compiled 47 seconds of
+> real work — but the 22 September run now settles that caveat directly. The
+> account below is kept as the record of what 2.5.21 did, not as current behaviour.
 
 **Reported upstream 2026-09-03 as [#1411](https://github.com/FastLED/fbuild/issues/1411).**
 
@@ -665,10 +670,10 @@ registry. Worth a documentation note upstream, since the failure looks random.
 
 ## Upgrade record from 2.5.4
 
-This repository now pins **`fbuild==2.5.21`**. The original audit was written
+This repository now pins **`fbuild==2.5.22`**. The original audit was written
 against 2.5.4 and compared the 2.5.5–2.5.14 release notes; subsequent upgrades
-continued through 2.5.16, 2.5.18 and 2.5.21. Keep the historical confirmations in
-the issue sections, but test every surviving workaround against 2.5.21 before
+continued through 2.5.16, 2.5.18, 2.5.21 and 2.5.22. Keep the historical confirmations in
+the issue sections, but test every surviving workaround against 2.5.22 before
 calling it current.
 
 | Our issue | Upstream change | Version | Confidence |
@@ -679,8 +684,8 @@ calling it current.
 | §1 / §8 local libs | "Resolved relative local dependency roots" | 2.5.13 | Plausible — same area |
 | §8 transitive `SPI` | LDF seeds from every compiled TU, and treats `__has_include` as undecidable ([#1375](https://github.com/FastLED/fbuild/pull/1375), [#1376](https://github.com/FastLED/fbuild/pull/1376), closing [#1337](https://github.com/FastLED/fbuild/issues/1337) / the [#1214](https://github.com/FastLED/fbuild/issues/1214) class) | 2.5.21 | Not the cause of our fix — see §8; FastLED's own guard is |
 
-**No upstream change found** for §4 (no size line on a no-op build), §5 (no size summary
-on linker overflow), §7 (ESP8266 deploy), or the `srcFilter`/transitive-`SPI` half of §8.
+**No upstream change found** for §5 (no size summary on linker overflow), §7
+(ESP8266 deploy), or the `srcFilter`/transitive-`SPI` half of §8.
 Those are the items most likely to be genuinely unreported, and therefore the most
 valuable half of anything sent upstream.
 
@@ -775,13 +780,13 @@ RP2040/RP2350 hardware coverage is still required.
 
 ### Re-verification procedure
 
-1. Remove one workaround at a time and test whether 2.5.21 still reproduces the
+1. Remove one workaround at a time and test whether 2.5.22 still reproduces the
    original failure.
 2. Run the focused helper tests and a clean dependency install on all three
    desktop OS families.
 3. Re-run hardware validation on at least ESP32-S3 and ESP8266 before deleting
    a deploy-path workaround. An RP2040 pass would add new coverage.
-4. Report only failures reproduced on 2.5.21 with the smallest remaining
+4. Report only failures reproduced on 2.5.22 with the smallest remaining
    workaround.
 
 ---

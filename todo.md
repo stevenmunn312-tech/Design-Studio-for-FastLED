@@ -738,10 +738,13 @@ matrix, not a reason to postpone testing earlier changes.
   both — and the part that cannot be placed keeps the pin it arrived on and is
   reported as a reserved-pin error; an allocator that says "this board is full"
   in its own words is a separate improvement, not part of this row.
-- [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Arduino CLI half done
-  2026-09-13: all eleven display fixtures pass on current-model source, recorded
-  in [the compile record](docs/development/display-compile-checks.md). fbuild has
-  not been run against this source, so the second engine is still open.*
+- [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Current-model display
+  compile half done 2026-09-22: all twelve generated fixtures pass on both
+  Arduino CLI and fbuild against matching hashes, recorded in
+  [the compile record](docs/development/display-compile-checks.md). This adds the
+  parallel-interface catalogue fixture that was absent from the older eleven-row
+  matrix. The separate firmware paths and physical bench matrix below remain
+  open.*
 
   That run earned its keep. It found two defects no unit test could see, because
   in both the emitted text is correct and only its order or its type is wrong:
@@ -884,6 +887,16 @@ matrix, not a reason to postpone testing earlier changes.
   and remove workarounds only with regression evidence. Follow the fbuild report;
   Arduino CLI remains the documented recommended ESP32 path. No automatic
   dependency upgrade or upstream issue filing is implied.
+
+  **2.5.22 progress, 2026-09-22.** The old ESP32 no-op floor is now settled by
+  the exact experiment the report still lacked: an immediate unchanged rebuild
+  printed `No-op fingerprint matched`, took 1.9s inside fbuild and 11.443s end to
+  end through the helper, versus 181.5s on 2.5.21. The current twelve-fixture
+  matrix also re-exercised optional-library staging and the Windows LVGL archive
+  recovery; the disabled-panel build hit `os error 206`, re-archived through the
+  validated response file in 1.2s and then passed. The remaining lock, hard
+  overflow, unsupported-deploy, eager-local-library and over-capacity probes stay
+  open; none is removed merely because ordinary builds passed.
 
 ## 4. Close release readiness
 
