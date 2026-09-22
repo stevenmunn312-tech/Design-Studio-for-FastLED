@@ -163,16 +163,44 @@ Baseline. A screen on the panel, an LED output running, no audio, no card. On
 the CYD rig this is a **fixed layout**; see the rig note above for why a custom
 screen design cannot be one of this board's figures.
 
+**Measured 2026-09-22** on the CYD rig: flashed to COM6 (compile 4m 17s, upload
+22.6s, hash verified), then a 90-second capture at 115200 baud, 44 telemetry
+samples. Budgets are deliberately still blank — set from the baseline alone they
+would be numbers picked to clear one run. They go in once 1b is recorded.
+
 | Figure | Budget | Measured | Notes |
 | --- | --- | --- | --- |
-| Flash | | | from the compile report, not the device |
-| Free heap at rest | | | |
-| Lowest heap over the run | | | |
-| PSRAM free | n/a | n/a | none fitted on this rig |
-| Draw buffer | | | `drawbuf`, and it should match the RAM estimate |
-| Frames/sec | | | |
-| Longest loop pass | | | |
-| Worst touch response | | | |
+| Flash | | 417,215 (31%) | from the compile report, not the device |
+| Static RAM | | 27,700 (8%) | linker; 299,980 left for locals |
+| Free heap at rest | | **317,592 B** | flat for 88 s, not one byte moved |
+| Lowest heap over the run | | 290,152 B | `minheap`, and it is a *boot* dip, not a run-time one |
+| Heap drift | | none measurable | flat to the byte across the window |
+| PSRAM free | n/a | none fitted | `psram=0 psramtotal=0`, as expected |
+| Draw buffer | n/a | absent | a fixed layout allocates none — see below |
+| Frames/sec | | 55.3–55.6 | 16 ms `FastLED.delay` pacing, so ~60 is the ceiling |
+| Longest loop pass | | 32.4–32.8 ms | steady; the 124 ms first sample is boot |
+| Worst touch response | n/a | absent | a Clock layout is read-only — see below |
+
+A representative line:
+
+```
+FLS_STAT uptime=44 heap=317592 minheap=290152 fps=55.4 loopmax=32.4 psram=0 psramtotal=0
+```
+
+**Two observations to carry into the other runs.** The heap did not move at all
+— 317,592 bytes, identical sample to sample. That is the right answer for a
+fixed-layout build with no dynamic allocation in its loop, and it makes a clean
+zero against which run 1b's LVGL heap can be read.
+
+And the longest loop pass is **32.5 ms against a 16 ms frame budget**, which is
+why frames/sec sits at 55 rather than 60: a panel field repaint costs about two
+frames. Nothing is dropping frames badly, but the TFT repaint is already the
+largest single thing in the loop *before* LVGL is added — so it, not the heap,
+is the figure to watch in 1b.
+
+Free heap (317,592) reads higher than the linker's 299,980 "for local variables"
+because the two count different things; the ESP32's heap includes regions the
+linker does not attribute to locals. Compare device figures with device figures.
 
 **Two rows cannot be filled by this run, and that is a property of the layout,
 not of the board.** A Clock layout is read-only — only Fixed Transport and Now
