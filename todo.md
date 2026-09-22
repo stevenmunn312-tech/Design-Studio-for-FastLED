@@ -774,7 +774,22 @@ matrix, not a reason to postpone testing earlier changes.
   *Still open:* controller identity; the three real generators' touch paths,
   since only the calibration instrument has been flashed to this unit; and this
   board's onboard microSD, RGB LED, light sensor and amplifier pins, left
-  unrecorded rather than taken from family documentation. All need bench
+  unrecorded rather than taken from family documentation.
+
+  *An instrument for the microSD half exists, 2026-09-22.*
+  `src/codegen/sdPinProbeSketch.ts` tries candidate pinouts on the unit and
+  reports which mounts a card, so the pins can be recorded as measured rather
+  than copied. It answers a second question at the same time: its candidates say
+  which SPI host each set belongs to, so the run settles whether the card shares
+  the panel's bus — which is what decides whether HW-11's run 3 shared-bus test
+  is possible on this board at all. Generated but **not yet flashed**.
+
+  *The amplifier half is not worth measuring.* This board's onboard speaker amp
+  is analog, and the internal-DAC path is dead under IDF 5 — verified in the
+  vendored `Audio.cpp` and bench-observed on 2026-08-21 (SD read perfect, no
+  audio). With GPIO22 and GPIO27 the only free pads, there is no room for an
+  external I2S amp either, so audio on this board is unreachable regardless of
+  what its amplifier pins turn out to be. All need bench
   evidence, not code. Two pads is also a genuinely small pool — a DS3231 takes
   both — and the part that cannot be placed keeps the pin it arrived on and is
   reported as a reserved-pin error; an allocator that says "this board is full"
