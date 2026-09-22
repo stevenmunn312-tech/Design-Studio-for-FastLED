@@ -234,19 +234,49 @@ Fixture: `artifacts/display-compile/cyd-custom-telemetry.ino`. Same board, panel
 and 32-pixel strip as run 1, with the 14-widget design of run 0 and
 `reportTelemetry` on.
 
-| Figure | Budget | Measured | Notes |
-| --- | --- | --- | --- |
-| Boots at all | | | the first question; a failed LVGL heap init shows here |
-| Free heap at rest | | | against run 1's figure, the cost of the screen |
-| Lowest heap over the run | | | |
-| Draw buffer | | | `drawbuf`, against the estimate's 9,600 |
-| Frames/sec | | | against run 1, the cost of driving LVGL |
-| Longest loop pass | | | |
-| Worst touch response | | | press the glass, or this stays absent |
+**Measured 2026-09-22.** Flashed to COM6 (compile 8m 54s, upload 25.3s, hash
+verified), 95-second capture, 47 telemetry samples. **It boots and runs.**
 
-If this boots and holds its heap, HW-25's premise is finished rather than merely
-unreproduced, and the open question becomes whether the 48 KiB
-`internalRamBudgetBytes` on the generic classic profiles is too conservative.
+| Figure | Budget | Measured | vs run 1 | Notes |
+| --- | --- | --- | --- | --- |
+| Boots at all | | **yes** | — | LVGL init took 299 ms, visible as the first `loopmax` |
+| Flash | | 630,943 (48%) | +213,728 | |
+| Static RAM | | 105,420 (32%) | +77,720 | 222,260 left for locals |
+| Free heap at rest | | **240,112 B** | −77,480 | flat for 93 s, not one byte moved |
+| Lowest heap over the run | | 212,672 B | | `minheap`, a boot dip |
+| Heap drift | | none measurable | | flat to the byte |
+| Draw buffer | | **9,600 B** | new | exactly the estimate's figure |
+| Frames/sec | | 50.0 | −5.4 | steady, no variance across 47 samples |
+| Longest loop pass | | **2.0 ms** | −30.5 | *lower* than the fixed layout — see below |
+| Worst touch response | | **not captured** | | nobody pressed the glass; absent ≠ zero |
+
+```
+FLS_STAT uptime=45 heap=240112 minheap=212672 fps=50.0 loopmax=2.0 psram=0 psramtotal=0 drawbuf=9600
+```
+
+**HW-25's premise is finished, not merely unreproduced.** A 14-widget custom
+screen runs on a classic ESP32 with 240 KB of heap free and a flat memory
+profile. The 64 KiB LVGL heap does not rule this board out under any reading.
+
+**The estimate is now confirmed twice over, independently.** It predicted the
+design would cost 77,556 bytes where run 1's graph cost 452, so a delta of
+77,104. The device reports free heap falling from 317,592 to 240,112 — a delta
+of **77,480 bytes, within 376** of prediction. And `drawbuf` reports 9,600
+bytes, which is the 240x20 RGB565 buffer the estimate assumes, to the byte.
+`estimateFirmwareRam` can be trusted on this path.
+
+**The loop got faster, which reverses the expectation recorded in run 1.** The
+longest pass fell from 32.5 ms to 2.0 ms. The fixed layout repaints text fields
+synchronously inside the loop, so one field repaint blocks for ~32 ms of SPI;
+LVGL instead redraws only dirty areas, in slices sized by that 9,600-byte
+buffer, so no single pass is ever long. The custom screen costs ~10% of frame
+rate (55.4 → 50.0) but is much better behaved per pass. Run 1's warning that
+"timing, not RAM, is the risk on this board" was right about which number
+mattered and wrong about which build it would hurt.
+
+**Touch is still unmeasured.** `touchms` is absent because the glass was not
+pressed during the capture, which is the instrument working as designed rather
+than a missing reading. It needs a second capture with someone at the board.
 
 ### 2. Generative show
 

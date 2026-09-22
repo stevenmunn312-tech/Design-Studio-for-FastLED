@@ -862,12 +862,20 @@ matrix, not a reason to postpone testing earlier changes.
   in the repository, only this item's own prose. Figures and reproduction in
   [the bench procedure](docs/development/testing/display-budget-bench.md).
 
-  What survives: whether the screen *runs*, which linking cannot answer, and
-  which HW-11's run 1 `heap`/`minheap` will. If it does, the remaining question
-  inverts — not "can a classic ESP32 drive a custom screen" but "is the 48 KiB
-  `internalRamBudgetBytes` on the generic classic profiles too conservative",
-  since that budget would refuse a build with 222 KB to spare. The original text
-  follows, for the mechanism, which is unaffected.
+  **It runs, measured the same day.** Flashed to the CYD, the 14-widget screen
+  boots and holds 240,112 bytes of free heap, flat to the byte over 93 seconds,
+  at 50.0 fps with a 2.0 ms longest loop pass. So the premise is finished rather
+  than merely unreproduced: a classic ESP32 drives a custom screen with 240 KB
+  to spare.
+
+  **The question inverts.** It is no longer "can a classic ESP32 drive a custom
+  screen" but "is the 48 KiB `internalRamBudgetBytes` on the generic classic
+  profiles too conservative?" — because that budget refuses, before compiling, a
+  build this board runs comfortably. The CYD escaped only because it declares no
+  budget at all, which is the gap recorded above; closing that gap at 48 KiB
+  would have made this measurement impossible to take. Rescope this item around
+  the budget, not the heap. The original text follows, for the mechanism, which
+  is unaffected.
 
   The overflow was believed to be 22,496 bytes against a
   65,536-byte heap, so a 32 KiB heap would fit with room to spare and a classic
