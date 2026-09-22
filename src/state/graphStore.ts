@@ -97,6 +97,7 @@ import {
   irRemoteButtonHandle,
   irRemoteHandlesFromEdges,
   irRemoteOutputs,
+  insertIrRemoteButton,
   normalizeIrRemoteButtons,
   updateIrRemoteButton as patchIrRemoteButton,
   type IrRemoteButton,
@@ -308,6 +309,8 @@ interface GraphState {
   removeButtonBankEntry: (nodeId: string, entryId: string) => void
   /** Append one manually entered IR key and its output. One undo step. */
   addIrRemoteButton: (nodeId: string) => void
+  /** Save one learned key. Returns an error string instead of changing the graph. */
+  learnIrRemoteButton: (nodeId: string, draft: { label: string; protocol: string; address: number; command: number }) => string | null
   /** Edit one key. The id, and therefore every wire, stays put. */
   updateIrRemoteButton: (nodeId: string, entryId: string, patch: Partial<Pick<IrRemoteButton, 'label' | 'protocol' | 'address' | 'command' | 'repeat'>>) => void
   /** Remove one key and every noodle fed by its stable handle. One undo step. */
@@ -2129,6 +2132,27 @@ export const useGraphStore = create<GraphState>()(
 
       addIrRemoteButton: (nodeId) =>
         set((s) => editIrRemote(s, nodeId, (buttons) => appendIrRemoteButton(buttons))),
+
+      learnIrRemoteButton: (nodeId, draft) => {
+        let error: string | null = null
+        set((state) => {
+          const content = state.activeGraphId === ROOT_GRAPH_ID
+            ? { nodes: state.nodes, edges: state.edges }
+            : (state.graphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] })
+          const node = content.nodes.find((entry) => entry.id === nodeId && entry.data.nodeType === 'IRRemoteInput')
+          if (!node) {
+            error = 'The IR receiver is no longer on the bench.'
+            return state
+          }
+          const result = insertIrRemoteButton((node.data.properties as { buttons?: unknown }).buttons, draft)
+          if ('error' in result) {
+            error = result.error
+            return state
+          }
+          return editIrRemote(state, nodeId, () => result.buttons)
+        })
+        return error
+      },
 
       updateIrRemoteButton: (nodeId, entryId, patch) =>
         set((s) => editIrRemote(s, nodeId, (buttons) => patchIrRemoteButton(buttons, entryId, patch))),

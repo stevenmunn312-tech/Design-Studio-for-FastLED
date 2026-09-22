@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useHardwareInputStore } from '../../state/hardwareInputStore'
+import { useIrLearnStore } from '../../state/irLearnStore'
 import { useUiStore } from '../../state/uiStore'
 import {
   IR_REMOTE_LEARN_HANDLE,
@@ -184,8 +186,9 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
       </button>
       {buttons.length < MAX_IR_REMOTE_BUTTONS && (
         <div className={styles.learn}>
-          <span />
-          <span>Learn button…</span>
+          <button type="button" className="nodrag" onClick={() => { void beginLearn(nodeId) }}>
+            Learn button…
+          </button>
           <Handle
             type="source"
             position={Position.Right}
@@ -199,6 +202,61 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
           />
         </div>
       )}
+      <LearnDialog nodeId={nodeId} />
     </div>
+  )
+}
+
+async function beginLearn(nodeId: string) {
+  const ui = useUiStore.getState()
+  const label = await ui.requestPrompt({
+    title: 'Learn a button',
+    message: 'Name the key. After the diagnostic sketch uploads, press that key once on the remote.',
+    confirmLabel: 'Continue',
+  })
+  if (!label?.trim()) return
+  if (!useGraphStore.getState().trusted) {
+    const trust = await ui.requestConfirm({
+      title: 'Trust this workspace?',
+      message: 'Learning flashes a diagnostic sketch and reads the serial port. Trust this workspace before talking to the board.',
+      confirmLabel: 'Trust and learn',
+      tone: 'danger',
+    })
+    if (!trust) return
+    useGraphStore.getState().setTrusted(true)
+  }
+  useIrLearnStore.getState().start(nodeId, label.trim())
+  void useIrLearnStore.getState().prepare()
+}
+
+function LearnDialog({ nodeId }: { nodeId: string }) {
+  const session = useIrLearnStore((state) => state.session?.nodeId === nodeId ? state.session : null)
+  const confirm = useIrLearnStore((state) => state.confirm)
+  const cancel = useIrLearnStore((state) => state.cancel)
+  const listenAgain = () => useIrLearnStore.setState((state) => state.session?.sketchUploaded
+    ? { session: { ...state.session, phase: 'listening', captured: null, error: null } }
+    : state)
+  if (!session || typeof document === 'undefined') return null
+  const captured = session.captured
+  return createPortal(
+    <div className={`nodrag nowheel ${styles.overlay}`} onMouseDown={(event) => { if (event.target === event.currentTarget) cancel() }}>
+      <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="ir-learn-title">
+        <h2 id="ir-learn-title">Learn {session.label}</h2>
+        {session.preparing && <p>Uploading a receiver-only sketch. It will not replace Upload last sketch.</p>}
+        {session.phase === 'listening' && !session.preparing && <p>Press {session.label} once on the remote. Repeats are ignored.</p>}
+        {captured && (
+          <p>
+            {captured.protocol} · address {captured.address} · command {captured.command}
+          </p>
+        )}
+        {session.error && <p>{session.error}</p>}
+        <div className={styles.actions}>
+          <button type="button" onClick={cancel}>Cancel</button>
+          {captured && <button type="button" onClick={listenAgain}>Try again</button>}
+          {captured && <button type="button" onClick={confirm}>Save key</button>}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

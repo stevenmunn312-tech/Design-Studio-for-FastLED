@@ -6,8 +6,8 @@ contract so the checklist does not have to repeat the design.
 
 Status: **in progress.** Mapping primitives, the Step Value adapter, receiver
 registration, the two bench parts, and browser press/hold plus key editing are
-implemented. Learning, firmware dependency integration and hardware evidence
-remain. Keep the feature
+implemented, including the diagnostic learn workflow. Firmware dependency
+integration and hardware evidence remain. Keep the feature
 experimental until a generated sketch has been compiled on every claimed board
 family and the receiver, repeat handling and LED timing have been exercised on
 hardware.

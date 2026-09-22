@@ -54,6 +54,10 @@ export interface IrRemoteDuplicate {
 }
 
 export const IR_REMOTE_LEARN_HANDLE = 'learn-button'
+/** Versioned serial record a diagnostic sketch prints for one decoded frame. */
+export const IR_LEARN_MARKER = 'FLS_IR'
+export const IR_LEARN_VERSION = 1
+const IR_LEARN_LINE_MAX = 240
 export const MAX_IR_REMOTE_BUTTONS = 32
 export const IR_REMOTE_ID_LENGTH = 48
 export const IR_REMOTE_LABEL_LENGTH = 64
@@ -194,6 +198,47 @@ export function nextIrRemoteButtonId(value: unknown): string {
   return id
 }
 
+export interface IrLearnFrame {
+  version: 1
+  protocol: IrRemoteProtocol
+  address: number
+  command: number
+  repeat: boolean
+}
+
+/**
+ * Read one diagnostic line, or null when it is not a current FLS_IR record.
+ *
+ * Bounded on purpose: a boot log or a line with no newline must not be treated
+ * as a button. Repeats are returned rather than dropped here so the caller can
+ * ignore them without mistaking them for an unrecognized remote.
+ */
+export function parseIrLearnLine(line: string): IrLearnFrame | null {
+  if (line.length === 0 || line.length > IR_LEARN_LINE_MAX) return null
+  const at = line.indexOf(IR_LEARN_MARKER)
+  if (at < 0) return null
+  const fields = new Map<string, string>()
+  for (const token of line.slice(at + IR_LEARN_MARKER.length).trim().split(/\s+/)) {
+    const split = token.indexOf('=')
+    if (split <= 0) continue
+    fields.set(token.slice(0, split).toLowerCase(), token.slice(split + 1))
+  }
+  if (Number(fields.get('v')) !== IR_LEARN_VERSION) return null
+  const protocol = canonicalIrProtocol(fields.get('protocol'))
+  const address = parseIrLearnCode(fields.get('address'))
+  const command = parseIrLearnCode(fields.get('command'))
+  const repeat = fields.get('repeat')
+  if (!protocol || address === null || command === null || (repeat !== '0' && repeat !== '1')) return null
+  return { version: 1, protocol, address, command, repeat: repeat === '1' }
+}
+
+function parseIrLearnCode(value: string | undefined): number | null {
+  if (!value || value.length > 10) return null
+  const hex = /^0x([0-9a-f]+)$/i.exec(value)
+  const numeric = hex ? Number.parseInt(hex[1], 16) : Number(value)
+  return Number.isInteger(numeric) && numeric >= 0 && numeric <= UINT32_MAX ? numeric : null
+}
+
 export function addIrRemoteButton(value: unknown): IrRemoteButton[] {
   const current = normalizeIrRemoteButtons(value)
   if (current.length >= MAX_IR_REMOTE_BUTTONS) return current
@@ -205,6 +250,32 @@ export function addIrRemoteButton(value: unknown): IrRemoteButton[] {
     command: 0,
     repeat: 'once',
   }]
+}
+
+export function insertIrRemoteButton(
+  value: unknown,
+  draft: { label: string; protocol: string; address: number; command: number; repeat?: IrRemoteRepeatPolicy },
+): { buttons: IrRemoteButton[] } | { error: string } {
+  const current = normalizeIrRemoteButtons(value)
+  if (current.length >= MAX_IR_REMOTE_BUTTONS) return { error: 'This receiver already has 32 keys.' }
+  const protocol = canonicalIrProtocol(draft.protocol)
+  const address = validCode(draft.address)
+  const command = validCode(draft.command)
+  if (!protocol || address === null || command === null) return { error: 'That code is not a recognized protocol, address and command.' }
+  const taken = current.find((button) => button.protocol === protocol && button.address === address && button.command === command)
+  if (taken) return { error: `${taken.label} already uses this code.` }
+  const label = String(draft.label ?? '').trim().slice(0, IR_REMOTE_LABEL_LENGTH)
+  if (!label) return { error: 'Name the key before saving it.' }
+  return {
+    buttons: [...current, {
+      id: nextIrRemoteButtonId(value),
+      label,
+      protocol,
+      address,
+      command,
+      repeat: draft.repeat === 'held' ? 'held' : 'once',
+    }],
+  }
 }
 
 export function renameIrRemoteButton(value: unknown, id: string, label: unknown): IrRemoteButton[] {

@@ -7,6 +7,7 @@ import {
   IR_REMOTE_LEARN_HANDLE,
   irRemoteButtonHandle,
   irRemoteOutputs,
+  parseIrLearnLine,
   MAX_IR_REMOTE_BUTTONS,
   normalizeIrRemoteButtons,
   reduceIrRemoteFrame,
@@ -122,5 +123,18 @@ describe('IR remote mapping primitives', () => {
     down.add('brighter')
     expect([...step(2000)]).toEqual(['brighter'])
     expect([...step(2100)]).toEqual(['brighter'])
+  })
+
+  it('reads one versioned FLS_IR frame and refuses anything else', () => {
+    expect(parseIrLearnLine('FLS_IR v=1 protocol=NEC address=0x00 command=0x45 repeat=0')).toEqual({
+      version: 1, protocol: 'NEC', address: 0, command: 0x45, repeat: false,
+    })
+    expect(parseIrLearnLine('boot FLS_IR v=1 protocol=nec address=12 command=0x10 repeat=1')).toMatchObject({
+      protocol: 'NEC', address: 12, command: 16, repeat: true,
+    })
+    expect(parseIrLearnLine('FLS_IR v=2 protocol=NEC address=1 command=1 repeat=0')).toBeNull()
+    expect(parseIrLearnLine('FLS_IR v=1 protocol=raw address=1 command=1 repeat=0')).toBeNull()
+    expect(parseIrLearnLine('FLS_IR v=1 protocol=NEC address=-1 command=1 repeat=0')).toBeNull()
+    expect(parseIrLearnLine(`${'F'.repeat(300)}`)).toBeNull()
   })
 })

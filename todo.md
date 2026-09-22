@@ -1379,11 +1379,21 @@ matrix, not a reason to postpone testing earlier changes.
     `removeIrRemoteButton`, `stepIrRemotePreview`. `irRemote.test.ts`,
     `irRemoteRegistration.test.ts` and `IRRemoteBody.test.tsx` cover the
     pulse, the undo steps, and the cancelled removal.
-  - [ ] **7. Implement the learning workflow.** Generate and upload a trusted,
-    receiver-only diagnostic sketch with `cache: false`; parse a versioned
-    `FLS_IR` serial record; accept one recognized non-repeat frame; confirm it
-    into the graph in one undo step; cancel/error/close without leaking the
-    serial port. Retain validated manual code entry.
+  - [x] **7. Implement the learning workflow.** Done 2026-09-23. Learn button…
+    asks for a name, refuses an untrusted workspace, then uploads
+    `generateIrLearnSketch` with `cache: false` and listens on the existing
+    serial connection. `parseIrLearnLine` accepts one `FLS_IR v=1` record;
+    repeats and unrecognized protocols are ignored, and a second frame does
+    not replace the first. Save calls `learnIrRemoteButton`, one undo step,
+    through the same normalizer and duplicate check as a typed code. Cancel,
+    confirm, and a close during the run release the port only when this run
+    opened it. Add key on the node is still the manual path.
+
+    Evidence: `src/codegen/irLearnSketch.ts`, `src/state/irLearnStore.ts`,
+    the ingest hook in `deviceTelemetryStore.ts`. `irLearnSketch.test.ts`,
+    `irRemote.test.ts` and `irLearnStore.test.ts` cover the line, the
+    uncached upload, the ignored repeat, the single undo, the untrusted
+    refusal, and cancel.
   - [ ] **8. Integrate the pinned firmware dependency.** Select and pin an
     Arduino-IRremote version; emit only required protocol decoders; add shared
     include/setup/poll code; support arduino-cli readiness/export instructions
