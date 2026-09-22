@@ -80,10 +80,15 @@ so a reader of this page does not have to reconstruct the rig from another one.
   MISO 39. Calibrated on this unit to `touchXMin 408 / touchXMax 3646 /
   touchYMin 331 / touchYMax 3674`, `touchFlipX` set and `touchFlipY` clear:
   this unit's X axis counts right-to-left.
-- **LED output:** _to be stated._ The free pool on this board is **GPIO22 and
-  GPIO27, and nothing else** — of the four pads it brings out, GPIO21 is the
-  panel backlight and GPIO35 is input-only. Record which of the two the strip
-  is on, and its length.
+- **LED output:** WS2812B strip, **32 pixels on GPIO27**. The free pool on this
+  board is GPIO22 and GPIO27 and nothing else — of the four pads it brings out,
+  GPIO21 is the panel backlight and GPIO35 is input-only — so this uses one of
+  the two. Checked against the materialised board graph: no pin conflict, no
+  exact-board issue, no validation error and nothing blocked at the deploy gate.
+  Note for later: GPIO27 is also this board's default I2C SDA
+  (`boardI2cDefaults.ts`), which costs nothing here because neither the panel
+  nor the touch controller is an I2C part, but would collide the moment an I2C
+  device is added — on a two-pin board there is no second answer.
 
 ### What this rig can and cannot measure
 
@@ -114,8 +119,21 @@ four are constrained by this board rather than by the software under test.
   | Figure | Predicted | Measured | Notes |
   | --- | --- | --- | --- |
   | Region | | | `dram` / `bss` / `data` — which one overflowed |
-  | Overage bytes | 22,496 | | the estimate's figure against the linker's |
-  | Screen complexity | | | widget count, so "per complexity" means something |
+  | Overage bytes | 22,496 | | the earlier linker figure, against this one |
+  | Graph allocations | 75,476 | n/a | estimate, on an empty design (below) |
+  | Screen complexity | empty design | | widget count, so "per complexity" means something |
+
+  Those predictions are the current code's, taken against this exact board:
+  `estimateFirmwareRam` puts an **empty** custom design on the CYD at 75,476
+  bytes of graph allocations — the 65,536-byte LVGL heap, a 9,600-byte
+  240x20 RGB565 draw buffer, the 96-byte LED array and change. An empty design
+  is the floor, so a real screen is worse; and the earlier 22,496-byte linker
+  overflow was measured with a design on it, which is why the two numbers are
+  not the same measurement and get their own rows.
+
+  Confirmed while writing this: the deploy gate returns **nothing** for that
+  graph, so the build does proceed to the linker rather than being refused.
+  That is the held-open gap above working as intended, not an oversight.
 
   Its other half is runtime, and comes free from run 1: `heap` and `minheap` on
   a *fixed-layout* build on this board say how much internal RAM is actually
@@ -150,11 +168,20 @@ screen design cannot be one of this board's figures.
 | Flash | | | from the compile report, not the device |
 | Free heap at rest | | | |
 | Lowest heap over the run | | | |
-| PSRAM free | | | |
+| PSRAM free | n/a | n/a | none fitted on this rig |
 | Draw buffer | | | `drawbuf`, and it should match the RAM estimate |
 | Frames/sec | | | |
 | Longest loop pass | | | |
 | Worst touch response | | | |
+
+On the CYD rig this graph's *own* allocations come to 452 bytes — a fixed TFT
+layout keeps no framebuffer, so it costs field caches and little else, and the
+32-pixel strip is 96 bytes. Almost everything the device reports here is
+therefore framework, driver and FastLED baseline rather than anything the graph
+chose, which is what makes it the baseline run. The nearest existing comparable
+is the `classic-esp32-fixed` compile fixture at **31,396 bytes** of static RAM
+under Arduino CLI; a device figure far from that wants explaining before the
+later runs are trusted.
 
 ### 2. Generative show
 
