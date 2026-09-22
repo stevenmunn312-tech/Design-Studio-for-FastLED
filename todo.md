@@ -693,8 +693,13 @@ matrix, not a reason to postpone testing earlier changes.
   is **4,444 bytes of flash and 40 bytes of RAM**, the 40 being exactly the nine
   statics the emitter declares. That number is the one worth keeping: an
   instrument that consumed the resource it measures would be reporting partly on
-  itself. Not yet built under fbuild, which compiles without `-w` and is where
-  any warning this block provokes would appear.
+  itself.
+
+  *The fbuild leg is no longer outstanding.* It was built on 2026-09-21 as part
+  of HW-13's twelve-fixture run — exit 0, 976,210 flash / 161,341 RAM, source
+  `fbe29416f82b` — and its log records no warnings. That log is where one would
+  appear: fbuild compiles without `-w`, and it is the engine that surfaced the
+  66 LVGL deprecation warnings per custom-screen sketch which Arduino CLI hid.
 
   Remaining: the rig, four runs and the hour, against
   [the bench procedure](docs/development/testing/display-budget-bench.md) whose
