@@ -186,11 +186,92 @@ export function irRemoteHandlesFromEdges(
     .filter((handle) => irRemoteButtonIdFromHandle(handle) !== null))]
 }
 
+export function nextIrRemoteButtonId(value: unknown): string {
+  const used = new Set(normalizeIrRemoteButtons(value).map((button) => button.id))
+  let n = used.size + 1
+  let id = `key-${n}`
+  while (used.has(id)) id = `key-${++n}`
+  return id
+}
+
+export function addIrRemoteButton(value: unknown): IrRemoteButton[] {
+  const current = normalizeIrRemoteButtons(value)
+  if (current.length >= MAX_IR_REMOTE_BUTTONS) return current
+  return [...current, {
+    id: nextIrRemoteButtonId(value),
+    label: `Button ${current.length + 1}`,
+    protocol: 'NEC',
+    address: 0,
+    command: 0,
+    repeat: 'once',
+  }]
+}
+
 export function renameIrRemoteButton(value: unknown, id: string, label: unknown): IrRemoteButton[] {
   const nextLabel = String(label ?? '').trim().slice(0, IR_REMOTE_LABEL_LENGTH)
   return normalizeIrRemoteButtons(value).map((button) => button.id === id
     ? { ...button, label: nextLabel || button.label }
     : button)
+}
+
+export function updateIrRemoteButton(
+  value: unknown,
+  id: string,
+  patch: Partial<Pick<IrRemoteButton, 'label' | 'protocol' | 'address' | 'command' | 'repeat'>>,
+): IrRemoteButton[] {
+  return normalizeIrRemoteButtons(value).map((button) => {
+    if (button.id !== id) return button
+    const label = patch.label !== undefined
+      ? (String(patch.label).trim().slice(0, IR_REMOTE_LABEL_LENGTH) || button.label)
+      : button.label
+    const protocol = patch.protocol !== undefined
+      ? (patch.protocol === '' ? '' : (canonicalIrProtocol(patch.protocol) ?? button.protocol))
+      : button.protocol
+    return {
+      ...button,
+      label,
+      protocol,
+      address: patch.address !== undefined ? boundedCode(patch.address) : button.address,
+      command: patch.command !== undefined ? boundedCode(patch.command) : button.command,
+      repeat: patch.repeat === 'held' ? 'held' : patch.repeat === 'once' ? 'once' : button.repeat,
+    }
+  })
+}
+
+export interface IrPreviewMemory {
+  pressed: Map<string, boolean>
+  repeat: IrRepeatState
+}
+
+/** One preview pass of the on-node press/hold buttons. Not saved, not undoable. */
+export function stepIrRemotePreview(
+  memory: IrPreviewMemory,
+  buttonsValue: unknown,
+  isDown: (id: string) => boolean,
+  nowMs: number,
+): { memory: IrPreviewMemory; active: Set<string> } {
+  const buttons = normalizeIrRemoteButtons(buttonsValue)
+  const pressed = new Map<string, boolean>()
+  const active = new Set<string>()
+  let repeat = memory.repeat
+  for (const button of buttons) {
+    const down = isDown(button.id)
+    const was = memory.pressed.get(button.id) ?? false
+    pressed.set(button.id, down)
+    if (!down) continue
+    // A retained row has no code yet. The press still has to reach its wire
+    // so the mapping can be repaired without a physical remote.
+    if (!button.protocol) {
+      active.add(button.id)
+      continue
+    }
+    const reduced = reduceIrRemoteFrame(repeat, buttons, was
+      ? { repeat: true }
+      : { protocol: button.protocol, address: button.address, command: button.command, repeat: false }, nowMs)
+    repeat = reduced.state
+    for (const id of reduced.pulseIds) active.add(id)
+  }
+  return { memory: { pressed, repeat }, active }
 }
 
 export function removeIrRemoteButton(value: unknown, id: string): IrRemoteButton[] {

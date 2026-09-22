@@ -93,9 +93,13 @@ import {
   normalizeButtonBankEntries,
 } from './buttonBank'
 import {
+  addIrRemoteButton as appendIrRemoteButton,
+  irRemoteButtonHandle,
   irRemoteHandlesFromEdges,
   irRemoteOutputs,
   normalizeIrRemoteButtons,
+  updateIrRemoteButton as patchIrRemoteButton,
+  type IrRemoteButton,
 } from './irRemote'
 import {
   PLAYER_CONTROL_ADD_HANDLE, normalizePlayerControlIds, playerControlFunction,
@@ -302,6 +306,12 @@ interface GraphState {
   removeEdge: (id: string) => void
   /** Remove one physical button row and every noodle fed by its stable handle. */
   removeButtonBankEntry: (nodeId: string, entryId: string) => void
+  /** Append one manually entered IR key and its output. One undo step. */
+  addIrRemoteButton: (nodeId: string) => void
+  /** Edit one key. The id, and therefore every wire, stays put. */
+  updateIrRemoteButton: (nodeId: string, entryId: string, patch: Partial<Pick<IrRemoteButton, 'label' | 'protocol' | 'address' | 'command' | 'repeat'>>) => void
+  /** Remove one key and every noodle fed by its stable handle. One undo step. */
+  removeIrRemoteButton: (nodeId: string, entryId: string) => void
   /** A drop on Control Map' trailing socket, waiting for a function. */
   pendingControlAssignment: PendingControlAssignment | null
   /** Mint the chosen function's port and land the held connection on it. */
@@ -1656,6 +1666,41 @@ function nodesEqualIgnoringSelection(a: StudioNode[], b: StudioNode[]): boolean 
 // gesture instead of landing on an almost-identical mid-drag frame.
 let preDragHistoryState: HistorySlice | undefined
 
+function withIrRemoteButtons(content: GraphContent, nodeId: string, buttons: IrRemoteButton[], edges = content.edges): GraphContent {
+  return {
+    nodes: content.nodes.map((node) => {
+      if (node.id !== nodeId || node.data.nodeType !== 'IRRemoteInput') return node
+      const properties = node.data.properties as Record<string, unknown>
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          properties: { ...properties, buttons },
+          outputs: irRemoteOutputs(buttons),
+        },
+      }
+    }),
+    edges,
+  }
+}
+
+function editIrRemote(
+  state: { activeGraphId: string; nodes: StudioNode[]; edges: StudioEdge[]; graphData: Record<string, GraphContent> },
+  nodeId: string,
+  edit: (buttons: IrRemoteButton[]) => IrRemoteButton[],
+  edgesOf: (edges: StudioEdge[]) => StudioEdge[] = (edges) => edges,
+) {
+  const apply = (content: GraphContent): GraphContent => {
+    const node = content.nodes.find((entry) => entry.id === nodeId && entry.data.nodeType === 'IRRemoteInput')
+    if (!node) return content
+    const buttons = edit(normalizeIrRemoteButtons((node.data.properties as { buttons?: unknown }).buttons))
+    return withIrRemoteButtons(content, nodeId, buttons, edgesOf(content.edges))
+  }
+  if (state.activeGraphId === ROOT_GRAPH_ID) return apply({ nodes: state.nodes, edges: state.edges })
+  const root = state.graphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] }
+  return { graphData: { ...state.graphData, [ROOT_GRAPH_ID]: apply(root) } }
+}
+
 export const useGraphStore = create<GraphState>()(
   temporal(
     (set) => ({
@@ -2081,6 +2126,20 @@ export const useGraphStore = create<GraphState>()(
           const root = s.graphData[ROOT_GRAPH_ID] ?? { nodes: [], edges: [] }
           return { graphData: { ...s.graphData, [ROOT_GRAPH_ID]: removeFrom(root) } }
         }),
+
+      addIrRemoteButton: (nodeId) =>
+        set((s) => editIrRemote(s, nodeId, (buttons) => appendIrRemoteButton(buttons))),
+
+      updateIrRemoteButton: (nodeId, entryId, patch) =>
+        set((s) => editIrRemote(s, nodeId, (buttons) => patchIrRemoteButton(buttons, entryId, patch))),
+
+      removeIrRemoteButton: (nodeId, entryId) =>
+        set((s) => editIrRemote(
+          s,
+          nodeId,
+          (buttons) => buttons.filter((button) => button.id !== entryId),
+          (edges) => edges.filter((edge) => !(edge.source === nodeId && edge.sourceHandle === irRemoteButtonHandle(entryId))),
+        )),
 
       reconnectNoodle: (oldEdge, newConnection) =>
         set((s) => {

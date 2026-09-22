@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addIrRemoteButton,
   blankIrRepeatState,
   canonicalIrProtocol,
   duplicateIrRemoteMappings,
+  IR_REMOTE_LEARN_HANDLE,
   irRemoteButtonHandle,
   irRemoteOutputs,
   MAX_IR_REMOTE_BUTTONS,
@@ -10,6 +12,7 @@ import {
   reduceIrRemoteFrame,
   removeIrRemoteButton,
   renameIrRemoteButton,
+  stepIrRemotePreview,
   type IrRemoteButton,
 } from '../irRemote'
 
@@ -90,5 +93,34 @@ describe('IR remote mapping primitives', () => {
     const malformed = reduceIrRemoteFrame(known.state, buttons, { protocol: 'raw', address: -1, command: 70 }, 150)
     expect(malformed.state.lastIdentity).toBeNull()
     expect(reduceIrRemoteFrame(malformed.state, buttons, { repeat: true }, 200).pulseIds).toEqual([])
+  })
+
+  it('adds a key without disturbing the ones already learned', () => {
+    const next = addIrRemoteButton(buttons)
+    expect(next.map((button) => button.id)).toEqual(['power', 'brighter', 'key-3'])
+    expect(next[2]).toMatchObject({ protocol: 'NEC', address: 0, command: 0, repeat: 'once' })
+    expect(irRemoteOutputs(next).map((port) => port.id)).toEqual([
+      'button-power', 'button-brighter', 'button-key-3', IR_REMOTE_LEARN_HANDLE,
+    ])
+  })
+
+  it('pulses once on press and keeps pulsing only while a held key stays down', () => {
+    const down = new Set<string>()
+    let memory = { pressed: new Map<string, boolean>(), repeat: blankIrRepeatState() }
+    const step = (now: number) => {
+      const result = stepIrRemotePreview(memory, buttons, (id) => down.has(id), now)
+      memory = result.memory
+      return result.active
+    }
+
+    down.add('power')
+    expect([...step(1000)]).toEqual(['power'])
+    expect([...step(1100)]).toEqual([])
+    down.delete('power')
+    step(1200)
+
+    down.add('brighter')
+    expect([...step(2000)]).toEqual(['brighter'])
+    expect([...step(2100)]).toEqual(['brighter'])
   })
 })

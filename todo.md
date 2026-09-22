@@ -1362,10 +1362,23 @@ matrix, not a reason to postpone testing earlier changes.
     interchangeable, and the VS1838B is itself documented both ways by
     different suppliers — which is why the bare part modelled here is the
     Vishay one.
-  - [ ] **6. Build browser simulation and editing.** Give the node body
-    press/hold controls through transient hardware-input state; add, rename and
-    remove learned mappings with stable wires, confirmation for connected
-    removals and atomic undo/redo. Preserve mapped outputs across save/reload.
+  - [x] **6. Build browser simulation and editing.** Done 2026-09-23. The node
+    body presses and holds through `hardwareInputStore`, and the evaluator
+    turns that into the same once/held pulses as `reduceIrRemoteFrame`: a
+    rising press is one frame, staying down is a repeat. A key with no code
+    yet still drives its wire while held, so a retained row can be repaired
+    without a remote.
+
+    Add, rename and field edits go through one store write each, so undo and
+    redo move a whole key. Rename keeps the entry id, which is the output
+    handle. Removing a wired key asks first and names the wires; confirming
+    drops the key and those wires together. Mapped outputs already survive
+    save/reload from step 4, and the rename case there still holds.
+
+    Evidence: `IRRemoteBody`, `addIrRemoteButton` / `updateIrRemoteButton` /
+    `removeIrRemoteButton`, `stepIrRemotePreview`. `irRemote.test.ts`,
+    `irRemoteRegistration.test.ts` and `IRRemoteBody.test.tsx` cover the
+    pulse, the undo steps, and the cancelled removal.
   - [ ] **7. Implement the learning workflow.** Generate and upload a trusted,
     receiver-only diagnostic sketch with `cache: false`; parse a versioned
     `FLS_IR` serial record; accept one recognized non-repeat frame; confirm it

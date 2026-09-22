@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGraphStore } from '../graphStore'
 import {
   NODE_LIBRARY,
@@ -155,6 +155,50 @@ describe('IRRemoteInput ports follow its learned keys', () => {
 
     expect(outputsOf('ir')).toEqual([irRemoteButtonHandle('power'), IR_REMOTE_LEARN_HANDLE])
     expect((nodeOf('ir')?.data.outputs as Array<{ label: string }>)[0].label).toBe('On / Off')
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+})
+
+describe('editing learned IR keys', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    useGraphStore.setState({
+      nodes: [], edges: [], activeGraphId: 'root',
+      graphs: { root: { id: 'root', name: 'Main' } }, graphData: {},
+    } as never)
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('adds, renames and removes a key in single undo steps, and keeps the wires of a rename', () => {
+    useGraphStore.getState().loadGraph(
+      [node('ir', 'IRRemoteInput', { buttons: [button('power', 'Power', 69)] }), node('step', 'StepValue')],
+      [edge('e1', 'ir', irRemoteButtonHandle('power'), 'step', 'increase')],
+    )
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+
+    useGraphStore.getState().addIrRemoteButton('ir')
+    vi.advanceTimersByTime(400)
+    useGraphStore.getState().updateIrRemoteButton('ir', 'power', { label: 'On / Off' })
+    vi.advanceTimersByTime(400)
+
+    expect(buttonsOf('ir').map((entry) => entry.label)).toEqual(['On / Off', 'Button 2'])
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+    expect(outputsOf('ir')).toContain(irRemoteButtonHandle('power'))
+
+    useGraphStore.temporal.getState().undo()
+    expect(buttonsOf('ir').find((entry) => entry.id === 'power')?.label).toBe('Power')
+    useGraphStore.temporal.getState().undo()
+    expect(buttonsOf('ir')).toHaveLength(1)
+
+    useGraphStore.getState().removeIrRemoteButton('ir', 'power')
+    vi.advanceTimersByTime(400)
+    expect(buttonsOf('ir')).toEqual([])
+    expect(useGraphStore.getState().edges).toEqual([])
+    useGraphStore.temporal.getState().undo()
+    expect(buttonsOf('ir')).toHaveLength(1)
     expect(useGraphStore.getState().edges).toHaveLength(1)
   })
 })

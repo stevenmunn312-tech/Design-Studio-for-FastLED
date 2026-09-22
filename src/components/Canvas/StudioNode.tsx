@@ -38,6 +38,7 @@ import AudioCapabilityBody from './AudioCapabilityBody'
 import StorageCapabilityBody from './StorageCapabilityBody'
 import HardwareInputBody from './HardwareInputBody'
 import ButtonBankBody from './ButtonBankBody'
+import IRRemoteBody from './IRRemoteBody'
 import PlayerControlsBody from './PlayerControlsBody'
 import MidiInputBody from './MidiInputBody'
 import DmxInputBody from './DmxInputBody'
@@ -1219,7 +1220,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const inputs = declaredInputs.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id))
   const compactInputs = [...inputs, ...exposedInputs]
   const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
-  const rowCount = d.nodeType === 'ButtonBank' ? 0 : Math.max(inputs.length, outputs.length)
+  const rowCount = d.nodeType === 'ButtonBank' || d.nodeType === 'IRRemoteInput'
+    ? 0
+    : Math.max(inputs.length, outputs.length)
   const paletteEditorLiveJson = usePreviewStore((s) => {
     if (d.nodeType !== 'CustomPalette' && d.nodeType !== 'Poline') return ''
     const ports = d.nodeType === 'CustomPalette'
@@ -1677,6 +1680,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
+        {d.nodeType === 'IRRemoteInput' && <IRRemoteBody nodeId={id} />}
         {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}

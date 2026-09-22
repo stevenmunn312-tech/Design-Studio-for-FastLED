@@ -9,6 +9,13 @@ import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displa
 import { readDisplaySourceField } from './displaySourceFields'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
+import {
+  blankIrRepeatState,
+  irRemoteButtonHandle,
+  normalizeIrRemoteButtons,
+  stepIrRemotePreview,
+  type IrPreviewMemory,
+} from './irRemote'
 import { rtcPreviewSnapshot, type RtcPreview } from './rtc'
 import {
   buttonEdge, blankButtonEdgeState, normalizeButtonEdgeSettings, type ButtonEdgeState,
@@ -147,6 +154,7 @@ const stepValueState = new Map<string, StepValueState>()
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = new Map<string, { fire: number; prev: boolean }>()
 const dmxChannelState = new Map<string, { last: number; seen: boolean }>()
+const irPreviewState = new Map<string, IrPreviewMemory>()
 // Trigger node (bundled Debounce/Toggle/One Shot/Pulse Divider/Trigger Delay) —
 // one combined state bag; only the fields the active variant needs are touched.
 interface TriggerState {
@@ -718,7 +726,7 @@ type StateMap = { delete: (key: string) => boolean; clear: () => void }
 let _stateMaps: StateMap[] | null = null
 function stateMaps(): StateMap[] {
   return _stateMaps ??= [
-    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState, stepValueState,
+    fireHeat, flashLevel, counterVals, intervalLast, smoothState, holdState, stepValueState, irPreviewState,
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, rtcManualPreviewState, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState, patternSlideshowFadeState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
@@ -8769,6 +8777,27 @@ function createEvalNode(
         out = Object.fromEntries(buttons.map((button) => [
           buttonBankHandle(button.id),
           live.get(`${id}:${button.id}`) ?? false,
+        ]))
+        break
+      }
+
+      case 'IRRemoteInput': {
+        // Press/hold on the node is transient run-state. A rising press is one
+        // decoded frame; staying down is a repeat, so `once` fires a single
+        // pass and `held` keeps pulsing while the button is down.
+        const buttons = normalizeIrRemoteButtons(props.buttons)
+        const live = useHardwareInputStore.getState().button
+        const key = markStateUsed(stateKey(id))
+        const stepped = stepIrRemotePreview(
+          irPreviewState.get(key) ?? { pressed: new Map(), repeat: blankIrRepeatState() },
+          buttons,
+          (buttonId) => live.get(`${id}:${buttonId}`) ?? false,
+          stateClock(),
+        )
+        irPreviewState.set(key, stepped.memory)
+        out = Object.fromEntries(buttons.map((button) => [
+          irRemoteButtonHandle(button.id),
+          stepped.active.has(button.id),
         ]))
         break
       }

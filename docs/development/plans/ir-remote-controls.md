@@ -4,9 +4,10 @@ Active execution is tracked by the ordered checkbox list under
 [D-05a in the root todo](../../../todo.md). This document defines the feature
 contract so the checklist does not have to repeat the design.
 
-Status: **in progress.** The receiver-independent mapping primitives and the
-general Step Value adapter are implemented; receiver registration, learning,
-firmware dependency integration and hardware evidence remain. Keep the feature
+Status: **in progress.** Mapping primitives, the Step Value adapter, receiver
+registration, the two bench parts, and browser press/hold plus key editing are
+implemented. Learning, firmware dependency integration and hardware evidence
+remain. Keep the feature
 experimental until a generated sketch has been compiled on every claimed board
 family and the receiver, repeat handling and LED timing have been exercised on
 hardware.
