@@ -701,10 +701,30 @@ matrix, not a reason to postpone testing earlier changes.
   appear: fbuild compiles without `-w`, and it is the engine that surfaced the
   66 LVGL deprecation warnings per custom-screen sketch which Arduino CLI hid.
 
-  Remaining: the rig, four runs and the hour, against
-  [the bench procedure](docs/development/testing/display-budget-bench.md) whose
-  tables are deliberately empty until measured — then the budgets get set from
-  those numbers. Guided calibration now lives on the Touch node and consumes
+  **Measured 2026-09-22 on the ESP32-2432S028R rig, and the budgets are set.**
+  Five runs recorded in [the bench procedure](docs/development/testing/display-budget-bench.md):
+  a custom screen both links and runs on a classic ESP32 (240 KB heap free,
+  flat), a fixed-layout baseline, the show controller, and a 53.9-minute soak
+  with zero drift and zero resets. Acceptance budgets are now set from those
+  numbers, each naming the measurement behind it, scoped to a classic-ESP32
+  board driving one panel.
+
+  Two findings worth carrying: `estimateFirmwareRam` predicted the custom
+  screen's cost within 376 bytes and its draw buffer exactly, so it can be
+  trusted on this path; and the figure that actually degrades is **touch**, not
+  frame rate — 29.2 ms worst on a custom screen against 67.9 ms once the show
+  controller is rendering and crossfading, where frames cost only 1.6.
+
+  **Not met, and the reason is the rig rather than the software.** The exit
+  names TFT+SD+touch sharing one bus with audio playing, and run 3 could not be
+  built at all: this board's onboard microSD and amplifier pins are the ones
+  HW-12 deliberately left unmeasured, and two free pads cannot reach external
+  ones. So two of the three generators are recorded (normal sketch, show
+  controller) and the SD player is not, and no budget covers a shared bus.
+  Closing this item needs a second rig, or HW-12's remaining bench work.
+
+  The soak ran on the custom-screen build rather than the show, which is the
+  lighter of the two; raised and accepted on 2026-09-22 rather than re-run. Guided calibration now lives on the Touch node and consumes
   rate-limited raw `FLS_STAT` samples emitted by telemetry-enabled XPT2046
   firmware through the existing Output serial reader. The maintainer-run CYD
   compile, four-corner capture and on-device verification remain outstanding.

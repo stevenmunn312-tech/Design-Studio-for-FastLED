@@ -373,13 +373,16 @@ but this is the figure a budget on this board should constrain, and it is the
 only one of the five runs where a number moved meaningfully in the wrong
 direction. Frames/sec, by contrast, costs only 1.6 — much less than expected.
 
-**The soak was run on the lighter build.** The procedure says to soak
-"whichever of the three is heaviest", and run 4 was captured on 1b before run 2
-existed. 1b allocates nothing at all once running; run 2 exercises pattern
-rotation and transitions, which 1b's hour never touched. Nothing here suggests
-a leak — the heap is flat after boot across 59 samples — but "flat over two
-minutes" is not the claim an hour makes. A soak on run 2 is the honest way to
-close run 4, and the one measurement this rig still owes.
+**The soak was run on the lighter build, and that was accepted.** The procedure
+says to soak "whichever of the three is heaviest", and run 4 was captured on 1b
+before run 2 existed. 1b allocates nothing once running; run 2 exercises pattern
+rotation and transitions, which 1b's hour never touched. This was raised and
+**the maintainer decided on 2026-09-22 not to re-soak**: the heap is flat after
+boot across 59 samples, run 2's only movement is a 264-byte allocation at
+startup, and nothing in five runs suggests a leak. Recorded here rather than
+folded away, so that if a slow leak in the rotation or transition path ever does
+surface, this is the gap it came through — the claim "flat for an hour" rests on
+1b, and run 2 has two minutes behind it.
 
 ### 3. SD player, with the bus shared
 
@@ -455,11 +458,41 @@ has failed regardless of what the memory did.
 
 ## Turning measurements into budgets
 
-Once the four runs are in, the budgets are set from them and recorded here, then
-enforced where they can be: the firmware RAM estimate already refuses a build
-over a board's declared internal-RAM budget, and a measured draw-buffer figure
-that disagrees with the estimate means the estimate needs correcting, not the
-measurement.
+**Set 2026-09-22 from the runs above**, all on the ESP32-2432S028R rig. Each
+threshold names the measurement it came from, so the reason for the number
+survives the number. They are acceptance budgets for a **classic-ESP32 board
+driving one panel** — they are not derived for an S3, for two panels, or for a
+build with audio, none of which this rig measured.
+
+| Budget | Threshold | Worst measured | Drawn from |
+| --- | ---: | ---: | --- |
+| Static RAM | ≤ 160 KB (49%) | 106,368 (32%) | run 2; ~1.5x the heaviest build, and still leaves the ~220 KB the runs actually needed for locals and heap |
+| Free heap at rest | ≥ 192 KB | 238,564 | run 2; a build 46 KB heavier than the heaviest measured trips it |
+| Frames/sec, mean | ≥ 40 | 48.40 | run 2 mean; its instantaneous floor was 40.3, so this is the point at which the floor becomes the mean |
+| Longest loop pass, after boot | ≤ 50 ms | 32.8 ms | run 1's synchronous field repaint, which is the worst of the five |
+| Worst touch response | ≤ 100 ms | 67.9 ms | run 2; 100 ms is where a touch stops feeling immediate, not a scaled measurement |
+| Heap drift | within ±64 KiB/hour | 0.0 | run 4 |
+| Device resets | 0 | 0 | run 4 |
+
+Two of these are *not* scaled from what was measured, deliberately. The touch
+budget is a perceptual threshold: 67.9 ms already passes and a budget of, say,
+80 ms would encode this rig's current cost as a requirement rather than the
+thing that actually matters. The loop-pass budget is set above run 1's fixed
+layout rather than run 2's LVGL slices, because the synchronous repaint is the
+worse behaviour and a future fixed-layout build should be held to it.
+
+**What has no budget, and why.** Nothing here constrains a shared SPI bus with
+an SD card and audio: run 3 could not be built on this rig (its onboard microSD
+and amplifier pins are unmeasured, and two free pads cannot reach external
+ones), so any figure would be invented. The SD-player generator therefore has no
+budget at all, and should not inherit these.
+
+Enforce them where they can be: the firmware RAM estimate already refuses a
+build over a board's declared internal-RAM budget, and it earned that trust here
+— it predicted the custom screen's cost within 376 bytes and its draw buffer
+exactly. A measured draw-buffer figure that disagrees with the estimate means
+the estimate needs correcting, not the measurement.
 
 Keep the saved report files — the numbers in the tables are a summary, and the
 question "was that measured or assumed" has come up once per subsystem so far.
+The captures behind this page are in `artifacts/bench/`.
