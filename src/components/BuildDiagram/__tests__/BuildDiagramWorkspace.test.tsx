@@ -419,9 +419,9 @@ describe('BuildDiagramWorkspace', () => {
     expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
     expect(diagram?.querySelector('[data-controller-render="espressif-esp32-s3-devkitc-1"] image')).toBeTruthy()
     for (const wire of [
-      'microphone-vdd',
-      'microphone-ground',
-      'microphone-channel-select',
+      'mic-input:mic-3v3',
+      'mic-input:mic-ground',
+      'mic-input:mic-channel-select',
       'mic-input:mic:i2sWs',
       'mic-input:mic:i2sSck',
       'mic-input:mic:i2sSd',
@@ -455,10 +455,10 @@ describe('BuildDiagramWorkspace', () => {
     expect(netStub('level-shifter-1-vcc')?.getAttribute('data-net-stub-y')).toBe('317')
     expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-x')).toBe('465')
     expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-y')).toBe('466')
-    for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground', 'microphone-ground']) {
+    for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground', 'mic-input:mic-ground']) {
       expect(netStub(groundWire)?.getAttribute('data-net-stub'), groundWire).toBe('gnd')
     }
-    expect(netStub('microphone-vdd')?.getAttribute('data-net-stub')).toBe('v3v3')
+    expect(netStub('mic-input:mic-3v3')?.getAttribute('data-net-stub')).toBe('v3v3')
     expect(diagram?.querySelector('[data-common-net-callout]')).toBeTruthy()
     const outputTerminal = diagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
     const outputTerminalCircle = outputTerminal?.querySelector('circle')
@@ -498,54 +498,74 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sWs"]')?.getAttribute('data-board-anchor')).toBe('j3-9')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSd"]')?.getAttribute('data-board-anchor')).toBe('j3-7')
     const microphoneRoutes = [
-      ['microphone-vdd', 'vdd'],
       ['mic-input:mic:i2sSck', 'bclk'],
       ['mic-input:mic:i2sWs', 'ws'],
       ['mic-input:mic:i2sSd', 'dout'],
     ] as const
-    const microphoneWireClasses = microphoneRoutes.map(([wire, role]) => {
+    // One colour per I2S line, so three wires leaving the same rail stay
+    // traceable. They come from the shared signal-role table now, not from a
+    // microphone-only set of CSS classes holding the same three hex values.
+    const microphoneWireColours = microphoneRoutes.map(([wire, role]) => {
       const route = diagram?.querySelector(`[data-wire="${wire}"]`)
-      expect(route?.getAttribute('data-wire-role')).toBe(role)
-      return route?.getAttribute('class')
+      expect(route?.getAttribute('data-signal-role'), wire).toBe(role)
+      return route?.getAttribute('style')
     })
-    expect(new Set(microphoneWireClasses).size).toBe(4)
-    expect(diagram?.querySelector('[data-microphone-role="bclk"]')?.textContent).toContain('BCLK')
-    expect(diagram?.querySelector('[data-microphone-role="ws"]')?.textContent).toContain('WS')
-    expect(diagram?.querySelector('[data-microphone-role="dout"]')?.textContent).toContain('DOUT')
-    expect(diagram?.querySelector('[data-microphone-role="channel"] title')?.textContent).toContain('L/R · GND')
-    expect(diagram?.querySelector('[data-wire="microphone-channel-select"]')?.getAttribute('data-wire-role')).toBe('channel-select')
+    expect(new Set(microphoneWireColours).size).toBe(3)
     // L/R selects the channel by being tied to ground, so it carries the same
     // ground symbol as the GND pad — not a drawn strap between the two, which
     // hooked over the breakout and ended up hidden beneath the board artwork.
-    for (const wireId of ['microphone-channel-select', 'microphone-ground']) {
-      expect(diagram?.querySelector(`[data-net-stub-for="${wireId}"]`)?.getAttribute('data-net-stub')).toBe('gnd')
+    expect(diagram?.querySelector('[data-terminal="mic-input:mic-channel-select"]')?.getAttribute('data-channel-select-pad')).toBe('L/R')
+    expect(diagram?.querySelector('[data-terminal="mic-input:mic-channel-select"] title')?.textContent).toContain('L/R · GND')
+    for (const wireId of ['mic-input:mic-channel-select', 'mic-input:mic-ground']) {
+      expect(diagram?.querySelector(`[data-net-stub-for="${wireId}"]`)?.getAttribute('data-net-stub'), wireId).toBe('gnd')
     }
 
-    // Every pad dot has to land on the pad it names. The offsets used to be
-    // authored against the microphone's layout box rather than the artwork,
-    // which the box letterboxes — so the dots drifted off the pad column,
-    // worst at its ends. Pin them to the rendered <image> instead of to
-    // literal coordinates, so the artwork and the dots can only move together.
-    const micRender = diagram?.querySelector('[data-component-render="inmp441-i2s-microphone"]')
+    /*
+     * Every pad dot has to land on the pad it names, and these are the pads
+     * that were furthest from doing so: the diagram drew a six-pad *column*
+     * down the left margin, and no microphone render has one. All three
+     * catalogued modules are six-pad rows along the bottom edge, so the row is
+     * the shape to hold — read off the terminals rather than restated as
+     * coordinates, which is what let the old column drift unnoticed.
+     */
     const num = (element: Element | null | undefined, attribute: string) =>
       Number(element?.getAttribute(attribute))
-    const renderTop = num(micRender, 'y')
-    const renderHeight = num(micRender, 'height')
-    // The artwork is drawn at its own 1100x800 aspect, not stretched to the box.
-    expect(renderHeight).toBeCloseTo(num(micRender, 'width') * (800 / 1100), 4)
-
-    const padCentres = (['bclk', 'ws', 'channel', 'dout', 'vdd', 'gnd'] as const).map((role) =>
-      num(diagram?.querySelector(`[data-microphone-role="${role}"] circle`), 'cy'))
-    for (const centre of padCentres) {
-      expect(centre).toBeGreaterThan(renderTop)
-      expect(centre).toBeLessThan(renderTop + renderHeight)
+    const micRender = diagram?.querySelector('[data-component-render="inmp441-i2s-microphone"]')
+    const micBox = {
+      left: num(micRender, 'x'),
+      top: num(micRender, 'y'),
+      right: num(micRender, 'x') + num(micRender, 'width'),
+      bottom: num(micRender, 'y') + num(micRender, 'height'),
     }
-    // Six pads on one evenly spaced column, top to bottom in silkscreen order.
-    const pitches = padCentres.slice(1).map((centre, index) => centre - padCentres[index])
-    for (const pitch of pitches) expect(pitch).toBeCloseTo(renderHeight * (114.1 / 800), 1)
-    const padX = new Set((['bclk', 'ws', 'channel', 'dout', 'vdd', 'gnd'] as const).map((role) =>
-      num(diagram?.querySelector(`[data-microphone-role="${role}"] circle`), 'cx')))
-    expect(padX.size).toBe(1)
+    const micPad = (terminal: string) => {
+      const circle = diagram?.querySelector(`[data-terminal="${terminal}"] circle`)
+      return { x: num(circle, 'cx'), y: num(circle, 'cy') }
+    }
+    // Silkscreen order across the INMP441's bottom edge: L/R, GND, WS, SCK,
+    // SD, VDD. A signal terminal is named for the connection it carries, the
+    // three fixed ones for their role.
+    const micPads = [
+      micPad('mic-input:mic-channel-select'),
+      micPad('mic-input:mic-gnd'),
+      micPad('mic-input:mic-mic-input:mic:i2sWs'),
+      micPad('mic-input:mic-mic-input:mic:i2sSck'),
+      micPad('mic-input:mic-mic-input:mic:i2sSd'),
+      micPad('mic-input:mic-3v3'),
+    ]
+    for (const pad of micPads) {
+      expect(pad.x).toBeGreaterThan(micBox.left)
+      expect(pad.x).toBeLessThan(micBox.right)
+      expect(pad.y).toBeGreaterThan(micBox.top)
+      expect(pad.y).toBeLessThan(micBox.bottom)
+    }
+    // A row: one shared y, and x strictly increasing in silkscreen order.
+    expect(new Set(micPads.map((pad) => pad.y.toFixed(4))).size).toBe(1)
+    for (let index = 1; index < micPads.length; index++) {
+      expect(micPads[index].x, `pad ${index}`).toBeGreaterThan(micPads[index - 1].x)
+    }
+    // ...along the bottom edge, not through the middle of the board.
+    expect(micPads[0].y).toBeGreaterThan(micBox.top + ((micBox.bottom - micBox.top) * 0.7))
+
     for (const terminal of [
       'supply-1-positive',
       'supply-1-ground',
@@ -1006,19 +1026,33 @@ describe('BuildDiagramWorkspace', () => {
     const { container } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
-    // The two descent bands between the controller and the resistors must stay
-    // disjoint. Control corridors (296..328) once sat on top of the bus lanes
-    // (266..290), which put unrelated wires on the same vertical.
-    const horizontals = (node: Element) =>
-      [...(node.getAttribute('d') ?? '').matchAll(/H(-?[\d.]+)/g)].map((m) => Number(m[1]))
-    const inBand = (v: number, lo: number, hi: number) => v >= lo && v <= hi
+    /*
+     * Where a wire descends on the controller's right.
+     *
+     * A bus wire stops above y~520 and may hug the board; a control wire
+     * carries on down to the module lanes, past the USB block that ends at
+     * x=291, so it has to descend at 296 or beyond. Reading the corridor off
+     * each route rather than asserting two fixed bands is what makes this
+     * survive a build with enough outputs to push the bus family past 296
+     * itself — the bands were never fixed, only ordered.
+     */
+    const corridorOf = (node: Element) => Number(/H(-?[\d.]+)/.exec(node.getAttribute('d') ?? '')?.[1])
     const controlPaths = Array.from(diagram?.querySelectorAll('path[data-control-lane]') ?? [])
-    const busPaths = ['mic-input:mic:i2sSck', 'mic-input:mic:i2sWs', 'mic-input:mic:i2sSd', 'output:out-data-in']
+    const busPaths = ['output:out-data-in']
       .map((wire) => diagram?.querySelector(`path[data-wire="${wire}"]`))
       .filter((node): node is Element => !!node)
     expect(busPaths.length).toBeGreaterThan(0)
-    expect(controlPaths.some((node) => horizontals(node).some((v) => inBand(v, 266, 290)))).toBe(false)
-    expect(busPaths.some((node) => horizontals(node).some((v) => inBand(v, 296, 328)))).toBe(false)
+    const rightOf = (nodes: Element[]) => nodes.map(corridorOf).filter((x) => x >= 266)
+    for (const x of rightOf(controlPaths)) expect(x).toBeGreaterThanOrEqual(296)
+    // And no two descents share a vertical, whichever family they belong to.
+    const descents = [...rightOf(controlPaths), ...rightOf(busPaths)]
+    expect(new Set(descents).size).toBe(descents.length)
+
+    // The microphone is an ordinary control module now, so its three I2S lines
+    // are in that family rather than routed by a scheme of their own.
+    for (const wire of ['mic-input:mic:i2sSck', 'mic-input:mic:i2sWs', 'mic-input:mic:i2sSd']) {
+      expect(diagram?.querySelector(`path[data-wire="${wire}"][data-control-lane]`), wire).toBeTruthy()
+    }
 
     // Route shape is M px py H corridor V laneY H padX V padY.
     const routes = Array.from(diagram?.querySelectorAll('path[data-control-lane]') ?? []).map((node) => {
@@ -1026,16 +1060,33 @@ describe('BuildDiagramWorkspace', () => {
       const m = /V(-?[\d.]+)H(-?[\d.]+)V(-?[\d.]+)$/.exec(d)
       return { laneY: Number(m?.[1]), padX: Number(m?.[2]), padY: Number(m?.[3]) }
     })
-    expect(routes).toHaveLength(5)
+    expect(routes).toHaveLength(8)
     expect(routes.every((r) => Number.isFinite(r.laneY) && Number.isFinite(r.padX))).toBe(true)
 
     // No two signals share a lane - an encoder's A/B/SW previously overlapped.
-    expect(new Set(routes.map((r) => r.laneY)).size).toBe(5)
+    expect(new Set(routes.map((r) => r.laneY)).size).toBe(8)
 
-    // Lanes deepen left to right, so each wire climbs to its pad without
-    // crossing a shallower lane that continues further right.
-    const byPad = [...routes].sort((a, b) => a.padX - b.padX)
-    expect(byPad.map((r) => r.laneY)).toEqual([...byPad.map((r) => r.laneY)].sort((a, b) => a - b))
+    /*
+     * Lanes deepen left to right, so each wire climbs to its pad without
+     * crossing a shallower lane that continues further right.
+     *
+     * Per module row, since lanes restart under each one. Four modules wrap to
+     * two rows here, which they did not before the microphone joined the row —
+     * comparing the two rows' lanes as one list asks for an ordering the
+     * layout never promised.
+     */
+    const laneRows: Array<typeof routes> = []
+    for (const route of [...routes].sort((a, b) => a.laneY - b.laneY)) {
+      const current = laneRows[laneRows.length - 1]
+      // Lanes within a row are one spacing apart; rows are a module deep.
+      if (current && route.laneY - current[current.length - 1].laneY < 60) current.push(route)
+      else laneRows.push([route])
+    }
+    expect(laneRows.length).toBe(2)
+    for (const row of laneRows) {
+      const byPad = [...row].sort((a, b) => a.padX - b.padX)
+      expect(byPad.map((r) => r.laneY)).toEqual([...byPad.map((r) => r.laneY)].sort((a, b) => a - b))
+    }
 
     // Every lane sits below its pad, so the final segment climbs.
     expect(routes.every((r) => r.laneY > r.padY)).toBe(true)
@@ -1100,7 +1151,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram()?.querySelector('[data-output-card="output:out"]')).toBeNull()
     expect(diagram()?.querySelector('[data-wire="pot-input:pot:pin"]')).toBeNull()
     // The sheet still draws net stubs, so it must still carry their legend.
-    expect(diagram()?.querySelector('[data-net-stub-for="microphone-ground"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-net-stub-for="mic-input:mic-ground"]')).toBeTruthy()
     expect(diagram()?.querySelector('[data-common-net-callout]')).toBeTruthy()
 
     fireEvent.click(getByRole('tab', { name: 'Power' }))

@@ -851,41 +851,63 @@ matrix, not a reason to postpone testing earlier changes.
   pads found by its own labels. The full 4,583-test suite, `tsc -b` and targeted lint
   pass.
 
-- [ ] **HW-31 · P2 · The Build Diagram draws the microphone's pads down the
-  wrong edge (S).** The microphone is the one module whose pad points are
-  hand-written rather than scanned: `PhysicalAssemblyDiagram.tsx` places them
-  as a column at x=121 of an 1100x800 artwork, six centres on a 114.1 pitch, in
-  a fixed BCLK/WS/L-R/DOUT/VDD/GND order. No microphone render is that picture.
-  All three — `inmp441-i2s-microphone.webp` (byte-identical to the bundled
-  `inmp441-breakout.webp` the graphic used to name), `ics-43434-i2s-microphone`
-  and `generic-i2s-mems-microphone` — are 400-wide boards with a six-pad row
-  along the bottom edge, in three different silkscreen orders. So every
-  terminal dot and every I2S wire end is drawn down the left margin of a board
-  whose pads are underneath them. Pre-existing and equally wrong for the
-  INMP441, so HW-19's two new modules did not make it worse.
+- [x] **HW-31 · P2 · The Build Diagram draws the microphone's pads down the
+  wrong edge (S).** Done. *The microphone is an ordinary peripheral.* Its
+  bespoke slot at the top of the sheet bought exactly one thing — a pad
+  *column*, so each of its three I2S wires got a distinct y for free — and no
+  microphone render has one. All three are six-pad rows along the bottom edge,
+  like every other module in the peripheral row, so every terminal dot and
+  every wire end was drawn down the left margin of a board whose pads were
+  underneath them. Pre-existing and equally wrong for the INMP441, so HW-19's
+  two new modules did not make it worse.
 
-  Measured already, by the scan method in the pad-geometry note (the generic
-  board needed a strict gold mask rather than the usual warm one, its solder
-  mask being dark red), and checked by drawing each back over its render:
-  `inmp441-i2s-microphone` x 33.7/100/166.6/232.5/298.5/365.2 at y 243.9 of
-  400x282; `ics-43434-i2s-microphone` x 104.7/142.4/180.7/218.4/256.6/294.4 at
-  y 255.8 of 400x286; `generic-i2s-mems-microphone` x
-  41.7/104.1/168/231/294.8/357.2 at y 204.4 of 400x248.
+  The three measured rows joined `MODULE_PAD_GEOMETRY`, which is what let the
+  rest go: `MicrophoneGraphic`, `microphoneTerminalPoint`, its pad column and
+  pitch, its per-signal wire classes (three CSS rules holding the same three
+  hex values `SIGNAL_ROLE_COLORS` already had), and its own routing block are
+  gone, and the module draws through `InputGraphic` and the ordinary lanes,
+  corridors and descending net stubs. Pad *roles* are looked up by the name
+  each module prints — `VDD` joined the supply labels, `micChannelSelectPadIndex`
+  finds `L/R` or `SEL` — which is the only thing that can tell three modules
+  apart that agree on nothing but the pad count.
 
-  The fix is not just those three rows. Going through `peripheralPadPoint` (the
-  right answer — pads by silkscreen, derived, as every other module does it,
-  and `micTerminalPadIndex` plus `'VDD'` in `POWER_PAD_LABELS` is all the
-  lookup needs) also needs the microphone's *routing* re-planned, which is why
-  this is its own row: a pad column gave each of the three I2S wires its own y
-  for free, and a pad row does not. Lanes below the module land in the
-  controller's detour band; lanes above it land among the left rail's pin
-  exits; and the corridor band the microphone shares with the output data wires
-  (x 266..290, kept disjoint from the control corridors at 296..328 by
-  `BuildDiagramWorkspace.test.tsx`) is exactly where those exits end. Whether
-  the microphone should keep its bespoke top-of-sheet lane at all is the first
-  question — folding it into the ordinary peripheral row would inherit lanes,
-  corridors and stubs already solved and tested, at the cost of porting its
-  L/R-to-ground stub and its per-signal wire colours.
+  Two things had to be ported rather than inherited, which is what made this its
+  own row. The L/R-to-ground stub is not one of the item's pins, so it is drawn
+  beside them and hangs lower than the ordinary GND stub so its "GND (LEFT)"
+  caption does not overprint the plain one; the lane base is now derived from
+  the row's own stub depth, charged only to rows that carry such a module, so
+  the first lane still starts below the deepest caption rather than through it.
+
+  And the corridor band. Right-side control wires used to take their slot from
+  a pool shared with the bus family, ranked by pin height — so the separation
+  between the two families was only ever the *count* of bus wires above them,
+  and a right-rail control pin sitting above every output pin took slot 0 and
+  descended through the bus band and the USB block below it. That was already
+  reachable before this change; moving the microphone out of the bus family
+  made it certain. Control wires now rank after the bus family and never nearer
+  than x=296, which is the clearance the band was named for. The lane test
+  reads each route's corridor and asserts uniqueness plus that floor, rather
+  than two fixed bands that were never fixed — a build with enough outputs
+  pushes the bus family past 296 on its own.
+
+  Coverage is derived, not listed: the three modules join `padGeometry.test.ts`'s
+  sweep for free, and `peripheralPads.test.ts` iterates `MIC_MODULES` so a
+  fourth module cannot reach the Add Hardware menu drawn wrong — it checks each
+  one's supply, ground, channel-select and three I2S pads by silkscreen name,
+  and that its geometry is a single row along the bottom edge. The workspace
+  test now asserts the row shape (one shared y, x increasing in silkscreen
+  order, inside the render, below its middle) instead of the column's pitch.
+  Verified by rasterising the sheet offline for all three modules, alone and
+  sharing a row with a pot, a button and an encoder. `npm test` (5,533 tests),
+  `npm run lint` and `tsc -b` pass. Layout rules recorded under
+  [Where a wire descends](docs/architecture/build-diagram.md#where-a-wire-descends).
+
+  **Noticed while measuring, not fixed here:** the catalogue note on
+  `ics-43434-i2s-microphone` says "SEL selects I2S/PDM on this breakout", which
+  contradicts both the Adafruit breakout it is modelled on and `MIC_MODULES`'
+  own "wires exactly like an INMP441". The diagram treats SEL as channel
+  select. The note lives in generated catalogue data, so correcting it means
+  re-importing the part.
 
 - [x] **HW-22 · P2 · Undo in the display editor leaves the node's ports behind (S).**
   Reproduced with a template-era display snapshot crossing an ordinary graph

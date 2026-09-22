@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
   peripheralPadCount, peripheralPadLabel, peripheralPowerPadIndex,
   peripheralGroundPadIndex, peripheralSignalPadIndex, peripheralPowerNet,
+  micChannelSelectPadIndex, MODULE_PAD_GEOMETRY,
 } from '../physicalDiagramLayout'
+import { MIC_MODULES } from '../../../state/micModules'
 import { partById } from '../../../state/partCatalogue'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 
@@ -139,6 +141,49 @@ describe('module pads come from the part, not the category', () => {
     expect(peripheralPowerNet(item('sd-card', 'microsd-breakout-3v3'))).toBe('v3v3')
     expect(peripheralPowerNet(item('sd-card', 'microsd-module-5v'))).toBe('v5')
     expect(peripheralPowerNet(item('amplifier', 'max98357a-i2s-amplifier'))).toBe('v5')
+  })
+
+  /*
+   * Every microphone the app may offer, derived from the one list that decides
+   * that — so a fourth module cannot reach the Add Hardware menu drawn wrong.
+   *
+   * These three agree on nothing but the count: six pads in three different
+   * silkscreen orders, supply printed VDD on two and 3V on the third, channel
+   * select printed L/R on two and SEL on the third. The diagram used to place
+   * all six as a hardcoded column in a fixed BCLK/WS/L-R/DOUT/VDD/GND order,
+   * which is not the order, the shape or the edge that any of them has.
+   */
+  it.each(MIC_MODULES.map((module) => [module.partId] as const))(
+    'finds every role on %s by the name printed beside it',
+    (partId) => {
+      const mic = item('mic-input', partId)
+      const labels = pads(mic)
+      expect(labels).toEqual(partById(partId)!.pinLabelsLeftToRight)
+      expect(labels[peripheralPowerPadIndex(mic)], 'supply').toMatch(/^(VDD|3V|3V3)$/)
+      expect(labels[peripheralGroundPadIndex(mic)], 'ground').toBe('GND')
+      expect(labels[micChannelSelectPadIndex(mic)!], 'channel select').toMatch(/^(L\/R|SEL)$/)
+      // The manifest pushes WS, SCK then SD; each lands on the pad its own
+      // module prints that line as.
+      const wired = item('mic-input', partId)
+      wired.pins = [pin('i2sWs'), pin('i2sSck'), pin('i2sSd')]
+      expect(labels[peripheralSignalPadIndex(wired, 0)], 'WS').toMatch(/^(WS|LRCL)$/)
+      expect(labels[peripheralSignalPadIndex(wired, 1)], 'SCK').toMatch(/^(SCK|BCLK)$/)
+      expect(labels[peripheralSignalPadIndex(wired, 2)], 'SD').toMatch(/^(SD|DOUT)$/)
+      // A supply pad that reads VDD is a 3.3 V part, not an unknown one.
+      expect(peripheralPowerNet(mic)).toBe('v3v3')
+      // And it is drawn from a measured row, not spread evenly across its render.
+      const geometry = MODULE_PAD_GEOMETRY[partId]
+      expect(geometry, `${partId} has no measured pads`).toBeDefined()
+      expect(new Set(geometry!.map(([, y]) => y)).size, 'one row, one y').toBe(1)
+      expect(geometry!.every(([, y]) => y > 0.7), 'along the bottom edge').toBe(true)
+    },
+  )
+
+  // Nothing else has a channel-select pad, and asking by name is what keeps it
+  // that way — an OLED's CS pad must not answer to it.
+  it('finds no channel-select pad on a module that has none', () => {
+    expect(micChannelSelectPadIndex(item('info-display', 'sh1106-oled-128x64'))).toBeNull()
+    expect(micChannelSelectPadIndex(item('sd-card', 'microsd-module-5v'))).toBeNull()
   })
 
   it('still draws the uncatalogued modules that predate the catalogue', () => {

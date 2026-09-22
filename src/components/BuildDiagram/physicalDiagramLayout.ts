@@ -203,9 +203,30 @@ export const PERIPHERAL_GAP = 30
 /** Deep enough that the first lane clears the downward VCC/GND stub labels. */
 export const PERIPHERAL_LANE_BASE = 42
 export const PERIPHERAL_LANE_SPACING = 13
+
+/**
+ * Extra depth for a row holding a module with a channel-select pad.
+ *
+ * That stub hangs lower than the ordinary VCC/GND ones so its qualifying
+ * "GND (LEFT)" caption does not overprint the plain GND caption on the pad
+ * beside it — and the lane base above is measured against the ordinary depth,
+ * so the deeper caption would otherwise land on the first lane. Charged per
+ * row, to the rows that actually carry one.
+ */
+export const CHANNEL_SELECT_STUB_DROP = 16
+
+function rowHasChannelSelect(rowItems: readonly HardwareManifestItem[]) {
+  return rowItems.some((item) => micChannelSelectPadIndex(item) !== null)
+}
+
+/** Where a row's first control lane sits below its modules. */
+export function peripheralLaneBase(rowItems: readonly HardwareManifestItem[]) {
+  return PERIPHERAL_LANE_BASE + (rowHasChannelSelect(rowItems) ? CHANNEL_SELECT_STUB_DROP : 0)
+}
+
 /** Clear of the deepest lane, with room for the downward GND/VCC stub labels. */
-export function peripheralClearance(rowSignalCount: number) {
-  return PERIPHERAL_LANE_BASE + (Math.max(rowSignalCount, 1) * PERIPHERAL_LANE_SPACING) + 16
+export function peripheralClearance(rowSignalCount: number, rowItems: readonly HardwareManifestItem[] = []) {
+  return peripheralLaneBase(rowItems) + (Math.max(rowSignalCount, 1) * PERIPHERAL_LANE_SPACING) + 16
 }
 export const PERIPHERAL_ROW_X = 330
 export const PERIPHERAL_ROW_GAP = 34
@@ -263,6 +284,16 @@ function padColumn(x: number, width: number, ys: readonly number[], height: numb
 }
 
 export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
+  // Microphones. All three are six-pad rows along the bottom edge, in three
+  // different silkscreen orders — which is exactly why the pad *point* is
+  // measured here and the pad *role* is looked up by name rather than by
+  // index. These were the last hand-placed pads on the sheet: the diagram drew
+  // a six-pad column down the left margin of every microphone, a shape no
+  // microphone render has.
+  'inmp441-i2s-microphone': padRow([33.7, 100, 166.6, 232.5, 298.5, 365.2], 400, 243.9, 282),
+  'ics-43434-i2s-microphone': padRow([104.7, 142.4, 180.7, 218.4, 256.6, 294.4], 400, 255.8, 286),
+  'generic-i2s-mems-microphone': padRow([41.7, 104.1, 168, 231, 294.8, 357.2], 400, 204.4, 248),
+
   'max98357a-i2s-amplifier': padRow([31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5], 400, 545, 568),
   'pam8403-3w-stereo-amplifier':
     padRow([36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366], 400, 254, 287),
@@ -389,8 +420,24 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
 }
 
 /** Supply and ground, found by the name printed beside the pad. */
-const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', '3V3', '3V', 'V+']
+const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', '3V3', '3V', 'V+']
 const GROUND_PAD_LABELS = ['GND', 'G', '0V']
+
+/**
+ * The pad that picks which I2S slot a MEMS microphone talks in, tied low for
+ * the left channel — the app's default, and the only channel its capture reads.
+ *
+ * It carries no GPIO, so it is not one of the item's pins and has to be found
+ * by name like the supply and ground pads are. The name differs by module:
+ * INMP441-style boards print L/R, the Adafruit-form ICS-43434 prints SEL.
+ */
+const CHANNEL_SELECT_PAD_LABELS = ['L/R', 'LR', 'SEL']
+
+/** Which pad selects the channel, or `null` on a module that has no such pad. */
+export function micChannelSelectPadIndex(item: HardwareManifestItem) {
+  const index = padIndexByLabel(item, CHANNEL_SELECT_PAD_LABELS, -1)
+  return index >= 0 ? index : null
+}
 
 function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], fallback: number) {
   const pads = peripheralPads(item).map((label) => label.toUpperCase())
@@ -634,7 +681,18 @@ export function levelShifterSupplyPoint(
 
 export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const outputs = items.filter((item) => item.kind === 'matrix-output')
-  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'mic-input')
+  /*
+   * A microphone is an ordinary peripheral.
+   *
+   * It used to own a slot of its own at the top of the sheet, which bought it
+   * one thing — a pad *column*, so each of its three I2S wires got a distinct y
+   * for free. No microphone render has a pad column: all three are six-pad rows
+   * along the bottom edge, like every other module in this row. Once the pads
+   * are read from the measured geometry the bespoke slot buys nothing and costs
+   * a second routing scheme, so the module joins the row and inherits the
+   * lanes, corridors and descending net stubs that scheme already solves.
+   */
+  const peripherals = items.filter((item) => item.kind !== 'matrix-output')
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
     const height = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
@@ -642,17 +700,18 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
     outputY += height + OUTPUT_CARD_LABEL_HEIGHT + 14
     return layout
   })
-  const microphone = items.find((item) => item.kind === 'mic-input')
-  if (microphone) layouts.push({ item: microphone, x: 350, y: 62, width: 205, height: 160 })
   const peripheralY = Math.max(500, LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP)) + 24)
   // Each row is only as deep as its own lane stack needs, so a lone button
   // does not reserve the space an encoder-heavy row would.
   const rowSignalCounts: number[] = []
+  const rowItems: HardwareManifestItem[][] = []
   peripherals.forEach((item, index) => {
     const row = Math.floor(index / PERIPHERALS_PER_ROW)
     rowSignalCounts[row] = (rowSignalCounts[row] ?? 0) + item.pins.length
+    rowItems[row] = [...(rowItems[row] ?? []), item]
   })
-  const rowHeights = rowSignalCounts.map((count) => PERIPHERAL_RENDER_H + peripheralClearance(count))
+  const rowHeights = rowSignalCounts.map((count, row) =>
+    PERIPHERAL_RENDER_H + peripheralClearance(count, rowItems[row] ?? []))
   const rowTops = rowHeights.map((_, row) =>
     peripheralY + rowHeights.slice(0, row).reduce((sum, height) => sum + height + PERIPHERAL_ROW_GAP, 0))
   peripherals.forEach((item, index) => {

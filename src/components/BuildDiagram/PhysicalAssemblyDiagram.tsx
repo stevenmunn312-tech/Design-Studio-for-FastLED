@@ -33,6 +33,7 @@ import {
   levelShifterChipY,
   levelShifterSupplyPoint,
   levelShifterTerminalPoint,
+  CHANNEL_SELECT_STUB_DROP,
   COMMON_NET_CALLOUT_GAP,
   COMMON_NET_CALLOUT_HEIGHT,
   diagramContentBottom,
@@ -45,13 +46,14 @@ import {
   fuseColumnSplit,
   fuseSlotForFeed,
   groundCombLaneY,
+  micChannelSelectPadIndex,
   peripheralGroundPadIndex,
+  peripheralLaneBase,
   peripheralPadLabel,
   peripheralPadPoint,
   peripheralPowerNet,
   peripheralPowerPadIndex,
   peripheralSignalPadIndex,
-  PERIPHERAL_LANE_BASE,
   PERIPHERAL_LANE_SPACING,
   PERIPHERAL_RENDER_H,
   PERIPHERAL_RENDER_W,
@@ -348,7 +350,7 @@ type SignalPresentation = {
  * the controller, the wire, and every SPI module instead of changing colour
  * just because it belongs to a different item.
  */
-const SIGNAL_ROLE_COLORS = {
+export const SIGNAL_ROLE_COLORS = {
   bclk: '#176fd1',
   ws: '#df811c',
   dout: '#a33db8',
@@ -637,7 +639,12 @@ function assignControlLanes(
 ) {
   const lanes = new Map<string, { index: number; y: number }>()
   const rows = new Map<number, Array<{ id: string; padX: number; rowTop: number }>>()
+  // The lane base follows the row's own stub depth, so a row holding a module
+  // with a channel-select stub starts its lanes below that deeper caption
+  // rather than through it. `itemLayouts` sizes the row from the same rule.
+  const rowItems = new Map<number, HardwareManifestItem[]>()
   peripheralLayouts.forEach((layout) => {
+    rowItems.set(layout.y, [...(rowItems.get(layout.y) ?? []), layout.item])
     const own = connections.filter((connection) => connection.itemId === layout.item.id)
     own.forEach((connection, index) => {
       const entry = rows.get(layout.y) ?? []
@@ -645,14 +652,15 @@ function assignControlLanes(
       rows.set(layout.y, entry)
     })
   })
-  rows.forEach((entries) => {
+  rows.forEach((entries, rowTop) => {
+    const base = peripheralLaneBase(rowItems.get(rowTop) ?? [])
     entries
       .slice()
       .sort((a, b) => a.padX - b.padX)
       .forEach((entry, index) => {
         lanes.set(entry.id, {
           index,
-          y: entry.rowTop + PERIPHERAL_RENDER_H + PERIPHERAL_LANE_BASE + (index * PERIPHERAL_LANE_SPACING),
+          y: entry.rowTop + PERIPHERAL_RENDER_H + base + (index * PERIPHERAL_LANE_SPACING),
         })
       })
   })
@@ -665,25 +673,48 @@ function assignControlLanes(
  *
  * The peripheral-lane index cannot double as this slot: it restarts on every
  * module row and, historically, wrapped after five. Left-side control wires
- * also share the output/microphone lane map so those independently rendered
- * families cannot interleave less than one wire stroke apart. Right-side
- * controls keep their own corridor beyond the bus band.
+ * share the bus lane map, because both families descend on the same
+ * `LEFT_CONTROLLER_LANE_X` fan and could otherwise interleave less than one
+ * wire stroke apart.
+ *
+ * Right-side control wires share the same right-hand descent as the bus
+ * family and are ranked *after* every bus wire rather than interleaved with
+ * them by pin height, which is what the shared map used to do. Two rules
+ * decide the offset and both are physical. Past the bus wires, because two
+ * wires on one vertical is the thing this slot exists to prevent. And never
+ * nearer than `CONTROL_CORRIDOR_MIN_SLOT`, because a bus wire stops above
+ * y~520 while a control wire carries on down to the module lanes, straight
+ * through the USB block that ends at x=291 — the clearance the 296..328 band
+ * was named for. Under the old interleaving a right-rail control pin sitting
+ * above every output pin took slot 0 and descended through both.
  */
+const CONTROL_CORRIDOR_MIN_SLOT = 5
+
 function assignControlCorridors(
   peripheralLayouts: ItemLayout[],
   controllerConnections: PhysicalDiagramConnection[],
   boardProfile: PhysicalBoardProfile,
   leftLaneSlots: ReadonlyMap<string, number>,
-  rightLaneSlots: ReadonlyMap<string, number>,
+  busCorridorCount: number,
 ) {
   const peripheralIds = new Set(peripheralLayouts.map((layout) => layout.item.id))
   const slots = new Map<string, number>()
+  const rightward: Array<{ id: string; y: number }> = []
   controllerConnections.forEach((connection, index) => {
     if (!peripheralIds.has(connection.itemId)) return
     const point = controllerConnectionPoint(connection, index, controllerConnections.length, boardProfile)
-    const slot = (point.side === 'left' ? leftLaneSlots : rightLaneSlots).get(connection.id)
+    if (point.side === 'right') {
+      rightward.push({ id: connection.id, y: point.y })
+      return
+    }
+    const slot = leftLaneSlots.get(connection.id)
     if (slot !== undefined) slots.set(connection.id, slot)
   })
+  const offset = Math.max(busCorridorCount, CONTROL_CORRIDOR_MIN_SLOT)
+  // Deepest pin outermost, the same nesting rule the left fan follows.
+  rightward
+    .sort((a, b) => b.y - a.y)
+    .forEach((entry, rank) => slots.set(entry.id, offset + rank))
   return slots
 }
 
@@ -699,64 +730,6 @@ function routeToControlPad(
     ? RIGHT_CONTROLLER_LANE_X + (corridorSlot * CONTROLLER_LANE_SPACING)
     : LEFT_CONTROLLER_LANE_X - (corridorSlot * CONTROLLER_LANE_SPACING)
   return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
-}
-
-type MicrophoneSignalRole = 'bclk' | 'ws' | 'dout'
-
-type MicrophoneTerminalRole = MicrophoneSignalRole | 'channel' | 'vdd' | 'gnd'
-
-/**
- * Pad positions live in the INMP441 artwork's own pixel space, measured off the
- * render: one column at x=121, six centres on a 114.1px pitch from y=114.5.
- *
- * They used to be authored in the layout box's space instead, which put every
- * dot a few units off its pad — worst at the ends of the column. Two reasons at
- * once: the box is 205x160 while the artwork is 1100x800, so
- * `preserveAspectRatio="xMidYMid meet"` fitted the render into 205x149 and
- * centred it inside the box; and the hardcoded 23-unit pad pitch didn't match
- * the artwork's real 21.3. Deriving both the <image> height and the pad points
- * from the same scale keeps them locked together — the same split the
- * peripheral modules already make between artwork box and footprint.
- */
-const MICROPHONE_SOURCE = { width: 1100, height: 800 } as const
-const MICROPHONE_PAD_X = 121
-/** Top pad centre and pitch, fitted across all six measured centres (114.5 to 685). */
-const MICROPHONE_PAD_TOP = 114.5
-const MICROPHONE_PAD_PITCH = 114.1
-/** Silkscreen order down the column, which is what the pitch above steps through. */
-const MICROPHONE_PAD_ORDER: readonly MicrophoneTerminalRole[] = ['bclk', 'ws', 'channel', 'dout', 'vdd', 'gnd']
-
-/** The artwork drawn at its own aspect ratio inside the item's footprint. */
-function microphoneRenderBox(layout: ItemLayout) {
-  const scale = layout.width / MICROPHONE_SOURCE.width
-  return { x: layout.x, y: layout.y, width: layout.width, height: MICROPHONE_SOURCE.height * scale, scale }
-}
-
-function microphoneTerminalPoint(layout: ItemLayout, role: MicrophoneTerminalRole) {
-  const box = microphoneRenderBox(layout)
-  const padY = MICROPHONE_PAD_TOP + (MICROPHONE_PAD_ORDER.indexOf(role) * MICROPHONE_PAD_PITCH)
-  return {
-    x: box.x + (MICROPHONE_PAD_X * box.scale),
-    y: box.y + (padY * box.scale),
-  }
-}
-
-function microphoneSignalPresentation(connection: PhysicalDiagramConnection): {
-  label: string
-  role: MicrophoneSignalRole
-  terminalClassName: string
-  wireClassName: string
-} | null {
-  if (connection.id.endsWith(':i2sSck')) {
-    return { label: 'BCLK', role: 'bclk', terminalClassName: styles.microphoneBclkTerminal, wireClassName: styles.microphoneBclkWire }
-  }
-  if (connection.id.endsWith(':i2sWs')) {
-    return { label: 'WS', role: 'ws', terminalClassName: styles.microphoneWsTerminal, wireClassName: styles.microphoneWsWire }
-  }
-  if (connection.id.endsWith(':i2sSd')) {
-    return { label: 'DOUT', role: 'dout', terminalClassName: styles.microphoneDoutTerminal, wireClassName: styles.microphoneDoutWire }
-  }
-  return null
 }
 
 const PHOTO_TERMINAL_FILL_RATIO = 0.58
@@ -823,7 +796,7 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
                 cy={point.y}
                 r={point.mapped ? padFillRadius : padRadius}
                 className={point.mapped
-                  ? `${microphoneSignalPresentation(connection)?.terminalClassName ?? styles.controllerSignalTerminal} ${styles.photoTerminalFill}`
+                  ? `${styles.controllerSignalTerminal} ${styles.photoTerminalFill}`
                   : styles.controllerUnmappedTerminal}
                 style={point.mapped ? { fill: presentation.color } : undefined}
               />
@@ -878,7 +851,6 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
             r="5"
             fill="#d9a638"
             stroke="#f5d16e"
-            className={microphoneSignalPresentation(connection)?.terminalClassName}
           />
           <text x="268" y={controllerConnectionY(index, connections.length) + 4} textAnchor="end" className={styles.physicalPinLabel}>{connectionPinLabel(connection)}</text>
         </g>
@@ -891,52 +863,6 @@ function ControllerGraphic({ boardProfile, connections, selected }: { boardProfi
         <circle cx="166" cy="512" r="5" fill="#55bdc7" stroke="#d9f5f7" />
         <text x="166" y="503" textAnchor="middle" className={styles.physicalBoardSubSilk}>USB POWER</text>
       </g>
-    </g>
-  )
-}
-
-function MicrophoneGraphic({ layout, connections, selected }: { layout: ItemLayout; connections: PhysicalDiagramConnection[]; selected: boolean }) {
-  const { y, item } = layout
-  const box = microphoneRenderBox(layout)
-  // The exact module's own picture, resolved the way every other peripheral
-  // resolves one. The bundled artwork this used to name is byte-identical to
-  // the INMP441's catalogue asset, so the default build is unchanged and the
-  // other two modules stop being drawn as an INMP441.
-  const render = peripheralRender(item)
-  const terminal = (role: MicrophoneTerminalRole, className: string, label: string) => {
-    const point = microphoneTerminalPoint(layout, role)
-    return <g data-terminal={`${item.id}-${role}`} data-microphone-role={role}>
-      <circle cx={point.x} cy={point.y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${className} ${styles.photoTerminalFill}`} />
-      <title>{label}</title>
-    </g>
-  }
-  return (
-    <g className={selected ? styles.physicalSelected : undefined}>
-      <text x={box.x + (box.width / 2)} y={y - 16} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
-      {render && (
-        <image
-          data-component-render={render.id}
-          href={render.href}
-          x={box.x}
-          y={box.y}
-          width={box.width}
-          height={box.height}
-          preserveAspectRatio="xMidYMid meet"
-          className={styles.physicalBoardRender}
-        />
-      )}
-      {terminal('vdd', styles.microphoneVddTerminal, 'VDD · 3V3')}
-      {connections.map((connection) => {
-        const presentation = microphoneSignalPresentation(connection)
-        if (!presentation) return null
-        const point = microphoneTerminalPoint(layout, presentation.role)
-        return <g key={connection.id} data-terminal={`${item.id}-${connection.id}`} data-microphone-role={presentation.role}>
-          <circle cx={point.x} cy={point.y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${presentation.terminalClassName} ${styles.photoTerminalFill}`} />
-          <title>{presentation.label} · {connection.pinLabel}</title>
-        </g>
-      })}
-      {terminal('channel', styles.microphoneGroundTerminal, 'L/R · GND for left channel')}
-      {terminal('gnd', styles.microphoneGroundTerminal, 'GND')}
     </g>
   )
 }
@@ -975,6 +901,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   const padLabel = (index: number) => peripheralPadLabel(item, index)
   const powerPadIndex = peripheralPowerPadIndex(item)
   const groundPadIndex = peripheralGroundPadIndex(item)
+  const channelSelectPadIndex = micChannelSelectPadIndex(item)
   const powerNet = peripheralPowerNet(item)
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
@@ -1017,6 +944,19 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
         />
         <title>GND</title>
       </g>
+      {/* A microphone's channel-select pad carries no GPIO, so it is not one of
+          the item's connections and needs drawing beside them. */}
+      {channelSelectPadIndex !== null && (
+        <g data-terminal={`${item.id}-channel-select`} data-channel-select-pad={padLabel(channelSelectPadIndex)}>
+          <circle
+            cx={peripheralPadPoint(layout, channelSelectPadIndex).x}
+            cy={peripheralPadPoint(layout, channelSelectPadIndex).y}
+            r={MODULE_TERMINAL_FILL_RADIUS}
+            className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
+          />
+          <title>{padLabel(channelSelectPadIndex)} · GND for left channel</title>
+        </g>
+      )}
     </g>
   )
 }
@@ -1383,18 +1323,15 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
-  const microphoneLayout = layouts.find((layout) => layout.item.kind === 'mic-input')
-  const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output' && layout.item.kind !== 'mic-input')
+  const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output')
   const outputConnections = connections.filter((connection) => outputLayouts.some((layout) => layout.item.id === connection.itemId))
-  const micConnections = microphoneLayout ? connections.filter((connection) => connection.itemId === microphoneLayout.item.id) : []
-  const controllerConnections = [...outputConnections, ...micConnections, ...connections.filter((connection) => !outputConnections.includes(connection) && !micConnections.includes(connection))]
+  const controllerConnections = [...outputConnections, ...connections.filter((connection) => !outputConnections.includes(connection))]
   const controller3v3 = controllerPowerPoint('3v3', boardProfile)
   const controllerGround = controllerPowerPoint('ground', boardProfile)
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
-  const usesThreeVolt = !!microphoneLayout
-    || peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
+  const usesThreeVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
   const detourBaseY = controllerDetourBaseY(controllerRender(boardProfile))
   const topBandY = controllerTopBandY(controllerRender(boardProfile))
@@ -1418,14 +1355,15 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       .map(({ connection }, rank) => [connection.id, rank] as const)
   )
   const leftLaneSlots = laneSlots('left')
-  // Every output/microphone route eventually descends on the controller's
-  // right, even when its pad is on the left rail. Right-rail peripherals use
-  // the same pool, so no component family can claim a corridor another family
-  // is already occupying.
-  const busConnectionIds = new Set([...outputConnections, ...micConnections].map((connection) => connection.id))
+  // Every output route eventually descends on the controller's right, even
+  // when its pad is on the left rail, so the bus family ranks together here.
+  // Right-rail control wires descend on the same side and take their slots
+  // from beyond this count, so no component family can claim a corridor
+  // another family is already occupying.
+  const busConnectionIds = new Set(outputConnections.map((connection) => connection.id))
   const rightLaneSlots = new Map(
     controllerLaneEntries
-      .filter(({ connection, point }) => point.side === 'right' || busConnectionIds.has(connection.id))
+      .filter(({ connection }) => busConnectionIds.has(connection.id))
       .sort((a, b) => (topBandY === undefined ? b.point.y - a.point.y : a.point.y - b.point.y))
       .map(({ connection }, rank) => [connection.id, rank] as const)
   )
@@ -1433,7 +1371,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
     leftLaneSlots.get(connection.id) ?? fallback
   const rightLaneSlot = (connection: PhysicalDiagramConnection, fallback: number) =>
     rightLaneSlots.get(connection.id) ?? fallback
-  const controlCorridors = assignControlCorridors(peripheralLayouts, controllerConnections, boardProfile, leftLaneSlots, rightLaneSlots)
+  const controlCorridors = assignControlCorridors(peripheralLayouts, controllerConnections, boardProfile, leftLaneSlots, rightLaneSlots.size)
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
   const viewTop = crop?.y ?? 0
   const viewHeight = crop?.height ?? canvasHeight
@@ -1462,32 +1400,6 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       </g>
 
       <g className={styles.physicalWires}>
-        {microphoneLayout && (() => {
-          const vddPoint = microphoneTerminalPoint(microphoneLayout, 'vdd')
-          const channelPoint = microphoneTerminalPoint(microphoneLayout, 'channel')
-          const groundPoint = microphoneTerminalPoint(microphoneLayout, 'gnd')
-          return <>
-          <NetStub x={vddPoint.x} y={vddPoint.y} kind="v3v3" direction="left" lead={26} wireId="microphone-vdd" wireRole="vdd" />
-          {layers.signalWires && micConnections.map((connection) => {
-            const controllerIndex = controllerConnections.indexOf(connection)
-            const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
-            const presentation = microphoneSignalPresentation(connection)
-            if (!presentation) return null
-            const target = microphoneTerminalPoint(microphoneLayout, presentation.role)
-            return <path key={connection.id} data-wire={connection.id} data-wire-role={presentation.role} d={routeFromController(controllerPoint, target.x, target.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={presentation.wireClassName} />
-          })}
-          {/*
-            L/R selects the channel by being tied to ground, so it carries the
-            same ground symbol as the GND pad rather than a drawn strap between
-            the two — one net, one symbol, per the common-net rule the callout
-            states. It was a strap hooked right over the breakout, which the
-            board artwork then painted over, hiding it entirely.
-          */}
-          <NetStub x={channelPoint.x} y={channelPoint.y} kind="gnd" direction="left" lead={26} label="GND (LEFT)" wireId="microphone-channel-select" wireRole="channel-select" />
-          <NetStub x={groundPoint.x} y={groundPoint.y} kind="gnd" direction="left" lead={26} wireId="microphone-ground" />
-        </>
-        })()}
-
         {layers.signalWires && outputLayouts.map((layout, index) => {
           const connection = outputConnections.find((entry) => entry.itemId === layout.item.id)
           if (!connection) return null
@@ -1514,6 +1426,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
           const vccPad = peripheralPadPoint(layout, peripheralPowerPadIndex(layout.item))
           const groundPad = peripheralPadPoint(layout, peripheralGroundPadIndex(layout.item))
+          const channelSelectIndex = micChannelSelectPadIndex(layout.item)
+          const channelSelectPad = channelSelectIndex === null ? null : peripheralPadPoint(layout, channelSelectIndex)
           return <g key={layout.item.id}>
             <NetStub
               x={vccPad.x}
@@ -1544,6 +1458,25 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               />
             })}
             <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground`} />
+            {/*
+              A microphone's channel-select pad picks its I2S slot by being tied
+              to ground, so it carries the same ground symbol as the GND pad
+              rather than a drawn strap between the two — one net, one symbol,
+              per the common-net rule the callout states. A longer lead keeps
+              its qualifying label off the plain GND label beside it.
+            */}
+            {channelSelectPad && (
+              <NetStub
+                x={channelSelectPad.x}
+                y={channelSelectPad.y}
+                kind="gnd"
+                direction="down"
+                lead={PERIPHERAL_STUB_LEAD + CHANNEL_SELECT_STUB_DROP}
+                label="GND (LEFT)"
+                wireId={`${layout.item.id}-channel-select`}
+                wireRole="channel-select"
+              />
+            )}
           </g>
         })}
         {layers.levelShifter && Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
@@ -1702,7 +1635,6 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         <ControllerGraphic boardProfile={boardProfile} connections={layers.signalWires ? controllerConnections : []} selected={selectedItemId === 'controller'} />
       </g>
       {outputLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><OutputGraphic layout={layout} connection={outputConnections.find((entry) => entry.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} plan={plan.outputs.find((entry) => entry.itemId === layout.item.id)} powerPlanBelow={showPowerDistribution} /></g>)}
-      {microphoneLayout && <g role="button" tabIndex={0} aria-label={`Select ${microphoneLayout.item.title}`} onClick={() => onSelectItem(microphoneLayout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(microphoneLayout.item.id) }} className={styles.physicalClickable}><MicrophoneGraphic layout={microphoneLayout} connections={micConnections} selected={selectedItemId === microphoneLayout.item.id} /></g>}
       {peripheralLayouts.map((layout) => <g key={layout.item.id} role="button" tabIndex={0} aria-label={`Select ${layout.item.title}`} onClick={() => onSelectItem(layout.item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem(layout.item.id) }} className={styles.physicalClickable}><InputGraphic layout={layout} connections={connections.filter((connection) => connection.itemId === layout.item.id)} selected={selectedItemId === layout.item.id} /></g>)}
 
       <g transform="translate(30 28)">

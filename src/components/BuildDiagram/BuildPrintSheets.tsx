@@ -3,7 +3,7 @@ import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { BuildBomRow, BuildConnectionRow } from '../../build/buildExports'
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
-import PhysicalAssemblyDiagram, { type PhysicalDiagramConnection } from './PhysicalAssemblyDiagram'
+import PhysicalAssemblyDiagram, { SIGNAL_ROLE_COLORS, type PhysicalDiagramConnection } from './PhysicalAssemblyDiagram'
 import { powerZoneBands } from './physicalDiagramLayout'
 import type { BuildSectionLayers } from './diagramSections'
 import styles from './BuildDiagramWorkspace.module.css'
@@ -45,10 +45,10 @@ function formatDate(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-function WireSwatch({ className }: { className: string }) {
+function WireSwatch({ className, color }: { className?: string; color?: string }) {
   return (
     <svg className={styles.printSwatch} viewBox="0 0 28 8" aria-hidden="true">
-      <line x1="1" y1="4" x2="27" y2="4" className={className} />
+      <line x1="1" y1="4" x2="27" y2="4" className={className ?? styles.signalWire} style={color ? { stroke: color } : undefined} />
     </svg>
   )
 }
@@ -59,11 +59,11 @@ function WireSwatch({ className }: { className: string }) {
  * hover-only on screen. On paper there is nothing to hover, so each page names
  * every colour it can actually draw.
  */
-function PrintLegend({ entries, note }: { entries: Array<{ className: string; label: string }>; note: string }) {
+function PrintLegend({ entries, note }: { entries: Array<{ className?: string; color?: string; label: string }>; note: string }) {
   return (
     <div className={styles.printLegend}>
       {entries.map((entry) => (
-        <span key={entry.label}><WireSwatch className={entry.className} /> {entry.label}</span>
+        <span key={entry.label}><WireSwatch className={entry.className} color={entry.color} /> {entry.label}</span>
       ))}
       <span className={styles.printLegendNote}>{note}</span>
     </div>
@@ -192,10 +192,17 @@ export default function BuildPrintSheets({
           entries={[
             { className: styles.signalWire, label: 'LED data' },
             { className: styles.logicPowerWire, label: 'USB controller power' },
+            /*
+              Straight from the table the diagram strokes these wires with,
+              rather than from a second set of CSS classes holding the same
+              three hex values. The microphone draws as an ordinary control
+              module now, so the copy would have gone stale silently — the
+              legend would still print, in colours nothing on the sheet used.
+            */
             ...(hasMicrophone ? [
-              { className: styles.microphoneBclkWire, label: 'Mic BCLK' },
-              { className: styles.microphoneWsWire, label: 'Mic WS' },
-              { className: styles.microphoneDoutWire, label: 'Mic DOUT' },
+              { color: SIGNAL_ROLE_COLORS.bclk, label: 'Mic BCLK' },
+              { color: SIGNAL_ROLE_COLORS.ws, label: 'Mic WS' },
+              { color: SIGNAL_ROLE_COLORS.dout, label: 'Mic DOUT' },
             ] : []),
             ...(hasControls ? [
               { className: styles.controlWireA, label: 'Control module 1' },

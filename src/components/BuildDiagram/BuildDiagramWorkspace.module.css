@@ -1046,60 +1046,6 @@
   stroke-width: 4;
 }
 
-.microphoneVddWire {
-  fill: none;
-  stroke: #d62f42;
-  stroke-width: 4;
-}
-
-.microphoneBclkWire {
-  fill: none;
-  stroke: #176fd1;
-  stroke-width: 4;
-}
-
-.microphoneWsWire {
-  fill: none;
-  stroke: #df811c;
-  stroke-width: 4;
-}
-
-.microphoneDoutWire {
-  fill: none;
-  stroke: #a33db8;
-  stroke-width: 4;
-}
-
-.microphoneVddTerminal {
-  fill: #d62f42;
-  stroke: #ffd1d7;
-  stroke-width: 2;
-}
-
-.microphoneBclkTerminal {
-  fill: #176fd1;
-  stroke: #d4e9ff;
-  stroke-width: 2;
-}
-
-.microphoneWsTerminal {
-  fill: #df811c;
-  stroke: #ffe1b7;
-  stroke-width: 2;
-}
-
-.microphoneDoutTerminal {
-  fill: #a33db8;
-  stroke: #f4d7fa;
-  stroke-width: 2;
-}
-
-.microphoneGroundTerminal {
-  fill: #202425;
-  stroke: #f1c25c;
-  stroke-width: 2;
-}
-
 .physicalWireLabel {
   fill: #596164;
   font-family: var(--font-code);

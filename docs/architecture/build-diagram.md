@@ -76,8 +76,35 @@ wait for the user to buy parts or confirm that a recommended component exists.
 - The wiring drawing labels each PSU zone with its recommended voltage, current,
   and wattage. When FastLED current limiting is configured, it also shows the
   cap-aware operating budget and the uncapped full-white fault ceiling.
-- Every INMP441 route includes VDD, ground, BCLK/SCK, WS, and SD/DOUT.
+- Every I2S MEMS microphone route includes supply, ground, BCLK/SCK, WS and
+  SD/DOUT, plus a ground symbol on the channel-select pad that picks the left
+  slot. Each of those pads is found by the name its own module prints, because
+  the three catalogued modules use three different silkscreen orders and print
+  supply as `VDD` or `3V` and channel select as `L/R` or `SEL`.
 - No line may stop near a part: generated wires terminate on visible terminals.
+
+### Where a wire descends
+
+Between the controller and the series resistors there is one right-hand descent
+band, and every wire in it must own its vertical.
+
+- **Bus wires** — LED data — rank first, from `RIGHT_CONTROLLER_LANE_X`. They
+  stop above y~520, so they may hug the board past the USB block.
+- **Control wires** — every peripheral module's signals — rank after them, and
+  never nearer than `CONTROL_CORRIDOR_MIN_SLOT` (x=296). A control wire carries
+  on down to the module lanes, straight through the USB block that ends at
+  x=291, so the floor is clearance rather than tidiness.
+
+Ranking control wires *after* the bus family is what keeps the two from sharing
+a vertical. Interleaving both families by pin height, which the shared lane map
+used to do, put a right-rail control pin sitting above every output pin in slot
+0 and sent it down through the bus band.
+
+Modules themselves all live in one wrapping peripheral row with their pads along
+the bottom edge. A row's control lanes sit below it, ordered by pad x so no
+climb crosses another lane's run, and deep enough to clear that row's own
+stub captions — including the lower channel-select caption, which is charged
+only to the rows that carry one.
 
 ## Generated Electrical Defaults
 
@@ -151,7 +178,7 @@ so there is nothing to wire to.
 - Exact profiles for the generic ESP32-S3 N16R8 dual-USB-C board, Espressif
   ESP32-S3-DevKitC-1, Seeed Studio XIAO ESP32S3, and the 30-pin ESP32 DevKit v1
   (ESP-32D).
-- WS2812-class strips and matrices, INMP441 microphones, momentary buttons,
+- WS2812-class strips and matrices, I2S MEMS microphones, momentary buttons,
   analog potentiometers, and rotary encoders.
 - One independent conditioned data route per supported `MatrixOutput`; four
   routes consume the four channels of one 74AHCT125 and later routes add chips
