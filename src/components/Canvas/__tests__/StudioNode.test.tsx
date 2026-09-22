@@ -1241,6 +1241,28 @@ describe('StudioNode', () => {
     })
   })
 
+  it('folds Touch bounds into a collapsible Calibration group', async () => {
+    const { container } = renderNode(makeNode('TouchInput', {
+      panelId: 'panel',
+      touchXMin: 200, touchXMax: 3900, touchYMin: 200, touchYMax: 3900,
+      touchFlipX: false, touchFlipY: false,
+    }))
+    // The action stays on the node. The six raw readings start folded.
+    // TouchCalibrationBody is lazy, so wait for the import before asserting.
+    expect(await within(container).findByRole('button', { name: 'Calibrate touch' }, { timeout: 5000 })).toBeTruthy()
+    const header = within(container).getByRole('button', { name: /calibration/i })
+    expect(header.getAttribute('aria-expanded')).toBe('false')
+    expect(within(container).queryByText('touchXMin')).toBeNull()
+
+    fireEvent.click(header)
+    expect(header.getAttribute('aria-expanded')).toBe('true')
+    const keys = [...header.parentElement!.querySelectorAll('[class*="propKey"]')]
+      .map((key) => key.textContent ?? '')
+    expect(keys).toEqual([
+      'touchXMin', 'touchXMax', 'touchYMin', 'touchYMax', 'touchFlipX', 'touchFlipY',
+    ])
+  })
+
   it('embeds an empty show monitor in the Performance Generator node', async () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,

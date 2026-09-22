@@ -5517,6 +5517,13 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'i2s', label: 'I2S Pins', keys: ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout', 'channel'] },
     { key: 'debug', label: 'Debug', keys: ['serialDebug'] },
   ],
+  // Measured by Calibrate touch, which stays outside the group so the action
+  // stays visible while the six raw readings stay folded.
+  TouchInput: [
+    { key: 'calibration', label: 'Calibration', keys: [
+      'touchXMin', 'touchXMax', 'touchYMin', 'touchYMax', 'touchFlipX', 'touchFlipY',
+    ] },
+  ],
   SpectrumVisualizer: [
     { key: 'display', label: 'Display', keys: ['style', 'bands', 'palette'] },
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
