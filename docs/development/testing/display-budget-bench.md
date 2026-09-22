@@ -63,10 +63,49 @@ not, because that device runs for weeks.
 One exact launch board and one exact panel, both named in full — "an ESP32" is
 not a rig. Record the FQBN, the PSRAM mode and the panel's part id.
 
-- Board: _not yet recorded_
-- Panel: _not yet recorded_
-- Touch: _not yet recorded_
-- LED output: _not yet recorded_
+The rig is the repository's ESP32-2432S028R bring-up unit, the same physical
+board HW-12's pin map and touch calibration were measured on. Everything below
+except the LED output is already bench-measured and recorded in
+[the support matrix](../../release/beta-support-matrix.md); it is restated here
+so a reader of this page does not have to reconstruct the rig from another one.
+
+- **Board:** ESP32-2432S028R ("CYD"), profile `esp32-2432s028r`, FQBN
+  `esp32:esp32:esp32`. Classic ESP32, **no PSRAM fitted** — the card reports
+  `none fitted` rather than nought free, and the PSRAM rows below are not
+  applicable on this rig.
+- **Panel:** `st7789v-xpt2046-touch-240x320`, ST7789V, 240x320, soldered to the
+  board. SCK 14, MOSI 13, MISO 12, CS 15, DC 2, backlight 21; reset is tied to
+  the board's `EN` line and carries `NO_PIN`, not a GPIO.
+- **Touch:** XPT2046 on its own SPI bus — CS 33, IRQ 36, SCK 25, MOSI 32,
+  MISO 39. Calibrated on this unit to `touchXMin 408 / touchXMax 3646 /
+  touchYMin 331 / touchYMax 3674`, `touchFlipX` set and `touchFlipY` clear:
+  this unit's X axis counts right-to-left.
+- **LED output:** _to be stated._ The free pool on this board is **GPIO22 and
+  GPIO27, and nothing else** — of the four pads it brings out, GPIO21 is the
+  panel backlight and GPIO35 is input-only. Record which of the two the strip
+  is on, and its length.
+
+### What this rig can and cannot measure
+
+Recorded before the runs rather than discovered during them, because two of the
+four are constrained by this board rather than by the software under test.
+
+- **A custom screen does not fit.** The LVGL heap is pinned at 64 KiB and a
+  custom screen overruns a classic ESP32 by 22,496 bytes (HW-25). Run 1 is
+  therefore measured with a **fixed layout**, not a custom screen design, and
+  says so in its row. The custom-screen half of the budget needs an S3 rig or
+  HW-25's per-board heap; it is not a figure this board can produce.
+- **Run 3 cannot be done on this board at all.** It wants TFT, SD and touch
+  sharing one bus with audio playing. This board's onboard microSD and speaker
+  amplifier are exactly the pins HW-12 left unrecorded rather than taken from
+  family documentation, and the two-pin pool cannot reach external ones. Run 3
+  needs either those pins measured first or a different rig. Leave its table
+  empty rather than filling it from a different board — a figure from one
+  generator says nothing about another, and the same is true of one board.
+
+Runs 1 (fixed layout), 2 and 4 are within this rig. Record on each row which
+board produced it, so a later S3 run is a second column rather than an
+overwrite.
 
 ## The four runs
 
@@ -75,7 +114,9 @@ and a figure from one says nothing about another.
 
 ### 1. Normal sketch, screen and LEDs
 
-Baseline. Custom screen on the panel, an LED output running, no audio, no card.
+Baseline. A screen on the panel, an LED output running, no audio, no card. On
+the CYD rig this is a **fixed layout**; see the rig note above for why a custom
+screen design cannot be one of this board's figures.
 
 | Figure | Budget | Measured | Notes |
 | --- | --- | --- | --- |
