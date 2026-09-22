@@ -377,14 +377,51 @@ frame-rate collapse or a touch that answers late.
 One hour, undisturbed, on whichever of the three is heaviest. Press the panel
 occasionally so the touch figure means something.
 
+Capture it with `python scripts/soak-capture.py COM6 --minutes 60`, which
+writes every line as it arrives so a run interrupted at minute 50 still has
+fifty minutes of evidence.
+
+**Measured 2026-09-22** on run 1b (the custom screen), log
+`artifacts/bench/soak-20260922T061027Z.log`.
+
 | Figure | Result |
 | --- | --- |
-| Run length | |
-| Heap drift (bytes/hour) | |
-| Lowest heap | |
-| Frames/sec, first ten minutes vs last | |
-| Device resets | must be zero; `uptime` going backwards is a reset |
-| Verdict | |
+| Run length | **53.9 min**, 1,113 stat samples — short of the hour, see below |
+| Heap drift (bytes/hour) | **0.0** |
+| Heap, distinct values observed | **one**: 240,112, across all 1,112 complete samples |
+| Lowest heap | 212,672 (`minheap`, unchanged from boot all run) |
+| Frames/sec, first ten minutes vs last | **49.99 vs 49.97** — a 0.04% difference |
+| Device resets | **0** (see the false positive below) |
+| Touch | 95 samples, median 2.7 ms, worst 29.3 ms |
+| Longest loop pass | 29.4 ms, under touch |
+| Verdict | **passes every criterion measured**, on 53.9 minutes rather than 60 |
+
+The board's behaviour is not in question: the heap took exactly *one* value for
+nearly an hour, and the frame rate at the end matched the beginning to within
+0.04%, so neither a leak nor a wall-clock timing regression is present.
+
+**Two flaws were in the capture, not the board, and both are now fixed in
+`soak-capture.py`.**
+
+*A reset was reported that did not happen.* The first script called any fall in
+`uptime` a reset, and during a burst of raw touch samples it read a stale
+buffered line whose uptime stepped back 104 seconds of a 3,914-second run.
+Three things prove it was not a reboot: `minheap` is byte-identical either side,
+which a fresh boot cannot produce; `uptime` never approached zero, its minimum
+for the whole run being the 749 it started at; and it continued climbing
+afterwards. The check now requires a fall to near zero, and logs an out-of-order
+line as exactly that.
+
+*Six minutes came off the end.* The script flushed to disk on every line, and a
+touched panel emits raw `touchx`/`touchy` far faster than the two-second stats
+line — 6,590 raw lines against 1,113 stats. Under sustained pressing the host
+fell behind the OS serial buffer, which cost 460 truncated lines and left the
+last 373 seconds unreadable. It now flushes on a timer rather than per line.
+
+Whether to re-run for the full hour is a judgement call: the criteria all pass
+on 90% of the intended window with a heap that never moved, so a second run is
+unlikely to say anything new — but it would be the hour the procedure asks for,
+and the fixed script would capture it cleanly.
 
 A wall-clock timing regression counts as a failure even if the heap is flat:
 the LED loop is wall-clock driven, and a show that drifts slower over an hour
