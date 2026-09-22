@@ -40,7 +40,7 @@ import {
 import { boundDisplaySourceFields } from './customDisplayControlGraph'
 import { TRANSITION_HELPER_CPP } from './transitionHelperCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import { TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
+import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
 import type { TransportArtworks } from '../utils/transportArtworks'
@@ -408,6 +408,11 @@ export function generatePlayerSketch(
       id: safePlayerId(display.id), controller: display.controller, rotation: display.rotation,
       layout: display.layout, enabledExpr: `_tftOn_${safePlayerId(display.id)}`,
       telemetry: opts.telemetry === true, touch: display.touch!,
+      // Without this a bare resistive sheet compiled as an XPT2046 on library
+      // default pins — 15/2/18/23/19 — which on a parallel shield are the
+      // panel's own register-select and data lines. It read nothing and drove
+      // pins the graph never claimed, so no pin check could see it.
+      ...(display.resistive ? { resistive: display.resistive } : {}),
     }))
   const controlEntries = Object.entries(controls.bindings) as Array<[PlayerControlAction, PlayerControlSource]>
   const hasControls = controlEntries.length > 0 || touchEmits.length > 0 || !!graphRouting?.bundle || !!graphRouting?.hasSongSources
@@ -923,6 +928,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       ? transportArtworkTableCpp(PLAYER_SELECTION_STEM, playerArtworks)
       : '',
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
+    // `_resPoint` calls `_touchMap`, which lives in the block above, so it is
+    // only ever appended after it — and only when a bare sheet is fitted,
+    // since a digitiser-only build has no use for the analog reads.
+    touchEmits.some((touch) => touch.resistive) ? RESISTIVE_TOUCH_CPP_HELPERS : '',
     touchEmits.length > 0 ? touchEmits.map(tftTouchGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftEmits.map(tftDisplayGlobalCpp).join('\n') : '',
   ])].filter(Boolean).join('\n')

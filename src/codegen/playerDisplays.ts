@@ -27,11 +27,11 @@ import {
   asOledRotation, oledRotationCommands, asOledAddress, OLED_CONTROLLERS,
   type OledTransport,
 } from '../state/oledSurface'
-import { oledControllerForProps, oledTransportForProps, tftControllerForProps } from '../state/nodeLibrary'
+import { oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps } from '../state/nodeLibrary'
 import {
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
 } from '../state/transportDisplay'
-import { asTftRotation, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
+import { asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
 import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
 import { displayHasTouch, partById } from '../state/partCatalogue'
 import { emittedTouchBounds } from '../state/transportTouch'
@@ -128,6 +128,16 @@ export interface PlayerTransportDisplay {
     yFrom: number
     yTo: number
   }
+  /**
+   * A bare resistive sheet's four electrodes, when the panel has no digitiser.
+   *
+   * Present, `tftTouchServiceCpp` reads through `_resPoint` and ignores the
+   * XPT2046 pins above; absent, it is an XPT2046 on its own header. Set from
+   * the panel's *own* lines, because that is what a bare sheet borrows — it
+   * has no header of its own, which is exactly why asking `touchCsPin` and
+   * friends for it produced library defaults on pins nothing had claimed.
+   */
+  resistive?: { xpPin: number; xmPin: number; ypPin: number; ymPin: number }
   enabled: boolean
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
   enabledExpr: string
@@ -450,6 +460,20 @@ export function playerDisplaysFromGraph(
             ...emittedTouchBounds(touchProps),
           }
           : null,
+        // The electrode map names which panel property plays each role, so the
+        // four are read from the panel — they are its lines, borrowed for the
+        // duration of a read. Same derivation as the normal generator's, and
+        // deliberately keyed on the transport rather than on a part id.
+        ...(tftTransportForProps(props) === 'parallel'
+          ? {
+            resistive: {
+              xpPin: intProp(props[PARALLEL_TOUCH_ELECTRODES.xp], 7),
+              xmPin: intProp(props[PARALLEL_TOUCH_ELECTRODES.xm], 9),
+              ypPin: intProp(props[PARALLEL_TOUCH_ELECTRODES.yp], 5),
+              ymPin: intProp(props[PARALLEL_TOUCH_ELECTRODES.ym], 8),
+            },
+          }
+          : {}),
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
         sources,
