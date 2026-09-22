@@ -670,6 +670,22 @@ matrix, not a reason to postpone testing earlier changes.
   `loopmax` is work rather than sleep. `npm test` (4,875 passed, 13 skipped),
   `npm run lint` and `tsc -b` pass.
 
+  **The switch is reachable again, 2026-09-22.** The bench could not actually be
+  run: `reportTelemetry` had had no control since the 14th, when it was unmounted
+  along with the Upload tab's card, and the procedure document opened by telling
+  its reader to remount the instrument by hand before using it. The Board
+  checkbox and `DeviceTelemetryCard` are both back — the removal was right on its
+  own terms, since calibration flashes its own sketch and no *user* needs the
+  word, so this returns explicitly as bench kit: off by default, ESP-only on the
+  same predicate the generator gates emission on, and labelled as something to
+  leave off for a finished build. Two faults fixed on the way back: the restored
+  note still told people the switch served the calibration wizard, which it has
+  not since that wizard got its own sketch; and the card now travels with the
+  Output console rather than the workbench body, because the docked branch
+  renders the console alone and the old placement would have left the card
+  missing from the Upload tab entirely. `npm test` (5,474 passed, 13 skipped),
+  `npm run lint` and `tsc -b` pass.
+
   **Compiled, and priced.** A twelfth fixture carries the normal graph with the
   property on — a separate sketch, since flipping the recorded one would
   invalidate its hash to prove a block compiles — and builds under Arduino CLI
