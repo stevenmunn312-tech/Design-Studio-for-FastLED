@@ -1,9 +1,11 @@
 # IR remote firmware compile checks
 
-> **Status: partial.** Sixteen of seventeen recorded runs pass. The gaps are
-> the fbuild half for RP2040 (an fbuild defect, below), SAMD, Renesas and
-> Teensy, and both engines for STM32. This file is D-05a step 13's evidence in
-> [todo.md](../../todo.md). It is compile evidence only, so every IR
+> **Status: complete, except where fbuild itself is blocked.** Every board
+> family IR claims has at least one passing engine. Three fbuild legs cannot
+> run because fbuild fails on a board core before it reaches IR code: RP2040,
+> Renesas, and SAMD21. STM32 builds only on fbuild, because the app's STM32
+> FQBNs carry no stm32duino `pnum` (see `src/state/uploadStore.ts`). This file
+> is D-05a step 13's evidence in [todo.md](../../todo.md). It is compile evidence only, so every IR
 > combination stays experimental in the
 > [beta support matrix](../release/beta-support-matrix.md) until a bench row
 > exists.
@@ -68,6 +70,12 @@ Source hashes: `normal` `aaf9974c`, `slideshow` `1cc80143`, `player`
 | normal | `arduino:renesas_uno:unor4wifi` (1.6.0) | arduino-cli | pass | 59,056 | 8,592 |
 | normal | `adafruit:samd:adafruit_feather_m0` (1.7.17) | arduino-cli | pass | 53,568 | not reported |
 | normal | `teensy:avr:teensy41` (1.62.0) | arduino-cli | pass | not reported | not reported |
+| normal | `teensy:avr:teensy41` | fbuild | pass | 74,752 | 83,292 |
+| normal | `STMicroelectronics:stm32:blackpill_f411ce` | fbuild | pass | 35,584 | 5,202 |
+| normal | `STMicroelectronics:stm32:blackpill_f411ce` | arduino-cli | not buildable (no `pnum`, see above) | — | — |
+| normal | `arduino:renesas_uno:unor4wifi` | fbuild | **fail** (fbuild's Renesas core, see below) | — | — |
+| normal | `adafruit:samd:adafruit_feather_m0` | fbuild | **fail** (SAMD21 unsupported under fbuild, see below) | — | — |
+| no-ir | `adafruit:samd:adafruit_feather_m0` | fbuild | **fail** (same, without IR) | — | — |
 
 On classic ESP32, the IR receiver adds 15,316 bytes of flash and 1,064 bytes of
 RAM under arduino-cli (`normal` minus `no-ir`). Part of that difference is the
@@ -90,13 +98,33 @@ Trigger and Step Value the IR graph also carries.
   any sketch code. That points to a malformed `-D` on the assembler command
   line inside fbuild. Arduino CLI builds the same source. This should go to
   fbuild upstream and is not a Studio change.
+- **fbuild's Renesas core does not compile.** fbuild fetches
+  ArduinoCore-renesas 1.2.2, whose own `api/IPAddress.cpp` uses `memset` and
+  `strlen` without including `<cstring>`. It fails in seconds, before the
+  sketch. Arduino CLI uses core 1.6.0 and passes. This is an fbuild upstream
+  issue.
+- **SAMD21 does not build under fbuild at all, IR or not.** fbuild's
+  `atmelsam` adapter omits `ARDUINO_ARCH_SAMD`, the same defect the SAMD51
+  entries in `_PIO_BOARDS` work around. On a SAMD21, FastLED then does not
+  recognise its platform: the no-IR fixture fails in `fl/system/pin.cpp.hpp`,
+  and the IR fixture stops at IRremote's "no timer functions implemented".
+  Restating `-DARDUINO_ARCH_SAMD` and `-DFASTLED_FORCE_SOFTWARE_SPI=1`, as the
+  SAMD51 entries do, gets through compilation. The link then fails with
+  `multiple definition of 'EIC_Handler'` between FastLED's SAMD interrupt code
+  and the core's `WInterrupts.c`, because fbuild links core objects directly
+  where Arduino CLI links an archive. Those flags were not kept, because they
+  would trade one failure for another. The attempt did expose a real helper
+  defect: `_patch_fastled_samd51_build` renamed `EIC_IRQn` to the SAMD51-only
+  `EIC_0_IRQn` in the tree SAMD21 shares. That is fixed (`16427810`).
+- **An arduino-cli `lib install` stalled for six hours** on an already
+  installed IRremote, after an interrupted STM32 core download. It resumed
+  without intervention. The runner now has no timeout of its own, so wrap
+  unattended chains in `timeout`.
 
 ## Outstanding
 
-- fbuild legs for SAMD, Renesas and Teensy.
-- STM32 (`STMicroelectronics:stm32:*`) on both engines. It is in
-  `IR_REMOTE_SUPPORTED_ARCHITECTURES` but has not been compiled.
-- The RP2040 fbuild leg, after the fbuild fix.
+- The fbuild legs for RP2040, Renesas and SAMD21, each after its fbuild fix.
+- STM32 on Arduino CLI, once the app gives STM32 boards a `pnum`.
 - Architectures the pinned release declares that Studio has no board profile
   for (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nrf5`, `stm32f1`) are
   accepted by validation but not compiled here.

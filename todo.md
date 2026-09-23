@@ -1495,10 +1495,11 @@ matrix, not a reason to postpone testing earlier changes.
     `npm run lint`, `npm run build` and backend tests; compile representative
     IR graphs with arduino-cli and fbuild for every claimed board family, with
     emitted include/symbol/order and no-IR negative fixtures.
-    Software gates pass (`npm test` 5,650, lint, build, backend 220). Compile
-    matrix 16/17 green in [IR compile checks](docs/development/ir-compile-checks.md);
-    open: fbuild SAMD/Renesas/Teensy, STM32 on both engines, and fbuild
-    RP2040 (blocked by an fbuild boot2 defect).
+    Software gates pass (`npm test` 5,650, lint, build, backend 221). Every
+    claimed family has a passing engine in
+    [IR compile checks](docs/development/ir-compile-checks.md); fbuild RP2040,
+    Renesas and SAMD21 are blocked by fbuild defects that fail without IR too,
+    and STM32 is fbuild-only until its FQBNs carry a `pnum`.
   - [ ] **14. Bench and promote deliberately.** Record receiver/remote/board/
     FQBN/GPIO/library/toolchain, verify tap/hold/alternate/unknown/rapid keys in
     all three build modes, and stress reception during long clockless LED
