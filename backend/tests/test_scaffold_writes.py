@@ -280,3 +280,18 @@ def test_a_build_that_fits_still_uploads(monkeypatch):
 
     assert (rc, phase) == (0, "upload")
     assert "[size-error]" not in "".join(lines)
+
+
+def test_fastled_patch_keeps_the_shared_eic_irq_name(tmp_path, monkeypatch):
+    # EIC_0_IRQn exists only on SAMD51, and SAMD51 builds already alias
+    # EIC_IRQn to it through build_flags. The vendored tree is shared with
+    # SAMD21 builds, so the patcher must leave the upstream name in place and
+    # restore it where an earlier helper rewrote it.
+    lib = tmp_path / "FastLED"
+    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib)
+    isr = lib / "src/platforms/arm/samd/isr_samd.hpp"
+    isr.parent.mkdir(parents=True)
+    for before in ("NVIC_DisableIRQ(EIC_IRQn)\n", "NVIC_DisableIRQ(EIC_0_IRQn)\n"):
+        isr.write_text(before, encoding="utf-8")
+        app._patch_fastled_samd51_build()
+        assert isr.read_text(encoding="utf-8") == "NVIC_DisableIRQ(EIC_IRQn)\n"

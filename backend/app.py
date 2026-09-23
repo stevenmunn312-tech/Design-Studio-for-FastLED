@@ -1022,7 +1022,11 @@ def _patch_fastled_samd51_build() -> None:
         text = isr.read_text(encoding="utf-8")
         text = text.replace("PORT_PMUX_PMUXO_A", "PORT_PMUX_PMUXO(0)")
         text = text.replace("PORT_PMUX_PMUXE_A", "PORT_PMUX_PMUXE(0)")
-        text = text.replace("NVIC_DisableIRQ(EIC_IRQn)", "NVIC_DisableIRQ(EIC_0_IRQn)")
+        # Upstream spells EIC_IRQn, which SAMD51 builds already alias to
+        # EIC_0_IRQn through their build_flags. Rewriting the source instead
+        # named a SAMD51-only IRQ in the tree every SAMD21 shares, so undo it
+        # wherever an earlier helper applied it.
+        text = text.replace("NVIC_DisableIRQ(EIC_0_IRQn)", "NVIC_DisableIRQ(EIC_IRQn)")
         _write_if_changed(isr, text)
 
     quad = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "d51" / "spi_hw_4_samd51.cpp.hpp"
