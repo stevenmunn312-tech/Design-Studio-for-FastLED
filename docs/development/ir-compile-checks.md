@@ -116,10 +116,6 @@ Trigger and Step Value the IR graph also carries.
   would trade one failure for another. The attempt did expose a real helper
   defect: `_patch_fastled_samd51_build` renamed `EIC_IRQn` to the SAMD51-only
   `EIC_0_IRQn` in the tree SAMD21 shares. That is fixed (`16427810`).
-- **An arduino-cli `lib install` stalled for six hours** on an already
-  installed IRremote, after an interrupted STM32 core download. It resumed
-  without intervention. The runner has no timeout of its own, so wrap
-  unattended chains in `timeout`.
 
 ## Outstanding
 
