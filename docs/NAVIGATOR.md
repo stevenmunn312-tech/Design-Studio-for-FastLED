@@ -143,6 +143,9 @@ build/architecture overview aimed at contributors.
     — the twelve current-model fixtures, their Arduino CLI/fbuild figures and
     the commands that rebuild them, including the two refused shapes that must
     still generate well-formed C++.
+  - [IR remote firmware compile checks](development/ir-compile-checks.md)
+    — the normal/slideshow/player/no-IR fixtures, per-board Arduino CLI and
+    fbuild results, and the gaps still open for D-05a step 13.
 - [Testing](development/testing/)
   - [Touch, LVGL and heap budgets](development/testing/display-budget-bench.md)
     — what a running board reports about itself, how to read it in the Upload
