@@ -81,11 +81,16 @@ function loopBody(source: string): string {
   return source.slice(at)
 }
 
-function expectOnePoll(source: string) {
+function expectOnePoll(source: string, player = false) {
   expect(source.match(/IrReceiver\.decode\(/g)).toHaveLength(1)
   expect(source).toContain('#define DECODE_NEC')
   expect(source.indexOf('#define DECODE_NEC')).toBeLessThan(source.indexOf('#include <IRremote.hpp>'))
-  expect(source.indexOf('#include <FastLED.h>')).toBeLessThan(source.indexOf('#include <IRremote.hpp>'))
+  if (player) {
+    expect(source.indexOf('#include <IRremote.hpp>')).toBeLessThan(source.indexOf('#include <Audio.h>'))
+    expect(source.indexOf('#include <Audio.h>')).toBeLessThan(source.indexOf('#include <FastLED.h>'))
+  } else {
+    expect(source.indexOf('#include <FastLED.h>')).toBeLessThan(source.indexOf('#include <IRremote.hpp>'))
+  }
   expect(source).toContain('IrReceiver.begin(4, DISABLE_LED_FEEDBACK);')
   expect(source).toContain('static bool n_ir_button_power;')
   expect(source).toContain('n_ir_button_power = _irProtocol == NEC && _irAddress == 0u && _irCommand == 69u && !_irRepeat;')
@@ -167,7 +172,7 @@ describe('IR polling in the three generators', () => {
     const source = buildShowPlayer(nodes, edges, groups, {
       patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '', displayDocuments: documents,
     })
-    expectOnePoll(source)
+    expectOnePoll(source, true)
     expect(source).toContain('_pcE_player_direct_next.update(n_ir_button_power,')
   })
 

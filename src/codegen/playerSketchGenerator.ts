@@ -1008,7 +1008,13 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
 //   - SD (built-in Arduino)
 // Hardware: SD card on SPI, audio out via ${internalDac ? "the ESP32's internal DAC (fixed GPIO25/26 — classic ESP32 only, no ESP32-S3/S2/C3 support)" : 'an I2S DAC (MAX98357A or PCM5102) on pins below'}.
 
-${overclockDefines}// The audio header MUST come before <FastLED.h>. FastLED ships src/platforms/audio.h,
+${overclockDefines}${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}// Arduino-IRremote must be parsed before Audio.h. ESP32-audioI2S puts
+// "using namespace std" in its public header; IRremote 4.7.1 then sees both its
+// global void_t alias and std::void_t, and its has_ull_print specialization
+// is ambiguous. Include order keeps those independent upstream libraries
+// buildable together without patching either checkout.
+//
+// The audio header MUST come before <FastLED.h>. FastLED ships src/platforms/audio.h,
 // which captures this include on a case-insensitive filesystem (Windows, macOS)
 // once FastLED's src is on the include path. There is no missing-header error —
 // the audio library silently vanishes and the only symptom is the misleading
@@ -1023,7 +1029,7 @@ ${overclockDefines}// The audio header MUST come before <FastLED.h>. FastLED shi
 // which is what upstream v3 wants.
 #include <Audio.h>       // ESP32-audioI2S
 #include <FastLED.h>
-${compiledGraph?.includes.length ? `${compiledGraph.includes.join('\n')}\n` : ''}${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
+${isHub75 ? hub75IncludesCpp(hub75Hw!).join('\n') + '\n' : ''}#include <SD.h>
 #include <SPI.h>${i2cIncludeCpp}
 ${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').join('\n') ?? ''}
 // Explicit FastLED-typed declarations keep the Arduino preprocessor from
