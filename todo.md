@@ -1491,7 +1491,7 @@ matrix, not a reason to postpone testing earlier changes.
     Step Value; `npm run gen:node-cards` reproduced all 178 reference sets
     without a diff. Focused documentation/workflow tests (41), `npm test`
     (5,650), `npm run lint`, and `tsc -b` pass.
-  - [ ] **13. Run software and compile gates.** Pass focused tests, `npm test`,
+  - [x] **13. Run software and compile gates.** Done 2026-09-23. Pass focused tests, `npm test`,
     `npm run lint`, `npm run build` and backend tests; compile representative
     IR graphs with arduino-cli and fbuild for every claimed board family, with
     emitted include/symbol/order and no-IR negative fixtures.
