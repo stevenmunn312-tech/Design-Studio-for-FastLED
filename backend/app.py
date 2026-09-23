@@ -569,7 +569,9 @@ _PIO_BOARDS: dict[str, dict] = {
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
     "arduino:avr:leonardo": {"platform": "atmelavr", "board": "leonardo"},
     "arduino:avr:mega": {"platform": "atmelavr", "board": "megaatmega2560"},
-    "arduino:megaavr:nona4809": {"platform": "atmelmegaavr", "board": "nona4809"},
+    # Arduino calls the board `nona4809` in its FQBN; PlatformIO/fbuild calls
+    # the same Nano Every target `nano_every`.
+    "arduino:megaavr:nona4809": {"platform": "atmelmegaavr", "board": "nano_every"},
     "esp32:esp32:esp32s2": {"usb_cdc": True, "platform": "espressif32", "board": "esp32-s2-saola-1"},
     "esp32:esp32:esp32c3": {"usb_cdc": True, "platform": "espressif32", "board": "esp32-c3-devkitm-1"},
     "esp32:esp32:esp32c6": {"platform": "espressif32", "board": "esp32-c6-devkitc-1"},
