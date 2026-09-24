@@ -218,21 +218,13 @@ describe('custom display templates', () => {
     }
     expect(displayLayoutIssues(portrait)).toEqual([])
 
-    const legacyPortrait = {
-      ...portrait,
-      widgets: portrait.widgets.map((widget) => (
-        ['Previous', 'Play', 'Next'].includes(widget.label)
-          ? { ...widget, bounds: { ...widget.bounds!, width: 48, height: 88 } }
-          : widget
-      )),
-    }
-    const repairedLandscape = resizeDisplayDocument(legacyPortrait, { width: 320, height: 240 }, '90')
+    const landscapeAgain = resizeDisplayDocument(portrait, { width: 320, height: 240 }, '90')
     for (const label of ['Previous', 'Play', 'Next']) {
-      expect(repairedLandscape.widgets.find((widget) => widget.label === label)?.bounds).toMatchObject({ width: 64, height: 64 })
+      expect(landscapeAgain.widgets.find((widget) => widget.label === label)?.bounds).toMatchObject({ width: 64, height: 64 })
     }
-    expect(repairedLandscape.widgets.find((widget) => widget.label === 'Title')?.bounds)
+    expect(landscapeAgain.widgets.find((widget) => widget.label === 'Title')?.bounds)
       .toEqual({ x: 16, y: 8, width: 288, height: 32 })
-    expect(repairedLandscape.widgets.find((widget) => widget.label === 'Position')?.bounds)
+    expect(landscapeAgain.widgets.find((widget) => widget.label === 'Position')?.bounds)
       .toEqual({ x: 16, y: 128, width: 288, height: 16 })
   })
 

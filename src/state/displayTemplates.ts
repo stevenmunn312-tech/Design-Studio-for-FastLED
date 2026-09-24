@@ -508,8 +508,7 @@ export function canonicalDisplayTemplateBounds(
       && layout.every((spec, index) => (
         spec.type === widgets[index].type
         && spec.label === widgets[index].label
-        && (sameDisplayBounds(spec.bounds, widgets[index].bounds)
-          || isLegacyThemedControlBounds(widgets[index]))
+        && sameDisplayBounds(spec.bounds, widgets[index].bounds)
       ))
     ))
   ))
@@ -520,14 +519,6 @@ export function canonicalDisplayTemplateBounds(
 
 function sameDisplayBounds(a: DisplayBounds, b: DisplayBounds): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
-}
-
-/** Earlier orientation handling could only distort the themed icon artwork,
- * leaving every other template widget in its authored location. Treat that
- * narrow shape as a recoverable template; any other user edit opts out. */
-function isLegacyThemedControlBounds(widget: DisplayWidget): boolean {
-  return (widget.type === 'Button' || widget.type === 'Toggle')
-    && widget.properties.presentation === 'icon'
 }
 
 /** Insert a template's widgets as ordinary widgets: fresh stable ids, the same
