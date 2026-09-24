@@ -109,27 +109,11 @@ export interface ElectricalPlanSummary {
   outputs: OutputElectricalPlan[]
   totals?: ElectricalPlanTotals
   controllerPowerPath?: string
-  supplyChecks: OwnedSupplyCheck[]
   branchChecks: OwnedBranchCheck[]
   recommendations: string[]
   unresolved: string[]
   assumptionsUsed: string[]
   ruleSetVersion: string
-}
-
-// Retained in the public result shape so existing saved profiles and callers remain compatible.
-export interface OwnedSupplyCheck {
-  supplyId: string
-  label: string
-  assignedOutputIds: string[]
-  assignedOutputTitles: string[]
-  requiredVoltage: number
-  requiredCurrentMa: number
-  requiredWattage: number
-  declaredVoltage: number
-  declaredCurrentMa: number
-  declaredWattage?: number
-  issues: ElectricalPlanIssue[]
 }
 
 export interface OwnedBranchCheck {
@@ -439,7 +423,6 @@ export function calculateElectricalPlan(
     outputs: outputPlans,
     totals,
     controllerPowerPath: exactBoard ? 'USB-C power (controller only)' : undefined,
-    supplyChecks: [],
     branchChecks: [],
     recommendations,
     unresolved,
