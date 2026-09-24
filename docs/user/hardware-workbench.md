@@ -30,7 +30,7 @@ Use **Add Hardware** in the workbench. The current categories are:
 
 - **Inputs** — microphone, PCM1802 line-in ADC, button, button bank,
   demodulating IR receiver, potentiometer, encoder, PIR motion sensor,
-  ambient-light sensor, and RTC module;
+  ambient-light sensor, INA219 power monitor, and RTC module;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the I2S stage on the board's pins (a MAX98357A
   speaker amplifier, or a PCM5102A or UDA1334A DAC), and the analog power
@@ -47,6 +47,19 @@ on-node button to test it in preview. Click the bank in Hardware to change its
 GPIO or internal pull-up; unplugging a graph noodle does not erase the physical
 button or its wiring. Remove the row from that Hardware inspector when the
 physical button is no longer part of the build.
+
+### Measure a DC load
+
+The **INA219 power monitor** reports a DC load's volts, amps and watts. Put it
+in the supply lead: the supply's positive wire goes to **Vin+**, the load's
+positive wire to **Vin-**, and the load shares ground with the board. It reads
+up to 26 V and 3.2 A. Power the monitor from the board's 3V3 pin, not 5 V: its
+data pull-ups follow its supply. It joins the board's I2C pins, which it can
+share with an RTC or an I2C display; if you use more than one monitor, bridge
+the A0/A1 jumpers so each has its own address, and pick that address on the
+node. In preview there is no sensor, so drag the node's volts and amps sliders.
+Amps run from 0 to 3.2, so put a **Map Range** in front of anything that
+expects 0 to 1.
 
 ### Add an IR remote receiver
 

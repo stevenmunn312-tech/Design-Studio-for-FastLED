@@ -474,6 +474,12 @@ Unless a future row says otherwise, treat the following as experimental:
   on and off from a graph signal, and the MOSFET's temperature after ten
   minutes at the recorded current. An inductive load needs its external
   flyback diode named in the row.
+- **INA219 power monitoring.** The Adafruit INA219 (`PowerMonitorInput`) is
+  software coverage only; no reading has been compared with a meter on any
+  board, and its firmware compile is still to run. It is read by the normal
+  sketch, not by the show or SD-player generators. Graduating it needs a dated
+  row naming the board/FQBN, the I2C pins and address, the supply and load, and
+  the monitor's volts and amps against a multimeter at two load currents.
 - **IR remote receive on every board, receiver and remote combination.** The
   current evidence is software and generated-firmware coverage only. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's

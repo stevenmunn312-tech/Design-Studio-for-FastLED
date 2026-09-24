@@ -90,6 +90,9 @@ compile families:
    opto-isolated LR7843 module (`PowerSwitchOutput`) is in, on/off only and
    experimental; PWM dimming and multi-channel boards are still open.
 2. INA219/INA226 monitoring and a minimal volts/amps/watts signal contract.
+   The Adafruit INA219 (`PowerMonitorInput`) is in, experimental, on the
+   normal sketch; the INA226 and overcurrent warnings built on the readings are
+   still open.
 3. An exact MAX485-class DMX transceiver and recorded DMX512 bench run.
 4. The existing [IR remote-control plan](ir-remote-controls.md).
 5. LD2410 presence sensing, followed by BH1750 ambient light.

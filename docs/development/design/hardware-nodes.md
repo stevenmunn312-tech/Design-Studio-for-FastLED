@@ -32,7 +32,8 @@ workbench's **Add Hardware** menu is the creation path for:
 
 - signal inputs: I2S MEMS microphone (INMP441, ICS-43434 or generic), PCM1802
   line-in ADC, button, button bank,
-  potentiometer, encoder, PIR motion, ambient light, and RTC modules;
+  potentiometer, encoder, PIR motion, ambient light, INA219 power monitor, and
+  RTC modules;
 - switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, and
   the opto-isolated LR7843 MOSFET module for DC loads;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
@@ -57,7 +58,7 @@ data lead or choose a new pin.
 `isHardwareManagedSignalNodeType` defines the parts visible in both views:
 
 - `MicInput`, `LineInput`, `ButtonInput`, `ButtonBank`, `PotInput`, and `EncoderInput`;
-- `MotionInput` and `LightInput`;
+- `MotionInput`, `LightInput` and `PowerMonitorInput`;
 - `RTCInput`, `RelayOutput` and `PowerSwitchOutput`; and
 - `MatrixOutput` (the implementation type behind all five LED-output forms).
 
@@ -84,6 +85,23 @@ draws GND and PWM only rather than falling back to pad 0, which is GND on this
 board. PWM dimming through the same input is a later extension; the first
 slice matches the relay's on/off behaviour, per the
 [hardware expansion roadmap](../plans/hardware-expansion-roadmap.md).
+
+`PowerMonitorInput` measures a DC load through the Adafruit INA219 and
+publishes `volts`, `amps` and `watts`. Its electrical contract (shunt ohms,
+selectable I2C addresses, bus-voltage and current limits) is the catalogue's
+`powerMonitor` block, read by the firmware, the address picker and validation
+alike (`src/state/powerMonitor.ts`). It joins the board's one `Wire` bus beside
+the RTC and any I2C display: its SDA/SCL follow the board's Wire pair on a board
+change, and the one-bus check (`i2cBusValidationIssues` in `validateGraph.ts`)
+now asks whenever two I2C parts disagree rather than only when a display is
+among them. Firmware reads the bus (0x02) and shunt (0x01) registers directly,
+with no library and no calibration register: amps are the shunt voltage over the
+catalogued shunt, and watts is volts times amps on both sides of the parity
+line. A monitor that does not answer reads zero rather than a stale value. The
+browser has no sensor, so the node body offers volts and amps sliders across the
+part's own range. The board has no regulator and its bus pull-ups tie to VIN, so
+the Build Diagram powers it from the logic rail, not from 5 V. It is emitted by
+the normal sketch generator only, like the other sensors.
 
 Deleting a hardware-managed signal node on the canvas removes its signal edges
 but retains the part. Removing it through the workbench deletes the root-graph
