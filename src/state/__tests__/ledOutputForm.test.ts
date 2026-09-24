@@ -24,20 +24,9 @@ describe('outputForm', () => {
     expect(outputForm({ form: 'matrix' })).toBe('matrix')
   })
 
-  it('reads a pre-form scan panel out of its chipset', () => {
-    expect(outputForm({ chipset: 'HUB75' })).toBe('hub75')
-  })
-
-  it('lets an explicit form override the legacy chipset spelling', () => {
-    // A panel switched to an addressable form must not keep answering "hub75"
-    // because its old chipset string is still sitting there.
+  it('does not infer a form from retired chipset or layout spellings', () => {
+    expect(outputForm({ chipset: 'HUB75' })).toBe('matrix')
     expect(outputForm({ form: 'matrix', chipset: 'HUB75' })).toBe('matrix')
-  })
-
-  it("does not read layout: 'strip' as the strip form", () => {
-    // That value only ever meant "this grid is wired as one continuous chain" —
-    // xyLayout treats it identically to 'matrix'. Reading it as the strip form
-    // would turn a saved 16x4 panel into a 60-LED run.
     expect(outputForm({ layout: 'strip', width: 16, height: 4 })).toBe('matrix')
     expect(outputLedTotal({ layout: 'strip', width: 16, height: 4 })).toBe(64)
   })

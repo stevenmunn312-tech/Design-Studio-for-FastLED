@@ -15,6 +15,9 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed LED-output form migration and chipset inference. V1 LED
+  outputs persist `form`; retired `chipset: 'HUB75'` and `layout: 'strip'`
+  spellings are no longer rewritten or treated as physical-form declarations.
 - 2026-09-24: removed missing-property backfills for AudioHue band weights,
   Circle/Clock Display matrix scaling, and Stereo VU count provenance. V1
   nodes persist those authored/default properties when the node is created.

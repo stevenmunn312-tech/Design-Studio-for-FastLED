@@ -48,24 +48,15 @@ function int(value: unknown, fallback: number, min: number, max: number): number
 /**
  * The form an output node is in.
  *
- * Explicit `form` wins. The fallback is the legacy read: a project saved before
- * this property existed still says "scan panel" by setting its chipset to
- * HUB75, and inferring that here means such a graph opens as the panel it
- * always was rather than as an addressable matrix that would drive the wrong
- * pins entirely. `graphStore`'s load migration writes the inferred value back,
- * so this only ever runs once per saved node.
- *
- * Deliberately *not* inferred from `layout: 'strip'`. That value never meant a
- * one-dimensional run — `xyLayout` treats it identically to `'matrix'`, so it
- * only ever said "this grid is wired as one continuous chain", and reading it
- * as the strip form would turn a saved 16x4 panel into a 60-LED string.
+ * V1 nodes persist an explicit `form`. Unknown or malformed values fall back to
+ * the safe matrix geometry; retired chipset/layout spellings are not
+ * reinterpreted as another physical product.
  */
 export function outputForm(props: Record<string, unknown> | undefined | null): LedOutputForm {
   const explicit = props?.form
   if (explicit === 'strip' || explicit === 'matrix' || explicit === 'ring' || explicit === 'corkscrew' || explicit === 'hub75') {
     return explicit
   }
-  if (String(props?.chipset ?? '') === 'HUB75') return 'hub75'
   return 'matrix'
 }
 

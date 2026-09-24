@@ -541,7 +541,7 @@ describe('validateGraph', () => {
   })
 
   it('blocks HUB75 on boards without the LCD-mode DMA peripheral', () => {
-    const nodes = [node('out', 'MatrixOutput', { chipset: 'HUB75' })]
+    const nodes = [node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75' })]
     for (const fqbn of ['esp32:esp32:esp32', 'esp32:esp32:esp32doit-devkit-v1', 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3']) {
       // The 30-pin DevKit v1 still reports a separate pin error — HUB75's
       // default clock pin is GPIO0, which that board doesn't bring to a header
@@ -622,12 +622,12 @@ describe('validateGraph', () => {
 
   it('allows a single HUB75 Matrix Output route with default layout', () => {
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })])).toEqual([])
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75' })])).toEqual([])
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'matrix', supersample: false })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75' })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'matrix', supersample: false })])).toEqual([])
 
     const nodes = [
       node('sc', 'SolidColor'),
-      node('out', 'MatrixOutput', { chipset: 'HUB75' }),
+      node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75' }),
     ]
     const edges = [edge('e1', 'sc', 'out', 'frame')]
     const { errors } = validateGraph(nodes, edges)
@@ -641,19 +641,19 @@ describe('validateGraph', () => {
     // The DMA library's base class already addresses a horizontal chain
     // directly (PIXELS_PER_ROW = mx_width * chain_length) — no
     // VirtualMatrixPanel_T wrapper needed for tilesY === 1.
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1 })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'panels', tilesX: 3, tilesY: 1 })])).toEqual([])
     // tilesY defaults to 1 when unset.
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2 })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'panels', tilesX: 2 })])).toEqual([])
   })
 
   it('allows an unrotated folded 2D HUB75 panel grid', () => {
     // VirtualMatrixPanel_T wraps the base DMA display to address a folded
     // multi-row chain of panels — confirmed against the real vendored
     // header/example at the pinned tag, so tilesY > 1 is no longer blocked.
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })])).toEqual([])
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })])).toEqual([])
 
     const diagnostics = buildGraphDiagnostics(
-      [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })],
+      [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 })],
       [edge('e1', 'sc', 'out', 'frame')],
     )
     expect(diagnostics.some((d) => d.id === 'out-hub75-config')).toBe(false)
@@ -661,20 +661,20 @@ describe('validateGraph', () => {
 
   it('allows per-panel rotation within a square-tile HUB75 chain', () => {
     expect(findHub75ConfigErrors([
-      node('out', 'MatrixOutput', { width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 16, height: 8, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1, tileRotations: '0,90' }),
     ])).toEqual([])
   })
 
   it('allows per-panel rotation within a square-tile 2D HUB75 panel grid', () => {
     expect(findHub75ConfigErrors([
-      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,0,0,90' }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 16, height: 16, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2, tileRotations: '0,0,0,90' }),
     ])).toEqual([])
   })
 
   it('allows the dedicated topology diagnostic for a valid folded serpentine HUB75 grid', () => {
     expect(findHub75TopologyDiagnosticErrors([
       node('out', 'MatrixOutput', {
-        width: 64, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+        form: 'hub75', width: 64, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
         tileSerpentine: true, tileRotations: '0,90,180,270',
       }),
     ], 'out')).toEqual([])
@@ -685,20 +685,20 @@ describe('validateGraph', () => {
       node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'WS2812B', layout: 'panels', tilesX: 2, tilesY: 2 }),
     ])).toEqual([expect.stringMatching(/form to HUB75 Panel/)])
     expect(findHub75TopologyDiagnosticErrors([
-      node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'HUB75', layout: 'matrix' }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 64, chipset: 'HUB75', layout: 'matrix' }),
     ])).toEqual([expect.stringMatching(/layout to Panels/)])
     expect(findHub75TopologyDiagnosticErrors([
-      node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1 }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 1 }),
     ])).toEqual([expect.stringMatching(/Panels Y to at least 2/)])
   })
 
   it('reuses layout and HUB75 shape validation for the topology diagnostic', () => {
     expect(findHub75TopologyDiagnosticErrors([
-      node('out', 'MatrixOutput', { width: 63, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 63, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2 }),
     ])).toEqual([expect.stringMatching(/can't be divided into 2×2 equal tiles/)])
     expect(findHub75TopologyDiagnosticErrors([
       node('out', 'MatrixOutput', {
-        width: 128, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
+        form: 'hub75', width: 128, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
         tileRotations: '0,90,0,0',
       }),
     ])).toEqual([expect.stringMatching(/only supports 90°\/270° per-panel rotation when each panel tile is square/)])
@@ -706,29 +706,29 @@ describe('validateGraph', () => {
 
   it('blocks HUB75 quarter-turn panel rotation on non-square tiles', () => {
     const errors = findHub75ConfigErrors([
-      node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 1, tilesY: 1, tileRotations: '90' }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 1, tilesY: 1, tileRotations: '90' }),
     ])
     expect(errors).toEqual([expect.stringMatching(/only supports 90°\/270° per-panel rotation when each panel tile is square/)])
   })
 
   it('blocks HUB75 strip/custom layouts', () => {
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'strip' })])).toEqual([
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'strip' })])).toEqual([
       expect.stringMatching(/only supports the Matrix layout or a Panels chain/),
     ])
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', layout: 'custom' })])).toEqual([
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'custom' })])).toEqual([
       expect.stringMatching(/only supports the Matrix layout or a Panels chain/),
     ])
   })
 
   it('blocks HUB75 supersampling', () => {
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { chipset: 'HUB75', supersample: true })])).toEqual([
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', supersample: true })])).toEqual([
       expect.stringMatching(/doesn't support supersampling/),
     ])
   })
 
   it('blocks HUB75 combined with a second Matrix Output route', () => {
     const nodes = [
-      node('out-a', 'MatrixOutput', { chipset: 'HUB75' }),
+      node('out-a', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75' }),
       node('out-b', 'MatrixOutput', { chipset: 'WS2812B' }),
     ]
     const errors = findHub75ConfigErrors(nodes)
@@ -741,7 +741,7 @@ describe('validateGraph', () => {
     // full validateGraph() (which does inspect edges, unlike
     // findHub75ConfigErrors now) to prove the whole pipeline, not just the
     // isolated check, no longer flags this as unsupported.
-    const out = node('out', 'MatrixOutput', { chipset: 'HUB75' })
+    const out = node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75' })
     const nodes = [node('coll', 'PatternCollection'), node('master', 'PatternMaster'), out]
     const edges = [
       edge('e1', 'coll', 'master', 'patternset'),
@@ -754,7 +754,7 @@ describe('validateGraph', () => {
   it('allows HUB75 with an SD Card wired for the music-sync show pipeline', () => {
     // playerSketchGenerator.ts has real HUB75 support too, so this shape is
     // no longer blocked either.
-    const out = node('out', 'MatrixOutput', { chipset: 'HUB75' })
+    const out = node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75' })
     const nodes = [node('sd', 'SDCard'), out]
     expect(findHub75ConfigErrors(nodes)).toEqual([])
   })
@@ -1082,7 +1082,7 @@ describe('validateGraph', () => {
     it('checks HUB75 ribbon pins instead of dataPin/clockPin, ignoring dataPin\'s leftover default', () => {
       const nodes = [
         node('out', 'MatrixOutput', {
-          chipset: 'HUB75', dataPin: 5, clockPin: 6,
+          form: 'hub75', chipset: 'HUB75', dataPin: 5, clockPin: 6,
           hub75R1Pin: 25, hub75G1Pin: 26, hub75B1Pin: 27,
           hub75R2Pin: 14, hub75G2Pin: 12, hub75B2Pin: 13,
           hub75APin: 23, hub75BPin: 19, hub75CPin: 5, hub75DPin: 17,
@@ -1099,13 +1099,13 @@ describe('validateGraph', () => {
 
     it('only checks HUB75 row-select E when hub75WideScan is on', () => {
       const withoutE = [
-        node('out', 'MatrixOutput', { chipset: 'HUB75', hub75EPin: 8, hub75WideScan: false }),
+        node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', hub75EPin: 8, hub75WideScan: false }),
         node('pot', 'PotInput', { pin: 8 }),
       ]
       expect(findPinConflicts(withoutE)).toHaveLength(0)
 
       const withE = [
-        node('out', 'MatrixOutput', { chipset: 'HUB75', hub75EPin: 8, hub75WideScan: true }),
+        node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', hub75EPin: 8, hub75WideScan: true }),
         node('pot', 'PotInput', { pin: 8 }),
       ]
       const conflicts = findPinConflicts(withE)
@@ -1419,7 +1419,7 @@ describe('validateGraph', () => {
       // 64x64 P4 panel: 4096 px * 1 mA/px (derived from real hardware — see
       // MA_PER_HUB75_PIXEL_WORST_CASE) vs. the same grid at the 60 mA/LED
       // addressable-strip rate, which would wildly overstate HUB75 draw.
-      const hub75 = estimatePowerLoad([node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'HUB75' })])!
+      const hub75 = estimatePowerLoad([node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 64, chipset: 'HUB75' })])!
       const addressable = estimatePowerLoad([node('out', 'MatrixOutput', { width: 64, height: 64, chipset: 'WS2812B' })])!
       expect(hub75.ledCount).toBe(4096)
       expect(hub75.worstCaseMa).toBe(4096)
@@ -1428,7 +1428,7 @@ describe('validateGraph', () => {
 
     it('sums per-route rates across mixed HUB75 and addressable outputs', () => {
       const nodes = [
-        node('a', 'MatrixOutput', { width: 16, height: 16, chipset: 'HUB75' }),
+        node('a', 'MatrixOutput', { form: 'hub75', width: 16, height: 16, chipset: 'HUB75' }),
         node('b', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }),
       ]
       const power = estimatePowerLoad(nodes)!
@@ -1719,7 +1719,7 @@ describe('validateGraph', () => {
     })
 
     it('excludes HUB75 DMA refresh from the addressable-LED wire estimate', () => {
-      const panel = node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75' })
+      const panel = node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75' })
       expect(estimateLedRefreshTime([panel], [])).toBeNull()
     })
   })

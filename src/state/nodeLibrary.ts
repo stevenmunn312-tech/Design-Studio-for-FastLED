@@ -3230,7 +3230,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // FastLED temporal dithering (recovers colour depth at low brightness);
       // on is FastLED's own default, off emits setDither(DISABLE_DITHER).
       dither: true,
-      // HUB75 scan-panel wiring (chipset === 'HUB75' only; see
+      // HUB75 scan-panel wiring (`form === 'hub75'` only; see
       // docs/development/design/hub75-output.md). ESP32-HUB75-MatrixPanel-DMA's
       // own documented default pinout (R1=25/G1=26/B1=27/A=23/...) is tuned for
       // the classic ESP32 — hardware-tested-false on ESP32-S3 (2026-08-09,
@@ -4277,9 +4277,8 @@ export const CHIPSET_OPTIONS = [
  * HUB75 is a `form`, not a wire protocol you might pick for a strip
  * (src/state/ledOutputForm.ts): choosing the HUB75 panel form is what makes an
  * output a scan panel, and the chipset editor is disabled there. Sanitisation
- * still runs against the full `CHIPSET_OPTIONS` above, so a saved graph that
- * carries `chipset: 'HUB75'` from before the form property existed still reads
- * back as the panel it is.
+ * still runs against the full `CHIPSET_OPTIONS` because generated HUB75 paths
+ * persist that implied driver value alongside the explicit form.
  */
 export const ADDRESSABLE_CHIPSET_OPTIONS = CHIPSET_OPTIONS.filter((chipset) => chipset !== 'HUB75')
 

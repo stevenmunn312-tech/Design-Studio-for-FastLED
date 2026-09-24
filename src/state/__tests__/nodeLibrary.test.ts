@@ -779,8 +779,8 @@ describe('nodeLibrary', () => {
   })
 
   it('gates MatrixOutput HUB75 wiring to the HUB75 chipset', () => {
-    const hub75 = { chipset: 'HUB75' }
-    const ws2812 = { chipset: 'WS2812B' }
+    const hub75 = { form: 'hub75', chipset: 'HUB75' }
+    const ws2812 = { form: 'matrix', chipset: 'WS2812B' }
     expect(isPropertyEnabled('MatrixOutput', 'hub75R1Pin', hub75)).toBe(true)
     expect(isPropertyEnabled('MatrixOutput', 'hub75ClkPin', hub75)).toBe(true)
     expect(isPropertyEnabled('MatrixOutput', 'hub75ColorDepthBits', hub75)).toBe(true)
@@ -797,9 +797,9 @@ describe('nodeLibrary', () => {
   })
 
   it('gates MatrixOutput hub75EPin on hub75WideScan', () => {
-    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { chipset: 'HUB75', hub75WideScan: true })).toBe(true)
-    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { chipset: 'HUB75', hub75WideScan: false })).toBe(false)
-    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { chipset: 'WS2812B', hub75WideScan: true })).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { form: 'hub75', chipset: 'HUB75', hub75WideScan: true })).toBe(true)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { form: 'hub75', chipset: 'HUB75', hub75WideScan: false })).toBe(false)
+    expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { form: 'matrix', chipset: 'WS2812B', hub75WideScan: true })).toBe(false)
   })
 
   it('MatrixOutput defaults HUB75 wiring off with a full pin set to fall back on', () => {

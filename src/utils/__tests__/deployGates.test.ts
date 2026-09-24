@@ -150,7 +150,7 @@ const CASES: GateCase[] = [
     name: 'HUB75 on a board without the LCD-mode DMA peripheral',
     nodes: [
       node('sc', 'SolidColor'),
-      node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75' }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75' }),
     ],
     edges: [edge('e1', 'sc', 'out')],
     fqbn: 'esp32:esp32:esp32c3',
@@ -162,7 +162,7 @@ const CASES: GateCase[] = [
     name: 'HUB75 asked to drive a shape the DMA library cannot',
     nodes: [
       node('sc', 'SolidColor'),
-      node('out', 'MatrixOutput', { width: 64, height: 32, chipset: 'HUB75', supersample: true }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75', supersample: true }),
     ],
     edges: [edge('e1', 'sc', 'out')],
     fqbn: S3,

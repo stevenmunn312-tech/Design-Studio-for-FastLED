@@ -33,7 +33,7 @@ describe('streamLayoutForGraph', () => {
     // property editor hides, but switching a node's chipset from an
     // addressable one to HUB75 leaves the old stored value in place. Both the
     // sender (buildAdalightPacket) and receiver must agree it's a no-op here.
-    const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, chipset: 'HUB75', serpentine: true })
+    const out = node('out', 'MatrixOutput', 'output', { form: 'hub75', width: 4, height: 4, chipset: 'HUB75', serpentine: true })
     expect(streamLayoutForGraph([out])?.serpentine).toBe(false)
   })
 

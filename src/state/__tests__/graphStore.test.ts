@@ -977,6 +977,17 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('vu').properties).not.toHaveProperty('_ledCountCustom')
   })
 
+  it('does not reinterpret retired LED-output shape spellings', () => {
+    const output = node('out', 'MatrixOutput', {
+      chipset: 'HUB75', layout: 'strip', width: 16, height: 8,
+    })
+    useGraphStore.getState().loadGraph([output], [])
+
+    expect(dataOf('out').properties).toEqual({
+      chipset: 'HUB75', layout: 'strip', width: 16, height: 8,
+    })
+  })
+
   it('refreshes saved ports from the node library on load', () => {
     const perf = node('pg', 'PerformanceGenerator')
     perf.data.inputs = [

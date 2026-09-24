@@ -154,6 +154,7 @@ describe('MatrixOutputSetupWizard', () => {
             ...matrix.data.properties,
             width: 64,
             height: 64,
+            form: 'hub75',
             chipset: 'HUB75',
             layout: 'panels',
             tilesX: 2,

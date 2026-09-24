@@ -446,21 +446,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
     const properties = { ...data.properties }
-    // An LED output's shape used to be spelled two ways that never quite meant
-    // it — `chipset: 'HUB75'` for a scan panel, `layout: 'strip'` for a run of
-    // tape, and no way at all to say "ring". Resolve a saved node's form once,
-    // on load, so the rest of the app only ever reads the explicit property.
-    // `outputForm` performs the same inference defensively, so a node that
-    // reaches it unmigrated still opens as the thing it is.
-    if (nodeType === 'MatrixOutput') {
-      properties.form ??= outputForm(properties)
-      if (properties.form === 'strip' || properties.form === 'ring') properties.ledCount ??= 60
-      if (properties.form === 'corkscrew') properties.ledCount ??= 120
-      // `layout: 'strip'` was only ever a second spelling of 'matrix' — same
-      // row-major table — and it is no longer offered, so collapse it rather
-      // than leave a saved node pointing at a value its dropdown has dropped.
-      if (properties.layout === 'strip') properties.layout = 'matrix'
-    }
     // Wi-Fi SSID/password used to be ordinary node properties (persisted into
     // project files and share links). They now live browser-local only in
     // networkCredentials.ts — migrate any already-saved values across, then
