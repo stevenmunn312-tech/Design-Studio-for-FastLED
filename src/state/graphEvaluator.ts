@@ -9033,6 +9033,7 @@ function createEvalNode(
         out = {}
         break
 
+      case 'PowerSwitchOutput':
       case 'RelayOutput':
         // Physical sink. Browser preview has no simulated contact load; the
         // connected booleans are still evaluated because this node is hot.

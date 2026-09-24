@@ -132,6 +132,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  PowerSwitchOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'lr7843-mosfet-module',
+        label: 'LR7843 MOSFET switch',
+        summary: 'One opto-isolated low-side DC switch, 6-28 V',
+        note: 'DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil.',
+      },
+    ],
+  },
   RelayOutput: {
     property: 'partId',
     options: [

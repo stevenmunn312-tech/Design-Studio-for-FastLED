@@ -1056,6 +1056,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Relay Module example graph](../../public/node-cards/graphs/relay-output.svg)
 
+### Power Switch
+
+![Power Switch node](../../public/node-cards/power-switch-output.svg)
+
+![Power Switch example graph](../../public/node-cards/graphs/power-switch-output.svg)
+
 ### Info Display
 
 ![Info Display node](../../public/node-cards/info-display.svg)

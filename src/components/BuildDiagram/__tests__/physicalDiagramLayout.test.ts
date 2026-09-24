@@ -98,7 +98,7 @@ describe('audio module pads', () => {
     const pair = audioModule('max98357a-stereo-pair')
     expect([0, 1, 2].map((index) => peripheralPadLabel(pair, peripheralSignalPadIndex(pair, index))))
       .toEqual(['L:BCLK', 'L:LRC', 'L:DIN'])
-    expect(peripheralPadLabel(pair, peripheralPowerPadIndex(pair))).toBe('L:VIN')
+    expect(peripheralPadLabel(pair, peripheralPowerPadIndex(pair)!)).toBe('L:VIN')
     expect(peripheralPadLabel(pair, peripheralGroundPadIndex(pair))).toBe('L:GND')
     const layout = { x: 0, y: 0, item: pair } as never
     const xs = Array.from({ length: peripheralPadCount(pair) }, (_, index) => peripheralPadPoint(layout, index).x)
@@ -120,7 +120,7 @@ describe('audio module pads', () => {
     const dx = power('dx-0809-stereo-amplifier')
     expect(peripheralPadLabel(dx, peripheralSignalPadIndex(dx, 0))).toBe('AUX-L')
     expect(peripheralPadLabel(dx, peripheralSignalPadIndex(dx, 1))).toBe('AUX-R')
-    expect(peripheralPadLabel(dx, peripheralPowerPadIndex(dx))).toBe('+12V')
+    expect(peripheralPadLabel(dx, peripheralPowerPadIndex(dx)!)).toBe('+12V')
     expect(peripheralPadLabel(dx, peripheralGroundPadIndex(dx))).toBe('GND')
     const pam = power('pam8610-stereo-amplifier')
     expect(peripheralPadLabel(pam, peripheralSignalPadIndex(pam, 0))).toBe('INL')
@@ -303,6 +303,37 @@ describe('microSD module pads', () => {
     expect([0, 1, 2, 3].map((index) => peripheralSignalPadIndex(SD_3V3_ITEM, index)))
       .toEqual([6, 3, 5, 1])
     expect(peripheralPowerNet(SD_3V3_ITEM)).toBe('v3v3')
+  })
+})
+
+describe('power switch pads', () => {
+  const SWITCH_ITEM: HardwareManifestItem = {
+    id: 'power-switch-output:sw',
+    kind: 'power-switch-output',
+    title: 'LR7843 opto-isolated MOSFET module',
+    subtitle: '',
+    sourceNodeId: 'sw',
+    sourceNodeType: 'PowerSwitchOutput',
+    supported: true,
+    pins: [],
+    facts: { partId: 'lr7843-mosfet-module' },
+  }
+
+  it('has no supply pad, so the sheet draws no VCC wire onto its GND', () => {
+    // The optocoupler lights from the signal itself; the board brings out
+    // only PWM and GND. A pad-0 fallback would put the supply on GND.
+    expect(peripheralPadCount(SWITCH_ITEM)).toBe(2)
+    expect(peripheralPowerPadIndex(SWITCH_ITEM)).toBeNull()
+    expect(peripheralPowerNet(SWITCH_ITEM)).toBeNull()
+    expect(peripheralPadLabel(SWITCH_ITEM, peripheralGroundPadIndex(SWITCH_ITEM))).toBe('GND')
+    expect(peripheralPadLabel(SWITCH_ITEM, peripheralSignalPadIndex(SWITCH_ITEM, 0))).toBe('PWM')
+  })
+
+  it('lands wires on the measured holes along the bottom edge', () => {
+    const [gnd, pwm] = MODULE_PAD_GEOMETRY['lr7843-mosfet-module']
+    expect(gnd[1]).toBeCloseTo(pwm[1])
+    expect(gnd[0]).toBeLessThan(pwm[0])
+    expect(gnd[1]).toBeGreaterThan(0.85)
   })
 })
 

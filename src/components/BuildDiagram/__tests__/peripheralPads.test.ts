@@ -75,7 +75,7 @@ describe('module pads come from the part, not the category', () => {
     for (const [kind, partId] of cases) {
       const entry = item(kind, partId)
       const labels = pads(entry)
-      expect(labels[peripheralPowerPadIndex(entry)], `${partId} supply`)
+      expect(labels[peripheralPowerPadIndex(entry)!], `${partId} supply`)
         .toMatch(/^(VIN|VCC|3V3|3V|5V|\+5V)$/)
       expect(labels[peripheralGroundPadIndex(entry)], `${partId} ground`).toBe('GND')
     }
@@ -159,7 +159,7 @@ describe('module pads come from the part, not the category', () => {
       const mic = item('mic-input', partId)
       const labels = pads(mic)
       expect(labels).toEqual(partById(partId)!.pinLabelsLeftToRight)
-      expect(labels[peripheralPowerPadIndex(mic)], 'supply').toMatch(/^(VDD|3V|3V3)$/)
+      expect(labels[peripheralPowerPadIndex(mic)!], 'supply').toMatch(/^(VDD|3V|3V3)$/)
       expect(labels[peripheralGroundPadIndex(mic)], 'ground').toBe('GND')
       expect(labels[micChannelSelectPadIndex(mic)!], 'channel select').toMatch(/^(L\/R|SEL)$/)
       // The manifest pushes WS, SCK then SD; each lands on the pad its own

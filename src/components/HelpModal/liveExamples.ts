@@ -1456,6 +1456,19 @@ const RELAY_OUTPUT_LIVE_EXAMPLE = namedExample(
   'Press the Button node to energize channel 1. The solid colour keeps the LED preview visible because the relay switches a separate physical load rather than producing pixels.',
 )
 
+const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
+  'PowerSwitchOutput',
+  'Switch a DC load from a boolean signal',
+  [
+    { key: 'button', type: 'ButtonInput' },
+    { key: 'target', type: 'PowerSwitchOutput', properties: { partId: 'lr7843-mosfet-module', signalPin: 25 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 92, g: 58, b: 22 } },
+  ],
+  [{ source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'on' }],
+  'Power Switch is a hardware-owned terminal. Add the LR7843 MOSFET module from Hardware and feed its On input a boolean signal. The module is active-high and opto-isolated, so a 3.3 V pin drives it directly; generated firmware holds it off until setup has configured the pin. It switches the negative lead of a 6-28 V DC load, and has no flyback diode, so a motor or coil needs one added across it.',
+  'Press the Button node to switch the load on. The solid colour keeps the LED preview visible because the switch drives a separate physical load rather than producing pixels.',
+)
+
 // The three text nodes produce a `string`, which is bound for an auxiliary
 // display rather than the LED frame — see
 // docs/development/design/auxiliary-displays.md. Until display nodes exist
@@ -1576,6 +1589,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   StereoVuMeter: STEREO_VU_METER_LIVE_EXAMPLE,
   IRRemoteInput: IR_REMOTE_LIVE_EXAMPLE,
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
+  PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

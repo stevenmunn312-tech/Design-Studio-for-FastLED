@@ -99,6 +99,24 @@ describe('hardwareManifest', () => {
     })
   })
 
+  it('describes a power switch by its one GPIO and its catalogued load-side limits', () => {
+    const sw = node('sw', 'PowerSwitchOutput', { partId: 'lr7843-mosfet-module', signalPin: 25 })
+    const manifest = buildHardwareManifest([sw], [], 'esp32:esp32:esp32')
+
+    expect(collectPinUses([sw]).map((use) => [use.propertyKey, use.pin])).toEqual([['signalPin', 25]])
+    expect(manifest.primaryItems[0]).toMatchObject({
+      kind: 'power-switch-output',
+      supported: true,
+      facts: {
+        partId: 'lr7843-mosfet-module',
+        trigger: 'active-high',
+        loadSupply: '6-28 V DC',
+        flybackDiode: false,
+        loadTerminals: '- / LOAD / +',
+      },
+    })
+  })
+
   it('reports every Button Bank row as an independently validated GPIO use', () => {
     const bank = node('bank', 'ButtonBank', {
       buttons: [

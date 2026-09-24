@@ -229,7 +229,7 @@ describe('the offered IR receivers', () => {
       const label = (index: number) => peripheralPadLabel(item, index)
       // Every role resolves to a distinct pad. A name the tables cannot see
       // falls back to a guess, which is how a wire lands on its neighbour.
-      const power = peripheralPowerPadIndex(item)
+      const power = peripheralPowerPadIndex(item)!
       const ground = peripheralGroundPadIndex(item)
       const signal = peripheralSignalPadIndex(item, 0)
       expect(new Set([power, ground, signal]).size, `${partId}: ${label(power)}/${label(ground)}/${label(signal)}`).toBe(3)

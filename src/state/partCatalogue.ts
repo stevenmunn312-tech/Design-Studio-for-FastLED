@@ -78,6 +78,21 @@ export interface PartRelaySpec {
   optoIsolated: boolean
 }
 
+/** Electrical identity carried by an imported DC MOSFET switch module. */
+export interface PartMosfetSpec {
+  channels: number
+  device: string
+  trigger: 'active-high' | 'active-low' | string
+  /** The load-side supply the module switches, e.g. "6-28 V DC". */
+  loadSupply: string
+  continuousCurrent: string
+  optoIsolated: boolean
+  /** Whether the board carries its own flyback diode across the load. */
+  flybackDiode: boolean
+  /** Load-side terminals as printed, left to right in the render. */
+  loadTerminals?: string[]
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -92,6 +107,8 @@ export interface PartCatalogueEntry {
   ledLayout?: PartLedLayout
   /** Present exactly on switching-power relay modules. */
   relay?: PartRelaySpec
+  /** Present exactly on DC MOSFET switch modules. */
+  mosfet?: PartMosfetSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

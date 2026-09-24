@@ -23,6 +23,9 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'in7Pin', label: 'IN7', kind: 'pin' },
     { key: 'in8Pin', label: 'IN8', kind: 'pin' },
   ],
+  PowerSwitchOutput: [
+    { key: 'signalPin', label: 'PWM', kind: 'pin' },
+  ],
   MicInput: [
     { key: 'channel', label: 'Channel', kind: 'select', options: ['Left', 'Right'] },
   ],

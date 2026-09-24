@@ -936,10 +936,12 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
       )}
       {/* The layout maps semantic power, signal, and ground roles onto the
           photographed pad order for each module variant. */}
-      <g data-terminal={`${item.id}-3v3`}>
-        <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralPowerTerminal} ${styles.photoTerminalFill}`} />
-        <title>{powerNet === 'v12' ? 'VCC · 12V, from a separate amplifier supply' : powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
-      </g>
+      {powerPadIndex !== null && (
+        <g data-terminal={`${item.id}-3v3`}>
+          <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralPowerTerminal} ${styles.photoTerminalFill}`} />
+          <title>{powerNet === 'v12' ? 'VCC · 12V, from a separate amplifier supply' : powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
+        </g>
+      )}
       {connections.map((connection, index) => {
         const padIndex = peripheralSignalPadIndex(item, index)
         const point = peripheralPadPoint(layout, padIndex)
@@ -1441,19 +1443,23 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         })}
         {peripheralLayouts.map((layout) => {
           const peripheralConnections = connections.filter((connection) => connection.itemId === layout.item.id)
-          const vccPad = peripheralPadPoint(layout, peripheralPowerPadIndex(layout.item))
+          const vccIndex = peripheralPowerPadIndex(layout.item)
+          const vccNet = peripheralPowerNet(layout.item)
+          const vccPad = vccIndex === null ? null : peripheralPadPoint(layout, vccIndex)
           const groundPad = peripheralPadPoint(layout, peripheralGroundPadIndex(layout.item))
           const channelSelectIndex = micChannelSelectPadIndex(layout.item)
           const channelSelectPad = channelSelectIndex === null ? null : peripheralPadPoint(layout, channelSelectIndex)
           return <g key={layout.item.id}>
-            <NetStub
-              x={vccPad.x}
-              y={vccPad.y}
-              kind={peripheralPowerNet(layout.item)}
-              direction="down"
-              lead={PERIPHERAL_STUB_LEAD}
-              wireId={`${layout.item.id}-${layout.item.kind === 'sd-card' ? 'power' : '3v3'}`}
-            />
+            {vccPad && vccNet && (
+              <NetStub
+                x={vccPad.x}
+                y={vccPad.y}
+                kind={vccNet}
+                direction="down"
+                lead={PERIPHERAL_STUB_LEAD}
+                wireId={`${layout.item.id}-${layout.item.kind === 'sd-card' ? 'power' : '3v3'}`}
+              />
+            )}
             {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)

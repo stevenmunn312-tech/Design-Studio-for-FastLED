@@ -435,6 +435,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 17.226
     }
   },
+  "lr7843-mosfet-module": {
+    "partId": "lr7843-mosfet-module",
+    "label": "LR7843 opto-isolated MOSFET module",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 16.0,
+      "height": 35.0
+    },
+    "manufacturer": "generic HW-532 / Infineon IRLR7843 and Sharp PC817",
+    "logicVoltage": "2.5-20 V active-high input through a PC817 optocoupler (1 kOhm series resistor)",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "PWM"
+    ],
+    "notes": [
+      "Single-channel low-side DC switch: the load's positive lead goes to +, its negative lead to LOAD, and the load supply across + and -.",
+      "The logic input is optocoupler-isolated and active-high; a 3.3 V GPIO drives it directly. The MOSFET gate is biased from the load supply, so the switch turns fully on regardless of logic voltage.",
+      "The load supply must be 6-28 V DC. The gate divider leaves the MOSFET under-driven below about 6 V.",
+      "The board has no flyback diode. Motors, solenoids, relay coils and other inductive loads need an external diode across the load.",
+      "15 A continuous is the practical limit on the bare board; the reference measured about 97 C at 15 A. Keep the MOSFET under 80-100 C and add airflow or a heatsink near that current.",
+      "External connections are shown as unpopulated plated holes. The board accepts 5 mm screw terminals or direct wires on the power end and a 0.1 in header or screw terminal on the logic end.",
+      "Low-cost supplier revisions change silkscreen, board outline and terminal fitment. Follow the markings on the exact board in hand."
+    ],
+    "mosfet": {
+      "channels": 1,
+      "device": "IRLR7843 N-channel, low-side",
+      "trigger": "active-high",
+      "loadSupply": "6-28 V DC",
+      "continuousCurrent": "15 A (module guidance; MOSFET die rating 161 A)",
+      "optoIsolated": true,
+      "flybackDiode": false,
+      "loadTerminals": [
+        "-",
+        "LOAD",
+        "+"
+      ]
+    },
+    "render": {
+      "file": "parts/lr7843-mosfet-module.webp",
+      "widthPx": 400,
+      "heightPx": 851,
+      "pxPerMm": 23.75
+    }
+  },
   "max7219-8digit-7segment": {
     "partId": "max7219-8digit-7segment",
     "label": "MAX7219 8-digit 7-segment display",

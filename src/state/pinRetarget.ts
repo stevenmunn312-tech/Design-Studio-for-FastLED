@@ -163,6 +163,10 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       capability: 'digitalOutput',
     })),
   },
+  PowerSwitchOutput: {
+    keys: ['signalPin'],
+    requests: [{ key: 'signalPin', capability: 'digitalOutput' }],
+  },
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },

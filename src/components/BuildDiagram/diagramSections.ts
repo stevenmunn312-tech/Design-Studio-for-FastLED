@@ -65,7 +65,7 @@ export const BUILD_SECTIONS: BuildSection[] = [
     id: 'controls',
     label: 'Controls',
     summary: 'Controller buses and GPIO to the RTC, buttons, potentiometers, encoders, and sensors.',
-    kinds: ['rtc-input', 'button-input', 'pot-input', 'encoder-input', 'motion-input', 'light-input', 'relay-output'],
+    kinds: ['rtc-input', 'button-input', 'pot-input', 'encoder-input', 'motion-input', 'light-input', 'relay-output', 'power-switch-output'],
     layers: { signalWires: true, levelShifter: false, powerDistribution: false },
   },
   {

@@ -79,6 +79,7 @@ import { useHardwareView } from './useHardwareView'
 import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
 import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/stereoVuSizing'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from '../../state/relayModule'
+import { DEFAULT_POWER_SWITCH_PART_ID } from '../../state/powerSwitch'
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
@@ -221,6 +222,16 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     render: partRenderSrc(DEFAULT_RELAY_PART_ID) ?? undefined,
     pinFields: [{ key: 'in1Pin', label: 'IN1' }],
     pinRequests: [{ key: 'in1Pin', capability: 'digitalOutput' }],
+  },
+  {
+    nodeType: 'PowerSwitchOutput',
+    partId: 'power-switch-output',
+    label: 'Power switch',
+    hint: 'Switches a DC load on and off from a boolean graph signal',
+    footprint: partDimensionsMm(DEFAULT_POWER_SWITCH_PART_ID, { width: 16, height: 35 }),
+    render: partRenderSrc(DEFAULT_POWER_SWITCH_PART_ID) ?? undefined,
+    pinFields: [{ key: 'signalPin', label: 'PWM' }],
+    pinRequests: [{ key: 'signalPin', capability: 'digitalOutput' }],
   },
   {
     nodeType: 'StereoVuMeter',
@@ -1754,6 +1765,7 @@ export default function HardwarePane() {
   const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
   const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
   const relayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'RelayOutput')
+  const powerSwitchFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSwitchOutput')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
       ? 'One stereo VU meter per board'
@@ -1829,8 +1841,11 @@ export default function HardwarePane() {
     {
       id: 'switching-power',
       label: 'Switching power',
-      hint: 'Relay modules for isolated on/off loads',
-      items: moduleItems('RelayOutput', relayFixture),
+      hint: 'Relays and MOSFET switches for on/off loads',
+      items: [
+        ...moduleItems('RelayOutput', relayFixture),
+        ...moduleItems('PowerSwitchOutput', powerSwitchFixture),
+      ],
     },
     {
       id: 'led-outputs',

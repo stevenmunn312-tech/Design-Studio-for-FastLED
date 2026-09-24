@@ -127,6 +127,7 @@ import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
 import { relayPinKeys } from '../state/relayModule'
+import { POWER_SWITCH_PIN_KEY, powerSwitchActiveHigh } from '../state/powerSwitch'
 import {
   STEREO_VU_CPP_FORWARD,
   STEREO_VU_CPP_HELPERS,
@@ -2758,6 +2759,18 @@ export function generateCpp(
           pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
           ln(`  digitalWrite(${pin}, ${boolExpr(node.id, `channel${index + 1}`)} ? LOW : HIGH);`)
         }
+        break
+      }
+
+      case 'PowerSwitchOutput': {
+        // The switch is active-high: the PC817's LED lights on a HIGH pin and
+        // the MOSFET conducts. Latch LOW before enabling the output so the
+        // load cannot pulse on during setup.
+        const pin = sanitizePin(p[POWER_SWITCH_PIN_KEY], 25)
+        const [on, off] = powerSwitchActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
+        pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
+        pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+        ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
         break
       }
 

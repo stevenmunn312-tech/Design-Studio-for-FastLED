@@ -313,6 +313,11 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   ], 483, 299.7, 325),
   'pam8403-3w-stereo-amplifier':
     padRow([36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366], 400, 254, 287),
+  // The logic pair along the bottom edge, measured at each pad's edge-side
+  // hole, the one a header pin or wire takes. Computed from the model's own
+  // coordinates (23.75 px/mm, 10 px margin) and checked against the render:
+  // both points are real, transparent holes.
+  'lr7843-mosfet-module': padPoints(400, 851, [[169.8, 771.2], [230.2, 771.2]]),
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
   // Power amplifiers: screw terminals along the top for supply and speakers,
   // and the line input somewhere else entirely — mid-board holes on the
@@ -489,7 +494,14 @@ function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], 
   return index >= 0 ? index : fallback
 }
 
-export function peripheralPowerPadIndex(item: HardwareManifestItem) {
+/**
+ * The pad the controller's supply rail lands on, or `null` for a module that
+ * takes no supply from the controller. An opto-isolated switch input lights
+ * its optocoupler's LED from the signal itself: the LR7843 board brings out
+ * only PWM and GND, and falling back to pad 0 drew a VCC wire onto its GND.
+ */
+export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
+  if (item.kind === 'power-switch-output') return null
   return padIndexByLabel(item, POWER_PAD_LABELS, 0)
 }
 
@@ -564,6 +576,8 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'pot-input': [['SIG']],
   'encoder-input': [['A'], ['B'], ['SW']],
   'relay-output': Array.from({ length: 8 }, (_, index) => [`IN${index + 1}`]),
+  // The LR7843 board prints PWM for its one input; other builds print IN or SIG.
+  'power-switch-output': [['PWM', 'IN', 'SIG']],
 }
 
 /**
@@ -587,12 +601,14 @@ const OLED_PAD_NAMES: Record<OledTransport, string[][]> = {
   i2c: [['SDA', 'DATA', 'DIN', 'D1'], ['SCL', 'CLK', 'SCK', 'D0']],
 }
 
-export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 'v12' {
+export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 'v12' | null {
+  const powerPad = peripheralPowerPadIndex(item)
+  if (powerPad === null) return null
   // A power amplifier printed +12V wants its own supply. Checked before the
   // audio default below, because drawing it on the controller's 5 V rail is
   // advice that is quiet at best and, read the other way, puts twelve volts
   // where the controller expects five.
-  if (item.kind === 'amplifier' && peripheralPadLabel(item, peripheralPowerPadIndex(item)).toUpperCase() === '+12V') return 'v12'
+  if (item.kind === 'amplifier' && peripheralPadLabel(item, powerPad).toUpperCase() === '+12V') return 'v12'
   // Audio modules take the 5 V rail: a class-D amp's output power comes from
   // its supply, and 3.3 V would make it quiet rather than broken — the kind of
   // wrong that reads as a bad speaker.
@@ -600,7 +616,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
-  const supply = peripheralPadLabel(item, peripheralPowerPadIndex(item)).toUpperCase()
+  const supply = peripheralPadLabel(item, powerPad).toUpperCase()
   if (supply === '3V3' || supply === '3V') return 'v3v3'
   if (supply === 'VIN' || supply === '5V' || supply === '+5V') return 'v5'
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'

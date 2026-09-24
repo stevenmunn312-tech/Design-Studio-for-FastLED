@@ -139,6 +139,29 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: relay block has no channel count from 1 to 8 — skipped",
                   file=sys.stderr)
+    # A DC MOSFET switch's electrical identity. Carried through because the
+    # app states these limits (load supply, continuous current, the missing
+    # flyback diode) wherever the part is wired, and a number retyped in the
+    # app is a number that can disagree with the module.
+    mosfet = data.get("mosfet")
+    if mosfet:
+        channels = mosfet.get("channels")
+        if isinstance(channels, int) and channels >= 1 and mosfet.get("loadSupply"):
+            entry["mosfet"] = {
+                "channels": channels,
+                "device": mosfet.get("device") or "",
+                "trigger": mosfet.get("trigger") or "active-high",
+                "loadSupply": mosfet["loadSupply"],
+                "continuousCurrent": mosfet.get("continuousCurrent") or "",
+                "optoIsolated": bool(mosfet.get("optoIsolated")),
+                "flybackDiode": bool(mosfet.get("flybackDiode")),
+            }
+            if mosfet.get("powerTerminalsLeftToRight") or data.get("powerTerminalsLeftToRight"):
+                entry["mosfet"]["loadTerminals"] = (mosfet.get("powerTerminalsLeftToRight")
+                                                    or data.get("powerTerminalsLeftToRight"))
+        else:
+            print(f"  ! {part_id}: mosfet block needs a channel count and loadSupply — skipped",
+                  file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

@@ -421,6 +421,19 @@ describe('generateCpp', () => {
     expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? LOW : HIGH);')
   })
 
+  it('holds an active-high power switch off before enabling its GPIO, then drives it from the wire', () => {
+    const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
+    const sw = node('sw', 'PowerSwitchOutput', 'output', { partId: 'lr7843-mosfet-module', signalPin: 25 })
+    const cpp = generateCpp([button, sw], [edge('switch-on', 'btn', 'sw', 'pressed', 'on')])
+
+    const off = cpp.indexOf('digitalWrite(25, LOW);')
+    const output = cpp.indexOf('pinMode(25, OUTPUT);')
+    expect(off).toBeGreaterThanOrEqual(0)
+    expect(output).toBeGreaterThan(off)
+    // Active-high, unlike the relay modules: pressed means HIGH means load on.
+    expect(cpp).toContain('digitalWrite(25, n_btn_pressed ? HIGH : LOW);')
+  })
+
   it('rounds and clamps out-of-range pins to a valid GPIO instead of emitting them literally', () => {
     // A fractional/negative/too-large pin must never reach generated C++ as-is
     // (the shared sanitizePin helper) — mirrors the same clamp MicInput's I2S

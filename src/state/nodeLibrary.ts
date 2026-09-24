@@ -27,6 +27,7 @@ import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './mast
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
+import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
@@ -3517,6 +3518,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // One opto-isolated DC MOSFET channel. A terminal sink like the relay,
+    // but active-high and DC-only: it switches the load's negative lead, and
+    // its load-side limits come from the catalogued module.
+    type: 'PowerSwitchOutput',
+    label: 'Power Switch',
+    category: 'output',
+    inputs: [{ id: 'on', label: 'On', dataType: 'bool' }],
+    outputs: [],
+    defaultProperties: {
+      partId: DEFAULT_POWER_SWITCH_PART_ID,
+      [POWER_SWITCH_PIN_KEY]: 25,
+    },
+  },
+  {
     // A 1-bit OLED with one content input and no layout property: what is
     // plugged into `Display` decides what it shows, one layout per source. The
     // port set is therefore stable by construction rather than by discipline,
@@ -3973,6 +3988,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
   PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
+  PowerSwitchOutput: 'Switches a DC load through an opto-isolated MOSFET from a boolean signal.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
@@ -4936,6 +4952,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
       control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
     }]),
   ),
+  PowerSwitchOutput: {
+    [POWER_SWITCH_PIN_KEY]: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   EncoderInput: {
     pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5682,6 +5701,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
+  PowerSwitchOutput: new Set([POWER_SWITCH_PIN_KEY]),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
@@ -5727,7 +5747,7 @@ export function gpioRequirementForProperty(
   if (nodeType === 'MotionInput' || nodeType === 'IRRemoteInput') {
     return { capability: 'digitalInput', pullup: false }
   }
-  if (nodeType === 'RelayOutput') return { capability: 'digitalOutput', pullup: false }
+  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput') return { capability: 'digitalOutput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
