@@ -1357,7 +1357,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "Grove 4-Digit Display form with a TM1637 two-wire controller and central colon.",
       "The display is intentionally rendered blank, with all four digits and the colon unlit.",
-      "The physical Grove cable order is GND, VCC, DIO, CLK when read left to right in this render."
+      "The four-pin connection header is left unpopulated; its plated holes read GND, VCC, DIO, CLK left to right in this render."
     ],
     "display": {
       "controller": "TM1637",
