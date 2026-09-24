@@ -35,10 +35,8 @@ describe('node defaults', () => {
 
     expect(resolved.form).toBe('matrix')   // the library's, not the saved one
     expect(resolved.ledCount).toBe(24)     // everything else still applies
-    // Except master brightness, which is the Board's on FastLED's 0-255. The
-    // output's old slider resolved through the shared 0-1 meta, so a default
-    // saved from it seeded a frame-scale value the Board migration reads as
-    // 0-255 — 0.85 became 1, on every new output, in every new project.
+    // Except master brightness, which is owned only by the Board. A stale
+    // output default must not recreate controller policy on new fixtures.
     expect(resolved).not.toHaveProperty('brightness')
   })
 

@@ -228,10 +228,11 @@ describe('generateCpp', () => {
   })
 
   it('drives a ring alongside a panel on its own map', () => {
-    const ring = node('ring', 'MatrixOutput', 'output', { form: 'ring', ledCount: 12, dataPin: 6, brightness: 90 })
+    const board = node('board', 'Board', 'output', { brightness: 90 })
+    const ring = node('ring', 'MatrixOutput', 'output', { form: 'ring', ledCount: 12, dataPin: 6 })
     const panel = node('panel', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 5 })
     const cpp = generateCpp(
-      [node('sc', 'SolidColor', 'pattern'), ring, panel],
+      [board, node('sc', 'SolidColor', 'pattern'), ring, panel],
       [edge('e1', 'sc', 'ring', 'frame', 'frame'), edge('e2', 'sc', 'panel', 'frame', 'frame')],
     )
     expect(cpp).toContain('CRGB leds_ring[12];')
@@ -261,12 +262,13 @@ describe('generateCpp', () => {
   })
 
   it('drives a corkscrew beside a matrix through its own map', () => {
+    const board = node('board', 'Board', 'output', { brightness: 90 })
     const corkscrew = node('corkscrew', 'MatrixOutput', 'output', {
-      form: 'corkscrew', ledCount: 60, corkscrewTurns: 4, dataPin: 6, brightness: 90,
+      form: 'corkscrew', ledCount: 60, corkscrewTurns: 4, dataPin: 6,
     })
     const panel = node('panel', 'MatrixOutput', 'output', { form: 'matrix', width: 8, height: 8, dataPin: 5 })
     const cpp = generateCpp(
-      [node('sc', 'SolidColor', 'pattern'), corkscrew, panel],
+      [board, node('sc', 'SolidColor', 'pattern'), corkscrew, panel],
       [edge('e1', 'sc', 'corkscrew', 'frame', 'frame'), edge('e2', 'sc', 'panel', 'frame', 'frame')],
     )
     expect(cpp).toContain('CRGB leds_corkscrew[60];')
@@ -318,11 +320,12 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('CLOCK_PIN')
   })
 
-  it('honours brightness / correction / dither-off on MatrixOutput', () => {
+  it('honours Board brightness and LED output correction / dither-off', () => {
+    const board = node('board', 'Board', 'output', { brightness: 96 })
     const out = node('out', 'MatrixOutput', 'output', {
-      brightness: 96, correction: 'TypicalLEDStrip', dither: false,
+      correction: 'TypicalLEDStrip', dither: false,
     })
-    const cpp = generateCpp([out], [])
+    const cpp = generateCpp([board, out], [])
     expect(cpp).toContain('FastLED.setBrightness(96);')
     expect(cpp).toContain('FastLED.setCorrection(TypicalLEDStrip);')
     expect(cpp).toContain('FastLED.setDither(DISABLE_DITHER);')
@@ -443,8 +446,9 @@ describe('generateCpp', () => {
   })
 
   it('emits the FASTLED_OVERCLOCK define before the FastLED include', () => {
-    const out = node('out', 'MatrixOutput', 'output', { overclock: 1.25 })
-    const cpp = generateCpp([out], [])
+    const board = node('board', 'Board', 'output', { overclock: 1.25 })
+    const out = node('out', 'MatrixOutput', 'output')
+    const cpp = generateCpp([board, out], [])
     const def = cpp.indexOf('#define FASTLED_OVERCLOCK 1.25')
     const inc = cpp.indexOf('#include <FastLED.h>')
     expect(def).toBeGreaterThanOrEqual(0)
@@ -453,9 +457,9 @@ describe('generateCpp', () => {
 
   it('gives SPI chipsets a clock pin and suppresses the overclock define', () => {
     const out = node('out', 'MatrixOutput', 'output', {
-      chipset: 'APA102HD', colorOrder: 'BGR', clockPin: 12, overclock: 1.25,
+      chipset: 'APA102HD', colorOrder: 'BGR', clockPin: 12,
     })
-    const cpp = generateCpp([out], [])
+    const cpp = generateCpp([node('board', 'Board', 'output', { overclock: 1.25 }), out], [])
     expect(cpp).toContain('#define CLOCK_PIN 12')
     expect(cpp).toContain('FastLED.addLeds<APA102HD, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);')
     expect(cpp).not.toContain('FASTLED_OVERCLOCK')
@@ -3298,8 +3302,9 @@ describe('audioEngineForGraph', () => {
   })
 })
 
-describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
-  const psOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, usePsram: true })
+describe('PSRAM buffer placement (Board psramPolicy)', () => {
+  const board = node('board', 'Board', 'output', { psramPolicy: 'on' })
+  const psOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5 })
   const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
   // A Fade sits between the source and the output so `buf_sc` is a real
   // placeable buffer — the node feeding the output aliases `leds` instead of
@@ -3308,7 +3313,7 @@ describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
   const wiring = [edge('e1', 'sc', 'fd', 'frame', 'frame'), edge('e2', 'fd', 'out', 'frame', 'frame')]
 
   it('moves per-node buffers to _psAlloc and keeps leds internal', () => {
-    const cpp = generateCpp([sc, fd, psOut], wiring)
+    const cpp = generateCpp([board, sc, fd, psOut], wiring)
     expect(cpp).toContain('CRGB* buf_sc = nullptr;')
     expect(cpp).toContain('buf_sc = (CRGB*)_psAlloc(sizeof(CRGB) * NUM_LEDS);')
     expect(cpp).toContain('void* _psAlloc(size_t n)')
@@ -3322,13 +3327,13 @@ describe('PSRAM buffer placement (MatrixOutput usePsram)', () => {
     expect(cpp).not.toContain('buf_fd = (CRGB*)_psAlloc')
   })
 
-  it('ignores a stale toggle when the board has no PSRAM (psramAllowed: false)', () => {
-    const cpp = generateCpp([sc, fd, psOut], wiring, {}, { psramAllowed: false })
+  it('ignores Board PSRAM policy when the target gate says PSRAM is unavailable', () => {
+    const cpp = generateCpp([board, sc, fd, psOut], wiring, {}, { psramAllowed: false })
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).not.toContain('_psAlloc')
   })
 
-  it('emits plain static buffers when the toggle is off', () => {
+  it('emits plain static buffers when Board policy is absent', () => {
     const cpp = generateCpp([sc, fd, outputNode], wiring)
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')
     expect(cpp).not.toContain('_psAlloc')
@@ -3414,10 +3419,11 @@ describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
   })
 
   it('skips setMaxPowerInVoltsAndMilliamps — no FastLED controller is registered to throttle', () => {
+    const board = node('board', 'Board', 'output', { powerLimit: true, volts: 5, milliamps: 2000 })
     const poweredOut = node('out', 'MatrixOutput', 'output', {
-      width: 8, height: 8, chipset: 'HUB75', powerLimit: true, volts: 5, milliamps: 2000,
+      width: 8, height: 8, chipset: 'HUB75',
     })
-    const cpp = generateCpp([sc, poweredOut], wiring)
+    const cpp = generateCpp([board, sc, poweredOut], wiring)
     expect(cpp).not.toContain('setMaxPowerInVoltsAndMilliamps')
   })
 

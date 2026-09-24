@@ -1362,7 +1362,10 @@ describe('validateGraph', () => {
     })
 
     it('flags when worst-case draw exceeds the configured power cap', () => {
-      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 2000 })]
+      const nodes = [
+        node('board', 'Board', { powerLimit: true, milliamps: 2000 }),
+        node('out', 'MatrixOutput', { width: 16, height: 16 }),
+      ]
       const power = estimatePowerLoad(nodes)!
       expect(power.configuredMa).toBe(2000)
       expect(power.worstCaseMa).toBe(15360)
@@ -1372,14 +1375,20 @@ describe('validateGraph', () => {
     })
 
     it('does not flag when the configured cap covers worst-case draw', () => {
-      const nodes = [node('out', 'MatrixOutput', { width: 8, height: 8, powerLimit: true, milliamps: 5000 })]
+      const nodes = [
+        node('board', 'Board', { powerLimit: true, milliamps: 5000 }),
+        node('out', 'MatrixOutput', { width: 8, height: 8 }),
+      ]
       const power = estimatePowerLoad(nodes)!
       expect(power.exceedsConfigured).toBe(false)
     })
 
     it('does not flag a cap that covers at least 2/3 of worst-case draw as a safety margin', () => {
       // 16x16 = 256 LEDs -> worst case 15360 mA; 2/3 of that is 10240 mA.
-      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 10240 })]
+      const nodes = [
+        node('board', 'Board', { powerLimit: true, milliamps: 10240 }),
+        node('out', 'MatrixOutput', { width: 16, height: 16 }),
+      ]
       const power = estimatePowerLoad(nodes)!
       expect(power.worstCaseMa).toBe(15360)
       expect(power.configuredMa).toBe(10240)
@@ -1387,15 +1396,19 @@ describe('validateGraph', () => {
     })
 
     it('still flags a cap just below the 2/3 safety margin', () => {
-      const nodes = [node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 10000 })]
+      const nodes = [
+        node('board', 'Board', { powerLimit: true, milliamps: 10000 }),
+        node('out', 'MatrixOutput', { width: 16, height: 16 }),
+      ]
       const power = estimatePowerLoad(nodes)!
       expect(power.exceedsConfigured).toBe(true)
     })
 
     it('surfaces an exceeded power cap as a validateGraph warning', () => {
       const nodes = [
+        node('board', 'Board', { powerLimit: true, milliamps: 2000 }),
         node('sc', 'SolidColor'),
-        node('out', 'MatrixOutput', { width: 16, height: 16, powerLimit: true, milliamps: 2000 }),
+        node('out', 'MatrixOutput', { width: 16, height: 16 }),
       ]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       const { warnings } = validateGraph(nodes, edges)
@@ -1611,8 +1624,9 @@ describe('validateGraph', () => {
 
     it('leaves the display cost in internal RAM when buffers move to PSRAM', () => {
       const nodes = [
+        node('board', 'Board', { psramPolicy: 'on' }),
         node('sc', 'SolidColor'), node('fd', 'Fade'),
-        node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true }),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
         node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64' }),
       ]
       const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
@@ -1637,8 +1651,9 @@ describe('validateGraph', () => {
     })
 
 
-    it('offloads frame/field buffers to PSRAM when usePsram is on', () => {
-      const nodes = [node('sc', 'SolidColor'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4, usePsram: true })]
+    it('offloads frame/field buffers to PSRAM when Board policy is on', () => {
+      const nodes = [node('board', 'Board', { psramPolicy: 'on' }), node('sc', 'SolidColor'),
+        node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'sc', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
       const ram = estimateFirmwareRam(nodes, edges)!
       expect(ram.usesPsram).toBe(true)

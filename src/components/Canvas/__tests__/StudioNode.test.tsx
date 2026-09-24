@@ -1250,9 +1250,8 @@ describe('StudioNode', () => {
       const keys = [...powerHeader.parentElement!.querySelectorAll('[class*="propKey"]')]
         .map((key) => key.textContent ?? '')
       expect(keys).toEqual(['overclock', 'powerLimit', 'volts', 'milliamps'])
-      // Master brightness is the Board's, on FastLED's 0-255. Offered here too
-      // it fell through to the shared 0-1 meta and wrote a frame scale into the
-      // field the Board migration reads as 0-255 — 0.85 became 1.
+      // Master brightness is the Board's, on FastLED's 0-255. The output's own
+      // normalised runtime dimmer has the distinct `outputBrightness` key.
       expect(keys).not.toContain('brightness')
     })
   })

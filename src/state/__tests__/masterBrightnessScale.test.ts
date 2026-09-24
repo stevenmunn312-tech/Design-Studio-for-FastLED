@@ -1,11 +1,7 @@
 // Master brightness is the Board's, on FastLED's native 0-255.
 //
-// The LED output node also offered a `brightness` slider, which resolved
-// through the shared 0-1 `brightness` meta — so it wrote a frame-scale value
-// into the field the Board migration reads as 0-255. 0.85 became 1, and
-// ensureRootBoardNode re-applied it on every load. On a bench that was a black
-// preview and a strip showing only its strongest channel: two symptoms that
-// looked nothing like each other and were one number.
+// LED-output brightness is per-fixture runtime state; controller brightness is
+// the Board's global FastLED setting. The names and scales remain separate.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../controllerSettings'
@@ -45,38 +41,6 @@ describe('who owns master brightness', () => {
   })
 })
 
-describe('reading a pre-Board output', () => {
-  const fromOutput = (properties: Record<string, unknown>) =>
-    controllerSettings([node('out', 'MatrixOutput', properties)]).brightness
-
-  it('keeps a genuine 0-255 value', () => {
-    expect(fromOutput({ brightness: 200 })).toBe(200)
-    expect(fromOutput({ brightness: 128 })).toBe(128)
-  })
-
-  // The regression: 0.85 read as 0-255 rounds to 1, which is off in practice.
-  it('rescales a value the old 0-1 slider wrote', () => {
-    expect(fromOutput({ brightness: 0.85 })).toBe(217)
-    expect(fromOutput({ brightness: 1 })).toBe(255)
-  })
-
-  // A fraction genuinely near zero stays near zero — the point is that an
-  // ordinary setting cannot collapse to the 1 that read as a dead panel.
-  it('never yields the near-black value that caused this', () => {
-    for (const stored of [0.1, 0.5, 0.85, 1]) {
-      expect(fromOutput({ brightness: stored }), `stored ${stored}`).toBeGreaterThan(1)
-    }
-  })
-
-  it('leaves an explicit off alone', () => {
-    expect(fromOutput({ brightness: 0 })).toBe(0)
-  })
-
-  it('falls back to the default when the output says nothing', () => {
-    expect(fromOutput({})).toBe(128)
-  })
-})
-
 describe('a graph with a Board', () => {
   it('reads the Board and ignores anything on the output', () => {
     const nodes = [
@@ -87,7 +51,7 @@ describe('a graph with a Board', () => {
   })
 
   it('takes the Board at its word, including a deliberately tiny value', () => {
-    // Only the legacy path guesses at scale. A Board value is already 0-255.
+    // A Board value is already on the 0-255 controller scale.
     expect(controllerSettings([node('board', 'Board', { brightness: 1 })]).brightness).toBe(1)
   })
 })

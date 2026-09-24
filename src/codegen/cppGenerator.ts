@@ -2237,8 +2237,8 @@ export function generateCpp(
      * preview agree. Null on both sides where the port is unwired *and* the
      * field is still lit and undimmed, so an output nobody has touched emits
      * nothing at all and its sketch is byte-for-byte the one it always was.
-     * The dimmer reads `outputBrightness`: a MatrixOutput's `brightness` is
-     * still master brightness to a Board-less graph.
+     * The dimmer reads `outputBrightness`; the Board's `brightness` is the
+     * separate global controller setting.
      */
     const outputRuntimeEmit = (target: StudioNode, array: string, count: string) => {
       const stem = safeId(target.id)

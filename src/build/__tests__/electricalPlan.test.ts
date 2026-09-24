@@ -21,6 +21,18 @@ function outputNode(width = 16, height = 16, extra: Record<string, unknown> = {}
   } as unknown as StudioNode
 }
 
+function boardNode(properties: Record<string, unknown>): StudioNode {
+  return {
+    id: 'board',
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Board', nodeType: 'Board', category: 'output',
+      properties, inputs: [], outputs: [],
+    },
+  } as unknown as StudioNode
+}
+
 describe('electricalPlan', () => {
   it('generates the complete recommendation from graph hardware before board confirmation', () => {
     const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
@@ -90,7 +102,10 @@ describe('electricalPlan', () => {
   })
 
   it('uses a firmware cap for PSU sizing without weakening branch protection', () => {
-    const manifest = buildHardwareManifest([outputNode(16, 16, { powerLimit: true, milliamps: 9000 })], [], 'esp32:esp32:esp32s3')
+    const manifest = buildHardwareManifest([
+      boardNode({ powerLimit: true, milliamps: 9000 }),
+      outputNode(16, 16),
+    ], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
 
@@ -103,10 +118,12 @@ describe('electricalPlan', () => {
   })
 
   it('recommends one 20 A supply for two outputs capped at 5 A each', () => {
-    const first = outputNode(16, 16, { powerLimit: true, milliamps: 5000 })
-    const second = outputNode(16, 16, { powerLimit: true, milliamps: 5000, dataPin: 27 })
+    const first = outputNode(16, 16)
+    const second = outputNode(16, 16, { dataPin: 27 })
     second.id = 'out-2'
-    const manifest = buildHardwareManifest([first, second], [], 'esp32:esp32:esp32s3')
+    const manifest = buildHardwareManifest([
+      boardNode({ powerLimit: true, milliamps: 10000 }), first, second,
+    ], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
 

@@ -58,9 +58,8 @@ export const LED_OUTPUT_RUNTIME_DEFAULT: LedOutputRuntime = { enabled: true, bri
  *
  * A wired port overrides the field beside it and a disconnected one falls
  * back to it, which is the whole contract of a property input. The dimmer is
- * stored as `outputBrightness` rather than `brightness` because a graph with
- * no Board node still reads a MatrixOutput's `brightness` as FastLED's master
- * 0-255 — see `legacyBrightness` in state/controllerSettings.ts.
+ * stored as `outputBrightness` rather than `brightness` because the Board
+ * master is native 0-255 while this fixture-local multiplier is normalised.
  */
 export function ledOutputManualRuntime(props: Record<string, unknown> | undefined): LedOutputRuntime {
   return resolveLedOutputRuntime(props?.enabled, props?.outputBrightness)

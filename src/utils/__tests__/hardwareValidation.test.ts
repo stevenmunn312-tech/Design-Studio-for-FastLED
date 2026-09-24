@@ -133,6 +133,14 @@ describe('hardware validation profiles', () => {
   })
 
   it('recognises issues #200 and #202 for the exact 60x1 OPI upload and stream paths', () => {
+    const recordedBoard = node('board', 'Board', {
+      brightness: 200,
+      powerLimit: true,
+      volts: 5,
+      milliamps: 2000,
+      psramPolicy: 'on',
+      psramMode: 'opi',
+    })
     const recordedStrip = node('strip', 'MatrixOutput', {
       form: 'strip',
       ledCount: 60,
@@ -140,16 +148,10 @@ describe('hardware validation profiles', () => {
       colorOrder: 'GRB',
       layout: 'matrix',
       dataPin: 4,
-      brightness: 200,
       correction: 'TypicalLEDStrip',
-      powerLimit: true,
-      volts: 5,
-      milliamps: 2000,
-      usePsram: true,
-      psramMode: 'opi',
     })
     const normal = buildHardwareValidationProfile({
-      nodes: [recordedStrip],
+      nodes: [recordedBoard, recordedStrip],
       edges: [],
       selectedFqbn: 'esp32:esp32:esp32s3',
       helper: { ...fbuild, fbuildVersion: 'fbuild 2.5.18' },
@@ -167,7 +169,7 @@ describe('hardware validation profiles', () => {
     expect(normal.gaps).toEqual([])
 
     const recordedStream = buildHardwareValidationProfile({
-      nodes: [recordedStrip],
+      nodes: [recordedBoard, recordedStrip],
       edges: [],
       selectedFqbn: 'esp32:esp32:esp32s3',
       helper: { ...fbuild, fbuildVersion: 'fbuild 2.5.18' },
@@ -179,6 +181,14 @@ describe('hardware validation profiles', () => {
   })
 
   it('recognises issues #203 and #204 only for the exact 65x1 OPI microphone and stream paths', () => {
+    const recordedBoard = node('board', 'Board', {
+      brightness: 200,
+      powerLimit: true,
+      volts: 5,
+      milliamps: 2000,
+      psramPolicy: 'on',
+      psramMode: 'opi',
+    })
     const recordedStrip = node('strip', 'MatrixOutput', {
       form: 'strip',
       ledCount: 65,
@@ -186,13 +196,7 @@ describe('hardware validation profiles', () => {
       colorOrder: 'GRB',
       layout: 'matrix',
       dataPin: 4,
-      brightness: 200,
       correction: 'TypicalLEDStrip',
-      powerLimit: true,
-      volts: 5,
-      milliamps: 2000,
-      usePsram: true,
-      psramMode: 'opi',
     })
     const microphone = node('mic', 'MicInput', {
       i2sWs: 39,
@@ -201,7 +205,7 @@ describe('hardware validation profiles', () => {
       channel: 'Left',
     })
     const common = {
-      nodes: [recordedStrip, microphone],
+      nodes: [recordedBoard, recordedStrip, microphone],
       edges: [],
       selectedFqbn: 'esp32:esp32:esp32s3',
       helper: { ...fbuild, fbuildVersion: 'fbuild 2.5.18' },

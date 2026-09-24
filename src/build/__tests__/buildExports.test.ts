@@ -79,7 +79,10 @@ describe('buildExports', () => {
   })
 
   it('exports configured operating limits beside the uncapped safety ceiling', () => {
-    const manifest = buildHardwareManifest([outputNode({ powerLimit: true, milliamps: 5000 })], [], 'esp32:esp32:esp32s3')
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { powerLimit: true, milliamps: 5000 }),
+      outputNode(),
+    ], [], 'esp32:esp32:esp32s3')
     const profile = ensureBuildProfile({ version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' })
     const board = boardProfileById(profile.physicalBoardProfileId ?? '')
     const plan = calculateElectricalPlan(manifest, profile, board)

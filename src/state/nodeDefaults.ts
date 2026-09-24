@@ -23,10 +23,9 @@ function sanitizeProperties(nodeType: string, properties: Record<string, unknown
   if (nodeType === 'MicInput') delete sanitized.sampleRate
   // Master brightness is the Board's, on FastLED's 0-255. The LED output
   // briefly offered its own slider, which resolved through the shared 0-1
-  // `brightness` meta — so a personal default saved from it puts a frame-scale
-  // value on every new output, where the Board migration reads it as 0-255 and
-  // 0.85 becomes 1. Removing the control is not enough on its own: the saved
-  // default outlives the project that created it.
+  // `brightness` meta. Removing the control is not enough on its own: a saved
+  // default outlives the project that created it and must not recreate a stale
+  // controller property on every new fixture.
   // The output's own blackout and dimmer go the same way, for a different
   // reason: they are runtime state rather than rig wiring. "Set Default" pins
   // the pins, chipset and geometry a bench keeps, and a fixture left dark or

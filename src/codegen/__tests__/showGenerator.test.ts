@@ -219,12 +219,13 @@ describe('showGenerator', () => {
     expect(cpp).not.toContain('randomSeed(analogRead(A0));')
   })
 
-  it('applies the MatrixOutput hardware settings to the controller sketch', () => {
+  it('applies Board policy and LED output hardware settings to the controller sketch', () => {
+    const board = node('board', 'Board', { brightness: 64, overclock: 1.2 })
     const out = node('out', 'MatrixOutput', {
       width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB',
-      brightness: 64, correction: 'TypicalLEDStrip', dither: false, overclock: 1.2,
+      correction: 'TypicalLEDStrip', dither: false,
     })
-    const cpp = generateShowSketch([nodes[0], nodes[1], out], edges, groups)
+    const cpp = generateShowSketch([board, nodes[0], nodes[1], out], edges, groups)
     expect(cpp).toContain('FastLED.setBrightness(64);')
     expect(cpp).toContain('FastLED.setCorrection(TypicalLEDStrip);')
     expect(cpp).toContain('FastLED.setDither(DISABLE_DITHER);')
@@ -304,8 +305,9 @@ describe('showGenerator', () => {
     expect(renderers.functions[0]).toContain('ColorFromPalette(p0_pal_extract,')
   })
 
-  it('moves show + pattern buffers to PSRAM when the MatrixOutput toggle is on', () => {
-    const psNodes = [nodes[0], nodes[1], node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, usePsram: true })]
+  it('moves show + pattern buffers to PSRAM when Board policy is on', () => {
+    const psNodes = [node('board', 'Board', { psramPolicy: 'on' }), nodes[0], nodes[1],
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })]
     const cpp = generateShowSketch(psNodes, edges, groups)
     expect(cpp).toContain('CRGB leds[NUM_LEDS];')            // stays internal
     expect(cpp).toContain('CRGB* showA = nullptr;')

@@ -3162,9 +3162,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // This fixture's own blackout and dimmer — the value an unwired
       // `enabled`/`brightness` port means, and the value a disconnected wire
       // falls back to. `outputBrightness` rather than `brightness` on purpose:
-      // a Board-less graph still reads a MatrixOutput's `brightness` as
-      // FastLED's master 0-255 (state/controllerSettings.ts), so one frame-
-      // scale field under that name is two controls on two scales again.
+      // the Board's `brightness` is FastLED's global 0-255 controller setting,
+      // while this one is a fixture-local 0-1 multiplier.
       enabled: true,
       outputBrightness: 1,
       width: 16,
@@ -5521,10 +5520,8 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'dither'] },
     // No 'brightness' here: master brightness is the Board's, on FastLED's
-    // native 0-255. Offered on the output too it resolved through the shared
-    // 0-1 `brightness` meta, so the slider wrote a frame-scale value into the
-    // field the Board migration reads as 0-255 — 0.85 became 1, and every
-    // load re-applied it. Two controls, two scales, one property name.
+    // native 0-255. The output's own normalised runtime dimmer has the distinct
+    // `outputBrightness` property, so the two scales cannot share one name.
     { key: 'power', label: 'Power', keys: ['overclock', 'powerLimit', 'volts', 'milliamps'] },
     { key: 'bench', label: 'Bench', keys: ['reportTelemetry'] },
   ],

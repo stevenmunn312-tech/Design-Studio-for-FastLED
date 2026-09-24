@@ -15,6 +15,10 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed the pre-Board controller fallback. Brightness, current
+  limiting, PSRAM and serial policy now come only from the singleton `Board`;
+  Board-absent generator callers receive safe defaults instead of interpreting
+  stale LED-output properties as global policy.
 - 2026-09-24: removed the obsolete `hardware` node category from the v1 type
   surface. Hardware-backed nodes use their current `input`, `show`, or `output`
   category; known saved nodes still receive that canonical library category on

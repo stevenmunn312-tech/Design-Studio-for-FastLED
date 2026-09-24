@@ -37,7 +37,7 @@ import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardPr
 import { boardI2cDefault } from '../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from './sdPinDefaults'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
-import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
+import { DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -936,7 +936,7 @@ function materializeButtonBankConnection(
   }
 }
 
-function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID, settings = DEFAULT_CONTROLLER_SETTINGS): StudioNode {
+function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
   const profile = boardProfileById(profileId)
   return {
     id: ROOT_BOARD_NODE_ID,
@@ -949,7 +949,7 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID, settings = DE
       label: 'Board',
       nodeType: 'Board',
       category: 'output',
-      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...settings },
+      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...DEFAULT_CONTROLLER_SETTINGS },
       inputs: [],
       outputs: [],
     },
@@ -966,16 +966,12 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID, settings = DE
 function ensureRootBoardNode(nodes: StudioNode[], fallbackProfileId?: string): StudioNode[] {
   const fallback = (fallbackProfileId && boardProfileById(fallbackProfileId)?.id) || DEFAULT_BOARD_PROFILE_ID
   const boardNodes = nodes.filter((node) => node.data.nodeType === 'Board')
-  const legacySettings = controllerSettings(nodes.filter((node) => node.data.nodeType !== 'Board'))
-  if (boardNodes.length === 0) return [...nodes, createRootBoardNode(fallback, legacySettings)]
+  if (boardNodes.length === 0) return [...nodes, createRootBoardNode(fallback)]
   const [primary, ...extras] = boardNodes
   const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
   const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
     ? primaryProps.profileId
     : fallback
-  const migratedSettings = Object.fromEntries(
-    Object.entries(legacySettings).map(([key, value]) => [key, primaryProps[key] ?? value]),
-  )
   return nodes
     .filter((node) => !extras.some((extra) => extra.id === node.id))
     .map((node) => {
@@ -989,7 +985,7 @@ function ensureRootBoardNode(nodes: StudioNode[], fallbackProfileId?: string): S
           ...node.data,
           label: 'Board',
           category: 'output',
-          properties: { ...DEFAULT_CONTROLLER_SETTINGS, ...migratedSettings, ...node.data.properties, profileId: explicitProfileId },
+          properties: { ...DEFAULT_CONTROLLER_SETTINGS, ...node.data.properties, profileId: explicitProfileId },
           inputs: [],
           outputs: [],
         },

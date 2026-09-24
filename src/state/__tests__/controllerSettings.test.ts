@@ -96,15 +96,18 @@ describe('controllerSettings', () => {
     })
   })
 
-  it('sums legacy output caps when no Board exists', () => {
+  it('uses safe defaults when no Board exists', () => {
     const settings = controllerSettings([
       node('out-a', 'MatrixOutput', { brightness: 180, powerLimit: true, volts: 5, milliamps: 2000 }),
       node('out-b', 'MatrixOutput', { powerLimit: true, volts: 5, milliamps: 3000 }),
     ])
-    expect(settings.brightness).toBe(180)
-    expect(settings.powerLimit).toBe(true)
-    expect(settings.milliamps).toBe(5000)
-    expect(settings.psramPolicy).toBe('auto')
-    expect(settings.serialRoute).toBe('auto')
+    expect(settings).toMatchObject({
+      brightness: 128,
+      powerLimit: false,
+      milliamps: 2000,
+      usePsram: false,
+      psramPolicy: 'auto',
+      serialRoute: 'auto',
+    })
   })
 })

@@ -61,55 +61,23 @@ function number(value: unknown, fallback: number, min: number, max: number): num
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
 }
 
-/**
- * Master brightness off a pre-Board output, in whichever scale it was stored.
- *
- * A genuine pre-Board save holds FastLED's native 0-255 — the old default was
- * 200. But the output node also briefly offered its own brightness slider,
- * which resolved through the shared 0-1 `brightness` meta and wrote a frame
- * scale into the same field. Read as 0-255 that rounds to 1, which is a black
- * panel and a strip showing only its strongest channel.
- *
- * Anything at or below 1 is that second case: nobody sets a master brightness
- * of 1/255 on purpose, and 0 means off in either reading.
- */
-function legacyBrightness(value: unknown, fallback: number): number {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return fallback
-  if (parsed > 0 && parsed <= 1) return Math.round(parsed * 255)
-  return Math.round(Math.max(0, Math.min(255, parsed)))
-}
-
-/** Loaded app graphs always contain a Board. The output fallback keeps direct
- * generator callers and pre-Board saves readable without allowing a second
- * output to override an existing Board. */
+/** Loaded v1 graphs always contain a Board. Board-absent callers receive the
+ * safe defaults; LED outputs are fixtures and never own controller policy. */
 export function controllerSettings(nodes: readonly StudioNode[]): ControllerSettings {
   const board = nodes.find((node) => node.data.nodeType === 'Board')
-  const legacyOutputs = board ? [] : nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
-  const legacyOutput = legacyOutputs[0]
-  const props = ((board ?? legacyOutput)?.data.properties ?? {}) as Record<string, unknown>
+  const props = (board?.data.properties ?? {}) as Record<string, unknown>
   const profileId = typeof props.profileId === 'string' ? props.profileId : ''
   const profile = boardProfileById(profileId)
-  const selectedPsramPolicy = board ? psramPolicy(props) : (props.usePsram === true ? 'on' : 'auto')
-  const selectedSerialRoute = board ? serialRoute(props) : (props.usbCdcOnBoot === true ? 'native' : 'auto')
+  const selectedPsramPolicy = psramPolicy(props)
+  const selectedSerialRoute = serialRoute(props)
   const automaticPsram = !!profile?.memory?.psramMb && !!profile.psramMode
-  const legacyCappedOutputs = legacyOutputs.filter((node) =>
-    (node.data.properties as Record<string, unknown>).powerLimit === true)
-  const legacyMilliamps = legacyCappedOutputs.length > 0
-    ? legacyCappedOutputs.reduce((sum, node) =>
-      sum + number((node.data.properties as Record<string, unknown>).milliamps, 0, 0, 100000), 0)
-    : undefined
   return {
-    brightness: board
-      ? Math.round(number(props.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255))
-      : legacyBrightness(props.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness),
+    brightness: Math.round(number(props.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
     overclock: number(props.overclock, DEFAULT_CONTROLLER_SETTINGS.overclock, 1, 2),
-    powerLimit: board ? props.powerLimit === true : legacyCappedOutputs.length > 0,
+    powerLimit: props.powerLimit === true,
     volts: number(props.volts, DEFAULT_CONTROLLER_SETTINGS.volts, 1, 60),
-    milliamps: Math.round(number(legacyMilliamps ?? props.milliamps, DEFAULT_CONTROLLER_SETTINGS.milliamps, 100, 100000)),
-    usePsram: board
-      ? selectedPsramPolicy === 'on' || (selectedPsramPolicy === 'auto' && automaticPsram)
-      : legacyOutputs.some((node) => (node.data.properties as Record<string, unknown>).usePsram === true),
+    milliamps: Math.round(number(props.milliamps, DEFAULT_CONTROLLER_SETTINGS.milliamps, 100, 100000)),
+    usePsram: selectedPsramPolicy === 'on' || (selectedPsramPolicy === 'auto' && automaticPsram),
     psramPolicy: selectedPsramPolicy,
     psramMode: selectedPsramPolicy === 'auto' && profile?.psramMode
       ? profile.psramMode

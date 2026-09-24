@@ -93,14 +93,16 @@ describe('generateWiringDiagnosticSketch', () => {
   })
 
   it('keeps the configured power cap in the diagnostic sketch', () => {
-    const capped = node('out', 'MatrixOutput', 'output', {
-      width: 8,
-      height: 8,
+    const board = node('board', 'Board', 'output', {
       powerLimit: true,
       volts: 5,
       milliamps: 1500,
     })
-    const sketch = generateWiringDiagnosticSketch([capped])!
+    const capped = node('out', 'MatrixOutput', 'output', {
+      width: 8,
+      height: 8,
+    })
+    const sketch = generateWiringDiagnosticSketch([board, capped])!
     expect(sketch).toContain('FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);')
   })
 
@@ -190,10 +192,11 @@ describe('generateWiringDiagnosticSketch', () => {
     })
 
     it('skips setMaxPowerInVoltsAndMilliamps for HUB75 (no FastLED controller to throttle)', () => {
+      const board = node('board', 'Board', 'output', { powerLimit: true, volts: 5, milliamps: 1500 })
       const capped = node('out', 'MatrixOutput', 'output', {
-        width: 8, height: 8, chipset: 'HUB75', powerLimit: true, volts: 5, milliamps: 1500,
+        width: 8, height: 8, chipset: 'HUB75',
       })
-      const sketch = generateWiringDiagnosticSketch([capped])!
+      const sketch = generateWiringDiagnosticSketch([board, capped])!
       expect(sketch).not.toContain('setMaxPowerInVoltsAndMilliamps')
     })
 

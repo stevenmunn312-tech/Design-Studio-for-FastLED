@@ -25,6 +25,16 @@ const output = {
   },
 }
 
+const board = {
+  id: 'board',
+  type: 'studioNode',
+  position: { x: 0, y: 0 },
+  data: {
+    label: 'Board', nodeType: 'Board', category: 'output',
+    properties: { psramPolicy: 'on', psramMode: 'opi' }, inputs: [], outputs: [],
+  },
+}
+
 const pattern = {
   id: 'sc',
   type: 'studioNode',
@@ -298,10 +308,7 @@ describe('CapacityWatcher', () => {
 
     it('measures the PSRAM player against the same board option the upload sends', () => {
       useGraphStore.setState({
-        nodes: [sdCard, performanceGenerator, {
-          ...output,
-          data: { ...output.data, properties: { ...output.data.properties, usePsram: true, psramMode: 'opi' } },
-        }] as never[],
+        nodes: [board, sdCard, performanceGenerator, output] as never[],
         edges: [showEdge] as never[],
         selectedNodeId: null,
         graphData: {},
@@ -319,10 +326,7 @@ describe('CapacityWatcher', () => {
     it('keeps the measured player static on a board without PSRAM support', () => {
       useUploadStore.setState({ selectedFqbn: 'arduino:avr:uno' })
       useGraphStore.setState({
-        nodes: [sdCard, performanceGenerator, {
-          ...output,
-          data: { ...output.data, properties: { ...output.data.properties, usePsram: true } },
-        }] as never[],
+        nodes: [board, sdCard, performanceGenerator, output] as never[],
         edges: [showEdge] as never[],
         selectedNodeId: null,
         graphData: {},

@@ -80,9 +80,8 @@ describe('resolving the two wires', () => {
 
   /*
    * The field beside the socket is what an unwired port means, and what a
-   * disconnected one falls back to. It is stored as `outputBrightness`: a
-   * graph with no Board node still reads a MatrixOutput's `brightness` as
-   * FastLED's master 0-255, so one field of each scale cannot share a name.
+   * disconnected one falls back to. It is stored as `outputBrightness` because
+   * the Board's global `brightness` uses FastLED's native 0-255 scale.
    */
   it('reads the two fields on the output itself, under a name master brightness cannot claim', () => {
     expect(ledOutputManualRuntime(undefined)).toEqual(LED_OUTPUT_RUNTIME_DEFAULT)
