@@ -15,6 +15,10 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed the always-empty `ElectricalPlan.supplyChecks` field
+  kept for older saved profiles, and the hardware manifest's node-label path
+  for matrix outputs. The plan is recomputed, never persisted, and every LED
+  output is named by its `form` label.
 - 2026-09-24: removed the untagged three-band `.show` audio trailer. Every
   baked envelope is the tagged `AENV` version-2 trailer with left/right levels,
   and the player reads nothing else. A saved song whose analysis or show
