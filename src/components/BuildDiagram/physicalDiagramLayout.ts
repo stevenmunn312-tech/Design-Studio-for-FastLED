@@ -303,6 +303,13 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'generic-i2s-mems-microphone': padRow([41.7, 104.1, 168, 231, 294.8, 357.2], 400, 204.4, 248),
 
   'max98357a-i2s-amplifier': padRow([31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5], 400, 545, 568),
+  // Two boards side by side, left then right, seven pads each. The pads are
+  // unpopulated silver rings the warm mask cannot see, so they were measured
+  // off a ruled crop: the outer rings anchor a 30.55 px pitch on each board.
+  'max98357a-stereo-pair': padRow([
+    24.2, 54.8, 85.3, 115.9, 146.4, 177, 207.5,
+    274.1, 304.7, 335.2, 365.8, 396.3, 426.9, 457.4,
+  ], 483, 299.7, 325),
   'pam8403-3w-stereo-amplifier':
     padRow([36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366], 400, 254, 287),
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
@@ -466,8 +473,17 @@ export function micChannelSelectPadIndex(item: HardwareManifestItem) {
   return index >= 0 ? index : null
 }
 
+/**
+ * A pad's name without the board it is on. A part made of two boards (the
+ * MAX98357A stereo pair) prints `L:BCLK` and `R:BCLK`; the board's wire goes
+ * to the first, left, board, whose pads come first.
+ */
+function padName(label: string) {
+  return label.toUpperCase().replace(/^[LR]:/, '')
+}
+
 function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], fallback: number) {
-  const pads = peripheralPads(item).map((label) => label.toUpperCase())
+  const pads = peripheralPads(item).map(padName)
   const index = pads.findIndex((label) => wanted.includes(label))
   return index >= 0 ? index : fallback
 }
@@ -494,7 +510,7 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
     // The manifest pushes BCLK, LRC, DOUT for an I2S stage, or the two
     // internal-DAC line-in pins for a power amplifier; find each on the module
     // by the name it is silkscreened with.
-    const pads = audioModulePads(item).map((label) => label.toUpperCase())
+    const pads = audioModulePads(item).map(padName)
     const wanted = item.facts.stage === 'power'
       ? [['LIN', 'INL', 'AUX-L'], ['RIN', 'INR', 'AUX-R']]
       : [['BCLK', 'BCK', 'SCK'], ['LRC', 'LCK', 'WSEL'], ['DIN']]

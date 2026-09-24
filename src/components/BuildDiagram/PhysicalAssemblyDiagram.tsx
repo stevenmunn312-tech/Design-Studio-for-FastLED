@@ -2,7 +2,7 @@ import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/el
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
-import { partRenderSrc } from '../../state/partCatalogue'
+import { partRenderSrc, sharedPadsAcrossBoards } from '../../state/partCatalogue'
 import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
 import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
 import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
@@ -903,6 +903,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   const groundPadIndex = peripheralGroundPadIndex(item)
   const channelSelectPadIndex = micChannelSelectPadIndex(item)
   const powerNet = peripheralPowerNet(item)
+  const sharedPads = sharedPadsAcrossBoards(String(item.facts.partId ?? ''))
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 12} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
@@ -912,6 +913,13 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
       {item.facts.stage === 'power' && item.facts.feed === 'dac' && (
         <text data-line-in-from={String(item.facts.fedBy)} x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
           {`LINE IN ← ${String(item.facts.fedByModule ?? item.facts.fedBy)} LINE OUT`}
+        </text>
+      )}
+      {/* Wires land on the left board; the right board shares them. The
+          sheet draws one wire per board pin, so say which lines to bridge. */}
+      {sharedPads.length > 0 && (
+        <text data-shared-pads={sharedPads.join(',')} x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
+          {`RIGHT BOARD SHARES ${sharedPads.join(' · ')}`}
         </text>
       )}
       {render && (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PART_OPTIONS, partOptionProperty, partOptionsFor, resolvePartIdentity } from '../partOptions'
-import { partById } from '../partCatalogue'
+import { partById, sharedPadsAcrossBoards } from '../partCatalogue'
 import { DEFAULT_MIC_MODULE, MIC_MODULES, micModuleFor } from '../micModules'
 
 describe('part options', () => {
@@ -163,5 +163,15 @@ describe('part options', () => {
     expect(identity.entry?.label).toContain('PAM8403')
     // Its note is the only place the app says what can feed it.
     expect(identity.notes.join(' ')).toMatch(/DAC/)
+  })
+
+  /*
+   * The bus, supply and ground are one net across both boards; which channel
+   * a board plays (SD) and its gain are its own, and bridging them would put
+   * both boards on the same channel.
+   */
+  it('bridges only the shared lines of a two-board part', () => {
+    expect(sharedPadsAcrossBoards('max98357a-stereo-pair')).toEqual(['LRC', 'BCLK', 'DIN', 'GND', 'VIN'])
+    expect(sharedPadsAcrossBoards('max98357a-i2s-amplifier')).toEqual([])
   })
 })

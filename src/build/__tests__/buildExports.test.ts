@@ -147,6 +147,24 @@ describe('buildExports', () => {
     expect(amp.some((row) => row.purpose === 'Signal')).toBe(false)
   })
 
+  it('bridges the right board of a MAX98357A stereo pair to the left', () => {
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: board?.id }),
+      node('amp', 'Amplifier', { model: 'max98357a-stereo-pair', i2sBclk: 15, i2sLrc: 16, i2sDout: 17 }),
+    ], [], 'esp32:esp32:esp32s3')
+    const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
+      manifest,
+      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      board,
+    ), board)
+    const bridges = rows.filter((row) => row.purpose === 'Right board shares this line')
+    expect(bridges.map((row) => `${row.fromTerminal}>${row.toTerminal}`))
+      .toEqual(['L:LRC>R:LRC', 'L:BCLK>R:BCLK', 'L:DIN>R:DIN', 'L:GND>R:GND', 'L:VIN>R:VIN'])
+    // The channel-select pins stay each board's own.
+    expect(bridges.some((row) => row.fromTerminal.includes('SD'))).toBe(false)
+  })
+
   it('exports the PCM1802 signal, 5 V, and common-ground wiring', () => {
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const manifest = buildHardwareManifest([

@@ -158,6 +158,23 @@ export function partPinLabelForProperty(partId: string, propertyKey: string): st
 }
 
 /** The catalogued size, or `fallback` for a part not modelled yet. */
+/**
+ * Pads a two-board part carries on both boards and joins between them.
+ *
+ * The MAX98357A stereo pair prints each board's pads with an `L:` or `R:`
+ * prefix. The bus, supply and ground are one net across both boards; a
+ * board's own SD (which channel it plays) and GAIN are per-board settings and
+ * are never bridged. Empty for any part that is a single board.
+ */
+const PER_BOARD_PADS = new Set(['SD', 'GAIN'])
+
+export function sharedPadsAcrossBoards(partId: string): string[] {
+  const pads = partById(partId)?.pinLabelsLeftToRight ?? []
+  const left = pads.filter((pad) => pad.startsWith('L:')).map((pad) => pad.slice(2))
+  const right = new Set(pads.filter((pad) => pad.startsWith('R:')).map((pad) => pad.slice(2)))
+  return left.filter((pad) => right.has(pad) && !PER_BOARD_PADS.has(pad))
+}
+
 export function partDimensionsMm(
   partId: string,
   fallback: { width: number; height: number },

@@ -3,7 +3,7 @@ import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './electricalPlan'
 import { boardPinLabelForUse, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
 import { fuseBlockAllocations } from './powerDistribution'
-import { partById } from '../state/partCatalogue'
+import { partById, sharedPadsAcrossBoards } from '../state/partCatalogue'
 
 export interface BuildConnectionRow {
   from: string
@@ -101,6 +101,11 @@ export function buildConnectionRows(
       })
     }
     rows.push({ from: controller, fromTerminal: 'GND', to: item.title, toTerminal: 'GND', purpose: 'Common ground reference' })
+    // A two-board part is wired from the controller to its left board; the
+    // right board joins those same lines, or it never hears the bus.
+    for (const pad of sharedPadsAcrossBoards(String(item.facts.partId ?? ''))) {
+      rows.push({ from: item.title, fromTerminal: `L:${pad}`, to: item.title, toTerminal: `R:${pad}`, purpose: 'Right board shares this line' })
+    }
   }
 
   outputs.forEach((item, outputIndex) => {

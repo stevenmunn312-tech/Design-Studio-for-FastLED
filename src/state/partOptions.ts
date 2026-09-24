@@ -150,6 +150,16 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
     options: [
       { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', output: 'speaker', summary: 'I2S in, drives a speaker directly' },
       {
+        // One bench part rather than two Amplifier nodes: both boards sit on
+        // the same three I2S lines and the firmware already sends stereo, so
+        // which board plays which channel is set on the boards themselves.
+        id: 'max98357a-stereo-pair',
+        label: 'MAX98357A stereo pair',
+        output: 'speaker',
+        summary: 'Two I2S amps, one per channel',
+        note: 'Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right.',
+      },
+      {
         id: 'pcm5102a-i2s-dac',
         label: 'PCM5102A',
         output: 'line',

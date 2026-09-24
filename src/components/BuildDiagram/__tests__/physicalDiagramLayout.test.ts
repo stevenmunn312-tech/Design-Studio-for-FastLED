@@ -89,6 +89,23 @@ describe('audio module pads', () => {
     },
   )
 
+  /*
+   * Two boards, each printing its pads with an L: or R: prefix. The board's
+   * wires go to the left board, and every one of the fourteen pads keeps its
+   * own point, left to right.
+   */
+  it('wires the MAX98357A stereo pair to its left board', () => {
+    const pair = audioModule('max98357a-stereo-pair')
+    expect([0, 1, 2].map((index) => peripheralPadLabel(pair, peripheralSignalPadIndex(pair, index))))
+      .toEqual(['L:BCLK', 'L:LRC', 'L:DIN'])
+    expect(peripheralPadLabel(pair, peripheralPowerPadIndex(pair))).toBe('L:VIN')
+    expect(peripheralPadLabel(pair, peripheralGroundPadIndex(pair))).toBe('L:GND')
+    const layout = { x: 0, y: 0, item: pair } as never
+    const xs = Array.from({ length: peripheralPadCount(pair) }, (_, index) => peripheralPadPoint(layout, index).x)
+    expect(new Set(xs).size).toBe(14)
+    expect([...xs].sort((a, b) => a - b)).toEqual(xs)
+  })
+
   it('puts a 12 V power amplifier on its own supply, and finds its line inputs', () => {
     const power = (partId: string): HardwareManifestItem => ({
       ...audioModule(partId),

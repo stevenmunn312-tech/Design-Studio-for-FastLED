@@ -108,6 +108,7 @@ describe('powerAmplifierFeed', () => {
     expect(powerAmplifierFeed([amp('uda1334a-i2s-dac'), power()])).toBe('dac')
     expect(powerAmplifierFeed([power()])).toBe('internalDac')
     expect(powerAmplifierFeed([amp('max98357a-i2s-amplifier'), power()])).toBe('speakerAmp')
+    expect(powerAmplifierFeed([amp('max98357a-stereo-pair'), power()])).toBe('speakerAmp')
   })
 })
 
