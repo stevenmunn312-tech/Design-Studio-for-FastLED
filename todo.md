@@ -100,6 +100,8 @@ in the app and marked experimental; nothing here holds up development.
   a measured capture on an ESP32-S3, which is the one genuine measurement
   gap: no documented timing fix exists for its I2S block, so the S3 is
   refused until one is found.
+- **D-05 power switch:** the LR7843 switching a real DC load; the row's
+  requirements are in the support matrix.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
@@ -137,8 +139,9 @@ in the app and marked experimental; nothing here holds up development.
   in the Build Diagram, and marked experimental. The HW-14 review then checks
   them rather than gating them. D-05a (IR remote) is complete in software and
   compile; its bench row is in section 3. The first MOSFET switch (LR7843,
-  `PowerSwitchOutput`) is in software, on/off only; its firmware compile and
-  bench row are still to do.
+  `PowerSwitchOutput`) is in software, on/off only, and compiles on
+  arduino-cli for classic ESP32 (2026-09-24); its bench row is still to do.
+  Next: the Adafruit INA219 (`PowerMonitorInput`).
 
 ## Completed
 

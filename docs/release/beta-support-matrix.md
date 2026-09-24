@@ -464,7 +464,9 @@ Unless a future row says otherwise, treat the following as experimental:
 - **Switching outputs: relay modules and the LR7843 power switch.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no
-  switched load has been run on any board. The LR7843 switches the negative
+  switched load has been run on any board. The power switch's generated sketch
+  compiles for `esp32:esp32:esp32` on arduino-cli (2026-09-24: button toggle
+  driving GPIO 25, 391,307 bytes flash, 27,668 bytes RAM). The LR7843 switches the negative
   lead of a 6-28 V DC load, is active-high, and has no flyback diode.
   Graduating the power switch needs a dated row naming the board/FQBN, the
   signal GPIO, the load and its supply voltage and current, and the build
