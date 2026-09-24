@@ -2917,6 +2917,19 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('(1.0f-_fftSm_fft)')
   })
 
+  it('treats FFT Analyzer smoothing as the v1 scalar without an old integer scale', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const fft = node('fft', 'FFTAnalyzer', 'audio', { smoothing: 3 })
+    const bp = node('bp', 'BassPulse', 'pattern', {})
+    const cpp = generateCpp([micBoard, mic, fft, bp, out], [
+      edge('e1', 'mic', 'fft', 'audio', 'audio'),
+      edge('e2', 'fft', 'bp', 'bass', 'bass'),
+      edge('e3', 'bp', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('float _fftSm_fft=constrain(3,0.0f,0.95f)')
+    expect(cpp).not.toContain('constrain(0.75,0.0f,0.95f)')
+  })
+
   it("FFTAnalyzer's bands property changes the generated resample resolution", () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const fft = node('fft', 'FFTAnalyzer', 'audio', { bands: 12 })

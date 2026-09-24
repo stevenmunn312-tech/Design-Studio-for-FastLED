@@ -2503,15 +2503,9 @@ export function generateCpp(
         const tilt = `_fftTilt_${id}`
         const midsGain = `(${gain}*(1.0f+${tilt}*0.6f))`
         const trebleGain = `(${gain}*(1.0f+${tilt}*1.8f))`
-        // A stored smoothing above 1 is an old save's 0-4 scale. That fixup
-        // belongs to the *field* only: a wire carries no legacy meaning, so it
-        // is folded into the literal `f` falls back to rather than applied to
-        // whatever the wire supplies.
-        const rawSmoothing = Number(p.smoothing ?? 0.72)
-        const smoothingDefault = rawSmoothing > 1 ? rawSmoothing / 4 : rawSmoothing
         const fftKnobs = [
           `    float ${gain}=constrain(${f('gain', 'gain', 1)},0.25f,4.0f);`,
-          `    float ${smoothing}=constrain(${f('smoothing', 'smoothing', smoothingDefault)},0.0f,0.95f);`,
+          `    float ${smoothing}=constrain(${f('smoothing', 'smoothing', 0.72)},0.0f,0.95f);`,
           `    float ${tilt}=constrain(${f('tilt', 'tilt', 0)},0.0f,1.0f);`,
         ]
         // `bands` genuinely drives analysis resolution here — mirrors

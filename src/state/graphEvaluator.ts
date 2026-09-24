@@ -5632,15 +5632,8 @@ function createEvalNode(
               }
             : { bass: 0, mids: 0, treble: 0 }
         const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1)))
-        // Early builds stored smoothing as an integer (default 3) but never
-        // used it. Interpret that legacy value as quarters so saved graphs get
-        // the intended 0.75 response instead of becoming almost frozen.
-        const smoothingProp = Number(props.smoothing ?? 0.72)
-        // The >1 fixup belongs to the stored field only; a wire carries no
-        // legacy scale, so it is folded into the fallback rather than applied
-        // to whatever the wire supplies.
         const smoothing = Math.max(0, Math.min(0.95,
-          num(id, 'smoothing', props, 'smoothing', smoothingProp > 1 ? smoothingProp / 4 : smoothingProp)))
+          num(id, 'smoothing', props, 'smoothing', 0.72)))
         // Real-world audio (and raw, unweighted FFT magnitude) carries far more
         // energy in the bass than the treble, so treble reads weak by default.
         // `tilt` (0–1) counteracts that with a rising per-band boost — bass is

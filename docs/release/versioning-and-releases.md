@@ -15,6 +15,9 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed display-label lookup for hardware part selections and
+  the retired integer-scale handling around FFT smoothing. V1 part choices
+  persist catalogue ids, and FFT smoothing is the node's direct 0-1 scalar.
 - 2026-09-24: removed LED-output form migration and chipset inference. V1 LED
   outputs persist `form`; retired `chipset: 'HUB75'` and `layout: 'strip'`
   spellings are no longer rewritten or treated as physical-form declarations.
