@@ -202,11 +202,21 @@ does not block it.
       path. The toolchain was Arduino CLI 1.5.1, esp32 core 3.3.11 and the
       FastLED 3.10.5 library, which declares the factory in
       `fl/audio/input.h`. Flash 534,163 B (40%), RAM 29,048 B (8%), 6 m 15 s
-      cold. Not yet compiled: Generic MEMS (`CreateGenericMEMS`), fbuild, and
-      any non-S3 backend.
+      cold.
 
-      *Outstanding:* the remaining compiles above, and the bench row for each
-      module described under **Bench evidence** below. Both are recorded as
+      *Remaining compiles, 2026-09-24, all passed with no warnings:*
+      - Generic MEMS (`CreateGenericMEMS`), same graph and board, arduino-cli:
+        534,163 B / 29,048 B. Identical to the ICS-43434, since only the
+        profile differs.
+      - The ICS-43434 sketch on fbuild 2.5.26: 793,559 B flash and 80,056 B
+        RAM, under fbuild's board defaults. fbuild compiles without `-w`, so
+        a clean log here is real.
+
+      Non-S3 capture backends (Pico, SAMD51, STM32, Teensy) are not part of
+      this record.
+
+      *Outstanding:* the bench row for each module described under
+      **Bench evidence** below. Both are recorded as
       experimental in the support matrix until then. The Build Diagram draws
       each module's own photograph but still places its pad dots from a stale
       hand-written column — a pre-existing fault, equally wrong for the
@@ -246,9 +256,15 @@ does not block it.
       per catalogued pad. Volume follows the stage the board drives
       (`audioVolumeStage`), so a DAC-fed amplifier's own volume field is hidden.
 
-      *Outstanding:* the compile proof of an SD-player sketch for a DAC-fed
-      chain, which is unchanged I2S firmware but has not been rebuilt, and a
-      bench row per amplifier. The Build Diagram draws no physical wire
+      *Compile, 2026-09-24:* passed. It is an SD-player sketch (Music Player,
+      SD card, PCM5102A on GPIO 15/16/17 feeding a DX-0809), ESP32-S3
+      DevKitC, arduino-cli 1.5.1, core 3.3.11, source sha256 `81efb771…`,
+      with no warnings. It used 1,071,439 B flash (81% of the default
+      1.25 MB app partition) and 42,696 B RAM, in 11 m 49 s cold. The graph
+      passes `findDeployBlockingErrors` with nothing, resolves the feed as
+      `dac`, and emits I2S output on the DAC's pins.
+
+      *Outstanding:* a bench row per amplifier. The Build Diagram draws no physical wire
       from DAC to amplifier, only a caption, because the PCM5102A's line out
       is a 3.5 mm jack rather than a pad. There is also no migration:
       a pre-1.0 save holding an `Amplifier` set to the PAM8403 now resolves to
@@ -289,8 +305,17 @@ does not block it.
       through the helper's arduino-cli path with Arduino CLI 1.5.1, esp32 core
       3.3.11 (IDF 5 branch of the adapter) and FastLED 3.10.5: flash 507,795 B
       (38%), RAM 29,620 B (9%). The register macros resolve against the
-      core's `soc/esp32/register/soc/i2s_reg.h`. The IDF 4 branch (core 2.x)
-      and fbuild are not compiled yet.
+      core's `soc/esp32/register/soc/i2s_reg.h`.
+
+      *Both remaining legs passed, 2026-09-24.* On fbuild 2.5.26 it built
+      with no warnings (699,126 B flash, 30,536 B RAM). On esp32 core 2.0.17,
+      ESP-IDF 4.4, which compiles the adapter's legacy-driver branch, it built
+      838,093 B (63%) / 32,032 B. Core 2.0.17 lives in its own arduino-cli
+      data directory (`%LOCALAPPDATA%/Arduino15-esp32-core2`, its own
+      `arduino-cli.yaml`, sharing the user library folder), because
+      arduino-cli holds one version of a platform per data directory. The
+      main 3.3.11 install is untouched. That leg ran arduino-cli directly,
+      since the helper knows only the main install.
 
       *Outstanding:* a bench row on a classic ESP32 (FFT and beat response
       against an INMP441), and the S3 measurement if anyone wants that board.

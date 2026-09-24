@@ -56,17 +56,12 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks (run on request, one at a time)
 
-- [ ] **HW-19 · Generic I2S MEMS on ESP32-S3, arduino-cli.** Same graph as the
-  passing ICS-43434 build, with `CreateGenericMEMS`.
-- [ ] **HW-19 · Microphone path on fbuild.** The ICS-43434 or generic sketch
-  through the other engine.
-- [ ] **HW-20 · DAC → power amplifier SD-player sketch.** I2S output, unchanged
-  firmware, never rebuilt since the chain model landed.
-- [ ] **HW-20 phase 4 · SPH0645LM4H on fbuild.** The classic-ESP32 sketch
-  through the other engine. (arduino-cli passed 2026-09-24.)
-- [ ] **HW-20 phase 4 · SPH0645LM4H on esp32 core 2.x (IDF 4).** The adapter's
-  legacy-driver branch; only core 3.3.11 is installed, so this needs an older
-  core added (a toolchain change, so the maintainer decides).
+None open. The HW-19 and HW-20 compiles all passed on 2026-09-24:
+- Generic MEMS on arduino-cli, and the microphone path on fbuild;
+- the DAC → power amplifier player sketch;
+- the SPH0645LM4H on fbuild and on esp32 core 2.0.17.
+
+Records are in [audio part expansion](docs/development/plans/audio-part-expansion.md#phases).
 
 ## 3. Community and bench testing (non-blocking)
 
@@ -163,8 +158,8 @@ Outcomes are recorded where linked; the per-item narratives are in the
 - **HW-16 · First-user journey**: a first-time user built and uploaded a
   working sketch within minutes, without guidance (reported 2026-09-24).
   The blocker classes are automated in `deployGates.test.ts`.
-- **HW-19 · ICS-43434 and Generic I2S MEMS**: software complete; ICS-43434
-  compile passed. The remaining compiles are in section 2.
+- **HW-19 · ICS-43434 and Generic I2S MEMS**: software complete; compiles
+  pass on arduino-cli and fbuild.
 - **HW-20 phases 2–5**: Option B chain, power amplifiers, the SPH0645LM4H
   (classic ESP32, app-owned capture) and the MAX98357A stereo pair
   ([plan](docs/development/plans/audio-part-expansion.md#phases)).
