@@ -318,8 +318,6 @@ export function resolvePartIdentity(
 
   const saved = String(properties[config.property] ?? '')
   const option = config.options.find((candidate) => candidate.id === saved)
-    // Legacy values stored the display name rather than an id.
-    ?? config.options.find((candidate) => candidate.label === saved)
     ?? config.options[0]
 
   const entry = partById(option.id)

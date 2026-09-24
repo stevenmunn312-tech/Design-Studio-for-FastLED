@@ -68,8 +68,8 @@ describe('part options', () => {
       .toBe('max98357a-i2s-amplifier')
   })
 
-  it('accepts the display name older saves stored', () => {
-    expect(resolvePartIdentity('Amplifier', { model: 'MAX98357A' })!.option.id)
+  it('does not reinterpret a display label as a v1 part id', () => {
+    expect(resolvePartIdentity('Amplifier', { model: 'PCM5102A' })!.option.id)
       .toBe('max98357a-i2s-amplifier')
   })
 
