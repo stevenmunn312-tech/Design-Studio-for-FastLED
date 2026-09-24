@@ -148,6 +148,9 @@ build/architecture overview aimed at contributors.
   - [IR remote firmware compile checks](development/ir-compile-checks.md)
     — the normal/slideshow/player/no-IR fixtures, per-board Arduino CLI and
     fbuild results, and the gaps still open for D-05a step 13.
+  - [Presence-sensor firmware compile checks](development/presence-sensor-compile-checks.md)
+    — real normal/slideshow/player/no-sensor fixtures for the HLK-LD2410C,
+    their ESP32 resource figures, and the remaining one-at-a-time compile legs.
 - [Testing](development/testing/)
   - [Touch, LVGL and heap budgets](development/testing/display-budget-bench.md)
     — what a running board reports about itself, how to read it in the Upload

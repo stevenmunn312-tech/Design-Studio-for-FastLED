@@ -100,9 +100,10 @@ compile families:
 4. The existing [IR remote-control plan](ir-remote-controls.md).
 5. LD2410 presence sensing, followed by BH1750 ambient light. The
    HLK-LD2410C (`PresenceInput`) is now modelled, catalogued, drawn, previewed,
-   and generated for ESP32 normal/show/player control paths; it remains
-   experimental until its compile and bench evidence are recorded. BH1750 is
-   still open.
+   and generated for ESP32 normal/show/player control paths. Its
+   [normal compile passes](../presence-sensor-compile-checks.md); the show and
+   player compile legs and the bench run remain open, so it stays experimental.
+   BH1750 is still open.
 6. W5500 wired networking.
 7. A differential pixel-data pair and long-cable validation.
 8. Buck conversion and protected high-side switching in the Build Diagram
