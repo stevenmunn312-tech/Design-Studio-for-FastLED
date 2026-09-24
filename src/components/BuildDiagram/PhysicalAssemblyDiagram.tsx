@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
@@ -24,6 +25,8 @@ import fuseBlock10Render from '../../assets/components/fuse-block-10-circuit.web
 import fuseBlock12Render from '../../assets/components/fuse-block-12-circuit.webp'
 import styles from './BuildDiagramWorkspace.module.css'
 import { CommonNetCallout, NetStub } from './netStubs'
+import { HoverWire, WireBloomFilter, WireTooltip, type WireTooltipHandle } from './wireHover'
+import { wireTooltipHandlers } from './wireTooltipHandlers'
 import type { BuildSectionLayers } from './diagramSections'
 import {
   itemLayouts,
@@ -1218,8 +1221,8 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
 
         {/* Drawn after the block renders: both trunks land on terminals that sit
             inside the artwork, so they have to read as wires over the block. */}
-        <path data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
-        <path data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
+        <HoverWire tip={`PSU zone ${supplyIndex + 1} +5 V · main bus to fuse blocks`} data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
+        <HoverWire tip={`PSU zone ${supplyIndex + 1} GND · main ground bus`} data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
 
         {assigned.map((injection, index) => {
           const rowY = sectionLayout.firstBranchY + (index * POWER_BRANCH_ROW_SPACING)
@@ -1270,14 +1273,16 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
             >
               <title>Ground return · negative bus screw {slot + 1}</title>
             </circle>
-            <path
+            <HoverWire
+              tip={`Fused +5 V · ${fuseText} fuse, circuit ${slot + 1} · ${feedLabel}`}
               data-wire={`${injection.id}-fused-positive`}
               data-feed-column={isRightColumn ? 'right' : 'left'}
               data-feed-column-rank={columnRank}
               d={positivePath}
               className={styles.powerWire}
             />
-            <path
+            <HoverWire
+              tip={`GND return · ground screw ${slot + 1} · ${destination}`}
               data-wire={`${injection.id}-ground`}
               data-ground-screw-slot={slot + 1}
               data-ground-screw-count={block.circuitCount}
@@ -1325,7 +1330,8 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
       </g>
     })}
     {/* Zone negatives are one net: bond them along the shared ground riser. */}
-    {sections.length > 1 && <path
+    {sections.length > 1 && <HoverWire
+      tip="Common ground · bonds every PSU zone negative"
       data-wire="multi-psu-common-ground"
       d={`M${PSU_GROUND_TRUNK_X} ${sections[0].sectionY + sections[0].sectionLayout.psuY + 87}V${sections[sections.length - 1].sectionY + sections[sections.length - 1].sectionLayout.psuY + 87}`}
       className={styles.groundWire}
@@ -1394,6 +1400,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const canvasHeight = physicalAssemblyDiagramHeight(items, plan, layers)
   const viewTop = crop?.y ?? 0
   const viewHeight = crop?.height ?? canvasHeight
+  const wireTooltip = useRef<WireTooltipHandle>(null)
 
   return (
     <svg
@@ -1403,12 +1410,17 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       height={viewHeight}
       role="img"
       data-build-export={exportScope}
-      aria-labelledby="physical-diagram-title physical-diagram-desc"
+      // Named by aria-label rather than a root <title>: browsers show a root
+      // title as a native tooltip over the whole sheet, which covered the
+      // wire tooltip a moment after it appeared.
+      aria-label="Generated physical LED controller wiring diagram"
+      aria-describedby="physical-diagram-desc"
+      {...wireTooltipHandlers(wireTooltip)}
     >
-      <title id="physical-diagram-title">Generated physical LED controller wiring diagram</title>
       <desc id="physical-diagram-desc">Every visible wire terminates at a labelled controller, audio input, level-shifter, LED, protection, distribution, capacitor, or supply terminal.</desc>
       <defs>
         <filter id="component-shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="6" floodColor="#111" floodOpacity=".22" /></filter>
+        <WireBloomFilter height={canvasHeight} />
         <linearGradient id="supply-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#405248" /><stop offset="1" stopColor="#171d1a" /></linearGradient>
       </defs>
 
@@ -1428,17 +1440,19 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
           const wireClass = active ? styles.signalWire : styles.dimWire
           const wireStyle = active ? { stroke: presentation.color } : undefined
+          const signalTip = `${connection.pinLabel} · ${connection.useLabel}`
+          const shifterName = `Level shifter ${Math.floor(index / 4) + 1}`
           // Without the shifter layer there is nothing to route through, so the
           // data run goes straight from the controller pin to the panel.
           if (!layers.levelShifter) {
-            return <path key={layout.item.id} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, layout.x, outputDataTerminalY(layout), rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            return <HoverWire key={layout.item.id} tip={signalTip} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, layout.x, outputDataTerminalY(layout), rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
           }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
           return <g key={layout.item.id}>
-            <path data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 350, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
-            <path data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
-            <path data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, outputDataTerminalY(layout))} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${signalTip} · to 330Ω resistor`} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 350, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${signalTip} · 330Ω to ${shifterName} A${(index % 4) + 1}`} data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${shifterName} Y${(index % 4) + 1} · 5 V data to ${layout.item.title}`} data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, outputDataTerminalY(layout))} className={wireClass} style={wireStyle} />
           </g>
         })}
         {peripheralLayouts.map((layout) => {
@@ -1469,8 +1483,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               if (!lane || corridorSlot === undefined) return null
               const presentation = signalPresentation(connection)
               const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
-              return <path
+              return <HoverWire
                 key={connection.id}
+                tip={`${connection.pinLabel} · ${connection.useLabel}`}
                 data-wire={connection.id}
                 data-signal-role={presentation.role}
                 data-control-lane={lane.index}
@@ -1650,7 +1665,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             the label just marks the controller's power inlet. */}
         <text x="18" y="27" className={styles.physicalComponentLabel}>USB power</text>
         <text x="18" y="46" className={styles.physicalMetaLabel}>controller only</text>
-        <path data-wire="controller-usb-power" d={`M92 0V${controllerUsb.y - 592}`} className={styles.logicPowerWire} />
+        <HoverWire tip="USB power · controller only" data-wire="controller-usb-power" d={`M92 0V${controllerUsb.y - 592}`} className={styles.logicPowerWire} />
       </g>
 
       <g role="button" tabIndex={0} aria-label={`Select ${boardLabel}`} onClick={() => onSelectItem('controller')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem('controller') }} className={styles.physicalClickable}>
@@ -1678,6 +1693,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         </g>
         <WireLabel x={306} y={4}>SHARED NET — SEE CALLOUT</WireLabel>
       </g>
+      <WireTooltip ref={wireTooltip} />
     </svg>
   )
 }

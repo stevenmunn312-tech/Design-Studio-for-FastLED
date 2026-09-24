@@ -1060,6 +1060,36 @@
   opacity: 0.36;
 }
 
+/* Hover: a transparent wider twin takes the pointer, the visible stroke blooms.
+   No transition — a filter that animates is what keeps a GPU layer alive. */
+.wireHitArea {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+}
+
+.wireHover:hover > path:first-child {
+  filter: url(#wire-bloom);
+  opacity: 1;
+}
+
+.wireTooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 360px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  box-shadow: 0 6px 18px var(--active-shadow);
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: var(--fs-caption);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* Shared-rail net stubs: short lead + net symbol in place of a drawn run. */
 .groundStubLead {
   fill: none;

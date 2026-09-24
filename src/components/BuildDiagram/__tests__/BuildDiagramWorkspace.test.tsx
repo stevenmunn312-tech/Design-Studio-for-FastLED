@@ -709,6 +709,26 @@ describe('BuildDiagramWorkspace', () => {
     }
   })
 
+  it('names the pin and its use when the pointer is over a signal wire', () => {
+    useGraphStore.setState({ nodes: [matrixNode(), inputNode('button', 'ButtonInput', { pin: 4 })] as never[] })
+    selectDevKit()
+    const { container, queryByRole } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')!
+    const wire = diagram.querySelector('[data-wire="button-input:button:pin"]')!
+    const group = wire.closest('[data-wire-tip]')!
+    const tip = group.getAttribute('data-wire-tip')!
+    expect(tip).toMatch(/GPIO\s?4 · .*pin$/)
+
+    // The wide transparent twin is what the pointer actually lands on.
+    const hitArea = group.querySelector('path[aria-hidden="true"]')!
+    expect(hitArea.getAttribute('d')).toBe(wire.getAttribute('d'))
+    fireEvent.pointerOver(hitArea, { clientX: 40, clientY: 50 })
+    expect(queryByRole('tooltip')?.textContent).toBe(tip)
+
+    fireEvent.pointerLeave(diagram)
+    expect(queryByRole('tooltip')).toBeNull()
+  })
+
   it('uses icon controls with accessible names for hardware visibility, isolation, and completion', () => {
     const { getByRole } = render(<BuildDiagramWorkspace />)
 
