@@ -341,6 +341,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // VIN, 3Vo, GND, SCL, SDA, ADDR along the bottom, measured from the drilled
+  // holes. 3Vo is the regulator's output and ADDR is strapped, so neither
+  // carries a controller wire.
+  'adafruit-bh1750-light-sensor': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 237.5, 286),
   // VCC, GND, OUT, RX, TX along the bottom, measured from the drilled holes.
   'hlk-ld2410c-presence-sensor': padRow([115.2, 159, 202.9, 246.7, 290.6], 400, 264.7, 296),
   // RO, RE, DE, DI along the bottom, then VCC, B, A, GND along the top, the
@@ -650,6 +654,9 @@ function signalPadNames(item: HardwareManifestItem): string[][] | undefined {
     const transport = oledTransportFor(partById(String(item.facts.partId ?? ''))?.display?.interface)
     return OLED_PAD_NAMES[transport]
   }
+  // A light sensor is either an LDR's one analog line or a BH1750's I2C pair,
+  // and the manifest records which.
+  if (item.kind === 'light-input' && item.facts.transport === 'i2c') return [['SDA'], ['SCL']]
   return SIGNAL_PAD_NAMES[item.kind]
 }
 
@@ -674,6 +681,9 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // SDA/SCL pull-ups tie to. On the 5 V rail those pull-ups would hold the
   // controller's I2C pins at 5 V, so it takes the logic rail instead.
   if (item.kind === 'power-monitor-input') return 'v3v3'
+  // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
+  // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
+  if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
   // The MAX485 is specified for 4.75-5.25 V, so it takes the 5 V rail. Its RO
   // then swings to 5 V, which the receive divider brings down to the ESP32's
   // level (see `receiveDivider`).
@@ -737,6 +747,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ds3231-rtc-module': 5.9,
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,
+  'adafruit-bh1750-light-sensor': 7,
   'max485-rs485-module': 11.9,
   'hlk-ld2410c-presence-sensor': 7.2,
   'pcm5102a-i2s-dac': 11.5,

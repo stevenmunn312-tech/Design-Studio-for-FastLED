@@ -53,6 +53,10 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
+  LightInput: {
+    sdaPin: { kind: 'i2c', role: 'sda' },
+    sclPin: { kind: 'i2c', role: 'scl' },
+  },
   // An SPI OLED shares its clock and data with any other device on the same
   // host, but its select, data/command and reset lines are its own. Three
   // exclusive pins rather than one is what separates a four-wire panel from a

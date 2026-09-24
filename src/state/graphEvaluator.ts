@@ -6,6 +6,7 @@ import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPrevie
 import {
   presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
 } from './presenceSensor'
+import { lightSensorPreviewReading } from './lightSensor'
 import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
@@ -8810,7 +8811,11 @@ function createEvalNode(
         break
 
       case 'LightInput':
-        out = { level: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }
+        out = { ...lightSensorPreviewReading(
+          props.partId,
+          useHardwareInputStore.getState().pot.get(id) ?? 0.5,
+          props.maxLux,
+        ) }
         break
 
       // No sensor in the browser: the node body's two sliders stand in for the

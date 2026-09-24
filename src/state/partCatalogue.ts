@@ -120,6 +120,16 @@ export interface PartPresenceSensorSpec {
   maxRangeMeters: number
 }
 
+/** Measuring contract carried by an ambient-light sensor breakout. */
+export interface PartLightSensorSpec {
+  device: string
+  interface: string
+  i2cAddresses: number[]
+  defaultI2cAddress: number
+  /** Upper end of the ordinary high-resolution measurement range. */
+  maxLux: number
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -140,6 +150,8 @@ export interface PartCatalogueEntry {
   powerMonitor?: PartPowerMonitorSpec
   /** Present exactly on radar presence sensors. */
   presenceSensor?: PartPresenceSensorSpec
+  /** Present exactly on calibrated digital ambient-light sensors. */
+  lightSensor?: PartLightSensorSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

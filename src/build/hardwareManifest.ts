@@ -37,6 +37,13 @@ import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from '../state/pow
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
+import {
+  DEFAULT_LIGHT_SENSOR_PART_ID,
+  formatLightSensorAddress,
+  lightSensorAddress,
+  lightSensorPinKeys,
+  lightSensorTransport,
+} from '../state/lightSensor'
 
 export interface HardwarePinUse {
   label: string
@@ -192,6 +199,26 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       requirement: gpioRequirementForProperty(nodeType, propertyKey, props),
     })
   }
+  const pushI2c = (node: StudioNode, baseLabel: string, props: Record<string, unknown>) => {
+    const sdaPin = Number(props.sdaPin ?? rtcPins?.sda.arduinoPin ?? 21)
+    const sclPin = Number(props.sclPin ?? rtcPins?.scl.arduinoPin ?? 22)
+    const sdaIsDefault = !!rtcPins && sdaPin === rtcPins.sda.arduinoPin
+    const sclIsDefault = !!rtcPins && sclPin === rtcPins.scl.arduinoPin
+    uses.push({
+      label: `${baseLabel} SDA`, nodeId: node.id, nodeType: node.data.nodeType,
+      propertyKey: 'sdaPin', pin: sdaPin, requirement: null,
+      boardPinId: sdaIsDefault ? rtcPins.sda.boardPin?.id : undefined,
+      boardDefault: sdaIsDefault,
+      boardPinLabel: sdaIsDefault ? rtcPins.sda.displayLabel : undefined,
+    })
+    uses.push({
+      label: `${baseLabel} SCL`, nodeId: node.id, nodeType: node.data.nodeType,
+      propertyKey: 'sclPin', pin: sclPin, requirement: null,
+      boardPinId: sclIsDefault ? rtcPins.scl.boardPin?.id : undefined,
+      boardDefault: sclIsDefault,
+      boardPinLabel: sclIsDefault ? rtcPins.scl.displayLabel : undefined,
+    })
+  }
   for (const node of nodes) {
     const props = node.data.properties as Record<string, unknown>
     const baseLabel = node.data.nodeType === 'MatrixOutput'
@@ -315,7 +342,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} OUT pin`, 'pin', props.pin)
         break
       case 'LightInput':
-        push(node, `${baseLabel} signal pin`, 'pin', props.pin)
+        if (lightSensorTransport(props.partId) === 'i2c') pushI2c(node, baseLabel, props)
+        else push(node, `${baseLabel} signal pin`, 'pin', props.pin)
         break
       case 'EncoderInput':
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
@@ -335,34 +363,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'PowerMonitorInput':
       case 'RTCInput':
         if (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') !== 'DS3231') break
-        {
-          const sdaPin = Number(props.sdaPin ?? rtcPins?.sda.arduinoPin ?? 21)
-          const sclPin = Number(props.sclPin ?? rtcPins?.scl.arduinoPin ?? 22)
-          const sdaIsDefault = !!rtcPins && sdaPin === rtcPins.sda.arduinoPin
-          const sclIsDefault = !!rtcPins && sclPin === rtcPins.scl.arduinoPin
-          uses.push({
-            label: `${baseLabel} SDA`,
-            nodeId: node.id,
-            nodeType: node.data.nodeType,
-            propertyKey: 'sdaPin',
-            pin: sdaPin,
-            requirement: null,
-            boardPinId: sdaIsDefault ? rtcPins.sda.boardPin?.id : undefined,
-            boardDefault: sdaIsDefault,
-            boardPinLabel: sdaIsDefault ? rtcPins.sda.displayLabel : undefined,
-          })
-          uses.push({
-            label: `${baseLabel} SCL`,
-            nodeId: node.id,
-            nodeType: node.data.nodeType,
-            propertyKey: 'sclPin',
-            pin: sclPin,
-            requirement: null,
-            boardPinId: sclIsDefault ? rtcPins.scl.boardPin?.id : undefined,
-            boardDefault: sclIsDefault,
-            boardPinLabel: sclIsDefault ? rtcPins.scl.displayLabel : undefined,
-          })
-        }
+        pushI2c(node, baseLabel, props)
         break
       case 'SDCard':
         for (const [propertyKey, label, fallback] of [
@@ -649,11 +650,36 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: wired ? undefined : ['This presence sensor does not have its RX pin configured.'],
         }
       }
-      case 'LightInput':
+      case 'LightInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? DEFAULT_LIGHT_SENSOR_PART_ID)
+        const entry = partById(partId)
+        const transport = lightSensorTransport(partId)
+        const address = lightSensorAddress(props)
+        const keys = lightSensorPinKeys(props)
+        const wired = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
+        const item = buildPeripheralItem(node, 'light-input', entry?.label ?? 'Ambient light sensor', pins)
         return {
-          ...buildPeripheralItem(node, 'light-input', 'LDR analog light sensor', pins),
-          facts: { partId: 'photosensitive-ldr-module' },
+          ...item,
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && (transport !== 'i2c' || address !== null),
+          facts: {
+            ...item.facts,
+            partId,
+            transport,
+            calibrated: transport === 'i2c',
+            ...(transport === 'i2c' ? {
+              i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatLightSensorAddress(address),
+              range: `0-${entry?.lightSensor?.maxLux ?? 65_535} lux`,
+            } : {}),
+          },
+          reasons: !wired
+            ? [`This ${transport === 'i2c' ? 'BH1750 does not have complete SDA/SCL pins' : 'LDR does not have an analog pin'} configured.`]
+            : transport === 'i2c' && address === null
+              ? [`${String(props.i2cAddress)} is not an address this BH1750 can select.`]
+              : undefined,
         }
+      }
       case 'RelayOutput': {
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'relay-module-1ch-5v')

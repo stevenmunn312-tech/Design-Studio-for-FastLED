@@ -77,6 +77,9 @@ import {
 } from '../state/irRemote'
 import { STEP_VALUE_DEFAULTS } from '../state/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/presenceSensor'
+import {
+  formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
+} from '../state/lightSensor'
 
 export interface ValidationResult {
   errors:   string[]
@@ -2099,6 +2102,18 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       message: `${nodeLabel(monitor)} is set to ${String(props.i2cAddress)}, but this board answers only on ${powerMonitorAddressOptions(props.partId).join(', ')}.`,
       fix: 'Choose the address matching the board\'s A0/A1 solder jumpers.',
       nodeIds: [monitor.id], nodeLabel: nodeLabel(monitor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  for (const sensor of nodes.filter((node) => node.data.nodeType === 'LightInput')) {
+    const props = sensor.data.properties as Record<string, unknown>
+    if (lightSensorTransport(props.partId) !== 'i2c' || lightSensorAddress(props) !== null) continue
+    issues.push({
+      id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
+      title: 'Light sensor address is not one its ADDR pin can select',
+      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this BH1750 answers only on ${lightSensorAddressOptions(props.partId).join(', ')}.`,
+      fix: `Choose ${formatLightSensorAddress(0x23)} with ADDR low, or ${formatLightSensorAddress(0x5c)} with ADDR tied high.`,
+      nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
     })
   }
 

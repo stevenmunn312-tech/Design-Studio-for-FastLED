@@ -27,6 +27,7 @@ import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import { IR_RECEIVER_MODULES } from '../../state/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
 import { MIC_MODULES, micModuleFor } from '../../state/micModules'
+import { LIGHT_SENSOR_MODULES, lightSensorTransport } from '../../state/lightSensor'
 import { micSupportedForBoard, micUnsupportedMessage } from '../../state/micPinDefaults'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
@@ -412,9 +413,29 @@ const IR_INPUT_PARTS: readonly InputPartEntry[] = IR_RECEIVER_MODULES.map((modul
   properties: { partId: module.partId },
 }))
 
+const LIGHT_INPUT_PARTS: readonly InputPartEntry[] = LIGHT_SENSOR_MODULES.map((module, index) => {
+  const digital = module.transport === 'i2c'
+  return {
+    nodeType: 'LightInput',
+    partId: index === 0 ? 'ldr' : `light-${module.partId}`,
+    label: module.label,
+    hint: module.summary,
+    footprint: partDimensionsMm(module.partId, digital ? { width: 25.4, height: 17.78 } : { width: 32, height: 23.8 }),
+    signalPort: digital ? 'lux' : 'level',
+    dataType: 'float',
+    pinRequests: digital ? [] : [{ key: 'pin', capability: 'analogInput' }],
+    pinFields: digital
+      ? [{ key: 'sdaPin', label: 'SDA' }, { key: 'sclPin', label: 'SCL' }]
+      : [{ key: 'pin', label: 'GPIO' }],
+    properties: { partId: module.partId },
+    ...(digital ? { connectionSummary: 'Default I2C bus' } : {}),
+  }
+})
+
 const INPUT_PARTS: readonly InputPartEntry[] = [
   ...MIC_INPUT_PARTS,
   ...IR_INPUT_PARTS,
+  ...LIGHT_INPUT_PARTS,
   {
     nodeType: 'LineInput',
     partId: 'line-in',
@@ -512,18 +533,6 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     signalPort: 'motion',
     dataType: 'bool',
     pinRequests: [{ key: 'pin' }],
-    pinFields: [{ key: 'pin', label: 'GPIO' }],
-  },
-  {
-    nodeType: 'LightInput',
-    partId: 'ldr',
-    label: 'LDR light sensor',
-    hint: 'Brightness on an analog pin',
-    footprint: partDimensionsMm('photosensitive-ldr-module', { width: 32, height: 23.8 }),
-    signalPort: 'level',
-    dataType: 'float',
-    // An LDR divider is an analog signal — the same constraint the pot has.
-    pinRequests: [{ key: 'pin', capability: 'analogInput' }],
     pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
@@ -1511,7 +1520,9 @@ export default function HardwarePane() {
       ? assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)
       : { ok: true as const, pins: {} }
     if (!assigned.ok) return
-    const rtcDefaults = entry.nodeType === 'RTCInput' ? boardI2cDefault(boardProfile?.id) : undefined
+    const usesBoardI2c = entry.nodeType === 'RTCInput'
+      || (entry.nodeType === 'LightInput' && lightSensorTransport(entry.properties?.partId) === 'i2c')
+    const rtcDefaults = usesBoardI2c ? boardI2cDefault(boardProfile?.id) : undefined
     const assignedPins = rtcDefaults
       ? { ...assigned.pins, sdaPin: rtcDefaults.sda.arduinoPin, sclPin: rtcDefaults.scl.arduinoPin }
       : assigned.pins

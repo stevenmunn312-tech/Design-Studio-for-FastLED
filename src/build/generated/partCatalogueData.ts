@@ -9,6 +9,47 @@
 import type { PartCatalogueEntry } from '../../state/partCatalogue'
 
 export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
+  "adafruit-bh1750-light-sensor": {
+    "partId": "adafruit-bh1750-light-sensor",
+    "label": "Adafruit BH1750 ambient light sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 25.4,
+      "height": 17.78
+    },
+    "manufacturer": "Adafruit (product 4681) / ROHM BH1750FVI",
+    "logicVoltage": "3-5 V VIN; onboard regulator and level shifting make I2C safe at either supply",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "3Vo",
+      "GND",
+      "SCL",
+      "SDA",
+      "ADDR"
+    ],
+    "notes": [
+      "Reports 16-bit ambient-light measurements directly in lux over I2C; Studio uses continuous high-resolution mode.",
+      "Power VIN from 3.3 V or 5 V. The breakout has its own regulator and bidirectional level shifting, plus 10 kΩ I2C pull-ups.",
+      "The default address is 0x23. Tie ADDR high, or bridge the ADDR jumper, for 0x5C.",
+      "The six-pin header ships loose and is rendered unpopulated. The two JST-SH sockets provide the same power and I2C bus."
+    ],
+    "lightSensor": {
+      "device": "BH1750FVI",
+      "interface": "I2C",
+      "i2cAddresses": [
+        35,
+        92
+      ],
+      "defaultI2cAddress": 35,
+      "maxLux": 65535
+    },
+    "render": {
+      "file": "parts/adafruit-bh1750-light-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 286,
+      "pxPerMm": 14.961
+    }
+  },
   "adafruit-ina219-current-sensor": {
     "partId": "adafruit-ina219-current-sensor",
     "label": "Adafruit INA219 current sensor",

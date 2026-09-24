@@ -952,13 +952,15 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // compiles its Wire branch whichever bus the panel is on, so a sketch with
   // only an SPI panel still has to declare it. Starting the bus below stays
   // gated on there actually being an I2C device with pins to start it on.
-  const i2cIncludeCpp = hasInfoDisplays ? '\n#include <Wire.h>' : ''
+  const graphIncludesWire = compiledGraph?.includes.includes('#include <Wire.h>') ?? false
+  const i2cIncludeCpp = hasInfoDisplays && !graphIncludesWire ? '\n#include <Wire.h>' : ''
+  const displayStartsI2c = i2cDisplays.length > 0
   const displaySetupCpp = [
     ...(customDisplays?.setup ?? []),
-    ...(compiledGraph?.setup ?? []),
     ...(i2cDisplays.length > 0
       ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
       : []),
+    ...(compiledGraph?.setup.filter((line) => !displayStartsI2c || !line.trimStart().startsWith('Wire.begin(')) ?? []),
     ...infoEmits.flatMap(infoDisplaySetupCpp),
     ...(hasPatternSelection ? [`  _selBegin(_sel_${PLAYER_SELECTION_STEM});`] : []),
     ...segmentEmits.flatMap(segmentDisplaySetupCpp),

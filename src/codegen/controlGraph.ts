@@ -100,7 +100,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
  * whole loop, so all downstream consumers observe the same GPIO sample. */
 export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
   if (graph.errors.size) throw new Error([...graph.errors].join('\n'))
-  const setup = new Set<string>(), helpers = new Set<string>(), loop: string[] = []
+  const setup = new Set<string>(), helpers = new Set<string>(), includes = new Set<string>(), loop: string[] = []
   const irNodes: IrRemoteProjectNode[] = []
   for (const instruction of graph.instructions) {
     if (instruction.kind === 'gpio') {
@@ -110,6 +110,7 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
       }
       instruction.emission.setup.forEach((line) => setup.add(line))
       instruction.emission.helpers?.forEach((helper) => helpers.add(helper))
+      instruction.emission.includes?.forEach((include) => includes.add(include))
       loop.push(...instruction.emission.loop)
       continue
     }
@@ -128,10 +129,11 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
   // than whichever line the dependency walk reached the receiver.
   const ir = irRemoteProjectEmission(irNodes)
   for (const line of ir.setup) setup.add(line)
+  for (const include of ir.includes) includes.add(include)
   return {
     setup: [...setup],
     helpers: [...helpers],
-    includes: ir.includes,
+    includes: [...includes],
     globals: ir.globals,
     loop: [...ir.sample, ...loop],
   }

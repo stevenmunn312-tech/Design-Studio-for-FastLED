@@ -4,6 +4,7 @@ import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPrevie
 import {
   presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
 } from '../../state/presenceSensor'
+import { lightSensorPreviewReading, lightSensorTransport } from '../../state/lightSensor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -112,6 +113,14 @@ function PresenceInputWidget({ nodeId, partId }: { nodeId: string; partId: unkno
   )
 }
 
+function LightInputWidget({ nodeId, partId, maxLux }: { nodeId: string; partId: unknown; maxLux: unknown }) {
+  const digital = lightSensorTransport(partId) === 'i2c'
+  return <PotInputWidget nodeId={nodeId} readout={(fraction) => {
+    const reading = lightSensorPreviewReading(partId, fraction, maxLux)
+    return digital ? `${reading.lux.toFixed(0)} lx` : reading.level.toFixed(2)
+  }} />
+}
+
 // Dragging vertically spins the dial (up = increase, matching a mouse-look
 // feel); a click without much movement is treated as a tap of the encoder's
 // integrated push-button (pinSW), pulsed briefly like a real momentary switch.
@@ -161,14 +170,14 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
   )
 }
 
-export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown }) {
+export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.
   if (nodeType === 'MotionInput') return <ButtonInputWidget nodeId={nodeId} />
-  if (nodeType === 'LightInput') return <PotInputWidget nodeId={nodeId} />
+  if (nodeType === 'LightInput') return <LightInputWidget nodeId={nodeId} partId={partId} maxLux={maxLux} />
   if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
   return null
 }

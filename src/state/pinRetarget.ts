@@ -43,6 +43,7 @@ import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
 import { integratedPinsFor } from './integratedBoardHardware'
 import { relayPinKeys } from './relayModule'
+import { lightSensorPinKeys, lightSensorTransport } from './lightSensor'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -175,9 +176,22 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   // One pin however many keys are learned: a receiver demodulates every
   // one of them onto the same line.
   IRRemoteInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
-  // An LDR divider is an analog signal: on a pin with no ADC it reads
-  // garbage silently, exactly as a potentiometer does.
-  LightInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
+  LightInput: {
+    keys: ['pin', 'sdaPin', 'sclPin'],
+    keysFor: lightSensorPinKeys,
+    fromProfile: (profile, properties) => {
+      if (lightSensorTransport(properties.partId) !== 'i2c') return null
+      const defaults = boardI2cDefault(profile?.id)
+      return defaults
+        ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
+        : null
+    },
+    requests: [
+      { key: 'pin', capability: 'analogInput' },
+      { key: 'sdaPin' },
+      { key: 'sclPin' },
+    ],
+  },
   EncoderInput: {
     keys: ['pinA', 'pinB', 'pinSW'],
     requests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],

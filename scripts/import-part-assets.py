@@ -209,6 +209,29 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: presenceSensor block needs baud, gateMeters and maxRangeMeters — skipped",
                   file=sys.stderr)
+    # A calibrated digital ambient-light sensor. Its address straps and
+    # measurement range are part facts used by the picker, validation and
+    # generated Wire transaction, so carry them through from the asset.
+    light_sensor = data.get("lightSensor")
+    if light_sensor:
+        try:
+            addresses = [int(str(a), 16) for a in light_sensor.get("i2cAddresses") or []]
+            default_address = int(str(light_sensor.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        max_lux = light_sensor.get("maxLux")
+        if (addresses and default_address in addresses
+                and isinstance(max_lux, (int, float)) and max_lux > 0):
+            entry["lightSensor"] = {
+                "device": light_sensor.get("device") or "",
+                "interface": light_sensor.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "maxLux": max_lux,
+            }
+        else:
+            print(f"  ! {part_id}: lightSensor block needs addresses, a default among them and maxLux — skipped",
+                  file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

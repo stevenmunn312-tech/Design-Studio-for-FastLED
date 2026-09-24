@@ -2,7 +2,7 @@
 
 Status: implemented on `Hardware`; microphone, PCM1802 line-in, player-decoder
 Audio sources, self-growing button banks, and 1/2/4/8-channel relay modules
-shipped · Owner: app · Updated: 2026-09-24
+shipped · Owner: app · Updated: 2026-09-25
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -116,6 +116,21 @@ models the same outputs with moving/still latches and a distance slider across
 the catalogued 6 m range. The Build Diagram powers VCC from 5 V and wires the
 3.3 V UART TX directly to the ESP32 receive pin. Normal, slideshow, and player
 control generators share this reader through `controlInputCpp`.
+
+`LightInput` is one node for two modules, chosen by `partId` from
+`LIGHT_SENSOR_MODULES` (`src/state/lightSensor.ts`). Both publish `level`
+(0-1) and `lux`. An LDR is a divider on one ADC pin: `level` is relative
+brightness and `lux` stays 0, because a bare divider has no calibration to
+illuminance. The Adafruit BH1750 is an I2C part on the shared bus, at 0x23 or
+0x5C (ADDR high); the address list and range come from its catalogue
+`lightSensor` block. Firmware talks to the chip directly — power on,
+continuous high-resolution mode, a two-byte read every 180 ms divided by 1.2 —
+and `level` is `lux / maxLux`, clamped. Which pins the node claims and which
+fields it shows both follow the module (`lightSensorPinKeys`,
+`isPropertyEnabled`), and an address ADDR cannot select is a deploy-blocking
+error. The breakout's level shifter pulls the controller side of SDA/SCL up to
+VIN, so the Build Diagram powers VIN from 3V3. Normal, slideshow and player
+generators all emit it; the latter two through `controlInputCpp`.
 
 Deleting a hardware-managed signal node on the canvas removes its signal edges
 but retains the part. Removing it through the workbench deletes the root-graph

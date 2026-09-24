@@ -31,6 +31,14 @@ import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitc
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
+import {
+  DEFAULT_LIGHT_SENSOR_PART_ID,
+  BH1750_DEFAULT_ADDRESS,
+  LIGHT_SENSOR_DEFAULT_MAX_LUX,
+  formatLightSensorAddress,
+  lightSensorAddressOptions,
+  lightSensorTransport,
+} from './lightSensor'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -3431,17 +3439,27 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { partId: DEFAULT_PRESENCE_PART_ID, [PRESENCE_RX_PIN_KEY]: 18 },
   },
   {
-    // LDR module (KS6026 form) — a light-dependent resistor in a divider, so
-    // the output is an analog voltage that rises with brightness. Needs an ADC
-    // pin, the same constraint as the potentiometer below.
+    // One graph contract for relative analog light and calibrated digital lux.
+    // Level stays normalised for existing graphs; Lux is zero on an LDR because
+    // a bare divider has no calibration from voltage to illuminance.
     type: 'LightInput',
     label: 'Light Sensor',
     category: 'input',
     inputs: [],
-    outputs: [{ id: 'level', label: 'Level', dataType: 'float' }],
+    outputs: [
+      { id: 'level', label: 'Level', dataType: 'float' },
+      { id: 'lux', label: 'Lux', dataType: 'float' },
+    ],
     // GPIO4 is ADC1 on the app's default board — see PotInput below for why
     // that matters and why a classic-ESP32 default would be wrong here.
-    defaultProperties: { pin: 4 },
+    defaultProperties: {
+      partId: DEFAULT_LIGHT_SENSOR_PART_ID,
+      pin: 4,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: formatLightSensorAddress(BH1750_DEFAULT_ADDRESS),
+      maxLux: LIGHT_SENSOR_DEFAULT_MAX_LUX,
+    },
   },
   {
     type: 'PotInput',
@@ -4016,7 +4034,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
   PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
-  LightInput: 'Reads an LDR light sensor as a 0\u20131 value.',
+  LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -4990,6 +5008,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   LightInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2cAddress: { control: 'select', options: lightSensorAddressOptions('adafruit-bh1750-light-sensor') },
+    maxLux: { control: 'slider', min: 100, max: 100_000, step: 100 },
   },
   RelayOutput: Object.fromEntries(
     relayPinKeys('relay-module-8ch-5v').map((key) => [key, {
@@ -5283,6 +5305,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PresenceInput: {
     rxPin: "The board pin wired to the sensor's TX. The sketch reads it as a UART at the sensor's own baud and never talks back, so the sensor's RX needs no wire.",
+  },
+  LightInput: {
+    pin: 'Analog signal pin used by the LDR module.',
+    sdaPin: 'BH1750 I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    sclPin: 'BH1750 I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    i2cAddress: 'The BH1750 address: 0x23 normally, or 0x5C when ADDR is tied high.',
+    maxLux: 'Illuminance that maps to Level 1.0. Lux itself remains the calibrated sensor reading.',
   },
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 solder jumpers. Give each monitor on the bus a different one.',
@@ -5759,7 +5788,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   MotionInput: new Set(['pin']),
   PresenceInput: new Set([PRESENCE_RX_PIN_KEY]),
-  LightInput: new Set(['pin']),
+  LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set([POWER_SWITCH_PIN_KEY]),
@@ -5801,7 +5830,8 @@ export function gpioRequirementForProperty(
 ): GpioPropertyRequirement | null {
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
-  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput') return null
+  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput'
+    || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')) return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector
   // output stage and its module pull-up, the same as a PIR — a pull-up here
@@ -6161,6 +6191,10 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
 }
 
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  if (nodeType === 'LightInput' && ['pin', 'sdaPin', 'sclPin', 'i2cAddress', 'maxLux'].includes(key)) {
+    const digital = lightSensorTransport(properties.partId) === 'i2c'
+    return digital ? key !== 'pin' : key === 'pin'
+  }
   // A segment module wires the pins its controller has and no others. Showing a
   // live DIO field beside a MAX7219 would invite wiring a pin the generated
   // sketch never drives.

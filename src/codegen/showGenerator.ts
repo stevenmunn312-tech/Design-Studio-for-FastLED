@@ -826,10 +826,9 @@ export function generateShowSketch(
   for (const d of overclockDefineCpp(sharedHw)) L.push(d)
   if (audio) L.push(...audio.preInclude)
   L.push('#include <FastLED.h>')
-  for (const line of controlGraph.includes) L.push(line)
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))
   if (audio) L.push(audio.include)
-  for (const include of new Set([...displays.includes, ...customDisplays.includes])) L.push(include)
+  for (const include of new Set([...controlGraph.includes, ...displays.includes, ...customDisplays.includes])) L.push(include)
   L.push('')
   L.push('// Explicit FastLED-typed declarations keep the Arduino preprocessor')
   L.push('// from injecting its own before <FastLED.h>, which breaks CRGB names.')
@@ -992,7 +991,8 @@ export function generateShowSketch(
   for (const line of displays.setup) L.push(line)
   L.push(...selectionCpp.setup)
   L.push(...customDisplays.setup)
-  L.push(...controlGraph.setup)
+  const displayStartsI2c = displays.setup.some((line) => line.trimStart().startsWith('Wire.begin('))
+  L.push(...controlGraph.setup.filter((line) => !displayStartsI2c || !line.trimStart().startsWith('Wire.begin(')))
   for (let step = 1; step <= 6; step++) {
     for (const line of infoDisplayStartupStageBatchCpp(displays.info, step)) L.push(line)
   }

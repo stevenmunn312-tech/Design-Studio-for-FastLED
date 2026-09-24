@@ -79,6 +79,23 @@ The feature requires an
 ESP32-family target and remains experimental until the support matrix records
 a compile and a physical comparison against the module's OUT indicator.
 
+### Measure ambient light
+
+**Add Hardware → Inputs** offers two light sensors. The **LDR light sensor** is
+an analog divider on one ADC pin; its **Level** output is relative brightness
+from 0 to 1, and **Lux** stays at 0 because a bare LDR cannot be calibrated.
+The **Adafruit BH1750** reports calibrated illuminance over I2C. Power its
+**VIN** from **3V3**, not 5 V: the breakout pulls the controller's SDA and SCL
+up to VIN. Wire SDA and SCL to the board's I2C pins, which Studio fills in for
+you. Leave **ADDR** unconnected for address 0x23, or tie it high and choose
+0x5C, which lets two sensors share the bus.
+
+The BH1750 node's **Lux** output is the measured reading. **Level** is Lux
+divided by **Max Lux**, so set Max Lux to the brightest light the build should
+react to (a lit room is a few hundred lux, daylight tens of thousands). In
+preview, drag the node's knob. The BH1750 is experimental until the support
+matrix records it on a real board.
+
 ### Add an IR remote receiver
 
 Choose **Add Hardware → Inputs → IR Receiver**, then choose the exact receiver

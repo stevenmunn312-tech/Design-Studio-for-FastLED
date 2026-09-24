@@ -56,7 +56,11 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks (run on request, one at a time)
 
-None open. The D-05 presence-sensor normal, slideshow, player and no-sensor
+- **D-05 light sensor:** compile one normal ESP32 graph whose BH1750 Lux drives
+  an LED property, then the slideshow and player control paths. Record
+  toolchain, FQBN, flash and RAM before moving to the next leg.
+
+The D-05 presence-sensor normal, slideshow, player and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-24–25.
 The toolchain, FQBN, source hashes, flash and RAM are in the
 [presence-sensor compile record](docs/development/presence-sensor-compile-checks.md).
@@ -112,6 +116,8 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
   receiving a real DMX512 line; the row's requirements are in the support
   matrix.
+- **D-05 light sensor:** the Adafruit BH1750's Lux against a reference meter in
+  dim, room and bright light; the row's requirements are in the support matrix.
 - **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
   combined and absent targets at two measured distances, including UART
   reconnect recovery; the row's requirements are in the support matrix.
@@ -161,7 +167,9 @@ in the app and marked experimental; nothing here holds up development.
   divider on RO. It adds no firmware, so no compile is owed; its bench row is
   in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,
   drawn, previewed and generated as `PresenceInput` for ESP32; all four compile
-  fixtures pass, and its bench row is in section 3.
+  fixtures pass, and its bench row is in section 3. The Adafruit BH1750
+  (roadmap step 5) is a `LightInput` module option, modelled, drawn,
+  previewed and generated; its compile and bench rows are in sections 2 and 3.
 
 ## Completed
 

@@ -4,6 +4,8 @@ import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBan
 import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/irRemote'
 import type { IrRemoteProjectNode } from './irRemoteCpp'
 import { presenceSensorLoopCpp, presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
+import { LIGHT_SENSOR_HELPER_CPP, lightSensorLoopCpp, lightSensorSetupCpp } from './lightSensorCpp'
+import { lightSensorTransport } from '../state/lightSensor'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -11,6 +13,8 @@ export interface ControlInputEmission {
   outputs: Record<string, 'bool' | 'float'>
   /** File-scope helpers required by this input, deduped by the caller. */
   helpers?: string[]
+  /** Headers needed by this input, deduped by the caller. */
+  includes?: string[]
   /**
    * Set for an IR receiver. The poll itself is not in `loop`: one decode
    * serves every key, so the caller aggregates these and emits it once.
@@ -72,6 +76,17 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.distance = 'float'
       break
     }
+    case 'LightInput': {
+      const digital = lightSensorTransport(p.partId) === 'i2c'
+      if (digital) {
+        setup.push(`  Wire.begin(${sanitizePin(p.sdaPin, 21)}, ${sanitizePin(p.sclPin, 22)});  // BH1750 I2C bus`)
+        setup.push(...lightSensorSetupCpp(p))
+      }
+      loop.push(...lightSensorLoopCpp(p, id, (port) => v(port)))
+      outputs.level = 'float'
+      outputs.lux = 'float'
+      break
+    }
     default: return null
   }
   return {
@@ -79,6 +94,9 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     loop,
     outputs,
     ...(nodeType === 'PresenceInput' ? { helpers: [PRESENCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
+    ...(nodeType === 'LightInput' && lightSensorTransport(p.partId) === 'i2c'
+      ? { helpers: [LIGHT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
+      : {}),
     ...(ir ? { ir } : {}),
   }
 }

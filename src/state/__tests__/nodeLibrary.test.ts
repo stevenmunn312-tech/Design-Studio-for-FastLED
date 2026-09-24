@@ -651,7 +651,10 @@ describe('nodeLibrary', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'MotionInput')!.outputs)
       .toEqual([{ id: 'motion', label: 'Motion', dataType: 'bool' }])
     expect(NODE_LIBRARY.find((n) => n.type === 'LightInput')!.outputs)
-      .toEqual([{ id: 'level', label: 'Level', dataType: 'float' }])
+      .toEqual([
+        { id: 'level', label: 'Level', dataType: 'float' },
+        { id: 'lux', label: 'Lux', dataType: 'float' },
+      ])
   })
 
   it('Particles gates its extra variant-specific controls by particleType', () => {
