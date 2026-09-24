@@ -56,11 +56,10 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks (run on request, one at a time)
 
-- **D-05 presence sensor:** the normal ESP32 graph whose HLK-LD2410C distance
-  drives LED brightness passed on arduino-cli on 2026-09-24. Compile the
-  slideshow next, then the player control path, one at a time. The toolchain,
-  FQBN, source hash, flash and RAM are in the
-  [presence-sensor compile record](docs/development/presence-sensor-compile-checks.md).
+None open. The D-05 presence-sensor normal, slideshow, player and no-sensor
+guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-24–25.
+The toolchain, FQBN, source hashes, flash and RAM are in the
+[presence-sensor compile record](docs/development/presence-sensor-compile-checks.md).
 
 The HW-19 and HW-20 compiles all passed on 2026-09-24:
 - Generic MEMS on arduino-cli, and the microphone path on fbuild;
@@ -161,9 +160,8 @@ in the app and marked experimental; nothing here holds up development.
   drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
   divider on RO. It adds no firmware, so no compile is owed; its bench row is
   in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,
-  drawn, previewed and generated as `PresenceInput` for ESP32; its normal
-  compile passes, and its remaining compile and bench rows are in sections 2
-  and 3.
+  drawn, previewed and generated as `PresenceInput` for ESP32; all four compile
+  fixtures pass, and its bench row is in section 3.
 
 ## Completed
 
@@ -192,3 +190,6 @@ Outcomes are recorded where linked; the per-item narratives are in the
   ([plan](docs/development/plans/audio-part-expansion.md#phases)).
 - **D-05a · IR remote**: steps 1–13
   ([IR compile checks](docs/development/ir-compile-checks.md)).
+- **D-05 · HLK-LD2410C presence sensor compile**: normal, slideshow, player
+  and no-sensor guard fixtures pass on classic ESP32
+  ([compile record](docs/development/presence-sensor-compile-checks.md)).

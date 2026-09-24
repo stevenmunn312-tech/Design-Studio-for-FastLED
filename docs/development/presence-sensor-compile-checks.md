@@ -1,10 +1,10 @@
 # HLK-LD2410C firmware compile checks
 
-> **Status: one of three sensor paths complete.** The normal classic-ESP32
-> sketch passed on 24 September 2026. Compile the slideshow next, then the
-> player, one at a time. This is compile evidence only; the HLK-LD2410C remains
-> experimental in the [support matrix](../release/beta-support-matrix.md) until
-> its recorded bench run exists.
+> **Status: complete.** The normal, slideshow, player and no-sensor guard
+> sketches passed on classic ESP32 on 24–25 September 2026. This is compile
+> evidence only; the HLK-LD2410C remains experimental in the
+> [support matrix](../release/beta-support-matrix.md) until its recorded bench
+> run exists.
 
 The fixtures come from real Studio graphs rather than hand-written sketches.
 Each sensor fixture reads an HLK-LD2410C on GPIO 18 through UART1 at 256000
@@ -18,9 +18,9 @@ exactly one parser/setup pair per sensor sketch and none in the guard.
 | Fixture | Generator | Result |
 | --- | --- | --- |
 | `normal` | `generateCpp` | **Pass** |
-| `slideshow` | `generateShowSketch` | Not run; next leg |
-| `player` | `buildShowPlayer` | Not run |
-| `no-sensor` | `generateCpp` | Generation guard only; compile not required |
+| `slideshow` | `generateShowSketch` | **Pass** |
+| `player` | `buildShowPlayer` | **Pass** |
+| `no-sensor` | `generateCpp` | **Pass** |
 
 ## Reproduce
 
@@ -29,6 +29,9 @@ From the repository root:
 ```powershell
 npm run gen:presence-compile-fixtures
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32
 ```
 
 The runner uses the helper's real `_compile_upload` or
@@ -36,14 +39,21 @@ The runner uses the helper's real `_compile_upload` or
 beside the generated sketch. `backend/sketches/` is gitignored, so this page is
 the durable result.
 
-## Results, 24 September 2026
+## Results, 24–25 September 2026
 
 Toolchain: arduino-cli 1.5.1, ESP32 core 3.3.11 and FastLED 3.10.5. Target:
-`esp32:esp32:esp32`. The normal fixture source SHA-256 is
-`b4748504f50ec4c3f94262afab2501dbb961d913ccc9b4fbccf99c92fa1caaf4`.
+`esp32:esp32:esp32`.
+
+Source hashes: `normal` `b4748504`, `slideshow` `84c86517`, `player`
+`b1816337`, and `no-sensor` `401d7057`.
 
 | Fixture | Engine | Result | Flash | RAM |
 | --- | --- | --- | --- | --- |
 | normal | arduino-cli | pass | 405,851 / 1,310,720 (30%) | 27,748 / 327,680 (8%) |
+| slideshow | arduino-cli | pass | 411,315 / 1,310,720 (31%) | 27,968 / 327,680 (8%) |
+| player | arduino-cli | pass | 1,079,491 / 1,310,720 (82%) | 44,728 / 327,680 (13%) |
+| no-sensor | arduino-cli | pass | 391,091 / 1,310,720 (29%) | 27,668 / 327,680 (8%) |
 
-No generator or firmware repair was needed for the normal path.
+The normal sensor graph adds 14,760 bytes of flash and 80 bytes of static RAM
+over the no-sensor guard. No generator or firmware repair was needed for any
+path.
