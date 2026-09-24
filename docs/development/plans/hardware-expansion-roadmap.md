@@ -94,6 +94,9 @@ compile families:
    normal sketch; the INA226 and overcurrent warnings built on the readings are
    still open.
 3. An exact MAX485-class DMX transceiver and recorded DMX512 bench run.
+   The "C25B" MAX485 module (`max485-rs485-module`) is in: modelled, catalogued
+   and drawn on the Build Diagram for a DMX512 `DMXInput`, on 3V3, and
+   experimental. The bench run is still open.
 4. The existing [IR remote-control plan](ir-remote-controls.md).
 5. LD2410 presence sensing, followed by BH1750 ambient light.
 6. W5500 wired networking.

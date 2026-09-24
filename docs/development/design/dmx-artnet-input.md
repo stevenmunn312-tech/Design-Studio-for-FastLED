@@ -125,6 +125,28 @@ and shared by every Art-Net `DMXInput` and every NTP `RTCInput`; the first
 node's settings win. `validateGraph` warns when network-enabled nodes disagree
 rather than silently picking one.
 
+## The transceiver
+
+DMX512 needs a part between the XLR cable and the UART, and the app names it:
+`src/state/dmxTransceiver.ts` holds the one module, the common "C25B" MAX485
+board (`max485-rs485-module`, a verified Blender asset), and the rule that
+only DMX512 mode has one. It is deliberately not a `PART_OPTIONS` row, which
+would put the module's picture on the node in Art-Net mode too.
+
+The Build Diagram draws a DMX512 input as that module (`dmx-input`): TX to DI,
+RX to RO, the enable GPIO to DE, and a short jumper from RE to DE
+(`transceiverEnableBridgePads`), since RE is active low and DE active high, and
+one line drives both. The bus side goes to the cable rather than the controller,
+so the sheet captions the XLR pins (1 to GND, 2 to B, 3 to A) instead of drawing
+them. An Art-Net input draws nothing, because it has no hardware.
+
+The module is powered from **3V3**, below the MAX485's 4.75-5.25 V rating.
+R1-R4 pull RO, RE, DE and DI up to VCC through 10 k, and RO swings to VCC, so a
+5 V supply would hold the ESP32's pins at 5 V. 3.3 V keeps every line in range,
+and it is how esp_dmx and common builds run the chip. The part stays
+experimental until a bench row confirms it
+([support matrix](../../release/beta-support-matrix.md)).
+
 ## Validation
 
 `validateGraph.ts` blocks upload for: DMX512 on a non-ESP32 target (esp_dmx is
