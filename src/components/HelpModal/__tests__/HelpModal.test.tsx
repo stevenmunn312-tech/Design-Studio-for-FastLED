@@ -235,7 +235,8 @@ describe('HelpModal session state', () => {
     // A touch panel is two chips, so it is two nodes, arriving linked.
     expect(view.getByText(/a digitiser sitting over the glass/)).toBeTruthy()
     expect(view.getByText(/already linked/)).toBeTruthy()
-    // A screen design owns its own touch; the Touch node reads fixed layouts.
+    // A screen design owns its own touch; a template's controls also ride Controls.
+    expect(view.getByText(/also travel on/)).toBeTruthy()
     expect(view.getByText(/the design owns the touch/)).toBeTruthy()
     expect(view.getByText(/companion Touch node/)).toBeTruthy()
     expect(view.getByText(/named action directly/)).toBeTruthy()

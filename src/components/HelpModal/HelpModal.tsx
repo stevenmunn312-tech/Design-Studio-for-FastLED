@@ -521,7 +521,7 @@ function DisplaysTab() {
           The Touch node has a compact <strong>Controls</strong> output and, when the fixed presentation has controls, named outputs for the same jobs. A <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip; a <strong>Now Playing</strong> screen gives play/pause and volume. Wire a named action directly to the thing that owns it, or send the bundle through <strong>Control Map</strong> when you want one cable or continuous volume.
         </div>
         <div className={styles.text}>
-          A panel showing a <strong>screen design</strong> is different: the design owns the touch. Its Buttons, Toggles, Sliders and Dials each publish on their own output on the companion Touch node, so you wire the one you mean rather than a single bundle. The fixed-layout Controls output stays quiet there — there is no fixed layout under the design for it to read.
+          A panel showing a <strong>screen design</strong> is different: the design owns the touch. Its Buttons, Toggles, Sliders and Dials each publish on their own output on the companion Touch node. The controls a template placed — Previous, Play, Next, Volume, Brightness and Blackout — also travel on <strong>Controls</strong>, so a Now Playing screen drives Music Player through that one wire. A control whose own output you have wired keeps that job and leaves the bundle, so nothing fires twice.
         </div>
         <div className={styles.note}>
           Touch follows <strong>Enabled</strong>. A dark panel is not read, and the Controls output rests at zero rather than holding the last thing anybody pressed.

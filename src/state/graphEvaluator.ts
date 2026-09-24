@@ -10,6 +10,7 @@ import { lightSensorPreviewReading } from './lightSensor'
 import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
+import { designControlBundle } from './designControlBundle'
 import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displayRegistry'
 import { readDisplaySourceField } from './displaySourceFields'
 import { useMidiStore } from './midiStore'
@@ -263,6 +264,8 @@ const paletteBankState = new Map<string, {
   buttons: Record<string, ButtonEdgeState>
 }>()
 const transportDisplayTouchState = new Map<string, { pressed: boolean }>()
+/** Per Touch node: each bundled widget's last press value or gesture count. */
+const designBundleState = new Map<string, Map<string, number | boolean>>()
 
 /**
  * What a finger on a panel's glass is doing, as a controls bundle.
@@ -735,7 +738,7 @@ function stateMaps(): StateMap[] {
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, rtcManualPreviewState, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState, patternSlideshowFadeState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
-    playerControlsState, transportDisplayTouchState, musicPlayerRuntimeState,
+    playerControlsState, transportDisplayTouchState, designBundleState, musicPlayerRuntimeState,
     ledOutputLatchState, stereoVuState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
@@ -7766,19 +7769,54 @@ function createEvalNode(
          */
         const designId = String(panelProps.displayId ?? '')
         if (designId) {
-          out = { controls: blankPlayerControls() }
+          const live = panelEnabled && touchCapable
+          const runtime = useDisplayRuntimeStore.getState()
           const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
             .filter((port) => parseDisplayWidgetPortId(port.id))
-          if (widgetOutputs.length > 0) {
-            const runtime = useDisplayRuntimeStore.getState()
-            for (const port of widgetOutputs) {
-              const parsed = parseDisplayWidgetPortId(port.id)!
-              const rest = port.dataType === 'bool' ? false : 0
-              out[port.id] = panelEnabled && touchCapable
-                ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
-                : rest
-            }
+          const samples: Record<string, PortValue> = {}
+          for (const port of widgetOutputs) {
+            const parsed = parseDisplayWidgetPortId(port.id)!
+            const rest = port.dataType === 'bool' ? false : 0
+            samples[port.id] = live
+              ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
+              : rest
           }
+          /*
+           * The design's own transport, carried on Controls.
+           *
+           * Widgets whose template stamped a role (Previous, Play, Next,
+           * Volume...) fold into the one bundle, so a Now Playing screen
+           * drives a Music Player through a single wire. Which widget lands
+           * on which field is `designControlBundle`'s answer, shared with the
+           * generators so the device presses the same fields.
+           */
+          const controls = blankPlayerControls()
+          const document = useGraphStore.getState().displayDocuments[designId]
+          const bundle = document ? designControlBundle(panel, document, nodes, edges, node.id) : []
+          const edgeState = designBundleState.get(stateKey(node.id)) ?? new Map<string, number | boolean>()
+          for (const control of bundle) {
+            if (control.edge === 'level') {
+              const value = Number(samples[control.portId] ?? 0)
+              if (live && Number.isFinite(value)) controls[control.field as 'volume' | 'brightness'] = clamp01(value)
+              continue
+            }
+            // A press is the rising edge of the sampled Button; a tap is the
+            // Toggle's gesture count moving, never its value (see the helper).
+            const now = control.edge === 'press'
+              ? Boolean(samples[control.portId])
+              : runtime.readDisplayWidget(designId, control.widgetId)?.touchCount ?? 0
+            const before = edgeState.get(control.widgetId)
+            edgeState.set(control.widgetId, now)
+            const fired = control.edge === 'press'
+              ? now === true && before === false
+              : before !== undefined && now !== before
+            if (!live || !fired) continue
+            if (control.field === 'patternPrevious') controls.patternSteps -= 1
+            else if (control.field === 'patternNext') controls.patternSteps += 1
+            else controls[control.field as 'playPause' | 'previous' | 'next' | 'patternConfirm' | 'ledToggle'] = true
+          }
+          designBundleState.set(stateKey(node.id), edgeState)
+          out = { controls, ...samples }
           break
         }
         const panelController = tftControllerForProps(panelProps) ?? TFT_CONTROLLERS.ST7789

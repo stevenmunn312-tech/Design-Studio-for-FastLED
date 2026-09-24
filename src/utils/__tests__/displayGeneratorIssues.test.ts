@@ -108,7 +108,7 @@ describe('fixed touch output routing validation', () => {
     expect(findDisplayGeneratorIssues(nodes, showEdges).errors).toEqual([])
   })
 
-  it('names the design, not the layout, when a mounted panel has its Controls wired', () => {
+  it('names the design, not the layout, when a mounted panel carries nothing on Controls', () => {
     // Every other branch here reads the resolved fixed layout, which is
     // Waiting once a design owns the glass — so they would advise wiring
     // Music Player to the Display input, which drops the design.
@@ -120,8 +120,9 @@ describe('fixed touch output routing validation', () => {
     const errors = findDisplayGeneratorIssues(nodes, edges, {
       screen: createDisplayDocument('screen', 240, 320),
     }).errors
-    expect(errors).toEqual([expect.stringContaining('is showing a screen design')])
-    expect(errors[0]).toContain("the design owns the touch")
+    // An empty design has nothing for Controls to carry: only controls a
+    // template gave a job travel on the bundle.
+    expect(errors).toEqual([expect.stringContaining('has no transport controls for its Touch node')])
     expect(errors[0]).not.toContain('Music Player')
   })
 

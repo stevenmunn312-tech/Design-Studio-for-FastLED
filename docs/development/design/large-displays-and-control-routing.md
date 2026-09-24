@@ -228,6 +228,28 @@ actions and property inputs are specified in
 [direct controls](direct-controls-and-output-status.md). A screen design
 does not acquire the fixed-layout transport actions; those outputs rest.
 
+A screen design does fill the Controls bundle from the widgets a template
+gave a job (`controlRole`), so a Now Playing design drives Music Player
+through one wire. `src/state/designControlBundle.ts` is the one mapping, read
+by the evaluator, all three generators and validation:
+
+- Previous/Next land on track steps, or on pattern steps when the panel shows a
+  slideshow; Play/Pause, Pattern Confirm and Blackout (as the lamp toggle) are
+  actions; Volume and Brightness are levels.
+- A Button presses on its rising edge. A Toggle presses when a *finger* flips
+  it, counted by a per-widget gesture count (`touchCount` in the preview
+  runtime, `taps` in the LVGL runtime), never from its value. A template binds
+  Play's Set to the player's `playing`, so the value also moves whenever the
+  transport is driven from elsewhere, and reading it would echo that back as a
+  press.
+- A widget whose own output is wired keeps that job and leaves the bundle,
+  so one tap never fires twice. Unplaced widgets are never in it.
+
+Firmware builds the bundle with the Control Map emitter
+(`designControlBundleEmit`), adding a `CtlTap` edge beside `CtlEdge`. A panel
+drawing a design is also skipped by `playerDisplays.ts`: emitting its fixed
+layout as well painted both onto one glass and read the digitiser twice.
+
 ## Registration and implementation boundaries
 
 Physical panel changes span `hardware.ts`, `partOptions.ts`, `GPIO_PIN_PROPERTIES`,

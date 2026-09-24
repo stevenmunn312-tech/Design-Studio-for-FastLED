@@ -43,7 +43,7 @@ import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTra
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputStatus } from '../state/ledOutputRuntime'
 import {
-  PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp,
+  PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp, designControlBundleEmit,
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
 } from './playerControlsCpp'
 import { controlInputCpp } from './controlInputCpp'
@@ -79,7 +79,7 @@ import {
 import {
   CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_INCLUDE,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP,
-  customDisplayLvglGlobalCpp, customDisplayLvglLoopCpp, customDisplayLvglOutputExpression,
+  customDisplayLvglGlobalCpp, customDisplayLvglLoopCpp, customDisplayLvglOutputExpression, customDisplayLvglTapExpression,
   customDisplayLvglSetupCpp, customDisplayLvglTimingLoopCpp, customDisplayLvglTimingSetupCpp,
   type CustomDisplayLvglBinding, type CustomDisplayLvglEmit,
 } from './customDisplayLvglCpp'
@@ -90,6 +90,7 @@ import {
 } from './customDisplayPanelCpp'
 import { displayDocumentPorts, parseDisplayWidgetPortId } from '../state/displayRegistry'
 import { customDisplayMountPlan } from '../state/mountedDisplays'
+import { designControlBundle } from '../state/designControlBundle'
 import { normalSketchSourceExpressions, resolveBoundWidgets } from './displaySourceExpressions'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
@@ -5729,6 +5730,21 @@ export function generateCpp(
           // Emitted at this node's own place in the walk, so a wired Enabled
           // has been computed by the time it is read.
           for (const line of customDisplayPanelEnableCpp(panel)) ln(line)
+          // The design's role-stamped controls, on the Touch node's Controls:
+          // the same bundle the preview builds, from the samples above. The
+          // topological walk already orders this node ahead of any reader,
+          // since a Touch node's edges are credited to its panel.
+          if (touchNode && edges.some((e) => e.source === touchNode.id && e.sourceHandle === 'controls')) {
+            const touchId = safeId(touchNode.id)
+            const outputs = new Map(ports.outputs.map((port) => [port.id, port]))
+            for (const line of playerControlsServiceCpp(designControlBundleEmit(
+              touchId, `n_${touchId}_controls`,
+              designControlBundle(node, document, nodes, edges, touchNode.id),
+              (portId) => (outputs.has(portId) ? `n_${touchId}_${safeId(portId)}` : null),
+              (widgetId) => customDisplayLvglTapExpression(custom, widgetId),
+            ))) ln(line)
+            playerControlNodes.push(touchId)
+          }
           break
         }
 

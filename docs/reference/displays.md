@@ -137,9 +137,12 @@ directly to the destination that owns it, or wire **Controls** to **Control Map*
 when you want a bundled path.
 
 A panel showing a screen design has no fixed layout underneath for Touch to
-read, so the fixed-layout Controls output rests. The design owns the touch
-instead: each Button, Toggle, Slider and Dial publishes on its own output on the
-companion Touch node.
+read. The design owns the touch instead: each Button, Toggle, Slider and Dial
+publishes on its own output on the companion Touch node. The controls a
+template placed (Previous, Play, Next, Volume, Brightness and Blackout) also
+travel on **Controls**, so a Now Playing design drives Music Player through that
+one wire. A control whose own output you have wired keeps that job and leaves
+the bundle, so a tap never fires twice.
 
 The output rests at zero whenever the panel is disabled or the module has no
 touch controller, so a dark panel cannot hold the last press anybody made.

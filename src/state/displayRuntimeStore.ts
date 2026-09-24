@@ -30,6 +30,12 @@ export interface DisplayWidgetRuntime {
   /** A change not yet sampled by graph evaluation. This preserves a quick
    * press/release that occurs wholly between two evaluator passes. */
   touchPending: boolean
+  /**
+   * Finger gestures begun on this widget. A released control's value follows
+   * its Set input, so a value change cannot tell a press from feedback; this
+   * count moves only when a finger acts. The firmware keeps the same count.
+   */
+  touchCount: number
   /** Graph-driven values by the widget's stable registry roles. */
   roleValues: Map<DisplayWidgetPortRoleId, DisplayRuntimeValue>
   /** Set when anything the panel draws changed since the last redraw. */
@@ -83,7 +89,7 @@ interface DisplayRuntimeState {
 }
 
 function emptyRuntime(): DisplayWidgetRuntime {
-  return { touchOwned: false, touchPending: false, roleValues: new Map(), dirty: false }
+  return { touchOwned: false, touchPending: false, touchCount: 0, roleValues: new Map(), dirty: false }
 }
 
 /** The value a synchronized control draws after the input side of an
@@ -131,6 +137,7 @@ export const useDisplayRuntimeStore = create<DisplayRuntimeState>()((set, get) =
     touchDisplayWidget: (displayId, widgetId, value) => {
       const runtime = widgetRuntime(displayId, widgetId)
       const changed = runtime.touchValue !== value || !runtime.touchOwned
+      if (!runtime.touchOwned) runtime.touchCount += 1
       runtime.dirty = runtime.dirty || changed
       runtime.touchValue = value
       runtime.touchOwned = true

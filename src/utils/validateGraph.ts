@@ -67,6 +67,7 @@ import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../state/pinRetarget'
 import { partOptionsFor, resolvePartIdentity } from '../state/partOptions'
 import { displayHasTouch, partById } from '../state/partCatalogue'
+import { designControlBundle } from '../state/designControlBundle'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 import {
@@ -2442,18 +2443,42 @@ export function findDisplayGeneratorIssues(
     const touchActions = resolved
       ? transportTouchRegions(resolved.controller, resolved.rotation, resolved.layout)
       : []
-    // A panel showing a screen design has no fixed layout to sample, so its
-    // Touch node is inert whatever the build. Say that first: every branch
-    // below reads the resolved layout, which is Waiting here, and would hand
-    // back advice that repairs the wrong thing — telling someone to choose a
-    // fixed transport layout when the glass is drawing their design. The
-    // touch belongs to the design, and so do the outputs.
+    /*
+     * A panel showing a screen design has no fixed layout to sample: its
+     * Controls carry whichever of the design's widgets a template gave a job
+     * (Previous, Play, Next, Volume...), and nothing else. So the questions are
+     * the design's, not the layout's — every branch below reads the resolved
+     * fixed layout, which is Waiting here, and would repair the wrong thing.
+     */
     if (controlsWired && customMountedPanels.has(display.id)) {
-      errors.push(
-        `${nodeLabel(display)} is showing a screen design, so its Touch node's fixed Controls output publishes nothing — `
-        + "the design owns the touch. Wire the design's own Toggle, Button and Slider outputs on the Touch node to "
-        + "what they should command, and disconnect the Touch node's Controls.",
-      )
+      const document = displayDocuments?.[String(props.displayId ?? '')]
+      const fields = new Set(document && touchNode
+        ? designControlBundle(display, document, nodes, edges, touchNode.id).map((control) => control.field)
+        : [])
+      const lampFields = ['ledToggle', 'brightness'].some((field) => fields.has(field as never))
+      const reachesEngine = !!build.engine && destinations.has(build.engine.id)
+      if (fields.size === 0) {
+        errors.push(
+          `${nodeLabel(display)}'s screen design has no transport controls for its Touch node's Controls to carry. `
+          + 'Only controls a template placed (Previous, Play, Next, Volume, Brightness, Blackout) travel on Controls; '
+          + "wire any other widget's own output on the Touch node to what it should command, or disconnect Controls.",
+        )
+      } else if (generator === 'player' && !reachesEngine) {
+        errors.push(
+          `${nodeLabel(display)} has its Touch node's Controls wired, but that chain does not reach Music Player. `
+          + 'Complete the control chain so the player sketch samples touch, or disconnect Controls.',
+        )
+      } else if (generator !== 'player' && !reachesOutput && !(generator === 'show' && reachesEngine)) {
+        errors.push(
+          `${nodeLabel(display)} has its Touch node's Controls wired, but the chain does not reach anything this build can act on. `
+          + "Wire it through to an LED output's Controls input, or disconnect it.",
+        )
+      } else if (generator === 'sketch' && !lampFields) {
+        errors.push(
+          `${nodeLabel(display)}'s screen design carries only music transport on Controls, which an LED output cannot use. `
+          + 'Add Brightness or Blackout controls to the design, or export a music-player build through Upload show to SD.',
+        )
+      }
     } else if (controlsWired && generator === 'sketch' && !reachesOutput) {
       errors.push(
         `${nodeLabel(display)} has its Touch node's Controls wired, but the chain does not reach anything a normal sketch can act on. `

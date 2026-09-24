@@ -33,10 +33,17 @@ export const PLAYER_CONTROL_BUTTONS: ReadonlyArray<readonly [string, boolean]> =
 export interface PlayerControlButtonEmit {
   /** Bundle field this press contributes to. */
   port: string
-  /** C++ bool expression for the raw contact. */
+  /** C++ bool expression for the raw contact — or, for a `tap`, an integer count. */
   expr: string
   /** Adjustment buttons repeat on a hold; one-shot actions do not. */
   repeat: boolean
+  /**
+   * `press` (the default) is the debounced rising edge of a contact. `tap`
+   * fires once each time an integer gesture count moves: a screen Toggle's
+   * value also follows its Set feedback, so only the count says a finger did
+   * it. See state/designControlBundle.ts.
+   */
+  edge?: 'press' | 'tap'
 }
 
 export interface PlayerControlsEmit {
@@ -107,6 +114,20 @@ struct CtlEdge {
   }
 };
 
+// A finger's gesture count, as one event per change. The first reading is
+// never an event, for the same reason an encoder's is not: a count found at
+// boot is not something anybody just did.
+struct CtlTap {
+  bool seen = false;
+  uint32_t last = 0;
+  bool update(uint32_t count) {
+    if (!seen) { seen = true; last = count; return false; }
+    bool moved = count != last;
+    last = count;
+    return moved;
+  }
+};
+
 // Raw quadrature counts into whole detents, matching encoderSteps() in
 // state/patternSelection.ts: four counts per click, and the first reading is
 // never a step, because an encoder parked at 37 when the board boots has not
@@ -147,17 +168,20 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
   const { id, variable, settings } = emit
   const lines: string[] = []
   for (const button of emit.buttons) {
-    lines.push(`  static CtlEdge _pcE_${id}_${button.port};`)
+    lines.push(`  static ${button.edge === 'tap' ? 'CtlTap' : 'CtlEdge'} _pcE_${id}_${button.port};`)
   }
   if (emit.patternPositionExpr) lines.push(`  static CtlDetent _pcD_${id};`)
 
   lines.push(`  PlayerControlsValue ${variable};`)
   lines.push(`  { // Control Map`)
   if (emit.upstream) lines.push(`    ${variable} = ${emit.upstream};`)
-  lines.push(`    uint32_t _pcNow_${id} = millis();`)
+  // Only a debounced press reads the clock; a bundle of taps and levels alone
+  // would otherwise carry an unused local and a warning with it.
+  if (emit.buttons.some((button) => button.edge !== 'tap')) lines.push(`    uint32_t _pcNow_${id} = millis();`)
 
-  const edge = (button: PlayerControlButtonEmit) =>
-    `_pcE_${id}_${button.port}.update(${button.expr}, _pcNow_${id}, ${button.repeat}, `
+  const edge = (button: PlayerControlButtonEmit) => button.edge === 'tap'
+    ? `_pcE_${id}_${button.port}.update((uint32_t)(${button.expr}))`
+    : `_pcE_${id}_${button.port}.update(${button.expr}, _pcNow_${id}, ${button.repeat}, `
     + `${Math.round(settings.debounceMs)}u, ${Math.round(settings.repeatDelayMs)}u, ${Math.round(settings.repeatIntervalMs)}u)`
 
   // Actions: either end pressing it is a press.
@@ -237,4 +261,40 @@ export function ledOutputLatchCpp(emit: LedOutputLatchEmit): string[] {
     `    if (${controls}.ledToggle) _ledOn_${id} = !_ledOn_${id};`,
     `  }`,
   ]
+}
+
+/**
+ * A screen design's Controls, as the same bundle a Control Map builds.
+ *
+ * `controls` is `designControlBundle`'s answer for one panel. Each generator
+ * supplies how it names a sampled widget output and a Toggle's gesture count,
+ * which is the only part that differs between them. A touch sample needs no
+ * debounce — LVGL has already decided what the finger did — so none is added.
+ */
+export function designControlBundleEmit(
+  id: string,
+  variable: string,
+  controls: readonly { widgetId: string; portId: string; field: string; edge: 'press' | 'tap' | 'level' }[],
+  sampleExpr: (portId: string, type: 'bool' | 'float') => string | null,
+  tapExpr: (widgetId: string) => string | null,
+): PlayerControlsEmit {
+  const buttons: PlayerControlButtonEmit[] = []
+  let volumeExpr: string | null = null
+  let brightnessExpr: string | null = null
+  for (const control of controls) {
+    if (control.edge === 'level') {
+      const expr = sampleExpr(control.portId, 'float')
+      if (control.field === 'volume') volumeExpr = expr
+      else if (control.field === 'brightness') brightnessExpr = expr
+      continue
+    }
+    const expr = control.edge === 'tap' ? tapExpr(control.widgetId) : sampleExpr(control.portId, 'bool')
+    if (!expr) continue
+    buttons.push({ port: control.field, expr, repeat: false, edge: control.edge === 'tap' ? 'tap' : 'press' })
+  }
+  return {
+    id, variable, upstream: null, buttons, volumeExpr, brightnessExpr, patternPositionExpr: null,
+    settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },
+    volumeStep: 0.05, brightnessStep: 0.05,
+  }
 }

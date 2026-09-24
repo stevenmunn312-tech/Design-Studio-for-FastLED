@@ -6,7 +6,9 @@ import { displayHasTouch } from '../state/partCatalogue'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { createControlGraph, controlReferenceCpp, type ControlReference } from './controlGraph'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
-import { PLAYER_CONTROL_BUTTONS, type PlayerControlsEmit } from './playerControlsCpp'
+import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlsEmit } from './playerControlsCpp'
+import { designControlBundle } from '../state/designControlBundle'
+import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
 import type { DisplaySourceExpressions } from './displaySourceExpressions'
@@ -125,6 +127,27 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       if (!panel || !touchCapable) {
         unsupported(edge.target, edge.targetHandle ?? 'Controls')
         return null
+      }
+      /*
+       * A panel drawing a screen design samples no fixed layout. Its Controls
+       * are the design's role-stamped widgets, built into a bundle of their
+       * own from the widget samples the plan already takes — so the fixed
+       * touch service is not asked for at all.
+       */
+      const design = custom.displays.find((display) => display.panelNodeId === panel.id)
+      const document = design ? documents?.[design.documentId] : undefined
+      if (design && document) {
+        const variable = controlBundleVariable(source.id)
+        if (done.has(source.id)) return variable
+        const bundle = designControlBundle(panel, document, nodes, edges, source.id)
+        controls.push(designControlBundleEmit(safeId(source.id), variable, bundle,
+          (portId, type) => {
+            const reference = graph.resolve(source.id, portId, type)
+            return reference ? controlReferenceCpp(reference) : null
+          },
+          (widgetId) => customDisplayLvglTapExpression(design.emit, widgetId)))
+        done.add(source.id)
+        return variable
       }
       touchIds.add(panel.id)
       done.add(source.id)

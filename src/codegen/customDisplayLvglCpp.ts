@@ -429,6 +429,10 @@ struct CustomDisplayWidgetRuntime {
   bool touchOwned;
   bool touchPending;
   bool boolValue;
+  // Finger gestures on this widget, and only those: a Set write moves
+  // boolValue without an LVGL event, so this is how a Toggle carried in a
+  // Controls bundle tells a press from the player's own feedback.
+  uint16_t taps;
   float floatValue;
   float minimum, maximum, step;
   int32_t lastInteger;
@@ -526,6 +530,7 @@ static void _cdEvent(lv_event_t *event) {
     if (runtime->kind == 2) {
       runtime->boolValue = lv_obj_has_state(runtime->object, LV_STATE_CHECKED);
       runtime->touchPending = true;
+      runtime->taps++;
     }
     if (runtime->kind == 3 || runtime->kind == 4) {
       int32_t raw = runtime->kind == 3 ? lv_slider_get_value(runtime->object) : lv_arc_get_value(runtime->object);
@@ -724,4 +729,21 @@ export function customDisplayLvglOutputExpression(
   if (widget.type === 'Button' || widget.type === 'Toggle') return `_cdBoolOutput(${runtime(emit, index)})`
   if (widget.type === 'Slider' || widget.type === 'Dial') return `_cdFloatOutput(${runtime(emit, index)})`
   return null
+}
+
+/**
+ * How many times a finger has flipped this Toggle, as a C++ expression.
+ *
+ * The widget's own output follows its Set input once released, so it cannot
+ * say whether a change was a press or the player reporting back. The count
+ * moves only on a real tap. Null for anything that is not an emitted Toggle.
+ */
+export function customDisplayLvglTapExpression(
+  emit: CustomDisplayLvglEmit,
+  widgetId: string,
+): string | null {
+  const widgets = emittedWidgets(emit)
+  const index = widgets.findIndex((widget) => widget.id === widgetId)
+  if (index < 0 || widgets[index].type !== 'Toggle') return null
+  return `${runtime(emit, index)}.taps`
 }
