@@ -22,20 +22,13 @@ import type { SavedPattern } from './patternLibrary'
 import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
-import {
-  retargetHardwarePins as retargetHardwarePinsFor,
-  userPinsByBoard,
-  withAssignedPins,
-  USER_PINS_KEY,
-} from './pinRetarget'
+import { retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
-import { boardI2cDefault } from '../build/boardI2cDefaults'
-import { sdSpiPinsForBoard } from './sdPinDefaults'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { DEFAULT_BOARD_CONTROLLER_PROPERTIES } from './controllerSettings'
 import {
@@ -446,12 +439,6 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 // labels, and port definitions stay canonical across save/load. Programmatic
 // group-family nodes keep their saved shape.
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
-  const savedBoard = nodes.find((node) => node.data.nodeType === 'Board')
-  const savedProfileId = (savedBoard?.data.properties as Record<string, unknown> | undefined)?.profileId
-  const rtcDefaults = boardI2cDefault(typeof savedProfileId === 'string' ? savedProfileId : undefined)
-  const savedProfile = typeof savedProfileId === 'string' ? boardProfileById(savedProfileId) : undefined
-  const sdSpiDefaults = sdSpiPinsForBoard(savedProfile)
-  const ampDefaults = savedProfile?.peripheralPins?.max98357
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const nodeType = data.nodeType
@@ -459,87 +446,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
     const properties = { ...data.properties }
-    // RTC pins became first-class node properties after the RTC hardware node
-    // was introduced. Backfill older saves from their exact board so opening a
-    // project exposes the same wiring it was already generating.
-    if (nodeType === 'RTCInput') {
-      properties.sdaPin ??= rtcDefaults?.sda.arduinoPin ?? 21
-      properties.sclPin ??= rtcDefaults?.scl.arduinoPin ?? 22
-    }
-    // Older SD cards stored CS alone while SCK/MISO/MOSI were implicit core
-    // defaults. Make those existing wires explicit from the saved board, and
-    // repair the old global ESP32-S3 CS fallback on classic ESP32 projects.
-    if (nodeType === 'SDCard' && sdSpiDefaults) {
-      const assigned = properties.assignedPins as Record<string, number> | undefined
-      const legacyGlobalDefault = properties.sdCsPin === 10 && assigned?.sdCsPin === undefined
-      const legacyCustomCs = properties.sdCsPin !== undefined
-        && !legacyGlobalDefault
-        && assigned?.sdCsPin === undefined
-        && Number.isFinite(Number(properties.sdCsPin))
-      const missingPins = {
-        ...(properties.sdCsPin === undefined || legacyGlobalDefault ? { sdCsPin: sdSpiDefaults.cs } : {}),
-        ...(properties.sdSckPin === undefined ? { sdSckPin: sdSpiDefaults.sck } : {}),
-        ...(properties.sdMisoPin === undefined ? { sdMisoPin: sdSpiDefaults.miso } : {}),
-        ...(properties.sdMosiPin === undefined ? { sdMosiPin: sdSpiDefaults.mosi } : {}),
-      }
-      if (Object.keys(missingPins).length > 0) {
-        Object.assign(properties, withAssignedPins(properties, missingPins, savedProfile?.id))
-      }
-      // CS was the one editable SD wire in old projects. When it differs from
-      // the old library fallback and carries no assignment stamp, preserve it
-      // as this board's deliberate wiring rather than claiming it as a new
-      // app-owned default while backfilling the other three lines.
-      if (legacyCustomCs && savedProfile?.id) {
-        const memory = userPinsByBoard(properties)
-        properties[USER_PINS_KEY] = {
-          ...memory,
-          [savedProfile.id]: {
-            ...memory[savedProfile.id],
-            sdCsPin: Number(properties.sdCsPin),
-          },
-        }
-      }
-    }
-    // The N16R8 profile once inherited the classic ESP32 amplifier tuple even
-    // though none of GPIO26/25/22 is exposed on its 44-pin header. Repair only
-    // that exact unstamped library default; provenance means any deliberately
-    // assigned or edited wiring remains the user's.
-    if (nodeType === 'Amplifier'
-      && savedProfile?.id === 'generic-esp32-s3-n16r8-44pin-dual-usbc'
-      && ampDefaults) {
-      const assigned = properties.assignedPins as Record<string, number> | undefined
-      const legacyDefault = properties.i2sBclk === 26
-        && properties.i2sLrc === 25
-        && properties.i2sDout === 22
-        && assigned?.i2sBclk === undefined
-        && assigned?.i2sLrc === undefined
-        && assigned?.i2sDout === undefined
-      if (legacyDefault) {
-        Object.assign(properties, withAssignedPins(properties, {
-          i2sBclk: ampDefaults.bclk,
-          i2sLrc: ampDefaults.lrc,
-          i2sDout: ampDefaults.din,
-        }, savedProfile.id))
-      }
-    }
-    // AudioHue's bass/mids/treble mix used to be hardcoded in the evaluator and
-    // the C++ generator. It is now three editable weights, so backfill saves
-    // made before they existed with the old mix — otherwise the node keeps
-    // behaving correctly (both runtimes fall back to it) but never shows the
-    // new sliders, since inline editors render from the saved property keys.
-    if (nodeType === 'AudioHue') {
-      properties.bassWeight   ??= 0.5
-      properties.midsWeight   ??= 0.3
-      properties.trebleWeight ??= 0.2
-    }
-    // Circle's and ClockDisplay's `radius` used to be a fixed pixel count
-    // regardless of matrix size. scaleWithMatrix now lets it scale
-    // proportionally instead — default it explicitly to false on load so a
-    // save made before the toggle existed keeps its exact original pixel
-    // radius rather than silently picking up the new node-creation default.
-    if (nodeType === 'Circle' || nodeType === 'ClockDisplay') {
-      properties.scaleWithMatrix ??= false
-    }
     // An LED output's shape used to be spelled two ways that never quite meant
     // it — `chipset: 'HUB75'` for a scan panel, `layout: 'strip'` for a run of
     // tape, and no way at all to say "ring". Resolve a saved node's form once,
@@ -555,7 +461,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
       // than leave a saved node pointing at a value its dropdown has dropped.
       if (properties.layout === 'strip') properties.layout = 'matrix'
     }
-    if (nodeType === 'StereoVuMeter') properties[VU_LED_COUNT_CUSTOM_KEY] ??= false
     // Wi-Fi SSID/password used to be ordinary node properties (persisted into
     // project files and share links). They now live browser-local only in
     // networkCredentials.ts — migrate any already-saved values across, then

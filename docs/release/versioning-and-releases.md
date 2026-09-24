@@ -15,6 +15,12 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed missing-property backfills for AudioHue band weights,
+  Circle/Clock Display matrix scaling, and Stereo VU count provenance. V1
+  nodes persist those authored/default properties when the node is created.
+- 2026-09-24: removed load-time hardware-pin migrations for RTC nodes without
+  I2C pins, SD cards that stored only chip select, and the obsolete N16R8
+  amplifier tuple. V1 hardware nodes persist their complete assigned wiring.
 - 2026-09-24: removed `BuildProfile.physicalBoardProfileId` and the load-time
   migration that created a Board selection from it. The singleton `Board` node
   is the only persisted exact-board selection in the v1 workspace shape.

@@ -952,90 +952,29 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('mic').properties.gain).toBe(1)
   })
 
-  it('migrates an old CS-only SD card to the exact board SPI defaults', () => {
-    const board = node('board-root', 'Board', { profileId: 'esp32-devkit-v1-30pin-esp32d' })
+  it('does not backfill retired hardware pin shapes on load', () => {
+    const board = node('board-root', 'Board', { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' })
+    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231' })
     const sd = node('sd', 'SDCard', { sdCsPin: 10 })
-    useGraphStore.getState().loadGraph([board, sd], [])
-    expect(dataOf('sd').properties).toMatchObject({
-      sdCsPin: 5,
-      sdSckPin: 18,
-      sdMisoPin: 19,
-      sdMosiPin: 23,
-      assignedPins: { sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 },
-      assignedPinsBoard: 'esp32-devkit-v1-30pin-esp32d',
-    })
-  })
-
-  it('preserves an old custom SD CS assignment while adding the remaining bus', () => {
-    const profileId = 'esp32-devkit-v1-30pin-esp32d'
-    const board = node('board-root', 'Board', { profileId })
-    const sd = node('sd', 'SDCard', { sdCsPin: 21 })
-    useGraphStore.getState().loadGraph([board, sd], [])
-    expect(dataOf('sd').properties).toMatchObject({
-      sdCsPin: 21,
-      sdSckPin: 18,
-      sdMisoPin: 19,
-      sdMosiPin: 23,
-      userPinsByBoard: { [profileId]: { sdCsPin: 21 } },
-    })
-  })
-
-  it('migrates the old amplifier defaults onto the N16R8 board header', () => {
-    const profileId = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
-    const board = node('board-root', 'Board', { profileId })
     const amplifier = node('amp', 'Amplifier', { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
-    useGraphStore.getState().loadGraph([board, amplifier], [])
-    expect(dataOf('amp').properties).toMatchObject({
-      i2sBclk: 17,
-      i2sLrc: 18,
-      i2sDout: 16,
-      assignedPins: { i2sBclk: 17, i2sLrc: 18, i2sDout: 16 },
-      assignedPinsBoard: profileId,
-    })
+    useGraphStore.getState().loadGraph([board, rtc, sd, amplifier], [])
+
+    expect(dataOf('rtc').properties).toEqual({ timeSource: 'DS3231' })
+    expect(dataOf('sd').properties).toEqual({ sdCsPin: 10 })
+    expect(dataOf('amp').properties).toEqual({ i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
   })
 
-  it('preserves amplifier pins that already carry assignment provenance', () => {
-    const profileId = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
-    const board = node('board-root', 'Board', { profileId })
-    const amplifier = node('amp', 'Amplifier', {
-      i2sBclk: 26,
-      i2sLrc: 25,
-      i2sDout: 22,
-      assignedPins: { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 },
-      assignedPinsBoard: profileId,
-    })
-    useGraphStore.getState().loadGraph([board, amplifier], [])
-    expect(dataOf('amp').properties).toMatchObject({ i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
-  })
-
-  it('backfills AudioHue band weights with the mix that used to be hardcoded', () => {
+  it('does not backfill retired effect property shapes on load', () => {
     const hue = node('ah', 'AudioHue', { bass: 0.5, mids: 0.5, treble: 0.5 })
-    useGraphStore.getState().loadGraph([hue], [])
-    expect(dataOf('ah').properties).toMatchObject({
-      bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2,
-    })
-  })
-
-  it('keeps AudioHue band weights the user already chose', () => {
-    const hue = node('ah', 'AudioHue', { bass: 0.5, bassWeight: 0, midsWeight: 1 })
-    useGraphStore.getState().loadGraph([hue], [])
-    expect(dataOf('ah').properties).toMatchObject({
-      bassWeight: 0, midsWeight: 1, trebleWeight: 0.2,
-    })
-  })
-
-  it('backfills scaleWithMatrix to false for a Circle/ClockDisplay saved before the toggle existed', () => {
     const circle = node('c', 'Circle', { radius: 6 })
     const clock = node('clk', 'ClockDisplay', { radius: 6 })
-    useGraphStore.getState().loadGraph([circle, clock], [])
-    expect(dataOf('c').properties.scaleWithMatrix).toBe(false)
-    expect(dataOf('clk').properties.scaleWithMatrix).toBe(false)
-  })
+    const vu = node('vu', 'StereoVuMeter', { ledCount: 16 })
+    useGraphStore.getState().loadGraph([hue, circle, clock, vu], [])
 
-  it('keeps an explicit scaleWithMatrix choice already on the saved node', () => {
-    const circle = node('c', 'Circle', { radius: 6, scaleWithMatrix: true })
-    useGraphStore.getState().loadGraph([circle], [])
-    expect(dataOf('c').properties.scaleWithMatrix).toBe(true)
+    expect(dataOf('ah').properties).toEqual({ bass: 0.5, mids: 0.5, treble: 0.5 })
+    expect(dataOf('c').properties).toEqual({ radius: 6 })
+    expect(dataOf('clk').properties).toEqual({ radius: 6 })
+    expect(dataOf('vu').properties).not.toHaveProperty('_ledCountCustom')
   })
 
   it('refreshes saved ports from the node library on load', () => {
