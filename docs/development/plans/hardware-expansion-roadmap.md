@@ -118,11 +118,15 @@ addition must cover the parts of the product its role actually uses:
 8. Help content, generated node-reference assets where applicable, automated
    registry/codegen tests, compile evidence and a recorded physical bench run.
 
-## Deferred safety-gated families
+## Families that extend the power model
 
 Battery chargers, cell balancers, battery-management systems, mains SSRs,
-contactors and large motor drivers remain deferred until the power model can
-represent source voltage, state of charge, continuous and peak current,
-protection behavior, isolation, fusing and enclosure requirements. A render and
-a pin picker are not enough evidence to offer installation guidance for those
-families.
+contactors and large motor drivers need the power model to represent source
+voltage, state of charge, continuous and peak current, protection behavior,
+isolation, fusing and enclosure requirements. A render and a pin picker are not
+enough to offer installation guidance for them, so extending the power model is
+part of implementing each one, not a precondition someone else must meet
+first. They ship experimental like any other family. The
+[independent electrical review (HW-14)](../../../todo.md) then checks the
+generated wiring and guidance once they are in the app and the Build Diagram;
+it reviews what exists rather than gating development.

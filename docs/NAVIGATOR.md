@@ -6,6 +6,8 @@ build/architecture overview aimed at contributors.
 ## Active work
 
 - [Ordered Hardware → v1 backlog](../todo.md) — the single active checklist.
+- [Archived backlog to 2026-09-24](archive/hardware-todo-to-2026-09-24.md) — every
+  item's full evidence narrative before the backlog was restructured.
 - [Hardware branch review, 2026-09-08](development/reports/hardware-branch-review.md)
   — reproduced integration defects, control/display workflow and next milestone.
 
@@ -170,8 +172,8 @@ build/architecture overview aimed at contributors.
     — microphones using existing firmware profiles, and the DAC-to-power-amp
     chain (Option B, landed) that the 12 V analog amplifiers required.
   - [Build Diagram contract](development/plans/build-diagram-handoff.md)
-    — implemented generated wiring/BOM behavior; independent electrical review
-      is tracked in root todo as HW-14.
+    — implemented generated wiring/BOM behavior; the independent electrical
+      review of what it generates is HW-14 in the root todo.
 
   - [Hardware renders](development/plans/hardware-renders.md)
     — verified Blender source, render/import contract and catalogue ownership.

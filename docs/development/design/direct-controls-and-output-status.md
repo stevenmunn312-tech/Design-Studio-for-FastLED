@@ -724,9 +724,13 @@ drifts — a list beside one generator says nothing about the other two.
   control paths, update root guidance where invariants changed, and link the
   verification evidence before marking this design implemented.
   → Those three notes and `docs/NAVIGATOR.md` now point at panel-owned
-  designs and at this document for direct controls. Bench and widget
-  feedback under playback remain the open evidence from step 10; this
-  design is not marked implemented until those land.
+  designs and at this document for direct controls.
+
+**Implemented, 2026-09-24.** Software and compilation are complete. The bench
+readings from step 10 (real touch, panel enable and re-enable, LED and status
+response, widget feedback under playback) are community-testing rows in the
+root todo, and the feature is experimental until they land. Under the backlog's
+rules, missing hardware evidence no longer holds a design open.
 
 ## Reference workflows
 

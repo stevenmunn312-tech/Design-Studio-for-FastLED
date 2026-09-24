@@ -1,6 +1,8 @@
 # Plan - Generated Build Diagram
 
-Active execution and acceptance are tracked in [root todo, HW-14](../../../todo.md).
+The independent electrical review of this output is [root todo, HW-14](../../../todo.md).
+It runs after components are in the app and drawn here, and checks that the
+generated wiring is safe and recommended practice.
 This document retains the feature contract, not a second checklist.
 
 
