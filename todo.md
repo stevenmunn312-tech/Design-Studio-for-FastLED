@@ -46,10 +46,9 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing. Exit: per-platform launch/install, helper
   discovery, permissions, offline and recovery evidence.
-- [ ] **HW-18 · v1 scope and format baseline (M).** Two halves. *Now:* remove
-  superseded pre-1.0 compatibility paths and legacy graph shapes, as the
-  Hardware rules already direct, without inventing migrations
-  ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
+- [ ] **HW-18 · v1 scope and format baseline (M).** The pre-1.0 compatibility
+  sweep is done ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record));
+  new leftovers found later are removed the same way, without migrations.
   *At release:*
   choose the supported combinations from the evidence then on record,
   reconcile release copy, freeze the panel/document/control save format, and
