@@ -8271,8 +8271,12 @@ function createEvalNode(
         // A show owns the player when one is selected; otherwise the preview
         // is playing its own playlist, and the file it has open is the track.
         const track = player.transport ?? player.localTrack
+        // Tags come only with a local file; a show transport carries none.
+        const tags = player.transport ? null : player.localTrack
         const songInfo = resolveSongInfo({
           title: track?.title ?? '',
+          artist: tags?.artist ?? '',
+          album: tags?.album ?? '',
           posMs: player.posMs,
           durationMs: track?.durationMs ?? 0,
           playing: player.playing,

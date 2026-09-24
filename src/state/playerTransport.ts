@@ -60,9 +60,13 @@ interface PlayerTransportState {
 }
 
 export interface LocalTrackInfo {
-  /** The file name without its extension — what the device shows for a file with no tags. */
+  /** The ID3 title, or the file name without its extension when there is none —
+   *  what the device shows for the same file. */
   title: string
   durationMs: number
+  /** Read from the file's ID3 tags; absent when it carries none. */
+  artist?: string
+  album?: string
 }
 
 /**
@@ -127,6 +131,7 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
   },
   setLocalTrack: (localTrack) => set((state) => (
     state.localTrack?.title === localTrack?.title && state.localTrack?.durationMs === localTrack?.durationMs
+      && state.localTrack?.artist === localTrack?.artist && state.localTrack?.album === localTrack?.album
       ? state
       : { localTrack }
   )),

@@ -6,6 +6,7 @@ import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
 import { localTrackTitle, usePlayerTransport } from '../../state/playerTransport'
+import { readAudioFileTags, type AudioTags } from '../../audio/id3Tags'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { useMusicStore } from '../../state/musicStore'
 import { showAudioSpectrum } from '../../state/showAudio'
@@ -114,6 +115,8 @@ interface LocalTrack {
   id: string
   name: string
   url: string
+  /** The file's ID3 tags, once read; empty until then or when it has none. */
+  tags?: AudioTags
 }
 
 let nextTrackId = 0
@@ -925,6 +928,15 @@ export default function LEDPreview() {
       name: file.name,
       url: URL.createObjectURL(file),
     }))
+    // Tags arrive after the track is already playable: reading them must not
+    // hold up the press that opened the file.
+    for (const [index, file] of files.entries()) {
+      const id = added[index].id
+      void readAudioFileTags(file).then((tags) => {
+        if (!tags.title && !tags.artist && !tags.album) return
+        setTracks((current) => current.map((track) => (track.id === id ? { ...track, tags } : track)))
+      })
+    }
     // Opening files is an explicit playback gesture: select the first newly
     // added track and let onLoadedMetadata start it as soon as it is ready.
     pendingPlayRef.current = true
@@ -1034,7 +1046,13 @@ export default function LEDPreview() {
   // when one takes over would only have to be undone when it lets go.
   useEffect(() => {
     usePlayerTransport.getState().setLocalTrack(currentTrack
-      ? { title: localTrackTitle(currentTrack.name), durationMs: musicDuration * 1000 }
+      ? {
+        // An ID3 title replaces the filename, as it does on the device.
+        title: currentTrack.tags?.title || localTrackTitle(currentTrack.name),
+        durationMs: musicDuration * 1000,
+        artist: currentTrack.tags?.artist,
+        album: currentTrack.tags?.album,
+      }
       : null)
   }, [currentTrack, musicDuration])
   useEffect(() => () => usePlayerTransport.getState().setLocalTrack(null), [])

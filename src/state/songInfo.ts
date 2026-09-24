@@ -87,8 +87,11 @@ export function songInfoOutputs(info: SongInfo): Record<string, string | number 
 
 /** The readings the browser can honestly supply. */
 export interface SongInfoSources {
-  /** Track name the library knows, which is a filename rather than a tag. */
+  /** The track's ID3 title, or its filename when it has none. */
   title?: string | null
+  /** Read from the file's own tags, never guessed from its name. */
+  artist?: string | null
+  album?: string | null
   posMs?: number | null
   durationMs?: number | null
   playing?: boolean | null
@@ -105,10 +108,10 @@ function finite(value: unknown): number {
 /**
  * Fold what the browser knows into the same shape the device reports.
  *
- * Tag fields stay empty on purpose. The browser has a filename and an analysis,
- * not an ID3 frame, and filling artist with a guess taken from the filename
- * would put a wrong name on a screen — which is worse than a blank row, because
- * a blank row is obviously blank.
+ * Tag fields are filled only from the file's own ID3 frames, which the preview
+ * reads for a local track exactly as the device does. Otherwise they stay
+ * empty: filling artist with a guess taken from the filename would put a wrong
+ * name on a screen — worse than a blank row, which is obviously blank.
  */
 export function resolveSongInfo(sources: SongInfoSources): SongInfo {
   const durationSec = Math.max(0, finite(sources.durationMs) / 1000)
@@ -120,6 +123,8 @@ export function resolveSongInfo(sources: SongInfoSources): SongInfo {
   return {
     ...blankSongInfo(),
     title: String(sources.title ?? ''),
+    artist: String(sources.artist ?? ''),
+    album: String(sources.album ?? ''),
     status: !loaded ? 'STOPPED' : playing ? 'PLAYING' : 'PAUSED',
     playing,
     elapsedSec,
