@@ -380,11 +380,6 @@ interface GraphState {
  */
 type HistorySlice = Pick<GraphState, 'nodes' | 'edges' | 'graphData' | 'displayDocuments'>
 
-// Legacy node types folded into bundled nodes (Noise / Math / Transition /
-// Blend), mapped to the bundle plus the variant property that selects the old
-// behaviour. Graphs exported before consolidation still reference the old
-// types; upgrade them on import so they keep working and gain the inline
-// variant dropdown.
 // Scene-level sources that are not bench parts but still stay in the parent
 // graph when a selection is encapsulated: each is one resource the whole scene
 // shares, so a reusable pattern that sealed one inside could not be dropped

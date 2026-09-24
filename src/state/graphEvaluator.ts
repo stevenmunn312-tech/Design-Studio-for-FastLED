@@ -8739,9 +8739,7 @@ function createEvalNode(
         const bass   = num(id, 'bass',   props, 'bass',   0.5)
         const mids   = num(id, 'mids',   props, 'mids',   0.5)
         const treble = num(id, 'treble', props, 'treble', 0.5)
-        // The 0.5/0.3/0.2 mix used to be hardcoded here and in cppGenerator;
-        // it is now the default of three editable weights. Missing properties
-        // (older saves) fall back to exactly that mix, so the hue is unchanged.
+        // The 0.5/0.3/0.2 mix is the default of three editable weights.
         // `num` reads the stored property straight, and `??` does not catch a
         // non-numeric one — so the sanitising half of `audioHueWeight` is
         // applied to the result, covering a bad field and a bad wire alike.
