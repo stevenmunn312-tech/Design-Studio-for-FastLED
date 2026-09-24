@@ -5,7 +5,7 @@ import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
-import { POWER_FEED_PAIR_GAP } from '../physicalDiagramLayout'
+import { MODULE_PAD_HOLE_RADIUS, POWER_FEED_PAIR_GAP, peripheralPadRadius } from '../physicalDiagramLayout'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { TFT_TRANSPORT_PINS } from '../../../state/tftSurface'
 import { partPinLabelForProperty } from '../../../state/partCatalogue'
@@ -931,10 +931,14 @@ describe('BuildDiagramWorkspace', () => {
     expect(displayMosiTerminal?.style.fill).toBe(displayMosi?.style.stroke)
     expect(controllerMosiTerminal?.style.fill).toBe(displayMosi?.style.stroke)
 
-    // Module overlays fill the complete drilled centre while the photographed
-    // plated annulus remains visible around it. Controller artwork has its own
-    // profile-scaled fill radius and likewise stays inside its metal ring.
-    expect(Number(displayMosiTerminal?.getAttribute('r'))).toBe(5)
+    // Module overlays colour only the drilled hole, at the part's own measured
+    // hole size, so the photographed plated ring stays visible around it.
+    // Controller artwork has its own measured hole and likewise stays inside
+    // its metal ring.
+    const displayPartId = diagram?.querySelector('[data-component-render][href*="oled"], [data-component-render][href*="tft"]')?.getAttribute('data-component-render') ?? ''
+    expect(MODULE_PAD_HOLE_RADIUS[displayPartId], displayPartId).toBeDefined()
+    expect(Number(displayMosiTerminal?.getAttribute('r')))
+      .toBeCloseTo(peripheralPadRadius({ facts: { partId: displayPartId } } as never), 6)
     expect(Number(controllerMosiTerminal?.getAttribute('r')))
       .toBeLessThan(Number(diagram?.querySelector('[data-terminal="controller-usb"] circle')?.getAttribute('r')))
     expect(diagram?.querySelector('[data-net-stub-for="sd-card:sd-power"]')?.getAttribute('data-net-stub')).toBe('v5')

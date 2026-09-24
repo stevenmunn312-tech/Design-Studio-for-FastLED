@@ -139,9 +139,9 @@ describe('audio module pads', () => {
     const points = Array.from({ length: 7 }, (_, index) => peripheralPadPoint(layout, index))
 
     // The 400 x 568 portrait render is centred inside the wider module cell.
-    expect(points[0].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (31.5 * 159 / 568), 4)
-    expect(points[6].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (367.5 * 159 / 568), 4)
-    expect(points[0].y).toBeCloseTo(20 + (545 * 159 / 568), 4)
+    expect(points[0].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (32 * 159 / 568), 4)
+    expect(points[6].x).toBeCloseTo(10 + ((220 - (159 * 400 / 568)) / 2) + (368 * 159 / 568), 4)
+    expect(points[0].y).toBeCloseTo(20 + (535.7 * 159 / 568), 4)
   })
 
   it('maps PCM1802 clock, data, power, and ground to its six header pads', () => {

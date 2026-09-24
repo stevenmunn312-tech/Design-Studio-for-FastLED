@@ -246,8 +246,6 @@ const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
 const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
 /** The pitch both measured tables above share, for parts with no table yet. */
 const PAD_PITCH_RATIO = 0.0797
-const PAD_X_RATIOS_SD_5V = [0.24, 0.3475, 0.45, 0.55, 0.6525, 0.755]
-const PAD_X_RATIOS_SD_3V3 = [0.135, 0.255, 0.3775, 0.5, 0.6225, 0.745, 0.87]
 
 /** Header-hole centres measured in each audio render's own pixel space. */
 /*
@@ -296,12 +294,14 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // index. These were the last hand-placed pads on the sheet: the diagram drew
   // a six-pad column down the left margin of every microphone, a shape no
   // microphone render has.
-  'inmp441-i2s-microphone': padRow([33.7, 100, 166.6, 232.5, 298.5, 365.2], 400, 243.9, 282),
+  'inmp441-i2s-microphone': padRow([34, 100.4, 166.8, 233.2, 299.6, 366], 400, 244.8, 282),
   'ics-43434-i2s-microphone': padRow([104.7, 142.4, 180.7, 218.4, 256.6, 294.4], 400, 255.8, 286),
   'generic-i2s-mems-microphone': padRow([41.7, 104.1, 168, 231, 294.8, 357.2], 400, 204.4, 248),
   'sph0645lm4h-i2s-microphone': padRow([55.5, 113.2, 170.4, 228.7, 285.8, 343.6], 400, 268.5, 309),
 
-  'max98357a-i2s-amplifier': padRow([31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5], 400, 545, 568),
+  // Measured from the drilled holes. The earlier figure sat 9 px low, on the
+  // board below the header rather than in it.
+  'max98357a-i2s-amplifier': padRow([32, 88, 144, 200, 256, 312, 368], 400, 535.7, 568),
   // Two boards side by side, left then right, seven pads each. The pads are
   // unpopulated silver rings the warm mask cannot see, so they were measured
   // off a ruled crop: the outer rings anchor a 30.55 px pitch on each board.
@@ -310,7 +310,7 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
     274.1, 304.7, 335.2, 365.8, 396.3, 426.9, 457.4,
   ], 483, 299.7, 325),
   'pam8403-3w-stereo-amplifier':
-    padRow([36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366], 400, 254, 287),
+    padRow([36.6, 69.4, 102, 134.6, 167.4, 200.1, 232.6, 265.4, 298.1, 330.7, 363.4], 400, 254.3, 287),
   // The logic pair along the bottom edge, measured at each pad's edge-side
   // hole, the one a header pin or wire takes. Computed from the model's own
   // coordinates (23.75 px/mm, 10 px margin) and checked against the render:
@@ -321,6 +321,11 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // five (XC9044) pads, so SDA, VCC and GND clamped onto one point.
   'ds3231-rtc-module': padPoints(464, 272,
     [[155.2, 252.1], [185.8, 252.1], [216.2, 252.1], [246.7, 252.1], [277.1, 252.1], [307.7, 252.1]]),
+  // microSD boards, measured from their drilled holes. Until these existed an
+  // SD card was placed by a guessed spread over an assumed 400x690 picture,
+  // which the 3.3 V breakout (400x424) is nothing like.
+  'microsd-module-5v': padRow([96.2, 137.8, 179.2, 220.8, 262.1, 303.8], 400, 669.1, 694),
+  'microsd-breakout-3v3': padRow([53, 102, 151, 200, 249, 298, 347], 400, 395.6, 424),
   'jaycar-xc9044-rtc-module': padPoints(400, 400,
     [[67.5, 349.2], [133.5, 349.1], [199.5, 349.2], [265.5, 349.1], [331.6, 349.2]]),
   // Six-pin header VIN, GND, SCL, SDA, VIN-, VIN+, measured from the render's
@@ -341,8 +346,11 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
     [66.5, 55.6], [119.6, 55.1], [172.7, 55.6], [226.5, 55.2], [279.2, 55.2], [332.7, 55.1],
     [146.2, 304.5], [182, 304.5], [217.3, 304.6], [252.7, 304.6],
   ]),
+  // The bottom row of nine; the six along the top edge are uncatalogued
+  // configuration pads. Re-measured when the render changed from a 504 px
+  // square to 504x324, which the old figure still assumed.
   'uda1334a-i2s-dac':
-    padRow([128, 159, 190, 221, 252, 283, 314, 345, 376], 504, 468, 504),
+    padRow([130.2, 160.5, 191.2, 221.5, 251.9, 282.5, 312.9, 343.5, 373.8], 504, 285, 324),
 
   // Displays. The OLED and TFT headers run along the bottom edge; the
   // MAX7219's runs down its left side, which is the IN end of a part built to
@@ -357,12 +365,15 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'ssd1306-oled-096-128x64-i2c': padRow([145.7, 181.5, 217.5, 253.1], 400, 370.8, 414),
   // A Grove part: four contacts inside a keyed connector rather than pads.
   'tm1637-4digit-display': padRow([210, 240, 271, 301], 512, 259, 296),
-  'max7219-8digit-7segment': padColumn(17.5, 992, [33, 63, 93.5, 124, 153], 188),
+  'max7219-8digit-7segment': padColumn(18.3, 992, [33, 63.6, 94, 124.5, 154.9], 188),
   'st7789-tft-240x240':
     padRow([94.5, 125.5, 155.5, 186.5, 216.5, 247.5, 277.5, 308.5], 404, 505, 545),
+  // Re-measured when the render became a 651x1169 portrait board: the old
+  // figures described a 935x521 landscape picture and put every pad 50 px
+  // below the header.
   'st7789v-xpt2046-touch-240x320': padRow(
-    [269, 299, 330.2, 360.3, 390.9, 421.1, 452, 482.5, 512.9, 543.2, 574, 604.3, 635.3, 664.9],
-    935, 500.9, 521,
+    [78.1, 116.2, 154.3, 192.3, 230.4, 268.4, 306.5, 344.5, 382.6, 420.6, 458.7, 496.7, 534.8, 572.9],
+    651, 1073.2, 1169,
   ),
   'ili9341-xpt2046-touch-320x240': padRow(
     [316.6, 346.2, 376.8, 407.6, 438, 468.3, 498.7, 529.1, 560, 590.4, 621.1, 651.2],
@@ -636,37 +647,92 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
 
+/**
+ * Where a part's render actually lands inside its peripheral box. The image
+ * uses `preserveAspectRatio="meet"`, so source-space measurements map through
+ * this fitted box rather than through the box itself.
+ */
+function fittedRenderBox(partId: string) {
+  const render = partById(partId)?.render
+  if (!render) return null
+  const sourceAspect = render.widthPx / render.heightPx
+  const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
+  const width = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
+  const height = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
+  return {
+    width,
+    height,
+    offsetX: (PERIPHERAL_RENDER_W - width) / 2,
+    offsetY: (PERIPHERAL_RENDER_H - height) / 2,
+    scale: width / render.widthPx,
+  }
+}
+
+/** Radius a pad is coloured at when its part has no hole measurement. */
+export const DEFAULT_PAD_HOLE_RADIUS = 4
+
+/**
+ * Each part's drilled-hole radius in its own render's pixels, measured from the
+ * render's transparency (the area-equivalent radius of the see-through hole).
+ *
+ * A pad is coloured at exactly this size, so the colour fills the hole and the
+ * plated ring around it stays visible. One fixed radius for every part painted
+ * over the rings of the fine-pitch boards and floated inside the large ones. A
+ * part whose header comes fitted (the XC4630 shield) has no open hole, so its
+ * figure is the pin tip. Screw terminals take their part's header figure — a
+ * marker, not a claim about the screw. Re-measure when a render is replaced.
+ */
+export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
+  'inmp441-i2s-microphone': 13,
+  'ics-43434-i2s-microphone': 6.4,
+  'generic-i2s-mems-microphone': 10.5,
+  'sph0645lm4h-i2s-microphone': 9.6,
+  'max98357a-i2s-amplifier': 10.5,
+  'max98357a-stereo-pair': 5.1,
+  'pam8403-3w-stereo-amplifier': 5.6,
+  'lr7843-mosfet-module': 12.3,
+  'ds3231-rtc-module': 5.9,
+  'jaycar-xc9044-rtc-module': 12.3,
+  'adafruit-ina219-current-sensor': 7,
+  'pcm5102a-i2s-dac': 11.5,
+  'dx-0809-stereo-amplifier': 6.1,
+  'pam8610-stereo-amplifier': 4.9,
+  'uda1334a-i2s-dac': 5.1,
+  'sh1106-oled-128x64': 5.9,
+  'sh1106-oled-096-128x64-spi': 6.6,
+  'sh1106-oled-128x64-i2c': 6.1,
+  'ssd1306-oled-128x64': 6.7,
+  'ssd1306-oled-096-128x64-i2c': 6.6,
+  'tm1637-4digit-display': 5.6,
+  'max7219-8digit-7segment': 4.7,
+  'st7789-tft-240x240': 5.9,
+  'st7789v-xpt2046-touch-240x320': 7.2,
+  'ili9341-xpt2046-touch-320x240': 6,
+  'ili9341-xc4630-parallel-touch-320x240': 3,
+  'microsd-module-5v': 8.1,
+  'microsd-breakout-3v3': 9.6,
+}
+
+/** The radius a part's pads are coloured at on the sheet: its hole, scaled like its render. */
+export function peripheralPadRadius(item: HardwareManifestItem) {
+  const partId = String(item.facts.partId ?? '')
+  const radius = MODULE_PAD_HOLE_RADIUS[partId]
+  const box = fittedRenderBox(partId)
+  return radius === undefined || !box ? DEFAULT_PAD_HOLE_RADIUS : radius * box.scale
+}
+
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
   // Any module with measured geometry uses it, whatever kind it is. Gating this
   // on the audio kinds is why every other part's wires met its picture wherever
   // an even spread happened to land.
   const measuredPartId = String(layout.item.facts.partId ?? '')
   const measured = MODULE_PAD_GEOMETRY[measuredPartId]
-  const measuredEntry = partById(measuredPartId)
-  if (measured && measuredEntry?.render) {
-    // The image uses `preserveAspectRatio="meet"`; derive the same fitted box
-    // before mapping source-space pad measurements into the diagram.
-    const sourceAspect = measuredEntry.render.widthPx / measuredEntry.render.heightPx
-    const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
-    const renderWidth = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
-    const renderHeight = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
-    const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
-    const offsetY = (PERIPHERAL_RENDER_H - renderHeight) / 2
+  const box = fittedRenderBox(measuredPartId)
+  if (measured && box) {
     const [xRatio, yRatio] = measured[Math.min(Math.max(padIndex, 0), measured.length - 1)]
     return {
-      x: layout.x + offsetX + (xRatio * renderWidth),
-      y: layout.y + offsetY + (yRatio * renderHeight),
-    }
-  }
-  if (layout.item.kind === 'sd-card') {
-    const ratios = isThreeVoltSd(layout.item) ? PAD_X_RATIOS_SD_3V3 : PAD_X_RATIOS_SD_5V
-    const sourceAspect = 400 / 690
-    const renderWidth = PERIPHERAL_RENDER_H * sourceAspect
-    const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
-    const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
-    return {
-      x: layout.x + offsetX + (ratio * renderWidth),
-      y: layout.y + (0.948 * PERIPHERAL_RENDER_H),
+      x: layout.x + box.offsetX + (xRatio * box.width),
+      y: layout.y + box.offsetY + (yRatio * box.height),
     }
   }
   const count = peripheralPadCount(layout.item)

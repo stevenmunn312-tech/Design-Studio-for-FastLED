@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MODULE_PAD_GEOMETRY, peripheralPadPoint, peripheralPadCount } from '../physicalDiagramLayout'
+import { DEFAULT_PAD_HOLE_RADIUS, MODULE_PAD_GEOMETRY, MODULE_PAD_HOLE_RADIUS, peripheralPadPoint, peripheralPadCount, peripheralPadRadius } from '../physicalDiagramLayout'
 import { partById } from '../../../state/partCatalogue'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 import type { ItemLayout } from '../physicalDiagramLayout'
@@ -22,6 +22,20 @@ describe('measured pad geometry', () => {
     for (const partId of ['sh1106-oled-128x64', 'ssd1306-oled-128x64',
       'tm1637-4digit-display', 'max7219-8digit-7segment']) {
       expect(MODULE_PAD_GEOMETRY[partId], partId).toBeDefined()
+    }
+  })
+
+  /*
+   * A pad is coloured at its hole's size, so a part whose pad centres were
+   * measured needs its hole measured too — without one it falls back to a
+   * generic radius that paints over a small board's plated rings.
+   */
+  it('knows the hole size of every part whose pads it knows', () => {
+    for (const [partId] of entries) {
+      const radius = MODULE_PAD_HOLE_RADIUS[partId]
+      expect(radius, partId).toBeGreaterThan(0)
+      const item = layoutFor(partId, 'amplifier').item
+      expect(peripheralPadRadius(item), partId).not.toBe(DEFAULT_PAD_HOLE_RADIUS)
     }
   })
 

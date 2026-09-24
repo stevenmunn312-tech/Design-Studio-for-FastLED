@@ -54,6 +54,8 @@ import {
   peripheralLaneBase,
   peripheralPadLabel,
   peripheralPadPoint,
+  peripheralPadRadius,
+  DEFAULT_PAD_HOLE_RADIUS,
   peripheralPowerNet,
   peripheralPowerPadIndex,
   peripheralSignalPadIndex,
@@ -147,6 +149,12 @@ interface ControllerRenderSpec {
   lastPinY: number
   /** Pads per rail, and the anchor id prefixes the board profile uses. */
   pinsPerRail: number
+  /**
+   * Drilled-hole radius in source pixels, read off the render (the dark centre
+   * inside the plated ring). A terminal is coloured at this size so the ring
+   * stays visible around it.
+   */
+  holeRadiusPx: number
   leftPrefix: string
   rightPrefix: string
   /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels. */
@@ -170,7 +178,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     href: devKitCBoardRender,
     sourceWidth: 800, sourceHeight: 2199, imageWidthMm: 25.7215,
     leftPinX: 45.400, rightPinX: 754.600, firstPinY: 45.783, lastPinY: 1700.583,
-    pinsPerRail: 22, leftPrefix: 'j1', rightPrefix: 'j3',
+    pinsPerRail: 22, holeRadiusPx: 15, leftPrefix: 'j1', rightPrefix: 'j3',
     powerAnchors: { v3v3: 'j1-1', ground: 'j3-22' },
     // The UART port, not the native-USB one: that's the port this app's upload
     // path drives, so it's the one a builder will have a cable in.
@@ -186,7 +194,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     href: lolinS3BoardRender,
     sourceWidth: 800, sourceHeight: 2262, imageWidthMm: 26.1458,
     leftPinX: 55.7763, rightPinX: 744.2237, firstPinY: 211.8, lastPinY: 1955.8,
-    pinsPerRail: 20, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 20, holeRadiusPx: 10.5, leftPrefix: 'left', rightPrefix: 'right',
     powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
     // The UART port on the right, not the OTG port on the left.
     usbPoint: { x: 560, y: 2180 },
@@ -200,7 +208,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     href: xiaoBoardRender,
     sourceWidth: 800, sourceHeight: 1046, imageWidthMm: 18.1266,
     leftPinX: 64.5497, rightPinX: 735.4503, firstPinY: 134.943, lastPinY: 805.8435,
-    pinsPerRail: 7, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 7, holeRadiusPx: 15, leftPrefix: 'left', rightPrefix: 'right',
     // This board has exactly one 3V3 and one GND, adjacent on the left rail.
     powerAnchors: { v3v3: 'left-5', ground: 'left-6' },
     usbPoint: { x: 400, y: 1029.477 },
@@ -214,7 +222,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     href: genericN16R8BoardRender,
     sourceWidth: 800, sourceHeight: 1886, imageWidthMm: 28.3544,
     leftPinX: 83.4285, rightPinX: 716.5715, firstPinY: 147.7725, lastPinY: 1648.7433,
-    pinsPerRail: 22, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 22, holeRadiusPx: 13.5, leftPrefix: 'left', rightPrefix: 'right',
     // 3V3 tops the left rail and GND ends the right, so the two stubs leave
     // opposite edges and opposite ends of the board.
     powerAnchors: { v3v3: 'left-1', ground: 'right-22' },
@@ -229,7 +237,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     href: devKit38BoardRender,
     sourceWidth: 800, sourceHeight: 1718, imageWidthMm: 28.2828,
     leftPinX: 60.6246, rightPinX: 739.3754, firstPinY: 137.7216, lastPinY: 1425.3767,
-    pinsPerRail: 19, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 19, holeRadiusPx: 15, leftPrefix: 'left', rightPrefix: 'right',
     // Row 1 of each rail: 3V3 on the left, GND on the right, so the two stubs
     // leave opposite edges at the same height.
     powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
@@ -242,7 +250,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     href: esp32DevKitV1BoardRender,
     sourceWidth: 800, sourceHeight: 1631, imageWidthMm: 28.354,
     leftPinX: 60.879, rightPinX: 739.121, firstPinY: 231.571, lastPinY: 1244.714,
-    pinsPerRail: 15, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 15, holeRadiusPx: 15, leftPrefix: 'left', rightPrefix: 'right',
     // Both rails carry a GND pad (left-14 and right-14) on the same net; the
     // left one is used so the ground and 3V3 stubs leave opposite edges. On
     // the right rail they would be adjacent pads, close enough for the ground
@@ -735,13 +743,9 @@ function routeToControlPad(
   return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
 }
 
-const PHOTO_TERMINAL_FILL_RATIO = 0.58
-// The photographed modules already contain the plated annulus. Fill the full
-// drilled centre while leaving that rasterised metal ring visible around it.
-const MODULE_TERMINAL_FILL_RADIUS = 5
 
 function controllerTerminalFillRadius(render: ControllerRender) {
-  return Math.max(2.5, controllerTerminalRadius(render) * PHOTO_TERMINAL_FILL_RATIO)
+  return render.holeRadiusPx * (render.width / render.sourceWidth)
 }
 
 function LedPixels({ x, y, width, height, singleRow = false }: { x: number; y: number; width: number; height: number; singleRow?: boolean }) {
@@ -907,6 +911,9 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   const channelSelectPadIndex = micChannelSelectPadIndex(item)
   const powerNet = peripheralPowerNet(item)
   const sharedPads = sharedPadsAcrossBoards(String(item.facts.partId ?? ''))
+  // The photographed modules already draw each plated ring; colour only the
+  // drilled hole inside it, at this part's own measured hole size.
+  const padRadius = peripheralPadRadius(item)
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 12} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
@@ -941,7 +948,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
           photographed pad order for each module variant. */}
       {powerPadIndex !== null && (
         <g data-terminal={`${item.id}-3v3`}>
-          <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralPowerTerminal} ${styles.photoTerminalFill}`} />
+          <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r={padRadius} className={`${styles.peripheralPowerTerminal} ${styles.photoTerminalFill}`} />
           <title>{powerNet === 'v12' ? 'VCC · 12V, from a separate amplifier supply' : powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
         </g>
       )}
@@ -951,7 +958,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
         const presentation = signalPresentation(connection)
         return (
           <g key={connection.id} data-terminal={`${item.id}-${connection.id}`} data-signal-role={presentation.role}>
-            <circle cx={point.x} cy={point.y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralSignalTerminal} ${styles.photoTerminalFill}`} style={{ fill: presentation.color }} />
+            <circle cx={point.x} cy={point.y} r={padRadius} className={`${styles.peripheralSignalTerminal} ${styles.photoTerminalFill}`} style={{ fill: presentation.color }} />
             <title>{padLabel(padIndex)} · {connectionPinLabel(connection)}</title>
           </g>
         )
@@ -960,7 +967,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
         <circle
           cx={peripheralPadPoint(layout, groundPadIndex).x}
           cy={peripheralPadPoint(layout, groundPadIndex).y}
-          r={MODULE_TERMINAL_FILL_RADIUS}
+          r={padRadius}
           className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
         />
         <title>GND</title>
@@ -972,7 +979,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
           <circle
             cx={peripheralPadPoint(layout, channelSelectPadIndex).x}
             cy={peripheralPadPoint(layout, channelSelectPadIndex).y}
-            r={MODULE_TERMINAL_FILL_RADIUS}
+            r={padRadius}
             className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
           />
           <title>{padLabel(channelSelectPadIndex)} · GND for left channel</title>
@@ -999,7 +1006,7 @@ function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: {
       {[['DIN', dataOffset]].map(([label, offset]) => (
         <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`} data-signal-role={presentation.role}>
           <circle cx={x} cy={y + Number(offset)} r="6" fill="#d9a14a" />
-          <circle cx={x} cy={y + Number(offset)} r={MODULE_TERMINAL_FILL_RADIUS} fill={presentation.color} />
+          <circle cx={x} cy={y + Number(offset)} r={DEFAULT_PAD_HOLE_RADIUS} fill={presentation.color} />
           <text x={x + 14} y={y + Number(offset) + 4} className={styles.physicalPinLabel}>{label}</text>
         </g>
       ))}
