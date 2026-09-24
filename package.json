@@ -18,6 +18,7 @@
     "gen:node-cards": "node scripts/generate-node-cards.mjs",
     "gen:ir-compile-fixtures": "node scripts/generate-ir-compile-fixtures.mjs",
     "gen:presence-compile-fixtures": "node scripts/generate-presence-compile-fixtures.mjs",
+    "gen:light-compile-fixtures": "node scripts/generate-light-compile-fixtures.mjs",
     "gen:display-sheets": "node scripts/generate-display-sheets.mjs",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
   },
