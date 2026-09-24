@@ -351,6 +351,11 @@ export function playerDisplaysFromGraph(
   const info: PlayerInfoDisplay[] = []
   const segment: PlayerSegmentDisplay[] = []
   const tft: PlayerTransportDisplay[] = []
+  // The same test `mountedCustomDisplays` applies: a panel naming a design.
+  // Asked of the props directly because this walk takes config-only nodes.
+  const designedPanels = new Set(nodes
+    .filter((node) => node.data.nodeType === 'TransportDisplay' && String(node.data.properties.displayId ?? ''))
+    .map((node) => node.id))
 
   for (const node of nodes) {
     const props = node.data.properties
@@ -399,6 +404,10 @@ export function playerDisplaysFromGraph(
     }
 
     if (node.data.nodeType === 'TransportDisplay') {
+      // A panel drawing a screen design is the custom-display half's to emit.
+      // Emitting a fixed layout for it too painted both onto one glass and
+      // read the digitiser twice — once for LVGL, once for fixed hit regions.
+      if (designedPanels.has(node.id)) continue
       const partId = String(props.partId ?? 'st7789-tft-240x240')
       const part = partById(partId)
       // Touch leaves through the Touch node that names this panel, not through
