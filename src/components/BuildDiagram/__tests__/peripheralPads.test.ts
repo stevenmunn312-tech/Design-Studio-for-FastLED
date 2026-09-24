@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   peripheralPadCount, peripheralPadLabel, peripheralPowerPadIndex,
   peripheralGroundPadIndex, peripheralSignalPadIndex, peripheralPowerNet,
-  micChannelSelectPadIndex, MODULE_PAD_GEOMETRY,
+  micChannelSelectPadIndex, MODULE_PAD_GEOMETRY, transceiverEnableBridgePads,
 } from '../physicalDiagramLayout'
 import { MIC_MODULES } from '../../../state/micModules'
 import { partById } from '../../../state/partCatalogue'
@@ -189,5 +189,36 @@ describe('module pads come from the part, not the category', () => {
   it('still draws the uncatalogued modules that predate the catalogue', () => {
     expect(pads(item('encoder-input', 'encoder-module'))).toEqual(['VCC', 'A', 'B', 'SW', 'GND'])
     expect(pads(item('button-input', 'button-module'))).toEqual(['VCC', 'SIG', 'GND'])
+  })
+})
+
+describe('the DMX512 transceiver', () => {
+  const dmx = () => ({
+    ...item('dmx-input', 'max485-rs485-module'),
+    pins: [pin('dmxTxPin'), pin('dmxRxPin'), pin('dmxEnablePin')],
+  })
+
+  it('lands TX on DI, RX on RO and the enable line on DE', () => {
+    const entry = dmx()
+    expect([0, 1, 2].map((index) => peripheralPadLabel(entry, peripheralSignalPadIndex(entry, index))))
+      .toEqual(['DI', 'RO', 'DE'])
+  })
+
+  it('bridges RE to DE, since only DE has a wire', () => {
+    const entry = dmx()
+    const bridge = transceiverEnableBridgePads(entry)!
+    expect(bridge.map((index) => peripheralPadLabel(entry, index))).toEqual(['RE', 'DE'])
+    expect(transceiverEnableBridgePads(item('power-monitor-input', 'adafruit-ina219-current-sensor'))).toBeNull()
+  })
+
+  /*
+   * R1-R4 pull every logic pad up to VCC and RO swings to VCC, so the supply
+   * rail is the logic level the ESP32 sees. 5 V would put 5 V on its RX pin.
+   */
+  it('powers the module from 3V3, on its VCC pad, with GND on GND', () => {
+    const entry = dmx()
+    expect(peripheralPowerNet(entry)).toBe('v3v3')
+    expect(peripheralPadLabel(entry, peripheralPowerPadIndex(entry)!)).toBe('VCC')
+    expect(peripheralPadLabel(entry, peripheralGroundPadIndex(entry))).toBe('GND')
   })
 })

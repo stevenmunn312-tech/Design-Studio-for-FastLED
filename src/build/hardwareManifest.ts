@@ -35,6 +35,7 @@ import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from '../state/powerSwitch'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
+import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 
 export interface HardwarePinUse {
   label: string
@@ -75,7 +76,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'dmx-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -114,6 +115,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PowerMonitorInput',
   'RelayOutput',
   'PowerSwitchOutput',
+  'DMXInput',
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
@@ -206,7 +208,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
         break
       case 'DMXInput':
-        if (String(props.inputMode ?? 'Art-Net') !== 'DMX512') break
+        if (!dmxUsesTransceiver(props)) break
         push(node, `${baseLabel} TX pin`, 'dmxTxPin', props.dmxTxPin)
         push(node, `${baseLabel} RX pin`, 'dmxRxPin', props.dmxRxPin)
         push(node, `${baseLabel} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
@@ -558,14 +560,15 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
    * Every part the workbench owns belongs on a wiring diagram. Board is the one
    * exclusion — it is the thing everything else is wired *to*, drawn as the
    * controller rather than as a peripheral — and DMXInput is the one addition,
-   * since it is a graph-side input that still claims UART pins. An RTC on a
+   * since it is a graph-side input that still claims UART pins, and only in
+   * DMX512 mode, the one where it has a transceiver to draw. An RTC on a
    * non-DS3231 source claims no pins and is not a part on the bench, which
    * `collectPinUses` already encodes, so it falls out here too.
    */
   const hardwareNodes = nodes.filter((node) => {
     const nodeType = node.data.nodeType
     if (nodeType === 'Board') return false
-    if (nodeType === 'DMXInput') return true
+    if (nodeType === 'DMXInput') return dmxUsesTransceiver(node.data.properties as Record<string, unknown>)
     if (!isHardwareNodeType(nodeType)) return false
     if (nodeType === 'RTCInput') {
       return String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231'
@@ -701,6 +704,27 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             senseTerminals: 'Vin+ from supply / Vin- to load',
           },
           reasons: reasons.length > 0 ? reasons : undefined,
+        }
+      }
+      case 'DMXInput': {
+        // Three GPIOs to the transceiver; the bus side (B, A, GND) goes to the
+        // XLR cable, not to the controller, so it travels as facts.
+        const entry = partById(DMX_TRANSCEIVER_PART_ID)
+        const missing = (['dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] as const)
+          .filter((key) => !pins.some((pin) => pin.propertyKey === key))
+        return {
+          ...buildPeripheralItem(node, 'dmx-input', entry?.label ?? 'RS-485 transceiver', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: missing.length === 0,
+          facts: {
+            partId: DMX_TRANSCEIVER_PART_ID,
+            enable: 'RE and DE bridged, on one GPIO',
+            dmxCable: 'XLR pin 1 to GND, pin 2 (Data-) to B, pin 3 (Data+) to A',
+            termination: '120 Ω fitted (R7): keep only on the last device in the chain',
+          },
+          reasons: missing.length === 0
+            ? undefined
+            : [`${physicalBoard?.label ?? 'The selected board'} does not have the DMX512 TX, RX and enable pins configured.`],
         }
       }
       case 'RTCInput':

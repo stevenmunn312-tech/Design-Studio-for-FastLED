@@ -528,6 +528,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 23.75
     }
   },
+  "max485-rs485-module": {
+    "partId": "max485-rs485-module",
+    "label": "MAX485 RS-485 (DMX) transceiver module",
+    "category": "communication",
+    "dimensionsMm": {
+      "width": 15.0,
+      "height": 45.0
+    },
+    "manufacturer": "generic C25B module / Analog Devices (Maxim) MAX485",
+    "logicVoltage": "Logic levels follow VCC: RO swings to VCC and R1-R4 pull RO, RE, DE and DI up to VCC through 10 k",
+    "pinLabelsLeftToRight": [
+      "RO",
+      "RE",
+      "DE",
+      "DI",
+      "VCC",
+      "B",
+      "A",
+      "GND"
+    ],
+    "notes": [
+      "Half-duplex RS-485 transceiver, used here to receive DMX512: RO to the controller's UART RX, DI to its TX, and RE and DE joined to one enable GPIO.",
+      "RE and DE are separate pads. Bridge them with a short wire so one GPIO drives both; driven low, the module listens.",
+      "The MAX485 is specified for 4.75-5.25 V. Powered from 5 V, RO drives 5 V and R1-R4 pull every logic line up to 5 V, which is above an ESP32's 3.6 V pin limit, so a 5 V supply needs a level shifter on RO at least.",
+      "Powered from 3.3 V the module is below its datasheet supply, but RO and every pull-up stay at 3.3 V; esp_dmx and many DMX receivers run it this way. Treat 3.3 V operation as experimental until a bench row confirms it on this board.",
+      "DMX512 on a 5-pin or 3-pin XLR: pin 1 common/shield to GND, pin 2 Data- to B, pin 3 Data+ to A.",
+      "R7 (120 ohm) terminates the line and is fitted at the factory. Keep it only on the last device in a DMX chain; remove it on a receiver in the middle of a run.",
+      "The logic and bus headers are shown unpopulated; the screw terminal is fitted, as the module ships. B and A on the header and the terminal are the same nets.",
+      "Low-cost supplier revisions change silkscreen and resistor placement. Follow the markings on the exact board in hand."
+    ],
+    "render": {
+      "file": "parts/max485-rs485-module.webp",
+      "widthPx": 400,
+      "heightPx": 1160,
+      "pxPerMm": 25.333
+    }
+  },
   "max7219-8digit-7segment": {
     "partId": "max7219-8digit-7segment",
     "label": "MAX7219 8-digit 7-segment display",

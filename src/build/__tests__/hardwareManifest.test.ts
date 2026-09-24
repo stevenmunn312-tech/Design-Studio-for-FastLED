@@ -319,14 +319,30 @@ describe('hardwareManifest', () => {
     expect(ldr?.pins.map((pin) => pin.pin)).toEqual([4])
   })
 
-  it('marks unsupported hardware explicitly instead of pretending to wire it', () => {
-    const manifest = buildHardwareManifest([
+  it('draws a DMX512 input as its transceiver, and holds it back until all three pins are set', () => {
+    const complete = buildHardwareManifest([
+      node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),
+    ], [], 'esp32:esp32:esp32')
+    const item = [...complete.primaryItems, ...complete.unsupportedItems].find((entry) => entry.sourceNodeId === 'dmx')!
+    expect(item.kind).toBe('dmx-input')
+    expect(item.supported).toBe(true)
+    expect(item.facts.partId).toBe('max485-rs485-module')
+    expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin'])
+
+    const partial = buildHardwareManifest([
       node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxRxPin: 16 }),
     ], [], 'esp32:esp32:esp32s3')
+    expect(partial.unsupportedItems.map((entry) => entry.sourceNodeType)).toEqual(['DMXInput'])
+    expect(partial.unsupportedItems[0].kind).toBe('dmx-input')
+    expect(partial.unsupportedItems[0].supported).toBe(false)
+  })
 
-    expect(manifest.unsupportedItems).toHaveLength(1)
-    expect(manifest.unsupportedItems[0].sourceNodeType).toBe('DMXInput')
-    expect(manifest.unsupportedItems[0].supported).toBe(false)
+  it('draws nothing for an Art-Net input, which has no hardware', () => {
+    const manifest = buildHardwareManifest([
+      node('dmx', 'DMXInput', { inputMode: 'Art-Net', dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),
+    ], [], 'esp32:esp32:esp32')
+    expect([...manifest.primaryItems, ...manifest.unsupportedItems]
+      .some((entry) => entry.sourceNodeId === 'dmx')).toBe(false)
   })
 
   it('does not pass SPI or HUB75 outputs into the one-wire build planner', () => {

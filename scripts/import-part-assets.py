@@ -44,6 +44,7 @@ WEBP_QUALITY = 82
 CATEGORIES = {
     "microphone", "amplifier", "storage", "led-output",
     "input-control", "audio-source", "support", "display", "switching-power", "power-monitor",
+    "communication",
 }
 
 # Spellings the modelling pipeline emits that mean an existing category. The

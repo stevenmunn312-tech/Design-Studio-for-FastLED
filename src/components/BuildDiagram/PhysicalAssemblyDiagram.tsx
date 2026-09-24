@@ -44,6 +44,7 @@ import {
   fuseSlotForFeed,
   groundCombLaneY,
   micChannelSelectPadIndex,
+  transceiverEnableBridgePads,
   peripheralGroundPadIndex,
   peripheralLaneBase,
   peripheralPadLabel,
@@ -914,6 +915,10 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   const powerPadIndex = peripheralPowerPadIndex(item)
   const groundPadIndex = peripheralGroundPadIndex(item)
   const channelSelectPadIndex = micChannelSelectPadIndex(item)
+  const enableBridge = transceiverEnableBridgePads(item)
+  const enableConnection = enableBridge
+    ? connections.find((_, index) => peripheralSignalPadIndex(item, index) === enableBridge[1])
+    : undefined
   const powerNet = peripheralPowerNet(item)
   const sharedPads = sharedPadsAcrossBoards(String(item.facts.partId ?? ''))
   // The photographed modules already draw each plated ring; colour only the
@@ -935,6 +940,13 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
       {sharedPads.length > 0 && (
         <text data-shared-pads={sharedPads.join(',')} x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
           {`RIGHT BOARD SHARES ${sharedPads.join(' · ')}`}
+        </text>
+      )}
+      {/* The bus side goes to the DMX cable, not the controller, so no wire
+          on this sheet shows it. Say where each XLR pin lands. */}
+      {item.kind === 'dmx-input' && (
+        <text data-dmx-cable="true" x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
+          XLR 1 → GND · 2 → B · 3 → A
         </text>
       )}
       {render && (
@@ -990,6 +1002,28 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
           <title>{padLabel(channelSelectPadIndex)} · GND for left channel</title>
         </g>
       )}
+      {/* RE has no GPIO of its own: a short jumper ties it to DE, so the one
+          enable wire drives both. Drawn in the enable wire's colour, arching
+          over the board side of the pads: the controller's wires arrive from
+          below, and a bridge dipping under them read as a hook on DE. */}
+      {enableBridge && (() => {
+        const re = peripheralPadPoint(layout, enableBridge[0])
+        const de = peripheralPadPoint(layout, enableBridge[1])
+        const color = enableConnection ? signalPresentation(enableConnection).color : undefined
+        const arch = Math.min(re.y, de.y) - (padRadius * 3)
+        return (
+          <g data-terminal={`${item.id}-enable-bridge`} data-enable-bridge={`${padLabel(enableBridge[0])}-${padLabel(enableBridge[1])}`}>
+            <HoverWire
+              tip={`${padLabel(enableBridge[0])} bridged to ${padLabel(enableBridge[1])} · one enable GPIO drives both`}
+              data-wire={`${item.id}-enable-bridge`}
+              d={`M ${re.x} ${re.y} C ${re.x} ${arch} ${de.x} ${arch} ${de.x} ${de.y}`}
+              className={styles.signalWire}
+              style={{ fill: 'none', ...(color ? { stroke: color } : {}) }}
+            />
+            <circle cx={re.x} cy={re.y} r={padRadius} className={`${styles.peripheralSignalTerminal} ${styles.photoTerminalFill}`} style={color ? { fill: color } : undefined} />
+          </g>
+        )
+      })()}
     </g>
   )
 }

@@ -332,6 +332,12 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // RO, RE, DE, DI along the bottom, then VCC, B, A, GND along the top, the
+  // catalogue's one pad list, measured from the render's drilled holes.
+  'max485-rs485-module': padPoints(400, 1160, [
+    [103, 1094.3], [167.3, 1094.3], [231.7, 1094.3], [296, 1094.3],
+    [103, 64.7], [167.3, 64.7], [231.7, 64.7], [296, 64.7],
+  ]),
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
   // Power amplifiers: screw terminals along the top for supply and speakers,
   // and the line input somewhere else entirely — mid-board holes on the
@@ -500,6 +506,20 @@ export function micChannelSelectPadIndex(item: HardwareManifestItem) {
 }
 
 /**
+ * The RS-485 transceiver's two enable pads, which the build joins with a short
+ * jumper so one GPIO drives both: RE is active low and DE active high, so one
+ * line held low listens and held high talks. Only the enable GPIO is a pin use,
+ * landing on DE; RE has no wire of its own and has to be found by name, like
+ * a microphone's channel-select pad. `null` on anything that is not one.
+ */
+export function transceiverEnableBridgePads(item: HardwareManifestItem): [re: number, de: number] | null {
+  if (item.kind !== 'dmx-input') return null
+  const re = padIndexByLabel(item, ['RE'], -1)
+  const de = padIndexByLabel(item, ['DE'], -1)
+  return re >= 0 && de >= 0 ? [re, de] : null
+}
+
+/**
  * A pad's name without the board it is on. A part made of two boards (the
  * MAX98357A stereo pair) prints `L:BCLK` and `R:BCLK`; the board's wire goes
  * to the first, left, board, whose pads come first.
@@ -599,6 +619,9 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // The LR7843 board prints PWM for its one input; other builds print IN or SIG.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'power-monitor-input': [['SDA'], ['SCL']],
+  // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
+  // reads its RO, and the enable line lands on DE (RE is bridged to it).
+  'dmx-input': [['DI'], ['RO'], ['DE']],
 }
 
 /**
@@ -638,6 +661,12 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // SDA/SCL pull-ups tie to. On the 5 V rail those pull-ups would hold the
   // controller's I2C pins at 5 V, so it takes the logic rail instead.
   if (item.kind === 'power-monitor-input') return 'v3v3'
+  // The MAX485 is rated for 5 V, but its RO swings to VCC and R1-R4 pull all
+  // four logic pads up to VCC, so on 5 V it would drive the ESP32's RX (and
+  // hold TX and the enable line) above the 3.6 V pin limit. On 3V3 every line
+  // stays in range; the module then runs below its datasheet supply, which is
+  // what the part's notes and its experimental support row say.
+  if (item.kind === 'dmx-input') return 'v3v3'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
@@ -694,6 +723,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ds3231-rtc-module': 5.9,
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,
+  'max485-rs485-module': 11.9,
   'pcm5102a-i2s-dac': 11.5,
   'dx-0809-stereo-amplifier': 6.1,
   'pam8610-stereo-amplifier': 4.9,
