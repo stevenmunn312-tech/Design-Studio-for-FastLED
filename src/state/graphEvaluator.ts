@@ -8199,12 +8199,15 @@ function createEvalNode(
          * never seen. Those are read by the player on the device.
          */
         const player = usePlayerTransport.getState()
+        // A show owns the player when one is selected; otherwise the preview
+        // is playing its own playlist, and the file it has open is the track.
+        const track = player.transport ?? player.localTrack
         const songInfo = resolveSongInfo({
-          title: player.transport?.title ?? '',
+          title: track?.title ?? '',
           posMs: player.posMs,
-          durationMs: player.transport?.durationMs ?? 0,
+          durationMs: track?.durationMs ?? 0,
           playing: player.playing,
-          loaded: player.transport !== null,
+          loaded: track !== null,
           volume: runtime.volume,
         })
         // Read *after* the show has run: its own advance moves the same cursor,

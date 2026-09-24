@@ -35,6 +35,16 @@ interface PlayerTransportState {
    * evaluator reaching into the music library to find the file again.
    */
   patternIndex: number
+  /**
+   * The local playlist's current track, while no show owns the player.
+   *
+   * The preview's own `<audio>` element is the only thing that knows which
+   * file is open, so it publishes the name and length here beside posMs. A
+   * Music Player reads this when `transport` is null, which is what lets a
+   * screen design show the track a person just pressed Play on instead of a
+   * blank title and a zero duration.
+   */
+  localTrack: LocalTrackInfo | null
   volume: number
   /** Monotonic command envelope published by a graph-level Control Map
    * bundle. The preview player consumes each serial exactly once. */
@@ -45,7 +55,25 @@ interface PlayerTransportState {
   clearTransport: (nodeId: string) => void
   setPos: (posMs: number, playing: boolean, patternIndex?: number) => void
   setVolume: (v: number) => void
+  setLocalTrack: (track: LocalTrackInfo | null) => void
   dispatchControls: (command: PreviewPlayerCommand) => void
+}
+
+export interface LocalTrackInfo {
+  /** The file name without its extension — what the device shows for a file with no tags. */
+  title: string
+  durationMs: number
+}
+
+/**
+ * Title a file the way the SD player does when it carries no tags.
+ *
+ * Mirrors `songResetFromFile` in codegen/playerSongInfoCpp.ts, so a track reads
+ * the same in preview and on the panel.
+ */
+export function localTrackTitle(fileName: string): string {
+  const dot = fileName.lastIndexOf('.')
+  return dot > 0 ? fileName.slice(0, dot) : fileName
 }
 
 export interface PreviewPlayerCommand {
@@ -76,6 +104,7 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
   posMs: 0,
   playing: false,
   patternIndex: -1,
+  localTrack: null,
   volume: savedVolume(),
   controlSerial: 0,
   controlCommand: null,
@@ -96,6 +125,11 @@ export const usePlayerTransport = create<PlayerTransportState>()((set) => ({
     }
     set({ volume: v })
   },
+  setLocalTrack: (localTrack) => set((state) => (
+    state.localTrack?.title === localTrack?.title && state.localTrack?.durationMs === localTrack?.durationMs
+      ? state
+      : { localTrack }
+  )),
   dispatchControls: (controlCommand) => set((state) => ({
     controlCommand,
     controlSerial: state.controlSerial + 1,

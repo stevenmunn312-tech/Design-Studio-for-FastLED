@@ -5,7 +5,7 @@ import { useAudioStore } from '../../state/audioStore'
 import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/showPlayback'
-import { usePlayerTransport } from '../../state/playerTransport'
+import { localTrackTitle, usePlayerTransport } from '../../state/playerTransport'
 import { usePatternLibrary } from '../../state/patternLibrary'
 import { useMusicStore } from '../../state/musicStore'
 import { showAudioSpectrum } from '../../state/showAudio'
@@ -1029,6 +1029,15 @@ export default function LEDPreview() {
   useEffect(() => {
     if (!transport) usePlayerTransport.getState().setPos(musicCurrentTime * 1000, musicPlaying)
   }, [transport, musicCurrentTime, musicPlaying])
+  // Which file is open, for a Music Player to report. Published whether or not
+  // a show owns the player: the evaluator prefers the show, and clearing this
+  // when one takes over would only have to be undone when it lets go.
+  useEffect(() => {
+    usePlayerTransport.getState().setLocalTrack(currentTrack
+      ? { title: localTrackTitle(currentTrack.name), durationMs: musicDuration * 1000 }
+      : null)
+  }, [currentTrack, musicDuration])
+  useEffect(() => () => usePlayerTransport.getState().setLocalTrack(null), [])
 
   const onTogglePlay = () => (showMode ? transport.toggle() : toggleMusicPlayback())
   const onPrev = () => (showMode ? transport.prev() : prevTrack())
