@@ -1872,6 +1872,37 @@ export const useGraphStore = create<GraphState>()(
       onNodesChange: (changes) => {
         if (changes.some((change) => change.type === 'remove')) scheduleOrphanGraphPrune()
         set((s) => {
+          /*
+           * A panel deleted from the keyboard takes its glass and its design.
+           *
+           * React Flow's Delete key arrives here as plain remove changes, not
+           * through `removeNodeCompletely`, so the pairing that action applies
+           * has to be applied here too — or the Touch node is left pointing at
+           * a panel that no longer exists, and the design at a panel nobody has.
+           */
+          const removedPanels = new Set(changes.flatMap((change) => (
+            change.type === 'remove'
+              && s.nodes.some((node) => node.id === change.id && node.data.nodeType === 'TransportDisplay')
+              ? [change.id] : []
+          )))
+          const companions = s.nodes.filter((node) => node.data.nodeType === 'TouchInput'
+            && removedPanels.has(String(node.data.properties.panelId ?? ''))
+            && !changes.some((change) => change.type === 'remove' && change.id === node.id))
+          if (companions.length > 0) {
+            changes = [...changes, ...companions.map((node) => ({ type: 'remove' as const, id: node.id }))]
+          }
+          const companionIds = new Set(companions.map((node) => node.id))
+          const edges = companionIds.size > 0
+            ? s.edges.filter((edge) => !companionIds.has(edge.source) && !companionIds.has(edge.target))
+            : s.edges
+          let displayDocuments = s.displayDocuments
+          for (const panel of s.nodes.filter((node) => removedPanels.has(node.id))) {
+            const displayId = String(panel.data.properties.displayId ?? '')
+            if (!displayId || !displayDocuments[displayId]) continue
+            if (displayDocuments === s.displayDocuments) displayDocuments = { ...displayDocuments }
+            stashedDisplayHistory.delete(displayId)
+            delete displayDocuments[displayId]
+          }
           let nodes = applyNodeChanges(changes, s.nodes) as StudioNode[]
           // Once a click-to-add node has been measured, lift it by half its
           // height so it settles centred on the drop point (see pendingCentreY).
@@ -1887,7 +1918,7 @@ export const useGraphStore = create<GraphState>()(
           const selectedNodeId = s.selectedNodeId && nodes.some((n) => n.id === s.selectedNodeId)
             ? s.selectedNodeId
             : null
-          return { nodes, selectedNodeId }
+          return { nodes, edges, displayDocuments, selectedNodeId }
         })
       },
 

@@ -1603,6 +1603,25 @@ describe('graphStore — custom display documents', () => {
     expect(useGraphStore.getState().nodes).toEqual([])
     expect(useGraphStore.getState().displayDocuments).toEqual({})
   })
+
+  /*
+   * The canvas Delete key reaches the store as React Flow remove changes, not
+   * through removeNodeCompletely, and left the Touch node and design behind.
+   */
+  it('takes the Touch node and the design when a panel is deleted from the keyboard', () => {
+    reset(
+      [node('screen', 'TransportDisplay', { displayId: 'panel' }), node('glass', 'TouchInput', { panelId: 'screen' }),
+        node('player', 'PatternMaster'), node('other', 'TouchInput', { panelId: 'elsewhere' })],
+      [edge('ctl', 'glass', 'controls', 'player', 'controls')],
+    )
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('panel'))
+    useGraphStore.getState().onNodesChange([{ type: 'remove', id: 'screen' }])
+
+    const state = useGraphStore.getState()
+    expect(state.nodes.map((entry) => entry.id).sort()).toEqual(['other', 'player'])
+    expect(state.edges).toEqual([])
+    expect(state.displayDocuments).toEqual({})
+  })
 })
 
 // todo.md's P0 trust-boundary item: imported/shared/pattern-dropped content
