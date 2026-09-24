@@ -433,7 +433,7 @@ describe('NodeGraphCanvas start screen', () => {
         id: 'panel', type: 'studioNode', position: { x: 0, y: 0 },
         data: {
           nodeType: 'TransportDisplay', label: 'Panel', category: 'output',
-          properties: { ...libraryDefaults('TransportDisplay'), displayId: 'screen' },
+          properties: { ...libraryDefaults('TransportDisplay'), tftLayout: 'Custom design', displayId: 'screen' },
           inputs: [], outputs: [],
         },
       },
@@ -544,7 +544,7 @@ describe('NodeGraphCanvas start screen', () => {
     expect(runTidyMock).toHaveBeenCalledOnce()
   })
 
-  it('opens a panel’s screen design on double-click, and says so when it has none', () => {
+  it('opens a panel’s screen design on double-click only while Custom design is chosen', () => {
     const bare = {
       id: 'tft', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
@@ -560,9 +560,15 @@ describe('NodeGraphCanvas start screen', () => {
     onNodeDoubleClick({}, bare)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
     expect(useUiStore.getState().statusText)
-      .toBe('This panel has no screen design yet — use Create screen design')
+      .toBe('Set the panel Layout to Custom design to create or edit its screen design')
 
-    const drawn = { ...bare, data: { ...bare.data, properties: { displayId: 'panel' } } }
+    // A design set aside for a fixed layout does not open either.
+    const aside = { ...bare, data: { ...bare.data, properties: { tftLayout: 'Now Playing', displayId: 'panel' } } }
+    useGraphStore.getState().loadGraph([aside as never], [])
+    onNodeDoubleClick({}, aside)
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
+
+    const drawn = { ...bare, data: { ...bare.data, properties: { tftLayout: 'Custom design', displayId: 'panel' } } }
     useGraphStore.getState().loadGraph([drawn as never], [])
     onNodeDoubleClick({}, drawn)
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })

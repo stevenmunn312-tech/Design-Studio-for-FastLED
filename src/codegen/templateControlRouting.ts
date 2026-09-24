@@ -69,7 +69,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const incoming = new Map(edges.map((e) => [`${e.target}:${e.targetHandle}`, e]))
   const touchIds = new Set<string>()
-  const custom = customDisplayControlPlan(nodes, documents, context.widgetLabel)
+  const custom = customDisplayControlPlan(nodes, documents, context.widgetLabel, edges)
   const graph = createControlGraph(nodes, edges, [...custom.sources, ...(context.sampledSources ?? [])])
   bindCustomDisplayControls(custom, graph, edges, context.widgetLabel)
   bindCustomDisplaySources(custom, context.sourceExpressions ?? {})

@@ -320,7 +320,7 @@ describe('HardwarePane', () => {
   // called — verified directly here since there is no longer a bench
   // interaction to drive it through.
   it('removes a custom display and its document from the root graph while a group is open', () => {
-    const display = node('TransportDisplay', 'custom-screen', { displayId: 'custom-screen' }) as never
+    const display = node('TransportDisplay', 'custom-screen', { tftLayout: 'Custom design', displayId: 'custom-screen' }) as never
     useGraphStore.setState({
       nodes: [],
       edges: [],

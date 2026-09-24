@@ -6,6 +6,7 @@ import { tftControllerForProps } from '../../state/nodeLibrary'
 import { asTftRotation, rgb565Components, TFT_CONTROLLERS, tftRotatedSize, type TftSurface } from '../../state/tftSurface'
 import { displayHasTouch } from '../../state/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
+import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../../state/transportDisplay'
 import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
 import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displayTheme'
 import DisplayWidgetPreview from '../DisplayEditor/DisplayWidgetPreview'
@@ -31,9 +32,12 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   // The screen drawn on this panel, which the panel owns. Resolved here so the
   // compact panel and the editor Run surface share the same live widget
   // renderer and values.
-  const customDisplayId = useGraphStore((state) => String(
-    state.nodes.find((entry) => entry.id === nodeId)?.data.properties.displayId ?? '',
+  // Showing, not merely having: a design set aside for a fixed layout is kept
+  // for when Custom design is chosen again, and draws nothing meanwhile.
+  const customDisplayId = useGraphStore((state) => shownDesignId(
+    state.nodes.find((entry) => entry.id === nodeId)?.data.properties ?? {},
   ))
+  const customSelected = String((props as Record<string, unknown> | undefined)?.tftLayout ?? '') === CUSTOM_DESIGN_LAYOUT
   const customDocument = useGraphStore((state) => (customDisplayId
     ? state.displayDocuments[customDisplayId]
     : undefined))
@@ -71,22 +75,37 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     setStatus('Screen design added to this panel', 'success')
   }, [createScreenDesignForPanel, nodeId, openDisplayWorkspace, setStatus])
 
-  const designAction = customDisplayWired
+  /*
+   * The Layout dropdown decides; this button only follows it. A fixed layout
+   * shows the button disabled with the reason beside it, so the design is
+   * always one choice away rather than something that, once opened, took the
+   * fixed layouts with it.
+   */
+  const designAction = !customSelected
     ? (
-        <button
-          type="button"
-          className={`nodrag ${styles.designAction}`}
-          disabled={!customDocument}
-          onClick={() => { if (customDocument) openDisplayWorkspace(customDisplayId) }}
-        >
-          Edit screen design
-        </button>
+        <>
+          <button type="button" className={`nodrag ${styles.designAction}`} disabled>
+            Edit screen design
+          </button>
+          <span className={styles.designNote}>Set Layout to {CUSTOM_DESIGN_LAYOUT} to edit.</span>
+        </>
       )
-    : (
-        <button type="button" className={`nodrag ${styles.designAction}`} onClick={createScreenDesign}>
-          Create screen design
-        </button>
-      )
+    : customDisplayWired
+      ? (
+          <button
+            type="button"
+            className={`nodrag ${styles.designAction}`}
+            disabled={!customDocument}
+            onClick={() => { if (customDocument) openDisplayWorkspace(customDisplayId) }}
+          >
+            Edit screen design
+          </button>
+        )
+      : (
+          <button type="button" className={`nodrag ${styles.designAction}`} onClick={createScreenDesign}>
+            Create screen design
+          </button>
+        )
 
   const updateTouch = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current

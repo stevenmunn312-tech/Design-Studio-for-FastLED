@@ -44,7 +44,7 @@ function playerGraph(document: DisplayDocument, extraEdges: StudioEdge[] = []) {
     nodes: [
       node('player', 'PatternMaster'), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
       node('sd', 'SDCard'), node('amp', 'Amplifier'),
-      node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen' }),
+      node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen' }),
       node('touch', 'TouchInput', { panelId: 'tft' }),
     ],
     edges: [
@@ -184,7 +184,7 @@ describe('design controls on the Touch node bundle', () => {
     const raw = {
       nodes: [
         node('fill', 'SolidColor'), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
-        node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen' }),
+        node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen' }),
         node('touch', 'TouchInput', { panelId: 'tft' }),
       ],
       edges: [edge('fill', 'frame', 'out', 'frame'), edge('touch', 'controls', 'out', 'controls')],

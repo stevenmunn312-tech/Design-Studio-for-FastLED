@@ -5294,7 +5294,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   TransportDisplay: {
     enabled: 'Turns the panel off without removing it from the build: the screen goes dark, touch is not read, and anything it publishes rests at zero. It is still compiled and can be switched back on, so wire this to a button or a schedule to darken a screen at night. Unwired, the panel stays on.',
-    tftLayout: 'Presentation for the connected Display source. Diagnostics shows a panel self-test and mapped touch coordinates; disconnect Screen Design to use it. Select the previous presentation to return to your content.',
+    tftLayout: 'Presentation for the connected Display source, or Custom design for the panel\'s own screen. Diagnostics shows a panel self-test and mapped touch coordinates. Choosing a fixed layout sets a custom design aside; Custom design brings it back as it was.',
   },
   StereoVuMeter: {
     targetOutputId: 'The LED matrix or HUB75 panel these rails visually flank. Empty keeps the fixture standalone.',

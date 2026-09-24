@@ -312,9 +312,11 @@ node. Fixed Show Status and Clock screens have no touch actions.
 
 1. Add a physical **Display panel** and choose its exact module. Set its
    GPIO/touch pins in Hardware.
-2. Click **Create screen design** on that panel's graph node. This mints
-   a design on the panel itself — already sized to the glass — and opens
-   the editor. There is no second node and no Screen Design cable. The
+2. Set the panel's **Layout** to **Custom design**, then click **Edit
+   screen design** on its graph node. This mints a design on the panel
+   itself — already sized to the glass — and opens the editor. Switching
+   Layout back to a fixed presentation sets the design aside; choosing
+   Custom design again restores it. There is no second node and no Screen Design cable. The
    panel keeps its Display wire: that source is what bound widgets read.
 3. In **Design**, place widgets or a template, then edit labels, bounds,
    theme and assets. A template whose destination is unambiguous draws

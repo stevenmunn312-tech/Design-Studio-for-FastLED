@@ -64,6 +64,25 @@ const TRANSPORT_LAYOUTS_BY_KIND: Record<DisplaySignalKind, readonly TransportDis
   ledOutput: ['LED Status'],
 }
 
+/**
+ * The Layout choice that draws the panel's own screen design.
+ *
+ * A panel keeps its design once one exists, whatever it is showing: choosing
+ * a fixed layout sets the design aside rather than deleting it, and choosing
+ * this again brings it back as it was, wires and all. So "has a design" and
+ * "is showing it" are two facts, and everything that means the second —
+ * what is drawn, what touch reads, what firmware builds — asks
+ * `shownDesignId` rather than reading `displayId`.
+ */
+export const CUSTOM_DESIGN_LAYOUT = 'Custom design'
+
+/** The design this panel is drawing, or '' when it shows a fixed layout. */
+export function shownDesignId(panelProps: Readonly<Record<string, unknown>>): string {
+  return String(panelProps.tftLayout ?? '') === CUSTOM_DESIGN_LAYOUT
+    ? String(panelProps.displayId ?? '')
+    : ''
+}
+
 /** Choices that can actually affect the currently wired source, plus self-test. */
 export function transportLayoutChoicesForKind(
   kind: DisplaySignalKind | null,

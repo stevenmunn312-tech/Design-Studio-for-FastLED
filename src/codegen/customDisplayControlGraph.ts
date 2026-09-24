@@ -6,6 +6,7 @@ import { customDisplayMountPlan, mountedPanelGeometry, mountedSizeIssue } from '
 import { parseDisplayWidgetPortId } from '../state/displayRegistry'
 import { controlReferenceCpp, type ControlReference, type createControlGraph } from './controlGraph'
 import { customDisplayId } from './customDisplayId'
+import { shownDesignId } from '../state/transportDisplay'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
 import { customDisplayLvglOutputExpression, type CustomDisplayLvglEmit, type CustomDisplayLvglBinding } from './customDisplayLvglCpp'
 import { resolveBoundWidgets, type DisplaySourceExpressions } from './displaySourceExpressions'
@@ -45,6 +46,7 @@ export function customDisplayControlPlan(
   nodes: StudioNode[],
   documents: DisplayDocumentRegistry = {},
   generatorLabel = 'the show',
+  edges: readonly StudioEdge[] = [],
 ) {
   const errors: string[] = [], sources: ControlReference[] = []
   // Bindings this generator has no reading for. Separate from `errors` on
@@ -116,7 +118,31 @@ export function customDisplayControlPlan(
       // the generator's fact, not the plan's.
       widgetSources: panelNode.data.properties.widgetSources }]
   })
-  return { displays, errors, sources, unresolvedSources }
+  /*
+   * A design set aside for a fixed layout keeps its widget ports and wires, so
+   * the graph can still name them. They read at rest — the value a disabled
+   * panel's controls report — rather than being refused, so choosing a fixed
+   * layout for a while never costs the wiring that comes back with the design.
+   */
+  const resting: CustomDisplaySample[] = []
+  for (const panelNode of nodes) {
+    if (panelNode.data.nodeType !== 'TransportDisplay') continue
+    const heldId = String(panelNode.data.properties.displayId ?? '')
+    if (!heldId || shownDesignId(panelNode.data.properties)) continue
+    const document = documents[heldId]
+    const touchNode = nodes.find((candidate) => candidate.data.nodeType === 'TouchInput'
+      && String(candidate.data.properties.panelId ?? '') === panelNode.id)
+    if (!document || !touchNode) continue
+    for (const port of document.widgets.flatMap(displayWidgetPorts)) {
+      if (port.direction !== 'output' || (port.dataType !== 'bool' && port.dataType !== 'float')) continue
+      // Only what something reads: an unread resting local is a warning.
+      if (!edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === port.id)) continue
+      const reference = { nodeId: touchNode.id, port: port.id, type: port.dataType }
+      sources.push(reference)
+      resting.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: port.dataType === 'bool' ? 'false' : '0.0f' })
+    }
+  }
+  return { displays, errors, sources, unresolvedSources, resting }
 }
 
 export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[], generatorLabel = 'the show'): void {

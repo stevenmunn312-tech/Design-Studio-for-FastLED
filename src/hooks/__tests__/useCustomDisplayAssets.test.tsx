@@ -11,17 +11,17 @@ vi.mock('../../utils/bakeCustomDisplayAssets', () => ({ bakeCustomDisplayAssets:
 const screenNode = {
   id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
   data: { nodeType: 'TransportDisplay', label: 'Touch panel', category: 'output',
-    properties: { displayId: 'document' }, inputs: [], outputs: [] },
+    properties: { tftLayout: 'Custom design', displayId: 'document' }, inputs: [], outputs: [] },
 } as StudioNode
 
 /** A panel with a design of its own. There is nothing to plug it into. */
 function panelNode(id: string, displayId: string): StudioNode {
   return { ...screenNode, id, data: { ...screenNode.data, label: id,
-    properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId } } } as StudioNode
+    properties: { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId } } } as StudioNode
 }
 
 const nodes = [{ ...screenNode, data: { ...screenNode.data,
-  properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'document' } } } as StudioNode]
+  properties: { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'document' } } } as StudioNode]
 const edges: StudioEdge[] = []
 
 function documentWithArt(width = 2) {
@@ -166,7 +166,7 @@ describe('firmware display asset preparation', () => {
   it.each(['show', 'player'])('reports unsupported %s wiring before baking and responds to wire-only edits', async (generator) => {
     const masterType = generator === 'player' ? 'PatternMaster' : 'PatternSlideshow'
     const showNodes = [{ ...screenNode, data: { ...screenNode.data,
-      properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', displayId: 'document' } } },
+      properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', tftLayout: 'Custom design', displayId: 'document' } } },
     ...['PatternCollection', masterType, 'MatrixOutput', 'TextValue',
       ...(generator === 'player' ? ['SDCard', 'Amplifier'] : [])].map((nodeType) => ({
       ...screenNode, id: nodeType, data: { ...screenNode.data, nodeType, properties: { patternIds: ['p'] } },

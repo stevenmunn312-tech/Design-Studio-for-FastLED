@@ -49,7 +49,7 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
  */
 function panel(field: string, properties: Record<string, unknown> = {}): StudioNode {
   return node('tft', 'TransportDisplay', {
-    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen',
+    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen',
     sckPin: 18, mosiPin: 23, misoPin: 19, csPin: 5, dcPin: 16, resetPin: 17, backlightPin: 4,
     touchCsPin: 15, touchIrqPin: 2, touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19,
     widgetSources: { text: { field, roles: ['value'] } },

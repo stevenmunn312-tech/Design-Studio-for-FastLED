@@ -66,7 +66,7 @@ import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/polinePal
 import type { Palette } from '../../state/ledColor'
 import { isHardwarePartField } from '../../state/partFields'
 import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from '../../state/displaySignal'
-import {
+import { CUSTOM_DESIGN_LAYOUT,
   asTransportDisplayLayout,
   transportLayoutChoicesForKind,
   transportLayoutForKind,
@@ -505,20 +505,13 @@ const LivePropertyControls = memo(function LivePropertyControls({
     const sourceType = rootGraphNodes(s).find((node) => node.id === sourceId)?.data.nodeType
     return (sourceType && DISPLAY_SOURCE_NODE_TYPES[sourceType]) ?? null
   }) as DisplaySignalKind | null
-  const transportLayoutOptions = transportLayoutChoicesForKind(transportDisplaySourceKind)
   /*
-   * A mounted Screen Design owns the panel, and the fixed layout below it is
-   * never drawn. The property stayed live and silently ignored, which reads
-   * as a control that does nothing: the dropdown moves, the preview does not,
-   * and an upload flashes the design regardless. Disable it and say why,
-   * rather than removing it — the fixed layout is still what the panel falls
-   * back to the moment the design is disconnected.
+   * Every presentation this source offers, and the panel's own screen design,
+   * always selectable. Choosing a fixed layout sets the design aside rather
+   * than deleting it, so the choice is reversible from this one control.
    */
-  const mountedScreenDesign = useGraphStore((s) => {
-    if (nodeType !== 'TransportDisplay') return false
-    // The panel owns its design, so this is a property rather than an edge.
-    return Boolean(rootGraphNodes(s).find((node) => node.id === nodeId)?.data.properties.displayId)
-  })
+  const transportLayoutOptions = [...transportLayoutChoicesForKind(transportDisplaySourceKind), CUSTOM_DESIGN_LAYOUT]
+  const createScreenDesignForPanel = useGraphStore((s) => s.createScreenDesignForPanel)
 
   const isMatrixOutput = nodeType === 'MatrixOutput'
   const [sizePopupOpen, setSizePopupOpen] = useState(false)
@@ -625,8 +618,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         // A property may be inapplicable to the current variant (e.g. a
         // Transition's `direction` outside wipe): shown but disabled.
         const gated = !isPropertyEnabled(nodeType, key, props)
-        const ownedByDesign = mountedScreenDesign && key === 'tftLayout'
-        const disabled = (wired && !drivenByTouchWidget) || gated || ownedByDesign || locked
+        const disabled = (wired && !drivenByTouchWidget) || gated || locked
         const live = wired ? liveFor(key) : undefined
         const writeValue = (value: unknown) => {
           if (drivenByTouchWidget && touchSource
@@ -635,6 +627,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
             if (driver) writeTouchControlValue(driver.displayId, driver.widgetId, value)
           }
           updateNodeProperty(nodeId, key, value)
+          // A panel first set to Custom design gets its design there and then,
+          // so the choice never leaves the glass with nothing to draw.
+          if (nodeType === 'TransportDisplay' && key === 'tftLayout' && value === CUSTOM_DESIGN_LAYOUT
+            && !props.displayId) createScreenDesignForPanel(nodeId)
         }
         const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
         const expressionCapable = supportsScalarExpression(nodeType, key)
@@ -661,9 +657,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
           ? drivenByTouchWidget
             ? `Driven by ${describeSource(portFor(key))}. Drag here to set it from the graph; disconnect to restore the saved value.`
             : `Driven by ${describeSource(portFor(key))}. Disconnect to restore the saved value.`
-          : ownedByDesign
-            ? 'This panel draws its own Screen Design, so the fixed layout is unused. Edit the design to change what it shows.'
-            : gated
+          : gated
               ? 'Not used by this mode'
               : expressionCapable
                 ? expressionInvalid
@@ -677,7 +671,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
           ? (isTransportLayout ? transportLayoutOptions : meta.options)
           : []
         const selectValue = isTransportLayout
-          ? asTransportDisplayLayout(val) === 'Diagnostics'
+          ? val === CUSTOM_DESIGN_LAYOUT
+            ? CUSTOM_DESIGN_LAYOUT
+            : asTransportDisplayLayout(val) === 'Diagnostics'
             ? 'Diagnostics'
             : transportDisplaySourceKind
               ? transportLayoutForKind(transportDisplaySourceKind, val) ?? 'Waiting'

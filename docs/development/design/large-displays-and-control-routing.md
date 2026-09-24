@@ -18,8 +18,16 @@ panel, because the panel draws graph values into widgets. Widget output
 sockets leave through the paired Touch node. There is no `Display`
 node, no `customDisplay` input, and no mount edge.
 
-**Create screen design** on the panel mints the document, sizes it to
-the glass, stamps `displayId`, and opens the editor. Duplicating the
+Choosing **Custom design** in the panel's Layout mints the document
+(sized to the glass, stamped as `displayId`); **Edit screen design**
+opens it. Having a design and showing it are separate facts: a fixed
+layout sets the design aside with its widget ports and wires intact,
+and everything that means *showing* (the mount plan, evaluator, all
+three generators, validation) asks `shownDesignId` in
+`state/transportDisplay.ts` rather than reading `displayId`. Wires from
+a set-aside design's controls read at rest: the evaluator publishes rest
+values and firmware declares them as constants, only where something
+reads them. Duplicating the
 panel mints a fresh `displayId`, so the copy has its own design. A
 design shared by two panels, or left mounted on none, is unsayable
 rather than refused.

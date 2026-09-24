@@ -43,7 +43,7 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
   ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle }) as StudioEdge
 
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
-  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen', ...properties,
+  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen', ...properties,
 })
 const touch = (panelId = 'tft') => node(`${panelId}-touch`, 'TouchInput', { panelId })
 

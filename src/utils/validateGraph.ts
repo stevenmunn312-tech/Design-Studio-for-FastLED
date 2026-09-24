@@ -68,6 +68,8 @@ import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../state/pinRetarget'
 import { partOptionsFor, resolvePartIdentity } from '../state/partOptions'
 import { displayHasTouch, partById } from '../state/partCatalogue'
 import { designControlBundle } from '../state/designControlBundle'
+import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/transportDisplay'
+import { parseDisplayWidgetPortId } from '../state/displayRegistry'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 import {
@@ -2414,6 +2416,24 @@ export function findDisplayGeneratorIssues(
 
   for (const display of displays.filter((node) => node.data.nodeType === 'TransportDisplay')) {
     const props = display.data.properties as Record<string, unknown>
+    /*
+     * A design set aside keeps its wires, and they read at rest in preview
+     * and firmware alike. Worth one line, because the fixed layout on the
+     * glass gives no hint that some controls elsewhere went quiet.
+     */
+    if (String(props.displayId ?? '') && !shownDesignId(props)) {
+      const glass = nodes.find((node) => node.data.nodeType === 'TouchInput'
+        && String((node.data.properties as Record<string, unknown>).panelId ?? '') === display.id)
+      const restingWires = edges.filter((edge) => (
+        (edge.source === glass?.id && parseDisplayWidgetPortId(String(edge.sourceHandle ?? ''))?.role === 'out')
+        || (edge.target === display.id && parseDisplayWidgetPortId(String(edge.targetHandle ?? '')))
+      )).length
+      if (restingWires > 0) {
+        warnings.push(`${nodeLabel(display)} is showing a fixed layout, so ${restingWires} `
+          + `${restingWires === 1 ? 'wire' : 'wires'} to its screen design ${restingWires === 1 ? 'is' : 'are'} at rest. `
+          + `Set Layout to ${CUSTOM_DESIGN_LAYOUT} to use ${restingWires === 1 ? 'it' : 'them'} again.`)
+      }
+    }
     if (!displayHasTouch(String(props.partId ?? ''))) continue
     /*
      * Touch leaves through the Touch node, not the panel.
@@ -2692,7 +2712,9 @@ function inertControlIssues(
   if (!displayDocuments) return []
   const issues: InertControlIssue[] = []
   for (const panel of nodes.filter((node) => node.data.nodeType === 'TransportDisplay')) {
-    const displayId = String(panel.data.properties.displayId ?? '')
+    // A design set aside for a fixed layout is not on the glass at all, so
+    // "no finger can reach it" is true of every control and says nothing.
+    const displayId = shownDesignId(panel.data.properties)
     const document = displayId ? displayDocuments[displayId] : undefined
     if (!document) continue
     const touch = nodes.find((node) => node.data.nodeType === 'TouchInput'

@@ -63,10 +63,11 @@ and use the same SDA/SCL pair as the other I²C parts in the sketch.
 Connect **Display** from RTC Clock, Music Player, Pattern Slideshow or
 an LED output for Clock, Now Playing/Fixed Transport, Show Status or
 LED Status respectively. The source chooses content; presentation only
-chooses among that source's treatments. Unwired panels say Waiting. A
-custom screen is created on the panel with **Create screen design**;
-the panel keeps its Display wire, which bound widgets read. Enabled
-remains a separate input/property.
+chooses among that source's treatments. Unwired panels say Waiting.
+**Layout** also always offers **Custom design**, the panel's own screen:
+choosing it creates the design the first time and enables **Edit screen
+design**. The panel keeps its Display wire, which bound widgets read.
+Enabled remains a separate input/property.
 
 For fixed music touch on XPT2046, wire named Touch outputs such as
 **Play / Pause** directly to matching Music Player action inputs, or
@@ -149,8 +150,13 @@ touch controller, so a dark panel cannot hold the last press anybody made.
 
 ## Screen Design
 
-Click **Create screen design** on a physical TFT panel to create, size and open
-its design; **Edit screen design** reopens it. A design belongs to the panel it
+Set a physical TFT panel's **Layout** to **Custom design** to create and size
+its design, then **Edit screen design** to open it. On any other layout the
+button is disabled and says to choose Custom design. Choosing a fixed layout
+sets the design aside rather than deleting it: its widgets and wires are kept,
+the fixed layout draws and reads touch, and any wire from the design's controls
+reads at rest (Graph Health says how many). Choosing Custom design again brings
+it back as it was. A design belongs to the panel it
 was drawn on, so it is always the size of that glass and there is no separate
 document to add, connect, or accidentally attach to two panels at once. To reuse
 a design, duplicate the panel — the copy gets a design of its own.

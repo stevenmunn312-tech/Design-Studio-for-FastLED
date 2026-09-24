@@ -108,7 +108,7 @@ import {
 } from './integratedBoardHardware'
 import { displayHasTouch } from './partCatalogue'
 import { DISPLAY_SOURCE_NODE_TYPES } from './displaySignal'
-import { asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
+import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
 import { asTftRotation } from './tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './transportTouch'
 import { relayInputs } from './relayModule'
@@ -1184,7 +1184,9 @@ function syncDisplayNodesInContent(
        * `controls` bundle output and the custom-design widget outputs.
        */
       const fixedControlPorts: NodePort[] = []
-      if (panel && !displayId) {
+      // A design set aside keeps its widget ports (and their wires) for when
+      // it returns, while the fixed layout it gave way to reads the glass.
+      if (panel && !shownDesignId(panel.data.properties)) {
         const panelProps = panel.data.properties as Record<string, unknown>
         const touchCapable = displayHasTouch(String(panelProps.partId ?? ''))
         if (touchCapable) {
@@ -1669,7 +1671,9 @@ export const useGraphStore = create<GraphState>()(
           displayDocuments,
           ...withRootContent(s, {
             nodes: nodes.map((node) => (node.id === panelId
-              ? { ...node, data: { ...node.data, properties: { ...node.data.properties, displayId: documentId } } }
+              // Created to be shown: the Layout names it, which is also what
+              // lets choosing a fixed layout later set it aside.
+              ? { ...node, data: { ...node.data, properties: { ...node.data.properties, displayId: documentId, tftLayout: CUSTOM_DESIGN_LAYOUT } } }
               : node)),
             edges: rootGraphEdges(s),
           }),

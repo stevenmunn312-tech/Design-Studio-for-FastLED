@@ -28,7 +28,7 @@ import {
   type OledTransport,
 } from '../state/oledSurface'
 import { oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps } from '../state/nodeLibrary'
-import {
+import { shownDesignId,
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
 } from '../state/transportDisplay'
 import { asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
@@ -351,10 +351,10 @@ export function playerDisplaysFromGraph(
   const info: PlayerInfoDisplay[] = []
   const segment: PlayerSegmentDisplay[] = []
   const tft: PlayerTransportDisplay[] = []
-  // The same test `mountedCustomDisplays` applies: a panel naming a design.
+  // The same test `mountedCustomDisplays` applies: a panel showing a design.
   // Asked of the props directly because this walk takes config-only nodes.
   const designedPanels = new Set(nodes
-    .filter((node) => node.data.nodeType === 'TransportDisplay' && String(node.data.properties.displayId ?? ''))
+    .filter((node) => node.data.nodeType === 'TransportDisplay' && shownDesignId(node.data.properties))
     .map((node) => node.id))
 
   for (const node of nodes) {

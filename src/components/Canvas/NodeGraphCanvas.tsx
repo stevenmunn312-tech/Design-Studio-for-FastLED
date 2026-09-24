@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { shownDesignId } from '../../state/transportDisplay'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -809,9 +810,9 @@ function NodeGraphCanvasInner() {
       // A panel with a screen design opens it; one without says so, since
       // there is nothing to draw yet.
       if (d.nodeType === 'TransportDisplay') {
-        const designId = String(d.properties?.displayId ?? '')
+        const designId = shownDesignId(d.properties ?? {})
         if (designId) useUiStore.getState().openDisplayWorkspace(designId)
-        else useUiStore.getState().setStatus('This panel has no screen design yet — use Create screen design', 'info')
+        else useUiStore.getState().setStatus('Set the panel Layout to Custom design to create or edit its screen design', 'info')
       }
     },
     [enterGraph]

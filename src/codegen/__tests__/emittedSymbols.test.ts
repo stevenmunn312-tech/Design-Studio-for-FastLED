@@ -115,8 +115,8 @@ describe('a normal sketch', () => {
     }))
     const src = generateCpp([
       node('out', 'MatrixOutput', { width: 8, height: 8 }),
-      node('panel-a', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'docA' }),
-      node('panel-b', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'docB' }),
+      node('panel-a', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'docA' }),
+      node('panel-b', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'docB' }),
     ], [], {}, {
       displayDocuments: { docA: document, docB: document },
       customDisplayAssets: { docA: assets, docB: assets },

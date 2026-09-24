@@ -31,7 +31,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 // read-only Text and a Button, so the case cannot pass by assuming one value
 // per widget.
 const screen = (props: Record<string, unknown> = {}) => node('screen', 'TransportDisplay', {
-  displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320', ...props,
+  tftLayout: 'Custom design', displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320', ...props,
 }, {
   inputs: [
     { id: 'display', label: 'Display', dataType: 'display' },
@@ -162,7 +162,7 @@ describe('custom Display node evaluation', () => {
     const second: StudioNode = {
       ...first,
       id: 'screen-b',
-      data: { ...first.data, properties: { ...first.data.properties, displayId: 'deck' } },
+      data: { ...first.data, properties: { ...first.data.properties, tftLayout: 'Custom design', displayId: 'deck' } },
     }
     const nodes = [first, touch(), second, touch('touch-b', 'screen-b'), node('link', 'Math', { mathOp: 'add', a: 0, b: 0 })]
     const edges = [
@@ -192,7 +192,7 @@ describe('custom Display node evaluation', () => {
   it('publishes a bound widget from the source wired into the panel', () => {
     const nodes = [
       node('screen', 'TransportDisplay', {
-        displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
+        tftLayout: 'Custom design', displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
         widgetSources: {
           text: { field: 'time', roles: ['value'] },
           slider: { field: 'second', roles: ['set'] },
@@ -218,7 +218,7 @@ describe('custom Display node evaluation', () => {
   it('publishes nothing for a field this source does not carry', () => {
     const nodes = [
       node('screen', 'TransportDisplay', {
-        displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
+        tftLayout: 'Custom design', displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
         widgetSources: { text: { field: 'title', roles: ['value'] } },
       }, { inputs: [{ id: 'display', label: 'Display', dataType: 'display' }], outputs: [] }),
       node('rtc', 'RTCInput'),
@@ -250,7 +250,7 @@ describe('custom Display node evaluation', () => {
     const nodes = [
       node('plain', 'TransportDisplay', { ...panelProperties, displayId: '' }),
       node('plain-touch', 'TouchInput', { panelId: 'plain' }),
-      node('designed', 'TransportDisplay', { ...panelProperties, displayId: 'design' }),
+      node('designed', 'TransportDisplay', { ...panelProperties, tftLayout: 'Custom design', displayId: 'design' }),
       node('designed-touch', 'TouchInput', { panelId: 'designed' }),
       node('player', 'PatternMaster'),
     ]

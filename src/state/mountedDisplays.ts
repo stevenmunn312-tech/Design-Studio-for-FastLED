@@ -14,6 +14,7 @@ import type { StudioEdge, StudioNode } from './graphStore'
 import { DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
 import { tftControllerForProps } from './nodeLibrary'
 import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
+import { shownDesignId } from './transportDisplay'
 
 export interface MountedPanelGeometry {
   controller: TftController
@@ -39,7 +40,10 @@ export interface MountedCustomDisplay {
 }
 
 /**
- * Every panel with a screen design, and the design.
+ * Every panel showing a screen design, and the design.
+ *
+ * Showing, not merely having: a panel set to a fixed layout keeps its design
+ * aside, and builds, draws and reads touch as the fixed layout it shows.
  *
  * A design belongs to the panel it was drawn on. It used to live on a node of
  * its own, wired across — which meant a design could be drawn at a size no
@@ -54,7 +58,7 @@ export interface MountedCustomDisplay {
 export function mountedCustomDisplays(nodes: readonly StudioNode[]): MountedCustomDisplay[] {
   return nodes.flatMap((panel) => {
     if (panel.data.nodeType !== 'TransportDisplay') return []
-    const documentId = String(panel.data.properties.displayId ?? '')
+    const documentId = shownDesignId(panel.data.properties)
     if (!documentId) return []
     return [{
       panel,

@@ -35,7 +35,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 
 function screen(id = 'screen', displayId = 'panel'): StudioNode {
   // The panel carries the screen drawn on it, so widget input ports are its own.
-  return node(id, 'TransportDisplay', { displayId, partId: 'st7789v-xpt2046-touch-240x320' }, {
+  return node(id, 'TransportDisplay', { tftLayout: 'Custom design', displayId, partId: 'st7789v-xpt2046-touch-240x320' }, {
     inputs: [
       { id: 'display', label: 'Display', dataType: 'display' },
       { id: 'enabled', label: 'Enabled', dataType: 'bool' },

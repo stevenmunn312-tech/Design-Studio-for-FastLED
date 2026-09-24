@@ -140,7 +140,7 @@ describe('DisplayEditor', () => {
       id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
       data: {
         label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
-        properties: { displayId: 'panel' }, inputs: [], outputs: [],
+        properties: { tftLayout: 'Custom design', displayId: 'panel' }, inputs: [], outputs: [],
       },
     } as unknown as StudioNode
     const touch = {
@@ -188,7 +188,7 @@ describe('DisplayEditor', () => {
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
         data: {
           label: 'Display Panel', nodeType: 'TransportDisplay', category: 'output',
-          properties: { displayId: 'panel' }, inputs: [], outputs: [],
+          properties: { tftLayout: 'Custom design', displayId: 'panel' }, inputs: [], outputs: [],
         },
       } as unknown as StudioNode, {
         id: 'touch', type: 'studioNode', position: { x: 0, y: 0 },
@@ -262,7 +262,7 @@ describe('DisplayEditor', () => {
   // mount and no cable between them. `tft` is the panel and `panel` is the id
   // of the screen drawn on it.
   const panelNode = () => libraryNode('tft', 'TransportDisplay', {
-    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'panel',
+    partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'panel',
   })
 
   /*

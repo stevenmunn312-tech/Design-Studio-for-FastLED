@@ -68,7 +68,7 @@ import {
   tftDisplayHelperProfile, tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
 } from './tftDisplayCpp'
-import {
+import { shownDesignId,
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
 } from '../state/transportDisplay'
 import { asTftRotation, TFT_CONTROLLERS, PARALLEL_TOUCH_ELECTRODES } from '../state/tftSurface'
@@ -5609,7 +5609,7 @@ export function generateCpp(
         // follow and no second node to find. The document id is still what
         // keys every widget symbol, so a design keeps its identifiers whatever
         // the panel is called.
-        const documentId = String(p.displayId ?? '')
+        const documentId = shownDesignId(p)
         const document = documentId ? opts.displayDocuments?.[documentId] : undefined
         // Fixed layouts format their own fields. Only a screen-design Numeric
         // Readout calls the shared graph number formatter; Text and Timecode
@@ -5798,6 +5798,20 @@ export function generateCpp(
           ? nodes.find((entry) => entry.data.nodeType === 'TouchInput'
             && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
           : undefined
+        // A design set aside for this fixed layout keeps its wires; whatever
+        // they feed reads the widgets at rest, the value a switched-off
+        // panel's controls report. Declared only where something reads them.
+        const restingTouch = nodes.find((entry) => entry.data.nodeType === 'TouchInput'
+          && String((entry.data.properties as Record<string, unknown>).panelId ?? '') === node.id)
+        if (restingTouch && String(p.displayId ?? '')) {
+          for (const port of (restingTouch.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []) {
+            if (parseDisplayWidgetPortId(port.id)?.role !== 'out') continue
+            if (!edges.some((e) => e.source === restingTouch.id && e.sourceHandle === port.id)) continue
+            ln(port.dataType === 'bool'
+              ? `  bool n_${safeId(restingTouch.id)}_${safeId(port.id)} = false;`
+              : `  float n_${safeId(restingTouch.id)}_${safeId(port.id)} = 0.0f;`)
+          }
+        }
         const directVars: Record<string, { variable: string; dataType: 'bool' | 'float' }> = {}
         if (touchNode) {
           const touchId = safeId(touchNode.id)

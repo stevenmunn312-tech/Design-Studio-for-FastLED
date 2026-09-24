@@ -36,7 +36,7 @@ function sketch(withOutput: boolean): string {
   const nodes = [
     node('board', 'Board'),
     node('panel', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', displayId: 'Display-1',
+      partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', tftLayout: 'Custom design', displayId: 'Display-1',
       sckPin: 1, mosiPin: 2, misoPin: 8, csPin: 4, dcPin: 5, resetPin: 6, backlightPin: 7,
     }),
     ...(withOutput ? [node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 10 })] : []),

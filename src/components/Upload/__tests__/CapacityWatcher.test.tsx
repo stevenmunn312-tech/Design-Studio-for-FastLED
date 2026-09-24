@@ -91,7 +91,7 @@ describe('CapacityWatcher', () => {
       ...output, id: 'screen', data: { ...output.data, nodeType: 'TransportDisplay',
         properties: {
           partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90',
-          displayId: document.displayId,
+          tftLayout: 'Custom design', displayId: document.displayId,
         } },
     }
     useGraphStore.setState({
@@ -379,7 +379,7 @@ describe('CapacityWatcher', () => {
       ...output,
       id: `panel-${index}`,
       data: { ...output.data, nodeType: 'TransportDisplay',
-        properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: document.displayId } },
+        properties: { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: document.displayId } },
     }))
     const leds = {
       ...output,

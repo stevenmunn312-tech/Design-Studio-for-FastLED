@@ -58,7 +58,8 @@ export function customDisplayShowCpp(
   }
   // Complete all touch reads before snapshotting any outputs. Every binding,
   // including feedback through another screen, observes this same snapshot.
-  sample.push(...snapshots)
+  // A set-aside design's outputs join it at rest, so wires from them resolve.
+  sample.push(...snapshots, ...plan.resting.map((entry) => customDisplaySampleCpp(entry, null)))
   if (displays.length) loop.push('  _cdServiceLvgl();')
   return { includes, forwards, helpers, shared, setup, sample, enable, loop }
 }

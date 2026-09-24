@@ -27,7 +27,7 @@ const groups = { pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'Gro
 // `TransportDisplay` panel carries them, wired through `customDisplay`. See
 // docs/development/design/large-displays-and-control-routing.md.
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
-  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen', ...properties,
+  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen', ...properties,
 })
 const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
 
@@ -75,7 +75,7 @@ describe('custom displays in generative shows', () => {
   })
 
   it('snapshots both screens before cross-screen feedback and uses distinct panel types', () => {
-    const cpp = generate([panel('tft1', { displayId: '1-first' }), touch('tft1'), panel('tft2', { displayId: 'second' }), touch('tft2')], [
+    const cpp = generate([panel('tft1', { tftLayout: 'Custom design', displayId: '1-first' }), touch('tft1'), panel('tft2', { tftLayout: 'Custom design', displayId: 'second' }), touch('tft2')], [
       edge('tft1-touch', 'widget:slider:out', 'tft2', 'widget:slider:set'),
       edge('tft2-touch', 'widget:slider:out', 'tft1', 'widget:slider:set'),
     ], { '1-first': document('1-first'), second: document('second') })
@@ -175,7 +175,7 @@ describe('custom displays in generative shows', () => {
     // are separate panels with separate screens, so the guard still has
     // something to catch — it is the one collision the model cannot rule out.
     expect(() => generate(
-      [panel('tftA', { displayId: 'a-b' }), panel('tftB', { displayId: 'a_b' })],
+      [panel('tftA', { tftLayout: 'Custom design', displayId: 'a-b' }), panel('tftB', { tftLayout: 'Custom design', displayId: 'a_b' })],
       [],
       { 'a-b': document('a-b'), a_b: document('a_b') },
     )).toThrow('identifiers collide')

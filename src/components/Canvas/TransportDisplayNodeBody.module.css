@@ -20,6 +20,18 @@
   cursor: pointer;
 }
 
+.designAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.designNote {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+}
+
 .designAction:hover,
 .designAction:focus-visible {
   border-color: var(--node-accent);

@@ -25,7 +25,7 @@ const groups = { pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'Gro
 // `tft` and the design it holds is `screen`, which is what keys every widget
 // symbol the assertions below name.
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
-  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'screen', ...properties,
+  partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen', ...properties,
 })
 const touch = (panelId = 'tft', id = `${panelId}-touch`) => node(id, 'TouchInput', { panelId })
 function document(id = 'screen') {

@@ -48,7 +48,7 @@ const documents: DisplayDocumentRegistry = { screen: document() }
 function panel(id = 'tft', overrides: Record<string, unknown> = {}): StudioNode {
   return node(id, 'TransportDisplay', {
     partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
-    displayId: 'screen',
+    tftLayout: 'Custom design', displayId: 'screen',
     sckPin: 18, mosiPin: 23, misoPin: 19, csPin: 5, dcPin: 16, resetPin: 17, backlightPin: 4,
     touchCsPin: 15, touchIrqPin: 2, touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19,
     touchXMin: 200, touchXMax: 3900, touchYMin: 200, touchYMax: 3900,
@@ -168,8 +168,8 @@ describe('normal-sketch codegen for the custom Display node', () => {
     // Two panels, each with a screen of its own. Nothing is shared and nothing
     // needs to be: a design belongs to the panel it was drawn on, so two
     // panels are two designs with two sets of symbols.
-    const firstPanel = panel('1-first', { displayId: 'doc1First' })
-    const secondPanel = panel('second', { displayId: 'docSecond' })
+    const firstPanel = panel('1-first', { tftLayout: 'Custom design', displayId: 'doc1First' })
+    const secondPanel = panel('second', { tftLayout: 'Custom design', displayId: 'docSecond' })
     const cpp = generateCpp(
       [output, firstPanel, secondPanel],
       [],
@@ -238,7 +238,7 @@ describe('normal-sketch codegen for the custom Display node', () => {
   })
 
   it('keeps one widget snapshot across native output passes and cross-screen feedback', () => {
-    const otherPanel = panel('other-tft', { displayId: 'other' })
+    const otherPanel = panel('other-tft', { tftLayout: 'Custom design', displayId: 'other' })
     const strip = node('strip', 'MatrixOutput', { form: 'strip', ledCount: 16, dataPin: 6 })
     const fill = node('fill', 'SolidColor')
     const edges = [edge('a', 'fill', 'frame', 'out', 'frame'), edge('b', 'fill', 'frame', 'strip', 'frame'),
@@ -266,7 +266,7 @@ describe('normal-sketch codegen for the custom Display node', () => {
    * machinery that policed them stays deleted.
    */
   it('cannot share a design between panels or leave one unmounted', () => {
-    const plan = customDisplayMountPlan([panel(), panel('second', { displayId: 'other' }), output])
+    const plan = customDisplayMountPlan([panel(), panel('second', { tftLayout: 'Custom design', displayId: 'other' }), output])
     // Two panels, two designs. The plan has no other shape to describe: the
     // fields that reported a shared or unmounted design are gone with the
     // states they reported.

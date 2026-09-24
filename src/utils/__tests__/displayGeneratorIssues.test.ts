@@ -113,7 +113,7 @@ describe('fixed touch output routing validation', () => {
     // Waiting once a design owns the glass — so they would advise wiring
     // Music Player to the Display input, which drops the design.
     const designed = node('panel', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Show Status', displayId: 'screen',
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'screen',
     })
     const nodes = [out(), designed, controls, touch('panel')]
     const edges = [...chain]
@@ -207,7 +207,7 @@ describe('displays a build cannot drive', () => {
   // refused — see the show/player cases below for what still is.
   it('leaves a custom display to the normal sketch, which can now draw it', () => {
     const panel = node('panel', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'custom',
     })
     expect(findDisplayGeneratorIssues([out(), panel], [], {
       custom: createDisplayDocument('custom', 240, 320),
@@ -464,7 +464,7 @@ describe('displays a build cannot drive', () => {
 
   it('requires the saved custom document for a player build', () => {
     const customPanel = node('customPanel', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'custom',
     })
     const master = node('master', 'PatternMaster')
     const nodes = [out(), customPanel, master, node('sd', 'SDCard'), node('amp', 'Amplifier')]
@@ -486,10 +486,10 @@ describe('displays a build cannot drive', () => {
    */
   it('gives two panels two designs, with nothing to refuse', () => {
     const first = node('panelA', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'custom',
     })
     const second = node('panelB', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'copy',
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'copy',
     })
     const documents = {
       custom: createDisplayDocument('custom', 240, 320),
@@ -596,7 +596,7 @@ describe('a Pattern Slideshow show', () => {
     // A panel naming a design whose document is not in the workspace: the
     // saved file is gone, or the workspace was loaded without it.
     const customPanel = node('customPanel', 'TransportDisplay', {
-      partId: 'st7789v-xpt2046-touch-240x320', displayId: 'custom',
+      partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'custom',
     })
     const issues = findDisplayGeneratorIssues(
       [master, collection, out, customPanel],

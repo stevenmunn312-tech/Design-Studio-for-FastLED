@@ -292,7 +292,7 @@ describe('StudioNode', () => {
     // stays a remote for it — otherwise wiring Petals leaves no way to set it
     // without opening the screen designer and switching to Run.
     const formula = { ...makeNode('FormulaField', { formulaType: 'rose', petals: 5 }), id: 'ff' }
-    const panel = { ...makeNode('TransportDisplay', { displayId: 'screen' }), id: 'panel' }
+    const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Custom design', displayId: 'screen' }), id: 'panel' }
     const touch = { ...makeNode('TouchInput', { panelId: 'panel' }), id: 'touch' }
     useGraphStore.getState().loadGraph([panel, touch, formula], [], {
       nodes: [panel, touch, formula],
@@ -320,7 +320,7 @@ describe('StudioNode', () => {
     // the drag's own panel is the one the live overlay is showing, since
     // advertising it anywhere else would promise a placement the gate refuses.
     const formula = { ...makeNode('FormulaField', { formulaType: 'rose', petals: 5 }), id: 'ff' }
-    const panel = { ...makeNode('TransportDisplay', { displayId: 'screen' }), id: 'panel' }
+    const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Custom design', displayId: 'screen' }), id: 'panel' }
     const touch = { ...makeNode('TouchInput', { panelId: 'panel' }), id: 'touch' }
     useGraphStore.getState().loadGraph([panel, touch, formula], [], {
       nodes: [panel, touch, formula],
@@ -379,7 +379,7 @@ describe('StudioNode', () => {
     const layout = view.getByLabelText('layout value') as HTMLSelectElement
 
     expect(layout.value).toBe('Clock')
-    expect([...layout.options].map((option) => option.value)).toEqual(['Clock', 'Diagnostics'])
+    expect([...layout.options].map((option) => option.value)).toEqual(['Clock', 'Diagnostics', 'Custom design'])
 
     fireEvent.change(layout, { target: { value: 'Diagnostics' } })
     expect(useGraphStore.getState().nodes.find((entry) => entry.id === panel.id)?.data.properties.tftLayout)
@@ -387,19 +387,17 @@ describe('StudioNode', () => {
   })
 
   /*
-   * A panel drawing its own screen design has no use for the fixed layout.
+   * Every layout stays selectable, the panel's own design among them.
    *
-   * Shown and disabled rather than hidden: the fixed layout is still what the
-   * panel falls back to the moment the design is removed, so hiding the control
-   * would make that fallback undiscoverable. The gate reads the panel's own
-   * `displayId`, because that is what decides the answer — it used to look for
-   * an edge into a `customDisplay` input, which no longer exists, so the
-   * control stayed editable on every panel and moving it did nothing.
+   * Opening a design used to lock the dropdown for good, so a panel that had
+   * ever had one could never show a fixed layout again. Now the dropdown
+   * decides: a fixed layout sets the design aside, Custom design brings it
+   * back as it was.
    */
-  it('disables the fixed layout while the panel carries a screen design', () => {
+  it('keeps every layout selectable on a panel with a screen design, and sets the design aside', () => {
     const player = { ...makeNode('PatternMaster', {}), id: 'player' }
     const panel = {
-      ...makeNode('TransportDisplay', { tftLayout: 'Now Playing', displayId: 'design' }),
+      ...makeNode('TransportDisplay', { tftLayout: 'Custom design', displayId: 'design' }),
       id: 'panel',
     }
     useGraphStore.setState({
@@ -413,11 +411,16 @@ describe('StudioNode', () => {
     const view = render(<StudioNode {...props} />)
     const layout = view.getByLabelText('layout value') as HTMLSelectElement
 
-    expect(layout.disabled).toBe(true)
-    // The explanation lives on the property row, and has to name the design
-    // rather than a mount cable to disconnect: there is no such cable now.
-    expect(layout.closest('[title]')?.getAttribute('title'))
-      .toContain('draws its own Screen Design')
+    expect(layout.disabled).toBe(false)
+    expect(layout.value).toBe('Custom design')
+    expect([...layout.options].map((option) => option.value))
+      .toEqual(['Now Playing', 'Fixed Transport', 'Diagnostics', 'Custom design'])
+
+    fireEvent.change(layout, { target: { value: 'Fixed Transport' } })
+    const properties = useGraphStore.getState().nodes.find((entry) => entry.id === panel.id)!.data.properties
+    expect(properties.tftLayout).toBe('Fixed Transport')
+    // Set aside, not deleted: choosing Custom design again brings it back.
+    expect(properties.displayId).toBe('design')
   })
 
   it('leaves the fixed layout editable on a panel with no screen design', () => {

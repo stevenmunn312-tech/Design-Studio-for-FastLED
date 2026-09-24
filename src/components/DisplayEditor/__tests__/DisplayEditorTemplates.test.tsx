@@ -60,7 +60,7 @@ describe('DisplayEditor portrait templates', () => {
     useGraphStore.setState({
       nodes: [
         libraryNode('tft', 'TransportDisplay', {
-          partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'panel',
+          partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'panel',
         }),
         libraryNode('rtc', 'RTCInput'),
       ],

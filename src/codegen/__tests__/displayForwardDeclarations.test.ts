@@ -54,7 +54,7 @@ const tft = node('tft', 'TransportDisplay', {
 // TransportDisplay panel carries them and a `customDisplay` wire connects
 // the two — see docs/development/design/large-displays-and-control-routing.md.
 const customPanel = node('customPanel', 'TransportDisplay', {
-  displayId: 'custom',
+  tftLayout: 'Custom design', displayId: 'custom',
   partId: 'st7789-tft-240x240', tftRotation: '0',
   csPin: 15, dcPin: 2, resetPin: 4, sckPin: 14, mosiPin: 13, backlightPin: 27,
 })

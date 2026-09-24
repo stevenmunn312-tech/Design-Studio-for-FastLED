@@ -51,7 +51,7 @@ import {
   thumbnailFromFrame, THUMBNAIL_H, THUMBNAIL_SUPERSAMPLE, THUMBNAIL_TICK_SEC,
   THUMBNAIL_W, type PatternThumbnail,
 } from './patternThumbnail'
-import {
+import { shownDesignId,
   asTransportDisplayLayout, renderTransportDisplay, transportArtworkFromFrame,
   transportLayoutForKind, blankTransportData,
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_SUPERSAMPLE, TRANSPORT_ARTWORK_TICK_SEC,
@@ -7798,7 +7798,9 @@ function createEvalNode(
          * that would otherwise resolve to the fixed Now Playing layout and
          * hand back its play/pause and volume regions.
          */
-        const designId = String(panelProps.displayId ?? '')
+        // Showing, not merely having: a design set aside for a fixed layout
+        // leaves its widget outputs at rest and the fixed layout's touch live.
+        const designId = shownDesignId(panelProps)
         if (designId) {
           const live = panelEnabled && touchCapable
           const runtime = useDisplayRuntimeStore.getState()
@@ -7884,6 +7886,11 @@ function createEvalNode(
         )
         out = { controls }
         const nodeOutputs = (node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? []
+        // A design set aside keeps its widget ports; they read at rest while
+        // the fixed layout owns the glass.
+        for (const port of nodeOutputs) {
+          if (parseDisplayWidgetPortId(port.id)) out[port.id] = port.dataType === 'bool' ? false : 0
+        }
         for (const port of nodeOutputs) {
           const action = port.id as TransportTouchAction
           if (!TRANSPORT_TOUCH_ACTION_TYPES[action]) continue
@@ -7935,7 +7942,7 @@ function createEvalNode(
          * sampled by the paired Touch node above, so the panel remains an
          * output-category terminal even when it hosts interactive controls.
          */
-        const designId = String(props.displayId ?? '')
+        const designId = shownDesignId(props)
         const widgetInputs = ((node.data.inputs as { id: string; dataType?: string }[] | undefined) ?? [])
           .filter((port) => parseDisplayWidgetPortId(port.id))
         if (designId && enabled) {

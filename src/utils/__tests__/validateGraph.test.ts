@@ -1991,7 +1991,7 @@ describe('LED strings count toward the hardware estimates', () => {
  */
 describe('findPanelEnableRecoveryIssues', () => {
   const panel = (id = 'tft') => node(id, 'TransportDisplay', {
-    partId: 'st7789v-xpt2046-touch-240x320', displayId: 'screen',
+    partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'screen',
   })
   const touchFor = (panelId = 'tft') => node(`${panelId}-touch`, 'TouchInput', { panelId })
   const wire = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string): StudioEdge =>
@@ -2068,7 +2068,7 @@ describe('findPanelEnableRecoveryIssues', () => {
  * composed onto the screen, is an ordinary half-finished state.
  */
 describe('inert touch controls', () => {
-  const panel = libraryNode('tft', 'TransportDisplay', { displayId: 'panel' })
+  const panel = libraryNode('tft', 'TransportDisplay', { tftLayout: 'Custom design', displayId: 'panel' })
   const touch = libraryNode('touch', 'TouchInput', { panelId: 'tft' })
   const juggle = libraryNode('juggle', 'Juggle', { count: 4 })
   const slider = (bounds?: { x: number; y: number; width: number; height: number }) => ({

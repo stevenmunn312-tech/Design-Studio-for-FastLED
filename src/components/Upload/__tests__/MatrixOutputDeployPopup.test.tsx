@@ -186,7 +186,7 @@ describe('MatrixOutputDeployPopup', () => {
         // The panel carries the screen drawn on it; artwork is prepared for it.
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
         data: { nodeType: 'TransportDisplay', label: 'Touch panel', category: 'output',
-          properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'document' },
+          properties: { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'document' },
           inputs: [], outputs: [] },
       }] as never[],
       edges: [
@@ -748,7 +748,7 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
         // panel's, so one node decides whether artwork is baked at all.
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
         data: { label: 'Screen', nodeType: 'TransportDisplay', category: 'output',
-          properties: { partId: 'st7789v-xpt2046-touch-240x320', displayId: 'panel' },
+          properties: { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'panel' },
           inputs: [], outputs: [] },
       }] as never[],
       edges: [...useGraphStore.getState().edges] as never[],

@@ -31,7 +31,7 @@ describe('TransportDisplayNodeBody', () => {
 
   it('keeps the exact mounted panel aspect ratio before the first preview frame', () => {
     useGraphStore.setState({
-      nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' })],
+      nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', tftLayout: 'Custom design' })],
       edges: [], activeGraphId: ROOT_GRAPH_ID,
     } as never)
     render(<TransportDisplayNodeBody nodeId="tft" />)
@@ -106,7 +106,7 @@ describe('TransportDisplayNodeBody', () => {
 
   it('shows the missing-document notice instead of the canvas when a design is wired', () => {
     useGraphStore.setState({
-      nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', displayId: 'missing' })],
+      nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'missing' })],
       edges: [],
       activeGraphId: ROOT_GRAPH_ID,
     } as never)
@@ -119,7 +119,7 @@ describe('TransportDisplayNodeBody', () => {
     const document = addDisplayWidget(createDisplayDocument('panel', 320, 240), 'Text')
     useGraphStore.setState({
       nodes: [display({
-        partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', enabled, displayId: 'panel',
+        partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', enabled, tftLayout: 'Custom design', displayId: 'panel',
       })],
       edges: [],
       displayDocuments: { panel: document },
@@ -156,7 +156,7 @@ describe('TransportDisplayNodeBody', () => {
     // The panel is the only thing that knows the size, and it keeps the design
     // it makes: nothing appears on the canvas and nothing is wired, because the
     // screen belongs to this glass.
-    useGraphStore.getState().loadGraph([display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90' })], [])
+    useGraphStore.getState().loadGraph([display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '90', tftLayout: 'Custom design' })], [])
     useUiStore.setState({ designWorkspaceView: { kind: 'graph' } })
 
     render(<TransportDisplayNodeBody nodeId="tft" />)
@@ -175,7 +175,7 @@ describe('TransportDisplayNodeBody', () => {
   it('undoes the whole design in one step', () => {
     vi.useFakeTimers()
     try {
-      useGraphStore.getState().loadGraph([display({ partId: 'st7789-tft-240x240', tftRotation: '0' })], [])
+      useGraphStore.getState().loadGraph([display({ partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Custom design' })], [])
       // Loading does not clear the undo stack — callers do — and the push is
       // debounced, so let the load's own entry settle before clearing. Without
       // this the undo below steps back past the load into an empty workspace,
@@ -208,7 +208,7 @@ describe('TransportDisplayNodeBody', () => {
       data: { label: 'Music Player', nodeType: 'PatternMaster', category: 'output', properties: {}, inputs: [], outputs: [] },
     } as unknown as StudioNode
     useGraphStore.getState().loadGraph(
-      [player, display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],
+      [player, display({ partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Custom design' })],
       [{ id: 'fixed', source: 'player', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
     )
 
@@ -221,9 +221,29 @@ describe('TransportDisplayNodeBody', () => {
     expect(useGraphStore.getState().displayDocuments.tft).toBeTruthy()
   })
 
+  /*
+   * The Layout dropdown gates the design. On a fixed layout the button is
+   * there, disabled, with the one step that enables it beside it — and a
+   * design set aside keeps its document for when Custom design returns.
+   */
+  it('disables the design button on a fixed layout and says how to enable it', () => {
+    act(() => {
+      useGraphStore.setState({
+        nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Now Playing', displayId: 'panel' })],
+        edges: [],
+        displayDocuments: { panel: createDisplayDocument('panel', 240, 240) },
+      })
+    })
+    const view = render(<TransportDisplayNodeBody nodeId="tft" />)
+    expect((view.getByRole('button', { name: 'Edit screen design' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(view.getByText('Set Layout to Custom design to edit.')).toBeTruthy()
+    expect(view.queryByRole('button', { name: 'Create screen design' })).toBeNull()
+    expect(useGraphStore.getState().displayDocuments.panel).toBeDefined()
+  })
+
   it('offers the design it already has for editing instead of a second one', () => {
     useGraphStore.setState({
-      nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0', displayId: 'panel' })],
+      nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Custom design', displayId: 'panel' })],
       edges: [],
       displayDocuments: { panel: createDisplayDocument('panel', 240, 240) },
       activeGraphId: ROOT_GRAPH_ID,

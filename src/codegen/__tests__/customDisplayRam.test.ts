@@ -28,7 +28,7 @@ function screen(id: string, rotation = '0') {
   return {
     nodes: [
       node(`${id}-panel`, 'TransportDisplay', {
-        partId: 'st7789v-xpt2046-touch-240x320', tftRotation: rotation, displayId: id,
+        partId: 'st7789v-xpt2046-touch-240x320', tftRotation: rotation, tftLayout: 'Custom design', displayId: id,
       }),
     ],
     edges: [] as StudioEdge[],
@@ -45,7 +45,7 @@ function graph(...screens: ReturnType<typeof screen>[]) {
 describe('custom display firmware RAM', () => {
   it('counts the helper heap once while each physical screen adds its own buffer and caches', () => {
     const document = addDisplayWidget(createDisplayDocument('a'), 'Text')
-    const documents = { a: document, b: { ...document, displayId: 'b' } }
+    const documents = { a: document, b: { ...document, tftLayout: 'Custom design', displayId: 'b' } }
     const single = graph(screen('a')), pair = graph(screen('a'), screen('b'))
     const one = estimateFirmwareRam(single.nodes, single.edges, documents)!
     const two = estimateFirmwareRam(pair.nodes, pair.edges, documents)!
