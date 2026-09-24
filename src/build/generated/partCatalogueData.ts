@@ -537,7 +537,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "height": 45.0
     },
     "manufacturer": "generic C25B module / Analog Devices (Maxim) MAX485",
-    "logicVoltage": "Logic levels follow VCC: RO swings to VCC and R1-R4 pull RO, RE, DE and DI up to VCC through 10 k",
+    "logicVoltage": "5 V: RO swings to 5 V and R1-R4 pull RO, RE, DE and DI up to 5 V through 10 k, so RO needs a divider into a 3.3 V controller",
     "pinLabelsLeftToRight": [
       "RO",
       "RE",
@@ -549,10 +549,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "GND"
     ],
     "notes": [
-      "Half-duplex RS-485 transceiver, used here to receive DMX512: RO to the controller's UART RX, DI to its TX, and RE and DE joined to one enable GPIO.",
+      "Half-duplex RS-485 transceiver on 5 V, used here to receive DMX512: DI to the controller's UART TX, RE and DE joined to one enable GPIO, and RO to RX through a 1 k / 2 k divider.",
+      "RO swings to 5 V, above an ESP32's 3.6 V pin limit. 1 k from RO to RX and 2 k from RX to GND bring it to 3.3 V (3.5 V at the chip's 5.25 V ceiling); a level-shifter module on RO does the same job.",
       "RE and DE are separate pads. Bridge them with a short wire so one GPIO drives both; driven low, the module listens.",
-      "The MAX485 is specified for 4.75-5.25 V. Powered from 5 V, RO drives 5 V and R1-R4 pull every logic line up to 5 V, which is above an ESP32's 3.6 V pin limit, so a 5 V supply needs a level shifter on RO at least.",
-      "Powered from 3.3 V the module is below its datasheet supply, but RO and every pull-up stay at 3.3 V; esp_dmx and many DMX receivers run it this way. Treat 3.3 V operation as experimental until a bench row confirms it on this board.",
+      "R2-R4 pull RE, DE and DI up to 5 V through 10 k. The controller drives those lines at 3.3 V, so each feeds about 0.17 mA back into its pin.",
+      "Until the firmware sets the enable pin, R2 and R3 hold RE and DE high, so the module drives the DMX line briefly at power-up. RS-485 drivers are current-limited, but a receiver sharing a line with a desk does this every boot.",
       "DMX512 on a 5-pin or 3-pin XLR: pin 1 common/shield to GND, pin 2 Data- to B, pin 3 Data+ to A.",
       "R7 (120 ohm) terminates the line and is fitted at the factory. Keep it only on the last device in a DMX chain; remove it on a receiver in the middle of a run.",
       "The logic and bus headers are shown unpopulated; the screw terminal is fitted, as the module ships. B and A on the header and the terminal are the same nets.",

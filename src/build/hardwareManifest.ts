@@ -718,6 +718,8 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: missing.length === 0,
           facts: {
             partId: DMX_TRANSCEIVER_PART_ID,
+            supply: '5 V',
+            rxLevel: 'RO to RX through 1 kΩ, RX to GND through 2 kΩ (5 V down to 3.3 V)',
             enable: 'RE and DE bridged, on one GPIO',
             dmxCable: 'XLR pin 1 to GND, pin 2 (Data-) to B, pin 3 (Data+) to A',
             termination: '120 Ω fitted (R7): keep only on the last device in the chain',

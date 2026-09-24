@@ -219,9 +219,18 @@ function rowHasChannelSelect(rowItems: readonly HardwareManifestItem[]) {
   return rowItems.some((item) => micChannelSelectPadIndex(item) !== null)
 }
 
+/**
+ * Extra depth for a row holding a receive divider. Its ground symbol hangs
+ * from the divider, which sits below the module rather than on a pad, so its
+ * caption lands lower than an ordinary pad's would.
+ */
+export const RECEIVE_DIVIDER_DROP = 16
+
 /** Where a row's first control lane sits below its modules. */
 export function peripheralLaneBase(rowItems: readonly HardwareManifestItem[]) {
-  return PERIPHERAL_LANE_BASE + (rowHasChannelSelect(rowItems) ? CHANNEL_SELECT_STUB_DROP : 0)
+  return PERIPHERAL_LANE_BASE
+    + (rowHasChannelSelect(rowItems) ? CHANNEL_SELECT_STUB_DROP : 0)
+    + (rowItems.some(hasReceiveDivider) ? RECEIVE_DIVIDER_DROP : 0)
 }
 
 /** Clear of the deepest lane, with room for the downward GND/VCC stub labels. */
@@ -661,12 +670,10 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // SDA/SCL pull-ups tie to. On the 5 V rail those pull-ups would hold the
   // controller's I2C pins at 5 V, so it takes the logic rail instead.
   if (item.kind === 'power-monitor-input') return 'v3v3'
-  // The MAX485 is rated for 5 V, but its RO swings to VCC and R1-R4 pull all
-  // four logic pads up to VCC, so on 5 V it would drive the ESP32's RX (and
-  // hold TX and the enable line) above the 3.6 V pin limit. On 3V3 every line
-  // stays in range; the module then runs below its datasheet supply, which is
-  // what the part's notes and its experimental support row say.
-  if (item.kind === 'dmx-input') return 'v3v3'
+  // The MAX485 is specified for 4.75-5.25 V, so it takes the 5 V rail. Its RO
+  // then swings to 5 V, which the receive divider brings down to the ESP32's
+  // level (see `receiveDivider`).
+  if (item.kind === 'dmx-input') return 'v5'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
@@ -749,6 +756,73 @@ export function peripheralPadRadius(item: HardwareManifestItem) {
   const radius = MODULE_PAD_HOLE_RADIUS[partId]
   const box = fittedRenderBox(partId)
   return radius === undefined || !box ? DEFAULT_PAD_HOLE_RADIUS : radius * box.scale
+}
+
+/**
+ * The divider on a 5 V receiver's output, between its RO pad and the
+ * controller's RX pin.
+ *
+ * The MAX485 runs on 5 V and RO swings rail to rail, above an ESP32's 3.6 V
+ * pin limit. RO goes through a 1 kΩ series resistor to a junction the RX wire
+ * lands on, and a 2 kΩ resistor holds the junction to ground: 5 V × 2/3 =
+ * 3.33 V, and 3.5 V at the chip's 5.25 V ceiling. The divider sits to the left
+ * of the module, under its own box, because the other three wires rise
+ * straight to their pads and a divider under RO would sit across them.
+ */
+export const DIVIDER_RESISTOR_W = 32
+export const DIVIDER_RESISTOR_H = 20
+const DIVIDER_GAP = 6
+
+export interface ReceiveDivider {
+  /** Index into the item's pins (and so its connections) of the RX wire. */
+  signalIndex: number
+  roPad: { x: number; y: number }
+  /** The height the divider runs at, just below the module's box. */
+  y: number
+  /** 1 kΩ, RO side: left edge x. */
+  seriesX: number
+  junction: { x: number; y: number }
+  /** 2 kΩ, ground side: left edge x. */
+  shuntX: number
+  ground: { x: number; y: number }
+}
+
+function hasReceiveDivider(item: HardwareManifestItem) {
+  return item.kind === 'dmx-input'
+}
+
+export function receiveDivider(layout: ItemLayout): ReceiveDivider | null {
+  const { item } = layout
+  if (!hasReceiveDivider(item)) return null
+  const signalIndex = item.pins.findIndex((pin) => pin.propertyKey === 'dmxRxPin')
+  const roIndex = padIndexByLabel(item, ['RO'], -1)
+  const box = fittedRenderBox(String(item.facts.partId ?? ''))
+  if (signalIndex < 0 || roIndex < 0 || !box) return null
+  const y = layout.y + PERIPHERAL_RENDER_H + 10
+  const seriesX = layout.x + box.offsetX - DIVIDER_GAP - DIVIDER_RESISTOR_W
+  const junctionX = seriesX - DIVIDER_GAP
+  const shuntX = junctionX - DIVIDER_GAP - DIVIDER_RESISTOR_W
+  return {
+    signalIndex,
+    roPad: peripheralPadPoint(layout, roIndex),
+    y,
+    seriesX,
+    junction: { x: junctionX, y },
+    shuntX,
+    ground: { x: shuntX - DIVIDER_GAP, y },
+  }
+}
+
+/**
+ * Where a control wire from the controller ends: on its pad, or, for a
+ * receiver's RX line, on the divider's junction. The lane allocator and the
+ * router both ask this, so a wire's lane is chosen for the point it actually
+ * climbs to.
+ */
+export function peripheralSignalEndPoint(layout: ItemLayout, signalIndex: number) {
+  const divider = receiveDivider(layout)
+  if (divider && divider.signalIndex === signalIndex) return divider.junction
+  return peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, signalIndex))
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {

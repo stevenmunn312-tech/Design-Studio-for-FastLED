@@ -3,6 +3,7 @@ import {
   peripheralPadCount, peripheralPadLabel, peripheralPowerPadIndex,
   peripheralGroundPadIndex, peripheralSignalPadIndex, peripheralPowerNet,
   micChannelSelectPadIndex, MODULE_PAD_GEOMETRY, transceiverEnableBridgePads,
+  receiveDivider, peripheralSignalEndPoint, peripheralPadPoint, PERIPHERAL_RENDER_H,
 } from '../physicalDiagramLayout'
 import { MIC_MODULES } from '../../../state/micModules'
 import { partById } from '../../../state/partCatalogue'
@@ -211,14 +212,44 @@ describe('the DMX512 transceiver', () => {
     expect(transceiverEnableBridgePads(item('power-monitor-input', 'adafruit-ina219-current-sensor'))).toBeNull()
   })
 
-  /*
-   * R1-R4 pull every logic pad up to VCC and RO swings to VCC, so the supply
-   * rail is the logic level the ESP32 sees. 5 V would put 5 V on its RX pin.
-   */
-  it('powers the module from 3V3, on its VCC pad, with GND on GND', () => {
+  // The MAX485 is specified for 4.75-5.25 V, so it takes the 5 V rail; the
+  // receive divider (below) is what keeps RO's 5 V off the ESP32's RX pin.
+  it('powers the module from 5 V, on its VCC pad, with GND on GND', () => {
     const entry = dmx()
-    expect(peripheralPowerNet(entry)).toBe('v3v3')
+    expect(peripheralPowerNet(entry)).toBe('v5')
     expect(peripheralPadLabel(entry, peripheralPowerPadIndex(entry)!)).toBe('VCC')
     expect(peripheralPadLabel(entry, peripheralGroundPadIndex(entry))).toBe('GND')
+  })
+
+  describe('receive divider', () => {
+    const layout = () => ({ x: 400, y: 300, item: dmx() }) as unknown as Parameters<typeof receiveDivider>[0]
+
+    it('ends the RX wire on the divider junction, and every other wire on its pad', () => {
+      const l = layout()
+      const divider = receiveDivider(l)!
+      expect(divider.signalIndex).toBe(1)
+      expect(peripheralSignalEndPoint(l, 1)).toEqual(divider.junction)
+      for (const index of [0, 2]) {
+        expect(peripheralSignalEndPoint(l, index))
+          .toEqual(peripheralPadPoint(l, peripheralSignalPadIndex(l.item, index)))
+      }
+    })
+
+    it('starts at RO and runs RO, 1 kΩ, junction, 2 kΩ, ground from right to left below the module', () => {
+      const l = layout()
+      const divider = receiveDivider(l)!
+      expect(divider.roPad).toEqual(peripheralPadPoint(l, pads(l.item).indexOf('RO')))
+      expect(divider.y).toBeGreaterThan(l.y + PERIPHERAL_RENDER_H)
+      // Series resistor between RO and the junction; shunt beyond the junction.
+      expect(divider.seriesX).toBeLessThan(divider.roPad.x)
+      expect(divider.junction.x).toBeLessThan(divider.seriesX)
+      expect(divider.shuntX).toBeLessThan(divider.junction.x)
+      expect(divider.ground.x).toBeLessThan(divider.shuntX)
+    })
+
+    it('belongs only to the transceiver', () => {
+      const other = { x: 0, y: 0, item: item('power-monitor-input', 'adafruit-ina219-current-sensor') }
+      expect(receiveDivider(other as unknown as Parameters<typeof receiveDivider>[0])).toBeNull()
+    })
   })
 })

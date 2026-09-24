@@ -11,6 +11,8 @@ import encoderModuleRender from '../../assets/components/encoder-module.webp'
 import psuRender from '../../assets/components/5v-psu.webp'
 import capacitorRender from '../../assets/components/panasonic-eeufr0j102b-1000uf.webp'
 import resistorRender from '../../assets/components/330ohm-blue-axial-resistor.webp'
+import resistor1kRender from '../../assets/components/1kohm-blue-axial-resistor.webp'
+import resistor2kRender from '../../assets/components/2kohm-blue-axial-resistor.webp'
 import fuseBlock2Render from '../../assets/components/fuse-block-2-circuit.webp'
 import fuseBlock4Render from '../../assets/components/fuse-block-4-circuit.webp'
 import fuseBlock6Render from '../../assets/components/fuse-block-6-circuit.webp'
@@ -45,6 +47,10 @@ import {
   groundCombLaneY,
   micChannelSelectPadIndex,
   transceiverEnableBridgePads,
+  receiveDivider,
+  peripheralSignalEndPoint,
+  DIVIDER_RESISTOR_W,
+  DIVIDER_RESISTOR_H,
   peripheralGroundPadIndex,
   peripheralLaneBase,
   peripheralPadLabel,
@@ -665,7 +671,7 @@ function assignControlLanes(
     const own = connections.filter((connection) => connection.itemId === layout.item.id)
     own.forEach((connection, index) => {
       const entry = rows.get(layout.y) ?? []
-      entry.push({ id: connection.id, padX: peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, index)).x, rowTop: layout.y })
+      entry.push({ id: connection.id, padX: peripheralSignalEndPoint(layout, index).x, rowTop: layout.y })
       rows.set(layout.y, entry)
     })
   })
@@ -916,6 +922,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   const groundPadIndex = peripheralGroundPadIndex(item)
   const channelSelectPadIndex = micChannelSelectPadIndex(item)
   const enableBridge = transceiverEnableBridgePads(item)
+  const divider = receiveDivider(layout)
   const enableConnection = enableBridge
     ? connections.find((_, index) => peripheralSignalPadIndex(item, index) === enableBridge[1])
     : undefined
@@ -949,6 +956,24 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
           XLR 1 → GND · 2 → B · 3 → A
         </text>
       )}
+      {divider && ([
+        ['1 kΩ', resistor1kRender, '1kohm-blue-axial-resistor', divider.seriesX],
+        ['2 kΩ', resistor2kRender, '2kohm-blue-axial-resistor', divider.shuntX],
+      ] as const).map(([value, href, id, left]) => (
+        <g key={id} data-divider-resistor={value}>
+          <text x={left + (DIVIDER_RESISTOR_W / 2)} y={divider.y - 9} textAnchor="middle" className={styles.physicalComponentLabel}>{value}</text>
+          <image
+            data-component-render={id}
+            href={href}
+            x={left}
+            y={divider.y - (DIVIDER_RESISTOR_H / 2)}
+            width={DIVIDER_RESISTOR_W}
+            height={DIVIDER_RESISTOR_H}
+            preserveAspectRatio="xMidYMid meet"
+            className={styles.physicalBoardRender}
+          />
+        </g>
+      ))}
       {render && (
         <image
           data-component-render={render.id}
@@ -1509,6 +1534,10 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const groundPad = peripheralPadPoint(layout, peripheralGroundPadIndex(layout.item))
           const channelSelectIndex = micChannelSelectPadIndex(layout.item)
           const channelSelectPad = channelSelectIndex === null ? null : peripheralPadPoint(layout, channelSelectIndex)
+          const divider = receiveDivider(layout)
+          const dividerConnection = divider ? peripheralConnections[divider.signalIndex] : undefined
+          const dividerActive = selectedItemId === 'controller' || selectedItemId === layout.item.id
+          const dividerColor = dividerConnection ? signalPresentation(dividerConnection).color : undefined
           return <g key={layout.item.id}>
             {vccPad && vccNet && (
               <NetStub
@@ -1524,7 +1553,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
               const padIndex = peripheralSignalPadIndex(layout.item, index)
-              const pad = peripheralPadPoint(layout, padIndex)
+              // Usually the pad itself; a receiver's RX wire ends on its divider.
+              const end = peripheralSignalEndPoint(layout, index)
+              const viaDivider = divider?.signalIndex === index
               // Name the pad the wire lands on, as printed on the part. The use
               // label speaks for the controller, so an amplifier's data line
               // read "I2S DOUT" over a pad silkscreened DIN.
@@ -1536,12 +1567,14 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
               return <HoverWire
                 key={connection.id}
-                tip={padName ? `${connection.pinLabel} · ${layout.item.title} ${padName}` : `${connection.pinLabel} · ${connection.useLabel}`}
+                tip={viaDivider
+                  ? `${connection.pinLabel} · 1 kΩ / 2 kΩ divider from ${layout.item.title} ${padName}`
+                  : padName ? `${connection.pinLabel} · ${layout.item.title} ${padName}` : `${connection.pinLabel} · ${connection.useLabel}`}
                 data-wire={connection.id}
                 data-signal-role={presentation.role}
                 data-control-lane={lane.index}
                 data-control-corridor={corridorSlot}
-                d={routeToControlPad(controllerPoint, pad, lane.y, corridorSlot)}
+                d={routeToControlPad(controllerPoint, end, lane.y, corridorSlot)}
                 className={active ? styles.signalWire : styles.dimWire}
                 style={active ? { stroke: presentation.color } : undefined}
               />
@@ -1565,6 +1598,35 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 wireId={`${layout.item.id}-channel-select`}
                 wireRole="channel-select"
               />
+            )}
+            {/*
+              A 5 V receiver's RO reaches RX through a divider: down out of the
+              pad and left through 1 kΩ to the junction the RX wire climbs to,
+              then 2 kΩ on to ground. The resistor bodies are drawn with the
+              module; these are the leads between them.
+            */}
+            {divider && layers.signalWires && (
+              <g data-receive-divider={layout.item.id}>
+                {([
+                  [`${layout.item.title} RO · to the 1 kΩ`, `M${divider.roPad.x} ${divider.roPad.y}V${divider.y}H${divider.seriesX + DIVIDER_RESISTOR_W}`, 'ro'],
+                  ['1 kΩ · to the RX junction', `M${divider.seriesX} ${divider.y}H${divider.junction.x}`, 'series'],
+                  ['RX junction · to the 2 kΩ', `M${divider.junction.x} ${divider.y}H${divider.shuntX + DIVIDER_RESISTOR_W}`, 'junction'],
+                  ['2 kΩ · to GND', `M${divider.shuntX} ${divider.y}H${divider.ground.x}`, 'shunt'],
+                ] as const).map(([tip, d, part]) => (
+                  // Each lead stops at a resistor's end, so no wire is drawn
+                  // across a resistor body whichever layer paints last.
+                  <HoverWire
+                    key={part}
+                    tip={tip}
+                    data-wire={`${layout.item.id}-divider-${part}`}
+                    d={d}
+                    className={dividerActive ? styles.signalWire : styles.dimWire}
+                    style={dividerActive && dividerColor ? { stroke: dividerColor } : undefined}
+                  />
+                ))}
+                <circle data-divider-junction="true" cx={divider.junction.x} cy={divider.junction.y} r={3} style={dividerColor ? { fill: dividerColor } : undefined} />
+                <NetStub x={divider.ground.x} y={divider.ground.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-divider-ground`} />
+              </g>
             )}
           </g>
         })}
