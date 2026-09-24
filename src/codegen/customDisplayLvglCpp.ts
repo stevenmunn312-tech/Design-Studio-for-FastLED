@@ -248,7 +248,9 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     lines.push(
       `  lv_obj_set_style_text_font(${obj}, &lv_font_montserrat_${customDisplayFontSize(text.fontSize)}, LV_PART_MAIN);`,
       `  lv_obj_set_style_text_align(${obj}, ${alignCpp(text.align)}, LV_PART_MAIN);`,
-      `  lv_label_set_long_mode(${obj}, ${text.wrap ? 'LV_LABEL_LONG_MODE_WRAP' : 'LV_LABEL_LONG_MODE_DOTS'});`,
+      // Circular scroll moves only text too wide to fit, which is also the
+      // only text the preview animates.
+      `  lv_label_set_long_mode(${obj}, ${text.overflow === 'scroll' ? 'LV_LABEL_LONG_MODE_SCROLL_CIRCULAR' : text.wrap ? 'LV_LABEL_LONG_MODE_WRAP' : 'LV_LABEL_LONG_MODE_DOTS'});`,
       // The gap between wrapped rows, so the glass breaks its lines where the
       // preview does. LVGL measures the space *between* lines while the
       // tokens carry the pitch, and the Montserrat faces are close enough to

@@ -55,7 +55,7 @@
         "height": 32
       },
       {
-        "label": "Remaining",
+        "label": "Duration",
         "type": "Timecode",
         "x": 144,
         "y": 80,
@@ -564,7 +564,7 @@
         "height": 32
       },
       {
-        "label": "Remaining",
+        "label": "Duration",
         "type": "Timecode",
         "x": 144,
         "y": 80,
@@ -1073,7 +1073,7 @@
         "height": 32
       },
       {
-        "label": "Remaining",
+        "label": "Duration",
         "type": "Timecode",
         "x": 224,
         "y": 80,

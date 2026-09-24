@@ -42,7 +42,13 @@ export interface DisplayWidgetTextTokens {
   /** Lines actually shown — the authored ceiling, lowered to what the widget
    *  is tall enough to hold when its bounds are known. */
   maxLines: number
-  overflow: 'ellipsis'
+  /**
+   * What happens to text wider than the widget. `scroll` is one line moving
+   * round in a loop — LVGL's circular label mode on the glass, a matching
+   * animation in the preview — and only when it does not fit. It overrides
+   * wrapping, since a scrolling row is by definition a single row.
+   */
+  overflow: 'ellipsis' | 'scroll'
 }
 
 export interface DisplayWidgetStateContext {
@@ -221,14 +227,15 @@ export function displayWidgetTextTokens(
   const authored = textWidget
     ? Math.max(1, Math.min(4, Math.round(numberProperty(widget, 'maxLines') ?? 2)))
     : 1
+  const scroll = textWidget && boolProperty(widget, 'scroll') === true
   return {
     align: align === 'center' || align === 'right' ? align : 'left',
     font: numeric ? 'mono' : theme.font,
     fontSize,
     lineHeight,
-    wrap: textWidget ? (boolProperty(widget, 'wrap') ?? true) : false,
-    maxLines: Math.min(authored, linesThatFit(widget.bounds, lineHeight, theme)),
-    overflow: 'ellipsis',
+    wrap: textWidget && !scroll ? (boolProperty(widget, 'wrap') ?? true) : false,
+    maxLines: scroll ? 1 : Math.min(authored, linesThatFit(widget.bounds, lineHeight, theme)),
+    overflow: scroll ? 'scroll' : 'ellipsis',
   }
 }
 

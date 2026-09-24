@@ -112,7 +112,7 @@ describe('custom display templates', () => {
     expect(ports.inputs).toEqual([])
     expect(document.widgets.filter((widget) => displayWidgetIsBound(widget))
       .map((widget) => widget.properties.source))
-      .toEqual(['title', 'artist', 'elapsed', 'remaining', 'progress', 'playing'])
+      .toEqual(['title', 'artist', 'elapsed', 'duration', 'progress', 'playing'])
     expect(ports.outputs.map((port) => port.id)).toEqual([
       'widget:button:out',
       'widget:toggle:out',

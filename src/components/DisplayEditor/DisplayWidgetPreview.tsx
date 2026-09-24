@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
 import {
   displayWidgetBodyFallback,
@@ -11,6 +11,60 @@ import { displayWidgetTextTokens } from '../../state/displayTheme'
 import { rgbToHex } from '../../state/customPalette'
 import { isPatternSelect } from '../../state/patternSelection'
 import styles from './DisplayWidgetPreview.module.css'
+
+/**
+ * LVGL's circular label scroll, as the preview draws it.
+ *
+ * `LV_LABEL_DEF_SCROLL_SPEED` is a third of the display DPI, and LVGL's default
+ * DPI is 130, so the glass moves text at about 43 px/s; the loop's gap is three
+ * spaces (`LV_LABEL_WAIT_CHAR_COUNT`). Text that fits does not move, on either.
+ */
+const SCROLL_PX_PER_SEC = 130 / 3
+const SCROLL_GAP = '   '
+
+function ScrollingText({ text, className, style }: { text: string; className: string; style: CSSProperties }) {
+  const outer = useRef<HTMLSpanElement>(null)
+  const inner = useRef<HTMLSpanElement>(null)
+  const [overflows, setOverflows] = useState(false)
+
+  // Layout widths, not rendered ones: the surface is scaled with a transform,
+  // and the speed is in the panel's own pixels.
+  useLayoutEffect(() => {
+    const box = outer.current
+    const first = inner.current?.firstElementChild as HTMLElement | null
+    if (!box || !first) return
+    const measure = () => setOverflows(first.offsetWidth > box.clientWidth + 0.5)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [text])
+
+  useLayoutEffect(() => {
+    const track = inner.current
+    const first = track?.firstElementChild as HTMLElement | null
+    if (!overflows || !track || !first) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const distance = first.offsetWidth
+    // Transform only, never a filter: an endless animation on a filtered
+    // layer is what kept GPU memory climbing until the tab died.
+    const animation = track.animate?.(
+      [{ transform: 'translateX(0)' }, { transform: `translateX(${-distance}px)` }],
+      { duration: (distance / SCROLL_PX_PER_SEC) * 1000, iterations: Infinity, easing: 'linear' },
+    )
+    return () => animation?.cancel()
+  }, [overflows, text])
+
+  return (
+    <span ref={outer} className={className} style={{ ...style, textOverflow: 'clip' }}>
+      <span ref={inner} className={styles.scrollTrack}>
+        <span>{text}{overflows ? SCROLL_GAP : ''}</span>
+        {overflows && <span aria-hidden="true">{text}{SCROLL_GAP}</span>}
+      </span>
+    </span>
+  )
+}
 
 export interface DisplayWidgetPreviewProps {
   widget: DisplayWidget
@@ -108,6 +162,9 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
   const body = (() => {
   switch (renderer) {
     case 'text':
+      if (typography.overflow === 'scroll') {
+        return <ScrollingText text={text} className={styles.text} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }} />
+      }
       return <span className={`${styles.text} ${typography.wrap ? styles.wrappedText : ''}`} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }}>{text}</span>
     case 'numeric': {
       const decimals = Math.max(0, Math.min(4, Math.round(numberProperty(widget, 'decimals', 1))))

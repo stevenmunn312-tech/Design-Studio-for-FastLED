@@ -43,6 +43,12 @@
   line-height: var(--widget-text-line-height, normal);
 }
 
+.scrollTrack {
+  display: inline-flex;
+  white-space: pre;
+  will-change: transform;
+}
+
 .wrappedText {
   display: -webkit-box;
   overflow-wrap: anywhere;
