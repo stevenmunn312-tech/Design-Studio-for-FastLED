@@ -14,7 +14,7 @@ function node(id: string, nodeType: string, properties: Record<string, unknown>)
 describe('controllerSettings', () => {
   it('uses the Board as the only source when outputs contain stale global properties', () => {
     const nodes = [
-      node('board', 'Board', { brightness: 144, overclock: 1.25, powerLimit: true, volts: 5, milliamps: 6000, usePsram: true, psramMode: 'opi' }),
+      node('board', 'Board', { brightness: 144, overclock: 1.25, powerLimit: true, volts: 5, milliamps: 6000, psramPolicy: 'on', psramMode: 'opi' }),
       node('out-a', 'MatrixOutput', { brightness: 20, overclock: 1.7, milliamps: 1000 }),
       node('out-b', 'MatrixOutput', { brightness: 240, overclock: 1.1, milliamps: 9000 }),
     ]
@@ -28,7 +28,6 @@ describe('controllerSettings', () => {
       usePsram: true,
       psramPolicy: 'on',
       psramMode: 'opi',
-      // A missing legacy false/default now adopts the safe automatic route.
       usbCdcOnBoot: false,
       serialRoute: 'auto',
     })
@@ -65,12 +64,10 @@ describe('controllerSettings', () => {
     expect(settings.usePsram).toBe(false)
   })
 
-  it('defaults missing legacy policies to Auto when the exact board can resolve them', () => {
+  it('defaults missing policies to Auto when the exact board can resolve them', () => {
     const settings = controllerSettings([
       node('board', 'Board', {
         profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-        usePsram: false,
-        usbCdcOnBoot: false,
       }),
     ])
 
@@ -83,16 +80,16 @@ describe('controllerSettings', () => {
     })
   })
 
-  it('preserves affirmative legacy memory and native-USB overrides', () => {
+  it('ignores retired boolean overrides when v1 policies are absent', () => {
     const settings = controllerSettings([
       node('board', 'Board', { usePsram: true, usbCdcOnBoot: true }),
     ])
 
     expect(settings).toMatchObject({
-      usePsram: true,
-      psramPolicy: 'on',
-      usbCdcOnBoot: true,
-      serialRoute: 'native',
+      usePsram: false,
+      psramPolicy: 'auto',
+      usbCdcOnBoot: false,
+      serialRoute: 'auto',
     })
   })
 

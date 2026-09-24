@@ -110,7 +110,11 @@ describe('custom display firmware RAM', () => {
     const document = createDisplayDocument('a')
     const documents = { a: document }
     const mounted = screen('a')
-    const nodes = [node('leds', 'MatrixOutput', { width: 4, height: 4, usePsram: true }), ...mounted.nodes]
+    const nodes = [
+      node('board', 'Board', { psramPolicy: 'on' }),
+      node('leds', 'MatrixOutput', { width: 4, height: 4 }),
+      ...mounted.nodes,
+    ]
     const edges = mounted.edges
     const ram = estimateFirmwareRam(nodes, edges, documents)!
     expect(ram.internalBytes).toBe(48 + ram.displayBytes)

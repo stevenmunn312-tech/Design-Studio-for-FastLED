@@ -110,7 +110,7 @@ describe('playerConfigFromGraph', () => {
   it('takes the PSRAM request from the controller Board', () => {
     const cfg = playerConfigFromGraph([
       generator,
-      node('Board', { usePsram: true }),
+      node('Board', { psramPolicy: 'on' }),
       node('MatrixOutput', { width: 16, height: 16 }),
     ], showEdge)
     expect(cfg.usePsram).toBe(true)

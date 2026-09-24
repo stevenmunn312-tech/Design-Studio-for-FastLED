@@ -15,6 +15,10 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed the retired Board `usePsram` and `usbCdcOnBoot`
+  persistence fields. V1 saves store the three-state `psramPolicy` and
+  `serialRoute` controls; the booleans are derived for generator/backend
+  consumers and old boolean fields are stripped during graph normalization.
 - 2026-09-24: removed the pre-Board controller fallback. Brightness, current
   limiting, PSRAM and serial policy now come only from the singleton `Board`;
   Board-absent generator callers receive safe defaults instead of interpreting

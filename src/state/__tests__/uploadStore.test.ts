@@ -125,7 +125,7 @@ describe('uploadStore', () => {
       useGraphStore.setState({
         nodes: [board({
           profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-          usbCdcOnBoot: true,
+          serialRoute: 'native',
         })],
       })
 
@@ -211,7 +211,7 @@ describe('uploadStore', () => {
       useGraphStore.setState({
         nodes: [board({
           profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-          usbCdcOnBoot: true,
+          serialRoute: 'native',
         })],
       })
       useUploadStore.getState().setCardReader(true)

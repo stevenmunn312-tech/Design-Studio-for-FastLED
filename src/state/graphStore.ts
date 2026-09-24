@@ -37,7 +37,7 @@ import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardPr
 import { boardI2cDefault } from '../build/boardI2cDefaults'
 import { sdSpiPinsForBoard } from './sdPinDefaults'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
-import { DEFAULT_CONTROLLER_SETTINGS } from './controllerSettings'
+import { DEFAULT_BOARD_CONTROLLER_PROPERTIES } from './controllerSettings'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -949,11 +949,18 @@ function createRootBoardNode(profileId = DEFAULT_BOARD_PROFILE_ID): StudioNode {
       label: 'Board',
       nodeType: 'Board',
       category: 'output',
-      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...DEFAULT_CONTROLLER_SETTINGS },
+      properties: { profileId: profile?.id ?? DEFAULT_BOARD_PROFILE_ID, ...DEFAULT_BOARD_CONTROLLER_PROPERTIES },
       inputs: [],
       outputs: [],
     },
   } as StudioNode
+}
+
+function v1BoardProperties(properties: Record<string, unknown>): Record<string, unknown> {
+  const current = { ...properties }
+  delete current.usePsram
+  delete current.usbCdcOnBoot
+  return current
 }
 
 /**
@@ -969,6 +976,7 @@ function ensureRootBoardNode(nodes: StudioNode[], fallbackProfileId?: string): S
   if (boardNodes.length === 0) return [...nodes, createRootBoardNode(fallback)]
   const [primary, ...extras] = boardNodes
   const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
+  const currentProps = v1BoardProperties(primaryProps)
   const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
     ? primaryProps.profileId
     : fallback
@@ -985,7 +993,7 @@ function ensureRootBoardNode(nodes: StudioNode[], fallbackProfileId?: string): S
           ...node.data,
           label: 'Board',
           category: 'output',
-          properties: { ...DEFAULT_CONTROLLER_SETTINGS, ...node.data.properties, profileId: explicitProfileId },
+          properties: { ...DEFAULT_BOARD_CONTROLLER_PROPERTIES, ...currentProps, profileId: explicitProfileId },
           inputs: [],
           outputs: [],
         },

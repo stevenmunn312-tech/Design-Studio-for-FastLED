@@ -174,13 +174,13 @@ describe('BoardNodeBody', () => {
     expect(useUploadStore.getState().selectedFqbn).toBe(xiao.compatibleFqbns[0])
   })
 
-  it('shows Auto for missing legacy memory and serial policies when the board supports them', () => {
+  it('shows Auto when retired boolean overrides are the only policy fields', () => {
     const profile = BOARD_PROFILES.find((p) => p.id === 'generic-esp32-s3-n16r8-44pin-dual-usbc')!
     const legacyBoard = boardNode('b1', profile.id)
     legacyBoard.data.properties = {
       ...legacyBoard.data.properties,
-      usePsram: false,
-      usbCdcOnBoot: false,
+      usePsram: true,
+      usbCdcOnBoot: true,
     }
     reset([legacyBoard])
     useUploadStore.setState({

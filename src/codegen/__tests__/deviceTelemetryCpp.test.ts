@@ -39,7 +39,7 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
   ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle }) as StudioEdge
 
 const board = (reportTelemetry: boolean, profileId = 'generic-esp32-s3-n16r8-44pin-dual-usbc') =>
-  node('board', 'Board', { profileId, usePsram: true, reportTelemetry })
+  node('board', 'Board', { profileId, psramPolicy: 'on', reportTelemetry })
 
 const panel = (properties: Record<string, unknown> = {}) => node('panel', 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',

@@ -14,46 +14,46 @@ export interface ControllerSettings {
   usePsram: boolean
   psramPolicy: PsramPolicy
   psramMode: string
-  /** Resolved compatibility value. Automatic routing is evaluated later,
-   *  against the selected port's USB identity. */
+  /** Resolved boolean for consumers that cannot evaluate a serial route. */
   usbCdcOnBoot: boolean
   serialRoute: SerialRoute
 }
 
-export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
+export type BoardControllerProperties = Omit<ControllerSettings, 'usePsram' | 'usbCdcOnBoot'>
+
+/** Properties persisted on the singleton Board node in the v1 graph format. */
+export const DEFAULT_BOARD_CONTROLLER_PROPERTIES: BoardControllerProperties = {
   brightness: 128,
   overclock: 1,
   powerLimit: false,
   volts: 5,
   milliamps: 2000,
-  usePsram: false,
   psramPolicy: 'auto',
   psramMode: 'opi',
-  // `auto` has no port to inspect at this layer, so its compatibility value is
-  // false until the upload/capacity path resolves the current connection.
-  usbCdcOnBoot: false,
   serialRoute: 'auto',
+}
+
+/** Fully resolved defaults used by generators and Board-absent callers. */
+export const DEFAULT_CONTROLLER_SETTINGS: ControllerSettings = {
+  ...DEFAULT_BOARD_CONTROLLER_PROPERTIES,
+  usePsram: false,
+  // `auto` has no port to inspect at this layer, so its resolved value is false
+  // until the upload/capacity path resolves the current connection.
+  usbCdcOnBoot: false,
 }
 
 function psramPolicy(props: Record<string, unknown>): PsramPolicy {
   if (props.psramPolicy === 'auto' || props.psramPolicy === 'on' || props.psramPolicy === 'off') {
     return props.psramPolicy
   }
-  // Hardware saves from before the three-state control used a boolean. Keep
-  // an affirmative override, but treat the old false/default as Auto: the
-  // exact physical profile now has enough evidence to enable PSRAM safely
-  // where applicable, and otherwise Auto still resolves to off.
-  return props.usePsram === true ? 'on' : 'auto'
+  return DEFAULT_BOARD_CONTROLLER_PROPERTIES.psramPolicy
 }
 
 function serialRoute(props: Record<string, unknown>): SerialRoute {
   if (props.serialRoute === 'auto' || props.serialRoute === 'native' || props.serialRoute === 'uart') {
     return props.serialRoute
   }
-  // Preserve an affirmative legacy Native USB override. The old false/default
-  // becomes Auto so the selected port can distinguish native USB from a UART
-  // bridge; an unknown or unsupported target still falls back to UART.
-  return props.usbCdcOnBoot === true ? 'native' : 'auto'
+  return DEFAULT_BOARD_CONTROLLER_PROPERTIES.serialRoute
 }
 
 function number(value: unknown, fallback: number, min: number, max: number): number {
@@ -85,8 +85,8 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
         ? props.psramMode
         : DEFAULT_CONTROLLER_SETTINGS.psramMode,
     // Auto is resolved against the selected, currently-connected port by the
-    // upload path. Keep this compatibility field deterministic for consumers
-    // that do not have port identity available.
+    // upload path. Keep this derived field deterministic for consumers that do
+    // not have port identity available.
     usbCdcOnBoot: selectedSerialRoute === 'native',
     serialRoute: selectedSerialRoute,
   }

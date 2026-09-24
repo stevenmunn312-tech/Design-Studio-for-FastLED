@@ -953,13 +953,19 @@ describe('graphStore — loadGraph normalization', () => {
     })
   })
 
-  it('keeps the board the Board node already names over a saved build profile', () => {
-    const board = node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+  it('keeps the named board and strips retired controller booleans', () => {
+    const board = node('board-root', 'Board', {
+      profileId: 'esp32-generic-devkit-38pin',
+      usePsram: true,
+      usbCdcOnBoot: true,
+    })
     useGraphStore.getState().loadGraph([board], [], {
       nodes: [], edges: [],
       buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
     } as never)
     expect(dataOf('board-root').properties.profileId).toBe('esp32-generic-devkit-38pin')
+    expect(dataOf('board-root').properties).not.toHaveProperty('usePsram')
+    expect(dataOf('board-root').properties).not.toHaveProperty('usbCdcOnBoot')
   })
 
   it('does not migrate pre-v1 MicInput properties on load', () => {
