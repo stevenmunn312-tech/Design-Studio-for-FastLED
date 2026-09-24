@@ -717,7 +717,8 @@ describe('BuildDiagramWorkspace', () => {
     const wire = diagram.querySelector('[data-wire="button-input:button:pin"]')!
     const group = wire.closest('[data-wire-tip]')!
     const tip = group.getAttribute('data-wire-tip')!
-    expect(tip).toMatch(/GPIO\s?4 · .*pin$/)
+    // The wire names the pad it lands on, as printed on the part.
+    expect(tip).toMatch(/^GPIO\s?4 · Button SIG$/)
 
     // The wide transparent twin is what the pointer actually lands on.
     const hitArea = group.querySelector('path[aria-hidden="true"]')!
@@ -727,6 +728,19 @@ describe('BuildDiagramWorkspace', () => {
 
     fireEvent.pointerLeave(diagram)
     expect(queryByRole('tooltip')).toBeNull()
+  })
+
+  // The controller drives I2S data *out*; the amplifier takes it on a pad
+  // printed DIN. Naming the controller's side put "DOUT" over a DIN pad.
+  it('names a wire by the pad it lands on, not by the controller role', () => {
+    useGraphStore.setState({ nodes: [matrixNode(), amplifierNode()] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')!
+    const tips = [...diagram.querySelectorAll('[data-wire-tip]')].map((group) => group.getAttribute('data-wire-tip'))
+    const listing = tips.join(' | ')
+    expect(tips.some((tip) => /· MAX98357A I2S amplifier DIN$/.test(tip ?? '')), listing).toBe(true)
+    expect(tips.some((tip) => /DOUT/.test(tip ?? '')), listing).toBe(false)
   })
 
   it('uses icon controls with accessible names for hardware visibility, isolation, and completion', () => {

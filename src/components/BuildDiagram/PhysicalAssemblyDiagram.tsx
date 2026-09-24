@@ -1489,7 +1489,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             {layers.signalWires && peripheralConnections.map((connection, index) => {
               const controllerIndex = controllerConnections.indexOf(connection)
               const controllerPoint = controllerConnectionPoint(connection, controllerIndex, controllerConnections.length, boardProfile)
-              const pad = peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, index))
+              const padIndex = peripheralSignalPadIndex(layout.item, index)
+              const pad = peripheralPadPoint(layout, padIndex)
+              // Name the pad the wire lands on, as printed on the part. The use
+              // label speaks for the controller, so an amplifier's data line
+              // read "I2S DOUT" over a pad silkscreened DIN.
+              const padName = peripheralPadLabel(layout.item, padIndex)
               const lane = controlLanes.get(connection.id)
               const corridorSlot = controlCorridors.get(connection.id)
               if (!lane || corridorSlot === undefined) return null
@@ -1497,7 +1502,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               const active = selectedItemId === 'controller' || selectedItemId === layout.item.id
               return <HoverWire
                 key={connection.id}
-                tip={`${connection.pinLabel} · ${connection.useLabel}`}
+                tip={padName ? `${connection.pinLabel} · ${layout.item.title} ${padName}` : `${connection.pinLabel} · ${connection.useLabel}`}
                 data-wire={connection.id}
                 data-signal-role={presentation.role}
                 data-control-lane={lane.index}
