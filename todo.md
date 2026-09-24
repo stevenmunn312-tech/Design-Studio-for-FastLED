@@ -1213,6 +1213,10 @@ matrix, not a reason to postpone testing earlier changes.
   a fourth module files its own without this being edited.
 
   **Left: the compile and the bench rows**, unchanged — no firmware path moved.
+
+  *ICS-43434 compile passed 2026-09-24* (ESP32-S3, arduino-cli 1.5.1, FastLED
+  3.10.5; details in [the plan](docs/development/plans/audio-part-expansion.md#phases)).
+  Still to compile: Generic MEMS, and the fbuild leg.
 - [ ] **HW-20 · Audio chain/amplifiers (L; after HW-19).** Record the DAC →
   power amplifier → speaker decision (Option B is the current proposal), resolve
   roles rather than first Amplifier, then DX-0809/PAM8610. Verify SPH0645LM4H

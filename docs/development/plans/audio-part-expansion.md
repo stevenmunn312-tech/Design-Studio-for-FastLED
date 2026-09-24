@@ -195,8 +195,18 @@ does not block it.
       in a comment that no profile is applied, rather than leaving that to be
       found by diffing two sketches.
 
-      *Outstanding:* the compile proof, and the bench row for each module
-      described under **Bench evidence** below. Both are recorded as
+      *ICS-43434 compile, 2026-09-24:* passed. The generated normal sketch
+      (microphone → FFT → Bass Pulse → 8×8 matrix, ESP32-S3 DevKitC,
+      `esp32:esp32:esp32s3`, source sha256 `a244e0f4…`) emits
+      `Config::CreateIcs43434` and compiled through the helper's arduino-cli
+      path. The toolchain was Arduino CLI 1.5.1, esp32 core 3.3.11 and the
+      FastLED 3.10.5 library, which declares the factory in
+      `fl/audio/input.h`. Flash 534,163 B (40%), RAM 29,048 B (8%), 6 m 15 s
+      cold. Not yet compiled: Generic MEMS (`CreateGenericMEMS`), fbuild, and
+      any non-S3 backend.
+
+      *Outstanding:* the remaining compiles above, and the bench row for each
+      module described under **Bench evidence** below. Both are recorded as
       experimental in the support matrix until then. The Build Diagram draws
       each module's own photograph but still places its pad dots from a stale
       hand-written column — a pre-existing fault, equally wrong for the
