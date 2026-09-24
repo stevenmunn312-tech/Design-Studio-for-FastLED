@@ -1325,13 +1325,17 @@ export function findHub75TopologyDiagnosticErrors(nodes: StudioNode[], outputNod
 
 export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: string): string[] {
   const errors: string[] = []
-  if (selectedFqbn && !micSupportedForBoard(selectedFqbn)) {
+  if (selectedFqbn) {
     // One message per module on the graph, not per node: the board refuses
     // them all for the same reason, and naming the module is what tells a
     // reader the fault is the board rather than the microphone they wired.
+    // Asked per module, because one module (the SPH0645) is refused on boards
+    // that take the others.
     const refused = new Set(nodes
       .filter((node) => node.data.nodeType === 'MicInput')
-      .map((node) => micUnsupportedMessage((node.data.properties as Record<string, unknown>).partId)))
+      .map((node) => (node.data.properties as Record<string, unknown>).partId)
+      .filter((partId) => !micSupportedForBoard(selectedFqbn, partId))
+      .map((partId) => micUnsupportedMessage(partId)))
     errors.push(...refused)
   }
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'LineInput') && !selectedFqbn.startsWith('esp32:esp32:esp32s3')) {
@@ -3175,8 +3179,10 @@ export function buildGraphDiagnostics(
     })
   }
 
-  if (options.selectedFqbn && !micSupportedForBoard(options.selectedFqbn)) {
-    for (const node of nodes.filter((entry) => entry.data.nodeType === 'MicInput')) {
+  if (options.selectedFqbn) {
+    const fqbn = options.selectedFqbn
+    for (const node of nodes.filter((entry) => entry.data.nodeType === 'MicInput'
+      && !micSupportedForBoard(fqbn, (entry.data.properties as Record<string, unknown>).partId))) {
       diagnostics.push({
         id: `${node.id}-board`, severity: 'error', category: 'board',
         title: 'Microphone is incompatible with the selected board',

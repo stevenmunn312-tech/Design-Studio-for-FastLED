@@ -42,7 +42,7 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
     ? partRenderForNodeType('MicInput', selectedProperties ?? {})
     : null
   const boardProfile = selectedMic ? selectedPhysicalBoardProfile(rootNodes) : undefined
-  const micUnavailable = Boolean(selectedMic && !micSupportedForBoardProfile(boardProfile))
+  const micUnavailable = Boolean(selectedMic && !micSupportedForBoardProfile(boardProfile, selectedProperties?.partId))
   const micUnavailableMessage = boardProfile
     ? micUnsupportedMessage(selectedProperties?.partId)
     : MIC_NO_BOARD_MESSAGE

@@ -152,7 +152,7 @@ export default function MenuBar() {
   const hasMicNode = audioInputType === 'MicInput'
   const hasLineInputNode = audioInputType === 'LineInput'
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
-  const micSupported = micSupportedForBoardProfile(selectedBoardProfile)
+  const micSupported = micSupportedForBoardProfile(selectedBoardProfile, audioInputPartId)
   const lineInputSupported = selectedBoardProfile?.compatibleFqbns
     .some((fqbn) => fqbn.startsWith('esp32:esp32:esp32s3')) === true
   const micActive = useAudioStore((s) => s.micActive)

@@ -26,11 +26,6 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 1. Open engineering work
 
-- [ ] **HW-20 phase 4 · SPH0645LM4H microphone (M).** Build it from
-  documentation as an experimental microphone. FastLED 3.10.5 ships no ESP32
-  factory or profile for it, so the app configures FastLED's general I2S input
-  itself. Its data format is documented; bench confirmation is a community-testing row.
-  See [audio part expansion](docs/development/plans/audio-part-expansion.md#phases).
 - [ ] **HW-12 · Integrated display boards (M).** Add exact profiles, bus
   ownership and any missing drivers for proposed integrated boards. This is
   the one item with a genuine measurement gate: an unbranded board's display
@@ -67,7 +62,8 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   through the other engine.
 - [ ] **HW-20 · DAC → power amplifier SD-player sketch.** I2S output, unchanged
   firmware, never rebuilt since the chain model landed.
-- [ ] **HW-20 phase 4 · SPH0645LM4H sketch**, once it is built.
+- [ ] **HW-20 phase 4 · SPH0645LM4H on fbuild.** The classic-ESP32 sketch
+  through the other engine. (arduino-cli passed 2026-09-24.)
 
 ## 3. Community and bench testing (non-blocking)
 
@@ -101,7 +97,11 @@ in the app and marked experimental; nothing here holds up development.
   against an INMP441 on the same fixture and source.
 - **HW-20 audio chain:** each power amplifier (PAM8403, PAM8610, DX-0809) fed by
   a DAC and by the internal DAC. The MAX98357A stereo pair hearing left and
-  right separately. The SPH0645LM4H once built.
+  right separately.
+- **SPH0645LM4H:** a classic-ESP32 bench row against an INMP441. Separately,
+  a measured capture on an ESP32-S3, which is the one genuine measurement
+  gap: no documented timing fix exists for its I2S block, so the S3 is
+  refused until one is found.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
@@ -162,7 +162,8 @@ Outcomes are recorded where linked; the per-item narratives are in the
   The blocker classes are automated in `deployGates.test.ts`.
 - **HW-19 · ICS-43434 and Generic I2S MEMS**: software complete; ICS-43434
   compile passed. The remaining compiles are in section 2.
-- **HW-20 phases 2, 3 and 5**: Option B chain, power amplifiers, MAX98357A
-  stereo pair ([plan](docs/development/plans/audio-part-expansion.md#phases)).
+- **HW-20 phases 2–5**: Option B chain, power amplifiers, the SPH0645LM4H
+  (classic ESP32, app-owned capture) and the MAX98357A stereo pair
+  ([plan](docs/development/plans/audio-part-expansion.md#phases)).
 - **D-05a · IR remote**: steps 1–13
   ([IR compile checks](docs/development/ir-compile-checks.md)).

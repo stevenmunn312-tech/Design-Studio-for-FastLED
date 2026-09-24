@@ -182,6 +182,9 @@ describe('HardwarePane', () => {
   it.each(MIC_MODULES.map((module) => [module.label, module] as const))(
     'adds the %s as a microphone naming its own module',
     (_label, module) => {
+      // A module the app captures itself is written for the classic ESP32, so
+      // it is added on one; the others go on the default S3 bench.
+      if (module.capture) useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
       render(<HardwarePane />)
 
       addPart('Inputs', `${module.label} microphone`)
@@ -191,6 +194,15 @@ describe('HardwarePane', () => {
       expect((mic!.data.properties as Record<string, unknown>).partId).toBe(module.partId)
     },
   )
+
+  it('refuses the SPH0645LM4H on the shelf of an ESP32-S3, and says why', () => {
+    render(<HardwarePane />)
+    openShelfCategory('Inputs')
+    const button = screen.getByRole('button', { name: 'Add SPH0645LM4H microphone' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    fireEvent.click(button)
+    expect(useGraphStore.getState().nodes.some((entry) => entry.data.nodeType === 'MicInput')).toBe(false)
+  })
 
   it("labels the microphone pin fields with the module's own silkscreen", () => {
     render(<HardwarePane />)

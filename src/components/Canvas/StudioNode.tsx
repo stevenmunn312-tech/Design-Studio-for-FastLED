@@ -1360,7 +1360,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // change once dialled in (mic pins, matrix wiring).
   const showSetDefault = d.nodeType === 'MicInput' || d.nodeType === 'MatrixOutput'
   const micUnavailable = d.nodeType === 'MicInput'
-    && (!selectedBoardProfile || !micSupportedForBoardProfile(selectedBoardProfile))
+    && (!selectedBoardProfile || !micSupportedForBoardProfile(selectedBoardProfile, d.properties.partId))
   const micUnavailableMessage = !selectedBoardProfile
     ? MIC_NO_BOARD_MESSAGE
     : micUnsupportedMessage(d.properties.partId)

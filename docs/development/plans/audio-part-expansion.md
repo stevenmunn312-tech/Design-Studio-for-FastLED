@@ -253,8 +253,47 @@ does not block it.
       is a 3.5 mm jack rather than a pad. There is also no migration:
       a pre-1.0 save holding an `Amplifier` set to the PAM8403 now resolves to
       the MAX98357A default, per the Hardware branch's no-compatibility rule.
-- **Phase 4 — SPH0645LM4H**, only if the bit-alignment quirk is verified on
-      hardware rather than reasoned about.
+- **Phase 4 — SPH0645LM4H.** *Software landed 2026-09-24, classic ESP32
+      only, experimental.* The original gate (bench-verify before offering)
+      was dropped. The quirk is documented, and the backlog no longer holds
+      code for hardware nobody here owns.
+
+      Two findings shaped it:
+      - **FastLED cannot express this chip.** FastLED 3.10.5 ships no ESP32
+        factory or profile for it. Its ESP32 driver
+        (`idf5_i2s_context.hpp`) always configures Philips framing, ignores
+        `ConfigI2S::mCommFormat`, and exposes no timing control. So the app
+        captures the chip itself with `StudioSph0645Input`, the same way it
+        owns the PCM1802 receive channel.
+      - **The fix is documented only for the classic ESP32.** The ESP32
+        samples DOUT on the edge the SPH0645 changes it, so each sample
+        arrives one bit left and loses its sign bit. The published fix keeps
+        Philips framing (`I2S_RX_MSB_SHIFT`) and sets the receiver's SD input
+        delay (`I2S_RX_SD_IN_DELAY`, a 2-bit field at bits 8-9 of
+        `I2S_TIMING_REG`, written as 2). The forum snippets' `BIT(9)` is that
+        same value. It is documented for the classic ESP32's I2S block only:
+        [reversatronics](https://reversatronics.blogspot.com/2020/06/i2s-microphones-on-esp32-how-high-can-i.html)
+        describes it, and
+        [esp-idf#14415](https://github.com/espressif/esp-idf/issues/14415),
+        which asks for an IDF 5 configuration, is unanswered.
+
+      The ESP32-S3's I2S block is a different design with no documented
+      equivalent. That is the one genuine measurement gap here, so the module
+      is refused elsewhere by name (`micSupportedForBoard` with a `partId`, in
+      validation, Graph Health, the shelf and every mic availability check).
+      An S3 capture needs someone to measure it. The adapter keeps the top 16
+      of the chip's 18 significant bits and applies no response profile.
+
+      *Compile, 2026-09-24:* passed. Sketch (SPH0645 → FFT → Bass Pulse → 8×8,
+      `esp32:esp32:esp32`, pins 32/33/34, source sha256 `7de2067f…`) built
+      through the helper's arduino-cli path with Arduino CLI 1.5.1, esp32 core
+      3.3.11 (IDF 5 branch of the adapter) and FastLED 3.10.5: flash 507,795 B
+      (38%), RAM 29,620 B (9%). The register macros resolve against the
+      core's `soc/esp32/register/soc/i2s_reg.h`. The IDF 4 branch (core 2.x)
+      and fbuild are not compiled yet.
+
+      *Outstanding:* a bench row on a classic ESP32 (FFT and beat response
+      against an INMP441), and the S3 measurement if anyone wants that board.
 - **Phase 5 — MAX98357A stereo pair**, after Phase 2 settles how a bench
       holds more than one amplifier.
 

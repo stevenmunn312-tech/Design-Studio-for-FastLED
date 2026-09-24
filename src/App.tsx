@@ -112,7 +112,7 @@ export default function App() {
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const audioInputSupported = audioInputNode?.data.nodeType === 'LineInput'
     ? selectedBoardProfile?.compatibleFqbns.some((fqbn) => fqbn.startsWith('esp32:esp32:esp32s3')) === true
-    : micSupportedForBoardProfile(selectedBoardProfile)
+    : micSupportedForBoardProfile(selectedBoardProfile, audioInputProps?.partId)
   const hadAudioInputNode = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const [stageCursorHidden, setStageCursorHidden] = useState(false)

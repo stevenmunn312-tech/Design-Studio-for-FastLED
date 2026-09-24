@@ -14,15 +14,26 @@ describe('part options', () => {
     expect(resolvePartIdentity('MicInput', {})!.hasChoice).toBe(true)
   })
 
+  /*
+   * Every module names exactly one way to capture it: a FastLED factory and
+   * profile, or the app's own adapter for a chip FastLED's driver cannot read.
+   * Neither, and the generator has nothing to emit; both, and two answers.
+   */
   it('names a microphone module every option can be built with', () => {
     for (const module of MIC_MODULES) {
+      expect(partById(module.partId), module.label).toBeDefined()
+      if (module.capture) {
+        expect(module.factory, module.label).toBeUndefined()
+        expect(module.profile, module.label).toBeUndefined()
+        continue
+      }
       expect(module.factory, module.label).toMatch(/^Create[A-Za-z0-9]+$/)
       expect(module.profile, module.label).toMatch(/^[A-Za-z0-9]+$/)
-      expect(partById(module.partId), module.label).toBeDefined()
     }
     // No two modules may share a factory: the option list exists to name a
     // difference, and two rows resolving to one capture config would not be one.
-    expect(new Set(MIC_MODULES.map((module) => module.factory)).size).toBe(MIC_MODULES.length)
+    const factories = MIC_MODULES.flatMap((module) => module.factory ? [module.factory] : [])
+    expect(new Set(factories).size).toBe(factories.length)
   })
 
   it('resolves a stale or absent microphone choice to the default', () => {

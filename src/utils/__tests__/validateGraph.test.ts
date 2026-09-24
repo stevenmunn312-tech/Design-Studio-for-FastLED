@@ -416,6 +416,28 @@ describe('validateGraph', () => {
       .toEqual(['a', 'b'])
   })
 
+  /*
+   * The one module refused on boards that take the others: its capture fix is
+   * documented only for the classic ESP32's I2S block. The refusal says why,
+   * in both views, rather than the generic "does not work".
+   */
+  it('refuses the SPH0645LM4H off classic ESP32, and says why', () => {
+    const sph = [node('mic', 'MicInput', { partId: 'sph0645lm4h-i2s-microphone' })]
+    for (const fqbn of ['esp32:esp32:esp32', 'esp32:esp32:esp32doit-devkit-v1']) {
+      expect(findBoardCompatibilityErrors(sph, fqbn), fqbn).toEqual([])
+    }
+    for (const fqbn of ['esp32:esp32:esp32s3', 'teensy:avr:teensy40', 'rp2040:rp2040:rpipico']) {
+      expect(findBoardCompatibilityErrors(sph, fqbn), fqbn).toEqual([
+        'The SPH0645LM4H microphone needs a classic ESP32: its timing fix is documented only for that chip',
+      ])
+    }
+    const diagnostic = buildGraphDiagnostics(sph, [], { selectedFqbn: 'esp32:esp32:esp32s3' })
+      .find((entry) => entry.id === 'mic-board')
+    expect(diagnostic?.message).toMatch(/needs a classic ESP32/)
+    // Another module on the same board is unaffected.
+    expect(findBoardCompatibilityErrors([node('mic', 'MicInput')], 'esp32:esp32:esp32s3')).toEqual([])
+  })
+
   it('allows I2S-capable boards and blocks incompatible boards', () => {
     const nodes = [node('mic', 'MicInput')]
     expect(findBoardCompatibilityErrors(nodes, 'arduino:avr:uno')).toEqual([

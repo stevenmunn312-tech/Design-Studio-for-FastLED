@@ -115,6 +115,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { controllerSettings, ledPropsWithController, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import {
   micFirmwareBackendForBoard,
+  micSupportedForBoard,
   micFqbnForBoardProfile,
   type MicFirmwareBackend,
 } from '../state/micPinDefaults'
@@ -417,14 +418,19 @@ function audioEngineCpp(
     : channel === 'Both'
       ? 'fl::audio::AudioChannel::Both'
       : 'fl::audio::AudioChannel::Left'
+  const sph0645 = source === 'microphone' && micModule.capture === 'sph0645-classic-esp32'
   const captureAdapter = source === 'line-in'
     ? pcm1802CaptureAdapterCpp(channel)
-    : audioCaptureAdapterCpp(backend, channel === 'Both' ? 'Left' : channel)
+    : sph0645
+      ? sph0645CaptureAdapterCpp(channel === 'Right' ? 'Right' : 'Left')
+      : audioCaptureAdapterCpp(backend, channel === 'Both' ? 'Left' : channel)
   const createInput = source === 'line-in'
     ? [
         '  _lineInput = fl::make_shared<StudioPcm1802Input>();',
         '  _audioProcessor = FastLED.add(_lineInput);',
       ]
+    : sph0645
+    ? ['  _audioProcessor = FastLED.add(fl::make_shared<StudioSph0645Input>());']
     : backend === 'fastled-esp32'
     ? [`  auto config = fl::audio::Config::${micModule.factory}(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
     : backend === 'fastled-teensy'
@@ -435,7 +441,7 @@ function audioEngineCpp(
   // choosing a different module changes the wiring picture and the name and
   // nothing in the signal — said here rather than left to be discovered by
   // comparing two sketches.
-  const profileApplies = backend === 'fastled-esp32' || backend === 'fastled-teensy'
+  const profileApplies = (backend === 'fastled-esp32' || backend === 'fastled-teensy') && !sph0645
   return [
     `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule.label} audio reactivity ─────────────────────────────────`,
     ...(source === 'microphone' && !profileApplies
@@ -513,6 +519,112 @@ function audioEngineCpp(
     '  }',
     '#endif',
     '}',
+  ]
+}
+
+/**
+ * Classic-ESP32 capture for the SPH0645LM4H, which FastLED's driver cannot
+ * read correctly.
+ *
+ * The ESP32 samples DOUT on the same BCLK edge the SPH0645 changes it, so
+ * every sample arrives one bit left and loses its sign bit. The published fix
+ * keeps Philips framing (RX MSB shift) and delays the receiver's SD input
+ * sampling, through two fields of the classic ESP32's I2S register block.
+ * FastLED 3.10.5's ESP32 driver always configures Philips, ignores the
+ * requested format and exposes no timing control, so the app owns the receive
+ * channel here, as it does for the PCM1802. The ESP32-S3's I2S block has no
+ * documented equivalent, which is why this module is offered on classic ESP32
+ * alone (`micSupportedForBoard`).
+ *
+ * The chip sends 18 significant bits MSB-first in a 32-bit slot; the top 16
+ * become the Sample FastLED's Processor takes, whose signal conditioning
+ * removes the part's DC offset. Both core generations are emitted, and the
+ * delay is written after the channel starts so a driver reconfiguring the
+ * block on enable cannot clear it.
+ */
+function sph0645CaptureAdapterCpp(channel: 'Left' | 'Right'): string[] {
+  return [
+    '',
+    `#define SPH0645_SLOT ${channel === 'Right' ? 1 : 0}  // 0=left (SEL to GND), 1=right (SEL to 3V)`,
+    'class StudioSph0645Input final : public fl::audio::IInput {',
+    ' public:',
+    '  void start() noexcept override {',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '    i2s_chan_config_t channel = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);',
+    '    channel.dma_desc_num = 8;',
+    '    channel.dma_frame_num = SAMPLE_COUNT;',
+    '    if (i2s_new_channel(&channel, nullptr, &_rx) != ESP_OK) { _failed = true; return; }',
+    '    i2s_std_config_t config = {',
+    '      .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(44100),',
+    '      .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO),',
+    '      .gpio_cfg = {',
+    '        .mclk = GPIO_NUM_NC, .bclk = (gpio_num_t)MIC_SCK,',
+    '        .ws = (gpio_num_t)MIC_WS, .dout = GPIO_NUM_NC, .din = (gpio_num_t)MIC_SD,',
+    '        .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },',
+    '      },',
+    '    };',
+    '    if (i2s_channel_init_std_mode(_rx, &config) != ESP_OK || i2s_channel_enable(_rx) != ESP_OK) {',
+    '      _failed = true; stop(); return;',
+    '    }',
+    '#else',
+    '    i2s_config_t config = {};',
+    '    config.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);',
+    '    config.sample_rate = 44100;',
+    '    config.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;',
+    '    config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;',
+    '    config.communication_format = I2S_COMM_FORMAT_STAND_I2S;',
+    '    config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;',
+    '    config.dma_buf_count = 8;',
+    '    config.dma_buf_len = SAMPLE_COUNT;',
+    '    if (i2s_driver_install(I2S_NUM_0, &config, 0, nullptr) != ESP_OK) { _failed = true; return; }',
+    '    _installed = true;',
+    '    i2s_pin_config_t pins = {};',
+    '    pins.mck_io_num = I2S_PIN_NO_CHANGE;',
+    '    pins.bck_io_num = MIC_SCK; pins.ws_io_num = MIC_WS;',
+    '    pins.data_out_num = I2S_PIN_NO_CHANGE; pins.data_in_num = MIC_SD;',
+    '    if (i2s_set_pin(I2S_NUM_0, &pins) != ESP_OK) { _failed = true; stop(); return; }',
+    '#endif',
+    '    // The SPH0645 timing fix: Philips framing, and the SD input sampled two',
+    '    // cycles later so it reads the bit the microphone is presenting.',
+    '    REG_SET_BIT(I2S_CONF_REG(0), I2S_RX_MSB_SHIFT);',
+    '    SET_PERI_REG_BITS(I2S_TIMING_REG(0), I2S_RX_SD_IN_DELAY, 2, I2S_RX_SD_IN_DELAY_S);',
+    '  }',
+    '  void stop() noexcept override {',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '    if (_rx) { i2s_channel_disable(_rx); i2s_del_channel(_rx); _rx = nullptr; }',
+    '#else',
+    '    if (_installed) { i2s_driver_uninstall(I2S_NUM_0); _installed = false; }',
+    '#endif',
+    '  }',
+    '  bool error(fl::string* msg = nullptr) noexcept override {',
+    '    if (_failed && msg) *msg = "SPH0645 I2S receive failed";',
+    '    return _failed;',
+    '  }',
+    '  fl::audio::Sample read() noexcept override {',
+    '    if (_failed) return fl::audio::Sample();',
+    '    size_t bytes = 0;',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '    if (!_rx || i2s_channel_read(_rx, _raw, sizeof(_raw), &bytes, 0) != ESP_OK) return fl::audio::Sample();',
+    '#else',
+    '    if (!_installed || i2s_read(I2S_NUM_0, _raw, sizeof(_raw), &bytes, 0) != ESP_OK) return fl::audio::Sample();',
+    '#endif',
+    '    size_t frames = bytes / (sizeof(int32_t) * 2);',
+    '    if (!frames) return fl::audio::Sample();',
+    '    if (frames > SAMPLE_COUNT) frames = SAMPLE_COUNT;',
+    '    for (size_t i = 0; i < frames; ++i) _mono[i] = (fl::i16)(_raw[i * 2 + SPH0645_SLOT] >> 16);',
+    '    return fl::audio::Sample(fl::span<const fl::i16>(_mono, frames), millis());',
+    '  }',
+    ' private:',
+    '  static const size_t SAMPLE_COUNT = 512;',
+    '#if ESP_IDF_VERSION_MAJOR >= 5',
+    '  i2s_chan_handle_t _rx = nullptr;',
+    '#else',
+    '  bool _installed = false;',
+    '#endif',
+    '  bool _failed = false;',
+    '  int32_t _raw[SAMPLE_COUNT * 2];',
+    '  fl::i16 _mono[SAMPLE_COUNT];',
+    '};',
   ]
 }
 
@@ -1157,6 +1269,9 @@ export function audioEngineForGraph(
   // for imported/hand-authored workspaces.
   if (lineInput && (!fqbn.startsWith('esp32:esp32:esp32s3') || backend !== 'fastled-esp32')) return null
   const p = sourceNode.data.properties as Record<string, unknown>
+  // The SPH0645 adapter is written against the classic ESP32's I2S registers;
+  // validation refuses it elsewhere, and codegen stays defensive for imports.
+  if (!lineInput && !micSupportedForBoard(fqbn, p.partId)) return null
   const fc = (v: unknown, d: number, min: number, max: number) => {
     const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
   }
@@ -1190,13 +1305,17 @@ export function audioEngineForGraph(
     ] : [],
     include: [
       `// ${lineInput ? 'PCM1802 line-in' : micModule.label} capture feeds the same FastLED Processor contract as preview.`,
-      ...(lineInput ? [
+      ...(lineInput || micModule.capture === 'sph0645-classic-esp32' ? [
         '#include <esp_idf_version.h>',
         '#if ESP_IDF_VERSION_MAJOR >= 5',
         '#include <driver/i2s_std.h>',
         '#else',
         '#include <driver/i2s.h>',
         '#endif',
+      ] : []),
+      ...(micModule.capture === 'sph0645-classic-esp32' && !lineInput ? [
+        '#include <soc/soc.h>',
+        '#include <soc/i2s_reg.h>',
       ] : []),
       ...(!lineInput && backend === 'fastled-teensy' ? [
         `// Keep the build system's library scanner aware of PJRC Audio sources.`,

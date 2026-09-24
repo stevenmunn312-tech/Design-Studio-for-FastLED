@@ -421,6 +421,14 @@ Unless a future row says otherwise, treat the following as experimental:
   - **Helper-backed Art-Net preview** is browser + helper only and never
     touches a board, so it graduates with the Art-Net firmware run rather than
     as its own row. Note that preview holds exactly one live universe.
+- **The SPH0645LM4H microphone, classic ESP32 only.** Captured by an
+  app-owned adapter with the published ESP32 timing fix, because FastLED's
+  driver cannot express the chip's timing. No hardware row exists. Graduating
+  it needs live FFT and beat response on a classic ESP32 compared against an
+  INMP441 on the same fixture, plus a check that quiet and loud sources move
+  in the same direction: a one-bit misread shows up as clipping and
+  sign-flipped peaks. The ESP32-S3 is refused until someone measures a
+  capture there; no documented fix exists for its I2S block.
 - **The ICS-43434 and Generic I2S MEMS microphones.** Both are offered because
   the vendored FastLED ships a capture factory and a response profile for each
   (`CreateIcs43434`/`MicProfile::ICS43434`,

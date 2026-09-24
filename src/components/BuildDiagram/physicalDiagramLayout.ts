@@ -301,6 +301,7 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'inmp441-i2s-microphone': padRow([33.7, 100, 166.6, 232.5, 298.5, 365.2], 400, 243.9, 282),
   'ics-43434-i2s-microphone': padRow([104.7, 142.4, 180.7, 218.4, 256.6, 294.4], 400, 255.8, 286),
   'generic-i2s-mems-microphone': padRow([41.7, 104.1, 168, 231, 294.8, 357.2], 400, 204.4, 248),
+  'sph0645lm4h-i2s-microphone': padRow([55.5, 113.2, 170.4, 228.7, 285.8, 343.6], 400, 268.5, 309),
 
   'max98357a-i2s-amplifier': padRow([31.5, 87.5, 143.5, 199.5, 255.5, 311.5, 367.5], 400, 545, 568),
   // Two boards side by side, left then right, seven pads each. The pads are

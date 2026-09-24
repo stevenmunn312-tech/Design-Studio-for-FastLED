@@ -26,7 +26,8 @@ import { powerAmplifierFeed } from '../../state/audioOutput'
 import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import { IR_RECEIVER_MODULES } from '../../state/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
-import { MIC_MODULES } from '../../state/micModules'
+import { MIC_MODULES, micModuleFor } from '../../state/micModules'
+import { micSupportedForBoard, micUnsupportedMessage } from '../../state/micPinDefaults'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
 import {
@@ -1446,6 +1447,13 @@ export default function HardwarePane() {
     if (entry.singleton && hasPartOfType(entry.nodeType)) return `One ${entry.label.toLowerCase()} per board`
     if (entry.fqbnPrefix && !selectedFqbn.startsWith(entry.fqbnPrefix)) {
       return 'PCM1802 line-in capture currently requires an ESP32-S3 board'
+    }
+    // A microphone the app captures itself is written for one chip; say so on
+    // the shelf rather than add it and refuse it in Graph Health a moment later.
+    if (entry.nodeType === MIC_NODE_TYPE && selectedFqbn
+      && micModuleFor(entry.properties?.partId).capture
+      && !micSupportedForBoard(selectedFqbn, entry.properties?.partId)) {
+      return micUnsupportedMessage(entry.properties?.partId)
     }
     if (entry.pinRequests.length === 0) return null
     const assigned = assignPartPins(boardProfile, selectedFqbn, nodes, entry.pinRequests)

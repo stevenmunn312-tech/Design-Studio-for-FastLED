@@ -20,10 +20,20 @@ export interface MicModule {
   summary: string
   /** The caveat worth reading while wiring, when there is one. */
   note?: string
-  /** `fl::audio::Config` factory the ESP32 backend calls. */
-  factory: string
+  /**
+   * `fl::audio::Config` factory the ESP32 backend calls. Absent for a module
+   * FastLED ships no factory for, which the app captures itself — see
+   * `capture`.
+   */
+  factory?: string
   /** `fl::audio::MicProfile` member the Teensy backend is handed explicitly. */
-  profile: string
+  profile?: string
+  /**
+   * The app's own capture adapter, for a module FastLED's driver cannot read
+   * correctly. Its presence narrows the boards the module works on to the ones
+   * the adapter was written for (`micModuleBoardsNote` says which).
+   */
+  capture?: 'sph0645-classic-esp32'
 }
 
 /**
@@ -56,6 +66,23 @@ export const MIC_MODULES: readonly MicModule[] = [
     note: 'For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module\'s measured response.',
     factory: 'CreateGenericMEMS',
     profile: 'GenericMEMS',
+  },
+  {
+    // FastLED 3.10.5 ships no ESP32 factory or profile for it, and its ESP32
+    // driver always configures Philips I2S and ignores the requested format,
+    // so no FastLED config can express this chip's timing. It is captured by
+    // the app's own adapter instead, like the PCM1802. The quirk: the ESP32
+    // samples on the same BCLK edge the SPH0645 changes DOUT, so each sample
+    // arrives one bit left, losing its sign bit. The published fix sets the
+    // receiver's MSB shift and SD input delay, and is documented only for the
+    // classic ESP32's I2S block. The S3's is a different design with no
+    // documented equivalent, so the module is offered on classic ESP32 alone
+    // until someone measures it there.
+    partId: 'sph0645lm4h-i2s-microphone',
+    label: 'SPH0645LM4H',
+    summary: 'Knowles I2S mic, classic ESP32 only',
+    note: 'Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel.',
+    capture: 'sph0645-classic-esp32',
   },
 ]
 

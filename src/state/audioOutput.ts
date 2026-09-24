@@ -14,10 +14,15 @@ import { resolvePartIdentity } from './partOptions'
 
 export type AudioOutputMode = 'i2s' | 'internalDac'
 
+/** An original (classic) ESP32 target, as opposed to the S2/S3/C3/C6/H2. */
+export function isClassicEsp32Fqbn(fqbn: string): boolean {
+  return fqbn.startsWith('esp32:esp32:')
+    && !/esp32(s3|s2|c3|c6|h2)/i.test(fqbn.replace('esp32:esp32:', ''))
+}
+
 /** Classic ESP32 only: the S3/S2/C3 have no DAC peripheral at all. */
 export function boardHasInternalDac(fqbn: string): boolean {
-  return fqbn.startsWith('esp32:esp32:esp32')
-    && !/esp32(s3|s2|c3|c6|h2)/i.test(fqbn.replace('esp32:esp32:', ''))
+  return fqbn.startsWith('esp32:esp32:esp32') && isClassicEsp32Fqbn(fqbn)
 }
 
 /**

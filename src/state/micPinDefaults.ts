@@ -13,6 +13,7 @@
 
 import { useUploadStore } from './uploadStore'
 import { micModuleFor } from './micModules'
+import { isClassicEsp32Fqbn } from './audioOutput'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
 export interface MicI2sPins { i2sWs: number; i2sSck: number; i2sSd: number }
@@ -39,7 +40,14 @@ export const MIC_NO_BOARD_MESSAGE = 'No board selected'
  * would go looking at their wiring.
  */
 export function micUnsupportedMessage(partId: unknown): string {
-  return `The ${micModuleFor(partId).label} microphone does not work with this board`
+  const module = micModuleFor(partId)
+  // A module with its own capture adapter is refused for a reason about the
+  // module, not the board, and saying only "does not work" would send someone
+  // looking for a wiring fault that is not there.
+  if (module.capture === 'sph0645-classic-esp32') {
+    return `The ${module.label} microphone needs a classic ESP32: its timing fix is documented only for that chip`
+  }
+  return `The ${module.label} microphone does not work with this board`
 }
 
 const ESP32_S3_PINS: MicI2sPins = { i2sWs: 39, i2sSck: 40, i2sSd: 41 }
@@ -114,8 +122,16 @@ export function micPinDefaultsForBoard(fqbn: string): MicI2sPins | undefined {
   return MIC_PIN_DEFAULTS_BY_FQBN[fqbn]
 }
 
-export function micSupportedForBoard(fqbn: string): boolean {
-  return micPinDefaultsForBoard(fqbn) !== undefined
+/**
+ * Whether a board can capture a microphone, and — given the node's `partId` —
+ * this particular module. Most modules go wherever the board's I2S backend
+ * goes; one captured by the app's own adapter goes only where that adapter was
+ * written for.
+ */
+export function micSupportedForBoard(fqbn: string, partId?: unknown): boolean {
+  if (micPinDefaultsForBoard(fqbn) === undefined) return false
+  if (partId === undefined) return true
+  return micModuleFor(partId).capture !== 'sph0645-classic-esp32' || isClassicEsp32Fqbn(fqbn)
 }
 
 /** Capture backend for an exact upload target. Capability and code generation
@@ -143,8 +159,9 @@ export function micFqbnForBoardProfile(
 
 export function micSupportedForBoardProfile(
   profile: { compatibleFqbns: readonly string[] } | undefined,
+  partId?: unknown,
 ): boolean {
-  return profile?.compatibleFqbns.some(micSupportedForBoard) ?? false
+  return profile?.compatibleFqbns.some((fqbn) => micSupportedForBoard(fqbn, partId)) ?? false
 }
 
 /**

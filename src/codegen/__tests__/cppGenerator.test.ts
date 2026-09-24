@@ -3152,20 +3152,43 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
   }
 
-  it.each(MIC_MODULES.map((module) => [module.label, module] as const))(
+  it.each(MIC_MODULES.filter((module) => module.factory).map((module) => [module.label, module] as const))(
     'builds the %s with its own FastLED factory on ESP32 and its own profile on Teensy',
     (_label, module) => {
       const esp32 = micModuleGraph('espressif-esp32-s3-devkitc-1', module.partId)
       expect(esp32).toContain(`fl::audio::Config::${module.factory}(MIC_WS, MIC_SD, MIC_SCK`)
       expect(esp32).toContain(`// ── FastLED ${module.label} audio reactivity`)
       for (const other of MIC_MODULES) {
-        if (other.factory !== module.factory) expect(esp32).not.toContain(other.factory)
+        if (other.factory && other.factory !== module.factory) expect(esp32).not.toContain(other.factory)
       }
       // Teensy takes the profile explicitly rather than through a factory.
       const teensy = micModuleGraph('teensy-4-0', module.partId)
       expect(teensy).toContain(`fl::audio::MicProfile::${module.profile}`)
     },
   )
+
+  /*
+   * FastLED's ESP32 driver cannot express this chip's timing, so the app
+   * captures it itself, with the published classic-ESP32 register fix. The
+   * fix is documented only for that chip, so the S3 builds no engine at all
+   * rather than a capture that would read every sample one bit off.
+   */
+  it('captures the SPH0645LM4H with its own adapter on classic ESP32 only', () => {
+    const classic = micModuleGraph('esp32-generic-devkit-38pin', 'sph0645lm4h-i2s-microphone')
+    expect(classic).toContain('class StudioSph0645Input final : public fl::audio::IInput')
+    expect(classic).toContain('FastLED.add(fl::make_shared<StudioSph0645Input>())')
+    expect(classic).toContain('REG_SET_BIT(I2S_CONF_REG(0), I2S_RX_MSB_SHIFT);')
+    expect(classic).toContain('SET_PERI_REG_BITS(I2S_TIMING_REG(0), I2S_RX_SD_IN_DELAY, 2, I2S_RX_SD_IN_DELAY_S);')
+    expect(classic).toContain('#include <soc/i2s_reg.h>')
+    expect(classic).toContain('#define SPH0645_SLOT 0')
+    expect(classic).not.toContain('fl::audio::Config::Create')
+    // No FastLED profile is applied, and the sketch says so.
+    expect(classic).toContain('This capture backend applies no mic response profile')
+
+    const s3 = micModuleGraph('espressif-esp32-s3-devkitc-1', 'sph0645lm4h-i2s-microphone')
+    expect(s3).not.toContain('StudioSph0645Input')
+    expect(s3).not.toContain('fl::audio::Config::Create')
+  })
 
   it('says so when the capture backend applies no response profile', () => {
     // The hand-written wrapper is plain I2S with nowhere to put a MicProfile,
