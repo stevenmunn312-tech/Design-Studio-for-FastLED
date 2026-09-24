@@ -16,7 +16,7 @@ function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Re
     type: 'studioNode',
     position: { x: 0, y: 0 },
     data: {
-      label: 'Matrix Output',
+      label: 'LED Matrix',
       nodeType: 'MatrixOutput',
       category: 'output',
       properties: { width, height, chipset: 'WS2812B', dataPin, ...extra },
@@ -253,7 +253,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
     expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent?.startsWith('Wiring plan: generated from graph with build-rules-') === true)).toBeTruthy()
     expect(getByText('Power feeds: 3 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
-    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 20 A / 100 W continuous for Matrix Output (20% headroom)')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && node.textContent === 'PSU 1: 5 V, at least 20 A / 100 W continuous for LED Matrix (20% headroom)')).toBeTruthy()
     expect(getByText('Build reference — Signal and Power ready')).toBeTruthy()
     expect(queryByText('Still unresolved')).toBeNull()
   })
@@ -290,7 +290,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(queryByText('Exact board required')).toBeNull()
     expect(getByText('Exact board: confirmed', { selector: 'li' })).toBeTruthy()
     // The graph's own hardware is still listed, not an empty bench.
-    expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
+    expect(getAllByText('LED Matrix').length).toBeGreaterThan(0)
   })
 
   it('stops using a saved exact board once the upload target no longer matches', () => {
@@ -416,7 +416,7 @@ describe('BuildDiagramWorkspace', () => {
 
     expect(diagram).toBeTruthy()
     expect(getAllByText('Microphone').length).toBeGreaterThan(0)
-    expect(getAllByText('Matrix Output').length).toBeGreaterThan(0)
+    expect(getAllByText('LED Matrix').length).toBeGreaterThan(0)
     expect(diagram?.querySelector('[data-controller-render="espressif-esp32-s3-devkitc-1"] image')).toBeTruthy()
     for (const wire of [
       'mic-input:mic-3v3',
@@ -677,7 +677,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-output-card="output:out-b"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
     expect(diagram?.querySelector('[data-psu-recommendation="20000"]')?.textContent).toBe('5 V · 20A · 100 W')
     expect(diagram?.querySelector('[data-uncapped-current-ceiling="30720"]')?.textContent).toContain('30.7A')
-    expect(getByText('Matrix Output 1: 5 A limit · Matrix Output 2: 5 A limit')).toBeTruthy()
+    expect(getByText('LED Matrix 1: 5 A limit · LED Matrix 2: 5 A limit')).toBeTruthy()
     expect(getByText('Uncapped full-white ceiling 30.72 A')).toBeTruthy()
   })
 
@@ -712,12 +712,12 @@ describe('BuildDiagramWorkspace', () => {
   it('uses icon controls with accessible names for hardware visibility, isolation, and completion', () => {
     const { getByRole } = render(<BuildDiagramWorkspace />)
 
-    expect(getByRole('button', { name: 'Hide Matrix Output' }).querySelector('svg')).toBeTruthy()
-    expect(getByRole('button', { name: 'Isolate Matrix Output' }).querySelector('svg')).toBeTruthy()
-    expect(getByRole('button', { name: 'Mark Matrix Output done' }).querySelector('svg')).toBeTruthy()
+    expect(getByRole('button', { name: 'Hide LED Matrix' }).querySelector('svg')).toBeTruthy()
+    expect(getByRole('button', { name: 'Isolate LED Matrix' }).querySelector('svg')).toBeTruthy()
+    expect(getByRole('button', { name: 'Mark LED Matrix done' }).querySelector('svg')).toBeTruthy()
 
-    fireEvent.click(getByRole('button', { name: 'Mark Matrix Output done' }))
-    expect(getByRole('button', { name: 'Mark Matrix Output unfinished' })).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'Mark LED Matrix done' }))
+    expect(getByRole('button', { name: 'Mark LED Matrix unfinished' })).toBeTruthy()
   })
 
   it('draws each control module from its own render with pads on the board edge', () => {
@@ -1210,7 +1210,7 @@ describe('BuildDiagramWorkspace', () => {
     const unresolvedTerminal = currentDiagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
     expect(unresolvedTerminal?.querySelector('circle')?.getAttribute('class')).toContain('controllerUnmappedTerminal')
     expect(unresolvedTerminal?.textContent).toContain('GPIO 25 · NOT ON BOARD')
-    fireEvent.click(getByRole('button', { name: 'Hide Matrix Output' }))
+    fireEvent.click(getByRole('button', { name: 'Hide LED Matrix' }))
     expect(getByText('Signal plan: needs review: 1 controller pin mapping unresolved', { selector: 'li' })).toBeTruthy()
   })
 
@@ -1343,8 +1343,8 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.click(getByText('Reset view'))
     expect(getByText('Zoom 100%')).toBeTruthy()
 
-    fireEvent.click(getByRole('button', { name: 'Isolate Matrix Output' }))
-    expect(getByRole('button', { name: 'Show all hardware around Matrix Output' })).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'Isolate LED Matrix' }))
+    expect(getByRole('button', { name: 'Show all hardware around LED Matrix' })).toBeTruthy()
 
     fireEvent.click(getByText('Widen build panel'))
     expect(workspace.getAttribute('style')).toContain('--build-sidebar-width: 372px')

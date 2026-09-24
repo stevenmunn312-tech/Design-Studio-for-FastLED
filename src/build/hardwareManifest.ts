@@ -139,10 +139,7 @@ function pinPropertyLabel(partId: string, nodeType: string, key: string): string
 }
 
 function matrixOutputLabel(node: StudioNode, ordinal: number, count: number): string {
-  const form = outputForm(node.data.properties as Record<string, unknown>)
-  // Preserve the existing matrix export name for saved/custom projects, while
-  // preventing a migrated chain form from being presented as a matrix.
-  const label = form === 'matrix' ? nodeLabel(node) : LED_OUTPUT_FORM_LABELS[form]
+  const label = LED_OUTPUT_FORM_LABELS[outputForm(node.data.properties as Record<string, unknown>)]
   return count > 1 ? `${label} ${ordinal}` : label
 }
 

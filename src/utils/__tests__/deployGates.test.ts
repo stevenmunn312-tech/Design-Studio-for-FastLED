@@ -79,7 +79,7 @@ const CASES: GateCase[] = [
     edges: [edge('e1', 'sc', 'out')],
     fqbn: S3,
     blocks: /GPIO 5 is assigned to more than one pin/,
-    names: ['GPIO 5', 'ButtonInput', 'MatrixOutput'],
+    names: ['GPIO 5', 'ButtonInput', 'LED Matrix'],
     diagnostic: 'pin-5',
   },
   {
@@ -116,7 +116,7 @@ const CASES: GateCase[] = [
     edges: [edge('e1', 'sc', 'out')],
     fqbn: S3,
     blocks: /data pin uses pin 27, which is unavailable on the selected board/,
-    names: ['MatrixOutput data pin', 'pin 27', 'flash/PSRAM'],
+    names: ['LED Matrix data pin', 'pin 27', 'flash/PSRAM'],
     diagnostic: 'board-pin-error-0',
   },
   {
