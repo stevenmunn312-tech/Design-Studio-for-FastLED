@@ -433,6 +433,16 @@ Unless a future row says otherwise, treat the following as experimental:
   entry names an average MEMS correction, not a measurement of any particular
   clone. On the Pico, SAMD51 and STM32 backends no profile is applied at all,
   and the generated sketch says so in a comment.
+- **Power amplifiers (PAM8403, PAM8610, DX-0809) and the DAC-to-power-amp
+  chain.** A bench can now hold an I2S DAC (PCM5102A or UDA1334A) feeding an
+  analog power amplifier, with the amplifier fed straight from the internal DAC
+  (classic ESP32 only) when no DAC is present. This is software and wiring-model
+  coverage only: no power amplifier has a hardware row, and the chain has not
+  been heard on any board. Graduating a combination needs a dated row naming
+  the DAC, the amplifier, its supply voltage, board/FQBN and build engine, with
+  the SD player audible through the amplifier at its default volume and no hum
+  from the shared ground. The 12 V boards (PAM8610, DX-0809) need their own
+  supply, and the row should say which.
 - **Input peripherals other than the recorded LDR row above** — Button,
   Potentiometer, Encoder, and PIR Motion have no hardware record of any
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the

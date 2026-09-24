@@ -167,9 +167,8 @@ build/architecture overview aimed at contributors.
     Build Diagram. Proposes a parts shelf, information shelves, and the order to
     do them in.
   - [Audio part expansion](development/plans/audio-part-expansion.md)
-    — proposed microphones using existing firmware profiles, amplifier
-    expansion, and the DAC-to-power-amp
-    question a 12 V analog amplifier forces before any of them can be added.
+    — microphones using existing firmware profiles, and the DAC-to-power-amp
+    chain (Option B, landed) that the 12 V analog amplifiers required.
   - [Build Diagram contract](development/plans/build-diagram-handoff.md)
     — implemented generated wiring/BOM behavior; independent electrical review
       is tracked in root todo as HW-14.

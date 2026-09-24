@@ -201,9 +201,48 @@ does not block it.
       each module's own photograph but still places its pad dots from a stale
       hand-written column — a pre-existing fault, equally wrong for the
       INMP441, tracked separately.
-- **Phase 2 — the Option A/B decision**, recorded here with its reasoning
-      before any amplifier row is added.
+- **Phase 2 — the Option A/B decision.** *Decided 2026-09-24: Option B*,
+      for the reasons given under the forcing question above. The maintainer
+      chose it over the footnote, since the footnote is wrong about the wiring
+      people actually build.
 - **Phase 3 — the chosen amplifier model**, then DX-0809 and PAM8610.
+
+      *Software landed 2026-09-24.* The chain is two node types, one per
+      role. `Amplifier` is the I2S stage on the board's pins (MAX98357A,
+      PCM5102A, UDA1334A), and each option now states its `output`: speaker
+      or line level. `PowerAmplifier` is the analog stage (PAM8403, moved
+      out of `Amplifier`, plus PAM8610 and DX-0809). `state/audioOutput.ts`
+      resolves roles rather than the first `Amplifier` node:
+      `powerAmplifierFeed` answers `dac`, `internalDac` or `speakerAmp`, and
+      `audioOutputMode` is I2S whenever an I2S stage exists. The costs
+      listed above were each paid:
+      - A DAC-fed power amplifier claims no GPIO, and the manifest marks it
+        complete with an empty pin list. It claims GPIO25/26 only when nothing
+        else feeds it.
+      - The Build Diagram and the hardware pane both draw it. The diagram
+        captions it with its line source, and the connection table carries the
+        DAC line-out row.
+      - A MAX98357A feeding a power amplifier is refused in both the deploy
+        gate and Graph Health, as one structured issue.
+      - The two "add an Amplifier" messages now name the chain.
+      - A DAC alone is deliberately *not* warned about, because a DAC into
+        powered speakers is a correct build. A warning that fires on a correct
+        graph teaches people to ignore the drawer.
+
+      The 12 V boards get their own `+12V` net stub and callout line rather
+      than the controller's 5 V rail. Their pad geometry is measured off
+      their renders (per-pad points, since neither is one header row), and a
+      derived test holds every offered audio module to one measured point
+      per catalogued pad. Volume follows the stage the board drives
+      (`audioVolumeStage`), so a DAC-fed amplifier's own volume field is hidden.
+
+      *Outstanding:* the compile proof of an SD-player sketch for a DAC-fed
+      chain, which is unchanged I2S firmware but has not been rebuilt, and a
+      bench row per amplifier. The Build Diagram draws no physical wire
+      from DAC to amplifier, only a caption, because the PCM5102A's line out
+      is a 3.5 mm jack rather than a pad. There is also no migration:
+      a pre-1.0 save holding an `Amplifier` set to the PAM8403 now resolves to
+      the MAX98357A default, per the Hardware branch's no-compatibility rule.
 - **Phase 4 — SPH0645LM4H**, only if the bit-alignment quirk is verified on
       hardware rather than reasoned about.
 - **Phase 5 — MAX98357A stereo pair**, after Phase 2 settles how a bench

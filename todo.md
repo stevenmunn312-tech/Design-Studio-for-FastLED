@@ -1220,6 +1220,17 @@ matrix, not a reason to postpone testing earlier changes.
   chain ownership is explicit. Include Build Diagram and bench evidence.
   Audio expansion phases 2–5. This checklist does not authorize purchases.
 
+  *Phases 2 and 3 software landed 2026-09-24.* Option B was chosen, and the chain is
+  two roles: `Amplifier` (the I2S stage on the board's pins) and
+  `PowerAmplifier` (PAM8403, PAM8610, DX-0809; line level in, no GPIO when a
+  DAC feeds it). Validation refuses a MAX98357A feeding a power amp, the Build
+  Diagram draws 12 V boards on their own supply with measured pads, and the
+  connection table carries the DAC line-out row. The contract and its costs are
+  in [the plan](docs/development/plans/audio-part-expansion.md#phases).
+  **Left:** a compile of a DAC-fed SD-player sketch, a bench row per amplifier,
+  then phases 4 (SPH0645LM4H, hardware-verified alignment first) and 5
+  (MAX98357A stereo pair).
+
 ## Explicitly deferred, not release blockers
 
 - [ ] **D-01 · Broader control graph.** Time-dependent/nested-group evaluation,

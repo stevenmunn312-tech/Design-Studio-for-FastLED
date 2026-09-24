@@ -32,8 +32,10 @@ Use **Add Hardware** in the workbench. The current categories are:
   demodulating IR receiver, potentiometer, encoder, PIR motion sensor,
   ambient-light sensor, and RTC module;
 - **Storage** — supported microSD modules;
-- **Amplifiers & DACs** — the supported I2S DAC/amplifier and analog amplifier
-  modules;
+- **Amplifiers & DACs** — the I2S stage on the board's pins (a MAX98357A
+  speaker amplifier, or a PCM5102A or UDA1334A DAC), and the analog power
+  amplifiers (PAM8403, PAM8610, DX-0809) that take line level and drive the
+  speakers;
 - **Displays** — segment readouts, OLED information panels, fixed-layout TFTs,
   and a custom touch display; and
 - **LED outputs** — LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel.
@@ -150,6 +152,31 @@ Generated firmware samples the physical ADC; browser preview uses the selected
 browser/OS audio input because a web app cannot read the breakout directly.
 Other controller targets are rejected until their master-clock path is
 implemented and verified.
+
+### Drive speakers from a power amplifier
+
+An SD music show needs something on the board's pins to turn the song into
+sound. A **MAX98357A** drives a small speaker directly. For a bigger amplifier,
+add a **PCM5102A** or **UDA1334A** DAC and then a **power amplifier**
+(**PAM8403**, **PAM8610** or **DX-0809**). The DAC takes the three I2S wires
+from the board; plug its line out into the amplifier's line input, and the
+amplifier drives the speakers. The power amplifier has no GPIO of its own, so
+the Build Diagram labels its input with the DAC that feeds it rather than
+drawing a wire.
+
+- Volume is set on the DAC. With a DAC in the chain, the power amplifier's
+  volume field is hidden, because the DAC is the part the board drives.
+- The PAM8610 and DX-0809 run on 12 V and need their own supply. The controller
+  cannot power them. Connect that supply's ground to the board and the DAC.
+- A MAX98357A cannot feed a power amplifier. Its speaker output is not line
+  level, and neither of its outputs is ground. Graph Health refuses that
+  combination and asks for a DAC instead.
+- With no DAC on the bench, a power amplifier takes line level from the classic
+  ESP32's own DAC on GPIO25 and GPIO26. No other board has a DAC, so on an
+  ESP32-S3 add a PCM5102A or UDA1334A.
+
+Power amplifiers have no hardware validation yet; see the
+[support matrix](../release/beta-support-matrix.md#experimental-until-validated).
 
 ## Configure LED outputs
 
