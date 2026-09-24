@@ -23,6 +23,8 @@ const withEnergy: SongAnalysis = {
   ],
   sections: [{ startMs: 0, endMs: 2000, type: 'drop', energy: 0.8 }],
   mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+  channelLevels: [],
+  channelCount: 1,
 }
 
 const analysis: SongAnalysis = {
@@ -35,6 +37,8 @@ const analysis: SongAnalysis = {
     { startMs: 2000, endMs: 4000, type: 'drop', energy: 0.9 },
   ],
   mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+  channelLevels: [],
+  channelCount: 1,
 }
 
 describe('performanceOptionsFromProperties', () => {
@@ -428,6 +432,8 @@ describe('bakeEnvelope + baked audio', () => {
       ],
       sections: [{ startMs: 0, endMs: 25000, type: 'verse', energy: 0.3 }],
       mood: { energy: 0.3, valence: 0.5, key: 'C major' },
+      channelLevels: [],
+      channelCount: 1,
     }
     const env = bakeEnvelope(quietTail)
     const tailIdx = Math.round(24 * ENVELOPE_RATE_HZ)   // 24s — well after the spike's decay
@@ -441,19 +447,24 @@ describe('bakeEnvelope + baked audio', () => {
     expect(generateShow(analysis).audio).toBeUndefined()   // fixture has energy: []
   })
 
-  it('appends the envelope after the events in the binary, quantised to bytes', () => {
+  it('writes the tagged trailer with silent levels when the analysis has none', () => {
     const show = generateShow(withEnergy)
+    expect(show.audio).toMatchObject({ version: 2, channelCount: 1 })
     const view = new DataView(showFileToBinary(show))
     // Walk the header + events to reach the trailing envelope block.
     let off = 15
     const count = view.getUint32(11, true)
     for (let i = 0; i < count; i++) { off += 4 + 1; const pc = view.getUint8(off); off += 1 + pc * 4 }
-    const rate = view.getUint8(off); off += 1
+    expect(String.fromCharCode(...new Uint8Array(view.buffer, off, 4))).toBe('AENV')
+    off += 4
+    expect(view.getUint8(off++)).toBe(2)                // envelope version
+    expect(view.getUint8(off++)).toBe(50)               // rate
+    expect(view.getUint8(off++)).toBe(1)                // channels
     const frames = view.getUint32(off, true); off += 4
-    expect(rate).toBe(50)
     expect(frames).toBe(show.audio!.bass.length)
-    expect(view.byteLength).toBe(off + frames * 3)      // 3 bytes/frame, nothing trailing
-    expect(view.getUint8(off + 50 * 3)).toBe(255)       // frame 50 bass (1.0) → 255
+    expect(view.byteLength).toBe(off + frames * 5)      // 5 bytes/frame, nothing trailing
+    expect(view.getUint8(off + 50 * 5)).toBe(255)       // frame 50 bass (1.0) → 255
+    expect(view.getUint8(off + 50 * 5 + 3)).toBe(0)     // no levels → silent rails
   })
 
   it('writes a tagged version-2 trailer with independent stereo levels', () => {
@@ -467,8 +478,8 @@ describe('bakeEnvelope + baked audio', () => {
     }
     const show = generateShow(stereoAnalysis)
     expect(show.audio).toMatchObject({ version: 2, channelCount: 2 })
-    expect(show.audio!.leftLevel![0]).toBeCloseTo(0.8)
-    expect(show.audio!.rightLevel![0]).toBeCloseTo(0.2)
+    expect(show.audio!.leftLevel[0]).toBeCloseTo(0.8)
+    expect(show.audio!.rightLevel[0]).toBeCloseTo(0.2)
 
     const view = new DataView(showFileToBinary(show))
     let off = 15

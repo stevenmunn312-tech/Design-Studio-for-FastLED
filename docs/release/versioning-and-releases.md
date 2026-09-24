@@ -15,6 +15,11 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed the untagged three-band `.show` audio trailer. Every
+  baked envelope is the tagged `AENV` version-2 trailer with left/right levels,
+  and the player reads nothing else. A saved song whose analysis or show
+  predates stereo levels is analysed again on project load, discarding manual
+  timeline edits to that show.
 - 2026-09-24: removed the recovery that reflowed any themed icon control as
   an unedited template after an older orientation bug. V1 screen designs
   reflow only when every widget still sits in its authored template bounds.

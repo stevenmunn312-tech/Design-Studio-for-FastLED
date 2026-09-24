@@ -8,10 +8,16 @@ import {
   MID_BIN_END,
   SPECTRUM_BINS,
 } from '../showAudio'
+import type { AudioEnvelope } from '../../types/showFile'
+
+// A mono envelope whose level rail is silent unless a test supplies one.
+function envelope(rateHz: number, bass: number[], mids: number[], treble: number[], level = bass.map(() => 0)): AudioEnvelope {
+  return { version: 2, rateHz, bass, mids, treble, leftLevel: level, rightLevel: level, channelCount: 1 }
+}
 
 describe('showAudio envelope sampling', () => {
   it('linearly interpolates the envelope at a playback position', () => {
-    const env = { rateHz: 10, bass: [0, 1], mids: [0, 0], treble: [0, 0] } // frame every 100ms
+    const env = envelope(10, [0, 1], [0, 0], [0, 0]) // frame every 100ms
     expect(sampleEnvelope(env, 0).bass).toBe(0)
     expect(sampleEnvelope(env, 50).bass).toBeCloseTo(0.5) // halfway between frame 0 and 1
     expect(sampleEnvelope(env, 100).bass).toBe(1)
@@ -32,19 +38,19 @@ describe('showAudio envelope sampling', () => {
   it('returns null when the show carries no envelope', () => {
     expect(showAudioSpectrum(undefined, 0)).toBeNull()
     expect(showAudioOverride(undefined, 0)).toBeNull()
-    expect(showAudioSpectrum({ rateHz: 50, bass: [], mids: [], treble: [] }, 0)).toBeNull()
-    expect(showAudioOverride({ rateHz: 50, bass: [], mids: [], treble: [] }, 0)).toBeNull()
+    expect(showAudioSpectrum(envelope(50, [], [], []), 0)).toBeNull()
+    expect(showAudioOverride(envelope(50, [], [], []), 0)).toBeNull()
   })
 
   it('builds a preview spectrum from the envelope', () => {
-    const spectrum = showAudioSpectrum({ rateHz: 10, bass: [0.25], mids: [0.5], treble: [0.75] }, 0)!
+    const spectrum = showAudioSpectrum(envelope(10, [0.25], [0.5], [0.75]), 0)!
     expect(spectrum[0]).toBeCloseTo(0.25)
     expect(spectrum[BASS_BIN_END]).toBeCloseTo(0.5)
     expect(spectrum[SPECTRUM_BINS - 1]).toBeCloseTo(0.75)
   })
 
   it('builds an active override from the envelope', () => {
-    const env = { rateHz: 10, bass: [0.4], mids: [0.6], treble: [0.8] }
+    const env = envelope(10, [0.4], [0.6], [0.8], [0.6])
     const o = showAudioOverride(env, 0)!
     expect(o.active).toBe(true)
     expect(o.micActive).toBe(true)

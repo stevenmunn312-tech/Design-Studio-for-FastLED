@@ -256,7 +256,7 @@ describe('renderShowFrame', () => {
     const groups = { loud: makeGroup(), quiet: makeGroup() } as unknown as Parameters<typeof renderShowFrame>[4]
     const showFor = (patternSet: string[], bass: number[]): ShowFile => ({
       version: 2, songTitle: 'A', durationMs: 1000, bpm: 120, patternSet,
-      audio: { rateHz: 10, bass, mids: [0], treble: [0] },
+      audio: { version: 2, rateHz: 10, bass, mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1 },
       events: [
         { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
         { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },
@@ -288,7 +288,7 @@ describe('renderShowFrame', () => {
     const groups = { bass: makeGroup('bass', 'float'), beat: makeGroup('beat', 'bool') } as unknown as Parameters<typeof renderShowFrame>[4]
     const showFor = (pattern: string, bass: number, withBeat = false): ShowFile => ({
       version: 2, songTitle: 'Legacy', durationMs: 1000, bpm: 120, patternSet: [pattern],
-      audio: { rateHz: 10, bass: [bass], mids: [0], treble: [0] },
+      audio: { version: 2, rateHz: 10, bass: [bass], mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1 },
       events: [
         { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
         { t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } },

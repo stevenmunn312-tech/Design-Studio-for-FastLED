@@ -43,16 +43,15 @@ export interface ShowFile {
 }
 
 export interface AudioEnvelope {
-  /** Version 2 is a tagged trailer carrying stereo VU levels. Omitted means
-   * the legacy untagged three-band trailer. */
-  version?: 2
+  /** The tagged `AENV` trailer version; the only envelope format there is. */
+  version: 2
   rateHz: number         // frames per second (e.g. 50)
   bass: number[]         // 0–1, one entry per frame
   mids: number[]         // 0–1
   treble: number[]       // 0–1
-  leftLevel?: number[]   // 0–1 short-window RMS; absent in legacy envelopes
-  rightLevel?: number[]  // 0–1; mirrors left for mono sources
-  channelCount?: 1 | 2
+  leftLevel: number[]    // 0–1 short-window RMS, one entry per frame
+  rightLevel: number[]   // 0–1; mirrors left for mono sources
+  channelCount: 1 | 2
 }
 
 // ── Song analysis output from musicAnalyzer ───────────────────────────────────
@@ -91,8 +90,8 @@ export interface SongAnalysis {
   durationMs: number
   beats: BeatInfo
   energy: EnergyPoint[]  // sampled every ~100ms
-  channelLevels?: StereoLevelPoint[]
-  channelCount?: 1 | 2
+  channelLevels: StereoLevelPoint[]
+  channelCount: 1 | 2
   sections: SongSection[]
   mood: {
     energy: number       // 0-1 (calm → energetic)
@@ -100,3 +99,7 @@ export interface SongAnalysis {
     key: string          // e.g. "C major", "A minor"
   }
 }
+
+/** What the Essentia passes produce from mono samples; the per-channel
+ * levels come from decoding and are added by `analyzeSong`. */
+export type SongAnalysisCore = Omit<SongAnalysis, 'channelLevels' | 'channelCount'>

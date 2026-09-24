@@ -86,6 +86,11 @@ let analyzing = false
 
 let restoreGeneration = 0
 
+function hasStereoLevels(analysis: SongAnalysis | null, show: ShowFile | null): boolean {
+  if (analysis && !Array.isArray(analysis.channelLevels)) return false
+  return !show?.audio || show.audio.version === 2
+}
+
 function persistedEntries(entries: MusicEntry[]): PersistedMusicEntry[] {
   return entries.map((entry) => ({
     id: entry.id,
@@ -238,6 +243,12 @@ registerMusicLibraryPersistence(
           status: 'error',
           error: 'The audio file is not available in this browser. Add the track again to restore playback and export.',
         }
+      }
+      // An analysis or show from before stereo levels existed cannot bake the
+      // tagged envelope the player reads, so it is analysed again rather than
+      // carried forward.
+      if (!hasStereoLevels(entry.analysis, entry.show)) {
+        return { ...entry, file, analysis: null, show: null, edited: false, status: 'pending' }
       }
       return {
         ...entry,

@@ -3,7 +3,7 @@
 // beat tracking, per-band energy FFT loop, key + danceability) off the main
 // thread so "Analyse All" doesn't freeze the UI. The main thread decodes the
 // file to mono PCM (Web Audio's decodeAudioData is main-thread only) and
-// transfers the samples here; this worker returns a finished `SongAnalysis`.
+// transfers the samples here; this worker returns a finished `SongAnalysisCore`.
 //
 // Essentia is imported lazily so its multi-MB WASM stays in its own code-split
 // chunk and the WASM backend is initialised once, then reused across songs.
@@ -11,7 +11,7 @@
 /// <reference lib="webworker" />
 declare const self: DedicatedWorkerGlobalScope
 
-import type { SongAnalysis } from '../types/showFile'
+import type { SongAnalysisCore } from '../types/showFile'
 import { analyzeDecodedSong, formatWorkerError } from './essentiaCore'
 
 // ── Worker message protocol ────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ export interface AnalyzeRequest {
   title:      string
 }
 export type AnalyzeResponse =
-  | { id: number; ok: true;  analysis: SongAnalysis }
+  | { id: number; ok: true;  analysis: SongAnalysisCore }
   | { id: number; ok: false; error: string }
 
 self.onmessage = async (e: MessageEvent<AnalyzeRequest>) => {

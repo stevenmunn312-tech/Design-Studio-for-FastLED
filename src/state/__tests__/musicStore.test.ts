@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, onTestFinished, vi } from 'vitest'
 import { useMusicStore } from '../musicStore'
 import type { MusicEntry } from '../musicStore'
 import { useGraphStore, ROOT_GRAPH_ID } from '../graphStore'
@@ -16,6 +16,8 @@ const analysis: SongAnalysis = {
     { startMs: 2000, endMs: 4000, type: 'drop', energy: 0.9 },
   ],
   mood: { energy: 0.7, valence: 0.6, key: 'C major' },
+  channelLevels: [],
+  channelCount: 1,
 }
 
 const baseShow: ShowFile = {
@@ -157,6 +159,36 @@ describe('musicStore project persistence', () => {
     expect(restored.show).toEqual(baseShow)
     expect(restored.file.name).toBe('saved.mp3')
     expect(await restored.file.text()).toBe('saved audio')
+  })
+
+  it('re-analyses a saved song whose analysis predates stereo levels', async () => {
+    const file = new File(['old audio'], 'old.mp3', { type: 'audio/mpeg', lastModified: 789 })
+    await saveMusicFile('old-song', file)
+    const realAnalyzeAll = useMusicStore.getState().analyzeAll
+    const analyzeAll = vi.fn(async () => {})
+    useMusicStore.setState({ analyzeAll })
+    onTestFinished(() => useMusicStore.setState({ analyzeAll: realAnalyzeAll }))
+    const withoutLevels: Partial<SongAnalysis> = { ...analysis }
+    delete withoutLevels.channelLevels
+    delete withoutLevels.channelCount
+
+    useGraphStore.getState().loadGraph([], [], {
+      musicLibrary: [{
+        id: 'old-song',
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+        analysis: withoutLevels as SongAnalysis,
+        show: baseShow,
+        status: 'done',
+        edited: true,
+      }],
+    })
+
+    await vi.waitFor(() => expect(analyzeAll).toHaveBeenCalled())
+    const restored = useMusicStore.getState().entries[0]
+    expect(restored).toMatchObject({ analysis: null, show: null, edited: false, status: 'pending' })
   })
 
   it('clears the previous library when a workspace has no music manifest', async () => {

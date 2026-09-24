@@ -120,14 +120,13 @@ Stream mode; the Upload panel and generated receiver sketch state this
 explicitly. Use the normal generated firmware to drive the main output and
 audio-reactive rails together.
 
-## Baked-envelope compatibility
+## Baked envelope
 
-New show files append a tagged `AENV` version-2 trailer. Each frame contains the
-existing bass, mids, and treble bytes followed by left and right level bytes and
-an explicit mono/stereo channel count. The main mono analyzer contract is
-unchanged. Legacy untagged trailers keep their original three-byte frame layout,
-and current players detect and mirror them rather than interpreting them as
-stereo.
+Show files append a tagged `AENV` version-2 trailer. Each frame contains the
+bass, mids, and treble bytes followed by left and right level bytes, and the
+trailer states an explicit mono/stereo channel count. The player reads only
+this format; a show file without it plays with no baked audio. Re-export any
+show written before this format so its envelope is rebuilt.
 
 When the live decoder tap resumes, the same per-fixture attack/release state
 continues; track changes clear capture values but do not reset VU peaks, trails,

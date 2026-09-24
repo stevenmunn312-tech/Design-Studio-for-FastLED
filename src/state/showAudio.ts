@@ -34,8 +34,8 @@ export function sampleEnvelope(
   const mids = clamp01(lerp(env.mids))
   const treble = clamp01(lerp(env.treble))
   const levels = resolveStereoLevels({
-    leftLevel: env.leftLevel?.length === n ? lerp(env.leftLevel) : undefined,
-    rightLevel: env.rightLevel?.length === n ? lerp(env.rightLevel) : undefined,
+    leftLevel: env.leftLevel.length === n ? lerp(env.leftLevel) : undefined,
+    rightLevel: env.rightLevel.length === n ? lerp(env.rightLevel) : undefined,
     channelCount: env.channelCount,
     bass,
     mids,

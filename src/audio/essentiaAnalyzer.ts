@@ -10,7 +10,7 @@
 // single worker is lazily created and reused across songs; requests are matched
 // to responses by an incrementing id.
 
-import type { SongAnalysis } from '../types/showFile'
+import type { SongAnalysis, SongAnalysisCore } from '../types/showFile'
 import { decodeToMono } from './songAnalysisCommon'
 import { analyzeDecodedSong, formatWorkerError } from './essentiaCore'
 import type { AnalyzeRequest, AnalyzeResponse } from './essentiaAnalyzer.worker'
@@ -21,7 +21,7 @@ const WORKER_RETRY_LIMIT = 1
 
 let worker: Worker | null = null
 let nextId = 1
-const pending = new Map<number, { resolve: (a: SongAnalysis) => void; reject: (e: Error) => void }>()
+const pending = new Map<number, { resolve: (a: SongAnalysisCore) => void; reject: (e: Error) => void }>()
 let idleTimer: ReturnType<typeof setTimeout> | null = null
 
 function workerEventMessage(e: ErrorEvent): string {
@@ -110,7 +110,7 @@ async function analyzeViaWorker(
   durationMs: number,
   title: string,
   retriesLeft = WORKER_RETRY_LIMIT,
-): Promise<SongAnalysis> {
+): Promise<SongAnalysisCore> {
   const w = getWorker()
   if (!w) {
     if (retriesLeft > 0) {
@@ -121,7 +121,7 @@ async function analyzeViaWorker(
   }
   const id = nextId++
 
-  return new Promise<SongAnalysis>((resolve, reject) => {
+  return new Promise<SongAnalysisCore>((resolve, reject) => {
     pending.set(id, { resolve, reject })
     const workerMono = mono.slice()
     const req: AnalyzeRequest = { id, mono: workerMono, sampleRate, durationMs, title }

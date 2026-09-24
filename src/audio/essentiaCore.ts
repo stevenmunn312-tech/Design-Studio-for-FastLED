@@ -1,4 +1,4 @@
-import type { BeatInfo, EnergyPoint, SongAnalysis } from '../types/showFile'
+import type { BeatInfo, EnergyPoint, SongAnalysis, SongAnalysisCore } from '../types/showFile'
 import { ENERGY_HOP_MS, detectSections, normalizeEnergy } from './songAnalysisCommon'
 
 const FRAME_SIZE = 2048
@@ -167,7 +167,7 @@ export async function analyzeDecodedSong(
   sampleRate: number,
   durationMs: number,
   title: string,
-): Promise<SongAnalysis> {
+): Promise<SongAnalysisCore> {
   analysesInFlight++
   try {
     return await runAnalysis(mono, sampleRate, durationMs, title)
@@ -182,7 +182,7 @@ async function runAnalysis(
   sampleRate: number,
   durationMs: number,
   title: string,
-): Promise<SongAnalysis> {
+): Promise<SongAnalysisCore> {
   const essentia = await getEssentia()
   const signal = essentia.arrayToVector(mono)
   try {

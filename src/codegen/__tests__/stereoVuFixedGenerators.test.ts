@@ -114,7 +114,7 @@ describe('Music Player Stereo VU fixture', () => {
     expect(cpp.match(new RegExp(STEREO_GLOBAL_MARKER.replace(/[{}]/g, '\\$&'), 'g'))).toHaveLength(1)
   })
 
-  it('parses stereo and legacy baked fallbacks without resetting fixture state', () => {
+  it('parses the tagged baked fallback without resetting fixture state', () => {
     const fallbackMeters = stereoVuEmitsFromGraph(
       [node('audio', 'Audio', { sourceId: 'music' }), meter],
       [edge('audio-vu', 'audio', 'out', 'side-vu', 'audio')],
@@ -124,9 +124,10 @@ describe('Music Player Stereo VU fixture', () => {
       stereoVuMeters: fallbackMeters, audioEnvelope: true,
     })
     expect(cpp).toContain("tag[0]=='A' && tag[1]=='E' && tag[2]=='N' && tag[3]=='V'")
-    expect(cpp).toContain('audioEnvStride = audioEnvVersion == 2 ? 5 : 0;')
+    expect(cpp).toContain('if (tagged && version == 2 && f.read(cb, 4) == 4) {')
     expect(cpp).toContain('_audioLeftLevel = (audioEnv[ib+3]')
-    expect(cpp).toContain('_audioLeftLevel = _audioRightLevel = (_audioBass + _audioMids + _audioTreble) / 3.0f;')
+    expect(cpp).not.toContain('audioEnvStride')
+    expect(cpp).not.toContain('(_audioBass + _audioMids + _audioTreble) / 3.0f')
     expect(cpp).toContain('paldef_party, (_decoderTapLive || audioEnvFrames > 0), _audioLeftLevel, _audioRightLevel, _audioBeat, millis()')
     expect(cpp.indexOf('_stereoVuRender(_vuState_side_vu')).toBeLessThan(cpp.lastIndexOf('FastLED.show();'))
     expect(cpp).toContain('if (!_decoderTapLive) updateShowAudio(posMs);')
