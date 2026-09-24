@@ -142,7 +142,7 @@ export async function exportShowPackage(
   const patternSet = done[0]?.show!.patternSet
   const bakedAudio = !!done[0]?.show!.audio
   const renderers = patternSet && patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, [], true, { beat: '_audioBeat' }, true)
+    ? buildPatternRenderers(patternSet, groups, [], true, true)
     : undefined
   const decoderTap = patternRenderersUseAudio(renderers)
   const sketch = generatePlayerSketch(playerCfg, renderers, {

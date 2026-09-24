@@ -174,21 +174,15 @@ function cppPrototype(definition: string): string | null {
   return match ? `${match[1]};` : null
 }
 
-// Exposed audio inputs on saved patterns have no physical noodle once the
-// Group is absorbed by a collection. When the host supplies audio globals,
-// bind those roles directly. The broader semantic bands are conservative
-// aliases of the three bands available in both the mic and baked-audio hosts.
-const AUDIO_GROUP_INPUTS: Record<string, string> = {
-  bass: '_audioBass', mids: '_audioMids', treble: '_audioTreble',
-  kick: '_audioBass', snare: '_audioMids', hihat: '_audioTreble', vocals: '_audioMids',
-  energy: '((_audioBass + _audioMids + _audioTreble) / 3.0f)',
-  beat: '0.0f',
-  silence: '((_audioBass + _audioMids + _audioTreble) < 0.03f)',
-}
+// The `energy` show role has no physical noodle once the Group is absorbed by a
+// collection. When the show is not driving it as a render parameter and the
+// host supplies audio globals, it follows the mean of the three bands, as the
+// browser preview does (showPreview.ts renderStateFrame).
+const ENERGY_FROM_AUDIO = '((_audioBass + _audioMids + _audioTreble) / 3.0f)'
 
 function buildPattern(
   groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [],
-  externalAudio = false, audioExprOverrides: Record<string, string> = {}, nativeFastLedAudio = false,
+  externalAudio = false, nativeFastLedAudio = false,
 ): PatternUnit {
   const fnName = `render_p${index}`
   // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
@@ -208,8 +202,8 @@ function buildPattern(
   // Keep inputs supplied by an explicit render parameter or by the host audio
   // globals. Edges from every other GroupInput are removed so downstream nodes
   // correctly fall back to their own property defaults.
-  const groupInputExprs = externalAudio
-    ? Object.fromEntries(Object.entries({ ...AUDIO_GROUP_INPUTS, ...audioExprOverrides }).filter(([role]) => !roleParams.includes(role)))
+  const groupInputExprs: Record<string, string> = externalAudio && !roleParams.includes('energy')
+    ? { energy: ENERGY_FROM_AUDIO }
     : {}
   const groupInputRole = (n: StudioNode) => String((n.data.properties as { paramId?: string }).paramId ?? '')
   const isAudioGI = (n: StudioNode) => ((n.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType ?? '') === 'audio'
@@ -328,9 +322,9 @@ export function patternRenderersUseAudio(renderers: PatternRenderers | undefined
 
 export function buildPatternRenderers(
   patternIds: string[], groups: GroupRegistry, roleParams: string[] = [],
-  externalAudio = false, audioExprOverrides: Record<string, string> = {}, nativeFastLedAudio = false,
+  externalAudio = false, nativeFastLedAudio = false,
 ): PatternRenderers {
-  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, audioExprOverrides, nativeFastLedAudio))
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, nativeFastLedAudio))
   const helpers = new Map<string, string>()
   for (const u of units) for (const [k, v] of u.helpers) helpers.set(k, v)
   return {
@@ -748,7 +742,7 @@ export function generateShowSketch(
       brightness: (Number(meter.properties.brightness ?? 0.65) || 0) * controller.brightness / 255,
     },
   } : meter)
-  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, audio ? { beat: '_audioBeat' } : {}, !!audio)
+  const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, !!audio)
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
   // The fixed show template can honour the node's own slider without pulling
   // an arbitrary root control graph into the controller. Validation refuses a

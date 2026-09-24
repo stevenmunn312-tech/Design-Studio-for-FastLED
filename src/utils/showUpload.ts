@@ -112,7 +112,7 @@ export function buildShowPlayer(
   const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
   const patternSet = opts.patternSet ?? []
   const renderers = patternSet.length > 0
-    ? buildPatternRenderers(patternSet, groups, roleParams, true, { beat: '_audioBeat' }, true)
+    ? buildPatternRenderers(patternSet, groups, roleParams, true, true)
     : undefined
   const particleFx = playerParticlesFromGraph(nodes, edges, selectedEngine?.id)
   const stereoVuMeters = stereoVuEmitsFromGraph(nodes, edges, {

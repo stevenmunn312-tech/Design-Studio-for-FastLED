@@ -15,6 +15,11 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed the show-time bindings for pattern group inputs named
+  `bass`, `mids`, `treble`, `kick`, `snare`, `hihat`, `vocals`, `beat` and
+  `silence`, which only older saved patterns carried. V1 group roles are
+  `energy`, `speed` and `palette`; an undriven `energy` still follows the mean
+  audio band in the preview and the show and player sketches.
 - 2026-09-24: removed the always-empty `ElectricalPlan.supplyChecks` field
   kept for older saved profiles, and the hardware manifest's node-label path
   for matrix outputs. The plan is recomputed, never persisted, and every LED
