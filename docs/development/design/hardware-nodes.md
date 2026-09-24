@@ -33,7 +33,8 @@ workbench's **Add Hardware** menu is the creation path for:
 - signal inputs: I2S MEMS microphone (INMP441, ICS-43434 or generic), PCM1802
   line-in ADC, button, button bank,
   potentiometer, encoder, PIR motion, ambient light, and RTC modules;
-- switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules;
+- switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, and
+  the opto-isolated LR7843 MOSFET module for DC loads;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
 - LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel outputs.
 
@@ -57,7 +58,7 @@ data lead or choose a new pin.
 
 - `MicInput`, `LineInput`, `ButtonInput`, `ButtonBank`, `PotInput`, and `EncoderInput`;
 - `MotionInput` and `LightInput`;
-- `RTCInput` and `RelayOutput`; and
+- `RTCInput`, `RelayOutput` and `PowerSwitchOutput`; and
 - `MatrixOutput` (the implementation type behind all five LED-output forms).
 
 `Board`, `SDCard`, and `Amplifier` are hardware-only. They carry configuration,
@@ -69,6 +70,20 @@ firmware writes the inactive HIGH level before changing each GPIO to OUTPUT,
 preventing an active-low relay click during setup. Relay contact ratings and
 mains-voltage warnings remain attached to the exact catalogue part; the app
 does not treat switched-load terminals as low-voltage GPIO wiring.
+
+`PowerSwitchOutput` is the DC counterpart: one opto-isolated MOSFET channel
+with a single boolean `On` input and one GPIO (`signalPin`, printed PWM). It
+is active-high, so generated firmware latches the pin LOW before making it an
+output, and a HIGH turns the load on. The load side is described rather than
+wired: the catalogue's `mosfet` block (load supply range, continuous current,
+active level, the absent flyback diode, the `- / LOAD / +` terminal order)
+travels into the hardware manifest as facts. The module takes no supply from
+the controller, because its optocoupler lights from the signal itself, so
+`peripheralPowerPadIndex` reports no supply pad for it and the Build Diagram
+draws GND and PWM only rather than falling back to pad 0, which is GND on this
+board. PWM dimming through the same input is a later extension; the first
+slice matches the relay's on/off behaviour, per the
+[hardware expansion roadmap](../plans/hardware-expansion-roadmap.md).
 
 Deleting a hardware-managed signal node on the canvas removes its signal edges
 but retains the part. Removing it through the workbench deletes the root-graph

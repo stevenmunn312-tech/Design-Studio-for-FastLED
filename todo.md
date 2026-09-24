@@ -136,7 +136,9 @@ in the app and marked experimental; nothing here holds up development.
   energy (batteries, charging, BMS) are built like the relay slice: in the app,
   in the Build Diagram, and marked experimental. The HW-14 review then checks
   them rather than gating them. D-05a (IR remote) is complete in software and
-  compile; its bench row is in section 3.
+  compile; its bench row is in section 3. The first MOSFET switch (LR7843,
+  `PowerSwitchOutput`) is in software, on/off only; its firmware compile and
+  bench row are still to do.
 
 ## Completed
 

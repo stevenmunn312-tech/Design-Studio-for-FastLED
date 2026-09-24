@@ -461,6 +461,17 @@ Unless a future row says otherwise, treat the following as experimental:
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the
   GPIO2/ADC1 result is suggestive for it, but resemblance is not a pass. See
   [input-peripheral bench records](../development/reports/input-peripheral-bench.md).
+- **Switching outputs: relay modules and the LR7843 power switch.** The 1, 2,
+  4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
+  (`PowerSwitchOutput`) are software and generated-firmware coverage only; no
+  switched load has been run on any board. The LR7843 switches the negative
+  lead of a 6-28 V DC load, is active-high, and has no flyback diode.
+  Graduating the power switch needs a dated row naming the board/FQBN, the
+  signal GPIO, the load and its supply voltage and current, and the build
+  engine. It must show the load held off through reset and setup, switching
+  on and off from a graph signal, and the MOSFET's temperature after ten
+  minutes at the recorded current. An inductive load needs its external
+  flyback diode named in the row.
 - **IR remote receive on every board, receiver and remote combination.** The
   current evidence is software and generated-firmware coverage only. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's

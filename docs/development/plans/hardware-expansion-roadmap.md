@@ -86,7 +86,9 @@ compile families:
 ## Suggested implementation order
 
 1. Logic-level MOSFET switching, sharing the relay family's boolean-terminal
-   behavior while declaring DC load voltage/current limits separately.
+   behavior while declaring DC load voltage/current limits separately. The
+   opto-isolated LR7843 module (`PowerSwitchOutput`) is in, on/off only and
+   experimental; PWM dimming and multi-channel boards are still open.
 2. INA219/INA226 monitoring and a minimal volts/amps/watts signal contract.
 3. An exact MAX485-class DMX transceiver and recorded DMX512 bench run.
 4. The existing [IR remote-control plan](ir-remote-controls.md).
@@ -104,7 +106,10 @@ addition must cover the parts of the product its role actually uses:
 1. A source-backed Blender package with editable `.blend`, final transparent
    render, `part.json` and `Sources.md`. External connection headers remain
    unpopulated plated holes by default; onboard configuration jumpers remain
-   fitted when that is the reference board's normal state.
+   fitted when that is the reference board's normal state. Every unpopulated
+   through-hole is a real hole: the transparent render shows the background
+   through it, not a dark disc (`through_holes.py` in the asset workspace
+   drills them and checks each one).
 2. Catalogue import, exact dimensions, pin labels, voltage/current facts and
    safety notes.
 3. Hardware shelf entry, inspector fields, GPIO/bus requirements, pin
