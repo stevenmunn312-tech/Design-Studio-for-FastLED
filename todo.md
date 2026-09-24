@@ -1228,8 +1228,13 @@ matrix, not a reason to postpone testing earlier changes.
   connection table carries the DAC line-out row. The contract and its costs are
   in [the plan](docs/development/plans/audio-part-expansion.md#phases).
   **Left:** a compile of a DAC-fed SD-player sketch, a bench row per amplifier,
-  then phases 4 (SPH0645LM4H, hardware-verified alignment first) and 5
-  (MAX98357A stereo pair).
+  then phase 4 (SPH0645LM4H, hardware-verified alignment first).
+
+  *Phase 5 software landed 2026-09-24.* The MAX98357A stereo pair is one
+  `Amplifier` option on the shared I2S bus, with each board's SD pin choosing
+  its channel. It needs no second amplifier node and no firmware change. The
+  diagram and connection table bridge the right board's shared lines. **Left:**
+  a bench row hearing left and right separately.
 
 ## Explicitly deferred, not release blockers
 

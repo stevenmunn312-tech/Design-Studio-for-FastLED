@@ -443,6 +443,11 @@ Unless a future row says otherwise, treat the following as experimental:
   the SD player audible through the amplifier at its default volume and no hum
   from the shared ground. The 12 V boards (PAM8610, DX-0809) need their own
   supply, and the row should say which.
+- **The MAX98357A stereo pair.** Offered as one part on the shared I2S bus,
+  with each board's SD pin selecting its channel. Only the single MAX98357A
+  has a hardware row. Graduating the pair needs a dated row with left-only and
+  right-only test material heard on the correct board, and the SD setting used
+  on each board recorded.
 - **Input peripherals other than the recorded LDR row above** — Button,
   Potentiometer, Encoder, and PIR Motion have no hardware record of any
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the

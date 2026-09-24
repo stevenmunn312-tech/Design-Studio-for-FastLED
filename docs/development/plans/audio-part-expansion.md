@@ -248,6 +248,26 @@ does not block it.
 - **Phase 5 — MAX98357A stereo pair**, after Phase 2 settles how a bench
       holds more than one amplifier.
 
+      *Software landed 2026-09-24, as one part rather than two nodes.* The
+      question this phase raised was whether a bench may hold two `Amplifier`
+      nodes. It does not need to. Both boards sit on the same three I2S lines,
+      the player already sends stereo I2S, and each board's channel is set on
+      the board by its SD pin. So the pair is one `Amplifier` option,
+      `max98357a-stereo-pair`, drawn from the already-catalogued pair asset,
+      and the one-amplifier-per-bench rule stands. No firmware changed.
+
+      The Build Diagram wires the controller to the left board. Pad lookups
+      ignore the `L:`/`R:` prefix the pair prints, and the fourteen pads are
+      measured off a ruled crop, since they are silver rings the warm mask
+      cannot see. The sheet captions the lines the right board shares.
+      `sharedPadsAcrossBoards` in `partCatalogue.ts` derives those lines from
+      the catalogue: the bus, supply and ground, but never SD or GAIN, which
+      are per-board. The connection table carries one bridging row per shared
+      line. A pair feeding a power amplifier is refused like a single
+      MAX98357A, since both outputs are speaker level.
+
+      *Outstanding:* a bench row that hears left and right separately.
+
 ## Bench evidence
 
 Compile success and browser tests do not make any of these supported. Each part

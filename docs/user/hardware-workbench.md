@@ -168,6 +168,11 @@ drawing a wire.
   volume field is hidden, because the DAC is the part the board drives.
 - The PAM8610 and DX-0809 run on 12 V and need their own supply. The controller
   cannot power them. Connect that supply's ground to the board and the DAC.
+- For stereo without a power amplifier, add a **MAX98357A stereo pair**: two
+  boards on the same BCLK, LRC and DIN lines, one per speaker. Set each board's
+  SD pin so one plays left and the other right. An unmodified board plays the
+  left-plus-right mix. The Build Diagram wires the left board and lists the
+  lines the right board shares.
 - A MAX98357A cannot feed a power amplifier. Its speaker output is not line
   level, and neither of its outputs is ground. Graph Health refuses that
   combination and asks for a DAC instead.
