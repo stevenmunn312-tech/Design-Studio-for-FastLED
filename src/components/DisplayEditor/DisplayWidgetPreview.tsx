@@ -153,7 +153,11 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
     '--widget-text-line-height': `${typography.lineHeight}px`,
     '--widget-text-lines': typography.maxLines,
   } as CSSProperties
-  const text = typeof value === 'string' && value.length > 0
+  // A reading, once there is one, is shown as it is — an empty artist is a
+  // blank row, as on the glass, not the widget's placeholder. The authored
+  // text stands in only while nothing has been read at all (the designer, or
+  // a field this source never publishes).
+  const text = typeof value === 'string'
     ? value
     : stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
   const active = state === 'active'

@@ -103,3 +103,22 @@ describe('display widget preview artwork', () => {
     expect(browser.container.textContent).toContain('2 of 2')
   })
 })
+
+describe('display widget preview text', () => {
+  const artist: DisplayWidget = {
+    id: 'text', type: 'Text', label: 'Artist',
+    bounds: { x: 0, y: 0, width: 200, height: 24 },
+    properties: { ...DISPLAY_WIDGET_LIBRARY.Text.defaultProperties, text: 'Artist', source: 'artist' },
+  }
+
+  it('shows the placeholder only until something has been read', () => {
+    expect(draw(artist).container.textContent).toBe('Artist')
+  })
+
+  it('shows nothing for an empty reading, as the glass does', () => {
+    // A track with no artist tag reports an empty artist; the row goes blank
+    // rather than reading "Artist" as though that were the name.
+    expect(draw(artist, '').container.textContent).toBe('')
+    expect(draw(artist, 'Björk').container.textContent).toBe('Björk')
+  })
+})
