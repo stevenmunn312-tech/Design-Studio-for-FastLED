@@ -505,8 +505,9 @@ Unless a future row says otherwise, treat the following as experimental:
   whether a concurrently configured DMX receiver uses UART2.
 - **Adafruit BH1750 ambient-light sensing.** `LightInput` with the BH1750
   module has software, preview, generated-firmware, manifest and Build Diagram
-  coverage in the normal, slideshow and player generators, but no compiled or
-  physical row yet. It reads continuous high-resolution mode over I2C at 0x23
+  coverage in the normal, slideshow and player generators, and
+  [compiles on classic ESP32](../development/light-sensor-compile-checks.md),
+  but no physical row yet. It reads continuous high-resolution mode over I2C at 0x23
   or 0x5C and publishes Lux plus Level scaled by Max Lux. Graduation needs a
   dated row naming the board/FQBN, the I2C pins and address, and the supply,
   with Lux compared against a reference meter in dim, room and bright light.

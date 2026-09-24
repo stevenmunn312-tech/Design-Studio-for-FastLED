@@ -56,10 +56,9 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks (run on request, one at a time)
 
-- **D-05 light sensor:** compile one normal ESP32 graph whose BH1750 Lux drives
-  an LED property, then the slideshow and player control paths. Record
-  toolchain, FQBN, flash and RAM before moving to the next leg.
-
+None open. The D-05 light-sensor normal, slideshow, player, LDR and no-sensor
+guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-25
+([light-sensor compile record](docs/development/light-sensor-compile-checks.md)).
 The D-05 presence-sensor normal, slideshow, player and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-24–25.
 The toolchain, FQBN, source hashes, flash and RAM are in the
@@ -169,7 +168,8 @@ in the app and marked experimental; nothing here holds up development.
   drawn, previewed and generated as `PresenceInput` for ESP32; all four compile
   fixtures pass, and its bench row is in section 3. The Adafruit BH1750
   (roadmap step 5) is a `LightInput` module option, modelled, drawn,
-  previewed and generated; its compile and bench rows are in sections 2 and 3.
+  previewed and generated; all five compile fixtures pass, and its bench row is
+  in section 3.
 
 ## Completed
 

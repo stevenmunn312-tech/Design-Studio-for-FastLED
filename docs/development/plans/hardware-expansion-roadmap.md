@@ -104,8 +104,9 @@ compile families:
    [compile fixtures pass](../presence-sensor-compile-checks.md); the bench run
    remains open, so it stays experimental. The Adafruit BH1750 is now a
    `LightInput` module option: modelled, catalogued, drawn, previewed and
-   generated for normal/show/player paths, experimental, with its compile and
-   bench rows open.
+   generated for normal/show/player paths. All five
+   [compile fixtures pass](../light-sensor-compile-checks.md); the bench run
+   remains open, so it stays experimental.
 6. W5500 wired networking.
 7. A differential pixel-data pair and long-cable validation.
 8. Buck conversion and protected high-side switching in the Build Diagram

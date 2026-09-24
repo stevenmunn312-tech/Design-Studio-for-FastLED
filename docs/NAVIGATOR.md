@@ -149,6 +149,7 @@ build/architecture overview aimed at contributors.
     — the normal/slideshow/player/no-IR fixtures, per-board Arduino CLI and
     fbuild results, and the gaps still open for D-05a step 13.
   - [Presence-sensor firmware compile checks](development/presence-sensor-compile-checks.md)
+  - [Light-sensor firmware compile checks](development/light-sensor-compile-checks.md)
     — real normal/slideshow/player/no-sensor fixtures for the HLK-LD2410C,
     their classic-ESP32 results, resource figures and measured sensor overhead.
 - [Testing](development/testing/)
