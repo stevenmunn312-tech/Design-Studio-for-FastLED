@@ -4,12 +4,6 @@ import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 import { partRenderSrc, sharedPadsAcrossBoards } from '../../state/partCatalogue'
-import devKitCBoardRender from '../../assets/boards/esp32-s3-devkitc-1.webp'
-import esp32DevKitV1BoardRender from '../../assets/boards/esp32-devkit-v1-30pin.webp'
-import genericN16R8BoardRender from '../../assets/boards/generic-esp32-s3-n16r8-44pin.webp'
-import xiaoBoardRender from '../../assets/boards/seeed-xiao-esp32s3.webp'
-import devKit38BoardRender from '../../assets/boards/esp32-generic-devkit-38pin.webp'
-import lolinS3BoardRender from '../../assets/boards/lolin-s3-40pin.webp'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.webp'
 import buttonModuleRender from '../../assets/components/button-module.webp'
 import potentiometerModuleRender from '../../assets/components/potentiometer-module.webp'
@@ -150,9 +144,9 @@ interface ControllerRenderSpec {
   /** Pads per rail, and the anchor id prefixes the board profile uses. */
   pinsPerRail: number
   /**
-   * Drilled-hole radius in source pixels, read off the render (the dark centre
-   * inside the plated ring). A terminal is coloured at this size so the ring
-   * stays visible around it.
+   * Drilled-hole radius in source pixels, measured from the render's
+   * transparency (area-equivalent radius of the see-through hole). A terminal
+   * is coloured at this size so the plated ring stays visible around it.
    */
   holeRadiusPx: number
   leftPrefix: string
@@ -167,6 +161,17 @@ interface ControllerRenderSpec {
 /** A spec plus the sheet geometry derived from it. */
 type ControllerRender = ControllerRenderSpec & { x: number; y: number; width: number; height: number }
 
+/**
+ * A board's render, the same drilled image the Hardware tab and pinout popup
+ * show. The diagram once bundled its own copies, which missed the pass that
+ * made every through-hole a real hole and kept painted discs on five boards.
+ * Those were 800 px wide and these are 700, so every figure in the specs below
+ * stays in the 800 px space it was measured in: only ratios reach the sheet.
+ */
+function boardRenderSrc(profileId: string) {
+  return `/boards/${profileId}.webp`
+}
+
 const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // Header geometry from the render package, independently checked here: 22 + 22
   // rails on a 78.8px pitch sharing rows, rail centres symmetric about the image
@@ -175,10 +180,10 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // drawing's 70.74 mm overall length to 0.04 mm, so the model is dimensionally
   // true, not just proportionally plausible.
   'espressif-esp32-s3-devkitc-1': {
-    href: devKitCBoardRender,
+    href: boardRenderSrc('espressif-esp32-s3-devkitc-1'),
     sourceWidth: 800, sourceHeight: 2199, imageWidthMm: 25.7215,
     leftPinX: 45.400, rightPinX: 754.600, firstPinY: 45.783, lastPinY: 1700.583,
-    pinsPerRail: 22, holeRadiusPx: 15, leftPrefix: 'j1', rightPrefix: 'j3',
+    pinsPerRail: 22, holeRadiusPx: 15.5, leftPrefix: 'j1', rightPrefix: 'j3',
     powerAnchors: { v3v3: 'j1-1', ground: 'j3-22' },
     // The UART port, not the native-USB one: that's the port this app's upload
     // path drives, so it's the one a builder will have a cable in.
@@ -191,10 +196,10 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // Scale is the render camera's orthographic width, so it needs no image
   // measurement at all.
   'lolin-s3-40pin-dual-usbc': {
-    href: lolinS3BoardRender,
+    href: boardRenderSrc('lolin-s3-40pin-dual-usbc'),
     sourceWidth: 800, sourceHeight: 2262, imageWidthMm: 26.1458,
     leftPinX: 55.7763, rightPinX: 744.2237, firstPinY: 211.8, lastPinY: 1955.8,
-    pinsPerRail: 20, holeRadiusPx: 10.5, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 20, holeRadiusPx: 10.7, leftPrefix: 'left', rightPrefix: 'right',
     powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
     // The UART port on the right, not the OTG port on the left.
     usbPoint: { x: 560, y: 2180 },
@@ -205,10 +210,10 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // The four expansion pads are on the underside and so have no top-down
   // position; they fall back to the generic terminal column.
   'seeed-xiao-esp32s3': {
-    href: xiaoBoardRender,
+    href: boardRenderSrc('seeed-xiao-esp32s3'),
     sourceWidth: 800, sourceHeight: 1046, imageWidthMm: 18.1266,
     leftPinX: 64.5497, rightPinX: 735.4503, firstPinY: 134.943, lastPinY: 805.8435,
-    pinsPerRail: 7, holeRadiusPx: 15, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 7, holeRadiusPx: 14.5, leftPrefix: 'left', rightPrefix: 'right',
     // This board has exactly one 3V3 and one GND, adjacent on the left rail.
     powerAnchors: { v3v3: 'left-5', ground: 'left-6' },
     usbPoint: { x: 400, y: 1029.477 },
@@ -219,10 +224,10 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // detected from pixels, so it supersedes the values measured here earlier —
   // the rail centres land symmetric to four decimal places (83.4285 + 716.5715).
   'generic-esp32-s3-n16r8-44pin-dual-usbc': {
-    href: genericN16R8BoardRender,
+    href: boardRenderSrc('generic-esp32-s3-n16r8-44pin-dual-usbc'),
     sourceWidth: 800, sourceHeight: 1886, imageWidthMm: 28.3544,
     leftPinX: 83.4285, rightPinX: 716.5715, firstPinY: 147.7725, lastPinY: 1648.7433,
-    pinsPerRail: 22, holeRadiusPx: 13.5, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 22, holeRadiusPx: 13.9, leftPrefix: 'left', rightPrefix: 'right',
     // 3V3 tops the left rail and GND ends the right, so the two stubs leave
     // opposite edges and opposite ends of the board.
     powerAnchors: { v3v3: 'left-1', ground: 'right-22' },
@@ -234,10 +239,10 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // internally consistent: the rail centres sum to exactly 800.0, and the
   // stated 24.10 mm rail separation puts the pad pitch at 2.54000 mm.
   'esp32-generic-devkit-38pin': {
-    href: devKit38BoardRender,
+    href: boardRenderSrc('esp32-generic-devkit-38pin'),
     sourceWidth: 800, sourceHeight: 1718, imageWidthMm: 28.2828,
     leftPinX: 60.6246, rightPinX: 739.3754, firstPinY: 137.7216, lastPinY: 1425.3767,
-    pinsPerRail: 19, holeRadiusPx: 15, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 19, holeRadiusPx: 15.1, leftPrefix: 'left', rightPrefix: 'right',
     // Row 1 of each rail: 3V3 on the left, GND on the right, so the two stubs
     // leave opposite edges at the same height.
     powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
@@ -247,10 +252,10 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
   // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric
   // (60.879 + 739.121 = 800). 28.354 mm = 28 mm PCB over alpha bounds 5..794.
   'esp32-devkit-v1-30pin-esp32d': {
-    href: esp32DevKitV1BoardRender,
+    href: boardRenderSrc('esp32-devkit-v1-30pin-esp32d'),
     sourceWidth: 800, sourceHeight: 1631, imageWidthMm: 28.354,
     leftPinX: 60.879, rightPinX: 739.121, firstPinY: 231.571, lastPinY: 1244.714,
-    pinsPerRail: 15, holeRadiusPx: 15, leftPrefix: 'left', rightPrefix: 'right',
+    pinsPerRail: 15, holeRadiusPx: 14.0, leftPrefix: 'left', rightPrefix: 'right',
     // Both rails carry a GND pad (left-14 and right-14) on the same net; the
     // left one is used so the ground and 3V3 stubs leave opposite edges. On
     // the right rail they would be adjacent pads, close enough for the ground
