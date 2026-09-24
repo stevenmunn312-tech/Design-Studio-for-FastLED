@@ -1768,6 +1768,14 @@ export default function HardwarePane() {
         })()
     : 'Stereo VU Meter is unavailable'
 
+  // Same wording as every other part, so a full board reads as full on the
+  // LED rows too rather than as a fault.
+  const ledPinBlocker = (() => {
+    if (nextLedPin !== null) return null
+    const assigned = assignPartPins(boardProfile, selectedFqbn, nodes, [{ key: 'dataPin' }])
+    return assigned.ok ? 'No free GPIO on this board' : assigned.reason
+  })()
+
   const shelfCategories: HardwareShelfCategory[] = [
     {
       id: 'inputs',
@@ -1849,7 +1857,7 @@ export default function HardwarePane() {
           hint: needsDataPin ? `${entry.hint} on pin ${nextLedPin}` : entry.hint,
           visual: entry.form,
           disabled: blocked,
-          disabledReason: blocked ? 'No free GPIO on this board' : null,
+          disabledReason: blocked ? ledPinBlocker : null,
           onSelect: () => addLedOutput(entry),
         }
         }),

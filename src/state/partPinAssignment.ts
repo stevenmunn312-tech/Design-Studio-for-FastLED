@@ -16,7 +16,7 @@ import {
   type GpioCapability,
   type PinNote,
 } from './boardGpio'
-import { claimedPins } from './ledPinAssignment'
+import { collectPinUses, type HardwarePinUse } from '../build/hardwareManifest'
 
 /** One pin a part needs, and what it has to be able to do. */
 export interface PartPinRequest {
@@ -80,7 +80,8 @@ export function assignPartPins(
   nodes: StudioNode[],
   requests: readonly PartPinRequest[],
 ): PartPinAssignment {
-  const taken = new Set(claimedPins(nodes))
+  const uses = collectPinUses(nodes)
+  const taken = new Set(uses.map((use) => use.pin))
   const reserved = new Set(
     Object.keys(profile?.pinSafety?.boardReservedOrNotExposed ?? {}).map((key) => Number(key)),
   )
@@ -132,9 +133,7 @@ export function assignPartPins(
     if (pin === undefined) {
       return {
         ok: false,
-        reason: request.capability === 'analogInput'
-          ? 'No free analog-capable pin on this board'
-          : 'No free GPIO on this board',
+        reason: noPinReason({ profile, pool, notes, reserved, uses, request, requestCount: requests.length }),
       }
     }
     pins[request.key] = pin
@@ -142,4 +141,63 @@ export function assignPartPins(
     taken.add(pin)
   }
   return { ok: true, pins }
+}
+
+/** A board's spare pins: its allowlist, less anything it reserves. */
+export function boardSparePins(
+  profile: PhysicalBoardProfile | undefined,
+  claimed: ReadonlySet<number>,
+): number[] | null {
+  const pool = profile?.pinSafety?.safeGeneralPurpose
+  if (!pool || pool.length === 0) return null
+  const reserved = profile?.pinSafety?.boardReservedOrNotExposed ?? {}
+  return pool.filter((pin) => !(String(pin) in reserved) && !claimed.has(pin))
+}
+
+/** "GPIO 22 by Button, GPIO 27 by Real Time Clock SDA" */
+function holderList(pins: readonly number[], uses: readonly HardwarePinUse[]): string {
+  return pins.map((pin) => {
+    // Pins handed out earlier in a retarget pass arrive as stand-in nodes;
+    // they have no name worth repeating.
+    const holder = uses.find((use) => use.pin === pin && !use.nodeId.startsWith('__claimed-'))
+    return holder ? `GPIO ${pin} by ${holder.label}` : `GPIO ${pin}`
+  }).join(', ')
+}
+
+/**
+ * Why a part cannot be placed, in the board's own words.
+ *
+ * A profile that states its pad allowlist knows exactly which pins exist, so
+ * it can say the board is full and who is holding the pins. A CYD brings out
+ * two, and "No free GPIO on this board" read as a fault rather than a count.
+ * Without that allowlist the pool came from the chip table, which is not a
+ * claim about the board, so the message stays general.
+ */
+function noPinReason({ profile, pool, notes, reserved, uses, request, requestCount }: {
+  profile: PhysicalBoardProfile | undefined
+  pool: readonly number[] | undefined
+  notes: Map<number, PinNote>
+  reserved: ReadonlySet<number>
+  uses: readonly HardwarePinUse[]
+  request: PartPinRequest
+  requestCount: number
+}): string {
+  const analog = request.capability === 'analogInput'
+  if (!profile || !pool || pool.length === 0) {
+    return analog ? 'No free analog-capable pin on this board' : 'No free GPIO on this board'
+  }
+  const board = `The ${profile.label}`
+  const taken = new Set(uses.map((use) => use.pin))
+  const usable = pool.filter((pin) => !reserved.has(pin) && pinCan(notes, pin, request.capability))
+  if (analog && usable.length === 0) return `${board} has no pin listed as analog-capable`
+  const spare = usable.filter((pin) => !taken.has(pin))
+  const inUse = usable.filter((pin) => taken.has(pin))
+  if (spare.length === 0) {
+    return `${board} is full: its ${analog ? 'analog-capable ' : ''}spare pins are all in use `
+      + `(${holderList(inUse, uses)}). Remove a part to free one.`
+  }
+  // Some pins are left, just not enough for every line this part needs.
+  const left = spare.length === 1 ? '1 spare pin' : `${spare.length} spare pins`
+  return `${board} has ${left} left (${spare.map((pin) => `GPIO ${pin}`).join(', ')}) `
+    + `and this part needs ${requestCount}. Remove a part to free more.`
 }

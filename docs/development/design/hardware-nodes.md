@@ -180,10 +180,17 @@ Two things about its shape are worth keeping.
 The pool that leaves is **GPIO22 and GPIO27**: of the four GPIO pads the board
 brings out, GPIO21 drives the fitted panel's backlight and GPIO35 is input-only
 on a classic ESP32. Two pads is a small pool, and a graph can ask for one part
-too many — a DS3231 takes the board's own I²C bus, which is both of them. The
-part that cannot be placed keeps the pin it arrived on and validation names it,
-which is the honest outcome for a board with two free pads; it is not a
-substitute for an allocator that can say "this board is full" in its own words.
+too many — a DS3231 takes the board's own I²C bus, which is both of them.
+
+When that happens the app says the board is full, as a count rather than a
+fault. `assignPartPins` builds its refusal from the profile's allowlist. Either
+the board is full and every spare pad is named with the part holding it, or it
+has *n* pads left and the part needs more. A board whose profile states no
+allowlist keeps the general "No free GPIO" wording, because a pool read from the
+chip table is no claim about which pads exist. On a board change, the part that
+cannot be moved keeps the pin it arrived on. `findExactBoardPinIssues` then adds
+that the board has no spare pin to move it to, so the named repair is freeing a
+pad, not picking another pin. `boardSparePins` answers both.
 
 Still not modelled, and deliberately: this board's onboard microSD slot, RGB
 LED, light sensor and speaker amplifier. Their pins are well documented for the

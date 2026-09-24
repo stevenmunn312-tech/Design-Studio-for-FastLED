@@ -27,6 +27,7 @@ import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
+import { boardSparePins } from '../state/partPinAssignment'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
 import {
@@ -928,6 +929,10 @@ export function selectedBoardProfile(nodes: StudioNode[]): PhysicalBoardProfile 
   return typeof id === 'string' && id ? boardProfileById(id) : undefined
 }
 
+function endSentence(text = ''): string {
+  return /[.!?]$/.test(text) ? text : `${text}.`
+}
+
 /**
  * Pin checks the FQBN cannot make.
  *
@@ -963,12 +968,20 @@ export function findExactBoardPinIssues(nodes: StudioNode[]): BoardPinCompatibil
     )
     return fitted?.[propertyKey] === pin
   }
-  for (const use of collectPinUses(nodes)) {
+  const uses = collectPinUses(nodes)
+  // A part left on a reserved pin after a board change is there because the
+  // allocator had nowhere to move it. Saying so turns "pick another pin" into
+  // the real repair when there is no other pin to pick.
+  const spare = boardSparePins(profile, new Set(uses.map((use) => use.pin)))
+  const full = spare !== null && spare.length === 0
+    ? ` The ${profile.label} has no spare pin to move it to, so remove a part to free one.`
+    : ''
+  for (const use of uses) {
     if (!isValidPinNumber(use.pin)) continue
     if (isOwnFittedPin(use.nodeId, use.propertyKey, use.pin)) continue
     const verdict = boardPinVerdict(profile, use.pin)
     if (verdict.standing === 'reserved') {
-      errors.push(`${use.label} uses pin ${use.pin}, which isn't available on a ${profile.label}: ${verdict.reason}`)
+      errors.push(`${use.label} uses pin ${use.pin}, which isn't available on a ${profile.label}: ${full ? endSentence(verdict.reason) + full : verdict.reason}`)
     } else if (verdict.standing === 'caution') {
       warnings.push(`${use.label} uses pin ${use.pin} on a ${profile.label}: ${verdict.reason}`)
     }

@@ -6,6 +6,7 @@ import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 /** A board exposing 4, 5, 6 as general purpose, with 5 off limits. */
 function profile(safeGeneralPurpose: number[], reserved: number[] = []): PhysicalBoardProfile {
   return {
+    label: 'Test Board',
     pinSafety: {
       safeGeneralPurpose,
       useWithCaution: {},
@@ -55,7 +56,49 @@ describe('assignPartPins', () => {
   it('refuses rather than guessing when the board is full', () => {
     const nodes = [nodeWithPin('b', 'ButtonInput', { pin: 4 })]
     const result = assignPartPins(profile([4]), 'unknown:board:xyz', nodes, [{ key: 'pin' }])
-    expect(result).toEqual({ ok: false, reason: 'No free GPIO on this board' })
+    expect(result.ok).toBe(false)
+  })
+
+  // A board that states its pads knows it is full, and says so by name along
+  // with who holds each pin, so the refusal reads as a count, not a fault.
+  it('names the board and the parts holding its pins when it is full', () => {
+    const nodes = [
+      nodeWithPin('Mode button', 'ButtonInput', { pin: 4 }),
+      nodeWithPin('Next button', 'ButtonInput', { pin: 6 }),
+    ]
+    const result = assignPartPins(profile([4, 5, 6], [5]), ESP32_S3, nodes, [{ key: 'pin' }])
+    expect(result.ok).toBe(false)
+    const reason = result.ok ? '' : result.reason
+    expect(reason).toMatch(/^The Test Board is full/)
+    expect(reason).toMatch(/GPIO 4 by Mode button/)
+    expect(reason).toMatch(/GPIO 6 by Next button/)
+    // A reserved pin was never spare, so it is not reported as taken.
+    expect(reason).not.toMatch(/GPIO 5/)
+  })
+
+  it('says how many pins are left when a part needs more than that', () => {
+    const nodes = [nodeWithPin('Mode button', 'ButtonInput', { pin: 4 })]
+    const result = assignPartPins(profile([4, 5]), ESP32_S3, nodes, [
+      { key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' },
+    ])
+    expect(result).toEqual({
+      ok: false,
+      reason: 'The Test Board has 1 spare pin left (GPIO 5) and this part needs 3. Remove a part to free more.',
+    })
+  })
+
+  it('says a board lists no analog pin rather than calling it full', () => {
+    // 21 and 33 are digital only on the S3.
+    const result = assignPartPins(profile([21, 33]), ESP32_S3, [], [
+      { key: 'pin', capability: 'analogInput' },
+    ])
+    expect(result).toEqual({ ok: false, reason: 'The Test Board has no pin listed as analog-capable' })
+  })
+
+  it('keeps the general wording when the pool came from the chip table', () => {
+    // No allowlist means no claim about which pads the board exposes.
+    expect(assignPartPins(undefined, 'unknown:board:xyz', [], [{ key: 'pin' }]))
+      .toEqual({ ok: false, reason: 'No free GPIO on this board' })
   })
 
   describe('analog capability', () => {
@@ -89,7 +132,7 @@ describe('assignPartPins', () => {
       const result = assignPartPins(profile([21, 33]), ESP32_S3, [], [
         { key: 'pin', capability: 'analogInput' },
       ])
-      expect(result).toEqual({ ok: false, reason: 'No free analog-capable pin on this board' })
+      expect(result).toEqual({ ok: false, reason: 'The Test Board has no pin listed as analog-capable' })
     })
 
     it('assigns analog lines before digital ones so a mixed part still finds ADCs', () => {
@@ -116,7 +159,7 @@ describe('assignPartPins', () => {
       expect(assignPartPins(profile([99]), ESP32_S3, [], [{ key: 'pin' }]))
         .toEqual({ ok: true, pins: { pin: 99 } })
       expect(assignPartPins(profile([99]), ESP32_S3, [], [{ key: 'pin', capability: 'analogInput' }]))
-        .toEqual({ ok: false, reason: 'No free analog-capable pin on this board' })
+        .toEqual({ ok: false, reason: 'The Test Board has no pin listed as analog-capable' })
     })
   })
 

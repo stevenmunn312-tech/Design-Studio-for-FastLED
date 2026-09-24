@@ -31,9 +31,8 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   the one item with a genuine measurement gate: an unbranded board's display
   controller and fixed pins have to be identified on the board, because there is
   no reliable documentation. The ESP32-2432S028R profile is in the app and
-  bench-proven. Also open, and needing no hardware: an allocator message that
-  says "this board is full" in its own words, when a two-pad board such as the
-  CYD cannot place another part.
+  bench-proven, and a full board now says so by name
+  ([hardware nodes](docs/development/design/hardware-nodes.md#boards-with-hardware-already-on-them)).
 - [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
   happens *after* components are in the app and appear in the Build Diagram:
   a career electronics engineering lecturer checks that the generated wiring,

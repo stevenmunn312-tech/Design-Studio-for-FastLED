@@ -240,7 +240,9 @@ describe('HardwarePane', () => {
     openShelfCategory('Displays')
     const button = screen.getByRole('button', { name: 'Add XC4630 2.8-inch shield + touch' })
     expect((button as HTMLButtonElement).disabled).toBe(true)
-    expect((button as HTMLButtonElement).title).toMatch(/No free (GPIO|analog-capable pin)/i)
+    // Named as the board's own count, not as a fault.
+    expect((button as HTMLButtonElement).title)
+      .toMatch(/^The ESP32-2432S028R.* (is full|has \d+ spare pins? left|has no pin listed as analog-capable)/)
   })
 
   it('adds a touch panel together with the glass in front of it', () => {

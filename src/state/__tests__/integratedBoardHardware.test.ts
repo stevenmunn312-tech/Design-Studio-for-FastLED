@@ -153,6 +153,10 @@ describe('soldered pins survive the pin walk', () => {
     // not silently left on soldered hardware.
     expect(nodes.find((n) => n.id === 'leds')!.data.properties.dataPin).toBe(14)
     expect(findExactBoardPinIssues(nodes).errors.join(' ')).toMatch(/pin 14.*touch display/)
+    // ...and the repair it names is freeing a pad, since there is no other
+    // pin to pick.
+    expect(findExactBoardPinIssues(nodes).errors.join(' '))
+      .toMatch(/has no spare pin to move it to, so remove a part to free one\./)
   })
 
   // The symptom in HW-12: with no board-level advice the allocator fell
@@ -166,10 +170,11 @@ describe('soldered pins survive the pin walk', () => {
       node('a', 'ButtonInput', { pin: 22 }),
       node('b', 'ButtonInput', { pin: 27 }),
     ]
-    expect(assignPartPins(profile, CYD_FQBN, bothTaken, [{ key: 'pin' }])).toEqual({
-      ok: false,
-      reason: 'No free GPIO on this board',
-    })
+    const full = assignPartPins(profile, CYD_FQBN, bothTaken, [{ key: 'pin' }])
+    expect(full.ok).toBe(false)
+    // Said as a count, in the board's own name, with who holds each pad.
+    expect(full.ok ? '' : full.reason)
+      .toMatch(/^The ESP32-2432S028R.* is full: .*GPIO 22 by .*GPIO 27 by /)
   })
 
   // Reserved *for* the panel, not denied *to* it. Without this exemption every
