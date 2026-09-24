@@ -243,8 +243,6 @@ export const PERIPHERALS_PER_ROW = 3
  */
 const PAD_Y_RATIO = 0.884
 const PAD_X_RATIOS_3 = [0.4196, 0.4995, 0.579]
-const PAD_X_RATIOS_RTC_ZS042 = [0.612, 0.543, 0.474, 0.681]
-const PAD_X_RATIOS_RTC_XC9044 = [0.165, 0.337, 0.505, 0.843]
 const PAD_X_RATIOS_5 = [0.34, 0.4194, 0.4992, 0.5787, 0.658]
 /** The pitch both measured tables above share, for parts with no table yet. */
 const PAD_PITCH_RATIO = 0.0797
@@ -318,6 +316,13 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // coordinates (23.75 px/mm, 10 px margin) and checked against the render:
   // both points are real, transparent holes.
   'lr7843-mosfet-module': padPoints(400, 851, [[169.8, 771.2], [230.2, 771.2]]),
+  // Both RTCs measured from their drilled holes. They had a table of their own
+  // with four x-ratios, left from before the catalogue listed six (ZS-042) and
+  // five (XC9044) pads, so SDA, VCC and GND clamped onto one point.
+  'ds3231-rtc-module': padPoints(464, 272,
+    [[155.2, 252.1], [185.8, 252.1], [216.2, 252.1], [246.7, 252.1], [277.1, 252.1], [307.7, 252.1]]),
+  'jaycar-xc9044-rtc-module': padPoints(400, 400,
+    [[67.5, 349.2], [133.5, 349.1], [199.5, 349.2], [265.5, 349.1], [331.6, 349.2]]),
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
   // Power amplifiers: screw terminals along the top for supply and speakers,
   // and the line input somewhere else entirely — mid-board holes on the
@@ -642,22 +647,6 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
     return {
       x: layout.x + offsetX + (xRatio * renderWidth),
       y: layout.y + offsetY + (yRatio * renderHeight),
-    }
-  }
-  if (layout.item.kind === 'rtc-input') {
-    const compact = layout.item.facts.partId === 'jaycar-xc9044-rtc-module'
-    const ratios = compact ? PAD_X_RATIOS_RTC_XC9044 : PAD_X_RATIOS_RTC_ZS042
-    const sourceAspect = compact ? 1 : 464 / 272
-    const sourceYRatio = compact ? 0.855 : 0.886
-    const boxAspect = PERIPHERAL_RENDER_W / PERIPHERAL_RENDER_H
-    const renderWidth = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W : PERIPHERAL_RENDER_H * sourceAspect
-    const renderHeight = sourceAspect > boxAspect ? PERIPHERAL_RENDER_W / sourceAspect : PERIPHERAL_RENDER_H
-    const offsetX = (PERIPHERAL_RENDER_W - renderWidth) / 2
-    const offsetY = (PERIPHERAL_RENDER_H - renderHeight) / 2
-    const ratio = ratios[Math.min(Math.max(padIndex, 0), ratios.length - 1)]
-    return {
-      x: layout.x + offsetX + (ratio * renderWidth),
-      y: layout.y + offsetY + (sourceYRatio * renderHeight),
     }
   }
   if (layout.item.kind === 'sd-card') {
