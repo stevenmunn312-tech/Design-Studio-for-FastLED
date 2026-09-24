@@ -19,7 +19,7 @@ import { orderPorts } from '../utils/portOrder'
 import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
-import { isPatternContentTrusted, trustPatternContent } from './patternTrust'
+import { savedPatternUntrustsWorkspace, trustPatternContent } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
 import { retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
@@ -3065,7 +3065,7 @@ export const useGraphStore = create<GraphState>()(
             // content before (see patternTrust.ts; safe default otherwise — see
             // trustPrompt.ts's doc comment for why this doesn't also pop a
             // confirm modal).
-            trusted: isPatternContentTrusted(saved.subgraph) ? s.trusted : false,
+            trusted: savedPatternUntrustsWorkspace(saved.subgraph) ? false : s.trusted,
           }
         }),
 
@@ -3113,7 +3113,7 @@ export const useGraphStore = create<GraphState>()(
             nodes: [...s.nodes, collectionNode],
             // See instantiatePattern's comment above — untrusted unless every
             // collected pattern's exact content is already explicitly trusted.
-            trusted: savedPatterns.every((p) => isPatternContentTrusted(p.subgraph)) ? s.trusted : false,
+            trusted: savedPatterns.some((p) => savedPatternUntrustsWorkspace(p.subgraph)) ? false : s.trusted,
           }
         }),
 
@@ -3153,7 +3153,7 @@ export const useGraphStore = create<GraphState>()(
             graphs: { ...s.graphs, [groupId]: { id: groupId, name: saved.name, sourcePatternId: saved.id } },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             // See instantiatePattern's comment above.
-            trusted: isPatternContentTrusted(saved.subgraph) ? s.trusted : false,
+            trusted: savedPatternUntrustsWorkspace(saved.subgraph) ? false : s.trusted,
           }
         }),
 
@@ -3185,7 +3185,7 @@ export const useGraphStore = create<GraphState>()(
             graphs,
             graphData,
             // See instantiatePattern's comment above.
-            trusted: savedPatterns.every((saved) => isPatternContentTrusted(saved.subgraph)) ? s.trusted : false,
+            trusted: savedPatterns.some((saved) => savedPatternUntrustsWorkspace(saved.subgraph)) ? false : s.trusted,
           }
         }),
 

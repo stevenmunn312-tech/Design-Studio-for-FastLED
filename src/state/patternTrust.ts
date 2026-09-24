@@ -168,3 +168,18 @@ export function clearPatternContentTrustForTests(): void {
   trustedFingerprints = new Set()
   try { localStorage.removeItem(KEY) } catch { /* ignore */ }
 }
+
+/**
+ * Whether adding this saved pattern to the workspace should untrust it.
+ *
+ * Only content the trust flag actually holds back counts — Formula/Code
+ * logic (at any depth) or an Art-Net listener — and only when that exact
+ * content has not been trusted before. A pattern of ordinary nodes behaves
+ * identically trusted or not, so untrusting the workspace for it gained
+ * nothing and cost real things: a Fits check that could not prepare display
+ * images, with no banner anywhere to explain why or to undo it.
+ */
+export function savedPatternUntrustsWorkspace(subgraph: GraphContent): boolean {
+  const gated = patternNeedsTrust(subgraph) || workspaceTrustHolds(subgraph.nodes).artnet
+  return gated && !isPatternContentTrusted(subgraph)
+}

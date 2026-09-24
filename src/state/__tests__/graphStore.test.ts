@@ -1803,7 +1803,7 @@ describe('graphStore — trust boundary', () => {
     const saved = {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [], edges: [] },
+      subgraph: { nodes: [node('f', 'CustomFormula')], edges: [] },
     } as unknown as import('../patternLibrary').SavedPattern
     useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
@@ -1814,7 +1814,7 @@ describe('graphStore — trust boundary', () => {
     const saved = [{
       id: 'p1', name: 'Aurora', createdAt: 1,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
+      subgraph: { nodes: [node('a', 'FieldFormula'), node('out-a', 'GroupOutput')], edges: [] },
     }] as import('../patternLibrary').SavedPattern[]
     useGraphStore.getState().createCollectionFromPatterns(saved, { x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
@@ -1825,7 +1825,7 @@ describe('graphStore — trust boundary', () => {
     const saved = {
       id: 'p1', name: 'Aurora', createdAt: 1,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
+      subgraph: { nodes: [node('a', 'FieldFormula'), node('out-a', 'GroupOutput')], edges: [] },
     } as unknown as import('../patternLibrary').SavedPattern
     expect(useGraphStore.getState().trusted).toBe(true)
     useGraphStore.getState().addPatternToCollection('coll', saved)
@@ -1836,7 +1836,7 @@ describe('graphStore — trust boundary', () => {
     const saved = {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('a', 'SolidColor')], edges: [] },
+      subgraph: { nodes: [node('a', 'CustomFormula')], edges: [] },
     } as unknown as import('../patternLibrary').SavedPattern
 
     useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
@@ -1855,12 +1855,12 @@ describe('graphStore — trust boundary', () => {
     const savedA = {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('a', 'SolidColor')], edges: [] },
+      subgraph: { nodes: [node('a', 'CustomFormula')], edges: [] },
     } as unknown as import('../patternLibrary').SavedPattern
     const savedB = {
       id: 'p2', name: 'OtherPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('b', 'Rainbow')], edges: [] },
+      subgraph: { nodes: [node('b', 'Code')], edges: [] },
     } as unknown as import('../patternLibrary').SavedPattern
 
     useGraphStore.getState().instantiatePattern(savedA, { x: 0, y: 0 })
@@ -1868,6 +1868,26 @@ describe('graphStore — trust boundary', () => {
 
     useGraphStore.getState().instantiatePattern(savedB, { x: 100, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  /*
+   * A pattern of ordinary nodes behaves identically trusted or not, so adding
+   * one must not untrust the workspace. It used to, which left a project of
+   * the user's own saved patterns unable to prepare display images for the
+   * capacity check, with no banner anywhere offering to trust it back.
+   */
+  it('keeps the workspace trusted for patterns with nothing trust holds back', () => {
+    reset([node('coll', 'PatternCollection', { patternIds: [] })], [])
+    const ordinary = [{
+      id: 'p1', name: 'Aurora', createdAt: 1,
+      inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+      subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
+    }] as import('../patternLibrary').SavedPattern[]
+    useGraphStore.getState().instantiatePattern(ordinary[0], { x: 0, y: 0 })
+    useGraphStore.getState().createCollectionFromPatterns(ordinary, { x: 0, y: 0 })
+    useGraphStore.getState().addPatternToCollection('coll', ordinary[0])
+    useGraphStore.getState().addPatternsToCollection('coll', ordinary)
+    expect(useGraphStore.getState().trusted).toBe(true)
   })
 })
 
