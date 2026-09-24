@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fixtureLinkLabel } from '../fixtureLinkLabel'
+import { fixtureLinkDataType, fixtureLinkLabel } from '../fixtureLink'
 
 describe('fixtureLinkLabel', () => {
   it('names the bus each fixture is actually on', () => {
@@ -31,5 +31,16 @@ describe('fixtureLinkLabel', () => {
     for (const nodeType of ['SDCard', 'InfoDisplay', 'TransportDisplay', 'SegmentDisplay', 'StereoVuMeter', 'RelayOutput']) {
       expect(fixtureLinkLabel(nodeType, {}, 'part'), nodeType).not.toContain('I2S')
     }
+  })
+
+  // Motion follows the payload: only the audio stages pulse like a song.
+  it('animates each run by what it carries', () => {
+    expect(fixtureLinkDataType('Amplifier')).toBe('audio')
+    expect(fixtureLinkDataType('PowerAmplifier')).toBe('audio')
+    for (const nodeType of ['StereoVuMeter', 'InfoDisplay', 'TransportDisplay', 'SegmentDisplay']) {
+      expect(fixtureLinkDataType(nodeType), nodeType).toBe('frame')
+    }
+    expect(fixtureLinkDataType('SDCard')).toBe('control')
+    expect(fixtureLinkDataType('RelayOutput')).toBe('control')
   })
 })

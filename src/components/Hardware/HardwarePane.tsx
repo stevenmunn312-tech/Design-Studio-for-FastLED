@@ -23,7 +23,7 @@ import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/button
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
 import { powerAmplifierFeed } from '../../state/audioOutput'
-import { fixtureLinkLabel } from './fixtureLinkLabel'
+import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import { IR_RECEIVER_MODULES } from '../../state/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
 import { MIC_MODULES } from '../../state/micModules'
@@ -1908,7 +1908,7 @@ export default function HardwarePane() {
                 .map((link) => (
                   <HardwareLink
                     key={`${link.source}-${link.target}`}
-                    dataType="audio"
+                    dataType={fixtureLinkDataType(part.node.data.nodeType)}
                     color={CATEGORY_COLOR.output}
                     effects={uiEffectsEnabled}
                     label={fixtureLinkLabel(

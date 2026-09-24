@@ -32,3 +32,24 @@ function fixtureBus(nodeType: string, properties: Record<string, unknown>): stri
     default: return 'signal'
   }
 }
+
+/**
+ * How a fixture run moves on the bench: the same motion families the graph's
+ * noodles use, chosen by what the run carries. Every fixture once animated as
+ * audio, so an SD card's SPI and a relay's switch lines pulsed like a song.
+ */
+export function fixtureLinkDataType(nodeType: string): 'audio' | 'frame' | 'control' {
+  switch (nodeType) {
+    case 'Amplifier':
+    case 'PowerAmplifier':
+      return 'audio'
+    // Pixels, whether LEDs or a screen.
+    case 'StereoVuMeter':
+    case 'InfoDisplay':
+    case 'TransportDisplay':
+    case 'SegmentDisplay':
+      return 'frame'
+    default:
+      return 'control'
+  }
+}
