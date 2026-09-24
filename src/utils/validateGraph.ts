@@ -2452,8 +2452,10 @@ export function findDisplayGeneratorIssues(
      */
     if (controlsWired && customMountedPanels.has(display.id)) {
       const document = displayDocuments?.[String(props.displayId ?? '')]
-      const fields = new Set(document && touchNode
-        ? designControlBundle(display, document, nodes, edges, touchNode.id).map((control) => control.field)
+      // Asked without the Touch node, so a control also wired individually
+      // still counts: it has a job either way, and "has none" would be false.
+      const fields = new Set(document
+        ? designControlBundle(display, document, nodes, edges).map((control) => control.field)
         : [])
       const lampFields = ['ledToggle', 'brightness'].some((field) => fields.has(field as never))
       const reachesEngine = !!build.engine && destinations.has(build.engine.id)

@@ -145,6 +145,19 @@ describe('design controls on the Touch node bundle', () => {
     expect(controlsAt(6).next).toBe(false)
   })
 
+  it('accepts Controls beside controls that are also wired one by one', () => {
+    // What applying a template used to leave: the bundle is empty because each
+    // control is wired individually, which is a job, not a missing one.
+    const document = designed('now-playing')
+    const out = (label: string) => `widget:${widgetId(document, label)}:out`
+    const { nodes, edges, documents } = playerGraph(document, [
+      edge('touch', out('Previous'), 'player', 'previous'),
+      edge('touch', out('Play'), 'player', 'playPause'),
+      edge('touch', out('Next'), 'player', 'next'),
+    ])
+    expect(findDisplayGeneratorIssues(nodes, edges, documents).errors).toEqual([])
+  })
+
   it('is accepted by Graph Health', () => {
     const { nodes, edges, documents } = playerGraph(designed('now-playing'))
     expect(findDisplayGeneratorIssues(nodes, edges, documents).errors).toEqual([])
