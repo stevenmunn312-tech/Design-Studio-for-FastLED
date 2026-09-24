@@ -143,8 +143,9 @@ in the app and marked experimental; nothing here holds up development.
   compile; its bench row is in section 3. The first MOSFET switch (LR7843,
   `PowerSwitchOutput`) is in software, on/off only, and compiles on
   arduino-cli for classic ESP32 (2026-09-24); its bench row is still to do.
-  The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental;
-  its firmware compile and bench row are still to do.
+  The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
+  and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
+  is still to do.
 
 ## Completed
 

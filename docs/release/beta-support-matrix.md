@@ -476,7 +476,9 @@ Unless a future row says otherwise, treat the following as experimental:
   flyback diode named in the row.
 - **INA219 power monitoring.** The Adafruit INA219 (`PowerMonitorInput`) is
   software coverage only; no reading has been compared with a meter on any
-  board, and its firmware compile is still to run. It is read by the normal
+  board. Its generated sketch compiles for `esp32:esp32:esp32` on arduino-cli
+  (2026-09-24: monitor at 0x40 dimming an LED output by watts, 418,059 bytes
+  flash, 29,252 bytes RAM). It is read by the normal
   sketch, not by the show or SD-player generators. Graduating it needs a dated
   row naming the board/FQBN, the I2C pins and address, the supply and load, and
   the monitor's volts and amps against a multimeter at two load currents.
