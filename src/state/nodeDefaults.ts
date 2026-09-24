@@ -17,10 +17,6 @@ const MIC_KEY = 'design-studio-for-fastled.mic-defaults-by-board.v1'
 
 function sanitizeProperties(nodeType: string, properties: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...properties }
-  // FastLED's audio pipeline owns the 44.1 kHz analysis rate. Older Studio
-  // versions exposed a sample-rate field which never controlled either path,
-  // so do not let a saved personal default bring it back on new nodes.
-  if (nodeType === 'MicInput') delete sanitized.sampleRate
   // Master brightness is the Board's, on FastLED's 0-255. The LED output
   // briefly offered its own slider, which resolved through the shared 0-1
   // `brightness` meta. Removing the control is not enough on its own: a saved

@@ -10,15 +10,14 @@ describe('node defaults', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
   })
 
-  it('does not persist or resolve the obsolete MicInput sample rate', () => {
-    useNodeDefaults.getState().setDefault('MicInput', { gain: 2, sampleRate: 44_100 })
+  it('persists and resolves MicInput defaults per selected board', () => {
+    useNodeDefaults.getState().setDefault('MicInput', { gain: 2 })
 
     expect(useNodeDefaults.getState().micOverridesByFqbn['esp32:esp32:esp32s3']).toEqual({ gain: 2 })
     // Asserted field by field: a resolved MicInput also carries the selected
     // board's I2S pins, which this test isn't about.
-    const resolved = resolveDefaultProperties('MicInput', { gain: 1, sampleRate: 48_000 })
+    const resolved = resolveDefaultProperties('MicInput', { gain: 1 })
     expect(resolved.gain).toBe(2)
-    expect(resolved).not.toHaveProperty('sampleRate')
     expect(JSON.parse(localStorage.getItem('design-studio-for-fastled.mic-defaults-by-board.v1') ?? '{}')).toEqual({
       'esp32:esp32:esp32s3': { gain: 2 },
     })

@@ -55,8 +55,6 @@ const BLOCKED_KEYS = new Set([
   'psramMode',
   'psramPolicy',
   'pullup',
-  // Legacy MicInput field; FastLED owns the 44.1 kHz analysis rate.
-  'sampleRate',
   'sdCsPin',
   'serialDebug',
   'supersample',
