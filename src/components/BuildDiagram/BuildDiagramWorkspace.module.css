@@ -492,11 +492,14 @@
   background:
     radial-gradient(circle at 28% 14%, rgba(122, 162, 255, 0.18), transparent 24%),
     linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 86%, #071017), color-mix(in srgb, var(--bg-panel) 96%, black));
-  cursor: grab;
+  /* Dark hands with a white rim, not the system ones: the system hand is
+     white with a hairline outline and disappears on the diagram's white
+     paper. The keywords stay as fallbacks. */
+  cursor: url('../../assets/cursors/hand-grab.svg') 16 14, grab;
 }
 
 .diagramViewport:active {
-  cursor: grabbing;
+  cursor: url('../../assets/cursors/hand-grabbing.svg') 16 16, grabbing;
 }
 
 .diagramSurface {
@@ -940,7 +943,7 @@
 }
 
 .physicalClickable {
-  cursor: pointer;
+  cursor: url('../../assets/cursors/hand-pointer.svg') 13 2, pointer;
 }
 
 .physicalClickable:focus-visible {
