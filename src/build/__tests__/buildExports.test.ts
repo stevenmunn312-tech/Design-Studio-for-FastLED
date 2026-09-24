@@ -39,9 +39,9 @@ describe('buildExports', () => {
 
   it('generates matching connection and BOM rows from the manifest and plan', () => {
     const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const profile = ensureBuildProfile({
       version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
       controllerPower: { preferredPath: 'usb' },
       outputs: {
         'output:out': {
@@ -52,7 +52,6 @@ describe('buildExports', () => {
         },
       },
     })
-    const board = boardProfileById(profile.physicalBoardProfileId ?? '')
     const plan = calculateElectricalPlan(manifest, profile, board)
     const connectionRows = buildConnectionRows(manifest.primaryItems, plan, board)
     const bomRows = buildBomRows(manifest, plan, profile, board)
@@ -83,8 +82,8 @@ describe('buildExports', () => {
       node('board', 'Board', { powerLimit: true, milliamps: 5000 }),
       outputNode(),
     ], [], 'esp32:esp32:esp32s3')
-    const profile = ensureBuildProfile({ version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' })
-    const board = boardProfileById(profile.physicalBoardProfileId ?? '')
+    const profile = ensureBuildProfile({ version: 1 })
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const plan = calculateElectricalPlan(manifest, profile, board)
     const connectionRows = buildConnectionRows(manifest.primaryItems, plan, board)
     const bomRows = buildBomRows(manifest, plan, profile, board)
@@ -107,7 +106,7 @@ describe('buildExports', () => {
     ], [], 'esp32:esp32:esp32doit-devkit-v1')
     const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
       manifest,
-      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      ensureBuildProfile({ version: 1 }),
       board,
     ), board)
 
@@ -136,7 +135,7 @@ describe('buildExports', () => {
     ], [], 'esp32:esp32:esp32s3')
     const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
       manifest,
-      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      ensureBuildProfile({ version: 1 }),
       board,
     ), board)
     const amp = rows.filter((row) => row.to === 'DX-0809 stereo power amplifier')
@@ -158,7 +157,7 @@ describe('buildExports', () => {
     ], [], 'esp32:esp32:esp32s3')
     const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
       manifest,
-      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      ensureBuildProfile({ version: 1 }),
       board,
     ), board)
     const bridges = rows.filter((row) => row.purpose === 'Right board shares this line')
@@ -182,7 +181,7 @@ describe('buildExports', () => {
     ], [], 'esp32:esp32:esp32s3')
     const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
       manifest,
-      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      ensureBuildProfile({ version: 1 }),
       board,
     ), board)
 

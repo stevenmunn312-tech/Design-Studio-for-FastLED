@@ -104,7 +104,6 @@ const MOTION_KEY = 'design-studio-for-fastled-reduced-motion'
 const CONTRAST_KEY = 'design-studio-for-fastled-high-contrast'
 const PREVIEW_STYLE_KEY = 'design-studio-for-fastled-preview-style'
 const SPECTRUM_VISUALIZER_KEY = 'design-studio-for-fastled-spectrum-visualizer'
-const LEGACY_DIFFUSION_KEY = 'design-studio-for-fastled-preview-diffusion'
 const TEST_SIGNAL_KEY = 'design-studio-for-fastled-test-signal'
 const UI_EFFECTS_KEY = 'design-studio-for-fastled-ui-effects-enabled'
 const SIGNAL_PATH_DIM_KEY = 'design-studio-for-fastled-signal-path-dim-enabled'
@@ -149,8 +148,6 @@ function loadPreviewStyle(): PreviewStyle {
       const parsed = JSON.parse(style) as PreviewStyle
       if (['standard', 'soft', 'dreamy', 'cyberpunk', 'neon', 'crt'].includes(parsed)) return parsed
     }
-    const legacy = localStorage.getItem(LEGACY_DIFFUSION_KEY)
-    if (legacy !== null) return JSON.parse(legacy) ? 'neon' : 'standard'
   } catch {
     // Ignore malformed preview-style storage and fall back to the default.
   }

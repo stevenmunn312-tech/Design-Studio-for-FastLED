@@ -963,23 +963,15 @@ function v1BoardProperties(properties: Record<string, unknown>): Record<string, 
   return current
 }
 
-/**
- * `fallbackProfileId` carries a board the workspace already named elsewhere —
- * a project saved before the Board node existed recorded its exact board on
- * the build profile instead. Adopting it here is what stops that project from
- * loading as the generic default and quietly re-describing someone's wiring
- * for a board they did not choose.
- */
-function ensureRootBoardNode(nodes: StudioNode[], fallbackProfileId?: string): StudioNode[] {
-  const fallback = (fallbackProfileId && boardProfileById(fallbackProfileId)?.id) || DEFAULT_BOARD_PROFILE_ID
+function ensureRootBoardNode(nodes: StudioNode[]): StudioNode[] {
   const boardNodes = nodes.filter((node) => node.data.nodeType === 'Board')
-  if (boardNodes.length === 0) return [...nodes, createRootBoardNode(fallback)]
+  if (boardNodes.length === 0) return [...nodes, createRootBoardNode()]
   const [primary, ...extras] = boardNodes
   const primaryProps = (primary.data.properties ?? {}) as Record<string, unknown>
   const currentProps = v1BoardProperties(primaryProps)
   const explicitProfileId = typeof primaryProps.profileId === 'string' && primaryProps.profileId
     ? primaryProps.profileId
-    : fallback
+    : DEFAULT_BOARD_PROFILE_ID
   return nodes
     .filter((node) => !extras.some((extra) => extra.id === node.id))
     .map((node) => {
@@ -2572,7 +2564,7 @@ export const useGraphStore = create<GraphState>()(
           displayDocuments = pruneOrphanDisplayDocuments(displayDocuments, rootContent.nodes)
           if (activeGraphId !== ROOT_GRAPH_ID) loadedGraphData[ROOT_GRAPH_ID] = rootContent
           const rootNodes = activeGraphId === ROOT_GRAPH_ID
-            ? ensureRootBoardNode(rootContent.nodes, buildProfile?.physicalBoardProfileId)
+            ? ensureRootBoardNode(rootContent.nodes)
             : active.nodes
           return {
             ...active,

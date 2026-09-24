@@ -9,10 +9,7 @@ const workspace: PersistedWorkspace = {
   graphData: {},
   graphs: {},
   activeGraphId: 'root',
-  buildProfile: {
-    version: 1,
-    physicalBoardProfileId: 'seeed-xiao-esp32s3',
-  },
+  buildProfile: { version: 1 },
   displayDocuments: {
     panel: {
       schemaVersion: 1,

@@ -6,7 +6,6 @@ import type { StudioNode, StudioEdge } from '../graphStore'
 import { useUiStore } from '../uiStore'
 import { clearPatternContentTrustForTests } from '../patternTrust'
 import { useNodeDefaults } from '../nodeDefaults'
-import { controllerSettings } from '../controllerSettings'
 import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displayEditor'
 import { applyDisplayTemplate } from '../displayTemplates'
 import {
@@ -857,18 +856,16 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('string').properties).not.toHaveProperty('form')
   })
 
-  it('adopts a pre-Board saved exact board onto the Board node', () => {
-    // Projects saved before the Board node recorded the exact board on the
-    // build profile. Loading one as the generic default would describe the
-    // wiring for hardware the user never chose.
+  it('does not infer the Board from the retired build-profile field', () => {
     useGraphStore.getState().loadGraph([node('out', 'MatrixOutput')], [], {
       nodes: [], edges: [],
       buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
     } as never)
     const board = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Board')!
-    expect(board.data.properties.profileId).toBe('espressif-esp32-s3-devkitc-1')
+    expect(board.data.properties.profileId).toBe('esp32-generic-devkit-38pin')
     expect(board.data.properties.psramPolicy).toBe('auto')
     expect(board.data.properties.serialRoute).toBe('auto')
+    expect(useGraphStore.getState().buildProfile).not.toHaveProperty('physicalBoardProfileId')
   })
 
   it('grows and names a Button Bank output when its trailing socket is connected', () => {
@@ -933,26 +930,6 @@ describe('graphStore — loadGraph normalization', () => {
     expect(state.edges.map((connection) => connection.id)).toEqual(['bank-next'])
   })
 
-  it('lets a migrated pre-Board project auto-enable profile-proven PSRAM', () => {
-    const output = node('out', 'MatrixOutput', { usePsram: false, usbCdcOnBoot: false })
-    useGraphStore.getState().loadGraph([output], [], {
-      nodes: [], edges: [],
-      buildProfile: { version: 1, physicalBoardProfileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' },
-    } as never)
-
-    const board = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Board')!
-    expect(board.data.properties).toMatchObject({
-      profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
-      psramPolicy: 'auto',
-      serialRoute: 'auto',
-    })
-    expect(controllerSettings(useGraphStore.getState().nodes)).toMatchObject({
-      usePsram: true,
-      psramMode: 'opi',
-      serialRoute: 'auto',
-    })
-  })
-
   it('keeps the named board and strips retired controller booleans', () => {
     const board = node('board-root', 'Board', {
       profileId: 'esp32-generic-devkit-38pin',
@@ -961,7 +938,7 @@ describe('graphStore — loadGraph normalization', () => {
     })
     useGraphStore.getState().loadGraph([board], [], {
       nodes: [], edges: [],
-      buildProfile: { version: 1, physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1' },
+      buildProfile: { version: 1 },
     } as never)
     expect(dataOf('board-root').properties.profileId).toBe('esp32-generic-devkit-38pin')
     expect(dataOf('board-root').properties).not.toHaveProperty('usePsram')

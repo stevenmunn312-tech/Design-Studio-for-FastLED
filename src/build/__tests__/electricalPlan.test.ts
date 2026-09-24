@@ -65,7 +65,7 @@ describe('electricalPlan', () => {
   it('becomes ready immediately after exact-board confirmation', () => {
     const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const profile = ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id })
+    const profile = ensureBuildProfile({ version: 1 })
     const plan = calculateElectricalPlan(manifest, profile, board)
 
     expect(plan.status).toBe('calculated')
@@ -80,7 +80,7 @@ describe('electricalPlan', () => {
   it('splits large matrices into practical feeds and multiple supplies automatically', () => {
     const manifest = buildHardwareManifest([outputNode(64, 64)], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.outputs[0]).toEqual(expect.objectContaining({
       pixelCount: 4096,
@@ -107,7 +107,7 @@ describe('electricalPlan', () => {
       outputNode(16, 16),
     ], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(9000)
     expect(plan.outputs[0]?.psuSizingCurrentMa).toBe(9000)
@@ -125,7 +125,7 @@ describe('electricalPlan', () => {
       boardNode({ powerLimit: true, milliamps: 10000 }), first, second,
     ], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.totals).toEqual(expect.objectContaining({
       operatingCurrentCapMa: 10000,
@@ -149,7 +149,6 @@ describe('electricalPlan', () => {
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile({
       version: 1,
-      physicalBoardProfileId: board?.id,
       outputs: {
         'output:out': {
           physicalLengthMm: 99_000,
@@ -179,7 +178,7 @@ describe('electricalPlan', () => {
     second.id = 'out-2'
     const manifest = buildHardwareManifest([outputNode(), second], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.outputs).toHaveLength(2)
     expect(plan.totals?.supplies).toHaveLength(1)
@@ -189,7 +188,7 @@ describe('electricalPlan', () => {
   it('rounds a headroom target down when it is less than 2 A above a 10 A boundary', () => {
     const manifest = buildHardwareManifest([outputNode(19, 23)], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.totals?.designCurrentMa).toBe(26220)
     expect(plan.totals?.recommendedSupplyCurrentMa).toBe(30000)
@@ -199,7 +198,7 @@ describe('electricalPlan', () => {
   it('keeps reduced-confidence boards usable while warning against board-powered LED loads', () => {
     const manifest = buildHardwareManifest([outputNode()], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.powerReadyPasses).toBe(true)
     expect(plan.warnings).toEqual(expect.arrayContaining([
@@ -210,7 +209,7 @@ describe('electricalPlan', () => {
   it('blocks readiness rather than drawing unsupported output wiring', () => {
     const manifest = buildHardwareManifest([outputNode(8, 8, { chipset: 'APA102', clockPin: 13 })], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }), board)
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.outputs).toEqual([])
     expect(plan.powerReadyPasses).toBe(false)

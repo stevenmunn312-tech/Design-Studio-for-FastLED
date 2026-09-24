@@ -19,7 +19,6 @@ describe('captureWorkspace', () => {
       activeGraphId: 'root',
       buildProfile: {
         version: 1,
-        physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
         exportMode: 'current-view',
         visibility: { 'output:o1': false },
       },
@@ -29,7 +28,6 @@ describe('captureWorkspace', () => {
     })
     expect(workspace.buildProfile).toEqual({
       version: 1,
-      physicalBoardProfileId: 'espressif-esp32-s3-devkitc-1',
       exportMode: 'current-view',
       visibility: { 'output:o1': false },
     })
@@ -124,7 +122,6 @@ describe('PersistedWorkspace round-tripping', () => {
       nodes: [], edges: [],
       buildProfile: {
         version: 1,
-        physicalBoardProfileId: 'seeed-xiao-esp32s3',
         outputs: { out1: { ledProfileId: 'ws2812-class-5v' } },
       },
       performanceDeck: {

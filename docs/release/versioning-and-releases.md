@@ -15,6 +15,12 @@ the format/support freeze after the control and display workflow stabilizes.
 
 ### Pre-v1 cleanup record
 
+- 2026-09-24: removed `BuildProfile.physicalBoardProfileId` and the load-time
+  migration that created a Board selection from it. The singleton `Board` node
+  is the only persisted exact-board selection in the v1 workspace shape.
+- 2026-09-24: removed the legacy `preview-diffusion` browser preference.
+  Preview presentation now loads only the v1 `preview-style` key; an abandoned
+  boolean no longer silently selects the Neon style.
 - 2026-09-24: removed the retired Board `usePsram` and `usbCdcOnBoot`
   persistence fields. V1 saves store the three-state `psramPolicy` and
   `serialRoute` controls; the booleans are derived for generator/backend

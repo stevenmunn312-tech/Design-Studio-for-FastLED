@@ -118,11 +118,11 @@ function confidenceSummary(profile: PhysicalBoardProfile): string {
 function itemFingerprint(
   item: HardwareManifestItem,
   selectedFqbn: string,
-  physicalBoardProfileId: string | undefined,
+  exactBoardProfileId: string | undefined,
 ): string {
   return fingerprintValue({
     selectedFqbn,
-    physicalBoardProfileId,
+    exactBoardProfileId,
     item: {
       id: item.id,
       kind: item.kind,
@@ -212,10 +212,8 @@ export default function BuildDiagramWorkspace() {
   const manifest = useMemo(() => buildHardwareManifest(nodes, edges, selectedFqbn), [nodes, edges, selectedFqbn])
   const buildProfile = ensureBuildProfile(storedBuildProfile)
   // The Board node is where the user says which controller is on the bench, so
-  // it is the only place this view may read that from. Build Diagram used to
-  // keep its own `buildProfile.physicalBoardProfileId`, which meant a graph
-  // whose Board node already named an exact board still opened here on "Exact
-  // board required" — two views disagreeing about the same physical fact.
+  // it is the only place this view may read that from. Keeping a second exact
+  // board selection in the build profile once let the two views disagree.
   const benchBoardProfileId = useGraphStore((state) => selectedPhysicalBoardProfile(rootGraphNodes(state))?.id)
   // A chosen exact board only applies while it still matches the upload target.
   // Switching FQBN used to leave the old board's render and pin map in place —

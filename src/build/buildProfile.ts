@@ -106,7 +106,6 @@ export interface BuildDoneState {
 
 export interface BuildProfile {
   version: typeof BUILD_PROFILE_VERSION
-  physicalBoardProfileId?: string
   outputs?: Record<string, BuildOutputProfile>
   signalConditioning?: Record<string, boolean>
   controllerPower?: BuildControllerPowerProfile
@@ -266,9 +265,6 @@ export function ensureBuildProfile(profile: BuildProfile | undefined): BuildProf
 export function normalizeBuildProfile(value: unknown): BuildProfile | undefined {
   if (!isObject(value)) return undefined
   const next: BuildProfile = { version: BUILD_PROFILE_VERSION }
-  if (typeof value.physicalBoardProfileId === 'string' && value.physicalBoardProfileId.trim()) {
-    next.physicalBoardProfileId = value.physicalBoardProfileId
-  }
   next.outputs = normalizeRecord(value.outputs, normalizeOutputProfile)
   next.signalConditioning = normalizeBooleanMap(value.signalConditioning)
   if (isObject(value.controllerPower)) {

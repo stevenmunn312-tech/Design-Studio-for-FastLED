@@ -255,6 +255,28 @@ describe('uiStore.setStatus auto-clear', () => {
   })
 })
 
+describe('preview style persistence', () => {
+  afterEach(() => localStorage.clear())
+
+  it('loads the v1 preview-style preference', async () => {
+    localStorage.setItem('design-studio-for-fastled-preview-style', '"crt"')
+    vi.resetModules()
+
+    const { useUiStore: freshStore } = await import('../uiStore')
+
+    expect(freshStore.getState().previewStyle).toBe('crt')
+  })
+
+  it('ignores the retired preview-diffusion preference', async () => {
+    localStorage.setItem('design-studio-for-fastled-preview-diffusion', 'true')
+    vi.resetModules()
+
+    const { useUiStore: freshStore } = await import('../uiStore')
+
+    expect(freshStore.getState().previewStyle).toBe('standard')
+  })
+})
+
 describe('nodeFlash', () => {
   it('carries the node being asked to announce itself', () => {
     useUiStore.getState().flashNode('mic-1')
