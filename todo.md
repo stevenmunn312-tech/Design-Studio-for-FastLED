@@ -64,6 +64,9 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   firmware, never rebuilt since the chain model landed.
 - [ ] **HW-20 phase 4 · SPH0645LM4H on fbuild.** The classic-ESP32 sketch
   through the other engine. (arduino-cli passed 2026-09-24.)
+- [ ] **HW-20 phase 4 · SPH0645LM4H on esp32 core 2.x (IDF 4).** The adapter's
+  legacy-driver branch; only core 3.3.11 is installed, so this needs an older
+  core added (a toolchain change, so the maintainer decides).
 
 ## 3. Community and bench testing (non-blocking)
 
