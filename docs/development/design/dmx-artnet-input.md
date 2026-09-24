@@ -140,11 +140,22 @@ one line drives both. The bus side goes to the cable rather than the controller,
 so the sheet captions the XLR pins (1 to GND, 2 to B, 3 to A) instead of drawing
 them. An Art-Net input draws nothing, because it has no hardware.
 
-The module is powered from **3V3**, below the MAX485's 4.75-5.25 V rating.
-R1-R4 pull RO, RE, DE and DI up to VCC through 10 k, and RO swings to VCC, so a
-5 V supply would hold the ESP32's pins at 5 V. 3.3 V keeps every line in range,
-and it is how esp_dmx and common builds run the chip. The part stays
-experimental until a bench row confirms it
+The module runs on **5 V**, the MAX485's rated 4.75-5.25 V supply, so RO swings
+to 5 V, above an ESP32's 3.6 V pin limit. A divider brings it down: 1 kΩ from RO
+to a junction the RX wire lands on, and 2 kΩ from the junction to ground, which
+gives 3.33 V (3.5 V at 5.25 V). `receiveDivider` places it left of the module,
+because the other three wires rise straight to their pads, and
+`peripheralSignalEndPoint` ends the RX wire on the junction for both the lane
+allocator and the router. Each lead stops at a resistor's end, so no wire
+crosses a resistor body. The resistor renders come from
+`create_axial_resistor.py`, the 330 Ω model with its bands as a parameter.
+
+Running the chip at 3.3 V was the other option: every line stays in range with
+no divider, but it is below the datasheet supply. 5 V was chosen instead
+(2026-09-24). Two costs remain for the electrical review. The module's own 10 k
+pull-ups hold DI, RE and DE toward 5 V, feeding about 0.17 mA into each driven
+ESP32 pin. They also hold the driver on until the firmware takes the enable
+pin. The part stays experimental until a bench row confirms it
 ([support matrix](../../release/beta-support-matrix.md)).
 
 ## Validation

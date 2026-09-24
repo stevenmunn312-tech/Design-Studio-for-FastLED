@@ -104,8 +104,9 @@ in the app and marked experimental; nothing here holds up development.
   requirements are in the support matrix.
 - **D-05 power monitor:** INA219 readings against a multimeter; the row's
   requirements are in the support matrix.
-- **D-05 DMX transceiver:** the C25B MAX485 module on 3V3 receiving a real
-  DMX512 line; the row's requirements are in the support matrix.
+- **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
+  receiving a real DMX512 line; the row's requirements are in the support
+  matrix.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
@@ -148,8 +149,9 @@ in the app and marked experimental; nothing here holds up development.
   The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
   and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
   is still to do. The MAX485 DMX transceiver (roadmap step 3) is modelled and
-  drawn on the Build Diagram for a DMX512 `DMXInput`, powered from 3V3. It adds
-  no firmware, so no compile is owed; its bench row is in section 3.
+  drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
+  divider on RO. It adds no firmware, so no compile is owed; its bench row is
+  in section 3.
 
 ## Completed
 

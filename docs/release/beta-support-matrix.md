@@ -419,15 +419,17 @@ Unless a future row says otherwise, treat the following as experimental:
   - **DMX512 firmware** (ESP32 only): a generated sketch reads a real DMX line
     through an RS-485 transceiver on the configured UART pins. The Build
     Diagram draws that transceiver as the common "C25B" MAX485 module
-    (`max485-rs485-module`): TX to DI, RX to RO, the enable GPIO to DE with RE
-    bridged to it, and VCC on **3V3**. The MAX485 is rated for 4.75-5.25 V, but
-    on 5 V its RO output and its four 10 k pull-ups would put 5 V on the
-    ESP32's pins. 3.3 V operation is what esp_dmx and common builds use, and it
-    is below the datasheet supply. The bench row therefore needs this exact
-    module on 3V3, receiving a real DMX512 line from a desk or controller at
-    the far end of a cable with R7 fitted. Record the board, FQBN, GPIOs and
-    cable length. Confirm every channel of a moving fader, and that the live
-    indicator drops when the cable is unplugged.
+    (`max485-rs485-module`) on **5 V**, its rated supply: TX to DI, the enable
+    GPIO to DE with RE bridged to it, and RO to RX through a divider (1 kΩ
+    from RO to RX, 2 kΩ from RX to GND), since RO swings to 5 V. The module's
+    10 k pull-ups also hold DI, RE and DE toward 5 V, feeding about 0.17 mA
+    into each ESP32 pin, and hold the driver on for the moment before the
+    firmware takes the enable pin. The HW-14 review should look at both. The
+    bench row needs this exact module and divider, receiving a real DMX512 line
+    from a desk or controller at the far end of a cable with R7 fitted. Measure
+    RX with a scope or meter to confirm it stays below 3.6 V. Record the board,
+    FQBN, GPIOs and cable length. Confirm every channel of a moving fader, and
+    that the live indicator drops when the cable is unplugged.
   - **Helper-backed Art-Net preview** is browser + helper only and never
     touches a board, so it graduates with the Art-Net firmware run rather than
     as its own row. Note that preview holds exactly one live universe.
