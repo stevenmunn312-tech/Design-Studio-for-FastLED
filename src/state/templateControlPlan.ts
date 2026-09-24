@@ -29,11 +29,18 @@
  * the applier places a `Not` — visible on the canvas, removed by one undo, and
  * the same shape as the Map Range a Graph Health repair inserts. Silently
  * flipping the value inside the evaluator would make one boolean mean two
- * things depending on which port it landed on. `pulseOnChange` is the same
- * idea for the other mismatch: a Toggle is a latch and Play / Pause is a press,
- * so a `Trigger` in Changed mode turns both of its transitions into commands.
- * One Shot would not do — it fires on the rising edge only, so the switch and
- * the transport would disagree from the second press onward.
+ * things depending on which port it landed on. A Toggle driving Play / Pause
+ * needs no adapter: every press-reading input counts a screen Toggle's taps
+ * rather than watching its value (`toggleWidgetSource`), because that value
+ * also follows the player's `playing` and a Changed trigger on it echoed every
+ * transport change back as a press.
+ *
+ * **One wire where the destination takes one.** Music Player, Pattern
+ * Slideshow and an LED output all have a Controls input, and the design's
+ * role-stamped widgets already travel on the Touch node's Controls bundle
+ * (`designControlBundle`). So when that input is free the plan asks for the
+ * single Touch Controls wire instead of a cable per control, and `wires`
+ * remain as the record of what each control reaches.
  *
  * Nothing here mutates. It is read by the applier, by the "Connect template
  * controls" action, and by tests, which is what keeps the second and third
@@ -48,6 +55,11 @@
 
 import type { DisplayDocument, DisplayWidget } from './displayDocument'
 import type { StudioEdge, StudioNode } from './graphStore'
+import { NODE_LIBRARY } from './nodeLibrary'
+
+/** A node's declared inputs, from the library rather than the instance. */
+const LIBRARY_INPUTS = (node: StudioNode) =>
+  NODE_LIBRARY.find((definition) => definition.type === node.data.nodeType)?.inputs ?? []
 import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
 import {
   displayWidgetPortId, normalizeDisplayControlRole, type TemplateControlRole,
@@ -85,12 +97,10 @@ export function widgetControlRole(widget: Pick<DisplayWidget, 'properties'>): Te
  * How a control's value has to be changed on the way to its destination.
  *
  * `none` is one edge. `invert` is a `Not`, for a control whose true means the
- * opposite of its destination's true. `pulseOnChange` is a `Trigger` in Changed
- * mode, turning a latch's on and off transitions into momentary presses.
- * Anything a conversion cannot fix is not an adapter — it is a refusal, and
- * appears in `unrouted` instead.
+ * opposite of its destination's true. Anything a conversion cannot fix is not
+ * an adapter — it is a refusal, and appears in `unrouted` instead.
  */
-export type TemplateControlAdapter = 'none' | 'invert' | 'pulseOnChange'
+export type TemplateControlAdapter = 'none' | 'invert'
 
 export interface TemplateControlWire {
   widgetId: string
@@ -114,6 +124,12 @@ export interface TemplateControlRefusal {
 export interface TemplateControlPlan {
   /** Connections that can be made, each unambiguous and supported. */
   wires: TemplateControlWire[]
+  /**
+   * Set when every wire above lands on a node with a free Controls input: the
+   * one Touch Controls → Controls wire that carries them all, drawn instead of
+   * the individual cables.
+   */
+  controlsWire?: { sourceId: string; targetId: string }
   /** Controls deliberately left alone, each with a reason worth reading. */
   unrouted: TemplateControlRefusal[]
 }
@@ -148,12 +164,6 @@ const ROLE_TARGETS: Readonly<Record<TemplateControlRole, Partial<Record<DisplayS
   outputBlackout: { ledOutput: { port: 'enabled', adapter: 'invert' } },
   transportVolume: { player: { port: 'volume' } },
 }
-
-/** Controls whose latch output has to become a one-frame command. */
-const LATCH_ROLES_NEEDING_AN_EDGE: ReadonlySet<TemplateControlRole> = new Set(['transportPlayPause'])
-
-/** Widget types that publish a latch rather than a press. */
-const LATCH_WIDGETS: ReadonlySet<string> = new Set(['Toggle'])
 
 /**
  * Widget types a finger operates, which are the only ones with an output.
@@ -195,6 +205,28 @@ export function templateControlPlan(
   // destination and reads differently to the user.
   const touchNode = nodes.find((node) => node.data.nodeType === 'TouchInput'
     && String(node.data.properties?.panelId ?? '') === panel.id)
+
+  // A wired Touch Controls already carries every role-stamped control, so the
+  // controls have a job. Reaching this panel's source, a rerun has nothing to
+  // add; reaching anything else, cables to the new source would quietly move
+  // controls the user pointed somewhere, so it says so instead.
+  const controlsEdge = touchNode
+    ? edges.find((edge) => edge.source === touchNode.id && edge.sourceHandle === 'controls')
+    : undefined
+  if (controlsEdge) {
+    if (!sourceNode || controlsEdge.target === sourceNode.id) return { wires, unrouted }
+    const holder = byId.get(controlsEdge.target)
+    for (const widget of document.widgets) {
+      const role = widgetControlRole(widget)
+      if (!role || !CONTROL_WIDGETS.has(widget.type)) continue
+      unrouted.push({
+        widgetId: widget.id, role,
+        reason: `This screen's controls already travel on its Touch node's Controls to ${holder ? sourceLabel(holder) : 'another node'}. `
+          + 'Move that wire if they should command this source instead.',
+      })
+    }
+    return { wires, unrouted }
+  }
 
   for (const widget of document.widgets) {
     const role = widgetControlRole(widget)
@@ -263,15 +295,16 @@ export function templateControlPlan(
       sourcePort,
       targetId: sourceNode.id,
       targetPort: target.port,
-      // A latch driving a momentary action becomes a press on either
-      // transition, so the switch and the thing it commands cannot disagree
-      // from the second press onward.
-      adapter: LATCH_ROLES_NEEDING_AN_EDGE.has(role) && LATCH_WIDGETS.has(widget.type)
-        ? 'pulseOnChange'
-        : target.adapter ?? 'none',
+      adapter: target.adapter ?? 'none',
     })
   }
 
+  const takesControls = !!sourceNode && LIBRARY_INPUTS(sourceNode).some((port) => port.id === 'controls')
+  const controlsFree = !!sourceNode && !edges.some((edge) => edge.target === sourceNode.id && edge.targetHandle === 'controls')
+  const touchControlsFree = !!touchNode && !edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === 'controls')
+  if (wires.length > 0 && touchNode && sourceNode && takesControls && controlsFree && touchControlsFree) {
+    return { wires, unrouted, controlsWire: { sourceId: touchNode.id, targetId: sourceNode.id } }
+  }
   return { wires, unrouted }
 }
 

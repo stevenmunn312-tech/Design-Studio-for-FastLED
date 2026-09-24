@@ -1,6 +1,7 @@
 /*
- * Performing the routing plan: edges, the sockets they land on, and the one
- * adapter a conversion needs — all in one undoable step.
+ * Performing the routing plan: one Controls wire where the destination takes
+ * one, otherwise the edges, the sockets they land on and the one adapter a
+ * conversion needs — all in one undoable step.
  *
  * The plan itself is tested next door; this is about what reaches the store.
  * Three things have to hold or the feature is worse than not having it: the
@@ -57,80 +58,84 @@ describe('connectTemplateControls', () => {
     useGraphStore.temporal.getState().clear()
   })
 
-  it('wires a player template and draws the sockets it lands on', () => {
+  /*
+   * The design's controls travel on the Touch node's Controls bundle, so a
+   * source with a Controls input takes one wire, not a cable per control.
+   */
+  it('wires a player template through the one Controls wire', () => {
     setup(node('player', 'PatternMaster', {}, 'Music Player'), 'now-playing')
     const result = connectTemplateControls('tft')
 
     expect(result.connected).toBe(3)
-    expect(routed()).toEqual([
-      'player.next <- TouchInput',
-      'player.playPause <- TouchInput',
-      'player.previous <- TouchInput',
-    ])
-    // The action inputs are fields until something is wired to them, so the
-    // wire has to bring its socket with it.
-    const player = useGraphStore.getState().nodes.find((entry) => entry.id === 'player')!
-    expect(player.data.exposedInputs).toEqual(expect.arrayContaining(['previous', 'next']))
+    expect(routed()).toEqual(['player.controls <- TouchInput'])
   })
 
-  it('wires a player volume template control and exposes the hidden property port', () => {
+  it('carries a template volume slider on that same wire', () => {
     setup(node('player', 'PatternMaster', {}, 'Music Player'), 'minimal-transport')
     const result = connectTemplateControls('tft')
 
     expect(result.connected).toBe(4)
-    expect(routed()).toEqual([
-      'player.next <- TouchInput',
-      'player.playPause <- TouchInput',
-      'player.previous <- TouchInput',
-      'player.volume <- TouchInput',
-    ])
-    const player = useGraphStore.getState().nodes.find((entry) => entry.id === 'player')!
-    expect(player.data.exposedInputs).toEqual(expect.arrayContaining(['previous', 'next', 'volume', 'playPause']))
+    expect(routed()).toEqual(['player.controls <- TouchInput'])
+  })
+
+  it('gives a fixture its lamp controls through its Controls input', () => {
+    setup(node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 27 }, 'Stage Wash'), 'led-performance')
+    expect(connectTemplateControls('tft').connected).toBe(2)
+    expect(routed()).toEqual(['out.controls <- TouchInput'])
+    expect(useGraphStore.getState().nodes.some((entry) => entry.data.nodeType === 'Not')).toBe(false)
   })
 
   /*
-   * True means dark on the control and true means lit on the port. The
-   * conversion is a node on the canvas rather than a reinterpretation inside
-   * the wire, so the user can see it, select it and delete it.
+   * With the destination's Controls already taken, the controls arrive one
+   * cable each, and true-means-dark Blackout still needs a visible Not on its
+   * way into true-means-lit Enabled.
    */
-  it('places a Not between a Blackout toggle and the fixture it darkens', () => {
-    setup(node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 27 }, 'Stage Wash'), 'led-performance')
-    const result = connectTemplateControls('tft')
+  it('falls back to a cable per control, with a Not for Blackout, when Controls is taken', () => {
+    const document = applyDisplayTemplate(createDisplayDocument('screen', 320, 240), 'led-performance')
+    useGraphStore.getState().loadGraph(
+      [panel(), touch(), node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 27 }), node('map', 'ControlMap')],
+      [edge('src', 'out', 'display', 'tft', 'display'), edge('taken', 'map', 'controls', 'out', 'controls')],
+    )
+    useGraphStore.getState().setDisplayDocument(document)
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+    const before = useGraphStore.getState()
 
-    expect(result.connected).toBe(2)
+    expect(connectTemplateControls('tft').connected).toBe(2)
     const state = useGraphStore.getState()
     const not = state.nodes.find((entry) => entry.data.nodeType === 'Not')
     expect(not, 'a Not adapter was placed').toBeDefined()
     expect(routed()).toEqual([
       `${not!.id}.x <- TouchInput`,
       'out.brightness <- TouchInput',
+      'out.controls <- ControlMap',
       'out.enabled <- Not',
     ])
     // Not stacked on the origin: an adapter has to be separately clickable.
     expect(not!.position).not.toEqual({ x: 0, y: 0 })
+
+    // One undo removes the wires, the adapter and the sockets together.
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().undo()
+    const after = useGraphStore.getState()
+    expect(after.nodes.length).toBe(before.nodes.length)
+    expect(after.edges.length).toBe(before.edges.length)
   })
 
-  it('is one undo, wires and adapter and sockets together', () => {
-    setup(node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 27 }), 'led-performance')
+  it('is one undo', () => {
+    setup(node('player', 'PatternMaster'), 'now-playing')
     vi.advanceTimersByTime(400)
     useGraphStore.temporal.getState().clear()
-    const before = useGraphStore.getState()
-    const nodeCount = before.nodes.length
-    const edgeCount = before.edges.length
+    const edgeCount = useGraphStore.getState().edges.length
 
     connectTemplateControls('tft')
     vi.advanceTimersByTime(400)
-    expect(useGraphStore.getState().nodes.length).toBe(nodeCount + 1)
-    expect(useGraphStore.getState().edges.length).toBe(edgeCount + 3)
-
+    expect(useGraphStore.getState().edges.length).toBe(edgeCount + 1)
     useGraphStore.temporal.getState().undo()
-    const after = useGraphStore.getState()
-    expect(after.nodes.length).toBe(nodeCount)
-    expect(after.edges.length).toBe(edgeCount)
-    expect(after.nodes.some((entry) => entry.data.nodeType === 'Not')).toBe(false)
+    expect(useGraphStore.getState().edges.length).toBe(edgeCount)
   })
 
-  it('does nothing the second time, and respects a wire the user rerouted', () => {
+  it('does nothing the second time, and respects a Controls wire the user moved', () => {
     setup(node('player', 'PatternMaster'), 'now-playing')
     expect(connectTemplateControls('tft').connected).toBe(3)
     const afterFirst = useGraphStore.getState().edges.length
@@ -139,20 +144,19 @@ describe('connectTemplateControls', () => {
     expect(again.connected).toBe(0)
     expect(useGraphStore.getState().edges.length).toBe(afterFirst)
 
-    // A user reroutes Next to their own button. Running it again must leave
-    // that alone rather than restoring the template's own wire over it.
+    // The user routes the screen through their own Control Map instead.
     const state = useGraphStore.getState()
     useGraphStore.setState({
-      nodes: [...state.nodes, node('btn', 'ButtonInput', { pin: 12 })],
+      nodes: [...state.nodes, node('map', 'ControlMap')],
       edges: [
-        ...state.edges.filter((entry) => entry.targetHandle !== 'next'),
-        edge('manual', 'btn', 'pressed', 'player', 'next'),
+        ...state.edges.filter((entry) => entry.sourceHandle !== 'controls'),
+        edge('manual', 'tft-touch', 'controls', 'map', 'controlsIn'),
       ],
     })
     const third = connectTemplateControls('tft')
     expect(third.connected).toBe(0)
-    expect(third.unrouted.some((entry) => entry.reason.includes('already has something wired'))).toBe(true)
-    expect(routed()).toContain('player.next <- ButtonInput')
+    expect(third.unrouted.some((entry) => entry.reason.includes('already travel on its Touch node'))).toBe(true)
+    expect(routed()).toContain('map.controlsIn <- TouchInput')
   })
 
   it('connects nothing, and says why, when the panel has no source', () => {
@@ -215,7 +219,9 @@ describe('replacing the panel source', () => {
 
     const result = connectTemplateControls('tft')
     expect(result.connected).toBe(0)
-    // The old wires are untouched — nothing is silently retargeted.
+    // The old wire is untouched — nothing is silently retargeted — and the
+    // user is told where the controls went.
     expect(routed()).toEqual(wiredToPlayer)
+    expect(result.unrouted[0].reason).toContain('Music Player')
   })
 })

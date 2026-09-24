@@ -3516,6 +3516,14 @@ export function connectTemplateControls(panelId: string): TemplateControlPlan & 
       } as unknown as StudioEdge]
     }
 
+    // One Controls wire carries every planned control when the destination
+    // takes a bundle; the individual cables are drawn only when it does not.
+    if (plan.controlsWire) {
+      connect(plan.controlsWire.sourceId, 'controls', plan.controlsWire.targetId, 'controls')
+      connected = plan.wires.length
+      return { nodes, edges }
+    }
+
     for (const wire of plan.wires) {
       // Draw the socket the wire lands on. An action or property input is a
       // field until something is wired to it, and an edge into a socket nobody

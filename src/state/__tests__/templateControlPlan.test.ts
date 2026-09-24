@@ -142,17 +142,25 @@ describe('declining rather than guessing', () => {
   })
 
   /*
-   * A Toggle is a latch and Play / Pause is a press. A Trigger in Changed
-   * mode pulses on both edges, turning the latch's transitions into
-   * momentary presses so the switch and the player stay in agreement.
+   * A Toggle driving Play / Pause needs no adapter: press-reading inputs count
+   * a screen Toggle's taps rather than its value, which also follows the
+   * player's `playing` and would echo every transport change as a press.
    */
-  it('converts a latch driving a momentary transport action through a pulse-on-change adapter', () => {
+  it('wires a latch straight to a momentary transport action', () => {
     const plan = templateControlPlan(
       panel, templated('now-playing'), [panel, touch, player],
       [edge('player', 'display', 'tft', 'display')],
     )
     expect(routes(plan).transportPlayPause).toBe('player.playPause')
-    expect(plan.wires.find((w) => w.role === 'transportPlayPause')!.adapter).toBe('pulseOnChange')
+    expect(plan.wires.find((w) => w.role === 'transportPlayPause')!.adapter).toBe('none')
+  })
+
+  it('asks for the one Controls wire when the source takes a bundle', () => {
+    const plan = templateControlPlan(
+      panel, templated('now-playing'), [panel, touch, player],
+      [edge('player', 'display', 'tft', 'display')],
+    )
+    expect(plan.controlsWire).toEqual({ sourceId: touch.id, targetId: 'player' })
   })
 
   it('sends a volume slider to the player volume port', () => {

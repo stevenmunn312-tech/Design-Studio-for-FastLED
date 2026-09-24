@@ -541,18 +541,26 @@ drifts — a list beside one generator says nothing about the other two.
   undo, idempotency, source replacement). Three results are worth stating
   rather than burying:
 
-  **Play/Pause is wired through an adapter.** The template's Play control is a
-  Toggle — a latch — and `playPause` is a momentary action, so wiring them
-  directly would command the transport when the switch goes on and do nothing
-  when it goes off: the two disagree from the second press. It was refused for
-  exactly as long as nothing could convert it, since `Trigger`'s One Shot fires
-  on the rising edge only. The `changed` variant pulses on *either* transition,
-  so the plan says `pulseOnChange` and the applier places a `Trigger` in that
-  mode — the same visible, deletable, single-undo conversion Blackout gets.
-  Both halves seed themselves from their first sample rather than firing on it,
-  so a graph whose switch starts on does not open with a press nobody made;
-  that seeding is asserted on both sides, because it is the half a preview
-  cannot show you.
+  **A template takes one Controls wire where it can.** Music Player, Pattern
+  Slideshow and an LED output each have a Controls input, and the design's
+  role-stamped controls already travel on the Touch node's Controls bundle
+  (`designControlBundle.ts`). So when that input is free the plan returns
+  `controlsWire` and the applier draws that one edge instead of a cable per
+  control. The individual cables, with Blackout's `Not`, remain the fallback
+  for a destination whose Controls is already taken. A Touch Controls wire
+  that reaches some other node leaves the plan empty and says so, rather than
+  quietly moving the controls to the new source.
+
+  **Play/Pause needs no adapter.** The template's Play control is a Toggle, and
+  a template binds its Set to the player's `playing`, so its value moves
+  whenever the transport is driven from anywhere. A `Trigger` in Changed mode,
+  or any rising-edge reading of that value, echoed each such change back as a
+  press: Play in the app started the track and the panel paused it again.
+  Every press-reading input (Music Player and LED output actions, Control Map
+  rows, Palette Bank, the Controls bundle) instead counts a screen Toggle's
+  taps through `toggleWidgetSource`: `touchCount` in the preview runtime,
+  `taps` in the LVGL runtime, both moved only by a finger. The first reading
+  seeds the count, so nothing fires at boot.
 
   **Volume is direct now:** `PatternMaster` has a real continuous `volume`
   property input, so a template slider can wire straight to the player when the
