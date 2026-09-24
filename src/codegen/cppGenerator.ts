@@ -112,6 +112,7 @@ import {
   boardSupportsTelemetry, deviceTelemetryGlobalsCpp, telemetryEmitFromSource,
 } from './deviceTelemetryCpp'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
+import { POWER_MONITOR_HELPER_CPP, powerMonitorLoopCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
 import { controllerSettings, ledPropsWithController, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import {
   micFirmwareBackendForBoard,
@@ -1927,7 +1928,8 @@ export function generateCpp(
   // by whichever part happens to be set up first.
   const i2cOleds = sorted.filter((n) => n.data.nodeType === 'InfoDisplay'
     && oledTransportForProps(props(n)) === 'i2c')
-  const needsWire = needsDs3231 || i2cOleds.length > 0
+  const powerMonitors = sorted.filter((n) => n.data.nodeType === 'PowerMonitorInput')
+  const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0
   /*
    * The header follows the driver, not the transport.
    *
@@ -2100,7 +2102,7 @@ export function generateCpp(
     const i2cBoard = selectedPhysicalBoardProfile(nodes)
     const boardPins = rtcI2cPinsForProfile(i2cBoard)
     const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
-      && String(props(node).timeSource ?? 'Compile Time') === 'DS3231') ?? i2cOleds[0]
+      && String(props(node).timeSource ?? 'Compile Time') === 'DS3231') ?? i2cOleds[0] ?? powerMonitors[0]
     const busProps = busNode ? props(busNode) : {}
     const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)
     const sclPin = sanitizePin(busProps.sclPin, boardPins?.scl.arduinoPin ?? 22)
@@ -2112,6 +2114,7 @@ export function generateCpp(
     if (needsDs3231) {
       setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
     }
+    for (const monitor of powerMonitors) setupLines.push(powerMonitorSetupCpp(props(monitor)))
   }
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
@@ -2746,6 +2749,10 @@ export function generateCpp(
 
       case 'LightInput':
         ln(`  float ${v('level')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)
+        break
+
+      case 'PowerMonitorInput':
+        for (const line of powerMonitorLoopCpp(p, v)) ln(line)
         break
 
       case 'RelayOutput': {
@@ -7834,6 +7841,7 @@ export function generateCpp(
   if (needsDs3231) {
     lines.push(...ds3231HelperCpp())
   }
+  if (powerMonitors.length > 0) lines.push(...POWER_MONITOR_HELPER_CPP)
 
   if (needsWifi) {
     lines.push(`// Shared Wi-Fi bootstrap for Art-Net receive / NTP clock sync.`)

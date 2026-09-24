@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { useHardwareInputStore } from '../../state/hardwareInputStore'
+import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from '../../state/powerMonitor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -27,8 +28,15 @@ function ButtonInputWidget({ nodeId }: { nodeId: string }) {
   )
 }
 
-function PotInputWidget({ nodeId }: { nodeId: string }) {
-  const value = useHardwareInputStore((s) => s.pot.get(nodeId) ?? 0.5)
+function PotInputWidget({ nodeId, storeKey = nodeId, initial = 0.5, readout }: {
+  nodeId: string
+  /** Run-state key; a node with several sliders gives each its own. */
+  storeKey?: string
+  initial?: number
+  /** Formats the readout in the quantity's own units. */
+  readout?: (value: number) => string
+}) {
+  const value = useHardwareInputStore((s) => s.pot.get(storeKey) ?? initial)
   const setPot = useHardwareInputStore((s) => s.setPot)
   const trackRef = useRef<HTMLDivElement>(null)
 
@@ -37,8 +45,8 @@ function PotInputWidget({ nodeId }: { nodeId: string }) {
     if (!track) return
     const rect = track.getBoundingClientRect()
     const t = rect.width > 0 ? (clientX - rect.left) / rect.width : 0
-    setPot(nodeId, Math.max(0, Math.min(1, t)))
-  }, [nodeId, setPot])
+    setPot(storeKey, Math.max(0, Math.min(1, t)))
+  }, [storeKey, setPot])
 
   return (
     <div className={styles.potRow}>
@@ -54,8 +62,29 @@ function PotInputWidget({ nodeId }: { nodeId: string }) {
         <div className={styles.potFill} style={{ width: `${value * 100}%` }} />
         <div className={styles.potThumb} style={{ left: `${value * 100}%` }} />
       </div>
-      <span className={styles.potReadout}>{value.toFixed(2)}</span>
+      <span className={styles.potReadout}>{readout ? readout(value) : value.toFixed(2)}</span>
     </div>
+  )
+}
+
+/**
+ * A power monitor has no sensor in the browser, so the preview takes the two
+ * things it measures from sliders across the part's own range. Watts is not a
+ * third slider: the firmware derives it from these two, and so does preview.
+ */
+function PowerMonitorWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const start = powerMonitorPreviewDefaults(partId)
+  const units = (fraction: number, quantity: 'volts' | 'amps') => {
+    const reading = powerMonitorPreviewReading(partId, quantity === 'volts' ? fraction : 0, quantity === 'amps' ? fraction : 0)
+    return quantity === 'volts' ? `${reading.volts.toFixed(1)} V` : `${reading.amps.toFixed(2)} A`
+  }
+  return (
+    <>
+      <PotInputWidget nodeId={nodeId} storeKey={powerMonitorPreviewKey(nodeId, 'volts')} initial={start.volts}
+        readout={(v) => units(v, 'volts')} />
+      <PotInputWidget nodeId={nodeId} storeKey={powerMonitorPreviewKey(nodeId, 'amps')} initial={start.amps}
+        readout={(v) => units(v, 'amps')} />
+    </>
   )
 }
 
@@ -108,7 +137,8 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
   )
 }
 
-export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false }: { nodeId: string; nodeType: string; resetOnPress?: boolean }) {
+export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown }) {
+  if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.

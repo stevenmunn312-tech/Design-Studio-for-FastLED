@@ -1456,6 +1456,24 @@ const RELAY_OUTPUT_LIVE_EXAMPLE = namedExample(
   'Press the Button node to energize channel 1. The solid colour keeps the LED preview visible because the relay switches a separate physical load rather than producing pixels.',
 )
 
+const POWER_MONITOR_LIVE_EXAMPLE = namedExample(
+  'PowerMonitorInput',
+  'Light the LEDs as a load draws current',
+  [
+    { key: 'monitor', type: 'PowerMonitorInput', properties: { partId: 'adafruit-ina219-current-sensor', i2cAddress: '0x40' } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 3.2, outMin: 1, outMax: 0 } },
+    { key: 'rainbow', type: 'Rainbow' },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'monitor', sourceHandle: 'amps', target: 'map', targetHandle: 'value' },
+    { source: 'rainbow', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Power Monitor reads the INA219 on the board\'s I2C bus and publishes the load\'s volts, amps and watts. Amps are 0-3.2 on this board, not 0-1, so Map Range turns them into how much Fade to Black to apply: no current leaves the rainbow dark, full current lights it completely. The supply goes to Vin+ and the load to Vin-, and the load shares ground with the controller.',
+  'Drag the amps slider on the Power Monitor node: the rainbow brightens as the simulated current rises. Watts follows the two sliders, exactly as the firmware derives it from the measured volts and amps.',
+)
+
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
   'Switch a DC load from a boolean signal',
@@ -1590,6 +1608,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   IRRemoteInput: IR_REMOTE_LIVE_EXAMPLE,
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
+  PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

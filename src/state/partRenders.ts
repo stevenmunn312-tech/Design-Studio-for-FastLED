@@ -58,6 +58,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'LDR light sensor',
     src: partRenderSrc('photosensitive-ldr-module') ?? '',
   },
+  PowerMonitorInput: {
+    label: 'Adafruit INA219 current sensor',
+    src: partRenderSrc('adafruit-ina219-current-sensor') ?? '',
+  },
 }
 
 export function partRenderForNodeType(

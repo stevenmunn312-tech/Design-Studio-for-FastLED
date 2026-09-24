@@ -84,6 +84,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![DMX / Art-Net example graph](../../public/node-cards/graphs/dmx-input.svg)
 
+### Power Monitor
+
+![Power Monitor node](../../public/node-cards/power-monitor-input.svg)
+
+![Power Monitor example graph](../../public/node-cards/graphs/power-monitor-input.svg)
+
 ### RTC Clock
 
 ![RTC Clock node](../../public/node-cards/rtc-input.svg)

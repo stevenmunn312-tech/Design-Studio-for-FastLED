@@ -43,7 +43,7 @@ WEBP_QUALITY = 82
 
 CATEGORIES = {
     "microphone", "amplifier", "storage", "led-output",
-    "input-control", "audio-source", "support", "display", "switching-power",
+    "input-control", "audio-source", "support", "display", "switching-power", "power-monitor",
 }
 
 # Spellings the modelling pipeline emits that mean an existing category. The
@@ -162,6 +162,34 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: mosfet block needs a channel count and loadSupply — skipped",
                   file=sys.stderr)
+    # A current/voltage monitor's measuring contract. The firmware divides the
+    # shunt voltage by shuntOhms and the address list bounds the address
+    # picker, so both have to come from the board rather than be retyped.
+    monitor = data.get("powerMonitor")
+    if monitor:
+        try:
+            addresses = [int(str(a), 16) for a in monitor.get("i2cAddresses") or []]
+            default_address = int(str(monitor.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        shunt = monitor.get("shuntOhms")
+        if (addresses and default_address in addresses
+                and isinstance(shunt, (int, float)) and shunt > 0
+                and isinstance(monitor.get("busVoltageMaxV"), (int, float))
+                and isinstance(monitor.get("currentMaxA"), (int, float))):
+            entry["powerMonitor"] = {
+                "device": monitor.get("device") or "",
+                "interface": monitor.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "shuntOhms": shunt,
+                "busVoltageMaxV": monitor["busVoltageMaxV"],
+                "currentMaxA": monitor["currentMaxA"],
+                "senseSide": monitor.get("senseSide") or "high-side",
+            }
+        else:
+            print(f"  ! {part_id}: powerMonitor block needs addresses, a default among them, "
+                  "shuntOhms, busVoltageMaxV and currentMaxA — skipped", file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

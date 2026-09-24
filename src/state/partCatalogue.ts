@@ -16,7 +16,7 @@ import { PART_CATALOGUE_DATA } from '../build/generated/partCatalogueData'
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
-  | 'input-control' | 'audio-source' | 'support' | 'display' | 'switching-power'
+  | 'input-control' | 'audio-source' | 'support' | 'display' | 'switching-power' | 'power-monitor'
 
 export interface PartRenderAsset {
   /** Path relative to the site root, e.g. `parts/max98357a-i2s-amplifier.webp`. */
@@ -93,6 +93,20 @@ export interface PartMosfetSpec {
   loadTerminals?: string[]
 }
 
+/** Measuring contract carried by an imported current/voltage monitor. */
+export interface PartPowerMonitorSpec {
+  device: string
+  interface: string
+  /** Every address the board's straps can select, as numbers. */
+  i2cAddresses: number[]
+  defaultI2cAddress: number
+  /** The fitted shunt; firmware divides the shunt voltage by it. */
+  shuntOhms: number
+  busVoltageMaxV: number
+  currentMaxA: number
+  senseSide: 'high-side' | 'low-side' | string
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -109,6 +123,8 @@ export interface PartCatalogueEntry {
   relay?: PartRelaySpec
   /** Present exactly on DC MOSFET switch modules. */
   mosfet?: PartMosfetSpec
+  /** Present exactly on current/voltage monitor modules. */
+  powerMonitor?: PartPowerMonitorSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

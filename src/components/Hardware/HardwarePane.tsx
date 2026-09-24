@@ -527,6 +527,22 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
+    nodeType: 'PowerMonitorInput',
+    partId: 'power-monitor',
+    label: 'INA219 power monitor',
+    hint: 'Volts, amps and watts of a DC load, on the board I2C bus',
+    footprint: partDimensionsMm('adafruit-ina219-current-sensor', { width: 25.4, height: 20.32 }),
+    signalPort: 'watts',
+    dataType: 'float',
+    // Joins the board's one I2C bus rather than taking free GPIO.
+    pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
+    properties: { partId: 'adafruit-ina219-current-sensor' },
+  },
+  {
     nodeType: 'EncoderInput',
     partId: 'encoder',
     label: 'Rotary encoder',

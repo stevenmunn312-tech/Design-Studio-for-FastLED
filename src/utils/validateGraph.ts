@@ -40,6 +40,7 @@ import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/wireFirstControls'
+import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/powerMonitor'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
@@ -1493,6 +1494,7 @@ export function findDeployBlockingErrors(
     ...findStorageCapabilityErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
+    ...findI2cBusErrors(nodes),
     ...findStepValueErrors(nodes),
     ...findAudioChainErrors(nodes),
     ...findHub75ConfigErrors(nodes),
@@ -2032,14 +2034,30 @@ function directControlCollisionIssues(nodes: StudioNode[], edges: StudioEdge[]):
  * the outside, which is why it is an error here rather than something to
  * discover with a multimeter.
  *
- * Reported only when a display is involved: an RTC is the sole other I2C part,
- * and one of it cannot disagree with itself.
+ * Any two I2C parts can disagree: this once asked only when a display was on
+ * the bus, which was right while the RTC was the only other I2C part, and
+ * stopped being right when a power monitor could sit beside it.
  */
-function splitI2cBusErrors(nodes: StudioNode[]): string[] {
-  const devices = i2cDevices(nodes)
-  if (!devices.some((device) => DISPLAY_NODE_TYPES.has(device.nodeType))) return []
+function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
+  const issues: GraphDiagnostic[] = []
 
-  const buses = new Map<string, string[]>()
+  // A monitor strapped to an address its board cannot select is a part the
+  // firmware talks to and nothing answers, which reads as a dead sensor.
+  for (const monitor of nodes.filter((node) => node.data.nodeType === 'PowerMonitorInput')) {
+    const props = monitor.data.properties as Record<string, unknown>
+    if (powerMonitorAddress(props) !== null) continue
+    issues.push({
+      id: `${monitor.id}-i2c-address`, severity: 'error', category: 'pins',
+      title: 'Power monitor address is not one its jumpers can select',
+      message: `${nodeLabel(monitor)} is set to ${String(props.i2cAddress)}, but this board answers only on ${powerMonitorAddressOptions(props.partId).join(', ')}.`,
+      fix: 'Choose the address matching the board\'s A0/A1 solder jumpers.',
+      nodeIds: [monitor.id], nodeLabel: nodeLabel(monitor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  const devices = i2cDevices(nodes)
+  if (devices.length < 2) return issues
+  const buses = new Map<string, { names: string[]; ids: string[] }>()
   for (const device of devices) {
     const role = (use: { nodeType: string; propertyKey: string }) =>
       busAssignmentFor(use.nodeType, use.propertyKey).role
@@ -2048,17 +2066,29 @@ function splitI2cBusErrors(nodes: StudioNode[]): string[] {
     if (!sda || !scl) continue
     const key = `${sda.pin}/${scl.pin}`
     const named = nodes.find((node) => node.id === device.nodeId)
-    buses.set(key, [...(buses.get(key) ?? []), named ? nodeLabel(named) : device.nodeType])
+    const bus = buses.get(key) ?? { names: [], ids: [] }
+    bus.names.push(named ? nodeLabel(named) : device.nodeType)
+    bus.ids.push(device.nodeId)
+    buses.set(key, bus)
   }
-  if (buses.size < 2) return []
+  if (buses.size < 2) return issues
 
   const described = [...buses]
-    .map(([pins, names]) => `${names.join(' and ')} on SDA ${pins.split('/')[0]} / SCL ${pins.split('/')[1]}`)
+    .map(([pins, bus]) => `${bus.names.join(' and ')} on SDA ${pins.split('/')[0]} / SCL ${pins.split('/')[1]}`)
     .join('; ')
-  return [
-    `The generated sketch starts one I2C bus, but this build has ${buses.size}: ${described}. `
-    + 'Put every I2C part on the same SDA and SCL pins — sharing them is correct, and only the addresses have to differ.',
-  ]
+  issues.push({
+    id: 'i2c-split-bus', severity: 'error', category: 'pins',
+    title: 'I2C parts are on more than one bus',
+    message: `The generated sketch starts one I2C bus, but this build has ${buses.size}: ${described}.`,
+    fix: 'Put every I2C part on the same SDA and SCL pins — sharing them is correct, and only the addresses have to differ.',
+    nodeIds: [...buses.values()].flatMap((bus) => bus.ids),
+    nodeLabel: 'I2C bus',
+  })
+  return issues
+}
+
+export function findI2cBusErrors(nodes: StudioNode[]): string[] {
+  return i2cBusValidationIssues(nodes).map(validationIssueMessage)
 }
 
 /**
@@ -2259,8 +2289,6 @@ export function findDisplayGeneratorIssues(
   // sketch has neither and evaluates the wire itself. Those differences show
   // up below as unresolved ports and as a transport a Controls wire can reach,
   // not as a generator that leaves the part dark.
-  errors.push(...splitI2cBusErrors(nodes))
-
   // Geometry belongs to the panel, so every build path asks the panel — a
   // normal sketch had no equivalent check at all and emitted a landscape
   // design onto a portrait panel without a word. The template plan resolves
@@ -2822,6 +2850,7 @@ export function buildGraphDiagnostics(
   // from the same structured findings. Keep this ahead of incidental pin and
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
+  diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))
 

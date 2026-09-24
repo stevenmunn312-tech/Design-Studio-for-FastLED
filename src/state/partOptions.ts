@@ -132,6 +132,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  PowerMonitorInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-ina219-current-sensor',
+        label: 'Adafruit INA219',
+        summary: 'Volts, amps and watts over I2C: up to 26 V and 3.2 A',
+        note: 'High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board.',
+      },
+    ],
+  },
   PowerSwitchOutput: {
     property: 'partId',
     options: [

@@ -34,6 +34,7 @@ import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } fr
 import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from '../state/powerSwitch'
+import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 
 export interface HardwarePinUse {
   label: string
@@ -74,7 +75,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -110,6 +111,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'MotionInput',
   'LightInput',
   'IRRemoteInput',
+  'PowerMonitorInput',
   'RelayOutput',
   'PowerSwitchOutput',
   'SegmentDisplay',
@@ -320,8 +322,11 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'PowerSwitchOutput':
         push(node, `${baseLabel} PWM`, POWER_SWITCH_PIN_KEY, props[POWER_SWITCH_PIN_KEY])
         break
+      // Both join the board's one I2C bus, on the board's own Wire pair
+      // unless the node names another.
+      case 'PowerMonitorInput':
       case 'RTCInput':
-        if (String(props.timeSource ?? 'Compile Time') !== 'DS3231') break
+        if (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') !== 'DS3231') break
         {
           const sdaPin = Number(props.sdaPin ?? rtcPins?.sda.arduinoPin ?? 21)
           const sclPin = Number(props.sclPin ?? rtcPins?.scl.arduinoPin ?? 22)
@@ -666,6 +671,36 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             loadTerminals: (spec?.loadTerminals ?? []).join(' / '),
           },
           reasons: wired ? undefined : ['This power switch does not have its PWM input pin configured.'],
+        }
+      }
+      case 'PowerMonitorInput': {
+        // What it measures travels as facts: the address the straps select,
+        // and the limits a wiring review has to hold the load to.
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? DEFAULT_POWER_MONITOR_PART_ID)
+        const entry = partById(partId)
+        const spec = powerMonitorSpec(partId)
+        const address = powerMonitorAddress(props)
+        const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
+          && pins.some((pin) => pin.propertyKey === 'sclPin')
+        const reasons = [
+          ...(wired ? [] : [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this monitor.`]),
+          ...(address === null ? [`${String(props.i2cAddress)} is not an address this board's jumpers can select.`] : []),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'power-monitor-input', entry?.label ?? 'I²C power monitor', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && address !== null,
+          facts: {
+            partId,
+            i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatI2cAddress(address),
+            busVoltageMax: `${spec.busVoltageMaxV} V`,
+            currentMax: `${spec.currentMaxA} A`,
+            shuntOhms: spec.shuntOhms,
+            senseSide: spec.senseSide,
+            senseTerminals: 'Vin+ from supply / Vin- to load',
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
         }
       }
       case 'RTCInput':

@@ -158,7 +158,7 @@ export function resolveDefaultProperties(
   const override = nodeType === 'MicInput'
     ? state.micOverridesByFqbn[fqbn]
     : state.overrides[nodeType]
-  const rtcPins = nodeType === 'RTCInput' ? boardI2cDefault(boardProfile?.id) : undefined
+  const rtcPins = nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' ? boardI2cDefault(boardProfile?.id) : undefined
   const sdSpiPins = nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, fqbn) : null
   const boardDefault = nodeType === 'MicInput'
     ? micPinDefaultsForSelectedBoard(boardProfile)

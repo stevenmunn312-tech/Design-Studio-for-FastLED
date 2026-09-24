@@ -189,6 +189,17 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
         : null
     },
   },
+  // Shares the one I2C bus with the RTC and any I2C display, so it follows the
+  // board's own Wire pair exactly as they do.
+  PowerMonitorInput: {
+    keys: ['sdaPin', 'sclPin'],
+    fromProfile: (profile) => {
+      const defaults = boardI2cDefault(profile?.id)
+      return defaults
+        ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
+        : null
+    },
+  },
   /*
    * Displays retarget like every other part, and the reason is worth stating:
    * without a plan here a display is invisible to this walk twice over. It

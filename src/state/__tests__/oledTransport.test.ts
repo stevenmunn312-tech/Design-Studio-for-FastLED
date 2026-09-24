@@ -10,7 +10,7 @@ import { partById } from '../partCatalogue'
 import { collectPinUses, buildHardwareManifest } from '../../build/hardwareManifest'
 import { boardProfileById } from '../../build/boardProfiles'
 import { boardI2cDefault } from '../../build/boardI2cDefaults'
-import { findDisplayGeneratorIssues, findPinConflicts } from '../../utils/validateGraph'
+import { findDisplayGeneratorIssues, findI2cBusErrors, findPinConflicts } from '../../utils/validateGraph'
 import type { StudioNode } from '../graphStore'
 
 const SH1106 = 'sh1106-oled-128x64'
@@ -224,7 +224,7 @@ describe('one bus, because the sketch starts one', () => {
       oled('a', { partId: SSD1306, sdaPin: 21, sclPin: 22 }),
       ds3231({ sdaPin: 4, sclPin: 5 }),
     ]
-    const { errors } = findDisplayGeneratorIssues(nodes, [])
+    const errors = findI2cBusErrors(nodes)
     expect(errors.join('\n')).toContain('one I2C bus')
     expect(errors.join('\n')).toContain('SDA 21')
     expect(errors.join('\n')).toContain('SDA 4')
@@ -232,11 +232,11 @@ describe('one bus, because the sketch starts one', () => {
 
   it('says nothing when they share the pair', () => {
     const nodes = [oled('a', { partId: SSD1306, sdaPin: 21, sclPin: 22 }), ds3231()]
-    expect(findDisplayGeneratorIssues(nodes, []).errors).toEqual([])
+    expect(findI2cBusErrors(nodes)).toEqual([])
   })
 
-  it('says nothing about a build with no I2C display at all', () => {
-    expect(findDisplayGeneratorIssues([oled('a', { partId: SH1106 }), ds3231()], []).errors).toEqual([])
+  it('says nothing about a build with only one I2C part', () => {
+    expect(findI2cBusErrors([oled('a', { partId: SH1106 }), ds3231()])).toEqual([])
   })
 })
 

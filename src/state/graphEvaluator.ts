@@ -2,6 +2,7 @@ import type { StudioNode, StudioEdge } from './graphStore'
 import { useAudioStore } from './audioStore'
 import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
+import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from './powerMonitor'
 import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
@@ -8808,6 +8809,20 @@ function createEvalNode(
       case 'LightInput':
         out = { level: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }
         break
+
+      // No sensor in the browser: the node body's two sliders stand in for the
+      // measured volts and amps, and watts follows from them the way the
+      // firmware derives it.
+      case 'PowerMonitorInput': {
+        const pot = useHardwareInputStore.getState().pot
+        const start = powerMonitorPreviewDefaults(props.partId)
+        out = { ...powerMonitorPreviewReading(
+          props.partId,
+          pot.get(powerMonitorPreviewKey(id, 'volts')) ?? start.volts,
+          pot.get(powerMonitorPreviewKey(id, 'amps')) ?? start.amps,
+        ) }
+        break
+      }
 
       case 'EncoderInput': {
         const enc = useHardwareInputStore.getState().encoder.get(id)

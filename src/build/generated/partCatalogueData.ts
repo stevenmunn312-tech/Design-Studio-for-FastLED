@@ -9,6 +9,55 @@
 import type { PartCatalogueEntry } from '../../state/partCatalogue'
 
 export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
+  "adafruit-ina219-current-sensor": {
+    "partId": "adafruit-ina219-current-sensor",
+    "label": "Adafruit INA219 current sensor",
+    "category": "power-monitor",
+    "dimensionsMm": {
+      "width": 25.4,
+      "height": 20.32
+    },
+    "manufacturer": "Adafruit (product 904) / Texas Instruments INA219B",
+    "logicVoltage": "3-5 V (VIN powers the chip and sets the I2C logic level)",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "GND",
+      "SCL",
+      "SDA",
+      "VIN-",
+      "VIN+"
+    ],
+    "notes": [
+      "Measures the current through its 0.1 ohm shunt and the voltage on the load side of it, over I2C.",
+      "High-side sensing: the supply's positive lead goes to Vin+ and the load's positive lead to Vin-. The load and the board share ground; the INA219 reads bus voltage against GND.",
+      "Bus voltage up to 26 V. Current up to +/-3.2 A through the fitted shunt; do not pass more, since the shunt and board copper are the limit, not the chip.",
+      "VIN powers the chip at 3-5 V and sets the I2C level; a 3.3 V controller powers it from 3.3 V.",
+      "Default I2C address 0x40; bridging A0 and/or A1 gives 0x41, 0x44 or 0x45, so up to four can share a bus.",
+      "The header pins VIN- and VIN+ duplicate the load terminal for light loads; use the terminal for anything above about 1 A.",
+      "External connections are shown unpopulated: the header and the 3.5 mm terminal block ship loose with the board."
+    ],
+    "powerMonitor": {
+      "device": "INA219B",
+      "interface": "I2C",
+      "i2cAddresses": [
+        64,
+        65,
+        68,
+        69
+      ],
+      "defaultI2cAddress": 64,
+      "shuntOhms": 0.1,
+      "busVoltageMaxV": 26,
+      "currentMaxA": 3.2,
+      "senseSide": "high-side"
+    },
+    "render": {
+      "file": "parts/adafruit-ina219-current-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 324,
+      "pxPerMm": 14.961
+    }
+  },
   "dfplayer-mini": {
     "partId": "dfplayer-mini",
     "label": "DFPlayer Mini MP3 module",

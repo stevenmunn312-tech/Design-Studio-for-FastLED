@@ -1026,6 +1026,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'preview listens for helper-backed Art-Net; firmware uses the selected DMX source',
     title: 'The browser preview reads Art-Net packets through the local helper. Generated firmware uses this node’s selected DMX source instead: Art-Net over Wi-Fi or DMX512 over an ESP32 transceiver.',
   },
+  PowerMonitorInput: {
+    text: 'preview readings come from the sliders; firmware reads the INA219',
+    title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
+  },
   RTCInput: {
     text: 'preview follows the configured source; only sync state is simulated',
     title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows UTC plus the configured offset, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
@@ -1376,7 +1380,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.
    *
@@ -1678,7 +1682,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'Storage' && <StorageCapabilityBody nodeId={id} sourceId={props.sourceId} />}
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
-        {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} />}
+        {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
         {d.nodeType === 'IRRemoteInput' && <IRRemoteBody nodeId={id} />}
         {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}

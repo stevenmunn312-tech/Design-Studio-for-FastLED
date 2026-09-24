@@ -323,6 +323,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
     [[155.2, 252.1], [185.8, 252.1], [216.2, 252.1], [246.7, 252.1], [277.1, 252.1], [307.7, 252.1]]),
   'jaycar-xc9044-rtc-module': padPoints(400, 400,
     [[67.5, 349.2], [133.5, 349.1], [199.5, 349.2], [265.5, 349.1], [331.6, 349.2]]),
+  // Six-pin header VIN, GND, SCL, SDA, VIN-, VIN+, measured from the render's
+  // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
+  'adafruit-ina219-current-sensor': padPoints(400, 324,
+    [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
   // Power amplifiers: screw terminals along the top for supply and speakers,
   // and the line input somewhere else entirely — mid-board holes on the
@@ -583,6 +587,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'relay-output': Array.from({ length: 8 }, (_, index) => [`IN${index + 1}`]),
   // The LR7843 board prints PWM for its one input; other builds print IN or SIG.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
+  'power-monitor-input': [['SDA'], ['SCL']],
 }
 
 /**
@@ -618,6 +623,10 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // its supply, and 3.3 V would make it quiet rather than broken — the kind of
   // wrong that reads as a bad speaker.
   if (item.kind === 'amplifier' || item.kind === 'line-input' || item.kind === 'relay-output') return 'v5'
+  // The INA219 board prints VIN, but it has no regulator: VIN is what its
+  // SDA/SCL pull-ups tie to. On the 5 V rail those pull-ups would hold the
+  // controller's I2C pins at 5 V, so it takes the logic rail instead.
+  if (item.kind === 'power-monitor-input') return 'v3v3'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.

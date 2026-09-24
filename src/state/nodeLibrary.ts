@@ -28,6 +28,7 @@ import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
+import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
@@ -3532,6 +3533,26 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // An I2C current/voltage monitor. It carries a signal (three measured
+    // floats), so it is a canvas node, but it is a physical part owned by the
+    // bench like the RTC it shares the bus with.
+    type: 'PowerMonitorInput',
+    label: 'Power Monitor',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'volts', label: 'Volts', dataType: 'float' },
+      { id: 'amps', label: 'Amps', dataType: 'float' },
+      { id: 'watts', label: 'Watts', dataType: 'float' },
+    ],
+    defaultProperties: {
+      partId: DEFAULT_POWER_MONITOR_PART_ID,
+      i2cAddress: formatI2cAddress(powerMonitorSpec(DEFAULT_POWER_MONITOR_PART_ID).defaultI2cAddress),
+      sdaPin: 21,
+      sclPin: 22,
+    },
+  },
+  {
     // A 1-bit OLED with one content input and no layout property: what is
     // plugged into `Display` decides what it shows, one layout per source. The
     // port set is therefore stable by construction rather than by discipline,
@@ -3989,6 +4010,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches a DC load through an opto-isolated MOSFET from a boolean signal.',
+  PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',
@@ -4955,6 +4977,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PowerSwitchOutput: {
     [POWER_SWITCH_PIN_KEY]: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  PowerMonitorInput: {
+    i2cAddress: { control: 'select', options: powerMonitorAddressOptions(DEFAULT_POWER_MONITOR_PART_ID) },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   EncoderInput: {
     pinA: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pinB: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5231,6 +5258,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rightDirection: 'Where the right string data enters. The renderer keeps visual right on screen-right and reverses physical LED order as needed.',
     swapChannels: 'Swaps audio channels without swapping the physical left/right rail placement.',
     milliamps: 'Current cap shared by both side strings.',
+  },
+  PowerMonitorInput: {
+    i2cAddress: 'The address set by the board\'s A0/A1 solder jumpers. Give each monitor on the bus a different one.',
+    sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
   RTCInput: {
     timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock using the SDA/SCL properties initialized from the selected board.',
@@ -5702,6 +5734,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set([POWER_SWITCH_PIN_KEY]),
+  PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
@@ -5739,7 +5772,7 @@ export function gpioRequirementForProperty(
 ): GpioPropertyRequirement | null {
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
-  if (nodeType === 'RTCInput') return null
+  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput') return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector
   // output stage and its module pull-up, the same as a PIR — a pull-up here
