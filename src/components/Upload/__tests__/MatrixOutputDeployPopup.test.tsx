@@ -824,7 +824,7 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
     useGraphStore.setState({
       nodes: [...useGraphStore.getState().nodes, {
         id: 'sd', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'SD Card', nodeType: 'SDCard', category: 'hardware', properties: {}, inputs: [], outputs: [] },
+        data: { label: 'SD Card', nodeType: 'SDCard', category: 'show', properties: {}, inputs: [], outputs: [] },
       }] as never[],
     })
     const { getByRole, queryByText } = render(<MatrixOutputDeployPopup />)

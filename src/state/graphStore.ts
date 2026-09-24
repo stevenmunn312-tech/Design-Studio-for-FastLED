@@ -445,15 +445,6 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 // Reload library-backed nodes from the current node library so categories,
 // labels, and port definitions stay canonical across save/load. Programmatic
 // group-family nodes keep their saved shape.
-// Legacy node types folded into another node on load. AnimatedImage merged into
-// the single Image node (which now handles stills and animations alike) — its
-// `animation`/`playbackRate`/`loop` properties carry over unchanged.
-// LedStringOutput was a second output node type for the length of one branch
-// phase. It is the same object as every other LED output — one `form` of it —
-// so it folds back in, which is also how a string finally acquires the codegen
-// it never had as its own type.
-const LEGACY_TYPE_RENAME: Record<string, string> = { AnimatedImage: 'Image', LedStringOutput: 'MatrixOutput' }
-
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
   const savedBoard = nodes.find((node) => node.data.nodeType === 'Board')
   const savedProfileId = (savedBoard?.data.properties as Record<string, unknown> | undefined)?.profileId
@@ -463,8 +454,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   const ampDefaults = savedProfile?.peripheralPins?.max98357
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
-    const wasLedString = data.nodeType === 'LedStringOutput'
-    const nodeType = LEGACY_TYPE_RENAME[data.nodeType] ?? data.nodeType
+    const nodeType = data.nodeType
     const def = LIBRARY_DEF.get(nodeType)
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
@@ -557,7 +547,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // `outputForm` performs the same inference defensively, so a node that
     // reaches it unmigrated still opens as the thing it is.
     if (nodeType === 'MatrixOutput') {
-      properties.form ??= wasLedString ? 'strip' : outputForm(properties)
+      properties.form ??= outputForm(properties)
       if (properties.form === 'strip' || properties.form === 'ring') properties.ledCount ??= 60
       if (properties.form === 'corkscrew') properties.ledCount ??= 120
       // `layout: 'strip'` was only ever a second spelling of 'matrix' — same

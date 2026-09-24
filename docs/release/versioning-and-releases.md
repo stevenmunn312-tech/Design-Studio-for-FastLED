@@ -13,6 +13,18 @@ not require pre-1.0 save compatibility or migrations. The released v1 format
 becomes the new compatibility baseline. [Root todo HW-18](../../todo.md) tracks
 the format/support freeze after the control and display workflow stabilizes.
 
+### Pre-v1 cleanup record
+
+- 2026-09-24: removed the obsolete `hardware` node category from the v1 type
+  surface. Hardware-backed nodes use their current `input`, `show`, or `output`
+  category; known saved nodes still receive that canonical library category on
+  load.
+- 2026-09-24: removed the load-time aliases that reinterpreted the retired
+  `AnimatedImage` and `LedStringOutput` node types as `Image` and
+  `MatrixOutput`. Neither retired type is part of the v1 format; an old or
+  malformed workspace now keeps the unsupported type visible instead of
+  silently changing its meaning.
+
 ## Version scheme
 
 - `MAJOR` (`1.0.0` and beyond): intentionally breaking release-line changes or

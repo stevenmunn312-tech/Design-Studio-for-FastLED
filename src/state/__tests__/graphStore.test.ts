@@ -840,6 +840,23 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('lib').category).toBe('show')
   })
 
+  it('does not reinterpret retired pre-v1 node types', () => {
+    const animated = node('animated', 'AnimatedImage', { playbackRate: 2 })
+    const string = node('string', 'LedStringOutput', { ledCount: 120 })
+
+    useGraphStore.getState().loadGraph([animated, string], [])
+
+    expect(dataOf('animated')).toMatchObject({
+      nodeType: 'AnimatedImage',
+      properties: { playbackRate: 2 },
+    })
+    expect(dataOf('string')).toMatchObject({
+      nodeType: 'LedStringOutput',
+      properties: { ledCount: 120 },
+    })
+    expect(dataOf('string').properties).not.toHaveProperty('form')
+  })
+
   it('adopts a pre-Board saved exact board onto the Board node', () => {
     // Projects saved before the Board node recorded the exact board on the
     // build profile. Loading one as the generic default would describe the

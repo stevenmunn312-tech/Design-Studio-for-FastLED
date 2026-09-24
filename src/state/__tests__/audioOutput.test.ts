@@ -5,7 +5,7 @@ import type { StudioNode } from '../graphStore'
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
     id, type: 'studioNode', position: { x: 0, y: 0 },
-    data: { label: nodeType, nodeType, category: 'hardware', properties, inputs: [], outputs: [] },
+    data: { label: nodeType, nodeType, category: 'output', properties, inputs: [], outputs: [] },
   } as unknown as StudioNode
 }
 

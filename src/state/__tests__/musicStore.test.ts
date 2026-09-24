@@ -95,7 +95,7 @@ describe('musicStore — wired TransitionSet', () => {
     useGraphStore.setState({
       nodes: [
         { id: 'gen', type: 'studioNode', position: { x: 0, y: 0 },
-          data: { label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'hardware', properties: {} } },
+          data: { label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'show', properties: {} } },
         { id: 'ts', type: 'studioNode', position: { x: 0, y: 0 },
           data: { label: 'Transitions', nodeType: 'TransitionSet', category: 'composite', properties: { transitions: ['iris', 'zoom'] } } },
       ] as unknown as ReturnType<typeof useGraphStore.getState>['nodes'],

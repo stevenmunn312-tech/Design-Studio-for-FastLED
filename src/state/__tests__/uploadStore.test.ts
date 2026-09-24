@@ -20,7 +20,7 @@ function board(properties: Record<string, unknown>): StudioNode {
     id: 'board',
     type: 'studioNode',
     position: { x: 0, y: 0 },
-    data: { label: 'Board', nodeType: 'Board', category: 'hardware', properties, inputs: [], outputs: [] },
+    data: { label: 'Board', nodeType: 'Board', category: 'output', properties, inputs: [], outputs: [] },
   } as unknown as StudioNode
 }
 

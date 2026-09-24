@@ -48,7 +48,9 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   discovery, permissions, offline and recovery evidence.
 - [ ] **HW-18 · v1 scope and format baseline (M).** Two halves. *Now:* remove
   superseded pre-1.0 compatibility paths and legacy graph shapes, as the
-  Hardware rules already direct, without inventing migrations. *At release:*
+  Hardware rules already direct, without inventing migrations
+  ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
+  *At release:*
   choose the supported combinations from the evidence then on record,
   reconcile release copy, freeze the panel/document/control save format, and
   record limitations and deferments. Never merge `main` and `Hardware`.

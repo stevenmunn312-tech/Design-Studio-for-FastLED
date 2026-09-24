@@ -7,7 +7,7 @@ function hardware(id: string, nodeType: string, properties: Record<string, unkno
     id,
     type: 'studioNode',
     position: { x: 0, y: 0 },
-    data: { label: nodeType, nodeType, category: 'hardware', properties, inputs: [], outputs: [] },
+    data: { label: nodeType, nodeType, category: 'show', properties, inputs: [], outputs: [] },
   } as StudioNode
 }
 

@@ -57,7 +57,7 @@ function boardNodeForFqbn(fqbn: string) {
   if (!profile) throw new Error(`Missing physical board profile for ${fqbn}`)
   return {
     id: 'board', type: 'studioNode', position: { x: 0, y: 0 },
-    data: { label: 'Board', nodeType: 'Board', category: 'hardware', properties: { profileId: profile.id }, inputs: [], outputs: [] },
+    data: { label: 'Board', nodeType: 'Board', category: 'output', properties: { profileId: profile.id }, inputs: [], outputs: [] },
   }
 }
 
@@ -553,7 +553,7 @@ describe('MenuBar file menu', () => {
     const imported = {
       nodes: [{
         id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'Display', nodeType: 'TransportDisplay', category: 'hardware', properties: { displayId: 'screen' }, inputs: [], outputs: [] },
+        data: { label: 'Display', nodeType: 'TransportDisplay', category: 'output', properties: { displayId: 'screen' }, inputs: [], outputs: [] },
       }],
       edges: [],
       displayDocuments: { arbitraryKey: displayDocument },

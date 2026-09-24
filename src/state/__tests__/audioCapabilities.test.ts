@@ -18,7 +18,7 @@ function hardware(id: string, nodeType: string, properties: Record<string, unkno
     data: {
       label: nodeType,
       nodeType,
-      category: 'hardware',
+      category: 'input',
       properties,
       inputs: [],
       outputs: [],
