@@ -451,8 +451,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     ],
     "notes": [
       "Single-channel low-side DC switch: the load's positive lead goes to +, its negative lead to LOAD, and the load supply across + and -.",
-      "The logic input is optocoupler-isolated and active-high; a 3.3 V GPIO drives it directly. The MOSFET gate is biased from the load supply, so the switch turns fully on regardless of logic voltage.",
-      "The load supply must be 6-28 V DC. The gate divider leaves the MOSFET under-driven below about 6 V.",
+      "The logic input is optocoupler-isolated and active-high; a 3.3 V GPIO drives it directly. The MOSFET gate is driven from the load supply through a 4.7 k / 4.7 k divider, so how hard the switch turns on depends on the load supply (about half of it reaches the gate), not on the logic voltage.",
+      "The load supply must be 6-28 V DC. Near the 6 V end the gate sees only about 3 V, so the MOSFET runs warmer at high current; a 12 V or 24 V supply drives it properly.",
       "The board has no flyback diode. Motors, solenoids, relay coils and other inductive loads need an external diode across the load.",
       "15 A continuous is the practical limit on the bare board; the reference measured about 97 C at 15 A. Keep the MOSFET under 80-100 C and add airflow or a heatsink near that current.",
       "External connections are shown as unpopulated plated holes. The board accepts 5 mm screw terminals or direct wires on the power end and a 0.1 in header or screw terminal on the logic end.",
