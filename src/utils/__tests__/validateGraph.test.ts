@@ -483,21 +483,39 @@ describe('validateGraph', () => {
       .toHaveLength(0)
   })
 
-  it('refuses an analog amplifier on a board with no DAC to feed it', () => {
+  it('refuses a power amplifier on a board with no DAC to feed it', () => {
     // The part is present and still cannot make a sound: it takes line level,
-    // and only the classic ESP32 can produce any.
+    // and with no DAC on the bench only the classic ESP32 can produce any.
     const show = [
       node('pg', 'PerformanceGenerator'),
       node('sd', 'SDCard'),
       node('out', 'MatrixOutput'),
-      node('amp', 'Amplifier', { model: 'pam8403-3w-stereo-amplifier' }),
+      node('amp', 'PowerAmplifier', { partId: 'pam8403-3w-stereo-amplifier' }),
     ]
     const edges = [
       { id: 'e', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
     ]
     expect(validateGraph(show, edges, 'esp32:esp32:esp32s3').errors
-      .some((e) => e.includes('cannot make a sound on this board'))).toBe(true)
+      .some((e) => e.includes('power amplifier has nothing to feed it'))).toBe(true)
     expect(validateGraph(show, edges, 'esp32:esp32:esp32').errors).toHaveLength(0)
+    // A DAC in the chain is the fix the message names, and it works on the S3.
+    const chained = [...show, node('dac', 'Amplifier', { model: 'pcm5102a-i2s-dac' })]
+    expect(validateGraph(chained, edges, 'esp32:esp32:esp32s3').errors).toHaveLength(0)
+  })
+
+  it('refuses a speaker amplifier feeding a power amplifier, in both views', () => {
+    const nodes = [
+      node('out', 'MatrixOutput'),
+      node('amp', 'Amplifier', { model: 'max98357a-i2s-amplifier' }),
+      node('power', 'PowerAmplifier', { partId: 'dx-0809-stereo-amplifier' }),
+    ]
+    const errors = validateGraph(nodes, [], 'esp32:esp32:esp32s3').errors
+    expect(errors.some((e) => e.includes('A speaker amplifier cannot feed a power amplifier'))).toBe(true)
+    const diagnostic = buildGraphDiagnostics(nodes, [], { selectedFqbn: 'esp32:esp32:esp32s3' })
+      .find((entry) => entry.id === 'power-speaker-feed')
+    expect(diagnostic?.severity).toBe('error')
+    expect(diagnostic?.nodeIds).toEqual(['power', 'amp'])
+    expect(diagnostic?.fix).toMatch(/PCM5102A or UDA1334A/)
   })
 
   it('blocks HUB75 on boards without the LCD-mode DMA peripheral', () => {

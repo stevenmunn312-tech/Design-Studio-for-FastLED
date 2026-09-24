@@ -28,6 +28,7 @@ import { PART_FIELDS } from '../state/partFields'
 import type { BusAssignment } from '../state/busTopology'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { resolvePartIdentity } from '../state/partOptions'
+import { hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed } from '../state/audioOutput'
 import { micModuleFor } from '../state/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/buttonBank'
@@ -104,6 +105,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'RTCInput',
   'SDCard',
   'Amplifier',
+  'PowerAmplifier',
   'MotionInput',
   'LightInput',
   'IRRemoteInput',
@@ -367,39 +369,39 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
           })
         }
         /*
-         * The internal DAC has no Amplifier part — it *is* the output stage,
+         * The internal DAC has no part of its own — it *is* the output stage,
          * on two pins the library fixes for us, so they are claimed here.
          *
-         * A card with no amplifier means either the internal DAC or no output
-         * at all, and this walk has no board to tell them apart. Claiming the
-         * pins in both cases is the safe way to be wrong: the no-output case
-         * is already an error, and holding 25/26 stops something else taking
-         * pins the DAC would need on the board where it does work.
+         * A card with no audio stage means either the internal DAC or no
+         * output at all, and this walk has no board to tell them apart.
+         * Claiming the pins in both cases is the safe way to be wrong: the
+         * no-output case is already an error, and holding 25/26 stops
+         * something else taking pins the DAC would need on the board where it
+         * does work. A power amplifier on the bench claims them itself.
          */
-        if (!nodes.some((entry) => entry.data.nodeType === 'Amplifier')) {
+        if (!hasAudioOutputStage(nodes)) {
           push(node, `${baseLabel} internal DAC L (GPIO25)`, 'internalDacLeft', 25)
           push(node, `${baseLabel} internal DAC R (GPIO26)`, 'internalDacRight', 26)
         }
         break
-      case 'Amplifier': {
+      case 'PowerAmplifier':
         /*
-         * An analog amplifier has no I2S receiver in it: the board hands it
-         * line level from its own DAC, on the two pins the library fixes. It
-         * claims those instead of three I2S pins it cannot listen to — the
-         * same split `audioOutputMode` makes, made here so the diagram draws
-         * the wires that actually exist.
+         * An analog power amplifier has no I2S receiver in it. Fed by a DAC it
+         * touches no GPIO at all — its line in comes off the DAC's line out —
+         * and fed by nothing else it takes line level from the classic ESP32's
+         * own DAC, on the two pins the library fixes.
+         *
+         * Distinct keys, not one `internalDac` for both: the diagram builds a
+         * connection id from `${item.id}:${propertyKey}`, so a shared key
+         * collapses the pair into one id — the two DAC pins rendered as a
+         * duplicate of GPIO25 with GPIO26 missing.
          */
-        const identity = resolvePartIdentity('Amplifier', props)
-        if (identity?.option.input === 'analog') {
-          // Distinct keys, not one `internalDac` for both: the diagram builds a
-          // connection id from `${item.id}:${propertyKey}`, so a shared key
-          // collapses the pair into one id — the two DAC pins rendered as a
-          // duplicate of GPIO25 with GPIO26 missing. They are a stereo pair, so
-          // name them as one.
+        if (powerAmplifierFeed(nodes) === 'internalDac') {
           push(node, `${baseLabel} line in L (GPIO25)`, 'internalDacLeft', 25)
           push(node, `${baseLabel} line in R (GPIO26)`, 'internalDacRight', 26)
-          break
         }
+        break
+      case 'Amplifier': {
         push(node, `${baseLabel} I2S BCLK`, 'i2sBclk', props.i2sBclk)
         push(node, `${baseLabel} I2S LRC`, 'i2sLrc', props.i2sLrc)
         push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
@@ -740,20 +742,50 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       case 'Amplifier': {
         const identity = resolvePartIdentity('Amplifier', node.data.properties as Record<string, unknown>)
         const partId = identity?.option.id ?? 'max98357a-i2s-amplifier'
-        const analog = identity?.option.input === 'analog'
         // Named by the module, not by the role: "Amplifier" on a bench holding
         // a PCM5102A would be wrong twice over — it is a DAC, and it is line
         // level. The part's own summary already says which.
         return {
           ...buildPeripheralItem(node, 'amplifier', identity?.option.summary ?? 'Audio output module', pins),
           title: identity?.entry?.label ?? identity?.option.label ?? nodeLabel(node),
-          supported: analog
-            ? pins.some((pin) => pin.propertyKey === 'internalDac')
-            : ['i2sBclk', 'i2sLrc', 'i2sDout'].every((key) => pins.some((pin) => pin.propertyKey === key)),
-          facts: { partId, input: analog ? 'analog' : 'i2s' },
-          reasons: analog || pins.length === 3
+          supported: ['i2sBclk', 'i2sLrc', 'i2sDout'].every((key) => pins.some((pin) => pin.propertyKey === key)),
+          facts: { partId, stage: 'i2s', output: identity?.option.output ?? 'speaker' },
+          reasons: pins.length === 3
             ? undefined
             : ['This audio module has no complete set of I2S pins configured.'],
+        }
+      }
+      case 'PowerAmplifier': {
+        const identity = resolvePartIdentity('PowerAmplifier', node.data.properties as Record<string, unknown>)
+        const partId = identity?.option.id ?? 'pam8403-3w-stereo-amplifier'
+        const feed = powerAmplifierFeed(nodes) ?? 'internalDac'
+        const source = i2sAudioStage(nodes)
+        const sourceIdentity = source
+          ? resolvePartIdentity('Amplifier', source.data.properties as Record<string, unknown>)
+          : null
+        // The full title matches the DAC's own row on the sheet and in the
+        // connection table; the short module name fits a caption.
+        const sourceTitle = source
+          ? sourceIdentity?.entry?.label ?? sourceIdentity?.option.label ?? nodeLabel(source)
+          : null
+        const reasons = feed === 'speakerAmp'
+          ? [`${sourceTitle ?? 'The I2S amplifier'} drives a speaker, not a line input — use a PCM5102A or UDA1334A to feed this amplifier.`]
+          : feed === 'internalDac' && pins.length !== 2
+            ? ['Nothing feeds this amplifier line level.']
+            : undefined
+        return {
+          ...buildPeripheralItem(node, 'amplifier', identity?.option.summary ?? 'Analog power amplifier', pins),
+          title: identity?.entry?.label ?? identity?.option.label ?? nodeLabel(node),
+          // Fed by a DAC it has no GPIO, and that is complete rather than
+          // missing: its line in comes off the DAC's line out.
+          supported: reasons === undefined,
+          facts: {
+            partId,
+            stage: 'power',
+            feed,
+            ...(sourceTitle ? { fedBy: sourceTitle, fedByModule: sourceIdentity?.option.label ?? sourceTitle } : {}),
+          },
+          reasons,
         }
       }
       default:

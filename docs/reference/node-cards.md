@@ -1086,6 +1086,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Amplifier example graph](../../public/node-cards/graphs/amplifier.svg)
 
+### Power Amplifier
+
+![Power Amplifier node](../../public/node-cards/power-amplifier.svg)
+
+![Power Amplifier example graph](../../public/node-cards/graphs/power-amplifier.svg)
+
 ## Notes
 
 ### Comment

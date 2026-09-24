@@ -12,6 +12,8 @@ import PartIdentity from '../Hardware/PartIdentity'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
 import { normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partPinLabelForProperty } from '../../state/partCatalogue'
+import { i2sAudioStage } from '../../state/audioOutput'
+import { resolvePartIdentity } from '../../state/partOptions'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this
@@ -54,7 +56,18 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     ...Object.keys(props).filter((key) => isGpioPinProperty(nodeType, key)),
     ...declaredFields.filter((field) => field.kind === 'pin').map((field) => field.key),
   ])].filter((key) => isPropertyEnabled(nodeType, key, props))
-  const otherFields = declaredFields.filter((field) => field.kind !== 'pin')
+  // A power amplifier fed by a DAC takes its volume from the DAC — the stage
+  // the board actually drives — so its own field would be a second answer
+  // nothing reads.
+  const volumeStageModel = useGraphStore((s) => nodeType === 'PowerAmplifier'
+    ? i2sAudioStage(rootGraphNodes(s))?.data.properties.model
+    : undefined)
+  const volumeStageLabel = volumeStageModel === undefined
+    ? null
+    : resolvePartIdentity('Amplifier', { model: volumeStageModel })?.option.label ?? 'I2S stage'
+  const otherFields = declaredFields
+    .filter((field) => field.kind !== 'pin')
+    .filter((field) => !(volumeStageLabel && field.key === 'maxVolume'))
   const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []
   const updateButton = (entryId: string, patch: Record<string, unknown>) => {
     updateNodeProperty(nodeId, 'buttons', buttonEntries.map((entry) =>
@@ -149,6 +162,9 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
         </div>
       )}
 
+      {volumeStageLabel && (
+        <p className={styles.bankEmpty}>Volume is set on the {volumeStageLabel}, the part the board drives.</p>
+      )}
       {otherFields.length > 0 && (
         <div className={styles.detail}>
         {otherFields.map((field) => (

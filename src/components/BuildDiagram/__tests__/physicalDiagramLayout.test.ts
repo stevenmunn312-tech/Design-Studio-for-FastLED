@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { ElectricalPlanSummary } from '../../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../../build/powerDistribution'
+import { partById } from '../../../state/partCatalogue'
+import { partOptionsFor } from '../../../state/partOptions'
 import {
   COMMON_NET_CALLOUT_GAP,
   COMMON_NET_CALLOUT_HEIGHT,
@@ -15,6 +17,7 @@ import {
   fuseSlotForFeed,
   groundCombLaneY,
   itemLayouts,
+  MODULE_PAD_GEOMETRY,
   peripheralPadPoint,
   physicalAssemblyDiagramHeight,
   POWER_BRANCH_ROW_SPACING,
@@ -69,6 +72,42 @@ describe('audio module pads', () => {
       // ...and in silkscreen order, left to right.
       expect([...xs].sort((a, b) => a - b)).toEqual(xs)
     }
+  })
+
+  /*
+   * Derived from what the Add Hardware menu offers, so a module added to
+   * either audio stage fails here until its pads are measured. The fallback
+   * for a missing entry is an even spread across the picture, which draws a
+   * plausible diagram whose wires meet the board nowhere near its terminals.
+   */
+  it.each([...partOptionsFor('Amplifier'), ...partOptionsFor('PowerAmplifier')].map((option) => option.id))(
+    'measures one pad point per catalogued pad on %s',
+    (partId) => {
+      const pads = partById(partId)?.pinLabelsLeftToRight ?? []
+      expect(pads.length, partId).toBeGreaterThan(0)
+      expect(MODULE_PAD_GEOMETRY[partId]?.length, partId).toBe(pads.length)
+    },
+  )
+
+  it('puts a 12 V power amplifier on its own supply, and finds its line inputs', () => {
+    const power = (partId: string): HardwareManifestItem => ({
+      ...audioModule(partId),
+      sourceNodeType: 'PowerAmplifier',
+      facts: { partId, stage: 'power', feed: 'internalDac' },
+    })
+    expect(peripheralPowerNet(power('dx-0809-stereo-amplifier'))).toBe('v12')
+    expect(peripheralPowerNet(power('pam8610-stereo-amplifier'))).toBe('v12')
+    // A 5 V class-D board stays on the controller rail.
+    expect(peripheralPowerNet(power('pam8403-3w-stereo-amplifier'))).toBe('v5')
+
+    const dx = power('dx-0809-stereo-amplifier')
+    expect(peripheralPadLabel(dx, peripheralSignalPadIndex(dx, 0))).toBe('AUX-L')
+    expect(peripheralPadLabel(dx, peripheralSignalPadIndex(dx, 1))).toBe('AUX-R')
+    expect(peripheralPadLabel(dx, peripheralPowerPadIndex(dx))).toBe('+12V')
+    expect(peripheralPadLabel(dx, peripheralGroundPadIndex(dx))).toBe('GND')
+    const pam = power('pam8610-stereo-amplifier')
+    expect(peripheralPadLabel(pam, peripheralSignalPadIndex(pam, 0))).toBe('INL')
+    expect(peripheralPadLabel(pam, peripheralSignalPadIndex(pam, 1))).toBe('INR')
   })
 
   it('labels pads from the catalogue rather than a hardcoded guess', () => {

@@ -39,6 +39,13 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'i2sDout', label: 'DIN', kind: 'pin' },
     { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
   ],
+  // Volume only: a power amplifier has no GPIO to set. The decoder applies it
+  // only when this part is fed straight from the internal DAC; with a DAC in
+  // the chain, the DAC's volume is the one the board drives, and the panel
+  // hides this one rather than show two answers.
+  PowerAmplifier: [
+    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
+  ],
   // Storage, and only storage. Audio output is derived from the parts present
   // (state/audioOutput.ts) rather than set here.
   SDCard: [

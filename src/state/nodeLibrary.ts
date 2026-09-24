@@ -1,5 +1,4 @@
 import type { NodeDefinition } from '../types'
-import { resolvePartIdentity } from './partOptions'
 import { STUDIO_PALETTES } from './paletteCatalog'
 import { evaluateScalarExpression } from './scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
@@ -3867,6 +3866,28 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       maxVolume: 18,
     },
   },
+  {
+    // The analog power amplifier at the end of the output chain: line level
+    // in, speakers out. A separate part from Amplifier because it is a
+    // separate role — a PCM5102A feeding a DX-0809 is two parts on one bench,
+    // and only the first is on the board's pins. It claims no GPIO when a DAC
+    // feeds it, and the classic ESP32's GPIO25/26 when nothing else does; see
+    // state/audioOutput.ts for how the feed is resolved.
+    //
+    // Config only, like Amplifier: no ports, no evaluation.
+    type: 'PowerAmplifier',
+    label: 'Power Amplifier',
+    category: 'output',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: 'pam8403-3w-stereo-amplifier',
+      // The decoder's software volume, used only when this part is fed
+      // straight from the internal DAC. With a DAC in the chain the DAC is the
+      // stage the board drives, and its volume is the one applied.
+      maxVolume: 18,
+    },
+  },
 
   // ── Notes ──────────────────────────────────────────────────────────────
   {
@@ -3952,6 +3973,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PerformanceGenerator: 'Converts analysed music into timed LED show files.',
   SDCard: 'SD card and audio pins for the music-sync player; a bench part, not wired.',
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
+  PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -6104,15 +6126,6 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
       return true
     }
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
-  }
-  if (nodeType === 'Amplifier') {
-    if (key === 'i2sBclk' || key === 'i2sLrc' || key === 'i2sDout') {
-      // An analog amplifier has no I2S receiver in it. It is fed line level
-      // from the board's own DAC, so an I2S pin trio here would describe
-      // wiring that does not exist and invite someone to run three jumpers to
-      // pads that are not there.
-      return resolvePartIdentity('Amplifier', properties)?.option.input !== 'analog'
-    }
   }
   if (nodeType === 'ScheduleTrigger') {
     if (key === 'endHour' || key === 'endMinute' || key === 'endSecond') {

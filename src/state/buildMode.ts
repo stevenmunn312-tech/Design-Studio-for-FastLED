@@ -11,6 +11,19 @@ export interface BuildModeNode {
   data: { nodeType: string; properties: Record<string, unknown> }
 }
 
+/**
+ * Every node type that is a stage of the audio output chain: the I2S stage on
+ * the board's pins, and the analog power amplifier after it. Either one is
+ * enough to say this build turns the decoded song into sound — see
+ * state/audioOutput.ts for how the two are told apart.
+ */
+const AUDIO_OUTPUT_STAGE_NODE_TYPES: ReadonlySet<string> = new Set(['Amplifier', 'PowerAmplifier'])
+
+/** True when anything on the bench turns the decoded song into sound. */
+export function hasAudioOutputStage(nodes: readonly { data: { nodeType: string } }[]): boolean {
+  return nodes.some((node) => AUDIO_OUTPUT_STAGE_NODE_TYPES.has(node.data.nodeType))
+}
+
 export interface BuildModeEdge {
   source: string
   target: string
@@ -192,7 +205,7 @@ export function resolveBuildMode<T extends BuildModeNode>(
   const outputs = new Set(nodes.filter((node) => node.data.nodeType === 'MatrixOutput').map((node) => node.id))
   const hasAnyFrameOutput = edges.some((edge) => (edge.targetHandle ?? '') === 'frame' && outputs.has(edge.target))
   const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
-  const hasAmplifier = nodes.some((node) => node.data.nodeType === 'Amplifier')
+  const hasAmplifier = hasAudioOutputStage(nodes)
   const hasStandaloneVu = standaloneVuOutput(nodes)
   const hasStandaloneDisplay = standaloneDisplayOutput(nodes, edges)
 

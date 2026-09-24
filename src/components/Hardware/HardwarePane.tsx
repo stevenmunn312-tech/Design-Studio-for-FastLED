@@ -22,6 +22,7 @@ import {
 import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/buttonBank'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
+import { powerAmplifierFeed } from '../../state/audioOutput'
 import { IR_RECEIVER_MODULES } from '../../state/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
 import { MIC_MODULES } from '../../state/micModules'
@@ -321,6 +322,17 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
       { key: 'i2sLrc', label: 'LRC' },
       { key: 'i2sDout', label: 'DIN' },
     ],
+    singleton: true,
+  },
+  {
+    // The analog end of the output chain. No pin fields: fed by a DAC it has
+    // no GPIO, and fed by the classic ESP32's own DAC its two pins are fixed.
+    nodeType: 'PowerAmplifier',
+    partId: 'power-amplifier',
+    label: 'Power Amplifier',
+    hint: 'Line level in, speakers out',
+    footprint: partDimensionsMm('pam8403-3w-stereo-amplifier', { width: 23, height: 16 }),
+    render: partRenderSrc('pam8403-3w-stereo-amplifier') ?? undefined,
     singleton: true,
   },
 ]
@@ -863,14 +875,12 @@ export default function HardwarePane() {
     const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
     const chosen = identity?.entry
     const moduleKeys = modulePinKeys(entry.nodeType, identity?.option.id)
-    const pinFields = identity?.option.input === 'analog'
-      ? []
-      : moduleKeys
-        ? moduleKeys.map((key) => ({
-          key,
-          label: partPinLabelForProperty(identity?.option.id ?? '', key) ?? MODULE_PIN_LABELS[key] ?? key,
-        }))
-        : entry.pinFields ?? []
+    const pinFields = moduleKeys
+      ? moduleKeys.map((key) => ({
+        key,
+        label: partPinLabelForProperty(identity?.option.id ?? '', key) ?? MODULE_PIN_LABELS[key] ?? key,
+      }))
+      : entry.pinFields ?? []
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = numericPinSummary(props, pinFields)
     const vuLedCount = entry.nodeType === 'StereoVuMeter'
@@ -1047,6 +1057,11 @@ export default function HardwarePane() {
         heightMm: part.entry.footprint.height,
         run: (part.run as HardwarePartRun | null) ?? undefined,
       })
+      // A power amplifier is wired to the board only when the board's own DAC
+      // feeds it. Fed by a DAC it hangs off that module's line out, a run the
+      // bench has no lane for — so it draws none rather than a board run that
+      // does not exist.
+      if (part.node.data.nodeType === 'PowerAmplifier' && powerAmplifierFeed(nodes) !== 'internalDac') continue
       links.push({ source: BOARD_PART_ID, target: part.partId })
     }
     const usableWidth = Math.max(120, stageBox.width - leftInset - rightInset - 48)
@@ -1056,7 +1071,7 @@ export default function HardwarePane() {
       { width: usableWidth, height: Math.max(1, stageBox.height), offsetX: leftInset + 24 },
       BOARD_PART_ID,
     )
-  }, [boardBoxMm, fixtureParts, inputParts, ledOutputs, leftInset, rightInset, stageBox])
+  }, [boardBoxMm, fixtureParts, inputParts, ledOutputs, leftInset, rightInset, nodes, stageBox])
 
   const placed = useMemo(
     () => new Map((arrangement?.parts ?? []).map((part) => [part.id, part])),
@@ -1511,14 +1526,8 @@ export default function HardwarePane() {
     const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
     if (!definition || (entry.singleton && hasPartOfType(entry.nodeType))) return
     const moduleProperty = partOptionProperty(entry.nodeType)
-    const chosen = moduleId
-      ? partOptionsFor(entry.nodeType).find((option) => option.id === moduleId)
-      : undefined
     const amp = boardProfile?.peripheralPins?.max98357
     const sdSpiPins = entry.nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, selectedFqbn) : null
-    // Only a module with an I2S receiver gets the board's I2S trio. An analog
-    // amplifier takes line level from the DAC, so handing it BCLK/LRC/DIN
-    // would be three pin assignments for a connection it does not have.
     // A part the board profile does not place picks free GPIO the same way an
     // input part does, so a second display lands on its own pins rather than
     // silently colliding with the first.
@@ -1539,7 +1548,7 @@ export default function HardwarePane() {
         }
       : requested
         ? requested.pins
-        : entry.profilePins && amp && chosen?.input !== 'analog'
+        : entry.profilePins && amp
           ? Object.fromEntries(
             Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
           )
@@ -1730,6 +1739,7 @@ export default function HardwarePane() {
 
   const sdCardFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SDCard')
   const amplifierFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'Amplifier')
+  const powerAmplifierFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerAmplifier')
   const segmentDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'SegmentDisplay')
   const infoDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'InfoDisplay')
   const transportDisplayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'TransportDisplay')
@@ -1779,7 +1789,12 @@ export default function HardwarePane() {
       id: 'amplifiers',
       label: 'Amplifiers & DACs',
       hint: 'How sound gets off the board',
-      items: moduleItems('Amplifier', amplifierFixture),
+      // Both halves of an output chain: the I2S stage on the board's pins,
+      // then the analog power amplifier a DAC can feed.
+      items: [
+        ...moduleItems('Amplifier', amplifierFixture),
+        ...moduleItems('PowerAmplifier', powerAmplifierFixture),
+      ],
     },
     {
       id: 'displays',
@@ -1895,7 +1910,9 @@ export default function HardwarePane() {
                     dataType="audio"
                     color={CATEGORY_COLOR.output}
                     effects={uiEffectsEnabled}
-                    label={`Board I2S out to the ${part.entry.label.toLowerCase()}`}
+                    label={part.node.data.nodeType === 'PowerAmplifier'
+                      ? `Board DAC line out to the ${part.entry.label}`
+                      : `Board I2S out to the ${part.entry.label.toLowerCase()}`}
                     visualScale={linkVisualScale}
                     {...link}
                   />

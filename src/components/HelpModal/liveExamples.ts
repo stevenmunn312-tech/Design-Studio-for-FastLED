@@ -992,8 +992,24 @@ function amplifierExample(node: NodeDefinition): ReferenceLiveExample {
   builder.wire('music', 'music', 'performance', 'music')
   return builder.finish(
     'Name the amplifier the show player drives',
-    'Amplifier carries no noodles — it names the I2S amp that the music-sync show player feeds, and owns its BCLK/LRC/DIN pins. Those used to sit on SD Card, which mixed up where the songs are stored with what turns them into sound: two separate parts you buy, wire, and can get wrong independently.',
+    'Amplifier carries no noodles — it names the I2S amp or DAC that the music-sync show player feeds, and owns its BCLK/LRC/DIN pins. Those used to sit on SD Card, which mixed up where the songs are stored with what turns them into sound: two separate parts you buy, wire, and can get wrong independently.',
     'Amplifier affects the generated player firmware and pin validation rather than the LED preview. With no Amplifier on the canvas the player falls back to its built-in pin defaults.',
+    'workflow',
+  )
+}
+
+function powerAmplifierExample(node: NodeDefinition): ReferenceLiveExample {
+  const builder = new ExampleBuilder(node.type)
+  builder.add('music', 'MusicLibrary')
+  builder.add('performance', 'PerformanceGenerator')
+  builder.add('sd', 'SDCard')
+  builder.add('dac', 'Amplifier', { model: 'pcm5102a-i2s-dac' })
+  builder.add('target', node.type, { partId: 'dx-0809-stereo-amplifier' })
+  builder.wire('music', 'music', 'performance', 'music')
+  return builder.finish(
+    'Put a power amplifier after the DAC',
+    'Power Amplifier carries no noodles — it names the analog amp at the end of the chain that plays the show and its songs. A PCM5102A or UDA1334A takes I2S from the board and hands it line level; the power amplifier takes that line level and drives the speakers, so it needs no GPIO of its own. With no DAC on the bench it takes line level from the built-in DAC of the classic ESP32 on GPIO25/26 instead, which no other board has.',
+    'Power Amplifier affects validation, the wiring diagram and the audio output mode of the player rather than the LED preview. A 12 V amplifier is drawn on its own supply, never on the 5 V rail of the controller.',
     'workflow',
   )
 }
@@ -1574,6 +1590,7 @@ export function buildGenericLiveExample(node: NodeDefinition): ReferenceLiveExam
   if (node.type === 'MatrixOutput') return matrixOutputExample(node)
   if (node.type === 'Board') return boardExample(node)
   if (node.type === 'Amplifier') return amplifierExample(node)
+  if (node.type === 'PowerAmplifier') return powerAmplifierExample(node)
   if (node.type === 'Comment') return commentExample(node)
   if (node.type === 'Transition') return transitionExample(node)
   if (node.type === 'Sequencer') return sequencerExample(node)

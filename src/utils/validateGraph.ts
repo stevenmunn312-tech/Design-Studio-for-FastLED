@@ -13,7 +13,7 @@ import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../st
 import { paletteBankEntries } from '../state/paletteBank'
 import type { SignalRangeMismatch } from '../state/signalRange'
 import { playerControlFunction } from '../state/playerControlAssignments'
-import { audioOutputMissing } from '../state/audioOutput'
+import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed, powerAmplifierStage } from '../state/audioOutput'
 import { resolveShowTarget } from '../state/showTarget'
 import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
@@ -63,7 +63,7 @@ import { micSupportedForBoard, micUnsupportedMessage } from '../state/micPinDefa
 import { controllerSettings } from '../state/controllerSettings'
 import { isHardwareManagedSignalNodeType } from '../state/hardware'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../state/pinRetarget'
-import { partOptionsFor } from '../state/partOptions'
+import { partOptionsFor, resolvePartIdentity } from '../state/partOptions'
 import { displayHasTouch, partById } from '../state/partCatalogue'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
@@ -1175,11 +1175,10 @@ export function findShowRequirementErrors(
   // emit code for the one that is actually there. Inferring it from what the
   // board *could* do meant a graph with no audio module at all still generated
   // a confident I2S sketch (or a DAC one) for hardware nobody had described.
-  const amplifier = nodes.find((node) => node.data.nodeType === 'Amplifier')
-  if (!amplifier) {
-    errors.push('The music show has nothing to play the song through — add an Amplifier in the hardware view (a MAX98357A drives a speaker directly; an I2S DAC or analog amp are the other shapes)')
+  if (!hasAudioOutputStage(nodes)) {
+    errors.push('The music show has nothing to play the song through — add an Amplifier in the hardware view (a MAX98357A drives a speaker directly; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers)')
   } else if (audioOutputMissing(nodes, selectedFqbn)) {
-    errors.push('The SD show\'s audio module cannot make a sound on this board — an analog amplifier needs line level from an internal DAC, which only the classic ESP32 has')
+    errors.push('The SD show\'s power amplifier has nothing to feed it on this board — with no DAC on the bench it needs the internal DAC, which only the classic ESP32 has. Add a PCM5102A or UDA1334A to feed it')
   }
 
   return errors
@@ -1478,6 +1477,7 @@ export function findDeployBlockingErrors(
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findStepValueErrors(nodes),
+    ...findAudioChainErrors(nodes),
     ...findHub75ConfigErrors(nodes),
     ...findScalarExpressionErrors(nodes),
     ...findFormulaErrors(nodes),
@@ -1723,6 +1723,36 @@ function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   return issues
 }
 
+/**
+ * An output chain that cannot be wired, whatever the graph plays.
+ *
+ * A power amplifier takes line level. A DAC's line out is that; a MAX98357A's
+ * bridge-tied speaker output is not — neither of its legs is ground, and
+ * wiring one into a line input shorts half the bridge through the input's
+ * return. It is refused as a bench description rather than as a show problem,
+ * because the parts are wrong before any sketch is built.
+ */
+function audioChainValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
+  if (powerAmplifierFeed(nodes) !== 'speakerAmp') return []
+  const power = powerAmplifierStage(nodes)!
+  const stage = i2sAudioStage(nodes)!
+  // Named by module: both nodes are titled by their role on a hidden bench,
+  // and "Amplifier cannot feed Power Amplifier" says nothing about the parts.
+  const moduleName = (node: StudioNode) =>
+    resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)?.option.label ?? nodeLabel(node)
+  return [{
+    id: `${power.id}-speaker-feed`, severity: 'error', category: 'pins',
+    title: 'A speaker amplifier cannot feed a power amplifier',
+    message: `The ${moduleName(stage)} drives a speaker from a bridge-tied output, not line level, so the ${moduleName(power)} has nothing it can take as an input.`,
+    fix: 'Swap the MAX98357A for a PCM5102A or UDA1334A DAC, whose line out feeds the power amplifier — or remove the power amplifier and let the MAX98357A drive the speaker.',
+    nodeIds: [power.id, stage.id], nodeLabel: moduleName(power),
+  }]
+}
+
+export function findAudioChainErrors(nodes: StudioNode[]): string[] {
+  return audioChainValidationIssues(nodes).map(validationIssueMessage)
+}
+
 export function findIrRemoteErrors(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -1782,7 +1812,7 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
   for (const master of nodes.filter((node) => node.data.nodeType === 'PatternMaster')) {
     if (!reachesOutput(master)) continue
     const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
-    const hasAmplifier = nodes.some((node) => node.data.nodeType === 'Amplifier')
+    const hasAmplifier = hasAudioOutputStage(nodes)
     if (hasCard && hasAmplifier) continue
     const missing = !hasCard && !hasAmplifier
       ? 'an SD card and an amplifier'
@@ -2776,6 +2806,7 @@ export function buildGraphDiagnostics(
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...stepValueValidationIssues(nodes))
+  diagnostics.push(...audioChainValidationIssues(nodes))
 
   for (const meter of nodes.filter((node) => node.data.nodeType === 'StereoVuMeter')) {
     const props = meter.data.properties as Record<string, unknown>
@@ -3253,21 +3284,21 @@ export function buildGraphDiagnostics(
     // The board's own pins are not an answer here: an I2S amplifier, an I2S DAC
     // and an analog amp are three parts wired three ways, and the player emits
     // code for whichever one is on the bench.
-    const amplifier = nodes.find((node) => node.data.nodeType === 'Amplifier')
-    if (!amplifier) {
+    if (!hasAudioOutputStage(nodes)) {
       diagnostics.push({
         id: `${generator.id}-show-audio`, severity: 'error', category: 'show',
         title: 'The music show has nothing to play the song through',
         message: 'Nothing on the bench turns the decoded song into sound, so the player has no audio hardware to generate code for.',
-        fix: 'Add an Amplifier in the hardware view. A MAX98357A drives a speaker straight off I2S; an I2S DAC or an analog amp are the other shapes.',
+        fix: 'Add an Amplifier in the hardware view. A MAX98357A drives a speaker straight off I2S; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
       })
     } else if (audioOutputMissing(nodes, options.selectedFqbn ?? '')) {
+      const amplifier = powerAmplifierStage(nodes) ?? generator
       diagnostics.push({
         id: `${amplifier.id}-audio-out`, severity: 'error', category: 'board',
-        title: 'This audio module cannot make a sound on this board',
-        message: 'An analog amplifier needs line level, which comes from an internal DAC — and only the classic ESP32 has one.',
-        fix: 'Switch to an I2S module (MAX98357A, PCM5102A, UDA1334A), or choose a classic ESP32.',
+        title: 'Nothing feeds this power amplifier on this board',
+        message: 'A power amplifier takes line level. With no DAC on the bench that has to come from the internal DAC, and only the classic ESP32 has one.',
+        fix: 'Add a PCM5102A or UDA1334A in the hardware view to feed it, or choose a classic ESP32.',
         nodeIds: [amplifier.id], nodeLabel: nodeLabel(amplifier),
       })
     }

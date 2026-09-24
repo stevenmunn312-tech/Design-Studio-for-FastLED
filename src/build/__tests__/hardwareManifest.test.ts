@@ -219,19 +219,22 @@ describe('hardwareManifest', () => {
     expect(manifest.primaryItems.some((item) => item.kind === 'amplifier')).toBe(true)
   })
 
-  it('claims line-in pins for an analog amplifier, not I2S it cannot listen to', () => {
-    // A PAM8403 has no I2S receiver: the classic ESP32 hands it line level from
-    // its own DAC. Drawing three I2S wires to it would be a diagram of a build
-    // that cannot make a sound.
+  it('claims line-in pins for an unfed power amplifier, not I2S it cannot listen to', () => {
+    // A PAM8403 has no I2S receiver: with nothing ahead of it, the classic
+    // ESP32 hands it line level from its own DAC. Drawing three I2S wires to it
+    // would be a diagram of a build that cannot make a sound.
     const manifest = buildHardwareManifest([
       node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
       node('sd', 'SDCard', { sdCsPin: 5 }),
-      node('amp', 'Amplifier', { model: 'pam8403-3w-stereo-amplifier', i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+      node('amp', 'PowerAmplifier', { partId: 'pam8403-3w-stereo-amplifier' }),
     ], [], 'esp32:esp32:esp32')
 
     const amp = manifest.items.find((item) => item.sourceNodeId === 'amp')
-    expect(amp?.facts.input).toBe('analog')
+    expect(amp?.kind).toBe('amplifier')
+    expect(amp?.facts).toMatchObject({ stage: 'power', feed: 'internalDac' })
     expect(amp?.pins.map((pin) => pin.pin)).toEqual([25, 26])
+    // Unfed, the classic ESP32 is the source: complete, not missing wiring.
+    expect(amp?.supported).toBe(true)
 
     // Distinct property keys, because the diagram builds a connection id from
     // `${item.id}:${propertyKey}`. Sharing one `internalDac` key collapsed the
@@ -239,6 +242,44 @@ describe('hardwareManifest', () => {
     // twice with GPIO26 missing entirely.
     expect(amp?.pins.map((pin) => pin.propertyKey)).toEqual(['internalDacLeft', 'internalDacRight'])
     expect(new Set(amp?.pins.map((pin) => pin.propertyKey)).size).toBe(2)
+    // The card's own claim on 25/26 steps aside for the part that uses them.
+    const sd = manifest.items.find((item) => item.sourceNodeId === 'sd')
+    expect(sd?.pins.some((pin) => pin.pin === 25 || pin.pin === 26)).toBe(false)
+  })
+
+  /*
+   * The first bench part with no board connection at all. Fed by a DAC it is
+   * complete with an empty pin list, and it must not free 25/26 for the card
+   * to reclaim either — the DAC is the output stage.
+   */
+  it('gives a DAC-fed power amplifier no GPIO, and names what feeds it', () => {
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
+      node('sd', 'SDCard', { sdCsPin: 5 }),
+      node('power', 'PowerAmplifier', { partId: 'dx-0809-stereo-amplifier' }),
+      node('dac', 'Amplifier', { model: 'pcm5102a-i2s-dac', i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    const power = manifest.items.find((item) => item.sourceNodeId === 'power')
+    expect(power?.pins).toEqual([])
+    expect(power?.supported).toBe(true)
+    expect(power?.facts).toMatchObject({ stage: 'power', feed: 'dac', partId: 'dx-0809-stereo-amplifier' })
+    expect(String(power?.facts.fedBy)).toContain('PCM5102A')
+    const dac = manifest.items.find((item) => item.sourceNodeId === 'dac')
+    expect(dac?.facts).toMatchObject({ stage: 'i2s', output: 'line' })
+    const sd = manifest.items.find((item) => item.sourceNodeId === 'sd')
+    expect(sd?.pins.some((pin) => pin.pin === 25 || pin.pin === 26)).toBe(false)
+  })
+
+  it('marks a power amplifier after a speaker amplifier unsupported, with the reason', () => {
+    const manifest = buildHardwareManifest([
+      node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
+      node('power', 'PowerAmplifier', { partId: 'pam8610-stereo-amplifier' }),
+      node('amp', 'Amplifier', { model: 'max98357a-i2s-amplifier', i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+    ], [], 'esp32:esp32:esp32')
+    const power = manifest.items.find((item) => item.sourceNodeId === 'power')
+    expect(power?.supported).toBe(false)
+    expect(power?.reasons?.join(' ')).toMatch(/PCM5102A or UDA1334A/)
   })
 
   it('draws the PIR and the LDR, and claims the pins they sit on', () => {

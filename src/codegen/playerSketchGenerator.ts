@@ -52,7 +52,7 @@ import {
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
 } from './segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
-import { audioOutputMode } from '../state/audioOutput'
+import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
 import type { StudioNode } from '../state/graphStore'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
@@ -130,7 +130,7 @@ interface ConfigNode { id: string; data: { nodeType: string; properties: Record<
 /**
  * Derive the player's hardware config from the graph: LED settings come from
  * the output the show plays on, the card's own pins from SDCard, and the I2S
- * output pins from an Amplifier node.
+ * output pins from an Amplifier node (see state/audioOutput.ts for the chain).
  *
  * The amplifier is found by scanning rather than by a wire — it is a config
  * node like Board. With no Amplifier on the canvas the built-in defaults still
@@ -154,7 +154,11 @@ export function playerConfigFromGraph(
   const sdDefaults = sdSpiPinsForBoard(profileId ? boardProfileById(profileId) : undefined, fqbn)
   const controller = controllerSettings(nodes as StudioNode[])
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
-  const amp = nodes.find((n) => n.data.nodeType === 'Amplifier')?.data.properties ?? {}
+  // The I2S pins come off the stage on the board's pins; the software volume
+  // off whichever stage the board drives, which is a power amplifier when it
+  // is fed straight from the internal DAC.
+  const amp = i2sAudioStage(nodes as StudioNode[])?.data.properties ?? {}
+  const volumeStage = audioVolumeStage(nodes as StudioNode[])?.data.properties ?? {}
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
   const str = (v: unknown, d: string) => (v === undefined || v === null ? d : String(v))
   return {
@@ -181,7 +185,7 @@ export function playerConfigFromGraph(
     i2sBclk:    sanitizePin(amp.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),
     i2sDout:    sanitizePin(amp.i2sDout, DEFAULTS.i2sDout),
-    maxVolume:  sanitizeVolume(amp.maxVolume),
+    maxVolume:  sanitizeVolume(volumeStage.maxVolume),
     ledBrightness: controller.brightness,
     usePsram:   controller.usePsram,
     hub75Props: mo,

@@ -128,13 +128,12 @@ describe('part options', () => {
   })
 
   /*
-   * Every amplifier has to say how sound reaches it. Leaving it unstated is
-   * what let "there is an amplifier" mean "this build uses I2S", which is only
-   * true of the I2S ones — see state/audioOutput.ts.
+   * Every I2S stage has to say what comes out of it, because that decides
+   * whether a power amplifier may follow it — see state/audioOutput.ts.
    */
-  it('makes every amplifier declare whether it takes I2S or line level', () => {
+  it('makes every I2S stage declare a speaker or line-level output', () => {
     for (const option of partOptionsFor('Amplifier')) {
-      expect(option.input, option.label).toMatch(/^(i2s|analog)$/)
+      expect(option.output, option.label).toMatch(/^(speaker|line)$/)
     }
   })
 
@@ -153,11 +152,16 @@ describe('part options', () => {
     }
   })
 
-  it('knows the PAM8403 is the analog one', () => {
-    const identity = resolvePartIdentity('Amplifier', { model: 'pam8403-3w-stereo-amplifier' })!
-    expect(identity.option.input).toBe('analog')
+  it('offers the analog amplifiers as power amplifiers, not I2S stages', () => {
+    const i2s = partOptionsFor('Amplifier').map((option) => option.id)
+    const power = partOptionsFor('PowerAmplifier').map((option) => option.id)
+    expect(power).toEqual(expect.arrayContaining([
+      'pam8403-3w-stereo-amplifier', 'pam8610-stereo-amplifier', 'dx-0809-stereo-amplifier',
+    ]))
+    expect(i2s.filter((id) => power.includes(id))).toEqual([])
+    const identity = resolvePartIdentity('PowerAmplifier', { partId: 'pam8403-3w-stereo-amplifier' })!
     expect(identity.entry?.label).toContain('PAM8403')
-    // Its note is the only place the app explains why an ESP32-S3 cannot use it.
+    // Its note is the only place the app says what can feed it.
     expect(identity.notes.join(' ')).toMatch(/DAC/)
   })
 })

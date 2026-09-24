@@ -3,6 +3,7 @@ import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './electricalPlan'
 import { boardPinLabelForUse, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
 import { fuseBlockAllocations } from './powerDistribution'
+import { partById } from '../state/partCatalogue'
 
 export interface BuildConnectionRow {
   from: string
@@ -66,6 +67,19 @@ export function buildConnectionRows(
     }
     if (item.kind === 'mic-input' || item.kind === 'pot-input' || item.kind === 'rtc-input') {
       rows.push({ from: controller, fromTerminal: '3V3', to: item.title, toTerminal: item.kind === 'mic-input' ? 'VDD' : '3V3', purpose: 'Logic power' })
+    } else if (item.kind === 'amplifier' && item.facts.stage === 'power') {
+      // A power amplifier's supply is read off the terminal it prints. A 12 V
+      // board is powered from its own supply: the controller has no 12 V to
+      // give it, and a row naming the controller would say it did.
+      const pads = partById(String(item.facts.partId ?? ''))?.pinLabelsLeftToRight ?? []
+      rows.push(pads.includes('+12V')
+        ? { from: 'Amplifier 12 V supply', fromTerminal: '+12V', to: item.title, toTerminal: '+12V', purpose: 'Amplifier power — not from the controller' }
+        : { from: controller, fromTerminal: '5V / VIN', to: item.title, toTerminal: '+5V', purpose: 'Module power' })
+      // Fed by a DAC, the amplifier's only signal is the DAC's line out. It
+      // has no GPIO row, so without this the table would show it unconnected.
+      if (item.facts.feed === 'dac' && item.facts.fedBy) {
+        rows.push({ from: String(item.facts.fedBy), fromTerminal: 'Line out (L/R)', to: item.title, toTerminal: 'Line in (L/R)', purpose: 'Line-level audio' })
+      }
     } else if (item.kind === 'amplifier' || item.kind === 'line-input') {
       // A class-D amp's output power is its supply power, so 3.3 V here reads
       // as a weak speaker rather than as a wiring mistake.

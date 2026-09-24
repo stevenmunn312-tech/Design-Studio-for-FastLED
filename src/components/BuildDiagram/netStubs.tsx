@@ -13,25 +13,27 @@ import { COMMON_NET_CALLOUT_HEIGHT } from './physicalDiagramLayout'
  */
 
 export type NetStubDirection = 'up' | 'down' | 'left' | 'right'
-export type NetStubKind = 'gnd' | 'v5' | 'v3v3'
+export type NetStubKind = 'gnd' | 'v5' | 'v3v3' | 'v12'
 
 /** Clockwise rotation that turns the canonical downward symbol toward `direction`. */
 const ROTATION: Record<NetStubDirection, number> = { down: 0, left: 90, up: 180, right: 270 }
 
 export const DEFAULT_STUB_LEAD = 9
 
-const NET_LABEL: Record<NetStubKind, string> = { gnd: 'GND', v5: '+5V', v3v3: '3V3' }
+const NET_LABEL: Record<NetStubKind, string> = { gnd: 'GND', v5: '+5V', v3v3: '3V3', v12: '+12V' }
 
 const NET_LEAD_CLASS: Record<NetStubKind, string> = {
   gnd: styles.groundStubLead,
   v5: styles.railStubLead5v,
   v3v3: styles.railStubLead3v3,
+  v12: styles.railStubLead12v,
 }
 
 const NET_SYMBOL_CLASS: Record<NetStubKind, string> = {
   gnd: styles.groundStubSymbol,
   v5: styles.railStubSymbol5v,
   v3v3: styles.railStubSymbol3v3,
+  v12: styles.railStubSymbol12v,
 }
 
 /** How far the symbol itself extends past the end of the lead. */
@@ -104,7 +106,16 @@ export function NetStub({
  * imply the grounds are independent, which is the one misreading that damages
  * hardware.
  */
-export function CommonNetCallout({ x, y, width, powerBelow = true }: { x: number; y: number; width: number; powerBelow?: boolean }) {
+export function CommonNetCallout({ x, y, width, powerBelow = true, twelveVolt = false }: {
+  x: number
+  y: number
+  width: number
+  powerBelow?: boolean
+  /** A 12 V power amplifier is on the sheet. Its +12V is a separate supply the
+   *  controller cannot provide, and reading it as a controller rail is how an
+   *  ESP32 meets twelve volts. */
+  twelveVolt?: boolean
+}) {
   return (
     <g data-common-net-callout="true" transform={`translate(${x} ${y})`}>
       <rect width={width} height={COMMON_NET_CALLOUT_HEIGHT} rx="8" fill="#fffdf4" stroke="#c9bb86" strokeWidth="2" />
@@ -112,7 +123,10 @@ export function CommonNetCallout({ x, y, width, powerBelow = true }: { x: number
       <text className={styles.physicalLegendMeta}>
         <tspan x="16" y="42">Every GND symbol is one common net: bond controller, level shifter, peripheral and all PSU</tspan>
         <tspan x="16" y="58">zone grounds together. +5V feeds low-current modules from the controller 5V rail; LED loads</tspan>
-        <tspan x="16" y="74">use the fused bus {powerBelow ? 'below' : 'on the power sheet'}. 3V3 draws from the controller regulator.</tspan>
+        <tspan x="16" y="74">
+          use the fused bus {powerBelow ? 'below' : 'on the power sheet'}. 3V3 draws from the controller regulator
+          {twelveVolt ? '; +12V is a separate supply for the amplifier.' : '.'}
+        </tspan>
       </text>
     </g>
   )

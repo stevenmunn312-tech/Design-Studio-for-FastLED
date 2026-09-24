@@ -422,16 +422,14 @@ describe('nodeLibrary', () => {
   })
 
   /*
-   * An analog amplifier has no I2S receiver, so offering it BCLK/LRC/DIN would
-   * invite three jumpers to pads that do not exist on the board.
+   * A power amplifier takes line level, never I2S, so it carries no pin
+   * properties at all: offering BCLK/LRC/DIN would invite three jumpers to
+   * pads that do not exist on the part.
    */
-  it('hides the I2S pins on an amplifier that takes line level', () => {
-    for (const key of ['i2sBclk', 'i2sLrc', 'i2sDout']) {
-      expect(isPropertyEnabled('Amplifier', key, { model: 'max98357a-i2s-amplifier' }), key).toBe(true)
-      expect(isPropertyEnabled('Amplifier', key, { model: 'pam8403-3w-stereo-amplifier' }), key).toBe(false)
-    }
-    // Volume is the decoder's, not the amplifier's, so it survives either way.
-    expect(isPropertyEnabled('Amplifier', 'maxVolume', { model: 'pam8403-3w-stereo-amplifier' })).toBe(true)
+  it('gives a power amplifier no GPIO properties', () => {
+    const def = NODE_LIBRARY.find((n) => n.type === 'PowerAmplifier')!
+    expect(Object.keys(def.defaultProperties ?? {}).filter((key) => isGpioPinProperty('PowerAmplifier', key))).toEqual([])
+    expect(isPropertyEnabled('PowerAmplifier', 'maxVolume', {})).toBe(true)
   })
 
   it('BassRings exposes bass, energy, normalized speed, and palette inputs', () => {

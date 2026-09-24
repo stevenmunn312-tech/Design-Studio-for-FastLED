@@ -283,6 +283,14 @@ function padColumn(x: number, width: number, ys: readonly number[], height: numb
   return ys.map((y) => [x / width, y / height] as PadPoint)
 }
 
+/**
+ * Pads scattered across a board rather than in one header: each point in
+ * source pixels, in the catalogue's `pinLabelsLeftToRight` order.
+ */
+function padPoints(width: number, height: number, points: readonly (readonly [number, number])[]): PadPoint[] {
+  return points.map(([x, y]) => [x / width, y / height] as PadPoint)
+}
+
 export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // Microphones. All three are six-pad rows along the bottom edge, in three
   // different silkscreen orders — which is exactly why the pad *point* is
@@ -298,6 +306,19 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'pam8403-3w-stereo-amplifier':
     padRow([36, 69, 102, 135, 168, 201, 234, 267, 300, 333, 366], 400, 254, 287),
   'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
+  // Power amplifiers: screw terminals along the top for supply and speakers,
+  // and the line input somewhere else entirely — mid-board holes on the
+  // DX-0809, a bottom header on the PAM8610. Screws are measured at the centre
+  // of each screw head, pads at the centre of each plated ring.
+  'dx-0809-stereo-amplifier': padPoints(1200, 973, [
+    [531.3, 631.3], [599.5, 631.2], [667.5, 631.1],
+    [572.5, 86.8], [626.8, 86.6],
+    [164, 86.4], [218.3, 86.9], [980.8, 86.6], [1035, 86.6],
+  ]),
+  'pam8610-stereo-amplifier': padPoints(400, 337, [
+    [66.5, 55.6], [119.6, 55.1], [172.7, 55.6], [226.5, 55.2], [279.2, 55.2], [332.7, 55.1],
+    [146.2, 304.5], [182, 304.5], [217.3, 304.6], [252.7, 304.6],
+  ]),
   'uda1334a-i2s-dac':
     padRow([128, 159, 190, 221, 252, 283, 314, 345, 376], 504, 468, 504),
 
@@ -425,7 +446,8 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
 /** Supply and ground, found by the name printed beside the pad. */
 // `+` and `VS` join the list for the IR receivers: a KY-022 prints its
 // supply as a bare plus, and Vishay's datasheet names the pin VS.
-const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V', 'V+', '+']
+// `+12V` is the supply terminal on the large analog power amplifiers.
+const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V', 'V+', '+', '+12V']
 const GROUND_PAD_LABELS = ['GND', 'G', '0V', '-']
 
 /**
@@ -469,11 +491,12 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
     return index >= 0 ? index : Math.min(signalIndex + 1, pads.length - 1)
   }
   if (item.kind === 'amplifier') {
-    // The manifest pushes BCLK, LRC, DOUT (or the two DAC line-in pins); find
-    // each on the module by the name it is silkscreened with.
+    // The manifest pushes BCLK, LRC, DOUT for an I2S stage, or the two
+    // internal-DAC line-in pins for a power amplifier; find each on the module
+    // by the name it is silkscreened with.
     const pads = audioModulePads(item).map((label) => label.toUpperCase())
-    const wanted = item.facts.input === 'analog'
-      ? [['LIN'], ['RIN']]
+    const wanted = item.facts.stage === 'power'
+      ? [['LIN', 'INL', 'AUX-L'], ['RIN', 'INR', 'AUX-R']]
       : [['BCLK', 'BCK', 'SCK'], ['LRC', 'LCK', 'WSEL'], ['DIN']]
     const names = wanted[Math.min(Math.max(signalIndex, 0), wanted.length - 1)]
     const index = pads.findIndex((label) => names.includes(label))
@@ -547,7 +570,12 @@ const OLED_PAD_NAMES: Record<OledTransport, string[][]> = {
   i2c: [['SDA', 'DATA', 'DIN', 'D1'], ['SCL', 'CLK', 'SCK', 'D0']],
 }
 
-export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' {
+export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 'v12' {
+  // A power amplifier printed +12V wants its own supply. Checked before the
+  // audio default below, because drawing it on the controller's 5 V rail is
+  // advice that is quiet at best and, read the other way, puts twelve volts
+  // where the controller expects five.
+  if (item.kind === 'amplifier' && peripheralPadLabel(item, peripheralPowerPadIndex(item)).toUpperCase() === '+12V') return 'v12'
   // Audio modules take the 5 V rail: a class-D amp's output power comes from
   // its supply, and 3.3 V would make it quiet rather than broken — the kind of
   // wrong that reads as a bad speaker.

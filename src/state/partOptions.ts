@@ -34,14 +34,15 @@ export interface PartOption {
    */
   summary?: string
   /**
-   * How sound reaches this part, for the ones where that is not a given.
+   * What comes out of an I2S audio stage, for the parts where that decides
+   * what may follow it.
    *
-   * Every amplifier the app knew before the PAM8403 took I2S, so "there is an
-   * amplifier on the bench" was allowed to mean "this build uses I2S". An
-   * analog amplifier takes line level and has to be fed by the board's own DAC,
-   * so the assumption had to become a stated fact — see state/audioOutput.ts.
+   * A DAC's line out is exactly what a power amplifier's line in expects; a
+   * MAX98357A's bridge-tied speaker output is not, and wiring one into the
+   * other drives a line input with a speaker-level signal whose negative leg
+   * is not ground. The chain is resolved from this — see state/audioOutput.ts.
    */
-  input?: 'i2s' | 'analog'
+  output?: 'speaker' | 'line'
 }
 
 export interface PartIdentity {
@@ -140,30 +141,53 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       { id: 'relay-module-8ch-5v', label: '8-channel relay', summary: 'Eight active-low 5 V SPDT relays' },
     ],
   },
+  // The stage on the board's own pins: every option takes I2S. An analog
+  // amplifier is a different part in a different place in the chain — it
+  // takes line level, from one of these DACs or from the classic ESP32's own
+  // — so it is a PowerAmplifier, not an option here.
   Amplifier: {
     property: 'model',
     options: [
-      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', input: 'i2s', summary: 'I2S in, drives a speaker directly' },
+      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', output: 'speaker', summary: 'I2S in, drives a speaker directly' },
       {
         id: 'pcm5102a-i2s-dac',
         label: 'PCM5102A',
-        input: 'i2s',
+        output: 'line',
         summary: 'I2S DAC — line out, needs an amp',
-        note: 'A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a separate amp.',
+        note: 'A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier.',
       },
       {
         id: 'uda1334a-i2s-dac',
         label: 'UDA1334A',
-        input: 'i2s',
+        output: 'line',
         summary: 'I2S DAC — line out, needs an amp',
         note: 'Line-level I2S DAC, wired the same as the PCM5102A.',
       },
+    ],
+  },
+  // Analog power amplifiers: line level in, speakers out, no GPIO of their
+  // own. What feeds one is resolved from the bench, not chosen here — a DAC
+  // when there is one, otherwise the classic ESP32's internal DAC on GPIO25/26.
+  PowerAmplifier: {
+    property: 'partId',
+    options: [
       {
         id: 'pam8403-3w-stereo-amplifier',
         label: 'PAM8403',
-        input: 'analog',
-        summary: 'Line level in — classic ESP32 only',
-        note: 'Takes line level, not I2S. The classic ESP32 drives it from its own DAC on GPIO25/26 — no other supported board has a DAC, so this part cannot make a sound on an ESP32-S3, S2, C3, C6 or H2.',
+        summary: '2 x 3 W, 5 V — line level in',
+        note: 'Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26.',
+      },
+      {
+        id: 'pam8610-stereo-amplifier',
+        label: 'PAM8610',
+        summary: '2 x 15 W, 12 V — line level in',
+        note: 'Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC.',
+      },
+      {
+        id: 'dx-0809-stereo-amplifier',
+        label: 'DX-0809',
+        summary: '2 x 15 W, 12 V — AUX line in',
+        note: 'Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board.',
       },
     ],
   },

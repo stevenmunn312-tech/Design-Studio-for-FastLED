@@ -1,5 +1,6 @@
 import type { StudioNode } from './graphStore'
 import { resolvePartIdentity } from './partOptions'
+import { hasAudioOutputStage } from './audioOutput'
 
 /** A board-attached source that can provide PCM or analysed audio to the signal
  * graph. The decoder tap is software hosted by the SD-player workflow. */
@@ -60,7 +61,7 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
   // is an audio player. Performance Generator remains a separate pre-baked
   // show workflow and does not expose a live decoder source.
   const sdCard = nodes.find((node) => node.data.nodeType === 'SDCard')
-  const hasAmplifier = nodes.some((node) => node.data.nodeType === 'Amplifier')
+  const hasAmplifier = hasAudioOutputStage(nodes)
   const hasPlayer = nodes.some((node) => node.data.nodeType === 'PatternMaster')
   const decoder: AudioCapabilitySource[] = sdCard && hasAmplifier && hasPlayer
     ? [{

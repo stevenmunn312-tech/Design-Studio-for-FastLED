@@ -32,7 +32,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.
-  'Amplifier', 'SDCard',
+  'Amplifier', 'PowerAmplifier', 'SDCard',
 ])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
@@ -44,7 +44,8 @@ export function isHardwareLibraryHiddenNodeType(nodeType: string): boolean {
 }
 
 /**
- * Parts that exist only in the hardware view — Board, Amplifier, SD Card.
+ * Parts that exist only in the hardware view — Board, Amplifier, Power
+ * Amplifier, SD Card.
  *
  * They are still nodes, because that is where their settings persist and where
  * the generators scan for them, but nothing draws them on the signal canvas.

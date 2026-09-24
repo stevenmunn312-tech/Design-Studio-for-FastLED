@@ -1,5 +1,5 @@
 import type { StudioNode } from '../state/graphStore'
-import { audioOutputMode } from '../state/audioOutput'
+import { audioOutputMode, i2sAudioStage } from '../state/audioOutput'
 import { sanitizePin } from './hardwarePins'
 
 export interface AmplifierIdleCpp {
@@ -18,7 +18,7 @@ const NO_AMPLIFIER_IDLE: AmplifierIdleCpp = { defines: [], setup: [] }
  * the same pins through ESP32-audioI2S and owns real audio playback.
  */
 export function amplifierIdleCpp(nodes: readonly StudioNode[]): AmplifierIdleCpp {
-  const amplifier = nodes.find((node) => node.data.nodeType === 'Amplifier')
+  const amplifier = i2sAudioStage(nodes)
   if (!amplifier || audioOutputMode(nodes as StudioNode[]) !== 'i2s') return NO_AMPLIFIER_IDLE
 
   const props = amplifier.data.properties as Record<string, unknown>

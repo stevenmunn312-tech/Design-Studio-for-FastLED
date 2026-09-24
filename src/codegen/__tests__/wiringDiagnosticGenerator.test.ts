@@ -131,9 +131,9 @@ describe('generateWiringDiagnosticSketch', () => {
     expect(sketch.indexOf('pinMode(AMP_I2S_BCLK')).toBeLessThan(sketch.indexOf('FastLED.addLeds<'))
   })
 
-  it('does not invent I2S mute pins for an analog amplifier', () => {
-    const amplifier = node('amp', 'Amplifier', 'output', {
-      model: 'pam8403-3w-stereo-amplifier',
+  it('does not invent I2S mute pins for a power amplifier with no I2S stage', () => {
+    const amplifier = node('amp', 'PowerAmplifier', 'output', {
+      partId: 'pam8403-3w-stereo-amplifier',
     })
     const sketch = generateWiringDiagnosticSketch([outputNode, amplifier])!
 

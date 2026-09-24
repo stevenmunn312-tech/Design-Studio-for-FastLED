@@ -1100,6 +1100,21 @@
   stroke-linecap: round;
 }
 
+/* A separate supply, not a controller rail: a distinct hue so it is never read
+   as the +5V it sits beside. */
+.railStubLead12v {
+  fill: none;
+  stroke: #8a2be2;
+  stroke-width: 5;
+}
+
+.railStubSymbol12v {
+  fill: none;
+  stroke: #8a2be2;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
 /* Control-module pads: matched to the gold pad rings in the renders. */
 .peripheralPowerTerminal {
   fill: #d84938;

@@ -906,6 +906,14 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 12} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
+      {/* A DAC-fed power amplifier has no GPIO, so no wire says where its
+          signal comes from. Its line in is the DAC's line out: say so, or the
+          part reads as unconnected. */}
+      {item.facts.stage === 'power' && item.facts.feed === 'dac' && (
+        <text data-line-in-from={String(item.facts.fedBy)} x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
+          {`LINE IN ← ${String(item.facts.fedByModule ?? item.facts.fedBy)} LINE OUT`}
+        </text>
+      )}
       {render && (
         <image
           data-component-render={render.id}
@@ -922,7 +930,7 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
           photographed pad order for each module variant. */}
       <g data-terminal={`${item.id}-3v3`}>
         <circle cx={peripheralPadPoint(layout, powerPadIndex).x} cy={peripheralPadPoint(layout, powerPadIndex).y} r={MODULE_TERMINAL_FILL_RADIUS} className={`${styles.peripheralPowerTerminal} ${styles.photoTerminalFill}`} />
-        <title>{powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
+        <title>{powerNet === 'v12' ? 'VCC · 12V, from a separate amplifier supply' : powerNet === 'v5' ? 'VCC · 5V' : 'VCC · 3V3'}</title>
       </g>
       {connections.map((connection, index) => {
         const padIndex = peripheralSignalPadIndex(item, index)
@@ -1332,6 +1340,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
   const usesThreeVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
+  const usesTwelveVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v12')
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
   const detourBaseY = controllerDetourBaseY(controllerRender(boardProfile))
   const topBandY = controllerTopBandY(controllerRender(boardProfile))
@@ -1613,6 +1622,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             : diagramContentBottom(items, layers) + COMMON_NET_CALLOUT_GAP}
           width={776}
           powerBelow={showPowerDistribution}
+          twelveVolt={usesTwelveVolt}
         />
       )}
       {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}

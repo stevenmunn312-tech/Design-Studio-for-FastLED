@@ -118,6 +118,35 @@ describe('buildExports', () => {
     ]))
   })
 
+  /*
+   * A DAC-fed power amplifier has no GPIO row, so the table has to carry the
+   * line-level wire itself or the part reads as unconnected. And a 12 V board
+   * is powered from its own supply: a row naming the controller would tell
+   * someone to put twelve volts' worth of load on a 5 V pin.
+   */
+  it('exports the DAC-to-power-amplifier line and a separate 12 V supply', () => {
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const manifest = buildHardwareManifest([
+      node('board', 'Board', { profileId: board?.id }),
+      node('dac', 'Amplifier', { model: 'pcm5102a-i2s-dac', i2sBclk: 15, i2sLrc: 16, i2sDout: 17 }),
+      node('power', 'PowerAmplifier', { partId: 'dx-0809-stereo-amplifier' }),
+    ], [], 'esp32:esp32:esp32s3')
+    const rows = buildConnectionRows(manifest.primaryItems, calculateElectricalPlan(
+      manifest,
+      ensureBuildProfile({ version: 1, physicalBoardProfileId: board?.id }),
+      board,
+    ), board)
+    const amp = rows.filter((row) => row.to === 'DX-0809 stereo power amplifier')
+
+    expect(amp).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'Amplifier 12 V supply', toTerminal: '+12V' }),
+      expect.objectContaining({ from: 'PCM5102A I2S stereo DAC module', purpose: 'Line-level audio' }),
+      expect.objectContaining({ fromTerminal: 'GND', purpose: 'Common ground reference' }),
+    ]))
+    expect(amp.some((row) => row.fromTerminal === '5V / VIN')).toBe(false)
+    expect(amp.some((row) => row.purpose === 'Signal')).toBe(false)
+  })
+
   it('exports the PCM1802 signal, 5 V, and common-ground wiring', () => {
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const manifest = buildHardwareManifest([

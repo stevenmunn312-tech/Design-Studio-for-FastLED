@@ -48,6 +48,33 @@ describe('HardwarePartBody', () => {
     }
   })
 
+  /*
+   * Volume is the decoder's, applied at the stage the board drives. Fed by a
+   * DAC, that stage is the DAC, so the power amplifier's own field would be a
+   * second answer nothing reads — it is hidden and the panel says where the
+   * setting lives instead.
+   */
+  it('shows a power amplifier its volume only when no DAC feeds it', () => {
+    setPart('PowerAmplifier')
+    const alone = render(<HardwarePartBody nodeId="part" nodeType="PowerAmplifier" />)
+    expect(alone.getByLabelText('Volume')).toBeTruthy()
+    alone.unmount()
+
+    const dac = NODE_LIBRARY.find((entry) => entry.type === 'Amplifier')!
+    useGraphStore.setState((state) => ({
+      nodes: [...state.nodes, {
+        id: 'dac', type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          label: dac.label, nodeType: 'Amplifier', category: dac.category,
+          properties: { ...dac.defaultProperties, model: 'pcm5102a-i2s-dac' }, inputs: [], outputs: [],
+        },
+      }] as never[],
+    }))
+    const fed = render(<HardwarePartBody nodeId="part" nodeType="PowerAmplifier" />)
+    expect(fed.queryByLabelText('Volume')).toBeNull()
+    expect(fed.getByText(/Volume is set on the PCM5102A/)).toBeTruthy()
+  })
+
   it('renders all four SD SPI assignments and no audio settings', () => {
     // Audio output is derived from the parts present, and volume belongs with
     // the output — so the card is left with the one thing it owns.

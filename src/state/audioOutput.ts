@@ -20,44 +20,82 @@ export function boardHasInternalDac(fqbn: string): boolean {
     && !/esp32(s3|s2|c3|c6|h2)/i.test(fqbn.replace('esp32:esp32:', ''))
 }
 
-/** The amplifier on the bench, if there is one. */
-function amplifierNode(nodes: StudioNode[]): StudioNode | undefined {
+/**
+ * The stage on the board's own pins: an I2S amplifier or DAC.
+ *
+ * An output chain has two roles, and each is its own node type so a bench can
+ * hold both: this one takes I2S from the board, and a `PowerAmplifier` takes
+ * line level and drives the speakers. Resolving "the amplifier" as the first
+ * Amplifier node found was only correct while a bench could hold one audio
+ * part — a PCM5102A feeding a DX-0809 is two, and which of them decides how the
+ * board makes its sound is a question about role, not array order.
+ */
+export function i2sAudioStage(nodes: readonly StudioNode[]): StudioNode | undefined {
   return nodes.find((node) => node.data.nodeType === 'Amplifier')
 }
 
+/** The analog power amplifier driving the speakers, if there is one. */
+export function powerAmplifierStage(nodes: readonly StudioNode[]): StudioNode | undefined {
+  return nodes.find((node) => node.data.nodeType === 'PowerAmplifier')
+}
+
+// "Is there anything that makes a sound" is asked by the build-mode resolver
+// too, which is kept free of imports, so the answer lives there.
+export { hasAudioOutputStage } from './buildMode'
+
 /**
- * True when the amplifier takes line level rather than I2S.
- *
- * Read off the chosen module rather than assumed, which is the whole reason
- * PartOption carries an input type: an analog amplifier has no I2S receiver in
- * it, so the board has to hand it an already-analog signal.
+ * The part whose software volume the decoder applies: the stage the board
+ * drives. With a DAC in the chain that is the DAC, and the power amplifier's
+ * own knob is the analog one on the board; with the power amplifier fed
+ * straight from the internal DAC, it is the power amplifier.
  */
-function wantsAnalogInput(amplifier: StudioNode): boolean {
-  const identity = resolvePartIdentity('Amplifier', amplifier.data.properties as Record<string, unknown>)
-  return identity?.option.input === 'analog'
+export function audioVolumeStage(nodes: readonly StudioNode[]): StudioNode | undefined {
+  return i2sAudioStage(nodes) ?? powerAmplifierStage(nodes)
+}
+
+/**
+ * What feeds the power amplifier its line level.
+ *
+ * - `dac`: an I2S DAC's line out — the chain the plan calls Option B.
+ * - `internalDac`: nothing else is on the bench, so the classic ESP32's own
+ *   DAC on GPIO25/26, which only that board has.
+ * - `speakerAmp`: the I2S stage is a speaker amplifier. Its bridge-tied output
+ *   is not line level and neither leg is ground, so this is a bench that
+ *   cannot be wired, not a third way to feed one.
+ */
+export type PowerAmplifierFeed = 'dac' | 'internalDac' | 'speakerAmp'
+
+export function powerAmplifierFeed(nodes: readonly StudioNode[]): PowerAmplifierFeed | null {
+  if (!powerAmplifierStage(nodes)) return null
+  const stage = i2sAudioStage(nodes)
+  if (!stage) return 'internalDac'
+  const identity = resolvePartIdentity('Amplifier', stage.data.properties as Record<string, unknown>)
+  return identity?.option.output === 'line' ? 'dac' : 'speakerAmp'
 }
 
 /**
  * The output this graph will actually use.
  *
- * An I2S amplifier or DAC means I2S. An *analog* amplifier means the opposite:
- * it cannot decode I2S at all, so the sound has to arrive as line level from
- * the board's own DAC. Until the PAM8403 every amplifier the app knew took
- * I2S, and "there is an amplifier" was allowed to stand in for "this build
- * uses I2S" — which would have generated an I2S sketch for a part physically
- * unable to accept one, and produced silence with nothing to explain it.
+ * An I2S stage means I2S — a DAC feeding a power amplifier included, because
+ * the thing on the board's pins is still the DAC. A power amplifier with no I2S
+ * stage means the opposite: it cannot decode I2S at all, so the sound has to
+ * arrive as line level from the board's own DAC. Letting "there is an
+ * amplifier" stand in for "this build uses I2S" would generate an I2S sketch
+ * for a part physically unable to accept one, and produce silence with
+ * nothing to explain it.
  *
- * With no amplifier at all, a classic ESP32 still falls back to its built-in
+ * With nothing on the bench, a classic ESP32 still falls back to its built-in
  * DAC, because that is the only way that board makes a sound unaided.
  */
 export function audioOutputMode(nodes: StudioNode[], fqbn = ''): AudioOutputMode {
-  const amplifier = amplifierNode(nodes)
-  if (amplifier) return wantsAnalogInput(amplifier) ? 'internalDac' : 'i2s'
+  if (i2sAudioStage(nodes)) return 'i2s'
+  if (powerAmplifierStage(nodes)) return 'internalDac'
   return boardHasInternalDac(fqbn) ? 'internalDac' : 'i2s'
 }
 
-/** True when the show has no way to make a sound: no amp, and no DAC to fall
- *  back on. Worth saying before an upload rather than after a silent board. */
+/** True when the show has no way to make a sound: no I2S stage, and no DAC to
+ *  fall back on. Worth saying before an upload rather than after a silent
+ *  board. */
 export function audioOutputMissing(nodes: StudioNode[], fqbn = ''): boolean {
   // No board chosen yet is not the same as a board with no DAC. Claiming a
   // fault from not knowing would put an error on every graph before the user
@@ -65,10 +103,9 @@ export function audioOutputMissing(nodes: StudioNode[], fqbn = ''): boolean {
   if (!fqbn) return false
   const hasSdCard = nodes.some((node) => node.data.nodeType === 'SDCard')
   if (!hasSdCard) return false
-  const amplifier = amplifierNode(nodes)
-  // An analog amplifier is not a way out on its own: something has to feed it
-  // line level, and on every supported board that is the internal DAC. Fitted
+  if (i2sAudioStage(nodes)) return false
+  // A power amplifier is not a way out on its own: something has to feed it
+  // line level, and with no DAC on the bench that is the internal one. Fitted
   // to a board without one, the part is present and still cannot make a sound.
-  if (amplifier) return wantsAnalogInput(amplifier) && !boardHasInternalDac(fqbn)
   return !boardHasInternalDac(fqbn)
 }
