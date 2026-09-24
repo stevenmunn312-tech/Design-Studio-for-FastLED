@@ -16,10 +16,12 @@
  * the fix is to say so (`findShowTargetErrors`), not to guess.
  */
 
+import { LED_OUTPUT_FORM_LABELS, outputForm } from './ledOutputForm'
+
 /** Minimal structural node, so codegen does not have to import the store. */
 export interface ShowTargetNode {
   id: string
-  data: { nodeType: string; label?: unknown; properties: Record<string, unknown> }
+  data: { nodeType: string; properties: Record<string, unknown> }
 }
 
 /** Minimal structural edge, matching React Flow's shape. */
@@ -76,10 +78,12 @@ export function resolveShowTarget<T extends ShowTargetNode>(
   return { target: reached[0], reached, problem: null }
 }
 
-/** Human name for an output, e.g. `LED Matrix · 16×16`. */
+/** Human name for an output, e.g. `LED Matrix · 16×16`. Named by its form,
+ * never by `data.label`: no label is persisted, so a reloaded LED String would
+ * otherwise read as the library's default "LED Matrix". */
 export function showTargetLabel(node: ShowTargetNode): string {
   const props = node.data.properties
-  const label = typeof node.data.label === 'string' && node.data.label ? node.data.label : 'LED output'
+  const label = LED_OUTPUT_FORM_LABELS[outputForm(props)]
   const w = Number(props.width)
   const h = Number(props.height)
   const size = Number.isFinite(w) && Number.isFinite(h) ? ` · ${w}×${h}` : ''

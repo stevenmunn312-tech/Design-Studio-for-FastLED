@@ -68,8 +68,13 @@ describe('resolveShowTarget', () => {
     expect(resolveShowTarget(nodes, edges).problem).toBe('unconnected')
   })
 
-  it('names an output by its label and size for the error text', () => {
-    expect(showTargetLabel(node('a', 'MatrixOutput', { width: 60, height: 1 }, 'LED String')))
+  it('names an output by its form and size for the error text', () => {
+    expect(showTargetLabel(node('a', 'MatrixOutput', { form: 'strip', width: 60, height: 1 })))
       .toBe('LED String · 60×1')
+  })
+
+  it('ignores a stale node label, which reloads as the library default', () => {
+    expect(showTargetLabel(node('a', 'MatrixOutput', { form: 'ring', width: 24, height: 1 }, 'LED Matrix')))
+      .toBe('LED Ring · 24×1')
   })
 })
