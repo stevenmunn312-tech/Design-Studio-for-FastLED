@@ -23,6 +23,7 @@ import { buttonBankHandle, normalizeButtonBankEntries } from '../../state/button
 import { partRenderForNodeType } from '../../state/partRenders'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../../state/partOptions'
 import { powerAmplifierFeed } from '../../state/audioOutput'
+import { fixtureLinkLabel } from './fixtureLinkLabel'
 import { IR_RECEIVER_MODULES } from '../../state/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
 import { MIC_MODULES } from '../../state/micModules'
@@ -1910,9 +1911,11 @@ export default function HardwarePane() {
                     dataType="audio"
                     color={CATEGORY_COLOR.output}
                     effects={uiEffectsEnabled}
-                    label={part.node.data.nodeType === 'PowerAmplifier'
-                      ? `Board DAC line out to the ${part.entry.label}`
-                      : `Board I2S out to the ${part.entry.label.toLowerCase()}`}
+                    label={fixtureLinkLabel(
+                      part.node.data.nodeType,
+                      part.node.data.properties as Record<string, unknown>,
+                      part.entry.label,
+                    )}
                     visualScale={linkVisualScale}
                     {...link}
                   />
