@@ -33,7 +33,7 @@
 
 import { placedWidgets, type DisplayDocument, type DisplayWidget } from './displayDocument'
 import type { StudioEdge, StudioNode } from './graphStore'
-import { displayWidgetPortId, normalizeDisplayControlRole } from './displayRegistry'
+import { displayWidgetPortId, normalizeDisplayControlRole, parseDisplayWidgetPortId } from './displayRegistry'
 import { panelDisplaySourceKind } from './mountedDisplays'
 
 /** The bundle field a role lands on. */
@@ -132,4 +132,30 @@ export function designControlBundle(
     controls.push({ widgetId: widget.id, portId, field, edge })
   }
   return controls
+}
+
+/**
+ * The screen Toggle behind a wire, when a wire's source is one.
+ *
+ * A Toggle's output follows its Set input once released, and a template binds
+ * Play's Set to the player's `playing`. So anything that reads a *press* from
+ * that output — a Music Player action, a Control Map row, an LED output's
+ * blackout toggle — must count the finger's taps instead of watching the value,
+ * or every transport change echoes back as a command: pressing Play in the app
+ * starts the track, the toggle follows, and the rising edge pauses it again.
+ * Each edge-reading consumer asks this and, for a Toggle, reads its tap count.
+ */
+export function toggleWidgetSource(
+  source: StudioNode | undefined,
+  sourcePort: string,
+  nodeById: ReadonlyMap<string, StudioNode>,
+  documents: Readonly<Record<string, DisplayDocument | undefined>>,
+): { documentId: string; widgetId: string } | null {
+  if (source?.data.nodeType !== 'TouchInput') return null
+  const parsed = parseDisplayWidgetPortId(sourcePort)
+  if (parsed?.role !== 'out') return null
+  const panel = nodeById.get(String(source.data.properties?.panelId ?? ''))
+  const documentId = String(panel?.data.properties?.displayId ?? '')
+  const widget = documentId ? documents[documentId]?.widgets.find((entry) => entry.id === parsed.widgetId) : undefined
+  return widget && LATCH_WIDGETS.has(widget.type) ? { documentId, widgetId: widget.id } : null
 }

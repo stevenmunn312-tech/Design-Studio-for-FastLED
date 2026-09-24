@@ -43,7 +43,7 @@ import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTra
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputStatus } from '../state/ledOutputRuntime'
 import {
-  PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp, designControlBundleEmit,
+  PLAYER_CONTROLS_CPP, PLAYER_CONTROL_BUTTONS, playerControlsServiceCpp, designControlBundleEmit, type PlayerControlButtonEmit,
   ledOutputLatchGlobalCpp, ledOutputLatchCpp,
 } from './playerControlsCpp'
 import { controlInputCpp } from './controlInputCpp'
@@ -90,7 +90,7 @@ import {
 } from './customDisplayPanelCpp'
 import { displayDocumentPorts, parseDisplayWidgetPortId } from '../state/displayRegistry'
 import { customDisplayMountPlan } from '../state/mountedDisplays'
-import { designControlBundle } from '../state/designControlBundle'
+import { designControlBundle, toggleWidgetSource } from '../state/designControlBundle'
 import { normalSketchSourceExpressions, resolveBoundWidgets } from './displaySourceExpressions'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
@@ -2025,6 +2025,24 @@ export function generateCpp(
     }
     const pv = nodeProps[propKey]
     return pv !== undefined ? String(Number(pv)) : String(def)
+  }
+
+  /*
+   * A Control Map row or direct action fed by a screen Toggle counts the
+   * finger's taps instead of edge-detecting the value, because the value also
+   * follows the Toggle's Set feedback (a template binds Play to `playing`) and
+   * would echo every transport change back as a press. See
+   * `toggleWidgetSource`. Any other source keeps the debounced contact.
+   */
+  function pressButton(nodeId: string, port: string, repeat: boolean): PlayerControlButtonEmit {
+    const wire = incoming.get(`${nodeId}:${port}`)
+    const documents = opts.displayDocuments ?? {}
+    const toggle = wire ? toggleWidgetSource(nodeMap.get(wire.srcId), wire.srcPort, nodeMap, documents) : null
+    const document = toggle ? documents[toggle.documentId] : undefined
+    const tap = toggle && document
+      ? customDisplayLvglTapExpression({ id: safeId(toggle.documentId), document, bindings: {} }, toggle.widgetId)
+      : null
+    return tap ? { port, expr: tap, repeat: false, edge: 'tap' } : { port, expr: boolExpr(nodeId, port), repeat }
   }
 
   function boolExpr(nodeId: string, portId: string): string {
@@ -6724,7 +6742,7 @@ export function generateCpp(
           upstream: upstream ? `n_${safeId(upstream.srcId)}_${safeId(upstream.srcPort)}` : null,
           buttons: PLAYER_CONTROL_BUTTONS
             .filter(([port]) => wired(port))
-            .map(([port, repeat]) => ({ port, expr: boolExpr(node.id, port), repeat })),
+            .map(([port, repeat]) => pressButton(node.id, port, repeat)),
           volumeExpr: wired('volume') ? f('volume', 'volume', 0) : null,
           brightnessExpr: wired('brightness') ? f('brightness', 'brightness', 0) : null,
           patternPositionExpr: wired('patternSelect') ? f('patternSelect', 'patternSelect', 0) : null,
@@ -7410,7 +7428,7 @@ export function generateCpp(
         const directActionPorts = ['ledToggle', 'brightnessUp', 'brightnessDown'] as const
         const directButtons = directActionPorts
           .filter((port) => incoming.has(`${node.id}:${port}`))
-          .map((port) => ({ port, expr: boolExpr(node.id, port), repeat: port !== 'ledToggle' }))
+          .map((port) => pressButton(node.id, port, port !== 'ledToggle'))
         if (directButtons.length > 0) {
           const directId = `${id}_direct`
           const variable = `n_${directId}_controls`

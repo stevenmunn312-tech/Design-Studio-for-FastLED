@@ -16,6 +16,7 @@ import { applyDisplayTemplate } from '../displayTemplates'
 import type { DisplayDocument } from '../displayDocument'
 import { designControlBundle } from '../designControlBundle'
 import { useDisplayRuntimeStore } from '../displayRuntimeStore'
+import { usePlayerTransport } from '../playerTransport'
 import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { findDisplayGeneratorIssues } from '../../utils/validateGraph'
 import { buildShowPlayer } from '../../utils/showUpload'
@@ -183,5 +184,47 @@ describe('design controls on the Touch node bundle', () => {
     expect(cpp).toContain('n_touch_controls.hasBrightness = true;')
     expect(cpp).toContain('static CtlTap _pcE_touch_ledToggle;')
     expect(cpp.indexOf('if (n_touch_controls.ledToggle)')).toBeGreaterThan(declared)
+  })
+
+  /*
+   * The shape applying a template leaves behind: Play's own output wired
+   * straight to Music Player's Play / Pause. The toggle's value follows the
+   * player's `playing`, so edge-detecting it paused the track the moment the
+   * in-app Play button started it. Only a finger may press it.
+   */
+  it('does not pause a track started elsewhere through a directly wired Play toggle', () => {
+    const document = designed('now-playing')
+    const play = `widget:${widgetId(document, 'Play')}:out`
+    const { nodes, edges, documents } = playerGraph(document, [edge('touch', play, 'player', 'playPause')])
+    useGraphStore.setState({ displayDocuments: documents })
+    usePlayerTransport.setState({ controlSerial: 0, controlCommand: null })
+    usePlayerTransport.getState().setPos(0, false)
+    const runtime = useDisplayRuntimeStore.getState()
+    const run = (from: number, to: number) => {
+      for (let tick = from; tick <= to; tick++) evaluateGraphFull(nodes, edges, tick, 8, 8, {}, true)
+    }
+    run(1, 5)
+    // Started from the in-app transport: the toggle follows, nothing presses.
+    usePlayerTransport.getState().setPos(1000, true)
+    runtime.publishDisplayRoleValue('screen', widgetId(document, 'Play'), 'set', true)
+    run(6, 20)
+    expect(usePlayerTransport.getState().controlSerial).toBe(0)
+    // A finger on it is one press.
+    runtime.touchDisplayWidget('screen', widgetId(document, 'Play'), false)
+    runtime.releaseDisplayWidget('screen', widgetId(document, 'Play'))
+    run(21, 30)
+    expect(usePlayerTransport.getState().controlSerial).toBe(1)
+    expect(usePlayerTransport.getState().controlCommand?.playPause).toBe(true)
+  })
+
+  it('counts taps for a directly wired Play toggle in the SD player sketch', () => {
+    const document = designed('now-playing')
+    const play = `widget:${widgetId(document, 'Play')}:out`
+    const { nodes, edges, documents } = playerGraph(document, [edge('touch', play, 'player', 'playPause')])
+    const cpp = buildShowPlayer(nodes, edges, {}, {
+      patternSet: [], bakedAudio: false, genericPlayer: false, preferredTrack: '', displayDocuments: documents,
+    })
+    expect(cpp).toMatch(/static CtlTap _pcE_player_direct_playPause;/)
+    expect(cpp).toMatch(/_pcE_player_direct_playPause\.update\(\(uint32_t\)\(_cd_screen\[\d+\]\.taps\)\)/)
   })
 })

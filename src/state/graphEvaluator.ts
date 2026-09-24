@@ -10,7 +10,7 @@ import { lightSensorPreviewReading } from './lightSensor'
 import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
-import { designControlBundle } from './designControlBundle'
+import { designControlBundle, toggleWidgetSource } from './designControlBundle'
 import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displayRegistry'
 import { readDisplaySourceField } from './displaySourceFields'
 import { useMidiStore } from './midiStore'
@@ -266,6 +266,8 @@ const paletteBankState = new Map<string, {
 const transportDisplayTouchState = new Map<string, { pressed: boolean }>()
 /** Per Touch node: each bundled widget's last press value or gesture count. */
 const designBundleState = new Map<string, Map<string, number | boolean>>()
+/** Per consuming input: the screen Toggle tap count it last saw. */
+const toggleTapState = new Map<string, number>()
 
 /**
  * What a finger on a panel's glass is doing, as a controls bundle.
@@ -418,6 +420,29 @@ function combinePlayerControls(base: PlayerControls, direct: PlayerControls | nu
   return controls
 }
 
+/**
+ * A press read from a screen Toggle: true once each time a finger taps it.
+ *
+ * Null when the wire's source is not a Toggle, so the caller keeps its own
+ * edge rule. A Toggle's value also follows its Set feedback, so watching the
+ * value would turn every transport change into a command; see
+ * `toggleWidgetSource`. The first reading only seeds the count.
+ */
+function toggleTapPress(
+  consumerKey: string,
+  wire: { srcId: string; srcPort: string } | undefined,
+  nodeMap: ReadonlyMap<string, StudioNode>,
+): boolean | null {
+  if (!wire) return null
+  const toggle = toggleWidgetSource(nodeMap.get(wire.srcId), wire.srcPort, nodeMap,
+    useGraphStore.getState().displayDocuments)
+  if (!toggle) return null
+  const count = useDisplayRuntimeStore.getState().readDisplayWidget(toggle.documentId, toggle.widgetId)?.touchCount ?? 0
+  const before = toggleTapState.get(consumerKey)
+  toggleTapState.set(consumerKey, count)
+  return before !== undefined && count !== before
+}
+
 function directPlayerActionControls(
   ownerId: string,
   key: string,
@@ -439,6 +464,8 @@ function directPlayerActionControls(
   const pressed = (port: string): boolean => {
     const wire = incoming.get(`${ownerId}:${port}`)
     if (!wire) return false
+    const tap = toggleTapPress(`${directKey}:${port}`, wire, nodeMap)
+    if (tap !== null) return tap
     const raw = Boolean(input(ownerId, port, false))
     const source = nodeMap.get(wire.srcId)
     if (source?.data.nodeType === 'TouchInput' && wire.srcPort === port) return raw
@@ -738,7 +765,7 @@ function stateMaps(): StateMap[] {
     envState, dmxChannelState, trailState, frameFeedbackState, fftLevels, beatLevels, rtcManualPreviewState, clockState, clockDisplayState, fireRngState,
     seededRngState, triggerState, scheduleState, particleState, particleSeedState, patternShowState, patternSlideshowFadeState,
     patternSelectionState, transportArtworkCache, patternThumbnailCache,
-    playerControlsState, transportDisplayTouchState, designBundleState, musicPlayerRuntimeState,
+    playerControlsState, transportDisplayTouchState, designBundleState, toggleTapState, musicPlayerRuntimeState,
     ledOutputLatchState, stereoVuState,
     percussionLevels, audioFeatureLevels,
     rdState, golState, waveSimState, flowState, colorTrailsState, spectrumVisualizerState, starState, boidState, sparkState, fire2012Heat,
@@ -7049,6 +7076,8 @@ function createEvalNode(
         // as it does on a player, and as it will on the board.
         const edgeSettings = normalizeButtonEdgeSettings(props)
         const press = (port: string): boolean => {
+          const tap = toggleTapPress(`${key}:${port}`, incoming.get(`${id}:${port}`), nodeMap)
+          if (tap !== null) return tap
           let bs = state!.buttons[port]
           if (!bs) {
             bs = blankButtonEdgeState(nowMs)
@@ -7570,6 +7599,8 @@ function createEvalNode(
         // must not disagree about what a press is.
         const edgeSettings = normalizeButtonEdgeSettings(props)
         const button = (port: string, repeat: boolean): boolean => {
+          const tap = toggleTapPress(`${key}:${port}`, incoming.get(`${id}:${port}`), nodeMap)
+          if (tap !== null) return tap
           let bs = state!.buttons[port]
           if (!bs) {
             bs = blankButtonEdgeState(nowMs)
@@ -9157,6 +9188,8 @@ function createEvalNode(
           const directButton = (port: typeof directPorts[number], repeat: boolean): boolean => {
             const wire = incoming.get(`${id}:${port}`)
             if (!wire) return false
+            const tap = toggleTapPress(`${directKey}:${port}`, wire, nodeMap)
+            if (tap !== null) return tap
             const raw = Boolean(input(id, port, false))
             const source = nodeMap.get(wire.srcId)
             if (source?.data.nodeType === 'TouchInput' && wire.srcPort === port) return raw

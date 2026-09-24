@@ -6,8 +6,8 @@ import { displayHasTouch } from '../state/partCatalogue'
 import { normalizeButtonEdgeSettings } from '../state/transportBridge'
 import { createControlGraph, controlReferenceCpp, type ControlReference } from './controlGraph'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
-import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlsEmit } from './playerControlsCpp'
-import { designControlBundle } from '../state/designControlBundle'
+import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButtonEmit, type PlayerControlsEmit } from './playerControlsCpp'
+import { designControlBundle, toggleWidgetSource } from '../state/designControlBundle'
 import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
@@ -96,6 +96,22 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     return controlReferenceCpp(reference)
   }
 
+  /*
+   * A press into a Control Map row or a direct action. A screen Toggle is
+   * counted by taps rather than edge-detected, since its value also follows
+   * Set feedback and would echo transport changes back as presses (see
+   * `toggleWidgetSource`); every other source keeps its debounced contact.
+   */
+  const pressButton = (target: StudioNode, port: string, repeat: boolean): PlayerControlButtonEmit | null => {
+    const edge = incoming.get(`${target.id}:${port}`)
+    const toggle = edge ? toggleWidgetSource(byId.get(edge.source), edge.sourceHandle ?? '', byId, documents ?? {}) : null
+    const display = toggle ? custom.displays.find((entry) => entry.documentId === toggle.documentId) : undefined
+    const tap = toggle && display ? customDisplayLvglTapExpression(display.emit, toggle.widgetId) : null
+    if (tap) return { port, expr: tap, repeat: false, edge: 'tap' }
+    const expr = sourceExpr(target, port, 'bool')
+    return expr ? { port, repeat, expr } : null
+  }
+
   const visit = (edge: StudioEdge): string | null => {
     const source = byId.get(edge.source)
     if (!source || edge.sourceHandle !== 'controls') {
@@ -162,8 +178,8 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       controls.push({
         id: safeId(source.id), variable, upstream,
         buttons: PLAYER_CONTROL_BUTTONS.flatMap(([port, repeat]) => {
-          const expr = sourceExpr(source, port, 'bool')
-          return expr ? [{ port, repeat, expr }] : []
+          const button = pressButton(source, port, repeat)
+          return button ? [button] : []
         }),
         volumeExpr: sourceExpr(source, 'volume', 'float'),
         brightnessExpr: sourceExpr(source, 'brightness', 'float'),
@@ -188,8 +204,8 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       ?.actionInputs ?? [])
     const directButtons = PLAYER_CONTROL_BUTTONS.flatMap(([port, repeat]) => {
       if (!directIds.has(port)) return []
-      const expr = sourceExpr(destination, port, 'bool')
-      return expr ? [{ port, repeat, expr }] : []
+      const button = pressButton(destination, port, repeat)
+      return button ? [button] : []
     })
     const directPropertyInputs = NODE_LIBRARY
       .find((definition) => definition.type === destination.data.nodeType)
