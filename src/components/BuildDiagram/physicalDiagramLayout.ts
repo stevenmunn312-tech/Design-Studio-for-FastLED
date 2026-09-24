@@ -341,6 +341,8 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // VCC, GND, OUT, RX, TX along the bottom, measured from the drilled holes.
+  'hlk-ld2410c-presence-sensor': padRow([115.2, 159, 202.9, 246.7, 290.6], 400, 264.7, 296),
   // RO, RE, DE, DI along the bottom, then VCC, B, A, GND along the top, the
   // catalogue's one pad list, measured from the render's drilled holes.
   'max485-rs485-module': padPoints(400, 1160, [
@@ -628,6 +630,8 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // The LR7843 board prints PWM for its one input; other builds print IN or SIG.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'power-monitor-input': [['SDA'], ['SCL']],
+  // The board's RX reads the sensor's TX pad.
+  'presence-input': [['TX']],
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
   // reads its RO, and the enable line lands on DE (RE is bridged to it).
   'dmx-input': [['DI'], ['RO'], ['DE']],
@@ -674,6 +678,9 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // then swings to 5 V, which the receive divider brings down to the ESP32's
   // level (see `receiveDivider`).
   if (item.kind === 'dmx-input') return 'v5'
+  // The radar needs 5 V (and more than 200 mA of supply); its UART is 3.3 V,
+  // so nothing on the logic side needs shifting.
+  if (item.kind === 'presence-input') return 'v5'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
@@ -731,6 +738,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,
   'max485-rs485-module': 11.9,
+  'hlk-ld2410c-presence-sensor': 7.2,
   'pcm5102a-i2s-dac': 11.5,
   'dx-0809-stereo-amplifier': 6.1,
   'pam8610-stereo-amplifier': 4.9,

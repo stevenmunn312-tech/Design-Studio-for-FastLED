@@ -108,6 +108,18 @@ export interface PartPowerMonitorSpec {
   senseSide: 'high-side' | 'low-side' | string
 }
 
+/** Reporting contract carried by an imported radar presence sensor. */
+export interface PartPresenceSensorSpec {
+  device: string
+  interface: string
+  /** The rate the module streams its frames at; firmware opens the UART at it. */
+  baud: number
+  /** Width of one distance gate. */
+  gateMeters: number
+  /** The factory range, which the preview's distance slider spans. */
+  maxRangeMeters: number
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -126,6 +138,8 @@ export interface PartCatalogueEntry {
   mosfet?: PartMosfetSpec
   /** Present exactly on current/voltage monitor modules. */
   powerMonitor?: PartPowerMonitorSpec
+  /** Present exactly on radar presence sensors. */
+  presenceSensor?: PartPresenceSensorSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

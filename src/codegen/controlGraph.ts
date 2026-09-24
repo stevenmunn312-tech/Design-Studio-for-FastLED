@@ -109,6 +109,7 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
         continue
       }
       instruction.emission.setup.forEach((line) => setup.add(line))
+      instruction.emission.helpers?.forEach((helper) => helpers.add(helper))
       loop.push(...instruction.emission.loop)
       continue
     }

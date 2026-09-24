@@ -3,11 +3,14 @@ import { sanitizePin } from './hardwarePins'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
 import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/irRemote'
 import type { IrRemoteProjectNode } from './irRemoteCpp'
+import { presenceSensorLoopCpp, presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 
 export interface ControlInputEmission {
   setup: string[]
   loop: string[]
   outputs: Record<string, 'bool' | 'float'>
+  /** File-scope helpers required by this input, deduped by the caller. */
+  helpers?: string[]
   /**
    * Set for an IR receiver. The poll itself is not in `loop`: one decode
    * serves every key, so the caller aggregates these and emits it once.
@@ -60,7 +63,22 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       ir = { id, pin: sanitizePin(p.pin, 13), buttons }
       break
     }
+    case 'PresenceInput': {
+      setup.push(...presenceSensorSetupCpp(p, sanitizePin(p.rxPin, 18)))
+      loop.push(...presenceSensorLoopCpp((port) => v(port)))
+      outputs.presence = 'bool'
+      outputs.moving = 'bool'
+      outputs.still = 'bool'
+      outputs.distance = 'float'
+      break
+    }
     default: return null
   }
-  return { setup, loop, outputs, ...(ir ? { ir } : {}) }
+  return {
+    setup,
+    loop,
+    outputs,
+    ...(nodeType === 'PresenceInput' ? { helpers: [PRESENCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
+    ...(ir ? { ir } : {}),
+  }
 }

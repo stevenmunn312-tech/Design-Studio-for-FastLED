@@ -1474,6 +1474,24 @@ const POWER_MONITOR_LIVE_EXAMPLE = namedExample(
   'Drag the amps slider on the Power Monitor node: the rainbow brightens as the simulated current rises. Watts follows the two sliders, exactly as the firmware derives it from the measured volts and amps.',
 )
 
+const PRESENCE_INPUT_LIVE_EXAMPLE = namedExample(
+  'PresenceInput',
+  'Bring the room to life when somebody is there',
+  [
+    { key: 'sensor', type: 'PresenceInput', properties: { partId: 'hlk-ld2410c-presence-sensor', rxPin: 18 } },
+    { key: 'near', type: 'MapRange', properties: { inMin: 0, inMax: 6, outMin: 1, outMax: 0 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 80, g: 180, b: 255 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'sensor', sourceHandle: 'distance', target: 'near', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'near', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Presence Sensor reads an HLK-LD2410C radar stream over one UART receive pin. It reports somebody present even while they sit still, separates moving and still targets, and publishes detection distance from 0-6 m. Map Range turns that physical distance into Fade to Black: close targets are bright and distant targets fade away.',
+  'Toggle moving or still on the sensor node, then drag its distance slider. With both target toggles off, distance returns to zero just as stale firmware readings expire to no presence.',
+)
+
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
   'Switch a DC load from a boolean signal',
@@ -1609,6 +1627,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
+  PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

@@ -76,6 +76,7 @@ import {
   normalizeIrRemoteButtons,
 } from '../state/irRemote'
 import { STEP_VALUE_DEFAULTS } from '../state/stepValue'
+import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/presenceSensor'
 
 export interface ValidationResult {
   errors:   string[]
@@ -1494,6 +1495,7 @@ export function findDeployBlockingErrors(
     ...findStorageCapabilityErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
+    ...findPresenceSensorErrors(nodes, selectedFqbn),
     ...findI2cBusErrors(nodes),
     ...findStepValueErrors(nodes),
     ...findAudioChainErrors(nodes),
@@ -1687,6 +1689,47 @@ function irRemoteValidationIssues(
   return issues
 }
 
+function presenceSensorValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const sensors = nodes.filter((node) => node.data.nodeType === 'PresenceInput')
+  const issues: GraphDiagnostic[] = []
+  if (sensors.length > 1) {
+    issues.push({
+      id: 'presence-sensor-count', severity: 'error', category: 'connection',
+      title: 'Only one radar presence sensor can be active',
+      message: `${sensors.map(nodeLabel).join(', ')} add ${sensors.length} sensors, but the generated reader owns one UART stream.`,
+      fix: 'Keep one Presence Sensor in the root Hardware workbench and remove the others.',
+      nodeIds: sensors.map((node) => node.id), nodeLabel: 'Presence sensors',
+    })
+  }
+  for (const sensor of sensors) {
+    if (selectedFqbn && !presenceSupportedForFqbn(selectedFqbn)) {
+      issues.push({
+        id: `${sensor.id}-board-presence`, severity: 'error', category: 'board',
+        title: 'Radar presence sensing is incompatible with the selected board',
+        message: `${nodeLabel(sensor)} needs a remappable ESP32 hardware UART, which ${selectedFqbn} does not provide through this generator.`,
+        fix: 'Choose an ESP32-family target, or remove the Presence Sensor.',
+        nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), action: 'choose-board',
+      })
+    }
+  }
+  const conflictingDmx = nodes.filter((node) => {
+    if (node.data.nodeType !== 'DMXInput') return false
+    const props = node.data.properties as Record<string, unknown>
+    return String(props.inputMode ?? 'Art-Net') === 'DMX512'
+      && Math.round(Number(props.dmxPort ?? 1)) === PRESENCE_UART_PORT
+  })
+  if (sensors.length > 0 && conflictingDmx.length > 0) {
+    issues.push({
+      id: 'presence-dmx-uart', severity: 'error', category: 'pins',
+      title: `Presence Sensor and DMX512 both use UART${PRESENCE_UART_PORT}`,
+      message: `${sensors.map(nodeLabel).join(', ')} and ${conflictingDmx.map(nodeLabel).join(', ')} cannot read two protocols from the same UART peripheral.`,
+      fix: 'Set the DMX input to UART2 on a board that provides it, or remove one of the two receivers.',
+      nodeIds: [...sensors, ...conflictingDmx].map((node) => node.id), nodeLabel: `UART${PRESENCE_UART_PORT}`,
+    })
+  }
+  return issues
+}
+
 function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   const issues: GraphDiagnostic[] = []
   for (const node of nodes.filter((candidate) => candidate.data.nodeType === 'StepValue')) {
@@ -1778,6 +1821,10 @@ export function findIrRemoteErrors(
   selectedFqbn = '',
 ): string[] {
   return irRemoteValidationIssues(nodes, edges, selectedFqbn).map(validationIssueMessage)
+}
+
+export function findPresenceSensorErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return presenceSensorValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
 }
 
 export function findStepValueErrors(nodes: StudioNode[]): string[] {
@@ -2850,6 +2897,7 @@ export function buildGraphDiagnostics(
   // from the same structured findings. Keep this ahead of incidental pin and
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
+  diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))

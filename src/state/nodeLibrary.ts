@@ -28,6 +28,7 @@ import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
+import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 
@@ -3413,6 +3414,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 5 },
   },
   {
+    // LD2410-family 24 GHz radar. It sees someone sitting still, which a PIR
+    // cannot, and reports how far away they are, over a UART it streams on
+    // unprompted — so one GPIO (the board's RX from the sensor's TX) is all it
+    // needs. See presenceSensor.ts.
+    type: 'PresenceInput',
+    label: 'Presence Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'presence', label: 'Presence', dataType: 'bool' },
+      { id: 'moving', label: 'Moving', dataType: 'bool' },
+      { id: 'still', label: 'Still', dataType: 'bool' },
+      { id: 'distance', label: 'Distance (m)', dataType: 'float' },
+    ],
+    defaultProperties: { partId: DEFAULT_PRESENCE_PART_ID, [PRESENCE_RX_PIN_KEY]: 18 },
+  },
+  {
     // LDR module (KS6026 form) — a light-dependent resistor in a divider, so
     // the output is an analog voltage that rises with brightness. Needs an ADC
     // pin, the same constraint as the potentiometer below.
@@ -3997,6 +4015,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
+  PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
   LightInput: 'Reads an LDR light sensor as a 0\u20131 value.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
@@ -4963,6 +4982,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   MotionInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  PresenceInput: {
+    [PRESENCE_RX_PIN_KEY]: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   IRRemoteInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
@@ -5259,6 +5281,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     swapChannels: 'Swaps audio channels without swapping the physical left/right rail placement.',
     milliamps: 'Current cap shared by both side strings.',
   },
+  PresenceInput: {
+    rxPin: "The board pin wired to the sensor's TX. The sketch reads it as a UART at the sensor's own baud and never talks back, so the sensor's RX needs no wire.",
+  },
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 solder jumpers. Give each monitor on the bus a different one.',
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
@@ -5350,6 +5375,9 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  PresenceInput: {
+    rxPin: 'RX (sensor TX)',
+  },
   MatrixOutput: {
     outputBrightness: 'brightness',
   },
@@ -5476,7 +5504,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'IRRemoteInput',
+  'MotionInput', 'LightInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard',
 ])
@@ -5730,6 +5758,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   MotionInput: new Set(['pin']),
+  PresenceInput: new Set([PRESENCE_RX_PIN_KEY]),
   LightInput: new Set(['pin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
@@ -5777,7 +5806,7 @@ export function gpioRequirementForProperty(
   // A receiver module drives the line both ways through its own open-collector
   // output stage and its module pull-up, the same as a PIR — a pull-up here
   // would fight it rather than hold the idle level.
-  if (nodeType === 'MotionInput' || nodeType === 'IRRemoteInput') {
+  if (nodeType === 'MotionInput' || nodeType === 'IRRemoteInput' || nodeType === 'PresenceInput') {
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput') return { capability: 'digitalOutput', pullup: false }

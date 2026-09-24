@@ -170,6 +170,8 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
+  // One UART receive line: the sensor streams unprompted, so its RX is unwired.
+  PresenceInput: { keys: ['rxPin'], requests: [{ key: 'rxPin' }] },
   // One pin however many keys are learned: a receiver demodulates every
   // one of them onto the same line.
   IRRemoteInput: { keys: ['pin'], requests: [{ key: 'pin' }] },

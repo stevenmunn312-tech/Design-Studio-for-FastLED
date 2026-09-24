@@ -543,6 +543,18 @@ const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-ina219-current-sensor' },
   },
   {
+    nodeType: 'PresenceInput',
+    partId: 'presence-sensor',
+    label: 'HLK-LD2410C presence sensor',
+    hint: 'Radar presence, movement and distance over UART',
+    footprint: partDimensionsMm('hlk-ld2410c-presence-sensor', { width: 22, height: 16 }),
+    signalPort: 'presence',
+    dataType: 'bool',
+    pinRequests: [{ key: 'rxPin' }],
+    pinFields: [{ key: 'rxPin', label: 'RX (sensor TX)' }],
+    properties: { partId: 'hlk-ld2410c-presence-sensor' },
+  },
+  {
     nodeType: 'EncoderInput',
     partId: 'encoder',
     label: 'Rotary encoder',

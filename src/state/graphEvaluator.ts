@@ -3,6 +3,9 @@ import { useAudioStore } from './audioStore'
 import { useDmxStore } from './dmxStore'
 import { useHardwareInputStore } from './hardwareInputStore'
 import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from './powerMonitor'
+import {
+  presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
+} from './presenceSensor'
 import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
@@ -8820,6 +8823,20 @@ function createEvalNode(
           props.partId,
           pot.get(powerMonitorPreviewKey(id, 'volts')) ?? start.volts,
           pot.get(powerMonitorPreviewKey(id, 'amps')) ?? start.amps,
+        ) }
+        break
+      }
+
+      // The browser has no radar, so two latches model the module's moving and
+      // stationary target bits and one slider supplies its detection distance.
+      case 'PresenceInput': {
+        const inputState = useHardwareInputStore.getState()
+        out = { ...presencePreviewReading(
+          props.partId,
+          inputState.button.get(presencePreviewKey(id, 'moving')) ?? false,
+          inputState.button.get(presencePreviewKey(id, 'still')) ?? false,
+          inputState.pot.get(presencePreviewKey(id, 'distance'))
+            ?? presencePreviewDefaultDistance(props.partId),
         ) }
         break
       }

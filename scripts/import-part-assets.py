@@ -191,6 +191,24 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: powerMonitor block needs addresses, a default among them, "
                   "shuntOhms, busVoltageMaxV and currentMaxA — skipped", file=sys.stderr)
+    # A radar presence sensor's reporting contract. Firmware opens its UART at
+    # the module's own baud, and the preview spans its own range, so both come
+    # from the board rather than being retyped.
+    presence = data.get("presenceSensor")
+    if presence:
+        if (isinstance(presence.get("baud"), int) and presence["baud"] > 0
+                and isinstance(presence.get("gateMeters"), (int, float)) and presence["gateMeters"] > 0
+                and isinstance(presence.get("maxRangeMeters"), (int, float)) and presence["maxRangeMeters"] > 0):
+            entry["presenceSensor"] = {
+                "device": presence.get("device") or "",
+                "interface": presence.get("interface") or "UART",
+                "baud": presence["baud"],
+                "gateMeters": presence["gateMeters"],
+                "maxRangeMeters": presence["maxRangeMeters"],
+            }
+        else:
+            print(f"  ! {part_id}: presenceSensor block needs baud, gateMeters and maxRangeMeters — skipped",
+                  file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

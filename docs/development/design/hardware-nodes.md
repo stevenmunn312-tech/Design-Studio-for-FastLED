@@ -2,7 +2,7 @@
 
 Status: implemented on `Hardware`; microphone, PCM1802 line-in, player-decoder
 Audio sources, self-growing button banks, and 1/2/4/8-channel relay modules
-shipped · Owner: app · Updated: 2026-09-21
+shipped · Owner: app · Updated: 2026-09-24
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -32,8 +32,8 @@ workbench's **Add Hardware** menu is the creation path for:
 
 - signal inputs: I2S MEMS microphone (INMP441, ICS-43434 or generic), PCM1802
   line-in ADC, button, button bank,
-  potentiometer, encoder, PIR motion, ambient light, INA219 power monitor, and
-  RTC modules;
+  potentiometer, encoder, PIR motion, HLK-LD2410C radar presence, ambient light,
+  INA219 power monitor, and RTC modules;
 - switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, and
   the opto-isolated LR7843 MOSFET module for DC loads;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
@@ -58,7 +58,7 @@ data lead or choose a new pin.
 `isHardwareManagedSignalNodeType` defines the parts visible in both views:
 
 - `MicInput`, `LineInput`, `ButtonInput`, `ButtonBank`, `PotInput`, and `EncoderInput`;
-- `MotionInput`, `LightInput` and `PowerMonitorInput`;
+- `MotionInput`, `PresenceInput`, `LightInput` and `PowerMonitorInput`;
 - `RTCInput`, `RelayOutput` and `PowerSwitchOutput`; and
 - `MatrixOutput` (the implementation type behind all five LED-output forms).
 
@@ -102,6 +102,20 @@ browser has no sensor, so the node body offers volts and amps sliders across the
 part's own range. The board has no regulator and its bus pull-ups tie to VIN, so
 the Build Diagram powers it from the logic rail, not from 5 V. It is emitted by
 the normal sketch generator only, like the other sensors.
+
+`PresenceInput` reads one HLK-LD2410C radar module at 256000 baud and publishes
+`presence`, `moving`, `still`, and detection `distance` in metres. The module
+streams without a command, so the board needs only one receive GPIO: sensor TX
+to the node's RX pin; sensor RX and OUT remain unwired. Firmware validates all
+four header bytes, follows the frame's little-endian length, accepts both basic
+and engineering reports, and expires a stale report after one second. One
+shared parser owns ESP32 UART1, so validation permits one sensor and refuses a
+DMX512 receiver configured on the same UART; DMX may move to UART2 on a board
+that provides it. The browser
+models the same outputs with moving/still latches and a distance slider across
+the catalogued 6 m range. The Build Diagram powers VCC from 5 V and wires the
+3.3 V UART TX directly to the ESP32 receive pin. Normal, slideshow, and player
+control generators share this reader through `controlInputCpp`.
 
 Deleting a hardware-managed signal node on the canvas removes its signal edges
 but retains the part. Removing it through the workbench deletes the root-graph

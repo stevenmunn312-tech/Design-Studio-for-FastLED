@@ -132,6 +132,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  PresenceInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'hlk-ld2410c-presence-sensor',
+        label: 'HLK-LD2410C mmWave',
+        summary: 'Someone there, moving or still, and how far: up to 6 m',
+        note: "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin.",
+      },
+    ],
+  },
   PowerMonitorInput: {
     property: 'partId',
     options: [

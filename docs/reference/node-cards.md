@@ -60,6 +60,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Motion Sensor example graph](../../public/node-cards/graphs/motion-input.svg)
 
+### Presence Sensor
+
+![Presence Sensor node](../../public/node-cards/presence-input.svg)
+
+![Presence Sensor example graph](../../public/node-cards/graphs/presence-input.svg)
+
 ### Light Sensor
 
 ![Light Sensor node](../../public/node-cards/light-input.svg)

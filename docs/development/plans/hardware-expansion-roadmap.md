@@ -98,7 +98,11 @@ compile families:
    and drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a
    1 k / 2 k divider on RO, and experimental. The bench run is still open.
 4. The existing [IR remote-control plan](ir-remote-controls.md).
-5. LD2410 presence sensing, followed by BH1750 ambient light.
+5. LD2410 presence sensing, followed by BH1750 ambient light. The
+   HLK-LD2410C (`PresenceInput`) is now modelled, catalogued, drawn, previewed,
+   and generated for ESP32 normal/show/player control paths; it remains
+   experimental until its compile and bench evidence are recorded. BH1750 is
+   still open.
 6. W5500 wired networking.
 7. A differential pixel-data pair and long-cable validation.
 8. Buck conversion and protected high-side switching in the Build Diagram

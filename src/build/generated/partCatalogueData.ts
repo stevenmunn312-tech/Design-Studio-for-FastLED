@@ -217,6 +217,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "hlk-ld2410c-presence-sensor": {
+    "partId": "hlk-ld2410c-presence-sensor",
+    "label": "HLK-LD2410C mmWave presence sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 22.0,
+      "height": 16.0
+    },
+    "manufacturer": "Shenzhen Hi-Link Electronic (HLK-LD2410C)",
+    "logicVoltage": "5 V supply (VCC); UART and OUT are 3.3 V logic, safe to wire straight to an ESP32",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "OUT",
+      "RX",
+      "TX"
+    ],
+    "notes": [
+      "Detects people by 24 GHz radar, including someone sitting still, which a PIR misses. It streams a frame about ten times a second over UART at 256000 baud with no setup: presence, whether the target is moving or still, and its distance.",
+      "Power it from 5 V (more than 200 mA of supply capacity; about 79 mA average). Its UART and OUT pins are 3.3 V, so TX goes straight to an ESP32 RX pin with no divider.",
+      "Studio reads the UART: sensor TX to the board's RX pin. RX and OUT are not needed; OUT is a plain 3.3 V presence line if you want one.",
+      "Range is eight 0.75 m gates, 6 m by default. The antennas are on the component face: point that face at the room and keep metal, and the LED strip's own supply wiring, out of the way in front of it.",
+      "The five holes ship unpopulated; fit a 2.54 mm header or solder wires. The silkscreen prints TX, RX, OUT, GND, VCC with TX on the square pad; turned as drawn here, they read right to left."
+    ],
+    "presenceSensor": {
+      "device": "HLK-LD2410C",
+      "interface": "UART",
+      "baud": 256000,
+      "gateMeters": 0.75,
+      "maxRangeMeters": 6
+    },
+    "render": {
+      "file": "parts/hlk-ld2410c-presence-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 296,
+      "pxPerMm": 17.273
+    }
+  },
   "hub75-panel-64x64-p4": {
     "partId": "hub75-panel-64x64-p4",
     "label": "HUB75 panel, 64×64 P4",

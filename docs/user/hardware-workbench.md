@@ -30,7 +30,8 @@ Use **Add Hardware** in the workbench. The current categories are:
 
 - **Inputs** — microphone, PCM1802 line-in ADC, button, button bank,
   demodulating IR receiver, potentiometer, encoder, PIR motion sensor,
-  ambient-light sensor, INA219 power monitor, and RTC module;
+  HLK-LD2410C radar presence sensor, ambient-light sensor, INA219 power monitor,
+  and RTC module;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the I2S stage on the board's pins (a MAX98357A
   speaker amplifier, or a PCM5102A or UDA1334A DAC), and the analog power
@@ -60,6 +61,23 @@ the A0/A1 jumpers so each has its own address, and pick that address on the
 node. In preview there is no sensor, so drag the node's volts and amps sliders.
 Amps run from 0 to 3.2, so put a **Map Range** in front of anything that
 expects 0 to 1.
+
+### Detect stationary presence
+
+The **HLK-LD2410C Presence Sensor** detects a person who is moving or sitting
+still and reports their distance up to 6 m. Power VCC from 5 V and GND from the
+board. Wire the sensor's **TX** pad to the ESP32 GPIO shown as **RX (sensor TX)**
+in Studio; leave RX and OUT unwired. Its UART is 3.3 V logic, so no divider is
+needed. Mount the component/antenna face toward the occupied area and keep
+metal and dense power wiring out of the space immediately in front of it.
+
+The node offers Presence, Moving, Still, and Distance outputs. In preview,
+toggle Moving and Still and drag the distance slider. Only one sensor can be
+active because the generated reader owns UART1. If a DMX512 input also uses
+UART1, Graph Health asks you to move DMX to UART2 on a board that provides it.
+The feature requires an
+ESP32-family target and remains experimental until the support matrix records
+a compile and a physical comparison against the module's OUT indicator.
 
 ### Add an IR remote receiver
 

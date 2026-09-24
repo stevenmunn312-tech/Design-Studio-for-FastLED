@@ -1,6 +1,9 @@
 import { useCallback, useRef } from 'react'
 import { useHardwareInputStore } from '../../state/hardwareInputStore'
 import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from '../../state/powerMonitor'
+import {
+  presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
+} from '../../state/presenceSensor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -88,6 +91,27 @@ function PowerMonitorWidget({ nodeId, partId }: { nodeId: string; partId: unknow
   )
 }
 
+function PresenceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const movingKey = presencePreviewKey(nodeId, 'moving')
+  const stillKey = presencePreviewKey(nodeId, 'still')
+  const moving = useHardwareInputStore((s) => s.button.get(movingKey) ?? false)
+  const still = useHardwareInputStore((s) => s.button.get(stillKey) ?? false)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  const distance = presencePreviewDefaultDistance(partId)
+  return (
+    <>
+      <div className={styles.encoderRow}>
+        <button type="button" className={`nodrag ${styles.button} ${moving ? styles.buttonPressed : ''}`}
+          aria-pressed={moving} onClick={() => setButton(movingKey, !moving)}>moving</button>
+        <button type="button" className={`nodrag ${styles.button} ${still ? styles.buttonPressed : ''}`}
+          aria-pressed={still} onClick={() => setButton(stillKey, !still)}>still</button>
+      </div>
+      <PotInputWidget nodeId={nodeId} storeKey={presencePreviewKey(nodeId, 'distance')} initial={distance}
+        readout={(fraction) => `${presencePreviewReading(partId, true, false, fraction).distance.toFixed(2)} m`} />
+    </>
+  )
+}
+
 // Dragging vertically spins the dial (up = increase, matching a mouse-look
 // feel); a click without much movement is treated as a tap of the encoder's
 // integrated push-button (pinSW), pulsed briefly like a real momentary switch.
@@ -139,6 +163,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.

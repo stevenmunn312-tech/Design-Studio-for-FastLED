@@ -494,6 +494,15 @@ Unless a future row says otherwise, treat the following as experimental:
   sketch, not by the show or SD-player generators. Graduating it needs a dated
   row naming the board/FQBN, the I2C pins and address, the supply and load, and
   the monitor's volts and amps against a multimeter at two load currents.
+- **HLK-LD2410C radar presence sensing.** `PresenceInput` has software,
+  preview, generated-parser, manifest and Build Diagram coverage on ESP32, but
+  no compiled or physical row yet. It reads continuous 256000-baud UART reports
+  on UART1, expires a stale report after one second, and publishes presence,
+  moving/still state and distance. Graduation needs a dated row naming the
+  ESP32 board/FQBN, RX GPIO and build engine, with moving, stationary, combined
+  and absent targets checked at two measured distances. The row must also
+  confirm recovery after disconnecting/reconnecting sensor TX and record
+  whether a concurrently configured DMX receiver uses UART2.
 - **IR remote receive on every board, receiver and remote combination.** The
   current evidence is software and generated-firmware coverage only. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's

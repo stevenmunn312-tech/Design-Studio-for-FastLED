@@ -113,6 +113,9 @@ import {
 } from './deviceTelemetryCpp'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { POWER_MONITOR_HELPER_CPP, powerMonitorLoopCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
+import {
+  PRESENCE_SENSOR_HELPER_CPP, presenceSensorLoopCpp, presenceSensorSetupCpp,
+} from './presenceSensorCpp'
 import { controllerSettings, ledPropsWithController, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import {
   micFirmwareBackendForBoard,
@@ -1929,6 +1932,7 @@ export function generateCpp(
   const i2cOleds = sorted.filter((n) => n.data.nodeType === 'InfoDisplay'
     && oledTransportForProps(props(n)) === 'i2c')
   const powerMonitors = sorted.filter((n) => n.data.nodeType === 'PowerMonitorInput')
+  const presenceSensors = sorted.filter((n) => n.data.nodeType === 'PresenceInput')
   const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0
   /*
    * The header follows the driver, not the transport.
@@ -2115,6 +2119,9 @@ export function generateCpp(
       setupLines.push(`  Serial.begin(115200);  // accepts deliberate FLS_RTC_SET commands from Studio`)
     }
     for (const monitor of powerMonitors) setupLines.push(powerMonitorSetupCpp(props(monitor)))
+  }
+  for (const sensor of presenceSensors) {
+    setupLines.push(...presenceSensorSetupCpp(props(sensor), sanitizePin(props(sensor).rxPin, 18)))
   }
   // File-scope lines contributed by Code nodes (helpers, persistent vars, etc.),
   // emitted between the buffer declarations and setup().
@@ -2753,6 +2760,10 @@ export function generateCpp(
 
       case 'PowerMonitorInput':
         for (const line of powerMonitorLoopCpp(p, v)) ln(line)
+        break
+
+      case 'PresenceInput':
+        for (const line of presenceSensorLoopCpp(v)) ln(line)
         break
 
       case 'RelayOutput': {
@@ -7842,6 +7853,7 @@ export function generateCpp(
     lines.push(...ds3231HelperCpp())
   }
   if (powerMonitors.length > 0) lines.push(...POWER_MONITOR_HELPER_CPP)
+  if (presenceSensors.length > 0) lines.push(...PRESENCE_SENSOR_HELPER_CPP)
 
   if (needsWifi) {
     lines.push(`// Shared Wi-Fi bootstrap for Art-Net receive / NTP clock sync.`)

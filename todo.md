@@ -56,7 +56,11 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks (run on request, one at a time)
 
-None open. The HW-19 and HW-20 compiles all passed on 2026-09-24:
+- **D-05 presence sensor:** compile one normal ESP32 graph whose HLK-LD2410C
+  distance drives an LED property, then the slideshow and player control paths.
+  Record toolchain, FQBN, flash and RAM before moving to the next leg.
+
+The HW-19 and HW-20 compiles all passed on 2026-09-24:
 - Generic MEMS on arduino-cli, and the microphone path on fbuild;
 - the DAC → power amplifier player sketch;
 - the SPH0645LM4H on fbuild and on esp32 core 2.0.17.
@@ -107,6 +111,9 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
   receiving a real DMX512 line; the row's requirements are in the support
   matrix.
+- **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
+  combined and absent targets at two measured distances, including UART
+  reconnect recovery; the row's requirements are in the support matrix.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
@@ -151,7 +158,9 @@ in the app and marked experimental; nothing here holds up development.
   is still to do. The MAX485 DMX transceiver (roadmap step 3) is modelled and
   drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
   divider on RO. It adds no firmware, so no compile is owed; its bench row is
-  in section 3.
+  in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,
+  drawn, previewed and generated as `PresenceInput` for ESP32; its compile and
+  bench rows are in sections 2 and 3.
 
 ## Completed
 

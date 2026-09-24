@@ -36,6 +36,7 @@ import { relayPinKeys } from '../state/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from '../state/powerSwitch'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
+import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
 
 export interface HardwarePinUse {
   label: string
@@ -76,7 +77,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'dmx-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -110,6 +111,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'Amplifier',
   'PowerAmplifier',
   'MotionInput',
+  'PresenceInput',
   'LightInput',
   'IRRemoteInput',
   'PowerMonitorInput',
@@ -302,6 +304,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'MotionInput':
         push(node, `${baseLabel} OUT pin`, 'pin', props.pin)
+        break
+      // One UART receive line, from the sensor's TX pad.
+      case 'PresenceInput':
+        push(node, `${baseLabel} RX pin`, 'rxPin', props.rxPin)
         break
       // One pin whatever the remote has: the receiver demodulates every key
       // onto the same line, so the learned buttons cost no GPIO of their own.
@@ -626,6 +632,23 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       case 'IRRemoteInput':
         return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
+      case 'PresenceInput': {
+        const entry = partById(String((node.data.properties as Record<string, unknown>).partId ?? DEFAULT_PRESENCE_PART_ID))
+        const spec = presenceSensorSpec((node.data.properties as Record<string, unknown>).partId)
+        const wired = pins.some((pin) => pin.propertyKey === 'rxPin')
+        const item = buildPeripheralItem(node, 'presence-input', entry?.label ?? 'Radar presence sensor', pins)
+        return {
+          ...item,
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            ...item.facts,
+            uart: `UART${PRESENCE_UART_PORT} receive at ${spec.baud} baud; sensor RX and OUT unwired`,
+            range: `${spec.maxRangeMeters} m in ${spec.gateMeters} m gates`,
+          },
+          reasons: wired ? undefined : ['This presence sensor does not have its RX pin configured.'],
+        }
+      }
       case 'LightInput':
         return {
           ...buildPeripheralItem(node, 'light-input', 'LDR analog light sensor', pins),
