@@ -233,7 +233,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     ],
     "notes": [
       "Bottom-port 24-bit I2S MEMS microphone on the recognisable six-pad Adafruit-style breakout.",
-      "SEL selects I2S/PDM on this breakout; LRCL selects the left or right I2S slot."
+      "SEL is the channel select, low by default for the left channel and tied to 3.3 V for the right; LRCL is the word-select clock the controller drives."
     ],
     "render": {
       "file": "parts/ics-43434-i2s-microphone.webp",
@@ -1112,7 +1112,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     ],
     "notes": [
       "Knowles bottom-port I2S microphone on the compact Adafruit Product 3421 breakout form.",
-      "This device has a known I2S bit-alignment quirk and should be bench-verified before firmware support is advertised."
+      "On the ESP32 each sample arrives shifted one bit because the microphone changes DOUT on the clock edge the receiver samples; generated firmware applies the published classic-ESP32 timing fix, and ESP32-S3 support awaits a measured capture."
     ],
     "render": {
       "file": "parts/sph0645lm4h-i2s-microphone.webp",
