@@ -71,7 +71,7 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
       {error && <div className={styles.note}>{error}</div>}
       {mode === 'Art-Net' && !trusted && (
         <div className={styles.note}>
-          This project isn’t trusted yet, so no UDP listener has been opened. Choose <strong>Trust and run</strong> to start receiving Art-Net.
+          This listener came with a project made on another computer, so it stays closed until you trust it. Choose <strong>Trust it</strong> in the banner to start receiving Art-Net.
         </div>
       )}
       {mode !== 'Art-Net' && (

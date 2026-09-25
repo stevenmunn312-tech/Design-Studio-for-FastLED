@@ -19,7 +19,7 @@ import { orderPorts } from '../utils/portOrder'
 import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
 import type { SavedPattern } from './patternLibrary'
-import { savedPatternUntrustsWorkspace, trustPatternContent } from './patternTrust'
+import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
 import { retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
@@ -164,8 +164,10 @@ interface GraphState {
   selectedNodeId: string | null
   /** Holds one or more copied nodes plus the edges wiring them together
    *  (internal edges only — boundary edges to nodes outside the copy aren't
-   *  carried along). */
-  clipboard: { nodes: StudioNode[]; edges: StudioEdge[] } | null
+   *  carried along). `fromUntrusted` marks a copy taken in an untrusted
+   *  project, so pasting it elsewhere cannot launder unknown code into a
+   *  trusted one. */
+  clipboard: { nodes: StudioNode[]; edges: StudioEdge[]; fromUntrusted?: boolean } | null
 
   // ── Multi-graph workspace (ADR 0001, Phase 1) ──────────────────────────
   activeGraphId: string
@@ -177,13 +179,14 @@ interface GraphState {
 
   // ── Trust boundary (todo.md P0) ─────────────────────────────────────────
   /** Whether the active workspace's CustomFormula/FieldFormula/Code nodes may
-   *  evaluate their preview logic. `loadGraph` sets this from whatever load
-   *  path is calling it; content pulled from outside this browser (share
-   *  link, JSON import, project file, pattern drop) is forced `false`
-   *  regardless of what it claims about itself — see the callers of
-   *  `loadGraph`/`instantiatePattern`/`createCollectionFromPatterns`. */
+   *  evaluate their preview logic. Load paths start content from elsewhere
+   *  (share link, import, project file) at `false` whatever it claims; the
+   *  trust subscription below then trusts it whenever everything in it is
+   *  already known on this machine (patternTrust.ts), and pattern drops and
+   *  pastes set `false` only when they bring something unknown in. */
   trusted: boolean
-  /** Explicitly trust the active workspace (the "Trust and run" action). */
+  /** Explicitly trust the active workspace (the "Trust it" action), which
+   *  also remembers its content on this machine for good. */
   setTrusted: (trusted: boolean) => void
 
   /** Project-specific physical hardware/build facts for Build Diagram. */
@@ -1593,16 +1596,10 @@ export const useGraphStore = create<GraphState>()(
       trusted: true,
       setTrusted: (trusted) =>
         set((s) => {
-          if (trusted) {
-            // Explicit trust ("Trust and run") also remembers the exact content of
-            // any library-sourced patterns currently on the workspace, so dropping
-            // the same pattern again later doesn't force this prompt a second time.
-            for (const [graphId, meta] of Object.entries(s.graphs)) {
-              if (!meta.sourcePatternId) continue
-              const sub = s.graphData[graphId]
-              if (sub) trustPatternContent(sub)
-            }
-          }
+          // Trusting a project remembers everything in it on this machine, so
+          // neither it nor any pattern or file carrying the same code asks
+          // again, in this project or any other.
+          if (trusted) rememberContent(s.nodes, s.graphData)
           return { trusted }
         }),
       buildProfile: undefined,
@@ -2217,7 +2214,7 @@ export const useGraphStore = create<GraphState>()(
       copyNode: (id) =>
         set((s) => {
           const node = s.nodes.find((n) => n.id === id)
-          return node ? { clipboard: { nodes: [node], edges: [] } } : s
+          return node ? { clipboard: { nodes: [node], edges: [], fromUntrusted: !s.trusted } } : s
         }),
 
       copySelection: () =>
@@ -2226,7 +2223,7 @@ export const useGraphStore = create<GraphState>()(
           if (selected.length === 0) return s
           const idSet = new Set(selected.map((n) => n.id))
           const internal = s.edges.filter((e) => idSet.has(e.source!) && idSet.has(e.target!))
-          return { clipboard: { nodes: selected, edges: internal } }
+          return { clipboard: { nodes: selected, edges: internal, fromUntrusted: !s.trusted } }
         }),
 
       pasteNode: (position) =>
@@ -2281,6 +2278,9 @@ export const useGraphStore = create<GraphState>()(
             edges: [...s.edges, ...newEdges],
             selectedNodeId: newNodes[0].id,
             displayDocuments,
+            // Unknown code copied out of an untrusted project stays untrusted
+            // here; anything already known pastes freely.
+            trusted: s.trusted && (!s.clipboard.fromUntrusted || isContentKnown(newNodes)),
           }
         }),
 
@@ -3094,12 +3094,10 @@ export const useGraphStore = create<GraphState>()(
             },
             graphData: { ...s.graphData, [groupId]: { nodes: sub.nodes, edges: sub.edges } },
             nodes: [...s.nodes, groupNode],
-            // A dropped pattern could itself have been imported/shared from
-            // outside this browser, so it forces the whole workspace untrusted
-            // unless the user has already explicitly trusted this exact pattern
-            // content before (see patternTrust.ts; safe default otherwise — see
-            // trustPrompt.ts's doc comment for why this doesn't also pop a
-            // confirm modal).
+            // A dropped pattern untrusts the workspace only when it carries
+            // code this machine has not seen — shipped patterns and anything
+            // made here are known (see patternTrust.ts, and trustPrompt.ts's doc
+            // comment for why this doesn't also pop a confirm modal).
             trusted: savedPatternUntrustsWorkspace(saved.subgraph) ? false : s.trusted,
           }
         }),
@@ -3385,6 +3383,29 @@ export const useGraphStore = create<GraphState>()(
 // (the timer is cleared before the action runs), so this cannot self-loop.
 useGraphStore.subscribe(() => {
   if (orphanPruneTimer) scheduleOrphanGraphPrune()
+})
+
+/*
+ * A project's trust follows what it holds (see patternTrust.ts).
+ *
+ * While it is trusted, everything in it is work made on this machine, so it
+ * is remembered as it is made: a formula typed here, or a pattern saved from
+ * here, is known the next time it appears anywhere. While it is untrusted,
+ * it becomes trusted again the moment nothing unknown is left in it - which
+ * is also how a loaded file or share link made only of known content opens
+ * trusted, since load paths start everything from elsewhere untrusted and
+ * this decides. Paths that bring unknown content in (a pattern drop, a paste
+ * from an untrusted project) set `trusted: false` in the same update, so
+ * that content is never remembered on the way in.
+ */
+useGraphStore.subscribe((state, previous) => {
+  if (state.nodes === previous.nodes && state.graphData === previous.graphData
+    && state.trusted === previous.trusted) return
+  if (state.trusted) {
+    rememberContent(state.nodes, state.graphData)
+  } else if (isContentKnown(state.nodes, state.graphData)) {
+    useGraphStore.setState({ trusted: true })
+  }
 })
 
 // Dev-only: expose the store on window so external tooling (e.g. a browser

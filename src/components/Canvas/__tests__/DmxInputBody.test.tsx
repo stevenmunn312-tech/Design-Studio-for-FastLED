@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { clearPatternContentTrustForTests } from '../../../state/patternTrust'
 import { render, screen } from '@testing-library/react'
 import DmxInputBody from '../DmxInputBody'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../../state/graphStore'
@@ -27,6 +28,9 @@ const configure = vi.fn(async () => {})
 const stop = vi.fn(async () => {})
 
 function reset(trusted: boolean) {
+  // An untrusted project is one holding something this machine has not seen,
+  // so forget the listener a trusted run may already have remembered.
+  if (!trusted) clearPatternContentTrustForTests()
   useGraphStore.setState({
     nodes: [dmxNode('dmx', { inputMode: 'Art-Net', previewPort: 6454, universe: 0 })],
     edges: [], selectedNodeId: null, activeGraphId: ROOT_GRAPH_ID, trusted,
@@ -54,7 +58,7 @@ describe('DmxInputBody Art-Net trust gate', () => {
     reset(false)
     render(<DmxInputBody nodeId="dmx" />)
     expect(screen.getByText(/LISTENER HELD — UNTRUSTED/)).toBeTruthy()
-    expect(screen.getByText(/isn’t trusted yet/)).toBeTruthy()
+    expect(screen.getByText(/made on another computer/)).toBeTruthy()
   })
 
   it('does not open a listener on an attacker-chosen port from an untrusted graph', () => {

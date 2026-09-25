@@ -81,7 +81,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
           ? showControlRouting(nodes, edges, documents, build.engine?.id).errors
           : []
     if (targets.length > 0 && !trusted) {
-      errors.push('Trust this project before preparing its display images for firmware.')
+      errors.push('Display images are waiting until you trust this project.')
     }
     // Routing errors stay in `errors` — they still block a bake, and one of
     // them is a wire onto a widget port that no longer exists, which is very

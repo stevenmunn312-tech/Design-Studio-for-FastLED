@@ -6,6 +6,9 @@ import {
   workspaceNeedsTrust,
   workspaceTrustHolds,
   clearPatternContentTrustForTests,
+  isContentKnown,
+  rememberContent,
+  reloadKnownContentForTests,
 } from '../patternTrust'
 import type { GraphContent, StudioNode, StudioEdge } from '../graphStore'
 
@@ -80,6 +83,42 @@ describe('pattern content trust store', () => {
     trustPatternContent(subgraph)
     const edited = content([node('cf', 'CustomFormula', { formula: '0.9' }), node('o', 'GroupOutput')])
     expect(isPatternContentTrusted(edited)).toBe(false)
+  })
+})
+
+describe('known content', () => {
+  it('knows content with nothing gated in it', () => {
+    expect(isContentKnown([node('p', 'Plasma'), node('o', 'MatrixOutput')])).toBe(true)
+  })
+
+  it('remembers code by what it is, not where it sits', () => {
+    rememberContent([node('cf', 'CustomFormula', { formula: 'x' })])
+    const moved = { ...node('other-id', 'CustomFormula', { formula: 'x' }), position: { x: 300, y: 40 } }
+    expect(isContentKnown([moved as StudioNode, node('p', 'Plasma')])).toBe(true)
+  })
+
+  it('finds unknown code inside a group', () => {
+    expect(isContentKnown([node('g', 'Group', { groupId: 'grp' })], {
+      grp: content([node('ff', 'FieldFormula', { formula: 'y' })]),
+    })).toBe(false)
+  })
+
+  it('treats an Art-Net listener as something to know, and a DMX512 input as not', () => {
+    expect(isContentKnown([node('d', 'DMXInput', { inputMode: 'Art-Net' })])).toBe(false)
+    expect(isContentKnown([node('d', 'DMXInput', { inputMode: 'DMX512' })])).toBe(true)
+  })
+
+  it('survives a reload', () => {
+    rememberContent([node('c', 'Code', { code: 'a' })])
+    reloadKnownContentForTests()
+    expect(isContentKnown([node('c', 'Code', { code: 'a' })])).toBe(true)
+  })
+
+  it('carries over patterns trusted under the old whole-pattern store', () => {
+    const legacy = JSON.stringify({ edges: [], nodes: [node('cf', 'CustomFormula', { formula: 'old' })] })
+    localStorage.setItem('design-studio-for-fastled.trusted-pattern-content.v1', JSON.stringify([legacy]))
+    reloadKnownContentForTests()
+    expect(isContentKnown([node('x', 'CustomFormula', { formula: 'old' })])).toBe(true)
   })
 })
 

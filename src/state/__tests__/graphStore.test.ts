@@ -4,7 +4,7 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useUiStore } from '../uiStore'
-import { clearPatternContentTrustForTests } from '../patternTrust'
+import { clearPatternContentTrustForTests, reloadKnownContentForTests } from '../patternTrust'
 import { useNodeDefaults } from '../nodeDefaults'
 import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displayEditor'
 import { applyDisplayTemplate } from '../displayTemplates'
@@ -1806,8 +1806,59 @@ describe('graphStore — trust boundary', () => {
     expect(useGraphStore.getState().trusted).toBe(true)
   })
 
-  it('loadGraph honours an explicit trusted:false from its caller', () => {
+  it('loadGraph keeps content from elsewhere untrusted while it holds unknown code', () => {
+    useGraphStore.getState().loadGraph([node('f', 'CustomFormula', { formula: 'x' })], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  it('opens content from elsewhere trusted when nothing in it needs trusting', () => {
+    // A shared or imported project made of ordinary nodes has nothing to hold
+    // back, so it is not held back.
     useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('remembers code made in a trusted project, so it is known in every later project', () => {
+    useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [])
+    useGraphStore.setState({ nodes: [...useGraphStore.getState().nodes, node('f', 'CustomFormula', { formula: 'mine' })] })
+    // The same code arriving later from a file (or a saved pattern) is the
+    // user's own, wherever it sits on the canvas.
+    const moved = { ...node('f2', 'CustomFormula', { formula: 'mine' }), position: { x: 400, y: 90 } }
+    useGraphStore.getState().loadGraph([moved], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('remembers what the user trusts, for good, across projects and reloads', () => {
+    const theirs = node('f', 'Code', { code: 'return x' })
+    useGraphStore.getState().loadGraph([theirs], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(false)
+    useGraphStore.getState().setTrusted(true)
+
+    reloadKnownContentForTests()
+    useGraphStore.getState().loadGraph([node('other', 'SolidColor'), { ...theirs, id: 'again' }], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('does not carry trust over to code that has been changed', () => {
+    useGraphStore.getState().loadGraph([node('f', 'Code', { code: 'return x' })], [], { trusted: false })
+    useGraphStore.getState().setTrusted(true)
+    useGraphStore.getState().loadGraph([node('f', 'Code', { code: 'fetch(evil)' })], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(false)
+  })
+
+  it('becomes trusted again once the unknown code is removed', () => {
+    useGraphStore.getState().loadGraph([node('sc', 'SolidColor'), node('f', 'Code', { code: '?' })], [], { trusted: false })
+    expect(useGraphStore.getState().trusted).toBe(false)
+    useGraphStore.setState({ nodes: useGraphStore.getState().nodes.filter((n) => n.id !== 'f') })
+    expect(useGraphStore.getState().trusted).toBe(true)
+  })
+
+  it('does not launder unknown code through the clipboard into a trusted project', () => {
+    useGraphStore.getState().loadGraph([node('f', 'Code', { code: 'theirs' })], [], { trusted: false })
+    useGraphStore.getState().copyNode('f')
+    useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [])
+    expect(useGraphStore.getState().trusted).toBe(true)
+    useGraphStore.getState().pasteNode({ x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
   })
 

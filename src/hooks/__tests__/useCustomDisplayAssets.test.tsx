@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearPatternContentTrustForTests } from '../../state/patternTrust'
 import { useCustomDisplayAssets } from '../useCustomDisplayAssets'
 import { useGraphStore, type StudioNode, type StudioEdge } from '../../state/graphStore'
 import { createDisplayDocument } from '../../state/displayEditor'
@@ -112,17 +113,20 @@ describe('firmware display asset preparation', () => {
   })
 
   it('gates I/O on trust and removes cached bytes immediately when trust is revoked', async () => {
-    useGraphStore.setState({ trusted: false })
+    // Untrusted means the project holds code this machine has not seen.
+    clearPatternContentTrustForTests()
+    useGraphStore.setState({ trusted: false, nodes: [{ id: 'untrusted-code', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Code', nodeType: 'Code', category: 'logic', properties: { code: 'from elsewhere' }, inputs: [], outputs: [] } }] as never })
     vi.mocked(bakeCustomDisplayAssets).mockResolvedValue({ assets: [], issues: [] })
     const { result } = renderHook(() => useCustomDisplayAssets(nodes, true, edges))
     expect(bakeCustomDisplayAssets).not.toHaveBeenCalled()
-    expect(result.current.errors.join(' ')).toContain('Trust this project')
+    expect(result.current.errors.join(' ')).toContain('until you trust this project')
     act(() => useGraphStore.setState({ trusted: true }))
     await waitFor(() => expect(result.current.pending).toBe(false))
     expect(bakeCustomDisplayAssets).toHaveBeenCalledTimes(1)
+    clearPatternContentTrustForTests()
     act(() => useGraphStore.setState({ trusted: false }))
     expect(result.current.assets).toEqual({})
-    expect(result.current.errors.join(' ')).toContain('Trust this project')
+    expect(result.current.errors.join(' ')).toContain('until you trust this project')
   })
 
   it('retries failed preparation for both the capacity and upload consumers', async () => {

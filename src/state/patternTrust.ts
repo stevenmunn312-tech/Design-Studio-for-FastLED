@@ -1,18 +1,28 @@
-// Content-addressed trust memory for saved Pattern Library subgraphs (todo.md's
-// P0 trust-boundary item). Dropping a pattern the user has never approved
-// still forces the workspace untrusted (see graphStore.ts's instantiatePattern/
-// createCollectionFromPatterns/addPatternToCollection) — but once the user
-// clicks "Trust and run" on a workspace containing it, that pattern's exact
-// node/edge content is remembered here so dropping the same pattern again
-// later doesn't re-ask. Editing the pattern's nodes/edges (in the library or
-// on canvas before trusting) changes its fingerprint, so an edited copy still
-// needs its own fresh trust decision — this is deliberately content-addressed,
-// not id-addressed, so a pattern file can't be swapped out under an
-// already-trusted name/id.
+// What this machine already knows it can run (todo.md's P0 trust-boundary
+// item).
+//
+// Trust follows *where content came from*, not which file it arrived in.
+// Anything shipped with Studio, and anything made or edited in a trusted
+// project on this machine, is known; only content from somewhere else - a
+// share link, an imported file, someone else's pattern - starts unknown, and a
+// project is untrusted only while it holds something unknown. Trusting it once
+// remembers that content here for good, so it never asks again in any future
+// project on this browser.
+//
+// What is remembered is exactly what the trust boundary holds back: each
+// Formula/Code node and Art-Net listener, by its type and settings. Position,
+// id and the wiring around it are deliberately left out - moving a node, or
+// dropping the same pattern twice, is not new code. Changing the code itself
+// is, so an edited copy of someone else's formula needs its own decision.
 import type { GraphContent } from './graphStore'
 import type { GroupRegistry } from './graphEvaluator'
+import { BUNDLED_PATTERNS } from './bundledPatterns'
 
-const KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
+const KEY = 'design-studio-for-fastled.known-content.v2'
+/** The first store remembered whole pattern subgraphs, positions included.
+ *  Its entries are folded into this one on load, so nothing trusted before is
+ *  asked about again. */
+const LEGACY_KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
 
 /** The node types whose preview logic the trust boundary actually gates — see
  *  the `trusted` checks in graphEvaluator's `CustomFormula`/`FieldFormula`/
@@ -30,32 +40,125 @@ function canonicalize(value: unknown): unknown {
   )
 }
 
-function fingerprint(subgraph: GraphContent): string {
-  return JSON.stringify(canonicalize({ nodes: subgraph.nodes, edges: subgraph.edges }))
+type NodeLike = { data?: { nodeType?: string; properties?: Record<string, unknown> } }
+
+/** The one piece of a node the boundary cares about, or null when the node
+ *  holds nothing back. Same rules as `workspaceTrustHolds` below. */
+function gatedNodeFingerprint(node: unknown): string | null {
+  const data = (node as NodeLike | undefined)?.data
+  const nodeType = String(data?.nodeType ?? '')
+  const properties = data?.properties ?? {}
+  if (TRUST_GATED_NODE_TYPES.has(nodeType)
+    || (nodeType === 'DMXInput' && String(properties.inputMode ?? 'Art-Net') === 'Art-Net')) {
+    return JSON.stringify(canonicalize({ nodeType, properties }))
+  }
+  return null
+}
+
+// Nodes are immutable, so a fingerprint is computed once per node object -
+// the known-content check runs on every graph change, drags included.
+const fingerprintCache = new WeakMap<object, string | null>()
+function cachedFingerprint(node: unknown): string | null {
+  if (!node || typeof node !== 'object') return null
+  const cached = fingerprintCache.get(node)
+  if (cached !== undefined) return cached
+  const fp = gatedNodeFingerprint(node)
+  fingerprintCache.set(node, fp)
+  return fp
+}
+
+function* contentFingerprints(
+  nodes: readonly unknown[],
+  graphData: Record<string, GraphContent | undefined> = {},
+): Generator<string> {
+  for (const node of nodes) {
+    const fp = cachedFingerprint(node)
+    if (fp) yield fp
+  }
+  for (const content of Object.values(graphData)) {
+    for (const node of content?.nodes ?? []) {
+      const fp = cachedFingerprint(node)
+      if (fp) yield fp
+    }
+  }
 }
 
 function load(): Set<string> {
+  const known = new Set<string>()
   try {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    return new Set(Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [])
-  } catch {
-    return new Set()
-  }
+    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(entry)
+  } catch { /* unreadable: start empty */ }
+  try {
+    const legacy = localStorage.getItem(LEGACY_KEY)
+    const entries = legacy ? JSON.parse(legacy) : []
+    if (Array.isArray(entries)) {
+      for (const entry of entries) {
+        if (typeof entry !== 'string') continue
+        const subgraph = JSON.parse(entry) as { nodes?: unknown[] }
+        for (const fp of contentFingerprints(subgraph.nodes ?? [])) known.add(fp)
+      }
+    }
+  } catch { /* a damaged legacy entry is simply not carried over */ }
+  return known
 }
 
-let trustedFingerprints = load()
+let knownFingerprints = load()
+
+// Shipped patterns are known by definition. Built on first use rather than at
+// import, so this module does not run through the bundled library during
+// every importer's initialisation.
+let shippedFingerprints: Set<string> | null = null
+function shipped(): Set<string> {
+  if (!shippedFingerprints) {
+    shippedFingerprints = new Set()
+    for (const pattern of BUNDLED_PATTERNS) {
+      for (const fp of contentFingerprints(pattern.subgraph.nodes)) shippedFingerprints.add(fp)
+    }
+  }
+  return shippedFingerprints
+}
 
 function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify([...trustedFingerprints]))
+    localStorage.setItem(KEY, JSON.stringify([...knownFingerprints]))
   } catch {
-    // Quota exceeded or private-mode storage disabled — trust just won't survive reload.
+    // Quota exceeded or private-mode storage disabled - trust just won't survive reload.
   }
 }
 
+/** Whether everything in this content that trust holds back is already known
+ *  on this machine. Content with nothing gated is trivially known. */
+export function isContentKnown(
+  nodes: readonly unknown[],
+  graphData: Record<string, GraphContent | undefined> = {},
+): boolean {
+  for (const fp of contentFingerprints(nodes, graphData)) {
+    if (!knownFingerprints.has(fp) && !shipped().has(fp)) return false
+  }
+  return true
+}
+
+/** Remember this content as known. Called for everything in a trusted
+ *  project - which is how work made here becomes known as it is made - and
+ *  when the user trusts something that came from elsewhere. */
+export function rememberContent(
+  nodes: readonly unknown[],
+  graphData: Record<string, GraphContent | undefined> = {},
+): void {
+  let grew = false
+  for (const fp of contentFingerprints(nodes, graphData)) {
+    if (knownFingerprints.has(fp) || shipped().has(fp)) continue
+    knownFingerprints.add(fp)
+    grew = true
+  }
+  if (grew) persist()
+}
+
+/** A saved pattern's content is known - see `isContentKnown`. */
 export function isPatternContentTrusted(subgraph: GraphContent): boolean {
-  return trustedFingerprints.has(fingerprint(subgraph))
+  return isContentKnown(subgraph.nodes)
 }
 
 /**
@@ -159,14 +262,21 @@ export function workspaceNeedsTrust(
 }
 
 export function trustPatternContent(subgraph: GraphContent): void {
-  trustedFingerprints.add(fingerprint(subgraph))
-  persist()
+  rememberContent(subgraph.nodes)
 }
 
 /** Test-only: clear the in-memory + persisted trust set between test cases. */
 export function clearPatternContentTrustForTests(): void {
-  trustedFingerprints = new Set()
-  try { localStorage.removeItem(KEY) } catch { /* ignore */ }
+  knownFingerprints = new Set()
+  try {
+    localStorage.removeItem(KEY)
+    localStorage.removeItem(LEGACY_KEY)
+  } catch { /* ignore */ }
+}
+
+/** Test-only: re-read the persisted store, as a fresh page load would. */
+export function reloadKnownContentForTests(): void {
+  knownFingerprints = load()
 }
 
 /**
@@ -180,6 +290,5 @@ export function clearPatternContentTrustForTests(): void {
  * images, with no banner anywhere to explain why or to undo it.
  */
 export function savedPatternUntrustsWorkspace(subgraph: GraphContent): boolean {
-  const gated = patternNeedsTrust(subgraph) || workspaceTrustHolds(subgraph.nodes).artnet
-  return gated && !isPatternContentTrusted(subgraph)
+  return !isContentKnown(subgraph.nodes)
 }

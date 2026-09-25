@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { useProjectStore } from '../../state/projectStore'
-import { captureWorkspace } from '../../state/workspacePersistence'
+import { trustCurrentProject } from '../../utils/trustPrompt'
 import { workspaceTrustHolds, type WorkspaceTrustHolds } from '../../state/patternTrust'
 import styles from './TrustBanner.module.css'
 
@@ -30,10 +29,10 @@ import styles from './TrustBanner.module.css'
  *  when that is the only thing waiting. */
 function describeHolds(holds: WorkspaceTrustHolds): string {
   if (holds.formulaOrCode && holds.artnet) {
-    return 'Formula and Code node preview logic won’t run, and no Art-Net listener will open, until you trust it.'
+    return 'Its Formula and Code nodes will run, and its Art-Net listener will open, once you trust it.'
   }
-  if (holds.artnet) return 'No Art-Net listener will open until you trust it.'
-  return 'Formula and Code node preview logic won’t run until you trust it.'
+  if (holds.artnet) return 'Its Art-Net listener will open once you trust it.'
+  return 'Its Formula and Code nodes will run once you trust it.'
 }
 
 export default function TrustBanner() {
@@ -45,19 +44,13 @@ export default function TrustBanner() {
   if (trusted) return null
   if (!holds.formulaOrCode && !holds.artnet) return null
 
-  const handleTrust = () => {
-    useGraphStore.getState().setTrusted(true)
-    useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
-  }
-
   return (
-    <div className={styles.banner} role="alert">
-      <span className={styles.icon} aria-hidden="true">⚠</span>
+    <div className={styles.banner} role="status">
       <span className={styles.message}>
-        This graph isn&rsquo;t trusted yet — it came from outside this browser (a share link, an imported file, or someone else&rsquo;s project). {describeHolds(holds)}
+        Part of this project was made on another computer, so Studio hasn&rsquo;t run it here yet. {describeHolds(holds)} Studio remembers what you trust, on this computer, for every project.
       </span>
-      <button type="button" className={styles.trustButton} onClick={handleTrust}>
-        Trust and run
+      <button type="button" className={styles.trustButton} onClick={trustCurrentProject}>
+        Trust it
       </button>
     </div>
   )

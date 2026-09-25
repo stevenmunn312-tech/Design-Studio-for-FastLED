@@ -24,26 +24,32 @@ import type { SavedPattern } from '../state/patternLibrary'
  * still stays untrusted, so the moment such a node is added the banner
  * appears and export/upload keeps confirming separately.
  */
+/** Trust the open project: remembered on this machine for good (see
+ *  patternTrust.ts), and saved so the project reopens trusted. The one action
+ *  behind every Trust button. */
+export function trustCurrentProject(): void {
+  useGraphStore.getState().setTrusted(true)
+  useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+}
+
 export async function promptTrustIfNeeded(): Promise<void> {
   const state = useGraphStore.getState()
   if (state.trusted) return
   const holds = workspaceTrustHolds(state.nodes, state.graphData)
   if (!holds.formulaOrCode && !holds.artnet) return
   const blocked = holds.formulaOrCode && holds.artnet
-    ? 'Its Formula and Code node preview logic won’t run, and no Art-Net listener will open, until you trust it.'
+    ? 'Its Formula and Code nodes will run, and its Art-Net listener will open, once you trust it.'
     : holds.artnet
-      ? 'No Art-Net listener will open until you trust it.'
-      : 'Its Formula and Code node preview logic won’t run until you trust it.'
+      ? 'Its Art-Net listener will open once you trust it.'
+      : 'Its Formula and Code nodes will run once you trust it.'
   const trust = await useUiStore.getState().requestConfirm({
-    title: 'Trust this graph?',
-    message: `This graph came from outside this browser — a share link, an imported file, or someone else’s project. ${blocked} Only trust graphs from people and sources you trust.`,
-    confirmLabel: 'Trust and run',
-    cancelLabel: 'Keep blocked',
-    tone: 'danger',
+    title: 'Trust this project?',
+    message: `Part of this project was made on another computer, so Studio hasn’t run it here before. ${blocked} If you know where it came from, trust it — Studio will remember, and won’t ask about this code again in any project.`,
+    confirmLabel: 'Trust it',
+    cancelLabel: 'Not now',
   })
   if (!trust) return
-  useGraphStore.getState().setTrusted(true)
-  useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+  trustCurrentProject()
 }
 
 // Pattern Insights scans a batch, so concurrent requests for the same content

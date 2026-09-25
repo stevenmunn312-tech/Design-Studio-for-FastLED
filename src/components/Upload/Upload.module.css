@@ -572,6 +572,26 @@
   line-height: 1.35;
 }
 
+.trustRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-output) 8%, transparent);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  flex: 0 0 auto;
+}
+
+.trustRow button {
+  width: auto;
+  flex-shrink: 0;
+  padding: 4px 12px;
+}
+
 .streamNote {
   font-size: 10px;
   /* The amber Graph Health already uses for warnings, so one severity reads

@@ -178,7 +178,7 @@ function QuickStartTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Opening a project from someone else</div>
         <div className={styles.text}>
-          A share link, an imported graph, a project file, or a pattern dropped from the library arrives <strong>untrusted</strong>, because it can contain code and network settings written by whoever made it. Your own saved projects are unaffected. Studio holds the risky parts back until you choose <strong>Trust and run</strong> in the banner.
+          Everything that ships with Studio, and everything you make on this computer, is trusted. Only a share link, file or pattern made on another computer can hold something Studio hasn&apos;t run here before — Formula and Code nodes, or an Art-Net listener — and only those parts wait until you choose <strong>Trust it</strong> in the banner. Studio remembers what you trust, on this computer, for every project, so the same code is never asked about twice.
         </div>
         <div className={styles.definitionGrid}>
           <div><strong>Formula and Code nodes</strong><span>Render blank in the preview. Everything else — patterns, effects, fields, audio — runs normally, so most shared patches look completely finished.</span></div>
@@ -760,7 +760,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              <strong>In an untrusted project the listener stays closed.</strong> The port to listen on is stored in the node, so a shared graph could otherwise open a network socket on your machine before you had looked at it. The node says <em>listener held</em> until you choose <strong>Trust and run</strong>.
+              <strong>In an untrusted project the listener stays closed.</strong> The port to listen on is stored in the node, so a shared graph could otherwise open a network socket on your machine before you had looked at it. The node says <em>listener held</em> until you choose <strong>Trust it</strong>.
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { trustCurrentProject } from '../../utils/trustPrompt'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
@@ -75,6 +76,7 @@ export default function MatrixOutputDeployPopup({
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [validationAction, setValidationAction] = useState<HardwareValidationAction | null>(null)
   const nodes = useRootNodes()
+  const projectTrusted = useGraphStore((state) => state.trusted)
   const telemetryRun = useDeviceTelemetryStore((state) => state.run)
   const edges = useRootEdges()
   const entries = useMusicStore((s) => s.entries)
@@ -459,8 +461,8 @@ export default function MatrixOutputDeployPopup({
   function confirmUploadIfUntrusted(): Promise<boolean> {
     if (useGraphStore.getState().trusted) return Promise.resolve(true)
     return useUiStore.getState().requestConfirm({
-      title: 'Upload code from an untrusted source?',
-      message: 'This project isn’t trusted yet — it may contain Formula/Code node source from outside this browser. Consider reviewing it (‹/› View Code) before flashing it to real hardware.',
+      title: 'Upload code made on another computer?',
+      message: 'Part of this project was made elsewhere and hasn’t been trusted on this computer yet. If you don’t know where it came from, have a look at it first with ‹/› View Code.',
       confirmLabel: 'Upload anyway',
       cancelLabel: 'Cancel',
       tone: 'danger',
@@ -730,6 +732,14 @@ export default function MatrixOutputDeployPopup({
         {blockingErrors.length > 0 && (
           <div className={styles.streamError}>
             {blockingErrors.map((c) => <div key={c}>{c}</div>)}
+          </div>
+        )}
+        {!projectTrusted && (
+          <div className={styles.trustRow}>
+            <span>Part of this project was made on another computer. Trust it to prepare and upload it.</span>
+            <button type="button" className={styles.wizardButtonBase} onClick={trustCurrentProject}>
+              Trust it
+            </button>
           </div>
         )}
         {customAssets.errors.length > 0 && customAssets.trusted && (

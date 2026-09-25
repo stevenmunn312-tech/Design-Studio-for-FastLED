@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearPatternContentTrustForTests } from '../patternTrust'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { useDeviceTelemetryStore } from '../deviceTelemetryStore'
@@ -75,7 +76,9 @@ describe('IR learn run', () => {
   })
 
   it('does not flash or open the port when the workspace is untrusted', async () => {
-    useGraphStore.setState({ trusted: false } as never)
+    // Untrusted means it holds code this machine has not seen.
+    clearPatternContentTrustForTests()
+    useGraphStore.setState({ trusted: false, nodes: [...useGraphStore.getState().nodes, { id: 'untrusted-code', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Code', nodeType: 'Code', category: 'logic', properties: { code: 'from elsewhere' }, inputs: [], outputs: [] } }] } as never)
     useIrLearnStore.getState().start('ir', 'Power')
     await useIrLearnStore.getState().prepare()
     expect(runUpload).not.toHaveBeenCalled()

@@ -3,14 +3,10 @@
   align-items: center;
   gap: var(--space-2);
   padding: 6px var(--space-2);
-  background: linear-gradient(180deg, rgba(255, 51, 102, 0.16), rgba(255, 51, 102, 0.08));
-  border-bottom: 1px solid rgba(255, 51, 102, 0.35);
+  /* Information, not an alarm: trusting is one ordinary click. */
+  background: color-mix(in srgb, var(--accent-output) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-output) 35%, transparent);
   font-size: var(--fs-caption);
-  flex-shrink: 0;
-}
-
-.icon {
-  color: var(--error);
   flex-shrink: 0;
 }
 
@@ -24,9 +20,9 @@
   flex-shrink: 0;
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid var(--error);
+  border: 1px solid var(--accent-output);
   background: transparent;
-  color: var(--error);
+  color: var(--accent-output);
   font-size: var(--fs-caption);
   font-family: inherit;
   cursor: pointer;
@@ -34,6 +30,6 @@
 }
 
 .trustButton:hover {
-  background: var(--error);
-  color: #12070a;
+  background: var(--accent-output);
+  color: var(--bg-primary, #0b0d12);
 }
