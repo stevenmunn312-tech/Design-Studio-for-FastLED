@@ -1,32 +1,36 @@
-// The kinds of "ready" a project can be, kept apart.
+// The steps between a patch in the browser and a board running it, kept apart.
 //
-// A working preview, a graph with no errors, a design that fits the board, a
-// board on the port and a setup someone has tested on real hardware are five
-// separate facts, established by five separate things. Shown as one "ready"
-// (or one green light) the first easily reads as the rest — a patch animating
-// in the browser looks like firmware that will run. Each layer therefore says
-// what establishes it and, as plainly, what it does not.
+// A working preview, a graph ready to build, a design that fits the board and
+// a board on the port are four separate facts, established by four separate
+// things. Shown as one "ready" the first easily reads as the rest — a patch
+// animating in the browser looks like firmware that will run. So each row says
+// plainly what it covers, and each one not yet done says what comes next
+// rather than what is wrong.
+//
+// Whether a setup has been tested on a bench is deliberately not a row. Almost
+// every combination of board and parts is untested by this project, so a row
+// saying so would be orange for nearly everyone and tell them nothing they can
+// act on. The known-good builds are listed in the beta support matrix instead.
 //
 // Pure so the wording is testable without mounting the Upload workbench, and
 // so every surface that summarises readiness says it the same way.
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import type { CapacitySummary } from './capacityFormat'
 import type { PortStatus } from './portStatus'
-import type { ValidationGap } from './hardwareValidation'
 
-export type ReadinessKind = 'preview' | 'graph' | 'capacity' | 'connection' | 'hardware'
+export type ReadinessKind = 'preview' | 'graph' | 'capacity' | 'connection'
 
-/** `ok` — established; `warn` — usable but unconfirmed or cautioned;
- *  `blocked` — stops an upload; `pending` — not known yet. */
+/** `ok` — done; `warn` — usable, with something worth a look;
+ *  `blocked` — stops an upload; `pending` — not done yet. */
 export type ReadinessTone = 'ok' | 'warn' | 'blocked' | 'pending'
 
 export interface ReadinessLayer {
   kind: ReadinessKind
   label: string
-  /** Short reading, e.g. "Running in browser" or "2 errors". */
+  /** Short reading, e.g. "Running in browser" or "1 thing to fix". */
   status: string
   tone: ReadinessTone
-  /** One sentence: what this reading is, and what it does not establish. */
+  /** What this row covers, and what to do next when it is not done. */
   detail: string
 }
 
@@ -37,10 +41,6 @@ export interface ReadinessInput {
   graphWarnings: number
   capacity: CapacitySummary
   port: PortStatus
-  /** Coverage gaps against the recorded hardware rows (the beta support
-   *  matrix's mirror in hardwareValidation.ts). Empty means this exact setup
-   *  and action match a dated bench record. */
-  hardwareGaps: ValidationGap[]
 }
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
@@ -55,23 +55,28 @@ function previewLayer(live: boolean): ReadinessLayer {
   return live
     ? {
         kind: 'preview', label: 'Preview', status: 'Running in browser', tone: 'ok',
-        detail: 'The graph is animating in the browser. That is a simulation: it does not compile the firmware or show it running on a board.',
+        detail: 'Your patch is running in the browser. Uploading builds it for the board.',
       }
     : {
-        kind: 'preview', label: 'Preview', status: 'No LED signal', tone: 'pending',
-        detail: 'Nothing is patched into an LED output yet, so there is nothing to preview.',
+        kind: 'preview', label: 'Preview', status: 'Nothing to show yet', tone: 'pending',
+        detail: 'Connect a pattern to an LED output to see it here.',
       }
 }
 
 function graphLayer(errors: number, warnings: number): ReadinessLayer {
-  const scope = 'Checked against Studio’s wiring and hardware rules; the graph has not been compiled.'
   if (errors > 0) {
-    return { kind: 'graph', label: 'Graph', status: plural(errors, 'error'), tone: 'blocked', detail: `Upload is blocked until these are fixed in Graph Health. ${scope}` }
+    return {
+      kind: 'graph', label: 'Graph', status: `${plural(errors, 'thing')} to fix`, tone: 'blocked',
+      detail: 'Graph Health shows what to change, with a button for the ones Studio can fix for you.',
+    }
   }
   if (warnings > 0) {
-    return { kind: 'graph', label: 'Graph', status: `No errors · ${plural(warnings, 'warning')}`, tone: 'warn', detail: `Nothing blocks the build, but Graph Health has cautions. ${scope}` }
+    return {
+      kind: 'graph', label: 'Graph', status: `Ready · ${plural(warnings, 'suggestion')}`, tone: 'ok',
+      detail: 'Nothing stops the build. Graph Health has a few suggestions when you have a moment.',
+    }
   }
-  return { kind: 'graph', label: 'Graph', status: 'No errors', tone: 'ok', detail: scope }
+  return { kind: 'graph', label: 'Graph', status: 'Ready', tone: 'ok', detail: 'Nothing stops the build.' }
 }
 
 function capacityLayer(capacity: CapacitySummary): ReadinessLayer {
@@ -79,33 +84,18 @@ function capacityLayer(capacity: CapacitySummary): ReadinessLayer {
     : capacity.verdict === 'overflow' ? 'blocked'
     : capacity.verdict === 'tight' || capacity.verdict === 'failed' || capacity.verdict === 'stale' ? 'warn'
     : 'pending'
-  // "Capacity" alone is the unknown verdict's heading; say what that means.
-  const status = capacity.verdict === 'unknown' ? 'Not measured'
+  const status = capacity.verdict === 'unknown' ? 'Not checked yet'
     : capacity.verdict === 'checking' ? 'Checking…'
     : capacity.label
-  const limit = 'Only a compile for the selected board measures this; it says nothing about the wiring or the LEDs.'
-  return { kind: 'capacity', label: 'Capacity', status, tone, detail: `${capacity.text}. ${limit}` }
+  const next = capacity.verdict === 'unknown' || capacity.verdict === 'stale'
+    ? ' Check capacity compiles it for your board, without uploading, to see how much room it uses.'
+    : ''
+  return { kind: 'capacity', label: 'Capacity', status, tone, detail: `${capacity.text}.${next}` }
 }
 
 function connectionLayer(port: PortStatus): ReadinessLayer {
   const tone: ReadinessTone = port.state === 'connected' ? 'ok' : port.state === 'checking' ? 'pending' : 'blocked'
-  const limit = port.state === 'connected'
-    ? ' A connected port says a board is plugged in, not that it is the board selected or that it is wired to the LEDs.'
-    : ''
-  return { kind: 'connection', label: 'Connection', status: port.text, tone, detail: `${port.detail}${limit}` }
-}
-
-function hardwareLayer(gaps: ValidationGap[]): ReadinessLayer {
-  if (gaps.length === 0) {
-    return {
-      kind: 'hardware', label: 'Hardware', status: 'Recorded on hardware', tone: 'ok',
-      detail: 'This exact board, LEDs and upload path match a dated bench record in the beta support matrix. Your own wiring is still worth checking.',
-    }
-  }
-  return {
-    kind: 'hardware', label: 'Hardware', status: `Not verified · ${plural(gaps.length, 'gap')}`, tone: 'warn',
-    detail: `No dated bench record in the beta support matrix covers this setup (${gaps.map((gap) => gap.label).join('; ')}). It may well work; a successful compile or upload does not verify it — only a hardware test does.`,
-  }
+  return { kind: 'connection', label: 'Connection', status: port.text, tone, detail: port.detail }
 }
 
 export function readinessLayers(input: ReadinessInput): ReadinessLayer[] {
@@ -114,6 +104,5 @@ export function readinessLayers(input: ReadinessInput): ReadinessLayer[] {
     graphLayer(input.graphErrors, input.graphWarnings),
     capacityLayer(input.capacity),
     connectionLayer(input.port),
-    hardwareLayer(input.hardwareGaps),
   ]
 }

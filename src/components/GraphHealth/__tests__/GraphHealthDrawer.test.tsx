@@ -96,7 +96,7 @@ describe('GraphHealthDrawer', () => {
     fireEvent.click(getByRole('button', { name: 'Expand graph health' }))
 
     expect(getByRole('button', { name: 'Collapse graph health' })).toBeTruthy()
-    expect(getByRole('button', { name: /All issues\s*1/ })).toBeTruthy()
+    expect(getByRole('button', { name: /Everything\s*1/ })).toBeTruthy()
   })
 
   it('offers the board picker for an incompatible microphone', () => {

@@ -147,6 +147,7 @@ export default function CapacityWatcher() {
     setCapacityTarget({
       code: capacityCode,
       preparing: customAssets.pending,
+      awaitingTrust: !customAssets.trusted && customAssets.errors.length > 0,
       // Only what asset preparation itself could not do. A routing error is
       // reported as `blockedByGraph` instead, so the meter can point at Graph
       // Health rather than recite a sentence Graph Health already carries.
@@ -162,7 +163,7 @@ export default function CapacityWatcher() {
       flashMb,
       usbCdcOnBoot,
     })
-  }, [capacityCode, customAssets.pending, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
+  }, [capacityCode, customAssets.pending, customAssets.trusted, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }

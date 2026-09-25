@@ -10,10 +10,10 @@ const TONE_MARK: Record<ReadinessTone, string> = {
 }
 
 const TONE_WORD: Record<ReadinessTone, string> = {
-  ok: 'established',
-  warn: 'caution',
-  blocked: 'blocks upload',
-  pending: 'not known yet',
+  ok: 'done',
+  warn: 'worth a look',
+  blocked: 'needed before upload',
+  pending: 'not done yet',
 }
 
 const TONE_CLASS: Record<ReadinessTone, string> = {
@@ -24,14 +24,14 @@ const TONE_CLASS: Record<ReadinessTone, string> = {
 }
 
 /**
- * The five kinds of readiness, one row each, so a live preview cannot be read
- * as a compiled build or a tested board. Each row opens (keyboard or pointer)
- * to say what its reading establishes and what it does not.
+ * The steps between the preview and the board, one row each, so a live
+ * preview cannot be read as a compiled build. Each row opens (keyboard or
+ * pointer) to say what it covers and what comes next.
  */
 export default function ReadinessLayers({ layers }: { layers: ReadinessLayer[] }) {
   return (
     <section className={styles.layers} aria-labelledby="readiness-layers-title">
-      <div id="readiness-layers-title" className={styles.layersTitle}>What is established</div>
+      <div id="readiness-layers-title" className={styles.layersTitle}>Getting to your board</div>
       {layers.map((layer) => (
         <details key={layer.kind} className={`${styles.layer} ${TONE_CLASS[layer.tone]}`} data-kind={layer.kind} data-tone={layer.tone}>
           <summary className={styles.layerSummary} aria-label={`${layer.label}: ${layer.status} (${TONE_WORD[layer.tone]})`}>

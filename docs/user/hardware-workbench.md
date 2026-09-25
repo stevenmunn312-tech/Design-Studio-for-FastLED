@@ -406,18 +406,17 @@ sheets.
 Select the lower pane's **Upload** tab. It contains:
 
 - the guided setup wizard and Board/Port control;
-- **What is established**: five separate readings (Preview, Graph, Capacity,
-  Connection, Hardware), each opening to say what it proves and what it does
-  not. A running preview is not a compiled build, and a measured fit or a
-  successful upload is not a hardware test; only a dated record in the
-  [beta support matrix](../release/beta-support-matrix.md) reads as verified;
+- **Getting to your board**: the steps from your patch to the board
+  (Preview, Graph, Capacity, Connection), each opening to say what comes next.
+  Builds tested on real hardware are listed in the
+  [beta support matrix](../release/beta-support-matrix.md);
 - the expandable **Build tools & port** checklist (helper, engine, toolchain,
   port);
 - the user-initiated measured flash/RAM capacity check;
 - normal Upload and cancellation;
 - re-upload, generated-code view, and `.ino` export;
 - Wiring Test and HUB75 topology diagnostics;
-- beta hardware coverage reporting;
+- **Share a report…**, to tell us how a build went on your hardware;
 - Stream Receiver and Live Stream actions; and
 - an embedded console with separate **Output** and **Serial** tabs, verbose
   toolchain output, baud selection, connect/disconnect, and clear controls.

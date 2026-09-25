@@ -2198,3 +2198,21 @@ describe('inert touch controls', () => {
     }).filter((issue) => issue.id.startsWith('inert-control'))).toEqual([])
   })
 })
+
+describe('diagnostic wording', () => {
+  it('leads with the remedy a message already carries, rather than pointing back at it', () => {
+    const player = libraryNode('master', 'PatternMaster', {})
+    const out = libraryNode('out', 'MatrixOutput', { form: 'strip', ledCount: 30, dataPin: 27 })
+    const button = libraryNode('btn', 'ButtonInput', { pin: 12 })
+    const nodes = [player, out, button, libraryNode('sd', 'SDCard', {}), libraryNode('amp', 'Amplifier', {})]
+    const edges = [
+      { id: 'f', source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      { id: 'b', source: 'btn', sourceHandle: 'pressed', target: 'out', targetHandle: 'enabled' },
+    ] as unknown as StudioEdge[]
+    const found = buildGraphDiagnostics(nodes, edges).find((d) => d.title === 'Output firmware cannot honour these controls')
+    expect(found).toBeTruthy()
+    expect(found!.fix).not.toMatch(/Follow the/)
+    expect(found!.fix.length).toBeGreaterThan(0)
+    expect(found!.message).not.toContain(found!.fix)
+  })
+})

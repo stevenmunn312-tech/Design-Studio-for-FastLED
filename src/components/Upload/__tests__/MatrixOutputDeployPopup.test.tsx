@@ -410,7 +410,7 @@ describe('MatrixOutputDeployPopup', () => {
     expect(openBoardPopup).toHaveBeenCalled()
   })
 
-  it('lists each kind of readiness separately and never says "Ready to upload" for the tools alone', () => {
+  it('lists each step to the board separately and never says "Ready to upload" for the tools alone', () => {
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
@@ -421,14 +421,14 @@ describe('MatrixOutputDeployPopup', () => {
     vi.mocked(findDeployBlockingErrors).mockReturnValueOnce(['LED output: frame input is not connected'])
 
     const view = render(<MatrixOutputDeployPopup />)
-    const section = view.getByRole('region', { name: 'What is established' })
+    const section = view.getByRole('region', { name: 'Getting to your board' })
     const rows = Array.from(section.querySelectorAll('summary')).map((row) => row.getAttribute('aria-label'))
-    expect(rows).toHaveLength(5)
-    expect(rows[0]).toMatch(/^Preview: /)
-    expect(rows[1]).toBe('Graph: 1 error (blocks upload)')
-    expect(rows[2]).toMatch(/^Capacity: Not measured/)
-    expect(rows[3]).toBe('Connection: USB Serial · connected (established)')
-    expect(rows[4]).toMatch(/^Hardware: /)
+    expect(rows).toEqual([
+      expect.stringMatching(/^Preview: /),
+      'Graph: 1 thing to fix (needed before upload)',
+      expect.stringMatching(/^Capacity: Not checked yet/),
+      'Connection: USB Serial · connected (done)',
+    ])
     // Tools and port can be ready while the graph is not; the badge must not
     // speak for the rest.
     expect(view.queryByText('Ready to upload')).toBeNull()
@@ -660,10 +660,21 @@ describe('MatrixOutputDeployPopup', () => {
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
     })
 
-    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+    const { getByRole, queryAllByText, getByText } = render(<MatrixOutputDeployPopup />)
 
-    expect(getByText(shared)).toBeTruthy()
+    // A graph problem is Graph Health's to explain: said here once, as a
+    // count that opens it, and never repeated as its own line.
+    expect(queryAllByText(shared)).toHaveLength(0)
+    expect(getByText(/1 thing to fix before uploading/)).toBeTruthy()
     expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('opens Graph Health from the Upload tab when the graph has something to fix', () => {
+    vi.mocked(findDeployBlockingErrors).mockReturnValue(['LED output: frame input is not connected'])
+    useUiStore.setState({ graphHealthOpen: false })
+    const { getByRole } = render(<MatrixOutputDeployPopup />)
+    fireEvent.click(getByRole('button', { name: 'Show me' }))
+    expect(useUiStore.getState().graphHealthOpen).toBe(true)
   })
 
   it('blocks deploy actions when a numeric property expression is invalid', () => {
@@ -688,7 +699,7 @@ describe('MatrixOutputDeployPopup', () => {
 
     expect((getByRole('button', { name: '↓ Export .ino' }) as HTMLButtonElement).disabled).toBe(true)
     expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(getByText('Random max has an invalid numeric expression: unknown + 1')).toBeTruthy()
+    expect(getByText(/1 thing to fix before uploading/)).toBeTruthy()
   })
 
   it('blocks Export .ino when a formula node would not survive codegen validation', () => {
@@ -744,7 +755,7 @@ describe('MatrixOutputDeployPopup', () => {
     expect((getByRole('button', { name: '🧭 Flash HUB75 Topology' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('requests an explicit validation report after a successful unrecorded hardware action', async () => {
+  it('invites a report after a successful upload of an untested setup, without opening a form', async () => {
     const runUpload = vi.fn(async () => {
       useUploadStore.setState({ status: { phase: 'done', message: 'Done' } })
     })
@@ -757,10 +768,11 @@ describe('MatrixOutputDeployPopup', () => {
       runUpload,
     })
 
-    const { getByRole, findByRole } = render(<MatrixOutputDeployPopup />)
+    const { getByRole, queryByRole } = render(<MatrixOutputDeployPopup />)
     fireEvent.click(getByRole('button', { name: '🧪 Flash Wiring Test' }))
 
-    expect(await findByRole('dialog', { name: 'Hardware validation report' })).toBeTruthy()
+    await waitFor(() => expect(useUiStore.getState().statusText).toMatch(/Share a report/))
+    expect(queryByRole('dialog', { name: 'Hardware validation report' })).toBeNull()
   })
 })
 

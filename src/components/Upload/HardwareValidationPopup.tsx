@@ -155,15 +155,15 @@ export default function HardwareValidationPopup({
           </select>
         </label>
 
-        <div className={styles.validationGapPanel} aria-label="Missing hardware coverage">
+        <div className={styles.validationGapPanel} aria-label="What your report adds">
           <div className={styles.validationSectionHeader}>
-            <span>Missing coverage</span>
-            <span className={profile.gaps.length ? styles.missingBadge : styles.readyBadge}>
-              {profile.gaps.length ? `${profile.gaps.length} gap${profile.gaps.length === 1 ? '' : 's'}` : 'Recorded path'}
+            <span>What your report adds</span>
+            <span className={styles.readyBadge}>
+              {profile.gaps.length ? `${profile.gaps.length} new` : 'Already tested'}
             </span>
           </div>
           {profile.gaps.length === 0 ? (
-            <div className={styles.validationGapReason}>This target and path match an existing hardware record. A repeat result is still useful regression evidence.</div>
+            <div className={styles.validationGapReason}>This setup is already on the tested list. Another report still helps confirm it keeps working.</div>
           ) : profile.gaps.map((gap) => (
             <div key={gap.id} className={styles.validationGapRow}>
               <strong>{gap.label}</strong>

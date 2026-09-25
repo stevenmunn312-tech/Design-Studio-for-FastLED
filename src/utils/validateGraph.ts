@@ -3696,6 +3696,15 @@ export function buildGraphDiagnostics(
   // Keep the live drawer aligned with deploy validation. Display-generator
   // mismatches are especially misleading because the screen itself may still
   // render while a field stays blank or every touch is ignored.
+  /*
+   * These two walks report whole sentences, each of which already says what to
+   * do after saying what is wrong. Splitting at the first sentence lets the
+   * card lead with that remedy instead of pointing back at its own message.
+   */
+  const problemAndRepair = (text: string, fallback: string): { message: string; fix: string } => {
+    const split = text.match(/^(.+?[.!?])\s+(\S[\s\S]*)$/)
+    return split ? { message: split[1], fix: split[2] } : { message: text, fix: fallback }
+  }
   const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges, options.displayDocuments)
   const displayNodeIds = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)).map((node) => node.id)
   liveDisplayIssues.errors.forEach((message, index) => diagnostics.push({
@@ -3703,8 +3712,7 @@ export function buildGraphDiagnostics(
     severity: 'error',
     category: 'connection',
     title: 'Display firmware cannot honour this setup',
-    message,
-    fix: 'Follow the wiring or export-path change named in the message before deploying.',
+    ...problemAndRepair(message, 'Change the wiring it names, then try again.'),
     nodeIds: displayNodeIds,
     nodeLabel: displayNodeIds.length === 1
       ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
@@ -3715,8 +3723,7 @@ export function buildGraphDiagnostics(
     severity: 'warning',
     category: 'connection',
     title: 'Display firmware will leave a value blank',
-    message,
-    fix: 'Wire the value to a source the selected generator can read, or choose a compatible export path.',
+    ...problemAndRepair(message, 'Wire the value to a source this build can read.'),
     nodeIds: displayNodeIds,
     nodeLabel: displayNodeIds.length === 1
       ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
@@ -3729,8 +3736,7 @@ export function buildGraphDiagnostics(
     id: `output-runtime-error-${index}`,
     severity: 'error', category: 'connection',
     title: 'Output firmware cannot honour these controls',
-    message,
-    fix: 'Follow the control-wiring or export-path change named in the message.',
+    ...problemAndRepair(message, 'Change the wiring it names, then try again.'),
     nodeIds: nodes.filter((node) => ['MatrixOutput', 'ControlMap', 'MasterSpeed'].includes(node.data.nodeType)).map((node) => node.id),
     nodeLabel: 'Output controls',
   }))

@@ -229,18 +229,18 @@ export default function MatrixOutputDeployPopup({
     ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ])]
+  // What the list under the buttons says: each blocker once. Graph problems
+  // live in Graph Health, which explains and repairs them, so here they are one
+  // line that opens it; waiting on trust has its own row with the button.
+  const trustMessages = new Set(projectTrusted ? [] : customAssets.errors)
+  const listedBlockers = blockingErrors.filter((message) =>
+    !graphBlockers.includes(message) && !trustMessages.has(message))
+  const showGraphHealth = () => {
+    if (!useUiStore.getState().graphHealthOpen) useUiStore.getState().toggleGraphHealth()
+  }
   const canBuild = hasBuildOutput && blockingErrors.length === 0
   const canShowUpload = hasSdShow && blockingErrors.length === 0
   const suggestedAction = useMemo(() => suggestedValidationAction(nodes, edges), [nodes, edges])
-  const validationProfile = useMemo(() => buildHardwareValidationProfile({
-    nodes,
-    edges,
-    selectedFqbn,
-    helper,
-    capacityResult,
-    action: suggestedAction,
-  }), [nodes, edges, selectedFqbn, helper, capacityResult, suggestedAction])
-
   const readiness = useMemo(() => {
     const helperRow = helper === undefined
       ? { label: 'Helper', state: 'checking' as ReadinessState, detail: 'Checking for the local upload helper…' }
@@ -384,8 +384,7 @@ export default function MatrixOutputDeployPopup({
     graphWarnings,
     capacity: capacitySummary,
     port,
-    hardwareGaps: validationProfile.gaps,
-  }), [nodes, edges, graphBlockers.length, graphWarnings, capacitySummary, port, validationProfile.gaps])
+  }), [nodes, edges, graphBlockers.length, graphWarnings, capacitySummary, port])
 
   const readinessIssues = readiness.filter((row) => row.state !== 'ready').map((row) => `${row.label}: ${row.detail}`)
   const hasReadinessIssues = readinessIssues.length > 0
@@ -402,7 +401,14 @@ export default function MatrixOutputDeployPopup({
       capacityResult,
       action,
     })
-    if (profile.gaps.length > 0) setValidationAction(action)
+    // An invitation, not a form: most setups are new to the tested list, and
+    // a dialog after every upload would be a chore rather than a thank-you.
+    if (profile.gaps.length > 0) {
+      useUiStore.getState().setStatus(
+        'Uploaded. If you try it out, Share a report… on the Upload tab helps grow the list of tested builds.',
+        'success',
+      )
+    }
   }
 
   function handleFlashReceiver() {
@@ -729,9 +735,19 @@ export default function MatrixOutputDeployPopup({
           )}
         </div>
 
-        {blockingErrors.length > 0 && (
+        {graphBlockers.length > 0 && (
+          <div className={styles.trustRow}>
+            <span>
+              {graphBlockers.length === 1 ? '1 thing' : `${graphBlockers.length} things`} to fix before uploading. Graph Health shows what, and fixes some for you.
+            </span>
+            <button type="button" className={styles.wizardButtonBase} onClick={showGraphHealth}>
+              Show me
+            </button>
+          </div>
+        )}
+        {listedBlockers.length > 0 && (
           <div className={styles.streamError}>
-            {blockingErrors.map((c) => <div key={c}>{c}</div>)}
+            {listedBlockers.map((c) => <div key={c}>{c}</div>)}
           </div>
         )}
         {!projectTrusted && (
@@ -849,15 +865,11 @@ export default function MatrixOutputDeployPopup({
 
           <div className={styles.validationCard}>
             <div className={styles.validationCardText}>
-              <strong>Beta hardware coverage</strong>
-              <span>
-                {validationProfile.gaps.length > 0
-                  ? `${validationProfile.gaps.length} missing test area${validationProfile.gaps.length === 1 ? '' : 's'} detected for this setup.`
-                  : 'This setup matches a recorded path; repeat tests are still useful.'}
-              </span>
+              <strong>Tried it on your hardware?</strong>
+              <span>A quick report of what worked helps grow the list of tested builds.</span>
             </div>
             <button className={styles.validationCardButton} onClick={() => setValidationAction(suggestedAction)}>
-              Review tests…
+              Share a report…
             </button>
           </div>
         </section>

@@ -249,3 +249,12 @@ describe('formatCapacityDelta', () => {
     expect(formatCapacityDelta({ flashPct: 0, ramPct: 0 })).toBeNull()
   })
 })
+
+describe('capacity while a project waits for trust', () => {
+  it('reads as waiting, not as a failed check', () => {
+    const summary = summarizeCapacity(board, 'awaiting-trust', null)
+    expect(summary.verdict).toBe('unknown')
+    expect(summary.tone).toBe('pending')
+    expect(summary.text).toMatch(/waiting until you trust this project/)
+  })
+})

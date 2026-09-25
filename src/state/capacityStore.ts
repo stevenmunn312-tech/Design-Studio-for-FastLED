@@ -41,6 +41,9 @@ export type CapacityStatus =
   | 'stale'
   | 'toolchain-missing'
   | 'preparing'
+  /** Display images are waiting for the project to be trusted. Nothing has
+   *  failed, and the Trust button beside it is the whole of the fix. */
+  | 'awaiting-trust'
   | 'preparation-failed'
   /** The graph itself will not build — Graph Health says why, in full, and
    *  this is deliberately not a second copy of that sentence. */
@@ -65,6 +68,8 @@ export interface CapacityTarget {
   code: string | null
   /** Asset preparation happens before a compile target can be published. */
   preparing?: boolean
+  /** Preparation is waiting on trust rather than failing. */
+  awaitingTrust?: boolean
   preparationError?: string
   /** True when validation, not asset preparation, is what stopped the
    *  build being measurable. Reported rather than restated: the reason
@@ -191,7 +196,9 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       // stored one for the same reason.
       cancelInFlight()
       measuredKey = null
-      const status = next.preparationError
+      const status = next.awaitingTrust
+        ? 'awaiting-trust'
+        : next.preparationError
         ? 'preparation-failed'
         : next.preparing ? 'preparing'
           : next.blockedByGraph ? 'blocked-by-graph' : 'nothing-to-measure'

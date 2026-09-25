@@ -147,17 +147,17 @@ export default function GraphHealthDrawer() {
             {!open && (
               <span
                 className={`${styles.priority} ${highestPriority ? styles[highestPriority.severity] : styles.clear}`}
-                title={highestPriority?.title ?? 'All checks clear'}
+                title={highestPriority?.title ?? 'All good'}
               >
-                {highestPriority?.title ?? 'All checks clear'}
+                {highestPriority?.title ?? 'All good'}
               </span>
             )}
           </span>
         </button>
         <div className={styles.telemetry} aria-live="polite">
-          {errors > 0 && <span className={`${styles.count} ${styles.errorCount}`}>{errors} error{errors === 1 ? '' : 's'}</span>}
-          {warnings > 0 && <span className={`${styles.count} ${styles.warningCount}`}>{warnings} warning{warnings === 1 ? '' : 's'}</span>}
-          {diagnostics.length === 0 && <span className={`${styles.count} ${styles.clearCount}`}>All checks clear</span>}
+          {errors > 0 && <span className={`${styles.count} ${styles.errorCount}`}>{errors} to fix</span>}
+          {warnings > 0 && <span className={`${styles.count} ${styles.warningCount}`}>{warnings} suggestion{warnings === 1 ? '' : 's'}</span>}
+          {diagnostics.length === 0 && <span className={`${styles.count} ${styles.clearCount}`}>All good</span>}
           <span className={styles.board}>{boardLabel}</span>
           <button className={styles.chevron} type="button" onClick={toggle} aria-label={open ? 'Collapse graph health' : 'Expand graph health'}>
             {open ? '⌄' : '⌃'}
@@ -179,7 +179,7 @@ export default function GraphHealthDrawer() {
                   onClick={() => setFilter(value)}
                   aria-pressed={filter === value}
                 >
-                  {value === 'all' ? 'All issues' : value === 'error' ? 'Errors' : 'Warnings'}
+                  {value === 'all' ? 'Everything' : value === 'error' ? 'To fix' : 'Suggestions'}
                   <span>{count}</span>
                 </button>
               )
@@ -190,7 +190,7 @@ export default function GraphHealthDrawer() {
           <div className={styles.issueList}>
             {visible.map((issue) => (
               <article key={issue.id} className={`${styles.issue} ${styles[issue.severity]}`}>
-                <span className={styles.severityMark} aria-hidden="true">{issue.severity === 'error' ? '!' : '△'}</span>
+                <span className={styles.severityMark} aria-hidden="true">{issue.severity === 'error' ? '!' : 'i'}</span>
                 <div className={styles.issueCopy}>
                   <div className={styles.issueMeta}>
                     <span>{CATEGORY_LABELS[issue.category]}</span>
@@ -198,7 +198,7 @@ export default function GraphHealthDrawer() {
                   </div>
                   <h3>{issue.title}</h3>
                   <p className={styles.message}>{issue.message}</p>
-                  <p className={styles.fix}><span>Fix</span>{' '}{issue.fix}</p>
+                  {issue.fix && <p className={styles.fix}><span>Next step</span>{' '}{issue.fix}</p>}
                 </div>
                 <div className={styles.issueActions}>
                   {issue.nodeIds.length > 0 && (
@@ -213,8 +213,8 @@ export default function GraphHealthDrawer() {
             {visible.length === 0 && (
               <div className={styles.emptyState}>
                 <span className={styles.emptyPulse} aria-hidden="true" />
-                <strong>{diagnostics.length === 0 ? 'Signal path is healthy' : `No ${filter}s detected`}</strong>
-                <span>{diagnostics.length === 0 ? 'Connections, expressions, hardware, and resource checks all pass.' : 'Choose another filter to review the remaining diagnostics.'}</span>
+                <strong>{diagnostics.length === 0 ? 'Signal path is healthy' : filter === 'error' ? 'Nothing to fix' : 'No suggestions'}</strong>
+                <span>{diagnostics.length === 0 ? 'Connections, expressions, hardware, and resource checks all pass.' : 'Choose Everything to see the rest.'}</span>
               </div>
             )}
           </div>

@@ -202,9 +202,7 @@ Everything that ships with Studio, and everything you make on your own computer,
 
 ## Beta hardware scope
 
-This is a public beta with a deliberately narrow support promise. A combination counts as supported only after an end-to-end hardware run is recorded in the repository.
-
-Current recorded combinations include:
+These builds have been tested end to end on real hardware, so you can start from them with confidence:
 
 | Board and LEDs | Validated paths |
 | --- | --- |
@@ -213,11 +211,11 @@ Current recorded combinations include:
 | Classic ESP32 Generic DevKit 38-pin · 16×16 WS2812B matrix · Windows 11 / Chrome · `fbuild` 2.5.16 | Normal live-graph upload |
 | Classic ESP-32D DevKit v1 30-pin · DS3231 · WS2812B matrix · Windows 11 / Chrome · `fbuild` | Set RTC from Studio, read it in firmware, and render Clock Display |
 
-Every unrecorded combination—including other browsers and operating systems, most board/peripheral pairings, chipsets, tiled/custom layouts, PSRAM modes, SD-show provisioning, DMX/Art-Net, and network clock paths—remains experimental until it appears in the [Beta support matrix](docs/release/beta-support-matrix.md).
+The full, dated list is the [Beta support matrix](docs/release/beta-support-matrix.md). Other boards, parts and layouts are built to work too; they just haven't been bench-tested by this project yet. If something doesn't behave the way you expect, please [open a GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues): if it's a bug we'll fix it, and your build may join the tested list.
 
 ## Help test the beta
 
-Real hardware reports are the fastest way to expand that support matrix. The LED Output upload panel includes an opt-in **Beta hardware coverage** report that shows exactly what will be copied or downloaded; nothing is submitted automatically.
+Real hardware reports are the fastest way to grow the list of tested builds. The Upload tab's **Share a report…** button prepares one and shows exactly what will be copied or downloaded; nothing is submitted automatically.
 
 Useful reports include:
 

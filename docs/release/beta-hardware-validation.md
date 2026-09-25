@@ -1,16 +1,16 @@
 # Beta Hardware Validation
 
 Design Studio for FastLED's public beta can use opt-in community reports to expand the
-hardware support matrix without treating an unverified configuration as
-supported. The LED output **Upload...** panel identifies the missing evidence
-for the current board, engine, LED target, layout, and graph features.
+list of tested builds. The Upload tab's **Share a report...** button prepares
+a report for the current board, engine, LED target, layout, and graph
+features, and says what the report would add to the tested list.
 
 ## Tester flow
 
 1. Configure the LED output and run the relevant hardware action.
-2. After a successful action, Studio offers the validation report when the
-   configuration still has a known coverage gap. **Review tests...** keeps the
-   report available manually at any time.
+2. Choose **Share a report...** on the Upload tab. After a successful upload
+   of a setup not yet on the tested list, the status bar also invites one;
+   no form opens by itself.
 3. Enter the exact host OS/build and browser version. Browser user-agent data
    cannot reliably expose a Windows edition/build or Linux distribution.
 4. Mark each physical observation **Pass**, **Fail**, or **Not tested**. Compile

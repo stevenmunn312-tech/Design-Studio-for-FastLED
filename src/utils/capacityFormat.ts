@@ -64,6 +64,7 @@ function summarizeCapacityText(
 ): { text: string; level: CapacityLevel } {
   const label = board?.label ?? 'No board'
   if (status === 'preparing') return { text: `${label} · preparing display images…`, level: 'pending' }
+  if (status === 'awaiting-trust') return { text: `${label} · capacity: waiting until you trust this project`, level: 'pending' }
   if (status === 'preparation-failed') return { text: `${label} · ${preparationError || 'Display image preparation failed'}`, level: 'error' }
   // Named, not restated. Graph Health already carries the sentence, with a
   // Locate button; a second full copy in a one-line status strip pushes

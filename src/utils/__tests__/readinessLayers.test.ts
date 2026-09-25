@@ -14,8 +14,6 @@ const fits: CompileCheckResult = {
   ram: { usedBytes: 100, limitBytes: 1000, percent: 30 },
   error: null,
 }
-const gap = { id: 'exact-target', label: 'Exact controller + LED configuration', reason: 'no row' }
-
 function input(overrides: Partial<ReadinessInput> = {}): ReadinessInput {
   return {
     previewLive: true,
@@ -23,7 +21,6 @@ function input(overrides: Partial<ReadinessInput> = {}): ReadinessInput {
     graphWarnings: 0,
     capacity: summarizeCapacity(board, 'idle', null),
     port: describePort({ helper, selectedPort: 'COM6', ports: [], portsScanned: true }),
-    hardwareGaps: [gap],
     ...overrides,
   }
 }
@@ -33,57 +30,41 @@ function byKind(layers: ReturnType<typeof readinessLayers>) {
 }
 
 describe('readinessLayers', () => {
-  it('reports the five kinds separately, in the order the work is done', () => {
+  it('lists the steps to the board in the order they are done', () => {
     expect(readinessLayers(input()).map((layer) => layer.kind))
-      .toEqual(['preview', 'graph', 'capacity', 'connection', 'hardware'])
+      .toEqual(['preview', 'graph', 'capacity', 'connection'])
   })
 
-  it('does not let a live preview stand in for a build, a board or a bench test', () => {
+  it('does not let a live preview stand in for a build or a board', () => {
     const layers = byKind(readinessLayers(input()))
     expect(layers.preview.tone).toBe('ok')
-    expect(layers.preview.detail).toMatch(/does not compile/i)
-    // Nothing else has been established, and nothing else reads as if it had.
     expect(layers.capacity.tone).not.toBe('ok')
-    expect(layers.capacity.status).toBe('Not measured')
+    expect(layers.capacity.status).toBe('Not checked yet')
+    expect(layers.capacity.detail).toMatch(/without uploading/)
     expect(layers.connection.tone).toBe('blocked')
-    expect(layers.hardware.tone).not.toBe('ok')
   })
 
-  it('never calls a measured fit, or an upload, hardware verification', () => {
-    const layers = byKind(readinessLayers(input({
-      capacity: summarizeCapacity(board, 'measured', fits),
-      port: describePort({ helper, selectedPort: 'COM6', ports: [{ address: 'COM6', label: 'COM6', protocol: 'serial', boards: [] }], portsScanned: true }),
-    })))
-    expect(layers.capacity.tone).toBe('ok')
-    expect(layers.connection.tone).toBe('ok')
-    expect(layers.hardware.status).toBe('Not verified · 1 gap')
-    expect(layers.hardware.detail).toMatch(/only a hardware test does/)
-    expect(layers.hardware.detail).toContain('Exact controller + LED configuration')
+  it('does not count bench testing as a step, since almost every setup is untested', () => {
+    expect(readinessLayers(input()).some((layer) => /hardware|verified|gap/i.test(`${layer.label} ${layer.status} ${layer.detail}`))).toBe(false)
   })
 
-  it('names a recorded bench row as the only thing that verifies hardware', () => {
-    const hardware = byKind(readinessLayers(input({ hardwareGaps: [] }))).hardware
-    expect(hardware).toMatchObject({ tone: 'ok', status: 'Recorded on hardware' })
-    expect(hardware.detail).toMatch(/beta support matrix/)
-  })
-
-  it('separates graph errors, which block, from warnings, which do not', () => {
-    expect(byKind(readinessLayers(input({ graphErrors: 2 }))).graph).toMatchObject({ status: '2 errors', tone: 'blocked' })
-    expect(byKind(readinessLayers(input({ graphWarnings: 1 }))).graph).toMatchObject({ status: 'No errors · 1 warning', tone: 'warn' })
-    const clean = byKind(readinessLayers(input())).graph
-    expect(clean).toMatchObject({ status: 'No errors', tone: 'ok' })
-    expect(clean.detail).toMatch(/has not been compiled/)
+  it('reads a clean graph as ready, and warnings as suggestions that do not stop anything', () => {
+    expect(byKind(readinessLayers(input({ graphErrors: 2 }))).graph).toMatchObject({ status: '2 things to fix', tone: 'blocked' })
+    expect(byKind(readinessLayers(input({ graphErrors: 1 }))).graph.status).toBe('1 thing to fix')
+    expect(byKind(readinessLayers(input({ graphWarnings: 1 }))).graph).toMatchObject({ status: 'Ready · 1 suggestion', tone: 'ok' })
+    expect(byKind(readinessLayers(input())).graph).toMatchObject({ status: 'Ready', tone: 'ok' })
   })
 
   it('follows the capacity verdict rather than its colour', () => {
     const overflow: CompileCheckResult = { ...fits, ok: false, overflow: true, flash: { usedBytes: 12000, limitBytes: 10000, percent: 120 } }
     expect(byKind(readinessLayers(input({ capacity: summarizeCapacity(board, 'measured', overflow) }))).capacity.tone).toBe('blocked')
+    expect(byKind(readinessLayers(input({ capacity: summarizeCapacity(board, 'measured', fits) }))).capacity.tone).toBe('ok')
     expect(byKind(readinessLayers(input({ capacity: summarizeCapacity(board, 'checking', null) }))).capacity)
       .toMatchObject({ tone: 'pending', status: 'Checking…' })
   })
 
-  it('reads an idle preview as nothing to show, not as a failure', () => {
-    expect(byKind(readinessLayers(input({ previewLive: false }))).preview).toMatchObject({ tone: 'pending', status: 'No LED signal' })
+  it('reads an idle preview as nothing to show yet, not as a failure', () => {
+    expect(byKind(readinessLayers(input({ previewLive: false }))).preview).toMatchObject({ tone: 'pending', status: 'Nothing to show yet' })
   })
 })
 

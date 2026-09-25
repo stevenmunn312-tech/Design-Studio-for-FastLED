@@ -65,7 +65,7 @@
 .signalRail i:nth-child(3) { height: 9px; }
 .signalRail i:nth-child(4) { height: 15px; }
 .signalRail.error i { background: var(--error); opacity: 0.92; box-shadow: 0 0 6px color-mix(in srgb, var(--error) 55%, transparent); }
-.signalRail.warning i { background: var(--accent-favourites); opacity: 0.88; }
+.signalRail.warning i { background: var(--accent-pattern); opacity: 0.88; }
 .signalRail.clear i { background: var(--success); opacity: 0.82; }
 
 .identity {
@@ -117,7 +117,9 @@
 }
 
 .priority.error { color: color-mix(in srgb, var(--error) 82%, var(--text-primary)); }
-.priority.warning { color: color-mix(in srgb, var(--accent-favourites) 82%, var(--text-primary)); }
+/* Suggestions are information, so they read in the calm accent rather
+   than a warning orange; red stays for what stops an upload. */
+.priority.warning { color: color-mix(in srgb, var(--accent-pattern) 82%, var(--text-primary)); }
 .priority.clear { color: color-mix(in srgb, var(--success) 78%, var(--text-primary)); }
 
 .summary:focus-visible,
@@ -146,7 +148,7 @@
 }
 
 .errorCount { color: var(--error); border-color: color-mix(in srgb, var(--error) 35%, transparent); }
-.warningCount { color: var(--accent-favourites); border-color: color-mix(in srgb, var(--accent-favourites) 35%, transparent); }
+.warningCount { color: var(--accent-pattern); border-color: color-mix(in srgb, var(--accent-pattern) 35%, transparent); }
 .clearCount { color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
 .board { padding: 0 4px; }
 
@@ -245,7 +247,7 @@
 }
 
 .issue.error { --issue-color: var(--error); }
-.issue.warning { --issue-color: var(--accent-favourites); }
+.issue.warning { --issue-color: var(--accent-pattern); }
 
 .severityMark {
   width: 22px;
