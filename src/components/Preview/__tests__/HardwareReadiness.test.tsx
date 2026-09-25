@@ -30,7 +30,7 @@ function setGraph() {
 
 const TARGET = { code: '// sketch', fqbn: 'esp32:esp32:esp32s3', toolchainReady: true, subject: 'sketch' } as const
 
-describe('HardwareReadiness — the Fits chip', () => {
+describe('HardwareReadiness — the capacity chip', () => {
   beforeEach(() => {
     localStorage.clear()
     setGraph()
@@ -44,10 +44,12 @@ describe('HardwareReadiness — the Fits chip', () => {
     useCapacityStore.getState().setTarget(TARGET)
     const check = vi.spyOn(useCapacityStore.getState(), 'check')
 
-    const { getByRole, getByText } = render(<HardwareReadiness />)
+    const { getByRole, getByText, queryByText } = render(<HardwareReadiness />)
     expect(getByText(/not checked/)).toBeTruthy()
+    // An unmeasured design has no verdict, so the chip must not say it fits.
+    expect(queryByText(/^Fits$/)).toBeNull()
 
-    fireEvent.click(getByRole('button', { name: /Fits/ }))
+    fireEvent.click(getByRole('button', { name: /Capacity.*not checked/ }))
     expect(check).toHaveBeenCalled()
     check.mockRestore()
   })
@@ -55,7 +57,7 @@ describe('HardwareReadiness — the Fits chip', () => {
   it('stays a plain readout when there is nothing it could measure', () => {
     useCapacityStore.getState().setTarget({ ...TARGET, code: null })
     const { queryByRole } = render(<HardwareReadiness />)
-    expect(queryByRole('button', { name: /Fits/ })).toBeNull()
+    expect(queryByRole('button', { name: /Capacity/ })).toBeNull()
   })
 
   it('shows active compile feedback while a capacity check is running', () => {
@@ -64,7 +66,7 @@ describe('HardwareReadiness — the Fits chip', () => {
 
     const { getByLabelText, getByText } = render(<HardwareReadiness compact />)
 
-    expect(getByLabelText(/Fits: compiling capacity/)).toBeTruthy()
+    expect(getByLabelText(/Capacity check: compiling/)).toBeTruthy()
     expect(getByText(/compiling/)).toBeTruthy()
   })
 
@@ -73,7 +75,7 @@ describe('HardwareReadiness — the Fits chip', () => {
       preparationError: 'Touch panel: Could not bake Power at 24x24: decoder failed' })
     const setHardwarePaneTab = vi.spyOn(useUiStore.getState(), 'setHardwarePaneTab')
     const { getByRole } = render(<HardwareReadiness />)
-    fireEvent.click(getByRole('button', { name: /Fits.*Touch panel: Could not bake Power/ }))
+    fireEvent.click(getByRole('button', { name: /Check failed.*Touch panel: Could not bake Power/ }))
     expect(setHardwarePaneTab).toHaveBeenCalledWith('upload')
     expect(useUploadStore.getState().openConsole).not.toHaveBeenCalled()
     setHardwarePaneTab.mockRestore()
@@ -96,10 +98,52 @@ describe('HardwareReadiness — the Fits chip', () => {
     const check = vi.spyOn(useCapacityStore.getState(), 'check')
 
     const { getByRole } = render(<HardwareReadiness />)
-    fireEvent.click(getByRole('button', { name: /Fits/ }))
+    fireEvent.click(getByRole('button', { name: /Check failed/ }))
 
     expect(openConsole).toHaveBeenCalled()
     expect(check).not.toHaveBeenCalled()
     check.mockRestore()
+  })
+
+  it('says Fits only for a current measurement, and names every other outcome', () => {
+    const measure = (status: 'measured' | 'stale', result: object) => {
+      useCapacityStore.getState().setTarget(TARGET)
+      useCapacityStore.setState({ status, result: { target: 'esp32:esp32:esp32s3', error: null, ...result } as never })
+      const view = render(<HardwareReadiness />)
+      const chip = view.getByRole('button', { name: /flash/ })
+      const reading = { name: chip.querySelector('em')?.textContent, level: chip.getAttribute('data-level') }
+      view.unmount()
+      return reading
+    }
+    const figures = { flash: { usedBytes: 1, limitBytes: 10, percent: 40 }, ram: { usedBytes: 1, limitBytes: 10, percent: 20 } }
+
+    expect(measure('measured', { ok: true, overflow: false, ...figures })).toEqual({ name: 'Fits', level: 'ok' })
+    expect(measure('stale', { ok: true, overflow: false, ...figures })).toEqual({ name: 'Last check', level: 'pending' })
+    expect(measure('measured', {
+      ok: true, overflow: false, ...figures, flash: { usedBytes: 9, limitBytes: 10, percent: 95 },
+    })).toEqual({ name: 'Tight', level: 'warn' })
+  })
+
+  it('names an overflow as too big, not as a failed check', () => {
+    useCapacityStore.getState().setTarget(TARGET)
+    useCapacityStore.setState({
+      status: 'measured',
+      result: {
+        ok: false, overflow: true, target: 'esp32:esp32:esp32s3',
+        flash: { usedBytes: 12, limitBytes: 10, percent: 122 }, ram: null, error: 'Design is too large for this board',
+      },
+    })
+    const { getByRole } = render(<HardwareReadiness />)
+    expect(getByRole('button', { name: /Too big.*flash 122%/ }).getAttribute('data-level')).toBe('bad')
+  })
+
+  it('keeps an unmeasured reading visibly neutral', () => {
+    useCapacityStore.getState().setTarget({ ...TARGET, toolchainReady: false })
+    useCapacityStore.setState({ status: 'toolchain-missing' })
+    const { getByTitle, queryByText } = render(<HardwareReadiness />)
+    const chip = getByTitle(/install toolchain to check/)
+    expect(chip.getAttribute('data-level')).toBe('pending')
+    expect(chip.querySelector('em')?.textContent).toBe('Capacity')
+    expect(queryByText(/^Fits$/)).toBeNull()
   })
 })

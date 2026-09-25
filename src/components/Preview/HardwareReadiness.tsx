@@ -73,6 +73,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const board = boardByFqbn(selectedFqbn)
   const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError)
   const capacityFailed = capacity.level === 'error'
+  const capacityLevel = capacity.tone === 'error' ? 'bad' : capacity.tone
   // A check compiles the design for real, so it only ever runs from a press —
   // and there is only something to press when there is something to build.
   const canCheck = !!capacityTarget?.code && capacityTarget.toolchainReady && capacityStatus !== 'checking'
@@ -121,9 +122,9 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
           className={`${styles.item} ${styles.checking}`}
           data-level="ok"
           title="Compiling this design without flashing it. A first toolchain build can take several minutes; later checks reuse the build cache."
-          aria-label={`Fits: compiling capacity, ${elapsedText} elapsed`}
+          aria-label={`Capacity check: compiling, ${elapsedText} elapsed`}
         >
-          <em className={styles.label}>Fits</em>
+          <em className={styles.label}>{capacity.label}</em>
           <i className={styles.spinner} aria-hidden="true" />
           <strong>compiling · {elapsedText}</strong>
         </span>
@@ -138,26 +139,26 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
           }}
           title={`${capacity.text}\n\n${capacityStatus === 'preparation-failed' ? 'Click to review display preparation in the Upload tab.' : 'Click to show the upload output.'}${capacityResult?.log ? `\n\n${capacityResult.log.slice(-1500)}` : ''}`}
         >
-          <em className={styles.label}>Fits</em>
-          <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
+          <em className={styles.label}>{capacity.label}</em>
+          <strong>{capacity.detail}</strong>
           <span className={styles.note}>{capacityStatus === 'preparation-failed' ? 'review' : 'see output'}</span>
         </button>
       ) : canCheck ? (
         <button
           type="button"
           className={`${styles.item} ${styles.itemButton}`}
-          data-level={capacity.level === 'warn' ? 'warn' : 'ok'}
+          data-level={capacityLevel}
           onClick={runCapacityCheck}
           title={`${capacity.text}\n\nClick to compile this design against the selected board and measure it. Nothing is flashed.`}
         >
-          <em className={styles.label}>Fits</em>
-          <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
+          <em className={styles.label}>{capacity.label}</em>
+          <strong>{capacity.detail}</strong>
           <span className={styles.note}>{capacityStatus === 'measured' ? 'recheck' : 'check'}</span>
         </button>
       ) : (
-        <span className={styles.item} data-level={capacity.level === 'warn' ? 'warn' : 'ok'} title={capacity.text}>
-          <em className={styles.label}>Fits</em>
-          <strong>{capacity.text.replace(/^.*?·\s*/, '')}</strong>
+        <span className={styles.item} data-level={capacityLevel} title={capacity.text}>
+          <em className={styles.label}>{capacity.label}</em>
+          <strong>{capacity.detail}</strong>
         </span>
       )}
 

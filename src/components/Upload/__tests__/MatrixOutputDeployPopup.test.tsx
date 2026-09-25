@@ -544,6 +544,22 @@ describe('MatrixOutputDeployPopup', () => {
       const { getByRole } = render(<MatrixOutputDeployPopup />)
       expect((getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(false)
     })
+
+    it('leads the meter with what the reading establishes', () => {
+      // A current overflow is a verdict; the same figures from an older graph
+      // are only the last check, and a design never measured has no verdict.
+      readyToUploadAFrame()
+      useCapacityStore.setState({ status: 'measured', result: OVERFLOW as never })
+      const view = render(<MatrixOutputDeployPopup />)
+      expect(view.getByText(/^Too big: .*flash 122%/)).toBeTruthy()
+
+      act(() => { useCapacityStore.setState({ status: 'stale' }) })
+      expect(view.getByText(/^Last check: .*flash 122%.*before your last edits/)).toBeTruthy()
+
+      act(() => { useCapacityStore.setState({ status: 'idle', result: null }) })
+      expect(view.getByText(/^Capacity: .*not checked/)).toBeTruthy()
+      expect(view.queryByText(/^Fits:/)).toBeNull()
+    })
   })
 
   it('blocks Flash Wiring Test on an unsupported HUB75 config', () => {

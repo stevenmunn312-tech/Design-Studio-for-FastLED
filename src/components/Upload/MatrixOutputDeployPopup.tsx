@@ -595,16 +595,16 @@ export default function MatrixOutputDeployPopup({
            * fit" is worth a real build. */
           <button
             type="button"
-            className={`${styles.capacityLine} ${styles.capacityButton} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.level]]}`}
+            className={`${styles.capacityLine} ${styles.capacityButton} ${styles[CAPACITY_LEVEL_CLASS[capacitySummary.tone]]}`}
             onClick={runCapacityCheck}
             disabled={!canCheckCapacity}
-            title={
+            title={`${capacitySummary.line}\n\n${
               capacityResult && !capacityResult.ok && capacityResult.log
                 ? `Controller-capacity check failed:\n${capacityResult.log.slice(-1500)}`
                 : 'Compile this design against the selected board to measure flash/SRAM. Nothing is flashed.'
-            }
+            }`}
           >
-            {capacitySummary.text}
+            {capacitySummary.line}
             {canCheckCapacity && (
               <span className={styles.capacityAction}>{capacityStatus === 'measured' ? ' · recheck' : ' · check'}</span>
             )}

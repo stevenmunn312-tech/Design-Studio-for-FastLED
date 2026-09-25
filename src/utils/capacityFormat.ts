@@ -7,7 +7,41 @@ import type { CapacityStatus, CapacitySubject } from '../state/capacityStore'
 
 export type CapacityLevel = 'ok' | 'warn' | 'error' | 'pending'
 
-export interface CapacitySummary { text: string; level: CapacityLevel }
+/** What a reading actually establishes, kept apart from its colour. "Fits" is
+ *  only ever said about a measurement of the design as it stands now: every
+ *  state without one is `unknown`, a reading against an older graph is
+ *  `stale`, and a check that could not produce figures is `failed` rather
+ *  than an overflow. */
+export type CapacityVerdict = 'unknown' | 'checking' | 'fits' | 'tight' | 'overflow' | 'failed' | 'stale'
+
+export const CAPACITY_VERDICT_LABELS: Record<CapacityVerdict, string> = {
+  unknown: 'Capacity',
+  checking: 'Checking',
+  fits: 'Fits',
+  tight: 'Tight',
+  overflow: 'Too big',
+  failed: 'Check failed',
+  stale: 'Last check',
+}
+
+export interface CapacitySummary {
+  /** `<board> · …`, the full line. */
+  text: string
+  level: CapacityLevel
+  verdict: CapacityVerdict
+  /** The verdict's heading, e.g. "Fits" or "Capacity". */
+  label: string
+  /** `text` without the board, and without restating "capacity" beside a
+   *  label that already says it — for the compact status-bar chip. */
+  detail: string
+  /** `<label>: <board> · <detail>` — the verdict first, for surfaces with room
+   *  for one full line. */
+  line: string
+  /** `level` for colouring, except that only a current measured fit is `ok`:
+   *  "not checked" or a pass against an older graph must not borrow the look
+   *  of one. */
+  tone: CapacityLevel
+}
 
 // Matches the helper's own `_SIZE_WARN_PCT` (backend/app.py) — tight but not
 // overflowing headroom.
@@ -21,13 +55,13 @@ const SIZE_WARN_PCT = 90
  *  the Upload button flashes the other is a silent failure — a meter that says
  *  what it measured cannot have it.
  */
-export function summarizeCapacity(
+function summarizeCapacityText(
   board: Board | undefined,
   status: CapacityStatus,
   result: CompileCheckResult | null,
   subject: CapacitySubject = 'sketch',
   preparationError?: string,
-): CapacitySummary {
+): { text: string; level: CapacityLevel } {
   const label = board?.label ?? 'No board'
   if (status === 'preparing') return { text: `${label} · preparing display images…`, level: 'pending' }
   if (status === 'preparation-failed') return { text: `${label} · ${preparationError || 'Display image preparation failed'}`, level: 'error' }
@@ -84,6 +118,34 @@ export function summarizeCapacity(
 
   const tight = (result.flash?.percent ?? 0) >= SIZE_WARN_PCT || (result.ram?.percent ?? 0) >= SIZE_WARN_PCT
   return { text, level: tight ? 'warn' : 'ok' }
+}
+
+export function summarizeCapacity(
+  board: Board | undefined,
+  status: CapacityStatus,
+  result: CompileCheckResult | null,
+  subject: CapacitySubject = 'sketch',
+  preparationError?: string,
+): CapacitySummary {
+  const { text, level } = summarizeCapacityText(board, status, result, subject, preparationError)
+  const verdict = capacityVerdict(status, result, level)
+  const boardPrefix = `${board?.label ?? 'No board'} · `
+  const withoutBoard = text.startsWith(boardPrefix) ? text.slice(boardPrefix.length) : text
+  const detail = verdict === 'unknown' ? withoutBoard.replace(/^capacity:?\s*/, '') : withoutBoard
+  const label = CAPACITY_VERDICT_LABELS[verdict]
+  const tone = level === 'ok' && verdict !== 'fits' ? 'pending' : level
+  return { text, level, verdict, label, detail, line: `${label}: ${boardPrefix}${detail}`, tone }
+}
+
+function capacityVerdict(status: CapacityStatus, result: CompileCheckResult | null, level: CapacityLevel): CapacityVerdict {
+  if (status === 'checking') return 'checking'
+  if (status === 'preparation-failed') return 'failed'
+  if (status !== 'measured' && status !== 'stale') return 'unknown'
+  // A collision with another build was never compiled, so it says nothing.
+  if (!result || (!result.ok && result.busy)) return 'unknown'
+  if (status === 'stale') return 'stale'
+  if (!result.ok) return result.overflow ? 'overflow' : 'failed'
+  return level === 'warn' ? 'tight' : 'fits'
 }
 
 export interface CapacityDelta { flashPct: number | null; ramPct: number | null }

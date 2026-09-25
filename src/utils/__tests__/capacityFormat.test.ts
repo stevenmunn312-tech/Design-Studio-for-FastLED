@@ -28,11 +28,11 @@ describe('summarizeCapacity', () => {
   })
 
   it('distinguishes pending images and named preparation failures from an empty graph', () => {
-    expect(summarizeCapacity(board, 'preparing', null)).toEqual({
-      text: 'Arduino Uno · preparing display images…', level: 'pending',
+    expect(summarizeCapacity(board, 'preparing', null)).toMatchObject({
+      text: 'Arduino Uno · preparing display images…', level: 'pending', verdict: 'unknown',
     })
-    expect(summarizeCapacity(board, 'preparation-failed', null, 'sketch', 'Touch panel: Power failed')).toEqual({
-      text: 'Arduino Uno · Touch panel: Power failed', level: 'error',
+    expect(summarizeCapacity(board, 'preparation-failed', null, 'sketch', 'Touch panel: Power failed')).toMatchObject({
+      text: 'Arduino Uno · Touch panel: Power failed', level: 'error', verdict: 'failed',
     })
   })
   it('says there is nothing to build rather than showing an old number', () => {
@@ -171,6 +171,46 @@ describe('summarizeCapacity', () => {
     const s = summarizeCapacity(board, 'measured', result)
     expect(s.text).toBe('Arduino Uno · flash n/a · SRAM 101%')
     expect(s.level).toBe('error')
+  })
+})
+
+describe('capacity verdicts', () => {
+  const overflow: CompileCheckResult = {
+    ok: false, overflow: true, target: board.fqbn,
+    flash: { usedBytes: 39308, limitBytes: 32256, percent: 122 }, ram: null, error: 'Design is too large for this board',
+  }
+  const failed: CompileCheckResult = { ok: false, overflow: false, target: board.fqbn, flash: null, ram: null, error: 'Compile failed — see helper log' }
+  const busy: CompileCheckResult = { ...failed, busy: true, error: 'Another build is running — not measured' }
+
+  it.each([
+    ['idle', null, 'unknown', 'Capacity: Arduino Uno · not checked'],
+    ['toolchain-missing', null, 'unknown', 'Capacity: Arduino Uno · install toolchain to check'],
+    ['blocked-by-graph', null, 'unknown', 'Capacity: Arduino Uno · fix the graph errors first'],
+    ['nothing-to-measure', null, 'unknown', 'Capacity: Arduino Uno · nothing to build yet'],
+    ['checking', null, 'checking', 'Checking: Arduino Uno · checking capacity…'],
+    ['measured', ok(74, 41), 'fits', 'Fits: Arduino Uno · flash 74% · SRAM 41%'],
+    ['measured', ok(92, 41), 'tight', 'Tight: Arduino Uno · flash 92% · SRAM 41%'],
+    ['measured', overflow, 'overflow', 'Too big: Arduino Uno · flash 122% · SRAM n/a'],
+    ['measured', failed, 'failed', 'Check failed: Arduino Uno · Compile failed — see helper log'],
+    ['measured', busy, 'unknown', 'Capacity: Arduino Uno · another build is running — check again'],
+    ['stale', ok(50, 20), 'stale', 'Last check: Arduino Uno · flash 50% · SRAM 20% (before your last edits)'],
+  ] as const)('%s gives %s', (status, result, verdict, line) => {
+    const s = summarizeCapacity(board, status, result as CompileCheckResult | null)
+    expect(s.verdict).toBe(verdict)
+    expect(s.line).toBe(line)
+  })
+
+  it('never says Fits about a design it has not measured as it stands', () => {
+    for (const status of ['idle', 'checking', 'toolchain-missing', 'blocked-by-graph', 'nothing-to-measure', 'preparing', 'stale'] as const) {
+      const s = summarizeCapacity(board, status, status === 'stale' ? ok(10, 10) : null)
+      expect(s.label).not.toBe('Fits')
+      expect(s.tone).not.toBe('ok')
+    }
+  })
+
+  it('colours only a current fit as ok', () => {
+    expect(summarizeCapacity(board, 'measured', ok(40, 20)).tone).toBe('ok')
+    expect(summarizeCapacity(board, 'stale', ok(40, 20)).tone).toBe('pending')
   })
 })
 

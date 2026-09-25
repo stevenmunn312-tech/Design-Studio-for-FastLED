@@ -93,6 +93,9 @@
 .item[data-level='ok'] strong { color: var(--text-primary, #e8ecf1); }
 .item[data-level='warn'] strong { color: #ffb74d; }
 .item[data-level='bad'] strong { color: #ff6b6b; }
+/* No verdict yet (not checked, no toolchain, stale): readable, but visibly
+ * not an answer. */
+.item[data-level='pending'] strong { color: var(--text-secondary, #a9b3c1); font-weight: 500; }
 
 /* The Fits chip becomes a button only when the check failed and there is an
  * output log worth opening — otherwise the strip stays a quiet readout. */
