@@ -352,6 +352,11 @@
   position: relative;
   isolation: isolate;
   padding: var(--space-3);
+  /* The frame's heading sits 28px above the frame (.canvasFrameHeader), and
+     this wrap clips. The canvas is sized to the padded box, so a height-limited
+     matrix puts the frame flush with the padding and the heading needs at least
+     its own offset of room above it. */
+  padding-top: 32px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1519,6 +1524,7 @@
     flex: 3 1 auto;
     min-height: 220px;
     padding: var(--space-2);
+    padding-top: 30px;
   }
 
   .visualizer {
