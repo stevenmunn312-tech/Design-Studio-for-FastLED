@@ -3,6 +3,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
 import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
 import type { StatusLevel } from '../../types'
+import { describePort } from '../../utils/portStatus'
 import HardwareReadiness from '../Preview/HardwareReadiness'
 import styles from './StatusBar.module.css'
 
@@ -34,6 +35,8 @@ export default function StatusBar() {
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const ports = useUploadStore((s) => s.ports)
+  const portsScanned = useUploadStore((s) => s.portsScanned)
+  const helper = useUploadStore((s) => s.helper)
 
   const outputNode = useGraphStore((s) =>
     s.nodes.find((n) => n.data.nodeType === 'MatrixOutput')
@@ -43,8 +46,7 @@ export default function StatusBar() {
   const matrixWidth = Number(props?.width ?? 16)
   const matrixHeight = Number(props?.height ?? 16)
   const boardLabel = boardByFqbn(selectedFqbn)?.label
-  const detectedPort = ports.find((port) => port.address === selectedPort)
-  const portLabel = detectedPort?.address ?? 'Not detected'
+  const port = describePort({ helper, selectedPort, ports, portsScanned })
   const displayFps = hasFrameSignal ? fps : 0
 
   return (
@@ -85,7 +87,7 @@ export default function StatusBar() {
         {hasShow && <span className={styles.chip}>Show graph</span>}
         <span className={styles.chip}>FPS: {displayFps}</span>
         <span className={styles.chip}>Board: {boardLabel ?? 'Not selected'}</span>
-        <span className={styles.chip}>Port: {portLabel}</span>
+        <span className={styles.chip} data-port-state={port.state} title={port.detail}>Port: {port.text}</span>
         <span className={styles.chip}>Chip: {chipset ?? 'Not selected'}</span>
         <span className={styles.chip}>Size: {matrixWidth} x {matrixHeight}</span>
       </div>

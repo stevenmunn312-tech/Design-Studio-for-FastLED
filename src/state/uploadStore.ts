@@ -354,6 +354,9 @@ interface UploadState {
   // helper / hardware
   helper: BackendHealth | null | undefined   // undefined = still probing
   ports: SerialPort[]
+  /** Whether a port scan has returned since startup. Until one has, an empty
+   *  `ports` means "not asked yet" rather than "no board connected". */
+  portsScanned: boolean
   installedCores: string[]
   // selection (persisted)
   myBoards: string[]
@@ -503,6 +506,7 @@ function saveProjectSelection(selectedFqbn: string, selectedPort: string) {
 export const useUploadStore = create<UploadState>((set, get) => ({
   helper: undefined,
   ports: [],
+  portsScanned: false,
   installedCores: [],
   myBoards: persistedPrefs.myBoards,
   selectedFqbn: initialSelection.selectedFqbn,
@@ -547,7 +551,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
   refreshPorts: async () => {
     const ports = await listPorts()
-    set({ ports })
+    set({ ports, portsScanned: true })
     // Default to the first detected board when nothing is chosen, or when the
     // previously selected port has disappeared from the list (e.g. the board
     // re-enumerated on a different port after a replug). Otherwise

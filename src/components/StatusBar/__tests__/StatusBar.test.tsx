@@ -82,6 +82,30 @@ describe('StatusBar hardware readiness', () => {
   })
 })
 
+describe('StatusBar port chip', () => {
+  beforeEach(() => {
+    useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })
+    useGraphStore.setState({ nodes: [], edges: [], graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root' })
+  })
+
+  it('keeps a remembered port and says it is disconnected rather than "Not detected"', () => {
+    useUploadStore.setState({ helper: { ok: true } as never, selectedPort: 'COM6', ports: [], portsScanned: true })
+    const { getByText } = render(<StatusBar />)
+    expect(getByText('Port: COM6 selected · disconnected')).toBeTruthy()
+  })
+
+  it('reads connected once the port is present', () => {
+    useUploadStore.setState({
+      helper: { ok: true } as never,
+      selectedPort: 'COM6',
+      ports: [{ address: 'COM6', label: 'COM6', protocol: 'serial', boards: [] }],
+      portsScanned: true,
+    })
+    const { getByText } = render(<StatusBar />)
+    expect(getByText('Port: COM6 · connected')).toBeTruthy()
+  })
+})
+
 describe('StatusBar audio chip', () => {
   beforeEach(() => {
     useUiStore.setState({ statusText: 'Ready', statusLevel: 'idle', fps: 0, performanceMode: false, stageMode: false })

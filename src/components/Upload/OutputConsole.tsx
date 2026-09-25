@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUploadStore } from '../../state/uploadStore'
 import { useCapacityStore } from '../../state/capacityStore'
 import { condenseLogView } from '../../utils/logView'
+import { describePort } from '../../utils/portStatus'
 import styles from './Upload.module.css'
 
 /**
@@ -33,10 +34,11 @@ function useCapacityFailureReport(): string {
 // to callers that still need it outside that workbench.
 export default function OutputConsole({ embedded = false }: { embedded?: boolean } = {}) {
   const {
-    log, status, busy, selectedPort, serialLog, serialConnected, serialError, serialBaud,
+    log, status, busy, selectedPort, ports, portsScanned, helper, serialLog, serialConnected, serialError, serialBaud,
     verboseOutput, setVerboseOutput,
     closeConsole, clearLog, clearSerialLog, startSerial, stopSerial, setSerialBaud,
   } = useUploadStore()
+  const port = describePort({ helper, selectedPort, ports, portsScanned })
   const bodyRef = useRef<HTMLPreElement>(null)
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -114,7 +116,7 @@ export default function OutputConsole({ embedded = false }: { embedded?: boolean
       </div>
       {tab === 'serial' && (
         <div className={styles.serialToolbar}>
-          <span className={styles.serialPort}>{selectedPort || 'No port selected'}</span>
+          <span className={styles.serialPort} title={port.detail}>{port.text}</span>
           <select className={styles.serialBaud} value={serialBaud} onChange={(e) => setSerialBaud(Number(e.target.value))} disabled={serialConnected} aria-label="Baud rate">
             {[9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600].map((baud) => <option key={baud} value={baud}>{baud} baud</option>)}
           </select>
@@ -122,7 +124,9 @@ export default function OutputConsole({ embedded = false }: { embedded?: boolean
             {serialConnected ? 'Disconnect' : 'Connect'}
           </button>
           <span className={serialError ? styles.stError : serialConnected ? styles.stDone : styles.serialIdle}>
-            {serialError ? 'Error' : serialConnected ? 'Connected' : 'Disconnected'}
+            {/* The monitor's own state, named as such: beside "COM6 · connected"
+                a bare "Disconnected" read as the board being unplugged. */}
+            {serialError ? 'Error' : serialConnected ? 'Monitoring' : 'Monitor off'}
           </span>
         </div>
       )}

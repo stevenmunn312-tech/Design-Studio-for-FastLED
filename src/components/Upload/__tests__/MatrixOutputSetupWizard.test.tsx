@@ -58,6 +58,7 @@ describe('MatrixOutputSetupWizard', () => {
       myBoards: ['esp32:esp32:esp32s3', 'arduino:avr:uno'],
       selectedFqbn: 'esp32:esp32:esp32s3',
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
       busy: false,
       setupWizardOpen: true,

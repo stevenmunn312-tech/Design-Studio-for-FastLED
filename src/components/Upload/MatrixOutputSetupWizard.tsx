@@ -6,6 +6,7 @@ import { validateMatrixLayout } from '../../state/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
+import { describePort } from '../../utils/portStatus'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { useUiStore } from '../../state/uiStore'
@@ -46,6 +47,7 @@ export default function MatrixOutputSetupWizard() {
   const {
     helper,
     ports,
+    portsScanned,
     installedCores,
     myBoards,
     selectedFqbn,
@@ -89,8 +91,8 @@ export default function MatrixOutputSetupWizard() {
   const board = boardByFqbn(selectedFqbn)
   const usingFbuild = helper?.engine === 'fbuild'
   const activeEngineReady = engineReady(helper)
-  const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
-  const portDetected = !!selectedPort && ports.some((p) => p.address === selectedPort)
+  const port = describePort({ helper, selectedPort, ports, portsScanned })
+  const portDetected = port.state === 'connected'
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
   const uploadReady = !!helper && activeEngineReady && coreReady && portDetected
   const ledCount = grid.width * grid.height
@@ -184,7 +186,7 @@ export default function MatrixOutputSetupWizard() {
           <div className={styles.wizardSection}>
             <div className={styles.targetRow}>
               <span className={styles.targetChip}>{board?.label ?? 'No board selected'}</span>
-              <span className={styles.targetChip}>{portLabel || 'No port selected'}</span>
+              <span className={styles.targetChip}>{port.text}</span>
               <span className={`${styles.targetChip} ${uploadReady ? styles.readyBadge : styles.missingBadge}`}>
                 {uploadReady ? 'Ready' : 'Needs setup'}
               </span>
@@ -485,7 +487,7 @@ export default function MatrixOutputSetupWizard() {
         {step === 3 && (
           <div className={styles.wizardSection}>
             <div className={styles.wizardSummary}>
-              <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {portLabel || 'No port'}</strong></div>
+              <div className={styles.wizardSummaryRow}><span>Target</span><strong>{board?.label ?? 'No board'} · {port.text}</strong></div>
               <div className={styles.wizardSummaryRow}><span>LED output</span><strong>{LED_OUTPUT_FORM_LABELS[form]} · {grid.width} × {grid.height}{linear ? '' : ` · ${layout}`}</strong></div>
               <div className={styles.wizardSummaryRow}><span>LED path</span><strong>{chipset} · {String(props.colorOrder ?? 'GRB')}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Controller</span><strong>{controller.brightness} brightness · {controller.powerLimit ? `${controller.volts} V / ${controller.milliamps} mA cap` : 'power cap off'}</strong></div>

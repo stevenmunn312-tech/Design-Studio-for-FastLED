@@ -34,6 +34,7 @@ import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { resolveBuildMode } from '../../state/buildMode'
+import { describePort } from '../../utils/portStatus'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
 
@@ -79,7 +80,7 @@ export default function MatrixOutputDeployPopup({
   const projectName = useProjectStore((s) =>
     s.projects.find((project) => project.id === s.currentProjectId)?.name ?? '')
   const {
-    helper, installedCores, selectedFqbn, selectedPort, ports, busy, status, codeViewOpen,
+    helper, installedCores, selectedFqbn, selectedPort, ports, portsScanned, busy, status, codeViewOpen,
     refreshHelper, refreshPorts, installCore, activeOutputNodeId,
     openBoardPopup, openCliPopup, openCodeView, closeDeployPopup, openSetupWizard, runUpload, runLastUpload, runShowUpload, exportIno,
     exportBinary,
@@ -160,9 +161,12 @@ export default function MatrixOutputDeployPopup({
   const code = useMemo(generateCurrentCode, [codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
     customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
 
-  const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
-  const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
-  const portDetected = !!selectedPort && ports.some((p) => p.address === selectedPort)
+  const port = useMemo(
+    () => describePort({ helper, selectedPort, ports, portsScanned }),
+    [helper, selectedPort, ports, portsScanned],
+  )
+  const target = `${board?.label ?? 'No board'} · ${port.text}`
+  const portDetected = port.state === 'connected'
   const helperReady = !!helper
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
   const uploadReady = helperReady && activeEngineReady && coreReady && portDetected
@@ -310,29 +314,31 @@ export default function MatrixOutputDeployPopup({
                   }
                 : { label: 'Toolchain', state: 'ready' as ReadinessState, detail: `${board.label} core is installed.` }
 
-    const connectionRow = helper === undefined
-      ? { label: 'Connection', state: 'checking' as ReadinessState, detail: 'Scanning for serial ports…' }
-      : !helper
+    // The row's detail is the shared port sentence, so the heading, this row
+    // and the footer cannot describe one port two ways.
+    const connectionRow = port.state === 'checking'
+      ? { label: 'Connection', state: 'checking' as ReadinessState, detail: port.detail }
+      : port.state === 'offline'
         ? {
             label: 'Connection',
             state: 'missing' as ReadinessState,
-            detail: 'Start the helper before Studio can list ports.',
+            detail: port.detail,
             actionLabel: 'Retry helper',
             action: () => { void refreshHelper() },
           }
-        : !selectedPort
+        : port.state === 'none'
           ? {
               label: 'Connection',
               state: 'missing' as ReadinessState,
-              detail: 'Pick the board’s USB/serial port.',
+              detail: port.detail,
               actionLabel: 'Choose port',
               action: openBoardPopup,
             }
-          : !portDetected
+          : port.state === 'disconnected'
             ? {
                 label: 'Connection',
                 state: 'missing' as ReadinessState,
-                detail: `${selectedPort} is not currently detected.`,
+                detail: port.detail,
                 actionLabel: 'Refresh ports',
                 action: () => { void refreshPorts() },
               }
@@ -342,7 +348,7 @@ export default function MatrixOutputDeployPopup({
                   state: 'ready' as ReadinessState,
                   detail: 'Live Stream owns the port now; Upload will stop it automatically first.',
                 }
-              : { label: 'Connection', state: 'ready' as ReadinessState, detail: `${portLabel || selectedPort} ready` }
+              : { label: 'Connection', state: 'ready' as ReadinessState, detail: port.detail }
 
     return [helperRow, engineRow, coreRow, connectionRow]
   }, [
@@ -351,9 +357,7 @@ export default function MatrixOutputDeployPopup({
     usingFbuild,
     board,
     coreReady,
-    selectedPort,
-    portDetected,
-    portLabel,
+    port,
     streaming,
     refreshHelper,
     openCliPopup,
@@ -856,7 +860,7 @@ export default function MatrixOutputDeployPopup({
                 : !helperReady
                   ? 'Start the local helper to enable live streaming'
                   : !portDetected
-                    ? 'Choose a detected board port to enable live streaming'
+                    ? port.detail
                     : 'Push live preview frames to a board already running the Stream Receiver sketch'
             }
           >

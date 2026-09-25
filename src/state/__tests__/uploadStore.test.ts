@@ -386,6 +386,29 @@ describe('uploadStore', () => {
     await useUploadStore.getState().refreshPorts()
     expect(useUploadStore.getState().selectedPort).toBe('COM4')
   })
+
+  it('keeps a remembered port through an empty scan, so it reads as selected but disconnected', async () => {
+    const { useUploadStore } = await freshStores()
+    const { describePort } = await import('../../utils/portStatus')
+    const status = () => {
+      const s = useUploadStore.getState()
+      return describePort({ helper: { ok: true } as never, selectedPort: s.selectedPort, ports: s.ports, portsScanned: s.portsScanned })
+    }
+    useUploadStore.getState().setSelectedPort('COM6')
+    // Nothing is known until a scan has come back.
+    expect(useUploadStore.getState().portsScanned).toBe(false)
+    expect(status().state).toBe('checking')
+
+    mocks.listPorts.mockResolvedValueOnce([])
+    await useUploadStore.getState().refreshPorts()
+    expect(useUploadStore.getState().selectedPort).toBe('COM6')
+    expect(status().text).toBe('COM6 selected · disconnected')
+
+    // Replugged on the same port: a refresh alone turns it back to connected.
+    mocks.listPorts.mockResolvedValueOnce([{ address: 'COM6', label: 'COM6', boards: [] }])
+    await useUploadStore.getState().refreshPorts()
+    expect(status().text).toBe('COM6 · connected')
+  })
 })
 
 describe('board catalogue covers the Board node', () => {

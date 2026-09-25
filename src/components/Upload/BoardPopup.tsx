@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
+import { describePort } from '../../utils/portStatus'
 import styles from './Upload.module.css'
 import { controllerSettings } from '../../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
@@ -32,7 +33,7 @@ const platformLabel = (core: string) => PLATFORM_LABELS[core] ?? core
 // "<board> · <port>" label.
 export default function BoardPopup() {
   const {
-    helper, ports, installedCores, customBoards, selectedFqbn, selectedPort, busy,
+    helper, ports, portsScanned, installedCores, customBoards, selectedFqbn, selectedPort, busy,
     checkingUpdates, availableUpdates, updatesPopupOpen,
     setSelectedFqbn, setSelectedPort, refreshPorts, setEngine,
     closeBoardPopup, openCliPopup,
@@ -71,8 +72,8 @@ export default function BoardPopup() {
     const first = readyBoards.find((b) => b.core === core)
     if (first) setSelectedFqbn(first.fqbn)
   }
-  const portLabel = ports.find((p) => p.address === selectedPort)?.label ?? selectedPort
-  const target = `${board?.label ?? 'No board'} · ${portLabel || 'no port'}`
+  const port = describePort({ helper, selectedPort, ports, portsScanned })
+  const target = `${board?.label ?? 'No board'} · ${port.text}`
   const controller = controllerSettings(nodes)
   const psramOptions = board?.psram
   const psramSupported = !!psramOptions || !!selectedPhysicalBoardProfile(nodes)?.psramMode
@@ -319,7 +320,7 @@ export default function BoardPopup() {
           <button className={styles.refreshBtn} onClick={refreshPorts} disabled={!ready} title="Refresh ports">↻</button>
         </div>
 
-        <div className={styles.targetBig}>{target}</div>
+        <div className={styles.targetBig} title={port.detail}>{target}</div>
 
         {ram && ram.ledCount > 0 && (
           <>

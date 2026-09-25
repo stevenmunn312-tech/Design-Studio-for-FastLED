@@ -145,6 +145,7 @@ describe('MatrixOutputDeployPopup', () => {
       installedCores: [],
       selectedFqbn: 'esp32:esp32:esp32s3',
       selectedPort: '',
+      portsScanned: true,
       ports: [],
       busy: false,
       status: { phase: 'idle', message: '' },
@@ -197,6 +198,7 @@ describe('MatrixOutputDeployPopup', () => {
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [] }],
     })
     const { getByRole, getByText } = render(<><CapacityWatcher /><MatrixOutputDeployPopup /></>)
@@ -390,6 +392,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'arduino-cli', arduinoCli: true, fbuild: false, version: '1.1.0' },
       installedCores: [],
       selectedPort: '',
+      portsScanned: true,
       ports: [],
       installCore,
       openBoardPopup,
@@ -406,12 +409,38 @@ describe('MatrixOutputDeployPopup', () => {
     expect(openBoardPopup).toHaveBeenCalled()
   })
 
+  it('names a remembered, absent port as selected but disconnected, and a refresh restores it', async () => {
+    const refreshPorts = vi.fn(async () => {
+      useUploadStore.setState({ ports: [{ address: 'COM6', label: 'COM6', protocol: 'serial', boards: [] }] })
+    })
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM6',
+      portsScanned: true,
+      ports: [],
+      refreshPorts,
+    })
+
+    const view = render(<MatrixOutputDeployPopup />)
+    // The heading keeps the selection and says the board is not on it.
+    expect(view.getAllByText(/COM6 selected · disconnected/).length).toBeGreaterThan(0)
+    expect((view.getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(view.getByRole('button', { name: /Upload readiness/i }))
+    expect(view.getByText(/COM6 is selected but no board is connected to it/)).toBeTruthy()
+
+    fireEvent.click(view.getByRole('button', { name: 'Refresh ports: Connection' }))
+    await waitFor(() => expect(view.getAllByText(/COM6 · connected/).length).toBeGreaterThan(0))
+    expect(view.queryByText(/disconnected/)).toBeNull()
+  })
+
   it('can flash the wiring test without a frame input and without caching it as the last sketch', () => {
     const runUpload = vi.fn()
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
       runUpload,
     })
@@ -486,6 +515,7 @@ describe('MatrixOutputDeployPopup', () => {
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.5.20' },
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
       runUpload,
     })
@@ -521,6 +551,7 @@ describe('MatrixOutputDeployPopup', () => {
       useUploadStore.setState({
         helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.5.16' },
         selectedPort: 'COM7',
+        portsScanned: true,
         ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
       })
     }
@@ -576,6 +607,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
     })
 
@@ -598,6 +630,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
     })
 
@@ -621,6 +654,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
     })
 
@@ -642,6 +676,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
     })
 
@@ -658,6 +693,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
       runUpload,
     })
@@ -690,6 +726,7 @@ describe('MatrixOutputDeployPopup', () => {
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
       installedCores: [],
       selectedPort: 'COM7',
+      portsScanned: true,
       ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
       runUpload,
     })
@@ -738,6 +775,7 @@ describe('MatrixOutputDeployPopup SD-show upload', () => {
       helper: { ok: true, arduinoCli: true, engine: 'fbuild', fbuild: true } as never,
       installedCores: ['esp32:esp32'],
       selectedFqbn: 'esp32:esp32:esp32', selectedPort: 'COM4',
+      portsScanned: true,
       ports: [{ address: 'COM4', label: 'COM4', protocol: 'serial', boards: [] }] as never,
       busy: false, status: { phase: 'idle', message: '' },
       codeViewOpen: false, deployPopupOpen: true,
