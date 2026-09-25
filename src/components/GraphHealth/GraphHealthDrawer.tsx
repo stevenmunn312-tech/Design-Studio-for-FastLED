@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
+  connectTemplateControls,
   insertMapRangeOnEdge,
   placeTouchControl,
   ROOT_GRAPH_ID,
@@ -37,6 +38,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   // canvas before it appears there.
   if (action === 'insert-map-range') return 'Insert Map Range'
   if (action === 'place-touch-control') return 'Place on screen'
+  if (action === 'connect-template-controls') return 'Connect them'
   return 'Open library'
 }
 
@@ -109,6 +111,16 @@ export default function GraphHealthDrawer() {
           ? `${placed.label || placed.type} placed at ${placed.bounds.x}, ${placed.bounds.y}`
           : 'That control is no longer waiting — the screen design has changed since this was reported',
         placed ? 'success' : 'info',
+      )
+      return
+    }
+    if (issue.repair?.kind === 'connect-template-controls') {
+      const result = connectTemplateControls(issue.repair.panelId)
+      setStatus(
+        result.connected > 0
+          ? `Connected ${result.connected} screen control${result.connected === 1 ? '' : 's'}`
+          : result.unrouted[0]?.reason ?? 'Those controls are already connected',
+        result.connected > 0 ? 'success' : 'info',
       )
       return
     }

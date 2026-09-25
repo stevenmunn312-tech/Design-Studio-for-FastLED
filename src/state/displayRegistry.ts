@@ -636,8 +636,13 @@ export function displayDocumentTouchOutputPorts(
 ): NodePort[] {
   const outputs: NodePort[] = []
   for (const widget of document.widgets) {
+    const carried = displayWidgetIsControl(widget.type)
+      && normalizeDisplayControlRole(widget.properties?.controlRole) !== null
     for (const port of displayWidgetTouchOutputPorts(widget)) {
-      outputs.push({ id: port.id, label: port.label, dataType: port.dataType })
+      outputs.push({
+        id: port.id, label: port.label, dataType: port.dataType,
+        ...(carried ? { carriedByControls: true } : {}),
+      })
     }
   }
   return outputs

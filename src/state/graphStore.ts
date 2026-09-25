@@ -3398,6 +3398,37 @@ useGraphStore.subscribe(() => {
  * from an untrusted project) set `trusted: false` in the same update, so
  * that content is never remembered on the way in.
  */
+/*
+ * A template's controls connect themselves once there is something to control.
+ *
+ * Inserting a template already wires it when its panel has a source; this
+ * covers the other order, where the screen was designed first and the panel
+ * wired to its player afterwards. Only a newly drawn Display wire counts —
+ * one whose panel and source were both already on the canvas — so opening a
+ * project, or undoing into one, never re-adds a Controls wire someone removed
+ * on purpose. And only the single Controls wire is drawn uninvited: when the
+ * source's Controls input is already taken, the plan's fallback of separate
+ * cables is left to the Connect button Graph Health offers.
+ */
+useGraphStore.subscribe((state, previous) => {
+  if (state.edges === previous.edges || state.activeGraphId !== ROOT_GRAPH_ID) return
+  const before = new Set(previous.edges.map((edge) => edge.id))
+  const known = new Set(previous.nodes.map((node) => node.id))
+  const panels = state.edges
+    .filter((edge) => edge.targetHandle === 'display' && !before.has(edge.id)
+      && known.has(edge.target) && known.has(edge.source))
+    .map((edge) => state.nodes.find((node) => node.id === edge.target))
+    .filter((node): node is StudioNode => node?.data.nodeType === 'TransportDisplay')
+  for (const panel of panels) {
+    const document = state.displayDocuments[shownDesignId(panel.data.properties)]
+    if (!document) continue
+    const current = useGraphStore.getState()
+    if (templateControlPlan(panel, document, current.nodes, current.edges).controlsWire) {
+      connectTemplateControls(panel.id)
+    }
+  }
+})
+
 useGraphStore.subscribe((state, previous) => {
   if (state.nodes === previous.nodes && state.graphData === previous.graphData
     && state.trusted === previous.trusted) return

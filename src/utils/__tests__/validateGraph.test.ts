@@ -5,6 +5,7 @@ import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { createDisplayDocument } from '../../state/displayEditor'
+import { applyDisplayTemplate } from '../../state/displayTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -2127,6 +2128,38 @@ describe('inert touch controls', () => {
     expect(found[0]).toMatchObject({ severity: 'warning', title: 'This control sets nothing' })
     expect(found[0].action).toBeUndefined()
     expect(found[0].fix).toMatch(/Add control/)
+  })
+
+  describe('a template’s controls', () => {
+    const player = libraryNode('player', 'PatternMaster', {})
+    const display = { id: 'd', source: 'player', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as unknown as StudioEdge
+    const controls = { id: 'c', source: 'touch', sourceHandle: 'controls', target: 'player', targetHandle: 'controls' } as unknown as StudioEdge
+    const templated = () => ({ panel: applyDisplayTemplate(createDisplayDocument('panel', 320, 240), 'minimal-transport') })
+    const touchIssues = (edges: StudioEdge[]) => buildGraphDiagnostics([panel, touch, player], edges, {
+      displayDocuments: templated(),
+    }).filter((issue) => issue.id.startsWith('inert-control') || issue.id.startsWith('template-controls'))
+
+    it('are said once per screen, with a button that connects them', () => {
+      const found = touchIssues([display])
+      expect(found).toHaveLength(1)
+      expect(found[0]).toMatchObject({
+        title: 'Screen controls aren’t connected yet',
+        action: 'connect-template-controls',
+        repair: { kind: 'connect-template-controls', panelId: 'tft' },
+      })
+      expect(found[0].fix).toMatch(/one Controls wire/)
+    })
+
+    it('are carried by the Touch node’s Controls wire, so nothing is reported', () => {
+      expect(touchIssues([display, controls])).toEqual([])
+    })
+
+    it('explain what is missing, without a button, when the screen has no source yet', () => {
+      const found = touchIssues([])
+      expect(found).toHaveLength(1)
+      expect(found[0].action).toBeUndefined()
+      expect(found[0].fix).toMatch(/Display input/)
+    })
   })
 
   it('says nothing about a control that is both placed and driving something', () => {

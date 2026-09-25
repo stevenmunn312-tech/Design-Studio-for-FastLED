@@ -270,3 +270,19 @@ describe('display widget registry', () => {
     expect(displayWidgetIsControl('Image/Icon')).toBe(false)
   })
 })
+
+describe('template controls on the Touch node', () => {
+  it('marks the controls a template gave a job, which the Controls wire carries', async () => {
+    const { applyDisplayTemplate } = await import('../displayTemplates')
+    const { createDisplayDocument } = await import('../displayEditor')
+    const { displayDocumentTouchOutputPorts } = await import('../displayRegistry')
+    const document = applyDisplayTemplate(createDisplayDocument('screen', 320, 240), 'minimal-transport')
+    const ports = displayDocumentTouchOutputPorts(document)
+    expect(ports.length).toBeGreaterThan(0)
+    expect(ports.every((port) => port.carriedByControls === true)).toBe(true)
+
+    // A control someone added by hand has no role, so it keeps its own output.
+    const handmade = { ...document, widgets: [{ id: 'mine', type: 'Button' as const, label: 'Mine', properties: {} }] }
+    expect(displayDocumentTouchOutputPorts(handmade)[0].carriedByControls).toBeUndefined()
+  })
+})

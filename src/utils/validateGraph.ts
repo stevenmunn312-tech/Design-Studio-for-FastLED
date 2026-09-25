@@ -68,7 +68,8 @@ import { partOptionsFor, resolvePartIdentity } from '../state/partOptions'
 import { displayHasTouch, partById } from '../state/partCatalogue'
 import { designControlBundle } from '../state/designControlBundle'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/transportDisplay'
-import { parseDisplayWidgetPortId } from '../state/displayRegistry'
+import { displayWidgetIsControl, normalizeDisplayControlRole, parseDisplayWidgetPortId } from '../state/displayRegistry'
+import { templateControlPlan } from '../state/templateControlPlan'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
 import {
@@ -1538,6 +1539,7 @@ export type GraphDiagnosticAction =
   | 'choose-board'
   | 'insert-map-range'
   | 'place-touch-control'
+  | 'connect-template-controls'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1553,6 +1555,8 @@ export type GraphRepair =
   | { kind: 'signal-range'; edgeId: string; outMin: number; outMax: number }
   /** The connected control to put on its screen, and the screen to put it on. */
   | { kind: 'place-touch-control'; displayId: string; widgetId: string }
+  /** The panel whose template controls should be wired to its own source. */
+  | { kind: 'connect-template-controls'; panelId: string }
 
 export interface GraphDiagnostic {
   id: string
@@ -2753,6 +2757,9 @@ export function findPanelEnableRecoveryIssues(
 interface InertControlIssue {
   id: string
   reason: 'unplaced' | 'unconnected'
+  /** A control a template gave a job, which the Touch node's Controls wire
+   *  would carry; reported per panel rather than per control. */
+  templateRole: boolean
   panelId: string
   touchNodeId: string
   displayId: string
@@ -2799,12 +2806,19 @@ function inertControlIssues(
     if (!touch) continue
 
     const wired = displayControlEdges(displayId, nodes, edges)
+    // A template's controls travel on the Touch node's one Controls wire, so
+    // once that wire exists they have their jobs without a cable each.
+    const controlsWired = edges.some((edge) => edge.source === touch.id && edge.sourceHandle === 'controls')
     for (const widget of document.widgets) {
+      const templateRole = displayWidgetIsControl(widget.type)
+        && normalizeDisplayControlRole(widget.properties?.controlRole) !== null
+      if (templateRole && controlsWired) continue
       const reason = displayControlInertReason(widget, wired.get(widget.id), nodes)
       if (reason !== 'unplaced' && reason !== 'unconnected') continue
       issues.push({
         id: `${panel.id}-${widget.id}-${reason}`,
         reason,
+        templateRole,
         panelId: panel.id,
         touchNodeId: touch.id,
         displayId,
@@ -3609,7 +3623,50 @@ export function buildGraphDiagnostics(
    * a particular property, which only the author can choose, so it names the
    * gesture and frames the nodes instead of pretending to guess.
    */
-  for (const issue of inertControlIssues(nodes, edges, options.displayDocuments)) {
+  const inert = inertControlIssues(nodes, edges, options.displayDocuments)
+  /*
+   * A template's controls waiting for their wire, said once per screen.
+   *
+   * They all want the same one wire, so a card per button was five ways of
+   * saying one thing. Where the plan can connect them, the card does it;
+   * where it cannot, it says the plan's own reason instead of a gesture.
+   */
+  const waitingByPanel = new Map<string, InertControlIssue[]>()
+  for (const issue of inert) {
+    if (issue.reason !== 'unconnected' || !issue.templateRole) continue
+    waitingByPanel.set(issue.panelId, [...(waitingByPanel.get(issue.panelId) ?? []), issue])
+  }
+  for (const [panelId, waiting] of waitingByPanel) {
+    const panel = nodes.find((node) => node.id === panelId)
+    const document = panel ? options.displayDocuments?.[shownDesignId(panel.data.properties)] : undefined
+    if (!panel || !document) continue
+    const plan = templateControlPlan(panel, document, nodes, edges)
+    const labels = waiting.map((issue) => issue.widgetLabel)
+    const named = labels.length === 1 ? labels[0]
+      : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+    const sourceEdge = edges.find((edge) => edge.target === panelId && edge.targetHandle === 'display')
+    const source = sourceEdge ? nodes.find((node) => node.id === sourceEdge.source) : undefined
+    const canConnect = plan.wires.length > 0
+    diagnostics.push({
+      id: `template-controls-waiting-${panelId}`,
+      severity: 'warning',
+      category: 'connection',
+      title: labels.length === 1 ? 'A screen control isn’t connected yet' : 'Screen controls aren’t connected yet',
+      message: `${named} on ${waiting[0].panelLabel}’s screen ${labels.length === 1 ? 'isn’t' : 'aren’t'} connected to anything yet, so pressing ${labels.length === 1 ? 'it' : 'them'} does nothing.`,
+      fix: canConnect
+        ? `Connect ${labels.length === 1 ? 'it' : 'them'} to ${source ? nodeLabel(source) : 'this screen’s source'}${plan.controlsWire ? ' with one Controls wire' : ''}.`
+        : plan.unrouted[0]?.reason ?? 'Wire this screen’s Display input to the player or slideshow it controls.',
+      nodeIds: [panelId, waiting[0].touchNodeId],
+      nodeLabel: waiting[0].panelLabel,
+      ...(canConnect ? {
+        action: 'connect-template-controls' as const,
+        repair: { kind: 'connect-template-controls' as const, panelId },
+      } : {}),
+    })
+  }
+
+  for (const issue of inert) {
+    if (issue.reason === 'unconnected' && issue.templateRole) continue
     diagnostics.push(issue.reason === 'unplaced' ? {
       id: `inert-control-unplaced-${issue.id}`,
       severity: 'warning',

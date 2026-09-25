@@ -15,6 +15,7 @@ import { useGraphStore, connectTemplateControls } from '../graphStore'
 import { applyDisplayTemplate } from '../displayTemplates'
 import { createDisplayDocument } from '../displayEditor'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
+import { CUSTOM_DESIGN_LAYOUT } from '../transportDisplay'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, label?: string): StudioNode {
@@ -223,5 +224,58 @@ describe('replacing the panel source', () => {
     // user is told where the controls went.
     expect(routed()).toEqual(wiredToPlayer)
     expect(result.unrouted[0].reason).toContain('Music Player')
+  })
+})
+
+/*
+ * The other order: a screen designed first and its panel wired to the player
+ * afterwards. Choosing a music template for a panel on a music graph should
+ * just work, with no second button to find.
+ */
+describe('template controls connecting themselves', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    useGraphStore.getState().loadGraph([], [])
+    useGraphStore.temporal.getState().clear()
+  })
+
+  const shownPanel = () => node('tft', 'TransportDisplay', {
+    partId: 'st7789v-xpt2046-touch-240x320', displayId: 'screen', tftLayout: CUSTOM_DESIGN_LAYOUT,
+  })
+
+  function designedBeforeWiring() {
+    const document = applyDisplayTemplate(createDisplayDocument('screen', 320, 240), 'minimal-transport')
+    useGraphStore.getState().loadGraph([shownPanel(), touch(), node('player', 'PatternMaster', {}, 'Music Player')], [])
+    useGraphStore.getState().setDisplayDocument(document)
+  }
+
+  it('connects through one Controls wire the moment the panel is wired to its player', () => {
+    designedBeforeWiring()
+    expect(routed()).toEqual([])
+    useGraphStore.setState((s) => ({ edges: [...s.edges, edge('src', 'player', 'display', 'tft', 'display')] }))
+    expect(routed()).toEqual(['player.controls <- TouchInput'])
+  })
+
+  it('does not re-add a Controls wire when a project is opened', () => {
+    // Loading brings every edge in at once; a wire someone removed on purpose
+    // must stay removed across a save and reload.
+    const document = applyDisplayTemplate(createDisplayDocument('screen', 320, 240), 'minimal-transport')
+    useGraphStore.getState().setDisplayDocument(document)
+    useGraphStore.getState().loadGraph(
+      [shownPanel(), touch(), node('player', 'PatternMaster', {}, 'Music Player')],
+      [edge('src', 'player', 'display', 'tft', 'display')],
+      { displayDocuments: { screen: document } } as never,
+    )
+    expect(routed()).toEqual([])
+  })
+
+  it('leaves separate cables to the Connect button when the player’s Controls is taken', () => {
+    designedBeforeWiring()
+    useGraphStore.setState((s) => ({
+      nodes: [...s.nodes, node('map', 'ControlMap')],
+      edges: [...s.edges, edge('held', 'map', 'controls', 'player', 'controls')],
+    }))
+    useGraphStore.setState((s) => ({ edges: [...s.edges, edge('src', 'player', 'display', 'tft', 'display')] }))
+    expect(routed()).toEqual(['player.controls <- ControlMap'])
   })
 })

@@ -6,6 +6,11 @@ export interface NodePort {
   id: string
   label: string
   dataType: string
+  /** A screen control a template stamped with a role, which the Touch node's
+   *  one Controls wire already carries. The node hides it unless something is
+   *  wired to it directly, so a template's controls do not arrive as a row of
+   *  outputs asking to be connected one by one. */
+  carriedByControls?: boolean
 }
 
 export interface NodeDefinition {

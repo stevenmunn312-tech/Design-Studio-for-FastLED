@@ -99,7 +99,7 @@ const SegmentDisplayNodeBody = lazy(() => import('./SegmentDisplayNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
 const TouchCalibrationBody = lazy(() => import('./TouchCalibrationBody'))
 
-type PortDef = { id: string; label: string; dataType: string }
+type PortDef = { id: string; label: string; dataType: string; carriedByControls?: boolean }
 type ConnectionTargetHint = {
   kind: 'compatible' | 'range' | 'conversion' | 'blocked'
   title: string
@@ -1077,6 +1077,22 @@ function moduleCode(nodeType: string) {
 let incomingKeysEdges: StudioEdge[] | null = null
 let incomingKeysCache = new Map<string, string>()
 
+// Output handles that carry at least one wire, per node, rebuilt once per
+// edges identity — the same caching shape as `incomingKeyFor` below.
+let wiredOutputsEdges: StudioEdge[] | null = null
+let wiredOutputsCache = new Map<string, string>()
+function wiredOutputsKeyFor(edges: StudioEdge[], nodeId: string): string {
+  if (edges !== wiredOutputsEdges) {
+    wiredOutputsEdges = edges
+    wiredOutputsCache = new Map()
+    for (const e of edges) {
+      if (!e.source || !e.sourceHandle) continue
+      wiredOutputsCache.set(e.source, `${wiredOutputsCache.get(e.source) ?? ''}${e.sourceHandle};`)
+    }
+  }
+  return wiredOutputsCache.get(nodeId) ?? ''
+}
+
 function incomingKeyFor(edges: StudioEdge[], nodeId: string): string {
   if (edges !== incomingKeysEdges) {
     incomingKeysEdges = edges
@@ -1185,14 +1201,20 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         : def?.inputs ?? d.inputs ?? []) as PortDef[],
     savedInputs,
   )
-  const outputs = orderPorts(
-    (d.nodeType === 'ButtonBank'
-      ? buttonBankOutputs(rawProps.buttons)
-      : hasDerivedDisplayPorts(d.nodeType)
-        ? d.outputs ?? def?.outputs ?? []
-        : def?.outputs ?? d.outputs ?? []) as PortDef[],
-    savedOutputs,
-  )
+  // A template control the Touch node's Controls wire already carries is not
+  // drawn as its own output unless something is wired to it directly.
+  const wiredOutputsKey = useGraphStore((s) => wiredOutputsKeyFor(s.edges, id))
+  const outputs = useMemo(() => {
+    const wiredOutputs = new Set(wiredOutputsKey.split(';').filter(Boolean))
+    return orderPorts(
+      (d.nodeType === 'ButtonBank'
+        ? buttonBankOutputs(rawProps.buttons)
+        : hasDerivedDisplayPorts(d.nodeType)
+          ? d.outputs ?? def?.outputs ?? []
+          : def?.outputs ?? d.outputs ?? []) as PortDef[],
+      savedOutputs,
+    ).filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
+  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, savedOutputs, wiredOutputsKey])
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so a pot or
