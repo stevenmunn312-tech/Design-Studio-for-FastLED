@@ -13,7 +13,8 @@
 }
 
 .drawerOpen {
-  flex-basis: clamp(190px, 31vh, 280px);
+  flex: 0 1 auto;
+  max-height: min(34vh, 360px);
 }
 
 .rail {
@@ -26,6 +27,7 @@
 }
 
 .summary {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -67,6 +69,7 @@
 .signalRail.clear i { background: var(--success); opacity: 0.82; }
 
 .identity {
+  flex: 1 1 auto;
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -93,9 +96,36 @@
 }
 
 .scope {
+  flex: none;
+}
+
+.priority {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.priority::before {
+  content: '·';
+  margin-right: 10px;
+  color: var(--text-secondary);
+}
+
+.priority.error { color: color-mix(in srgb, var(--error) 82%, var(--text-primary)); }
+.priority.warning { color: color-mix(in srgb, var(--accent-favourites) 82%, var(--text-primary)); }
+.priority.clear { color: color-mix(in srgb, var(--success) 78%, var(--text-primary)); }
+
+.summary:focus-visible,
+.chevron:focus-visible,
+.filter:focus-visible,
+.issueActions button:focus-visible {
+  outline: 2px solid var(--accent-output);
+  outline-offset: -2px;
 }
 
 .telemetry {
@@ -135,10 +165,11 @@
 .chevron:hover { color: var(--text-primary); border-color: color-mix(in srgb, var(--accent-output) 32%, var(--border-glow)); }
 
 .body {
-  height: calc(100% - 40px);
+  max-height: calc(min(34vh, 360px) - 40px);
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .toolbar {
@@ -188,6 +219,7 @@
 .scanNote { margin-left: auto; }
 
 .issueList {
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   display: grid;
@@ -301,7 +333,7 @@
 
 .emptyState {
   grid-column: 1 / -1;
-  min-height: 105px;
+  min-height: 72px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -327,8 +359,4 @@
 @media (max-width: 980px) {
   .issueList { grid-template-columns: 1fr; }
   .scope, .board, .scanNote { display: none; }
-}
-
-@media (max-height: 760px) {
-  .drawerOpen { flex-basis: 200px; }
 }

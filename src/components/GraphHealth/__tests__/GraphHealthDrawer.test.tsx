@@ -85,6 +85,20 @@ describe('GraphHealthDrawer', () => {
     expect(getByText('Signal path is healthy')).toBeTruthy()
   })
 
+  it('shows the highest-priority issue in the compact summary and expands on demand', () => {
+    useUiStore.setState({ graphHealthOpen: false })
+    const { getByRole, getByText, queryByLabelText } = render(<GraphHealthDrawer />)
+
+    expect(getByText('Random has an invalid expression')).toBeTruthy()
+    expect(queryByLabelText('Diagnostic filters')).toBeNull()
+    expect(getByRole('button', { name: 'Expand graph health' })).toBeTruthy()
+
+    fireEvent.click(getByRole('button', { name: 'Expand graph health' }))
+
+    expect(getByRole('button', { name: 'Collapse graph health' })).toBeTruthy()
+    expect(getByRole('button', { name: /All issues\s*1/ })).toBeTruthy()
+  })
+
   it('offers the board picker for an incompatible microphone', () => {
     const openBoardPopup = vi.fn()
     useGraphStore.getState().loadGraph([

@@ -66,6 +66,10 @@ export default function GraphHealthDrawer() {
   const warnings = diagnostics.length - errors
   const visible = filter === 'all' ? diagnostics : diagnostics.filter((issue) => issue.severity === filter)
   const health = errors > 0 ? 'error' : warnings > 0 ? 'warning' : 'clear'
+  // Validators are grouped by subsystem rather than globally sorted. The
+  // compact rail still needs to lead with a blocker when a warning happened to
+  // be collected first.
+  const highestPriority = diagnostics.find((issue) => issue.severity === 'error') ?? diagnostics[0]
   const graphName = graphs[activeGraphId]?.name ?? (activeGraphId === ROOT_GRAPH_ID ? 'Main' : 'Group')
   const boardLabel = boardByFqbn(selectedFqbn)?.label ?? 'No board selected'
 
@@ -127,7 +131,15 @@ export default function GraphHealthDrawer() {
           </span>
           <span className={styles.identity}>
             <span className={styles.title}>Graph health</span>
-            <span className={styles.scope}>{graphName} · live diagnostics</span>
+            <span className={styles.scope}>{graphName}{open ? ' · live diagnostics' : ''}</span>
+            {!open && (
+              <span
+                className={`${styles.priority} ${highestPriority ? styles[highestPriority.severity] : styles.clear}`}
+                title={highestPriority?.title ?? 'All checks clear'}
+              >
+                {highestPriority?.title ?? 'All checks clear'}
+              </span>
+            )}
           </span>
         </button>
         <div className={styles.telemetry} aria-live="polite">
