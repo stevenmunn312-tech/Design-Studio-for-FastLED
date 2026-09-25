@@ -150,10 +150,12 @@ build/architecture overview aimed at contributors.
     — the normal/slideshow/player/no-IR fixtures, per-board Arduino CLI and
     fbuild results, and the gaps still open for D-05a step 13.
   - [Presence-sensor firmware compile checks](development/presence-sensor-compile-checks.md)
-  - [Light-sensor firmware compile checks](development/light-sensor-compile-checks.md)
-  - [Wired-Ethernet firmware compile checks](development/ethernet-compile-checks.md)
     — real normal/slideshow/player/no-sensor fixtures for the HLK-LD2410C,
     their classic-ESP32 results, resource figures and measured sensor overhead.
+  - [Light-sensor firmware compile checks](development/light-sensor-compile-checks.md)
+  - [Wired-Ethernet firmware compile checks](development/ethernet-compile-checks.md)
+    — WIZ850io Art-Net, NTP and static-address fixtures on classic ESP32, the
+    shared-SPI fixture on ESP32-C3, and a Wi-Fi guard.
 - [Testing](development/testing/)
   - [Touch, LVGL and heap budgets](development/testing/display-budget-bench.md)
     — what a running board reports about itself, how to read it in the Upload
