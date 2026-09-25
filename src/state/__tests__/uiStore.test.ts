@@ -128,6 +128,56 @@ describe('uiStore.setStatus auto-clear', () => {
     expect(useUiStore.getState().sidebarOpen).toBe(true)
   })
 
+  it('restores panel visibility and widths independently for each workspace', () => {
+    useUiStore.setState({
+      workspaceMode: 'graph',
+      sidebarOpen: true,
+      previewPanelOpen: true,
+      sidebarWidth: 280,
+      previewWidth: 496,
+      layoutPreset: 'custom',
+      workspacePanelLayouts: {
+        graph: { sidebarOpen: true, previewPanelOpen: true, sidebarWidth: 280, previewWidth: 496, layoutPreset: 'custom' },
+        hardware: { sidebarOpen: true, previewPanelOpen: false, sidebarWidth: 280, previewWidth: 380, layoutPreset: 'custom' },
+        upload: { sidebarOpen: true, previewPanelOpen: false, sidebarWidth: 280, previewWidth: 380, layoutPreset: 'custom' },
+        build: { sidebarOpen: false, previewPanelOpen: false, sidebarWidth: 280, previewWidth: 380, layoutPreset: 'custom' },
+      },
+    })
+
+    useUiStore.getState().setPreviewWidth(620)
+    useUiStore.getState().toggleSidebar()
+
+    useUiStore.getState().setWorkspaceMode('hardware')
+    expect(useUiStore.getState()).toMatchObject({
+      sidebarOpen: true,
+      previewPanelOpen: false,
+      previewWidth: 380,
+    })
+    useUiStore.getState().togglePreviewPanel()
+    useUiStore.getState().setPreviewWidth(420)
+    useUiStore.getState().toggleSidebar()
+
+    useUiStore.getState().setWorkspaceMode('upload')
+    expect(useUiStore.getState()).toMatchObject({ sidebarOpen: true, previewPanelOpen: false })
+    useUiStore.getState().setWorkspaceMode('build')
+    expect(useUiStore.getState()).toMatchObject({ sidebarOpen: false, previewPanelOpen: false })
+
+    useUiStore.getState().setWorkspaceMode('graph')
+    expect(useUiStore.getState()).toMatchObject({
+      sidebarOpen: false,
+      previewPanelOpen: true,
+      previewWidth: 620,
+    })
+
+    useUiStore.getState().setWorkspaceMode('hardware')
+    expect(useUiStore.getState()).toMatchObject({
+      sidebarOpen: false,
+      previewPanelOpen: true,
+      previewWidth: 420,
+    })
+    expect(localStorage.getItem('design-studio-for-fastled-workspace-panel-layouts-v1')).not.toBeNull()
+  })
+
   it('enters and exits stage mode without persisting it across sessions', () => {
     useUiStore.getState().setStageMode(false)
     useUiStore.getState().toggleStageMode()
@@ -170,6 +220,38 @@ describe('uiStore.setStatus auto-clear', () => {
 
     useUiStore.getState().toggleGraphHealth()
     expect(useUiStore.getState().graphHealthOpen).toBe(true)
+  })
+
+  it('starts graph health compact while honouring an explicit saved choice', async () => {
+    const key = 'design-studio-for-fastled-graph-health-open'
+    localStorage.removeItem(key)
+    vi.resetModules()
+
+    let freshModule = await import('../uiStore')
+    expect(freshModule.useUiStore.getState().graphHealthOpen).toBe(false)
+
+    localStorage.setItem(key, 'true')
+    vi.resetModules()
+    freshModule = await import('../uiStore')
+    expect(freshModule.useUiStore.getState().graphHealthOpen).toBe(true)
+
+    localStorage.removeItem(key)
+  })
+
+  it('starts secondary previews collapsed while keeping Graph preview-first', async () => {
+    const key = 'design-studio-for-fastled-workspace-panel-layouts-v1'
+    localStorage.removeItem(key)
+    vi.resetModules()
+    const freshModule = await import('../uiStore')
+    const freshStore = freshModule.useUiStore
+
+    expect(freshStore.getState()).toMatchObject({ workspaceMode: 'graph', previewPanelOpen: true })
+    for (const mode of ['hardware', 'upload', 'build'] as const) {
+      freshStore.getState().setWorkspaceMode(mode)
+      expect(freshStore.getState().previewPanelOpen).toBe(false)
+    }
+
+    localStorage.removeItem(key)
   })
 
   it('queues fit-view requests with an incrementing nonce', () => {

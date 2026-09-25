@@ -35,6 +35,14 @@ export type HardwarePaneTab = 'hardware' | 'upload'
  * it is where a session lands; the tab order tells the build story instead.
  */
 export type WorkspaceMode = 'hardware' | 'build' | 'graph' | 'upload'
+export interface WorkspacePanelLayout {
+  sidebarOpen: boolean
+  previewPanelOpen: boolean
+  sidebarWidth: number
+  previewWidth: number
+  layoutPreset: LayoutPresetId | 'custom'
+}
+export type WorkspacePanelLayouts = Record<WorkspaceMode, WorkspacePanelLayout>
 /** Which authoring surface occupies the design workspace. Build Diagram stays
  * a separate workspace mode because it replaces all authoring chrome. */
 export type DesignWorkspaceView =
@@ -115,6 +123,7 @@ const PREVIEW_WIDTH_KEY = 'design-studio-for-fastled-preview-width'
 const LAYOUT_PRESET_KEY = 'design-studio-for-fastled-layout-preset'
 const HARDWARE_RATIO_KEY = 'design-studio-for-fastled-hardware-pane-ratio'
 const HARDWARE_SHELF_CATEGORY_KEY = 'design-studio-for-fastled-hardware-shelf-category'
+const WORKSPACE_LAYOUTS_KEY = 'design-studio-for-fastled-workspace-panel-layouts-v1'
 
 function clampHardwarePaneRatio(value: unknown, fallback = 0.5): number {
   const ratio = typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -139,6 +148,85 @@ function save(key: string, value: unknown): void {
   } catch {
     // Preference is session-only when storage is unavailable or full.
   }
+}
+
+function defaultWorkspaceLayouts(): WorkspacePanelLayouts {
+  const graphSidebarWidth = clampPanelWidth(
+    load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
+    MIN_SIDEBAR_WIDTH,
+    MAX_SIDEBAR_WIDTH,
+  )
+  const graphPreviewWidth = clampPanelWidth(
+    load<number>(PREVIEW_WIDTH_KEY, DEFAULT_PREVIEW_WIDTH),
+    MIN_PREVIEW_WIDTH,
+    MAX_PREVIEW_WIDTH,
+  )
+  const savedGraphPreset = load<unknown>(LAYOUT_PRESET_KEY, 'custom')
+  const graphPreset = validLayoutPreset(savedGraphPreset) ? savedGraphPreset : 'custom'
+
+  return {
+    graph: {
+      sidebarOpen: true,
+      previewPanelOpen: true,
+      sidebarWidth: graphSidebarWidth,
+      previewWidth: graphPreviewWidth,
+      layoutPreset: graphPreset,
+    },
+    hardware: {
+      sidebarOpen: true,
+      previewPanelOpen: false,
+      sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+      previewWidth: LAYOUT_PRESETS.build.previewWidth,
+      layoutPreset: 'custom',
+    },
+    upload: {
+      sidebarOpen: true,
+      previewPanelOpen: false,
+      sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+      previewWidth: LAYOUT_PRESETS.build.previewWidth,
+      layoutPreset: 'custom',
+    },
+    build: {
+      sidebarOpen: false,
+      previewPanelOpen: false,
+      sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+      previewWidth: LAYOUT_PRESETS.build.previewWidth,
+      layoutPreset: 'custom',
+    },
+  }
+}
+
+function validLayoutPreset(value: unknown): value is LayoutPresetId | 'custom' {
+  return value === 'build' || value === 'tune' || value === 'preview' || value === 'custom'
+}
+
+function loadWorkspaceLayouts(): WorkspacePanelLayouts {
+  const defaults = defaultWorkspaceLayouts()
+  const saved = load<unknown>(WORKSPACE_LAYOUTS_KEY, null)
+  if (!saved || typeof saved !== 'object') return defaults
+
+  const result = { ...defaults }
+  for (const mode of ['hardware', 'build', 'graph', 'upload'] as const) {
+    const candidate = (saved as Partial<Record<WorkspaceMode, unknown>>)[mode]
+    if (!candidate || typeof candidate !== 'object') continue
+    const value = candidate as Partial<WorkspacePanelLayout>
+    result[mode] = {
+      sidebarOpen: typeof value.sidebarOpen === 'boolean' ? value.sidebarOpen : defaults[mode].sidebarOpen,
+      previewPanelOpen: typeof value.previewPanelOpen === 'boolean' ? value.previewPanelOpen : defaults[mode].previewPanelOpen,
+      sidebarWidth: clampPanelWidth(
+        typeof value.sidebarWidth === 'number' ? value.sidebarWidth : defaults[mode].sidebarWidth,
+        MIN_SIDEBAR_WIDTH,
+        MAX_SIDEBAR_WIDTH,
+      ),
+      previewWidth: clampPanelWidth(
+        typeof value.previewWidth === 'number' ? value.previewWidth : defaults[mode].previewWidth,
+        MIN_PREVIEW_WIDTH,
+        MAX_PREVIEW_WIDTH,
+      ),
+      layoutPreset: validLayoutPreset(value.layoutPreset) ? value.layoutPreset : defaults[mode].layoutPreset,
+    }
+  }
+  return result
 }
 
 function loadPreviewStyle(): PreviewStyle {
@@ -173,6 +261,9 @@ interface UiState {
   hardwarePaneRatio: number
   /** Which named panel-width preset is active, or 'custom' after a manual drag. */
   layoutPreset: LayoutPresetId | 'custom'
+  /** Panel visibility and widths are remembered independently for each main
+   * workspace. The flat fields above are always the active workspace's view. */
+  workspacePanelLayouts: WorkspacePanelLayouts
   graphHealthOpen: boolean
   /** Whether the live graph evaluator advances and publishes preview frames. */
   evaluationRunning: boolean
@@ -398,19 +489,60 @@ function leavingDisplayEditor(state: UiState): Partial<UiState> {
   }
 }
 
+function activeWorkspaceLayout(state: UiState): WorkspacePanelLayout {
+  return {
+    sidebarOpen: state.sidebarOpen,
+    previewPanelOpen: state.previewPanelOpen,
+    sidebarWidth: state.sidebarWidth,
+    previewWidth: state.previewWidth,
+    layoutPreset: state.layoutPreset,
+  }
+}
+
+function activateWorkspace(
+  state: UiState,
+  workspaceMode: WorkspaceMode,
+  overrides: Partial<WorkspacePanelLayout> = {},
+): Partial<UiState> {
+  const workspacePanelLayouts: WorkspacePanelLayouts = {
+    ...state.workspacePanelLayouts,
+    [state.workspaceMode]: activeWorkspaceLayout(state),
+  }
+  const nextLayout = { ...workspacePanelLayouts[workspaceMode], ...overrides }
+  workspacePanelLayouts[workspaceMode] = nextLayout
+  save(WORKSPACE_LAYOUTS_KEY, workspacePanelLayouts)
+  return { workspaceMode, workspacePanelLayouts, ...nextLayout }
+}
+
+function updateActiveWorkspaceLayout(
+  state: UiState,
+  patch: Partial<WorkspacePanelLayout>,
+): Partial<UiState> {
+  const nextLayout = { ...activeWorkspaceLayout(state), ...patch }
+  const workspacePanelLayouts = { ...state.workspacePanelLayouts, [state.workspaceMode]: nextLayout }
+  save(WORKSPACE_LAYOUTS_KEY, workspacePanelLayouts)
+  return { ...patch, workspacePanelLayouts }
+}
+
+const initialWorkspacePanelLayouts = loadWorkspaceLayouts()
+
 export const useUiStore = create<UiState>((set, get) => ({
   statusText: 'Ready',
   statusLevel: 'idle',
   workspaceMode: 'graph',
   designWorkspaceView: { kind: 'graph' },
   liveTouchScreenDisplayId: null,
-  sidebarOpen: true,
-  previewPanelOpen: true,
-  sidebarWidth: load<number>(SIDEBAR_WIDTH_KEY, DEFAULT_SIDEBAR_WIDTH),
-  previewWidth: load<number>(PREVIEW_WIDTH_KEY, DEFAULT_PREVIEW_WIDTH),
+  sidebarOpen: initialWorkspacePanelLayouts.graph.sidebarOpen,
+  previewPanelOpen: initialWorkspacePanelLayouts.graph.previewPanelOpen,
+  sidebarWidth: initialWorkspacePanelLayouts.graph.sidebarWidth,
+  previewWidth: initialWorkspacePanelLayouts.graph.previewWidth,
   hardwarePaneRatio: clampHardwarePaneRatio(load<unknown>(HARDWARE_RATIO_KEY, 0.5)),
-  layoutPreset: load<LayoutPresetId | 'custom'>(LAYOUT_PRESET_KEY, 'custom'),
-  graphHealthOpen: load<boolean>(GRAPH_HEALTH_KEY, true),
+  layoutPreset: initialWorkspacePanelLayouts.graph.layoutPreset,
+  workspacePanelLayouts: initialWorkspacePanelLayouts,
+  // Diagnostics should be available without permanently taking a slice out of
+  // every workspace. Honour an explicit saved choice, but make a fresh session
+  // start on the compact summary rail.
+  graphHealthOpen: load<boolean>(GRAPH_HEALTH_KEY, false),
   evaluationRunning: true,
   stageMode: false,
   stageFullscreenStatus: 'idle',
@@ -485,9 +617,10 @@ export const useUiStore = create<UiState>((set, get) => ({
    * workspace.
    */
   setWorkspaceMode: (workspaceMode) => set((state) => ({
+    ...activateWorkspace(state, workspaceMode),
     ...(workspaceMode === 'hardware' || workspaceMode === 'upload'
-      ? { workspaceMode, hardwarePaneTab: workspaceMode }
-      : { workspaceMode }),
+      ? { hardwarePaneTab: workspaceMode }
+      : {}),
     ...leavingDisplayEditor(state),
   })),
   hardwareShelfCategory: load<string | null>(HARDWARE_SHELF_CATEGORY_KEY, null),
@@ -495,25 +628,24 @@ export const useUiStore = create<UiState>((set, get) => ({
     save(HARDWARE_SHELF_CATEGORY_KEY, hardwareShelfCategory)
     set({ hardwareShelfCategory })
   },
-  openHardwareShelf: (hardwareShelfTarget) => set({
-    workspaceMode: 'hardware',
+  openHardwareShelf: (hardwareShelfTarget) => set((state) => ({
+    ...activateWorkspace(state, 'hardware', { sidebarOpen: true }),
     hardwarePaneTab: 'hardware',
-    sidebarOpen: true,
     hardwareShelfTarget,
-  }),
+  })),
   clearHardwareShelfTarget: () => set({ hardwareShelfTarget: null }),
   dismissControllerHint: () => set({ controllerHintDismissed: true }),
   restoreControllerHint: () => set({ controllerHintDismissed: false }),
   // These three set `workspaceMode` directly rather than through
   // `setWorkspaceMode`, so they each have to leave the editor too.
   toggleBuildDiagram: () => set((s) => ({
-    workspaceMode: s.workspaceMode === 'build' ? 'graph' : 'build',
+    ...activateWorkspace(s, s.workspaceMode === 'build' ? 'graph' : 'build'),
     ...leavingDisplayEditor(s),
   })),
-  openBuildDiagram: () => set((s) => ({ workspaceMode: 'build', ...leavingDisplayEditor(s) })),
-  closeBuildDiagram: () => set((s) => ({ workspaceMode: 'graph', ...leavingDisplayEditor(s) })),
+  openBuildDiagram: () => set((s) => ({ ...activateWorkspace(s, 'build'), ...leavingDisplayEditor(s) })),
+  closeBuildDiagram: () => set((s) => ({ ...activateWorkspace(s, 'graph'), ...leavingDisplayEditor(s) })),
   openDisplayWorkspace: (displayId) => set((state) => ({
-    workspaceMode: 'graph',
+    ...activateWorkspace(state, 'graph'),
     designWorkspaceView: { kind: 'display', displayId },
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
   })),
@@ -522,24 +654,24 @@ export const useUiStore = create<UiState>((set, get) => ({
     fitViewRequest: { nonce: state.fitViewRequest.nonce + 1 },
   })),
   openLiveTouchScreen: (displayId) => set((state) => ({
+    ...activateWorkspace(state, 'graph'),
     liveTouchScreenDisplayId: displayId,
-    workspaceMode: 'graph',
     ...leavingDisplayEditor(state),
   })),
   closeLiveTouchScreen: () => set({ liveTouchScreenDisplayId: null }),
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-  togglePreviewPanel: () => set((s) => ({ previewPanelOpen: !s.previewPanelOpen })),
+  toggleSidebar: () => set((s) => updateActiveWorkspaceLayout(s, { sidebarOpen: !s.sidebarOpen })),
+  togglePreviewPanel: () => set((s) => updateActiveWorkspaceLayout(s, { previewPanelOpen: !s.previewPanelOpen })),
   setSidebarWidth: (px) => {
     const width = clampPanelWidth(px, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH)
     save(SIDEBAR_WIDTH_KEY, width)
     save(LAYOUT_PRESET_KEY, 'custom')
-    set({ sidebarWidth: width, layoutPreset: 'custom' })
+    set((state) => updateActiveWorkspaceLayout(state, { sidebarWidth: width, layoutPreset: 'custom' }))
   },
   setPreviewWidth: (px) => {
     const width = clampPanelWidth(px, MIN_PREVIEW_WIDTH, MAX_PREVIEW_WIDTH)
     save(PREVIEW_WIDTH_KEY, width)
     save(LAYOUT_PRESET_KEY, 'custom')
-    set({ previewWidth: width, layoutPreset: 'custom' })
+    set((state) => updateActiveWorkspaceLayout(state, { previewWidth: width, layoutPreset: 'custom' }))
   },
   setHardwarePaneRatio: (ratio) => {
     const next = clampHardwarePaneRatio(ratio)
@@ -551,13 +683,13 @@ export const useUiStore = create<UiState>((set, get) => ({
     save(SIDEBAR_WIDTH_KEY, config.sidebarWidth)
     save(PREVIEW_WIDTH_KEY, config.previewWidth)
     save(LAYOUT_PRESET_KEY, preset)
-    set({
+    set((state) => updateActiveWorkspaceLayout(state, {
       sidebarWidth: config.sidebarWidth,
       previewWidth: config.previewWidth,
       sidebarOpen: config.sidebarOpen,
       previewPanelOpen: config.previewPanelOpen,
       layoutPreset: preset,
-    })
+    }))
   },
   toggleGraphHealth: () => {
     const next = !get().graphHealthOpen
@@ -572,7 +704,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   setStageIdle: (stageIdle) => set({ stageIdle }),
   setHardwarePaneTab: (hardwarePaneTab) => {
     save(HARDWARE_TAB_KEY, hardwarePaneTab)
-    set({ hardwarePaneTab, workspaceMode: hardwarePaneTab })
+    set((state) => ({ ...activateWorkspace(state, hardwarePaneTab), hardwarePaneTab }))
   },
   setHardwareInspectorNodeId: (hardwareInspectorNodeId) => set({ hardwareInspectorNodeId }),
   togglePerformanceMode: () => set((s) => ({ performanceMode: !s.performanceMode })),
@@ -618,7 +750,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   })),
   revealGraphNodes: (nodeIds) => {
     set((state) => ({
-      workspaceMode: 'graph',
+      ...activateWorkspace(state, 'graph'),
       ...leavingDisplayEditor(state),
       fitViewRequest: { nonce: state.fitViewRequest.nonce + 1, nodeIds },
     }))
