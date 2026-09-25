@@ -406,7 +406,13 @@ sheets.
 Select the lower pane's **Upload** tab. It contains:
 
 - the guided setup wizard and Board/Port control;
-- the expandable Upload readiness checklist;
+- **What is established**: five separate readings (Preview, Graph, Capacity,
+  Connection, Hardware), each opening to say what it proves and what it does
+  not. A running preview is not a compiled build, and a measured fit or a
+  successful upload is not a hardware test; only a dated record in the
+  [beta support matrix](../release/beta-support-matrix.md) reads as verified;
+- the expandable **Build tools & port** checklist (helper, engine, toolchain,
+  port);
 - the user-initiated measured flash/RAM capacity check;
 - normal Upload and cancellation;
 - re-upload, generated-code view, and `.ino` export;

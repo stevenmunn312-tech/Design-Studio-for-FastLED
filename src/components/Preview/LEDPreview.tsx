@@ -1182,7 +1182,14 @@ export default function LEDPreview() {
                 <i aria-hidden="true" /> Record
               </button>
               <span className={styles.canvasHudChip}>{previewStyleLabel(effectivePreviewStyle)}</span>
-              <span className={styles.canvasHudChip}>{hasFrameSignal || combinedVuId ? 'Signal live' : 'Signal idle'}</span>
+              {/* Named as the browser's, so a lit matrix is not read as a
+                  compiled build or a board that has been tested. */}
+              <span
+                className={styles.canvasHudChip}
+                title="This is the browser's simulation of the graph. It does not compile the firmware or show it running on a board — see Upload for those."
+              >
+                {hasFrameSignal || combinedVuId ? 'Browser preview' : 'Preview idle'}
+              </span>
               <span className={styles.canvasHudChip}>
                 {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
               </span>

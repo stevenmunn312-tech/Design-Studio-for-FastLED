@@ -58,6 +58,7 @@ vi.mock('../../../utils/validateGraph', () => ({
   findMirroredOutputMismatches: vi.fn(() => []),
   findHub75TopologyDiagnosticErrors: vi.fn(() => []),
   findFirmwareRamBudgetIssue: vi.fn(() => null),
+  buildGraphDiagnostics: vi.fn(() => []),
 }))
 
 function setMatrixGraph() {
@@ -245,7 +246,7 @@ describe('MatrixOutputDeployPopup', () => {
     const { getByRole, queryByText } = render(<MatrixOutputDeployPopup />)
 
     expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeNull()
-    fireEvent.click(getByRole('button', { name: /Upload readiness/i }))
+    fireEvent.click(getByRole('button', { name: /Build tools & port/i }))
     expect(queryByText('Browser uploads need the local helper running on this machine.')).toBeTruthy()
   })
 
@@ -399,7 +400,7 @@ describe('MatrixOutputDeployPopup', () => {
     })
 
     const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
-    fireEvent.click(getByRole('button', { name: /Upload readiness/i }))
+    fireEvent.click(getByRole('button', { name: /Build tools & port/i }))
 
     expect(getByText('ESP32-S3 needs the esp32:esp32 core installed.')).toBeTruthy()
     fireEvent.click(getByRole('button', { name: 'Install core: Toolchain' }))
@@ -407,6 +408,31 @@ describe('MatrixOutputDeployPopup', () => {
 
     fireEvent.click(getByRole('button', { name: 'Choose port: Connection' }))
     expect(openBoardPopup).toHaveBeenCalled()
+  })
+
+  it('lists each kind of readiness separately and never says "Ready to upload" for the tools alone', () => {
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      installedCores: [],
+      selectedPort: 'COM7',
+      portsScanned: true,
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [] }],
+    })
+    vi.mocked(findDeployBlockingErrors).mockReturnValueOnce(['LED output: frame input is not connected'])
+
+    const view = render(<MatrixOutputDeployPopup />)
+    const section = view.getByRole('region', { name: 'What is established' })
+    const rows = Array.from(section.querySelectorAll('summary')).map((row) => row.getAttribute('aria-label'))
+    expect(rows).toHaveLength(5)
+    expect(rows[0]).toMatch(/^Preview: /)
+    expect(rows[1]).toBe('Graph: 1 error (blocks upload)')
+    expect(rows[2]).toMatch(/^Capacity: Not measured/)
+    expect(rows[3]).toBe('Connection: USB Serial · connected (established)')
+    expect(rows[4]).toMatch(/^Hardware: /)
+    // Tools and port can be ready while the graph is not; the badge must not
+    // speak for the rest.
+    expect(view.queryByText('Ready to upload')).toBeNull()
+    expect(view.getByRole('button', { name: /Build tools & port/i }).textContent).toMatch(/Ready$/)
   })
 
   it('names a remembered, absent port as selected but disconnected, and a refresh restores it', async () => {
@@ -426,8 +452,8 @@ describe('MatrixOutputDeployPopup', () => {
     // The heading keeps the selection and says the board is not on it.
     expect(view.getAllByText(/COM6 selected · disconnected/).length).toBeGreaterThan(0)
     expect((view.getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(view.getByRole('button', { name: /Upload readiness/i }))
-    expect(view.getByText(/COM6 is selected but no board is connected to it/)).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: /Build tools & port/i }))
+    expect(view.getAllByText(/COM6 is selected but no board is connected to it/).length).toBeGreaterThan(0)
 
     fireEvent.click(view.getByRole('button', { name: 'Refresh ports: Connection' }))
     await waitFor(() => expect(view.getAllByText(/COM6 · connected/).length).toBeGreaterThan(0))

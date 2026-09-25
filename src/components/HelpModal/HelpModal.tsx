@@ -628,7 +628,7 @@ function UploadTab() {
           </div>
         </div>
         <div className={styles.note}>
-          Open the hardware workbench&apos;s <strong>Upload</strong> tab and expand <strong>Upload readiness</strong> for the current checklist. It identifies missing helper, engine, toolchain, board, port, graph, and capacity requirements and offers a repair action when one is available.
+          Open the <strong>Upload</strong> tab. <strong>What is established</strong> lists five separate readings — Preview, Graph, Capacity, Connection and Hardware — and each opens to say what it does and does not prove: a running preview is not a compiled build, and a successful upload is not a hardware test. Expand <strong>Build tools &amp; port</strong> for the helper, engine, toolchain and port, with a repair action where one is available.
         </div>
       </div>
 
@@ -646,7 +646,7 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              Select the workbench&apos;s <strong>Upload</strong> tab. Check <strong>Upload readiness</strong> and run <strong>Check capacity</strong> for a measured flash/RAM result. Resolve blocking items before continuing.
+              Select the workbench&apos;s <strong>Upload</strong> tab. Check <strong>What is established</strong> and <strong>Build tools &amp; port</strong>, and run <strong>Check capacity</strong> for a measured flash/RAM result. Resolve blocking items before continuing.
             </div>
           </div>
           <div className={styles.step}>

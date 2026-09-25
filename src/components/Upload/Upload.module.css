@@ -170,6 +170,77 @@
 .capacityError { color: var(--error); }
 .capacityPending { color: var(--text-secondary); opacity: 0.6; }
 
+/* The five kinds of readiness (ReadinessLayers.tsx). Rows stay one line;
+   the explanation opens on demand so the column stays short. */
+.layers {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  font-family: var(--font-code);
+  flex: 0 0 auto;
+}
+
+.layersTitle {
+  color: #9ce8ff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 2px 0 4px;
+}
+
+.layer { border-radius: 6px; }
+
+.layerSummary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 4px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.layerSummary::-webkit-details-marker { display: none; }
+.layerSummary:hover { background: rgba(255, 255, 255, 0.04); }
+.layerSummary:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 1px; }
+
+.layerLabel {
+  color: var(--text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.layerStatus {
+  display: inline-flex;
+  gap: 5px;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.layerMark { font-weight: 700; }
+
+.layerDetail {
+  margin: 0 4px 6px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.layerOk .layerStatus { color: var(--success); }
+.layerWarn .layerStatus { color: #ffcc66; }
+.layerBlocked .layerStatus { color: var(--error); }
+.layerPending .layerStatus { color: var(--text-secondary); }
+
 .readinessPanel {
   display: flex;
   flex-direction: column;

@@ -15,7 +15,7 @@ import { generateShowSketch } from '../../codegen/showGenerator'
 import { generateStreamReceiverSketch, streamLayoutForGraph, streamReceiverCapabilityNotes } from '../../codegen/streamReceiverGenerator'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { readySongCount, buildShowPayload, buildShowPlayerForMeasurement, showPackagingIssues } from '../../utils/showUpload'
-import { findDeployBlockingErrors, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
+import { buildGraphDiagnostics, findDeployBlockingErrors, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import { useCodegenGraph } from '../../utils/codegenGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -35,6 +35,8 @@ import { controllerSettings } from '../../state/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { resolveBuildMode } from '../../state/buildMode'
 import { describePort } from '../../utils/portStatus'
+import { graphDrivesOutput, readinessLayers } from '../../utils/readinessLayers'
+import ReadinessLayers from './ReadinessLayers'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
 
@@ -366,6 +368,23 @@ export default function MatrixOutputDeployPopup({
     refreshPorts,
   ])
 
+  // Warnings only: the error count is the deploy gate's own list above, which
+  // validateGraph and Graph Health agree with exactly (deployGates.test.ts).
+  const graphWarnings = useMemo(
+    () => buildGraphDiagnostics(nodes, edges, {
+      selectedFqbn, target: 'matrix', capabilityNodes: nodes, displayDocuments: customAssets.documents,
+    }).filter((issue) => issue.severity === 'warning').length,
+    [nodes, edges, selectedFqbn, customAssets.documents],
+  )
+  const layers = useMemo(() => readinessLayers({
+    previewLive: graphDrivesOutput(nodes, edges),
+    graphErrors: graphBlockers.length,
+    graphWarnings,
+    capacity: capacitySummary,
+    port,
+    hardwareGaps: validationProfile.gaps,
+  }), [nodes, edges, graphBlockers.length, graphWarnings, capacitySummary, port, validationProfile.gaps])
+
   const readinessIssues = readiness.filter((row) => row.state !== 'ready').map((row) => `${row.label}: ${row.detail}`)
   const hasReadinessIssues = readinessIssues.length > 0
 
@@ -615,19 +634,23 @@ export default function MatrixOutputDeployPopup({
           </button>
         )}
 
+        <ReadinessLayers layers={layers} />
+
         <button
           className={`${styles.wizardButtonBase} ${styles.readinessToggle}`}
           onClick={() => setReadinessOpen((open) => !open)}
           aria-expanded={readinessOpen}
         >
-          <span className={styles.readinessTitle}>Upload readiness</span>
+          {/* Only the tools and the port: "Ready to upload" here once sat
+              beside a graph with errors and a design nobody had measured. */}
+          <span className={styles.readinessTitle}>Build tools &amp; port</span>
           <span className={`${styles.readinessSummary} ${hasReadinessIssues ? styles.missingBadge : styles.readyBadge}`}>
-            {hasReadinessIssues ? 'Action needed' : 'Ready to upload'}
+            {hasReadinessIssues ? 'Action needed' : 'Ready'}
           </span>
         </button>
 
         {readinessOpen && (
-          <div className={styles.readinessPanel} aria-label="Upload readiness">
+          <div className={styles.readinessPanel} aria-label="Build tools and port">
             {readiness.map((row) => (
               <div key={row.label} className={styles.readinessRow}>
                 <div className={styles.readinessText}>
