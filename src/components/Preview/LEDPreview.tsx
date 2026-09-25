@@ -54,6 +54,7 @@ import {
   activeStagePatternName,
   libraryLookup,
 } from './stagePatternName'
+import { shouldExpandPreviewAudioTools } from './previewChrome'
 
 // Statically replaced at build time, so the telemetry branches (phase timers +
 // the per-frame context object for the dev HUD) are dead-code-stripped in prod.
@@ -1022,6 +1023,19 @@ export default function LEDPreview() {
 
   // ── Transport view state: show mode when a generator registered itself. ──
   const showMode = transport !== null
+  // A blank graph does not need a permanently expanded spectrum, disabled
+  // transport and animated wordmark. Keep one direct entry point to local
+  // audio, then restore the full workbench as soon as audio/show/performance
+  // context makes those controls useful.
+  const expandedAudioTools = shouldExpandPreviewAudioTools({
+    stageMode,
+    performanceMode,
+    showMode,
+    audioVisualizerLive,
+    hasVu: combinedVuId !== '',
+    hasPlaylist: tracks.length > 0,
+    hasAudioError: musicError !== null,
+  })
   const durationMs = showMode ? transport.durationMs : musicDuration * 1000
   const positionMs = showMode ? Math.min(showPosMs, durationMs) : Math.min(musicCurrentTime, musicDuration) * 1000
   const isPlaying = showMode ? showPlaying : musicPlaying
@@ -1246,7 +1260,12 @@ export default function LEDPreview() {
       </div>
       {/* Windowed Stage keeps this operator panel visible. Explicit fullscreen
           removes it through panelStageFullscreen so the output owns the screen. */}
-      <div className={`${styles.visualizer} ${stageQuiet ? styles.stageChromeQuiet : ''}`} inert={stageQuiet}>
+      <div
+        className={`${styles.visualizer} ${expandedAudioTools ? '' : styles.visualizerIdle} ${stageQuiet ? styles.stageChromeQuiet : ''}`}
+        inert={stageQuiet}
+      >
+        {expandedAudioTools ? (
+          <>
           {uiEffectsEnabled && <div className={styles.visualizerGlow} />}
           {uiEffectsEnabled && <div className={styles.visualizerGrid} />}
           <div className={styles.visualizerSection}>
@@ -1420,6 +1439,24 @@ export default function LEDPreview() {
               </div>
             </div>
           )}
+          </>
+        ) : (
+          <div className={styles.idleAudioTools}>
+            <div className={styles.idleAudioCopy}>
+              <span>Audio tools</span>
+              <small>Add a track when you want to audition this patch.</small>
+            </div>
+            <button
+              type="button"
+              className={styles.idleAddTrack}
+              onClick={openFilePicker}
+              title="Add tracks"
+            >
+              <IconAdd />
+              <span>Add track</span>
+            </button>
+          </div>
+        )}
         </div>
       <input
         ref={fileInputRef}
