@@ -1,6 +1,6 @@
 # Wired Ethernet — design note
 
-Status: implemented, experimental (no compile or bench row yet) · Owner: app ·
+Status: implemented, experimental (compiles; no bench row yet) · Owner: app ·
 Date: 2026-09-25
 
 Roadmap step 6 of the [hardware expansion roadmap](../plans/hardware-expansion-roadmap.md):
@@ -84,9 +84,11 @@ since a top-row stub would sit under the module.
 
 ## Not done
 
-- A compile of the generated sketch, and a bench row: link up, DHCP and static
-  addressing, Art-Net received over the cable, NTP sync, and cable
-  pull/replug recovery. See the [support matrix](../../release/beta-support-matrix.md).
+- A bench row: link up, DHCP and static addressing, Art-Net received over the
+  cable, NTP sync, and cable pull/replug recovery. See the
+  [support matrix](../../release/beta-support-matrix.md). The sketches compile
+  on classic ESP32 and ESP32-C3 ([compile record](../ethernet-compile-checks.md));
+  fbuild, S2/S3 and a C3 sharing its bus with a panel are not yet compiled.
 - Other W5500 boards, and LAN8720/RMII boards such as the WT32-ETH01, which
   would be a board profile rather than a module.
 - Networking in the show and SD-player generators, which have none today.

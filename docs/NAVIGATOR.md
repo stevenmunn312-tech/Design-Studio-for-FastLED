@@ -151,6 +151,7 @@ build/architecture overview aimed at contributors.
     fbuild results, and the gaps still open for D-05a step 13.
   - [Presence-sensor firmware compile checks](development/presence-sensor-compile-checks.md)
   - [Light-sensor firmware compile checks](development/light-sensor-compile-checks.md)
+  - [Wired-Ethernet firmware compile checks](development/ethernet-compile-checks.md)
     — real normal/slideshow/player/no-sensor fixtures for the HLK-LD2410C,
     their classic-ESP32 results, resource figures and measured sensor overhead.
 - [Testing](development/testing/)

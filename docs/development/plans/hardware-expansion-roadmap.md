@@ -110,7 +110,8 @@ compile families:
 6. W5500 wired networking. The WIZnet WIZ850io (`EthernetModule`) is now
    modelled from WIZnet's board file, catalogued, drawn and generated for the
    normal sketch, where it carries Art-Net and NTP instead of Wi-Fi. It is
-   experimental: the compile and the bench run are still open. See
+   experimental: its [compile fixtures pass](../ethernet-compile-checks.md),
+   and the bench run is still open. See
    [wired Ethernet](../design/wired-ethernet.md).
 7. A differential pixel-data pair and long-cable validation.
 8. Buck conversion and protected high-side switching in the Build Diagram

@@ -515,9 +515,10 @@ Unless a future row says otherwise, treat the following as experimental:
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the
-  ESP32 core's W5500 driver. Nothing has been compiled or run on hardware yet.
-  Graduation needs a compile, then a dated row naming the board/FQBN and the six
-  pins, with link-up, DHCP and static addressing, Art-Net received over the
+  ESP32 core's W5500 driver. Its sketches
+  [compile on classic ESP32 and ESP32-C3](../development/ethernet-compile-checks.md)
+  (2026-09-25, arduino-cli), but nothing has run on hardware yet. Graduation
+  needs a dated row naming the board/FQBN and the six pins, with link-up, DHCP and static addressing, Art-Net received over the
   cable, an NTP sync, and recovery after pulling and replugging the cable.
 - **IR remote receive on every board, receiver and remote combination.** The
   current evidence is software and generated-firmware coverage only. The
