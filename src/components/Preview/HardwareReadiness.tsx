@@ -83,7 +83,8 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
 
   const amps = power.worstCaseMa / 1000
   const capped = power.configuredMa !== null
-  const powerLevel = power.exceedsConfigured ? 'warn' : 'ok'
+  // A cap is the answer to a large fixture, not a problem with it.
+  const powerLevel = 'ok'
   const internalKb = ram ? Math.round(ram.internalBytes / 1024) : null
   const refreshMs = refresh ? refresh.estimatedMicros / 1000 : null
 
@@ -102,7 +103,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
     <div className={`${styles.strip} ${compact ? styles.compact : ''}`} aria-label="Hardware readiness">
       <span className={styles.item} data-level={powerLevel} title={
         capped
-          ? `Worst case ${amps.toFixed(2)} A across ${power.ledCount} LEDs, capped at ${(power.configuredMa! / 1000).toFixed(2)} A`
+          ? `Up to ${amps.toFixed(2)} A if all ${power.ledCount} LEDs showed full white. Your ${(power.configuredMa! / 1000).toFixed(2)} A cap keeps it within your supply: FastLED dims only the brightest scenes.`
           : `Worst case ${amps.toFixed(2)} A if every one of ${power.ledCount} LEDs showed white at once. Use at least a ${(power.requiredSupplyMa / 1000).toFixed(1)} A continuous supply.`
       }>
         <em className={styles.label}>Power</em>

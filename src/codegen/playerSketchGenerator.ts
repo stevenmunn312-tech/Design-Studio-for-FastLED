@@ -21,6 +21,8 @@ import type { PatternRenderers } from './showGenerator'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
+import { ledOutputManualExprs, ledOutputRuntimeCpp } from './ledOutputRuntimeCpp'
+import { ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
@@ -96,6 +98,12 @@ export interface PlayerConfig {
   // ~14 pin fields into this interface — that function's own sanitizePin
   // calls already apply the correct per-field defaults.
   hub75Props:  Record<string, unknown>
+  /** The LED output's own Enabled and Brightness fields, as set on the node.
+   *  Fixed values, so the sketch applies them to that output's frame every
+   *  pass, the way a normal sketch does. Controller brightness stays the
+   *  player's, which its transport already owns. */
+  outputEnabled: boolean
+  outputBrightness: number
 }
 
 const DEFAULTS: PlayerConfig = {
@@ -112,6 +120,8 @@ const DEFAULTS: PlayerConfig = {
   ledBrightness: DEFAULT_CONTROLLER_SETTINGS.brightness,
   usePsram: false,
   hub75Props: {},
+  outputEnabled: true,
+  outputBrightness: 1,
 }
 
 function sanitizeVolume(value: unknown, fallback = DEFAULTS.maxVolume): number {
@@ -189,7 +199,13 @@ export function playerConfigFromGraph(
     ledBrightness: controller.brightness,
     usePsram:   controller.usePsram,
     hub75Props: mo,
+    ...outputFields(target ? mo : undefined),
   }
+}
+
+function outputFields(props: Record<string, unknown> | undefined): Pick<PlayerConfig, 'outputEnabled' | 'outputBrightness'> {
+  const manual = ledOutputManualRuntime(props)
+  return { outputEnabled: manual.enabled, outputBrightness: manual.brightness }
 }
 
 export type PlayerControlAction =
@@ -380,6 +396,16 @@ export function generatePlayerSketch(
     ledBrightness: Math.max(0, Math.min(255, Math.round(Number(raw.ledBrightness) || 0))),
   }
   const numLeds = c.ledWidth * c.ledHeight
+  // The output's own fields, after the frame is drawn and before the VU
+  // fixtures and the HUB75 blit (which reads this same array), so they dim
+  // this output alone. `leds` is redrawn every pass, as the audio fade below
+  // already relies on, so scaling it in place does not compound.
+  const outputFieldLines = c.hasPrimaryLedOutput
+    ? ledOutputRuntimeCpp({
+      id: 'player', array: 'leds', count: 'NUM_LEDS',
+      ...ledOutputManualExprs({ enabled: c.outputEnabled, outputBrightness: c.outputBrightness }),
+    }).join('\n')
+    : ''
   const collection = !!(renderers && renderers.count > 0)
   const bakedAudio = !!opts.audioEnvelope
   const stereoVuMeters = opts.stereoVuMeters ?? []
@@ -2198,6 +2224,7 @@ ${genericPlayer && reactiveAudio ? `  // Fade the player down during genuine sil
     }
   }
 
+${outputFieldLines}
 ${genericPlayer && reactiveAudio ? `  for (int i = 0; i < NUM_LEDS; i++) {
     leds[i].nscale8((uint8_t)constrain(audioFade * 255.0f, 0.0f, 255.0f));
   }

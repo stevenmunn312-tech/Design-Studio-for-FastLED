@@ -7,7 +7,6 @@ import {
   supportsScalarExpression,
 } from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
-import { isLedOutputPassThrough, ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { PALETTE_BUILDER_NODE_TYPES, tftTransportForProps } from '../state/nodeLibrary'
 import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../state/signalRange'
 import { paletteBankEntries } from '../state/paletteBank'
@@ -2321,18 +2320,11 @@ export function findOutputRuntimeIssues(
     ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
     : generator === 'player'
       ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id) : null
-  // The player owns its brightness through the transport, so the two fields
-  // beside an output's sockets are as unreadable to it as a wire would be.
-  // Silence there is the "only works in preview" failure: the LEDs come up
-  // full on the bench while the canvas shows the fixture dimmed.
-  const dialled = nodes.filter((node) => node.data.nodeType === 'MatrixOutput'
-    && !isLedOutputPassThrough(ledOutputManualRuntime(node.data.properties)))
+  // An output's own Enabled and Brightness fields are fixed values, which the
+  // player sketch applies to that output's frame (playerConfigFromGraph's
+  // outputEnabled/outputBrightness), so they need no rule here.
   if (generator === 'player') {
-    const fields = dialled.length > 0
-      ? [`${dialled.map((node) => nodeLabel(node)).join(', ')}: an SD player build cannot read an LED output's own Enabled or Brightness field. `
-        + 'Restore them to lit and full, and dim the fixture through Control Map, which the player already reads.']
-      : []
-    return { errors: [...fields, ...speedErrors, ...(templateControls?.errors ?? [])] }
+    return { errors: [...speedErrors, ...(templateControls?.errors ?? [])] }
   }
   const showOutputs = generator === 'show'
     ? showControlOutputIds(nodes, edges, build.engine?.id) : new Set<string>()
@@ -3376,21 +3368,16 @@ export function buildGraphDiagnostics(
     })
   }
 
+  // A cap below the worst case is the cap doing its job — FastLED dims the
+  // brightest scenes to stay inside it — so it is not reported. Only a large
+  // fixture with no cap at all is worth a word.
   const power = estimatePowerLoad(nodes)
-  if (matrixOutput && power?.exceedsConfigured) {
-    diagnostics.push({
-      id: `${matrixOutput.id}-power-cap`, severity: 'warning', category: 'power',
-      title: 'Worst-case draw exceeds the power cap',
-      message: `About ${power.worstCaseMa} mA for ${power.ledCount} LEDs versus a ${power.configuredMa} mA cap; FastLED will auto-dim.`,
-      fix: 'Keep the cap and expect dimming, or reduce LED count/brightness before raising it to a supply-safe value.',
-      nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
-    })
-  } else if (matrixOutput && power && power.configuredMa == null && power.worstCaseMa >= POWER_WARN_MA) {
+  if (matrixOutput && power && power.configuredMa == null && power.worstCaseMa >= POWER_WARN_MA) {
     diagnostics.push({
       id: `${matrixOutput.id}-power-unlimited`, severity: 'warning', category: 'power',
-      title: 'High-current output has no power cap',
-      message: `Worst-case full white is about ${power.worstCaseMa} mA for ${power.ledCount} LEDs.`,
-      fix: 'Enable the global power cap in the Board controller settings and enter the continuous current rating of the LED power supply.',
+      title: 'Set a power cap for this many LEDs',
+      message: `At full white, ${power.ledCount} LEDs could draw about ${(power.worstCaseMa / 1000).toFixed(1)} A.`,
+      fix: 'Turn on the power cap on the Board (Hardware tab) and enter your supply’s rating. FastLED then dims only the brightest scenes to stay within it.',
       nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
     })
   }
@@ -3784,13 +3771,6 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findSignalRangeWarnings(nodes, edges))
   // Errors from this walk are already in the deploy gate above.
   warnings.push(...findDisplayGeneratorIssues(nodes, edges, displayDocuments).warnings)
-
-  const power = estimatePowerLoad(nodes)
-  if (power?.exceedsConfigured) {
-    warnings.push(
-      `Worst-case draw (~${power.worstCaseMa} mA for ${power.ledCount} LEDs) exceeds the configured power cap (${power.configuredMa} mA) — FastLED will auto-dim to stay under it`
-    )
-  }
 
   warnings.push(...findMirroredOutputMismatches(nodes, edges))
 

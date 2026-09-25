@@ -609,7 +609,6 @@
   line-height: 1.4;
   font-family: var(--font-code);
 }
-.powerRow.powerWarn { color: #ffcc00; }
 
 /* ── Popups (Board / arduino-cli) ─────────────────────────────────────────── */
 .overlay {

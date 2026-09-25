@@ -21,6 +21,33 @@ describe('playerSketchGenerator', () => {
     expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
   })
 
+  describe("the LED output's own fields", () => {
+    const withOutput = (properties: Record<string, unknown>) => playerConfigFromGraph([
+      generator,
+      { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 8, height: 8, ...properties } } },
+    ], SHOW_EDGE)
+    const drawIndex = (sketch: string, needle: string) => sketch.indexOf(needle, sketch.indexOf('void loop()'))
+
+    it('dims the output by its Brightness field after drawing and before show()', () => {
+      const sketch = generatePlayerSketch(withOutput({ outputBrightness: 0.4 }))
+      const scale = drawIndex(sketch, 'leds[_i].nscale8_video(')
+      expect(scale).toBeGreaterThan(0)
+      expect(sketch).toContain('constrain(0.400f, 0.0f, 1.0f)')
+      expect(scale).toBeLessThan(drawIndex(sketch, 'FastLED.show();'))
+    })
+
+    it('keeps an output switched off dark', () => {
+      const sketch = generatePlayerSketch(withOutput({ enabled: false }))
+      expect(sketch).toContain('if (!(false)) fill_solid(leds, NUM_LEDS, CRGB::Black);')
+    })
+
+    it('adds nothing while the fields are at lit and full', () => {
+      const sketch = generatePlayerSketch(withOutput({}))
+      expect(sketch).not.toContain('LED output run-time controls')
+      expect(sketch).not.toContain('fill_solid(leds, NUM_LEDS, CRGB::Black)')
+    })
+  })
+
   describe('Control Map', () => {
     it('traces a chained controls bundle and lets the downstream mapper override an action', () => {
       const nodes = [

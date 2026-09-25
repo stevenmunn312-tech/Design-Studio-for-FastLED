@@ -472,12 +472,12 @@ export default function MatrixOutputSetupWizard() {
 
             {power && power.ledCount > 0 && (
               <div
-                className={`${styles.powerRow} ${power.exceedsConfigured ? styles.powerWarn : ''}`}
+                className={styles.powerRow}
                 title="Worst-case draw assumes every LED at full white (~60 mA/LED, the typical WS2812-class figure) — real draw is usually well under this."
               >
                 {power.ledCount} LEDs · worst case ~{(power.worstCaseMa / 1000).toFixed(1)} A
                 {power.configuredMa != null
-                  ? ` · cap ${(power.configuredMa / 1000).toFixed(1)} A${power.exceedsConfigured ? ' ⚠ may exceed cap' : ''}`
+                  ? ` · capped at ${(power.configuredMa / 1000).toFixed(1)} A${power.exceedsConfigured ? ' (bright scenes dim to fit)' : ''}`
                   : ` · recommended PSU ≥ ${(power.recommendedMa / 1000).toFixed(1)} A`}
               </div>
             )}

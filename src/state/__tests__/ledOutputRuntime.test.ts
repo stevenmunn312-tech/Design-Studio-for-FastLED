@@ -297,17 +297,14 @@ describe('what a show or player build cannot honour', () => {
   // nothing to warn about there. The player cannot: it owns brightness through
   // the transport, and a fixture the canvas draws dimmed would come up full on
   // the bench with nothing said.
-  it('refuses a dialled-down output only on the build that cannot read it', () => {
+  it('accepts a dialled-down output on every build, the player included', () => {
+    // Fixed fields are constants every generator applies, so none refuses them.
     const { nodes, edges } = showGraph()
     const dimmed = nodes.map((entry) => entry.id === 'out'
       ? output({ enabled: false, outputBrightness: 0.5 }) : entry)
     expect(findOutputRuntimeIssues(dimmed, edges.filter((e) => e.id !== 'ee')).errors).toEqual([])
     const player = [master, ...dimmed.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
-    const { errors } = findOutputRuntimeIssues(player, edges.filter((e) => e.id !== 'ee'))
-    expect(errors.join(' ')).toContain('cannot read an LED output')
-    expect(errors.join(' ')).toContain('Control Map')
-    const lit = [master, ...nodes.slice(1), node('sd', 'SDCard'), node('amp', 'Amplifier')]
-    expect(findOutputRuntimeIssues(lit, edges.filter((e) => e.id !== 'ee')).errors).toEqual([])
+    expect(findOutputRuntimeIssues(player, edges.filter((e) => e.id !== 'ee')).errors).toEqual([])
   })
 
   it('says nothing about a show whose outputs carry no such wire', () => {

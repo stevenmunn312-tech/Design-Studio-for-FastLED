@@ -1404,15 +1404,30 @@ describe('validateGraph', () => {
       expect(power.exceedsConfigured).toBe(true)
     })
 
-    it('surfaces an exceeded power cap as a validateGraph warning', () => {
+    it('treats a power cap below the worst case as the cap working, not a problem', () => {
+      // FastLED dims only the brightest scenes to stay inside the cap, which
+      // is exactly why someone sets one. Reporting it sent people to lower
+      // brightness, which changes nothing in the estimate.
       const nodes = [
         node('board', 'Board', { powerLimit: true, milliamps: 2000 }),
         node('sc', 'SolidColor'),
         node('out', 'MatrixOutput', { width: 16, height: 16 }),
       ]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
-      const { warnings } = validateGraph(nodes, edges)
-      expect(warnings.some(w => w.includes('exceeds the configured power cap'))).toBe(true)
+      expect(validateGraph(nodes, edges).warnings.some((w) => /power cap/i.test(w))).toBe(false)
+      expect(buildGraphDiagnostics(nodes, edges).some((d) => d.category === 'power')).toBe(false)
+    })
+
+    it('suggests a cap only for a large fixture that has none', () => {
+      const nodes = [
+        node('board', 'Board', { powerLimit: false }),
+        node('sc', 'SolidColor'),
+        node('out', 'MatrixOutput', { width: 32, height: 32 }),
+      ]
+      const edges = [edge('e1', 'sc', 'out', 'frame')]
+      const power = buildGraphDiagnostics(nodes, edges).find((d) => d.category === 'power')
+      expect(power?.title).toBe('Set a power cap for this many LEDs')
+      expect(power?.fix).toMatch(/dims only the brightest scenes/)
     })
 
     it('uses a HUB75-specific per-pixel rate instead of the addressable-strip figure', () => {

@@ -40,7 +40,7 @@ describe('fixture versus show dimming', () => {
     expect(blocking.map((entry) => entry.title)).toEqual([])
   })
 
-  it('refuses a music-player fixture dimmer and names Control Map instead', () => {
+  it('lets a music-player build keep a fixture dimmed with the output’s own field', () => {
     const nodes = [
       node('master', 'PatternMaster'),
       node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
@@ -55,8 +55,6 @@ describe('fixture versus show dimming', () => {
       edge('frameB', 'master', 'frame', 'outB', 'frame'),
     ]
     expect(selectedGenerator(nodes, edges)).toBe('player')
-    const { errors } = findOutputRuntimeIssues(nodes, edges)
-    expect(errors.join(' ')).toContain('cannot read an LED output')
-    expect(errors.join(' ')).toContain('Control Map')
+    expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([])
   })
 })
