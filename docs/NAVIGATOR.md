@@ -94,6 +94,7 @@ build/architecture overview aimed at contributors.
     `FieldToFrame`, `DistanceField`, `FieldMath`, and `FieldWarp` nodes that
     unlock ANIMartRIX-style coordinate → scalar → colour pipelines.
   - [DMX / Art-Net input](development/design/dmx-artnet-input.md)
+  - [Wired Ethernet](development/design/wired-ethernet.md)
     — the `dmx` data type carrying a whole 512-channel universe down one wire,
     the `DMXInput` source / `DMXChannel` decoder split, and the parity rules
     between helper-backed Art-Net preview, Art-Net firmware, and ESP32 DMX512.

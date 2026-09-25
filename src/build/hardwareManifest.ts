@@ -44,6 +44,7 @@ import {
   lightSensorPinKeys,
   lightSensorTransport,
 } from '../state/lightSensor'
+import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
 
 export interface HardwarePinUse {
   label: string
@@ -84,7 +85,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -125,6 +126,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'RelayOutput',
   'PowerSwitchOutput',
   'DMXInput',
+  'EthernetModule',
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
@@ -335,6 +337,16 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       // One UART receive line, from the sensor's TX pad.
       case 'PresenceInput':
         push(node, `${baseLabel} RX pin`, 'rxPin', props.rxPin)
+        break
+      // Its own SPI bus plus three control lines; see state/ethernetModule.ts
+      // for why the bus is not shared with a colour panel's.
+      case 'EthernetModule':
+        push(node, `${baseLabel} SCLK`, 'sckPin', props.sckPin)
+        push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
+        push(node, `${baseLabel} MISO`, 'misoPin', props.misoPin)
+        push(node, `${baseLabel} SCNn`, 'csPin', props.csPin)
+        push(node, `${baseLabel} INTn`, 'intPin', props.intPin)
+        push(node, `${baseLabel} RSTn`, 'resetPin', props.resetPin)
         break
       // One pin whatever the remote has: the receiver demodulates every key
       // onto the same line, so the learned buttons cost no GPIO of their own.
@@ -633,6 +645,26 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       case 'IRRemoteInput':
         return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
+      case 'EthernetModule': {
+        const partId = String((node.data.properties as Record<string, unknown>).partId ?? DEFAULT_ETHERNET_PART_ID)
+        const entry = partById(partId)
+        const spec = ethernetSpec(partId)
+        const wired = ETHERNET_PIN_KEYS.every((key) => pins.some((pin) => pin.propertyKey === key))
+        const item = buildPeripheralItem(node, 'ethernet', entry?.label ?? 'Wired Ethernet module', pins)
+        return {
+          ...item,
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            ...item.facts,
+            controller: spec.controller,
+            link: spec.link,
+            supplyVoltage: 3.3,
+            cable: 'RJ45 to the lighting network; carries Art-Net and NTP in place of Wi-Fi',
+          },
+          reasons: wired ? undefined : ['This Ethernet module does not have its complete SPI and control pin set configured.'],
+        }
+      }
       case 'PresenceInput': {
         const entry = partById(String((node.data.properties as Record<string, unknown>).partId ?? DEFAULT_PRESENCE_PART_ID))
         const spec = presenceSensorSpec((node.data.properties as Record<string, unknown>).partId)

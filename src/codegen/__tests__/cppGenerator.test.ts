@@ -3991,7 +3991,7 @@ describe('RTCInput (codegen)', () => {
     const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP' })
     const cpp = generateCpp([rtc], [])
     expect(cpp).toContain('static bool _rtcNtpConfigured_rtc = false;')
-    expect(cpp).toContain('if (_wifiConnected() && !_rtcNtpConfigured_rtc)')
+    expect(cpp).toContain('if (_netConnected() && !_rtcNtpConfigured_rtc)')
   })
 
   it('reads a DS3231 directly over Wire without a third-party RTC library', () => {

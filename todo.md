@@ -56,7 +56,11 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks (run on request, one at a time)
 
-None open. The D-05 light-sensor normal, slideshow, player, LDR and no-sensor
+- **D-05 wired Ethernet:** the generated normal sketch with a WIZ850io
+  carrying Art-Net, and one carrying NTP, on classic ESP32 under arduino-cli;
+  then a C3 build sharing SPI with a colour panel. Not yet run.
+
+The D-05 light-sensor normal, slideshow, player, LDR and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-25
 ([light-sensor compile record](docs/development/light-sensor-compile-checks.md)).
 The D-05 presence-sensor normal, slideshow, player and no-sensor
@@ -117,6 +121,9 @@ in the app and marked experimental; nothing here holds up development.
   matrix.
 - **D-05 light sensor:** the Adafruit BH1750's Lux against a reference meter in
   dim, room and bright light; the row's requirements are in the support matrix.
+- **D-05 wired Ethernet:** the WIZ850io on a real network: link-up, DHCP and
+  static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
+  recovery; the row's requirements are in the support matrix.
 - **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
   combined and absent targets at two measured distances, including UART
   reconnect recovery; the row's requirements are in the support matrix.
@@ -169,7 +176,11 @@ in the app and marked experimental; nothing here holds up development.
   fixtures pass, and its bench row is in section 3. The Adafruit BH1750
   (roadmap step 5) is a `LightInput` module option, modelled, drawn,
   previewed and generated; all five compile fixtures pass, and its bench row is
-  in section 3.
+  in section 3. The WIZnet WIZ850io (roadmap step 6, `EthernetModule`) is
+  modelled from WIZnet's board file, drawn, and generated for the normal
+  sketch, replacing Wi-Fi for Art-Net and NTP
+  ([design](docs/development/design/wired-ethernet.md)); its compile is in
+  section 2 and its bench row in section 3.
 
 ## Completed
 

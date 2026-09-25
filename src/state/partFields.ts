@@ -49,6 +49,15 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   PowerAmplifier: [
     { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
   ],
+  // Labelled as WIZnet prints them in its pinout; the board itself prints none.
+  EthernetModule: [
+    { key: 'sckPin', label: 'SCLK', kind: 'pin' },
+    { key: 'mosiPin', label: 'MOSI', kind: 'pin' },
+    { key: 'misoPin', label: 'MISO', kind: 'pin' },
+    { key: 'csPin', label: 'SCNn', kind: 'pin' },
+    { key: 'intPin', label: 'INTn', kind: 'pin' },
+    { key: 'resetPin', label: 'RSTn', kind: 'pin' },
+  ],
   // Storage, and only storage. Audio output is derived from the parts present
   // (state/audioOutput.ts) rather than set here.
   SDCard: [

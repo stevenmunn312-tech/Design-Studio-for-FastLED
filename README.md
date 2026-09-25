@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 182 modules · 70 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 183 modules · 70 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 182 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 183 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -122,7 +122,7 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 The workspace deliberately separates the physical rig from its signal flow:
 
-- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, IR receivers, sensors, power monitors, RTC modules, SD cards, amplifiers/DACs and power amplifiers, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
+- The lower **Hardware** workbench owns the exact board and the parts attached to it. Use **Add Hardware** for microphones, controls, IR receivers, sensors, power monitors, RTC modules, wired Ethernet, SD cards, amplifiers/DACs and power amplifiers, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
 - Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
 - The graph owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay workbench-only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
@@ -160,9 +160,9 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 182 modules by category</strong></summary>
+<summary><strong>Show all 183 modules by category</strong></summary>
 
-- **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch, IR Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Power Monitor, DMX / Art-Net, RTC Clock, MIDI, Storage
+- **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch, IR Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Power Monitor, DMX / Art-Net, Ethernet, RTC Clock, MIDI, Storage
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Audio → Hue
 - **Signals:** Time, Interval, Counter, Random, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Math, Clamp, Map Range, Step Value, Lerp, Ease, Abs, Mod, Gate, Smooth, Sample & Hold, Switch, Not, Compare, Trigger, Text Value, Format Number, Format Date/Time, XY → Index

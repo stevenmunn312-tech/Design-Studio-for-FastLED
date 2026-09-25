@@ -284,6 +284,20 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     ],
   },
   // Display (the document node) has no plan — it has no pins to retarget.
+  /*
+   * From the general pool rather than the board's SPI defaults: on a chip with
+   * a second SPI host the module has that host to itself (see
+   * state/ethernetModule.ts), so its bus lines are its own and any
+   * output-capable pins will do, and the default SPI pins stay free for a
+   * colour panel on the `SPI` object.
+   */
+  EthernetModule: {
+    keys: ['sckPin', 'mosiPin', 'misoPin', 'csPin', 'intPin', 'resetPin'],
+    requests: [
+      { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'misoPin', capability: 'digitalInput' },
+      { key: 'csPin' }, { key: 'intPin', capability: 'digitalInput' }, { key: 'resetPin' },
+    ],
+  },
   SDCard: {
     keys: ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'],
     fromProfile: (profile) => {

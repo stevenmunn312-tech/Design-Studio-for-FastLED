@@ -96,6 +96,22 @@ react to (a lit room is a few hundred lux, daylight tens of thousands). In
 preview, drag the node's knob. The BH1750 is experimental until the support
 matrix records it on a real board.
 
+### Connect by Ethernet
+
+Art-Net input and NTP clock sync normally use Wi-Fi. For a cable instead, choose
+**Add Hardware → Network → WIZnet WIZ850io**. Power it from **3V3** only; it
+draws up to about 140 mA once a link is up, so check that your board's 3.3 V
+regulator has that to spare. Studio fills in its six signal pins (SCLK, MOSI,
+MISO, SCNn, INTn, RSTn) for you. The module has no pin names printed on it, so
+wire it from the Build Diagram, which names each pad.
+
+With the module on the bench, the DMX / Art-Net and RTC Clock nodes stop asking
+for a Wi-Fi network and password. Their hostname and DHCP or static-address
+settings apply to the cable instead. The module needs an ESP32, ESP32-S2, S3,
+C3 or C6 board. On a C3 or C6 it shares the one SPI bus with a colour display
+panel, so give both the same SCK and MOSI pins. Wired Ethernet is experimental
+until the support matrix records it on a real board.
+
 ### Add an IR remote receiver
 
 Choose **Add Hardware → Inputs → IR Receiver**, then choose the exact receiver

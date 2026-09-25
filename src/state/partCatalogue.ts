@@ -130,6 +130,16 @@ export interface PartLightSensorSpec {
   maxLux: number
 }
 
+/** Network contract carried by a wired-Ethernet controller module. */
+export interface PartEthernetSpec {
+  /** The controller chip, which picks the firmware's PHY driver. */
+  controller: string
+  interface: string
+  /** The controller's SPI clock ceiling. */
+  maxSpiClockMHz: number
+  link: string
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -152,6 +162,8 @@ export interface PartCatalogueEntry {
   presenceSensor?: PartPresenceSensorSpec
   /** Present exactly on calibrated digital ambient-light sensors. */
   lightSensor?: PartLightSensorSpec
+  /** Present exactly on wired-Ethernet controller modules. */
+  ethernet?: PartEthernetSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset
@@ -174,18 +186,20 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   clkPin: ['CLK', 'SCK', 'SCL'],
   dioPin: ['DIO', 'DATA', 'DIN'],
   dinPin: ['DIN', 'DATA', 'DIO'],
-  csPin: ['CS', 'LOAD', 'LCD_CS'],
+  // WIZnet prints the W5500's active-low lines with a trailing n.
+  csPin: ['CS', 'LOAD', 'LCD_CS', 'SCNN'],
   // A parallel board silkscreens register-select as RS; it is the same signal
   // an SPI board prints DC, so one property carries both names.
   dcPin: ['DC', 'RS', 'LCD_RS'],
-  resetPin: ['RST', 'RESET', 'RES', 'LCD_RST'],
+  resetPin: ['RST', 'RESET', 'RES', 'LCD_RST', 'RSTN'],
+  intPin: ['INT', 'INTN', 'IRQ'],
   wrPin: ['WR', 'LCD_WR'],
   rdPin: ['RD', 'LCD_RD'],
   ...Object.fromEntries(
     // LCD_D0..LCD_D7 as a parallel board prints them.
     Array.from({ length: 8 }, (_, bit) => [`d${bit}Pin`, [`D${bit}`, `LCD_D${bit}`]]),
   ),
-  sckPin: ['SCK', 'CLK', 'SCL', 'D0'],
+  sckPin: ['SCK', 'CLK', 'SCL', 'D0', 'SCLK'],
   mosiPin: ['MOSI', 'SDA', 'DIN', 'DATA', 'D1'],
   misoPin: ['MISO', 'DO'],
   backlightPin: ['BL', 'LED', 'LITE', 'BACKLIGHT'],

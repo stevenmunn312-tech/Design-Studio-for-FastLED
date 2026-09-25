@@ -15,6 +15,7 @@ import { partById, type PartCatalogueEntry } from './partCatalogue'
 import { IR_RECEIVER_MODULES } from './irModules'
 import { MIC_MODULES } from './micModules'
 import { LIGHT_SENSOR_MODULES } from './lightSensor'
+import { ETHERNET_MODULES } from './ethernetModule'
 
 export interface PartOption {
   /** Catalogue part id when the part is modelled, else a plain slug. */
@@ -72,6 +73,15 @@ export interface PartIdentity {
  * board is the *capture backend*, not the microphone.
  */
 export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
+  EthernetModule: {
+    property: 'partId',
+    options: ETHERNET_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
+  },
   LightInput: {
     property: 'partId',
     options: LIGHT_SENSOR_MODULES.map((module) => ({

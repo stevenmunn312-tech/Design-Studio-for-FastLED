@@ -108,6 +108,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![MIDI example graph](../../public/node-cards/graphs/midi-input.svg)
 
+### Ethernet
+
+![Ethernet node](../../public/node-cards/ethernet-module.svg)
+
+![Ethernet example graph](../../public/node-cards/graphs/ethernet-module.svg)
+
 ## Audio
 
 ### FFT Analyzer

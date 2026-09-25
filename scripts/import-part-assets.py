@@ -209,6 +209,22 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: presenceSensor block needs baud, gateMeters and maxRangeMeters — skipped",
                   file=sys.stderr)
+    # A wired-Ethernet controller module. The firmware brings the network up
+    # through this controller over SPI, and its clock ceiling bounds the bus it
+    # can share, so carry both through rather than restating them in the app.
+    ethernet = data.get("ethernet")
+    if ethernet:
+        clock = ethernet.get("maxSpiClockMHz")
+        if ethernet.get("controller") and isinstance(clock, (int, float)) and clock > 0:
+            entry["ethernet"] = {
+                "controller": ethernet["controller"],
+                "interface": ethernet.get("interface") or "SPI",
+                "maxSpiClockMHz": clock,
+                "link": ethernet.get("link") or "",
+            }
+        else:
+            print(f"  ! {part_id}: ethernet block needs a controller and maxSpiClockMHz — skipped",
+                  file=sys.stderr)
     # A calibrated digital ambient-light sensor. Its address straps and
     # measurement range are part facts used by the picker, validation and
     # generated Wire transaction, so carry them through from the asset.

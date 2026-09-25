@@ -345,6 +345,14 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // holes. 3Vo is the regulator's output and ADDR is strapped, so neither
   // carries a controller wire.
   'adafruit-bh1750-light-sensor': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 237.5, 286),
+  // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
+  // bottom (GND, 3V3D, 3V3D, NC, RSTn, MISO), pin 1 of each at the right-hand
+  // end. Computed from WIZnet's board file (13.60 px/mm, 10 px margin) and
+  // checked against the render: every point is an open, drilled hole.
+  'wiz850io-ethernet-module': padPoints(400, 333, [
+    [262.9, 28.4], [228.3, 28.4], [193.8, 28.4], [159.3, 28.4], [124.7, 28.4], [90.2, 28.4],
+    [262.9, 304.6], [228.3, 304.6], [193.8, 304.6], [159.3, 304.6], [124.7, 304.6], [90.2, 304.6],
+  ]),
   // VCC, GND, OUT, RX, TX along the bottom, measured from the drilled holes.
   'hlk-ld2410c-presence-sensor': padRow([115.2, 159, 202.9, 246.7, 290.6], 400, 264.7, 296),
   // RO, RE, DE, DI along the bottom, then VCC, B, A, GND along the top, the
@@ -500,8 +508,9 @@ export function peripheralPadLabel(item: HardwareManifestItem, padIndex: number)
 /** Supply and ground, found by the name printed beside the pad. */
 // `+` and `VS` join the list for the IR receivers: a KY-022 prints its
 // supply as a bare plus, and Vishay's datasheet names the pin VS.
-// `+12V` is the supply terminal on the large analog power amplifiers.
-const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V', 'V+', '+', '+12V']
+// `+12V` is the supply terminal on the large analog power amplifiers, and
+// `3V3D` the WIZ850io's digital 3.3 V supply.
+const POWER_PAD_LABELS = ['VIN', '+5V', '5V', 'VCC', 'VDD', 'VS', '3V3', '3V3D', '3V', 'V+', '+', '+12V']
 const GROUND_PAD_LABELS = ['GND', 'G', '0V', '-']
 
 /**
@@ -560,8 +569,21 @@ export function peripheralPowerPadIndex(item: HardwareManifestItem): number | nu
   return padIndexByLabel(item, POWER_PAD_LABELS, 0)
 }
 
+/**
+ * The ground pad its stub is drawn from. A module printing GND more than once
+ * gives the lowest one on its render, because the stub hangs downwards: on the
+ * WIZ850io the first GND is on the top header, where the stub and its label
+ * would sit under the module's own picture.
+ */
 export function peripheralGroundPadIndex(item: HardwareManifestItem) {
-  return padIndexByLabel(item, GROUND_PAD_LABELS, peripheralPadCount(item) - 1)
+  const first = padIndexByLabel(item, GROUND_PAD_LABELS, peripheralPadCount(item) - 1)
+  const measured = MODULE_PAD_GEOMETRY[String(item.facts.partId ?? '')]
+  if (!measured) return first
+  const grounds = peripheralPads(item)
+    .map((label, index) => ({ index, ground: GROUND_PAD_LABELS.includes(padName(label)) }))
+    .filter((pad) => pad.ground && measured[pad.index])
+  return grounds.reduce((lowest, pad) =>
+    measured[pad.index][1] > measured[lowest][1] ? pad.index : lowest, first)
 }
 
 /** Manifest order for SD is CS, SCK, MOSI, MISO; the two module variants put
@@ -695,7 +717,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
   const supply = peripheralPadLabel(item, powerPad).toUpperCase()
-  if (supply === '3V3' || supply === '3V') return 'v3v3'
+  if (supply === '3V3' || supply === '3V3D' || supply === '3V') return 'v3v3'
   if (supply === 'VIN' || supply === '5V' || supply === '+5V') return 'v5'
   return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
 }
@@ -749,6 +771,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-ina219-current-sensor': 7,
   'adafruit-bh1750-light-sensor': 7,
   'max485-rs485-module': 11.9,
+  'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,
   'pcm5102a-i2s-dac': 11.5,
   'dx-0809-stereo-amplifier': 6.1,
@@ -842,6 +865,31 @@ export function peripheralSignalEndPoint(layout: ItemLayout, signalIndex: number
   const divider = receiveDivider(layout)
   if (divider && divider.signalIndex === signalIndex) return divider.junction
   return peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, signalIndex))
+}
+
+/**
+ * How a control wire climbs to a pad that has another pad directly beneath it.
+ *
+ * Wires rise from the lanes below a part straight up to their pad. On a module
+ * with a header along each long edge (the WIZ850io), a pad in the top row sits
+ * over one in the bottom row, so that straight climb runs through the lower
+ * pad and the wire reads as landing there instead. Such a wire climbs half a
+ * pitch to the side, between the lower pads, then jogs across to its own pad
+ * midway between the rows, where the part's picture covers the jog.
+ *
+ * `null` for every pad with nothing below it, which is every single-row part.
+ */
+export function peripheralApproach(layout: ItemLayout, signalIndex: number): { x: number; jogY: number } | null {
+  if (receiveDivider(layout)?.signalIndex === signalIndex) return null
+  const end = peripheralSignalEndPoint(layout, signalIndex)
+  const pads = Array.from({ length: peripheralPadCount(layout.item) }, (_, index) => peripheralPadPoint(layout, index))
+  const below = pads
+    .filter((pad) => Math.abs(pad.x - end.x) < 1.5 && pad.y > end.y + 1.5)
+    .sort((a, b) => a.y - b.y)[0]
+  if (!below) return null
+  const row = pads.filter((pad) => Math.abs(pad.y - below.y) < 1.5 && Math.abs(pad.x - below.x) > 1.5)
+  const pitch = row.length > 0 ? Math.min(...row.map((pad) => Math.abs(pad.x - below.x))) : 10
+  return { x: end.x - (pitch / 2), jogY: (end.y + below.y) / 2 }
 }
 
 export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {

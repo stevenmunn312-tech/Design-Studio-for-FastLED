@@ -1605,6 +1605,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "wiz850io-ethernet-module": {
+    "partId": "wiz850io-ethernet-module",
+    "label": "WIZnet WIZ850io W5500 Ethernet module",
+    "category": "communication",
+    "dimensionsMm": {
+      "width": 27.95,
+      "height": 23.0
+    },
+    "manufacturer": "WIZnet (WIZ850io, W5500)",
+    "logicVoltage": "3.3 V only (2.97-3.63 V); SPI inputs are 5 V tolerant per the W5500 datasheet, but the module must be powered from 3.3 V",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "GND",
+      "MOSI",
+      "SCLK",
+      "SCNn",
+      "INTn",
+      "GND",
+      "3V3D",
+      "3V3D",
+      "NC",
+      "RSTn",
+      "MISO"
+    ],
+    "notes": [
+      "pinLabelsLeftToRight lists J1 from pin 1, then J2 from pin 1; pin 1 is the right-hand end of each row. J1 (top edge) is GND, GND, MOSI, SCLK, SCNn, INTn and J2 (bottom edge) is GND, 3V3D, 3V3D, NC, RSTn, MISO.",
+      "The board prints no pin names; only pin 1 of each header is ringed. The Build Diagram names each pad.",
+      "Power from 3.3 V only. The module draws up to about 141 mA with a 100 Mb/s link, so feed it from the controller's 3.3 V rail only when that regulator has the headroom.",
+      "dimensionsMm is the rendered footprint: the 25 x 23 mm board plus the RJ45 body standing 2.95 mm proud of its right-hand edge.",
+      "The two 1x6 headers ship fitted on the underside at 20.32 mm spacing; they are rendered as unpopulated plated holes."
+    ],
+    "ethernet": {
+      "controller": "W5500",
+      "interface": "SPI",
+      "maxSpiClockMHz": 80,
+      "link": "10/100BASE-TX"
+    },
+    "render": {
+      "file": "parts/wiz850io-ethernet-module.webp",
+      "widthPx": 400,
+      "heightPx": 333,
+      "pxPerMm": 13.596
+    }
+  },
   "ws2812b-matrix-16x16": {
     "partId": "ws2812b-matrix-16x16",
     "label": "WS2812B matrix panel, 16×16",

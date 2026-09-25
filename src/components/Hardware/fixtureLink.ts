@@ -23,6 +23,7 @@ function fixtureBus(nodeType: string, properties: Record<string, unknown>): stri
     // Only drawn when the board's own DAC feeds it; a DAC-fed amp has no run.
     case 'PowerAmplifier': return 'DAC line'
     case 'SDCard': return 'SPI'
+    case 'EthernetModule': return 'SPI'
     case 'InfoDisplay': return oledTransportForProps(properties) === 'i2c' ? 'I2C' : 'SPI'
     case 'TransportDisplay': return tftTransportForProps(properties) === 'parallel' ? '8-bit parallel' : 'SPI'
     // A TM1637's two wires are not I2C (it has no address), so say what it is.

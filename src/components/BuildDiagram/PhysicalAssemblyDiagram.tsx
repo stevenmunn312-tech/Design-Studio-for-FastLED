@@ -48,6 +48,7 @@ import {
   micChannelSelectPadIndex,
   transceiverEnableBridgePads,
   receiveDivider,
+  peripheralApproach,
   peripheralSignalEndPoint,
   DIVIDER_RESISTOR_W,
   DIVIDER_RESISTOR_H,
@@ -671,7 +672,9 @@ function assignControlLanes(
     const own = connections.filter((connection) => connection.itemId === layout.item.id)
     own.forEach((connection, index) => {
       const entry = rows.get(layout.y) ?? []
-      entry.push({ id: connection.id, padX: peripheralSignalEndPoint(layout, index).x, rowTop: layout.y })
+      // Ordered by where the wire climbs, which is not always its pad's x.
+      const climbX = peripheralApproach(layout, index)?.x ?? peripheralSignalEndPoint(layout, index).x
+      entry.push({ id: connection.id, padX: climbX, rowTop: layout.y })
       rows.set(layout.y, entry)
     })
   })
@@ -746,12 +749,17 @@ function routeToControlPad(
   pad: { x: number; y: number },
   laneY: number,
   corridorSlot: number,
+  /** Where to climb instead of the pad's own x; see `peripheralApproach`. */
+  approach: { x: number; jogY: number } | null = null,
 ) {
   // Left-side pins exit past the board edge before dropping; the USB block
   // and the board render both sit between the header and the lanes.
   const corridorX = point.side === 'right'
     ? RIGHT_CONTROLLER_LANE_X + (corridorSlot * CONTROLLER_LANE_SPACING)
     : LEFT_CONTROLLER_LANE_X - (corridorSlot * CONTROLLER_LANE_SPACING)
+  if (approach) {
+    return `M${point.x} ${point.y}H${corridorX}V${laneY}H${approach.x}V${approach.jogY}H${pad.x}V${pad.y}`
+  }
   return `M${point.x} ${point.y}H${corridorX}V${laneY}H${pad.x}V${pad.y}`
 }
 
@@ -1574,7 +1582,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 data-signal-role={presentation.role}
                 data-control-lane={lane.index}
                 data-control-corridor={corridorSlot}
-                d={routeToControlPad(controllerPoint, end, lane.y, corridorSlot)}
+                d={routeToControlPad(controllerPoint, end, lane.y, corridorSlot, peripheralApproach(layout, index))}
                 className={active ? styles.signalWire : styles.dimWire}
                 style={active ? { stroke: presentation.color } : undefined}
               />

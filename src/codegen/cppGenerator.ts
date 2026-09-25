@@ -39,7 +39,9 @@ import {
 } from './segmentDisplayCpp'
 import { clampSegmentBrightness, segmentControllerFor, segmentModeForKind } from '../state/segmentDisplay'
 import { MAX_PIN_NUMBER, NO_PIN } from '../state/boardGpio'
-import { isPaletteBuilderNodeType, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps, nodeDisplayLabel } from '../state/nodeLibrary'
+import { DEFAULT_ETHERNET_PART_ID, ethernetModuleIn } from '../state/ethernetModule'
+import { ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp } from './ethernetCpp'
+import { isPaletteBuilderNodeType, libraryDefaults, NODE_LIBRARY, oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps, nodeDisplayLabel } from '../state/nodeLibrary'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputStatus } from '../state/ledOutputRuntime'
 import {
@@ -1989,7 +1991,10 @@ export function generateCpp(
   const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
   const ntpNodes = sorted.filter((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'NTP')
   const needsNtp = ntpNodes.length > 0
-  const needsWifi = needsArtNet || needsNtp
+  const needsNetwork = needsArtNet || needsNtp
+  // A W5500 on the bench carries the network instead of Wi-Fi. Found in the
+  // whole graph, not `sorted`: a hardware-only part has no ports to sort by.
+  const ethernetNode = needsNetwork ? ethernetModuleIn(nodes) : null
   const networkSource = sorted.find((n) => {
     const p = props(n)
     return (n.data.nodeType === 'DMXInput' && String(p.inputMode ?? 'Art-Net') === 'Art-Net')
@@ -2866,15 +2871,15 @@ export function generateCpp(
           ln(`#endif`)
         } else {
           const port = intProp(p.previewPort, 6454, 1, 65535)
-          globalLines.push(`#if FLS_WIFI_SUPPORTED`)
+          globalLines.push(`#if FLS_NET_SUPPORTED`)
           globalLines.push(`WiFiUDP _artnetUdp_${id};`)
           globalLines.push(`#endif`)
-          setupLines.push(`#if FLS_WIFI_SUPPORTED`)
+          setupLines.push(`#if FLS_NET_SUPPORTED`)
           setupLines.push(`  _artnetUdp_${id}.begin(${port});`)
           setupLines.push(`#endif`)
-          ln(`  _wifiEnsureConnected();`)
-          ln(`#if FLS_WIFI_SUPPORTED`)
-          ln(`  if (_wifiConnected()) {`)
+          ln(`  _netEnsureConnected();`)
+          ln(`#if FLS_NET_SUPPORTED`)
+          ln(`  if (_netConnected()) {`)
           ln(`    int _artPkt_${id} = _artnetUdp_${id}.parsePacket();`)
           ln(`    while (_artPkt_${id} > 0) {`)
           ln(`      uint8_t _artBuf_${id}[530] = {0};`)
@@ -3004,9 +3009,9 @@ export function generateCpp(
         ln(`    ${v('weekend')} = _rtcWeekday_${id} == 0 || _rtcWeekday_${id} == 6;`)
         ln(`  }`)
         if (ntp) {
-          ln(`  _wifiEnsureConnected();`)
-          ln(`#if FLS_WIFI_SUPPORTED`)
-          ln(`  if (_wifiConnected() && !_rtcNtpConfigured_${id}) {`)
+          ln(`  _netEnsureConnected();`)
+          ln(`#if FLS_NET_SUPPORTED`)
+          ln(`  if (_netConnected() && !_rtcNtpConfigured_${id}) {`)
           ln(`    configTime(${timezoneOffsetMinutes * 60}, 0, ${ntpServer});`)
           ln(`    _rtcNtpConfigured_${id} = true;`)
           ln(`  }`)
@@ -3015,8 +3020,8 @@ export function generateCpp(
           ln(`    struct tm _rtcTm_${id};`)
           ln(`    localtime_r(&_rtcEpoch_${id}, &_rtcTm_${id});`)
           ln(`    ${v('valid')} = true;`)
-          ln(`    ${v('synced')} = _wifiConnected();`)
-          ln(`    ${v('stale')} = !_wifiConnected();`)
+          ln(`    ${v('synced')} = _netConnected();`)
+          ln(`    ${v('stale')} = !_netConnected();`)
           ln(`    ${v('hour')} = (float)_rtcTm_${id}.tm_hour;`)
           ln(`    ${v('minute')} = (float)_rtcTm_${id}.tm_min;`)
           ln(`    ${v('second')} = (float)_rtcTm_${id}.tm_sec;`)
@@ -7621,19 +7626,20 @@ export function generateCpp(
     lines.push(TFT_DISPLAY_CPP_INCLUDES)
   }
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_INCLUDE)
-  if (needsWifi) {
+  if (needsNetwork) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <WiFi.h>`)
     lines.push(`#include <WiFiUdp.h>`)
     lines.push(`#include <time.h>`)
-    lines.push(`#define FLS_WIFI_SUPPORTED 1`)
+    if (ethernetNode) lines.push(...ETHERNET_INCLUDES_CPP)
+    lines.push(`#define FLS_NET_SUPPORTED 1`)
     lines.push(`#elif defined(ESP8266)`)
     lines.push(`#include <ESP8266WiFi.h>`)
     lines.push(`#include <WiFiUdp.h>`)
     lines.push(`#include <time.h>`)
-    lines.push(`#define FLS_WIFI_SUPPORTED 1`)
+    lines.push(`#define FLS_NET_SUPPORTED 1`)
     lines.push(`#else`)
-    lines.push(`#define FLS_WIFI_SUPPORTED 0`)
+    lines.push(`#define FLS_NET_SUPPORTED 0`)
     lines.push(`#endif`)
   }
   if (needsDmx512) {
@@ -7912,12 +7918,35 @@ export function generateCpp(
   if (presenceSensors.length > 0) lines.push(...PRESENCE_SENSOR_HELPER_CPP)
   if (digitalLightSensors.length > 0) lines.push(...LIGHT_SENSOR_HELPER_CPP)
 
-  if (needsWifi) {
+  if (needsNetwork && ethernetNode) {
+    const p = props(ethernetNode)
+    const d = libraryDefaults('EthernetModule')
+    const pin = (key: string) => intProp(p[key] ?? d[key], Number(d[key]), 0, MAX_PIN_NUMBER)
+    const staticConfig = !networkCfg.useDhcp && networkCfg.staticIp && networkCfg.staticGateway && networkCfg.staticSubnet
+      ? {
+          ip: ipAddressExpr(networkCfg.staticIp),
+          gateway: ipAddressExpr(networkCfg.staticGateway),
+          subnet: ipAddressExpr(networkCfg.staticSubnet),
+          dns: ipAddressExpr(networkCfg.staticDns),
+        }
+      : null
+    lines.push(...ethernetBootstrapCpp({
+      label: partById(String(p.partId ?? DEFAULT_ETHERNET_PART_ID))?.label ?? 'W5500 Ethernet',
+      sckPin: pin('sckPin'),
+      mosiPin: pin('mosiPin'),
+      misoPin: pin('misoPin'),
+      csPin: pin('csPin'),
+      intPin: pin('intPin'),
+      resetPin: pin('resetPin'),
+      hostname: networkCfg.hostname,
+      staticConfig,
+    }))
+  } else if (needsNetwork) {
     lines.push(`// Shared Wi-Fi bootstrap for Art-Net receive / NTP clock sync.`)
     lines.push(`static bool _wifiInit = false;`)
     lines.push(`static uint32_t _wifiLastAttemptMs = 0;`)
-    lines.push(`void _wifiEnsureConnected() {`)
-    lines.push(`#if FLS_WIFI_SUPPORTED`)
+    lines.push(`void _netEnsureConnected() {`)
+    lines.push(`#if FLS_NET_SUPPORTED`)
     lines.push(`  if (!_wifiInit) {`)
     lines.push(`    WiFi.mode(WIFI_STA);`)
     lines.push(`#if defined(ESP32)`)
@@ -7937,8 +7966,8 @@ export function generateCpp(
     lines.push(`  WiFi.begin(${networkCfg.ssid}, ${networkCfg.password});`)
     lines.push(`#endif`)
     lines.push(`}`)
-    lines.push(`bool _wifiConnected() {`)
-    lines.push(`#if FLS_WIFI_SUPPORTED`)
+    lines.push(`bool _netConnected() {`)
+    lines.push(`#if FLS_NET_SUPPORTED`)
     lines.push(`  return WiFi.status() == WL_CONNECTED;`)
     lines.push(`#else`)
     lines.push(`  return false;`)
@@ -8010,6 +8039,9 @@ export function generateCpp(
   // Must run before any other LVGL call — every custom Display's screen and
   // panel setup below (in setupLines) creates LVGL objects.
   if (customDisplays.length > 0) lines.push(`  lv_init();`)
+  // The wired interface has to exist before an Art-Net socket is opened on it
+  // in setupLines below. Starting it does not wait for a cable or an address.
+  if (needsNetwork && ethernetNode) lines.push(`  _netEnsureConnected();`)
   lines.push(...setupLines)
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingSetupCpp())
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 1))

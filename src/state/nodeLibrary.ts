@@ -3958,6 +3958,33 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       maxVolume: 18,
     },
   },
+  {
+    // Wired Ethernet for the sketch's network. It carries no signal: Art-Net
+    // receive and NTP time sync keep their own settings and simply reach the
+    // network through this module instead of Wi-Fi when it is on the bench.
+    // See state/ethernetModule.ts.
+    //
+    // Config only, like SD Card: no ports, no evaluation, found by scanning.
+    type: 'EthernetModule',
+    label: 'Ethernet',
+    category: 'input',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: 'wiz850io-ethernet-module',
+      // Classic-ESP32 fallbacks; adding the part and every board change hand
+      // out free pins through its pin plan. Not HSPI's customary 12-15: the
+      // module has the host to itself through the GPIO matrix, and GPIO12 and
+      // GPIO15 are strapping pins — MISO held high on GPIO12 at reset selects
+      // the wrong flash voltage. MISO, which only reads, takes input-only 35.
+      sckPin: 25,
+      mosiPin: 26,
+      misoPin: 35,
+      csPin: 32,
+      intPin: 33,
+      resetPin: 27,
+    },
+  },
 
   // ── Notes ──────────────────────────────────────────────────────────────
   {
@@ -4045,6 +4072,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SDCard: 'SD card and audio pins for the music-sync player; a bench part, not wired.',
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
   PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
+  EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches a DC load through an opto-isolated MOSFET from a boolean signal.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
@@ -5034,6 +5062,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Sequencer: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
   },
+  EthernetModule: {
+    sckPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    mosiPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    misoPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    csPin:    { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    intPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    resetPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   SDCard: {
     sdCsPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sdSckPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5473,6 +5509,14 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     startMinute: 'minute',
     startSecond: 'second',
   },
+  EthernetModule: {
+    sckPin: 'SCLK',
+    mosiPin: 'MOSI',
+    misoPin: 'MISO',
+    csPin: 'SCNn',
+    intPin: 'INTn',
+    resetPin: 'RSTn',
+  },
   SDCard: {
     sdCsPin: 'CS',
     sdSckPin: 'SCK',
@@ -5535,7 +5579,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
-  'MidiInput', 'SDCard',
+  'MidiInput', 'SDCard', 'EthernetModule',
 ])
 
 /**
@@ -5801,6 +5845,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   // panel actually shows is `transportDisplayPinKeysForProps`'s answer.
   TransportDisplay: new Set([...Object.values(TFT_TRANSPORT_PINS).flat(), 'backlightPin']),
   SDCard: new Set(['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']),
+  EthernetModule: new Set(['sckPin', 'mosiPin', 'misoPin', 'csPin', 'intPin', 'resetPin']),
   Amplifier: new Set(['i2sBclk', 'i2sLrc', 'i2sDout']),
   MatrixOutput: new Set([
     'dataPin', 'clockPin',
@@ -5853,6 +5898,10 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'SDCard' && key === 'sdMisoPin') {
+    return { capability: 'digitalInput', pullup: false }
+  }
+  // The W5500 drives MISO and INTn; the module holds INTn high itself.
+  if (nodeType === 'EthernetModule' && (key === 'misoPin' || key === 'intPin')) {
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'TransportDisplay'

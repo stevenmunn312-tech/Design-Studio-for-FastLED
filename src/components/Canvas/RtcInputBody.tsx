@@ -3,9 +3,10 @@ import {
   formatRtcDate, formatRtcTime, rtcPreviewSnapshot, rtcTimeSource,
   type RtcPreview,
 } from '../../state/rtc'
-import { useGraphStore } from '../../state/graphStore'
+import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/networkCredentials'
+import { ETHERNET_NODE_TYPE } from '../../state/ethernetModule'
 import { useUploadStore } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
 import { setRtcDateTime } from '../../utils/backendClient'
@@ -55,6 +56,8 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const snapshot = live ?? fallback
   const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
+  // An Ethernet module on the bench carries the network instead of Wi-Fi.
+  const wired = useGraphStore((s) => rootGraphNodes(s).some((node) => node.data.nodeType === ETHERNET_NODE_TYPE))
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const helperReady = useUploadStore((s) => s.helper?.ok === true)
   const uploadBusy = useUploadStore((s) => s.busy)
@@ -137,7 +140,10 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
           </div>
         </>
       )}
-      {String(timeSource ?? 'Compile Time') === 'NTP' && (
+      {String(timeSource ?? 'Compile Time') === 'NTP' && wired && (
+        <div className={styles.note}>Firmware reaches the network through the Ethernet module on the bench, so no Wi-Fi credentials are needed.</div>
+      )}
+      {String(timeSource ?? 'Compile Time') === 'NTP' && !wired && (
         <>
           <div className={styles.field}>
             <label className={styles.fieldLabel} htmlFor={`${nodeId}-rtc-ssid`}>Wi-Fi SSID</label>

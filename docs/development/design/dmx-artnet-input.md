@@ -120,10 +120,12 @@ The rest of the network config stays on the node: `wifiHostname`, `useDhcp`, and
 `useDhcp` is off), all gated by `isPropertyEnabled` so DMX512 mode doesn't show
 Wi-Fi fields and vice versa.
 
-**One sketch, one Wi-Fi connection.** `_wifiEnsureConnected()` is emitted once
-and shared by every Art-Net `DMXInput` and every NTP `RTCInput`; the first
+**One sketch, one network connection.** `_netEnsureConnected()` is emitted
+once and shared by every Art-Net `DMXInput` and every NTP `RTCInput`; the first
 node's settings win. `validateGraph` warns when network-enabled nodes disagree
-rather than silently picking one.
+rather than silently picking one. The connection is Wi-Fi unless an Ethernet
+module is on the bench, in which case it is the cable and no Wi-Fi credentials
+are asked for; see [wired Ethernet](wired-ethernet.md).
 
 ## The transceiver
 

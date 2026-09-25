@@ -132,6 +132,11 @@ error. The breakout's level shifter pulls the controller side of SDA/SCL up to
 VIN, so the Build Diagram powers VIN from 3V3. Normal, slideshow and player
 generators all emit it; the latter two through `controlInputCpp`.
 
+`EthernetModule` is a hardware-only part with no ports: a WIZnet WIZ850io
+(W5500) that carries Art-Net and NTP over a cable instead of Wi-Fi. It claims
+SCLK, MOSI, MISO, SCNn, INTn and RSTn from the general pool, on its own SPI host
+where the chip has a second one. See [wired Ethernet](wired-ethernet.md).
+
 Deleting a hardware-managed signal node on the canvas removes its signal edges
 but retains the part. Removing it through the workbench deletes the root-graph
 record completely. This keeps a canvas edit from silently claiming a physical

@@ -8,7 +8,7 @@ import {
 } from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { isLedOutputPassThrough, ledOutputManualRuntime } from '../state/ledOutputRuntime'
-import { PALETTE_BUILDER_NODE_TYPES } from '../state/nodeLibrary'
+import { PALETTE_BUILDER_NODE_TYPES, tftTransportForProps } from '../state/nodeLibrary'
 import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../state/signalRange'
 import { paletteBankEntries } from '../state/paletteBank'
 import type { SignalRangeMismatch } from '../state/signalRange'
@@ -80,6 +80,8 @@ import {
 } from '../state/irRemote'
 import { STEP_VALUE_DEFAULTS } from '../state/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/presenceSensor'
+import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHost } from '../state/ethernetModule'
+import { targetFamilyFromFqbn } from '../build/buildProfile'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/lightSensor'
@@ -223,7 +225,7 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
     }
     if (source === 'NTP') {
       if (!String(props.ntpServer ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
-      if (!getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
+      if (!ethernetModuleIn(nodes) && !getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
     }
     return []
   })
@@ -243,16 +245,15 @@ function isIpv4(value: unknown): boolean {
 
 function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
   const warnings: string[] = []
-  const networkUsers = nodes.filter((node) => {
-    const props = node.data.properties as Record<string, unknown>
-    return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
-      || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
-  })
-  if (networkUsers.length === 0) return warnings
+  const users = networkUsers(nodes)
+  if (users.length === 0) return warnings
+  // With a cable there are no Wi-Fi credentials to supply or to disagree on;
+  // the addressing settings still apply to the wired interface.
+  const wired = ethernetModuleIn(nodes) !== null
 
-  const signatures = new Set(networkUsers.map((node) => {
+  const signatures = new Set(users.map((node) => {
     const props = node.data.properties as Record<string, unknown>
-    const credentials = getNetworkCredentials(node.id)
+    const credentials = wired ? { ssid: '', password: '' } : getNetworkCredentials(node.id)
     return JSON.stringify({
       wifiSsid: credentials.ssid.trim(),
       wifiPassword: credentials.password,
@@ -265,13 +266,15 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
     })
   }))
   if (signatures.size > 1) {
-    warnings.push('Network-enabled DMX / RTC nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
+    warnings.push(wired
+      ? 'Network-enabled DMX / RTC nodes disagree on network settings — generated firmware shares one Ethernet connection'
+      : 'Network-enabled DMX / RTC nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
   }
 
-  for (const node of networkUsers) {
+  for (const node of users) {
     const props = node.data.properties as Record<string, unknown>
     const label = String(node.data.label ?? node.data.nodeType)
-    if (!getNetworkCredentials(node.id).ssid.trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
+    if (!wired && !getNetworkCredentials(node.id).ssid.trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
     if (props.useDhcp === false) {
       if (!isIpv4(props.staticIp)) warnings.push(`${label} has an invalid static IP address`)
       if (!isIpv4(props.staticGateway)) warnings.push(`${label} has an invalid gateway address`)
@@ -1371,7 +1374,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
     const props = node.data.properties as Record<string, unknown>
     return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
       || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
-  }) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
+  }) && !ethernetModuleIn(nodes) && !selectedFqbn.startsWith('esp32:') && !selectedFqbn.startsWith('esp8266:')) {
     errors.push('Art-Net and NTP time sync require a Wi-Fi-capable ESP32-family board or ESP8266')
   }
   /*
@@ -1502,6 +1505,7 @@ export function findDeployBlockingErrors(
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
+    ...findEthernetErrors(nodes, selectedFqbn),
     ...findI2cBusErrors(nodes),
     ...findStepValueErrors(nodes),
     ...findAudioChainErrors(nodes),
@@ -1693,6 +1697,87 @@ function irRemoteValidationIssues(
     }
   }
   return issues
+}
+
+/** Nodes that need the sketch's network: Art-Net receive and NTP time sync. */
+function networkUsers(nodes: StudioNode[]): StudioNode[] {
+  return nodes.filter((node) => {
+    const props = node.data.properties as Record<string, unknown>
+    return (node.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
+      || (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') === 'NTP')
+  })
+}
+
+/**
+ * Wired Ethernet, judged as one walk for the deploy gate and Graph Health.
+ *
+ * The module is only ever read by the network bootstrap, so a bench with one
+ * and nothing using the network is a warning rather than an error: the build
+ * is correct, it just carries a part that does nothing. See
+ * state/ethernetModule.ts for the SPI-host rule behind the panel check.
+ */
+function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const modules = nodes.filter((node) => node.data.nodeType === ETHERNET_NODE_TYPE)
+  if (modules.length === 0) return []
+  const issues: GraphDiagnostic[] = []
+  const module = modules[0]
+  if (modules.length > 1) {
+    issues.push({
+      id: 'ethernet-count', severity: 'error', category: 'connection',
+      title: 'Only one Ethernet module can be used',
+      message: `${modules.length} Ethernet modules are on the bench, but the generated sketch brings up one network interface.`,
+      fix: 'Keep one Ethernet module in the Hardware workbench and remove the others.',
+      nodeIds: modules.map((node) => node.id), nodeLabel: 'Ethernet modules',
+    })
+  }
+  if (networkUsers(nodes).length === 0) {
+    issues.push({
+      id: `${module.id}-ethernet-unused`, severity: 'warning', category: 'board',
+      title: 'Nothing uses the Ethernet module',
+      message: 'The Ethernet module carries Art-Net receive and NTP time sync. With neither in the graph, the sketch does not start it.',
+      fix: 'Add a DMX Input in Art-Net mode or an RTC Clock synced by NTP, or remove the Ethernet module.',
+      nodeIds: [module.id], nodeLabel: nodeLabel(module),
+    })
+    return issues
+  }
+  const host = selectedFqbn ? ethernetSpiHost(targetFamilyFromFqbn(selectedFqbn)) : 'dedicated'
+  if (host === null) {
+    issues.push({
+      id: `${module.id}-board-ethernet`, severity: 'error', category: 'board',
+      title: 'Wired Ethernet is incompatible with the selected board',
+      message: `The Ethernet module is driven by the ESP32 core's W5500 support, which ${selectedFqbn} does not provide.`,
+      fix: 'Choose an ESP32, ESP32-S2, S3, C3 or C6 board in Board & Port, or remove the Ethernet module to use Wi-Fi.',
+      nodeIds: [module.id], nodeLabel: nodeLabel(module), action: 'choose-board',
+    })
+  }
+  if (host === 'shared') {
+    const eth = module.data.properties as Record<string, unknown>
+    for (const panel of nodes.filter((node) => node.data.nodeType === 'TransportDisplay'
+      && tftTransportForProps(node.data.properties as Record<string, unknown>) !== 'parallel')) {
+      const props = panel.data.properties as Record<string, unknown>
+      if (Number(props.sckPin) === Number(eth.sckPin) && Number(props.mosiPin) === Number(eth.mosiPin)) continue
+      issues.push({
+        id: `${module.id}-${panel.id}-ethernet-spi`, severity: 'error', category: 'pins',
+        title: 'The Ethernet module and the display panel need the same SPI bus',
+        message: `This chip has one SPI host, so the Ethernet module and ${nodeLabel(panel)} share it, and the bus keeps the pins it was first started on. Their SCLK and MOSI pins differ.`,
+        fix: "Give the Ethernet module the panel's SCK and MOSI pins (each keeps its own chip select), or choose a board with a second SPI host.",
+        nodeIds: [module.id, panel.id], nodeLabel: nodeLabel(module),
+      })
+    }
+  }
+  return issues
+}
+
+export function findEthernetErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return ethernetValidationIssues(nodes, selectedFqbn)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
+}
+
+function findEthernetWarnings(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return ethernetValidationIssues(nodes, selectedFqbn)
+    .filter((issue) => issue.severity === 'warning')
+    .map(validationIssueMessage)
 }
 
 function presenceSensorValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
@@ -2962,6 +3047,7 @@ export function buildGraphDiagnostics(
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))
@@ -3393,7 +3479,8 @@ export function buildGraphDiagnostics(
     }
   }
 
-  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:') && !options.selectedFqbn.startsWith('esp8266:')) {
+  if (options.selectedFqbn && !ethernetModuleIn(nodes)
+    && !options.selectedFqbn.startsWith('esp32:') && !options.selectedFqbn.startsWith('esp8266:')) {
     for (const node of nodes.filter((entry) => {
       const props = entry.data.properties as Record<string, unknown>
       return (entry.data.nodeType === 'DMXInput' && String(props.inputMode ?? 'Art-Net') === 'Art-Net')
@@ -3687,6 +3774,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findNetworkConfigWarnings(nodes))
+  warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)

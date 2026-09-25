@@ -32,7 +32,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.
-  'Amplifier', 'PowerAmplifier', 'SDCard',
+  'Amplifier', 'PowerAmplifier', 'SDCard', 'EthernetModule',
 ])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {

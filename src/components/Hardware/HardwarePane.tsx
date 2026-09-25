@@ -339,6 +339,30 @@ const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     singleton: true,
   },
   {
+    // Wired Ethernet for Art-Net and NTP. Carries no signal, like the SD card:
+    // it changes how the sketch reaches the network, not what any node outputs.
+    nodeType: 'EthernetModule',
+    partId: 'ethernet',
+    label: 'Ethernet',
+    hint: 'Wired network for Art-Net and NTP, in place of Wi-Fi',
+    footprint: partDimensionsMm('wiz850io-ethernet-module', { width: 27.95, height: 23 }),
+    render: partRenderSrc('wiz850io-ethernet-module') ?? undefined,
+    pinFields: [
+      { key: 'sckPin', label: 'SCLK' },
+      { key: 'mosiPin', label: 'MOSI' },
+      { key: 'misoPin', label: 'MISO' },
+      { key: 'csPin', label: 'SCNn' },
+      { key: 'intPin', label: 'INTn' },
+      { key: 'resetPin', label: 'RSTn' },
+    ],
+    pinRequests: [
+      { key: 'sckPin' }, { key: 'mosiPin' }, { key: 'misoPin', capability: 'digitalInput' },
+      { key: 'csPin' }, { key: 'intPin', capability: 'digitalInput' }, { key: 'resetPin' },
+    ],
+    // The generated sketch brings up one network interface.
+    singleton: true,
+  },
+  {
     // The analog end of the output chain. No pin fields: fed by a DAC it has
     // no GPIO, and fed by the classic ESP32's own DAC its two pins are fixed.
     nodeType: 'PowerAmplifier',
@@ -1805,6 +1829,7 @@ export default function HardwarePane() {
   const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
   const relayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'RelayOutput')
   const powerSwitchFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSwitchOutput')
+  const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
       ? 'One stereo VU meter per board'
@@ -1852,6 +1877,12 @@ export default function HardwarePane() {
       label: 'Storage',
       hint: 'Where a music-synced show lives',
       items: moduleItems('SDCard', sdCardFixture),
+    },
+    {
+      id: 'network',
+      label: 'Network',
+      hint: 'A wired link for Art-Net and NTP',
+      items: moduleItems('EthernetModule', ethernetFixture),
     },
     {
       id: 'amplifiers',

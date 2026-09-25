@@ -1280,6 +1280,25 @@ export const DMX_INPUT_LIVE_EXAMPLE = namedExample(
   'Without live Art-Net the Brightness node preview is black. Send universe 0, channel 1 to fade Pacifica smoothly from black to full brightness.',
 )
 
+export const ETHERNET_LIVE_EXAMPLE = namedExample(
+  'EthernetModule',
+  'Receive Art-Net over a cable',
+  [
+    { key: 'ethernet', type: 'EthernetModule' },
+    { key: 'dmx', type: 'DMXInput', properties: { inputMode: 'Art-Net', universe: 0, previewPort: 6454 } },
+    { key: 'channel', type: 'DMXChannel', properties: { channel: 1, activeThreshold: 1 } },
+    { key: 'base', type: 'Pacifica', properties: { palette: 'ocean' } },
+    { key: 'brightness', type: 'BrightnessMod' },
+  ],
+  [
+    { source: 'dmx', sourceHandle: 'dmx', target: 'channel', targetHandle: 'dmx' },
+    { source: 'base', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
+    { source: 'channel', sourceHandle: 'value', target: 'brightness', targetHandle: 'brightness' },
+  ],
+  'Ethernet carries no noodles: with the W5500 module on the bench, the flashed sketch reaches the lighting network over its RJ45 cable instead of Wi-Fi. The DMX / Art-Net node is unchanged, and its universe still drives Brightness Mod through DMX Channel.',
+  'The preview is the same as the DMX / Art-Net example, because the browser listens through the helper whatever the board uses. Send universe 0, channel 1 to fade Pacifica from black to full brightness.',
+)
+
 export const FFT_ANALYZER_LIVE_EXAMPLE = MICROPHONE_LIVE_EXAMPLE
 
 export const BEAT_DETECT_LIVE_EXAMPLE = namedExample(
@@ -1611,6 +1630,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   EncoderInput: ENCODER_LIVE_EXAMPLE,
   MidiInput: MIDI_LIVE_EXAMPLE,
   DMXInput: DMX_INPUT_LIVE_EXAMPLE,
+  EthernetModule: ETHERNET_LIVE_EXAMPLE,
   FFTAnalyzer: FFT_ANALYZER_LIVE_EXAMPLE,
   BeatDetect: BEAT_DETECT_LIVE_EXAMPLE,
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,

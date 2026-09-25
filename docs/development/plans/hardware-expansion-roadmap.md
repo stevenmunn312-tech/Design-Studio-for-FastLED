@@ -107,7 +107,11 @@ compile families:
    generated for normal/show/player paths. All five
    [compile fixtures pass](../light-sensor-compile-checks.md); the bench run
    remains open, so it stays experimental.
-6. W5500 wired networking.
+6. W5500 wired networking. The WIZnet WIZ850io (`EthernetModule`) is now
+   modelled from WIZnet's board file, catalogued, drawn and generated for the
+   normal sketch, where it carries Art-Net and NTP instead of Wi-Fi. It is
+   experimental: the compile and the bench run are still open. See
+   [wired Ethernet](../design/wired-ethernet.md).
 7. A differential pixel-data pair and long-cable validation.
 8. Buck conversion and protected high-side switching in the Build Diagram
    power model.
