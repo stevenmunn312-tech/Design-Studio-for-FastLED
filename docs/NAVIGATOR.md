@@ -198,6 +198,9 @@ build/architecture overview aimed at contributors.
     — every accommodation the upload helper makes for the fbuild build engine,
     with symptoms, code references, and version-verification status; written to
     double as an upstream bug report.
+  - [App review baseline, 2026-09-24](development/reports/app-review-2026-09-24-baseline.md)
+    — repeatable usability scenarios at 1920×1080 and 1366×768, with before and
+    after captures for the working-space items of the app review checklist.
 
 ## Reference
 
