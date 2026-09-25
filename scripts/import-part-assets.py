@@ -5,6 +5,18 @@ The sibling of `import-board-assets.py`, for everything that is not a board:
 microphones, amplifiers, storage modules, LED outputs, support parts.
 
     python scripts/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts"
+    python scripts/import-part-assets.py --check "<asset-root>"   # report only
+
+## Renders are written only when they change
+
+WebP encoding here is deterministic: the same PNG always yields the same bytes.
+So a render that shows up as modified after an import means its *source PNG
+changed* in the asset workspace, not that the importer churned it. That
+happened once already: a through-hole drilling pass re-rendered ten parts, the
+renders were never imported, and the next import's diff looked like noise and
+was reverted. The importer therefore writes a WebP only when its bytes differ,
+names every render it updated at the end, and `--check` lists stale renders
+without writing anything.
 
 Reads each `<asset-root>/<part-id>/part.json`, converts the raw Cycles PNG to
 WebP under `public/parts/`, and emits a generated TypeScript module.
@@ -23,6 +35,7 @@ Importing the measurements removes the opportunity to guess.
 """
 from __future__ import annotations
 
+import io
 import json
 import sys
 from pathlib import Path
@@ -33,6 +46,10 @@ except ImportError:
     sys.exit("Pillow is required: pip install Pillow")
 
 REPO = Path(__file__).resolve().parent.parent
+
+# Renders whose WebP differed from the source; filled by convert_render.
+UPDATED_RENDERS: list[str] = []
+CHECK_ONLY = False
 OUT_TS = REPO / "src" / "build" / "generated" / "partCatalogueData.ts"
 OUT_RENDERS = REPO / "public" / "parts"
 
@@ -69,8 +86,14 @@ def convert_render(part_id: str, part_dir: Path, render: dict) -> dict | None:
     OUT_RENDERS.mkdir(parents=True, exist_ok=True)
     dest = OUT_RENDERS / f"{part_id}.webp"
     with Image.open(source) as img:
-        img.save(dest, "WEBP", quality=WEBP_QUALITY, method=6)
+        encoded = io.BytesIO()
+        img.save(encoded, "WEBP", quality=WEBP_QUALITY, method=6)
         width, height = img.width, img.height
+    data = encoded.getvalue()
+    if not dest.exists() or dest.read_bytes() != data:
+        UPDATED_RENDERS.append(part_id)
+        if not CHECK_ONLY:
+            dest.write_bytes(data)
 
     out = {"file": f"parts/{part_id}.webp", "widthPx": width, "heightPx": height}
     # Recorded rather than recomputed: the asset states the density it actually
@@ -280,9 +303,14 @@ def read_part(part_dir: Path) -> dict | None:
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        sys.exit(f"usage: {Path(sys.argv[0]).name} <asset-root>")
-    root = Path(sys.argv[1])
+    global CHECK_ONLY
+    args = sys.argv[1:]
+    if "--check" in args:
+        CHECK_ONLY = True
+        args.remove("--check")
+    if len(args) < 1:
+        sys.exit(f"usage: {Path(sys.argv[0]).name} [--check] <asset-root>")
+    root = Path(args[0])
     if not root.is_dir():
         sys.exit(f"not a directory: {root}")
 
@@ -296,6 +324,15 @@ def main() -> int:
 
     if not entries:
         sys.exit("no parts found")
+
+    if CHECK_ONLY:
+        if UPDATED_RENDERS:
+            print(f"\n{len(UPDATED_RENDERS)} render(s) differ from their source PNG:")
+            for part_id in UPDATED_RENDERS:
+                print(f"  ~ {part_id}")
+            return 1
+        print("\nEvery render matches its source PNG.")
+        return 0
 
     body = ",\n".join(
         f"  {json.dumps(e['partId'])}: " + json.dumps(e, indent=2, ensure_ascii=False)
@@ -319,6 +356,13 @@ def main() -> int:
     )
     print(f"\nWrote {len(entries)} parts to {OUT_TS.relative_to(REPO)}")
     print(f"Renders in {OUT_RENDERS.relative_to(REPO)}")
+    if UPDATED_RENDERS:
+        # Each of these is a changed source PNG, never re-encoding noise.
+        print(f"\nUpdated {len(UPDATED_RENDERS)} render(s) from changed source PNGs:")
+        for part_id in UPDATED_RENDERS:
+            print(f"  ~ {part_id}")
+    else:
+        print("No render changed.")
     return 0
 
 
