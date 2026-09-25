@@ -143,6 +143,10 @@
   text-overflow: ellipsis;
   padding-bottom: 2px;
   letter-spacing: 0.03em;
+  /* In the deploy column (a flex column that scrolls) `overflow: hidden`
+     resolves this item's minimum height to zero, and it was squeezed to a
+     2px rule — the Upload tab showed no capacity reading at all. */
+  flex: 0 0 auto;
 }
 /* The capacity line is the button that runs the check (see capacityStore: it
  * compiles for real, so it never runs on its own). It keeps the line's quiet
