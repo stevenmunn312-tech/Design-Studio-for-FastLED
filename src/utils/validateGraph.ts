@@ -1579,6 +1579,14 @@ export interface GraphDiagnostic {
    *  and selects the first node, so conflicts are as easy to trace as one-node
    *  property errors. */
   nodeIds: string[]
+  /** The wires at fault, when the problem is a connection rather than a
+   *  node. Locating a card with these frames and lights the wires themselves,
+   *  so a problem on one cable is not hunted for across every node it
+   *  touches. */
+  edgeIds?: string[]
+  /** The screen design a card is about, so it can open that screen in the
+   *  designer rather than framing the nodes around it. */
+  screenDesignId?: string
   nodeLabel?: string
   propertyKey?: string
   action?: GraphDiagnosticAction
@@ -3204,6 +3212,7 @@ export function buildGraphDiagnostics(
       // Map Range, place it, splice it and type four numbers that the
       // diagnostic had already worked out.
       action: 'insert-map-range',
+      edgeIds: [issue.edgeId],
       repair: {
         kind: 'signal-range',
         edgeId: issue.edgeId,
@@ -3711,6 +3720,7 @@ export function buildGraphDiagnostics(
         : plan.unrouted[0]?.reason ?? 'Wire this screen’s Display input to the player or slideshow it controls.',
       nodeIds: [panelId, waiting[0].touchNodeId],
       nodeLabel: waiting[0].panelLabel,
+      screenDesignId: waiting[0].displayId,
       ...(canConnect ? {
         action: 'connect-template-controls' as const,
         repair: { kind: 'connect-template-controls' as const, panelId },
@@ -3730,6 +3740,7 @@ export function buildGraphDiagnostics(
       fix: 'Place it on the screen — from here, or by dragging it out of the designer’s Connected group.',
       nodeIds: [issue.panelId, issue.touchNodeId],
       nodeLabel: issue.panelLabel,
+      screenDesignId: issue.displayId,
       action: 'place-touch-control',
       repair: { kind: 'place-touch-control', displayId: issue.displayId, widgetId: issue.widgetId },
     } : {
@@ -3743,6 +3754,7 @@ export function buildGraphDiagnostics(
         + 'the widget from the screen design.',
       nodeIds: [issue.touchNodeId, issue.panelId],
       nodeLabel: issue.panelLabel,
+      screenDesignId: issue.displayId,
     })
   }
 
@@ -3760,6 +3772,41 @@ export function buildGraphDiagnostics(
   }
   const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges, options.displayDocuments)
   const displayNodeIds = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)).map((node) => node.id)
+  /*
+   * Where a firmware message is actually pointing.
+   *
+   * Both walks name the node first ("LED Matrix: …", "Display Panel: …"), so
+   * the card can go to that node and the wires the walk objects to, instead of
+   * framing every display or every LED output on the canvas.
+   */
+  const namedNode = (message: string, candidates: StudioNode[]) => candidates.find((node) =>
+    [nodeLabel(node), String(node.data.label ?? ''), node.id]
+      .some((name) => name && message.startsWith(`${name}:`)))
+  const displayTarget = (message: string) => {
+    const panel = namedNode(message, nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)))
+    if (!panel) return {}
+    const touch = nodes.find((node) => node.data.nodeType === 'TouchInput'
+      && String(node.data.properties.panelId ?? '') === panel.id)
+    const wires = edges.filter((edge) => edge.target === panel.id || (touch && edge.source === touch.id))
+    const designId = panel.data.nodeType === 'TransportDisplay' ? shownDesignId(panel.data.properties) : ''
+    return {
+      nodeIds: [panel.id, ...(touch ? [touch.id] : [])],
+      nodeLabel: nodeLabel(panel),
+      ...(wires.length ? { edgeIds: wires.map((edge) => edge.id) } : {}),
+      ...(designId ? { screenDesignId: designId } : {}),
+    }
+  }
+  const RUNTIME_INPUTS = new Set(['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown'])
+  const outputTarget = (message: string) => {
+    const output = namedNode(message, nodes.filter((node) => node.data.nodeType === 'MatrixOutput'))
+    if (!output) return {}
+    const wires = edges.filter((edge) => edge.target === output.id && RUNTIME_INPUTS.has(String(edge.targetHandle)))
+    return {
+      nodeIds: [output.id, ...new Set(wires.map((edge) => edge.source))],
+      nodeLabel: nodeLabel(output),
+      ...(wires.length ? { edgeIds: wires.map((edge) => edge.id) } : {}),
+    }
+  }
   liveDisplayIssues.errors.forEach((message, index) => diagnostics.push({
     id: `display-generator-error-${index}`,
     severity: 'error',
@@ -3770,6 +3817,7 @@ export function buildGraphDiagnostics(
     nodeLabel: displayNodeIds.length === 1
       ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
       : 'Displays',
+    ...displayTarget(message),
   }))
   liveDisplayIssues.warnings.forEach((message, index) => diagnostics.push({
     id: `display-generator-warning-${index}`,
@@ -3781,6 +3829,7 @@ export function buildGraphDiagnostics(
     nodeLabel: displayNodeIds.length === 1
       ? nodeLabel(nodes.find((node) => node.id === displayNodeIds[0])!)
       : 'Displays',
+    ...displayTarget(message),
   }))
 
   // Output-control failures must be visible before deploy too, including a
@@ -3792,6 +3841,7 @@ export function buildGraphDiagnostics(
     ...problemAndRepair(message, 'Change the wiring it names, then try again.'),
     nodeIds: nodes.filter((node) => ['MatrixOutput', 'ControlMap', 'MasterSpeed'].includes(node.data.nodeType)).map((node) => node.id),
     nodeLabel: 'Output controls',
+    ...outputTarget(message),
   }))
 
   const perfGen = generator

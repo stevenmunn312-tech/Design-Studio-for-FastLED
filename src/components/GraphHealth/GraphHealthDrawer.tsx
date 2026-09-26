@@ -87,8 +87,19 @@ export default function GraphHealthDrawer() {
     focusNode(issue.nodeIds[0])
     // The drawer is open in Hardware and Upload too, where the canvas is not
     // on screen — locating has to bring it back before framing anything.
+    if (issue.edgeIds?.length) {
+      // A connection problem: frame the wires' ends and light the wires.
+      useUiStore.getState().revealGraphEdges(issue.edgeIds, issue.nodeIds)
+      setStatus(issue.edgeIds.length === 1 ? 'Showing the wire' : `Showing ${issue.edgeIds.length} wires`, 'info')
+      return
+    }
     revealGraphNodes(issue.nodeIds)
     setStatus(`Located ${issue.nodeLabel ?? 'graph issue'}`, 'info')
+  }
+
+  const openScreen = (displayId: string) => {
+    useUiStore.getState().openDisplayWorkspace(displayId)
+    setStatus('Screen design opened', 'info')
   }
 
   const runAction = (issue: GraphDiagnostic) => {
@@ -235,7 +246,14 @@ export default function GraphHealthDrawer() {
                 <div className={styles.issueActions}>
                   {issue.nodeIds.length > 0 && (
                     <button type="button" onClick={() => locate(issue)}>
-                      {issue.nodeIds.length > 1 ? `Locate ${issue.nodeIds.length} nodes` : 'Locate node'}
+                      {issue.edgeIds?.length
+                        ? issue.edgeIds.length > 1 ? `Show ${issue.edgeIds.length} wires` : 'Show the wire'
+                        : issue.nodeIds.length > 1 ? `Locate ${issue.nodeIds.length} nodes` : 'Locate node'}
+                    </button>
+                  )}
+                  {issue.screenDesignId && (
+                    <button type="button" onClick={() => openScreen(issue.screenDesignId!)}>
+                      Open screen design
                     </button>
                   )}
                   {issue.action && <button type="button" onClick={() => runAction(issue)}>{actionLabel(issue.action)}</button>}

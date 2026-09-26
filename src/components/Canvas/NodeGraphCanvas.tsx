@@ -264,6 +264,8 @@ function NodeGraphCanvasInner() {
     uiEffectsEnabled,
     openTemplates,
     lastStartChoice,
+    locatedEdgeIds,
+    clearLocatedEdges,
   } = useUiStore(useShallow((s) => ({
     setStatus: s.setStatus,
     setSparkPort: s.setSparkPort,
@@ -281,6 +283,8 @@ function NodeGraphCanvasInner() {
     uiEffectsEnabled: s.uiEffectsEnabled,
     openTemplates: s.openTemplates,
     lastStartChoice: s.lastStartChoice,
+    locatedEdgeIds: s.locatedEdgeIds,
+    clearLocatedEdges: s.clearLocatedEdges,
   })))
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = sidebarOpen ? sidebarWidth ?? DEFAULT_SIDEBAR_W : 0
@@ -799,8 +803,11 @@ function NodeGraphCanvasInner() {
   )
 
   const onNodeClick: NodeMouseHandler = useCallback(
-    (_e, node) => selectNode(node.id),
-    [selectNode]
+    (_e, node) => {
+      clearLocatedEdges()
+      selectNode(node.id)
+    },
+    [clearLocatedEdges, selectNode]
   )
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
@@ -876,10 +883,11 @@ function NodeGraphCanvasInner() {
     // browser fires a trailing pane `click` right after (connectionInProgress is
     // already cleared by then), which would instantly close it. Ignore that one.
     if (Date.now() - menuOpenedAt.current < 350) return
+    clearLocatedEdges()
     selectNode(null)
     setContextMenu(null)
     setCanvasMenu(null)
-  }, [selectNode])
+  }, [clearLocatedEdges, selectNode])
 
   const onMiniMapClick = useCallback((_: React.MouseEvent, position: { x: number; y: number }) => {
     void setCenter(position.x, position.y, {
@@ -1185,8 +1193,14 @@ function NodeGraphCanvasInner() {
     }]
   })), [nodes])
   const displayEdges = useMemo(() => {
+    // A located wire outranks the selection's focus: it is the one thing the
+    // user just asked to see.
+    const located = new Set(locatedEdgeIds)
+    const locating = edges.some((edge) => located.has(edge.id))
     return edges.map((edge) => {
-      const focusState = selectedNodeId
+      const focusState = locating
+        ? located.has(edge.id) ? 'active' : 'dim'
+        : selectedNodeId
         ? focusedNodes.has(edge.source) && focusedNodes.has(edge.target) ? 'active' : 'dim'
         : undefined
       const source = accessibleNodeInfo.get(edge.source)
@@ -1220,7 +1234,7 @@ function NodeGraphCanvasInner() {
         },
       }
     })
-  }, [accessibleNodeInfo, canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, selectedNodeId, spliceEdgeId])
+  }, [accessibleNodeInfo, canvasDragNodeId, connectionPulse, draggingNodeType, edges, focusedNodes, locatedEdgeIds, selectedNodeId, spliceEdgeId])
 
   return (
     <div

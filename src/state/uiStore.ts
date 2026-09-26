@@ -325,6 +325,9 @@ interface UiState {
   controllerHintDismissed: boolean
   /** Monotonic fit-view request consumed by the canvas. */
   fitViewRequest: { nonce: number; nodeIds?: string[] }
+  /** Wires a Graph Health card pointed at. The canvas lights these and dims
+   *  the rest until the next click on the canvas clears it. */
+  locatedEdgeIds: string[]
   /**
    * "That one" — a node asked to announce itself, after the view has moved to
    * it. Carries a nonce so clicking the same part twice flashes twice; without
@@ -414,6 +417,9 @@ interface UiState {
    *  Hardware and Upload workspaces and under the display editor, so a bare
    *  fit request there moves a view nobody is looking at. */
   revealGraphNodes: (nodeIds?: string[]) => void
+  /** Bring the canvas forward, frame the wires' ends, and light the wires. */
+  revealGraphEdges: (edgeIds: string[], nodeIds: string[]) => void
+  clearLocatedEdges: () => void
   /** Ask a node to announce itself once the view has moved to it. */
   flashNode: (nodeId: string) => void
   setTheme: (theme: AppTheme) => void
@@ -570,6 +576,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   hardwareInspectorNodeId: null,
   controllerHintDismissed: false,
   fitViewRequest: { nonce: 0 },
+  locatedEdgeIds: [],
   nodeFlash: { nodeId: null, nonce: 0 },
   theme: load<AppTheme>(THEME_KEY, 'dark'),
   reducedMotion: load<boolean>(MOTION_KEY, false),
@@ -765,6 +772,13 @@ export const useUiStore = create<UiState>((set, get) => ({
     requestAnimationFrame(() => requestAnimationFrame(() => {
       get().requestFitView(nodeIds)
     }))
+  },
+  revealGraphEdges: (edgeIds, nodeIds) => {
+    set({ locatedEdgeIds: edgeIds })
+    get().revealGraphNodes(nodeIds)
+  },
+  clearLocatedEdges: () => {
+    if (get().locatedEdgeIds.length > 0) set({ locatedEdgeIds: [] })
   },
   flashNode: (nodeId) => {
     // Clears itself, the way setStatus does — otherwise a node that unmounts
