@@ -411,6 +411,11 @@ Unless a future row says otherwise, treat the following as experimental:
   on the colour TFT, any touch interaction, the custom `Display` (LVGL) node,
   and every display module/board combination not listed in the table above
   remain unvalidated on real hardware.
+- **The NLED Pixel Data Extender data link.** Choosing it on an LED output
+  only changes the Build Diagram, parts list and exports (TX/RX pair, twisted
+  A/B/ground run). The firmware sends the same one-wire signal either way. No
+  long-run bench pass has been recorded, so the manufacturer's 1000 ft
+  (304.8 m) figure is a datasheet number here, not a validated one.
 - **DMX / Art-Net input, in every mode.** No hardware pass has been recorded
   for either transport. Two separate runs are needed before any part of this
   graduates:

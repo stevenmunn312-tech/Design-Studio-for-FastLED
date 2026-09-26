@@ -295,6 +295,26 @@ Every output renders in its own shape in the graph and workbench. Clicking a
 workbench output also selects the route shown in the side preview. Multi-output
 firmware remains one synchronized sketch for one board.
 
+### Long data runs
+
+An LED output's **data link** property says how its one-wire pixel signal
+reaches the LEDs. **Direct** is ordinary short wiring. **NLED Pixel Data
+Extender** puts a matched transmitter/receiver pair on the route
+(`nled-pixel-data-extender-pair`, `src/state/pixelDataExtender.ts`). It is a
+physical fact only. The generated firmware is identical either way, so the
+evaluator and generators need nothing. The manifest records the pair on the
+output (`dataLinkPartId`). From that, the Build Diagram draws TX and RX below
+the fixture, and the connection and BOM exports route the conditioned data
+through TX, the twisted A/B/ground run and RX, then into DIN. The distance and
+conductor facts come from the imported part's `pixelDataExtender` block, not
+from constants.
+
+The pair carries one asynchronous line. A clocked chipset or a HUB75 ribbon
+cannot use it, so `findPixelDataExtenderErrors` blocks deploy and Graph Health
+explains it. Clocked and HUB75 outputs normally disable the field. It stays
+editable while it names the extender, so a chipset change that made the choice
+invalid can be undone from the field itself.
+
 ## Hardware part identity and rendering
 
 Exact part options drive the label, pin roles, notes, thumbnail, and workbench
