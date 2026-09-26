@@ -45,6 +45,7 @@ import {
   lightSensorTransport,
 } from '../state/lightSensor'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
+import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
 import {
   DIRECT_PIXEL_DATA_LINK,
   NLED_PIXEL_DATA_EXTENDER_PART_ID,
@@ -92,7 +93,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -134,6 +135,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PowerSwitchOutput',
   'DMXInput',
   'EthernetModule',
+  'PowerConverter',
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
@@ -661,6 +663,24 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       case 'IRRemoteInput':
         return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
+      // On the power path, not the signal path: no pins. Its role and ratings
+      // are the catalogue's, so the plan reads them from the part id.
+      case 'PowerConverter': {
+        const props = node.data.properties as Record<string, unknown>
+        const module = powerConverterModuleFor(props.partId)
+        const sourceVoltage = Number(props.sourceVoltage ?? DEFAULT_SOURCE_VOLTAGE)
+        return {
+          ...buildPeripheralItem(node, 'power-converter', `${sourceVoltage} V to ${module?.spec.outputSetV ?? 5} V buck converter`, pins),
+          title: module?.label ?? nodeLabel(node),
+          supported: Boolean(module),
+          facts: {
+            partId: module?.partId ?? String(props.partId ?? ''),
+            role: module?.spec.role ?? 'controller',
+            sourceVoltage,
+          },
+          reasons: module ? undefined : ['This converter part is not in the catalogue.'],
+        }
+      }
       case 'EthernetModule': {
         const partId = String((node.data.properties as Record<string, unknown>).partId ?? DEFAULT_ETHERNET_PART_ID)
         const entry = partById(partId)

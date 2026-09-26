@@ -1,9 +1,9 @@
 import { useRef } from 'react'
-import type { ElectricalPlanSummary, OutputElectricalPlan } from '../../build/electricalPlan'
+import type { ControllerSupplyPlan, ElectricalPlanSummary, OutputElectricalPlan } from '../../build/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
-import { partRenderSrc, sharedPadsAcrossBoards } from '../../state/partCatalogue'
+import { partById, partRenderSrc, sharedPadsAcrossBoards } from '../../state/partCatalogue'
 import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.webp'
 import buttonModuleRender from '../../assets/components/button-module.webp'
 import potentiometerModuleRender from '../../assets/components/potentiometer-module.webp'
@@ -324,6 +324,85 @@ const CONTROLLER_RENDERS: Record<string, ControllerRender> = Object.fromEntries(
     }]
   })
 )
+
+/**
+ * Wire-pad centres of each controller converter, in millimetres from its
+ * render's top-left board corner: the same drawing figures its Blender model
+ * was built from, so the stubs land on the drilled pads.
+ */
+const CONVERTER_PAD_MM: Record<string, Record<'IN+' | 'IN-' | 'OUT+' | 'OUT-', [number, number]>> = {
+  'lm2596-buck-module': { 'IN+': [1.84, 1.97], 'IN-': [1.84, 19.11], 'OUT+': [41.34, 1.97], 'OUT-': [41.34, 19.11] },
+}
+
+/** Sheet width of the converter where the USB power block would otherwise sit. */
+const CONVERTER_SHEET_WIDTH = 184
+
+/**
+ * The buck converter that powers the controller, drawn under the board in the
+ * USB block's place. It joins the board by symbol, not by a wire across it:
+ * OUT+ and the board's 5 V input pin carry the same CTRL 5V label, the way
+ * the shared rails already meet elsewhere on the sheet.
+ */
+function ControllerConverterGraphic({ supply, boardProfile, x, y }: {
+  supply: ControllerSupplyPlan
+  boardProfile: PhysicalBoardProfile
+  x: number
+  y: number
+}) {
+  const entry = partById(supply.partId)
+  const render = entry?.render
+  const padsMm = CONVERTER_PAD_MM[supply.partId]
+  if (!entry || !render?.pxPerMm || !padsMm) return null
+  const pxPerMm = render.pxPerMm
+  const scale = CONVERTER_SHEET_WIDTH / render.widthPx
+  const height = render.heightPx * scale
+  const marginPx = (render.widthPx - (entry.dimensionsMm.width * pxPerMm)) / 2
+  const pad = (name: keyof typeof padsMm) => ({
+    x: x + ((marginPx + (padsMm[name][0] * pxPerMm)) * scale),
+    y: y + ((marginPx + (padsMm[name][1] * pxPerMm)) * scale),
+  })
+  const controllerPin = controllerRender(boardProfile) && supply.powerInAnchorId
+    ? renderTerminalPoint(controllerRender(boardProfile)!, supply.powerInAnchorId)
+    : undefined
+  const fuse = supply.inputFuse.ratingMa ? formatAmps(supply.inputFuse.ratingMa) : 'RATED'
+  return (
+    <g data-controller-converter={supply.partId} data-source-voltage={supply.sourceVoltage}>
+      <image
+        data-component-render={supply.partId}
+        href={partRenderSrc(supply.partId) ?? undefined}
+        x={x}
+        y={y}
+        width={CONVERTER_SHEET_WIDTH}
+        height={height}
+        preserveAspectRatio="xMidYMid meet"
+        className={styles.physicalBoardRender}
+        filter="url(#component-shadow)"
+      />
+      <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 44} textAnchor="middle" className={styles.physicalComponentLabel}>
+        {`${supply.sourceVoltage} V → ${supply.outputVoltage} V BUCK`}
+      </text>
+      {supply.adjustable && (
+        <text data-converter-set-output x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 59} textAnchor="middle" className={styles.physicalMetaLabel}>
+          {`SET ${supply.outputVoltage.toFixed(1)} V BEFORE CONNECTING`}
+        </text>
+      )}
+      <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 73} textAnchor="middle" className={styles.physicalMetaLabel}>
+        {`${fuse} INPUT FUSE AT THE SOURCE`}
+      </text>
+      <NetStub x={pad('IN+').x} y={pad('IN+').y} kind="v12" direction="up" lead={14} wireId="controller-converter-input-positive" label={`+${supply.sourceVoltage}V SRC`} />
+      <NetStub x={pad('IN-').x} y={pad('IN-').y} kind="gnd" direction="down" lead={12} wireId="controller-converter-input-ground" />
+      <NetStub x={pad('OUT+').x} y={pad('OUT+').y} kind="v5" direction="up" lead={14} wireId="controller-converter-output" label="CTRL 5V" />
+      <NetStub x={pad('OUT-').x} y={pad('OUT-').y} kind="gnd" direction="down" lead={12} wireId="controller-converter-output-ground" />
+      {controllerPin && (
+        <g data-terminal="controller-power-in">
+          <circle cx={controllerPin.x} cy={controllerPin.y} r="5" fill="#d84938" stroke="#f0a093" strokeWidth="2" />
+          <title>{`${supply.powerInPinLabel ?? '5 V input'} · fed by the ${supply.label}`}</title>
+          <NetStub x={controllerPin.x} y={controllerPin.y} kind="v5" direction={controllerPin.side === 'left' ? 'left' : 'right'} lead={18} wireId="controller-power-in" label="CTRL 5V" />
+        </g>
+      )}
+    </g>
+  )
+}
 
 function controllerRender(boardProfile: PhysicalBoardProfile): ControllerRender | undefined {
   return CONTROLLER_RENDERS[boardProfile.id]
@@ -1498,12 +1577,16 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
-  const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output')
+  const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output' && layout.item.kind !== 'power-converter')
   const outputConnections = connections.filter((connection) => outputLayouts.some((layout) => layout.item.id === connection.itemId))
   const controllerConnections = [...outputConnections, ...connections.filter((connection) => !outputConnections.includes(connection))]
   const controller3v3 = controllerPowerPoint('3v3', boardProfile)
   const controllerGround = controllerPowerPoint('ground', boardProfile)
   const controllerUsb = controllerPowerPoint('usb', boardProfile)
+  // Drawn only on a sheet that shows the converter itself.
+  const controllerSupply = plan.controllerSupply && items.some((item) => item.id === plan.controllerSupply?.itemId)
+    ? plan.controllerSupply
+    : undefined
   const powerSectionY = powerSectionStartY(items, layers)
   const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
   const usesThreeVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
@@ -1850,7 +1933,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       )}
       {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}
 
-      <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
+      {controllerSupply ? (
+        <ControllerConverterGraphic supply={controllerSupply} boardProfile={boardProfile} x={controllerUsb.x - 92} y={592} />
+      ) : <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />
         {/* Deliberately does not name the connector type. Board renders are
@@ -1860,7 +1945,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         <text x="18" y="27" className={styles.physicalComponentLabel}>USB power</text>
         <text x="18" y="46" className={styles.physicalMetaLabel}>controller only</text>
         <HoverWire tip="USB power · controller only" data-wire="controller-usb-power" d={`M92 0V${controllerUsb.y - 592}`} className={styles.logicPowerWire} />
-      </g>
+      </g>}
 
       <g role="button" tabIndex={0} aria-label={`Select ${boardLabel}`} onClick={() => onSelectItem('controller')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onSelectItem('controller') }} className={styles.physicalClickable}>
         {/* A sheet without signal runs shows no signal pins either, so the

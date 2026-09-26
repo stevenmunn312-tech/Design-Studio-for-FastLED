@@ -688,6 +688,29 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText('LED Matrix 1: 5 A running limit · LED Matrix 2: 5 A running limit · hardware is still sized for full white')).toBeTruthy()
   })
 
+  it('draws a buck converter in the controller power slot and joins it to the board by symbol', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(),
+        { id: 'buck', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Buck', nodeType: 'PowerConverter', category: 'input', properties: { partId: 'lm2596-buck-module', sourceVoltage: 24 }, inputs: [], outputs: [] } },
+      ] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const converter = diagram?.querySelector('[data-controller-converter="lm2596-buck-module"]')
+    expect(converter?.getAttribute('data-source-voltage')).toBe('24')
+    expect(diagram?.querySelector('[data-wire="controller-usb-power"]')).toBeNull()
+    expect(converter?.textContent).toContain('24 V → 5 V BUCK')
+    expect(converter?.querySelector('[data-converter-set-output]')?.textContent).toBe('SET 5.0 V BEFORE CONNECTING')
+    // The converter's output and the board's 5 V pin carry the same net label.
+    const ctrl = Array.from(diagram?.querySelectorAll('[data-net-stub="v5"]') ?? []).filter((stub) => stub.textContent === 'CTRL 5V')
+    expect(ctrl.map((stub) => stub.getAttribute('data-net-stub-for')).sort()).toEqual(['controller-converter-output', 'controller-power-in'])
+    // It is not also drawn as a peripheral row.
+    expect(diagram?.querySelectorAll('[data-component-render="lm2596-buck-module"]')).toHaveLength(1)
+  })
+
   it('generates complete recommended wiring for supported controls from the graph', () => {
     useGraphStore.setState({
       nodes: [

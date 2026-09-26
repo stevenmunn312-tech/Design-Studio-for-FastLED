@@ -2,6 +2,7 @@ import type { PhysicalBoardProfile } from './boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { HardwareManifest } from './hardwareManifest'
 import {
+  DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
   ELECTRICAL_RULESET_VERSION,
   recommendConductor,
   recommendFuse,
@@ -9,6 +10,7 @@ import {
   type ConductorRecommendation,
   type FuseRecommendation,
 } from './electricalRules'
+import { powerConverterModuleFor, ratedInputCurrentMa, sourceVoltageIssue } from '../state/powerConverter'
 import {
   DEFAULT_SUPPLY_HEADROOM_PERCENT,
   recommendedSupplyCurrentMa,
@@ -128,11 +130,34 @@ export interface ElectricalPlanSummary {
   outputs: OutputElectricalPlan[]
   totals?: ElectricalPlanTotals
   controllerPowerPath?: string
+  controllerSupply?: ControllerSupplyPlan
   branchChecks: OwnedBranchCheck[]
   recommendations: string[]
   unresolved: string[]
   assumptionsUsed: string[]
   ruleSetVersion: string
+}
+
+/**
+ * A converter feeding the controller from a 12/24 V source, in place of USB.
+ * Its source-side fuse and wire are sized for the converter's full rated
+ * output rather than an estimated load, so a 5 V module added to the
+ * controller later cannot outgrow them.
+ */
+export interface ControllerSupplyPlan {
+  itemId: string
+  partId: string
+  label: string
+  sourceVoltage: number
+  outputVoltage: number
+  continuousCurrentMa: number
+  adjustable: boolean
+  /** The board pin its output lands on (5V, 5VIN or VIN, as the board prints it). */
+  powerInPinLabel?: string
+  powerInAnchorId?: string
+  inputCurrentMa: number
+  inputConductor?: ConductorRecommendation
+  inputFuse: FuseRecommendation
 }
 
 export interface OwnedBranchCheck {
@@ -278,6 +303,92 @@ function planTrunk(designCurrentMa: number, nominalVoltage: number): SupplyTrunk
   return { designCurrentMa, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, conductor, mainFuse }
 }
 
+function planControllerSupply(
+  manifest: HardwareManifest,
+  exactBoard: PhysicalBoardProfile | undefined,
+  blockers: ElectricalPlanIssue[],
+): ControllerSupplyPlan | undefined {
+  const converters = manifest.primaryItems.filter((item) =>
+    item.kind === 'power-converter' && item.facts.role === 'controller')
+  if (converters.length === 0) return undefined
+  if (converters.length > 1) {
+    blockers.push({
+      id: 'controller-converter-count',
+      severity: 'blocking',
+      title: 'Controller power',
+      detail: `${converters.length} converters are set to power the controller. A board takes one supply on its 5 V input; remove the extra ones.`,
+    })
+  }
+  const item = converters[0]
+  const module = powerConverterModuleFor(item.facts.partId)
+  if (!module) return undefined
+  const { spec } = module
+  const sourceVoltage = Number(item.facts.sourceVoltage)
+  const sourceIssue = sourceVoltageIssue(spec, sourceVoltage)
+  if (sourceIssue) {
+    blockers.push({ id: `${item.id}:source-voltage`, severity: 'blocking', title: module.label, detail: sourceIssue })
+  }
+  const powerIn = exactBoard?.pins?.find((pin) => pin.role === 'power-in')
+  if (exactBoard && !powerIn) {
+    blockers.push({
+      id: `${item.id}:no-power-input`,
+      severity: 'blocking',
+      title: module.label,
+      detail: `${exactBoard.label} has no 5 V input pin in its profile, so there is nowhere safe to land the converter's output. Power the controller over USB instead.`,
+    })
+  }
+  if (exactBoard?.confidence === 'pinout-verified') {
+    blockers.push({
+      id: `${item.id}:board-power-path`,
+      severity: 'blocking',
+      title: exactBoard.label,
+      detail: "This profile's pinout is verified but its onboard power path is not, so feeding its 5 V pin from a converter is unconfirmed. Power it over USB instead, or choose a board whose power path is verified.",
+    })
+  }
+  const inputCurrentMa = Number.isFinite(sourceVoltage) && sourceVoltage > 0
+    ? ratedInputCurrentMa(spec, sourceVoltage)
+    : 0
+  const inputConductor = inputCurrentMa > 0
+    ? recommendConductor({
+        designCurrentMa: standardFuseRatingFor(inputCurrentMa) ?? Math.ceil(inputCurrentMa / 0.75),
+        oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
+        circuitVoltage: sourceVoltage,
+        allowedVoltageDropPercent: DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
+        material: 'copper',
+        ambientC: 30,
+        bundledCircuits: 1,
+      })
+    : undefined
+  const inputFuse = inputConductor
+    ? recommendFuse(inputCurrentMa, inputConductor.deratedAmpacityMa, inputConductor.deratedAmpacityMa)
+    : { minimumLoadRatingMa: Math.ceil(inputCurrentMa / 0.75), maximumProtectiveRatingMa: 0, unresolvedReason: 'Set a valid source voltage to size the input fuse.' }
+  return {
+    itemId: item.id,
+    partId: module.partId,
+    label: module.label,
+    sourceVoltage,
+    outputVoltage: spec.outputSetV,
+    continuousCurrentMa: spec.continuousCurrentMa,
+    adjustable: spec.adjustable,
+    powerInPinLabel: powerIn?.label,
+    powerInAnchorId: powerIn?.anchorId,
+    inputCurrentMa,
+    inputConductor,
+    inputFuse,
+  }
+}
+
+function controllerSupplyRecommendations(supply: ControllerSupplyPlan): string[] {
+  return [
+    ...(supply.adjustable
+      ? [`Set the ${supply.label} to ${supply.outputVoltage} V with a meter before it is connected to the controller: it ships at an arbitrary output.`]
+      : []),
+    `Keep the controller and every 5 V module on its pin under the converter's ${formatRuleCurrent(supply.continuousCurrentMa)} continuous rating.`,
+    `Fuse the converter's input at the ${supply.sourceVoltage} V source${supply.inputFuse.ratingMa ? ` (${formatRuleCurrent(supply.inputFuse.ratingMa)})` : ''}; its negative joins the common ground.`,
+    "Do not plug in USB while the converter powers the board unless the board's documentation says its 5 V pin is diode-isolated from USB; two supplies on one rail can back-feed the computer.",
+  ]
+}
+
 export function calculateElectricalPlan(
   manifest: HardwareManifest,
   _buildProfile: BuildProfile,
@@ -393,6 +504,8 @@ export function calculateElectricalPlan(
     })()
     : undefined
 
+  const controllerSupply = planControllerSupply(manifest, exactBoard, blockers)
+
   const unresolved = outputPlans.flatMap((output) => [
     ...output.injections.flatMap((injection) => [
       injection.conductor ? undefined : `${output.title} ${injection.role} feed: no reviewed conductor size meets the generated branch load.`,
@@ -416,7 +529,10 @@ export function calculateElectricalPlan(
       : 'generated plan contains an unsupported electrical route'
 
   const recommendations = [
-    'Power the controller through its USB-C connector; do not route LED load through the controller board.',
+    controllerSupply
+      ? `Power the controller from the ${controllerSupply.label} into its ${controllerSupply.powerInPinLabel ?? '5 V input'} pin; do not route LED load through the controller board.`
+      : 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
+    ...(controllerSupply ? controllerSupplyRecommendations(controllerSupply) : []),
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',
     'Use one 74AHCT125 channel and one 330 ohm series resistor for each WS2812B data route.',
     'Install one good-quality, correctly polarized 1000 uF, 6.3 V low-ESR electrolytic capacitor across +5 V and GND after every branch fuse, before the matrix feed or power-injection connection.',
@@ -451,7 +567,7 @@ export function calculateElectricalPlan(
     'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
   ]
 
-  if (exactBoard?.confidence === 'pinout-verified') {
+  if (exactBoard?.confidence === 'pinout-verified' && !controllerSupply) {
     warnings.push({
       id: 'board-power-confidence',
       severity: 'warning',
@@ -469,7 +585,12 @@ export function calculateElectricalPlan(
     warnings,
     outputs: outputPlans,
     totals,
-    controllerPowerPath: exactBoard ? 'USB-C power (controller only)' : undefined,
+    controllerPowerPath: !exactBoard
+      ? undefined
+      : controllerSupply
+        ? `${controllerSupply.label}, ${controllerSupply.sourceVoltage} V to ${controllerSupply.outputVoltage} V, into the board's ${controllerSupply.powerInPinLabel ?? '5 V input'} pin`
+        : 'USB-C power (controller only)',
+    controllerSupply,
     branchChecks: [],
     recommendations,
     unresolved,

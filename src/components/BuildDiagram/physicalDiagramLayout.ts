@@ -1018,7 +1018,8 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
    * a second routing scheme, so the module joins the row and inherits the
    * lanes, corridors and descending net stubs that scheme already solves.
    */
-  const peripherals = items.filter((item) => item.kind !== 'matrix-output')
+  // A controller converter sits in the controller's power slot, not a row.
+  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'power-converter')
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
     const baseHeight = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT

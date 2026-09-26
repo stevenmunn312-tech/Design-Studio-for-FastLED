@@ -53,7 +53,19 @@ export function buildConnectionRows(
     .find((injection) => injection.supplyId)?.supplyId ?? 'supply-1'
   const logicDistribution = `5 V PSU ${logicSupplyId.replace('supply-', '')} fuse-block distribution`
 
-  rows.push({ from: 'USB-C power source', fromTerminal: 'USB-C', to: controller, toTerminal: 'USB-C power', purpose: 'Controller power only' })
+  const supply = plan.controllerSupply
+  if (supply && items.some((item) => item.id === supply.itemId)) {
+    const source = `${supply.sourceVoltage} V DC source`
+    const fuse = `${supply.label} ${supply.inputFuse.ratingMa ? formatAmps(supply.inputFuse.ratingMa) : 'rated'} input fuse`
+    const wire = supply.inputConductor ? `AWG ${supply.inputConductor.awg} copper` : 'rated copper'
+    rows.push({ from: source, fromTerminal: '+', to: fuse, toTerminal: 'Input', purpose: `Converter input positive, fused at the source; ${wire}` })
+    rows.push({ from: fuse, fromTerminal: 'Output', to: supply.label, toTerminal: 'IN+', purpose: `Converter input positive; ${wire}` })
+    rows.push({ from: source, fromTerminal: '-', to: supply.label, toTerminal: 'IN-', purpose: `Converter input negative; ${wire}` })
+    rows.push({ from: supply.label, fromTerminal: 'OUT+', to: controller, toTerminal: supply.powerInPinLabel ?? '5 V input', purpose: `Controller power at ${supply.outputVoltage} V; set the converter's output before connecting` })
+    rows.push({ from: supply.label, fromTerminal: 'OUT-', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Converter negative; joins the controller and LED grounds' })
+  } else {
+    rows.push({ from: 'USB-C power source', fromTerminal: 'USB-C', to: controller, toTerminal: 'USB-C power', purpose: 'Controller power only' })
+  }
 
   for (const item of nonOutputs) {
     for (const pin of item.pins) {
@@ -203,6 +215,25 @@ export function buildBomRows(
       ? `; configured FastLED current limit ${formatAmps(outputPlan.operatingCurrentCapMa)}; uncapped full-white ceiling ${formatAmps(outputPlan.designCurrentMa)}`
       : ''
     rows.push({ quantity: '1', item: item.title, specification: `${item.subtitle}${limit}`, status: 'configured' })
+  }
+  const supply = plan.controllerSupply
+  if (supply && items.some((item) => item.id === supply.itemId)) {
+    rows.push({
+      quantity: '1',
+      item: `${supply.label} input fuse and inline holder`,
+      specification: supply.inputFuse.ratingMa
+        ? `${formatAmps(supply.inputFuse.ratingMa)} DC-rated blade or glass fuse at the ${supply.sourceVoltage} V source; carries the converter's full rated input of ${formatAmps(supply.inputCurrentMa)} at 75% loading`
+        : supply.inputFuse.unresolvedReason ?? 'Unresolved input fuse rating',
+      status: supply.inputFuse.ratingMa ? 'calculated' : 'unresolved',
+    })
+    rows.push({
+      quantity: '2 runs',
+      item: `${supply.label} input conductors (+ and -)`,
+      specification: supply.inputConductor
+        ? `AWG ${supply.inputConductor.awg} / ${supply.inputConductor.crossSectionMm2} mm2 ${supply.inputConductor.material} minimum from the ${supply.sourceVoltage} V source`
+        : 'Unresolved input conductor size',
+      status: supply.inputConductor ? 'calculated' : 'unresolved',
+    })
   }
   const outputs = plan.outputs.filter((output) => items.some((item) => item.id === output.itemId))
   if (outputs.length > 0) {

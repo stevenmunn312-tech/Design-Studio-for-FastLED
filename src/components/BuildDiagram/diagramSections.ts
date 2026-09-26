@@ -71,8 +71,8 @@ export const BUILD_SECTIONS: BuildSection[] = [
   {
     id: 'power',
     label: 'Power',
-    summary: 'PSU zones, fixed fuse blocks, and a fused capacitor stage for every LED power feed.',
-    kinds: ['matrix-output'],
+    summary: 'PSU zones, fixed fuse blocks, a fused capacitor stage for every LED power feed, and any converter powering the controller.',
+    kinds: ['matrix-output', 'power-converter'],
     layers: { signalWires: false, levelShifter: false, powerDistribution: true },
   },
 ]
