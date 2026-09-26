@@ -4,6 +4,8 @@ and re-saving under a new name must not orphan the old file."""
 import json
 from types import SimpleNamespace
 
+import pytest
+
 import app
 
 
@@ -48,6 +50,25 @@ def test_sanitize_filename_caps_length():
 def test_sanitize_filename_never_returns_empty():
     assert app._sanitize_filename("") == "pattern"
     assert app._sanitize_filename("///...") == "pattern"
+
+
+@pytest.mark.parametrize("name", [
+    "CON", "con", "PRN", "AUX", "NUL", "COM1", "COM9", "LPT1", "LPT9",
+])
+def test_sanitize_filename_suffixes_windows_device_names(name):
+    assert app._sanitize_filename(name) == f"{name}_"
+
+
+def test_sanitize_filename_suffixes_a_device_name_before_its_extension():
+    # `CON.json` is still the CON device. The stem has to change before the
+    # caller appends `.json` or `.fastled-project.json`.
+    assert app._sanitize_filename("CON.txt") == "CON_.txt"
+
+
+def test_sanitize_filename_leaves_names_that_only_resemble_devices():
+    assert app._sanitize_filename("Console") == "Console"
+    assert app._sanitize_filename("COM10") == "COM10"
+    assert app._sanitize_filename("My AUX Show") == "My AUX Show"
 
 
 def test_save_pattern_lands_inside_patterns_dir(client, tmp_path, monkeypatch):
