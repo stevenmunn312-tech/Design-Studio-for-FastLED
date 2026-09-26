@@ -59,7 +59,7 @@ The portable package is designed to include the Studio, local upload helper, `fb
 
 ### Run from source
 
-Install [Node.js](https://nodejs.org) LTS, then:
+Install the current [Node.js](https://nodejs.org) LTS — 20.19+, 22.13+, or 24+ (Node 21 and 23 are not supported) — then:
 
 ```bash
 git clone https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED.git

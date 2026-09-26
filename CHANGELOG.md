@@ -15,6 +15,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Launching from source now requires Node.js 20.19+, 22.13+, or 24+. The
+  launchers used to accept Node 18, then Vitest 4 and jsdom 29 failed on first
+  run without saying to upgrade. `package.json` records the same range, and
+  Node 21 and 23 are not supported.
+
 - Inter and JetBrains Mono ship with the app. A launch no longer asks Google
   Fonts for them, and an offline install keeps those faces instead of dropping
   back to the system font. Audiowide was already a local file; it is now in the

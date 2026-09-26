@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.7.0",
   "license": "MIT",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "node --disable-warning=DEP0040 ./node_modules/vite/bin/vite.js --host 127.0.0.1",

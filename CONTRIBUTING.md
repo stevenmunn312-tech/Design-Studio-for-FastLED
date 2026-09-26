@@ -92,8 +92,8 @@ that license and preserve attribution. See
 
 ## Development setup
 
-1. Install [Node.js](https://nodejs.org) LTS (and Python 3 for the upload
-   helper).
+1. Install [Node.js](https://nodejs.org) 20.19+ (22.13+ or 24+ also work; 21
+   and 23 do not) and Python 3 for the upload helper.
 2. `npm install`
 3. `npm run dev` — the app is at `http://localhost:5173`; the dev server
    auto-launches the Python helper on port 8008 when available.

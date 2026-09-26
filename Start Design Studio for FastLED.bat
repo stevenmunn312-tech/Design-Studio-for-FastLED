@@ -19,10 +19,21 @@ if errorlevel 1 (
   exit /b 1
 )
 set "NODEMAJOR=0"
-for /f "delims=v." %%i in ('node --version') do set "NODEMAJOR=%%i"
-if %NODEMAJOR% LSS 18 (
+set "NODEMINOR=0"
+for /f "tokens=1,2 delims=v." %%a in ('node --version') do (
+  set "NODEMAJOR=%%a"
+  set "NODEMINOR=%%b"
+)
+rem Same range as package.json "engines": 20.19+, 22.13+, or 24+.
+set "NODEOK="
+if %NODEMAJOR% GEQ 24 set "NODEOK=1"
+if %NODEMAJOR% EQU 22 if %NODEMINOR% GEQ 13 set "NODEOK=1"
+if %NODEMAJOR% EQU 20 if %NODEMINOR% GEQ 19 set "NODEOK=1"
+if not defined NODEOK (
   echo.
-  echo !! Node.js 18 or newer is required. Update at https://nodejs.org,
+  echo !! Node.js 20.19+, 22.13+, or 24+ is required. You have:
+  node --version
+  echo    Node 21 and 23 are not supported. Update at https://nodejs.org,
   echo    then run this file again.
   pause
   exit /b 1

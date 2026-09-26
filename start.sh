@@ -24,9 +24,18 @@ fail() {
 command -v node >/dev/null 2>&1 \
   || fail 'Node.js is not installed. Download the LTS installer from https://nodejs.org, install it, then run this again.'
 
-NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
-[ "$NODE_MAJOR" -ge 18 ] \
-  || fail "Node.js 18 or newer is required (you have $(node --version)). Update at https://nodejs.org, then run this again."
+# Same range as package.json "engines". Vitest 4 allows ^20 || ^22 || >=24;
+# jsdom 29 needs ^20.19 || ^22.13 || >=24. Anything else dies on first test.
+NODE_VER=$(node -p 'const p=process.versions.node.split("."); `${p[0]} ${p[1]}`' 2>/dev/null || echo '0 0')
+NODE_MAJOR=${NODE_VER%% *}
+NODE_MINOR=${NODE_VER##* }
+if [ "$NODE_MAJOR" -ge 24 ] \
+  || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -ge 13 ]; } \
+  || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -ge 19 ]; }; then
+  :
+else
+  fail "Node.js 20.19+, 22.13+, or 24+ is required (you have $(node --version)). Node 21 and 23 are not supported. Update at https://nodejs.org, then run this again."
+fi
 
 # ---- App dependencies (first run only) ------------------------------------
 if [ ! -d node_modules ]; then
