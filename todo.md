@@ -18,8 +18,6 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 - **A new part starts with its Blender model.** Modelling from datasheet
   dimensions is the first step of implementing a part, not a precondition
   waiting on someone else.
-- **Firmware compiles are run one at a time on request**, and the result is
-  recorded before the next is started.
 - Contracts live in design notes, evidence in reports and support rows. Remove
   an entry once its outcome is recorded, and route details through
   [docs/NAVIGATOR.md](docs/NAVIGATOR.md).
@@ -147,10 +145,11 @@ in the app and marked experimental; nothing here holds up development.
 
 ## 4. Explicitly deferred, not release blockers
 
-- [ ] **D-01 · Broader control graph.** Time-dependent/nested-group evaluation,
-  structured colour/pattern/status bindings in template builds, wired slideshow
-  Master Speed. Performance Generator Display output needs a real playback
-  reading. Preserve the music player's track-position clock.
+- [ ] **D-01 · Broader control graph.** Time-dependent/nested-group evaluation
+  and structured colour/pattern/status bindings in template builds. Wired
+  slideshow Master Speed and the Performance Generator's real playback
+  Display reading are complete. Preserve the music player's track-position
+  clock.
 - [ ] **D-02 · Larger UI scope.** Shared-document panel interaction, multiple
   screens/navigation, containers/overlap/free drawing, charts/histories/marquees,
   XY/Launch Pads, Choice/Step controls, Colour Picker/Arc Gauge, text entry,
@@ -196,7 +195,7 @@ in the app and marked experimental; nothing here holds up development.
   fixtures pass, and its bench row is in section 3. The NLED Pixel Data
   Extender (roadmap step 7) is an LED output's **data link** option, modelled
   and drawn on the Build Diagram. It adds no firmware, so no compile is owed;
-  its bench row is in section 3. Roadmap step 8 is under way
+  its bench row is in section 3. Roadmap step 8 is complete in software
   ([plan](docs/development/plans/power-conversion-and-protection.md)): each
   supply now has a main fuse and trunk; the LM2596 controller buck and Mean
   Well SD-100A/B-5 LED rail converters (`PowerConverter`) are modelled, sized,

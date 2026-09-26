@@ -2344,12 +2344,11 @@ export function selectedGenerator(nodes: StudioNode[], edges: StudioEdge[]): Sel
  * so refusing here is the correct behaviour rather than a missing feature. A
  * show controller has separate wall and animation clocks, so its own Master
  * Speed slider is safe: dwell and transitions continue on elapsed seconds.
- * Its fixed template still cannot evaluate an arbitrary graph wired into the
- * speed input, and refusing that wire is better than silently baking the
- * slider value instead.
+ * Its fixed template evaluates the same bounded scalar-control graph used by
+ * display widgets and output controls, so a supported wire into Speed is live.
  */
 function masterSpeedGeneratorErrors(
-  nodes: StudioNode[], edges: StudioEdge[], generator: SelectedGenerator,
+  nodes: StudioNode[], generator: SelectedGenerator,
 ): string[] {
   const knobs = nodes.filter((node) => node.data.nodeType === 'MasterSpeed')
   if (knobs.length === 0 || generator === 'sketch') return []
@@ -2357,10 +2356,7 @@ function masterSpeedGeneratorErrors(
   if (generator === 'player') {
     return [`${names}: a music-player build animates on the track's own position, so scaling time would slide the LEDs off the music. Remove it, or drive the patterns from a normal sketch.`]
   }
-  const wired = knobs.filter((node) => edges.some((edge) =>
-    edge.target === node.id && (edge.targetHandle ?? '') === 'speed'))
-  if (wired.length === 0) return []
-  return [`${wired.map((node) => nodeLabel(node)).join(', ')}: a generated show controller can use Master Speed's own slider, but cannot evaluate a wire feeding Speed. Remove that wire and set the slider before exporting the show.`]
+  return []
 }
 
 export function findOutputRuntimeIssues(
@@ -2372,7 +2368,7 @@ export function findOutputRuntimeIssues(
   const generator = build.mode
   if (generator === 'sketch') return { errors: [] }
 
-  const speedErrors = masterSpeedGeneratorErrors(nodes, edges, generator)
+  const speedErrors = masterSpeedGeneratorErrors(nodes, generator)
   const templateControls = generator === 'show'
     ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
     : generator === 'player'

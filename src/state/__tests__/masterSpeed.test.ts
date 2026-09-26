@@ -201,14 +201,27 @@ describe('builds whose clock is not the sketch\'s own', () => {
     expect(findOutputRuntimeIssues(showNodes, showEdges).errors).toEqual([])
   })
 
-  it('still refuses a wired show speed that the fixed controller cannot evaluate', () => {
+  it('accepts a supported wired show speed', () => {
     const pot = node('p', 'PotInput', { pin: 4 })
     const { errors } = findOutputRuntimeIssues(
       [...showNodes, pot],
       [...showEdges, edge('es', 'p', 'value', 'spd', 'speed')],
     )
-    expect(errors.join(' ')).toContain("Master Speed's own slider")
-    expect(errors.join(' ')).toContain('wire feeding Speed')
+    expect(errors).toEqual([])
+  })
+
+  it('accepts a show Control Map carrying the Master Speed job', () => {
+    const pot = node('p', 'PotInput', { pin: 4 })
+    const controls = node('controls', 'ControlMap')
+    const { errors } = findOutputRuntimeIssues(
+      [...showNodes, pot, controls],
+      [
+        ...showEdges,
+        edge('value', 'p', 'value', 'controls', 'masterSpeed'),
+        edge('bundle', 'controls', 'controls', 'spd', 'controls'),
+      ],
+    )
+    expect(errors).toEqual([])
   })
 
   it('says nothing about a normal sketch, which honours it', () => {

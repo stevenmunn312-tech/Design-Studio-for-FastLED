@@ -55,6 +55,8 @@ export interface TemplateControlContext {
   sampledSources?: readonly ControlReference[]
   /** The destinations that are LED outputs, and so also carry Enabled/Brightness. */
   scalarOutputIds?: ReadonlySet<string>
+  /** Additional typed destination inputs this template evaluates directly. */
+  scalarInputs?: readonly { nodeId: string; port: string; type: 'bool' | 'float' }[]
   /**
    * What this template can answer for a widget bound to the panel's source.
    *
@@ -77,6 +79,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const controls: PlayerControlsEmit[] = []
   const bundles = new Map<string, string>()
   const scalarOutputs = new Map<string, { enabledExpr: string | null; brightnessExpr: string | null }>()
+  const scalarInputs = new Map<string, string>()
   const errors = new Set<string>(custom.errors)
   const done = new Set<string>(), visiting = new Set<string>()
   const label = (id: string) => byId.get(id)?.data.label || id
@@ -182,6 +185,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
           return button ? [button] : []
         }),
         volumeExpr: sourceExpr(source, 'volume', 'float'),
+        speedExpr: sourceExpr(source, 'masterSpeed', 'float'),
         brightnessExpr: sourceExpr(source, 'brightness', 'float'),
         patternPositionExpr: sourceExpr(source, 'patternSelect', 'float'),
         settings: normalizeButtonEdgeSettings(p),
@@ -249,6 +253,10 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
       }
     }
   }
+  for (const target of context.scalarInputs ?? []) {
+    const expression = sourceExpr(byId.get(target.nodeId)!, target.port, target.type)
+    if (expression) scalarInputs.set(`${target.nodeId}:${target.port}`, expression)
+  }
   // Enabled is a control wire like any other now: the panel keeps one latch,
   // written where its expression is evaluable and read by the drawing, touch
   // and output-rest that a disabled panel has to skip. Refusing the wire here
@@ -280,7 +288,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     if (issues.length) issues[0] += ` ${detail}`
     else issues.push(detail)
   }
-  return { touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, errors: issues }
+  return { touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, scalarInputs, errors: issues }
 }
 
 export type TemplateControlRouting = ReturnType<typeof templateControlRouting>

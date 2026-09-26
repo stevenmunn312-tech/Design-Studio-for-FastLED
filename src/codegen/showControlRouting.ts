@@ -54,10 +54,16 @@ export function showControlRouting(
   nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string,
 ) {
   const targets = showControlTargets(nodes, edges, engineId)
+  const speedNode = nodes.find((node) => node.data.nodeType === 'MasterSpeed')
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'a generated show controller', widgetLabel: 'the show',
-    destinationIds: new Set([...targets.outputIds, ...(targets.engineId ? [targets.engineId] : [])]),
+    destinationIds: new Set([
+      ...targets.outputIds,
+      ...(targets.engineId ? [targets.engineId] : []),
+      ...(speedNode ? [speedNode.id] : []),
+    ]),
     scalarOutputIds: targets.outputIds,
+    scalarInputs: speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' }] : [],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
   })
   return {
@@ -66,6 +72,9 @@ export function showControlRouting(
     outputs: new Map([...routing.bundles].filter(([id]) => targets.outputIds.has(id))),
     /** The bundle carrying pattern intent into the show's cursor, if wired. */
     patternCommands: (targets.engineId && routing.bundles.get(targets.engineId)) || null,
+    /** Live bounded-control routes feeding Master Speed, if wired. */
+    masterSpeedInputExpr: speedNode ? routing.scalarInputs.get(`${speedNode.id}:speed`) ?? null : null,
+    masterSpeedBundle: speedNode ? routing.bundles.get(speedNode.id) ?? null : null,
   }
 }
 

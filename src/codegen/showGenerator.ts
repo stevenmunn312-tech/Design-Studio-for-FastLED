@@ -67,7 +67,7 @@ import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
   stereoVuGlobalCpp, stereoVuLoopCpp,
 } from './stereoVuMeterCpp'
-import { masterShowClockLoopCpp, type MasterSpeedEmit } from './masterSpeedCpp'
+import { masterShowClockLoopCpp, masterShowSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
 import {
   controlBundleVariable, showControlRouting, SHOW_PATTERN_INDEX, SHOW_SELECTION_STEM,
   type ShowControlRouting,
@@ -743,17 +743,6 @@ export function generateShowSketch(
     },
   } : meter)
   const renderers = buildPatternRenderers(info.patternIds, groups, [], !!audio, !!audio)
-  const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
-  // The fixed show template can honour the node's own slider without pulling
-  // an arbitrary root control graph into the controller. Validation refuses a
-  // wired speed until that broader control graph has an emitter here.
-  const masterSpeedEmit: MasterSpeedEmit = {
-    present: !!speedNode,
-    speedExpr: null,
-    initial: clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT),
-    min: MASTER_SPEED_MIN,
-    max: MASTER_SPEED_MAX,
-  }
   // A collection of one never transitions — the dwell simply never ends — so
   // the whole transition apparatus (showA/showB, the style pool, and the
   // compositing switch) is left out rather than emitted unreachable.
@@ -763,6 +752,21 @@ export function generateShowSketch(
   const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
   const controlGraph = controlGraphCpp(controls.graph)
+  const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
+  const initialMasterSpeed = clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT)
+  const speedFallbackExpr = controls.masterSpeedInputExpr ?? `${initialMasterSpeed.toFixed(4)}f`
+  const masterSpeedEmit: MasterSpeedEmit = {
+    present: !!speedNode,
+    // A bundle wins only while it carries the Master Speed job. Otherwise the
+    // direct Speed wire (or finally the visible slider) remains authoritative,
+    // matching graphEvaluator's fallback order.
+    speedExpr: controls.masterSpeedBundle
+      ? `(${controls.masterSpeedBundle}.hasSpeed ? ${controls.masterSpeedBundle}.speed : ${speedFallbackExpr})`
+      : controls.masterSpeedInputExpr,
+    initial: initialMasterSpeed,
+    min: MASTER_SPEED_MIN,
+    max: MASTER_SPEED_MAX,
+  }
   // Resolved once, then asked two questions: what has to be drawn, and who
   // needs the pattern cursor. Both readers and commanders count, which is what
   // keeps a TFT-only Show Status and a screenless Pattern Next working.
@@ -1036,6 +1040,7 @@ export function generateShowSketch(
   }
   L.push('  uint32_t now = millis();')
   L.push(...masterShowClockLoopCpp(masterSpeedEmit))
+  L.push(...masterShowSpeedUpdateCpp(masterSpeedEmit))
   const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
   if (!transitions) {
     L.push(`  renderPattern(0, ${patternNow});   // the collection holds a single pattern`)

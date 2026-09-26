@@ -366,11 +366,12 @@ configured number of seconds, and continues through the collection. With no
 Master Speed node the generator keeps its old direct `now` path and emits no
 extra clock state.
 
-The fixed show template currently honours Master Speed's own slider. A graph
-wired into its Speed input is rejected before export because the template does
-not emit an arbitrary root control graph; silently baking the visible slider
-while ignoring that wire would be worse than refusing it. Normal sketches and
-the browser preview continue to support the wired form.
+The fixed show template honours both Master Speed's own slider and a supported
+bounded scalar-control graph wired into its Speed input. The generated control
+graph is sampled before the animation clock and its result is applied on the
+next pass, matching the browser's deliberate one-frame feedback delay. The
+music player still refuses Master Speed because its animation clock is the
+track position.
 
 ## Runtime ordering
 

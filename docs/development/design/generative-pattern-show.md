@@ -253,8 +253,9 @@ music-free case. Nobody would find that, so nobody did.
   separate accumulated animation clock into collected patterns. A speed of
   zero therefore freezes motion inside the current/outgoing/incoming patterns
   without freezing the changeover itself. The generated controller supports
-  the Master Speed node's slider; a wire feeding Speed remains a validation
-  error until the fixed controller template can emit that root control graph.
+  the Master Speed node's slider and the same bounded scalar-control graph used
+  by display widgets and LED-output controls. A music player still refuses
+  Master Speed because its animation clock is the track position.
 
 **The generator moves with it.** `isPatternShow` keys on `PatternSlideshow`
 rather than on a Music Player that happens to lack a card, so the three

@@ -221,7 +221,7 @@ and the firmware's `CtlEdge`/`CtlDetent` structs.
 | Pattern player transport actions (Play/Pause etc.) | N/A | N/A | ✓ (direct or via Control Map) |
 | Pattern slideshow actions (Next Pattern etc.) | N/A | ✓ (direct or via Control Map) | N/A |
 | Pattern slideshow `interval` | ✓ | ✓ | N/A |
-| Master Speed | ✓ | ✗ | ✗ |
+| Master Speed | ✓ | ✓ | ✗ |
 
 The SD player refuses direct LED output property/action wires by name —
 its transport owns brightness. Normal sketches and slideshow shows accept
@@ -799,7 +799,8 @@ show-wide brightness, and `directControlDimmingWorkflow.test.ts` holds
 the distinction. The OLED is a Pattern Browser: it reports the
 slideshow's cursor, it does not own it.
 
-Master Speed is still refused on a slideshow. Interval is a live
+Master Speed accepts the same bounded scalar-control sources as the fixture
+fields, while its own slider remains the unwired fallback. Interval is a live
 property input; order, transition style and seed stay bake-time.
 
 ### 3. SD music player

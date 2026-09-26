@@ -96,3 +96,11 @@ export function masterShowClockLoopCpp(emit: MasterSpeedEmit, wallMsExpr = 'now'
   )
   return lines
 }
+
+/** Resolve a show controller's wired speed after this pass has used the prior value. */
+export function masterShowSpeedUpdateCpp(emit: MasterSpeedEmit): string[] {
+  if (!emit.present || !emit.speedExpr) return []
+  return [
+    `  _showAnimSpeed = constrain(${emit.speedExpr}, ${emit.min.toFixed(1)}f, ${emit.max.toFixed(1)}f);  // for the next pass`,
+  ]
+}

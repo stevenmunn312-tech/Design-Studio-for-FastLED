@@ -224,5 +224,5 @@ rest of the glass is a visual decision, not a fitting one.
 
 The TFT clock and the panel/document content split are implemented; they are no
 longer tier-2 proposals. Outstanding integration work is [HW-01–08](../../../todo.md).
-Optional density/size policies and Performance Generator as a real playback
-source are D-01/02. Hardware support requires its own recorded evidence.
+Optional density/size policies remain D-02. Performance Generator is now a
+real playback source; hardware support requires its own recorded evidence.
