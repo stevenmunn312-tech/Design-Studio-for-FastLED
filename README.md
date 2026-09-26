@@ -8,7 +8,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
-![A complete Field Warp patch running in Design Studio for FastLED](docs/images/readme/design-studio-overview.png)
+![A complete Field Warp patch running in Design Studio for FastLED](docs/images/readme/design-studio-overview.webp)
 
 ## From idea to LEDs—without breaking your flow
 
@@ -33,13 +33,13 @@ What makes the Studio useful:
 
 The Start Gallery includes guided patches for Juggle, Fire, scrolling text, live audio, field warping, generative shows, music-synced SD playback, pattern slideshows, and two where the physical controls are already wired — a knob and button dimming an LED output, and an encoder browsing a slideshow. Each starter arrives with an editable Comment node explaining what to try next.
 
-![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.png)
+![The full-screen Start Gallery with beginner, audio, field, and show templates](docs/images/readme/design-studio-start-gallery.webp)
 
 Most starter patches are deliberately simple: a pattern flows into an LED output. Change a few controls, splice an effect directly into the wire, and the preview responds immediately. The control starters add one more idea — that a button or knob on the bench reaches the fixture along an ordinary visible cable.
 
 | Build and preview a patch | Browse and collect reusable patterns |
 | --- | --- |
-| ![A Fire 2012 patch driving an LED Matrix](docs/images/readme/design-studio-patch.png) | ![The Pattern Library open beside a live Field Warp patch and LED Matrix hardware](docs/images/readme/design-studio-pattern-library.png) |
+| ![A Fire 2012 patch driving an LED Matrix](docs/images/readme/design-studio-patch.webp) | ![The Pattern Library open beside a live Field Warp patch](docs/images/readme/design-studio-pattern-library.webp) |
 
 ## Put the visuals center stage
 
@@ -126,6 +126,8 @@ The workspace is four tabs, in the order the work is done — **Hardware**, **Gr
 - Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
 - The **Graph** tab owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay on the Hardware tab only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
+
+![The Hardware tab: the parts shelf beside an ESP32 board wired to an LED matrix at true scale](docs/images/readme/design-studio-hardware.webp)
 
 Changing boards retargets only pins Studio assigned; hand-picked pins are remembered per board. Use the board’s pinout button to verify headers, and open the **Build Diagram** tab when you need the full pin-level assembly and power plan rather than the Hardware tab's overview.
 
