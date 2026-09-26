@@ -665,16 +665,19 @@ describe('MatrixOutputDeployPopup', () => {
     // A graph problem is Graph Health's to explain: said here once, as a
     // count that opens it, and never repeated as its own line.
     expect(queryAllByText(shared)).toHaveLength(0)
-    expect(getByText(/1 thing to fix before uploading/)).toBeTruthy()
+    expect(getByText(/to have something to upload/)).toBeTruthy()
     expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('opens Graph Health from the Upload tab when the graph has something to fix', () => {
-    vi.mocked(findDeployBlockingErrors).mockReturnValue(['LED output: frame input is not connected'])
-    useUiStore.setState({ graphHealthOpen: false })
+  it('names the first thing in the way beside a quietly disabled Upload, with the button that clears it', () => {
+    useUiStore.setState({ workspaceMode: 'upload' } as never)
     const { getByRole } = render(<MatrixOutputDeployPopup />)
-    fireEvent.click(getByRole('button', { name: 'Show me' }))
-    expect(useUiStore.getState().graphHealthOpen).toBe(true)
+    const upload = getByRole('button', { name: '↑ Upload' }) as HTMLButtonElement
+    expect(upload.disabled).toBe(true)
+    const reason = document.getElementById(upload.getAttribute('aria-describedby') ?? '')
+    expect(reason?.textContent).toBe('Connect a pattern to an LED output to have something to upload.')
+    fireEvent.click(getByRole('button', { name: 'Go to Graph' }))
+    expect(useUiStore.getState().workspaceMode).toBe('graph')
   })
 
   it('blocks deploy actions when a numeric property expression is invalid', () => {
@@ -699,7 +702,7 @@ describe('MatrixOutputDeployPopup', () => {
 
     expect((getByRole('button', { name: '↓ Export .ino' }) as HTMLButtonElement).disabled).toBe(true)
     expect((getByRole('button', { name: '🧪 Flash Wiring Test' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(getByText(/1 thing to fix before uploading/)).toBeTruthy()
+    expect(getByText(/to have something to upload/)).toBeTruthy()
   })
 
   it('blocks Export .ino when a formula node would not survive codegen validation', () => {

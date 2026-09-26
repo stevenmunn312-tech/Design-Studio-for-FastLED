@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { getGroupRegistry, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { trustCurrentProject } from '../../utils/trustPrompt'
+import { uploadBlockReason, type UploadBlockAction } from '../../utils/uploadBlockReason'
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/uploadStore'
 import { useStreamStore } from '../../state/streamStore'
 import { useMusicStore } from '../../state/musicStore'
@@ -229,12 +230,12 @@ export default function MatrixOutputDeployPopup({
     ...(ramBudgetIssue ? [ramBudgetIssue.message] : []),
     ...(capacityOverflow ? [`${board?.label ?? 'This board'}: design is too large to fit (live capacity check)`] : []),
   ])]
-  // What the list under the buttons says: each blocker once. Graph problems
-  // live in Graph Health, which explains and repairs them, so here they are one
-  // line that opens it; waiting on trust has its own row with the button.
+  // Blockers in words, minus the two that have a home of their own: graph
+  // problems live in Graph Health, and waiting on trust is a Trust button.
   const trustMessages = new Set(projectTrusted ? [] : customAssets.errors)
-  const listedBlockers = blockingErrors.filter((message) =>
-    !graphBlockers.includes(message) && !trustMessages.has(message))
+  const measuredBlockers = blockingErrors.filter((message) =>
+    !graphBlockers.includes(message) && !trustMessages.has(message)
+    && message !== 'Preparing display images…')
   const showGraphHealth = () => {
     if (!useUiStore.getState().graphHealthOpen) useUiStore.getState().toggleGraphHealth()
   }
@@ -528,6 +529,31 @@ export default function MatrixOutputDeployPopup({
     ? canShowUpload && (readySongs > 0 || hasMusicPlayer)
     : canBuild
 
+  const uploadDisabled = !canUploadNow || !uploadReady || busy
+  // The first thing in the way, and the button that clears it — said once,
+  // beside the button it explains (see utils/uploadBlockReason.ts).
+  const blockReason = uploadDisabled
+    ? uploadBlockReason({
+      busy,
+      hasBuildOutput,
+      isShowUpload,
+      showHasContent: readySongs > 0 || hasMusicPlayer,
+      waitingForTrust: trustMessages.size > 0,
+      graphBlockerCount: graphBlockers.length,
+      preparing: customAssets.pending,
+      otherBlockers: measuredBlockers,
+      tools: readiness,
+    })
+    : null
+  const runBlockAction = (action: UploadBlockAction) => {
+    if (action.kind === 'trust') trustCurrentProject()
+    else if (action.kind === 'show-graph-health') showGraphHealth()
+    else if (action.kind === 'open-graph') useUiStore.getState().setWorkspaceMode('graph')
+    else readiness.find((row) => row.label === action.label)?.action?.()
+  }
+  // Everything else still in the way, below the one named beside the button.
+  const listedBlockers = measuredBlockers.filter((message) => message !== blockReason?.text)
+
   const uploadTitle =
     busy ? status.message
     : isShowUpload
@@ -713,8 +739,9 @@ export default function MatrixOutputDeployPopup({
         <div className={styles.primaryActionDock}>
           <button
             className={`${styles.wizardButtonBase} ${styles.uploadBtn} ${phaseClass}`}
-            disabled={!canUploadNow || !uploadReady || busy}
+            disabled={uploadDisabled}
             aria-busy={busy}
+            aria-describedby={blockReason ? 'upload-block-reason' : undefined}
             onClick={isShowUpload ? handleShowUpload : handleUpload}
             title={uploadTitle}
           >
@@ -735,14 +762,19 @@ export default function MatrixOutputDeployPopup({
           )}
         </div>
 
-        {graphBlockers.length > 0 && (
-          <div className={styles.trustRow}>
-            <span>
-              {graphBlockers.length === 1 ? '1 thing' : `${graphBlockers.length} things`} to fix before uploading. Graph Health shows what, and fixes some for you.
-            </span>
-            <button type="button" className={styles.wizardButtonBase} onClick={showGraphHealth}>
-              Show me
-            </button>
+        {blockReason && (
+          <div className={styles.blockReason}>
+            <span id="upload-block-reason">{blockReason.text}</span>
+            {blockReason.action && (
+              <button
+                type="button"
+                className={styles.wizardButtonBase}
+                onClick={() => runBlockAction(blockReason.action!)}
+                disabled={busy}
+              >
+                {blockReason.actionLabel}
+              </button>
+            )}
           </div>
         )}
         {listedBlockers.length > 0 && (
@@ -750,7 +782,7 @@ export default function MatrixOutputDeployPopup({
             {listedBlockers.map((c) => <div key={c}>{c}</div>)}
           </div>
         )}
-        {!projectTrusted && (
+        {!projectTrusted && blockReason?.action?.kind !== 'trust' && (
           <div className={styles.trustRow}>
             <span>Part of this project was made on another computer. Trust it to prepare and upload it.</span>
             <button type="button" className={styles.wizardButtonBase} onClick={trustCurrentProject}>

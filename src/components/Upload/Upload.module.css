@@ -384,6 +384,15 @@
   box-shadow: 0 0 18px color-mix(in srgb, var(--success) 24%, transparent);
 }
 .uploadBtn:hover:not(:disabled) { filter: brightness(1.1); }
+/* Blocked, it stops looking like a go button: no green, no glow, and the
+   reason with its fix sits right beside it (.blockReason). */
+.uploadBtn:disabled:not(.stBusy):not(.stDone):not(.stError) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: none;
+  opacity: 1;
+}
 .uploadBtn.stBusy  {
   background: linear-gradient(135deg, rgba(255, 204, 0, 0.16), rgba(255, 255, 255, 0.04));
   border-color: var(--border-glow) !important;
@@ -570,6 +579,25 @@
   color: var(--text-secondary);
   font-size: 10px;
   line-height: 1.35;
+}
+
+.blockReason {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  flex: 0 0 auto;
+}
+
+.blockReason span { flex: 1 1 auto; min-width: 0; }
+
+.blockReason button {
+  width: auto;
+  flex-shrink: 0;
+  padding: 4px 12px;
 }
 
 .trustRow {
