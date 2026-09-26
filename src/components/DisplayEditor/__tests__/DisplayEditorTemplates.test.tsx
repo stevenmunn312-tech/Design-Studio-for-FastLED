@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
 import LiveTouchScreen from '../LiveTouchScreen'
 import { createDisplayDocument, displayLayoutIssues } from '../../../state/displayEditor'
@@ -67,12 +67,51 @@ describe('DisplayEditor portrait templates', () => {
       edges: [{ id: 'e-clock', source: 'rtc', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
     })
     const view = renderEditor()
-    expect(view.getByRole('heading', { name: 'Mapped to RTC Clock' })).toBeTruthy()
-    expect(view.getByRole('heading', { name: 'Other layouts' })).toBeTruthy()
+    const shelf = within(view.getByRole('complementary', { name: 'Widget palette' }))
+    expect(shelf.getByRole('heading', { name: 'Mapped to RTC Clock' })).toBeTruthy()
+    expect(shelf.getByRole('heading', { name: 'Other layouts' })).toBeTruthy()
     // Reachable either way — the grouping promotes, it does not filter.
     for (const template of DISPLAY_TEMPLATES) {
-      expect(view.getByRole('button', { name: `Insert ${template.label} template` })).toBeTruthy()
+      expect(shelf.getByRole('button', { name: `Insert ${template.label} template` })).toBeTruthy()
     }
+  })
+
+  /*
+   * An empty screen opens on its two ways to begin: a template, with the
+   * layouts the panel's source can fill first, or one widget at a time.
+   */
+  it('offers templates on the empty screen, mapped to the wired source first', () => {
+    useGraphStore.setState({
+      nodes: [
+        libraryNode('tft', 'TransportDisplay', {
+          partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'panel',
+        }),
+        libraryNode('rtc', 'RTCInput'),
+      ],
+      edges: [{ id: 'e-clock', source: 'rtc', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
+    })
+    const view = renderEditor()
+    const card = within(view.getByRole('region', { name: 'Start with a template' }))
+    const headings = card.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+    expect(headings).toEqual(['Suits RTC Clock', 'Other layouts'])
+
+    const starts = card.getAllByRole('button', { name: /^Start with the / })
+    expect(starts).toHaveLength(DISPLAY_TEMPLATES.length)
+    // The Clock layout binds only what an RTC publishes, so it leads.
+    expect(starts[0].getAttribute('aria-label')).toBe('Start with the Clock template')
+
+    fireEvent.click(starts[0])
+    expect(useGraphStore.getState().displayDocuments.panel.widgets.length).toBeGreaterThan(0)
+    expect(view.queryByRole('region', { name: 'Start with a template' })).toBeNull()
+  })
+
+  it('steps aside for building one widget at a time', () => {
+    const view = renderEditor()
+    expect(within(view.getByRole('region', { name: 'Start with a template' }))
+      .queryByRole('heading', { name: /^Suits / })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: 'Add widgets one at a time' }))
+    expect(view.queryByRole('region', { name: 'Start with a template' })).toBeNull()
+    expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Add .* widget$/)
   })
 
   /*

@@ -216,6 +216,11 @@ export default function DisplayEditor() {
   // audition a control family without unexpectedly repainting their screen.
   const [controlThemeId, setControlThemeId] = useState(() => DISPLAY_THEME_PRESETS[0]?.id ?? '')
   const [announcement, setAnnouncement] = useState('Display editor opened.')
+  // Set when the author chooses to build widget by widget, so the start card
+  // stops covering the screen they are about to fill. Per visit on purpose:
+  // reopening an empty screen offers the templates again.
+  const [startDismissed, setStartDismissed] = useState(false)
+  const firstWidgetButtonRef = useRef<HTMLButtonElement>(null)
   const graphNodes = useGraphStore((state) => rootGraphNodes(state))
   const graphEdges = useGraphStore((state) => rootGraphEdges(state))
   const targetRangeRepair = useMemo(() => {
@@ -444,6 +449,30 @@ export default function DisplayEditor() {
   }
 
   /** One shelf entry, shared by the mapped group and the rest. */
+  /*
+   * The start card's own template entry. It says "Start with" rather than
+   * "Insert", and so has a name of its own: the palette's shelf stays the
+   * place to add a layout to a screen that already has something on it.
+   */
+  const startTemplateButton = (template: DisplayTemplate) => {
+    const preview = displayAsset(`template:${template.id}`)
+    return (
+      <button
+        key={template.id}
+        type="button"
+        className={styles.startTemplate}
+        aria-label={`Start with the ${template.label} template`}
+        title={template.description}
+        onClick={() => insertTemplate(template.id)}
+      >
+        {preview
+          ? <img src={displayAssetUrl(preview)} alt="" aria-hidden="true" />
+          : <span className={styles.startTemplateBlank} aria-hidden="true" />}
+        <span>{template.label}</span>
+      </button>
+    )
+  }
+
   const templateButton = (template: DisplayTemplate) => (
     <button
       key={template.id}
@@ -866,7 +895,13 @@ export default function DisplayEditor() {
               {Object.values(DISPLAY_WIDGET_LIBRARY).map((definition) => {
                 const glyph = displayAsset(displayWidgetGlyphId(definition.type))
                 return (
-                  <button key={definition.type} type="button" aria-label={`Add ${definition.label} widget`} onClick={() => add(definition.type)}>
+                  <button
+                    key={definition.type}
+                    ref={definition.type === Object.values(DISPLAY_WIDGET_LIBRARY)[0].type ? firstWidgetButtonRef : undefined}
+                    type="button"
+                    aria-label={`Add ${definition.label} widget`}
+                    onClick={() => add(definition.type)}
+                  >
                     {glyph && <img className={styles.paletteGlyph} src={displayAssetUrl(glyph)} alt="" aria-hidden="true" />}
                     <span>{definition.label}</span>
                     <small>{definition.portRoles.map((port) => port.direction === 'input' ? 'In' : 'Out').join(' + ') || 'Visual'}</small>
@@ -935,6 +970,46 @@ export default function DisplayEditor() {
           </aside>
 
         <div ref={viewportRef} className={styles.viewport} onPointerMove={continueGesture} onPointerUp={endGesture} onPointerCancel={endGesture}>
+          {/*
+            * An empty screen opens on its two ways to begin: a whole layout,
+            * or one widget at a time. The layouts the panel's own source can
+            * fill come first, by the same template/source mapping the shelf
+            * uses, and the rest follow rather than being hidden.
+            */}
+          {placedWidgets(document).length === 0 && !startDismissed && (
+            <section className={styles.startCard} aria-labelledby="display-start-heading">
+              <h2 id="display-start-heading">Start with a template</h2>
+              <p>
+                A template is a finished layout of ordinary widgets you can move, restyle or delete.
+                {mountedPanel ? ' Its controls are connected to the graph as it is inserted.' : ''}
+              </p>
+              {templates.mapped.length > 0 && (
+                <>
+                  <h3>Suits {sourceLabel}</h3>
+                  <div className={styles.startTemplates}>{templates.mapped.map(startTemplateButton)}</div>
+                  <h3>Other layouts</h3>
+                </>
+              )}
+              <div className={styles.startTemplates}>{templates.other.map(startTemplateButton)}</div>
+              <div className={styles.startAlternative}>
+                <span>
+                  {connectedWidgets.length > 0
+                    ? `Or place your ${connectedWidgets.length} connected control${connectedWidgets.length === 1 ? '' : 's'} and add widgets one at a time.`
+                    : 'Or build it yourself, one widget at a time.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDismissed(true)
+                    firstWidgetButtonRef.current?.focus()
+                    firstWidgetButtonRef.current?.scrollIntoView?.({ block: 'nearest' })
+                  }}
+                >
+                  Add widgets one at a time
+                </button>
+              </div>
+            </section>
+          )}
           <div className={styles.screenSizer} style={{ width: document.designSize.width * zoom, height: document.designSize.height * zoom }}>
             <div
               className={styles.screen}

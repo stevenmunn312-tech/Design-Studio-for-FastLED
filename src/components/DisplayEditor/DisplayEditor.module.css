@@ -695,3 +695,113 @@
 .widget.inertWidget.selected {
   opacity: var(--widget-state-opacity, 1);
 }
+
+/* The empty screen's start card sits over the viewport, not inside the scaled
+   screen, so it reads at one size whatever the zoom or panel resolution. */
+.startCard {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 48px);
+  overflow: auto;
+  transform: translateX(-50%);
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--border-glow));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  color: var(--text-primary);
+}
+
+.startCard h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.startCard p {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.startCard h3 {
+  margin: 12px 0 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.startTemplates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+}
+
+.startTemplate {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 8px;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-node);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.startTemplate:hover,
+.startTemplate:focus-visible {
+  border-color: var(--accent-output);
+  background: var(--bg-node-hover);
+}
+
+.startTemplate img,
+.startTemplateBlank {
+  box-sizing: border-box;
+  width: 96px;
+  height: 72px;
+  border-radius: 3px;
+  background: var(--bg-canvas, #0b0e14);
+  object-fit: contain;
+}
+
+.startAlternative {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glow);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.startAlternative button {
+  padding: 6px 12px;
+  border: 1px solid var(--border-glow);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.startAlternative button:hover,
+.startAlternative button:focus-visible {
+  border-color: var(--accent-output);
+}
+
+/* A template without a preview render still takes a tile's full height, so
+   the grid reads as one set of choices rather than a ragged list. */
+.startTemplateBlank {
+  border: 1px dashed var(--border-glow);
+}
