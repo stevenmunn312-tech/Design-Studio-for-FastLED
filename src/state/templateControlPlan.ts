@@ -166,6 +166,16 @@ const ROLE_TARGETS: Readonly<Record<TemplateControlRole, Partial<Record<DisplayS
 }
 
 /**
+ * Whether a control carrying `role` has somewhere to land on `kind`.
+ *
+ * The same table the plan routes with, so the template shelf can say a layout
+ * suits a source for exactly the reason Connect would wire it there.
+ */
+export function controlRoleTargetsSource(role: TemplateControlRole, kind: DisplaySignalKind): boolean {
+  return ROLE_TARGETS[role][kind] !== undefined
+}
+
+/**
  * Widget types a finger operates, which are the only ones with an output.
  *
  * Asked as a set rather than read off `portRoles` because a role is only

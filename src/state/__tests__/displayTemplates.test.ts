@@ -155,12 +155,17 @@ describe('custom display templates', () => {
       .toEqual(['now-playing', 'minimal-transport', 'pattern-deck', 'show-status'])
     expect(ids(displayTemplatesForSource('slideshow').mapped)).toEqual(['pattern-deck', 'show-status'])
     expect(ids(displayTemplatesForSource('clock').mapped)).toEqual(['clock'])
+    // Binding nothing, LED Performance is judged by its controls: Brightness
+    // and Blackout command an LED output, so it leads on a panel wired from one.
+    expect(ids(displayTemplatesForSource('ledOutput').mapped)).toEqual(['led-performance'])
 
     // Promotes, never excludes: every template stays reachable, and the four
     // that bind nothing read their values off the graph and suit any panel.
     for (const kind of ['player', 'slideshow', 'clock'] as const) {
       const { mapped, other } = displayTemplatesForSource(kind)
       expect([...ids(mapped), ...ids(other)].sort()).toEqual(ids(DISPLAY_TEMPLATES).sort())
+      // A template binding nothing is mapped only for what its controls command,
+      // and none of these three sources takes an LED output's two controls.
       expect(mapped.some((template) => templateSourceFields(template).length === 0)).toBe(false)
     }
   })

@@ -11,7 +11,7 @@ import { defaultDisplayWidgetProperties } from './displayRegistry'
 import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
 import { displaySourceFields } from './displaySourceFields'
 import type { DisplaySignalKind } from './displaySignal'
-import { TEMPLATE_CONTROL_ROLES } from './templateControlPlan'
+import { TEMPLATE_CONTROL_ROLES, controlRoleTargetsSource } from './templateControlPlan'
 
 export type DisplayTemplateId =
   | 'clock'
@@ -67,11 +67,16 @@ export interface DisplayTemplate {
  * slideshow, because both carry a selection; Clock names the time and is offered
  * on an RTC.
  *
+ * A template that binds nothing is judged by its controls instead: it suits a
+ * source when one of its role-stamped controls has a destination there, the
+ * same table Connect wires with. So LED Performance, whose Brightness and
+ * Blackout command an LED output, is offered first on a panel wired from one.
+ *
  * It promotes, never excludes — the same stance pattern author tags take. A
- * template binding nothing (LED Performance, Audio Reactor, Diagnostics, DMX
- * Monitor) reads every value off the graph and is correct on any panel, so
- * hiding it behind a source it does not need would remove the layouts a screen
- * with no source at all is built from.
+ * template matching nothing here (Audio Reactor, Diagnostics, DMX Monitor)
+ * reads every value off the graph and is correct on any panel, so hiding it
+ * behind a source it does not need would remove the layouts a screen with no
+ * source at all is built from.
  */
 export function templateSourceFields(template: DisplayTemplate): string[] {
   return [...new Set(template.widgets
@@ -81,7 +86,12 @@ export function templateSourceFields(template: DisplayTemplate): string[] {
 
 export function templateMatchesSource(template: DisplayTemplate, kind: DisplaySignalKind): boolean {
   const fields = templateSourceFields(template)
-  if (fields.length === 0) return false
+  if (fields.length === 0) {
+    return template.widgets.some((widget) => {
+      const role = TEMPLATE_CONTROL_ROLES[widget.label]
+      return role !== undefined && controlRoleTargetsSource(role, kind)
+    })
+  }
   const offered = new Set(displaySourceFields(kind).map((field) => field.id))
   return fields.every((field) => offered.has(field))
 }
