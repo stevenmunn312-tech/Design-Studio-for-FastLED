@@ -1421,11 +1421,72 @@ def _write_fbuild_main(ino: str) -> None:
 
 app = FastAPI(title="Design Studio for FastLED Upload Helper")
 
-# The studio is served from a different origin (the Vite dev server or the static
-# site), so allow cross-origin calls from any localhost port.
+# Hosts the helper will answer. `*.localhost` covers the named Vite dev and
+# preview origins (`design-studio-for-fastled.localhost`, `fastled-studio.localhost`).
+# Anything else is a DNS-rebinding host and is refused before a route runs.
+_LOCAL_HOST = (
+    r"(?:localhost|127\.0\.0\.1|\[::1\]|(?:[A-Za-z0-9-]+\.)+localhost)(?::\d+)?"
+)
+_LOCAL_HOST_RE = re.compile(rf"(?i)^{_LOCAL_HOST}$")
+_LOCAL_ORIGIN_RE = re.compile(rf"(?i)^https?://{_LOCAL_HOST}$")
+_ORIGIN_CHECKED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_SAME_SITE_FETCH = {"same-origin", "none"}
+
+
+def _local_request_allowed(request: Request) -> bool:
+    """True when this request is from the machine running the helper.
+
+    `Host` must always be local. State-changing methods, and the serial
+    monitor (a GET an `<img>` can fire), also need a local `Origin` when the
+    browser sent one. With no `Origin`, only a missing, same-origin, or `none`
+    `Sec-Fetch-Site` is accepted — that is a non-browser client or a
+    same-document call, not another website.
+    """
+    host = request.headers.get("host")
+    if host is None or _LOCAL_HOST_RE.fullmatch(host.strip()) is None:
+        return False
+    needs_origin = (
+        request.method in _ORIGIN_CHECKED_METHODS
+        or (request.method == "GET" and request.url.path == "/api/serial/monitor")
+    )
+    if not needs_origin:
+        return True
+    origin = request.headers.get("origin")
+    if origin is not None:
+        return _LOCAL_ORIGIN_RE.fullmatch(origin.strip()) is not None
+    site = request.headers.get("sec-fetch-site")
+    return site is None or site.strip().lower() in _SAME_SITE_FETCH
+
+
+class LocalTrustMiddleware:
+    """Reject cross-site and rebound-host calls before CORS or a route sees them.
+
+    CORS only decides whether the browser may read a response. A simple POST
+    is sent, and executed, either way.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
+        if _local_request_allowed(request):
+            await self.app(scope, receive, send)
+            return
+        response = JSONResponse({"ok": False, "error": "forbidden"}, status_code=403)
+        await response(scope, receive, send)
+
+
+# The studio is served from a different origin (the Vite dev server, a named
+# `*.localhost` host, or the desktop launcher), so allow those pages to read
+# responses. The trust middleware above is what decides whether the request
+# runs at all.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=_LOCAL_ORIGIN_RE.pattern,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1443,6 +1504,10 @@ async def _desktop_security_headers(request: Request, call_next):
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
     return response
+
+
+# Outermost: a forbidden host or origin never reaches CORS or a route.
+app.add_middleware(LocalTrustMiddleware)
 
 
 # ── Compile / upload / serial helpers ─────────────────────────────────────────

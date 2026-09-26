@@ -8,7 +8,9 @@ import app as app_module
 
 @pytest.fixture
 def client():
-    return TestClient(app_module.app)
+    # The helper refuses any Host other than localhost. TestClient's default
+    # base is http://testserver, which would 403 every existing call.
+    return TestClient(app_module.app, base_url="http://127.0.0.1:8008")
 
 
 @pytest.fixture(autouse=True)

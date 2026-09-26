@@ -15,6 +15,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The local upload helper refuses a request whose `Host` is not this machine,
+  and refuses a cross-site call that would compile, flash, write a drive, or
+  open the serial port. `GET /api/health` still answers a local host. The
+  boundary is described in `SECURITY.md`.
+
 - A malformed share link no longer sticks the app on an empty canvas. Nodes
   and wires that have no loadable shape are left out and counted in the status
   line; a link that is not a workspace at all is discarded, and the saved
