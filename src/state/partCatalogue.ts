@@ -169,6 +169,8 @@ export interface PartPowerConverterSpec {
   isolated: boolean
   /** Adjustable output: it ships at an arbitrary voltage and must be set before use. */
   adjustable: boolean
+  /** Output current against ambient, as [C, percent] in rising order; absent means none. */
+  deratingCurve?: Array<[number, number]>
 }
 
 export interface PartCatalogueEntry {

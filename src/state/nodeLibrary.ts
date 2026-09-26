@@ -3991,9 +3991,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
-    // A DC-DC converter from a 12/24 V source to 5 V. It carries no signal:
-    // the Build Diagram's power plan reads it to say where the controller's 5 V
-    // comes from. See state/powerConverter.ts.
+    // A DC-DC converter from a higher-voltage source to 5 V. It carries no
+    // signal: the Build Diagram reads the selected part's role to power either
+    // the controller or the LED rail. See state/powerConverter.ts.
     //
     // Config only, like SD Card: no ports, no evaluation, found by scanning.
     type: 'PowerConverter',
@@ -4094,7 +4094,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
   PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
-  PowerConverter: 'Steps a 12/24 V source down to 5 V for the controller; a bench part, not wired.',
+  PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches a DC load through an opto-isolated MOSFET from a boolean signal.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',

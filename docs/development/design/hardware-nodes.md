@@ -315,7 +315,7 @@ explains it. Clocked and HUB75 outputs normally disable the field. It stays
 editable while it names the extender, so a chipset change that made the choice
 invalid can be undone from the field itself.
 
-### Powering the controller from 12 V or 24 V
+### Converting a 12 V or 24 V source to 5 V
 
 A **Buck Converter** (`PowerConverter`, `src/state/powerConverter.ts`) is a
 hardware-only bench part, like Ethernet: no ports, no pins, no evaluation. It
@@ -340,6 +340,23 @@ The diagram draws the module in the USB block's place under the board and
 joins it to the board by a matching `CTRL 5V` symbol on OUT+ and on the
 board's pin, rather than a wire across the board. The module sits in no
 peripheral row. See [power conversion and protection](../plans/power-conversion-and-protection.md).
+
+The same hardware-only node also offers the isolated Mean Well SD-100A-5 and
+SD-100B-5 with the `led-rail` role. One selected model becomes the type used
+for every generated 5 V power zone: feeds are packed only while the converter
+retains 20% headroom at a 40 °C enclosure ambient, so a larger installation
+gets another converter rather than an overloaded zone. The B model's 20 A
+nameplate becomes 17.333 A at that ambient from its imported derating curve;
+the A model remains at 18 A.
+
+Each zone keeps the ordinary output main fuse and 5 V trunk, and adds a
+source-side fuse and conductor sized from its planned output power, efficiency
+and selected source voltage. The Build Diagram and connection export follow
+the seven printed terminals: 1 V+ and 2 V- from the source, 3 FG to protective
+earth or the enclosure, 4-5 -V bonded to common ground at the distribution
+point, and 6-7 +V through the zone's main fuse. Converter outputs are never
+paralleled. A controller buck in the same build joins the upstream source
+budget; giving it a different source voltage blocks the electrical plan.
 
 ## Hardware part identity and rendering
 

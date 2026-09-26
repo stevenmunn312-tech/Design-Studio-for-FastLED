@@ -122,7 +122,7 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 The workspace is four tabs, in the order the work is done — **Hardware**, **Graph**, **Upload**, and **Build Diagram** — and it deliberately separates the physical rig from its signal flow:
 
-- The **Hardware** tab owns the exact board and the parts attached to it. Use its **Hardware shelf** for microphones, controls, IR receivers, sensors, power monitors, RTC modules, wired Ethernet, buck converters, SD cards, amplifiers/DACs and power amplifiers, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
+- The **Hardware** tab owns the exact board and the parts attached to it. Use its **Hardware shelf** for microphones, controls, IR receivers, sensors, power monitors, RTC modules, wired Ethernet, DC-DC converters, SD cards, amplifiers/DACs and power amplifiers, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
 - Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
 - The **Graph** tab owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay on the Hardware tab only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.

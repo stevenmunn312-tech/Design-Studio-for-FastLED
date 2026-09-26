@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import type { ControllerSupplyPlan, ElectricalPlanSummary, OutputElectricalPlan } from '../../build/electricalPlan'
+import type { ControllerSupplyPlan, ElectricalPlanSummary, OutputElectricalPlan, SupplyRecommendation } from '../../build/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
@@ -1285,6 +1285,28 @@ const FEED_LABEL_X = 748
 const FEED_LABEL_MAX_WIDTH = 344
 const APPROX_WIRE_LABEL_CHARACTER_WIDTH = 6.6
 
+/**
+ * Terminal centres measured from the SD-100 render after it is fitted into
+ * the same 123 x 220 cell as the generic 5 V supply. The seven screws run
+ * left-to-right as input +, input -, FG, -V, -V, +V, +V.
+ */
+function supplyTerminalPoints(supply: SupplyRecommendation, psuY: number) {
+  if (!supply.converter) {
+    return {
+      outputPositive: { x: 153, y: psuY + 64 },
+      outputGround: { x: 153, y: psuY + 87 },
+    }
+  }
+  const screwY = psuY + 207
+  return {
+    inputPositive: { x: 62, y: screwY },
+    inputGround: { x: 73, y: screwY },
+    frameGround: { x: 83, y: screwY },
+    outputGround: { x: 105, y: screwY },
+    outputPositive: { x: 127, y: screwY },
+  }
+}
+
 function laneGeometry(feedCount: number) {
   const pitch = Math.round(Math.min(
     LANE_MAX_PITCH,
@@ -1337,12 +1359,11 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
         if (fuseSlotForFeed(index - block.firstFeedIndex, block.assignedFeedCount).isRightColumn) return
         leftColumnRanks.set(injection.id, leftColumnRanks.size)
       })
-      // Terminal coordinates measured from the labelled PSU Cycles render:
-      // use the second +V screw and the adjacent first -V screw.
-      const psuPositive = { x: 153, y: sectionLayout.psuY + 64 }
+      const terminals = supplyTerminalPoints(supply, sectionLayout.psuY)
+      const psuPositive = terminals.outputPositive
       const mainFuseText = supply.trunk.mainFuse.ratingMa ? formatAmps(supply.trunk.mainFuse.ratingMa) : 'RATED'
       const trunkWireText = supply.trunk.conductor ? `AWG ${supply.trunk.conductor.awg}` : 'WIRE TBD'
-      const psuGround = { x: 153, y: sectionLayout.psuY + 87 }
+      const psuGround = terminals.outputGround
       // The +5 V trunk enters each block through the clear band between its
       // negative bus and its first fuse row, then drops the gutter between the
       // two screw columns onto the positive input. Going round the outside
@@ -1359,19 +1380,25 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
       }).join('')
       const groundBus = blocks.map((block) => {
         const point = fuseBlockPoints(block.circuitCount, block.x, block.y).ground
-        return `M${psuGround.x} ${psuGround.y}H${PSU_GROUND_TRUNK_X}V${point.y}H${point.x}`
+        return supply.converter
+          ? `M${psuGround.x} ${psuGround.y}V${psuGround.y + 14}H${PSU_GROUND_TRUNK_X}V${point.y}H${point.x}`
+          : `M${psuGround.x} ${psuGround.y}H${PSU_GROUND_TRUNK_X}V${point.y}H${point.x}`
       }).join('')
 
       return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
         <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
-        <text x="42" y="32" className={styles.physicalPowerLabel}>PSU ZONE {supplyIndex + 1} · RECOMMENDED POWER SUPPLY</text>
-        <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>5 V · {formatAmps(supply.recommendedCurrentMa)} · {supply.recommendedWattage} W</text>
+        <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : 'RECOMMENDED POWER SUPPLY'}</text>
+        <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>
+          {supply.converter
+            ? `${supply.converter.sourceVoltage} V IN · 5 V OUT · ${formatAmps(supply.converter.deratedCurrentMa)} AT 40 °C`
+            : `5 V · ${formatAmps(supply.recommendedCurrentMa)} · ${supply.recommendedWattage} W`}
+        </text>
         {/* Beside the rating rather than on the trunk, where the branch rails climb past. */}
         <text data-main-fuse-label={supply.id} x="290" y="58" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
 
         <image
-          data-component-render="5v-psu"
-          href={psuRender}
+          data-component-render={supply.converter?.partId ?? '5v-psu'}
+          href={supply.converter ? partRenderSrc(supply.converter.partId) ?? psuRender : psuRender}
           x="42"
           y={sectionLayout.psuY}
           width="123"
@@ -1381,11 +1408,39 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
           filter="url(#component-shadow)"
         />
         <circle cx={psuPositive.x} cy={psuPositive.y} r="6" fill="#d84938" stroke="#f0a093" strokeWidth="2" data-terminal={`${supply.id}-positive`}>
-          <title>PSU +5 V output terminal</title>
+          <title>{supply.converter ? 'Converter terminals 6-7 +V output' : 'PSU +5 V output terminal'}</title>
         </circle>
         <circle cx={psuGround.x} cy={psuGround.y} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" data-terminal={`${supply.id}-ground`}>
-          <title>PSU negative output terminal / common ground</title>
+          <title>{supply.converter ? 'Converter terminals 4-5 -V output / common-ground bond' : 'PSU negative output terminal / common ground'}</title>
         </circle>
+
+        {supply.converter && terminals.inputPositive && terminals.inputGround && terminals.frameGround && <g data-rail-converter-input={supply.id}>
+          <HoverWire
+            tip={`${supply.converter.sourceVoltage} V source positive · ${supply.converter.inputFuse.ratingMa ? formatAmps(supply.converter.inputFuse.ratingMa) : 'rated'} fuse · ${supply.converter.inputConductor ? `AWG ${supply.converter.inputConductor.awg}` : 'wire TBD'}`}
+            data-wire={`${supply.id}-converter-input-positive`}
+            d={`M26 ${sectionLayout.psuY + 180}H46V${terminals.inputPositive.y}H${terminals.inputPositive.x}`}
+            className={styles.mainPowerWire}
+          />
+          <HoverWire
+            tip={`${supply.converter.sourceVoltage} V source negative · converter terminal 2 V-`}
+            data-wire={`${supply.id}-converter-input-negative`}
+            d={`M26 ${sectionLayout.psuY + 232}H${terminals.inputGround.x}V${terminals.inputGround.y}`}
+            className={styles.mainGroundWire}
+          />
+          <HoverWire
+            tip="Protective earth / metal enclosure · converter terminal 3 FG"
+            data-wire={`${supply.id}-converter-frame-ground`}
+            d={`M26 ${sectionLayout.psuY + 244}H${terminals.frameGround.x}V${terminals.frameGround.y}`}
+            className={styles.groundWire}
+          />
+          <circle cx="26" cy={sectionLayout.psuY + 180} r="5" fill="#d84938"><title>{supply.converter.sourceVoltage} V source positive</title></circle>
+          <circle cx="26" cy={sectionLayout.psuY + 232} r="5" fill="#202425"><title>{supply.converter.sourceVoltage} V source negative</title></circle>
+          <circle cx="26" cy={sectionLayout.psuY + 244} r="5" fill="#6f8b73"><title>Protective earth / metal enclosure</title></circle>
+          <g data-converter-input-fuse={supply.converter.inputFuse.ratingMa ?? 'unresolved'}>
+            <rect x="34" y={sectionLayout.psuY + 172} width="24" height="16" rx="3" fill="#f4f2ea" stroke="#1f2426" strokeWidth="2" />
+            <line x1="34" y1={sectionLayout.psuY + 180} x2="58" y2={sectionLayout.psuY + 180} stroke="#1f2426" strokeWidth="1.5" />
+          </g>
+        </g>}
 
         {/* Origin of the rails the level shifter and controller reach by shared-net symbol. */}
         <NetStub x={244} y={82} kind="v5" direction="up" wireId={`${supply.id}-rail-positive`} />
@@ -1443,7 +1498,7 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
 
         {/* Drawn after the block renders: both trunks land on terminals that sit
             inside the artwork, so they have to read as wires over the block. */}
-        <HoverWire tip={`PSU zone ${supplyIndex + 1} +5 V · ${mainFuseText} main fuse, then ${trunkWireText} trunk to the fuse blocks`} data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
+        <HoverWire tip={`${supply.converter ? 'Converter' : 'PSU'} zone ${supplyIndex + 1} +5 V · ${mainFuseText} main fuse, then ${trunkWireText} trunk to the fuse blocks`} data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
         {/* Main fuse, drawn over the trunk at the supply terminal where it is
             fitted: between the PSU artwork and the ground riser, which the
             positive run crosses on its way to the fuse blocks. */}
@@ -1452,7 +1507,7 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
           <line x1={MAIN_FUSE_X - 12} y1={psuPositive.y} x2={MAIN_FUSE_X + 12} y2={psuPositive.y} stroke="#1f2426" strokeWidth="1.5" />
           <title>{`${mainFuseText} main fuse at the supply positive · ${trunkWireText} trunk, ${supply.trunk.oneWayLengthMm} mm`}</title>
         </g>
-        <HoverWire tip={`PSU zone ${supplyIndex + 1} GND · main ground bus`} data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
+        <HoverWire tip={`${supply.converter ? 'Converter' : 'PSU'} zone ${supplyIndex + 1} GND · main ground bus`} data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
 
         {assigned.map((injection, index) => {
           const rowY = sectionLayout.firstBranchY + (index * POWER_BRANCH_ROW_SPACING)
@@ -1561,9 +1616,9 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
     })}
     {/* Zone negatives are one net: bond them along the shared ground riser. */}
     {sections.length > 1 && <HoverWire
-      tip="Common ground · bonds every PSU zone negative"
+      tip="Common ground · bonds every supply-zone negative"
       data-wire="multi-psu-common-ground"
-      d={`M${PSU_GROUND_TRUNK_X} ${sections[0].sectionY + sections[0].sectionLayout.psuY + 87}V${sections[sections.length - 1].sectionY + sections[sections.length - 1].sectionLayout.psuY + 87}`}
+      d={`M${PSU_GROUND_TRUNK_X} ${sections[0].sectionY + supplyTerminalPoints(sections[0].supply, sections[0].sectionLayout.psuY).outputGround.y}V${sections[sections.length - 1].sectionY + supplyTerminalPoints(sections[sections.length - 1].supply, sections[sections.length - 1].sectionLayout.psuY).outputGround.y}`}
       className={styles.groundWire}
     />}
   </g>

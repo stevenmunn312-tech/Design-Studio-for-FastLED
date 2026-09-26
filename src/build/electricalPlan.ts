@@ -10,7 +10,15 @@ import {
   type ConductorRecommendation,
   type FuseRecommendation,
 } from './electricalRules'
-import { powerConverterModuleFor, ratedInputCurrentMa, sourceVoltageIssue } from '../state/powerConverter'
+import {
+  deratedCurrentMa,
+  ENCLOSURE_AMBIENT_C,
+  inputCurrentForOutputMa,
+  powerConverterModuleFor,
+  ratedInputCurrentMa,
+  sourceVoltageIssue,
+  type PowerConverterModule,
+} from '../state/powerConverter'
 import {
   DEFAULT_SUPPLY_HEADROOM_PERCENT,
   recommendedSupplyCurrentMa,
@@ -98,6 +106,8 @@ export interface SupplyRecommendation {
    * fuse at the supply.
    */
   trunk: SupplyTrunkPlan
+  /** Present when this 5 V zone is made by an SD-series rail converter. */
+  converter?: RailConverterSupplyPlan
 }
 
 export interface SupplyTrunkPlan {
@@ -118,6 +128,31 @@ export interface ElectricalPlanTotals {
   nominalVoltage: number
   headroomPercent: number
   supplies: SupplyRecommendation[]
+  /** Shared upstream DC source when rail converters replace 5 V PSUs. */
+  source?: DcSourceRecommendation
+}
+
+export interface DcSourceRecommendation {
+  voltage: number
+  designCurrentMa: number
+  recommendedCurrentMa: number
+  recommendedWattage: number
+}
+
+export interface RailConverterSupplyPlan {
+  itemId: string
+  partId: string
+  label: string
+  sourceVoltage: number
+  outputVoltage: number
+  ratedCurrentMa: number
+  deratedCurrentMa: number
+  plannedOutputCurrentMa: number
+  inputCurrentMa: number
+  inputConductor?: ConductorRecommendation
+  inputFuse: FuseRecommendation
+  isolated: boolean
+  adjustable: boolean
 }
 
 export interface ElectricalPlanSummary {
@@ -173,6 +208,11 @@ function formatRuleCurrent(valueMa: number): string {
   return valueMa >= 1000
     ? `${Number((valueMa / 1000).toFixed(2))} A`
     : `${Math.round(valueMa)} mA`
+}
+
+/** Upstream sources are specified in whole amps; converter loads already include output headroom. */
+function recommendedSupplyCurrentMaForSource(designCurrentMa: number): number {
+  return Math.ceil(designCurrentMa / 1000) * 1000
 }
 
 function connectorMinimumForLoad(designCurrentMa: number): number | undefined {
@@ -244,13 +284,97 @@ function calculateInjections(itemId: string, outputTitle: string, pixelCount: nu
   })
 }
 
-function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] {
+interface RailConverterContext {
+  itemId: string
+  module: PowerConverterModule
+  sourceVoltage: number
+  deratedCurrentMa: number
+}
+
+function inputProtection(inputCurrentMa: number, sourceVoltage: number) {
+  const conductor = inputCurrentMa > 0
+    ? recommendConductor({
+        designCurrentMa: standardFuseRatingFor(inputCurrentMa) ?? Math.ceil(inputCurrentMa / 0.75),
+        oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
+        circuitVoltage: sourceVoltage,
+        allowedVoltageDropPercent: DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
+        material: 'copper',
+        ambientC: 30,
+        bundledCircuits: 1,
+      })
+    : undefined
+  const fuse = conductor
+    ? recommendFuse(inputCurrentMa, conductor.deratedAmpacityMa, conductor.deratedAmpacityMa)
+    : {
+        minimumLoadRatingMa: Math.ceil(inputCurrentMa / 0.75),
+        maximumProtectiveRatingMa: 0,
+        unresolvedReason: 'Set a valid source voltage to size the input fuse.',
+      }
+  return { conductor, fuse }
+}
+
+function planRailConverter(
+  manifest: HardwareManifest,
+  blockers: ElectricalPlanIssue[],
+): RailConverterContext | undefined {
+  const items = manifest.primaryItems.filter((item) =>
+    item.kind === 'power-converter' && item.facts.role === 'led-rail')
+  if (items.length === 0) return undefined
+
+  const partIds = [...new Set(items.map((item) => String(item.facts.partId ?? '')))]
+  if (partIds.length > 1) {
+    blockers.push({
+      id: 'rail-converter-part-types',
+      severity: 'blocking',
+      title: 'LED rail conversion',
+      detail: 'The plan contains different rail-converter models. Use one SD-100 model so every generated 5 V zone has the same input range and current rating.',
+    })
+  }
+  const item = items[0]
+  const module = powerConverterModuleFor(item.facts.partId)
+  if (!module || module.spec.role !== 'led-rail') return undefined
+  const sourceVoltages = [...new Set(items.map((candidate) => Number(candidate.facts.sourceVoltage)))]
+  if (sourceVoltages.length > 1) {
+    blockers.push({
+      id: 'rail-converter-source-voltages',
+      severity: 'blocking',
+      title: 'LED rail conversion',
+      detail: 'Rail converters share one upstream DC source, so give every rail converter the same source voltage.',
+    })
+  }
+  for (const candidate of items) {
+    const candidateModule = powerConverterModuleFor(candidate.facts.partId)
+    if (!candidateModule) continue
+    const sourceVoltage = Number(candidate.facts.sourceVoltage)
+    const issue = sourceVoltageIssue(candidateModule.spec, sourceVoltage)
+    if (issue) {
+      blockers.push({
+        id: `${candidate.id}:source-voltage`,
+        severity: 'blocking',
+        title: candidateModule.label,
+        detail: issue,
+      })
+    }
+  }
+  return {
+    itemId: item.id,
+    module,
+    sourceVoltage: Number(item.facts.sourceVoltage),
+    deratedCurrentMa: deratedCurrentMa(module.spec),
+  }
+}
+
+function groupSupplies(
+  outputs: OutputElectricalPlan[],
+  railConverter?: RailConverterContext,
+): SupplyRecommendation[] {
   const supplies: SupplyRecommendation[] = []
   for (const output of outputs) {
     for (const injection of output.injections) {
       const headroom = 1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)
+      const groupCeilingMa = railConverter?.deratedCurrentMa ?? MAX_RECOMMENDED_SUPPLY_CURRENT_MA
       let supply = supplies.find((candidate) =>
-        ((candidate.designCurrentMa + injection.designCurrentMa) * headroom) <= MAX_RECOMMENDED_SUPPLY_CURRENT_MA)
+        ((candidate.designCurrentMa + injection.designCurrentMa) * headroom) <= groupCeilingMa)
       if (!supply) {
         supply = {
           id: `supply-${supplies.length + 1}`,
@@ -265,7 +389,9 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
         supplies.push(supply)
       }
       supply.designCurrentMa += injection.designCurrentMa
-      supply.recommendedCurrentMa = recommendedSupplyCurrentMa(supply.designCurrentMa)
+      supply.recommendedCurrentMa = railConverter
+        ? railConverter.deratedCurrentMa
+        : recommendedSupplyCurrentMa(supply.designCurrentMa)
       supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
       if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
       if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
@@ -273,7 +399,36 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
       injection.supplyId = supply.id
     }
   }
-  for (const supply of supplies) supply.trunk = planTrunk(supply.designCurrentMa, nominalVoltageOf(outputs))
+  for (const supply of supplies) {
+    supply.trunk = planTrunk(supply.designCurrentMa, nominalVoltageOf(outputs))
+    if (railConverter) {
+      const plannedOutputCurrentMa = Math.min(
+        railConverter.deratedCurrentMa,
+        Math.ceil(supply.designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))),
+      )
+      const inputCurrentMa = inputCurrentForOutputMa(
+        railConverter.module.spec,
+        railConverter.sourceVoltage,
+        plannedOutputCurrentMa,
+      )
+      const input = inputProtection(inputCurrentMa, railConverter.sourceVoltage)
+      supply.converter = {
+        itemId: railConverter.itemId,
+        partId: railConverter.module.partId,
+        label: railConverter.module.label,
+        sourceVoltage: railConverter.sourceVoltage,
+        outputVoltage: railConverter.module.spec.outputSetV,
+        ratedCurrentMa: railConverter.module.spec.continuousCurrentMa,
+        deratedCurrentMa: railConverter.deratedCurrentMa,
+        plannedOutputCurrentMa,
+        inputCurrentMa,
+        inputConductor: input.conductor,
+        inputFuse: input.fuse,
+        isolated: railConverter.module.spec.isolated,
+        adjustable: railConverter.module.spec.adjustable,
+      }
+    }
+  }
   return supplies
 }
 
@@ -348,20 +503,7 @@ function planControllerSupply(
   const inputCurrentMa = Number.isFinite(sourceVoltage) && sourceVoltage > 0
     ? ratedInputCurrentMa(spec, sourceVoltage)
     : 0
-  const inputConductor = inputCurrentMa > 0
-    ? recommendConductor({
-        designCurrentMa: standardFuseRatingFor(inputCurrentMa) ?? Math.ceil(inputCurrentMa / 0.75),
-        oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
-        circuitVoltage: sourceVoltage,
-        allowedVoltageDropPercent: DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
-        material: 'copper',
-        ambientC: 30,
-        bundledCircuits: 1,
-      })
-    : undefined
-  const inputFuse = inputConductor
-    ? recommendFuse(inputCurrentMa, inputConductor.deratedAmpacityMa, inputConductor.deratedAmpacityMa)
-    : { minimumLoadRatingMa: Math.ceil(inputCurrentMa / 0.75), maximumProtectiveRatingMa: 0, unresolvedReason: 'Set a valid source voltage to size the input fuse.' }
+  const input = inputProtection(inputCurrentMa, sourceVoltage)
   return {
     itemId: item.id,
     partId: module.partId,
@@ -373,8 +515,8 @@ function planControllerSupply(
     powerInPinLabel: powerIn?.label,
     powerInAnchorId: powerIn?.anchorId,
     inputCurrentMa,
-    inputConductor,
-    inputFuse,
+    inputConductor: input.conductor,
+    inputFuse: input.fuse,
   }
 }
 
@@ -479,17 +621,40 @@ export function calculateElectricalPlan(
     })
   }
 
+  const controllerSupply = planControllerSupply(manifest, exactBoard, blockers)
+  const railConverter = planRailConverter(manifest, blockers)
+  if (controllerSupply && railConverter && controllerSupply.sourceVoltage !== railConverter.sourceVoltage) {
+    blockers.push({
+      id: 'converter-source-voltage-mismatch',
+      severity: 'blocking',
+      title: 'Shared DC source',
+      detail: `The controller converter is set to ${controllerSupply.sourceVoltage} V and the LED rail converter to ${railConverter.sourceVoltage} V. They share one upstream source, so set both to the same voltage.`,
+    })
+  }
+
   const totals = outputPlans.length > 0
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
       const designCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-      const supplies = groupSupplies(outputPlans)
+      const supplies = groupSupplies(outputPlans, railConverter)
       const recommendedSupplyCurrentMa = supplies.reduce((sum, supply) => sum + supply.recommendedCurrentMa, 0)
       const recommendedSupplyCount = supplies.length
       const perSupplyCurrentMa = Math.max(...supplies.map((supply) => supply.recommendedCurrentMa))
       const cappedCurrents = outputPlans
         .map((plan) => plan.operatingCurrentCapMa)
         .filter((entry): entry is number => typeof entry === 'number')
+      const sourceInputCurrentMa = supplies.reduce((sum, supply) => sum + (supply.converter?.inputCurrentMa ?? 0), 0)
+        + (railConverter && controllerSupply && controllerSupply.sourceVoltage === railConverter.sourceVoltage
+          ? controllerSupply.inputCurrentMa
+          : 0)
+      const source = railConverter
+        ? {
+            voltage: railConverter.sourceVoltage,
+            designCurrentMa: sourceInputCurrentMa,
+            recommendedCurrentMa: recommendedSupplyCurrentMaForSource(sourceInputCurrentMa),
+            recommendedWattage: Number(((recommendedSupplyCurrentMaForSource(sourceInputCurrentMa) / 1000) * railConverter.sourceVoltage).toFixed(1)),
+          }
+        : undefined
       return {
         designCurrentMa,
         operatingCurrentCapMa: cappedCurrents.length > 0 ? cappedCurrents.reduce((sum, value) => sum + value, 0) : undefined,
@@ -500,11 +665,10 @@ export function calculateElectricalPlan(
         nominalVoltage,
         headroomPercent: DEFAULT_SUPPLY_HEADROOM_PERCENT,
         supplies,
+        source,
       }
     })()
     : undefined
-
-  const controllerSupply = planControllerSupply(manifest, exactBoard, blockers)
 
   const unresolved = outputPlans.flatMap((output) => [
     ...output.injections.flatMap((injection) => [
@@ -516,6 +680,11 @@ export function calculateElectricalPlan(
     const zone = supply.id.replace('supply-', 'PSU zone ')
     if (!supply.trunk.conductor) unresolved.push(`${zone} trunk: no reviewed conductor carries the zone's main fuse.`)
     else if (supply.trunk.mainFuse.unresolvedReason) unresolved.push(`${zone} main fuse: ${supply.trunk.mainFuse.unresolvedReason}`)
+    if (supply.converter && !supply.converter.inputConductor) {
+      unresolved.push(`${zone} converter input: no reviewed conductor carries its source-side fuse.`)
+    } else if (supply.converter?.inputFuse.unresolvedReason) {
+      unresolved.push(`${zone} converter input fuse: ${supply.converter.inputFuse.unresolvedReason}`)
+    }
   }
   const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const powerReadyPasses = blockers.length === 0 && unresolved.length === 0
@@ -533,6 +702,12 @@ export function calculateElectricalPlan(
       ? `Power the controller from the ${controllerSupply.label} into its ${controllerSupply.powerInPinLabel ?? '5 V input'} pin; do not route LED load through the controller board.`
       : 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
     ...(controllerSupply ? controllerSupplyRecommendations(controllerSupply) : []),
+    ...(railConverter ? [
+      `Use one ${railConverter.module.label} per 5 V distribution zone; never parallel converter outputs.`,
+      `At ${ENCLOSURE_AMBIENT_C} °C, plan each ${railConverter.module.label} for no more than ${formatRuleCurrent(railConverter.deratedCurrentMa)} continuous output.`,
+      'Bond every isolated converter output -V to the common ground at its fuse-block distribution point; connect FG to protective earth or the metal enclosure.',
+      `Set each converter to ${railConverter.module.spec.outputSetV} V with a meter before connecting LEDs, and keep its perforated case uncovered with airflow.`,
+    ] : []),
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',
     'Use one 74AHCT125 channel and one 330 ohm series resistor for each WS2812B data route.',
     'Install one good-quality, correctly polarized 1000 uF, 6.3 V low-ESR electrolytic capacitor across +5 V and GND after every branch fuse, before the matrix feed or power-injection connection.',
@@ -560,7 +735,9 @@ export function calculateElectricalPlan(
     'WS2812B supplies, wiring and protection are sized at 60 mA per pixel full white; a configured firmware cap does not reduce any recommendation.',
     `${DEFAULT_LED_DENSITY_PER_METER} LEDs/m and ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way copper feeds are used when the graph has no physical product dimensions.`,
     `Start and end feeds are limited to ${formatRuleCurrent(MAX_END_FEED_CURRENT_MA)}; centre feeds may carry up to ${formatRuleCurrent(MAX_CENTER_FEED_CURRENT_MA)} before splitting in both directions.`,
-    `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
+    railConverter
+      ? `Supply groups are packed from uncapped full-white loads into ${railConverter.module.label} converters at ${ENCLOSURE_AMBIENT_C} °C with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; separate converter outputs must not be paralleled.`
+      : `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
     `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the full-white load.`,
     `Conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
     `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,

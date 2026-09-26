@@ -11,7 +11,7 @@
 // misrepresentation this model exists to remove — so a part with one supported
 // module states its name instead of pretending to offer alternatives.
 
-import { powerConverterModules } from './powerConverter'
+import { deratedCurrentMa, ENCLOSURE_AMBIENT_C, powerConverterModules } from './powerConverter'
 import { partById, type PartCatalogueEntry } from './partCatalogue'
 import { IR_RECEIVER_MODULES } from './irModules'
 import { MIC_MODULES } from './micModules'
@@ -79,7 +79,7 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
     options: powerConverterModules().map((module) => ({
       id: module.partId,
       label: module.label,
-      summary: `${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${module.spec.continuousCurrentMa / 1000} A out`,
+      summary: `${module.spec.role === 'controller' ? 'Controller' : 'LED rail'} · ${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
     })),
   },
   EthernetModule: {

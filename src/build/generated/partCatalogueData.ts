@@ -796,6 +796,120 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.007
     }
   },
+  "mean-well-sd-100a-5": {
+    "partId": "mean-well-sd-100a-5",
+    "label": "Mean Well SD-100A-5 DC-DC converter (12 V in, 5 V 18 A)",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 98.0,
+      "height": 199.0
+    },
+    "manufacturer": "Mean Well Enterprises",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "+",
+      "-",
+      "FG",
+      "-V",
+      "-V",
+      "+V",
+      "+V"
+    ],
+    "notes": [
+      "Terminals left to right: 1 DC input +, 2 DC input -, 3 FG (protective earth or the metal enclosure), 4-5 output -V, 6-7 output +V. Use both output terminals of each polarity at full load.",
+      "Isolated: output -V is not joined to input -. Bond output -V to the common ground at the fuse-block distribution so the controller and LEDs share one reference.",
+      "Set the output with V.ADJ before connecting the LEDs; it adjusts 4.5-5.5 V.",
+      "Full load needs the input at or above the derating knee; below it the output current is reduced.",
+      "Output current derates with ambient temperature; the plan sizes it at a 40 C enclosure.",
+      "Mount it on a metal plate with airflow; the perforated case must not be covered."
+    ],
+    "powerConverter": {
+      "role": "led-rail",
+      "topology": "isolated DC-DC",
+      "inputMinV": 10,
+      "inputMaxV": 18,
+      "minHeadroomV": 0,
+      "outputSetV": 5.0,
+      "continuousCurrentMa": 18000,
+      "peakCurrentMa": 18000,
+      "typicalEfficiency": 0.78,
+      "isolated": true,
+      "adjustable": true,
+      "deratingCurve": [
+        [
+          40,
+          100
+        ],
+        [
+          60,
+          60
+        ]
+      ]
+    },
+    "render": {
+      "file": "parts/mean-well-sd-100a-5.webp",
+      "widthPx": 1196,
+      "heightPx": 2408,
+      "pxPerMm": 12.0
+    }
+  },
+  "mean-well-sd-100b-5": {
+    "partId": "mean-well-sd-100b-5",
+    "label": "Mean Well SD-100B-5 DC-DC converter (24 V in, 5 V 20 A)",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 98.0,
+      "height": 199.0
+    },
+    "manufacturer": "Mean Well Enterprises",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "+",
+      "-",
+      "FG",
+      "-V",
+      "-V",
+      "+V",
+      "+V"
+    ],
+    "notes": [
+      "Terminals left to right: 1 DC input +, 2 DC input -, 3 FG (protective earth or the metal enclosure), 4-5 output -V, 6-7 output +V. Use both output terminals of each polarity at full load.",
+      "Isolated: output -V is not joined to input -. Bond output -V to the common ground at the fuse-block distribution so the controller and LEDs share one reference.",
+      "Set the output with V.ADJ before connecting the LEDs; it adjusts 4.5-5.5 V.",
+      "Full load needs the input at or above the derating knee; below it the output current is reduced.",
+      "Output current derates with ambient temperature; the plan sizes it at a 40 C enclosure.",
+      "Mount it on a metal plate with airflow; the perforated case must not be covered."
+    ],
+    "powerConverter": {
+      "role": "led-rail",
+      "topology": "isolated DC-DC",
+      "inputMinV": 20,
+      "inputMaxV": 36,
+      "minHeadroomV": 0,
+      "outputSetV": 5.0,
+      "continuousCurrentMa": 20000,
+      "peakCurrentMa": 20000,
+      "typicalEfficiency": 0.74,
+      "isolated": true,
+      "adjustable": true,
+      "deratingCurve": [
+        [
+          30,
+          100
+        ],
+        [
+          60,
+          60
+        ]
+      ]
+    },
+    "render": {
+      "file": "parts/mean-well-sd-100b-5.webp",
+      "widthPx": 1196,
+      "heightPx": 2408,
+      "pxPerMm": 12.0
+    }
+  },
   "microsd-breakout-3v3": {
     "partId": "microsd-breakout-3v3",
     "label": "microSD breakout, 3.3 V bare",

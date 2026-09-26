@@ -121,8 +121,9 @@ compile families:
    long-cable bench run is recorded. See
    [hardware nodes](../design/hardware-nodes.md#long-data-runs).
 8. Buck conversion and protected high-side switching in the Build Diagram
-   power model. In progress: the LM2596 controller buck (`PowerConverter`)
-   and main supply fuses are in; the SD-100 rail converter is next. See
+   power model. Complete in software: the LM2596 controller buck, the Mean
+   Well SD-100A/B-5 LED rail converters (`PowerConverter`), and main supply
+   fuses and trunks. See
    [power conversion and protection](power-conversion-and-protection.md).
 
 ## Definition of done for each addition

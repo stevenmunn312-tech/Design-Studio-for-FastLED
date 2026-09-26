@@ -33,6 +33,17 @@ function formatAmps(valueMa: number): string {
   return `${Number((valueMa / 1000).toFixed(valueMa % 1000 === 0 ? 0 : 1))} A`
 }
 
+function supplyNumber(supplyId: string): string {
+  return supplyId.replace('supply-', '')
+}
+
+function supplyLabelFor(plan: ElectricalPlanSummary, supplyId: string): string {
+  const supply = plan.totals?.supplies.find((candidate) => candidate.id === supplyId)
+  return supply?.converter
+    ? `${supply.converter.label} zone ${supplyNumber(supplyId)}`
+    : `5 V PSU ${supplyNumber(supplyId)}`
+}
+
 export function rowsToCsv(headers: string[], rows: string[][]): string {
   return [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')
 }
@@ -51,7 +62,7 @@ export function buildConnectionRows(
   const includedPlanOutputs = plan.outputs.filter((output) => includedOutputIds.has(output.itemId))
   const logicSupplyId = includedPlanOutputs.flatMap((output) => output.injections)
     .find((injection) => injection.supplyId)?.supplyId ?? 'supply-1'
-  const logicDistribution = `5 V PSU ${logicSupplyId.replace('supply-', '')} fuse-block distribution`
+  const logicDistribution = `${supplyLabelFor(plan, logicSupplyId)} fuse-block distribution`
 
   const supply = plan.controllerSupply
   if (supply && items.some((item) => item.id === supply.itemId)) {
@@ -172,13 +183,26 @@ export function buildConnectionRows(
     const supplyInjections = includedInjections.filter((injection) =>
       injection.supplyId === supply.id && includedInjectionIds.has(injection.id))
     if (supplyInjections.length === 0) continue
-    const supplyLabel = `5 V PSU ${supply.id.replace('supply-', '')}`
+    const supplyLabel = supplyLabelFor(plan, supply.id)
     const distribution = `${supplyLabel} fuse-block distribution`
     const mainFuse = `${supplyLabel} ${supply.trunk.mainFuse.ratingMa ? formatAmps(supply.trunk.mainFuse.ratingMa) : 'rated'} main fuse`
     const trunkWire = supply.trunk.conductor ? `AWG ${supply.trunk.conductor.awg}` : 'rated'
-    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: mainFuse, toTerminal: 'Input', purpose: `DC supply positive; fuse at the supply terminal, ${trunkWire} copper` })
+    if (supply.converter) {
+      const converter = supply.converter
+      const source = `${converter.sourceVoltage} V DC source`
+      const inputFuse = `${supplyLabel} ${converter.inputFuse.ratingMa ? formatAmps(converter.inputFuse.ratingMa) : 'rated'} input fuse`
+      const inputWire = converter.inputConductor ? `AWG ${converter.inputConductor.awg}` : 'rated'
+      rows.push({ from: source, fromTerminal: '+', to: inputFuse, toTerminal: 'Input', purpose: `Converter input positive, fused at the source; ${inputWire} copper` })
+      rows.push({ from: inputFuse, fromTerminal: 'Output', to: supplyLabel, toTerminal: '1 V+', purpose: `Converter input positive; ${inputWire} copper` })
+      rows.push({ from: source, fromTerminal: '-', to: supplyLabel, toTerminal: '2 V-', purpose: `Converter input negative; ${inputWire} copper` })
+      rows.push({ from: 'Protective earth / metal enclosure', fromTerminal: 'PE', to: supplyLabel, toTerminal: '3 FG', purpose: 'Converter case protective-earth bond' })
+      rows.push({ from: supplyLabel, fromTerminal: '4-5 -V', to: distribution, toTerminal: 'Common negative bus', purpose: 'Isolated output return; bond to common ground at this distribution point' })
+    }
+    rows.push({ from: supplyLabel, fromTerminal: supply.converter ? '6-7 +V' : '+5V', to: mainFuse, toTerminal: 'Input', purpose: `DC supply positive; fuse at the supply terminal, ${trunkWire} copper` })
     rows.push({ from: mainFuse, fromTerminal: 'Output', to: distribution, toTerminal: 'Positive input stud', purpose: `Protected ${trunkWire} trunk, ${supply.trunk.oneWayLengthMm} mm` })
-    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Common negative bus', purpose: `DC supply return, ${trunkWire} copper` })
+    if (!supply.converter) {
+      rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Common negative bus', purpose: `DC supply return, ${trunkWire} copper` })
+    }
     for (const injection of supplyInjections) {
       const destination = `${injection.outputTitle} ${injection.role} injection @ ${injection.positionMm} mm`
       const fuse = `${destination} ${injection.fuse.ratingMa ?? 'rated'} mA branch fuse`
@@ -192,7 +216,7 @@ export function buildConnectionRows(
   }
   const includedSupplyIds = [...new Set(includedInjections.map((injection) => injection.supplyId).filter(Boolean))]
   for (const supplyId of includedSupplyIds.slice(1)) {
-    rows.push({ from: `5 V PSU ${String(supplyId).replace('supply-', '')}`, fromTerminal: 'GND', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Shared data-reference ground; keep +5 V zones isolated' })
+    rows.push({ from: supplyLabelFor(plan, String(supplyId)), fromTerminal: plan.totals?.supplies.find((supply) => supply.id === supplyId)?.converter ? '4-5 -V' : 'GND', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Shared data-reference ground; keep +5 V zones isolated' })
   }
   return rows
 }
@@ -210,6 +234,7 @@ export function buildBomRows(
   const outputPlanByItemId = new Map(plan.outputs.map((output) => [output.itemId, output]))
   if (exactBoard) rows.push({ quantity: '1', item: exactBoard.label, specification: exactBoard.confidence.replace(/-/g, ' '), status: 'configured' })
   for (const item of items) {
+    if (item.kind === 'power-converter' && item.facts.role === 'led-rail') continue
     const outputPlan = outputPlanByItemId.get(item.id)
     const limit = outputPlan?.operatingCurrentCapMa != null
       ? `; configured FastLED current limit ${formatAmps(outputPlan.operatingCurrentCapMa)}; uncapped full-white ceiling ${formatAmps(outputPlan.designCurrentMa)}`
@@ -250,14 +275,48 @@ export function buildBomRows(
     const includedInjectionIds = new Set(outputs.flatMap((output) => output.injections.map((injection) => injection.id)))
     const supplies = plan.totals.supplies.filter((supply) => supply.outputIds.some((id) => outputIds.has(id))
       && supply.injectionIds.some((id) => includedInjectionIds.has(id)))
+    if (plan.totals.source && supplies.some((supply) => supply.converter)) {
+      rows.push({
+        quantity: '1',
+        item: `Recommended ${plan.totals.source.voltage} V DC source`,
+        specification: `${formatAmps(plan.totals.source.recommendedCurrentMa)}, ${plan.totals.source.recommendedWattage} W continuous for the converter inputs${plan.controllerSupply ? ' and controller buck' : ''}`,
+        status: 'calculated',
+      })
+    }
     for (const supply of supplies) {
       const sizingBasis = `derived from the ${formatAmps(supply.designCurrentMa)} full-white load with ${plan.totals.headroomPercent}% target headroom; a FastLED current limit does not reduce it`
-      rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; ${sizingBasis}`, status: 'calculated' })
+      if (supply.converter) {
+        const converter = supply.converter
+        rows.push({
+          quantity: '1',
+          item: converter.label,
+          specification: `${converter.sourceVoltage} V in, ${converter.outputVoltage} V out; ${formatAmps(converter.deratedCurrentMa)} continuous at 40 C (${formatAmps(converter.ratedCurrentMa)} nameplate); ${sizingBasis}`,
+          status: 'configured',
+        })
+        rows.push({
+          quantity: '1',
+          item: `${supplyLabelFor(plan, supply.id)} input fuse and holder`,
+          specification: converter.inputFuse.ratingMa
+            ? `${formatAmps(converter.inputFuse.ratingMa)} DC-rated fuse at the ${converter.sourceVoltage} V source; planned converter input ${formatAmps(converter.inputCurrentMa)}`
+            : converter.inputFuse.unresolvedReason ?? 'Unresolved converter input fuse rating',
+          status: converter.inputFuse.ratingMa ? 'calculated' : 'unresolved',
+        })
+        rows.push({
+          quantity: '2 runs',
+          item: `${supplyLabelFor(plan, supply.id)} input conductors (+ and -)`,
+          specification: converter.inputConductor
+            ? `AWG ${converter.inputConductor.awg} / ${converter.inputConductor.crossSectionMm2} mm2 ${converter.inputConductor.material} minimum from the ${converter.sourceVoltage} V source`
+            : 'Unresolved converter input conductor size',
+          status: converter.inputConductor ? 'calculated' : 'unresolved',
+        })
+      } else {
+        rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supplyNumber(supply.id)}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; ${sizingBasis}`, status: 'calculated' })
+      }
       const zone = supply.id.replace('supply-', '')
       const { mainFuse, conductor } = supply.trunk
       rows.push({
         quantity: '1',
-        item: `PSU ${zone} main fuse and holder`,
+        item: `${supply.converter ? `Converter zone ${zone}` : `PSU ${zone}`} main fuse and holder`,
         specification: mainFuse.ratingMa
           ? `${formatAmps(mainFuse.ratingMa)} DC-rated bolt-down fuse (MIDI/ANL class) in an insulated holder at the supply positive; carries ${formatAmps(supply.trunk.designCurrentMa)} at 75% loading`
           : mainFuse.unresolvedReason ?? 'Unresolved main fuse rating',
@@ -265,7 +324,7 @@ export function buildBomRows(
       })
       rows.push({
         quantity: '2 runs',
-        item: `PSU ${zone} trunk conductors (+ and -)`,
+        item: `${supply.converter ? `Converter zone ${zone}` : `PSU ${zone}`} trunk conductors (+ and -)`,
         specification: conductor
           ? `AWG ${conductor.awg} / ${conductor.crossSectionMm2} mm2 ${conductor.material} minimum, ${supply.trunk.oneWayLengthMm} mm one-way, ring lugs rated for the cable; ${conductor.voltageDrop} V calculated drop`
           : 'Unresolved trunk conductor size',

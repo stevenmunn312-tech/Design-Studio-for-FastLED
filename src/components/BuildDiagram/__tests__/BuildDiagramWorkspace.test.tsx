@@ -711,6 +711,29 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelectorAll('[data-component-render="lm2596-buck-module"]')).toHaveLength(1)
   })
 
+  it('draws one isolated SD-100 rail converter and source-side fuse per power zone', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(),
+        { id: 'rail', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Rail converter', nodeType: 'PowerConverter', category: 'input', properties: { partId: 'mean-well-sd-100a-5', sourceVoltage: 12 }, inputs: [], outputs: [] } },
+      ] as never[],
+    })
+    selectDevKit()
+    const { container, getByText } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+    const zones = Array.from(diagram?.querySelectorAll('[data-power-zone]') ?? [])
+
+    expect(zones).toHaveLength(2)
+    expect(diagram?.querySelector('[data-component-render="5v-psu"]')).toBeNull()
+    expect(diagram?.querySelectorAll('[data-component-render="mean-well-sd-100a-5"]')).toHaveLength(2)
+    expect(diagram?.querySelectorAll('[data-rail-converter-input]')).toHaveLength(2)
+    expect(diagram?.querySelectorAll('[data-converter-input-fuse]')).toHaveLength(2)
+    expect(diagram?.querySelector('[data-wire="supply-1-converter-input-positive"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-wire="supply-1-converter-input-negative"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-wire="supply-1-converter-frame-ground"]')).toBeTruthy()
+    expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('Upstream source: 12 V') ?? false))).toBeTruthy()
+  })
+
   it('generates complete recommended wiring for supported controls from the graph', () => {
     useGraphStore.setState({
       nodes: [

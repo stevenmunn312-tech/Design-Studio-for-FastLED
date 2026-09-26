@@ -154,6 +154,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Isolated 5 V LED-rail conversion from 12 V or 24 V.** The Hardware shelf
+  now offers the Mean Well SD-100A-5 and SD-100B-5. The electrical plan applies
+  their imported 40 °C derating curves, adds converters until every full-white
+  zone retains 20% headroom, sizes each source-side fuse and conductor, and
+  recommends the shared upstream source. The Build Diagram and exports show
+  FG, the isolated-output ground bond, output main fuse and 5 V trunk; converter
+  outputs are never paralleled.
+
 - **Three starters where the controls are already wired.** Both existing
   control-bearing starters left Player Controls as a stub with nothing plugged
   into either end, so the one thing a beginner most needs to see — that

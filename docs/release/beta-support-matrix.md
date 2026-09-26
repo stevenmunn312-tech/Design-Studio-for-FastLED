@@ -415,6 +415,12 @@ Unless a future row says otherwise, treat the following as experimental:
   (`PowerConverter`) changes only the Build Diagram, connection list and BOM;
   the firmware is unchanged. No bench run of a board powered through its 5 V
   pin from the module has been recorded.
+- **Powering the LED rail from an isolated converter.** The Mean Well
+  SD-100A-5 and SD-100B-5 (`PowerConverter`) replace generic 5 V PSUs in the
+  calculated power zones. The plan applies 40 °C derating, source-side fuses
+  and conductors, FG, the isolated-output ground bond, output main fuses and
+  trunks; firmware is unchanged. No bench run from a 12 V or 24 V source
+  through one of these converters into a loaded LED rail has been recorded.
 - **The NLED Pixel Data Extender data link.** Choosing it on an LED output
   only changes the Build Diagram, parts list and exports (TX/RX pair, twisted
   A/B/ground run). The firmware sends the same one-wire signal either way. No

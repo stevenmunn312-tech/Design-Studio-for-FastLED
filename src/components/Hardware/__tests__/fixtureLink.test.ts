@@ -13,6 +13,8 @@ describe('fixtureLinkLabel', () => {
       .toBe('Board relay control lines out to the 4-channel relay')
     expect(fixtureLinkLabel('PowerConverter', { partId: 'lm2596-buck-module' }, 'Buck converter'))
       .toBe('5 V from the Buck converter into the board')
+    expect(fixtureLinkLabel('PowerConverter', { partId: 'mean-well-sd-100a-5' }, 'SD-100A-5'))
+      .toBe('DC source through the SD-100A-5 to the 5 V LED rail')
     expect(fixtureLinkLabel('StereoVuMeter', {}, 'Stereo VU Meter'))
       .toBe('Board LED data out to the Stereo VU Meter')
   })

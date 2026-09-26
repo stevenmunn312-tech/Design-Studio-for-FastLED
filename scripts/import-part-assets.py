@@ -302,6 +302,16 @@ def read_part(part_dir: Path) -> dict | None:
                 "isolated": converter["isolated"],
                 "adjustable": bool(converter.get("adjustable", False)),
             }
+            # Output current against ambient temperature, as (C, percent)
+            # points in rising temperature order; absent means no derating.
+            curve = converter.get("deratingCurve")
+            if (isinstance(curve, list) and len(curve) >= 2
+                    and all(isinstance(p, list) and len(p) == 2 and all(isinstance(v, (int, float)) for v in p) for p in curve)
+                    and all(0 <= p[1] <= 100 for p in curve)
+                    and all(a[0] < b[0] for a, b in zip(curve, curve[1:]))):
+                entry["powerConverter"]["deratingCurve"] = curve
+            elif curve is not None:
+                print(f"  ! {part_id}: powerConverter deratingCurve must be rising (C, 0-100 percent) pairs — dropped", file=sys.stderr)
         else:
             print(f"  ! {part_id}: powerConverter block needs a role, input range, output, current, efficiency and isolation — skipped",
                   file=sys.stderr)

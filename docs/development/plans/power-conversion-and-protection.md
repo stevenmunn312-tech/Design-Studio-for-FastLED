@@ -72,8 +72,12 @@ instead; and a `pinout-verified` board is blocked outright.
   modules ships at an arbitrary output voltage.
 - Connection list and BOM rows follow the diagram.
 
-## Slice B: rail converter (SD-100A/B-5)
+## Slice B: rail converter (SD-100A/B-5), done
 
+- The imported SD-100A-5 and SD-100B-5 share the verified case-902 render and
+  carry their own input ranges, efficiency, isolation and temperature-derating
+  curves. The plan sizes them at a 40 °C enclosure ambient: 18 A for the A
+  model and 17.333 A for the B model.
 - When a rail converter is present, `groupSupplies` packs LED feeds into
   converters instead of generic 5 V PSUs: the group ceiling is the converter's
   continuous rating after headroom instead of `MAX_RECOMMENDED_SUPPLY_CURRENT_MA`,
@@ -90,7 +94,8 @@ instead; and a `pinout-verified` board is blocked outright.
   distribution point; the diagram draws that bond explicitly rather than
   implying it.
 - A controller buck and a rail converter together share the one source; the
-  controller buck is drawn from the source side, not from the LED rail.
+  controller buck is budgeted from the source side, not from the LED rail.
+  Different source-voltage settings are a blocking plan issue.
 
 ## Slice C: main supply protection (done)
 
@@ -119,6 +124,6 @@ one later.
 1. Blender models and `part.json` for the LM2596 module and the SD-100 case; import.
 2. `PowerConverter` node, the `powerConverter` catalogue block, shelf entry.
 3. Slice A: done (LM2596 model, `PowerConverter`, plan, diagram, exports).
-4. Slice B; tests.
+4. Slice B: done (SD-100 models, derating, source sizing, diagram and exports).
 5. Slice C: done (main fuse, trunk, wire table, 100 A cap).
 6. Docs: hardware nodes design note, support matrix rows, todo.

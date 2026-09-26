@@ -134,6 +134,9 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
+- **D-05 LED rail converter:** a loaded 5 V LED rail powered from the Mean Well
+  SD-100A-5 at 12 V and the SD-100B-5 at 24 V, with source current, output
+  voltage, case temperature, FG and the isolated-output ground bond recorded.
 - **D-05 pixel data extender:** the NLED TX/RX pair driving a WS2812B run over
   a long twisted A/B/ground cable, with the length recorded, powered from
   separate supplies at each end with bonded grounds.
@@ -195,9 +198,11 @@ in the app and marked experimental; nothing here holds up development.
   and drawn on the Build Diagram. It adds no firmware, so no compile is owed;
   its bench row is in section 3. Roadmap step 8 is under way
   ([plan](docs/development/plans/power-conversion-and-protection.md)): each
-  supply now has a main fuse and trunk, and the LM2596 controller buck
-  (`PowerConverter`) is modelled, drawn and experimental; the Mean Well SD-100
-  rail converter is next.
+  supply now has a main fuse and trunk; the LM2596 controller buck and Mean
+  Well SD-100A/B-5 LED rail converters (`PowerConverter`) are modelled, sized,
+  drawn and experimental. The SD-100 path applies the imported temperature
+  derating at a 40 °C enclosure ambient and replaces generic 5 V PSUs with a
+  shared upstream-source recommendation.
 
 ## Completed
 

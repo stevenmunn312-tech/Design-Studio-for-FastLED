@@ -1288,7 +1288,7 @@ export const POWER_CONVERTER_LIVE_EXAMPLE = namedExample(
     { key: 'pattern', type: 'Juggle' },
   ],
   [],
-  'Buck Converter carries no noodles: with it on the bench, the Build Diagram powers the controller from a 12 V supply through the converter into the board’s 5 V pin, in place of USB, and fuses its input at the source. The pattern and its LED output are unchanged.',
+  'Buck Converter carries no noodles. The LM2596 option powers the controller through its 5 V pin in place of USB. The Mean Well SD-100 options instead make isolated 5 V LED power zones from a 12 V or 24 V source, with source and output protection shown in the Build Diagram. The pattern and its LED output are unchanged.',
   'The preview is unchanged, because the converter changes where the board gets its power, not what it draws. Open the Build Diagram to see the converter under the board.',
 )
 

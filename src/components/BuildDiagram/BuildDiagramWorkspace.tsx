@@ -328,7 +328,10 @@ export default function BuildDiagramWorkspace() {
   const partsSummary = useMemo(() => {
     const lines: Array<{ id: string; quantity: string; label: string; pending?: boolean }> = []
     if (exactBoard) lines.push({ id: 'board', quantity: '1', label: exactBoard.label })
-    for (const item of primaryItems) lines.push({ id: item.id, quantity: '1', label: item.title })
+    for (const item of primaryItems) {
+      if (item.kind === 'power-converter' && item.facts.role === 'led-rail') continue
+      lines.push({ id: item.id, quantity: '1', label: item.title })
+    }
     if (outputItems.length > 0) {
       lines.push({ id: 'level-shifter', quantity: String(Math.max(1, Math.ceil(outputItems.length / 4))), label: '74AHCT125 level shifter' })
       lines.push({ id: 'resistors', quantity: String(outputItems.length), label: '330 ohm data resistor' })
@@ -342,8 +345,21 @@ export default function BuildDiagramWorkspace() {
       }
     }
     if (electricalPlan.totals) {
+      if (electricalPlan.totals.source) {
+        lines.push({
+          id: 'converter-source',
+          quantity: '1',
+          label: `${electricalPlan.totals.source.voltage} V · ${formatCurrentMa(electricalPlan.totals.source.recommendedCurrentMa)} / ${formatWattage(electricalPlan.totals.source.recommendedWattage)} DC source`,
+        })
+      }
       for (const supply of electricalPlan.totals.supplies) {
-        lines.push({ id: supply.id, quantity: '1', label: `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} PSU` })
+        lines.push({
+          id: supply.id,
+          quantity: '1',
+          label: supply.converter
+            ? `${supply.converter.label} · ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C`
+            : `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} PSU`,
+        })
         fuseBlockAllocations(supply.injectionIds.length).forEach((block, index) => {
           lines.push({
             id: `${supply.id}-fuse-block-${index + 1}`,
@@ -1013,13 +1029,16 @@ export default function BuildDiagramWorkspace() {
                   {electricalPlan.totals && (
                     <ul className={styles.flatList}>
                       <li>Full-white design load: {formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ {electricalPlan.totals.nominalVoltage} V</li>
+                      {electricalPlan.totals.source && (
+                        <li>Upstream source: {electricalPlan.totals.source.voltage} V, at least {formatCurrentMa(electricalPlan.totals.source.recommendedCurrentMa)} / {formatWattage(electricalPlan.totals.source.recommendedWattage)} continuous</li>
+                      )}
                       {electricalPlan.totals.supplies.map((supply, index) => (
                         <li key={supply.id}>
-                          PSU {index + 1}: {electricalPlan.totals?.nominalVoltage} V, at least {formatCurrentMa(supply.recommendedCurrentMa)} / {formatWattage(supply.recommendedWattage)} continuous
+                          {supply.converter ? `Converter ${index + 1}: ${supply.converter.label}, ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C` : `PSU ${index + 1}: ${electricalPlan.totals?.nominalVoltage} V, at least ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} continuous`}
                           {' '}for {supply.outputTitles.join(', ')} ({electricalPlan.totals?.headroomPercent}% headroom)
                         </li>
                       ))}
-                      {electricalPlan.totals.supplies.length > 1 && <li>Keep separate PSU +5 V zones isolated; join grounds for the shared controller data reference.</li>}
+                      {electricalPlan.totals.supplies.length > 1 && <li>Keep separate {electricalPlan.totals.source ? 'converter' : 'PSU'} +5 V zones isolated; join grounds for the shared controller data reference.</li>}
                       {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
                     </ul>
                   )}
@@ -1035,13 +1054,13 @@ export default function BuildDiagramWorkspace() {
                         </div>
                         <ul className={styles.flatList}>
                           {output.operatingCurrentCapMa != null && <li>Configured FastLED running limit: {formatCurrentMa(output.operatingCurrentCapMa)} (does not reduce the hardware)</li>}
-                          <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned PSU distribution zone</li>
+                          <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned {electricalPlan.totals?.source ? 'converter distribution zone' : 'PSU distribution zone'}</li>
                           {output.injections.map((injection) => (
                             <li key={injection.id}>
                               {injection.role} @ {injection.positionMm} mm: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
                               {' '}{injection.conductor ? `AWG ${injection.conductor.awg}` : 'wire unresolved'},
                               {' '}{injection.fuse.ratingMa ? `${formatCurrentMa(injection.fuse.ratingMa)} fuse` : 'fuse unresolved'},
-                              {' '}{injection.supplyId?.replace('supply-', 'PSU ') ?? 'PSU unresolved'}
+                              {' '}{injection.supplyId?.replace('supply-', electricalPlan.totals?.source ? 'Converter ' : 'PSU ') ?? `${electricalPlan.totals?.source ? 'Converter' : 'PSU'} unresolved`}
                             </li>
                           ))}
                           <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
@@ -1303,11 +1322,15 @@ export default function BuildDiagramWorkspace() {
             },
             {
               label: 'Supply budget',
-              value: `${formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / ${formatWattage(electricalPlan.totals.recommendedSupplyWattage)}`,
+              value: electricalPlan.totals.source
+                ? `${electricalPlan.totals.source.voltage} V · ${formatCurrentMa(electricalPlan.totals.source.recommendedCurrentMa)} / ${formatWattage(electricalPlan.totals.source.recommendedWattage)}`
+                : `${formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / ${formatWattage(electricalPlan.totals.recommendedSupplyWattage)}`,
             },
             ...electricalPlan.totals.supplies.map((supply, index) => ({
-              label: `PSU ${index + 1}`,
-              value: `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
+              label: `${supply.converter ? 'Converter' : 'PSU'} ${index + 1}`,
+              value: supply.converter
+                ? `${supply.converter.label} · ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C · ${supply.outputTitles.join(', ')}`
+                : `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
             })),
           ] : []}
         />,

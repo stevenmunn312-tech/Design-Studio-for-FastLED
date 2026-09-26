@@ -81,7 +81,7 @@ import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
 import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/stereoVuSizing'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from '../../state/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID } from '../../state/powerSwitch'
-import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
+import { DEFAULT_POWER_CONVERTER_PART_ID, defaultSourceVoltageFor } from '../../state/powerConverter'
 import {
   hardwareArrangement,
   hardwareArrangementBounds,
@@ -216,12 +216,12 @@ function fixturePinRequests(nodeType: string, moduleId: string | undefined): rea
 
 const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   {
-    // Steps a 12/24 V source down to 5 V for the controller. No pins: it sits
-    // on the power path, which the Build Diagram draws.
+    // Converts a DC source to 5 V for either the controller or the LED rail.
+    // No pins: it sits on the power path, which the Build Diagram draws.
     nodeType: 'PowerConverter',
     partId: 'power-converter',
-    label: 'Buck converter',
-    hint: 'Powers the controller from a 12 V or 24 V supply',
+    label: 'DC-DC converter',
+    hint: 'Powers the controller or the 5 V LED rail from a higher-voltage source',
     footprint: partDimensionsMm(DEFAULT_POWER_CONVERTER_PART_ID, { width: 43.18, height: 21.08 }),
     render: partRenderSrc(DEFAULT_POWER_CONVERTER_PART_ID) ?? undefined,
   },
@@ -1679,6 +1679,9 @@ export default function HardwarePane() {
             boardProfile?.id ?? selectedFqbn,
           ),
           ...(moduleProperty && moduleId ? { [moduleProperty]: moduleId } : {}),
+          ...(entry.nodeType === 'PowerConverter' && moduleId
+            ? { sourceVoltage: defaultSourceVoltageFor(moduleId) }
+            : {}),
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
           ...vuSizing,
         },
