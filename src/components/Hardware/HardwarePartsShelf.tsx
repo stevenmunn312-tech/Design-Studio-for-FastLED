@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HardwarePartsShelf.module.css'
 
-export const HARDWARE_SHELF_HOST_ID = 'hardware-parts-shelf'
+export { HARDWARE_SHELF_HOST_ID } from './hardwareShelfHost'
 
 export interface HardwareShelfItem {
   key: string

@@ -33,8 +33,7 @@ import { dispatchDeckAction } from './state/performanceDeckActions'
 import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
 import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
-import HardwarePane from './components/Hardware/HardwarePane'
-import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/HardwarePartsShelf'
+import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/hardwareShelfHost'
 import { UPLOAD_CONTROLS_HOST_ID } from './components/Upload/uploadControlsHost'
 import WorkspaceTabs from './components/Layout/WorkspaceTabs'
 import LiveTouchScreen from './components/DisplayEditor/LiveTouchScreen'
@@ -58,6 +57,7 @@ const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'
 const PatternRatingsPopup = lazy(() => import('./components/PatternRatings/PatternRatingsPopup'))
 const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
 const BuildDiagramWorkspace = lazy(() => import('./components/BuildDiagram/BuildDiagramWorkspace'))
+const HardwarePane = lazy(() => import('./components/Hardware/HardwarePane'))
 const DisplayEditor = lazy(() => import('./components/DisplayEditor/DisplayEditor'))
 const AUTOSAVE_INTERVAL = 10_000
 const AUTOSAVE_IDLE_TIMEOUT = 2_000
@@ -686,7 +686,9 @@ export default function App() {
                     <BuildDiagramWorkspace />
                   </Suspense>
                 ) : workspaceMode === 'hardware' || workspaceMode === 'upload' ? (
-                  <HardwarePane />
+                  <Suspense fallback={null}>
+                    <HardwarePane />
+                  </Suspense>
                 ) : designWorkspaceView.kind === 'display' ? (
                   <Suspense fallback={null}><DisplayEditor /></Suspense>
                 ) : (
