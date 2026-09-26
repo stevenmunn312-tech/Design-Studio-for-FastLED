@@ -1,9 +1,12 @@
 # Display firmware compile checks
 
-> **Evidence for the current model.** All twelve generated fixtures were
+> **Evidence for the current model.** The twelve-fixture base matrix was
 > regenerated and compiled on both engines on 21–22 September 2026, including
 > the newer parallel-interface catalogue fixture. Every Arduino CLI and fbuild
-> row uses the same source hash. See
+> row there uses the same source hash. Two template-control fixtures were added
+> and compiled on Arduino CLI on 26 September; see
+> [Template level-control gates](#template-level-control-gates-26-september-2026).
+> See also the
 > [Current-model matrix](#current-model-matrix-21-22-september-2026).
 >
 > Earlier runs are not reproduced here. They were built from sketches that no
@@ -54,6 +57,14 @@ python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/pl
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/normal.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/show.ino
 python scripts/compile-display-smoke.py fbuild artifacts/display-compile/player.ino
+```
+
+The focused template level-control fixtures. Run one command to completion
+before starting the next; the recorded 26 September check used Arduino CLI:
+
+```powershell
+python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/template-led.ino
+python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/template-player.ino
 ```
 
 The shapes that have no generator of their own but fail in their own ways —
@@ -165,6 +176,32 @@ The initial runs exposed these gaps, now covered by regression tests:
   ports moved to the paired Touch node. `generate-display-smoke.mjs` then
   refused the show sketch. The fixtures mint a `TouchInput` per touch
   panel; `assertWireable` holds the cables to what the editor can draw.
+
+## Template level-control gates, 26 September 2026
+
+Two focused fixtures compile the firmware path behind the template-control
+journey. `template-led` places **LED Performance** on an LED output;
+`template-player` places **Minimal Transport** on a Music Player. Both use the
+single Touch Controls wire the app creates. The generator asserts that the
+level field is assigned only inside the widget's `taps > 0` gate before either
+sketch reaches the compiler.
+
+The player fixture deliberately uses Minimal Transport rather than Now Playing:
+Now Playing has Previous, Play and Next controls but no Volume widget. Minimal
+Transport is the player template with an absolute Volume slider. Through the
+single Controls wire, its generated bundle sets `hasVolume` after a touch and
+the player applies that value to `playerVolume`; a separate wire to the Music
+Player's Volume property input is not required for this graph shape.
+
+Both fixtures passed on Arduino CLI 1.5.1 with ESP32 core 3.3.11, FastLED
+3.10.5, LVGL 9.5.0 and the pinned player audio 3.0.12, targeting the default
+ESP32-S3 N16R8 FQBN documented above. They were run serially, LED first. fbuild
+was not run for these two fixtures in this check.
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| LED Performance → LED output | `f60c932f75c0` | Passed | 618,671 (19%) | 104,380 (31%) |
+| Minimal Transport → Music Player | `1fac44f17625` | Passed | 1,325,083 (42%) | 120,052 (36%) |
 
 ## Current-model matrix, 21–22 September 2026
 
