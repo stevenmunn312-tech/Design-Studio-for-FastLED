@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import {
+  addPatternCollectionTo,
+  connectShowOutput,
   connectTemplateControls,
   insertMapRangeOnEdge,
+  movePartPinToFree,
   placeTouchControl,
   ROOT_GRAPH_ID,
   useGraphStore,
@@ -39,6 +42,10 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'insert-map-range') return 'Insert Map Range'
   if (action === 'place-touch-control') return 'Place on screen'
   if (action === 'connect-template-controls') return 'Connect them'
+  if (action === 'move-pin') return 'Move to a free pin'
+  if (action === 'open-board-settings') return 'Open Board settings'
+  if (action === 'connect-show-output') return 'Connect it'
+  if (action === 'add-pattern-collection') return 'Add a collection'
   return 'Open library'
 }
 
@@ -111,6 +118,31 @@ export default function GraphHealthDrawer() {
           ? `${placed.label || placed.type} placed at ${placed.bounds.x}, ${placed.bounds.y}`
           : 'That control is no longer waiting — the screen design has changed since this was reported',
         placed ? 'success' : 'info',
+      )
+      return
+    }
+    if (issue.action === 'open-board-settings') {
+      useUiStore.getState().setWorkspaceMode('hardware')
+      setStatus('On the Board, tick Enable global power cap and enter your supply’s rating', 'info')
+      return
+    }
+    if (issue.repair?.kind === 'move-pin') {
+      const result = movePartPinToFree(issue.repair.nodeId, issue.repair.propertyKey)
+      setStatus(result.ok ? `Moved to GPIO ${result.pin}` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'connect-show-output') {
+      const done = connectShowOutput(issue.repair.engineId, issue.repair.outputId)
+      setStatus(done ? 'Show connected to its LED output' : 'That output is no longer free', done ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'add-pattern-collection') {
+      const result = addPatternCollectionTo(issue.repair.playerId)
+      setStatus(
+        result === 'added' ? 'Pattern Collection added — now add the patterns you want it to play'
+          : result === 'connected' ? 'Pattern Collection connected'
+          : 'That Music Player is no longer there',
+        result ? 'success' : 'info',
       )
       return
     }

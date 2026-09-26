@@ -61,7 +61,7 @@ import {
   TOUCH_CONTROL_ADD_HANDLE,
   TOUCH_CONTROL_ADD_LABEL,
 } from './displayRegistry'
-import { libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nodeLibrary'
+import { gpioRequirementForProperty, libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nodeLibrary'
 import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } from './displayEditor'
 import {
   adoptedControlRange,
@@ -3868,6 +3868,88 @@ export function insertMapRangeOnEdge(edgeId: string, outMin: number, outMax: num
   } as StudioNode
   useGraphStore.getState().insertNodeOnEdge(node, edgeId, ports.inPort, ports.outPort)
   return true
+}
+
+/**
+ * Move one part's pin to a free pin the chosen board supports.
+ *
+ * The repair behind Graph Health's "Move to a free pin". It asks the same
+ * `assignPartPins` a newly added part does, so the pin it picks follows the
+ * board's own safe list and skips every pin already in use, and it keeps the
+ * capability the role needs — an analog input stays on an ADC pin. Hardware
+ * lives in the root graph, so it writes there even while a group is open,
+ * and it is one undo step. When there is no suitable pin it changes nothing
+ * and says why in the board's own words.
+ */
+export function movePartPinToFree(
+  nodeId: string,
+  propertyKey: string,
+): { ok: true; pin: number } | { ok: false; reason: string } {
+  const state = useGraphStore.getState()
+  const nodes = rootGraphNodes(state)
+  const node = nodes.find((entry) => entry.id === nodeId)
+  if (!node || typeof (node.data.properties as Record<string, unknown>)[propertyKey] !== 'number') {
+    return { ok: false, reason: 'That pin has already changed since this was reported.' }
+  }
+  const requirement = gpioRequirementForProperty(node.data.nodeType, propertyKey, node.data.properties)
+  const capability = requirement?.pullup ? 'pullup' : requirement?.capability
+  const assigned = assignPartPins(
+    selectedPhysicalBoardProfile(nodes),
+    useUploadStore.getState().selectedFqbn,
+    nodes,
+    [{ key: propertyKey, ...(capability ? { capability } : {}) }],
+  )
+  if (!assigned.ok) return assigned
+  const pin = assigned.pins[propertyKey]
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((entry) => entry.id === nodeId
+    ? { ...entry, data: { ...entry.data, properties: { ...entry.data.properties, [propertyKey]: pin } } }
+    : entry)))
+  return { ok: true, pin }
+}
+
+/** Wire a show engine's Show output into an LED output — the repair for a
+ *  show with nowhere to go, when there is only one output it could mean. */
+export function connectShowOutput(engineId: string, outputId: string): boolean {
+  const state = useGraphStore.getState()
+  const nodes = rootGraphNodes(state)
+  if (!nodes.some((node) => node.id === engineId) || !nodes.some((node) => node.id === outputId)) return false
+  state.onConnect({ source: engineId, sourceHandle: 'frame', target: outputId, targetHandle: 'frame' })
+  return useGraphStore.getState().edges.some((edge) =>
+    edge.source === engineId && edge.target === outputId && edge.targetHandle === 'frame')
+}
+
+/**
+ * Give a Music Player a Pattern Collection: the one already on the canvas
+ * with nothing to feed, or a new one placed beside the player. Either way it
+ * is wired in the same step, so one undo takes it back.
+ */
+export function addPatternCollectionTo(playerId: string): 'connected' | 'added' | null {
+  const state = useGraphStore.getState()
+  const player = state.nodes.find((node) => node.id === playerId)
+  if (!player) return null
+  const idle = state.nodes.find((node) => node.data.nodeType === 'PatternCollection'
+    && !state.edges.some((edge) => edge.source === node.id && edge.sourceHandle === 'patternset'))
+  let sourceId = idle?.id
+  if (!sourceId) {
+    const definition = LIBRARY_DEF.get('PatternCollection')
+    if (!definition) return null
+    sourceId = uniqueId(`PatternCollection-${Date.now()}`, new Set(state.nodes.map((node) => node.id)))
+    state.addNode({
+      id: sourceId,
+      type: 'studioNode',
+      position: { x: player.position.x - 360, y: player.position.y },
+      data: {
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: { ...libraryDefaults('PatternCollection') },
+        inputs: definition.inputs,
+        outputs: definition.outputs,
+      },
+    } as StudioNode)
+  }
+  useGraphStore.getState().onConnect({ source: sourceId, sourceHandle: 'patternset', target: playerId, targetHandle: 'patternset' })
+  return idle ? 'connected' : 'added'
 }
 
 function withRootNodes(s: GraphScope, nodes: StudioNode[]): Partial<GraphState> {

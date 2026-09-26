@@ -1540,6 +1540,10 @@ export type GraphDiagnosticAction =
   | 'insert-map-range'
   | 'place-touch-control'
   | 'connect-template-controls'
+  | 'move-pin'
+  | 'open-board-settings'
+  | 'connect-show-output'
+  | 'add-pattern-collection'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1557,6 +1561,12 @@ export type GraphRepair =
   | { kind: 'place-touch-control'; displayId: string; widgetId: string }
   /** The panel whose template controls should be wired to its own source. */
   | { kind: 'connect-template-controls'; panelId: string }
+  /** A part's pin to move to a free, safe pin on the chosen board. */
+  | { kind: 'move-pin'; nodeId: string; propertyKey: string }
+  /** The show engine to wire into the only LED output there is. */
+  | { kind: 'connect-show-output'; engineId: string; outputId: string }
+  /** The Music Player to give a new, wired Pattern Collection. */
+  | { kind: 'add-pattern-collection'; playerId: string }
 
 export interface GraphDiagnostic {
   id: string
@@ -2957,6 +2967,24 @@ export function findPlayerControlMappingWarnings(nodes: StudioNode[], edges: Stu
  * intentionally keeps its compact string result for deploy callers; this
  * companion supplies stable ids, node attribution, and concrete remediation.
  */
+/**
+ * The pin a board-pin message is about, when Studio can move it by itself.
+ *
+ * Only a plain numeric field on a node — a part's own `pin`, `dataPin`, … —
+ * qualifies. A pin the board or core owns, or one kept inside a list (a
+ * Button Bank row), is left to the pin field, where the author can see which
+ * row they are changing.
+ */
+function movablePinRepair(nodes: StudioNode[], message: string): GraphRepair | null {
+  const use = collectPinUses(nodes).find((candidate) =>
+    message.startsWith(`${candidate.label} uses pin ${candidate.pin}`) || message.startsWith(`${candidate.label} `))
+  if (!use || use.boardDefault) return null
+  const node = nodes.find((entry) => entry.id === use.nodeId)
+  const value = (node?.data.properties as Record<string, unknown> | undefined)?.[use.propertyKey]
+  if (typeof value !== 'number') return null
+  return { kind: 'move-pin', nodeId: use.nodeId, propertyKey: use.propertyKey }
+}
+
 export function buildGraphDiagnostics(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -3197,15 +3225,21 @@ export function buildGraphDiagnostics(
   if (options.selectedFqbn) {
     const boardPins = findBoardPinCompatibility(nodes, options.selectedFqbn)
     for (const [severity, messages] of [['error', boardPins.errors], ['warning', boardPins.warnings]] as const) {
-      messages.forEach((message, index) => diagnostics.push({
-        id: `board-pin-${severity}-${index}`,
-        severity,
-        category: 'pins',
-        title: severity === 'error' ? 'Pin is incompatible with the selected board' : 'Selected pin has a board caveat',
-        message,
-        fix: 'Choose a compatible pin from the board-aware pin picker.',
-        nodeIds: collectPinUses(nodes).filter((use) => message.startsWith(use.label)).map((use) => use.nodeId).slice(0, 1),
-      }))
+      messages.forEach((message, index) => {
+        const repair = severity === 'error' ? movablePinRepair(nodes, message) : null
+        diagnostics.push({
+          id: `board-pin-${severity}-${index}`,
+          severity,
+          category: 'pins',
+          title: severity === 'error' ? 'Pin is incompatible with the selected board' : 'Selected pin has a board caveat',
+          message,
+          fix: repair
+            ? 'Move it to a free pin the board supports, or pick one yourself in the part’s pin field.'
+            : 'Choose a compatible pin from the board-aware pin picker.',
+          nodeIds: collectPinUses(nodes).filter((use) => message.startsWith(use.label)).map((use) => use.nodeId).slice(0, 1),
+          ...(repair ? { action: 'move-pin' as const, repair } : {}),
+        })
+      })
     }
   }
   // Board-exact pin standing. Distinct from the FQBN checks above: the chip
@@ -3214,19 +3248,25 @@ export function buildGraphDiagnostics(
   const exactBoard = findExactBoardPinIssues(nodes)
   const exactPinUses = collectPinUses(nodes)
   for (const [severity, messages] of [['error', exactBoard.errors], ['warning', exactBoard.warnings]] as const) {
-    messages.forEach((message, index) => diagnostics.push({
-      id: `board-exact-${severity}-${index}`,
-      severity,
-      category: 'pins',
-      title: severity === 'error'
-        ? 'Pin is not available on the chosen board'
-        : 'Pin has a caveat on the chosen board',
-      message,
-      fix: severity === 'error'
-        ? 'Pick a pin the board brings out to a header, or change the board on the Board node.'
-        : 'Check the board pinout before wiring, or move to a pin with no caveat.',
-      nodeIds: exactPinUses.filter((use) => message.startsWith(use.label)).map((use) => use.nodeId).slice(0, 1),
-    }))
+    messages.forEach((message, index) => {
+      const repair = severity === 'error' ? movablePinRepair(nodes, message) : null
+      diagnostics.push({
+        id: `board-exact-${severity}-${index}`,
+        severity,
+        category: 'pins',
+        title: severity === 'error'
+          ? 'Pin is not available on the chosen board'
+          : 'Pin has a caveat on the chosen board',
+        message,
+        fix: severity === 'error'
+          ? repair
+            ? 'Move it to a free pin the board brings out, or pick one yourself in the part’s pin field.'
+            : 'Pick a pin the board brings out to a header, or change the board on the Board node.'
+          : 'Check the board pinout before wiring, or move to a pin with no caveat.',
+        nodeIds: exactPinUses.filter((use) => message.startsWith(use.label)).map((use) => use.nodeId).slice(0, 1),
+        ...(repair ? { action: 'move-pin' as const, repair } : {}),
+      })
+    })
   }
   for (const issue of findRetainedLedDataPinWarnings(nodes, edges)) {
     diagnostics.push({
@@ -3391,8 +3431,9 @@ export function buildGraphDiagnostics(
       id: `${matrixOutput.id}-power-unlimited`, severity: 'warning', category: 'power',
       title: 'Set a power cap for this many LEDs',
       message: `At full white, ${power.ledCount} LEDs could draw about ${(power.worstCaseMa / 1000).toFixed(1)} A.`,
-      fix: 'Turn on the power cap on the Board (Hardware tab) and enter your supply’s rating. FastLED then dims only the brightest scenes to stay within it.',
+      fix: 'Turn on the power cap on the Board and enter your supply’s rating. FastLED then dims only the brightest scenes to stay within it.',
       nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+      action: 'open-board-settings',
     })
   }
 
@@ -3504,12 +3545,22 @@ export function buildGraphDiagnostics(
   if (generator) {
     const show = resolveShowTarget(nodes, edges, generator.id)
     if (show.problem === 'unconnected') {
+      // With exactly one LED output free to take it, the destination is not
+      // a choice, so the card can make the wire itself.
+      const outputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
+      const only = outputs.length === 1 && !incoming.has(`${outputs[0].id}:frame`) ? outputs[0] : undefined
       diagnostics.push({
         id: `${generator.id}-show-target`, severity: 'error', category: 'show',
         title: 'The show is not going anywhere',
         message: 'Performance Generator has music and patterns but no LED output, so nothing says which hardware the player should drive.',
-        fix: 'Wire the generator\'s Show output into an LED output. The edge carries no pixels — the player drives the LEDs from the card — but it is what names the destination.',
+        fix: only
+          ? `Connect it to ${nodeLabel(only)}.`
+          : 'Wire the generator\'s Show output into the LED output it should drive.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
+        ...(only ? {
+          action: 'connect-show-output' as const,
+          repair: { kind: 'connect-show-output' as const, engineId: generator.id, outputId: only.id },
+        } : {}),
       })
     } else if (show.problem === 'ambiguous') {
       diagnostics.push({
@@ -3558,8 +3609,10 @@ export function buildGraphDiagnostics(
       id: `${master.id}-patterns`, severity: 'warning', category: 'show',
       title: 'Music Player has no patterns',
       message: 'No Pattern Collection is wired to the Music Player.',
-      fix: 'Connect a Pattern Collection pattern-set output to the Music Player.',
+      fix: 'Give it a Pattern Collection, then add the patterns you want it to play.',
       nodeIds: [master.id], nodeLabel: nodeLabel(master),
+      action: 'add-pattern-collection',
+      repair: { kind: 'add-pattern-collection', playerId: master.id },
     })
   }
 

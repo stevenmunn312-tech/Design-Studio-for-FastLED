@@ -1175,7 +1175,8 @@ describe('validateGraph', () => {
       const exact = diagnostics.filter((d) => d.id.startsWith('board-exact-error'))
       expect(exact.length).toBe(3)
       expect(exact[0].category).toBe('pins')
-      expect(exact[0].fix).toMatch(/header|Board node/)
+      expect(exact[0].fix).toMatch(/free pin/)
+      expect(exact[0]).toMatchObject({ action: 'move-pin', repair: { kind: 'move-pin', nodeId: 'mic' } })
       // Deploy validation must reach the same verdict or the two drift apart.
       expect(findBoardCompatibilityErrors(micOnPads, 'esp32:esp32:esp32s3')
         .filter((e) => e.includes('XIAO')).length).toBe(3)
