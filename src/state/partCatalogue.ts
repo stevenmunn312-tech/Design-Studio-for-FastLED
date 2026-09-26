@@ -16,7 +16,7 @@ import { PART_CATALOGUE_DATA } from '../build/generated/partCatalogueData'
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
-  | 'input-control' | 'audio-source' | 'support' | 'display' | 'switching-power' | 'power-monitor'
+  | 'input-control' | 'audio-source' | 'support' | 'display' | 'switching-power' | 'power-monitor' | 'power-conversion'
   | 'communication'
 
 export interface PartRenderAsset {
@@ -151,6 +151,26 @@ export interface PartPixelDataExtenderSpec {
   pairConductors: string[]
 }
 
+/** A DC-DC converter between a 12/24 V source and a 5 V load. */
+export interface PartPowerConverterSpec {
+  /** `controller` powers only the controller and 5 V peripherals; `led-rail` is the LED supply. */
+  role: 'controller' | 'led-rail'
+  topology: string
+  inputMinV: number
+  inputMaxV: number
+  /** How far the input must stay above the output (a buck's dropout). */
+  minHeadroomV: number
+  outputSetV: number
+  continuousCurrentMa: number
+  peakCurrentMa: number
+  /** Used to size the source side conservatively. */
+  typicalEfficiency: number
+  /** An isolated converter's output negative must be bonded to the common ground. */
+  isolated: boolean
+  /** Adjustable output: it ships at an arbitrary voltage and must be set before use. */
+  adjustable: boolean
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -177,6 +197,8 @@ export interface PartCatalogueEntry {
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */
   pixelDataExtender?: PartPixelDataExtenderSpec
+  /** Present exactly on DC-DC converter modules. */
+  powerConverter?: PartPowerConverterSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

@@ -563,6 +563,49 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 17.226
     }
   },
+  "lm2596-buck-module": {
+    "partId": "lm2596-buck-module",
+    "label": "LM2596 adjustable buck converter module",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 43.18,
+      "height": 21.08
+    },
+    "manufacturer": "generic (Texas Instruments LM2596S-ADJ regulator)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "IN+",
+      "IN-",
+      "OUT+",
+      "OUT-"
+    ],
+    "notes": [
+      "Set the output to 5.0 V with a meter before connecting the controller: every module ships at an arbitrary setting, and a full turn of the trimpot moves it by volts.",
+      "The input must be at least 1.5 V above the output: 6.5 V or more for a 5 V output. Keep the input at or below 35 V; the board's output capacitor is rated 35 V and the regulator 40 V.",
+      "2 A continuous on the bare board; 3 A needs a heatsink on the regulator.",
+      "Non-isolated: IN- and OUT- are the same net. It joins the controller's ground and the common LED ground.",
+      "External connections are drilled wire pads, not terminals. Solder the leads, or fit a screw terminal where the pads allow."
+    ],
+    "powerConverter": {
+      "role": "controller",
+      "topology": "buck (non-isolated, common negative)",
+      "inputMinV": 4.5,
+      "inputMaxV": 35,
+      "minHeadroomV": 1.5,
+      "outputSetV": 5.0,
+      "continuousCurrentMa": 2000,
+      "peakCurrentMa": 3000,
+      "typicalEfficiency": 0.8,
+      "isolated": false,
+      "adjustable": true
+    },
+    "render": {
+      "file": "parts/lm2596-buck-module.webp",
+      "widthPx": 539,
+      "heightPx": 273,
+      "pxPerMm": 12.019
+    }
+  },
   "lr7843-mosfet-module": {
     "partId": "lr7843-mosfet-module",
     "label": "LR7843 opto-isolated MOSFET module",

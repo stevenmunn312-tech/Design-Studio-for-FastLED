@@ -61,6 +61,7 @@ WEBP_QUALITY = 82
 CATEGORIES = {
     "microphone", "amplifier", "storage", "led-output",
     "input-control", "audio-source", "support", "display", "switching-power", "power-monitor",
+    "power-conversion",
     "communication",
 }
 
@@ -274,6 +275,35 @@ def read_part(part_dir: Path) -> dict | None:
             }
         else:
             print(f"  ! {part_id}: pixelDataExtender block needs conductors, distance, rate and supply range — skipped",
+                  file=sys.stderr)
+    # A DC-DC converter the power plan draws between a 12/24 V source and a
+    # 5 V load. Its role (controller-only or LED rail) and ratings are part
+    # facts, read by the electrical plan instead of restated in TypeScript.
+    converter = data.get("powerConverter")
+    if converter:
+        number = lambda key: isinstance(converter.get(key), (int, float))
+        role = converter.get("role")
+        if (role in ("controller", "led-rail")
+                and all(number(key) for key in ("inputMinV", "inputMaxV", "outputSetV", "continuousCurrentMa", "typicalEfficiency"))
+                and converter["inputMaxV"] > converter["inputMinV"] > 0
+                and converter["continuousCurrentMa"] > 0
+                and 0 < converter["typicalEfficiency"] <= 1
+                and isinstance(converter.get("isolated"), bool)):
+            entry["powerConverter"] = {
+                "role": role,
+                "topology": converter.get("topology") or "buck",
+                "inputMinV": converter["inputMinV"],
+                "inputMaxV": converter["inputMaxV"],
+                "minHeadroomV": converter.get("minHeadroomV", 0),
+                "outputSetV": converter["outputSetV"],
+                "continuousCurrentMa": converter["continuousCurrentMa"],
+                "peakCurrentMa": converter.get("peakCurrentMa", converter["continuousCurrentMa"]),
+                "typicalEfficiency": converter["typicalEfficiency"],
+                "isolated": converter["isolated"],
+                "adjustable": bool(converter.get("adjustable", False)),
+            }
+        else:
+            print(f"  ! {part_id}: powerConverter block needs a role, input range, output, current, efficiency and isolation — skipped",
                   file=sys.stderr)
     # A calibrated digital ambient-light sensor. Its address straps and
     # measurement range are part facts used by the picker, validation and
