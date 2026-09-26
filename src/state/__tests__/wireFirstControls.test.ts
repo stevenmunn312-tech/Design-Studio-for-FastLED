@@ -4,6 +4,7 @@ import {
   displayControlEdges,
   displayControlInertReason,
   displayControlIsUnconfigured,
+  displayWidgetWires,
   placeTouchControlIn,
   touchControlDriver,
   touchControlPlan,
@@ -687,5 +688,29 @@ describe('colour channels are wireable', () => {
       }
     }
     expect(seen).toBeGreaterThan(30)
+  })
+})
+
+describe('displayWidgetWires', () => {
+  const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
+  const touch = node('touch', 'TouchInput', { panelId: 'panel' })
+  const juggle = node('juggle', 'Juggle', { count: 4 })
+  const beat = node('beat', 'BeatSin')
+  const nodes = [panel, touch, juggle, beat]
+
+  it('lists a Toggle wired at both ends as both, each naming its other end', () => {
+    const wires = displayWidgetWires('screen', 'toggle', nodes, [
+      { id: 'out', source: 'touch', sourceHandle: 'widget:toggle:out', target: 'juggle', targetHandle: 'count' },
+      { id: 'set', source: 'beat', sourceHandle: 'out', target: 'panel', targetHandle: 'widget:toggle:set' },
+      { id: 'other', source: 'touch', sourceHandle: 'widget:slider:out', target: 'juggle', targetHandle: 'count' },
+    ] as never)
+    expect(wires.map((wire) => [wire.edge.id, wire.direction, wire.role, wire.otherEnd])).toEqual([
+      ['out', 'out', 'out', 'Juggle · Count'],
+      ['set', 'in', 'set', 'BeatSin'],
+    ])
+  })
+
+  it('answers nothing for a design no single panel shows', () => {
+    expect(displayWidgetWires('elsewhere', 'toggle', nodes, [] as never)).toEqual([])
   })
 })

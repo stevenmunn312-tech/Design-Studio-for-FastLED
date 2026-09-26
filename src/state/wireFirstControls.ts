@@ -11,6 +11,7 @@ import {
   displayWidgetDefinition,
   displayWidgetIsControl,
   parseDisplayWidgetPortId,
+  type DisplayWidgetPortRoleId,
 } from './displayRegistry'
 import { placeDisplayWidget } from './displayEditor'
 import type { StudioEdge, StudioNode } from './graphStore'
@@ -256,6 +257,70 @@ export function displayControlEdges(
   }
   for (const widgetId of ambiguous) found.delete(widgetId)
   return found
+}
+
+/** One wire on one of a widget's ports, as the designer's inspector lists it. */
+export interface DisplayWidgetWire {
+  edge: StudioEdge
+  /** `in` reads a value onto the screen; `out` sends a touch into the graph. */
+  direction: 'in' | 'out'
+  role: DisplayWidgetPortRoleId
+  /** The other end, in the words the canvas uses for it. */
+  otherEnd: string
+}
+
+/**
+ * Every wire on a widget's ports, in both directions.
+ *
+ * A widget's readings arrive on its panel (`value`, `set`) and its touches
+ * leave from the panel's Touch node (`out`), so asking only one of them would
+ * report a wired Toggle as half connected. Unlike `displayControlEdges`, a
+ * port wired twice lists both wires: this is an inventory, not a caption that
+ * needs one answer.
+ */
+export function displayWidgetWires(
+  displayId: string,
+  widgetId: string,
+  nodes: readonly StudioNode[],
+  edges: readonly StudioEdge[],
+): DisplayWidgetWire[] {
+  const panels = nodes.filter((node) => (
+    node.data.nodeType === 'TransportDisplay'
+    && String(node.data.properties.displayId ?? '') === displayId
+  ))
+  if (panels.length !== 1) return []
+  const panelId = panels[0].id
+  const touchIds = new Set(nodes
+    .filter((node) => (
+      node.data.nodeType === 'TouchInput'
+      && String(node.data.properties.panelId ?? '') === panelId
+    ))
+    .map((node) => node.id))
+  const labelOf = (id: string) => {
+    const node = nodes.find((entry) => entry.id === id)
+    return node ? nodeDisplayLabel(node.data.nodeType, node.data.properties, node.data.label) : 'a missing node'
+  }
+
+  const wires: DisplayWidgetWire[] = []
+  for (const edge of edges) {
+    if (edge.target === panelId) {
+      const port = parseDisplayWidgetPortId(edge.targetHandle ?? '')
+      if (port?.widgetId === widgetId) {
+        wires.push({ edge, direction: 'in', role: port.role, otherEnd: labelOf(edge.source) })
+      }
+    } else if (touchIds.has(edge.source)) {
+      const port = parseDisplayWidgetPortId(edge.sourceHandle ?? '')
+      if (port?.widgetId === widgetId) {
+        wires.push({
+          edge,
+          direction: 'out',
+          role: port.role,
+          otherEnd: controlDestinationLabel(edge, nodes) ?? labelOf(edge.target),
+        })
+      }
+    }
+  }
+  return wires
 }
 
 /**
