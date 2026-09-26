@@ -1422,11 +1422,21 @@ describe('BuildDiagramWorkspace', () => {
     viewportElement.setPointerCapture = vi.fn()
     viewportElement.hasPointerCapture = vi.fn(() => true)
     viewportElement.releasePointerCapture = vi.fn()
-    fireEvent.pointerDown(viewportElement, { button: 0, pointerId: 7, clientX: 120, clientY: 130 })
+    const passiveSheetLabel = container.querySelector('svg[data-build-export="current-view"] text')
+    expect(passiveSheetLabel).toBeTruthy()
+    // SVG labels and other passive artwork are part of the draggable sheet;
+    // the old exact-target marker check silently rejected this gesture.
+    fireEvent.pointerDown(passiveSheetLabel as Element, { button: 0, pointerId: 7, clientX: 120, clientY: 130 })
     fireEvent.pointerMove(viewportElement, { pointerId: 7, clientX: 150, clientY: 170 })
     expect(canvas?.getAttribute('style')).toContain('translate(30px, 40px)')
     fireEvent.pointerUp(viewportElement, { pointerId: 7 })
     fireEvent.click(getByText('Reset view'))
+    expect(canvas?.getAttribute('style')).toContain('translate(0px, 0px)')
+
+    // A selectable hardware group keeps its click gesture rather than
+    // unexpectedly beginning a viewport pan.
+    fireEvent.pointerDown(getByRole('button', { name: /Select .*DevKit/i }), { button: 0, pointerId: 8, clientX: 120, clientY: 130 })
+    fireEvent.pointerMove(viewportElement, { pointerId: 8, clientX: 150, clientY: 170 })
     expect(canvas?.getAttribute('style')).toContain('translate(0px, 0px)')
 
     fireEvent.wheel(viewport as Element, { deltaY: -100, clientX: 102, clientY: 102 })

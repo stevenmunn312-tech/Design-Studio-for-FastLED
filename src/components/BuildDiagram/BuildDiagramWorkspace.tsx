@@ -693,10 +693,14 @@ export default function BuildDiagramWorkspace() {
     const viewport = viewportRef.current
     if (!viewport) return
     const target = event.target as Element
-    const isEmptyDiagramArea = target === viewport
-      || target.getAttribute('data-pan-background') === 'true'
-      || target.getAttribute('data-pan-surface') === 'true'
-    if (!isEmptyDiagramArea) return
+    // Most of the sheet is composed of SVG paths, labels, callouts and images.
+    // Requiring the exact pointer target to carry a pan marker made those
+    // visually passive elements dead zones, even though the viewport showed a
+    // grab cursor. The only diagram descendants that own a primary-button
+    // gesture are the selectable hardware groups.
+    if (target.closest('button, a, input, select, textarea, [role="button"]')) return
+    if (target !== viewport && !target.closest('[data-pan-surface="true"], [data-pan-viewport-surface="true"]')) return
+    event.preventDefault()
     panStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -1175,7 +1179,7 @@ export default function BuildDiagramWorkspace() {
           <div className={styles.diagramToolbar}>
             <span
               className={styles.zoomPill}
-              title="Drag empty space with the left mouse button to move. Scroll to zoom at the cursor."
+              title="Drag the canvas or non-interactive sheet artwork with the left mouse button to move. Scroll to zoom at the cursor."
             >
               Zoom {Math.round(diagramZoom * 100)}%
             </span>
@@ -1235,7 +1239,7 @@ export default function BuildDiagramWorkspace() {
             onPointerCancel={stopViewportPan}
             onWheel={handleViewportWheel}
           >
-            <div className={styles.diagramSurface}>
+            <div className={styles.diagramSurface} data-pan-viewport-surface="true">
               <div
                 ref={diagramCanvasRef}
                 className={styles.diagramCanvas}

@@ -180,8 +180,9 @@ so there is nothing to wire to.
 - Left panel: generic controller-family outline, horizontal reviewed-pinout
   picker, compact graph-hardware action rows, and power summary.
 - Centre: generated wiring diagram in a non-scrolling viewport, with left-drag
-  panning from empty canvas space and cursor-centred wheel or trackpad-pinch
-  zoom.
+  panning from any non-interactive sheet artwork or surrounding canvas and
+  cursor-centred wheel or trackpad-pinch zoom. Selectable hardware keeps its
+  primary-button click gesture.
 - Right panel: idle on first load, then exact-board notes, generated readiness,
   connections, BOM, and export controls after a board or hardware selection.
 - Panels scroll independently and the diagram remains the priority below the

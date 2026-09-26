@@ -496,6 +496,7 @@
      white with a hairline outline and disappears on the diagram's white
      paper. The keywords stay as fallbacks. */
   cursor: url('../../assets/cursors/hand-grab.svg') 16 14, grab;
+  touch-action: none;
 }
 
 .diagramViewport:active {
