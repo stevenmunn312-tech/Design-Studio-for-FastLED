@@ -2,7 +2,7 @@ name: Backend Dependency Compatibility
 
 on:
   push:
-    branches: [main]
+    branches: [main, Hardware]
     paths:
       - "backend/requirements*.txt"
       - "backend/constraints.txt"

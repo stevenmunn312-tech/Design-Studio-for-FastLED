@@ -15,6 +15,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A pattern or project named `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, or
+  `LPT1`–`LPT9` no longer tries to create that device file on Windows. The
+  saved name gains a trailing underscore (`CON_`).
+
 - The local upload helper refuses a request whose `Host` is not this machine,
   and refuses a cross-site call that would compile, flash, write a drive, or
   open the serial port. `GET /api/health` still answers a local host. The

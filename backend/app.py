@@ -4169,13 +4169,24 @@ async def sd_copy(
 import re as _re  # local alias — only the patterns endpoints need it
 
 
+# Windows treats these as devices even with an extension (`CON.json` will not
+# create a file). The stem is what the check looks at, before `.json` or
+# `.fastled-project.json` is appended.
+_WINDOWS_DEVICE_NAMES = _re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", _re.IGNORECASE)
+
+
 def _sanitize_filename(name: str) -> str:
     """A safe, human-readable basename for a pattern file. Strips path
     separators and characters illegal on Windows, collapses whitespace, and
     trims length — never returns something that could escape the folder."""
     cleaned = _re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name or "").strip().rstrip(". ")
     cleaned = _re.sub(r"\s+", " ", cleaned)
-    return cleaned[:80] or "pattern"
+    cleaned = cleaned[:80] or "pattern"
+    stem, dot, rest = cleaned.partition(".")
+    if _WINDOWS_DEVICE_NAMES.fullmatch(stem):
+        stem = f"{stem}_"
+        cleaned = f"{stem}.{rest}" if dot else stem
+    return cleaned
 
 
 def _patterns_dir() -> Path:

@@ -20,14 +20,18 @@ def _engine_binaries_present(monkeypatch):
     Both compile generators now refuse up front when their binary is missing —
     a real path, since the helper ships without either engine — but almost every
     test here drives the generators' *orchestration* with `_run_phase` stubbed,
-    and never had a reason to set a binary. Give them a stand-in centrally; a
-    test that wants the refusal (see test_missing_engine.py) sets it back to
-    None and wins, because its own monkeypatch runs after this one.
+    and never had a reason to set a binary. ESP32 fbuild deploy also refuses
+    before it tries to flash when the pinned esptool is missing. Give them a
+    stand-in centrally; a test that wants the refusal (see test_missing_engine.py
+    and the esptool-missing deploy test) sets it back to None and wins, because
+    its own monkeypatch runs after this one.
     """
     if app_module._FBUILD_BIN is None:
         monkeypatch.setattr(app_module, "_FBUILD_BIN", "fbuild")
     if app_module._ARDUINO_CLI is None:
         monkeypatch.setattr(app_module, "_ARDUINO_CLI", "arduino-cli")
+    if app_module._ESPTOOL_BIN is None:
+        monkeypatch.setattr(app_module, "_ESPTOOL_BIN", "esptool")
 
 
 @pytest.fixture(autouse=True)
