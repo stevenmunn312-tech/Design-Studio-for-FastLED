@@ -268,6 +268,15 @@
   box-shadow: 0 0 16px rgba(0, 240, 255, 0.12), 0 0 20px rgba(255, 94, 157, 0.08);
 }
 
+/* Undo, Redo and Tidy are read by their glyphs; their names live in the
+   title and aria-label so the nav rail fits the live tools at 1440 wide. */
+.iconBtn {
+  min-width: 30px;
+  padding: 0 8px;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
 .sep {
   width: 1px;
   height: 20px;
@@ -280,6 +289,51 @@
   border-color: var(--accent-audio);
   color: var(--accent-audio);
   box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent-audio) 10%, transparent);
+}
+
+/* One instrument cluster for the four things used while operating a live
+   patch. Their labels describe their distinct jobs; the shared housing says
+   they belong to the same workflow without spending more toolbar height. */
+.liveTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 2px;
+  border: 1px solid color-mix(in srgb, var(--accent-audio) 24%, var(--border-glow));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-audio) 4%, rgba(255, 255, 255, 0.02));
+}
+
+.liveTool {
+  composes: btn;
+  height: 26px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.liveToolActive {
+  color: #041317;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent-audio), color-mix(in srgb, var(--accent-audio) 55%, white));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-audio) 32%, transparent);
+}
+
+.stageTool {
+  color: color-mix(in srgb, #ff5e9d 76%, var(--text-secondary));
+}
+
+.stageToolActive {
+  color: #041317;
+  border-color: transparent;
+  background: linear-gradient(135deg, #ff5e9d, color-mix(in srgb, #ff5e9d 55%, white));
+  box-shadow: 0 0 12px rgba(255, 94, 157, 0.38);
+}
+
+.liveTools > * {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .evaluationBtn {
@@ -353,13 +407,3 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 16px rgba(255, 94, 157, 0.28);
 }
 
-.stageBtn {
-  border-color: color-mix(in srgb, #ff5e9d 38%, var(--border-glow));
-}
-
-.btnStageActive {
-  color: #041317;
-  border-color: transparent;
-  background: linear-gradient(135deg, #ff5e9d, color-mix(in srgb, #ff5e9d 55%, white));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 14px rgba(255, 94, 157, 0.45);
-}

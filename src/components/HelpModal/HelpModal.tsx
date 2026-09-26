@@ -238,7 +238,7 @@ function QuickStartTab() {
           </div>
         </div>
         <div className={styles.note}>
-          <strong>Rearranging the workspace:</strong> <strong>View → Layout</strong> resizes the panels for what you are doing — <strong>Build</strong> gives the node library the most room, <strong>Tune</strong> narrows it in favour of the preview, and <strong>Preview</strong> hides the library altogether for the largest LED preview short of Stage mode. The same menu holds the appearance toggles: theme, motion, contrast, UI effects, and signal dimming.
+          <strong>Rearranging the workspace:</strong> <strong>View → Layout</strong> resizes the panels for what you are doing — <strong>Build</strong> gives the node library the most room, <strong>Tune</strong> narrows it in favour of the preview, and <strong>Preview</strong> hides the library altogether for the largest LED preview short of Stage View. The same menu holds the appearance toggles: theme, motion, contrast, UI effects, and signal dimming.
         </div>
       </div>
 
@@ -388,17 +388,17 @@ function ShortcutsTab() {
           <div className={styles.kbd}><span className={styles.key}>Del</span><span className={styles.key}>Backspace</span></div>
           <div className={styles.shortcutDesc}>Delete selected node(s)</div>
           <div className={styles.kbd}><span className={styles.key}>Esc</span></div>
-          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Performance Deck, Stage fullscreen, Stage mode, the Build Diagram, Performance mode, and finally the canvas selection</div>
+          <div className={styles.shortcutDesc}>Closes one layer at a time, in this order: this dialog or an open menu, the Control Deck, Stage fullscreen, Stage View, the Build Diagram, Live Focus, and finally the canvas selection</div>
           <div className={styles.kbd}><span className={styles.key}>?</span></div>
           <div className={styles.shortcutDesc}>Open this Help dialog (F1 also works)</div>
           <div className={styles.kbd}><span className={styles.key}>Ctrl/Cmd</span><span className={styles.key}>K</span></div>
           <div className={styles.shortcutDesc}>Open the node search picker at the view centre</div>
           <div className={styles.kbd}><span className={styles.key}>F8</span></div>
-          <div className={styles.shortcutDesc}>Toggle the Performance Deck (pinned knobs/faders, scenes, panic). MIDI and additional keyboard bindings are assigned from inside the deck panel itself, not listed here.</div>
+          <div className={styles.shortcutDesc}>Toggle the Control Deck (pinned controls, scenes, MIDI/keyboard bindings, and panic).</div>
           <div className={styles.kbd}><span className={styles.key}>F9</span></div>
-          <div className={styles.shortcutDesc}>Toggle Performance mode (hushes chrome, emphasizes live signal flow)</div>
+          <div className={styles.shortcutDesc}>Toggle Live Focus (hides editing chrome and emphasizes live signal flow)</div>
           <div className={styles.kbd}><span className={styles.key}>F10</span></div>
-          <div className={styles.shortcutDesc}>Toggle Stage mode (preview-first, distraction-free display)</div>
+          <div className={styles.shortcutDesc}>Toggle Stage View (preview-first operator view; fullscreen is available inside Stage)</div>
         </div>
       </div>
 

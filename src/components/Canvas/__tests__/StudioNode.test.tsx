@@ -676,12 +676,12 @@ describe('StudioNode', () => {
 
   it('pinning a property from its row adds it to the performance deck; clicking again unpins it', () => {
     const { getByLabelText } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
-    const pinBtn = getByLabelText('Pin radius to Performance Deck')
+    const pinBtn = getByLabelText('Pin radius to Control Deck')
     fireEvent.click(pinBtn)
     expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
     expect(useGraphStore.getState().performanceDeck.pins[0]).toMatchObject({ nodeId: 'n1', propertyKey: 'radius' })
 
-    const unpinBtn = getByLabelText('Unpin radius from Performance Deck')
+    const unpinBtn = getByLabelText('Unpin radius from Control Deck')
     fireEvent.click(unpinBtn)
     expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(0)
   })
@@ -693,7 +693,7 @@ describe('StudioNode', () => {
     })
     const props = { id: 'n1', data: useGraphStore.getState().nodes[0].data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
     const { queryByLabelText } = render(<StudioNode {...props} />)
-    expect(queryByLabelText('Pin radius to Performance Deck')).toBeNull()
+    expect(queryByLabelText('Pin radius to Control Deck')).toBeNull()
   })
 
   it('editing a plain number field updates the node property in the store', () => {

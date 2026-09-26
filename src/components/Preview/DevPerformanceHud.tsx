@@ -67,10 +67,13 @@ export function DevPerformanceHudToggle() {
       type="button"
       className={`${styles.toggleBtn} ${visible ? styles.toggleActive : ''}`}
       onClick={togglePerfHud}
-      title={visible ? 'Hide performance monitor' : 'Show performance monitor'}
+      title={visible
+        ? 'Hide developer metrics'
+        : 'Developer metrics: frame timings, long tasks, and renderer diagnostics'}
+      aria-label="Toggle Developer Metrics"
       aria-pressed={visible}
     >
-      Perf
+      Metrics
     </button>
   )
 }

@@ -35,6 +35,7 @@ import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
 import { enterStagePresentation, exitStagePresentation } from '../../utils/stagePresentation'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
+import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import styles from './MenuBar.module.css'
@@ -822,30 +823,30 @@ export default function MenuBar() {
       </div>
       <nav className={styles.nav}>
         <button
-          className={styles.btn}
+          className={`${styles.btn} ${styles.iconBtn}`}
           onClick={() => undo()}
           disabled={!canUndo}
           aria-label={`Undo, ${pastStates.length} step${pastStates.length !== 1 ? 's' : ''} available`}
           title={`Undo (Ctrl+Z) — ${pastStates.length} step${pastStates.length !== 1 ? 's' : ''}`}
         >
-          ↩ Undo {pastStates.length > 0 ? pastStates.length : ''}
+          <span aria-hidden="true">↩</span>{pastStates.length > 0 ? ` ${pastStates.length}` : ''}
         </button>
         <button
-          className={styles.btn}
+          className={`${styles.btn} ${styles.iconBtn}`}
           onClick={() => redo()}
           disabled={!canRedo}
           aria-label={`Redo, ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''} available`}
           title={`Redo (Ctrl+Y) — ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''}`}
         >
-          ↪ Redo {futureStates.length > 0 ? futureStates.length : ''}
+          <span aria-hidden="true">↪</span>{futureStates.length > 0 ? ` ${futureStates.length}` : ''}
         </button>
         <button
-          className={styles.btn}
+          className={`${styles.btn} ${styles.iconBtn}`}
           onClick={() => runTidy()}
           aria-label="Tidy graph layout"
-          title="Auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
+          title="Tidy: auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
         >
-          ▦ Tidy
+          <span aria-hidden="true">▦</span>
         </button>
         <button
           className={styles.btn}
@@ -891,24 +892,41 @@ export default function MenuBar() {
           onChange={handleFileChange}
         />
         <div className={styles.sep} />
-        <button
-          className={`${styles.btn} ${performanceMode ? styles.btnActive : ''}`}
-          onClick={togglePerformanceMode}
-          aria-label="Toggle performance mode"
-          aria-pressed={performanceMode}
-          title="Performance mode: hush chrome and emphasize live signal flow (F9)"
-        >
-          {performanceMode ? '◆' : '◇'} Perform
-        </button>
-        <button
-          className={`${styles.btn} ${deckOpen ? styles.btnActive : ''}`}
-          onClick={toggleDeck}
-          aria-label="Toggle performance control deck"
-          aria-pressed={deckOpen}
-          title="Performance control deck: pinned knobs/faders, scenes, MIDI/keyboard bindings, panic (F8)"
-        >
-          {deckOpen ? '◆' : '◇'} Deck
-        </button>
+        <div className={styles.liveTools} role="group" aria-label="Live performance tools">
+          <button
+            className={`${styles.liveTool} ${performanceMode ? styles.liveToolActive : ''}`}
+            onClick={togglePerformanceMode}
+            aria-label="Toggle Live Focus"
+            aria-pressed={performanceMode}
+            title="Live Focus: hide editing chrome and emphasize live signal flow (F9)"
+          >
+            Focus
+          </button>
+          <button
+            className={`${styles.liveTool} ${deckOpen ? styles.liveToolActive : ''}`}
+            onClick={toggleDeck}
+            aria-label="Toggle Control Deck"
+            aria-pressed={deckOpen}
+            title="Control Deck: pinned controls, scenes, MIDI and keyboard bindings, and panic (F8)"
+          >
+            Deck
+          </button>
+          <button
+            className={`${styles.liveTool} ${styles.stageTool} ${stageMode ? styles.stageToolActive : ''}`}
+            onClick={() => {
+              if (stageMode) void exitStagePresentation()
+              else void enterStagePresentation()
+            }}
+            aria-label="Toggle Stage View"
+            aria-pressed={stageMode}
+            title={stageMode
+              ? 'Exit Stage View (Esc or F10)'
+              : 'Stage View: preview-first operator view; fullscreen is available inside Stage (F10)'}
+          >
+            Stage
+          </button>
+          {import.meta.env.DEV && <DevPerformanceHudToggle />}
+        </div>
         <div className={styles.sep} />
         <button
           className={styles.btn}
@@ -920,18 +938,6 @@ export default function MenuBar() {
         </button>
       </nav>
       <div className={styles.previewControls}>
-        <button
-          className={`${styles.btn} ${styles.stageBtn} ${stageMode ? styles.btnStageActive : ''}`}
-          onClick={() => {
-            if (stageMode) void exitStagePresentation()
-            else void enterStagePresentation()
-          }}
-          aria-label="Toggle stage mode"
-          aria-pressed={stageMode}
-          title={stageMode ? 'Exit Stage (Esc or F10)' : 'Enter Stage (F10)'}
-        >
-          Stage
-        </button>
         <button
           className={`${styles.btn} ${styles.previewBtn} ${effectivePreview3d ? styles.btnPreviewActive : ''}`}
           onClick={togglePreview3d}

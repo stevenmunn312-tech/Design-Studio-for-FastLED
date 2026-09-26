@@ -106,11 +106,11 @@ export default function PerformanceDeck() {
   }, [morphSceneA, morphSceneB, morphProgress])
 
   return (
-    <section className={styles.deck} aria-label="Performance control deck">
+    <section className={styles.deck} aria-label="Control Deck">
       <header className={styles.header}>
         <div className={styles.headerTitle}>
-          <span>Performance Deck</span>
-          <button type="button" className={styles.closeBtn} onClick={() => setDeckOpen(false)} aria-label="Close performance deck">×</button>
+          <span>Control Deck</span>
+          <button type="button" className={styles.closeBtn} onClick={() => setDeckOpen(false)} aria-label="Close Control Deck">×</button>
         </div>
         <div className={styles.headerControls}>
           <button

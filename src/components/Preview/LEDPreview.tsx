@@ -1193,7 +1193,7 @@ export default function LEDPreview() {
               <span className={styles.canvasHudChip}>
                 {showMode ? 'Show sync' : audioVisualizerLive ? 'Audio reactive' : 'Workbench'}
               </span>
-              {performanceMode && <span className={styles.canvasHudChip}>Performance</span>}
+              {performanceMode && <span className={styles.canvasHudChip}>Live Focus</span>}
             </>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { fireEvent, render, waitFor, within } from '@testing-library/react'
 import MenuBar from '../MenuBar'
 import { useGraphStore } from '../../../state/graphStore'
 import { useProjectStore } from '../../../state/projectStore'
@@ -13,6 +13,7 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../state/micPinDefaults'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
 import { createDisplayDocument } from '../../../state/displayEditor'
+import { usePerformanceDeckSession } from '../../../state/performanceDeckSessionStore'
 
 vi.mock('../../../utils/communityUpload', () => ({
   openCommunityTab: vi.fn().mockReturnValue({ target: 'design-studio-community-test', opened: true }),
@@ -92,6 +93,7 @@ describe('MenuBar file menu', () => {
     useAudioStore.setState({ micActive: false, active: false })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
     useShowPlayback.setState({ playing: false, nodeId: null, show: null, posMs: 0, useGroupInputs: false })
+    usePerformanceDeckSession.setState({ deckOpen: false })
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     delete (window as Window & { showOpenFilePicker?: unknown }).showOpenFilePicker
     delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
@@ -169,9 +171,35 @@ describe('MenuBar file menu', () => {
 
     const { getByRole } = render(<MenuBar />)
 
-    expect(getByRole('button', { name: 'Toggle stage mode' }).getAttribute('aria-pressed')).toBe('true')
+    expect(getByRole('button', { name: 'Toggle Stage View' }).getAttribute('aria-pressed')).toBe('true')
     expect(getByRole('button', { name: 'Toggle 3D preview' })).toBeTruthy()
     expect(getByRole('button', { name: 'Add a microphone in the Hardware bench below to enable' }).textContent).toBe('Mic Off')
+  })
+
+  it('groups live tools under short labels whose names and tooltips state each purpose', () => {
+    const { getByRole } = render(<MenuBar />)
+    const live = within(getByRole('group', { name: 'Live performance tools' }))
+    const focus = live.getByRole('button', { name: 'Toggle Live Focus' })
+    const deck = live.getByRole('button', { name: 'Toggle Control Deck' })
+    const stage = live.getByRole('button', { name: 'Toggle Stage View' })
+
+    expect(focus.textContent).toBe('Focus')
+    expect(focus.getAttribute('title')).toContain('hide editing chrome')
+    expect(deck.textContent).toBe('Deck')
+    expect(deck.getAttribute('title')).toContain('pinned controls')
+    expect(stage.textContent).toBe('Stage')
+    expect(stage.getAttribute('title')).toContain('preview-first operator view')
+
+    fireEvent.click(focus)
+    expect(useUiStore.getState().performanceMode).toBe(true)
+    fireEvent.click(deck)
+    expect(usePerformanceDeckSession.getState().deckOpen).toBe(true)
+    fireEvent.click(stage)
+    expect(useUiStore.getState().stageMode).toBe(true)
+
+    if (import.meta.env.DEV) {
+      expect(live.getByRole('button', { name: 'Toggle Developer Metrics' }).textContent).toBe('Metrics')
+    }
   })
 
   it('disables the microphone with the compatibility message for an unsupported board', async () => {

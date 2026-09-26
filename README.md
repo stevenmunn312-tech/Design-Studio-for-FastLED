@@ -22,7 +22,7 @@ What makes the Studio useful:
 - **A deep creative toolbox.** Choose from 183 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
-- **A real performance workflow.** Stage Mode, the Performance Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
+- **A real performance workflow.** Live Focus, the Control Deck, Stage View, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
 - **A hardware workbench, not a hidden settings popup.** Choose the exact board, add the parts you actually own, inspect board-aware pin assignments, and see the rig at a shared physical scale below the signal graph.
 - **Hardware-aware guardrails.** Graph Health, filtered GPIO pickers, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
 - **A plan for the physical build.** The Build Diagram turns the graph into wiring: a scale controller with its real pin map, power distribution and fuses, exportable parts and connection lists, and printable assembly sheets.
@@ -43,9 +43,9 @@ Most starter patches are deliberately simple: a pattern flows into an LED output
 
 ## Put the visuals center stage
 
-Press **Stage** or **F10** to turn the workspace into a clean performance view. The output matrix becomes the focus while spectrum, transport, frame rate, memory, and signal state remain visible. Toggle the 3D presentation, cycle spectrum styles, or press **Esc** to return to the editor.
+Press **Stage View** or **F10** to turn the workspace into a clean operator view. The output matrix becomes the focus while spectrum, transport, frame rate, memory, and signal state remain visible. Toggle the 3D presentation, cycle spectrum styles, or press **Esc** to return to the editor.
 
-![Stage Mode showing a full-screen live matrix and performance controls](docs/images/readme/design-studio-stage.png)
+![Stage View showing a full-screen live matrix and performance controls](docs/images/readme/design-studio-stage.png)
 
 ## Get started
 

@@ -212,8 +212,8 @@ export default function BoardNodeBody({ nodeId }: Props) {
             <span className={styles.settingValue}>
               <b>{settings.brightness}</b>
               <button type="button" className={styles.pinButton}
-                aria-label={brightnessPin ? 'Unpin master brightness from Performance Deck' : 'Pin master brightness to Performance Deck'}
-                title={brightnessPin ? 'Unpin from Performance Deck' : 'Pin to Performance Deck'}
+                aria-label={brightnessPin ? 'Unpin master brightness from Control Deck' : 'Pin master brightness to Control Deck'}
+                title={brightnessPin ? 'Unpin from Control Deck' : 'Pin to Control Deck'}
                 onClick={() => brightnessPin ? unpinProperty(brightnessPin.id) : pinProperty(nodeId, 'brightness')}>
                 📌
               </button>

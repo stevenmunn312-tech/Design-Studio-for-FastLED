@@ -838,8 +838,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 <button
                   type="button"
                   className={`nodrag ${styles.pinBtn}${pinId ? ` ${styles.pinBtnActive}` : ''}`}
-                  title={pinId ? 'Unpin from Performance Deck' : 'Pin to Performance Deck'}
-                  aria-label={pinId ? `Unpin ${key} from Performance Deck` : `Pin ${key} to Performance Deck`}
+                  title={pinId ? 'Unpin from Control Deck' : 'Pin to Control Deck'}
+                  aria-label={pinId ? `Unpin ${key} from Control Deck` : `Pin ${key} to Control Deck`}
                   aria-pressed={Boolean(pinId)}
                   onClick={() => (pinId ? unpinProperty(pinId) : pinProperty(nodeId, key))}
                 >

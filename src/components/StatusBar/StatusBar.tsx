@@ -72,8 +72,8 @@ export default function StatusBar() {
         <HardwareReadiness compact />
         <span className={`${styles.chip} ${styles.chipStrong}`}>{nodeCount} modules</span>
         <span className={styles.chip}>{edgeCount} patches</span>
-        {performanceMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Performance</span>}
-        {stageMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Stage</span>}
+        {performanceMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Live Focus</span>}
+        {stageMode && <span className={`${styles.chip} ${styles.chipAccent}`}>Stage View</span>}
         {hasAudio && (
           <span
             className={styles.chip}

@@ -1764,7 +1764,7 @@ function UsingNodesArticle() {
         <div className={styles.guideGrid}>
           <div className={styles.guideCard}>
             <h3>Tidy the graph</h3>
-            <p>Use <b>▦ Tidy</b> in the top bar or <b>Tidy Graph</b> in the canvas menu. When two or more nodes are selected, only that selection is arranged; otherwise the whole graph is tidied.</p>
+            <p>Use <b>▦</b> (Tidy) in the top bar or <b>Tidy Graph</b> in the canvas menu. When two or more nodes are selected, only that selection is arranged; otherwise the whole graph is tidied.</p>
           </div>
           <div className={styles.guideCard}>
             <h3>Make a reusable group</h3>
