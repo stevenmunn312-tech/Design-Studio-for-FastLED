@@ -1280,6 +1280,18 @@ export const DMX_INPUT_LIVE_EXAMPLE = namedExample(
   'Without live Art-Net the Brightness node preview is black. Send universe 0, channel 1 to fade Pacifica smoothly from black to full brightness.',
 )
 
+export const POWER_CONVERTER_LIVE_EXAMPLE = namedExample(
+  'PowerConverter',
+  'Power the controller from 12 V',
+  [
+    { key: 'converter', type: 'PowerConverter', properties: { partId: 'lm2596-buck-module', sourceVoltage: 12 } },
+    { key: 'pattern', type: 'Juggle' },
+  ],
+  [],
+  'Buck Converter carries no noodles: with it on the bench, the Build Diagram powers the controller from a 12 V supply through the converter into the board’s 5 V pin, in place of USB, and fuses its input at the source. The pattern and its LED output are unchanged.',
+  'The preview is unchanged, because the converter changes where the board gets its power, not what it draws. Open the Build Diagram to see the converter under the board.',
+)
+
 export const ETHERNET_LIVE_EXAMPLE = namedExample(
   'EthernetModule',
   'Receive Art-Net over a cable',
@@ -1631,6 +1643,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   MidiInput: MIDI_LIVE_EXAMPLE,
   DMXInput: DMX_INPUT_LIVE_EXAMPLE,
   EthernetModule: ETHERNET_LIVE_EXAMPLE,
+  PowerConverter: POWER_CONVERTER_LIVE_EXAMPLE,
   FFTAnalyzer: FFT_ANALYZER_LIVE_EXAMPLE,
   BeatDetect: BEAT_DETECT_LIVE_EXAMPLE,
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,

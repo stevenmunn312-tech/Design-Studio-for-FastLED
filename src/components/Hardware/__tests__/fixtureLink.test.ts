@@ -11,6 +11,8 @@ describe('fixtureLinkLabel', () => {
       .toBe('Board SPI out to the microSD module (5 V)')
     expect(fixtureLinkLabel('RelayOutput', { partId: 'relay-module-4ch-5v' }, '4-channel relay'))
       .toBe('Board relay control lines out to the 4-channel relay')
+    expect(fixtureLinkLabel('PowerConverter', { partId: 'lm2596-buck-module' }, 'Buck converter'))
+      .toBe('5 V from the Buck converter into the board')
     expect(fixtureLinkLabel('StereoVuMeter', {}, 'Stereo VU Meter'))
       .toBe('Board LED data out to the Stereo VU Meter')
   })

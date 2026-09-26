@@ -14,6 +14,8 @@ export function fixtureLinkLabel(
   properties: Record<string, unknown>,
   partLabel: string,
 ): string {
+  // The one run that flows the other way: a converter powers the board.
+  if (nodeType === 'PowerConverter') return `5 V from the ${partLabel} into the board`
   return `Board ${fixtureBus(nodeType, properties)} out to the ${partLabel}`
 }
 

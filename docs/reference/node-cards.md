@@ -114,6 +114,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Ethernet example graph](../../public/node-cards/graphs/ethernet-module.svg)
 
+### Buck Converter
+
+![Buck Converter node](../../public/node-cards/power-converter.svg)
+
+![Buck Converter example graph](../../public/node-cards/graphs/power-converter.svg)
+
 ## Audio
 
 ### FFT Analyzer

@@ -27,6 +27,7 @@ import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './mast
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './pixelDataExtender'
+import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './powerConverter'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
@@ -3989,6 +3990,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       resetPin: 27,
     },
   },
+  {
+    // A DC-DC converter from a 12/24 V source to 5 V. It carries no signal:
+    // the Build Diagram's power plan reads it to say where the controller's 5 V
+    // comes from. See state/powerConverter.ts.
+    //
+    // Config only, like SD Card: no ports, no evaluation, found by scanning.
+    type: 'PowerConverter',
+    label: 'Buck Converter',
+    category: 'input',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: DEFAULT_POWER_CONVERTER_PART_ID,
+      sourceVoltage: DEFAULT_SOURCE_VOLTAGE,
+    },
+  },
 
   // ── Notes ──────────────────────────────────────────────────────────────
   {
@@ -4077,6 +4094,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Amplifier: 'The I2S amplifier the show player feeds — its part and pins.',
   PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
+  PowerConverter: 'Steps a 12/24 V source down to 5 V for the controller; a bench part, not wired.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches a DC load through an opto-isolated MOSFET from a boolean signal.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
@@ -5067,6 +5085,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Sequencer: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
   },
+  PowerConverter: {
+    sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
+  },
   EthernetModule: {
     sckPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     mosiPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5294,6 +5315,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   reportTelemetry: 'Prints free heap, PSRAM, frame rate and touch response to Serial every couple of seconds, for the telemetry card in the Upload tab to record. A bench instrument: leave it off for a finished build. ESP32 and ESP8266 only — other boards have no Serial.printf to report with.',
   layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',
   chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/development/design/hub75-output.md.',
+  sourceVoltage: "The DC supply feeding the converter, in volts. It must sit inside the module's input range and above its output by the module's dropout.",
   dataLink: 'How the one-wire pixel signal reaches the LEDs. Direct is ordinary short wiring; NLED Pixel Data Extender inserts its matched TX/RX pair and a twisted A/B/ground run for long distance.',
   form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',
   ledCount: 'How many LEDs are on this physical chain.',
@@ -5516,6 +5538,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     startMinute: 'minute',
     startSecond: 'second',
   },
+  PowerConverter: {
+    sourceVoltage: 'source volts',
+  },
   EthernetModule: {
     sckPin: 'SCLK',
     mosiPin: 'MOSI',
@@ -5586,7 +5611,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
-  'MidiInput', 'SDCard', 'EthernetModule',
+  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
 
 /**

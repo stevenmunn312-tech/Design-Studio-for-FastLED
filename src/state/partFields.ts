@@ -50,6 +50,9 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
   ],
   // Labelled as WIZnet prints them in its pinout; the board itself prints none.
+  PowerConverter: [
+    { key: 'sourceVoltage', label: 'Source V', kind: 'number', min: 5, max: 48 },
+  ],
   EthernetModule: [
     { key: 'sckPin', label: 'SCLK', kind: 'pin' },
     { key: 'mosiPin', label: 'MOSI', kind: 'pin' },

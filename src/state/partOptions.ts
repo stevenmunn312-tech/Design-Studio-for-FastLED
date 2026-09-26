@@ -11,6 +11,7 @@
 // misrepresentation this model exists to remove — so a part with one supported
 // module states its name instead of pretending to offer alternatives.
 
+import { powerConverterModules } from './powerConverter'
 import { partById, type PartCatalogueEntry } from './partCatalogue'
 import { IR_RECEIVER_MODULES } from './irModules'
 import { MIC_MODULES } from './micModules'
@@ -73,6 +74,14 @@ export interface PartIdentity {
  * board is the *capture backend*, not the microphone.
  */
 export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
+  PowerConverter: {
+    property: 'partId',
+    options: powerConverterModules().map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: `${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${module.spec.continuousCurrentMa / 1000} A out`,
+    })),
+  },
   EthernetModule: {
     property: 'partId',
     options: ETHERNET_MODULES.map((module) => ({
