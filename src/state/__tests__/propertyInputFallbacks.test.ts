@@ -56,18 +56,6 @@ function handlerBodies(kind: 'evaluate' | 'codegen'): [string, string][] {
   return bodies
 }
 
-/**
- * Every `case 'Type': {` block in one file. Split on the case label rather
- * than brace-matched, which is enough because the only thing read out is a
- * call shape that cannot appear before the first case or after the last.
- */
-function caseBodies(file: string): [string, string][] {
-  const parts = readFileSync(path.join(process.cwd(), 'src', file), 'utf8').split(/\n {6}case '([A-Za-z0-9_]+)': \{/)
-  const bodies: [string, string][] = []
-  for (let index = 1; index < parts.length; index += 2) bodies.push([parts[index], parts[index + 1]])
-  return bodies
-}
-
 /** The fallbacks every handler names, first mention of each port/key winning. */
 function fallbacks(bodies: [string, string][], call: RegExp, extra?: (body: string) => Omit<Fallback, 'node'>[]): Fallback[] {
   const found: Fallback[] = []
@@ -107,7 +95,7 @@ const EVALUATOR = fallbacks(
   /num\(\s*id,\s*'([A-Za-z0-9_]+)',\s*props,\s*'([A-Za-z0-9_]+)',\s*([^,)]+)\)/g,
 )
 const GENERATOR = fallbacks(
-  caseBodies('codegen/cppGenerator.ts'),
+  handlerBodies('codegen'),
   /\bf\(\s*'([A-Za-z0-9_]+)',\s*'([A-Za-z0-9_]+)',\s*([^,)]+)\)/g,
   channelFallbacks,
 )
