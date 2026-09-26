@@ -227,7 +227,11 @@
   /* The canvas between two open side panels can be a strip a couple of
      hundred pixels wide on a laptop; the panel reflows for it below. */
   container-type: inline-size;
-  inset: 0 var(--canvas-right-inset, 0px) 0 var(--canvas-left-inset, 0px);
+  inset:
+    0
+    var(--canvas-right-inset, 0px)
+    var(--canvas-bottom-inset, 0px)
+    var(--canvas-left-inset, 0px);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -165,4 +165,17 @@ describe('closing and resuming', () => {
       expect.stringContaining('Upload'),
     ])
   })
+
+  it('reserves only the preview handle when Build Diagram already sits beside the preview', () => {
+    act(() => useFirstProjectGuide.getState().start())
+    act(() => useUiStore.setState({
+      workspaceMode: 'build', previewPanelOpen: true, previewWidth: 380,
+    }))
+    const { container } = render(<FirstProjectGuide />)
+    const dock = currentStep(container).parentElement as HTMLElement
+    expect(dock.style.getPropertyValue('--guide-right')).toBe('22px')
+
+    act(() => useUiStore.setState({ workspaceMode: 'graph' }))
+    expect(dock.style.getPropertyValue('--guide-right')).toBe('402px')
+  })
 })

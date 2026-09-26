@@ -76,7 +76,11 @@ function GuideStrip() {
   const displayEditorOpen = useUiStore((s) => s.designWorkspaceView.kind === 'display')
   const hasSidebar = !displayEditorOpen && workspaceMode !== 'build'
   const left = hasSidebar ? (sidebarOpen ? sidebarWidth : 0) + PANEL_HANDLE_WIDTH : 0
-  const right = displayEditorOpen ? 0 : (previewPanelOpen ? previewWidth : 0) + PANEL_HANDLE_WIDTH
+  // Build Diagram's main region already ends at an open preview's left edge;
+  // only its handle overlays that workspace. The other workspaces sit beneath
+  // the floating preview and must reserve the panel itself as well.
+  const previewOverlayWidth = workspaceMode === 'build' ? 0 : (previewPanelOpen ? previewWidth : 0)
+  const right = displayEditorOpen ? 0 : previewOverlayWidth + PANEL_HANDLE_WIDTH
   const placement = { '--guide-left': `${left}px`, '--guide-right': `${right}px` } as CSSProperties
 
   const stripRef = useRef<HTMLElement>(null)
