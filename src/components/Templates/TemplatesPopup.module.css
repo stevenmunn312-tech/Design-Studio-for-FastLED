@@ -197,6 +197,47 @@
   text-align: center;
 }
 
+.levelChip {
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Requirements, before loading: what runs now, and what a board needs. */
+.guide {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.guide div {
+  display: grid;
+  grid-template-columns: 7.2em 1fr;
+  gap: 6px;
+}
+
+.guide dt {
+  color: #a6ebff;
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.guide dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
 .sectionHeading {
   grid-column: 1 / -1;
   margin: 6px 0 -2px;
@@ -298,9 +339,12 @@
 .cardHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
+
+/* The name takes the room; the badges sit together at the right. */
+.cardHeader .cardName { margin-right: auto; }
 
 .cardName {
   color: var(--text-primary);

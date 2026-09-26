@@ -238,3 +238,44 @@ describe('starterTemplates', () => {
     })
   }
 })
+
+describe('what a starter asks of you, before it loads', () => {
+  const byId = (id: string) => STARTER_TEMPLATES.find((template) => template.id === id)!
+
+  it('gives every starter a level, a browser note and a board list led by the board', () => {
+    for (const template of STARTER_TEMPLATES) {
+      expect(template.guide.level, template.id).toMatch(/^(First patch|Easy|Intermediate|Advanced)$/)
+      expect(template.guide.preview.length, template.id).toBeGreaterThan(0)
+      expect(template.guide.hardware[0], template.id).toBe('An ESP32 board')
+    }
+  })
+
+  it('derives the board list from the parts the starter actually builds', () => {
+    for (const template of STARTER_TEMPLATES) {
+      const types = new Set(template.build().nodes.map((node) => node.data.nodeType))
+      const hardware = template.guide.hardware.join(' | ')
+      expect(hardware.includes('microphone'), template.id).toBe(types.has('MicInput'))
+      expect(hardware.includes('microSD'), template.id).toBe(types.has('SDCard'))
+      expect(hardware.includes('amplifier'), template.id).toBe(types.has('Amplifier'))
+      expect(/LED (strip|matrix)|HUB75/.test(hardware), template.id).toBe(types.has('MatrixOutput'))
+    }
+  })
+
+  it('says a strip starter needs a strip and a matrix starter a matrix', () => {
+    expect(byId('juggle').guide.hardware).toContain('An LED strip (WS2812B)')
+    expect(byId('fire').guide.hardware).toContain('An LED matrix (WS2812B)')
+  })
+
+  it('spells out the music starters’ prerequisites', () => {
+    expect(byId('generative-show').guide.before?.join(' ')).toMatch(/MP3/)
+    expect(byId('generative-show').guide.hardware).toContain('An I2S amplifier and a speaker')
+    const sd = byId('music-sync-sd-show')
+    expect(sd.guide.level).toBe('Advanced')
+    expect(sd.guide.before?.join(' ')).toMatch(/songs to analyse/i)
+    expect(sd.guide.before?.join(' ')).toMatch(/microSD card/)
+  })
+
+  it('makes the recommended first patch the gentlest one', () => {
+    expect(STARTER_TEMPLATES.find((template) => template.recommended)?.guide.level).toBe('First patch')
+  })
+})

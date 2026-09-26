@@ -19,6 +19,9 @@ export interface StarterTemplate {
    *  Start Gallery. Juggle, because it teaches the basic patch — pattern,
    *  wire, output — in two nodes and needs no hardware to see it work. */
   recommended?: boolean
+  /** What to expect before loading: how involved it is, what works in the
+   *  browser straight away, and what uploading it to a board takes. */
+  guide: StarterGuide
   /** Whether loading this starter should request the live microphone. */
   activateMicrophone?: boolean
   preview: {
@@ -28,7 +31,40 @@ export interface StarterTemplate {
   build: () => { nodes: StudioNode[]; edges: StudioEdge[] }
 }
 
+export type StarterLevel = 'First patch' | 'Easy' | 'Intermediate' | 'Advanced'
+
+export interface StarterGuide {
+  level: StarterLevel
+  /** What you can do in the browser, with nothing plugged in. */
+  preview: string
+  /** The parts uploading it needs, derived from the starter's own hardware
+   *  nodes (always led by the board), so the list cannot drift from the
+   *  graph the starter actually builds. */
+  hardware: string[]
+  /** Anything else to have ready first — music files, songs to analyse. */
+  before?: string[]
+}
+
 const LIBRARY_DEF = new Map(NODE_LIBRARY.map((d) => [d.type, d]))
+
+/** A starter's parts in the words a shopping list would use. */
+function starterHardware(specs: readonly NodeSpec[]): string[] {
+  const parts = ['An ESP32 board']
+  const count = (type: string) => specs.filter((spec) => spec.type === type).length
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : `${n} ${many}`)
+  for (const spec of specs.filter((entry) => entry.type === 'MatrixOutput')) {
+    const form = outputForm(spec.properties)
+    parts.push(form === 'strip' ? 'An LED strip (WS2812B)' : form === 'hub75' ? 'A HUB75 panel' : 'An LED matrix (WS2812B)')
+  }
+  if (count('MicInput')) parts.push('An I2S microphone (INMP441)')
+  if (count('PotInput')) parts.push(plural(count('PotInput'), 'A potentiometer', 'potentiometers'))
+  if (count('ButtonInput')) parts.push(plural(count('ButtonInput'), 'A push button', 'push buttons'))
+  if (count('EncoderInput')) parts.push('A rotary encoder')
+  if (count('InfoDisplay')) parts.push('A small OLED screen')
+  if (count('SDCard')) parts.push('A microSD card module')
+  if (count('Amplifier')) parts.push('An I2S amplifier and a speaker')
+  return [...new Set(parts)]
+}
 
 // Horizontal chain layout — matches the spacing `spreadNodes` settles a fresh
 // left-to-right graph into, so a template looks tidy without an explicit Tidy.
@@ -68,6 +104,9 @@ function template(
   options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
+    level: StarterLevel
+    preview: string
+    before?: string[]
   },
 ): StarterTemplate {
   return {
@@ -76,6 +115,12 @@ function template(
     description: options.description,
     completionSteps: options.completionSteps,
     ...(options.recommended ? { recommended: true } : {}),
+    guide: {
+      level: options.level,
+      preview: options.preview,
+      hardware: starterHardware(options.nodeSpecs),
+      ...(options.before?.length ? { before: options.before } : {}),
+    },
     activateMicrophone: options.activateMicrophone,
     preview: {
       // Tutorial comments belong on the loaded canvas, but the gallery's tiny
@@ -233,6 +278,8 @@ export function buildBoardAwareStarter(
 export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'juggle',
+    level: 'First patch',
+    preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Juggle',
     recommended: true,
     description: 'Learn the basic patch: a pattern makes pixels, and the LED output sends them to the preview or LEDs.',
@@ -256,6 +303,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'fire',
+    level: 'Easy',
+    preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Fire',
     description: 'Shape a classic Fire2012 simulation, then match its direction to the way your matrix is mounted.',
     completionSteps: [
@@ -278,6 +327,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'scrolling-text',
+    level: 'Easy',
+    preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Scrolling Text',
     description: 'Build an editable marquee and learn how text layout relates to the output matrix size.',
     completionSteps: [
@@ -299,6 +350,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'audio-spectrum',
+    level: 'Easy',
+    preview: 'Runs in the browser using your computer’s microphone.',
     name: 'Audio Spectrum',
     description: 'Turn live microphone frequencies into animated bars and learn the difference between Audio and Frame wires.',
     activateMicrophone: true,
@@ -324,6 +377,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'field-warp',
+    level: 'Intermediate',
+    preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Field Warp Demo',
     description: 'Learn a field pipeline: one noise field becomes the image while two more bend its coordinates.',
     completionSteps: [
@@ -353,6 +408,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'generative-show',
+    level: 'Intermediate',
+    preview: 'Plays music files from your computer in the browser.',
+    before: ['MP3 files to play, copied to a microSD card for the board'],
     name: 'Music Player',
     description: 'Build a live, audio-reactive show from reusable pattern groups, then configure its controls and hardware.',
     completionSteps: [
@@ -389,6 +447,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'music-sync-sd-show',
+    level: 'Advanced',
+    preview: 'Analyse songs and preview the show in the browser.',
+    before: ['MP3 songs to analyse', 'A microSD card, and a card reader or USB cable to copy the show onto it'],
     name: 'Music-synced SD Show',
     description: 'Analyze songs, preview a timed performance, and package the music and show files for SD-card playback.',
     completionSteps: [
@@ -437,6 +498,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'live-dimming',
+    level: 'Easy',
+    preview: 'The knob and button work on screen; on the board they are real parts.',
     name: 'Dimmer and Blackout',
     description: 'A knob and a button on the bench dimming and blacking out the LEDs — no player, no card, just wires.',
     completionSteps: [
@@ -469,6 +532,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'slideshow-browse',
+    level: 'Intermediate',
+    preview: 'Browse and confirm on screen; the OLED view is previewed too.',
     name: 'Browse a Slideshow',
     description: 'A slideshow you can turn through and confirm, with an OLED showing what you are about to play.',
     completionSteps: [
@@ -506,6 +571,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'player-transport',
+    level: 'Intermediate',
+    preview: 'Press the buttons on screen; the OLED view is previewed too.',
+    before: ['MP3 files to play, copied to a microSD card for the board'],
     name: 'Player Buttons and Screen',
     description: 'Three buttons driving the music player, and an OLED reporting the track it is playing.',
     completionSteps: [
@@ -553,6 +621,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   }),
   template({
     id: 'pattern-slideshow',
+    level: 'Easy',
+    preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Pattern Slideshow',
     description: 'Cycle a collection of patterns on a timer — no music, no card, nothing to plug in but the LEDs.',
     completionSteps: [

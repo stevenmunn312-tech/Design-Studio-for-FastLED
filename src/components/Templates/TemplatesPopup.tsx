@@ -94,6 +94,34 @@ function BlankPreview() {
   )
 }
 
+/**
+ * What a starter asks of you, said before it loads: how involved it is, what
+ * works in the browser straight away, and what putting it on a board takes.
+ * A preview that runs is not the same as a board that runs it, so the two are
+ * separate lines — and the music starters' extra prerequisites get their own.
+ */
+function StarterGuideInfo({ template }: { template: StarterTemplate }) {
+  const { guide } = template
+  return (
+    <dl className={styles.guide}>
+      <div>
+        <dt>In the browser</dt>
+        <dd>{guide.preview}</dd>
+      </div>
+      <div>
+        <dt>On a board</dt>
+        <dd>{guide.hardware.join(' · ')}</dd>
+      </div>
+      {guide.before && guide.before.length > 0 && (
+        <div>
+          <dt>Have ready</dt>
+          <dd>{guide.before.join(' · ')}</dd>
+        </div>
+      )}
+    </dl>
+  )
+}
+
 // A starting-point gallery for the blank-canvas problem: new users otherwise
 // face an empty graph and ~90 node types with no sense of how they compose.
 export default function TemplatesPopup() {
@@ -162,9 +190,11 @@ export default function TemplatesPopup() {
                 <div className={styles.cardHeader}>
                   <span className={styles.cardName}>{recommended.name}</span>
                   <span className={styles.startHereBadge}>Start here</span>
+                  <span className={styles.levelChip}>{recommended.guide.level}</span>
                   {lastStartChoice === recommended.id && <span className={styles.lastBadge}>Last</span>}
                 </div>
                 <span className={styles.cardDesc}>{recommended.description}</span>
+                <StarterGuideInfo template={recommended} />
                 {recommended.completionSteps && recommended.completionSteps.length > 0 && (
                   <ol className={styles.steps}>
                     {recommended.completionSteps.map((step) => <li key={step}>{step}</li>)}
@@ -204,9 +234,11 @@ export default function TemplatesPopup() {
               <div className={styles.cardBody}>
                 <div className={styles.cardHeader}>
                   <span className={styles.cardName}>{template.name}</span>
+                  <span className={styles.levelChip}>{template.guide.level}</span>
                   {lastStartChoice === template.id && <span className={styles.lastBadge}>Last</span>}
                 </div>
                 <span className={styles.cardDesc}>{template.description}</span>
+                <StarterGuideInfo template={template} />
                 {template.completionSteps && template.completionSteps.length > 0 && (
                   <ol className={styles.steps}>
                     {template.completionSteps.map((step) => <li key={step}>{step}</li>)}

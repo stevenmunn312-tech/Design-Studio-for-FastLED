@@ -60,6 +60,17 @@ describe('TemplatesPopup', () => {
     })
   })
 
+  it('shows what a starter needs before it loads, separately from what runs in the browser', () => {
+    const { getByText, getByRole } = render(<TemplatesPopup />)
+    const card = getByText('Music-synced SD Show').closest('button')!
+    expect(card.textContent).toContain('Advanced')
+    expect(card.textContent).toMatch(/In the browser.*Analyse songs and preview the show/)
+    expect(card.textContent).toMatch(/On a board.*microSD card module/)
+    expect(card.textContent).toMatch(/Have ready.*songs to analyse/i)
+    const juggle = getByRole('button', { name: /Start with Juggle/ })
+    expect(juggle.textContent).toMatch(/nothing to plug in/)
+  })
+
   // A two-word label is drawn as two <tspan> lines, whose textContent would
   // otherwise run together as "LEDString".
   const boxLabels = (container: HTMLElement) =>
