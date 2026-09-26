@@ -120,8 +120,12 @@
   opacity: 0.6;
 }
 
+/* The outline is off, so focus has to show here: a faint white border alone
+   was the one stop on a keyboard walk of the app with no visible focus. Same
+   treatment as the Hardware shelf's search. */
 .searchInput:focus {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--border-glow));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-output) 14%, transparent);
 }
 
 .scroll {
