@@ -217,6 +217,10 @@ export default function App() {
       await useProjectStore.getState().refreshFromDisk()
       if (cancelled) return
       const state = useProjectStore.getState()
+      // Nothing saved on this machine at all, here or in the helper's project
+      // folder: someone's very first visit. Greet it with the Start Gallery,
+      // whose first card is the recommended first patch.
+      const firstVisit = state.projects.length === 0 && useUiStore.getState().lastStartChoice === null
       const current = state.projects.find((project) => project.id === state.currentProjectId)
         ?? state.projects[0]
         ?? useProjectStore.getState().createProject(
@@ -226,6 +230,7 @@ export default function App() {
       if (!current) return
       useGraphStore.getState().loadGraph(current.workspace.nodes, current.workspace.edges, current.workspace)
       landOnStartingWorkspace()
+      if (firstVisit) useUiStore.getState().openTemplates()
       await waitForMusicLibraryRestore()
       if (cancelled) return
       workspaceHydrated.current = true

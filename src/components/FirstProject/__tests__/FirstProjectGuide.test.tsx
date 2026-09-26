@@ -22,13 +22,14 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 
 const graphs = { activeGraphId: ROOT_GRAPH_ID, graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } } }
 
+/** The strip, which holds the current step and its buttons. */
 function currentStep(container: HTMLElement) {
-  return container.querySelector('[aria-current="step"]') as HTMLElement
+  return container.querySelector('[aria-label="First project guide"]') as HTMLElement
 }
 
 beforeEach(() => {
   localStorage.clear()
-  useFirstProjectGuide.setState({ visible: false, collapsed: false, skipped: [], baseline: null, uploaded: false })
+  useFirstProjectGuide.setState({ visible: false, listOpen: false, skipped: [], baseline: null, uploaded: false })
   useUiStore.setState({ templatesOpen: false, workspaceMode: 'graph', stageMode: false, sidebarOpen: false })
   useUploadStore.setState({
     helper: null, ports: [], portsScanned: true, selectedPort: '', setupWizardOpen: false,
@@ -106,6 +107,7 @@ describe('following the steps', () => {
     const { container, getByRole } = render(<FirstProjectGuide />)
     fireEvent.click(within(currentStep(container)).getByRole('button', { name: 'Skip for now' }))
     expect(within(currentStep(container)).getByText('Make it yours')).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'All steps' }))
     fireEvent.click(getByRole('button', { name: 'Back to it' }))
     expect(within(currentStep(container)).getByText('Choose a starter')).toBeTruthy()
   })
@@ -148,10 +150,19 @@ describe('closing and resuming', () => {
     expect(useFirstProjectGuide.getState().skipped).toEqual(['starter'])
   })
 
-  it('minimises to a pill that says how far along it is', () => {
+  it('shows the current step on the strip, and the whole list only when asked', () => {
     act(() => useFirstProjectGuide.getState().start())
-    const { getByRole } = render(<FirstProjectGuide />)
-    fireEvent.click(getByRole('button', { name: 'Minimise the guide' }))
-    expect(getByRole('button', { name: /^Show the first project guide, \d of 5 done$/ })).toBeTruthy()
+    const { getByRole, queryByRole, container } = render(<FirstProjectGuide />)
+    expect(currentStep(container).textContent).toMatch(/\d of 5 done/)
+    expect(queryByRole('region', { name: 'First project steps' })).toBeNull()
+    fireEvent.click(getByRole('button', { name: 'All steps' }))
+    const list = getByRole('region', { name: 'First project steps' })
+    expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      expect.stringContaining('Choose a starter'),
+      expect.stringContaining('Make it yours'),
+      expect.stringContaining('Choose your board and LEDs'),
+      expect.stringContaining('Check it’s ready'),
+      expect.stringContaining('Upload'),
+    ])
   })
 })

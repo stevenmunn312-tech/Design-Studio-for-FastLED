@@ -6,6 +6,7 @@ import NodeGraphCanvas from '../NodeGraphCanvas'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useAudioStore } from '../../../state/audioStore'
+import { useFirstProjectGuide } from '../../../state/firstProjectGuideStore'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { libraryDefaults } from '../../../state/nodeLibrary'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
@@ -83,6 +84,7 @@ describe('NodeGraphCanvas start screen', () => {
     localStorage.clear()
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
+    useFirstProjectGuide.setState({ visible: false, stripHeight: 0 })
     useUiStore.setState({
       sidebarOpen: false,
       previewPanelOpen: false,
@@ -247,6 +249,7 @@ describe('NodeGraphCanvas start screen', () => {
       previewPanelOpen: true,
       previewWidth: 500,
     })
+    useFirstProjectGuide.setState({ visible: true, stripHeight: 96 })
     const { getByRole, getByTestId } = render(<NodeGraphCanvas />)
     const wrapper = getByTestId('react-flow').parentElement as HTMLDivElement
     vi.spyOn(wrapper, 'getBoundingClientRect').mockReturnValue({
@@ -259,7 +262,7 @@ describe('NodeGraphCanvas start screen', () => {
     const expected = getViewportForBounds(
       { x: 0, y: 0, width: 100, height: 600 },
       600,
-      800,
+      688,
       0.2,
       2,
       '32px',
@@ -276,10 +279,11 @@ describe('NodeGraphCanvas start screen', () => {
       padding: {
         top: '32px',
         right: '532px',
-        bottom: '32px',
+        bottom: '144px',
         left: '332px',
       },
     }))
+    expect(wrapper.style.getPropertyValue('--canvas-bottom-inset')).toBe('112px')
   })
 
   it('opens the starter gallery without offering a redundant blank-canvas action', () => {

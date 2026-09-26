@@ -224,6 +224,9 @@
 .emptyField {
   position: absolute;
   z-index: 8;
+  /* The canvas between two open side panels can be a strip a couple of
+     hundred pixels wide on a laptop; the panel reflows for it below. */
+  container-type: inline-size;
   inset: 0 var(--canvas-right-inset, 0px) 0 var(--canvas-left-inset, 0px);
   display: flex;
   align-items: center;
@@ -317,6 +320,23 @@
   width: 100%;
   max-width: 440px;
   margin-top: 4px;
+}
+
+@container (max-width: 420px) {
+  .emptyPanel {
+    padding: 22px 14px 18px;
+  }
+
+  .emptyActions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* An odd last button (the guide's, once it is showing, is left out) spans
+   the row rather than leaving a hole beside it. */
+.emptyActions > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .startAction {
@@ -570,12 +590,12 @@
 .controls {
   left: auto !important;
   right: calc(var(--canvas-right-inset, 0px) + 200px) !important;
-  bottom: 0 !important;
+  bottom: var(--canvas-bottom-inset, 0px) !important;
 }
 
 .minimap {
   right: var(--canvas-right-inset, 0px) !important;
-  bottom: 0 !important;
+  bottom: var(--canvas-bottom-inset, 0px) !important;
 }
 
 .focusBadge {

@@ -86,6 +86,8 @@ const FALLBACK_H = 70
 const DEFAULT_SIDEBAR_W = 280
 const DEFAULT_PREVIEW_W = 496
 const FIT_VIEW_GUTTER = 32
+/** The guide strip's own `bottom` offset in FirstProjectGuide.module.css, plus a little air. */
+const GUIDE_STRIP_MARGIN = 16
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 2
 
@@ -290,16 +292,21 @@ function NodeGraphCanvasInner() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = sidebarOpen ? sidebarWidth ?? DEFAULT_SIDEBAR_W : 0
   const rightInset = previewPanelOpen ? previewWidth ?? DEFAULT_PREVIEW_W : 0
+  // The first-project guide's strip floats over the foot of the canvas, so a
+  // fit frames the nodes above it rather than under it.
+  const guideStripHeight = useFirstProjectGuide((s) => s.stripHeight)
+  const guideVisible = useFirstProjectGuide((s) => s.visible)
+  const bottomInset = guideStripHeight > 0 ? guideStripHeight + GUIDE_STRIP_MARGIN : 0
   const fitViewOptions = useMemo<FitViewOptions>(() => ({
     padding: {
       top: `${FIT_VIEW_GUTTER}px`,
       right: `${rightInset + FIT_VIEW_GUTTER}px`,
-      bottom: `${FIT_VIEW_GUTTER}px`,
+      bottom: `${bottomInset + FIT_VIEW_GUTTER}px`,
       left: `${leftInset + FIT_VIEW_GUTTER}px`,
     },
     duration: reducedMotion ? 0 : 260,
     ease: fitViewEase,
-  }), [leftInset, reducedMotion, rightInset])
+  }), [bottomInset, leftInset, reducedMotion, rightInset])
   const fitFrame = useCallback((nodeIds?: string[]) => {
     const wrapper = wrapperRef.current
     const targetNodes = nodeIds
@@ -310,7 +317,8 @@ function NodeGraphCanvasInner() {
 
     const rect = wrapper.getBoundingClientRect()
     const usableWidth = rect.width - leftInset - rightInset
-    if (usableWidth <= 0 || rect.height <= 0) {
+    const usableHeight = rect.height - bottomInset
+    if (usableWidth <= 0 || usableHeight <= 0) {
       return fitView({
         ...fitViewOptions,
         nodes: nodeIds?.map((id) => ({ id })),
@@ -320,7 +328,7 @@ function NodeGraphCanvasInner() {
     const viewport = getViewportForBounds(
       getNodesBounds(targetNodes),
       usableWidth,
-      rect.height,
+      usableHeight,
       MIN_ZOOM,
       MAX_ZOOM,
       `${FIT_VIEW_GUTTER}px`,
@@ -330,7 +338,7 @@ function NodeGraphCanvasInner() {
       { ...viewport, x: viewport.x + leftInset },
       { duration: reducedMotion ? 0 : 260, ease: fitViewEase },
     )
-  }, [fitView, fitViewOptions, getNodesBounds, leftInset, nodes, reducedMotion, rightInset, setViewport])
+  }, [bottomInset, fitView, fitViewOptions, getNodesBounds, leftInset, nodes, reducedMotion, rightInset, setViewport])
   const [spliceCue, setSpliceCue] = useState<{
     edgeId: string
     x: number
@@ -1241,7 +1249,11 @@ function NodeGraphCanvasInner() {
     <div
       ref={wrapperRef}
       className={`${styles.canvas} ${selectedNodeId ? styles.canvasFocused : ''} ${nodes.length === 0 ? styles.canvasIdle : ''} ${hasAudioGraph ? styles.canvasAudioLive : ''} ${hasShowGraph ? styles.canvasShowLive : ''} ${hasPatternGraph ? styles.canvasPatternLive : ''} ${performanceMode ? styles.canvasPerformance : ''}`}
-      style={{ '--canvas-left-inset': `${leftInset}px`, '--canvas-right-inset': `${rightInset}px` } as React.CSSProperties}
+      style={{
+        '--canvas-left-inset': `${leftInset}px`,
+        '--canvas-right-inset': `${rightInset}px`,
+        '--canvas-bottom-inset': `${bottomInset}px`,
+      } as React.CSSProperties}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -1277,9 +1289,11 @@ function NodeGraphCanvasInner() {
               <button type="button" className={styles.startAction} onClick={handleBrowseStarters}>
                 Browse starter patches
               </button>
-              <button type="button" className={styles.startAction} onClick={() => useFirstProjectGuide.getState().start()}>
-                Guide me, step by step
-              </button>
+              {!guideVisible && (
+                <button type="button" className={styles.startAction} onClick={() => useFirstProjectGuide.getState().start()}>
+                  Guide me, step by step
+                </button>
+              )}
             </div>
             {lastStartLabel && <div className={styles.emptyMeta}>Last start: {lastStartLabel}</div>}
           </div>

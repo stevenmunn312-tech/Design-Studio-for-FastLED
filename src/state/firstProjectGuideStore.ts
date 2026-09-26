@@ -18,18 +18,24 @@ const STORAGE_KEY = 'design-studio-for-fastled-first-project-guide'
 
 interface Persisted {
   visible: boolean
-  collapsed: boolean
+  /** The full step list, opened above the strip; the strip alone shows the
+   *  current step, which is all a step needs. */
+  listOpen: boolean
   skipped: FirstProjectStepId[]
   baseline: string | null
   uploaded: boolean
 }
 
 interface FirstProjectGuideState extends Persisted {
+  /** The strip's drawn height, so the graph canvas can frame its nodes above
+   *  it rather than under it. Zero while the guide is not showing. */
+  stripHeight: number
+  setStripHeight: (height: number) => void
   /** Show the guide, picking up wherever the project already is. */
   start: () => void
   /** Put it away; progress is kept for when it is opened again. */
   hide: () => void
-  setCollapsed: (collapsed: boolean) => void
+  setListOpen: (listOpen: boolean) => void
   skip: (id: FirstProjectStepId) => void
   unskip: (id: FirstProjectStepId) => void
   /** Forget skips and the upload, and take the project as it is now. */
@@ -38,7 +44,7 @@ interface FirstProjectGuideState extends Persisted {
   noteFreshStart: () => void
 }
 
-const DEFAULTS: Persisted = { visible: false, collapsed: false, skipped: [], baseline: null, uploaded: false }
+const DEFAULTS: Persisted = { visible: false, listOpen: false, skipped: [], baseline: null, uploaded: false }
 
 function load(): Persisted {
   try {
@@ -47,7 +53,7 @@ function load(): Persisted {
     const saved = JSON.parse(raw) as Partial<Persisted>
     return {
       visible: saved.visible === true,
-      collapsed: saved.collapsed === true,
+      listOpen: saved.listOpen === true,
       skipped: Array.isArray(saved.skipped) ? saved.skipped.filter((id): id is FirstProjectStepId => typeof id === 'string') : [],
       baseline: typeof saved.baseline === 'string' ? saved.baseline : null,
       uploaded: saved.uploaded === true,
@@ -59,8 +65,8 @@ function load(): Persisted {
 
 function save(state: Persisted) {
   try {
-    const { visible, collapsed, skipped, baseline, uploaded } = state
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ visible, collapsed, skipped, baseline, uploaded }))
+    const { visible, listOpen, skipped, baseline, uploaded } = state
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ visible, listOpen, skipped, baseline, uploaded }))
   } catch {
     // Session-only when storage is unavailable.
   }
@@ -80,12 +86,14 @@ export const useFirstProjectGuide = create<FirstProjectGuideState>((set, get) =>
   }
   return {
     ...load(),
-    start: () => update({ visible: true, collapsed: false, baseline: get().baseline ?? currentBaseline() }),
-    hide: () => update({ visible: false }),
-    setCollapsed: (collapsed) => update({ collapsed }),
+    stripHeight: 0,
+    setStripHeight: (stripHeight) => { if (stripHeight !== get().stripHeight) set({ stripHeight }) },
+    start: () => update({ visible: true, baseline: get().baseline ?? currentBaseline() }),
+    hide: () => update({ visible: false, listOpen: false }),
+    setListOpen: (listOpen) => update({ listOpen }),
     skip: (id) => update({ skipped: [...new Set([...get().skipped, id])] }),
     unskip: (id) => update({ skipped: get().skipped.filter((entry) => entry !== id) }),
-    restart: () => update({ skipped: [], uploaded: false, baseline: currentBaseline(), collapsed: false }),
+    restart: () => update({ skipped: [], uploaded: false, baseline: currentBaseline() }),
     noteFreshStart: () => update({ baseline: currentBaseline(), uploaded: false }),
   }
 })
