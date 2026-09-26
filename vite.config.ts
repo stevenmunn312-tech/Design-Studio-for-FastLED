@@ -123,7 +123,9 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
+          // Self-hosted fonts stay in the precache: the UI paints with them,
+          // including offline. woff2 is Inter and JetBrains Mono; ttf is Audiowide.
+          globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2,ttf}'],
           // The Essentia.js WASM chunk (~2.5 MB) is loaded on demand only when the
           // user analyses a song with that engine, the generated node-card
           // images (~140 SVGs) only when a Help node-reference page is opened,
@@ -136,11 +138,6 @@ export default defineConfig(() => {
             '**/essentia-wasm*.js', 'node-cards/**', 'boards/**', 'display-assets/**',
           ],
           runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/fonts\./,
-              handler: 'CacheFirst',
-              options: { cacheName: 'fonts', expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 } },
-            },
             {
               urlPattern: /essentia-wasm.*\.js$/,
               handler: 'CacheFirst',

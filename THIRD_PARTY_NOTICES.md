@@ -42,19 +42,26 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 
 ## Fonts
 
-- `src/themes/tokens.css` bundles `Audiowide` for the restrained display role
-  via `public/fonts/Audiowide-Regular.ttf`.
-- Audiowide is Copyright (c) 2012, Brian J. Bonislawsky DBA Astigmatic
-  (AOETI), with Reserved Font Names "Audiowide", and is licensed under the SIL
-  Open Font License 1.1. The license text is included at
+`src/themes/tokens.css` bundles three families under the SIL Open Font License 1.1.
+Each license is shipped next to its files.
+
+- Audiowide (display) is Copyright (c) 2012, Brian J. Bonislawsky DBA Astigmatic
+  (AOETI), with Reserved Font Names "Audiowide". The file is
+  `public/fonts/Audiowide-Regular.ttf`. The license is
   `public/fonts/Audiowide-OFL.txt`.
-- `src/themes/tokens.css` still names `Inter` for body text and `JetBrains
-  Mono` for code text.
-- The repo does **not** currently bundle Inter or JetBrains Mono font files, so
-  those roles rely on the user's locally available fonts or the generic
-  fallback families.
-- If a future release embeds Inter or JetBrains Mono font files, add their SIL
-  Open Font License 1.1 notices to the distributed artifact set at that time.
+- Inter (body) is Copyright (c) 2016 The Inter Project Authors
+  (https://github.com/rsms/inter). The bundled files are the Inter 4.001
+  variable font, declared for weights 400–700, split into the latin,
+  latin-ext, cyrillic, cyrillic-ext, greek, greek-ext, and vietnamese subsets
+  at `public/fonts/Inter-*.woff2`. The license is `public/fonts/Inter-OFL.txt`.
+- JetBrains Mono (code) is Copyright 2020 The JetBrains Mono Project Authors
+  (https://github.com/JetBrains/JetBrainsMono). The bundled files are version
+  2.211, declared for weights 400–500, split into the latin, latin-ext,
+  cyrillic, cyrillic-ext, greek, and vietnamese subsets at
+  `public/fonts/JetBrainsMono-*.woff2`. The license is
+  `public/fonts/JetBrainsMono-OFL.txt`.
+- Characters outside those subsets fall back to the generic family in the
+  stack (`sans-serif` or `monospace`).
 
 ## Icons and branding assets
 

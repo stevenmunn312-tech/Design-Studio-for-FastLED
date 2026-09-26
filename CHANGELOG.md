@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Inter and JetBrains Mono ship with the app. A launch no longer asks Google
+  Fonts for them, and an offline install keeps those faces instead of dropping
+  back to the system font. Audiowide was already a local file; it is now in the
+  offline precache as well.
+
 - The ESP32-2432S028R ("CYD") offered pins it does not bring out. Its board
   package carries no pin-safety summary, so the profile arrived with none at
   all and every part added to it drew from the chip-level ESP32 table — whose
