@@ -27,6 +27,21 @@ describe('StatusBar accessibility', () => {
     useCapacityStore.getState().clear()
   })
 
+  it('counts one module and one patch in the singular', () => {
+    useGraphStore.setState({
+      nodes: [{ id: 'a', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'A', nodeType: 'SolidColor', category: 'pattern', properties: {}, inputs: [], outputs: [] } }] as never[],
+      edges: [{ id: 'e', source: 'a', target: 'a' }] as never[],
+    })
+    const { getByText, rerender } = render(<StatusBar />)
+    expect(getByText('1 module')).toBeTruthy()
+    expect(getByText('1 patch')).toBeTruthy()
+
+    useGraphStore.setState({ nodes: [], edges: [] })
+    rerender(<StatusBar />)
+    expect(getByText('0 modules')).toBeTruthy()
+    expect(getByText('0 patches')).toBeTruthy()
+  })
+
   it('announces normal status updates politely', () => {
     useUiStore.setState({ statusText: 'Graph JSON exported', statusLevel: 'success' })
 
