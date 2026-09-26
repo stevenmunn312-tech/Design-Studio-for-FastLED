@@ -12,7 +12,7 @@
 
 import type { StudioEdge, StudioNode } from './graphStore'
 import { DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
-import { tftControllerForProps } from './nodeLibrary'
+import { nodeDisplayLabel, tftControllerForProps } from './nodeLibrary'
 import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
 import { shownDesignId } from './transportDisplay'
 
@@ -125,7 +125,9 @@ export function documentDisplaySourceLabel(
     candidate.target === panel.id && candidate.targetHandle === 'display')
   const source = edge && nodes.find((node) => node.id === edge.source)
   if (source && DISPLAY_SOURCE_NODE_TYPES[source.data.nodeType]) {
-    const label = String(source.data.label ?? '').trim()
+    // Derived, not read off `data.label`: nothing persists a node label, so a
+    // load resets an LED String's to the library's "LED Matrix".
+    const label = nodeDisplayLabel(source.data.nodeType, source.data.properties, String(source.data.label ?? '')).trim()
     if (label) return label
   }
   const kind = panel ? panelDisplaySourceKind(panel, nodes, edges) : null
