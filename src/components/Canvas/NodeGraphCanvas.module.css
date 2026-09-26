@@ -593,7 +593,7 @@
 
 .controls {
   left: auto !important;
-  right: calc(var(--canvas-right-inset, 0px) + 200px) !important;
+  right: calc(var(--canvas-right-inset, 0px) + var(--minimap-width, 200px)) !important;
   bottom: var(--canvas-bottom-inset, 0px) !important;
 }
 

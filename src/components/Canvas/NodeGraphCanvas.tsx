@@ -26,6 +26,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { MINIMAP_WIDTH, minimapFitsField } from './minimapFit'
 import { useShallow } from 'zustand/react/shallow'
 import { connectTouchControl, useGraphStore } from '../../state/graphStore'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
@@ -292,6 +293,15 @@ function NodeGraphCanvasInner() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const leftInset = sidebarOpen ? sidebarWidth ?? DEFAULT_SIDEBAR_W : 0
   const rightInset = previewPanelOpen ? previewWidth ?? DEFAULT_PREVIEW_W : 0
+  const [canvasWidth, setCanvasWidth] = useState<number | null>(null)
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => setCanvasWidth(Math.round(entry.contentRect.width)))
+    observer.observe(wrapper)
+    return () => observer.disconnect()
+  }, [])
+  const showMinimap = minimapFitsField(canvasWidth, leftInset, rightInset)
   // The first-project guide's strip floats over the foot of the canvas, so a
   // fit frames the nodes above it rather than under it.
   const guideStripHeight = useFirstProjectGuide((s) => s.stripHeight)
@@ -1252,6 +1262,7 @@ function NodeGraphCanvasInner() {
       style={{
         '--canvas-left-inset': `${leftInset}px`,
         '--canvas-right-inset': `${rightInset}px`,
+        '--minimap-width': `${showMinimap ? MINIMAP_WIDTH : 0}px`,
         '--canvas-bottom-inset': `${bottomInset}px`,
       } as React.CSSProperties}
       onDragOver={onDragOver}
@@ -1441,14 +1452,16 @@ function NodeGraphCanvasInner() {
             </svg>
           </ControlButton>
         </Controls>
-        <MiniMap
-          nodeColor={minimapNodeColor}
-          nodeStrokeWidth={0}
-          maskColor="rgba(0,0,0,0.55)"
-          style={{ width: 200, height: 150, background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
-          className={styles.minimap}
-          onClick={onMiniMapClick}
-        />
+        {showMinimap && (
+          <MiniMap
+            nodeColor={minimapNodeColor}
+            nodeStrokeWidth={0}
+            maskColor="rgba(0,0,0,0.55)"
+            style={{ width: MINIMAP_WIDTH, height: 150, background: 'var(--bg-panel)', border: '1px solid var(--border-glow)' }}
+            className={styles.minimap}
+            onClick={onMiniMapClick}
+          />
+        )}
       </ReactFlow>
       {contextMenu && (
         <NodeContextMenu
