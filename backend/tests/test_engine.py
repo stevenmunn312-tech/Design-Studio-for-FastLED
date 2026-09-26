@@ -71,6 +71,26 @@ def test_find_interpreter_esptool_uses_python_scripts_directory(tmp_path, monkey
     assert app._find_interpreter_esptool() == str(executable)
 
 
+def test_find_interpreter_esptool_uses_frozen_tools_directory(tmp_path, monkeypatch):
+    # desktop/build.py copies the frozen esptool into <app>/tools, beside the
+    # launcher. A requirements.txt install puts the console script in the
+    # interpreter's scripts directory instead. Either layout must resolve,
+    # or every ESP32 fbuild deploy reports the tool as missing.
+    executable_name = "esptool.exe" if app.os.name == "nt" else "esptool"
+    app_dir = tmp_path / "Design Studio for FastLED"
+    tools = app_dir / "tools"
+    tools.mkdir(parents=True)
+    bundled = tools / executable_name
+    bundled.write_bytes(b"tool")
+    scripts = tmp_path / "empty-scripts"
+    scripts.mkdir()
+    monkeypatch.setattr(app.sysconfig, "get_path", lambda name: str(scripts))
+    monkeypatch.setattr(app.sys, "executable", str(app_dir / "Design Studio for FastLED.exe"))
+    monkeypatch.setattr(app.sys, "frozen", True, raising=False)
+
+    assert app._find_interpreter_esptool() == str(bundled)
+
+
 def test_parse_fqbn_splits_base_and_psram_option():
     assert app._parse_fqbn("esp32:esp32:esp32s3") == ("esp32:esp32:esp32s3", None)
     assert app._parse_fqbn("esp32:esp32:esp32s3:PSRAM=opi") == ("esp32:esp32:esp32s3", "opi")
@@ -894,6 +914,7 @@ def test_compile_upload_fbuild_esp32_keeps_arduino_cli_fallback_when_esptool_mis
         )
     )
 
+    assert any("pinned esptool executable is missing" in line for line in lines)
     assert any("Switch to the arduino-cli engine" in line for line in lines)
 
 
