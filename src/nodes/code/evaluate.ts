@@ -1,9 +1,13 @@
 import { makeShims, SHIM_NAMES } from '../../state/fastledShims'
 import { type Palette, type Frame, samplePalette } from '../../state/ledColor'
-import { evalCodeAsync } from '../../state/codeSandboxRuntime'
+import { evalCodeAsync, disposeCodeSandbox } from '../../state/codeSandboxRuntime'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { compileFormula, formulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, blankFrame, buildFrame } from '../../state/evaluator/frames'
+import { onInstanceDisposed } from '../../state/evaluator/memory'
+
+// A Code node's worker is instance state held outside the evaluator's maps.
+onInstanceDisposed(disposeCodeSandbox)
 
 function evalCustomFormula(formula: string, a: number, b: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const fn = compileFormula(formula, formulaCache)

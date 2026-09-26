@@ -9,7 +9,7 @@
  */
 
 import type { Frame, RGB } from '../state/ledColor'
-import { buildFrame } from '../state/graphEvaluator'
+import { buildFrame } from '../state/evaluator/frames'
 import { asAnimartrixEffect, type AnimartrixEffect } from './catalog'
 
 export interface AnimartrixAudio {

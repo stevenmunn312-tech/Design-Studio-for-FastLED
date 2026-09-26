@@ -1,7 +1,7 @@
 import { useUiStore } from '../../state/uiStore'
 import { denormalizeAudioFlowParam } from '../../state/audioFlowRange'
 import { type Frame, type Palette, samplePalette, type RGB } from '../../state/ledColor'
-import { evalAnimartrix } from '../../animartrix/preview'
+import { evalAnimartrix, disposeAnimartrixState } from '../../animartrix/preview'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {
   DEFAULT_W,
@@ -20,7 +20,10 @@ import {
 } from '../../state/evaluator/frames'
 import { _snoise2, worleyHash, normalizedSeed } from '../../state/evaluator/random'
 import { resampleSpectrumBins, isAudioSignal } from '../../state/evaluator/signals'
-import { instanceState } from '../../state/evaluator/memory'
+import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
+
+// An AnimARTrix instance is instance state held outside the evaluator's maps.
+onInstanceDisposed(disposeAnimartrixState)
 
 // Vocal Aurora intentionally compresses its vocal envelope before that signal
 // drives brightness, motion, curtain width, and palette travel. Without this

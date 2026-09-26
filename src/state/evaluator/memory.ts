@@ -1,6 +1,4 @@
 import type { Frame } from '../ledColor'
-import { disposeCodeSandbox } from '../codeSandboxRuntime'
-import { disposeAnimartrixState } from '../../animartrix/preview'
 import type { Field } from './types'
 
 // ── Frame / field buffer pool ─────────────────────────────────────────────────
@@ -151,6 +149,17 @@ export function evaluatorCache<M extends { readonly size: number }>(name: string
   return map
 }
 
+/*
+ * Some instance state lives outside these maps — a Code node's worker, an
+ * AnimARTrix instance. Its category registers how to release it, so this
+ * module imports nothing that could import the evaluator back: every
+ * category registers into it while loading, so it must finish loading first.
+ */
+const disposers: ((key: string) => void)[] = []
+export function onInstanceDisposed(dispose: (key: string) => void): void {
+  disposers.push(dispose)
+}
+
 /** Drop persistent evaluator buffers that have not participated in a recent
  * evaluation. Exported so graph lifecycle code/tests can force an immediate
  * sweep; normal preview evaluation runs a throttled sweep automatically. */
@@ -164,8 +173,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
 
   for (const key of stale) {
     for (const map of instanceMaps.values()) map.delete(key)
-    disposeAnimartrixState(key)
-    disposeCodeSandbox(key)   // Code-node worker (if any) lives outside these Maps
+    for (const dispose of disposers) dispose(key)
     stateLastUsed.delete(key)
   }
   return stale.length
@@ -184,8 +192,7 @@ export function pruneEvaluatorState(maxIdleMs = STATE_IDLE_TTL_MS, now = stateCl
  * cold. Not used by the live preview loop. */
 export function resetEvaluatorState(): void {
   for (const key of stateLastUsed.keys()) {
-    disposeAnimartrixState(key)
-    disposeCodeSandbox(key)
+    for (const dispose of disposers) dispose(key)
   }
   for (const map of instanceMaps.values()) map.clear()
   stateLastUsed.clear()
