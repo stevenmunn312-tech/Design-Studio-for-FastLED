@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import TemplatesPopup from '../TemplatesPopup'
 import { useUiStore } from '../../../state/uiStore'
 import { useGraphStore } from '../../../state/graphStore'
+import { STARTER_TEMPLATES } from '../../../state/starterTemplates'
 
 describe('TemplatesPopup', () => {
   beforeEach(() => {
@@ -29,6 +30,34 @@ describe('TemplatesPopup', () => {
     expect(getByText('Blank Canvas')).toBeTruthy()
     expect(getByText('Audio Spectrum')).toBeTruthy()
     expect(getByText('Last start: Audio Spectrum')).toBeTruthy()
+  })
+
+  describe('the recommended first patch', () => {
+    it('is exactly one starter, Juggle', () => {
+      expect(STARTER_TEMPLATES.filter((template) => template.recommended).map((template) => template.id)).toEqual(['juggle'])
+    })
+
+    it('comes first with its lesson, and Blank Canvas sits right beside it', () => {
+      const { getAllByRole } = render(<TemplatesPopup />)
+      const cards = getAllByRole('button').filter((button) => button.closest('[role="dialog"]') && button.textContent !== '×')
+      expect(cards[0].getAttribute('aria-label')).toBe('Start with Juggle — recommended first patch')
+      expect(cards[0].textContent).toContain('Start here')
+      // The teaching sequence the starter exists for, kept intact.
+      expect(cards[0].textContent).toMatch(/Set Count to 5[\s\S]*Trails[\s\S]*Mirror/)
+      expect(cards[1].textContent).toContain('Blank Canvas')
+      // Juggle is not listed a second time among the rest.
+      expect(cards.filter((card) => card.textContent?.includes('Juggle')).length).toBe(1)
+    })
+
+    it('has the focus when the gallery opens, so Enter starts it', () => {
+      const { getByRole } = render(<TemplatesPopup />)
+      expect(document.activeElement).toBe(getByRole('button', { name: /Start with Juggle/ }))
+    })
+
+    it('lists the rest under their own heading', () => {
+      const { getByRole } = render(<TemplatesPopup />)
+      expect(getByRole('heading', { name: 'More starters' })).toBeTruthy()
+    })
   })
 
   // A two-word label is drawn as two <tspan> lines, whose textContent would

@@ -163,6 +163,51 @@
   box-shadow: 0 0 0 1px rgba(0, 191, 255, 0.14);
 }
 
+/* The recommended first patch: twice the width, first in reading order, and
+   the only card with a filled action, so where to begin is not a question. */
+.featuredCard {
+  grid-column: span 2;
+  border-color: rgba(0, 191, 255, 0.34);
+  box-shadow: 0 0 0 1px rgba(0, 191, 255, 0.14), 0 0 28px rgba(0, 191, 255, 0.08);
+}
+
+.featuredCard:focus-visible,
+.card:focus-visible {
+  outline: 2px solid var(--accent-pattern);
+  outline-offset: 2px;
+}
+
+.startHereBadge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-pattern) 18%, transparent);
+  color: var(--accent-pattern);
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.featuredAction {
+  margin: auto 14px 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-pattern) 20%, transparent);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.sectionHeading {
+  grid-column: 1 / -1;
+  margin: 6px 0 -2px;
+  color: #a6ebff;
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .blankCard {
   background:
     radial-gradient(circle at 50% 26%, rgba(0, 191, 255, 0.1), transparent 38%),
@@ -319,6 +364,8 @@
     max-height: calc(100dvh - 24px);
     padding: 16px;
   }
+
+  .featuredCard { grid-column: auto; }
 
   .grid {
     grid-template-columns: 1fr;

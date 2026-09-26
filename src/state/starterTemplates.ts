@@ -15,6 +15,10 @@ export interface StarterTemplate {
   name: string
   description: string
   completionSteps?: string[]
+  /** The one starter a newcomer should begin with, featured first in the
+   *  Start Gallery. Juggle, because it teaches the basic patch — pattern,
+   *  wire, output — in two nodes and needs no hardware to see it work. */
+  recommended?: boolean
   /** Whether loading this starter should request the live microphone. */
   activateMicrophone?: boolean
   preview: {
@@ -61,7 +65,7 @@ function tutorialNote(
 }
 
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'activateMicrophone'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
   },
@@ -71,6 +75,7 @@ function template(
     name: options.name,
     description: options.description,
     completionSteps: options.completionSteps,
+    ...(options.recommended ? { recommended: true } : {}),
     activateMicrophone: options.activateMicrophone,
     preview: {
       // Tutorial comments belong on the loaded canvas, but the gallery's tiny
@@ -229,6 +234,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'juggle',
     name: 'Juggle',
+    recommended: true,
     description: 'Learn the basic patch: a pattern makes pixels, and the LED output sends them to the preview or LEDs.',
     completionSteps: [
       'Follow the blue Frame wire from Juggle to the LED output and watch the preview.',

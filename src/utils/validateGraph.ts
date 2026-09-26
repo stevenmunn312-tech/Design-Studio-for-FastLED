@@ -1545,6 +1545,7 @@ export type GraphDiagnosticAction =
   | 'connect-show-output'
   | 'add-pattern-collection'
   | 'route-controls-to-engine'
+  | 'open-start-gallery'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -3013,13 +3014,21 @@ export function buildGraphDiagnostics(
     || buildCapabilities?.standaloneDisplayOutput === true
   const incoming = new Set(edges.filter((edge) => edge.target && edge.targetHandle).map((edge) => `${edge.target}:${edge.targetHandle}`))
 
-  if (nodes.length === 0) {
+  // Every root graph carries its Board node, so "empty" means nothing but
+  // that — the same count `landOnStartingWorkspace` uses.
+  if (nodes.every((node) => node.data.nodeType === 'Board')) {
+    // A new project is not a fault: it is where everyone starts. Upload is
+    // still held back — by the Upload tab's own "something to upload" reason —
+    // so this only has to point somewhere good.
     diagnostics.push({
-      id: 'graph-empty', severity: 'error', category: 'connection',
-      title: 'Canvas is empty',
-      message: 'There is no signal path to preview or deploy.',
-      fix: target === 'group' ? 'Return to the main graph and recreate this group.' : 'Add a starter patch or drag nodes from the node library.',
-      nodeIds: [], action: 'open-node-library',
+      id: 'graph-empty', severity: target === 'group' ? 'error' : 'warning', category: 'connection',
+      title: target === 'group' ? 'This group is empty' : 'Nothing here yet',
+      message: target === 'group'
+        ? 'There is no signal path inside this group.'
+        : 'Start from a starter patch, or drag a pattern in from the node library.',
+      fix: target === 'group' ? 'Return to the main graph and recreate this group.' : 'Juggle is a good first patch: it walks you through the basics.',
+      nodeIds: [],
+      action: target === 'group' ? 'open-node-library' : 'open-start-gallery',
     })
     return diagnostics
   }

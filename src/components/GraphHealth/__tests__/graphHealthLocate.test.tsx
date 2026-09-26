@@ -88,3 +88,19 @@ describe('a screen whose controls are waiting', () => {
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'screen' })
   })
 })
+
+describe('a brand-new, empty project', () => {
+  it('is a suggestion pointing at the starters, not a red error', () => {
+    useGraphStore.getState().loadGraph([], [], {
+      activeGraphId: ROOT_GRAPH_ID, graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
+    })
+    useUiStore.setState({ templatesOpen: false } as never)
+    const s = useGraphStore.getState()
+    // A new project still holds its Board node, and that is empty too.
+    expect(s.nodes.map((n) => n.data.nodeType)).toEqual(['Board'])
+    const cards = buildGraphDiagnostics(s.nodes, s.edges)
+    expect(cards.filter((d) => d.severity === 'error')).toEqual([])
+    const card = cards.find((d) => d.id === 'graph-empty')
+    expect(card).toMatchObject({ severity: 'warning', title: 'Nothing here yet', action: 'open-start-gallery' })
+  })
+})

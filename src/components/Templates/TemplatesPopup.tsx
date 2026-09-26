@@ -101,6 +101,11 @@ export default function TemplatesPopup() {
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const lastStartChoice = useUiStore((s) => s.lastStartChoice)
 
+  // One starter is the place to begin; the rest follow it under their own
+  // heading, so a newcomer is not left choosing between eight equals.
+  const recommended = STARTER_TEMPLATES.find((template) => template.recommended)
+  const others = STARTER_TEMPLATES.filter((template) => template !== recommended)
+
   const lastStartLabel =
     lastStartChoice === 'blank'
       ? 'Blank canvas'
@@ -140,10 +145,36 @@ export default function TemplatesPopup() {
           <button className={styles.closeBtn} onClick={closeTemplates} title="Close">×</button>
         </div>
         <div className={styles.hint}>
-          Start from a ready-made patch or jump straight to a blank canvas.
+          New here? Start with {recommended?.name ?? 'a starter'} — it walks you through your first patch. Or begin with a blank canvas.
           {lastStartLabel && <span className={styles.lastStart}>Last start: {lastStartLabel}</span>}
         </div>
         <div className={styles.grid}>
+          {recommended && (
+            <button
+              type="button"
+              className={`${styles.card} ${styles.featuredCard} ${lastStartChoice === recommended.id ? styles.cardRemembered : ''}`}
+              onClick={() => { void loadTemplate(recommended) }}
+              aria-label={`Start with ${recommended.name} — recommended first patch`}
+              autoFocus
+            >
+              <TemplatePreview template={recommended} />
+              <div className={styles.cardBody}>
+                <div className={styles.cardHeader}>
+                  <span className={styles.cardName}>{recommended.name}</span>
+                  <span className={styles.startHereBadge}>Start here</span>
+                  {lastStartChoice === recommended.id && <span className={styles.lastBadge}>Last</span>}
+                </div>
+                <span className={styles.cardDesc}>{recommended.description}</span>
+                {recommended.completionSteps && recommended.completionSteps.length > 0 && (
+                  <ol className={styles.steps}>
+                    {recommended.completionSteps.map((step) => <li key={step}>{step}</li>)}
+                  </ol>
+                )}
+              </div>
+              <span className={`${styles.cardAction} ${styles.featuredAction}`}>Start with {recommended.name}</span>
+            </button>
+          )}
+
           <button
             type="button"
             className={`${styles.card} ${styles.blankCard} ${lastStartChoice === 'blank' ? styles.cardRemembered : ''}`}
@@ -160,7 +191,9 @@ export default function TemplatesPopup() {
             <span className={styles.cardAction}>Start blank</span>
           </button>
 
-          {STARTER_TEMPLATES.map((template) => (
+          <h3 className={styles.sectionHeading}>More starters</h3>
+
+          {others.map((template) => (
             <button
               type="button"
               key={template.id}

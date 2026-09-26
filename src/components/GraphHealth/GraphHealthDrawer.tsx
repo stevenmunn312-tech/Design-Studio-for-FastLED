@@ -48,6 +48,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'connect-show-output') return 'Connect it'
   if (action === 'add-pattern-collection') return 'Add a collection'
   if (action === 'route-controls-to-engine') return 'Move the wire'
+  if (action === 'open-start-gallery') return 'Browse starters'
   return 'Open library'
 }
 
@@ -132,6 +133,10 @@ export default function GraphHealthDrawer() {
           : 'That control is no longer waiting — the screen design has changed since this was reported',
         placed ? 'success' : 'info',
       )
+      return
+    }
+    if (issue.action === 'open-start-gallery') {
+      useUiStore.getState().openTemplates()
       return
     }
     if (issue.action === 'open-board-settings') {
