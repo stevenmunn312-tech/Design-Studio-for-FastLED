@@ -9,10 +9,12 @@ import { partOptionsFor } from '../src/state/partOptions'
 import { findPinConflicts } from '../src/utils/validateGraph'
 import { assertWireable } from '../src/test-utils/assertWireable'
 import { createDisplayDocument, addDisplayWidget } from '../src/state/displayEditor'
+import { applyDisplayTemplate } from '../src/state/displayTemplates'
 import { displayWidgetSources } from '../src/state/displayRegistry'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../src/state/displayDocument'
 import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../src/state/customDisplayResources'
 import { CYD_TOUCH_DISPLAY } from '../src/state/integratedBoardHardware'
+import { CUSTOM_DESIGN_LAYOUT } from '../src/state/transportDisplay'
 import { generateCpp } from '../src/codegen/cppGenerator'
 import { generateShowSketch } from '../src/codegen/showGenerator'
 import { buildShowPlayer } from '../src/utils/showUpload'
@@ -96,12 +98,21 @@ const output = () => node('out', 'MatrixOutput', { width: 8, height: 8, dataPin:
  * calls the same helper rather than restating the shape. Without this a bound
  * widget compiles as an unbound one and the matrix would quietly test nothing.
  */
+/*
+ * A panel given a design shows it only while its Layout is Custom design: a
+ * fixed layout sets the design aside, wires and all. The fixtures named a
+ * design without choosing that layout, so once the set-aside rule landed
+ * every custom screen in the matrix was quietly dropped from its sketch.
+ */
+const showsDesign = (properties: Record<string, unknown>) =>
+  properties.displayId ? { tftLayout: CUSTOM_DESIGN_LAYOUT } : {}
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0',
   // CS 14, not 10: the SD card in the player fixture holds 10, and two devices
   // sharing a bus must still have chip selects of their own.
   sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 14, dcPin: 9, resetPin: 8, backlightPin: 7,
   touchSckPin: 12, touchMosiPin: 11, touchMisoPin: 13, touchCsPin: 6, touchIrqPin: 5,
+  ...showsDesign(properties),
   ...properties,
 })
 const touch = (panelId: string) => node(`${panelId}-touch`, 'TouchInput', { panelId })
@@ -346,7 +357,7 @@ for (const [name, graph, documents] of [
 const cydBoard = (properties: Record<string, unknown> = {}) =>
   node('board', 'Board', { profileId: 'esp32-2432s028r', ...properties })
 const cydPanel = (properties: Record<string, unknown> = {}) =>
-  node('panel', 'TransportDisplay', { ...CYD_TOUCH_DISPLAY.panelProperties, tftRotation: '0', ...properties })
+  node('panel', 'TransportDisplay', { ...CYD_TOUCH_DISPLAY.panelProperties, tftRotation: '0', ...showsDesign(properties), ...properties })
 const cydStrip = () => node('out', 'MatrixOutput', {
   form: 'strip', ledCount: 32, width: 32, height: 1,
   dataPin: 27, chipset: 'WS2812B', colorOrder: 'GRB',
@@ -470,6 +481,48 @@ const cydShowEdges = [
   edge('show', 'display', 'panel', 'display'),
 ]
 
+/*
+ * A template's level control, which reports nothing until a finger moves it.
+ *
+ * Inserting LED Performance used to publish its Brightness slider's resting
+ * value the moment the screen was wired, blacking the LEDs out; Minimal
+ * Transport's Volume muted the player the same way. The fix gates each level
+ * field on the widget's LVGL tap count, so these two carry exactly that: one
+ * template per generator that can act on a level, each on the single Controls
+ * wire the app draws for it, and each asserted below to emit the gate around
+ * its field.
+ */
+const ledPerformanceDocument = applyDisplayTemplate(createDisplayDocument('led-screen', 240, 320), 'led-performance')
+const minimalTransportDocument = applyDisplayTemplate(createDisplayDocument('player-screen', 240, 320), 'minimal-transport')
+const templatePanel = (design: DisplayDocument) => panel('custom-tft', {
+  displayId: design.displayId, widgetSources: displayWidgetSources(design),
+})
+const templateLedNodes = [board(), output(), templatePanel(ledPerformanceDocument), touch('custom-tft'), node('fill', 'SolidColor')]
+const templateLedEdges = [
+  edge('fill', 'frame', 'out', 'frame'),
+  edge('out', 'display', 'custom-tft', 'display'),
+  edge('custom-tft-touch', 'controls', 'out', 'controls'),
+]
+const templatePlayerNodes = [
+  board(), output(), templatePanel(minimalTransportDocument), touch('custom-tft'),
+  node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier'),
+]
+const templatePlayerEdges = [
+  edge('player', 'frame', 'out', 'frame'),
+  edge('player', 'display', 'custom-tft', 'display'),
+  edge('custom-tft-touch', 'controls', 'player', 'controls'),
+]
+for (const [name, graph, documents] of [
+  ['template-led', { nodes: templateLedNodes, edges: templateLedEdges }, { 'led-screen': ledPerformanceDocument }],
+  ['template-player', { nodes: templatePlayerNodes, edges: templatePlayerEdges }, { 'player-screen': minimalTransportDocument }],
+] as const) {
+  try {
+    assertWireable(graph.nodes, graph.edges, documents)
+  } catch (error) {
+    throw new Error(`${name}.ino is not a graph the editor can draw: ${error instanceof Error ? error.message : error}`)
+  }
+}
+
 const sketches: Record<string, string> = {
   normal: generateCpp(normalNodes, normalEdges, {}, clockOptions),
   show: generateShowSketch(showNodes, showEdges, groups, {
@@ -526,6 +579,10 @@ const sketches: Record<string, string> = {
     ...displayOptions({ 'cyd-screen': cydCustomDocument }),
     patternNames: { show: ['Aurora Drift', 'Ember Wash'] },
   } as never),
+  'template-led': generateCpp(templateLedNodes, templateLedEdges, {}, displayOptions({ 'led-screen': ledPerformanceDocument }) as never),
+  'template-player': buildShowPlayer(templatePlayerNodes, templatePlayerEdges, groups, {
+    ...displayOptions({ 'player-screen': minimalTransportDocument }), patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
+  } as never),
 }
 
 /*
@@ -547,6 +604,8 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   'cyd-run1': { nodes: cydRun1Nodes, edges: cydRun1Edges },
   'cyd-custom-telemetry': { nodes: cydCustomTelemetryNodes, edges: cydCustomEdges },
   'cyd-run2': { nodes: cydShowNodes, edges: cydShowEdges },
+  'template-led': { nodes: templateLedNodes, edges: templateLedEdges },
+  'template-player': { nodes: templatePlayerNodes, edges: templatePlayerEdges },
 }
 for (const [name, graph] of Object.entries(fixtureGraphs)) {
   const conflicts = findPinConflicts(graph.nodes)
@@ -612,6 +671,13 @@ for (const [name, symbols] of Object.entries(requiredSymbols)) {
   }
 }
 if (sketches.headless.includes('#include <lvgl.h>')) throw new Error('headless.ino unexpectedly includes LVGL')
+for (const [name, field] of [['template-led', 'Brightness'], ['template-player', 'Volume']] as const) {
+  // The field is set only inside `if (<taps> > 0) {`, never at rest.
+  const gated = new RegExp(String.raw`if \(([^
+]*) > 0\) \{
+\s*\S+\.has${field} = true;`)
+  if (!gated.test(sketches[name])) throw new Error(`${name}.ino sets ${field} without waiting for a touch`)
+}
 
 const outputDirectory = resolve(process.argv[2] ?? 'artifacts/display-compile')
 mkdirSync(outputDirectory, { recursive: true })
