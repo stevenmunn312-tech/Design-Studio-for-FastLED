@@ -495,27 +495,72 @@
   height: 16px;
 }
 
-.ports {
+/* A widget's settings are split by what they change: Appearance (how it looks)
+   and Connection (what it reads from or sends to the graph). */
+.inspectorSection {
   margin-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid var(--divider);
 }
 
-.ports > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--divider);
+.inspectorSection h3 {
+  margin: 0 0 2px;
+  color: var(--text-primary);
+  font-family: var(--font-code);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.ports dt {
+.sectionHint {
+  margin: 0 0 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.wires {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--divider);
+}
+
+.wires li {
+  display: grid;
+  gap: 2px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--divider);
+  font-size: 11px;
+}
+
+.wirePort {
   color: var(--text-primary);
 }
 
-.ports dd {
+.wireConnected {
+  color: var(--success);
+}
+
+.wireLoose {
   color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: 9px;
+}
+
+.showWiring {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent-output) 45%, var(--border-glow));
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.showWiring:hover,
+.showWiring:focus-visible {
+  background: color-mix(in srgb, var(--accent-output) 10%, transparent);
 }
 
 .delete {

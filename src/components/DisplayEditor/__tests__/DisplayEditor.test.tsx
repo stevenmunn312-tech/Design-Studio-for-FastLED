@@ -1,6 +1,6 @@
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
 import LiveTouchScreen from '../LiveTouchScreen'
 import { createDisplayDocument } from '../../../state/displayEditor'
@@ -46,7 +46,7 @@ describe('DisplayEditor', () => {
       properties: { text: 'Button' },
     })
     expect(view.getByRole('button', { name: /Button, Button\. Position/ })).toBeTruthy()
-    expect(view.getByText('output · bool')).toBeTruthy()
+    expect(view.getByText('Sends on/off when touched')).toBeTruthy()
   })
 
   /*
@@ -69,13 +69,32 @@ describe('DisplayEditor', () => {
     expect(view.getByText('Volume')).toBeTruthy()
   })
 
-  it('keeps typed port details in the inspector without covering the design canvas', () => {
+  it('says what each port does in the inspector without covering the design canvas', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
 
     expect(view.container.querySelector('[data-display-port-id]')).toBeNull()
-    expect(view.getByText('input · bool')).toBeTruthy()
-    expect(view.getByText('output · bool')).toBeTruthy()
+    const connections = within(view.getByRole('list', { name: 'Connections' }))
+    expect(connections.getByText('Sends on/off when touched')).toBeTruthy()
+    expect(connections.getByText('Can be set to on/off by the graph')).toBeTruthy()
+    expect(connections.getAllByText('Not connected')).toHaveLength(2)
+  })
+
+  /*
+   * Appearance and Connection are separate sections, so an author can tell
+   * which settings only restyle a widget and which decide what it does.
+   */
+  it('separates how a widget looks from what it is connected to', () => {
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+
+    const appearance = within(view.getByRole('region', { name: 'Appearance' }))
+    const connection = within(view.getByRole('region', { name: 'Connection' }))
+    expect(appearance.getByLabelText('Label')).toBeTruthy()
+    expect(appearance.queryByLabelText('Minimum')).toBeNull()
+    expect(connection.getByLabelText('Minimum')).toBeTruthy()
+    expect(connection.getByLabelText('Maximum')).toBeTruthy()
+    expect(view.queryByText(/graph-facing/)).toBeNull()
   })
 
   it('nudges the selected widget on the document grid without touching graph nodes', () => {
@@ -351,6 +370,37 @@ describe('DisplayEditor', () => {
 
     expect(view.getByRole('button', { name: /Text, Text\. Position/ }).className)
       .not.toMatch(/inertWidget/)
+  })
+
+  it('names what a wired control drives and routes to that wiring in Graph', () => {
+    useGraphStore.setState({
+      nodes: [
+        panelNode(),
+        libraryNode('touch', 'TouchInput', { panelId: 'tft' }),
+        libraryNode('juggle', 'Juggle', { count: 4 }),
+      ],
+      edges: [],
+    })
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Slider widget' }))
+    const connections = () => within(view.getByRole('list', { name: 'Connections' }))
+    expect(connections().getAllByText('Not connected').length).toBeGreaterThan(0)
+    expect(view.getByRole('button', { name: 'Wire it in Graph' })).toBeTruthy()
+
+    act(() => useGraphStore.setState({
+      edges: [{
+        id: 'slider-to-count',
+        source: 'touch',
+        sourceHandle: 'widget:slider:out',
+        target: 'juggle',
+        targetHandle: 'count',
+      }],
+    }))
+    expect(connections().getByText('to Juggle · Count')).toBeTruthy()
+
+    fireEvent.click(view.getByRole('button', { name: 'Show wiring in Graph' }))
+    expect(useUiStore.getState().locatedEdgeIds).toEqual(['slider-to-count'])
+    expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
   })
 
   it('offers an explicit repair to match a configured slider to its single target range', () => {

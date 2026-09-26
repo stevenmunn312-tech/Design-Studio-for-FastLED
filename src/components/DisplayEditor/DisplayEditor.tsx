@@ -21,7 +21,10 @@ import {
   displayWidgetTakesValue,
   displayWidgetGlyphId,
   displayWidgetPorts,
+  displayWidgetIsBound,
   displayWidgetShowsLabel,
+  type DisplayWidgetPortRole,
+  type DisplayWidgetPropertyDefinition,
 } from '../../state/displayRegistry'
 import {
   addDisplayWidget,
@@ -81,6 +84,7 @@ import {
   displayControlEdges,
   displayControlInertMessage,
   displayControlInertReason,
+  displayWidgetWires,
   placeTouchControlIn,
 } from '../../state/wireFirstControls'
 import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
@@ -171,11 +175,38 @@ function selectionAnnouncement(
   return `${widgetIds.length} widgets selected. ${validationAnnouncement(selectedIssues)}`
 }
 
+/** Widget properties that set the value range rather than the look. */
+const RANGE_PROPERTY_KEYS: ReadonlySet<string> = new Set(['min', 'max', 'step'])
+
+/** A port's data type, in the words the inspector uses beside it. */
+const DATA_TYPE_WORDS: Readonly<Record<string, string>> = {
+  bool: 'on/off',
+  float: 'a number',
+  int: 'a number',
+  string: 'text',
+  color: 'a colour',
+  patternselect: 'the pattern choice',
+}
+
+/**
+ * What one port does, as a sentence rather than as "output · bool": a reading
+ * arrives on the screen, a touch leaves it, and Set lets the graph move a
+ * control that a finger also moves.
+ */
+function portSentence(port: DisplayWidgetPortRole): string {
+  const what = DATA_TYPE_WORDS[port.dataType] ?? port.dataType
+  if (port.role === 'out') return `Sends ${what} when touched`
+  if (port.role === 'set') return `Can be set to ${what} by the graph`
+  return `Shows ${what}`
+}
+
 export default function DisplayEditor() {
   const view = useUiStore((state) => state.designWorkspaceView)
   const fitViewRequest = useUiStore((state) => state.fitViewRequest)
   const closeDisplayWorkspace = useUiStore((state) => state.closeDisplayWorkspace)
   const openLiveTouchScreen = useUiStore((state) => state.openLiveTouchScreen)
+  const revealGraphEdges = useUiStore((state) => state.revealGraphEdges)
+  const revealGraphNodes = useUiStore((state) => state.revealGraphNodes)
   const requestConfirm = useUiStore((state) => state.requestConfirm)
   const focusNode = useGraphStore((state) => state.focusNode)
   const displayId = view.kind === 'display' ? view.displayId : ''
@@ -729,6 +760,83 @@ export default function DisplayEditor() {
     commit(next, `${orientation === '0' ? 'Portrait' : 'Landscape'} view applied at ${designSize.width} × ${designSize.height}.`)
   }
 
+  /*
+   * One inspector control for one widget property. Shared by the Appearance
+   * and Connection sections, which split the same registry list by what a
+   * property changes rather than keeping two copies of this switch.
+   */
+  /*
+   * The inspector splits one widget's settings by what they change. A range
+   * decides what number a control sends or how a reading is scaled, so it sits
+   * with the connection; everything else is only how the widget looks.
+   */
+  const selectedProperties = selected ? DISPLAY_WIDGET_LIBRARY[selected.type].propertyInspector : []
+  const appearanceProperties = selectedProperties.filter((property) => !RANGE_PROPERTY_KEYS.has(property.key))
+  const rangeProperties = selectedProperties.filter((property) => RANGE_PROPERTY_KEYS.has(property.key))
+  const selectedPorts = selected ? DISPLAY_WIDGET_LIBRARY[selected.type].portRoles : []
+  // A widget bound to a panel source mints no socket, so its value port is
+  // not a place a wire can land and is left out of the list.
+  const listedPorts = selected && displayWidgetIsBound(selected)
+    ? selectedPorts.filter((port) => port.role !== 'value')
+    : selectedPorts
+  const selectedWires = selected && displayId
+    ? displayWidgetWires(displayId, selected.id, graphNodes, graphEdges)
+    : []
+
+  const renderProperty = (widget: DisplayWidget, property: DisplayWidgetPropertyDefinition) => {
+    const value = widget.properties[property.key]
+    const updateProperty = (nextValue: string | number | boolean) => commit(updateDisplayWidget(document, widget.id, (current) => ({
+      ...current,
+      properties: { ...current.properties, [property.key]: nextValue },
+    })))
+    if (property.control.control === 'toggle') {
+      return (
+        <label key={property.key} className={styles.check}>
+          <input type="checkbox" checked={value === true} onChange={(event) => updateProperty(event.target.checked)} />
+          {property.label}
+        </label>
+      )
+    }
+    if (property.control.control === 'select') {
+      return (
+        <label key={property.key}>{property.label}
+          <select value={typeof value === 'string' ? value : ''} onChange={(event) => updateProperty(event.target.value)}>
+            {property.control.options.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+      )
+    }
+    if (property.control.control === 'number') {
+      return (
+        <label key={property.key}>{property.label}
+          <input type="number" min={property.control.min} max={property.control.max} step={property.control.step} value={typeof value === 'number' ? value : ''} onChange={(event) => updateProperty(Number(event.target.value))} />
+        </label>
+      )
+    }
+    if (property.control.control === 'color') {
+      return <label key={property.key}>{property.label}<input type="color" value={typeof value === 'string' ? value : '#ffffff'} onChange={(event) => updateProperty(event.target.value)} /></label>
+    }
+    if (property.control.control === 'asset') {
+      // The pack is the list. Typing an id by hand could only ever
+      // produce one the registry drops, so the inspector offers
+      // what is installed and nothing else.
+      const choices = displayAssetsForSlot(property.control.kinds)
+      return (
+        <label key={property.key}>{property.label}
+          <select value={typeof value === 'string' ? value : ''} onChange={(event) => updateProperty(event.target.value)}>
+            <option value="">{property.control.optional ? 'None' : 'Choose an asset'}</option>
+            {choices.map((asset) => <option key={asset.id} value={asset.id}>{asset.label}</option>)}
+          </select>
+        </label>
+      )
+    }
+    return (
+      <label key={property.key}>{property.label}
+        <input value={typeof value === 'string' ? value : ''} maxLength={property.control.control === 'text' ? property.control.maxLength : undefined} onChange={(event) => updateProperty(event.target.value)} />
+      </label>
+    )
+  }
+
   return (
     <section
       className={styles.editor}
@@ -1080,6 +1188,9 @@ export default function DisplayEditor() {
           <h2>{selected ? selected.type : selectedWidgets.length > 1 ? `${selectedWidgets.length} widgets` : 'Screen'}</h2>
           {selected ? (
             <>
+              <section className={styles.inspectorSection} aria-labelledby="display-inspector-appearance">
+              <h3 id="display-inspector-appearance">Appearance</h3>
+              <p className={styles.sectionHint}>How it looks on the screen. Nothing here changes what it is connected to.</p>
               <label>Label<input value={selected.label} maxLength={80} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => ({ ...widget, label: event.target.value })))} /></label>
               <label className={styles.check}>
                 <input
@@ -1099,6 +1210,19 @@ export default function DisplayEditor() {
                   ))}
                 </div>
               )}
+              {appearanceProperties.length > 0 && (
+                <div className={styles.properties}>
+                  {appearanceProperties.map((property) => renderProperty(selected, property))}
+                </div>
+              )}
+              </section>
+              <section className={styles.inspectorSection} aria-labelledby="display-inspector-connection">
+              <h3 id="display-inspector-connection">Connection</h3>
+              <p className={styles.sectionHint}>
+                {selectedPorts.length === 0
+                  ? 'This widget is only a picture: it reads nothing from the graph and sends nothing to it.'
+                  : 'What it shows from the graph, or what a touch on it sends there.'}
+              </p>
               {displayWidgetTakesValue(selected.type) && (() => {
                 const fields = displaySourceFieldsForWidget(sourceKind, selected.type)
                 const source = typeof selected.properties.source === 'string' ? selected.properties.source : ''
@@ -1121,80 +1245,56 @@ export default function DisplayEditor() {
                     </select>
                     <span className={styles.hint}>
                       {fields.length === 0
-                        ? 'Nothing is wired into this panel yet, so there are no readings to take. The widget mints a socket for a wire instead.'
+                        ? 'Nothing is wired into this panel yet, so there is nothing to read from it. Connect a wire to this widget’s own socket on the panel instead.'
                         : source && source !== DISPLAY_SOURCE_FROM_GRAPH
-                          ? 'Taken straight from the panel’s source, so this widget mints no socket.'
-                          : 'This widget mints a socket on the panel for a wire.'}
+                          ? 'Read straight from what is wired into the panel, so this widget needs no wire of its own.'
+                          : 'This widget gets its own socket on the panel. Connect a wire to it in Graph.'}
                     </span>
                   </label>
                 )
               })()}
-              <div className={styles.properties}>
-                {DISPLAY_WIDGET_LIBRARY[selected.type].propertyInspector.map((property) => {
-                  const value = selected.properties[property.key]
-                  const updateProperty = (nextValue: string | number | boolean) => commit(updateDisplayWidget(document, selected.id, (widget) => ({
-                    ...widget,
-                    properties: { ...widget.properties, [property.key]: nextValue },
-                  })))
-                  if (property.control.control === 'toggle') {
-                    return (
-                      <label key={property.key} className={styles.check}>
-                        <input type="checkbox" checked={value === true} onChange={(event) => updateProperty(event.target.checked)} />
-                        {property.label}
-                      </label>
-                    )
-                  }
-                  if (property.control.control === 'select') {
-                    return (
-                      <label key={property.key}>{property.label}
-                        <select value={typeof value === 'string' ? value : ''} onChange={(event) => updateProperty(event.target.value)}>
-                          {property.control.options.map((option) => <option key={option} value={option}>{option}</option>)}
-                        </select>
-                      </label>
-                    )
-                  }
-                  if (property.control.control === 'number') {
-                    return (
-                      <label key={property.key}>{property.label}
-                        <input type="number" min={property.control.min} max={property.control.max} step={property.control.step} value={typeof value === 'number' ? value : ''} onChange={(event) => updateProperty(Number(event.target.value))} />
-                      </label>
-                    )
-                  }
-                  if (property.control.control === 'color') {
-                    return <label key={property.key}>{property.label}<input type="color" value={typeof value === 'string' ? value : '#ffffff'} onChange={(event) => updateProperty(event.target.value)} /></label>
-                  }
-                  if (property.control.control === 'asset') {
-                    // The pack is the list. Typing an id by hand could only ever
-                    // produce one the registry drops, so the inspector offers
-                    // what is installed and nothing else.
-                    const choices = displayAssetsForSlot(property.control.kinds)
-                    return (
-                      <label key={property.key}>{property.label}
-                        <select value={typeof value === 'string' ? value : ''} onChange={(event) => updateProperty(event.target.value)}>
-                          <option value="">{property.control.optional ? 'None' : 'Choose an asset'}</option>
-                          {choices.map((asset) => <option key={asset.id} value={asset.id}>{asset.label}</option>)}
-                        </select>
-                      </label>
-                    )
-                  }
-                  return (
-                    <label key={property.key}>{property.label}
-                      <input value={typeof value === 'string' ? value : ''} maxLength={property.control.control === 'text' ? property.control.maxLength : undefined} onChange={(event) => updateProperty(event.target.value)} />
-                    </label>
-                  )
-                })}
-              </div>
+              {rangeProperties.map((property) => renderProperty(selected, property))}
               {targetRangeRepair && (
                 <button type="button" onClick={matchTargetRange}>
                   Match target range
                   <small>{targetRangeRepair.targetLabel}: {targetRangeRepair.min}-{targetRangeRepair.max}, step {targetRangeRepair.step}</small>
                 </button>
               )}
-              <dl className={styles.ports}>
-                {DISPLAY_WIDGET_LIBRARY[selected.type].portRoles.map((port) => (
-                  <div key={port.role}><dt>{port.label}</dt><dd>{port.direction} · {port.dataType}</dd></div>
-                ))}
-              </dl>
+              {listedPorts.length > 0 && (
+                <ul className={styles.wires} aria-label="Connections">
+                  {listedPorts.map((port) => {
+                    const wires = selectedWires.filter((wire) => wire.role === port.role)
+                    return (
+                      <li key={port.role}>
+                        <span className={styles.wirePort}>{portSentence(port)}</span>
+                        <span className={wires.length > 0 ? styles.wireConnected : styles.wireLoose}>
+                          {wires.length === 0
+                            ? 'Not connected'
+                            : wires.map((wire) => `${wire.direction === 'in' ? 'from' : 'to'} ${wire.otherEnd}`).join(', ')}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              {listedPorts.length > 0 && mountedPanel && (
+                <button
+                  type="button"
+                  className={styles.showWiring}
+                  onClick={() => {
+                    if (selectedWires.length > 0) {
+                      const ends = new Set<string>()
+                      for (const wire of selectedWires) { ends.add(wire.edge.source); ends.add(wire.edge.target) }
+                      revealGraphEdges(selectedWires.map((wire) => wire.edge.id), [...ends])
+                    } else {
+                      revealGraphNodes([mountedPanel.id])
+                    }
+                  }}
+                >
+                  {selectedWires.length > 0 ? 'Show wiring in Graph' : 'Wire it in Graph'}
+                </button>
+              )}
+              </section>
               <button className={styles.delete} type="button" onClick={() => { void removeSelection([selected.id], 'deleted') }}>Delete widget</button>
             </>
           ) : selectedWidgets.length > 1 ? (
@@ -1214,7 +1314,7 @@ export default function DisplayEditor() {
             </>
           ) : (
             <>
-              <p>Select a widget to edit its bounds and graph-facing roles.</p>
+              <p>Select a widget to change how it looks and what it is connected to.</p>
               <label>Grid<input type="number" min="1" max="64" value={document.gridSize} onChange={(event) => commit({ ...document, gridSize: Math.max(1, Math.min(64, Math.round(Number(event.target.value)))) })} /></label>
               <label>Theme
                 <select
