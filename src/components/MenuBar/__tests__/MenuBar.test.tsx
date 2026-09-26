@@ -9,6 +9,7 @@ import { useShowPlayback } from '../../../state/showPlayback'
 import type { SavedProject } from '../../../state/projectStore'
 import { openCommunityTab, postToCommunityTab } from '../../../utils/communityUpload'
 import { captureSharePreview } from '../../../utils/sharePreviewCapture'
+import { SHARE_URL_WARN_BYTES } from '../../../utils/shareGraph'
 import { useUploadStore } from '../../../state/uploadStore'
 import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../state/micPinDefaults'
 import { BOARD_PROFILES } from '../../../build/boardProfiles'
@@ -51,6 +52,17 @@ function project(id: string, name: string, nodeId: string, updatedAt: number): S
       edges: [],
     },
   }
+}
+
+function shareLinkNoise() {
+  return Array.from({ length: 2700 }, (_, i) => (i * 7919).toString(36) + (i * 104729).toString(16)).join('')
+}
+
+function stubClipboard(writeText: (text: string) => Promise<void>) {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  })
 }
 
 function boardNodeForFqbn(fqbn: string) {
@@ -868,5 +880,86 @@ describe('MenuBar file menu', () => {
 
     const previewCall = vi.mocked(captureSharePreview).mock.calls[0][0]
     expect(previewCall.groups).toEqual({ g1: { nodes: [groupInnerNode], edges: [] } })
+  })
+
+  it('copies a short share link without a size warning', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue()
+    stubClipboard(writeText)
+    useUiStore.setState({ appDialog: null, statusText: 'Ready', statusLevel: 'idle' })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Copy Graph Link' }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    expect(writeText.mock.calls[0][0].length).toBeLessThanOrEqual(SHARE_URL_WARN_BYTES)
+    expect(useUiStore.getState().statusText).toBe('Share link copied to clipboard')
+    expect(useUiStore.getState().appDialog).toBeNull()
+  })
+
+  it('warns when a share link is past about 30 KB and still copies it', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue()
+    stubClipboard(writeText)
+    useUiStore.setState({ appDialog: null, statusText: 'Ready', statusLevel: 'idle' })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'n1',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Solid',
+          nodeType: 'SolidColor',
+          category: 'pattern',
+          properties: { noise: shareLinkNoise() },
+          inputs: [],
+          outputs: [],
+        },
+      }] as never[],
+    })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Copy Graph Link' }))
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    expect(writeText.mock.calls[0][0].length).toBeGreaterThan(SHARE_URL_WARN_BYTES)
+    const dialog = useUiStore.getState().appDialog
+    expect(dialog?.kind).toBe('alert')
+    expect(dialog?.title).toBe('Share link is very long')
+    expect(dialog?.message).toContain('Save Project File')
+    expect(dialog?.message).toContain('30 KB')
+    expect(useUiStore.getState().statusText).toBe(dialog?.message)
+    useUiStore.getState().resolveAppDialog()
+  })
+
+  it('keeps the size warning in the copy field when the clipboard refuses the link', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockRejectedValue(new Error('denied'))
+    stubClipboard(writeText)
+    useUiStore.setState({ appDialog: null })
+    useGraphStore.setState({
+      nodes: [{
+        id: 'n1',
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Solid',
+          nodeType: 'SolidColor',
+          category: 'pattern',
+          properties: { noise: shareLinkNoise() },
+          inputs: [],
+          outputs: [],
+        },
+      }] as never[],
+    })
+
+    const { getByRole } = render(<MenuBar />)
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Copy Graph Link' }))
+
+    await waitFor(() => expect(useUiStore.getState().appDialog?.kind).toBe('prompt'))
+    const dialog = useUiStore.getState().appDialog
+    expect(dialog?.message).toContain('Save Project File')
+    expect(dialog && 'initialValue' in dialog ? dialog.initialValue.length : 0).toBeGreaterThan(SHARE_URL_WARN_BYTES)
+    useUiStore.getState().resolveAppDialog()
   })
 })

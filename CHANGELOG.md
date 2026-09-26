@@ -7,6 +7,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Added
+
+- Copy Graph Link warns when the link is past about 30 KB. The link is still
+  copied, and the warning points at Save Project File, which keeps a project
+  that size without relying on a URL.
+
 ### Fixed
 
 - Inter and JetBrains Mono ship with the app. A launch no longer asks Google

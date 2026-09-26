@@ -29,7 +29,7 @@ import {
 import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { landOnStartingWorkspace } from '../../utils/startFlow'
 import { runTidy } from '../../utils/tidyGraph'
-import { buildShareUrl } from '../../utils/shareGraph'
+import { buildShareUrl, shareUrlSizeWarning } from '../../utils/shareGraph'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
@@ -289,13 +289,19 @@ export default function MenuBar() {
     const url = buildShareUrl({
       nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments,
     })
+    const warning = shareUrlSizeWarning(url)
     try {
       await navigator.clipboard.writeText(url)
-      setStatus('Share link copied to clipboard', 'success')
+      if (warning) {
+        setStatus(warning, 'info')
+        await requestAlert({ title: 'Share link is very long', message: warning })
+      } else {
+        setStatus('Share link copied to clipboard', 'success')
+      }
     } catch {
       await requestPrompt({
-        title: 'Share link',
-        message: 'Copy this share link:',
+        title: warning ? 'Share link is very long' : 'Share link',
+        message: warning ?? 'Copy this share link:',
         inputLabel: 'Share URL',
         initialValue: url,
         readOnly: true,
