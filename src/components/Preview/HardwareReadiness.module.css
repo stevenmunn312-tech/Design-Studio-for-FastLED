@@ -35,7 +35,7 @@
 }
 
 .compact .label {
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .compact .note {
@@ -54,7 +54,7 @@
   text-transform: uppercase;
   font-size: 9px;
   letter-spacing: 0.12em;
-  opacity: 0.55;
+  opacity: 0.75;
 }
 
 .item strong {
@@ -85,7 +85,7 @@
 }
 
 .note {
-  opacity: 0.5;
+  opacity: 0.7;
   white-space: nowrap;
 }
 

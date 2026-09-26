@@ -182,7 +182,7 @@
   gap: 6px;
   padding-left: 8px;
   font-family: var(--font-code);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.08em;
 }
 
@@ -248,7 +248,7 @@
 .minimizedType {
   color: var(--text-secondary);
   font-family: var(--font-code);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.08em;
   line-height: 1.2;
   text-transform: uppercase;
@@ -626,7 +626,7 @@ span.connectionBlocked {
 /* A property whose port is wired: a pot or audio band makes the editor
    read-only. A touch widget leaves it enabled as a remote for that widget. */
 .propRow.wired .propKey {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .propRow :disabled {
@@ -652,11 +652,12 @@ span.connectionBlocked {
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
-  opacity: 0.35;
+  opacity: 0.6;
   filter: grayscale(1);
 }
-.pinBtn:hover {
-  opacity: 0.8;
+.pinBtn:hover,
+.pinBtn:focus-visible {
+  opacity: 1;
 }
 .pinBtnActive {
   opacity: 1;

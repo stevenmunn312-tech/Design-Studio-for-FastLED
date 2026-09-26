@@ -36,7 +36,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   color: var(--text-secondary);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }

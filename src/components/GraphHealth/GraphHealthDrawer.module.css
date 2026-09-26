@@ -90,7 +90,7 @@
 .scanNote {
   color: var(--text-secondary);
   font-family: var(--font-code);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -143,7 +143,7 @@
   border: 1px solid var(--border-glow);
   border-radius: 999px;
   font-family: var(--font-code);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.04em;
 }
 
@@ -208,7 +208,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
   text-align: center;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .filter:hover,
@@ -272,7 +272,7 @@
   margin-bottom: 4px;
   color: var(--issue-color);
   font-family: var(--font-code);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -302,7 +302,7 @@
   margin-right: 6px;
   color: var(--success);
   font-family: var(--font-code);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -323,7 +323,7 @@
   background: color-mix(in srgb, var(--bg-node) 84%, transparent);
   color: var(--text-primary);
   font-family: var(--font-code);
-  font-size: 9px;
+  font-size: 10px;
   white-space: nowrap;
   cursor: pointer;
 }

@@ -61,7 +61,7 @@
 .subtitle {
   color: var(--text-secondary);
   font-family: var(--font-code);
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
