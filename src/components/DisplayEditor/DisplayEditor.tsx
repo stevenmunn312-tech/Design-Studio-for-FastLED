@@ -176,7 +176,7 @@ function selectionAnnouncement(
 }
 
 /** Widget properties that set the value range rather than the look. */
-const RANGE_PROPERTY_KEYS: ReadonlySet<string> = new Set(['min', 'max', 'step'])
+const RANGE_PROPERTY_KEYS: ReadonlySet<string> = new Set(['min', 'max', 'step', 'initial'])
 
 /** A port's data type, in the words the inspector uses beside it. */
 const DATA_TYPE_WORDS: Readonly<Record<string, string>> = {

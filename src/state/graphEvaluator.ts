@@ -11,7 +11,7 @@ import { JUGGLE_COUNT, juggleDotCount } from './juggle'
 import { useTransportDisplayTouchStore } from './transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from './displayRuntimeStore'
 import { designControlBundle, toggleWidgetSource } from './designControlBundle'
-import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displayRegistry'
+import { displayControlStartValue, parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from './displayRegistry'
 import { readDisplaySourceField } from './displaySourceFields'
 import { useMidiStore } from './midiStore'
 import { blankDmxSnapshot, clampDmxChannel, clampDmxByte, type DmxSnapshot } from './dmx'
@@ -7807,9 +7807,15 @@ function createEvalNode(
           const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
             .filter((port) => parseDisplayWidgetPortId(port.id))
           const samples: Record<string, PortValue> = {}
+          const shownDocument = useGraphStore.getState().displayDocuments[designId]
           for (const port of widgetOutputs) {
             const parsed = parseDisplayWidgetPortId(port.id)!
-            const rest = port.dataType === 'bool' ? false : 0
+            // A ranged control rests where it starts, the value the renderer
+            // and the firmware also start it at, not at a bare zero.
+            const restWidget = shownDocument?.widgets.find((entry) => entry.id === parsed.widgetId)
+            const rest = port.dataType === 'bool'
+              ? false
+              : (restWidget ? displayControlStartValue(restWidget) : undefined) ?? 0
             samples[port.id] = live
               ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
               : rest
@@ -7824,13 +7830,17 @@ function createEvalNode(
            * generators so the device presses the same fields.
            */
           const controls = blankPlayerControls()
-          const document = useGraphStore.getState().displayDocuments[designId]
+          const document = shownDocument
           const bundle = document ? designControlBundle(panel, document, nodes, edges, node.id) : []
           const edgeState = designBundleState.get(stateKey(node.id)) ?? new Map<string, number | boolean>()
           for (const control of bundle) {
             if (control.edge === 'level') {
+              // A level commands nothing until a finger has moved it, or its
+              // starting position would override the LED output's own level
+              // or the player's volume the moment the screen is wired.
+              const moved = (runtime.readDisplayWidget(designId, control.widgetId)?.touchCount ?? 0) > 0
               const value = Number(samples[control.portId] ?? 0)
-              if (live && Number.isFinite(value)) controls[control.field as 'volume' | 'brightness'] = clamp01(value)
+              if (live && moved && Number.isFinite(value)) controls[control.field as 'volume' | 'brightness'] = clamp01(value)
               continue
             }
             // A press is the rising edge of the sampled Button; a tap is the

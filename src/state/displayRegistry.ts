@@ -237,12 +237,16 @@ function numericProperty(
 
 function rangePropertyIssues(
   properties: Readonly<Record<string, DisplayWidgetProperty>>,
-  options: { step?: boolean; warnings?: boolean } = {},
+  options: { step?: boolean; warnings?: boolean; initial?: boolean } = {},
 ): string[] {
   const min = numericProperty(properties, 'min', 0)
   const max = numericProperty(properties, 'max', 1)
   const issues: string[] = []
   if (max <= min) issues.push('Maximum must be greater than minimum.')
+  if (options.initial && typeof properties.initial === 'number' && max > min
+    && (properties.initial < min || properties.initial > max)) {
+    issues.push('Starts at must be inside the range.')
+  }
   if (options.step && numericProperty(properties, 'step', 0.01) <= 0) {
     issues.push('Step must be greater than zero.')
   }
@@ -364,18 +368,18 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     portRoles: synchronized('float'), defaultProperties: { min: 0, max: 1, step: 0.01, orientation: 'horizontal' },
     minimumVisualSize: { width: 96, height: 20 }, minimumTouchSize: { width: 96, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'slider', lvglEmitter: 'slider',
-    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), select('orientation', 'Orientation', ['horizontal', 'vertical'])],
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01), select('orientation', 'Orientation', ['horizontal', 'vertical'])],
     states: CONTROL_STATES, assetSlots: NO_ASSETS,
-    validateProperties: (properties) => rangePropertyIssues(properties, { step: true }),
+    validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
   },
   Dial: {
     type: 'Dial', label: 'Dial', description: 'A ranged control operated by vertical dragging, not circular tracing.',
     portRoles: synchronized('float'), defaultProperties: { min: 0, max: 1, step: 0.01 },
     minimumVisualSize: { width: 48, height: 48 }, minimumTouchSize: { width: 48, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'dial', lvglEmitter: 'arc',
-    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001)],
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01)],
     states: CONTROL_STATES, assetSlots: NO_ASSETS,
-    validateProperties: (properties) => rangePropertyIssues(properties, { step: true }),
+    validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
   },
 }
 
@@ -646,6 +650,25 @@ export function displayDocumentTouchOutputPorts(
     }
   }
   return outputs
+}
+
+/**
+ * The value a Slider or Dial holds before a finger has moved it.
+ *
+ * Its own `initial` when set, otherwise its minimum, clamped into range. Read
+ * by the preview evaluator, the live renderer and the LVGL emitter alike, so a
+ * control starts in the same place on screen, in the graph and on the board —
+ * which matters because a level on the Controls wire is absolute: a Brightness
+ * slider starting at its minimum would black out the LEDs it commands.
+ * `undefined` for anything that is not a ranged control.
+ */
+export function displayControlStartValue(widget: Pick<DisplayWidget, 'type' | 'properties'>): number | undefined {
+  if (widget.type !== 'Slider' && widget.type !== 'Dial') return undefined
+  const min = numericProperty(widget.properties, 'min', 0)
+  const max = Math.max(min, numericProperty(widget.properties, 'max', 1))
+  const initial = widget.properties.initial
+  const start = typeof initial === 'number' && Number.isFinite(initial) ? initial : min
+  return Math.max(min, Math.min(max, start))
 }
 
 export function defaultDisplayWidgetProperties(type: DisplayWidgetType): Record<string, DisplayWidgetProperty> {

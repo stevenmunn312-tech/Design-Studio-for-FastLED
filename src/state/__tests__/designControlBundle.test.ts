@@ -179,6 +179,35 @@ describe('design controls on the Touch node bundle', () => {
     expect(cpp).not.toContain('_touchDown_tft')
   })
 
+  /*
+   * A slider on Controls sends an absolute level, so it must not send one it
+   * was never asked to: inserting LED Performance used to black out the LEDs
+   * because its Brightness slider sat at zero, and Now Playing muted the player.
+   */
+  it('sends no level from a slider until a finger has moved it', () => {
+    const document = designed('led-performance')
+    const raw = {
+      nodes: [
+        node('fill', 'SolidColor'), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
+        node('tft', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen' }),
+        node('touch', 'TouchInput', { panelId: 'tft' }),
+      ],
+      edges: [edge('fill', 'frame', 'out', 'frame'), edge('touch', 'controls', 'out', 'controls')],
+    }
+    const { nodes, edges } = syncDisplayNodesInContent(raw, { screen: document })
+    useGraphStore.setState({ displayDocuments: { screen: document } })
+    const controlsAt = (tick: number) =>
+      evaluateGraphFull(nodes, edges, tick, 8, 8, {}, true).outputs.get('touch')!.controls as Record<string, unknown>
+
+    expect(controlsAt(1).brightness).toBeUndefined()
+
+    const runtime = useDisplayRuntimeStore.getState()
+    const brightness = widgetId(document, 'Brightness')
+    runtime.touchDisplayWidget('screen', brightness, 0.4)
+    runtime.releaseDisplayWidget('screen', brightness)
+    expect(controlsAt(2).brightness).toBeCloseTo(0.4)
+  })
+
   it('builds the bundle in a normal sketch for an LED output\'s lamp controls', () => {
     const document = designed('led-performance')
     const raw = {
@@ -195,6 +224,11 @@ describe('design controls on the Touch node bundle', () => {
     const declared = cpp.indexOf('PlayerControlsValue n_touch_controls;')
     expect(declared).toBeGreaterThan(-1)
     expect(cpp).toContain('n_touch_controls.hasBrightness = true;')
+    // Held back until a finger moves the slider, so the strip boots at its
+    // own level rather than at the slider's starting position.
+    expect(cpp).toMatch(/if \([^)]*\.taps > 0\) \{\s*n_touch_controls\.hasBrightness = true;/)
+    // And the knob itself starts at full, where Brightness belongs.
+    expect(cpp).toMatch(/\.floatValue = 1(\.0+)?f;/)
     expect(cpp).toContain('static CtlTap _pcE_touch_ledToggle;')
     expect(cpp.indexOf('if (n_touch_controls.ledToggle)')).toBeGreaterThan(declared)
   })

@@ -15,6 +15,7 @@ import {
   type PlacedDisplayWidget,
 } from '../state/displayDocument'
 import {
+  displayControlStartValue,
   displayWidgetBodyFallback,
   displayWidgetCaptionLayout,
   displayWidgetContentBounds,
@@ -288,7 +289,10 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     lines.push(`  ${rt}.step = ${floatLiteral(numberProperty(widget, 'step', 0.01))};`)
     // Seeded before the range is applied below, so the object and the runtime
     // agree from the first pass rather than after the first touch.
+    // A wire-first control starts at the property it drives; anything else at
+    // its own Starts at, the value the preview rests it at too.
     const seeded = emit.initialValues?.[widget.id]
+      ?? (typeof widget.properties.initial === 'number' ? displayControlStartValue(widget) : undefined)
     const minimum = numberProperty(widget, 'min', 0)
     const maximum = numberProperty(widget, 'max', 1)
     if (typeof seeded === 'number' && maximum > minimum) {
@@ -431,9 +435,10 @@ struct CustomDisplayWidgetRuntime {
   bool touchOwned;
   bool touchPending;
   bool boolValue;
-  // Finger gestures on this widget, and only those: a Set write moves
-  // boolValue without an LVGL event, so this is how a Toggle carried in a
-  // Controls bundle tells a press from the player's own feedback.
+  // Finger gestures on this widget, and only those: a Set write moves the
+  // value without an LVGL event, so this is how a Toggle carried in a Controls
+  // bundle tells a press from the player's own feedback, and how a Slider or
+  // Dial there says it has been moved at all.
   uint16_t taps;
   float floatValue;
   float minimum, maximum, step;
@@ -539,6 +544,7 @@ static void _cdEvent(lv_event_t *event) {
       float value = runtime->minimum + (runtime->maximum - runtime->minimum) * raw / (float)CD_VALUE_SCALE;
       if (runtime->step > 0.0f) value = runtime->minimum + roundf((value - runtime->minimum) / runtime->step) * runtime->step;
       runtime->floatValue = constrain(value, runtime->minimum, runtime->maximum);
+      runtime->taps++;
       runtime->touchPending = true;
     }
   }
@@ -746,6 +752,7 @@ export function customDisplayLvglTapExpression(
 ): string | null {
   const widgets = emittedWidgets(emit)
   const index = widgets.findIndex((widget) => widget.id === widgetId)
-  if (index < 0 || widgets[index].type !== 'Toggle') return null
+  const type = widgets[index]?.type
+  if (index < 0 || (type !== 'Toggle' && type !== 'Slider' && type !== 'Dial')) return null
   return `${runtime(emit, index)}.taps`
 }

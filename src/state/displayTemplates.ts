@@ -306,7 +306,7 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Text', 'Section', [16, 96, 288, 24]),
       widget('Numeric Readout', 'Tempo', [16, 128, 136, 32], { decimals: 0, suffix: ' BPM', min: 0, max: 300 }),
       widget('Status Indicator', 'Beat', [168, 128, 136, 32], { offLabel: 'STEADY', onLabel: 'BEAT' }),
-      widget('Slider', 'Brightness', [16, 168, 208, 48]),
+      widget('Slider', 'Brightness', [16, 168, 208, 48], { initial: 1 }),
       widget('Toggle', 'Blackout', [240, 168, 64, 64], { offLabel: 'Lit', onLabel: 'Blackout' }),
     ],
     portraitWidgets: [
@@ -314,7 +314,7 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Text', 'Section', [16, 96, 208, 24]),
       widget('Numeric Readout', 'Tempo', [16, 128, 96, 32], { decimals: 0, suffix: ' BPM', min: 0, max: 300 }),
       widget('Status Indicator', 'Beat', [128, 128, 96, 32], { offLabel: 'STEADY', onLabel: 'BEAT' }),
-      widget('Slider', 'Brightness', [16, 176, 208, 48]),
+      widget('Slider', 'Brightness', [16, 176, 208, 48], { initial: 1 }),
       widget('Toggle', 'Blackout', [88, 240, 64, 64], { offLabel: 'Lit', onLabel: 'Blackout' }),
     ],
     squareWidgets: [
@@ -324,7 +324,7 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Status Indicator', 'Beat', [128, 120, 96, 32], { offLabel: 'STEADY', onLabel: 'BEAT' }),
       // Brightness gives up the width Blackout needs beside it, rather than
       // Blackout dropping to a row of its own there is no room for.
-      widget('Slider', 'Brightness', [16, 160, 128, 48]),
+      widget('Slider', 'Brightness', [16, 160, 128, 48], { initial: 1 }),
       // 48 rather than the 64 the taller panels give it, so the two controls
       // sharing this row end on the same line — still the touch minimum.
       widget('Toggle', 'Blackout', [160, 160, 64, 48], { offLabel: 'Lit', onLabel: 'Blackout' }),
@@ -336,7 +336,7 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
     description: 'Brightness and speed control beside blackout, freeze, and a frame-rate readout.',
     widgets: [
       widget('Text', 'Heading', [16, 8, 288, 24], { text: 'LED performance' }),
-      widget('Slider', 'Brightness', [16, 40, 288, 48]),
+      widget('Slider', 'Brightness', [16, 40, 288, 48], { initial: 1 }),
       widget('Slider', 'Speed', [16, 96, 288, 48], { min: 0, max: 4, step: 0.05 }),
       widget('Toggle', 'Blackout', [80, 152, 48, 48], { offLabel: 'Lit', onLabel: 'Blackout' }),
       widget('Toggle', 'Freeze', [192, 152, 48, 48], { offLabel: 'Run', onLabel: 'Freeze' }),
@@ -345,7 +345,7 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
     ],
     portraitWidgets: [
       widget('Text', 'Heading', [16, 8, 208, 24], { text: 'LED performance' }),
-      widget('Slider', 'Brightness', [16, 48, 208, 48]),
+      widget('Slider', 'Brightness', [16, 48, 208, 48], { initial: 1 }),
       widget('Slider', 'Speed', [16, 112, 208, 48], { min: 0, max: 4, step: 0.05 }),
       widget('Toggle', 'Blackout', [64, 176, 48, 48], { offLabel: 'Lit', onLabel: 'Blackout' }),
       widget('Toggle', 'Freeze', [128, 176, 48, 48], { offLabel: 'Run', onLabel: 'Freeze' }),
@@ -354,7 +354,7 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
     ],
     squareWidgets: [
       widget('Text', 'Heading', [16, 8, 208, 24], { text: 'LED performance' }),
-      widget('Slider', 'Brightness', [16, 40, 208, 48]),
+      widget('Slider', 'Brightness', [16, 40, 208, 48], { initial: 1 }),
       widget('Slider', 'Speed', [16, 96, 208, 48], { min: 0, max: 4, step: 0.05 }),
       // The two toggles and the frame rate share one row here; on the taller
       // panels the readout has a row of its own below them.

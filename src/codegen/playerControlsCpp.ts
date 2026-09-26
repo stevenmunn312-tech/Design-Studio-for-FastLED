@@ -59,6 +59,13 @@ export interface PlayerControlsEmit {
   /** Master Speed, when a control has been given that job. */
   speedExpr?: string | null
   brightnessExpr: string | null
+  /**
+   * Holds an absolute back until it is true: a screen slider on the Controls
+   * wire commands nothing until a finger has moved it, or its starting value
+   * would override the LED output's level and the player's volume at boot.
+   */
+  volumeGateExpr?: string | null
+  brightnessGateExpr?: string | null
   /** Encoder position feeding pattern selection, in raw counts. */
   patternPositionExpr: string | null
   settings: ButtonEdgeSettings
@@ -212,12 +219,18 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
 
   // Absolutes: wired here beats wired upstream, and unwired stays absent.
   if (emit.volumeExpr) {
-    lines.push(`    ${variable}.hasVolume = true;`)
-    lines.push(`    ${variable}.volume = constrain(${emit.volumeExpr}, 0.0f, 1.0f);`)
+    const pad = emit.volumeGateExpr ? '  ' : ''
+    if (emit.volumeGateExpr) lines.push(`    if (${emit.volumeGateExpr}) {`)
+    lines.push(`    ${pad}${variable}.hasVolume = true;`)
+    lines.push(`    ${pad}${variable}.volume = constrain(${emit.volumeExpr}, 0.0f, 1.0f);`)
+    if (emit.volumeGateExpr) lines.push(`    }`)
   }
   if (emit.brightnessExpr) {
-    lines.push(`    ${variable}.hasBrightness = true;`)
-    lines.push(`    ${variable}.brightness = constrain(${emit.brightnessExpr}, 0.0f, 1.0f);`)
+    const pad = emit.brightnessGateExpr ? '  ' : ''
+    if (emit.brightnessGateExpr) lines.push(`    if (${emit.brightnessGateExpr}) {`)
+    lines.push(`    ${pad}${variable}.hasBrightness = true;`)
+    lines.push(`    ${pad}${variable}.brightness = constrain(${emit.brightnessExpr}, 0.0f, 1.0f);`)
+    if (emit.brightnessGateExpr) lines.push(`    }`)
   }
   if (emit.speedExpr) {
     lines.push(`    ${variable}.hasSpeed = true;`)
@@ -281,11 +294,16 @@ export function designControlBundleEmit(
   const buttons: PlayerControlButtonEmit[] = []
   let volumeExpr: string | null = null
   let brightnessExpr: string | null = null
+  let volumeGateExpr: string | null = null
+  let brightnessGateExpr: string | null = null
   for (const control of controls) {
     if (control.edge === 'level') {
       const expr = sampleExpr(control.portId, 'float')
-      if (control.field === 'volume') volumeExpr = expr
-      else if (control.field === 'brightness') brightnessExpr = expr
+      // Commands nothing until moved, as in the preview's bundle.
+      const moved = tapExpr(control.widgetId)
+      const gate = moved ? `${moved} > 0` : null
+      if (control.field === 'volume') { volumeExpr = expr; volumeGateExpr = gate }
+      else if (control.field === 'brightness') { brightnessExpr = expr; brightnessGateExpr = gate }
       continue
     }
     const expr = control.edge === 'tap' ? tapExpr(control.widgetId) : sampleExpr(control.portId, 'bool')
@@ -293,7 +311,7 @@ export function designControlBundleEmit(
     buttons.push({ port: control.field, expr, repeat: false, edge: control.edge === 'tap' ? 'tap' : 'press' })
   }
   return {
-    id, variable, upstream: null, buttons, volumeExpr, brightnessExpr, patternPositionExpr: null,
+    id, variable, upstream: null, buttons, volumeExpr, brightnessExpr, volumeGateExpr, brightnessGateExpr, patternPositionExpr: null,
     settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },
     volumeStep: 0.05, brightnessStep: 0.05,
   }

@@ -1,5 +1,5 @@
 import type { DisplayWidget } from '../../state/displayDocument'
-import { displayWidgetIsControl } from '../../state/displayRegistry'
+import { displayControlStartValue, displayWidgetIsControl } from '../../state/displayRegistry'
 import {
   resolvedDisplayControlValue,
   type DisplayWidgetRuntime,
@@ -38,7 +38,7 @@ export function isInteractiveDisplayWidget(widget: DisplayWidget): boolean {
 
 export function initialDisplayControlValue(widget: DisplayWidget): DisplayControlValue | undefined {
   if (widget.type === 'Button' || widget.type === 'Toggle') return false
-  if (widget.type === 'Slider' || widget.type === 'Dial') return numberProperty(widget, 'min', 0)
+  if (widget.type === 'Slider' || widget.type === 'Dial') return displayControlStartValue(widget)
   return undefined
 }
 
