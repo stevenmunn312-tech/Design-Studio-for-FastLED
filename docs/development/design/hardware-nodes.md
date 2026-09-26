@@ -315,6 +315,32 @@ explains it. Clocked and HUB75 outputs normally disable the field. It stays
 editable while it names the extender, so a chipset change that made the choice
 invalid can be undone from the field itself.
 
+### Powering the controller from 12 V or 24 V
+
+A **Buck Converter** (`PowerConverter`, `src/state/powerConverter.ts`) is a
+hardware-only bench part, like Ethernet: no ports, no pins, no evaluation. It
+names a converter module and the `sourceVoltage` feeding it. The module's role
+and ratings (input range, dropout, output, continuous current, efficiency,
+isolation) come from the imported part's `powerConverter` block and are never
+restated in code. The LM2596 module (`lm2596-buck-module`) is the first, with
+the `controller` role.
+
+With one on the bench, the Build Diagram's power plan (`controllerSupply` in
+`electricalPlan.ts`) feeds the board's own `power-in` pin from it instead of
+USB. Its input fuse and wire are sized for the converter's full rated output,
+not an estimated controller load, so a 5 V module added later cannot outgrow
+them. The plan blocks a source outside the module's range (input minimum, or
+output plus dropout, up to the rated maximum), a board with no `power-in` pin,
+a board whose onboard power path is unverified (`pinout-verified`), and a
+second controller converter. It says to set an adjustable module's output with
+a meter before connecting it, and not to run USB at the same time unless the
+board isolates its 5 V pin.
+
+The diagram draws the module in the USB block's place under the board and
+joins it to the board by a matching `CTRL 5V` symbol on OUT+ and on the
+board's pin, rather than a wire across the board. The module sits in no
+peripheral row. See [power conversion and protection](../plans/power-conversion-and-protection.md).
+
 ## Hardware part identity and rendering
 
 Exact part options drive the label, pin roles, notes, thumbnail, and workbench

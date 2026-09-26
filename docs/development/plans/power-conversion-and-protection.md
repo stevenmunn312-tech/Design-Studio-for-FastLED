@@ -46,7 +46,14 @@ change anything the diagram draws.
   part type is blocking (mixing 18 A and 20 A converters in one plan is not
   supported).
 
-## Slice A: controller buck (LM2596)
+## Slice A: controller buck (LM2596), done
+
+In software and experimental; see
+[hardware nodes](../design/hardware-nodes.md#powering-the-controller-from-12-v-or-24-v).
+Two departures from the plan below: the controller load is not estimated,
+because the input fuse and wire are sized for the module's full rated output
+instead; and a `pinout-verified` board is blocked outright.
+
 
 - `controllerPowerPath` becomes "LM2596 buck, <source> V to 5 V, into the
   board's 5V/VIN pad" when one exists.
@@ -111,7 +118,7 @@ one later.
 
 1. Blender models and `part.json` for the LM2596 module and the SD-100 case; import.
 2. `PowerConverter` node, the `powerConverter` catalogue block, shelf entry.
-3. Slice A in the electrical plan, diagram and exports; tests.
+3. Slice A: done (LM2596 model, `PowerConverter`, plan, diagram, exports).
 4. Slice B; tests.
 5. Slice C: done (main fuse, trunk, wire table, 100 A cap).
 6. Docs: hardware nodes design note, support matrix rows, todo.

@@ -411,6 +411,10 @@ Unless a future row says otherwise, treat the following as experimental:
   on the colour TFT, any touch interaction, the custom `Display` (LVGL) node,
   and every display module/board combination not listed in the table above
   remain unvalidated on real hardware.
+- **Powering the controller from a buck converter.** The LM2596 module
+  (`PowerConverter`) changes only the Build Diagram, connection list and BOM;
+  the firmware is unchanged. No bench run of a board powered through its 5 V
+  pin from the module has been recorded.
 - **The NLED Pixel Data Extender data link.** Choosing it on an LED output
   only changes the Build Diagram, parts list and exports (TX/RX pair, twisted
   A/B/ground run). The firmware sends the same one-wire signal either way. No

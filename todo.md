@@ -131,6 +131,9 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
   combined and absent targets at two measured distances, including UART
   reconnect recovery; the row's requirements are in the support matrix.
+- **D-05 controller buck:** a board powered through its 5 V pin from the
+  LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
+  and its 5 V modules running.
 - **D-05 pixel data extender:** the NLED TX/RX pair driving a WS2812B run over
   a long twisted A/B/ground cable, with the length recorded, powered from
   separate supplies at each end with bonded grounds.
@@ -190,7 +193,11 @@ in the app and marked experimental; nothing here holds up development.
   fixtures pass, and its bench row is in section 3. The NLED Pixel Data
   Extender (roadmap step 7) is an LED output's **data link** option, modelled
   and drawn on the Build Diagram. It adds no firmware, so no compile is owed;
-  its bench row is in section 3.
+  its bench row is in section 3. Roadmap step 8 is under way
+  ([plan](docs/development/plans/power-conversion-and-protection.md)): each
+  supply now has a main fuse and trunk, and the LM2596 controller buck
+  (`PowerConverter`) is modelled, drawn and experimental; the Mean Well SD-100
+  rail converter is next.
 
 ## Completed
 
