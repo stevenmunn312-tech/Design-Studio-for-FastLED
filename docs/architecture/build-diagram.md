@@ -127,13 +127,31 @@ The current bounded WS2812-class rules use:
 - 5 A maximum design load for start/end feeds and 10 A maximum for centre
   feeds that split into no more than 5 A in either direction.
 - 0.4 V maximum calculated feed drop over the complete 500 mm one-way copper
-  feed circuit, with the same continuous-load reserve used for fuse sizing.
-- Approximately 60 A maximum recommended capacity per cap-aware PSU group.
+  feed circuit.
+- Fuse and wire are coordinated: a fuse carries its load at no more than 75%,
+  and the wire is then sized to carry that fuse's standard rating, not just
+  the load. Sizing the wire to the load alone could leave no standard fuse
+  between the load's minimum and the wire's ampacity.
+- Conductor ampacities come from one table, NFPA 70 (2023) Table 310.16,
+  90 C copper, not more than three current-carrying conductors, 30 C ambient,
+  covering 18 AWG to 2 AWG. Bundles derate in steps down to 50% from ten
+  conductors, per 310.15(C)(1). Until 2026-09-27 the table carried much higher
+  figures of uncertain origin (10 AWG at 65 A); it was replaced rather than
+  extended so that trunk and branch are judged on one basis.
+- Approximately 100 A maximum recommended capacity per cap-aware PSU group.
   Injection branches and modest data routes share one PSU while their operating
   budgets fit; larger builds are split into separately fused positive-power
   zones with common signal ground and no paralleled PSU positive outputs.
+- Every PSU group has a main fuse at the supply positive and a trunk to its
+  fuse blocks, 500 mm one way with its own 0.1 V drop allowance. Both are
+  sized for the group's uncapped branch load, never more than the supply's
+  nameplate: a capped group's full-white ceiling can exceed what its supply
+  can deliver many times over, and the fuse's 75% margin already covers the
+  supply's own overload trip point. Main fuses are bolt-down (MIDI/ANL class)
+  ratings up to 150 A; a group whose fuse no listed conductor carries is
+  unresolved rather than drawn.
 - Reviewed conductor, connector, voltage-drop, derating, and fuse tables for
-  each feed.
+  each feed and trunk.
 
 These values produce conservative branch protection and a cap-aware operating
 PSU recommendation from the information the graph can know. They are stated in

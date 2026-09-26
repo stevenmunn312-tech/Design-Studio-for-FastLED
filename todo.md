@@ -40,6 +40,10 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   reviews what exists, so it gates nothing in D-05. Record findings and
   corrections against
   [the Build Diagram contract](docs/development/plans/build-diagram-handoff.md).
+  One change to review first: on 2026-09-27 the wire table moved from figures
+  of uncertain origin (10 AWG at 65 A) to NEC 310.16 at 90 C, fuse and wire
+  are now coordinated, and each supply has a main fuse and trunk
+  ([Build Diagram rules](docs/architecture/build-diagram.md)).
   A real reference system is available to review against: a 70,000 mAh lithium pack with fuses,
   balancer, BMS and 100 W charge/discharge control.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA

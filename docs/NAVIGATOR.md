@@ -166,7 +166,7 @@ build/architecture overview aimed at contributors.
     — prioritised candidate modules for switching, monitoring, sensing,
       networking, power conversion and additional controller profiles, plus
       the evidence and safety gates required before any item is supported.
-  - [Power conversion and protection](development/plans/power-conversion-and-protection.md) — roadmap step 8: LM2596 controller buck, SD-100 rail converter, eFuse 4 Click
+  - [Power conversion and protection](development/plans/power-conversion-and-protection.md) — roadmap step 8: LM2596 controller buck, SD-100 rail converter, main supply fuse and trunk
   - [IR remote controls for graph properties](development/plans/ir-remote-controls.md)
     — the implemented wire-first IR receiver contract, learned stable button mappings,
       repeat semantics and the Step Value adapter used to change runtime graph
