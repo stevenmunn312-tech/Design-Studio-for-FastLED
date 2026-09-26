@@ -14,12 +14,17 @@
   overflow: hidden;
 }
 
+/* The live message is sized to what it says (up to 45% of the bar) and never
+   shrinks for the chips: with both halves shrinking in proportion to their
+   content, a wide chip rail cut "Ready" down to "R…". The chip rail is the one
+   that gives way, and it scrolls. */
 .leftRail {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex: 1 1 auto;
+  max-width: 45%;
+  flex: 0 0 auto;
 }
 
 .indicator {
