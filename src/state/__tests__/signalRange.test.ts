@@ -12,7 +12,7 @@ import {
 
 describe('signalRange', () => {
   it('names the domain a 0-1 signal has to be mapped into', () => {
-    // The three CLAUDE.md calls out by name.
+    // The three docs/development/patterns/graph-and-nodes.md calls out by name.
     expect(signalRangeMismatch('Fire2012', 'sparking')).toEqual({ min: 0, max: 255 })
     expect(signalRangeMismatch('ReactionDiffusion', 'feed')).toEqual({ min: 0, max: 0.1 })
     expect(signalRangeMismatch('Starfield', 'count')).toEqual({ min: 1, max: 200 })

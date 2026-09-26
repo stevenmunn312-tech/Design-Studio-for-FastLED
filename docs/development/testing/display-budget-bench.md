@@ -289,7 +289,9 @@ glass, so it was reflashed with the guided calibration recorded for this unit on
 2026-09-14 — `408 / 3646 / 331 / 3674`, `touchFlipX` set. The emitted span comes
 out descending (`_xptPoint(..., 3646, 408, 331, 3674, ...)`), which is
 `orientedTouchSpan` swapping the endpoints rather than storing a minimum above
-its maximum: the rule CLAUDE.md states, exercised on a real reversed axis rather
+its maximum: the rule
+[firmware generation](../patterns/firmware-generation.md#instrument-sketches)
+states, exercised on a real reversed axis rather
 than only in tests. Raw samples during the run ran 817-3565, inside the
 calibrated span.
 

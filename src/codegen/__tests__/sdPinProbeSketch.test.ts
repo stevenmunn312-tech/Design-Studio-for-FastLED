@@ -102,8 +102,8 @@ describe('the SD pin probe', () => {
  * whatever that text happens to start with — here "extended character — is not
  * valid in an identifier", pointing at an em dash that was never the problem.
  *
- * CLAUDE.md already records the backtick version of this trap. Rather than add
- * a second thing to remember, assert the property that fails: a C string cannot
+ * docs/development/patterns/firmware-generation.md already records the backtick
+ * version of this trap. Rather than add a second thing to remember, assert the property that fails: a C string cannot
  * span a line, so every line of the emitted sketch must have balanced quotes.
  */
 describe('the emitted sketch survives its own template literal', () => {

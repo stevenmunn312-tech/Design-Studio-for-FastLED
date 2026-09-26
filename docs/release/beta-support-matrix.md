@@ -64,7 +64,8 @@ driven by `RTCInput` set to Compile Time, generated and uploaded through
 `arduino-cli`. One codegen defect was found and fixed during this session
 (`4b6e9e01`): `_RtcDateTime` was passed by reference into RTC helper functions
 with no forward declaration, so any RTC-driven sketch failed to compile under
-the Arduino `.ino` prototype-hoisting trap already documented in `CLAUDE.md`.
+the Arduino `.ino` prototype-hoisting trap already documented in
+[firmware generation](../development/patterns/firmware-generation.md#c-emission-hazards).
 
 **Bench record (`2026-09-08`, SH1106 I2C row above):** same ESP32-S3, same
 `RTCInput` (Compile Time) → `InfoDisplay` wiring, on the newly catalogued

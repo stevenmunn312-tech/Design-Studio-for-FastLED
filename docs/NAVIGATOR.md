@@ -44,6 +44,37 @@ build/architecture overview aimed at contributors.
 
 ## Development
 
+- [Subsystem patterns](development/patterns/)
+  — the contracts, derivation rules and known traps each subsystem depends on,
+    moved out of `CLAUDE.md` so a session reads only the area it is changing.
+    Read the matching file before changing that area; add new patterns there.
+  - [Graph and nodes](development/patterns/graph-and-nodes.md)
+    — workspace trust, evaluation and Master Speed, un-normalised inputs,
+      palette producers, splice targets and property inputs.
+  - [Validation and deploy](development/patterns/validation-and-deploy.md)
+    — the deploy gate, Graph Health repairs, capacity verdicts, port status
+      and readiness rows.
+  - [Hardware and the Build Diagram](development/patterns/hardware-and-build-diagram.md)
+    — pins and buses, integrated board hardware, peripheral modules, and
+      Build Diagram pads and wires.
+  - [Player, shows and controls](development/patterns/player-shows-and-controls.md)
+    — Music Player and its controls, LED output runtime, control phases,
+      slideshows, transitions, show files and VU levels.
+  - [Fixed displays](development/patterns/fixed-displays.md)
+    — display registration points, the display envelope, pattern thumbnails,
+      colour TFT transports and touch, and fixed-layout golden tests.
+  - [Custom screens](development/patterns/custom-screens.md)
+    — screen designs and widget ports, LVGL generation and assets, themes,
+      templates and their control wiring, and panel Enabled.
+  - [Firmware generation](development/patterns/firmware-generation.md)
+    — C++ emission traps and the telemetry and touch-calibration instrument
+      sketches.
+  - [Build helper](development/patterns/build-helper.md)
+    — build timing, Export Binary, mtime-preserving writes and the
+      arduino-cli sketch cache.
+  - [Workspace UI](development/patterns/workspace-ui.md)
+    — workspace tabs, the First project guide, and layout traps jsdom cannot
+      catch.
 - [Design notes](development/design/)
   - [Direct controls and LED output status](development/design/direct-controls-and-output-status.md)
     — named Touch widget outputs, property inputs exposed on demand,
@@ -237,6 +268,6 @@ build/architecture overview aimed at contributors.
 
 ## Documentation maintenance
 
-Keep active work in root todo, contracts in architecture/design notes and evidence
-in reports/release records. Superseded initial briefs and completed duplicate
+Keep active work in root todo, contracts in architecture/design notes, subsystem
+patterns in development/patterns/ and evidence in reports/release records. Superseded initial briefs and completed duplicate
 trackers were removed in the 2026-09-08 review; Git retains their history.
