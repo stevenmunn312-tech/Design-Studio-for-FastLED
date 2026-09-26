@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   addPatternCollectionTo,
   connectShowOutput,
+  disconnectTouchControls,
   movePartPinToFree,
   useGraphStore,
   type StudioEdge,
@@ -15,6 +16,8 @@ import {
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { useUploadStore } from '../uploadStore'
 import { buildGraphDiagnostics } from '../../utils/validateGraph'
+import { createDisplayDocument } from '../displayEditor'
+import { applyDisplayTemplate } from '../displayTemplates'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -118,5 +121,58 @@ describe('Open Board settings', () => {
       node('out', 'MatrixOutput', { width: 32, height: 32 }),
     ], [edge('f', 'sc', 'frame', 'out', 'frame')])
     expect(diagnostics().find((d) => d.category === 'power')?.action).toBe('open-board-settings')
+  })
+})
+
+describe('Disconnect Controls', () => {
+  // A screen design whose widgets were all deleted, with the Touch node's
+  // Controls wire still running to the LED output: the wire carries nothing.
+  const load = (withControls: boolean) => {
+    const blank = createDisplayDocument('screen', 240, 320)
+    const document = withControls ? applyDisplayTemplate(blank, 'led-performance') : blank
+    useGraphStore.getState().loadGraph([
+      node('juggle', 'Juggle'),
+      node('out', 'MatrixOutput'),
+      node('panel', 'TransportDisplay', {
+        partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Custom design', displayId: 'screen',
+      }),
+      node('panel-touch', 'TouchInput', { panelId: 'panel' }),
+    ], [
+      edge('frame', 'juggle', 'frame', 'out', 'frame'),
+      edge('ctl', 'panel-touch', 'controls', 'out', 'controls'),
+    ])
+    useGraphStore.setState({ displayDocuments: { screen: document } })
+  }
+  const card = () => {
+    const s = useGraphStore.getState()
+    return buildGraphDiagnostics(s.nodes, s.edges, { displayDocuments: s.displayDocuments })
+      .find((d) => d.repair?.kind === 'disconnect-touch-controls')
+  }
+
+  it('offers to remove the empty wire, removes it, and the card goes', () => {
+    load(false)
+    const found = card()
+    expect(found).toMatchObject({
+      severity: 'error',
+      action: 'disconnect-touch-controls',
+      repair: { kind: 'disconnect-touch-controls', touchId: 'panel-touch' },
+      edgeIds: ['ctl'],
+    })
+    expect(disconnectTouchControls('panel-touch')).toBe(true)
+    expect(useGraphStore.getState().edges.map((e) => e.id)).toEqual(['frame'])
+    expect(card()).toBeUndefined()
+  })
+
+  it('reports already changed rather than acting twice', () => {
+    load(false)
+    expect(disconnectTouchControls('panel-touch')).toBe(true)
+    expect(disconnectTouchControls('panel-touch')).toBe(false)
+  })
+
+  it('keeps a wire that carries template controls, and offers nothing', () => {
+    load(true)
+    expect(card()).toBeUndefined()
+    expect(disconnectTouchControls('panel-touch')).toBe(false)
+    expect(useGraphStore.getState().edges.some((e) => e.id === 'ctl')).toBe(true)
   })
 })

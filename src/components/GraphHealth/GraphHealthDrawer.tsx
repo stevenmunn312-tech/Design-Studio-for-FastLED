@@ -6,6 +6,7 @@ import {
   insertMapRangeOnEdge,
   movePartPinToFree,
   routeControlsToEngine,
+  disconnectTouchControls,
   placeTouchControl,
   ROOT_GRAPH_ID,
   useGraphStore,
@@ -48,6 +49,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'connect-show-output') return 'Connect it'
   if (action === 'add-pattern-collection') return 'Add a collection'
   if (action === 'route-controls-to-engine') return 'Move the wire'
+  if (action === 'disconnect-touch-controls') return 'Disconnect Controls'
   if (action === 'open-start-gallery') return 'Browse starters'
   return 'Open library'
 }
@@ -153,6 +155,12 @@ export default function GraphHealthDrawer() {
       const done = routeControlsToEngine(issue.repair.edgeId, issue.repair.engineId)
       useUiStore.getState().clearLocatedEdges()
       setStatus(done ? 'Controls wire moved — the lights now follow it through the player' : 'That wire has already changed', done ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'disconnect-touch-controls') {
+      const done = disconnectTouchControls(issue.repair.touchId)
+      useUiStore.getState().clearLocatedEdges()
+      setStatus(done ? 'Controls wire disconnected' : 'That wire has already changed', done ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'connect-show-output') {

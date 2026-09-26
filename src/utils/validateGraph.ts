@@ -1534,6 +1534,10 @@ export type GraphDiagnosticCategory =
   | 'board'
   | 'show'
 
+/** Said after a panel's name when its screen design gives the Touch node's
+ *  Controls nothing to carry; Graph Health keys its disconnect repair on it. */
+export const NO_CONTROLS_TO_CARRY = "'s screen design has no transport controls for its Touch node's Controls to carry."
+
 export type GraphDiagnosticAction =
   | 'open-node-library'
   | 'choose-board'
@@ -1545,6 +1549,7 @@ export type GraphDiagnosticAction =
   | 'connect-show-output'
   | 'add-pattern-collection'
   | 'route-controls-to-engine'
+  | 'disconnect-touch-controls'
   | 'open-start-gallery'
 
 /**
@@ -1572,6 +1577,9 @@ export type GraphRepair =
   /** A Controls wire into an LED output to move onto the player engine's own
    *  Controls input, which carries the same lamp commands the player obeys. */
   | { kind: 'route-controls-to-engine'; edgeId: string; engineId: string }
+  /** A Touch node whose Controls wire carries nothing, because its screen
+   *  design has no template-placed controls left to put on it. */
+  | { kind: 'disconnect-touch-controls'; touchId: string }
 
 export interface GraphDiagnostic {
   id: string
@@ -2585,7 +2593,7 @@ export function findDisplayGeneratorIssues(
       const reachesEngine = !!build.engine && destinations.has(build.engine.id)
       if (fields.size === 0) {
         errors.push(
-          `${nodeLabel(display)}'s screen design has no transport controls for its Touch node's Controls to carry. `
+          `${nodeLabel(display)}${NO_CONTROLS_TO_CARRY} `
           + 'Only controls a template placed (Previous, Play, Next, Volume, Brightness, Blackout) travel on Controls; '
           + "wire any other widget's own output on the Touch node to what it should command, or disconnect Controls.",
         )
@@ -3803,11 +3811,26 @@ export function buildGraphDiagnostics(
       && String(node.data.properties.panelId ?? '') === panel.id)
     const wires = edges.filter((edge) => edge.target === panel.id || (touch && edge.source === touch.id))
     const designId = panel.data.nodeType === 'TransportDisplay' ? shownDesignId(panel.data.properties) : ''
+    /*
+     * A Controls wire with nothing to carry has only one fix that loses
+     * nothing: take it away. The other Controls complaints are about a chain
+     * that does not reach far enough, where the wire may be half of something
+     * the author is still building, so those stay advice.
+     */
+    const emptyControls = touch && message.includes(NO_CONTROLS_TO_CARRY)
+      ? edges.filter((edge) => edge.source === touch.id && edge.sourceHandle === 'controls')
+      : []
     return {
       nodeIds: [panel.id, ...(touch ? [touch.id] : [])],
       nodeLabel: nodeLabel(panel),
       ...(wires.length ? { edgeIds: wires.map((edge) => edge.id) } : {}),
       ...(designId ? { screenDesignId: designId } : {}),
+      ...(touch && emptyControls.length ? {
+        edgeIds: emptyControls.map((edge) => edge.id),
+        fix: 'Disconnect the Controls wire: it has nothing to carry until a template places controls on this screen.',
+        action: 'disconnect-touch-controls' as const,
+        repair: { kind: 'disconnect-touch-controls' as const, touchId: touch.id },
+      } : {}),
     }
   }
   const RUNTIME_INPUTS = new Set(['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown'])

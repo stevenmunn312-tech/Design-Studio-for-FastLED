@@ -109,6 +109,7 @@ import {
 import { displayHasTouch } from './partCatalogue'
 import { DISPLAY_SOURCE_NODE_TYPES } from './displaySignal'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
+import { designControlBundle } from './designControlBundle'
 import { asTftRotation } from './tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './transportTouch'
 import { relayInputs } from './relayModule'
@@ -3926,6 +3927,26 @@ export function routeControlsToEngine(edgeId: string, engineId: string): boolean
       ? { ...edge, id: `${edge.source}-${edge.sourceHandle}-${engineId}-controls`, target: engineId, targetHandle: 'controls' }
       : edge),
   }))
+  return true
+}
+
+/**
+ * Remove a Touch node's Controls wire when its panel's screen design has no
+ * template-placed controls left to carry on it — the repair for the error that
+ * says so. Refuses, changing nothing, when the wire has gone or the design has
+ * since gained a control that would travel on it. One undo puts it back.
+ */
+export function disconnectTouchControls(touchId: string): boolean {
+  const state = useGraphStore.getState()
+  const touch = state.nodes.find((node) => node.id === touchId && node.data.nodeType === 'TouchInput')
+  if (!touch) return false
+  const wires = state.edges.filter((edge) => edge.source === touchId && edge.sourceHandle === 'controls')
+  if (wires.length === 0) return false
+  const panel = state.nodes.find((node) => node.id === String(touch.data.properties.panelId ?? ''))
+  const document = panel ? state.displayDocuments[String(panel.data.properties.displayId ?? '')] : undefined
+  if (panel && document && designControlBundle(panel, document, state.nodes, state.edges).length > 0) return false
+  const gone = new Set(wires.map((edge) => edge.id))
+  useGraphStore.setState((s) => ({ edges: s.edges.filter((edge) => !gone.has(edge.id)) }))
   return true
 }
 
