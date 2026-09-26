@@ -111,6 +111,20 @@
   scrollbar-width: none; /* Firefox — hide the horizontal bar in the chrome */
 }
 
+/* The scrollbar is hidden, so an edge with more buttons beyond it fades out
+   instead; the fade is the cue that the rail scrolls. */
+.nav[data-overflow-end] {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+}
+
+.nav[data-overflow-start] {
+  mask-image: linear-gradient(90deg, transparent, #000 36px);
+}
+
+.nav[data-overflow-start][data-overflow-end] {
+  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+}
+
 .nav::-webkit-scrollbar {
   display: none;
 }

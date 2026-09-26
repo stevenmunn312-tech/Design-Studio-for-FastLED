@@ -62,6 +62,34 @@ const focusMenuItem = (menu: HTMLElement, direction: 'first' | 'last' | 'next' |
   }
 }
 
+/**
+ * Which edges of the scrolling nav rail have buttons beyond them. The rail
+ * hides its scrollbar to keep the chrome quiet, so without this a narrow window
+ * cut buttons off with nothing to say they were there.
+ */
+function useNavOverflow(ref: React.RefObject<HTMLElement | null>) {
+  const [overflow, setOverflow] = useState({ start: false, end: false })
+  useEffect(() => {
+    const nav = ref.current
+    if (!nav) return
+    const measure = () => {
+      const start = nav.scrollLeft > 1
+      const end = nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1
+      setOverflow((prev) => (prev.start === start && prev.end === end ? prev : { start, end }))
+    }
+    measure()
+    nav.addEventListener('scroll', measure, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(nav)
+    for (const child of Array.from(nav.children)) observer?.observe(child)
+    return () => {
+      nav.removeEventListener('scroll', measure)
+      observer?.disconnect()
+    }
+  }, [ref])
+  return overflow
+}
+
 export default function MenuBar() {
   const {
     setStatus,
@@ -141,6 +169,8 @@ export default function MenuBar() {
   const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
+  const navRef = useRef<HTMLElement>(null)
+  const navOverflow = useNavOverflow(navRef)
   const viewMenuRef = useRef<HTMLDivElement>(null)
   const fileButtonRef = useRef<HTMLButtonElement>(null)
   const viewButtonRef = useRef<HTMLButtonElement>(null)
@@ -822,7 +852,20 @@ export default function MenuBar() {
           </>
         )}
       </div>
-      <nav className={styles.nav}>
+      <nav
+        ref={navRef}
+        className={styles.nav}
+        data-overflow-start={navOverflow.start || undefined}
+        data-overflow-end={navOverflow.end || undefined}
+        onWheel={(e) => {
+          // A plain wheel only scrolls vertically, and this rail only scrolls
+          // sideways, so without this a mouse cannot reach what the fade hints at.
+          const nav = e.currentTarget
+          if (nav.scrollWidth > nav.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            nav.scrollLeft += e.deltaY
+          }
+        }}
+      >
         <button
           className={`${styles.btn} ${styles.iconBtn}`}
           onClick={() => undo()}

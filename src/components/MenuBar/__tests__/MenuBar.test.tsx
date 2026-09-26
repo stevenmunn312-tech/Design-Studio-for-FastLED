@@ -202,6 +202,28 @@ describe('MenuBar file menu', () => {
     }
   })
 
+  it('marks which edges of the nav rail have buttons beyond them, and scrolls it with the wheel', () => {
+    const { getByRole } = render(<MenuBar />)
+    const nav = getByRole('group', { name: 'Live performance tools' }).parentElement as HTMLElement
+    Object.defineProperty(nav, 'clientWidth', { configurable: true, value: 500 })
+    Object.defineProperty(nav, 'scrollWidth', { configurable: true, value: 650 })
+
+    fireEvent.scroll(nav)
+    expect(nav.dataset.overflowStart).toBeUndefined()
+    expect(nav.dataset.overflowEnd).toBe('true')
+
+    fireEvent.wheel(nav, { deltaY: 70 })
+    fireEvent.scroll(nav)
+    expect(nav.scrollLeft).toBe(70)
+    expect(nav.dataset.overflowStart).toBe('true')
+    expect(nav.dataset.overflowEnd).toBe('true')
+
+    nav.scrollLeft = 150
+    fireEvent.scroll(nav)
+    expect(nav.dataset.overflowStart).toBe('true')
+    expect(nav.dataset.overflowEnd).toBeUndefined()
+  })
+
   it('disables the microphone with the compatibility message for an unsupported board', async () => {
     useGraphStore.setState({
       nodes: [{

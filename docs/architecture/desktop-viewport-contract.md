@@ -17,7 +17,9 @@ degrade in this order instead of letting controls become unreachable:
    nav rail instead of crushing or clipping buttons.
    Undo, Redo and Tidy are glyph buttons and the live tools use short labels
    (Focus, Deck, Stage), with full names in their tooltips, so that at the
-   `1440 × 900` target the production rail fits without scrolling.
+   `1440 × 900` target the production rail fits without scrolling. When it
+   does scroll, the edge with buttons beyond it fades out and the mouse wheel
+   scrolls the rail sideways, since its scrollbar is hidden.
 2. File/View menus cap their height to the visible viewport and scroll
    internally when the window is short.
 3. The status bar keeps the live message visible first; the hardware/info chips
