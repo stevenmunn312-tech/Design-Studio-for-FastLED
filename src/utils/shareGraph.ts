@@ -1,5 +1,6 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../state/graphStore'
+import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
 
 const HASH_KEY = 'share'
 
@@ -8,6 +9,12 @@ const HASH_KEY = 'share'
 export const SHARE_URL_WARN_BYTES = 30 * 1024
 
 type WorkspacePayload = { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
+
+export interface SharedWorkspaceRead {
+  workspace: WorkspacePayload
+  /** Nodes and edges left out because they had no loadable shape. */
+  dropped: number
+}
 
 export function buildShareUrl(workspace: WorkspacePayload): string {
   const compressed = compressToEncodedURIComponent(JSON.stringify(workspace))
@@ -23,14 +30,18 @@ export function shareUrlSizeWarning(url: string): string | null {
   return `This share link is ${kb} KB. Links past about 30 KB get cut off by browsers and chat apps. Use Save Project File for a project this size.`
 }
 
-export function readSharedWorkspace(): WorkspacePayload | null {
+export function readSharedWorkspace(): SharedWorkspaceRead | null {
   const hash = window.location.hash.replace(/^#/, '')
   if (!hash.startsWith(`${HASH_KEY}=`)) return null
   const compressed = hash.slice(HASH_KEY.length + 1)
   try {
     const json = decompressFromEncodedURIComponent(compressed)
     if (!json) return null
-    return JSON.parse(json) as WorkspacePayload
+    const parsed: unknown = JSON.parse(json)
+    if (!isWorkspacePayload(parsed)) return null
+    const sanitized = sanitizeWorkspacePayload(parsed)
+    if (!sanitized) return null
+    return { workspace: sanitized.workspace, dropped: sanitized.dropped }
   } catch {
     return null
   }

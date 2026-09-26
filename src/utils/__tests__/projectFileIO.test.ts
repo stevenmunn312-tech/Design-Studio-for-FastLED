@@ -9,7 +9,7 @@ import { DEFAULT_DISPLAY_THEME, type DisplayDocument } from '../../state/display
 describe('parseProjectFile — trust boundary', () => {
   it('forces trusted:false on a bare-workspace file, even if the file claims trusted:true', () => {
     const text = JSON.stringify({ nodes: [], edges: [], trusted: true })
-    const project = parseProjectFile(text, 'fallback')
+    const { project } = parseProjectFile(text, 'fallback')
     expect(project.workspace.trusted).toBe(false)
   })
 
@@ -21,14 +21,33 @@ describe('parseProjectFile — trust boundary', () => {
       updatedAt: 0,
       workspace: { nodes: [], edges: [], trusted: true },
     })
-    const project = parseProjectFile(text, 'fallback')
+    const { project } = parseProjectFile(text, 'fallback')
     expect(project.workspace.trusted).toBe(false)
   })
 
   it('a bare-workspace file with no trusted field at all also comes back untrusted', () => {
     const text = JSON.stringify({ nodes: [], edges: [] })
-    const project = parseProjectFile(text, 'fallback')
+    const { project } = parseProjectFile(text, 'fallback')
     expect(project.workspace.trusted).toBe(false)
+  })
+
+  it('keeps a sound file when a node is missing data, and counts what it drops', () => {
+    const text = JSON.stringify({
+      nodes: [
+        { id: 'ok', data: { nodeType: 'SolidColor' } },
+        { id: 'broken' },
+      ],
+      edges: [
+        { source: 'ok', target: 'ok' },
+        {},
+      ],
+      trusted: true,
+    })
+    const { project, dropped } = parseProjectFile(text, 'fallback')
+    expect(project.workspace.nodes.map((node) => node.id)).toEqual(['ok'])
+    expect(project.workspace.edges).toEqual([{ source: 'ok', target: 'ok' }])
+    expect(project.workspace.trusted).toBe(false)
+    expect(dropped).toBe(2)
   })
 })
 
@@ -53,7 +72,7 @@ describe('parseProjectFile — display document boundary', () => {
       workspace: { nodes: [], edges: [], displayDocuments: { panel: displayDocument } },
     })
 
-    const imported = parseProjectFile(text, 'fallback')
+    const { project: imported } = parseProjectFile(text, 'fallback')
     expect(imported.workspace.displayDocuments?.panel).toMatchObject({
       displayId: 'panel',
       theme: { background: { kind: 'image', assetId: 'background:01-neon-orbit:320x240' } },
@@ -80,7 +99,7 @@ describe('parseProjectFile — display document boundary', () => {
         invalid: { schemaVersion: 99, displayId: 'old' },
       },
     })
-    const documents = parseProjectFile(text, 'fallback').workspace.displayDocuments
+    const documents = parseProjectFile(text, 'fallback').project.workspace.displayDocuments
     expect(Object.keys(documents ?? {})).toEqual(['panel'])
     expect(documents?.panel.orientation).toBe('0')
     expect(documents?.panel.theme.background).toEqual({ kind: 'solid', color: '#080b12' })
@@ -88,7 +107,7 @@ describe('parseProjectFile — display document boundary', () => {
   })
 
   it('loads a missing registry as empty when the graph store consumes it', () => {
-    const project = parseProjectFile(JSON.stringify({ nodes: [], edges: [] }), 'fallback')
+    const { project } = parseProjectFile(JSON.stringify({ nodes: [], edges: [] }), 'fallback')
     expect(project.workspace.displayDocuments).toEqual({})
   })
 })

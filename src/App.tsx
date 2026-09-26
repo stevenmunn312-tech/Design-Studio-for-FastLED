@@ -19,6 +19,7 @@ import { useMusicStore } from './state/musicStore'
 import { isMusicLibraryRestoring, waitForMusicLibraryRestore } from './state/musicLibraryPersistence'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
+import { workspaceLoadStatus } from './utils/workspacePayload'
 import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
@@ -186,33 +187,44 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     const init = async () => {
-      const shared = readSharedWorkspace()
-      if (shared) {
-        // Never trust a share link's own `trusted` claim — force it false
-        // regardless of what the payload says (see todo.md's P0 trust item).
-        useGraphStore.getState().loadGraph(shared.nodes, shared.edges, {
-          graphData: shared.graphData,
-          graphs: shared.graphs,
-          activeGraphId: shared.activeGraphId,
-          buildProfile: shared.buildProfile,
-          trusted: false,
-          performanceDeck: shared.performanceDeck,
-          displayDocuments: shared.displayDocuments,
-        })
-        await waitForMusicLibraryRestore()
-        if (cancelled) return
-        useProjectStore.getState().saveCurrentWorkspace({
-          ...shared,
-          trusted: false,
-          // loadGraph has already normalized this external declarative data.
-          displayDocuments: useGraphStore.getState().displayDocuments,
-        })
-        workspaceHydrated.current = true
-        useGraphStore.temporal.getState().clear()
-        clearShareHash()
-        useUiStore.getState().setStatus('Share link opened', 'success')
-        void promptTrustIfNeeded()
-        return
+      if (window.location.hash.replace(/^#/, '').startsWith('share=')) {
+        try {
+          const shared = readSharedWorkspace()
+          if (!shared) throw new Error('unreadable share link')
+          const workspace = shared.workspace
+          // Never trust a share link's own `trusted` claim — force it false
+          // regardless of what the payload says (see todo.md's P0 trust item).
+          useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, {
+            graphData: workspace.graphData,
+            graphs: workspace.graphs,
+            activeGraphId: workspace.activeGraphId,
+            buildProfile: workspace.buildProfile,
+            trusted: false,
+            performanceDeck: workspace.performanceDeck,
+            displayDocuments: workspace.displayDocuments,
+          })
+          await waitForMusicLibraryRestore()
+          if (cancelled) return
+          useProjectStore.getState().saveCurrentWorkspace({
+            ...workspace,
+            trusted: false,
+            // loadGraph has already normalized this external declarative data.
+            displayDocuments: useGraphStore.getState().displayDocuments,
+          })
+          workspaceHydrated.current = true
+          useGraphStore.temporal.getState().clear()
+          clearShareHash()
+          useUiStore.getState().setStatus(
+            workspaceLoadStatus('Share link opened', shared.dropped),
+            shared.dropped > 0 ? 'info' : 'success',
+          )
+          void promptTrustIfNeeded()
+          return
+        } catch {
+          if (cancelled) return
+          clearShareHash()
+          useUiStore.getState().setStatus('Share link could not be opened', 'error')
+        }
       }
       await useProjectStore.getState().refreshFromDisk()
       if (cancelled) return

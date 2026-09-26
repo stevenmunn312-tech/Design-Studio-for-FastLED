@@ -16,7 +16,7 @@ import {
   micUnsupportedMessage,
 } from '../../state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
-import type { StudioNode, StudioEdge, WorkspaceExtras } from '../../state/graphStore'
+import type { StudioNode } from '../../state/graphStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import {
   buildProjectSnapshot,
@@ -30,6 +30,7 @@ import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { landOnStartingWorkspace } from '../../utils/startFlow'
 import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl, shareUrlSizeWarning } from '../../utils/shareGraph'
+import { isWorkspacePayload, sanitizeWorkspacePayload, workspaceLoadStatus } from '../../utils/workspacePayload'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { promptTrustIfNeeded } from '../../utils/trustPrompt'
@@ -466,7 +467,7 @@ export default function MenuBar() {
     fallbackName: string,
     options?: { saveCurrentFirst?: boolean; confirmedReplace?: boolean },
   ) => {
-    const project = parseProjectFile(projectText, fallbackName)
+    const { project, dropped } = parseProjectFile(projectText, fallbackName)
     if (!options?.confirmedReplace && !currentProject && !await confirmReplaceUnsavedWorkspace('Open a project file? The current unsaved graph will be replaced.')) {
       return false
     }
@@ -476,7 +477,7 @@ export default function MenuBar() {
     const opened = useProjectStore.getState().upsertProject(project)
     useGraphStore.getState().loadGraph(opened.workspace.nodes, opened.workspace.edges, opened.workspace)
     useGraphStore.temporal.getState().clear()
-    setStatus(`Opened project "${opened.name}"`, 'success')
+    setStatus(workspaceLoadStatus(`Opened project "${opened.name}"`, dropped), dropped > 0 ? 'info' : 'success')
     void promptTrustIfNeeded()
     return true
   }
@@ -584,15 +585,25 @@ export default function MenuBar() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         try {
-          const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = JSON.parse(ev.target?.result as string) as
-            { nodes: StudioNode[]; edges: StudioEdge[] } & WorkspaceExtras
+          const parsed: unknown = JSON.parse(ev.target?.result as string)
+          if (!isWorkspacePayload(parsed)) {
+            setStatus('Failed to import Graph JSON — invalid file', 'error')
+            return
+          }
+          const sanitized = sanitizeWorkspacePayload(parsed)
+          if (!sanitized) {
+            setStatus('Failed to import Graph JSON — invalid file', 'error')
+            return
+          }
+          const workspace = sanitized.workspace
           // Never trust an imported file's own `trusted` claim — force it
           // false regardless of what the JSON says (todo.md's P0 trust item).
-          useGraphStore.getState().loadGraph(nodes, edges, {
-            graphData, graphs, activeGraphId, buildProfile, trusted: false, performanceDeck, displayDocuments,
+          useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, {
+            ...workspace,
+            trusted: false,
           })
           useGraphStore.temporal.getState().clear()
-          setStatus('Graph JSON imported', 'success')
+          setStatus(workspaceLoadStatus('Graph JSON imported', sanitized.dropped), sanitized.dropped > 0 ? 'info' : 'success')
           void promptTrustIfNeeded()
         } catch {
           setStatus('Failed to import Graph JSON — invalid file', 'error')

@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
+import { compressToEncodedURIComponent } from 'lz-string'
 import { buildShareUrl, readSharedWorkspace, clearShareHash, SHARE_URL_WARN_BYTES, shareUrlSizeWarning } from '../shareGraph'
+import { useGraphStore } from '../../state/graphStore'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { PersistedWorkspace } from '../../state/workspacePersistence'
 
@@ -41,7 +43,8 @@ describe('shareGraph', () => {
     window.location.hash = hash
 
     const decoded = readSharedWorkspace()
-    expect(decoded).toEqual(workspace)
+    expect(decoded?.workspace).toEqual(workspace)
+    expect(decoded?.dropped).toBe(0)
   })
 
   it('returns null when there is no share hash', () => {
@@ -79,6 +82,36 @@ describe('shareGraph', () => {
     expect(url).toContain('#share=')
     expect(shareUrlSizeWarning(url)).toContain('Save Project File')
     window.location.hash = new URL(url).hash
-    expect(readSharedWorkspace()).toEqual(bulky)
+    expect(readSharedWorkspace()?.workspace).toEqual(bulky)
+  })
+
+  function share(payload: unknown) {
+    window.location.hash = `share=${compressToEncodedURIComponent(JSON.stringify(payload))}`
+  }
+
+  it('returns null when nodes is not an array', () => {
+    share({ nodes: 1, edges: [] })
+    expect(() => readSharedWorkspace()).not.toThrow()
+    expect(readSharedWorkspace()).toBeNull()
+  })
+
+  it('returns null when the payload is not an object', () => {
+    share('abc')
+    expect(() => readSharedWorkspace()).not.toThrow()
+    expect(readSharedWorkspace()).toBeNull()
+  })
+
+  it('drops nodes and edges with no loadable shape instead of throwing', () => {
+    share({ nodes: [{}], edges: [{}] })
+    const read = readSharedWorkspace()
+    expect(read).not.toBeNull()
+    expect(read?.workspace.nodes).toEqual([])
+    expect(read?.workspace.edges).toEqual([])
+    expect(read?.dropped).toBe(2)
+    expect(() => useGraphStore.getState().loadGraph(
+      read!.workspace.nodes,
+      read!.workspace.edges,
+      { ...read!.workspace, trusted: false },
+    )).not.toThrow()
   })
 })

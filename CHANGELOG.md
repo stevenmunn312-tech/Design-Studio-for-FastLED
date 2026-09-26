@@ -15,6 +15,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A malformed share link no longer sticks the app on an empty canvas. Nodes
+  and wires that have no loadable shape are left out and counted in the status
+  line; a link that is not a workspace at all is discarded, and the saved
+  project still opens. Project files and Graph JSON imports use the same check.
+
 - Launching from source now requires Node.js 20.19+, 22.13+, or 24+. The
   launchers used to accept Node 18, then Vitest 4 and jsdom 29 failed on first
   run without saying to upgrade. `package.json` records the same range, and

@@ -2,6 +2,7 @@ import type { SavedProject } from '../state/projectStore'
 import type { PersistedWorkspace } from '../state/workspacePersistence'
 import { cloneWorkspace } from '../state/workspacePersistence'
 import { normalizeDisplayDocuments } from '../state/displayDocument'
+import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
 
 interface FilePickerAcceptType {
   description?: string
@@ -54,12 +55,6 @@ function normalizeUploadTarget(value: unknown): SavedProject['uploadTarget'] {
   return typeof maybe.selectedFqbn === 'string' && typeof maybe.selectedPort === 'string'
     ? { selectedFqbn: maybe.selectedFqbn, selectedPort: maybe.selectedPort }
     : undefined
-}
-
-function isWorkspace(value: unknown): value is PersistedWorkspace {
-  if (!value || typeof value !== 'object') return false
-  const workspace = value as Partial<PersistedWorkspace>
-  return Array.isArray(workspace.nodes) && Array.isArray(workspace.edges)
 }
 
 function normalizeImportedWorkspace(workspace: PersistedWorkspace): PersistedWorkspace {
@@ -126,7 +121,13 @@ export function serializeProject(project: SavedProject): string {
   return JSON.stringify(project, null, 2)
 }
 
-export function parseProjectFile(text: string, fallbackName: string): SavedProject {
+export interface ParsedProjectFile {
+  project: SavedProject
+  /** Nodes and edges left out because they had no loadable shape. */
+  dropped: number
+}
+
+export function parseProjectFile(text: string, fallbackName: string): ParsedProjectFile {
   const parsed = JSON.parse(text) as unknown
   const derivedName = trimProjectName(fallbackName) || 'Imported Project'
   const now = Date.now()
@@ -134,33 +135,37 @@ export function parseProjectFile(text: string, fallbackName: string): SavedProje
   // Never trust a project file's own `trusted` claim — force it false
   // regardless of what the file says, so imported content can't self-declare
   // its way past the trust gate (see todo.md's P0 trust item).
-  if (isWorkspace(parsed)) {
+  const accept = (workspace: unknown, project: Omit<SavedProject, 'workspace'>): ParsedProjectFile => {
+    if (!isWorkspacePayload(workspace)) throw new Error('Invalid project file')
+    const sanitized = sanitizeWorkspacePayload(workspace)
+    if (!sanitized) throw new Error('Invalid project file')
     return {
+      dropped: sanitized.dropped,
+      project: { ...project, workspace: normalizeImportedWorkspace(sanitized.workspace) },
+    }
+  }
+
+  if (isWorkspacePayload(parsed)) {
+    return accept(parsed, {
       id: makeProjectId(),
       name: derivedName,
       createdAt: now,
       updatedAt: now,
-      workspace: normalizeImportedWorkspace(parsed),
-    }
+    })
   }
 
   if (!parsed || typeof parsed !== 'object') {
     throw new Error('Invalid project file')
   }
 
-  const candidate = parsed as Partial<SavedProject> & { workspace?: PersistedWorkspace }
-  if (!isWorkspace(candidate.workspace)) {
-    throw new Error('Invalid project file')
-  }
-
-  return {
+  const candidate = parsed as Partial<SavedProject> & { workspace?: unknown }
+  return accept(candidate.workspace, {
     id: typeof candidate.id === 'string' && candidate.id.trim() ? candidate.id : makeProjectId(),
     name: trimProjectName(typeof candidate.name === 'string' ? candidate.name : derivedName) || derivedName,
     createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
-    workspace: normalizeImportedWorkspace(candidate.workspace),
     uploadTarget: normalizeUploadTarget(candidate.uploadTarget),
-  }
+  })
 }
 
 export async function openProjectWithNativePicker(): Promise<{ file: File; fallbackName: string } | null> {

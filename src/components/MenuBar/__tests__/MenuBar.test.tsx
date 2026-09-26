@@ -959,7 +959,8 @@ describe('MenuBar file menu', () => {
     await waitFor(() => expect(useUiStore.getState().appDialog?.kind).toBe('prompt'))
     const dialog = useUiStore.getState().appDialog
     expect(dialog?.message).toContain('Save Project File')
-    expect(dialog && 'initialValue' in dialog ? dialog.initialValue.length : 0).toBeGreaterThan(SHARE_URL_WARN_BYTES)
+    const shareUrl = dialog && 'initialValue' in dialog ? dialog.initialValue : undefined
+    expect(shareUrl?.length ?? 0).toBeGreaterThan(SHARE_URL_WARN_BYTES)
     useUiStore.getState().resolveAppDialog()
   })
 })
