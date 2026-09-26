@@ -414,7 +414,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     name: 'Music Player',
     description: 'Build a live, audio-reactive show from reusable pattern groups, then configure its controls and hardware.',
     completionSteps: [
-      'Specify your board, audio source, and music player hardware in the Hardware bench.',
+      'Specify your board, audio source, and music player hardware on the Hardware tab.',
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Add at least two pattern groups, then tune the Music Player timing and controls.',
       'Check the hardware GPIOs and capacity before uploading the sketch from the LED output.',
@@ -434,7 +434,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'amp', type: 'Amplifier', col: 3, row: 1 },
       tutorialNote(
         'guide', -1, 0,
-        'BUILD A SHOW \nSpecify your board, audio source and music player hardware from the hardware bench below then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
+        'BUILD A SHOW \nSpecify your board, audio source and music player hardware on the Hardware tab, then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
         TRY_COLOR,
       ),
     ],
@@ -456,7 +456,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       'Drop songs into Music Library and run analysis to create timed show files.',
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
-      'Check the SD Card and Amplifier pins in the hardware view — swap the MAX98357A for your own module if it differs — then upload the show from the Upload tab.',
+      'Check the SD Card and Amplifier pins on the Hardware tab — swap the MAX98357A for your own module if it differs — then upload the show from the Upload tab.',
     ],
     nodeSpecs: [
       { id: 'lib', type: 'MusicLibrary', col: 0, row: 0 },
@@ -503,8 +503,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     name: 'Dimmer and Blackout',
     description: 'A knob and a button on the bench dimming and blacking out the LEDs — no player, no card, just wires.',
     completionSteps: [
-      'Set the potentiometer and button GPIOs in the Hardware bench, and the LED output pin and size.',
-      'Turn the knob in the hardware bench to watch the preview dim, and press the button to black it out.',
+      'Set the potentiometer and button GPIOs on the Hardware tab, and the LED output pin and size.',
+      'Turn the knob on the Hardware tab to watch the preview dim, and press the button to black it out.',
       'Swap Plasma for any pattern you like — the dimming wires do not care what is being rendered.',
       'Check capacity, then upload; the same two controls work on the board.',
     ],
@@ -539,7 +539,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     completionSteps: [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Add a few pattern groups so there is something to browse between.',
-      'Set the encoder and OLED GPIOs in the Hardware bench, then turn to highlight and press to confirm.',
+      'Set the encoder and OLED GPIOs on the Hardware tab, then turn to highlight and press to confirm.',
       'Check capacity — a browser bakes a thumbnail per pattern into flash — then upload.',
     ],
     nodeSpecs: [
@@ -577,7 +577,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     name: 'Player Buttons and Screen',
     description: 'Three buttons driving the music player, and an OLED reporting the track it is playing.',
     completionSteps: [
-      'Specify your board, SD card and amplifier in the Hardware bench, and the three button GPIOs.',
+      'Specify your board, SD card and amplifier on the Hardware tab, and the three button GPIOs.',
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Set the OLED GPIOs; the panel reads the player’s one Display wire, not a port per field.',
       'Check the hardware GPIOs and capacity, then upload the player sketch from the LED output.',
@@ -628,7 +628,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     completionSteps: [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Add a few pattern groups and set the interval and order on the Pattern Slideshow.',
-      'Optionally add a Microphone or Line Input in the Hardware bench and turn on audio reactivity.',
+      'Optionally add a Microphone or Line Input on the Hardware tab and turn on audio reactivity.',
       'Check the LED output pins and capacity, then upload the sketch.',
     ],
     nodeSpecs: [

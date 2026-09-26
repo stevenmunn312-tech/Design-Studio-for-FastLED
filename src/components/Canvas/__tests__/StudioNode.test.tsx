@@ -589,7 +589,7 @@ describe('StudioNode', () => {
   it('shows an honest empty state when Audio has no attached source', () => {
     const { getByText, getByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
     expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
-    expect(getByText('Add a microphone in the Hardware bench below to enable.')).toBeTruthy()
+    expect(getByText('Add a microphone on the Hardware tab to enable.')).toBeTruthy()
     const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
     expect(source.value).toBe('kind:microphone')
     expect([...source.options].map((option) => option.text)).toEqual([
@@ -608,7 +608,7 @@ describe('StudioNode', () => {
     fireEvent.change(source, { target: { value: 'kind:microphone' } })
     await waitFor(() => expect(source.value).toBe('kind:microphone'))
     expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
-    expect(getByText('Add a microphone in the Hardware bench below to enable.')).toBeTruthy()
+    expect(getByText('Add a microphone on the Hardware tab to enable.')).toBeTruthy()
 
     const selectedAudio = useGraphStore.getState().nodes.find((node) => node.id === audio.id)!
     const mic = { ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone' }), id: 'mic' } as StudioNodeT

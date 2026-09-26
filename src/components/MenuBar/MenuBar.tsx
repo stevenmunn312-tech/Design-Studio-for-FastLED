@@ -193,7 +193,7 @@ export default function MenuBar() {
   const micUnavailableMessage = audioSourceKind === 'decoder'
     ? 'Audio source is set to Audio Decoder. Preview listens to the in-app music player.'
     : !hasMicNode && !hasLineInputNode
-    ? 'Add a microphone in the Hardware bench below to enable'
+    ? 'Add a microphone on the Hardware tab to enable'
     : !selectedBoardProfile
       ? MIC_NO_BOARD_MESSAGE
       : hasLineInputNode && !lineInputSupported

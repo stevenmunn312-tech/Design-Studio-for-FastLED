@@ -109,7 +109,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Match your LEDs.</strong> In the lower <strong>Hardware</strong> workbench, click the LED matrix to configure its wiring. Use the LED output node above for size, layout, routing, and rendering. Together these settings control the preview and generated firmware.
+              <strong>Match your LEDs.</strong> On the <strong>Hardware</strong> tab, click the LED matrix to configure its wiring. Use the LED output node on the <strong>Graph</strong> tab for size, layout, routing, and rendering. Together these settings control the preview and generated firmware.
             </div>
           </div>
           <div className={styles.step}>
@@ -222,7 +222,7 @@ function QuickStartTab() {
         <div className={styles.choiceGrid}>
           <div className={styles.choiceCard}>
             <strong>Plan the physical build</strong>
-            <span>Open <strong>View → Build Diagram</strong> for a wiring workspace built from your graph: a scale controller with its real pin map, power distribution and fuses, a parts list and connection list you can export as CSV, the diagram itself as SVG, and paginated print sheets for the bench.</span>
+            <span>Open the <strong>Build Diagram</strong> tab for a wiring workspace built from your graph: a scale controller with its real pin map, power distribution and fuses, a parts list and connection list you can export as CSV, the diagram itself as SVG, and paginated print sheets for the bench.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Record the preview</strong>
@@ -234,7 +234,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Drive several outputs</strong>
-            <span>Use <strong>Add Hardware → LED outputs</strong> to add separate LED routes from one board. Each has its own pins, size, layout, and render options; master brightness and power remain controller-wide Board settings. Click an output in the workbench to choose which route the side preview shows.</span>
+            <span>Use <strong>LED outputs</strong> in the Hardware shelf to add separate LED routes from one board. Each has its own pins, size, layout, and render options; master brightness and power remain controller-wide Board settings. Click an output on the Hardware tab to choose which route the side preview shows.</span>
           </div>
         </div>
         <div className={styles.note}>
@@ -253,7 +253,7 @@ function QuickStartTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>Music-synced SD show</strong>
-            <span>Drop tracks into Music Library — they analyse as they land — build the timeline in Performance Generator, add an <strong>SD Card</strong> part in the hardware view, then <strong>Upload</strong>. That writes the songs and shows to the card and flashes the player.</span>
+            <span>Drop tracks into Music Library — they analyse as they land — build the timeline in Performance Generator, add an <strong>SD Card</strong> part on the Hardware tab, then <strong>Upload</strong>. That writes the songs and shows to the card and flashes the player.</span>
           </div>
           <div className={styles.choiceCard}>
             <strong>Physical controls</strong>
@@ -271,7 +271,7 @@ function HardwareTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>The hardware workbench</div>
         <div className={styles.lede}>
-          The lower pane is the physical side of the project. It shows the selected board and the parts connected to it at a shared real-world scale; the graph above shows the signal path that makes those parts useful.
+          The <strong>Hardware</strong> tab is the physical side of the project. It shows the selected board and the parts connected to it at a shared real-world scale; the <strong>Graph</strong> tab shows the signal path that makes those parts useful.
         </div>
         <div className={styles.steps}>
           <div className={styles.step}>
@@ -283,7 +283,7 @@ function HardwareTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              <strong>Add what is on the bench.</strong> Use <strong>Add Hardware</strong> for inputs and sensors, storage, amplifiers or DACs, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels. Studio assigns suitable starting pins where the board profile knows them.
+              <strong>Add what is on the bench.</strong> Use the <strong>Hardware shelf</strong> in the left panel for inputs and sensors, storage, amplifiers or DACs, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels. Studio assigns suitable starting pins where the board profile knows them.
             </div>
           </div>
           <div className={styles.step}>
@@ -295,7 +295,7 @@ function HardwareTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>4</div>
             <div className={styles.stepText}>
-              <strong>Connect the signal.</strong> Inputs, sensors, clocks, and LED outputs also appear as nodes in the graph. Wire those nodes normally. Board, SD Card, and amplifier/DAC parts stay only in the workbench because they carry configuration rather than a graph signal.
+              <strong>Connect the signal.</strong> Inputs, sensors, clocks, and LED outputs also appear as nodes in the graph. Wire those nodes normally. Board, SD Card, and amplifier/DAC parts stay only on the Hardware tab because they carry configuration rather than a graph signal.
             </div>
           </div>
           <div className={styles.step}>
@@ -312,13 +312,13 @@ function HardwareTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>One component, two views</div>
         <div className={styles.definitionGrid}>
-          <div><strong>Hardware view</strong><span>Owns which physical parts exist, their exact module variants, board attachment, and wiring assignments.</span></div>
+          <div><strong>Hardware tab</strong><span>Owns which physical parts exist, their exact module variants, board attachment, and wiring assignments.</span></div>
           <div><strong>Graph view</strong><span>Owns signal flow. A microphone, sensor, RTC, or LED output appears here because it sends or receives data.</span></div>
           <div><strong>LED output node</strong><span>Owns composition-facing choices such as dimensions, frame route, physical layout, colour correction, dithering, and supersampling.</span></div>
           <div><strong>Board settings</strong><span>Apply once to every output: master brightness, clockless LED overclock, power cap, PSRAM policy, and—in supported ESP32 builds—serial routing.</span></div>
         </div>
         <div className={styles.note}>
-          Delete or Backspace disconnects a hardware-managed node while leaving the physical part on the bench. To remove both views, use <strong>Delete</strong> in the node's right-click menu, or right-click the part in the hardware workbench and choose <strong>Remove</strong>.
+          Delete or Backspace disconnects a hardware-managed node while leaving the physical part on the bench. To remove both views, use <strong>Delete</strong> in the node's right-click menu, or right-click the part on the Hardware tab and choose <strong>Remove</strong>.
         </div>
       </div>
 
@@ -341,7 +341,7 @@ function HardwareTab() {
           </div>
           <div className={styles.choiceCard}>
             <strong>True-scale view</strong>
-            <span>Use −, +, and Fit to navigate the bench. Drag the horizontal divider to give the graph or hardware more room; the arrangement and zoom are preserved.</span>
+            <span>Use −, +, and Fit to navigate the bench. The Hardware tab has the whole canvas, and its arrangement and zoom are kept while you work on other tabs.</span>
           </div>
         </div>
       </div>
@@ -349,9 +349,9 @@ function HardwareTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Hardware view versus Build Diagram</div>
+        <div className={styles.sectionTitle}>Hardware tab versus Build Diagram</div>
         <div className={styles.text}>
-          The workbench answers <em>what is connected to this board?</em> Its links are automatic and are not a wiring plan. <strong>View → Build Diagram</strong> answers <em>how should I assemble it?</em> with pin-level connections, power distribution, fuses, parts and connection lists, SVG export, and printable sheets.
+          The Hardware tab answers <em>what is connected to this board?</em> Its links are automatic and are not a wiring plan. The <strong>Build Diagram</strong> tab answers <em>how should I assemble it?</em> with pin-level connections, power distribution, fuses, parts and connection lists, SVG export, and printable sheets.
         </div>
         <div className={styles.note}>
           Profiled and catalogued hardware is still not a support promise. Graph Health reports compatibility issues, while the beta support matrix records the exact board, peripheral, LED, operating-system, browser, engine, and workflow combinations tested on real hardware.
@@ -515,7 +515,7 @@ function DisplaysTab() {
           A touch panel is two chips: the screen, and a digitiser sitting over the glass reading where your finger is. So it arrives as two nodes.
         </div>
         <div className={styles.text}>
-          Add a touch-capable panel from <strong>Add Hardware → Displays</strong> and you get the <strong>Display Panel</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
+          Add a touch-capable panel from <strong>Displays</strong> in the Hardware shelf and you get the <strong>Display Panel</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
         </div>
         <div className={styles.text}>
           The Touch node has a compact <strong>Controls</strong> output and, when the fixed presentation has controls, named outputs for the same jobs. A <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip; a <strong>Now Playing</strong> screen gives play/pause and volume. Wire a named action directly to the thing that owns it, or send the bundle through <strong>Control Map</strong> when you want one cable or continuous volume.
@@ -646,7 +646,7 @@ function UploadTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>2</div>
             <div className={styles.stepText}>
-              Select the workbench&apos;s <strong>Upload</strong> tab. Check <strong>Getting to your board</strong> and <strong>Build tools &amp; port</strong>, and run <strong>Check capacity</strong> for a measured flash/RAM result. Resolve blocking items before continuing.
+              Open the <strong>Upload</strong> tab. Check <strong>Getting to your board</strong> and <strong>Build tools &amp; port</strong>, and run <strong>Check capacity</strong> for a measured flash/RAM result. Resolve blocking items before continuing.
             </div>
           </div>
           <div className={styles.step}>
@@ -693,7 +693,7 @@ function UploadTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Music-synced SD show</div>
         <div className={styles.text}>
-          Add an <strong>SD Card</strong> part in the hardware view, then build a timeline with Music Library and Performance Generator. Upload flashes a dedicated player sketch that reads the card, rather than the normal sketch — keep ordinary generative shows on the normal <strong>Upload</strong> path.
+          Add an <strong>SD Card</strong> part on the Hardware tab, then build a timeline with Music Library and Performance Generator. Upload flashes a dedicated player sketch that reads the card, rather than the normal sketch — keep ordinary generative shows on the normal <strong>Upload</strong> path.
         </div>
         <div className={styles.text}>
           Songs reach the card one of two ways. By default they go over USB serial, which is reliable everywhere but takes minutes per track. Tick <strong>Card reader available</strong> and Studio pauses to ask you to move the card to a reader, writes the files directly, and asks for it back before flashing — seconds instead of minutes. Either way, a song already on the card at the same size is skipped, so re-uploading a changed show does not re-send the music.

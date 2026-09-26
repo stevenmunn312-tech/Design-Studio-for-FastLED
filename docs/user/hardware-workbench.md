@@ -1,12 +1,13 @@
 # Hardware workbench guide
 
-The `Hardware` branch uses one project model in two coordinated views. The
-lower workbench shows the physical rig; the graph above shows its signal flow.
-This guide describes the current implementation.
+Studio shows one project in four tabs: **Hardware**, **Graph**, **Upload**
+and **Build Diagram**. The Hardware tab is the workbench, showing the physical
+rig; the Graph tab shows its signal flow. This guide describes the current
+implementation.
 
 ## Start with the board
 
-Click the board in the workbench and choose its family and exact physical
+Click the board on the Hardware tab and choose its family and exact physical
 profile. A profile identifies the headers and fitted hardware, whereas an FQBN
 can identify only a chip family or build target. The eye button opens the
 reviewed pinout for the selected profile.
@@ -26,7 +27,8 @@ an unknown device falls back to UART unless the user overrides it.
 
 ## Add the parts that exist
 
-Use **Add Hardware** in the workbench. The current categories are:
+Use the **Hardware shelf** in the Hardware tab's left panel. The current
+categories are:
 
 - **Inputs** — microphone, PCM1802 line-in ADC, button, button bank,
   demodulating IR receiver, potentiometer, encoder, PIR motion sensor,
@@ -114,7 +116,7 @@ until the support matrix records it on a real board.
 
 ### Add an IR remote receiver
 
-Choose **Add Hardware → Inputs → IR Receiver**, then choose the exact receiver
+Open **Inputs → IR Receiver** in the Hardware shelf, then choose the exact receiver
 you own. The module choice is electrical, not cosmetic: a KY-022 breakout puts
 supply on its centre pin, while a bare TSOP38238 puts ground there. KY-022
 clones can also swap their outer signal and ground pins, so check the board's
@@ -259,7 +261,7 @@ each as the object a user buys. Configuration is split by responsibility:
 - the Board owns master brightness and power policy shared by every output.
 
 Each output renders in its own physical shape in the graph and workbench. Click
-an output in the workbench to make it the route displayed in the side preview.
+an output on the Hardware tab to make it the route displayed in the side preview.
 
 For an LED Corkscrew, set the chain length, number of turns, LED 0 angle,
 winding direction, cylinder diameter, and finished height. Studio authors the
@@ -302,8 +304,8 @@ and an OLED showing what you are about to play).
 
 ## Add and connect a display
 
-Choose **Add Hardware → Displays**, then choose the exact module you need from
-the menu. Select the added part in the workbench to configure its GPIO. The
+Open **Displays** in the Hardware shelf, then choose the exact module you need.
+Select the added part on the Hardware tab to configure its GPIO. The
 [display reference](../reference/displays.md) lists the available modules,
 connections, and build limitations. An unlisted controller, resolution, or
 touch module is unsupported; choosing a similar-looking part does not make its
@@ -391,19 +393,20 @@ not close those checks.
 
 ## Navigate the workbench
 
-Drag the horizontal divider to rebalance graph and hardware space. Use **−**,
-**+**, and **Fit** to navigate the true-scale arrangement. Studio preserves the
-hardware view anchor while the layout changes so the part being inspected does
+The Hardware tab has the whole canvas to itself. Use **−**, **+**, and
+**Fit** to navigate the true-scale arrangement. Studio keeps the view anchored
+when the window or side panels change size, so the part being inspected does
 not jump away.
 
 The workbench is not the Build Diagram. Its automatic links answer “what is
-connected to this board?” Open **View → Build Diagram** for pin-level wiring,
+connected to this board?” Open the **Build Diagram** tab for pin-level wiring,
 power distribution, fusing, a parts list, connection CSV, SVG export, and print
 sheets.
 
 ## Upload and inspect output
 
-Select the lower pane's **Upload** tab. It contains:
+Open the **Upload** tab. Its left panel holds the controls and the canvas holds
+the console:
 
 - the guided setup wizard and Board/Port control;
 - **Getting to your board**: the steps from your patch to the board

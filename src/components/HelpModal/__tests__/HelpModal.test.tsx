@@ -211,7 +211,7 @@ describe('HelpModal session state', () => {
     expect(view.getByText('The hardware workbench')).toBeTruthy()
     expect(view.getByText('One component, two views')).toBeTruthy()
     expect(view.getByText('Changing boards and pins')).toBeTruthy()
-    expect(view.getByText('Hardware view versus Build Diagram')).toBeTruthy()
+    expect(view.getByText('Hardware tab versus Build Diagram')).toBeTruthy()
     expect(view.getByText(/Delete or Backspace disconnects a hardware-managed node/)).toBeTruthy()
     expect(view.getByText(/embedded Output\/Serial console/)).toBeTruthy()
   })

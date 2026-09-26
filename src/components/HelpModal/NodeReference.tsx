@@ -548,7 +548,7 @@ function buildMusicRecipe(node: NodeDefinition): ExampleRecipe {
     edges: [
       { from: 'target', to: 'perf' },
     ],
-    explanation: `${node.label} feeds analysed music straight into Performance Generator, which builds the timed show. The SD Card part is added in the hardware view rather than wired here — Upload writes the songs and shows to the card and flashes the player.`,
+    explanation: `${node.label} feeds analysed music straight into Performance Generator, which builds the timed show. The SD Card part is added on the Hardware tab rather than wired here — Upload writes the songs and shows to the card and flashes the player.`,
     result: 'An analysed music library ready for show generation.',
   }
 }
@@ -627,7 +627,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
           { from: 'patterns', to: 'target' },
           { from: 'transitions', to: 'target' },
         ],
-        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files; watch the generated show in this node's own player, then add an SD Card part in the hardware view and Upload to write the card and flash the player.`,
+        explanation: `${node.label} turns a direct music input plus a selected Pattern Collection into timed show files; watch the generated show in this node's own player, then add an SD Card part on the Hardware tab and Upload to write the card and flash the player.`,
         result: 'A full offline music-show build stage for SD export.',
       }
     case 'PatternCollection':

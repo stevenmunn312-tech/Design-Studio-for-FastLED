@@ -1190,7 +1190,7 @@ export function findShowRequirementErrors(
   // build, and the graph would fall through to an ordinary sketch — which has
   // no case for this node, so the LEDs would simply stay dark.
   if (!nodes.some((node) => node.data.nodeType === 'SDCard')) {
-    errors.push('The music show has no SD Card — add one in the hardware view, since the player reads the song and the timed show file from the card at runtime')
+    errors.push('The music show has no SD Card — add one on the Hardware tab, since the player reads the song and the timed show file from the card at runtime')
   }
 
   // Nothing on the bench turns the decoded song into sound. The board's own
@@ -1200,7 +1200,7 @@ export function findShowRequirementErrors(
   // board *could* do meant a graph with no audio module at all still generated
   // a confident I2S sketch (or a DAC one) for hardware nobody had described.
   if (!hasAudioOutputStage(nodes)) {
-    errors.push('The music show has nothing to play the song through — add an Amplifier in the hardware view (a MAX98357A drives a speaker directly; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers)')
+    errors.push('The music show has nothing to play the song through — add an Amplifier on the Hardware tab (a MAX98357A drives a speaker directly; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers)')
   } else if (audioOutputMissing(nodes, selectedFqbn)) {
     errors.push('The SD show\'s power amplifier has nothing to feed it on this board — with no DAC on the bench it needs the internal DAC, which only the classic ESP32 has. Add a PCM5102A or UDA1334A to feed it')
   }
@@ -2006,7 +2006,7 @@ function showEngineIssues(nodes: StudioNode[], edges: StudioEdge[]): ShowEngineI
       title: `Music Player has no music to play — this build is missing ${missing}`,
       message: 'A Music Player decodes audio from a card and drives an amplifier. Without both, '
         + 'the build has no decoder, and the sketch renders this node as a black fill.',
-      fix: 'Add the missing part in the Hardware bench, or swap the Music Player for a '
+      fix: 'Add the missing part on the Hardware tab, or swap the Music Player for a '
         + 'Pattern Slideshow, which runs the same collection on a timer and needs neither.',
       nodeIds: [master.id],
       nodeLabel: nodeLabel(master),
@@ -3598,7 +3598,7 @@ export function buildGraphDiagnostics(
         id: `${generator.id}-show-card`, severity: 'error', category: 'show',
         title: 'The music show has no SD Card',
         message: 'The player reads the song and its timed show file off the card while it runs, so a show without one has nothing to play.',
-        fix: 'Add an SD Card in the hardware view and set its SPI pins.',
+        fix: 'Add an SD Card on the Hardware tab and set its SPI pins.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
       })
     }
@@ -3610,7 +3610,7 @@ export function buildGraphDiagnostics(
         id: `${generator.id}-show-audio`, severity: 'error', category: 'show',
         title: 'The music show has nothing to play the song through',
         message: 'Nothing on the bench turns the decoded song into sound, so the player has no audio hardware to generate code for.',
-        fix: 'Add an Amplifier in the hardware view. A MAX98357A drives a speaker straight off I2S; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers.',
+        fix: 'Add an Amplifier on the Hardware tab. A MAX98357A drives a speaker straight off I2S; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
       })
     } else if (audioOutputMissing(nodes, options.selectedFqbn ?? '')) {
@@ -3619,7 +3619,7 @@ export function buildGraphDiagnostics(
         id: `${amplifier.id}-audio-out`, severity: 'error', category: 'board',
         title: 'Nothing feeds this power amplifier on this board',
         message: 'A power amplifier takes line level. With no DAC on the bench that has to come from the internal DAC, and only the classic ESP32 has one.',
-        fix: 'Add a PCM5102A or UDA1334A in the hardware view to feed it, or choose a classic ESP32.',
+        fix: 'Add a PCM5102A or UDA1334A on the Hardware tab to feed it, or choose a classic ESP32.',
         nodeIds: [amplifier.id], nodeLabel: nodeLabel(amplifier),
       })
     }

@@ -1200,14 +1200,14 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
       <div className={styles.scroll}>
         {hardwareMatches.length > 0 && (
           <div className={styles.hardwareMatches}>
-            <p className={styles.hardwareMatchesLead}>In the Hardware bench</p>
+            <p className={styles.hardwareMatchesLead}>On the Hardware tab</p>
             {hardwareMatches.map((def) => (
               <button
                 key={def.type}
                 type="button"
                 className={styles.hardwareMatch}
                 onClick={() => openHardwareShelf(def.type)}
-                title={`${def.label} is added from the Hardware bench`}
+                title={`${def.label} is added from the Hardware tab`}
               >
                 <span className={styles.hardwareMatchName}>{def.label}</span>
                 <span className={styles.hardwareMatchHint}>Added from Hardware &rarr;</span>

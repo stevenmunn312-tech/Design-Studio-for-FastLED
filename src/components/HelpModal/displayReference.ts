@@ -12,7 +12,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
       'Choose the exact TM1637 four-digit module with a colon or MAX7219 eight-digit module without a colon. Other controllers and digit arrangements are unsupported.',
     ],
     steps: [
-      'Use Add Hardware → Displays to add the module. Select it in the workbench to choose its identity and GPIO wiring, then use Show in graph if its node is hidden.',
+      'Add the module from Displays in the Hardware shelf. Select it on the Hardware tab to choose its identity and GPIO wiring, then use Show in graph if its node is hidden.',
       'Connect RTC Clock, Music Player, Pattern Slideshow, or an LED output using the Display socket. A raw number or Format Number string belongs on a custom-screen readout instead.',
       'Set brightness and digit formatting on the graph node. Check Graph Health and the generated build before upload; a module appearing in the catalogue does not establish physical validation for your board.',
     ],
@@ -24,7 +24,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
       'Choose the exact SH1106 or SSD1306 module in Hardware. SH1106 is offered in SPI and I²C variants; SSD1306 uses I²C. Match the module’s header and identity, since the same controller can use different wiring. An unlisted OLED is unsupported even if its size looks similar.',
     ],
     steps: [
-      'Add the OLED through Add Hardware → Displays and select its exact module in the workbench. Configure the active module’s pins; an I²C module also needs the correct address.',
+      'Add the OLED from Displays in the Hardware shelf and select its exact module on the Hardware tab. Configure the active module’s pins; an I²C module also needs the correct address.',
       'Connect the source’s Display output to Info Display. Pattern Slideshow owns the pattern selection; the OLED only reports it. Route physical browsing controls to the slideshow’s named action inputs, or through Control Map when you want one compact bundle. An LED output reports its own name, on/blackout state and level.',
       'Choose rotation on the graph node, resolve Graph Health issues, and check the build. Firmware thumbnails are baked at export, so regenerate and upload when the collection changes.',
     ],
@@ -37,7 +37,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
       'Choose the non-touch ST7789 1.54-inch 240×240 module or the ST7789V 2.4-inch 240×320 module with XPT2046 touch. Other TFT and touch controllers are unsupported.',
     ],
     steps: [
-      'Add Display panel through Add Hardware → Displays. Set its exact module and wiring in the workbench, including the touch header when present. Set layout and rotation on the graph node.',
+      'Add Display panel from Displays in the Hardware shelf. Set its exact module and wiring on the Hardware tab, including the touch header when present. Set layout and rotation on the graph node.',
       'For a fixed music screen, connect Music Player Display → Display Panel Display. Bound custom widgets read a field of that same source from the inspector’s Reads row. Use Song Info only when you genuinely need one field on a cable.',
       'For fixed music touch, wire named Touch outputs such as Play / Pause directly to matching Music Player action inputs, or send Touch Controls through Control Map when you need the compact bundle, chaining, or repeat settings. Volume is a direct Music Player property input. Clock and Show Status are read-only. A custom screen publishes its individual widget outputs on the companion Touch node. Connect template controls draws the obvious wires without overriding yours.',
       'For a panel self-test, choose Diagnostics in the panel’s layout menu. It overrides a screen design as well as the fixed layouts, so there is nothing to disconnect first. Upload to check the physical panel and mapped touch coordinates; browser touches are only a simulation. Select the previous layout to restore your content.',

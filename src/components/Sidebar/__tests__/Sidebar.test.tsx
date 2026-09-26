@@ -82,9 +82,9 @@ describe('Sidebar equipment rack', () => {
     const { getByPlaceholderText, getByText } = render(<Sidebar />)
     fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: 'button' } })
 
-    expect(getByText('In the Hardware bench')).toBeTruthy()
+    expect(getByText('On the Hardware tab')).toBeTruthy()
     // Both Button and Button Bank live on the bench; take the first.
-    const shelf = getByText('In the Hardware bench').parentElement!
+    const shelf = getByText('On the Hardware tab').parentElement!
     fireEvent.click(shelf.querySelectorAll('button')[0])
     expect(useUiStore.getState().workspaceMode).toBe('hardware')
     expect(useUiStore.getState().sidebarOpen).toBe(true)

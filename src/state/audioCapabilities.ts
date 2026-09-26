@@ -148,14 +148,14 @@ export function audioCapabilityOptions(nodes: readonly StudioNode[]): AudioCapab
       value: audioCapabilityIntent('microphone'),
       label: 'Microphone',
       source: source('microphone'),
-      unavailableHint: 'Add a microphone in the Hardware bench below to enable.',
+      unavailableHint: 'Add a microphone on the Hardware tab to enable.',
     },
     {
       kind: 'line-in',
       value: audioCapabilityIntent('line-in'),
       label: 'Line Input',
       source: source('line-in'),
-      unavailableHint: 'Add a PCM1802 line input in the Hardware bench below to enable.',
+      unavailableHint: 'Add a PCM1802 line input on the Hardware tab to enable.',
     },
     {
       kind: 'decoder',

@@ -173,7 +173,7 @@ describe('MenuBar file menu', () => {
 
     expect(getByRole('button', { name: 'Toggle Stage View' }).getAttribute('aria-pressed')).toBe('true')
     expect(getByRole('button', { name: 'Toggle 3D preview' })).toBeTruthy()
-    expect(getByRole('button', { name: 'Add a microphone in the Hardware bench below to enable' }).textContent).toBe('Mic Off')
+    expect(getByRole('button', { name: 'Add a microphone on the Hardware tab to enable' }).textContent).toBe('Mic Off')
   })
 
   it('groups live tools under short labels whose names and tooltips state each purpose', () => {
