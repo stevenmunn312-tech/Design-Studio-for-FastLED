@@ -82,7 +82,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   to.
 - The player owns which pattern is playing, not the panel: `PatternMaster` keeps
   one `PatternSelectionState` per instance (`patternSelectionState` in
-  `graphEvaluator.ts`) and passes it into `evalPatternShow`, so the show's own
+  `src/nodes/show/evaluate.ts`) and passes it into `evalPatternShow`, so the show's own
   advance and a user confirm move the same cursor. Physical intent becomes
   selection through the `PlayerControls` node — its
   `patternSelect`/`patternPrevious`/`patternNext`/`patternConfirm` inputs feed
@@ -185,8 +185,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `nodeLibrary.ts`, which maps an output's `form` through
   `LED_OUTPUT_FORM_LABELS`. So a status panel on an LED String reported "LED
   Matrix", on every evaluation, not just once. Both readers of a status title —
-  `graphEvaluator.ts`'s LED output status case and `cppGenerator.ts`'s status
-  emission — must resolve it through `nodeDisplayLabel` rather than
+  the LED output's evaluator (`src/nodes/output/evaluate.ts`) and
+  `cppGenerator.ts`'s `ledStatusEmit` — must resolve it through `nodeDisplayLabel` rather than
   `node.data.label`; a status panel's second row is `ledStatusCountText`
   (`ledOutputRuntime.ts`), count only, since the name is now correctly derived
   and doesn't need repeating. A third reader had the same bug:
@@ -237,10 +237,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   system, or per-frame state — that contract is why the 3D styles needed no new
   plumbing (a perspective divide is the same shape as `zoom`'s linear scale). A
   style is spread across five registration sites and missing one fails quietly
-  and differently each time: `graphEvaluator.ts`'s `compositeTransition`
+  and differently each time: `src/nodes/show/evaluate.ts`'s `compositeTransition`
   (browser preview, falls through to crossfade if missing),
   `transitionHelperCpp.ts`'s `TRANSITION_HELPER_CPP` (show generator and SD
-  player), `cppGenerator.ts`'s `Transition` node arm (normal sketch),
+  player), the `Transition` emitter in `src/nodes/show/codegen.ts` (normal sketch),
   `performanceGenerator.ts`'s `TRANSITION_IDS` (numeric id), and
   `nodeLibrary.ts`'s `PROPERTY_META.transitionType` (option list/labels).
   `PROPERTY_META.transitionType.options` and `SHOW_TRANSITIONS` must hold the
@@ -296,7 +296,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   every browser producer of `leftLevel`/`rightLevel` (live capture, decoder
   preview, baked envelope), and `src/codegen/stereoLevelCpp.ts`'s
   `vuNormalizedLevelCpp` emits the matching C++ from those same constants.
-  `cppGenerator.ts`'s PCM1802 capture and `playerSketchGenerator.ts`'s decoder
+  `audioEngineCpp.ts`'s PCM1802 capture and `playerSketchGenerator.ts`'s decoder
   tap both call that one emitter instead of measuring raw RMS themselves — the
   decoder tap read roughly four times lower than every other producer of
   `_audioLeftLevel`/`_audioRightLevel` before this emitter existed, because it

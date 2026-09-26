@@ -15,7 +15,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   register it in each: `hardware.ts` (both ownership sets), `partOptions.ts`
   (the exact module), `nodeLibrary.ts` `GPIO_PIN_PROPERTIES`, `busTopology.ts`
   `BUS_ASSIGNMENTS`, `hardwareManifest.ts` `collectPinUses`, `pinRetarget.ts`
-  `PART_PIN_PLANS`, `HardwarePane.tsx` `FIXTURE_PARTS`, `playerDisplays.ts`
+  `PART_PIN_PLANS`, `hardwarePartCatalog.ts` `FIXTURE_PARTS`, `playerDisplays.ts`
   (`playerDisplaysFromGraph`'s per-type branch, for both template sketches — the
   SD player and the show controller). Missing `PART_PIN_PLANS` costs twice: the
   part keeps the pins of the board being left, and it never enters `claimed`, so
@@ -23,10 +23,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/state/__tests__/hardwareRegistries.test.ts` holds these in step so an
   omission fails there rather than on a bench. Everything else is derived and
   needs no row — the Build Diagram's part list and render table,
-  `cppGenerator.ts` `DISPLAY_TERMINAL_NODE_TYPES`, and `graphEvaluator.ts`
-  `HOT_NODE_TYPES`, the last two from one rule (workbench-owned, carries signal,
-  no outputs) so a display becomes a codegen *and* an evaluation terminal at
-  once. Prefer deriving a registry over adding a row to it; each of those was
+  `cppGenerator.ts` `TERMINAL_NODE_TYPES`, and `graphEvaluator.ts`
+  `HOT_NODE_TYPES`, the last two from one rule (inputs and no outputs, or an
+  output-category node with inputs) so a display becomes a codegen *and* an
+  evaluation terminal at once. Prefer deriving a registry over adding a row to it; each of those was
   forgotten at least once first. Controller quirks (an SH1106's column offset, a
   module's digit count) belong on a controller descriptor, and layout geometry,
   glyph tables and pad positions come from the shared modules and the part
@@ -181,8 +181,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   family — `src/state/tftSurface.ts` (surface primitives),
   `src/state/transportDisplay.ts` (Waiting/Clock/Now Playing/Fixed
   Transport/Show Status layouts), `src/codegen/tftDisplayCpp.ts` (driver) — and
-  `TransportDisplay` is wired end to end: evaluator case in `graphEvaluator.ts`,
-  emit cases in both sketch generators, resolved player displays, controller
+  `TransportDisplay` is wired end to end: its preview in `src/nodes/output/evaluate.ts`,
+  its firmware in both sketch generators, resolved player displays, controller
   lookup, and RAM validation. Artwork is player-owned baked data rather than a
   live `image` input: the collection and active index arrive inside the
   `display` envelope's `player` arm, which carries

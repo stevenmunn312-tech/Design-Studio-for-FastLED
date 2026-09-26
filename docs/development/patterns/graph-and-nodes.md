@@ -88,6 +88,25 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Node authoring and property inputs
 
+- A node's two implementations sit side by side: its preview is a handler in
+  `src/nodes/<category>/evaluate.ts` and its firmware an emitter in the same
+  directory's `codegen.ts`, each in a table keyed by node type.
+  `src/nodes/__tests__/nodeTables.test.ts` holds every type to one table, filed
+  under its library category. A handler gets the pass's `EvalContext`
+  (`src/state/evaluator/types.ts`); an emitter gets the sketch-plus-node
+  `EmitContext` (`src/codegen/emitContext.ts`). Each destructures only what it
+  reads. Per-instance state is declared beside its node as
+  `instanceState('name', new Map())` (`src/state/evaluator/memory.ts`), which
+  is what puts it in the idle sweep and `resetEvaluatorState`; a plain
+  module-level `Map` keyed by `stateKey` leaks. Node and shared evaluator
+  modules must never import `graphEvaluator.ts` or `cppGenerator.ts` back, not
+  even for something those files re-export. The dispatch tables are built while
+  those modules load, so a cycle reads a table before it exists. The failure
+  shows only on an import order that reaches a category module first, which
+  tests that load the evaluator first never exercise. Recursion into a
+  subgraph goes through `ctx.evaluateGraph`. For the same reason `memory.ts`
+  imports only types: state held outside its maps (a Code worker, an
+  AnimARTrix instance) registers a disposer with `onInstanceDisposed`.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared
@@ -236,8 +255,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A property input's `defaultProperties` entry must hold not just *a* default
   but the exact literal the code already falls back to:
   `src/state/__tests__/propertyInputFallbacks.test.ts` reads
-  `graphEvaluator.ts`'s `num(id, 'port', props, 'key', LIT)` and
-  `cppGenerator.ts`'s `f('port', 'key', LIT)` calls straight out of their source
+  the evaluators' `num(id, 'port', props, 'key', LIT)` and the emitters'
+  `f('port', 'key', LIT)` calls straight out of `src/nodes/*/evaluate.ts` and
+  `codegen.ts`
   and cross-checks each declared field against both (a plain presence check
   lives separately in `propertyInputs.test.ts`), plus evaluator literal against
   generator literal as a preview/firmware parity check in its own right —

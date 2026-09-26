@@ -74,8 +74,9 @@ If you touched the upload helper, also run `pytest backend/tests`.
 A new node needs four touch-points, enforced by tests:
 
 1. an entry in `src/state/nodeLibrary.ts`;
-2. a `case` in `src/state/graphEvaluator.ts` (live preview);
-3. a `case` in `src/codegen/cppGenerator.ts` (firmware);
+2. a handler in its category's `src/nodes/<category>/evaluate.ts` table (live
+   preview);
+3. an emitter in the same category's `codegen.ts` table (firmware);
 4. a one-line tooltip in `NODE_DESCRIPTIONS`.
 
 Preview and generated firmware must match — when the two can't use identical

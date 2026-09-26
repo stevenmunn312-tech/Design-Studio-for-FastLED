@@ -369,7 +369,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   which records why Blackout and Play/Pause arrive through visible adapter nodes
   rather than direct edges. A `level` control in the bundle (Volume, Brightness)
   reports nothing until a finger has actually moved its widget:
-  `graphEvaluator.ts`'s bundle loop gates a level field on
+  the Touch node's bundle loop (`src/nodes/input/evaluate.ts`) gates a level field on
   `runtime.readDisplayWidget(designId, control.widgetId)?.touchCount > 0`, not
   just presence in the document, because inserting a template (LED Performance's
   Brightness, Now Playing's Volume) used to publish the slider's resting

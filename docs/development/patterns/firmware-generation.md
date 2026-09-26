@@ -15,7 +15,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   generator wrote. `src/codegen/infoDisplayCpp.ts` (`struct OledPanel`),
   `src/codegen/segmentDisplayCpp.ts` (`struct SegDisplay`),
   `src/codegen/patternSelectionCpp.ts` (`struct PatternSel`), and now
-  `cppGenerator.ts` itself (`RTC_CPP_FORWARD` for `struct _RtcDateTime`, guarded
+  `src/codegen/rtcCpp.ts` (`RTC_CPP_FORWARD` for `struct _RtcDateTime`, guarded
   by `emitRtcHelpers` and needed because `_rtcParseBuildStamp`/`_rtcReadDs3231`
   take it by reference) each hold/export a `*_CPP_FORWARD` constant emitted into
   the sketch preamble ahead of the hoisted prototypes by whichever generators

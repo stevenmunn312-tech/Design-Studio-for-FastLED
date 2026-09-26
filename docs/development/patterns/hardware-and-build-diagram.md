@@ -92,7 +92,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   exactly one way to be captured, either an app-owned `capture` adapter or
   FastLED's factory and profile. The one adapter today is the SPH0645LM4H:
   FastLED's ESP32 driver ignores `mCommFormat` and cannot express its timing, so
-  `StudioSph0645Input` in `cppGenerator.ts` applies the published classic-ESP32
+  `StudioSph0645Input` in `audioEngineCpp.ts` applies the published classic-ESP32
   register fix. `micSupportedForBoard(fqbn, partId)` limits it to classic ESP32
   at every check, because the S3 has no documented equivalent. Otherwise a
   module needs both the `fl::audio::Config` factory it needs (`CreateInmp441`,
@@ -100,7 +100,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `fl::audio::MicProfile` member — not every module that happens to wire the
   same way (an analog electret board has no I2S `Config` variant at all, so it
   stays off the list). `partOptions.ts`'s `MicInput` options map over
-  `MIC_MODULES` rather than restating them, and `cppGenerator.ts` resolves
+  `MIC_MODULES` rather than restating them, and `audioEngineCpp.ts` resolves
   `micModuleFor(p.partId)` in `audioEngineForGraph` and threads the chosen
   `MicModule` into `audioEngineCpp`, which calls
   `Config::${micModule.factory}`/`MicProfile::${micModule.profile}` — a fourth
@@ -200,7 +200,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   put the supply rail on a GPIO for half of users. `irReceiverModuleFor(partId)`
   falls back to the shelf's first entry for an unset or stale `partId`,
   mirroring `micModuleFor`'s same rule; `partOptions.ts`'s `IRInput` options and
-  `HardwarePane.tsx`'s `IR_INPUT_PARTS` shelf rows both map over the list rather
+  `hardwarePartCatalog.ts`'s `IR_INPUT_PARTS` shelf rows both map over the list rather
   than restating it. A KY-022 clone's documented outer-pin swap is carried as a
   per-entry `note` rather than averaged away. User-facing operation and repairs
   live in `docs/user/hardware-workbench.md#add-an-ir-remote-receiver`;
