@@ -121,7 +121,8 @@ compile families:
    long-cable bench run is recorded. See
    [hardware nodes](../design/hardware-nodes.md#long-data-runs).
 8. Buck conversion and protected high-side switching in the Build Diagram
-   power model.
+   power model. In progress: see
+   [power conversion and protection](power-conversion-and-protection.md).
 
 ## Definition of done for each addition
 

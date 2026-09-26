@@ -163,6 +163,7 @@ build/architecture overview aimed at contributors.
     acceptance budgets. Tables deliberately empty until measured.
 - [Plans](development/plans/)
   - [Hardware expansion roadmap](development/plans/hardware-expansion-roadmap.md)
+  - [Power conversion and protection](development/plans/power-conversion-and-protection.md) — roadmap step 8: LM2596 controller buck, SD-100 rail converter, eFuse 4 Click
     — prioritised candidate modules for switching, monitoring, sensing,
       networking, power conversion and additional controller profiles, plus
       the evidence and safety gates required before any item is supported.
