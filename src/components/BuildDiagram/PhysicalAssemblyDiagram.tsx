@@ -58,6 +58,9 @@ import {
   peripheralPadPoint,
   peripheralPadRadius,
   DEFAULT_PAD_HOLE_RADIUS,
+  OUTPUT_CARD_HEIGHT,
+  OUTPUT_STRIP_CARD_HEIGHT,
+  outputHasDataExtender,
   peripheralPowerNet,
   peripheralPowerPadIndex,
   peripheralSignalPadIndex,
@@ -1061,11 +1064,20 @@ function InputGraphic({ layout, connections, selected }: { layout: ItemLayout; c
   )
 }
 
+/** Clears the TX DATA caption and the RX wire's turn on either side of the pair's render. */
+const EXTENDER_RENDER_INSET = 40
+
 function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: { layout: ItemLayout; connection?: PhysicalDiagramConnection; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
   const { x, y, width, height, item } = layout
   const presentation = connection ? signalPresentation(connection) : { role: 'data', color: '#24963e' }
   const singleRow = item.facts.form === 'strip'
   const dataOffset = singleRow ? 34 : 66
+  const extender = outputHasDataExtender(item)
+  const baseHeight = singleRow ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
+  const extenderY = y + baseHeight + 8
+  const extenderPartId = extender ? String(item.facts.dataLinkPartId) : ''
+  const extenderRender = extenderPartId ? partRenderSrc(extenderPartId) : null
+  const maxDistanceFeet = Math.round(Number(item.facts.dataLinkMaxDistanceMeters ?? 0) * 3.28084)
   return (
     <g data-output-card={item.id} className={selected ? styles.physicalSelected : undefined}>
       <text x={x + (width / 2)} y={y - 32} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
@@ -1087,11 +1099,59 @@ function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: {
       )}
       {/* Only points down the sheet when the PSU zones are actually on it. */}
       {plan && <text x={x + (width / 2)} y={y + (singleRow ? 88 : plan.operatingCurrentCapMa != null ? 170 : 167)} textAnchor="middle" className={styles.physicalBoardSubSilk}>{plan.recommendedFeedCount} FUSED FEEDS · {powerPlanBelow ? 'PSU PLAN BELOW' : 'SEE POWER SECTION'}</text>}
+      {extender && (
+        <g data-pixel-data-extender={extenderPartId}>
+          <rect x={x + 8} y={extenderY} width={width - 16} height={110} rx="6" fill="#171b1c" stroke="#515759" />
+          <text x={x + (width * 0.36)} y={extenderY + 15} textAnchor="middle" className={styles.physicalPinLabel}>TX</text>
+          <text x={x + (width * 0.64)} y={extenderY + 15} textAnchor="middle" className={styles.physicalPinLabel}>RX</text>
+          {extenderRender && <image
+            data-component-render={extenderPartId}
+            href={extenderRender}
+            x={x + EXTENDER_RENDER_INSET}
+            y={extenderY + 20}
+            width={width - (2 * EXTENDER_RENDER_INSET)}
+            height={58}
+            preserveAspectRatio="xMidYMid meet"
+            className={styles.physicalBoardRender}
+          />}
+          <g data-terminal={`${item.id}-tx-data`} data-signal-role={presentation.role}>
+            <circle cx={x} cy={extenderY + 51} r="6" fill="#d9a14a" />
+            <circle cx={x} cy={extenderY + 51} r={DEFAULT_PAD_HOLE_RADIUS} fill={presentation.color} />
+            <text x={x + 9} y={extenderY + 44} className={styles.physicalPinLabel}>TX DATA</text>
+          </g>
+          <HoverWire
+            tip="Conditioned pixel data · into the NLED transmitter"
+            data-wire={`${item.id}-extender-tx-data`}
+            data-signal-role={presentation.role}
+            d={`M${x} ${extenderY + 51}H${x + EXTENDER_RENDER_INSET}`}
+            className={styles.signalWire}
+            style={{ stroke: presentation.color }}
+          />
+          <HoverWire
+            tip="NLED receiver data out · to LED DIN"
+            data-wire={`${item.id}-extender-rx-data`}
+            data-signal-role={presentation.role}
+            d={`M${x + width - EXTENDER_RENDER_INSET} ${extenderY + 51}H${x + width - 8}V${y + 6}H${x}V${y + dataOffset}`}
+            className={styles.signalWire}
+            style={{ stroke: presentation.color }}
+          />
+          <text x={x + (width / 2)} y={extenderY + 91} textAnchor="middle" className={styles.physicalPinLabel}>
+            A↔A · B↔B · GND↔GND · TWISTED
+          </text>
+          <text x={x + (width / 2)} y={extenderY + 105} textAnchor="middle" className={styles.physicalBoardSubSilk}>
+            {`POWER BOTH ENDS · ${maxDistanceFeet || 1000} FT MAX`}
+          </text>
+        </g>
+      )}
     </g>
   )
 }
 
 function outputDataTerminalY(layout: ItemLayout) {
+  if (outputHasDataExtender(layout.item)) {
+    const baseHeight = layout.item.facts.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
+    return layout.y + baseHeight + 59
+  }
   return layout.y + (layout.item.facts.form === 'strip' ? 34 : 66)
 }
 

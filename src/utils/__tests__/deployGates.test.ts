@@ -183,6 +183,18 @@ const CASES: GateCase[] = [
     diagnostic: 'out-layout-0',
   },
   {
+    name: 'a one-wire pixel data extender on a clocked chipset',
+    nodes: [
+      node('sc', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'APA102', dataPin: 5, clockPin: 6, dataLink: 'NLED Pixel Data Extender' }),
+    ],
+    edges: [edge('e1', 'sc', 'out')],
+    fqbn: S3,
+    blocks: /NLED Pixel Data Extender carries one asynchronous pixel-data line/,
+    names: ['MatrixOutput', 'APA102', 'Direct'],
+    diagnostic: 'out-pixel-data-extender',
+  },
+  {
     name: 'a custom XY map that is not a permutation of the matrix',
     nodes: [
       node('sc', 'SolidColor'),

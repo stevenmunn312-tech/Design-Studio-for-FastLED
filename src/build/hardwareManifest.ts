@@ -45,6 +45,13 @@ import {
   lightSensorTransport,
 } from '../state/lightSensor'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
+import {
+  DIRECT_PIXEL_DATA_LINK,
+  NLED_PIXEL_DATA_EXTENDER_PART_ID,
+  NLED_PIXEL_DATA_LINK,
+  nledPixelDataExtenderSpec,
+  usesNledPixelDataExtender,
+} from '../state/pixelDataExtender'
 
 export interface HardwarePinUse {
   label: string
@@ -446,13 +453,16 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   const { width, height } = outputGridDims(props)
   const pixelCount = outputLedTotal(props)
   const chipset = String(props.chipset ?? 'WS2812B')
+  const dataLink = String(props.dataLink ?? DIRECT_PIXEL_DATA_LINK)
+  const extender = usesNledPixelDataExtender(props) ? nledPixelDataExtenderSpec() : null
   return {
     id: `output:${node.id}`,
     kind: 'matrix-output',
     title: matrixOutputLabel(node, ordinal, count),
-    subtitle: form === 'matrix' || form === 'hub75'
+    subtitle: (form === 'matrix' || form === 'hub75'
       ? `${width}×${height} ${chipset} route`
-      : `${pixelCount}-LED ${chipset} ${form} route`,
+      : `${pixelCount}-LED ${chipset} ${form} route`)
+      + (dataLink === NLED_PIXEL_DATA_LINK ? ' · differential link' : ''),
     sourceNodeId: node.id,
     sourceNodeType: node.data.nodeType,
     supported: BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset),
@@ -465,6 +475,12 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       routeOrdinal: ordinal,
       layout: String(props.layout ?? 'matrix'),
       chipset,
+      dataLink,
+      ...(extender ? {
+        dataLinkPartId: NLED_PIXEL_DATA_EXTENDER_PART_ID,
+        dataLinkMaxDistanceMeters: extender.maxDistanceMeters,
+        dataLinkConductors: extender.pairConductors,
+      } : {}),
       nominalVoltage: nominalVoltageForChipset(chipset),
       desiredCurrentCapMa: powerCapMa,
     },

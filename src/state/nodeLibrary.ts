@@ -26,6 +26,7 @@ import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
+import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './pixelDataExtender'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
@@ -3195,6 +3196,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       corkscrewDiameterMm: 100,
       corkscrewHeightMm: 300,
       chipset: 'WS2812B',
+      // The physical data route only. Firmware still emits the chipset's one
+      // wire signal; the Build Diagram inserts the chosen TX/RX accessory.
+      dataLink: DIRECT_PIXEL_DATA_LINK,
       colorOrder: 'GRB',
       dataPin: 5,
       // Clock pin for SPI (clocked) chipsets — APA102/APA102HD/WS2801/HD108.
@@ -4757,6 +4761,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   MatrixOutput: {
     form: { control: 'select', options: LED_OUTPUT_FORMS },
+    dataLink: { control: 'select', options: [...PIXEL_DATA_LINK_OPTIONS] },
     outputBrightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5289,6 +5294,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   reportTelemetry: 'Prints free heap, PSRAM, frame rate and touch response to Serial every couple of seconds, for the telemetry card in the Upload tab to record. A bench instrument: leave it off for a finished build. ESP32 and ESP8266 only — other boards have no Serial.printf to report with.',
   layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',
   chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/development/design/hub75-output.md.',
+  dataLink: 'How the one-wire pixel signal reaches the LEDs. Direct is ordinary short wiring; NLED Pixel Data Extender inserts its matched TX/RX pair and a twisted A/B/ground run for long distance.',
   form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',
   ledCount: 'How many LEDs are on this physical chain.',
   ringStartAngle: 'Where LED 0 sits on the ring, in degrees clockwise from the top — set it to wherever the data-in pad ended up.',
@@ -5445,6 +5451,7 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   MatrixOutput: {
     outputBrightness: 'brightness',
+    dataLink: 'data link',
   },
   TransportDisplay: {
     tftLayout: 'layout',
@@ -5660,7 +5667,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'corkscrewDiameterMm', 'corkscrewHeightMm',
     ] },
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
-    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
+    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
       'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
       'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75WideScan', 'hub75EPin',
@@ -6348,6 +6355,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     // addLeds<>() — the single data pin, wire colour order, per-pixel
     // serpentine, and clockless-only overclock define all stop applying.
     if (key === 'dataPin' || key === 'colorOrder') return !hub75
+    // Stays editable while it names an extender, so a chipset change that
+    // made the choice invalid can still be undone from the field itself.
+    if (key === 'dataLink') return (!hub75 && !spi) || String(properties.dataLink ?? DIRECT_PIXEL_DATA_LINK) !== DIRECT_PIXEL_DATA_LINK
     // Serpentine zig-zags alternate *rows*, which a one-row form does not have.
     if (key === 'serpentine') return !hub75 && !linear
     // The clock pin only exists on SPI chipsets; FASTLED_OVERCLOCK only applies

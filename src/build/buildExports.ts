@@ -116,17 +116,34 @@ export function buildConnectionRows(
     const channel = (outputIndex % 4) + 1
     const shifter = `74AHCT125 level shifter ${chip}`
     const resistor = `${item.title} 330 ohm data resistor`
+    const extenderPartId = typeof item.facts.dataLinkPartId === 'string' ? item.facts.dataLinkPartId : ''
+    const extenderLabel = extenderPartId ? (partById(extenderPartId)?.label ?? 'Pixel Data Extender TX/RX pair') : ''
     rows.push({ from: controller, fromTerminal: boardTerminal(pin), to: shifter, toTerminal: `A${channel}`, purpose: '3.3 V LED data' })
     rows.push({ from: shifter, fromTerminal: `Y${channel}`, to: resistor, toTerminal: 'Input', purpose: '5 V conditioned LED data' })
-    rows.push({
-      from: resistor,
-      fromTerminal: 'Output',
-      to: item.title,
-      toTerminal: 'DIN',
-      purpose: outputPlan?.operatingCurrentCapMa != null
-        ? `Series-protected LED data; configured FastLED current limit ${outputPlan.operatingCurrentCapMa} mA`
-        : 'Series-protected LED data',
-    })
+    if (extenderPartId) {
+      rows.push({ from: resistor, fromTerminal: 'Output', to: `${item.title} ${extenderLabel} TX`, toTerminal: 'DATA', purpose: 'Series-protected pixel data into transmitter' })
+      rows.push({ from: `${item.title} ${extenderLabel} TX`, fromTerminal: 'A', to: `${item.title} ${extenderLabel} RX`, toTerminal: 'A', purpose: 'Twisted differential conductor A' })
+      rows.push({ from: `${item.title} ${extenderLabel} TX`, fromTerminal: 'B', to: `${item.title} ${extenderLabel} RX`, toTerminal: 'B', purpose: 'Twisted differential conductor B' })
+      rows.push({ from: `${item.title} ${extenderLabel} TX`, fromTerminal: 'GND', to: `${item.title} ${extenderLabel} RX`, toTerminal: 'GND', purpose: 'Twisted common-reference conductor; bond grounds even with separate supplies' })
+      rows.push({ from: logicDistribution, fromTerminal: '+5V bus', to: `${item.title} ${extenderLabel} TX`, toTerminal: '+', purpose: 'Transmitter power' })
+      rows.push({ from: `${item.title} LED-side 5 V distribution`, fromTerminal: '+5V', to: `${item.title} ${extenderLabel} RX`, toTerminal: '+', purpose: 'Receiver power; do not join separate supply positive outputs' })
+      rows.push({
+        from: `${item.title} ${extenderLabel} RX`, fromTerminal: 'DATA', to: item.title, toTerminal: 'DIN',
+        purpose: outputPlan?.operatingCurrentCapMa != null
+          ? `Recovered 5 V pixel data; configured FastLED current limit ${outputPlan.operatingCurrentCapMa} mA`
+          : 'Recovered 5 V pixel data',
+      })
+    } else {
+      rows.push({
+        from: resistor,
+        fromTerminal: 'Output',
+        to: item.title,
+        toTerminal: 'DIN',
+        purpose: outputPlan?.operatingCurrentCapMa != null
+          ? `Series-protected LED data; configured FastLED current limit ${outputPlan.operatingCurrentCapMa} mA`
+          : 'Series-protected LED data',
+      })
+    }
     rows.push({ from: shifter, fromTerminal: `/OE${channel}`, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Enable level-shifter channel' })
   })
   if (outputs.length > 0) {
@@ -188,6 +205,11 @@ export function buildBomRows(
   if (outputs.length > 0) {
     rows.push({ quantity: String(Math.ceil(outputs.length / 4)), item: '74AHCT125 level shifter', specification: '5 V supply, TTL-compatible input; one channel per LED data route', status: 'calculated' })
     rows.push({ quantity: String(outputs.length), item: 'Data-line resistor', specification: '330 ohm at each LED data entry', status: 'calculated' })
+    const extended = items.filter((item) => typeof item.facts.dataLinkPartId === 'string')
+    if (extended.length > 0) {
+      rows.push({ quantity: String(extended.length), item: 'NLED Pixel Data Extender TX/RX pair', specification: 'Matched one-wire transmitter and receiver; power both ends from 3.3-12 V', status: 'configured' })
+      rows.push({ quantity: `${extended.length} run${extended.length === 1 ? '' : 's'}`, item: 'Differential pixel-data cable', specification: 'Three twisted conductors: A, B and common ground; maximum 1000 ft / 304.8 m per manufacturer', status: 'configured' })
+    }
   }
   if (plan.totals && outputs.length > 0) {
     const outputIds = new Set(outputs.map((output) => output.itemId))

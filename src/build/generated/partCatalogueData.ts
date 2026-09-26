@@ -813,6 +813,52 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 16.333
     }
   },
+  "nled-pixel-data-extender-pair": {
+    "partId": "nled-pixel-data-extender-pair",
+    "label": "NLED Pixel Data Extender TX/RX pair",
+    "category": "communication",
+    "dimensionsMm": {
+      "width": 23.0,
+      "height": 12.0
+    },
+    "manufacturer": "Northern Lights Electronic Design LLC",
+    "logicVoltage": "3.3-12 V power; 3.3-5 V TTL data",
+    "pinLabelsLeftToRight": [
+      "TX +",
+      "TX A",
+      "TX B",
+      "TX GND",
+      "RX +",
+      "RX A",
+      "RX B",
+      "RX GND"
+    ],
+    "notes": [
+      "A matched transmitter and receiver pair for one-wire asynchronous pixels; both modules are required.",
+      "Run A, B and common ground together through twisted conductors; do not use the pair as an Ethernet link.",
+      "If separate power supplies feed the two ends, bond their grounds but do not join their positive outputs.",
+      "The receiver level-shifts its pixel-data output to 5 V when powered from 5 V or higher.",
+      "The tiny solder-pad modules must be kept dry, clean and clear of conductive surfaces."
+    ],
+    "pixelDataExtender": {
+      "mode": "one-wire differential",
+      "maxDistanceMeters": 304.8,
+      "maxDataRateMbps": 12,
+      "supplyMinV": 3.3,
+      "supplyMaxV": 12,
+      "pairConductors": [
+        "A",
+        "B",
+        "GND"
+      ]
+    },
+    "render": {
+      "file": "parts/nled-pixel-data-extender-pair.webp",
+      "widthPx": 400,
+      "heightPx": 218,
+      "pxPerMm": 16.522
+    }
+  },
   "pam8403-3w-stereo-amplifier": {
     "partId": "pam8403-3w-stereo-amplifier",
     "label": "PAM8403 2 x 3 W stereo amplifier module",

@@ -324,6 +324,7 @@ export default function BuildDiagramWorkspace() {
       unsupportedItems: [],
     }, buildProfile, exactBoard)
   }, [buildProfile, exactBoard, manifest, visiblePrimaryItems])
+  const extenderOutputCount = outputItems.filter((item) => typeof item.facts.dataLinkPartId === 'string').length
   const partsSummary = useMemo(() => {
     const lines: Array<{ id: string; quantity: string; label: string; pending?: boolean }> = []
     if (exactBoard) lines.push({ id: 'board', quantity: '1', label: exactBoard.label })
@@ -335,6 +336,10 @@ export default function BuildDiagramWorkspace() {
       const fuseRatings = [...new Set(electricalPlan.outputs.flatMap((output) => output.injections.map((injection) => injection.fuse.ratingMa)).filter((value): value is number => !!value))]
       lines.push({ id: 'fuses', quantity: String(feedCount), label: `${fuseRatings.map(formatCurrentMa).join(' / ') || 'Rated'} branch fuse` })
       lines.push({ id: 'power-output-capacitors', quantity: String(feedCount), label: '1000uF 6.3 V low-ESR electrolytic capacitor' })
+      if (extenderOutputCount > 0) {
+        lines.push({ id: 'nled-pixel-data-extender', quantity: String(extenderOutputCount), label: 'NLED Pixel Data Extender TX/RX pair' })
+        lines.push({ id: 'nled-pixel-data-cable', quantity: 'As required', label: '3-conductor twisted cable for A, B and common ground' })
+      }
     }
     if (electricalPlan.totals) {
       for (const supply of electricalPlan.totals.supplies) {
@@ -351,7 +356,7 @@ export default function BuildDiagramWorkspace() {
     const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
     if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })
     return lines
-  }, [electricalPlan.outputs, electricalPlan.totals, exactBoard, outputItems.length, primaryItems])
+  }, [electricalPlan.outputs, electricalPlan.totals, exactBoard, extenderOutputCount, outputItems.length, primaryItems])
   const exportItems = exportMode === 'complete-build' ? primaryItems : visiblePrimaryItems
   const exportItemIds = useMemo(() => new Set(exportItems.map((item) => item.id)), [exportItems])
   const exportConnectionRows = useMemo(

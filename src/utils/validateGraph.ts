@@ -85,6 +85,11 @@ import { targetFamilyFromFqbn } from '../build/buildProfile'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/lightSensor'
+import {
+  NLED_PIXEL_DATA_LINK,
+  pixelDataExtenderSupports,
+  usesNledPixelDataExtender,
+} from '../state/pixelDataExtender'
 
 export interface ValidationResult {
   errors:   string[]
@@ -1111,6 +1116,22 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
   })
 }
 
+/** A one-wire extender cannot carry a separate clock line or a HUB75 ribbon. */
+export function findPixelDataExtenderErrors(nodes: StudioNode[]): string[] {
+  return nodes
+    .filter((node) => node.data.nodeType === 'MatrixOutput')
+    .flatMap((node) => {
+      const props = node.data.properties as Record<string, unknown>
+      if (!usesNledPixelDataExtender(props)
+        || pixelDataExtenderSupports(props, CLOCKLESS_CHIPSET_OPTIONS)) return []
+      const label = nodeLabel(node)
+      const chipset = outputForm(props) === 'hub75'
+        ? 'HUB75 signal ribbon'
+        : `${String(props.chipset ?? 'this chipset')} data and clock lines`
+      return [`${label}: ${NLED_PIXEL_DATA_LINK} carries one asynchronous pixel-data line, not ${chipset}. Set data link to Direct, or choose a one-wire clockless chipset.`]
+    })
+}
+
 /**
  * A shape-mapped chain driven by the Show Engine or music-sync SD player,
  * whose specialized sketches cannot render it yet.
@@ -1498,6 +1519,7 @@ export function findDeployBlockingErrors(
     ...findPinConflicts(nodes, edges),
     ...findOutputResourceErrors(nodes),
     ...findMatrixLayoutErrors(nodes),
+    ...findPixelDataExtenderErrors(nodes),
     ...findShowOutputFormErrors(nodes, edges),
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
     ...findAudioCapabilityErrors(nodes, edges),
@@ -3335,6 +3357,16 @@ export function buildGraphDiagnostics(
         message: hub75Issue.message,
         fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single LED output using Matrix or Panels layout with Supersample off.',
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+      })
+    }
+    const extenderIssue = findPixelDataExtenderErrors([matrixOutput])[0]
+    if (extenderIssue) {
+      diagnostics.push({
+        id: `${matrixOutput.id}-pixel-data-extender`, severity: 'error', category: 'connection',
+        title: 'Pixel data extender is incompatible with this output',
+        message: extenderIssue,
+        fix: 'Set data link to Direct, or choose a one-wire clockless chipset.',
+        nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput), propertyKey: 'dataLink',
       })
     }
   }

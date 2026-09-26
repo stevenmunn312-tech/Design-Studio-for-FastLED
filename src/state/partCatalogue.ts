@@ -140,6 +140,17 @@ export interface PartEthernetSpec {
   link: string
 }
 
+/** Physical contract for a matched long-range pixel-data TX/RX pair. */
+export interface PartPixelDataExtenderSpec {
+  mode: string
+  maxDistanceMeters: number
+  maxDataRateMbps: number
+  supplyMinV: number
+  supplyMaxV: number
+  /** The conductors between the two modules, in the manufacturer's order. */
+  pairConductors: string[]
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -164,6 +175,8 @@ export interface PartCatalogueEntry {
   lightSensor?: PartLightSensorSpec
   /** Present exactly on wired-Ethernet controller modules. */
   ethernet?: PartEthernetSpec
+  /** Present exactly on a matched differential pixel-data extender pair. */
+  pixelDataExtender?: PartPixelDataExtenderSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

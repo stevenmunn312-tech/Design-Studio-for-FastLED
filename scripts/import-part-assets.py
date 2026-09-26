@@ -248,6 +248,33 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: ethernet block needs a controller and maxSpiClockMHz — skipped",
                   file=sys.stderr)
+    # A matched long-range pixel-data transmitter/receiver pair. The normal
+    # sketch still generates the same one-wire signal; these facts describe
+    # only the physical route the Build Diagram must draw around it.
+    extender = data.get("pixelDataExtender")
+    if extender:
+        conductors = extender.get("pairConductors")
+        max_distance = extender.get("maxDistanceMeters")
+        max_rate = extender.get("maxDataRateMbps")
+        supply_min = extender.get("supplyMinV")
+        supply_max = extender.get("supplyMaxV")
+        if (isinstance(conductors, list) and len(conductors) >= 3
+                and all(isinstance(name, str) and name for name in conductors)
+                and isinstance(max_distance, (int, float)) and max_distance > 0
+                and isinstance(max_rate, (int, float)) and max_rate > 0
+                and isinstance(supply_min, (int, float))
+                and isinstance(supply_max, (int, float)) and supply_max >= supply_min):
+            entry["pixelDataExtender"] = {
+                "mode": extender.get("mode") or "one-wire differential",
+                "maxDistanceMeters": max_distance,
+                "maxDataRateMbps": max_rate,
+                "supplyMinV": supply_min,
+                "supplyMaxV": supply_max,
+                "pairConductors": conductors,
+            }
+        else:
+            print(f"  ! {part_id}: pixelDataExtender block needs conductors, distance, rate and supply range — skipped",
+                  file=sys.stderr)
     # A calibrated digital ambient-light sensor. Its address straps and
     # measurement range are part facts used by the picker, validation and
     # generated Wire transaction, so carry them through from the asset.

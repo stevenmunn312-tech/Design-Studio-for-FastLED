@@ -925,6 +925,13 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
 export const OUTPUT_CARD_HEIGHT = 174
 /** Compact card used by one-dimensional LED strings and VU-meter rails. */
 export const OUTPUT_STRIP_CARD_HEIGHT = 96
+/** Room below an LED fixture for the matched TX/RX boards and their link notes. */
+export const OUTPUT_DATA_EXTENDER_HEIGHT = 126
+
+export function outputHasDataExtender(item: HardwareManifestItem) {
+  const partId = item.facts?.dataLinkPartId
+  return typeof partId === 'string' && partId.length > 0
+}
 /**
  * Each card carries a title and a subtitle above it, so the pitch has to clear
  * the card body *and* those two lines. At the old 212 the second output's title
@@ -998,7 +1005,8 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const peripherals = items.filter((item) => item.kind !== 'matrix-output')
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
-    const height = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
+    const baseHeight = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
+    const height = baseHeight + (outputHasDataExtender(item) ? OUTPUT_DATA_EXTENDER_HEIGHT : 0)
     const layout = { item, x: 820, y: outputY, width: 184, height }
     outputY += height + OUTPUT_CARD_LABEL_HEIGHT + 14
     return layout
