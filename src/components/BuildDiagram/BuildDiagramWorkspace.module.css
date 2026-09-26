@@ -831,7 +831,10 @@
 
 .diagramHeader {
   min-height: 68px;
-  padding: 11px 14px;
+  /* The preview panel's 22 px handle floats over the workspace's top-right
+     corner, so the right edge clears it: at 1024 px the Fit button ran under
+     it. */
+  padding: 11px calc(14px + 22px) 11px 14px;
   border-bottom: 1px solid #c7cac7;
   background: #f4f5f2;
 }
