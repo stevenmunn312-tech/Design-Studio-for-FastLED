@@ -27,6 +27,10 @@ import type { BuildSectionLayers } from './diagramSections'
 import {
   itemLayouts,
   LEVEL_SHIFTER_HEIGHT,
+  LEVEL_SHIFTER_RENDER_HEIGHT,
+  LEVEL_SHIFTER_RENDER_WIDTH,
+  LEVEL_SHIFTER_RENDER_X,
+  LEVEL_SHIFTER_RENDER_Y,
   LEVEL_SHIFTER_WIDTH,
   LEVEL_SHIFTER_X,
   levelShifterChipY,
@@ -593,8 +597,6 @@ function routeFromController(
  * close. Each output now owns its own corridor and detour lane.
  */
 const LS_CORRIDOR_SPACING = 12
-const LEVEL_SHIFTER_RENDER_X = 23
-const LEVEL_SHIFTER_RENDER_WIDTH = 134
 const LEVEL_SHIFTER_PIN_LEAD_OVERLAP = 4
 
 /**
@@ -1735,7 +1737,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       {layers.levelShifter && outputLayouts.length > 0 && <g filter="url(#component-shadow)">
         {outputLayouts.map((layout, index) => (
           <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterTerminalPoint(index, 'a').y - 14})`}>
-            <text x="20" y="-8" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
+            {/* A3/A4 are one leg below A2/A1, so a label above would sit on that resistor. */}
+            <text x="20" y={index % 4 >= 2 ? 42 : -8} textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
             <image
               data-component-render="330ohm-blue-axial-resistor"
               href={resistorRender}
@@ -1755,7 +1758,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
           return <g key={`level-shifter-${chipIndex}`} transform={`translate(${LEVEL_SHIFTER_X} ${chipY})`}>
             <text x={LEVEL_SHIFTER_WIDTH / 2} y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 DIP-14 level shifter {chipIndex + 1}</text>
-            <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x={LEVEL_SHIFTER_RENDER_X} y="0" width={LEVEL_SHIFTER_RENDER_WIDTH} height={LEVEL_SHIFTER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
+            <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x={LEVEL_SHIFTER_RENDER_X} y={LEVEL_SHIFTER_RENDER_Y} width={LEVEL_SHIFTER_RENDER_WIDTH} height={LEVEL_SHIFTER_RENDER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
             <path
               data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-vcc`}
               d={levelShifterPinLeadPath(vccPoint, chipY)}

@@ -955,7 +955,23 @@ export type LevelShifterTerminalPoint = {
 
 const LEVEL_SHIFTER_LEFT_PIN_X = 35
 const LEVEL_SHIFTER_RIGHT_PIN_X = 147
-const LEVEL_SHIFTER_PIN_ROWS = [41, 66, 91, 115, 140, 165, 190] as const
+/** Terminal rows are fixed; the corridors and lanes around the chip are cut to them. */
+const LEVEL_SHIFTER_FIRST_ROW = 41
+const LEVEL_SHIFTER_PIN_PITCH = 25
+const LEVEL_SHIFTER_PIN_ROWS = Array.from({ length: 7 }, (_, row) => LEVEL_SHIFTER_FIRST_ROW + (row * LEVEL_SHIFTER_PIN_PITCH))
+/**
+ * The legs as measured on `sn74ahct125n-dip14.webp` (400x654): the first leg
+ * centred at 71.5 px, then one every 85 px. The photograph is scaled and placed
+ * from those numbers so each leg lands on its terminal row — a fitted box with
+ * a hand-typed pitch drifted a whole leg-width off by pin 7.
+ */
+const LEVEL_SHIFTER_RENDER_PX = { width: 400, height: 654, firstLeg: 71.5, legPitch: 85 } as const
+const LEVEL_SHIFTER_RENDER_SCALE = LEVEL_SHIFTER_PIN_PITCH / LEVEL_SHIFTER_RENDER_PX.legPitch
+export const LEVEL_SHIFTER_RENDER_WIDTH = LEVEL_SHIFTER_RENDER_PX.width * LEVEL_SHIFTER_RENDER_SCALE
+export const LEVEL_SHIFTER_RENDER_HEIGHT = LEVEL_SHIFTER_RENDER_PX.height * LEVEL_SHIFTER_RENDER_SCALE
+export const LEVEL_SHIFTER_RENDER_Y = LEVEL_SHIFTER_FIRST_ROW - (LEVEL_SHIFTER_RENDER_PX.firstLeg * LEVEL_SHIFTER_RENDER_SCALE)
+/** Centred on the two pin columns, so both rows of leg tips reach their terminals. */
+export const LEVEL_SHIFTER_RENDER_X = ((LEVEL_SHIFTER_LEFT_PIN_X + LEVEL_SHIFTER_RIGHT_PIN_X) - LEVEL_SHIFTER_RENDER_WIDTH) / 2
 const LEVEL_SHIFTER_CHANNEL_PINS = [
   { a: ['left', 1], y: ['left', 2], oe: ['left', 0] },
   { a: ['left', 4], y: ['left', 5], oe: ['left', 3] },

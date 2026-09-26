@@ -454,7 +454,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(netStub('level-shifter-1-vcc')?.getAttribute('data-net-stub-x')).toBe('577')
     expect(netStub('level-shifter-1-vcc')?.getAttribute('data-net-stub-y')).toBe('317')
     expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-x')).toBe('465')
-    expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-y')).toBe('466')
+    expect(netStub('level-shifter-1-ground')?.getAttribute('data-net-stub-y')).toBe('467')
     for (const groundWire of ['level-shifter-1-ground', 'level-shifter-1-oe-1', 'controller-common-ground', 'mic-input:mic-ground']) {
       expect(netStub(groundWire)?.getAttribute('data-net-stub'), groundWire).toBe('gnd')
     }
@@ -476,7 +476,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cx')).toBe('147')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-vcc"] circle')?.getAttribute('cy')).toBe('41')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cx')).toBe('35')
-    expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cy')).toBe('190')
+    expect(diagram?.querySelector('[data-terminal="level-shifter-1-gnd"] circle')?.getAttribute('cy')).toBe('191')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-a1"]')?.textContent).toContain('P2 A1')
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('P3 Y1')
     expect(diagram?.querySelector('[data-wire="output:out-level-shifter-input"]')?.getAttribute('d')).toMatch(/H465$/)
@@ -488,12 +488,21 @@ describe('BuildDiagramWorkspace', () => {
     const shifterImage = diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')
     const inputLead = diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-a1"]')
     const outputLead = diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-y1"]')
-    expect(inputLead?.getAttribute('d')).toBe('M35 66H19')
-    expect(outputLead?.getAttribute('d')).toBe('M35 91H19')
+    // Each lead runs from its terminal to 4 units outside the photograph.
+    const imageLeft = Number(shifterImage?.getAttribute('x'))
+    const imageRight = imageLeft + Number(shifterImage?.getAttribute('width'))
+    expect(inputLead?.getAttribute('d')).toBe(`M35 66H${imageLeft - 4}`)
+    expect(outputLead?.getAttribute('d')).toBe(`M35 91H${imageLeft - 4}`)
     expect((shifterImage?.compareDocumentPosition(inputLead!) ?? 0) & 4).toBe(4)
-    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-vcc"]')?.getAttribute('d')).toBe('M147 41H161')
-    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-gnd"]')?.getAttribute('d')).toBe('M35 190H19')
-    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-oe1"]')?.getAttribute('d')).toBe('M35 41H19')
+    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-vcc"]')?.getAttribute('d')).toBe(`M147 41H${imageRight + 4}`)
+    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-gnd"]')?.getAttribute('d')).toBe(`M35 191H${imageLeft - 4}`)
+    // The photograph's legs (first centred at 71.5 of 654 px, pitch 85 px)
+    // land on the terminal rows: P1 at 41, P7 at 191.
+    const imageTop = Number(shifterImage?.getAttribute('y'))
+    const imageHeight = Number(shifterImage?.getAttribute('height'))
+    expect(imageTop + ((71.5 / 654) * imageHeight)).toBeCloseTo(41, 5)
+    expect(imageTop + (((71.5 + (6 * 85)) / 654) * imageHeight)).toBeCloseTo(191, 5)
+    expect(diagram?.querySelector('[data-level-shifter-pin-lead="level-shifter-1-oe1"]')?.getAttribute('d')).toBe(`M35 41H${imageLeft - 4}`)
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSck"]')?.getAttribute('data-board-anchor')).toBe('j3-8')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sWs"]')?.getAttribute('data-board-anchor')).toBe('j3-9')
     expect(diagram?.querySelector('[data-terminal="controller-mic-input:mic:i2sSd"]')?.getAttribute('data-board-anchor')).toBe('j3-7')
@@ -1309,9 +1318,9 @@ describe('BuildDiagramWorkspace', () => {
 
     const expectedChannels = [
       { a: [465, 342], y: [465, 367], oe: [465, 317] },
-      { a: [465, 416], y: [465, 441], oe: [465, 391] },
-      { a: [577, 441], y: [577, 466], oe: [577, 416] },
-      { a: [577, 367], y: [577, 391], oe: [577, 342] },
+      { a: [465, 417], y: [465, 442], oe: [465, 392] },
+      { a: [577, 442], y: [577, 467], oe: [577, 417] },
+      { a: [577, 367], y: [577, 392], oe: [577, 342] },
     ] as const
     expectedChannels.forEach((points, channelIndex) => {
       const outputId = `output:out-${channelIndex + 1}`
