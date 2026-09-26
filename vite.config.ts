@@ -81,7 +81,16 @@ export default defineConfig(() => {
             // browser can fetch them in parallel while retaining them across
             // UI-only releases.
             if (moduleId.includes('/src/build/generated/')) return 'hardware-catalog'
-            if (moduleId.includes('/src/state/graphEvaluator.ts')) return 'graph-runtime'
+            // The shipped pattern library is data that changes on its own
+            // cadence, so a code release does not re-download it.
+            if (moduleId.includes('/src/assets/bundled-patterns/')
+              || /\/src\/state\/bundled(Patterns|AudioShelf\d*)\.ts$/.test(moduleId)) return 'pattern-library'
+            // The evaluator and every node's preview (src/nodes/*/evaluate.ts).
+            // Each node's firmware (codegen.ts beside it) stays with the lazy
+            // generator.
+            if (moduleId.includes('/src/state/graphEvaluator.ts')
+              || moduleId.includes('/src/state/evaluator/')
+              || /\/src\/nodes\/[^/]+\/evaluate\.ts$/.test(moduleId)) return 'graph-runtime'
             if (moduleId.includes('/src/state/nodeLibrary.ts')) return 'node-catalog'
             if (!id.includes('node_modules')) return
             if (id.includes('@xyflow/react')) return 'xyflow'
