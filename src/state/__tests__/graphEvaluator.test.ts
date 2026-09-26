@@ -4830,9 +4830,13 @@ describe('resetEvaluatorState', () => {
       node('gol', 'GameOfLife', 'pattern', {}),
       node('trail', 'Trails', 'composite', {}),
       node('ctr', 'Counter', 'signal', {}),
+      node('bank', 'PaletteBank', 'color', {}),
     ]
     for (const n of populate) evaluateGraphFull([n], [], 0, 8, 8)
     expect(getEvaluatorMemoryStats().totalStateEntries).toBeGreaterThan(0)
+    // Palette Bank cursors were once left out of the sweep and the reset, so
+    // a deleted bank's entry was never reclaimed.
+    expect(getEvaluatorMemoryStats().stateMaps.paletteBankState).toBe(1)
 
     resetEvaluatorState()
     const stats = getEvaluatorMemoryStats()

@@ -19,13 +19,14 @@ import { type RGB, hsv, samplePalette } from '../../state/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
+import { instanceState } from '../../state/evaluator/memory'
 
 /** Palette Bank cursors — one per node instance, like every other stateful node. */
-const paletteBankState = new Map<string, {
+const paletteBankState = instanceState('paletteBankState', new Map<string, {
   lastT: number
   index: number
   buttons: Record<string, ButtonEdgeState>
-}>()
+}>())
 
 const TEMPERATURE_MIN_K = 1000
 const TEMPERATURE_MAX_K = 12000
