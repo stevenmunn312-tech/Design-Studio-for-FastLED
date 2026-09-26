@@ -3907,6 +3907,28 @@ export function movePartPinToFree(
   return { ok: true, pin }
 }
 
+/**
+ * Move a Controls wire from an LED output onto a player engine's Controls.
+ *
+ * On a Music Player or Performance Generator build the engine owns the lamp,
+ * so it is the one place those commands are read. The wire keeps its source —
+ * the same Touch node or Control Map — and only its destination changes, in
+ * one undoable step. Refuses, changing nothing, when the wire has gone or the
+ * engine's Controls input has since been taken.
+ */
+export function routeControlsToEngine(edgeId: string, engineId: string): boolean {
+  const state = useGraphStore.getState()
+  const wire = state.edges.find((edge) => edge.id === edgeId)
+  if (!wire || !state.nodes.some((node) => node.id === engineId)) return false
+  if (state.edges.some((edge) => edge.target === engineId && edge.targetHandle === 'controls')) return false
+  useGraphStore.setState((s) => ({
+    edges: s.edges.map((edge) => edge.id === edgeId
+      ? { ...edge, id: `${edge.source}-${edge.sourceHandle}-${engineId}-controls`, target: engineId, targetHandle: 'controls' }
+      : edge),
+  }))
+  return true
+}
+
 /** Wire a show engine's Show output into an LED output — the repair for a
  *  show with nowhere to go, when there is only one output it could mean. */
 export function connectShowOutput(engineId: string, outputId: string): boolean {

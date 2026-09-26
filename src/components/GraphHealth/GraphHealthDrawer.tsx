@@ -5,6 +5,7 @@ import {
   connectTemplateControls,
   insertMapRangeOnEdge,
   movePartPinToFree,
+  routeControlsToEngine,
   placeTouchControl,
   ROOT_GRAPH_ID,
   useGraphStore,
@@ -46,6 +47,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'open-board-settings') return 'Open Board settings'
   if (action === 'connect-show-output') return 'Connect it'
   if (action === 'add-pattern-collection') return 'Add a collection'
+  if (action === 'route-controls-to-engine') return 'Move the wire'
   return 'Open library'
 }
 
@@ -140,6 +142,12 @@ export default function GraphHealthDrawer() {
     if (issue.repair?.kind === 'move-pin') {
       const result = movePartPinToFree(issue.repair.nodeId, issue.repair.propertyKey)
       setStatus(result.ok ? `Moved to GPIO ${result.pin}` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'route-controls-to-engine') {
+      const done = routeControlsToEngine(issue.repair.edgeId, issue.repair.engineId)
+      useUiStore.getState().clearLocatedEdges()
+      setStatus(done ? 'Controls wire moved — the lights now follow it through the player' : 'That wire has already changed', done ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'connect-show-output') {

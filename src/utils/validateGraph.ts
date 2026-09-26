@@ -1544,6 +1544,7 @@ export type GraphDiagnosticAction =
   | 'open-board-settings'
   | 'connect-show-output'
   | 'add-pattern-collection'
+  | 'route-controls-to-engine'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1567,6 +1568,9 @@ export type GraphRepair =
   | { kind: 'connect-show-output'; engineId: string; outputId: string }
   /** The Music Player to give a new, wired Pattern Collection. */
   | { kind: 'add-pattern-collection'; playerId: string }
+  /** A Controls wire into an LED output to move onto the player engine's own
+   *  Controls input, which carries the same lamp commands the player obeys. */
+  | { kind: 'route-controls-to-engine'; edgeId: string; engineId: string }
 
 export interface GraphDiagnostic {
   id: string
@@ -3781,7 +3785,7 @@ export function buildGraphDiagnostics(
    */
   const namedNode = (message: string, candidates: StudioNode[]) => candidates.find((node) =>
     [nodeLabel(node), String(node.data.label ?? ''), node.id]
-      .some((name) => name && message.startsWith(`${name}:`)))
+      .some((name) => name && (message.startsWith(`${name}:`) || message.startsWith(`${name}.`))))
   const displayTarget = (message: string) => {
     const panel = namedNode(message, nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)))
     if (!panel) return {}
@@ -3797,14 +3801,33 @@ export function buildGraphDiagnostics(
     }
   }
   const RUNTIME_INPUTS = new Set(['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown'])
+  const playerEngine = (() => {
+    const build = resolveBuildMode(nodes, edges)
+    return build.mode === 'player' ? build.engine : null
+  })()
   const outputTarget = (message: string) => {
     const output = namedNode(message, nodes.filter((node) => node.data.nodeType === 'MatrixOutput'))
     if (!output) return {}
     const wires = edges.filter((edge) => edge.target === output.id && RUNTIME_INPUTS.has(String(edge.targetHandle)))
+    /*
+     * One Controls wire on a player build has an unambiguous new home: the
+     * engine's own Controls input carries the same lamp commands, and the
+     * player obeys them there. Anything else — a button on Enabled, a knob on
+     * Brightness — needs a mapping only the author can choose.
+     */
+    const engineControlsFree = !!playerEngine
+      && !edges.some((edge) => edge.target === playerEngine.id && edge.targetHandle === 'controls')
+    const movable = playerEngine && engineControlsFree && wires.length === 1 && wires[0].targetHandle === 'controls'
+      ? wires[0] : undefined
     return {
       nodeIds: [output.id, ...new Set(wires.map((edge) => edge.source))],
       nodeLabel: nodeLabel(output),
       ...(wires.length ? { edgeIds: wires.map((edge) => edge.id) } : {}),
+      ...(movable && playerEngine ? {
+        fix: `Move the Controls wire onto ${nodeLabel(playerEngine)}, which carries the same commands and runs the lights on this build.`,
+        action: 'route-controls-to-engine' as const,
+        repair: { kind: 'route-controls-to-engine' as const, edgeId: movable.id, engineId: playerEngine.id },
+      } : {}),
     }
   }
   liveDisplayIssues.errors.forEach((message, index) => diagnostics.push({
