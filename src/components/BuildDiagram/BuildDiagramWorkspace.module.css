@@ -1261,20 +1261,6 @@
   letter-spacing: 0.05em;
 }
 
-.physicalPowerBasisLabel,
-.physicalPowerCeilingLabel {
-  font-family: var(--font-code);
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.physicalPowerBasisLabel {
-  fill: #167d72;
-}
-
-.physicalPowerCeilingLabel {
-  fill: #8a5a22;
-}
 
 /*
  * Pin callouts sit directly on the DIP render, which is dark body in some
@@ -1327,20 +1313,13 @@
   font-size: 12px;
 }
 
-.powerSummaryLimit,
-.powerSummaryCeiling {
+.powerSummaryLimit {
+  margin-top: 8px;
+  color: #72dfd0;
   font-family: var(--font-code);
   font-size: 11px;
 }
 
-.powerSummaryLimit {
-  margin-top: 8px;
-  color: #72dfd0;
-}
-
-.powerSummaryCeiling {
-  color: #c7a46e;
-}
 
 .powerSummaryBudget {
   margin-top: 9px;

@@ -66,7 +66,7 @@ describe('buildExports', () => {
     expect(bomRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ item: 'LED Matrix start @ 0 mm branch fuse', status: 'calculated' }),
       expect.objectContaining({ quantity: '3', item: 'Power-output electrolytic capacitor', specification: expect.stringContaining('1000 uF, 6.3 V') }),
-      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: '5 V, 20 A, 100 W continuous; derived from worst-case load with 20% target headroom', status: 'calculated' }),
+      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: '5 V, 20 A, 100 W continuous; derived from the 15.4 A full-white load with 20% target headroom; a FastLED current limit does not reduce it', status: 'calculated' }),
       expect.objectContaining({ item: 'supply-1 fuse block 1', specification: expect.stringContaining('4-circuit fixed fuse block') }),
     ]))
     expect(connectionsCsv(connectionRows)).toContain('Common ground reference')
@@ -96,7 +96,7 @@ describe('buildExports', () => {
     ]))
   })
 
-  it('exports configured operating limits beside the uncapped safety ceiling', () => {
+  it('exports a configured limit without letting it size the supply', () => {
     const manifest = buildHardwareManifest([
       node('board', 'Board', { powerLimit: true, milliamps: 5000 }),
       outputNode(),
@@ -109,8 +109,8 @@ describe('buildExports', () => {
 
     expect(bomRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ item: 'LED Matrix', specification: expect.stringContaining('configured FastLED current limit 5 A') }),
-      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: expect.stringContaining('derived from 5 A configured operating budget') }),
-      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: expect.stringContaining('15.4 A uncapped full-white ceiling') }),
+      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: expect.stringContaining('derived from the 15.4 A full-white load') }),
+      expect.objectContaining({ item: 'Recommended 5 V DC power supply 1', specification: expect.stringContaining('a FastLED current limit does not reduce it') }),
     ]))
     expect(connectionRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ to: 'LED Matrix', purpose: expect.stringContaining('configured FastLED current limit 5000 mA') }),

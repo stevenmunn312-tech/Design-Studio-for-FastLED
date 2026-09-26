@@ -220,9 +220,7 @@ export function buildBomRows(
     const supplies = plan.totals.supplies.filter((supply) => supply.outputIds.some((id) => outputIds.has(id))
       && supply.injectionIds.some((id) => includedInjectionIds.has(id)))
     for (const supply of supplies) {
-      const sizingBasis = supply.psuSizingCurrentMa < supply.designCurrentMa
-        ? `derived from ${formatAmps(supply.psuSizingCurrentMa)} configured operating budget with ${plan.totals.headroomPercent}% target headroom; ${formatAmps(supply.designCurrentMa)} uncapped full-white ceiling; use a quality supply with overload and short-circuit protection`
-        : `derived from worst-case load with ${plan.totals.headroomPercent}% target headroom`
+      const sizingBasis = `derived from the ${formatAmps(supply.designCurrentMa)} full-white load with ${plan.totals.headroomPercent}% target headroom; a FastLED current limit does not reduce it`
       rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; ${sizingBasis}`, status: 'calculated' })
       const zone = supply.id.replace('supply-', '')
       const { mainFuse, conductor } = supply.trunk

@@ -74,8 +74,9 @@ wait for the user to buy parts or confirm that a recommended component exists.
   positive and ground, and every LED injection site includes local ceramic
   decoupling across the same pair.
 - The wiring drawing labels each PSU zone with its recommended voltage, current,
-  and wattage. When FastLED current limiting is configured, it also shows the
-  cap-aware operating budget and the uncapped full-white fault ceiling.
+  and wattage, its main fuse and its trunk gauge, all sized for full white.
+  A configured FastLED current limit appears on its output card as a running
+  limit only.
 - Every I2S MEMS microphone route includes supply, ground, BCLK/SCK, WS and
   SD/DOUT, plus a ground symbol on the channel-select pad that picks the left
   slot. Each of those pads is found by the name its own module prints, because
@@ -114,14 +115,14 @@ The current bounded WS2812-class rules use:
 - 60 mA per pixel conservative uncapped full-white load for injection count,
   conductor, connector, voltage-drop, and branch-fuse calculations.
 - 20% supply-current/wattage headroom.
-- A configured FastLED current limit becomes the PSU operating-capacity sizing
-  basis, while the uncapped load remains visible and continues to govern branch
-  wiring and protection. Without a configured limit, PSU sizing uses the
-  full-white load.
+- Every recommendation, supply included, is sized for the uncapped full-white
+  load. A configured FastLED current limit lowers running power and heat but
+  never shrinks the hardware, because a limit that is changed, cleared or never
+  flashed must not overload a supply that was sized for it. (Until 2026-09-27
+  the supply, though not the wiring, was sized from the limit.)
 - Recommended nameplate current rounds to whole amps through 10 A. Above 10 A,
   it uses 10 A increments, rounding down only when the headroom target is less
-  than 2 A above the lower increment and remains above the applicable PSU
-  sizing basis.
+  than 2 A above the lower increment and remains above the full-white load.
 - 60 pixels per metre when the graph has no physical density metadata.
 - 500 mm one-way feed cable when no reviewed physical route is available.
 - 5 A maximum design load for start/end feeds and 10 A maximum for centre
@@ -138,23 +139,20 @@ The current bounded WS2812-class rules use:
   conductors, per 310.15(C)(1). Until 2026-09-27 the table carried much higher
   figures of uncertain origin (10 AWG at 65 A); it was replaced rather than
   extended so that trunk and branch are judged on one basis.
-- Approximately 100 A maximum recommended capacity per cap-aware PSU group.
-  Injection branches and modest data routes share one PSU while their operating
-  budgets fit; larger builds are split into separately fused positive-power
+- Approximately 100 A maximum recommended capacity per PSU group.
+  Injection branches and modest data routes share one PSU while their full-white
+  loads fit; larger builds are split into separately fused positive-power
   zones with common signal ground and no paralleled PSU positive outputs.
 - Every PSU group has a main fuse at the supply positive and a trunk to its
-  fuse blocks, 500 mm one way with its own 0.1 V drop allowance. Both are
-  sized for the group's uncapped branch load, never more than the supply's
-  nameplate: a capped group's full-white ceiling can exceed what its supply
-  can deliver many times over, and the fuse's 75% margin already covers the
-  supply's own overload trip point. Main fuses are bolt-down (MIDI/ANL class)
-  ratings up to 150 A; a group whose fuse no listed conductor carries is
-  unresolved rather than drawn.
+  fuse blocks, 500 mm one way with its own 0.1 V drop allowance, both sized
+  for the group's full-white branch load. Main fuses are bolt-down (MIDI/ANL
+  class) ratings up to 150 A; a group whose fuse no listed conductor carries
+  is unresolved rather than drawn.
 - Reviewed conductor, connector, voltage-drop, derating, and fuse tables for
   each feed and trunk.
 
-These values produce conservative branch protection and a cap-aware operating
-PSU recommendation from the information the graph can know. They are stated in
+These values produce conservative protection and a full-white supply
+recommendation from the information the graph can know. They are stated in
 the UI and exports rather than presented as questions to a beginner.
 
 ## Board Confidence

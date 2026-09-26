@@ -1289,10 +1289,6 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
         <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>5 V · {formatAmps(supply.recommendedCurrentMa)} · {supply.recommendedWattage} W</text>
         {/* Beside the rating rather than on the trunk, where the branch rails climb past. */}
         <text data-main-fuse-label={supply.id} x="290" y="58" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
-        {supply.psuSizingCurrentMa < supply.designCurrentMa && <>
-          <text x="610" y="32" className={styles.physicalPowerBasisLabel}>CONFIGURED OPERATING BUDGET · {formatAmps(supply.psuSizingCurrentMa)}</text>
-          <text data-uncapped-current-ceiling={supply.designCurrentMa} x="610" y="58" className={styles.physicalPowerCeilingLabel}>UNCAPPED FULL-WHITE CEILING · {formatAmps(supply.designCurrentMa)}</text>
-        </>}
 
         <image
           data-component-render="5v-psu"

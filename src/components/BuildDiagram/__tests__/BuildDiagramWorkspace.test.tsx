@@ -669,7 +669,7 @@ describe('BuildDiagramWorkspace', () => {
     }
   })
 
-  it('shows two 5 A output limits while retaining the uncapped safety ceiling', () => {
+  it('shows two 5 A running limits and still sizes the supply for full white', () => {
     useGraphStore.setState({
       nodes: [
         matrixNode(14, 16, 16, 'out-a'),
@@ -684,10 +684,8 @@ describe('BuildDiagramWorkspace', () => {
 
     expect(diagram?.querySelector('[data-output-card="output:out-a"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
     expect(diagram?.querySelector('[data-output-card="output:out-b"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
-    expect(diagram?.querySelector('[data-psu-recommendation="20000"]')?.textContent).toBe('5 V · 20A · 100 W')
-    expect(diagram?.querySelector('[data-uncapped-current-ceiling="30720"]')?.textContent).toContain('30.7A')
-    expect(getByText('LED Matrix 1: 5 A limit · LED Matrix 2: 5 A limit')).toBeTruthy()
-    expect(getByText('Uncapped full-white ceiling 30.72 A')).toBeTruthy()
+    expect(diagram?.querySelector('[data-psu-recommendation="40000"]')?.textContent).toBe('5 V · 40A · 200 W')
+    expect(getByText('LED Matrix 1: 5 A running limit · LED Matrix 2: 5 A running limit · hardware is still sized for full white')).toBeTruthy()
   })
 
   it('generates complete recommended wiring for supported controls from the graph', () => {
@@ -1273,17 +1271,19 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('uses additional fixed fuse blocks and one electrolytic per feed when a PSU zone exceeds twelve circuits', () => {
+    // Five 16x16 matrices: 76.8 A at full white, fifteen feeds, one 100 A zone.
     useGraphStore.setState({
-      nodes: [matrixNode(14, 64, 64, 'out')] as never[],
+      nodes: [4, 5, 6, 7, 8].map((pin, index) => matrixNode(pin, 16, 16, `out-${index + 1}`)) as never[],
     })
-    selectDevKit({ powerLimit: true, milliamps: 5000 })
+    selectDevKit()
     const { container } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
+    expect(diagram?.querySelectorAll('[data-power-zone]')).toHaveLength(1)
     expect(Array.from(diagram?.querySelectorAll('[data-fuse-block-circuits]') ?? [])
       .map((node) => Number(node.getAttribute('data-fuse-block-circuits'))))
-      .toEqual([12, 12, 2])
-    expect(diagram?.querySelectorAll('[data-component-render="panasonic-eeufr0j102b-1000uf"]')).toHaveLength(26)
+      .toEqual([12, 4])
+    expect(diagram?.querySelectorAll('[data-component-render="panasonic-eeufr0j102b-1000uf"]')).toHaveLength(15)
     // One main fuse per supply zone, each with a rating and a trunk gauge.
     const mainFuses = Array.from(diagram?.querySelectorAll('[data-main-fuse]') ?? [])
     expect(mainFuses).toHaveLength(diagram?.querySelectorAll('[data-power-zone]').length ?? -1)
@@ -1295,10 +1295,10 @@ describe('BuildDiagramWorkspace', () => {
     ).filter((coordinate): coordinate is string => coordinate != null)
     const positiveLanes = laneCoordinates('fused-positive')
     const groundLanes = laneCoordinates('ground')
-    expect(new Set(positiveLanes).size).toBe(26)
-    expect(new Set(groundLanes).size).toBe(26)
+    expect(new Set(positiveLanes).size).toBe(15)
+    expect(new Set(groundLanes).size).toBe(15)
     expect(positiveLanes.some((lane) => groundLanes.includes(lane))).toBe(false)
-    const finalGround = Number(diagram?.querySelector('[data-terminal="output:out:feed-26-led-ground"]')?.getAttribute('cy'))
+    const finalGround = Number(diagram?.querySelector('[data-terminal="output:out-5:feed-3-led-ground"]')?.getAttribute('cy'))
     expect(finalGround).toBeLessThan(Number(diagram?.getAttribute('height')))
   })
 
@@ -1414,7 +1414,6 @@ describe('BuildDiagramWorkspace', () => {
     expect(previews[0]?.querySelectorAll('rect')).toHaveLength(16)
     expect(diagram?.querySelector('[data-output-card="output:out"] > rect')?.getAttribute('width')).toBe('184')
     expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY5 V · 40A · 200 W')
-    expect(diagram?.querySelector('[data-uncapped-current-ceiling]')).toBeNull()
   })
 
   it('draws LED strings and both VU rails as single four-LED rows', () => {

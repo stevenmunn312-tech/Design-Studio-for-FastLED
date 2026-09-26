@@ -100,7 +100,7 @@ describe('electricalPlan', () => {
     expect(plan.totals?.supplies.every((supply) => supply.recommendedCurrentMa <= 100000)).toBe(true)
   })
 
-  it('uses a firmware cap for PSU sizing without weakening branch protection', () => {
+  it('sizes the supply for full white whatever the firmware cap says', () => {
     const manifest = buildHardwareManifest([
       boardNode({ powerLimit: true, milliamps: 9000 }),
       outputNode(16, 16),
@@ -109,14 +109,13 @@ describe('electricalPlan', () => {
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
     expect(plan.outputs[0]?.operatingCurrentCapMa).toBe(9000)
-    expect(plan.outputs[0]?.psuSizingCurrentMa).toBe(9000)
     expect(plan.outputs[0]?.designCurrentMa).toBe(15360)
-    expect(plan.outputs[0]?.recommendedSupplyCurrentMa).toBe(10000)
+    expect(plan.outputs[0]?.recommendedSupplyCurrentMa).toBe(20000)
     expect(plan.outputs[0]?.injections.map((injection) => injection.fuse.ratingMa)).toEqual([7500, 15000, 7500])
-    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(10000)
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(20000)
   })
 
-  it('recommends one 20 A supply for two outputs capped at 5 A each', () => {
+  it("sizes two capped outputs' supply for their combined full-white load", () => {
     const first = outputNode(16, 16)
     const second = outputNode(16, 16, { dataPin: 27 })
     second.id = 'out-2'
@@ -128,17 +127,15 @@ describe('electricalPlan', () => {
 
     expect(plan.totals).toEqual(expect.objectContaining({
       operatingCurrentCapMa: 10000,
-      psuSizingCurrentMa: 10000,
       designCurrentMa: 30720,
-      recommendedSupplyCurrentMa: 20000,
-      recommendedSupplyWattage: 100,
+      recommendedSupplyCurrentMa: 40000,
+      recommendedSupplyWattage: 200,
       recommendedSupplyCount: 1,
     }))
     expect(plan.totals?.supplies[0]).toEqual(expect.objectContaining({
-      psuSizingCurrentMa: 10000,
       designCurrentMa: 30720,
-      recommendedCurrentMa: 20000,
-      recommendedWattage: 100,
+      recommendedCurrentMa: 40000,
+      recommendedWattage: 200,
     }))
     expect(plan.outputs.every((output) => output.recommendedFeedCount === 3)).toBe(true)
   })
@@ -232,19 +229,15 @@ describe('electricalPlan', () => {
     expect(plan.unresolved).toEqual([])
   })
 
-  it("sizes a capped zone's trunk to its supply, not its full-white ceiling", () => {
-    const manifest = buildHardwareManifest([
-      boardNode({ powerLimit: true, milliamps: 20000 }),
-      outputNode(32, 34),
-    ], [], 'esp32:esp32:esp32s3')
+  it("sizes a capped zone's supply, main fuse and trunk exactly as an uncapped one", () => {
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
-    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
-    const [supply] = plan.totals?.supplies ?? []
+    const planFor = (nodes: StudioNode[]) => calculateElectricalPlan(
+      buildHardwareManifest(nodes, [], 'esp32:esp32:esp32s3'), ensureBuildProfile({ version: 1 }), board)
+    const capped = planFor([boardNode({ powerLimit: true, milliamps: 20000 }), outputNode(32, 34)])
+    const uncapped = planFor([outputNode(32, 34)])
 
-    expect(supply.designCurrentMa).toBe(65280)
-    expect(supply.recommendedCurrentMa).toBe(30000)
-    expect(supply.trunk.designCurrentMa).toBe(30000)
-    expect(supply.trunk.mainFuse.ratingMa).toBe(40000)
-    expect(supply.trunk.conductor).toEqual(expect.objectContaining({ awg: 8, limitingFactor: 'voltage-drop' }))
+    expect(capped.outputs[0].operatingCurrentCapMa).toBe(20000)
+    expect(capped.totals?.supplies).toEqual(uncapped.totals?.supplies)
+    expect(capped.totals?.supplies[0].trunk.mainFuse.ratingMa).toBe(100000)
   })
 })

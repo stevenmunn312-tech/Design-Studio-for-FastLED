@@ -50,8 +50,8 @@ export interface OutputElectricalPlan {
   estimatedPitchMm: number
   currentPerMeterMa: number
   designCurrentMa: number
+  /** A firmware brightness limit. It lowers running power; it never sizes hardware. */
   operatingCurrentCapMa?: number
-  psuSizingCurrentMa: number
   recommendedSupplyCurrentMa: number
   recommendedSupplyWattage: number
   recommendedFeedCount: number
@@ -85,7 +85,6 @@ export interface PowerInjectionPlan {
 export interface SupplyRecommendation {
   id: string
   designCurrentMa: number
-  psuSizingCurrentMa: number
   recommendedCurrentMa: number
   recommendedWattage: number
   outputIds: string[]
@@ -93,8 +92,8 @@ export interface SupplyRecommendation {
   injectionIds: string[]
   /**
    * The run from the supply's positive terminal to its fuse blocks. It
-   * carries every branch at once, up to what the supply can deliver, and is
-   * protected by one main fuse at the supply.
+   * carries every branch at once at full white, and is protected by one main
+   * fuse at the supply.
    */
   trunk: SupplyTrunkPlan
 }
@@ -108,8 +107,8 @@ export interface SupplyTrunkPlan {
 
 export interface ElectricalPlanTotals {
   designCurrentMa: number
+  /** A firmware brightness limit. It lowers running power; it never sizes hardware. */
   operatingCurrentCapMa?: number
-  psuSizingCurrentMa: number
   recommendedSupplyCurrentMa: number
   recommendedSupplyWattage: number
   recommendedSupplyCount: number
@@ -224,18 +223,13 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
   const supplies: SupplyRecommendation[] = []
   for (const output of outputs) {
     for (const injection of output.injections) {
-      const injectionPsuSizingCurrentMa = output.designCurrentMa > 0
-        ? (output.psuSizingCurrentMa * injection.designCurrentMa) / output.designCurrentMa
-        : 0
-      const injectionWithHeadroom = injectionPsuSizingCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))
+      const headroom = 1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)
       let supply = supplies.find((candidate) =>
-        (candidate.psuSizingCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))) + injectionWithHeadroom
-          <= MAX_RECOMMENDED_SUPPLY_CURRENT_MA)
+        ((candidate.designCurrentMa + injection.designCurrentMa) * headroom) <= MAX_RECOMMENDED_SUPPLY_CURRENT_MA)
       if (!supply) {
         supply = {
           id: `supply-${supplies.length + 1}`,
           designCurrentMa: 0,
-          psuSizingCurrentMa: 0,
           recommendedCurrentMa: 0,
           recommendedWattage: 0,
           outputIds: [],
@@ -246,8 +240,7 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
         supplies.push(supply)
       }
       supply.designCurrentMa += injection.designCurrentMa
-      supply.psuSizingCurrentMa += injectionPsuSizingCurrentMa
-      supply.recommendedCurrentMa = recommendedSupplyCurrentMa(supply.psuSizingCurrentMa)
+      supply.recommendedCurrentMa = recommendedSupplyCurrentMa(supply.designCurrentMa)
       supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
       if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
       if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
@@ -255,13 +248,7 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
       injection.supplyId = supply.id
     }
   }
-  // The branches' uncapped sum, but never more than the supply can deliver: a
-  // capped zone's full-white ceiling can exceed its nameplate many times over,
-  // and the main fuse's 75% loading margin already covers the supply's own
-  // overload trip point above nameplate.
-  for (const supply of supplies) {
-    supply.trunk = planTrunk(Math.min(supply.designCurrentMa, supply.recommendedCurrentMa), nominalVoltageOf(outputs))
-  }
+  for (const supply of supplies) supply.trunk = planTrunk(supply.designCurrentMa, nominalVoltageOf(outputs))
   return supplies
 }
 
@@ -349,10 +336,10 @@ export function calculateElectricalPlan(
     const operatingCurrentCapMa = typeof operatingCurrentCapSource === 'number' && Number.isFinite(operatingCurrentCapSource)
       ? Math.max(0, Math.round(operatingCurrentCapSource))
       : undefined
-    const psuSizingCurrentMa = operatingCurrentCapMa != null && operatingCurrentCapMa > 0
-      ? Math.min(designCurrentMa, operatingCurrentCapMa)
-      : designCurrentMa
-    const recommendedSupplyMa = recommendedSupplyCurrentMa(psuSizingCurrentMa)
+    // Hardware is sized for full white whatever the firmware limit says: a
+    // limit that is changed, cleared or never flashed must not overload the
+    // supply, the trunk or its fuse.
+    const recommendedSupplyMa = recommendedSupplyCurrentMa(designCurrentMa)
     const recommendedSupplyWattage = Number(((recommendedSupplyMa / 1000) * nominalVoltage).toFixed(1))
 
     outputPlans.push({
@@ -368,7 +355,6 @@ export function calculateElectricalPlan(
       currentPerMeterMa: Math.round(densityPerMeter * WS2812_WORST_CASE_MA_PER_PIXEL),
       designCurrentMa,
       operatingCurrentCapMa,
-      psuSizingCurrentMa,
       recommendedSupplyCurrentMa: recommendedSupplyMa,
       recommendedSupplyWattage,
       recommendedFeedCount,
@@ -386,7 +372,6 @@ export function calculateElectricalPlan(
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
       const designCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-      const psuSizingCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.psuSizingCurrentMa, 0)
       const supplies = groupSupplies(outputPlans)
       const recommendedSupplyCurrentMa = supplies.reduce((sum, supply) => sum + supply.recommendedCurrentMa, 0)
       const recommendedSupplyCount = supplies.length
@@ -397,7 +382,6 @@ export function calculateElectricalPlan(
       return {
         designCurrentMa,
         operatingCurrentCapMa: cappedCurrents.length > 0 ? cappedCurrents.reduce((sum, value) => sum + value, 0) : undefined,
-        psuSizingCurrentMa,
         recommendedSupplyCurrentMa,
         recommendedSupplyWattage: Number(((recommendedSupplyCurrentMa / 1000) * nominalVoltage).toFixed(1)),
         recommendedSupplyCount,
@@ -438,7 +422,7 @@ export function calculateElectricalPlan(
     'Install one good-quality, correctly polarized 1000 uF, 6.3 V low-ESR electrolytic capacitor across +5 V and GND after every branch fuse, before the matrix feed or power-injection connection.',
     "Fit each supply's main fuse on its positive lead, as close to the supply terminal as the fuse holder allows, before the trunk reaches the fuse block.",
     'Reducing global brightness lowers operating power without changing the worst-case wiring recommendation.',
-    'FastLED current limiting reduces the recommended PSU operating capacity, but branch wiring and fuses remain sized for the uncapped physical load.',
+    'Supplies, trunks, fuses and branch wiring are all sized for the uncapped full-white load. A FastLED current limit lowers running power and heat; it does not make smaller hardware safe.',
   ]
   for (const output of outputPlans) {
     recommendations.push(
@@ -446,7 +430,7 @@ export function calculateElectricalPlan(
     )
     if (output.operatingCurrentCapMa != null) {
       recommendations.push(
-        `${output.title}: configured ${formatRuleCurrent(output.operatingCurrentCapMa)} software limit; PSU sizing uses this operating budget while the ${formatRuleCurrent(output.designCurrentMa)} uncapped full-white ceiling remains visible.`,
+        `${output.title}: configured ${formatRuleCurrent(output.operatingCurrentCapMa)} software limit; the hardware is still sized for its ${formatRuleCurrent(output.designCurrentMa)} full-white load.`,
       )
     }
     if (output.conductor && output.connectorMinimumMa && output.fuse.ratingMa) {
@@ -457,13 +441,13 @@ export function calculateElectricalPlan(
   }
 
   const assumptionsUsed = [
-    'WS2812B uncapped branch wiring and protection are sized at 60 mA per pixel full white; a configured firmware cap may reduce only the recommended PSU operating capacity.',
+    'WS2812B supplies, wiring and protection are sized at 60 mA per pixel full white; a configured firmware cap does not reduce any recommendation.',
     `${DEFAULT_LED_DENSITY_PER_METER} LEDs/m and ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way copper feeds are used when the graph has no physical product dimensions.`,
     `Start and end feeds are limited to ${formatRuleCurrent(MAX_END_FEED_CURRENT_MA)}; centre feeds may carry up to ${formatRuleCurrent(MAX_CENTER_FEED_CURRENT_MA)} before splitting in both directions.`,
-    `Supply groups are packed from the configured operating caps, or uncapped full-white loads when no cap exists, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
-    `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the cap-aware sizing load.`,
+    `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
+    `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the full-white load.`,
     `Conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
-    `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches (never more than the supply's nameplate) and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
+    `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
     'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
   ]
 
