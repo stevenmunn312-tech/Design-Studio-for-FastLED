@@ -6,6 +6,11 @@ describe('minimapFitsField', () => {
     expect(minimapFitsField(1920, 300, 500)).toBe(true)
   })
 
+  it('hides it on a laptop with both panels open, where it covered nodes', () => {
+    // 1366 px window: about 590 px of graph between the panels.
+    expect(minimapFitsField(1366, 280, 496)).toBe(false)
+  })
+
   it('hides it when the panels leave only a strip of canvas', () => {
     // 1024 px window with both panels open: about 250 px of graph.
     expect(minimapFitsField(1024, 280, 496)).toBe(false)
