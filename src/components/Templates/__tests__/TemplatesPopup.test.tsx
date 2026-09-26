@@ -50,14 +50,43 @@ describe('TemplatesPopup', () => {
       expect(cards.filter((card) => card.textContent?.includes('Juggle')).length).toBe(1)
     })
 
-    it('has the focus when the gallery opens, so Enter starts it', () => {
+    it('has the focus when the gallery opens, so Enter starts it', async () => {
       const { getByRole } = render(<TemplatesPopup />)
-      expect(document.activeElement).toBe(getByRole('button', { name: /Start with Juggle/ }))
+      await waitFor(() => expect(document.activeElement).toBe(getByRole('button', { name: /Start with Juggle/ })))
     })
 
     it('lists the rest under their own heading', () => {
       const { getByRole } = render(<TemplatesPopup />)
       expect(getByRole('heading', { name: 'More starters' })).toBeTruthy()
+    })
+  })
+
+  describe('from the keyboard', () => {
+    it('closes on Escape', () => {
+      render(<TemplatesPopup />)
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(useUiStore.getState().templatesOpen).toBe(false)
+    })
+
+    it('leaves Escape to its own replace confirmation while one is asking', () => {
+      render(<TemplatesPopup />)
+      void useUiStore.getState().requestConfirm({ title: 'Replace current graph?', message: 'Continue?' })
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(useUiStore.getState().templatesOpen).toBe(true)
+      useUiStore.setState({ appDialog: null })
+    })
+
+    it('keeps Tab inside the dialog', () => {
+      const { getByRole } = render(<TemplatesPopup />)
+      const dialog = getByRole('dialog', { name: 'Start gallery' })
+      expect(dialog.getAttribute('aria-modal')).toBe('true')
+      const buttons = Array.from(dialog.querySelectorAll('button'))
+      const last = buttons[buttons.length - 1]
+      last.focus()
+      fireEvent.keyDown(last, { key: 'Tab' })
+      expect(document.activeElement).toBe(buttons[0])
+      fireEvent.keyDown(buttons[0], { key: 'Tab', shiftKey: true })
+      expect(document.activeElement).toBe(last)
     })
   })
 

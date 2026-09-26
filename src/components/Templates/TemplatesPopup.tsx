@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/starterTemplates'
 import { useGraphStore } from '../../state/graphStore'
@@ -131,6 +131,48 @@ export default function TemplatesPopup() {
   const lastStartChoice = useUiStore((s) => s.lastStartChoice)
   const guideVisible = useFirstProjectGuide((s) => s.visible)
   const startGuide = useFirstProjectGuide((s) => s.start)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const featuredRef = useRef<HTMLButtonElement>(null)
+
+  // The gallery opens on its own for a first visit, before anything else has
+  // focus, so `autoFocus` alone lost the race and left keyboard users on the
+  // page behind it. Focus the recommended starter once mounted, and hand focus
+  // back to whatever opened the gallery when it closes.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const timer = window.setTimeout(() => featuredRef.current?.focus(), 0)
+    return () => {
+      window.clearTimeout(timer)
+      if (opener?.isConnected && opener !== document.body) opener.focus()
+    }
+  }, [])
+
+  // Escape closes the gallery, but not while its own replace confirmation is
+  // asking: that dialog answers Escape itself.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || useUiStore.getState().appDialog) return
+      closeTemplates()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [closeTemplates])
+
+  // Keep Tab inside the dialog, as Help does.
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Tab') return
+    const items = Array.from(popupRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? [])
+    if (items.length === 0) return
+    const first = items[0]
+    const last = items[items.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 
   // One starter is the place to begin; the rest follow it under their own
   // heading, so a newcomer is not left choosing between eight equals.
@@ -167,13 +209,13 @@ export default function TemplatesPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeTemplates() }}>
-      <div className={styles.popup} role="dialog" aria-label="Start gallery">
+      <div ref={popupRef} className={styles.popup} role="dialog" aria-label="Start gallery" aria-modal="true" onKeyDown={handleKeyDown}>
         <div className={styles.header}>
           <div>
             <div className={styles.kicker}>Start Gallery</div>
             <span>Pick a starting point</span>
           </div>
-          <button className={styles.closeBtn} onClick={closeTemplates} title="Close">×</button>
+          <button type="button" className={styles.closeBtn} onClick={closeTemplates} title="Close" aria-label="Close start gallery">×</button>
         </div>
         <div className={styles.hint}>
           New here? Start with {recommended?.name ?? 'a starter'} — it walks you through your first patch. Or begin with a blank canvas.
@@ -191,7 +233,7 @@ export default function TemplatesPopup() {
               className={`${styles.card} ${styles.featuredCard} ${lastStartChoice === recommended.id ? styles.cardRemembered : ''}`}
               onClick={() => { void loadTemplate(recommended) }}
               aria-label={`Start with ${recommended.name} — recommended first patch`}
-              autoFocus
+              ref={featuredRef}
             >
               <TemplatePreview template={recommended} />
               <div className={styles.cardBody}>
