@@ -3788,13 +3788,14 @@ export function buildGraphDiagnostics(
   /*
    * Where a firmware message is actually pointing.
    *
-   * Both walks name the node first ("LED Matrix: …", "Display Panel: …"), so
-   * the card can go to that node and the wires the walk objects to, instead of
-   * framing every display or every LED output on the canvas.
+   * Both walks name the node first ("LED Matrix: …", "Display Panel: …",
+   * "Display Panel's screen design …"), so the card can go to that node and
+   * the wires the walk objects to, instead of framing every display or every
+   * LED output on the canvas.
    */
   const namedNode = (message: string, candidates: StudioNode[]) => candidates.find((node) =>
     [nodeLabel(node), String(node.data.label ?? ''), node.id]
-      .some((name) => name && (message.startsWith(`${name}:`) || message.startsWith(`${name}.`))))
+      .some((name) => name && [':', '.', "'s "].some((joint) => message.startsWith(`${name}${joint}`))))
   const displayTarget = (message: string) => {
     const panel = namedNode(message, nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)))
     if (!panel) return {}
