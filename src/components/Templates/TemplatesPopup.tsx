@@ -3,6 +3,7 @@ import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/starterTemplates'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { startBlankCanvas, startTemplate } from '../../utils/startFlow'
 import styles from './TemplatesPopup.module.css'
 
@@ -128,6 +129,8 @@ export default function TemplatesPopup() {
   const closeTemplates = useUiStore((s) => s.closeTemplates)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const lastStartChoice = useUiStore((s) => s.lastStartChoice)
+  const guideVisible = useFirstProjectGuide((s) => s.visible)
+  const startGuide = useFirstProjectGuide((s) => s.start)
 
   // One starter is the place to begin; the rest follow it under their own
   // heading, so a newcomer is not left choosing between eight equals.
@@ -174,6 +177,11 @@ export default function TemplatesPopup() {
         </div>
         <div className={styles.hint}>
           New here? Start with {recommended?.name ?? 'a starter'} — it walks you through your first patch. Or begin with a blank canvas.
+          {!guideVisible && (
+            <button type="button" className={styles.guideLink} onClick={startGuide}>
+              Guide me from here to my board
+            </button>
+          )}
           {lastStartLabel && <span className={styles.lastStart}>Last start: {lastStartLabel}</span>}
         </div>
         <div className={styles.grid}>

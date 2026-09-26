@@ -46,6 +46,7 @@ import { anchorPosition } from '../../utils/anchorNode'
 import { signalPathFor } from '../../utils/signalPath'
 import { STARTER_TEMPLATES } from '../../state/starterTemplates'
 import { startTemplateById } from '../../utils/startFlow'
+import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { runTidy } from '../../utils/tidyGraph'
 import { usePreviewStore } from '../../state/previewStore'
 import { playNoodleConnectSfx, playNoodleDisconnectSfx } from '../../audio/interactionSfx'
@@ -1275,6 +1276,9 @@ function NodeGraphCanvasInner() {
               </button>
               <button type="button" className={styles.startAction} onClick={handleBrowseStarters}>
                 Browse starter patches
+              </button>
+              <button type="button" className={styles.startAction} onClick={() => useFirstProjectGuide.getState().start()}>
+                Guide me, step by step
               </button>
             </div>
             {lastStartLabel && <div className={styles.emptyMeta}>Last start: {lastStartLabel}</div>}

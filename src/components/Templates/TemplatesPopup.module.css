@@ -112,6 +112,22 @@
   line-height: 1.5;
 }
 
+.guideLink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-pattern);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.guideLink:focus-visible {
+  outline: 2px solid var(--accent-pattern);
+  outline-offset: 2px;
+}
+
 .lastStart {
   padding: 4px 10px;
   border: 1px solid rgba(0, 191, 255, 0.18);

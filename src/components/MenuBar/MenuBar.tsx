@@ -37,6 +37,7 @@ import { enterStagePresentation, exitStagePresentation } from '../../utils/stage
 import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { IconPause, IconPlay } from '../Preview/PlayerIcons'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
+import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import styles from './MenuBar.module.css'
 
 const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
@@ -690,6 +691,9 @@ export default function MenuBar() {
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openTemplates() }}>
                 Starter Templates…
+              </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); useFirstProjectGuide.getState().start() }}>
+                First Project Guide
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); void handleCopyShareLink() }}>
                 Copy Graph Link

@@ -373,6 +373,10 @@ interface UploadState {
   // run state
   busy: boolean
   status: UploadStatus
+  /** Whether the run `status` describes is the project itself, rather than a
+   *  bench instrument flashed in its place (a wiring test, touch calibration)
+   *  — the ones uploaded with `cache: false`. */
+  statusIsProject: boolean
   log: string
   serialLog: string
   serialConnected: boolean
@@ -521,6 +525,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   updatesPopupOpen: false,
   busy: false,
   status: IDLE,
+  statusIsProject: true,
   log: '',
   serialLog: '',
   serialConnected: false,
@@ -685,7 +690,10 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     }
     get().stopSerial()
     const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
-    set({ busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`, status: { phase: 'working', message: 'Starting…' } })
+    set({
+      busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`,
+      status: { phase: 'working', message: 'Starting…' }, statusIsProject: opts?.cache !== false,
+    })
     try {
       // The module's own flash size, when the chosen board profile records one.
       // The FQBN cannot say it: `esp32:esp32:esp32s3` is generic and resolves to
@@ -755,6 +763,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     if (!engineReady(helper)) { set({ cliPopupOpen: true }); return }
     if (!selectedPort) { set({ boardPopupOpen: true }); return }
     clearStatusReset()
+    set({ statusIsProject: true })
     get().stopSerial()
     useStreamStore.getState().stop()
 

@@ -44,6 +44,7 @@ const PerformanceDeck = lazy(() => import('./components/PerformanceDeck/Performa
 
 const BoardPopup = lazy(() => import('./components/Upload/BoardPopup'))
 const BoardPinoutPopup = lazy(() => import('./components/Upload/BoardPinoutPopup'))
+import FirstProjectGuide from './components/FirstProject/FirstProjectGuide'
 const MatrixOutputSetupWizard = lazy(() => import('./components/Upload/MatrixOutputSetupWizard'))
 const CapacityWatcher = lazy(() => import('./components/Upload/CapacityWatcher'))
 const MatrixOutputDeployPopup = lazy(() => import('./components/Upload/MatrixOutputDeployPopup'))
@@ -686,6 +687,7 @@ export default function App() {
                 ) : (
                   <NodeGraphCanvas />
                 )}
+                <FirstProjectGuide />
               </div>
             </div>
           </div>

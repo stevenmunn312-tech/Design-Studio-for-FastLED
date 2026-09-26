@@ -39,7 +39,8 @@ describe('TemplatesPopup', () => {
 
     it('comes first with its lesson, and Blank Canvas sits right beside it', () => {
       const { getAllByRole } = render(<TemplatesPopup />)
-      const cards = getAllByRole('button').filter((button) => button.closest('[role="dialog"]') && button.textContent !== '×')
+      const cards = getAllByRole('button').filter((button) => button.closest('[role="dialog"]')
+        && button.textContent !== '×' && button.textContent !== 'Guide me from here to my board')
       expect(cards[0].getAttribute('aria-label')).toBe('Start with Juggle — recommended first patch')
       expect(cards[0].textContent).toContain('Start here')
       // The teaching sequence the starter exists for, kept intact.

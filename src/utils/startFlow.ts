@@ -5,6 +5,7 @@ import { useUiStore } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { micSupportedForBoardProfile } from '../state/micPinDefaults'
 import { useUploadStore } from '../state/uploadStore'
+import { useFirstProjectGuide } from '../state/firstProjectGuideStore'
 import { runTidy } from './tidyGraph'
 
 interface StartFlowOptions {
@@ -30,6 +31,9 @@ function tidyLoadedTemplate(generation: number) {
 function finishStartFlow(choice: string | 'blank', statusText: string, nodeIds?: string[], options?: StartFlowOptions) {
   const ui = useUiStore.getState()
   useGraphStore.temporal.getState().clear()
+  // A new project for the first-project guide: what "Make it yours" compares
+  // against, and no upload of it yet.
+  useFirstProjectGuide.getState().noteFreshStart()
   ui.setLastStartChoice(choice)
   ui.requestFitView(nodeIds)
   ui.setStatus(statusText, 'success')
