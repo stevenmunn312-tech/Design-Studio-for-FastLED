@@ -162,8 +162,11 @@ export function buildConnectionRows(
     if (supplyInjections.length === 0) continue
     const supplyLabel = `5 V PSU ${supply.id.replace('supply-', '')}`
     const distribution = `${supplyLabel} fuse-block distribution`
-    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: distribution, toTerminal: 'Positive input stud', purpose: 'DC supply positive' })
-    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Common negative bus', purpose: 'DC supply return' })
+    const mainFuse = `${supplyLabel} ${supply.trunk.mainFuse.ratingMa ? formatAmps(supply.trunk.mainFuse.ratingMa) : 'rated'} main fuse`
+    const trunkWire = supply.trunk.conductor ? `AWG ${supply.trunk.conductor.awg}` : 'rated'
+    rows.push({ from: supplyLabel, fromTerminal: '+5V', to: mainFuse, toTerminal: 'Input', purpose: `DC supply positive; fuse at the supply terminal, ${trunkWire} copper` })
+    rows.push({ from: mainFuse, fromTerminal: 'Output', to: distribution, toTerminal: 'Positive input stud', purpose: `Protected ${trunkWire} trunk, ${supply.trunk.oneWayLengthMm} mm` })
+    rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Common negative bus', purpose: `DC supply return, ${trunkWire} copper` })
     for (const injection of supplyInjections) {
       const destination = `${injection.outputTitle} ${injection.role} injection @ ${injection.positionMm} mm`
       const fuse = `${destination} ${injection.fuse.ratingMa ?? 'rated'} mA branch fuse`
@@ -221,6 +224,24 @@ export function buildBomRows(
         ? `derived from ${formatAmps(supply.psuSizingCurrentMa)} configured operating budget with ${plan.totals.headroomPercent}% target headroom; ${formatAmps(supply.designCurrentMa)} uncapped full-white ceiling; use a quality supply with overload and short-circuit protection`
         : `derived from worst-case load with ${plan.totals.headroomPercent}% target headroom`
       rows.push({ quantity: '1', item: `Recommended 5 V DC power supply ${supply.id.replace('supply-', '')}`, specification: `5 V, ${formatAmps(supply.recommendedCurrentMa)}, ${supply.recommendedWattage} W continuous; ${sizingBasis}`, status: 'calculated' })
+      const zone = supply.id.replace('supply-', '')
+      const { mainFuse, conductor } = supply.trunk
+      rows.push({
+        quantity: '1',
+        item: `PSU ${zone} main fuse and holder`,
+        specification: mainFuse.ratingMa
+          ? `${formatAmps(mainFuse.ratingMa)} DC-rated bolt-down fuse (MIDI/ANL class) in an insulated holder at the supply positive; carries ${formatAmps(supply.trunk.designCurrentMa)} at 75% loading`
+          : mainFuse.unresolvedReason ?? 'Unresolved main fuse rating',
+        status: mainFuse.ratingMa ? 'calculated' : 'unresolved',
+      })
+      rows.push({
+        quantity: '2 runs',
+        item: `PSU ${zone} trunk conductors (+ and -)`,
+        specification: conductor
+          ? `AWG ${conductor.awg} / ${conductor.crossSectionMm2} mm2 ${conductor.material} minimum, ${supply.trunk.oneWayLengthMm} mm one-way, ring lugs rated for the cable; ${conductor.voltageDrop} V calculated drop`
+          : 'Unresolved trunk conductor size',
+        status: conductor ? 'calculated' : 'unresolved',
+      })
       const feedCount = supply.injectionIds.filter((id) => includedInjectionIds.has(id)).length
       for (const [blockIndex, block] of fuseBlockAllocations(feedCount).entries()) {
         rows.push({

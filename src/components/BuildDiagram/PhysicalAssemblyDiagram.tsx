@@ -1180,6 +1180,8 @@ const LEFT_RAIL_MIN_X = 230
  * outer one so the two trunks never cross each other on their way in.
  */
 const PSU_POSITIVE_TRUNK_X = 212
+/** Main fuse on the short run between the PSU terminal and the positive riser. */
+const MAIN_FUSE_X = 180
 const PSU_GROUND_TRUNK_X = 196
 
 /**
@@ -1259,6 +1261,8 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
       // Terminal coordinates measured from the labelled PSU Cycles render:
       // use the second +V screw and the adjacent first -V screw.
       const psuPositive = { x: 153, y: sectionLayout.psuY + 64 }
+      const mainFuseText = supply.trunk.mainFuse.ratingMa ? formatAmps(supply.trunk.mainFuse.ratingMa) : 'RATED'
+      const trunkWireText = supply.trunk.conductor ? `AWG ${supply.trunk.conductor.awg}` : 'WIRE TBD'
       const psuGround = { x: 153, y: sectionLayout.psuY + 87 }
       // The +5 V trunk enters each block through the clear band between its
       // negative bus and its first fuse row, then drops the gutter between the
@@ -1283,6 +1287,8 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
         <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
         <text x="42" y="32" className={styles.physicalPowerLabel}>PSU ZONE {supplyIndex + 1} · RECOMMENDED POWER SUPPLY</text>
         <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>5 V · {formatAmps(supply.recommendedCurrentMa)} · {supply.recommendedWattage} W</text>
+        {/* Beside the rating rather than on the trunk, where the branch rails climb past. */}
+        <text data-main-fuse-label={supply.id} x="290" y="58" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
         {supply.psuSizingCurrentMa < supply.designCurrentMa && <>
           <text x="610" y="32" className={styles.physicalPowerBasisLabel}>CONFIGURED OPERATING BUDGET · {formatAmps(supply.psuSizingCurrentMa)}</text>
           <text data-uncapped-current-ceiling={supply.designCurrentMa} x="610" y="58" className={styles.physicalPowerCeilingLabel}>UNCAPPED FULL-WHITE CEILING · {formatAmps(supply.designCurrentMa)}</text>
@@ -1362,7 +1368,15 @@ function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummar
 
         {/* Drawn after the block renders: both trunks land on terminals that sit
             inside the artwork, so they have to read as wires over the block. */}
-        <HoverWire tip={`PSU zone ${supplyIndex + 1} +5 V · main bus to fuse blocks`} data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
+        <HoverWire tip={`PSU zone ${supplyIndex + 1} +5 V · ${mainFuseText} main fuse, then ${trunkWireText} trunk to the fuse blocks`} data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
+        {/* Main fuse, drawn over the trunk at the supply terminal where it is
+            fitted: between the PSU artwork and the ground riser, which the
+            positive run crosses on its way to the fuse blocks. */}
+        <g data-main-fuse={supply.trunk.mainFuse.ratingMa ?? 'unresolved'} data-trunk-awg={supply.trunk.conductor?.awg ?? 'unresolved'}>
+          <rect x={MAIN_FUSE_X - 12} y={psuPositive.y - 8} width="24" height="16" rx="3" fill="#f4f2ea" stroke="#1f2426" strokeWidth="2" />
+          <line x1={MAIN_FUSE_X - 12} y1={psuPositive.y} x2={MAIN_FUSE_X + 12} y2={psuPositive.y} stroke="#1f2426" strokeWidth="1.5" />
+          <title>{`${mainFuseText} main fuse at the supply positive · ${trunkWireText} trunk, ${supply.trunk.oneWayLengthMm} mm`}</title>
+        </g>
         <HoverWire tip={`PSU zone ${supplyIndex + 1} GND · main ground bus`} data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
 
         {assigned.map((injection, index) => {

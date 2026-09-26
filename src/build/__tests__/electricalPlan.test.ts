@@ -214,4 +214,37 @@ describe('electricalPlan', () => {
     expect(plan.powerReadyPasses).toBe(false)
     expect(plan.blockers).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'unsupported:output:out' })]))
   })
+  it('puts a main fuse on each supply and sizes its trunk to carry that fuse', () => {
+    // 1088 pixels: about 65 A at full white on one 80 A supply.
+    const manifest = buildHardwareManifest([outputNode(32, 34)], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
+    const [supply] = plan.totals?.supplies ?? []
+
+    expect(plan.totals?.supplies).toHaveLength(1)
+    expect(supply.recommendedCurrentMa).toBe(80000)
+    expect(supply.trunk.designCurrentMa).toBe(65280)
+    expect(supply.trunk.mainFuse.ratingMa).toBe(100000)
+    expect(supply.trunk.conductor).toEqual(expect.objectContaining({ awg: 2 }))
+    // The wire carries the fuse, and the fuse carries the load at 75%.
+    expect(supply.trunk.conductor!.deratedAmpacityMa).toBeGreaterThanOrEqual(supply.trunk.mainFuse.ratingMa!)
+    expect(supply.trunk.mainFuse.ratingMa! * 0.75).toBeGreaterThanOrEqual(supply.trunk.designCurrentMa)
+    expect(plan.unresolved).toEqual([])
+  })
+
+  it("sizes a capped zone's trunk to its supply, not its full-white ceiling", () => {
+    const manifest = buildHardwareManifest([
+      boardNode({ powerLimit: true, milliamps: 20000 }),
+      outputNode(32, 34),
+    ], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
+    const [supply] = plan.totals?.supplies ?? []
+
+    expect(supply.designCurrentMa).toBe(65280)
+    expect(supply.recommendedCurrentMa).toBe(30000)
+    expect(supply.trunk.designCurrentMa).toBe(30000)
+    expect(supply.trunk.mainFuse.ratingMa).toBe(40000)
+    expect(supply.trunk.conductor).toEqual(expect.objectContaining({ awg: 8, limitingFactor: 'voltage-drop' }))
+  })
 })

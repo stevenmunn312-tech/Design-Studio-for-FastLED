@@ -20,6 +20,10 @@ const DEFAULT_FEED_CABLE_LENGTH_MM = 500
 const MAX_END_FEED_CURRENT_MA = 5000
 const MAX_CENTER_FEED_CURRENT_MA = 10000
 const MAX_VOLTAGE_DROP_V = 0.4
+/** Supply terminal to fuse block. Kept short: this run carries the whole zone. */
+const DEFAULT_TRUNK_LENGTH_MM = 500
+/** The trunk's share of the drop, on top of each branch's own allowance. */
+const MAX_TRUNK_VOLTAGE_DROP_V = 0.1
 // The largest single 5 V supplies in common use for LED installations are
 // around 100 A. A supply zone never exceeds this after headroom.
 const MAX_RECOMMENDED_SUPPLY_CURRENT_MA = 100000
@@ -87,6 +91,19 @@ export interface SupplyRecommendation {
   outputIds: string[]
   outputTitles: string[]
   injectionIds: string[]
+  /**
+   * The run from the supply's positive terminal to its fuse blocks. It
+   * carries every branch at once, up to what the supply can deliver, and is
+   * protected by one main fuse at the supply.
+   */
+  trunk: SupplyTrunkPlan
+}
+
+export interface SupplyTrunkPlan {
+  designCurrentMa: number
+  oneWayLengthMm: number
+  conductor?: ConductorRecommendation
+  mainFuse: FuseRecommendation
 }
 
 export interface ElectricalPlanTotals {
@@ -224,6 +241,7 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
           outputIds: [],
           outputTitles: [],
           injectionIds: [],
+          trunk: { designCurrentMa: 0, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, mainFuse: { minimumLoadRatingMa: 0, maximumProtectiveRatingMa: 0 } },
         }
         supplies.push(supply)
       }
@@ -237,7 +255,40 @@ function groupSupplies(outputs: OutputElectricalPlan[]): SupplyRecommendation[] 
       injection.supplyId = supply.id
     }
   }
+  // The branches' uncapped sum, but never more than the supply can deliver: a
+  // capped zone's full-white ceiling can exceed its nameplate many times over,
+  // and the main fuse's 75% loading margin already covers the supply's own
+  // overload trip point above nameplate.
+  for (const supply of supplies) {
+    supply.trunk = planTrunk(Math.min(supply.designCurrentMa, supply.recommendedCurrentMa), nominalVoltageOf(outputs))
+  }
   return supplies
+}
+
+function nominalVoltageOf(outputs: OutputElectricalPlan[]): number {
+  return outputs[0]?.nominalVoltage ?? 5
+}
+
+function planTrunk(designCurrentMa: number, nominalVoltage: number): SupplyTrunkPlan {
+  const conductor = recommendConductor({
+    // Coordinated like a branch: the wire carries the main fuse's rating.
+    designCurrentMa: standardFuseRatingFor(designCurrentMa) ?? Math.ceil(designCurrentMa / 0.75),
+    oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM,
+    circuitVoltage: nominalVoltage,
+    allowedVoltageDropPercent: (MAX_TRUNK_VOLTAGE_DROP_V / nominalVoltage) * 100,
+    material: 'copper',
+    ambientC: 30,
+    bundledCircuits: 1,
+  })
+  const mainFuse = conductor
+    // A bolted lug on the trunk is rated with the cable, so the wire is the limit.
+    ? recommendFuse(designCurrentMa, conductor.deratedAmpacityMa, conductor.deratedAmpacityMa)
+    : {
+        minimumLoadRatingMa: Math.ceil(designCurrentMa / 0.75),
+        maximumProtectiveRatingMa: 0,
+        unresolvedReason: "No conductor in the reviewed table carries this zone's main fuse; split the zone across more supplies.",
+      }
+  return { designCurrentMa, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, conductor, mainFuse }
 }
 
 export function calculateElectricalPlan(
@@ -364,6 +415,11 @@ export function calculateElectricalPlan(
       injection.fuse.unresolvedReason ? `${output.title} ${injection.role} feed: ${injection.fuse.unresolvedReason}` : undefined,
     ]),
   ].filter((entry): entry is string => !!entry))
+  for (const supply of totals?.supplies ?? []) {
+    const zone = supply.id.replace('supply-', 'PSU zone ')
+    if (!supply.trunk.conductor) unresolved.push(`${zone} trunk: no reviewed conductor carries the zone's main fuse.`)
+    else if (supply.trunk.mainFuse.unresolvedReason) unresolved.push(`${zone} main fuse: ${supply.trunk.mainFuse.unresolvedReason}`)
+  }
   const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const powerReadyPasses = blockers.length === 0 && unresolved.length === 0
   const requirementsCalculatedText = blockers.length > 0
@@ -380,6 +436,7 @@ export function calculateElectricalPlan(
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',
     'Use one 74AHCT125 channel and one 330 ohm series resistor for each WS2812B data route.',
     'Install one good-quality, correctly polarized 1000 uF, 6.3 V low-ESR electrolytic capacitor across +5 V and GND after every branch fuse, before the matrix feed or power-injection connection.',
+    "Fit each supply's main fuse on its positive lead, as close to the supply terminal as the fuse holder allows, before the trunk reaches the fuse block.",
     'Reducing global brightness lowers operating power without changing the worst-case wiring recommendation.',
     'FastLED current limiting reduces the recommended PSU operating capacity, but branch wiring and fuses remain sized for the uncapped physical load.',
   ]
@@ -406,6 +463,8 @@ export function calculateElectricalPlan(
     `Supply groups are packed from the configured operating caps, or uncapped full-white loads when no cap exists, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
     `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the cap-aware sizing load.`,
     `Conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
+    `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches (never more than the supply's nameplate) and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
+    'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
   ]
 
   if (exactBoard?.confidence === 'pinout-verified') {

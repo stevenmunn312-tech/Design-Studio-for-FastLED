@@ -77,6 +77,25 @@ describe('buildExports', () => {
       .toContain('Draft - unresolved,rules-v1')
   })
 
+  it('routes each supply through a main fuse and lists the fuse and trunk', () => {
+    const manifest = buildHardwareManifest([outputNode({ width: 32, height: 34 })], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const profile = ensureBuildProfile({ version: 1 })
+    const plan = calculateElectricalPlan(manifest, profile, board)
+    const rows = buildConnectionRows(manifest.primaryItems, plan, board)
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: '5 V PSU 1', fromTerminal: '+5V', to: '5 V PSU 1 100 A main fuse', toTerminal: 'Input' }),
+      expect.objectContaining({ from: '5 V PSU 1 100 A main fuse', to: '5 V PSU 1 fuse-block distribution', toTerminal: 'Positive input stud', purpose: expect.stringContaining('AWG 2') }),
+    ]))
+    // Nothing reaches the fuse block's positive stud except through the main fuse.
+    expect(rows.some((row) => row.from === '5 V PSU 1' && row.toTerminal === 'Positive input stud')).toBe(false)
+    expect(buildBomRows(manifest, plan, profile, board)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ item: 'PSU 1 main fuse and holder', specification: expect.stringContaining('100 A'), status: 'calculated' }),
+      expect.objectContaining({ item: 'PSU 1 trunk conductors (+ and -)', specification: expect.stringContaining('AWG 2'), status: 'calculated' }),
+    ]))
+  })
+
   it('exports configured operating limits beside the uncapped safety ceiling', () => {
     const manifest = buildHardwareManifest([
       node('board', 'Board', { powerLimit: true, milliamps: 5000 }),

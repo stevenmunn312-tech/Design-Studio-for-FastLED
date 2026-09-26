@@ -1284,6 +1284,11 @@ describe('BuildDiagramWorkspace', () => {
       .map((node) => Number(node.getAttribute('data-fuse-block-circuits'))))
       .toEqual([12, 12, 2])
     expect(diagram?.querySelectorAll('[data-component-render="panasonic-eeufr0j102b-1000uf"]')).toHaveLength(26)
+    // One main fuse per supply zone, each with a rating and a trunk gauge.
+    const mainFuses = Array.from(diagram?.querySelectorAll('[data-main-fuse]') ?? [])
+    expect(mainFuses).toHaveLength(diagram?.querySelectorAll('[data-power-zone]').length ?? -1)
+    expect(mainFuses.every((fuse) => Number(fuse.getAttribute('data-main-fuse')) > 0
+      && Number(fuse.getAttribute('data-trunk-awg')) > 0)).toBe(true)
     const laneCoordinates = (polarity: 'fused-positive' | 'ground') => Array.from(
       diagram?.querySelectorAll(`[data-wire$="-${polarity}"]`) ?? [],
       (wire) => wire.getAttribute('d')?.match(/H(\d+)V\d+(?:\.\d+)?H\d+$/)?.[1],
