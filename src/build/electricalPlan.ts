@@ -5,6 +5,7 @@ import {
   ELECTRICAL_RULESET_VERSION,
   recommendConductor,
   recommendFuse,
+  standardFuseRatingFor,
   type ConductorRecommendation,
   type FuseRecommendation,
 } from './electricalRules'
@@ -19,7 +20,9 @@ const DEFAULT_FEED_CABLE_LENGTH_MM = 500
 const MAX_END_FEED_CURRENT_MA = 5000
 const MAX_CENTER_FEED_CURRENT_MA = 10000
 const MAX_VOLTAGE_DROP_V = 0.4
-const MAX_RECOMMENDED_SUPPLY_CURRENT_MA = 60000
+// The largest single 5 V supplies in common use for LED installations are
+// around 100 A. A supply zone never exceeds this after headroom.
+const MAX_RECOMMENDED_SUPPLY_CURRENT_MA = 100000
 const STANDARD_CONNECTOR_RATINGS_MA = [3000, 5000, 7500, 10000, 15000, 20000, 30000, 45000, 60000] as const
 
 export type ElectricalPlanSeverity = 'blocking' | 'warning' | 'info'
@@ -167,8 +170,9 @@ function calculateInjections(itemId: string, outputTitle: string, pixelCount: nu
     const designCurrentMa = pixels[index] * WS2812_WORST_CASE_MA_PER_PIXEL
     const connectorMinimumMa = connectorMinimumForLoad(designCurrentMa)
     const conductor = recommendConductor({
-      // Size ampacity and voltage drop with the same continuous-load reserve used for fuse selection.
-      designCurrentMa: Math.ceil(designCurrentMa / 0.75),
+      // Size the wire to carry the fuse that will protect it, so a standard
+      // rating always fits between the load's minimum and the wire's ampacity.
+      designCurrentMa: standardFuseRatingFor(designCurrentMa) ?? Math.ceil(designCurrentMa / 0.75),
       oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
       circuitVoltage: nominalVoltage,
       allowedVoltageDropPercent: (MAX_VOLTAGE_DROP_V / nominalVoltage) * 100,

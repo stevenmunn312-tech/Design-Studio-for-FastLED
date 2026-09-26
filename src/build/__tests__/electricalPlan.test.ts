@@ -49,7 +49,7 @@ describe('electricalPlan', () => {
         pixelsPerFeed: 128,
         branchDesignCurrentMa: 7680,
         recommendedSupplyCurrentMa: 20000,
-        conductor: expect.objectContaining({ awg: 20, crossSectionMm2: 0.5 }),
+        conductor: expect.objectContaining({ awg: 16, crossSectionMm2: 1.3 }),
         connectorMinimumMa: 15000,
         fuse: expect.objectContaining({ ratingMa: 15000 }),
         injections: [
@@ -88,16 +88,16 @@ describe('electricalPlan', () => {
       pixelsPerFeed: 166,
     }))
     expect(plan.totals).toEqual(expect.objectContaining({
-      recommendedSupplyCurrentMa: 300000,
-      recommendedSupplyWattage: 1500,
-      recommendedSupplyCount: 5,
+      recommendedSupplyCurrentMa: 310000,
+      recommendedSupplyWattage: 1550,
+      recommendedSupplyCount: 4,
       headroomPercent: 20,
     }))
-    expect(plan.outputs[0].injections[0]).toEqual(expect.objectContaining({ role: 'start', designCurrentMa: 4980, conductor: expect.objectContaining({ awg: 20 }) }))
-    expect(plan.outputs[0].injections[1]).toEqual(expect.objectContaining({ role: 'center', designCurrentMa: 9960, conductor: expect.objectContaining({ awg: 18 }) }))
+    expect(plan.outputs[0].injections[0]).toEqual(expect.objectContaining({ role: 'start', designCurrentMa: 4980, conductor: expect.objectContaining({ awg: 18 }) }))
+    expect(plan.outputs[0].injections[1]).toEqual(expect.objectContaining({ role: 'center', designCurrentMa: 9960, conductor: expect.objectContaining({ awg: 16 }) }))
     expect(plan.outputs[0].injections.every((injection) => injection.designCurrentMa <= injection.maximumCurrentMa)).toBe(true)
     expect(plan.outputs[0].injections.every((injection) => (injection.conductor?.voltageDrop ?? Infinity) <= 0.4)).toBe(true)
-    expect(plan.totals?.supplies.every((supply) => supply.recommendedCurrentMa <= 60000)).toBe(true)
+    expect(plan.totals?.supplies.every((supply) => supply.recommendedCurrentMa <= 100000)).toBe(true)
   })
 
   it('uses a firmware cap for PSU sizing without weakening branch protection', () => {

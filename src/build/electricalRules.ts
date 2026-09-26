@@ -1,6 +1,6 @@
 import type { BuildConductorMaterial } from './buildProfile'
 
-export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.08.11-v4'
+export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.09.27-v5'
 export const DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT = 5
 
 export interface WireRule {
@@ -38,21 +38,29 @@ export interface FuseRecommendation {
   unresolvedReason?: string
 }
 
-// Conservative subset of Littelfuse's GPT 90 C automotive-wire table at 25 C.
-// Resistance values are standard nominal copper conductor values; voltage drop
-// is calculated over the complete out-and-back circuit length.
+// NFPA 70 (NEC) 2023 Table 310.16, 90 C copper: not more than three
+// current-carrying conductors in raceway or cable, 30 C ambient. One standard
+// for every gauge, so a trunk and its branches are judged on the same basis;
+// the table has no 20 AWG row, so neither does this. Resistance values are
+// standard nominal copper at 20 C; voltage drop is calculated over the
+// complete out-and-back circuit length.
 export const WIRE_RULES: readonly WireRule[] = [
-  { awg: 20, crossSectionMm2: 0.5, copperResistanceOhmPerKm: 33.31, continuousAmpacityMa: 15000 },
-  { awg: 18, crossSectionMm2: 0.8, copperResistanceOhmPerKm: 20.95, continuousAmpacityMa: 22000 },
-  { awg: 16, crossSectionMm2: 1.0, copperResistanceOhmPerKm: 13.17, continuousAmpacityMa: 23000 },
-  { awg: 14, crossSectionMm2: 2.0, copperResistanceOhmPerKm: 8.286, continuousAmpacityMa: 36000 },
-  { awg: 12, crossSectionMm2: 3.0, copperResistanceOhmPerKm: 5.211, continuousAmpacityMa: 47000 },
-  { awg: 10, crossSectionMm2: 5.0, copperResistanceOhmPerKm: 3.277, continuousAmpacityMa: 65000 },
-  { awg: 8, crossSectionMm2: 8.0, copperResistanceOhmPerKm: 2.061, continuousAmpacityMa: 87000 },
+  { awg: 18, crossSectionMm2: 0.8, copperResistanceOhmPerKm: 20.95, continuousAmpacityMa: 14000 },
+  { awg: 16, crossSectionMm2: 1.3, copperResistanceOhmPerKm: 13.17, continuousAmpacityMa: 18000 },
+  { awg: 14, crossSectionMm2: 2.0, copperResistanceOhmPerKm: 8.286, continuousAmpacityMa: 25000 },
+  { awg: 12, crossSectionMm2: 3.3, copperResistanceOhmPerKm: 5.211, continuousAmpacityMa: 30000 },
+  { awg: 10, crossSectionMm2: 5.2, copperResistanceOhmPerKm: 3.277, continuousAmpacityMa: 40000 },
+  { awg: 8, crossSectionMm2: 8.3, copperResistanceOhmPerKm: 2.061, continuousAmpacityMa: 55000 },
+  { awg: 6, crossSectionMm2: 13.3, copperResistanceOhmPerKm: 1.296, continuousAmpacityMa: 75000 },
+  { awg: 4, crossSectionMm2: 21.2, copperResistanceOhmPerKm: 0.8152, continuousAmpacityMa: 95000 },
+  { awg: 2, crossSectionMm2: 33.6, copperResistanceOhmPerKm: 0.5127, continuousAmpacityMa: 130000 },
 ] as const
 
+// Branch blade ratings, then the bolt-down (MIDI/ANL-class) ratings a supply's
+// main fuse is chosen from.
 const STANDARD_FUSE_RATINGS_MA = [
   500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000, 15000, 20000, 25000, 30000, 40000, 50000,
+  60000, 70000, 80000, 100000, 125000, 150000,
 ] as const
 
 function ambientDerating(ambientC: number): number {
@@ -67,7 +75,10 @@ function bundleDerating(circuits: number): number {
   if (circuits <= 2) return 1
   if (circuits <= 4) return 0.8
   if (circuits <= 6) return 0.7
-  return 0.6
+  // NEC 310.15(C)(1) goes to 50% from ten conductors; below that this keeps
+  // the older, stricter steps rather than loosening them.
+  if (circuits <= 9) return 0.6
+  return 0.5
 }
 
 function materialResistanceMultiplier(material: BuildConductorMaterial): number {
@@ -115,6 +126,17 @@ export function recommendConductor(input: ConductorSizingInput): ConductorRecomm
     }
   }
   return undefined
+}
+
+/**
+ * The smallest standard fuse that carries a load at the 75% continuous
+ * loading limit. A conductor is then sized to carry *this* rating, not the
+ * load: sizing the wire to the load alone can leave no standard fuse between
+ * the load's minimum and the wire's ampacity.
+ */
+export function standardFuseRatingFor(designCurrentMa: number): number | undefined {
+  const minimumLoadRatingMa = Math.ceil(designCurrentMa / 0.75)
+  return STANDARD_FUSE_RATINGS_MA.find((rating) => rating >= minimumLoadRatingMa)
 }
 
 export function recommendFuse(

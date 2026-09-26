@@ -15,7 +15,7 @@ describe('electricalRules', () => {
 
     expect(recommendation).toEqual(expect.objectContaining({
       awg: 8,
-      crossSectionMm2: 8,
+      crossSectionMm2: 8.3,
       limitingFactor: 'voltage-drop',
     }))
     expect(recommendation?.voltageDropPercent).toBeLessThanOrEqual(5)
@@ -46,8 +46,18 @@ describe('electricalRules', () => {
   })
 
   it('calculates voltage drop over the outbound and return conductors', () => {
-    const awg20 = WIRE_RULES[0]
-    expect(conductorVoltageDrop(awg20, 1000, 1000, 'copper')).toBeCloseTo(0.06662, 5)
+    const awg18 = WIRE_RULES[0]
+    expect(conductorVoltageDrop(awg18, 1000, 1000, 'copper')).toBeCloseTo(0.0419, 5)
+  })
+
+  it('takes every gauge from one ampacity table, thinnest first and rising', () => {
+    // NEC 310.16 90 C copper; a second source mixed in would break the order.
+    expect(WIRE_RULES.map((rule) => rule.awg)).toEqual([18, 16, 14, 12, 10, 8, 6, 4, 2])
+    for (let i = 1; i < WIRE_RULES.length; i++) {
+      expect(WIRE_RULES[i].continuousAmpacityMa).toBeGreaterThan(WIRE_RULES[i - 1].continuousAmpacityMa)
+      expect(WIRE_RULES[i].copperResistanceOhmPerKm).toBeLessThan(WIRE_RULES[i - 1].copperResistanceOhmPerKm)
+    }
+    expect(WIRE_RULES.find((rule) => rule.awg === 10)?.continuousAmpacityMa).toBe(40000)
   })
 
   it('selects a standard fuse that carries normal load and protects the path', () => {

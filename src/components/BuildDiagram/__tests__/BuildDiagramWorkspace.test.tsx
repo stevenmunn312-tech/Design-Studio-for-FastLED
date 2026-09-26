@@ -1267,8 +1267,8 @@ describe('BuildDiagramWorkspace', () => {
     const { getByText, getAllByText } = render(<BuildDiagramWorkspace />)
 
     expect(getByText('Power feeds: 26 individually fused feeds from the assigned PSU distribution zone')).toBeTruthy()
-    expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('PSU 5: 5 V, at least') ?? false))).toBeTruthy()
-    expect(getAllByText((_, node) => node?.textContent?.includes('PSU ZONE 5') ?? false).length).toBeGreaterThan(0)
+    expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('PSU 4: 5 V, at least') ?? false))).toBeTruthy()
+    expect(getAllByText((_, node) => node?.textContent?.includes('PSU ZONE 4') ?? false).length).toBeGreaterThan(0)
     expect(getByText('Keep separate PSU +5 V zones isolated; join grounds for the shared controller data reference.')).toBeTruthy()
   })
 
