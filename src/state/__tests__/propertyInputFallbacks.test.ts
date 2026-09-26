@@ -24,7 +24,7 @@
  * variables) and there is nothing to compare them to.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -32,20 +32,47 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 interface Fallback { node: string; port: string; key: string; literal: string }
 
 /**
- * Every `case 'Type': {` block in one file, with the fallbacks it names.
+ * Every node handler of one kind (`evaluate` or `codegen`), as
+ * `[nodeType, body]`, read from the category modules in `src/nodes/`.
  *
- * Split on the case label rather than brace-matched, which is enough because
- * the only thing read out is a call shape that cannot appear before the first
- * case or after the last.
+ * A handler is a method of its category's table, split on the method name
+ * rather than brace-matched: the table closes each file, and nothing but a
+ * method starts a line two spaces in with `Name(`. Types that share a body are
+ * listed as `Type: sharedHandler,` and resolve to that arrow's text.
  */
-function fallbacks(file: string, call: RegExp, extra?: (body: string) => Omit<Fallback, 'node'>[]): Fallback[] {
-  const source = readFileSync(path.join(process.cwd(), 'src', file), 'utf8')
-  const parts = source.split(/\n {6}case '([A-Za-z0-9_]+)': \{/)
+function handlerBodies(kind: 'evaluate' | 'codegen'): [string, string][] {
+  const dir = path.join(process.cwd(), 'src', 'nodes')
+  const bodies: [string, string][] = []
+  for (const category of readdirSync(dir)) {
+    const file = path.join(dir, category, `${kind}.ts`)
+    if (!existsSync(file)) continue
+    const source = readFileSync(file, 'utf8')
+    const shared = new Map([...source.matchAll(/^const (\w+): Node\w+ = \([\s\S]*?\n\}\n/gm)].map((m) => [m[1], m[0]]))
+    const table = source.slice(source.search(/^export const \w+: Node\w+s = \{$/m))
+    for (const [, node, handler] of table.matchAll(/^ {2}(\w+): (\w+),$/gm)) bodies.push([node, shared.get(handler) ?? ''])
+    const parts = table.split(/\n {2}(\w+)\(/)
+    for (let index = 1; index < parts.length; index += 2) bodies.push([parts[index], parts[index + 1]])
+  }
+  return bodies
+}
+
+/**
+ * Every `case 'Type': {` block in one file. Split on the case label rather
+ * than brace-matched, which is enough because the only thing read out is a
+ * call shape that cannot appear before the first case or after the last.
+ */
+function caseBodies(file: string): [string, string][] {
+  const parts = readFileSync(path.join(process.cwd(), 'src', file), 'utf8').split(/\n {6}case '([A-Za-z0-9_]+)': \{/)
+  const bodies: [string, string][] = []
+  for (let index = 1; index < parts.length; index += 2) bodies.push([parts[index], parts[index + 1]])
+  return bodies
+}
+
+/** The fallbacks every handler names, first mention of each port/key winning. */
+function fallbacks(bodies: [string, string][], call: RegExp, extra?: (body: string) => Omit<Fallback, 'node'>[]): Fallback[] {
   const found: Fallback[] = []
   const seen = new Set<string>()
-  for (let index = 1; index < parts.length; index += 2) {
-    const node = parts[index]
-    const body = parts[index + 1]
+  for (const [node, body] of bodies) {
     const here = [...body.matchAll(call)].map(([, port, key, literal]) => ({ port, key, literal: literal.trim() }))
     for (const one of [...here, ...(extra?.(body) ?? [])]) {
       const id = `${node}|${one.port}|${one.key}`
@@ -76,11 +103,11 @@ function channelFallbacks(body: string): Omit<Fallback, 'node'>[] {
 }
 
 const EVALUATOR = fallbacks(
-  'state/graphEvaluator.ts',
+  handlerBodies('evaluate'),
   /num\(\s*id,\s*'([A-Za-z0-9_]+)',\s*props,\s*'([A-Za-z0-9_]+)',\s*([^,)]+)\)/g,
 )
 const GENERATOR = fallbacks(
-  'codegen/cppGenerator.ts',
+  caseBodies('codegen/cppGenerator.ts'),
   /\bf\(\s*'([A-Za-z0-9_]+)',\s*'([A-Za-z0-9_]+)',\s*([^,)]+)\)/g,
   channelFallbacks,
 )
