@@ -197,14 +197,16 @@ const normalEdges = [
 ]
 
 const showNodes = [
-  ...commonFor(showDocument, 'brightness', 'patternNext'), fixedPanel(), touch('fixed-tft'),
+  ...commonFor(showDocument, 'brightness', 'patternNext', 'masterSpeed'), fixedPanel(), touch('fixed-tft'),
   node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
-  node('show', 'PatternSlideshow'),
+  node('show', 'PatternSlideshow'), node('speed', 'MasterSpeed', { speed: 0.75 }),
 ]
 const showEdges = [
   ...commonWires,
   edge('custom-tft-touch', 'widget:button:out', 'controls', 'patternNext'),
+  edge('math', 'result', 'controls', 'masterSpeed'),
   edge('controls', 'controls', 'show', 'controls'),
+  edge('controls', 'controls', 'speed', 'controls'),
   edge('collection', 'patternset', 'show', 'patternset'),
   edge('show', 'frame', 'out', 'frame'),
   edge('show', 'display', 'fixed-tft', 'display'),
@@ -650,6 +652,7 @@ const requiredSymbols: Record<string, readonly string[]> = {
   normal: ['lv_display_set_default(_cdDisp_custom_tft)', 'n_custom_tft_touch_widget_slider_out', '_cdSetText(_cd_screen[4]', '_tftClockValid_fixed_tft',
     '_cdSetText(_cd_screen[13], _rtcClockText(', '_cdSetChecked(_cd_screen[2], (bool)((n_rtc_dateTime).valid))', '_cdSetInteger(_cd_screen[8], _cdScaled((float)(((float)(n_rtc_dateTime).second))'],
   show: ['lv_display_set_default(_cdDisp_custom_tft)', '_pcE_controls_patternNext.update', '_selUpdate(_sel_show', '_tftHigh_fixed_tft',
+    'n_controls_controls.hasSpeed = true', '_showAnimSpeed = constrain((n_controls_controls.hasSpeed',
     '_cdSetText(_cd_screen[13], _patNameStr_show(_sel_show.active))', 'static char _patNameStr_show_buf[', '_cdSetChecked(_cd_screen[2], (bool)(_selBrowsing(_sel_show)))'],
   player: ['lv_display_set_default(_cdDisp_custom_tft)', 'char n_song_title[64]', '_cdSetText(_cd_screen[4], n_song_title)', 'audio.loop();',
     '_cdSetText(_cd_screen[13], songTitle)', '_cdSetChecked(_cd_screen[2], (bool)(songPlaying()))'],
