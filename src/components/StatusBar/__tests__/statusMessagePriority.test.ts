@@ -34,4 +34,10 @@ describe('status bar space', () => {
     expect(right).toMatch(/min-width:\s*0/)
     expect(right).toMatch(/overflow-x:\s*auto/)
   })
+
+  it('fades whichever edge of the chip rail has chips beyond it', () => {
+    // Its scrollbar is hidden, so the fade is the only cue that it scrolls.
+    expect(CSS).toMatch(/\.right\[data-overflow-end\]\s*\{[^}]*mask-image/)
+    expect(CSS).toMatch(/\.right\[data-overflow-start\]\s*\{[^}]*mask-image/)
+  })
 })

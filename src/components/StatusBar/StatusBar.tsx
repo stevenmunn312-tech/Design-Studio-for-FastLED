@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { useGraphStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -5,6 +6,7 @@ import { useUploadStore, boardByFqbn } from '../../state/uploadStore'
 import type { StatusLevel } from '../../types'
 import { describePort } from '../../utils/portStatus'
 import HardwareReadiness from '../Preview/HardwareReadiness'
+import { scrollRailOnWheel, useScrollOverflow } from '../../hooks/useScrollRail'
 import styles from './StatusBar.module.css'
 
 const LEVEL_COLOR: Record<StatusLevel, string> = {
@@ -16,6 +18,8 @@ const LEVEL_COLOR: Record<StatusLevel, string> = {
 
 export default function StatusBar() {
   const { statusText, statusLevel, fps, performanceMode, stageMode } = useUiStore()
+  const railRef = useRef<HTMLDivElement>(null)
+  const railOverflow = useScrollOverflow(railRef)
   const nodeCount = useGraphStore((s) => s.nodes.length)
   const edgeCount = useGraphStore((s) => s.edges.length)
   // "Audio" = the graph has analysis nodes; "live" = the browser input is actually
@@ -68,7 +72,19 @@ export default function StatusBar() {
         </span>
       </div>
 
-      <div className={styles.right}>
+      {/* Below about 1366 px the chips outrun the bar. The rail scrolls with
+          its scrollbar hidden, so a faded edge says there is more, the wheel
+          scrolls it sideways, and it takes focus so the arrow keys can. */}
+      <div
+        ref={railRef}
+        className={styles.right}
+        role="group"
+        aria-label="Project status"
+        tabIndex={railOverflow.start || railOverflow.end ? 0 : undefined}
+        data-overflow-start={railOverflow.start || undefined}
+        data-overflow-end={railOverflow.end || undefined}
+        onWheel={scrollRailOnWheel}
+      >
         <HardwareReadiness compact />
         <span className={`${styles.chip} ${styles.chipStrong}`}>{nodeCount} {nodeCount === 1 ? 'module' : 'modules'}</span>
         <span className={styles.chip}>{edgeCount} {edgeCount === 1 ? 'patch' : 'patches'}</span>

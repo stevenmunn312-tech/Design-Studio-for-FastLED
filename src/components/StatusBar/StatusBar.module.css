@@ -67,6 +67,20 @@
   display: none;
 }
 
+/* The scrollbar is hidden, so an edge with more chips beyond it fades out,
+   as the top nav's does. */
+.right[data-overflow-end] {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+}
+
+.right[data-overflow-start] {
+  mask-image: linear-gradient(90deg, transparent, #000 36px);
+}
+
+.right[data-overflow-start][data-overflow-end] {
+  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+}
+
 .chip {
   padding: 2px 7px;
   border: 1px solid rgba(255, 255, 255, 0.07);
