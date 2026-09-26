@@ -113,7 +113,13 @@ compile families:
    experimental: its [compile fixtures pass](../ethernet-compile-checks.md),
    and the bench run is still open. See
    [wired Ethernet](../design/wired-ethernet.md).
-7. A differential pixel-data pair and long-cable validation.
+7. A differential pixel-data pair and long-cable validation. The NLED Pixel
+   Data Extender TX/RX pair (`nled-pixel-data-extender-pair`) is in: modelled,
+   catalogued, and chosen per LED output through its **data link** property.
+   The Build Diagram, connection list and parts list route data through it. It
+   adds no firmware, so no compile is owed. It stays experimental until a
+   long-cable bench run is recorded. See
+   [hardware nodes](../design/hardware-nodes.md#long-data-runs).
 8. Buck conversion and protected high-side switching in the Build Diagram
    power model.
 

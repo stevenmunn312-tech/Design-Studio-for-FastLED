@@ -127,6 +127,9 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
   combined and absent targets at two measured distances, including UART
   reconnect recovery; the row's requirements are in the support matrix.
+- **D-05 pixel data extender:** the NLED TX/RX pair driving a WS2812B run over
+  a long twisted A/B/ground cable, with the length recorded, powered from
+  separate supplies at each end with bonded grounds.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
@@ -180,7 +183,10 @@ in the app and marked experimental; nothing here holds up development.
   modelled from WIZnet's board file, drawn, and generated for the normal
   sketch, replacing Wi-Fi for Art-Net and NTP
   ([design](docs/development/design/wired-ethernet.md)); all five compile
-  fixtures pass, and its bench row is in section 3.
+  fixtures pass, and its bench row is in section 3. The NLED Pixel Data
+  Extender (roadmap step 7) is an LED output's **data link** option, modelled
+  and drawn on the Build Diagram. It adds no firmware, so no compile is owed;
+  its bench row is in section 3.
 
 ## Completed
 
