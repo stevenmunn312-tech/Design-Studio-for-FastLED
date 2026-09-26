@@ -698,7 +698,8 @@ export default function MenuBar() {
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); void handleCopyShareLink() }}>
                 Copy Graph Link
               </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleCommunityShare() }}>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); void handleCommunityShare() }}
+                title="Open the community upload page with this project's graph attached, as a hardware-agnostic pattern">
                 Share to Community…
               </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); openRecover() }}>
@@ -855,14 +856,6 @@ export default function MenuBar() {
           title={startTitle}
         >
           ✦ Start
-        </button>
-        <button
-          className={`${styles.btn} ${styles.communityBtn}`}
-          onClick={() => { void handleCommunityShare() }}
-          aria-label="Share current project to the community"
-          title="Open the community upload page with this project's graph attached, as a hardware-agnostic pattern"
-        >
-          <span aria-hidden="true">↗</span> Share
         </button>
         <button
           className={`${styles.btn} ${styles.evaluationBtn} ${evaluationRunning ? styles.evaluationRunning : styles.evaluationPaused}`}

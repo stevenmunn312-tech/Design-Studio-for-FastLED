@@ -775,7 +775,8 @@ describe('MenuBar file menu', () => {
     })
 
     const { getByRole } = render(<MenuBar />)
-    fireEvent.click(getByRole('button', { name: 'Share current project to the community' }))
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Share to Community…' }))
 
     await waitFor(() => expect(postToCommunityTab).toHaveBeenCalledTimes(1))
     expect(openCommunityTab).toHaveBeenCalledTimes(1)
@@ -825,7 +826,8 @@ describe('MenuBar file menu', () => {
     })
 
     const { getByRole } = render(<MenuBar />)
-    fireEvent.click(getByRole('button', { name: 'Share current project to the community' }))
+    fireEvent.click(getByRole('button', { name: 'File menu' }))
+    fireEvent.click(getByRole('menuitem', { name: 'Share to Community…' }))
 
     await waitFor(() => expect(postToCommunityTab).toHaveBeenCalledTimes(1))
     const call = vi.mocked(postToCommunityTab).mock.calls[0][1]
