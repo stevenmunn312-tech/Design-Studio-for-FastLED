@@ -231,6 +231,10 @@ build/architecture overview aimed at contributors.
 
   - [Hardware renders](development/plans/hardware-renders.md)
     — verified Blender source, render/import contract and catalogue ownership.
+  - [Pattern node expansion](development/plans/pattern-node-expansion.md)
+    — ordered, checkboxed plan for ten procedural pattern nodes: field helpers,
+      Slice Tiling from the space-subdivision paper, Frame Warp, wallpaper
+      Symmetry, Truchet Tiles, a multi-scale Turing Field and Fourier Epicycles.
 - [Reports](development/reports/)
   - [Stereo VU bench record](development/reports/stereo-vu-bench.md)
     — preserved exact-rig evidence from the completed implementation plan.
