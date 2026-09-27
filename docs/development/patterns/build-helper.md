@@ -68,3 +68,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   or blocking (costing as much as the cold build being avoided). All three call
   sites (`upload`, `compile_check`, the SD-show `_build_flash`) get their sketch
   directory through `with _sketch_workspace(...) as sketch_dir:`.
+- Physical ESP32 module facts must reach **both** build engines. The Board node's
+  `flashMb` is not encoded by a generic FQBN such as `esp32:esp32:esp32s3`;
+  `_arduino_fqbn` resolves declared `_PIO_BOARDS` variants into Arduino menu
+  options (`FlashSize`, `PartitionScheme`, and `CDCOnBoot`) while fbuild resolves
+  them into a generated environment. Keep capacity checks, normal uploads,
+  binary exports, and SD-player flashes on that same resolution path. In
+  particular, an N16R8 with `PSRAM=opi` must compile as 16 MB flash with the
+  official 3 MB application partition, not Arduino's default 1.31 MB dual-OTA
+  slot. Unknown boards or undeclared flash sizes keep their board manifest;
+  never infer a larger chip from a generic ESP32 family name.

@@ -543,15 +543,26 @@ _PIO_BOARDS: dict[str, dict] = {
         # built and measured against 8MB. `huge_app.csv` keeps the same ~3MB app
         # slot; what changes is that the other 8MB stops being invisible.
         "flash_variants": {
-            16: {"flash_size": "16MB", "partitions": "huge_app.csv"},
+            16: {
+                "flash_size": "16MB", "partitions": "huge_app.csv",
+                "arduino_options": {
+                    "FlashSize": "16M", "PartitionScheme": "app3M_fat9M_16MB",
+                },
+            },
         },
         "psram_memory_type": {
             # Hardware trace (2026-08-24): QIO reset-loops in the ROM loader;
             # DIO is the flash mode, independently of the octal PSRAM bus.
             "opi":  {"memory_type": "dio_opi",  "flash_size": "16MB", "partitions": "default_16MB.csv",
-                     "flash_mode": "dio", "f_flash": "80000000L"},
+                     "flash_mode": "dio", "f_flash": "80000000L",
+                     "arduino_options": {
+                         "FlashSize": "16M", "PartitionScheme": "app3M_fat9M_16MB",
+                     }},
             "qspi": {"memory_type": "qio_qspi", "flash_size": "8MB",  "partitions": "default_8MB.csv",
-                     "flash_mode": "qio", "f_flash": "80000000L"},
+                     "flash_mode": "qio", "f_flash": "80000000L",
+                     "arduino_options": {
+                         "FlashSize": "8M", "PartitionScheme": "default_8MB",
+                     }},
         },
     },
     "esp32:esp32:esp32": {
@@ -784,29 +795,53 @@ def _usb_cdc_from(payload: dict) -> bool:
     return payload.get("usbCdcOnBoot") is True
 
 
-def _arduino_fqbn(fqbn: str, usb_cdc: bool = False) -> str:
-    """Add Arduino's native-USB menu choice without dropping other options.
+def _arduino_fqbn(
+    fqbn: str, flash_mb: int | None = None, usb_cdc: bool = False,
+) -> str:
+    """Resolve the physical ESP32 module into Arduino menu options.
 
-    The frontend carries this as a separate hardware fact because it describes
-    which socket the cable is in.  arduino-cli, unlike fbuild, expects that
-    fact in the FQBN itself (``CDCOnBoot=cdc``), alongside options such as
-    ``PSRAM=opi``.  Boards without the native-USB choice keep their FQBN
-    untouched.
+    The selected Board node supplies facts a generic FQBN cannot express: flash
+    size, PSRAM package, and which USB socket ``Serial`` uses. fbuild resolves
+    those through a generated environment; arduino-cli needs the equivalent
+    ``FlashSize``, ``PartitionScheme`` and ``CDCOnBoot`` menu values appended to
+    the FQBN. Only combinations declared in ``_PIO_BOARDS`` are applied, so an
+    unknown module is never guessed to have more flash than its board manifest.
     """
-    base, _ = _parse_fqbn(fqbn)
-    if not usb_cdc or not _PIO_BOARDS.get(base, {}).get("usb_cdc"):
+    base, psram_id = _parse_fqbn(fqbn)
+    meta = _PIO_BOARDS.get(base)
+    if meta is None:
         return fqbn
 
     parts = fqbn.split(":", 3)
     options = parts[3].split(",") if len(parts) == 4 and parts[3] else []
-    replaced = False
-    for index, option in enumerate(options):
-        if option.partition("=")[0] == "CDCOnBoot":
-            options[index] = "CDCOnBoot=cdc"
-            replaced = True
-    if not replaced:
-        options.append("CDCOnBoot=cdc")
-    return f"{base}:{','.join(options)}"
+
+    # The Player is intentionally a USB-flashed, non-OTA image. Match fbuild's
+    # huge_app.csv default so audio-heavy ESP32 sketches are not constrained by
+    # Arduino's 1.31 MB dual-OTA slot. A physical flash/PSRAM variant below may
+    # replace this with the board core's size-specific menu choice.
+    resolved: dict[str, str] = {}
+    psram_meta = meta.get("psram_memory_type", {}).get(psram_id)
+    if psram_meta:
+        resolved.update(psram_meta.get("arduino_options", {}))
+    elif flash_mb and flash_mb in meta.get("flash_variants", {}):
+        resolved.update(
+            meta["flash_variants"][flash_mb].get("arduino_options", {}))
+    if meta.get("platform") == "espressif32" and "PartitionScheme" not in resolved:
+        resolved["PartitionScheme"] = "huge_app"
+    if usb_cdc and meta.get("usb_cdc"):
+        resolved["CDCOnBoot"] = "cdc"
+
+    option_indexes = {
+        option.partition("=")[0]: index for index, option in enumerate(options)
+    }
+    for key, value in resolved.items():
+        encoded = f"{key}={value}"
+        if key in option_indexes:
+            options[option_indexes[key]] = encoded
+        else:
+            option_indexes[key] = len(options)
+            options.append(encoded)
+    return f"{base}:{','.join(options)}" if options else base
 
 
 def _fbuild_env_for_fqbn(
@@ -1904,7 +1939,9 @@ def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) 
 
 
 @_reports_total_time
-def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False):
+def _compile_upload(
+    label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False, flash_mb=None,
+):
     """Compile, then (if a port is given) upload a sketch. Returns
     (exit code, phase) where phase is "compile" or "upload" — the phase the
     run ended in, so callers can tailor the failure message (a compile failure
@@ -1921,7 +1958,7 @@ def _compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=Fals
             "Point the helper at a binary or install one from Board & Port, "
             "or switch the engine to fbuild.",
         ))
-    fqbn = _arduino_fqbn(fqbn, usb_cdc)
+    fqbn = _arduino_fqbn(fqbn, flash_mb, usb_cdc)
     compile_lines = []
     uses_lvgl = any(
         _LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
@@ -3621,7 +3658,8 @@ def upload(payload: dict = Body(...)):
     def stream():
         with _sketch_workspace(SKETCH, ino) as sketch_dir:
             rc, phase = yield from _compile_upload(
-                "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc)
+                "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc,
+                flash_mb=flash_mb)
             yield from _upload_result_lines(rc, phase, port)
 
     return StreamingResponse(stream(), media_type="text/plain")
@@ -3676,10 +3714,12 @@ def compile_check(payload: dict = Body(...)):
             if estimate.get("flash") or estimate.get("ram"):
                 sizes = estimate
     else:
+        flash_mb = _flash_mb_from(payload)
         usb_cdc = _usb_cdc_from(payload)
         with _sketch_workspace(SKETCH, ino) as sketch_dir:
             lines, (rc, phase) = _drain_compile(_compile_upload(
-                "Capacity check", sketch_dir, fqbn, "", usb_cdc=usb_cdc))
+                "Capacity check", sketch_dir, fqbn, "", usb_cdc=usb_cdc,
+                flash_mb=flash_mb))
             sizes = _size_bytes_report(lines)
 
     ok = rc == 0
@@ -3831,7 +3871,7 @@ def compile_binary(payload: dict = Body(...)):
                 with _sketch_workspace(SKETCH, ino) as sketch_dir:
                     rc, _phase = yield from _compile_upload(
                         "Export binary", sketch_dir, fqbn, "", output_dir=out_dir,
-                        usb_cdc=usb_cdc)
+                        usb_cdc=usb_cdc, flash_mb=flash_mb)
                 built = out_dir
             if rc != 0:
                 yield f"\n{_EXPORT_MARKER} failed\n"
@@ -3936,7 +3976,8 @@ async def upload_show(
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
         with _sketch_workspace(label.split()[0].lower(), ino) as sketch_dir:
             return (yield from _compile_upload(
-                label, sketch_dir, fqbn, use_port, usb_cdc=usb_cdc))
+                label, sketch_dir, fqbn, use_port, usb_cdc=usb_cdc,
+                flash_mb=flash_mb))
 
     def stream():
         if not port:

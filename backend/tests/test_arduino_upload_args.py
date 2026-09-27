@@ -3,7 +3,7 @@
 import app
 
 
-def test_native_usb_option_reaches_both_compile_and_upload_fqbns(
+def test_physical_flash_partition_and_native_usb_reach_compile_and_upload(
     client, monkeypatch, tmp_path,
 ):
     monkeypatch.setattr(app, "_active_engine", lambda: "arduino-cli")
@@ -28,6 +28,7 @@ def test_native_usb_option_reaches_both_compile_and_upload_fqbns(
         "ino": "void setup() {}\nvoid loop() {}",
         "fqbn": "esp32:esp32:esp32s3:PSRAM=opi",
         "port": "COM7",
+        "flashMb": 16,
         "usbCdcOnBoot": True,
     })
 
@@ -35,7 +36,10 @@ def test_native_usb_option_reaches_both_compile_and_upload_fqbns(
     assert [label for label, _ in calls] == [
         "Sketch · compile", "Sketch · upload",
     ]
-    expected = "esp32:esp32:esp32s3:PSRAM=opi,CDCOnBoot=cdc"
+    expected = (
+        "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,"
+        "PartitionScheme=app3M_fat9M_16MB,CDCOnBoot=cdc"
+    )
     sketch_dir = calls[0][1][-1]
     assert calls[0][1] == [
         "arduino-cli", "compile", "-v", "--fqbn", expected, sketch_dir,

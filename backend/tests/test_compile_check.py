@@ -33,14 +33,20 @@ def test_compile_check_flags_overflow_on_arduino_cli(client, monkeypatch, tmp_pa
     monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
     monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
 
-    def fake_compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False):
+    def fake_compile_upload(
+        label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False,
+        flash_mb=None,
+    ):
         assert port == ""
+        assert flash_mb == 16
         yield "region `.text' overflowed by 512 bytes\n"
         return 1, "compile"
 
     monkeypatch.setattr(app, "_compile_upload", fake_compile_upload)
 
-    r = client.post("/api/compile-check", json={"ino": "void setup(){}", "fqbn": "arduino:avr:uno"})
+    r = client.post("/api/compile-check", json={
+        "ino": "void setup(){}", "fqbn": "arduino:avr:uno", "flashMb": 16,
+    })
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is False
@@ -57,7 +63,10 @@ def test_compile_check_surfaces_the_over_100_percent_usage_on_overflow(client, m
     monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
     monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
 
-    def fake_compile_upload(label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False):
+    def fake_compile_upload(
+        label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False,
+        flash_mb=None,
+    ):
         assert port == ""
         yield "Sketch uses 39308 bytes (122%) of program storage space. Maximum is 32256 bytes.\n"
         yield "region `.text' overflowed by 7052 bytes\n"

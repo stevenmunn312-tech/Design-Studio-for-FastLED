@@ -104,6 +104,31 @@ def test_parse_fqbn_ignores_unknown_menu_option():
     assert psram is None
 
 
+def test_arduino_fqbn_resolves_the_n16r8_physical_partition():
+    assert app._arduino_fqbn(
+        "esp32:esp32:esp32s3:PSRAM=opi", 16,
+    ) == (
+        "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,"
+        "PartitionScheme=app3M_fat9M_16MB"
+    )
+
+
+def test_arduino_fqbn_replaces_stale_physical_options_without_duplicates():
+    assert app._arduino_fqbn(
+        "esp32:esp32:esp32s3:FlashSize=4M,PartitionScheme=default,PSRAM=opi",
+        16,
+        True,
+    ) == (
+        "esp32:esp32:esp32s3:FlashSize=16M,"
+        "PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,CDCOnBoot=cdc"
+    )
+
+
+def test_arduino_fqbn_does_not_invent_flash_for_an_unknown_board():
+    fqbn = "someone:elses:board:PSRAM=opi"
+    assert app._arduino_fqbn(fqbn, 16, True) == fqbn
+
+
 def test_fbuild_keeps_psram_with_multiple_board_menu_options():
     for options in ("PSRAM=opi,FlashSize=16M", "FlashSize=16M,PSRAM=opi,CPUFreq=240"):
         assert app._fbuild_env_for_fqbn(f"esp32:esp32:esp32s3:{options}", 16) == "esp32_esp32_esp32s3_opi"
