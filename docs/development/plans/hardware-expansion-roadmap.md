@@ -87,8 +87,10 @@ compile families:
 
 1. Logic-level MOSFET switching, sharing the relay family's boolean-terminal
    behavior while declaring DC load voltage/current limits separately. The
-   opto-isolated LR7843 module (`PowerSwitchOutput`) is in, on/off only and
-   experimental; PWM dimming and multi-channel boards are still open.
+   opto-isolated LR7843 module (`PowerSwitchOutput`) is in and experimental.
+   It switches from `On` and dims from `Level` with PWM at the part's 500 Hz;
+   the [dimming compile fixtures](../power-switch-compile-checks.md) pass.
+   Multi-channel boards are still open.
 2. INA219/INA226 monitoring and a minimal volts/amps/watts signal contract.
    The Adafruit INA219 (`PowerMonitorInput`) is in, experimental, on the
    normal sketch; the INA226 and overcurrent warnings built on the readings are

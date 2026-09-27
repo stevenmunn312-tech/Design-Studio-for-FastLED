@@ -23,6 +23,7 @@
     "gen:presence-compile-fixtures": "node scripts/generate-presence-compile-fixtures.mjs",
     "gen:light-compile-fixtures": "node scripts/generate-light-compile-fixtures.mjs",
     "gen:touch-button-compile-fixtures": "node scripts/generate-touch-button-compile-fixtures.mjs",
+    "gen:power-switch-compile-fixtures": "node scripts/generate-power-switch-compile-fixtures.mjs",
     "gen:ethernet-compile-fixtures": "node scripts/generate-ethernet-compile-fixtures.mjs",
     "gen:display-sheets": "node scripts/generate-display-sheets.mjs",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"

@@ -184,6 +184,9 @@ build/architecture overview aimed at contributors.
     — real normal/slideshow/player/no-sensor fixtures for the HLK-LD2410C,
     their classic-ESP32 results, resource figures and measured sensor overhead.
   - [Light-sensor firmware compile checks](development/light-sensor-compile-checks.md)
+  - [Power-switch dimming compile checks](development/power-switch-compile-checks.md)
+    — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
+      2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
   - [Touch-button firmware compile checks](development/touch-button-compile-checks.md)
     — real normal/slideshow/player/no-touch fixtures for the Seeed Grove Touch
       Sensor, including the active-high plain-input guard and classic-ESP32

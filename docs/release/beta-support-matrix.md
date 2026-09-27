@@ -505,13 +505,20 @@ Unless a future row says otherwise, treat the following as experimental:
   switched load has been run on any board. The power switch's generated sketch
   compiles for `esp32:esp32:esp32` on arduino-cli (2026-09-24: button toggle
   driving GPIO 25, 391,307 bytes flash, 27,668 bytes RAM). The LR7843 switches the negative
-  lead of a 6-28 V DC load, is active-high, and has no flyback diode.
-  Graduating the power switch needs a dated row naming the board/FQBN, the
-  signal GPIO, the load and its supply voltage and current, and the build
-  engine. It must show the load held off through reset and setup, switching
-  on and off from a graph signal, and the MOSFET's temperature after ten
-  minutes at the recorded current. An inductive load needs its external
-  flyback diode named in the row.
+  lead of a 6-28 V DC load, is active-high, and has no flyback diode. It also
+  dims: a `Level` below 1, or wired, drives the pin with 8-bit PWM at the
+  part's 500 Hz, a frequency derived from its slow optocoupler gate drive
+  rather than measured. The dimming fixtures
+  [compile](../development/power-switch-compile-checks.md), but no dimmed load
+  has been run. Graduating the power switch needs a dated row naming the
+  board/FQBN, the signal GPIO, the load and its supply voltage and current,
+  and the build engine. It must show the load held off through reset and
+  setup, switching on and off from a graph signal, and the MOSFET's
+  temperature after ten minutes at the recorded current. Graduating dimming
+  also needs the load dimmed smoothly from Level, with no flicker visible to
+  the eye, and the MOSFET's temperature after ten minutes at 50% duty and the
+  recorded current. An inductive load needs its external flyback diode named
+  in the row.
 - **INA219 power monitoring.** The Adafruit INA219 (`PowerMonitorInput`) is
   software coverage only; no reading has been compared with a meter on any
   board. Its generated sketch compiles for `esp32:esp32:esp32` on arduino-cli

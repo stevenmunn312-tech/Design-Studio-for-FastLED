@@ -58,7 +58,11 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 2. Compile checks
 
-None open. The D-05 wired-Ethernet Art-Net, NTP, static-address and Wi-Fi
+None open. The D-05 LR7843 dimming fixtures (on/off regression, Level field,
+wired Level and two gated switches) passed on classic ESP32 cores 3.3.11 and
+2.0.17, ESP8266, RP2040 and Uno under arduino-cli on 2026-09-27
+([power-switch compile record](docs/development/power-switch-compile-checks.md)).
+The D-05 wired-Ethernet Art-Net, NTP, static-address and Wi-Fi
 guard fixtures passed on classic ESP32, and the shared-SPI fixture on ESP32-C3,
 under arduino-cli on 2026-09-25
 ([Ethernet compile record](docs/development/ethernet-compile-checks.md)).
@@ -118,8 +122,9 @@ in the app and marked experimental; nothing here holds up development.
   a measured capture on an ESP32-S3, which is the one genuine measurement
   gap: no documented timing fix exists for its I2S block, so the S3 is
   refused until one is found.
-- **D-05 power switch:** the LR7843 switching a real DC load; the row's
-  requirements are in the support matrix.
+- **D-05 power switch:** the LR7843 switching and dimming a real DC load,
+  including the MOSFET temperature at 50% duty; the row's requirements are in
+  the support matrix.
 - **D-05 power monitor:** INA219 readings against a multimeter; the row's
   requirements are in the support matrix.
 - **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
@@ -184,8 +189,10 @@ in the app and marked experimental; nothing here holds up development.
   in the Build Diagram, and marked experimental. The HW-14 review then checks
   them rather than gating them. D-05a (IR remote) is complete in software and
   compile; its bench row is in section 3. The first MOSFET switch (LR7843,
-  `PowerSwitchOutput`) is in software, on/off only, and compiles on
-  arduino-cli for classic ESP32 (2026-09-24); its bench row is still to do.
+  `PowerSwitchOutput`) is in software, switches from `On` and dims from
+  `Level` with PWM at the part's 500 Hz, and its
+  [compile fixtures pass](docs/development/power-switch-compile-checks.md);
+  its bench row is still to do.
   The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
   and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
   is still to do. The MAX485 DMX transceiver (roadmap step 3) is modelled and
