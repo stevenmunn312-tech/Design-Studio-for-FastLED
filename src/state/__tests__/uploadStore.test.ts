@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PersistedWorkspace } from '../workspacePersistence'
 import type { StudioNode } from '../graphStore'
 
@@ -66,6 +66,16 @@ async function freshStores() {
 }
 
 describe('uploadStore', () => {
+  // The stores pull in most of the app, and the first cold import transforms
+  // all of it: close to five seconds on its own. Pay that once here, with its
+  // own budget, so the first test's timeout measures the test. When it was
+  // charged to that test instead, a slightly larger app timed it out, and its
+  // upload then landed in the next test's mocks.
+  beforeAll(async () => {
+    await import('../projectStore')
+    await import('../uploadStore')
+  }, 60_000)
+
   beforeEach(() => {
     localStorage.clear()
     Object.values(mocks).forEach((mock) => mock.mockReset())
