@@ -75,6 +75,9 @@ build/architecture overview aimed at contributors.
   - [Workspace UI](development/patterns/workspace-ui.md)
     — workspace tabs, the First project guide, and layout traps jsdom cannot
       catch.
+  - [Testing](development/patterns/testing.md)
+    — cold imports charged to a file's first test, a timed-out test leaking
+      into the next, and full-suite runs under load.
 - [Design notes](development/design/)
   - [Direct controls and LED output status](development/design/direct-controls-and-output-status.md)
     — named Touch widget outputs, property inputs exposed on demand,

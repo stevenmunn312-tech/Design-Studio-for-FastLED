@@ -69,6 +69,7 @@ Subsystem contracts, derivation rules and known traps live in `docs/development/
 - [Firmware generation](docs/development/patterns/firmware-generation.md) — `.ino` prototype hoisting, template-literal escapes, float literals, declaration order, FastLED trimming, telemetry and touch-calibration sketches.
 - [Build helper](docs/development/patterns/build-helper.md) — `backend/app.py` build timing, Export Binary, mtime-preserving writes, the arduino-cli sketch cache.
 - [Workspace UI](docs/development/patterns/workspace-ui.md) — workspace tabs, the First project guide, CSS layout traps jsdom cannot catch, `ClampedNumberInput`.
+- [Testing](docs/development/patterns/testing.md) — cold imports charged to a file's first test, timed-out tests leaking into the next, full runs under load.
 
 <!-- END MANUAL -->
 
