@@ -56,7 +56,7 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   reconcile release copy, freeze the panel/document/control save format, and
   record limitations and deferments. Never merge `main` and `Hardware`.
 
-## 2. Compile checks (run on request, one at a time)
+## 2. Compile checks
 
 None open. The D-05 wired-Ethernet Art-Net, NTP, static-address and Wi-Fi
 guard fixtures passed on classic ESP32, and the shared-SPI fixture on ESP32-C3,
