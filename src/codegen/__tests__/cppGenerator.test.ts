@@ -3510,6 +3510,9 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(cpp).toContain('static float n_sm_result')
     expect(cpp).toContain('expf(')
     expect(cpp).toContain('float _smResp = fmaxf(0.0001f, fmaxf(0.0f,0.25));')
+    // The EMA step is the seeding branch's `else`; anything emitted between
+    // them orphans it and the sketch stops compiling.
+    expect(cpp).toMatch(/if \(!_smI_sm\) \{[^\n]*\}\n\s*else n_sm_result \+=/)
   })
 
   it('Smooth with ~0 response is a passthrough', () => {

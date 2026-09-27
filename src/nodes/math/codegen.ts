@@ -48,8 +48,8 @@ export const MATH_EMITTERS: NodeEmitters = {
     if (resp <= 0.01 && !respWired) { ln(`  float ${v('result')} = ${val};`); return }
     ln(`  static float ${v('result')} = 0; static uint32_t _smT_${id} = 0; static bool _smI_${id} = false;`)
     ln(`  { float _in = ${val}; uint32_t _now = millis();`)
-    ln(`    if (!_smI_${id}) { ${v('result')} = _in; _smI_${id} = true; }`)
     ln(`    float _smResp = fmaxf(0.0001f, ${respE});`)
+    ln(`    if (!_smI_${id}) { ${v('result')} = _in; _smI_${id} = true; }`)
     ln(`    else ${v('result')} += (_in - ${v('result')}) * (1.0f - expf(-(float)(_now - _smT_${id}) / 1000.0f / _smResp));`)
     ln(`    _smT_${id} = _now; }`)
   },
