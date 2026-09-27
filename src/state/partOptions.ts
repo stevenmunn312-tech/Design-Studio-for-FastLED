@@ -172,6 +172,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  TouchButtonInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'seeed-grove-touch-sensor',
+        label: 'Seeed Grove Touch Sensor',
+        summary: 'One active-high capacitive touch button',
+        note: 'Power from 3.3 V. SIG is HIGH while touched; NC is not connected.',
+      },
+    ],
+  },
   PowerMonitorInput: {
     property: 'partId',
     options: [

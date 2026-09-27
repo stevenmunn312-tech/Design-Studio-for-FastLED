@@ -463,6 +463,18 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
+    nodeType: 'TouchButtonInput',
+    partId: 'touch-button',
+    label: 'Grove Touch Sensor',
+    hint: 'A capacitive button: HIGH while touched',
+    footprint: partDimensionsMm('seeed-grove-touch-sensor', { width: 24, height: 20 }),
+    signalPort: 'touched',
+    dataType: 'bool',
+    pinRequests: [{ key: 'pin' }],
+    pinFields: [{ key: 'pin', label: 'SIG' }],
+    properties: { partId: 'seeed-grove-touch-sensor' },
+  },
+  {
     nodeType: 'ButtonBank',
     partId: 'button-bank',
     label: 'Button bank',

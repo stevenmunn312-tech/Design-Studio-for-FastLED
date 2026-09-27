@@ -86,6 +86,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Peripherals
 
+- **An actively driven touch module is not a mechanical button.**
+  `TouchButtonInput` represents the exact Seeed Grove Touch Sensor
+  (TTP223-BA6): one exclusive digital-input GPIO, no pull-up, active-high
+  momentary output, and a 3V3 supply in the Build Diagram so its SIG level stays
+  in the controller's logic domain. Its polarity and electrical facts come from
+  the catalogue `touchSensor` block through `touchButtonSpec`, rather than being
+  restated in each generator. Normal codegen and the show/player control graph
+  both use `controlInputCpp`, so all three paths emit the same plain `INPUT` and
+  part-derived pressed level. The render faces the touch side and its catalogue
+  pin order is deliberately locked as `SIG, NC, VCC, GND`; this is the
+  left-to-right result of rotating the reference board's photographed right
+  edge clockwise, not mirroring the board.
 - A hardware option the generator cannot honestly build is not offered:
   `MIC_MODULES` in `src/state/micModules.ts` is the one list of I2S MEMS
   microphones the app may present, and a module earns a row when it names

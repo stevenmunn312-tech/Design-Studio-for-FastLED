@@ -14,7 +14,11 @@ import styles from './HardwareInputBody.module.css'
 // run-state, not a saved node property) and graphEvaluator reads them back
 // via getState() on the next frame.
 
-function ButtonInputWidget({ nodeId }: { nodeId: string }) {
+function ButtonInputWidget({ nodeId, idleLabel = 'press', activeLabel = 'PRESSED' }: {
+  nodeId: string
+  idleLabel?: string
+  activeLabel?: string
+}) {
   const pressed = useHardwareInputStore((s) => s.button.get(nodeId) ?? false)
   const setButton = useHardwareInputStore((s) => s.setButton)
 
@@ -27,7 +31,7 @@ function ButtonInputWidget({ nodeId }: { nodeId: string }) {
       onPointerCancel={() => setButton(nodeId, false)}
       onPointerLeave={() => setButton(nodeId, false)}
     >
-      {pressed ? 'PRESSED' : 'press'}
+      {pressed ? activeLabel : idleLabel}
     </button>
   )
 }
@@ -174,6 +178,7 @@ export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = fal
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
+  if (nodeType === 'TouchButtonInput') return <ButtonInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.
   if (nodeType === 'MotionInput') return <ButtonInputWidget nodeId={nodeId} />

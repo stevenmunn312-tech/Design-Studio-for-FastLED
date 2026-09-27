@@ -17,6 +17,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
     ln(`  // Audio capability — the selected hardware source is hosted once by the sketch.`)
   },
   ButtonInput: controlInput,
+  TouchButtonInput: controlInput,
   ButtonBank: controlInput,
   PotInput: controlInput,
   EncoderInput: controlInput,

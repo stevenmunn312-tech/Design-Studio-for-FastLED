@@ -31,7 +31,8 @@ Use the **Hardware shelf** in the Hardware tab's left panel. The current
 categories are:
 
 - **Inputs** — microphone, PCM1802 line-in ADC, button, button bank,
-  demodulating IR receiver, potentiometer, encoder, PIR motion sensor,
+  Grove capacitive touch sensor, demodulating IR receiver, potentiometer,
+  encoder, PIR motion sensor,
   HLK-LD2410C radar presence sensor, ambient-light sensor, INA219 power monitor,
   and RTC module;
 - **Storage** — supported microSD modules;
@@ -50,6 +51,22 @@ on-node button to test it in preview. Click the bank in Hardware to change its
 GPIO or internal pull-up; unplugging a graph noodle does not erase the physical
 button or its wiring. Remove the row from that Hardware inspector when the
 physical button is no longer part of the build.
+
+### Add a capacitive touch button
+
+Choose **Inputs → Touch Button** for the Seeed Grove Touch Sensor. Power VCC
+from **3V3**, connect **SIG** to the GPIO selected in Hardware, connect GND, and
+leave **NC** unwired. With the touch face toward you and the connector holes at
+the bottom, Studio shows the verified left-to-right order **SIG, NC, VCC, GND**.
+The TTP223-BA6 drives SIG HIGH while the pad is touched, so Studio uses a plain
+digital input and does not enable the internal pull-up used by many mechanical
+buttons.
+
+Wire the node's **Touched** output directly to a boolean action or through a
+Trigger/Control Map when you need toggle or edge semantics. Press the on-node
+touch control to exercise the same boolean in preview. This part is not the
+**Touch** node used by a touchscreen display: that node carries screen
+coordinates, while this sensor produces one momentary boolean.
 
 ### Measure a DC load
 

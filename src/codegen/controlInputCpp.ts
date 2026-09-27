@@ -6,6 +6,7 @@ import type { IrRemoteProjectNode } from './irRemoteCpp'
 import { presenceSensorLoopCpp, presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { LIGHT_SENSOR_HELPER_CPP, lightSensorLoopCpp, lightSensorSetupCpp } from './lightSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
+import { touchButtonPressedLevel } from '../state/touchButton'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -36,6 +37,13 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     case 'ButtonInput':
       button('pressed', sanitizePin(p.pin, 0), p.pullup !== false)
       break
+    case 'TouchButtonInput': {
+      const pin = sanitizePin(p.pin, 4)
+      setup.push(`  pinMode(${pin}, INPUT);`)
+      loop.push(`  bool ${v('touched')} = digitalRead(${pin}) == ${touchButtonPressedLevel(p.partId)};`)
+      outputs.touched = 'bool'
+      break
+    }
     case 'ButtonBank':
       for (const b of normalizeButtonBankEntries(p.buttons)) button(buttonBankHandle(b.id), sanitizePin(b.pin, 0), b.pullup)
       break

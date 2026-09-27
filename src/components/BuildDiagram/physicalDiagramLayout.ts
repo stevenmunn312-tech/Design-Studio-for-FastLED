@@ -650,6 +650,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'ir-input': [['S', 'OUT', 'SIG', 'DAT']],
   'light-input': [['S', 'SIG', 'OUT', 'AO', 'DO']],
   'button-input': [['SIG']],
+  'touch-button-input': [['SIG']],
   'pot-input': [['SIG']],
   'encoder-input': [['A'], ['B'], ['SW']],
   'relay-output': Array.from({ length: 8 }, (_, index) => [`IN${index + 1}`]),
@@ -713,6 +714,9 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // The radar needs 5 V (and more than 200 mA of supply); its UART is 3.3 V,
   // so nothing on the logic side needs shifting.
   if (item.kind === 'presence-input') return 'v5'
+  // Power the Grove TTP223 from the logic rail so its active-high CMOS output
+  // can never drive an ESP input above 3.3 V.
+  if (item.kind === 'touch-button-input') return 'v3v3'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.

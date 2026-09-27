@@ -31,6 +31,7 @@ import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './power
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
+import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import {
@@ -3342,6 +3343,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { pin: 0, pullup: true },
   },
   {
+    // A TTP223 module actively drives its output HIGH on touch. It therefore
+    // uses plain INPUT and cannot share ButtonInput's pulled-up, active-low
+    // contact contract.
+    type: 'TouchButtonInput',
+    label: 'Touch Button',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'touched', label: 'Touched', dataType: 'bool' }],
+    defaultProperties: { partId: DEFAULT_TOUCH_BUTTON_PART_ID, pin: 4 },
+  },
+  {
     /*
      * The digitiser on a touch panel, as its own node.
      *
@@ -4078,6 +4090,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   AudioHue: 'Maps bass/mids/treble to a hue value.',
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
+  TouchButtonInput: 'Reads a capacitive touch button as a boolean.',
   ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
@@ -5040,6 +5053,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ButtonInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  TouchButtonInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   // ButtonBank stores pins inside its row collection, but the shared hardware
   // picker still asks for the electrical contract under the logical `pin` key.
   ButtonBank: {
@@ -5608,7 +5624,7 @@ export function propertyLabel(nodeType: string, key: string): string {
 // properties use expressions when their ordinary editor is a free-entry number;
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
-  'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'PotInput', 'EncoderInput',
+  'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
@@ -5859,6 +5875,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
   ButtonInput: new Set(['pin']),
+  TouchButtonInput: new Set(['pin']),
   ButtonBank: new Set(['pin']),
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
@@ -5913,7 +5930,8 @@ export function gpioRequirementForProperty(
   // A receiver module drives the line both ways through its own open-collector
   // output stage and its module pull-up, the same as a PIR — a pull-up here
   // would fight it rather than hold the idle level.
-  if (nodeType === 'MotionInput' || nodeType === 'IRRemoteInput' || nodeType === 'PresenceInput') {
+  if (nodeType === 'MotionInput' || nodeType === 'IRRemoteInput' || nodeType === 'PresenceInput'
+    || nodeType === 'TouchButtonInput') {
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput') return { capability: 'digitalOutput', pullup: false }

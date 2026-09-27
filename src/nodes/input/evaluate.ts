@@ -271,6 +271,9 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   ButtonInput(_c, id) {
     return { pressed: useHardwareInputStore.getState().button.get(id) ?? false }
   },
+  TouchButtonInput(_c, id) {
+    return { touched: useHardwareInputStore.getState().button.get(id) ?? false }
+  },
   ButtonBank(_c, id, props) {
     const buttons = normalizeButtonBankEntries(props.buttons)
     const live = useHardwareInputStore.getState().button

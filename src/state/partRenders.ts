@@ -41,6 +41,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     src: partRenderSrc('ds3231-rtc-module') ?? '',
   },
   ButtonInput: { label: 'Button module', src: buttonRender },
+  TouchButtonInput: {
+    label: 'Seeed Studio Grove Touch Sensor',
+    src: partRenderSrc('seeed-grove-touch-sensor') ?? '',
+  },
   // A bank is several instances of the same verified momentary-button part;
   // the hardware view uses this render as its compact representative.
   ButtonBank: { label: 'Button bank', src: buttonRender },

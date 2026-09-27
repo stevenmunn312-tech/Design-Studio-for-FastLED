@@ -169,6 +169,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     requests: [{ key: 'signalPin', capability: 'digitalOutput' }],
   },
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
+  TouchButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   // One UART receive line: the sensor streams unprompted, so its RX is unwired.

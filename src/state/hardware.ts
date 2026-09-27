@@ -7,7 +7,7 @@ export const ROOT_BOARD_NODE_ID = 'board-root'
 // disconnects it — the part itself goes when it is removed in the hardware
 // view, which is the half of the two-view model that says what is on the bench.
 const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
-  'MicInput', 'LineInput', 'ButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
   'RelayOutput', 'PowerSwitchOutput',
@@ -24,7 +24,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
 // exist only by adding the part in the hardware view, so a graph can never
 // carry an output the bench does not.
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
-  'Board', 'MicInput', 'LineInput', 'ButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
+  'Board', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
   'RelayOutput', 'PowerSwitchOutput',

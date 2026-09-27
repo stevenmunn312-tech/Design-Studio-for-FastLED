@@ -36,6 +36,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Button example graph](../../public/node-cards/graphs/button-input.svg)
 
+### Touch Button
+
+![Touch Button node](../../public/node-cards/touch-button-input.svg)
+
+![Touch Button example graph](../../public/node-cards/graphs/touch-button-input.svg)
+
 ### Touch
 
 ![Touch node](../../public/node-cards/touch-input.svg)

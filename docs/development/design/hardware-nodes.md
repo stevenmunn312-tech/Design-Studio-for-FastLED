@@ -1,8 +1,8 @@
 # Hardware nodes and the two-view model
 
 Status: implemented on `Hardware`; microphone, PCM1802 line-in, player-decoder
-Audio sources, self-growing button banks, and 1/2/4/8-channel relay modules
-shipped · Owner: app · Updated: 2026-09-25
+Audio sources, self-growing button banks, capacitive touch, and 1/2/4/8-channel
+relay modules shipped · Owner: app · Updated: 2026-09-27
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -31,7 +31,7 @@ Hardware node types are hidden from the Node Library and canvas picker. The
 workbench's **Add Hardware** menu is the creation path for:
 
 - signal inputs: I2S MEMS microphone (INMP441, ICS-43434 or generic), PCM1802
-  line-in ADC, button, button bank,
+  line-in ADC, button, button bank, Grove capacitive touch,
   potentiometer, encoder, PIR motion, HLK-LD2410C radar presence, ambient light,
   INA219 power monitor, and RTC modules;
 - switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, and
@@ -57,7 +57,8 @@ data lead or choose a new pin.
 
 `isHardwareManagedSignalNodeType` defines the parts visible in both views:
 
-- `MicInput`, `LineInput`, `ButtonInput`, `ButtonBank`, `PotInput`, and `EncoderInput`;
+- `MicInput`, `LineInput`, `ButtonInput`, `TouchButtonInput`, `ButtonBank`,
+  `PotInput`, and `EncoderInput`;
 - `MotionInput`, `PresenceInput`, `LightInput` and `PowerMonitorInput`;
 - `RTCInput`, `RelayOutput` and `PowerSwitchOutput`; and
 - `MatrixOutput` (the implementation type behind all five LED-output forms).
@@ -116,6 +117,20 @@ models the same outputs with moving/still latches and a distance slider across
 the catalogued 6 m range. The Build Diagram powers VCC from 5 V and wires the
 3.3 V UART TX directly to the ESP32 receive pin. Normal, slideshow, and player
 control generators share this reader through `controlInputCpp`.
+
+`TouchButtonInput` is the exact Seeed Grove Touch Sensor (SKU 101020037) built
+around a TTP223-BA6. It publishes one `touched` boolean. The fitted board is in
+the factory momentary, active-high mode, so firmware configures SIG as plain
+`INPUT` and reads HIGH while touched; it must not reuse `ButtonInput`'s optional
+internal pull-up because the sensor actively drives the line. The catalogue's
+`touchSensor` block owns polarity, mode, 2.0–5.5 V range and 60–220 ms response
+range. The Build Diagram powers VCC from 3V3 so SIG remains in the controller's
+logic domain, leaves NC unwired, and resolves the photographed touch-face order
+as `SIG, NC, VCC, GND` from left to right. Preview, normal, slideshow and player
+generators share the same contract; the on-node touch control drives preview.
+This hardware input is distinct from a display's `Touch` node, which represents
+coordinates from an integrated screen controller rather than a standalone
+boolean sensor.
 
 `LightInput` is one node for two modules, chosen by `partId` from
 `LIGHT_SENSOR_MODULES` (`src/state/lightSensor.ts`). Both publish `level`

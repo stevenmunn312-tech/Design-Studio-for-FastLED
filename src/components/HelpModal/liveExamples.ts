@@ -1179,6 +1179,24 @@ export const BUTTON_LIVE_EXAMPLE = namedExample(
   'The Frame Switch node preview starts on cool Pacifica. Press the Button node to show fire; release it to return to the ocean scene.',
 )
 
+export const TOUCH_BUTTON_LIVE_EXAMPLE = namedExample(
+  'TouchButtonInput',
+  'Touch the module to swap entire scenes',
+  [
+    { key: 'touch', type: 'TouchButtonInput', properties: { partId: 'seeed-grove-touch-sensor', pin: 4 } },
+    { key: 'ocean', type: 'Pacifica', properties: { palette: 'ocean' } },
+    { key: 'fire', type: 'Fire2012', properties: { palette: 'lava' } },
+    { key: 'switch', type: 'FrameSwitch' },
+  ],
+  [
+    { source: 'ocean', sourceHandle: 'frame', target: 'switch', targetHandle: 'a' },
+    { source: 'fire', sourceHandle: 'frame', target: 'switch', targetHandle: 'b' },
+    { source: 'touch', sourceHandle: 'touched', target: 'switch', targetHandle: 'sel' },
+  ],
+  'The Grove Touch Sensor actively drives SIG HIGH while a finger is on or near its electrode. Touch Button publishes that state without enabling the pull-up used by a mechanical button.',
+  'The Frame Switch preview starts on Pacifica. Hold the Touch Button node to show fire; release it to return to the ocean scene.',
+)
+
 export const TOUCH_LIVE_EXAMPLE = namedExample(
   'TouchInput',
   'Dim the lights from the touch screen',
@@ -1637,6 +1655,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   MicInput: MICROPHONE_LIVE_EXAMPLE,
   LineInput: LINE_INPUT_LIVE_EXAMPLE,
   ButtonInput: BUTTON_LIVE_EXAMPLE,
+  TouchButtonInput: TOUCH_BUTTON_LIVE_EXAMPLE,
   TouchInput: TOUCH_LIVE_EXAMPLE,
   PotInput: POTENTIOMETER_LIVE_EXAMPLE,
   EncoderInput: ENCODER_LIVE_EXAMPLE,

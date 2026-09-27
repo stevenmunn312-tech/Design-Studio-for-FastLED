@@ -1397,7 +1397,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isComplexWave = d.nodeType === 'ComplexWave'
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
-  const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
+  const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
     || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput'
     || d.nodeType === 'PresenceInput'
   /*

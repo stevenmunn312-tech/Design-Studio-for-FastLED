@@ -264,6 +264,8 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   i2sWs: ['WS', 'LRCL', 'LRCLK', 'LRC'],
   i2sSck: ['SCK', 'BCLK', 'BCK', 'CLK'],
   i2sSd: ['SD', 'DOUT', 'DATA', 'DO'],
+  // Grove digital sensors print SIG for their one controller line.
+  pin: ['SIG', 'S', 'OUT', 'DAT'],
   touchCsPin: ['T_CS'],
   touchIrqPin: ['T_IRQ'],
   touchSckPin: ['T_CLK'],

@@ -37,6 +37,7 @@ import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from '../state/pow
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
+import { touchButtonSpec } from '../state/touchButton'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   formatLightSensorAddress,
@@ -93,7 +94,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -119,6 +120,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'MicInput',
   'LineInput',
   'ButtonInput',
+  'TouchButtonInput',
   'ButtonBank',
   'PotInput',
   'EncoderInput',
@@ -324,6 +326,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       }
       case 'ButtonInput':
         push(node, `${baseLabel} pin`, 'pin', props.pin)
+        break
+      case 'TouchButtonInput':
+        push(node, `${baseLabel} SIG pin`, 'pin', props.pin)
         break
       case 'ButtonBank':
         for (const button of normalizeButtonBankEntries(props.buttons)) {
@@ -650,6 +655,22 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       case 'ButtonInput':
         return buildPeripheralItem(node, 'button-input', 'Momentary button input', pins)
+      case 'TouchButtonInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const spec = touchButtonSpec(props.partId)
+        const item = buildPeripheralItem(node, 'touch-button-input', 'Capacitive touch button', pins)
+        return {
+          ...item,
+          facts: {
+            ...item.facts,
+            device: spec.device,
+            trigger: `active-${spec.activeLevel}`,
+            mode: spec.mode,
+            supplyVoltage: 3.3,
+            responseMs: `${spec.responseMinMs}-${spec.responseMaxMs}`,
+          },
+        }
+      }
       case 'ButtonBank':
         return buildPeripheralItem(node, 'button-input', 'Momentary button bank', pins)
       case 'PotInput':
