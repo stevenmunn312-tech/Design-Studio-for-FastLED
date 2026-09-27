@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **proposal, not started** · Owner: app · Date: 2026-09-27
+Status: **in progress — Phase 0 complete** · Owner: app · Date: 2026-09-28
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -145,69 +145,14 @@ sections can say "the per-node checklist" instead of repeating it ten times.
 | 10 | Fluid, Fractal, Automaton, Digital Rain, Gauge, five classics, three variants | The remaining large visual gaps, then the classics people expect. |
 | 11 | Render scale, positioned layouts, colour profile, SD Video, segment networks | Output and layout work, executed through the hardware roadmap. |
 
-## Phase 0 — Field helpers
+## Phase 0 — Field helpers — **complete**
 
-Three small field nodes. None holds state; each is one loop per pixel.
-
-### Field Levels (`FieldLevels`, category `field`)
-
-Contract:
-
-- Inputs, in this order: `field` (field), `low` (float), `high` (float).
-  Property inputs: `low`, `high`. Properties: `low: 0`, `high: 1`,
-  `steps: 1` (slider 1–16; 1 means no quantising), `invert: false`.
-- Per pixel: `v = clamp01((f - low) / max(1e-4, high - low))`; if
-  `steps >= 2`, `v = round(v * (steps - 1)) / (steps - 1)`; if `invert`,
-  `v = 1 - v`. `low` at or above `high` is a hard threshold at `low`.
-- `low` and `high` are 0–1 sliders, so an audio band wired straight in is
-  already in range and Graph Health stays quiet.
-
-### Field Lerp (`FieldLerp`, category `field`)
-
-Contract:
-
-- Inputs: `a` (field), `b` (field), `t` (float). Property input: `t`.
-  Property: `t: 0.5`, slider 0–1.
-- Per pixel: `a * (1 - t) + b * t`, unwired inputs read as zero fields the
-  way `FieldMath` treats them. Deliberately a separate node rather than a
-  `FieldMath` op, because it has a third port and matches the scalar `Lerp`.
-
-### Shape Field (`ShapeField`, category `field`)
-
-Contract:
-
-- Inputs: `cx`, `cy` (float, normalised 0–1 like `DistanceField`), `size`
-  (float, fraction of the shorter side), `rotation` (deg), `sides` (float,
-  continuous like `Shape`), `aspect`. All property inputs. Properties:
-  `shape` select `['circle', 'rect', 'polygon']`, `fieldMode` select
-  `['fill', 'distance']`, `softness: 0.1`, `range: 0.5`.
-- `fill` outputs coverage with a soft edge of `softness`. `distance` outputs
-  the signed distance mapped so the outline sits at 0.5, inside rising to 1
-  and outside falling to 0 over `range` of the shorter side. `distance` is
-  what makes shape morphing work: Field Lerp between two Shape Fields, then
-  Field Levels at `low = high = 0.5`, is the standard SDF morph.
-- The signed-distance helpers move out of `src/nodes/shapes/evaluate.ts`
-  (`polygonSd`, the rect and ellipse expressions inside `evalShape`) into a
-  new `src/state/evaluator/sdf.ts` that both the Shape node and this node
-  import. The C++ twins go in a new `src/codegen/sdfHelperCpp.ts` behind a
-  `needsSdf` flag on `SketchEmitContext`; the Shape emitter switches to it in
-  the same change so there is one polygon SDF in the sketch, not two.
-
-Checklist:
-
-- [ ] Extract `src/state/evaluator/sdf.ts` from the Shape evaluator, with a
-      test that the Shape node's frames are byte-identical before and after.
-- [ ] Add `src/codegen/sdfHelperCpp.ts` and `needsSdf`; switch the Shape
-      emitter to the shared helper; `cppGenerator.test.ts` asserts the helper
-      is emitted once when two SDF nodes are present.
-- [ ] Field Levels: library entry, preview, firmware, tests, docs (per-node
-      checklist).
-- [ ] Field Lerp: the same.
-- [ ] Shape Field: the same, plus a morph test (lerp of a circle and a square
-      through Levels stays a single closed region at every `t`).
-- [ ] Place the three in `CATEGORY_NODE_ORDER.field` between `FieldMath` and
-      `FieldWarp`; README Fields line and counts; node cards regenerated.
-- [ ] Compile check: one fixture using all three, classic ESP32.
+Implemented as part of the float-field vocabulary documented in
+[ANIMartRIX patterns](../design/animartrix-float-field.md), with firmware
+evidence in the [pattern-node compile record](../pattern-node-compile-checks.md).
+The shipped node contracts, SDF-morph recipe and shared-helper architecture now
+live in that design note. The compile record carries the reproducible generated
+fixture, toolchain versions, source hash and resource figures.
 
 ## Phase 1 — Slice Tiling (`SliceTiling`, category `field`)
 

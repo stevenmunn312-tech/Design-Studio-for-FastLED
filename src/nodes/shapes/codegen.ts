@@ -128,8 +128,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
   // Bundled shape: rect / ellipse / regular polygon, filled (fill colour)
   // and/or outlined (edge colour, thickness), over-composited with AA.
   // Fractional `sides` blends floor/ceil polygon SDFs for a seamless morph.
-  // Keep in sync with evalShape() in graphEvaluator.ts.
-  Shape({ node, p, ln, f, ownBuf, seedFrom, incoming, colorExpr }) {
+  // SDF maths comes from the same helper family as Shape Field.
+  Shape({ node, p, ln, f, ownBuf, seedFrom, incoming, colorExpr, needsSdf }) {
+    needsSdf.v = true
     const ob = ownBuf()
     const hexCrgb = (hex: unknown, def: number) => {
       const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
@@ -149,16 +150,11 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`${indent}for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`${indent}  float _dx=(_x+0.5f)-${cxExpr},_dy=(_y+0.5f)-${cyExpr},_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr,_sd;`)
       if (shape === 'rect') {
-        ln(`${indent}  float _ax=_size*_aspect,_ay=_size;`)
-        ln(`${indent}  float _qx=fabsf(_lx)-_ax,_qy=fabsf(_ly)-_ay,_mx=max(_qx,0.0f),_my=max(_qy,0.0f);`)
-        ln(`${indent}  _sd=sqrtf(_mx*_mx+_my*_my)+min(max(_qx,_qy),0.0f);`)
+        ln(`${indent}  _sd=_sdfRect(_lx,_ly,_size*_aspect,_size);`)
       } else if (shape === 'ellipse') {
-        ln(`${indent}  float _ax=_size*_aspect,_ay=_size,_ex=_lx/_ax,_ey=_ly/_ay; _sd=(sqrtf(_ex*_ex+_ey*_ey)-1.0f)*min(_ax,_ay);`)
+        ln(`${indent}  _sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);`)
       } else {
-        ln(`${indent}  float _r=sqrtf(_lx*_lx+_ly*_ly),_pa=atan2f(_ly,_lx);`)
-        ln(`${indent}  float _s0=6.2831853f/_nlo,_a0=fmodf(fmodf(_pa,_s0)+_s0,_s0)-_s0*0.5f,_sdl=_r-_size*cosf(3.14159265f/_nlo)/cosf(_a0),_sd2=_sdl;`)
-        ln(`${indent}  if(_fr>0.0f){ float _s1=6.2831853f/(_nlo+1),_a1=fmodf(fmodf(_pa,_s1)+_s1,_s1)-_s1*0.5f; _sd2=_r-_size*cosf(3.14159265f/(_nlo+1))/cosf(_a1); }`)
-        ln(`${indent}  _sd=_sdl*(1.0f-_fr)+_sd2*_fr;`)
+        ln(`${indent}  _sd=_sdfMorphPolygon(_lx,_ly,_sides,_size);`)
       }
       ln(`${indent}  float _fc=${filled ? 'constrain(0.5f-_sd,0.0f,1.0f)' : '0.0f'};`)
       ln(`${indent}  float _ec=constrain(_th*0.5f+0.5f-fabsf(_sd),0.0f,1.0f);`)
@@ -175,7 +171,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    float _ax=max(0.01f,_size*_aspect),_ay=max(0.01f,_size);`)
       ln(`    float _extentX=_ax*fabsf(_cr)+_ay*fabsf(_sr)+_th*0.5f,_extentY=_ax*fabsf(_sr)+_ay*fabsf(_cr)+_th*0.5f;`)
     }
-    if (shape === 'polygon') ln(`    float _n=max(3.0f,(float)(${f('sides', 'sides', 5)})); int _nlo=(int)floorf(_n); float _fr=_n-_nlo;`)
+    if (shape === 'polygon') ln(`    float _sides=max(3.0f,(float)(${f('sides', 'sides', 5)}));`)
     ln(`    float _cxv=${f('cx', 'cx', cx)},_cyv=${f('cy', 'cy', cy)};`)
     if (p.wrap) {
       ln(`    float _cx=_cxv>1.0f?_cxv:(WIDTH*0.5f-WIDTH)+_cxv*(WIDTH*2.0f),_cy=_cyv>1.0f?_cyv:(HEIGHT*0.5f-HEIGHT)+_cyv*(HEIGHT*2.0f);`)

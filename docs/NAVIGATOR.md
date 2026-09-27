@@ -194,6 +194,9 @@ build/architecture overview aimed at contributors.
   - [Power-switch dimming compile checks](development/power-switch-compile-checks.md)
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
+  - [Pattern-node firmware compile checks](development/pattern-node-compile-checks.md)
+    — the real Phase 0 Shape Field → Field Lerp → Field Levels graph on classic
+      ESP32, including the shared signed-distance helper guard and resource use.
   - [Touch-button firmware compile checks](development/touch-button-compile-checks.md)
     — real normal/slideshow/player/no-touch fixtures for the Seeed Grove Touch
       Sensor, including the active-high plain-input guard and classic-ESP32

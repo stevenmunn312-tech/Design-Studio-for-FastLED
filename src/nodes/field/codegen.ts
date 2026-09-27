@@ -229,6 +229,56 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _a=${av}, _b=${bv};`)
     ln(`      ${of}[_i]=constrain(${expr},0.0f,1.0f);}}`)
   },
+  FieldLevels({ p, ln, f, ownField, srcField }) {
+    const of = ownField()
+    const src = srcField('field')
+    const steps = Math.max(1, Math.min(16, Math.round(Number(p.steps ?? 1))))
+    const invert = Boolean(p.invert)
+    ln(`  { /* FieldLevels */`)
+    ln(`    float _low=${f('low', 'low', 0)},_high=${f('high', 'high', 1)};`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ float _src=${src ? `${src}[_i]` : '0.0f'};`)
+    ln(`      float _v=_high<=_low?(_src>=_low?1.0f:0.0f):constrain((_src-_low)/fmaxf(1e-4f,_high-_low),0.0f,1.0f);`)
+    if (steps >= 2) ln(`      _v=roundf(_v*${steps - 1}.0f)/${steps - 1}.0f;`)
+    ln(`      ${of}[_i]=${invert ? '1.0f-_v' : '_v'}; } }`)
+  },
+  FieldLerp({ ln, f, ownField, srcField }) {
+    const of = ownField()
+    const sa = srcField('a'), sb = srcField('b')
+    const av = sa ? `${sa}[_i]` : '0.0f'
+    const bv = sb ? `${sb}[_i]` : '0.0f'
+    ln(`  { /* FieldLerp */ float _t=constrain(${f('t', 't', 0.5)},0.0f,1.0f);`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ float _a=${av},_b=${bv}; ${of}[_i]=_a*(1.0f-_t)+_b*_t; } }`)
+  },
+  ShapeField({ p, ln, f, ownField, needsSdf }) {
+    needsSdf.v = true
+    const of = ownField()
+    const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'circle'
+    const distance = String(p.fieldMode ?? 'fill') === 'distance'
+    const softness = floatLit(Math.max(0, Number(p.softness ?? 0.1)))
+    const range = floatLit(Math.max(1e-4, Number(p.range ?? 0.5)))
+    ln(`  { /* ShapeField: ${shape} ${distance ? 'distance' : 'fill'} */`)
+    ln(`    float _short=(float)min(WIDTH,HEIGHT),_size=fmaxf(1e-4f,${f('size', 'size', 0.3)}*_short);`)
+    ln(`    float _cx=constrain(${f('cx', 'cx', 0.5)},0.0f,1.0f)*(WIDTH-1)+0.5f,_cy=constrain(${f('cy', 'cy', 0.5)},0.0f,1.0f)*(HEIGHT-1)+0.5f;`)
+    ln(`    float _ra=-(${f('rotation', 'rotation', 0)})*0.017453292519943f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+    if (shape === 'polygon') {
+      ln(`    float _sides=fmaxf(3.0f,${f('sides', 'sides', 5)});`)
+    } else {
+      ln(`    float _aspect=fmaxf(0.01f,${f('aspect', 'aspect', 1)});`)
+    }
+    if (distance) ln(`    float _range=${range}*_short;`)
+    else ln(`    float _soft=${softness}*_short;`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _dx=_x+0.5f-_cx,_dy=_y+0.5f-_cy,_lx=_dx*_cr-_dy*_sr,_ly=_dx*_sr+_dy*_cr;`)
+    if (shape === 'rect') ln(`      float _sd=_sdfRect(_lx,_ly,_size*_aspect,_size);`)
+    else if (shape === 'polygon') ln(`      float _sd=_sdfMorphPolygon(_lx,_ly,_sides,_size);`)
+    else ln(`      float _sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size);`)
+    if (distance) {
+      ln(`      ${of}[_y*WIDTH+_x]=constrain(0.5f-_sd/(2.0f*_range),0.0f,1.0f); } }`)
+    } else {
+      ln(`      float _v=_soft<=0.0f?(_sd<=0.0f?1.0f:0.0f):constrain(0.5f-_sd/(2.0f*_soft),0.0f,1.0f);`)
+      ln(`      ${of}[_y*WIDTH+_x]=_v*_v*(3.0f-2.0f*_v); } }`)
+    }
+  },
   FieldWarp({ ln, f, ownField, srcField }) {
     const of = ownField()
     const st = f('strength', 'strength', 1)

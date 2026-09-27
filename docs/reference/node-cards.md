@@ -864,6 +864,24 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Math example graph](../../public/node-cards/graphs/field-math.svg)
 
+### Field Levels
+
+![Field Levels node](../../public/node-cards/field-levels.svg)
+
+![Field Levels example graph](../../public/node-cards/graphs/field-levels.svg)
+
+### Field Lerp
+
+![Field Lerp node](../../public/node-cards/field-lerp.svg)
+
+![Field Lerp example graph](../../public/node-cards/graphs/field-lerp.svg)
+
+### Shape Field
+
+![Shape Field node](../../public/node-cards/shape-field.svg)
+
+![Shape Field example graph](../../public/node-cards/graphs/shape-field.svg)
+
 ### Field Warp
 
 ![Field Warp node](../../public/node-cards/field-warp.svg)

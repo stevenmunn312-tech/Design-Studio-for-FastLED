@@ -133,6 +133,48 @@ without a second source.
 
 ---
 
+### `FieldLevels` (category: `field`)
+
+Remaps a field between wireable low/high bounds, then optionally quantises it
+to 2–16 levels or inverts it. When low meets or exceeds high it becomes a hard
+threshold, which is the final step in a signed-distance shape morph.
+
+- Inputs, in order: `field`, `low`, `high`; `low` and `high` are property
+  inputs with 0–1 sliders and defaults 0 and 1.
+- `steps` defaults to 1 (smooth) and ranges from 1–16; `invert` defaults off.
+- Per pixel, the ordinary path is
+  `clamp01((field - low) / max(1e-4, high - low))`, followed by quantisation
+  and inversion. `low >= high` uses `field >= low` as a hard threshold.
+
+### `FieldLerp` (category: `field`)
+
+Interpolates two fields pixel-by-pixel with a wireable 0–1 amount. Unwired
+field inputs are zero, matching `FieldMath`.
+
+Inputs are `a`, `b`, and the property input `t`; `t` defaults to 0.5. The
+operation is `a * (1 - t) + b * t`.
+
+### `ShapeField` (category: `field`)
+
+Produces a circle, rectangle, or continuously morphing regular polygon. Fill
+mode emits antialiased coverage; distance mode maps the outline to 0.5, the
+interior toward 1, and the exterior toward 0. The signed-distance primitives
+are shared with the frame-producing `Shape` node and its firmware helper.
+
+- Property inputs are `cx`, `cy`, `size`, `rotation`, `sides`, and `aspect`.
+  Centres are normalised 0–1; size is a fraction of the shorter matrix side;
+  rotation is degrees; fractional sides morph like the frame Shape node.
+- `shape` is Circle / Rect / Polygon. `fieldMode` is Fill / Distance;
+  `softness` defaults to 0.1 and `range` to 0.5.
+- Distance mode maps the outline to 0.5, the interior toward 1, and the
+  exterior toward 0 over `range`. Lerp two distance Shape Fields, then put
+  Field Levels at `low = high = 0.5`, for a closed-region SDF morph.
+- `src/state/evaluator/sdf.ts` owns the preview primitives. Their C++ twins are
+  emitted once from `src/codegen/sdfHelperCpp.ts` behind `needsSdf`; both Shape
+  and Shape Field call them, so their polygon maths cannot drift.
+
+---
+
 ### `FieldWarp` (category: `composite`)
 
 Samples an input `field` at coordinates shifted by two offset fields.

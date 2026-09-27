@@ -3322,6 +3322,101 @@ describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () =
   })
 })
 
+describe('Pattern node expansion — Phase 0 field helpers', () => {
+  function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]): Float32Array {
+    const { outputs } = evaluateGraphFull(nodes, edges, 0, W, H)
+    return outputs.get(nodeId)!.field as Float32Array
+  }
+
+  function withFieldTail(srcId: string, nodes: StudioNode[], edges: StudioEdge[]) {
+    const f2f = node('phase0-f2f', 'FieldToFrame', 'field', {})
+    const out = node('phase0-out', 'MatrixOutput', 'output', {})
+    return {
+      nodes: [...nodes, f2f, out],
+      edges: [
+        ...edges,
+        edge('phase0-field', srcId, 'field', f2f.id, 'field'),
+        edge('phase0-frame', f2f.id, 'frame', out.id, 'frame'),
+      ],
+    }
+  }
+
+  it('Field Levels remaps, quantises, thresholds, and inverts', () => {
+    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const levels = node('levels', 'FieldLevels', 'field', { low: 0.25, high: 0.75, steps: 3, invert: false })
+    const graph = withFieldTail('levels', [src, levels], [edge('levels-in', src.id, 'field', levels.id, 'field')])
+    expect([...fieldOut('levels', graph.nodes, graph.edges).slice(0, W)]).toEqual([0, 0, 1, 1])
+
+    levels.data.properties = { low: 0.5, high: 0.5, steps: 1, invert: true }
+    expect([...fieldOut('levels', graph.nodes, graph.edges).slice(0, W)]).toEqual([1, 1, 0, 0])
+  })
+
+  it('Field Lerp interpolates two fields and treats an unwired input as zero', () => {
+    const a = node('lerp-a', 'FieldFormula', 'field', { formula: '0.2' })
+    const b = node('lerp-b', 'FieldFormula', 'field', { formula: '1' })
+    const lerp = node('lerp', 'FieldLerp', 'field', { t: 0.25 })
+    const graph = withFieldTail('lerp', [a, b, lerp], [
+      edge('lerp-a-in', a.id, 'field', lerp.id, 'a'),
+      edge('lerp-b-in', b.id, 'field', lerp.id, 'b'),
+    ])
+    expect([...fieldOut('lerp', graph.nodes, graph.edges)].every((value) => Math.abs(value - 0.4) < 1e-6)).toBe(true)
+
+    graph.edges.splice(graph.edges.findIndex((entry) => entry.id === 'lerp-b-in'), 1)
+    expect([...fieldOut('lerp', graph.nodes, graph.edges)].every((value) => Math.abs(value - 0.15) < 1e-6)).toBe(true)
+  })
+
+  it('Shape Field emits bounded fill and signed-distance modes', () => {
+    const shape = node('shape-field', 'ShapeField', 'field', {
+      shape: 'circle', fieldMode: 'fill', cx: 0.5, cy: 0.5,
+      size: 0.3, rotation: 0, sides: 5, aspect: 1, softness: 0.1, range: 0.5,
+    })
+    const graph = withFieldTail(shape.id, [shape], [])
+    const fill = fieldOut(shape.id, graph.nodes, graph.edges)
+    expect([...fill].every((value) => value >= 0 && value <= 1)).toBe(true)
+    expect(fill[5]).toBeGreaterThan(fill[0])
+
+    shape.data.properties = { ...shape.data.properties, fieldMode: 'distance' }
+    const distance = fieldOut(shape.id, graph.nodes, graph.edges)
+    expect(distance[5]).toBeGreaterThan(0.5)
+    expect(distance[0]).toBeLessThan(0.5)
+  })
+
+  it('thresholding a circle-to-square distance lerp keeps one closed region', () => {
+    const circle = node('morph-circle', 'ShapeField', 'field', {
+      shape: 'circle', fieldMode: 'distance', cx: 0.5, cy: 0.5,
+      size: 0.3, rotation: 0, sides: 5, aspect: 1, softness: 0.1, range: 0.5,
+    })
+    const square = node('morph-square', 'ShapeField', 'field', {
+      shape: 'polygon', fieldMode: 'distance', cx: 0.5, cy: 0.5,
+      size: 0.3, rotation: 45, sides: 4, aspect: 1, softness: 0.1, range: 0.5,
+    })
+    const lerp = node('morph-lerp', 'FieldLerp', 'field', { t: 0 })
+    const levels = node('morph-levels', 'FieldLevels', 'field', { low: 0.5, high: 0.5, steps: 1, invert: false })
+    const graph = withFieldTail(levels.id, [circle, square, lerp, levels], [
+      edge('morph-a', circle.id, 'field', lerp.id, 'a'),
+      edge('morph-b', square.id, 'field', lerp.id, 'b'),
+      edge('morph-threshold', lerp.id, 'field', levels.id, 'field'),
+    ])
+
+    for (const amount of [0, 0.25, 0.5, 0.75, 1]) {
+      lerp.data.properties = { t: amount }
+      const field = fieldOut(levels.id, graph.nodes, graph.edges)
+      const lit = [...field].map((value, index) => value >= 0.5 ? index : -1).filter((index) => index >= 0)
+      expect(lit.length).toBeGreaterThan(0)
+      const seen = new Set<number>([lit[0]])
+      const queue = [lit[0]]
+      while (queue.length) {
+        const index = queue.shift()!
+        const x = index % W, y = Math.floor(index / W)
+        for (const next of [x > 0 ? index - 1 : -1, x + 1 < W ? index + 1 : -1, y > 0 ? index - W : -1, y + 1 < H ? index + W : -1]) {
+          if (next >= 0 && field[next] >= 0.5 && !seen.has(next)) { seen.add(next); queue.push(next) }
+        }
+      }
+      expect(seen.size).toBe(lit.length)
+    }
+  })
+})
+
 describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)

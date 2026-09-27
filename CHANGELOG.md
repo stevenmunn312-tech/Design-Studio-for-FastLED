@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Field Levels, Field Lerp, and Shape Field begin the procedural-pattern
+  expansion. Shapes now share signed-distance primitives between preview and
+  generated firmware, and Shape Field can emit either coverage or a signed-
+  distance ramp for smooth field morphs.
+
 - The MonkMakes Mosfetti joins the Hardware shelf as a four-channel Power
   Switch for small DC loads. Each channel, A to D, has its own On and Level and
   dims at 1 kHz, and the Build Diagram lands each wire on its lettered pin. A

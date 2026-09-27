@@ -21,6 +21,7 @@ import {
   splatDisc,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
+import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 
 function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
   if (value > 1) return value
@@ -76,19 +77,6 @@ function pathPoint(shape: string, t: number): { x: number; y: number } {
   }
 }
 
-// Signed distance (negative inside) from a point to a regular polygon of
-// `sides` sides and circumradius `size`, in the shape's local frame. Radial
-// approximation (exact along apothems, softer near vertices) — good enough for
-// 1px-band anti-aliasing and, crucially, continuous in `sides`.
-function polygonSd(lx: number, ly: number, sides: number, size: number): number {
-  const seg = (Math.PI * 2) / sides
-  const apothem = Math.cos(Math.PI / sides)
-  const r = Math.hypot(lx, ly)
-  const a = Math.atan2(ly, lx)
-  const folded = ((a % seg) + seg) % seg - seg / 2
-  return r - (size * apothem) / Math.cos(folded)
-}
-
 // Draw a rect / ellipse / regular polygon onto `frame` (which already holds the
 // base), over-composited with 1px anti-aliasing. `size` is the half-height
 // (circumradius for polygons); `aspect` widens rect/ellipse. Fractional `sides`
@@ -106,8 +94,6 @@ function evalShape(
   const y0 = Math.max(0, Math.floor(cy - reach)), y1 = Math.min(H - 1, Math.ceil(cy + reach))
   const ra = (-rotation * Math.PI) / 180
   const cosR = Math.cos(ra), sinR = Math.sin(ra)
-  const n = Math.max(3, sides)
-  const nlo = Math.floor(n), nhi = Math.ceil(n), fr = n - nlo
   const half = thickness * 0.5
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -115,14 +101,11 @@ function evalShape(
       const lx = dx * cosR - dy * sinR, ly = dx * sinR + dy * cosR
       let sd: number
       if (shape === 'rect') {
-        const qx = Math.abs(lx) - ax, qy = Math.abs(ly) - ay
-        sd = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0)
+        sd = rectSd(lx, ly, ax, ay)
       } else if (shape === 'ellipse') {
-        sd = (Math.hypot(lx / ax, ly / ay) - 1) * Math.min(ax, ay)
+        sd = ellipseSd(lx, ly, ax, ay)
       } else {
-        sd = nlo === nhi
-          ? polygonSd(lx, ly, nlo, size)
-          : polygonSd(lx, ly, nlo, size) * (1 - fr) + polygonSd(lx, ly, nhi, size) * fr
+        sd = morphPolygonSd(lx, ly, sides, size)
       }
       const fillCov = filled ? clamp01(0.5 - sd) : 0
       const edgeCov = thickness > 0 ? clamp01(half + 0.5 - Math.abs(sd)) : 0

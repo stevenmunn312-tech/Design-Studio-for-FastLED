@@ -1134,8 +1134,8 @@ describe('generateCpp', () => {
       thickness: 1.5, filled: true, fill: '#ff0080', edge: '#00e0ff',
     })
     const cpp = generateCpp([shape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('int _nlo=(int)floorf(_n); float _fr=_n-_nlo')  // fractional morph
-    expect(cpp).toContain('atan2f(_ly,_lx)')                              // polygon SDF
+    expect(cpp).toContain('float n = fmaxf(3.0f, sides), lower = floorf(n), amount = n - lower;')
+    expect(cpp).toContain('_sd=_sdfMorphPolygon(_lx,_ly,_sides,_size)')   // shared polygon SDF
     expect(cpp).toContain('CRGB _fill=CRGB(255, 0, 128)')                 // fill hex → CRGB
     expect(cpp).toContain('CRGB(0, 224, 255)')                           // edge hex → CRGB
     expect(cpp).toContain('nblend(buf_sh[_y*WIDTH+_x],_col,')             // over-composite
@@ -1145,12 +1145,11 @@ describe('generateCpp', () => {
   it('emits a Shape rect/ellipse without the polygon branch', () => {
     const rectShape = node('sh', 'Shape', 'pattern', { shape: 'rect', cx: 0.5, cy: 0.5, size: 4, aspect: 2, filled: true, thickness: 0 })
     const rectCpp = generateCpp([rectShape, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
-    expect(rectCpp).toContain('float _ax=_size*_aspect,_ay=_size;')
-    expect(rectCpp).toContain('fabsf(_lx)-_ax')
-    expect(rectCpp).not.toContain('atan2f')          // no polygon math
+    expect(rectCpp).toContain('_sd=_sdfRect(_lx,_ly,_size*_aspect,_size)')
+    expect(rectCpp).not.toContain('_sd=_sdfMorphPolygon') // selected pass has no polygon branch
     const ell = node('sh', 'Shape', 'pattern', { shape: 'ellipse', cx: 0.5, cy: 0.5, size: 4, aspect: 1 })
     const ellCpp = generateCpp([ell, outputNode], [edge('e1', 'sh', 'out', 'frame', 'frame')])
-    expect(ellCpp).toContain('sqrtf(_ex*_ex+_ey*_ey)')
+    expect(ellCpp).toContain('_sd=_sdfEllipse(_lx,_ly,_size*_aspect,_size)')
   })
 
   it('emits wrapped Shape copies when wrap is enabled', () => {
@@ -2326,6 +2325,70 @@ describe('Float Field — Phase 2 codegen', () => {
     expect(cpp).toContain('(2.0f*field_dx[_y*WIDTH+_x]-1.0f)*_st')
     expect(cpp).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
     expect(cpp).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
+  })
+})
+
+describe('Pattern node expansion — Phase 0 codegen', () => {
+  const tail = (srcId: string) => {
+    const f2f = node('phase0-f2f', 'FieldToFrame', 'field', {})
+    return {
+      nodes: [f2f, outputNode],
+      edges: [
+        edge('phase0-field', srcId, f2f.id, 'field', 'field'),
+        edge('phase0-frame', f2f.id, outputNode.id, 'frame', 'frame'),
+      ],
+    }
+  }
+
+  it('Field Levels emits runtime bounds, quantisation, and inversion', () => {
+    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const levels = node('levels', 'FieldLevels', 'field', { low: 0.2, high: 0.8, steps: 4, invert: true })
+    const t = tail(levels.id)
+    const cpp = generateCpp([src, levels, ...t.nodes], [
+      edge('levels-in', src.id, levels.id, 'field', 'field'),
+      ...t.edges,
+    ])
+    expect(cpp).toContain('/* FieldLevels */')
+    expect(cpp).toContain('_high<=_low?(_src>=_low?1.0f:0.0f)')
+    expect(cpp).toContain('_v=roundf(_v*3.0f)/3.0f;')
+    expect(cpp).toContain('field_levels[_i]=1.0f-_v')
+  })
+
+  it('Field Lerp reads both field buffers and its runtime amount', () => {
+    const a = node('lerp-a', 'FieldFormula', 'field', { formula: '0.2' })
+    const b = node('lerp-b', 'FieldFormula', 'field', { formula: '1' })
+    const lerp = node('lerp', 'FieldLerp', 'field', { t: 0.25 })
+    const t = tail(lerp.id)
+    const cpp = generateCpp([a, b, lerp, ...t.nodes], [
+      edge('lerp-a-in', a.id, lerp.id, 'field', 'a'),
+      edge('lerp-b-in', b.id, lerp.id, 'field', 'b'),
+      ...t.edges,
+    ])
+    expect(cpp).toContain('/* FieldLerp */')
+    expect(cpp).toContain('float _a=field_lerp_a[_i],_b=field_lerp_b[_i]')
+    expect(cpp).toContain('field_lerp[_i]=_a*(1.0f-_t)+_b*_t')
+  })
+
+  it('Shape Field emits the selected SDF mode and shares one helper with Shape', () => {
+    const field = node('shape-field', 'ShapeField', 'field', {
+      shape: 'polygon', fieldMode: 'distance', cx: 0.5, cy: 0.5,
+      size: 0.3, rotation: 0, sides: 4.5, aspect: 1, softness: 0.1, range: 0.5,
+    })
+    const f2f = node('shape-f2f', 'FieldToFrame', 'field', {})
+    const shape = node('shape-frame', 'Shape', 'pattern', {
+      shape: 'polygon', cx: 0.5, cy: 0.5, size: 3, aspect: 1, sides: 5,
+      rotation: 0, thickness: 1, filled: true, wrap: false,
+      fill: '#ff3080', edge: '#00e0ff',
+    })
+    const cpp = generateCpp([field, f2f, shape, outputNode], [
+      edge('shape-field-map', field.id, f2f.id, 'field', 'field'),
+      edge('shape-base', f2f.id, shape.id, 'frame', 'base'),
+      edge('shape-out', shape.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('/* ShapeField: polygon distance */')
+    expect(cpp).toContain('_sdfMorphPolygon(_lx,_ly,_sides,_size)')
+    expect(cpp).toContain('constrain(0.5f-_sd/(2.0f*_range),0.0f,1.0f)')
+    expect(cpp.match(/static inline float _sdfPolygon\(/g)).toHaveLength(1)
   })
 })
 

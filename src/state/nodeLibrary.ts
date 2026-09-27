@@ -3072,6 +3072,54 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { fieldOp: 'add' },
   },
   {
+    type: 'FieldLevels',
+    label: 'Field Levels',
+    category: 'field',
+    inputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'low', label: 'Low', dataType: 'float' },
+      { id: 'high', label: 'High', dataType: 'float' },
+    ],
+    propertyInputs: { low: 'low', high: 'high' },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { low: 0, high: 1, steps: 1, invert: false },
+  },
+  {
+    type: 'FieldLerp',
+    label: 'Field Lerp',
+    category: 'field',
+    inputs: [
+      { id: 'a', label: 'A', dataType: 'field' },
+      { id: 'b', label: 'B', dataType: 'field' },
+      { id: 't', label: 'T', dataType: 'float' },
+    ],
+    propertyInputs: { t: 't' },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { t: 0.5 },
+  },
+  {
+    type: 'ShapeField',
+    label: 'Shape Field',
+    category: 'field',
+    inputs: [
+      { id: 'cx', label: 'Center X', dataType: 'float' },
+      { id: 'cy', label: 'Center Y', dataType: 'float' },
+      { id: 'size', label: 'Size', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
+      { id: 'sides', label: 'Sides', dataType: 'float' },
+      { id: 'aspect', label: 'Aspect', dataType: 'float' },
+    ],
+    propertyInputs: {
+      cx: 'cx', cy: 'cy', size: 'size', rotation: 'rotation', sides: 'sides', aspect: 'aspect',
+    },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: {
+      shape: 'circle', fieldMode: 'fill',
+      cx: 0.5, cy: 0.5, size: 0.3, rotation: 0, sides: 5, aspect: 1,
+      softness: 0.1, range: 0.5,
+    },
+  },
+  {
     type: 'FieldWarp',
     label: 'Field Warp',
     category: 'field',
@@ -4278,6 +4326,9 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
   FrameToField: 'Extracts a brightness field from a rendered frame.',
   FieldMath: 'Combines two scalar fields (add, subtract, multiply, mix, min, max, difference).',
+  FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
+  FieldLerp: 'Interpolates between two scalar fields with a wireable 0–1 amount.',
+  ShapeField: 'Circle, rectangle or morphing polygon as a fill or signed-distance field.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
   FieldTile: 'Tiles/repeats a field across the matrix.',
@@ -4350,7 +4401,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5184,6 +5235,23 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     rotation:  { control: 'slider', min: -180, max: 180, step: 1 },
     thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
+  FieldLevels: {
+    low: N01,
+    high: N01,
+    steps: { control: 'slider', min: 1, max: 16, step: 1 },
+  },
+  ShapeField: {
+    shape: { control: 'select', options: ['circle', 'rect', 'polygon'] },
+    fieldMode: { control: 'select', options: ['fill', 'distance'] },
+    cx: N01,
+    cy: N01,
+    size: { control: 'slider', min: 0.01, max: 1, step: 0.01 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    sides: { control: 'slider', min: 3, max: 10, step: 0.1 },
+    aspect: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    softness: N01,
+    range: { control: 'slider', min: 0.01, max: 1, step: 0.01 },
+  },
   Wireframe3D: {
     model:      { control: 'select', options: WIREFRAME_MODEL_OPTIONS },
     spinX:      { control: 'slider', min: -180, max: 180, step: 1 },
@@ -5521,6 +5589,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FieldFormula: {
     formula: `${FORMULA_LANG_HELP} Field Formula also provides fieldIn.`,
   },
+  FieldLevels: {
+    low: 'Input values at or below this point map to 0. When Low meets or exceeds High, this becomes the hard threshold.',
+    high: 'Input values at or above this point map to 1.',
+    steps: '1 keeps the field smooth; 2–16 quantises it to that many levels.',
+  },
+  ShapeField: {
+    size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
+    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
+    range: 'Distance on either side of the outline used to map the signed-distance field from 0 to 1.',
+  },
   ClockDisplay: {
     displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',
     durationSec: 'Countdown duration in seconds for Timer mode.',
@@ -5537,6 +5615,15 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  FieldLevels: {
+    low: 'low',
+    high: 'high',
+  },
+  ShapeField: {
+    fieldMode: 'mode',
+    cx: 'center X',
+    cy: 'center Y',
+  },
   PresenceInput: {
     rxPin: 'RX (sensor TX)',
   },
@@ -5804,6 +5891,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
     { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'wrap', 'filled'] },
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
+  ],
+  ShapeField: [
+    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
+    { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides'] },
+    { key: 'output', label: 'Field', keys: ['fieldMode', 'softness', 'range'] },
   ],
   Wireframe3D: [
     { key: 'model', label: 'Model', keys: ['model'] },
@@ -6425,6 +6517,14 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'aspect') return shape === 'rect' || shape === 'ellipse'
     // Fill colour is unused when only the outline is drawn.
     if (key === 'fill')   return properties.filled === true
+  }
+  if (nodeType === 'ShapeField') {
+    const shape = String(properties.shape ?? 'circle')
+    const mode = String(properties.fieldMode ?? 'fill')
+    if (key === 'sides') return shape === 'polygon'
+    if (key === 'aspect') return shape === 'circle' || shape === 'rect'
+    if (key === 'softness') return mode === 'fill'
+    if (key === 'range') return mode === 'distance'
   }
   if (nodeType === 'Wireframe3D' && key === 'perspectiveStrength') {
     return properties.projection === 'perspective'

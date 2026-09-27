@@ -5,6 +5,7 @@ import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../s
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
+import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
@@ -305,6 +306,90 @@ function evalFieldMath(a: Field | null, b: Field | null, op: string, W = DEFAULT
   return out
 }
 
+function evalFieldLevels(
+  field: Field | null,
+  low: number,
+  high: number,
+  steps: number,
+  invert: boolean,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Field {
+  const out = allocField(W * H)
+  const count = Math.max(1, Math.min(16, Math.round(steps)))
+  for (let i = 0; i < W * H; i++) {
+    const source = field ? field[i] : 0
+    let value = high <= low
+      ? (source >= low ? 1 : 0)
+      : clamp01((source - low) / Math.max(1e-4, high - low))
+    if (count >= 2) value = Math.round(value * (count - 1)) / (count - 1)
+    out[i] = invert ? 1 - value : value
+  }
+  return out
+}
+
+function evalFieldLerp(a: Field | null, b: Field | null, amount: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const out = allocField(W * H)
+  const t = clamp01(amount)
+  for (let i = 0; i < W * H; i++) {
+    const av = a ? a[i] : 0
+    const bv = b ? b[i] : 0
+    out[i] = av * (1 - t) + bv * t
+  }
+  return out
+}
+
+function smoothCoverage(sd: number, softness: number): number {
+  if (softness <= 0) return sd <= 0 ? 1 : 0
+  const t = clamp01(0.5 - sd / (2 * softness))
+  return t * t * (3 - 2 * t)
+}
+
+function evalShapeField(
+  shape: string,
+  fieldMode: string,
+  cx: number,
+  cy: number,
+  size: number,
+  rotation: number,
+  sides: number,
+  aspect: number,
+  softness: number,
+  range: number,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Field {
+  const out = allocField(W * H)
+  const shortSide = Math.max(1, Math.min(W, H))
+  const radius = Math.max(1e-4, size * shortSide)
+  const stretch = Math.max(0.01, aspect)
+  const softPx = Math.max(0, softness) * shortSide
+  const rangePx = Math.max(1e-4, range * shortSide)
+  const centerX = clamp01(cx) * Math.max(0, W - 1) + 0.5
+  const centerY = clamp01(cy) * Math.max(0, H - 1) + 0.5
+  const radians = (-rotation * Math.PI) / 180
+  const cosR = Math.cos(radians)
+  const sinR = Math.sin(radians)
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = x + 0.5 - centerX
+      const dy = y + 0.5 - centerY
+      const lx = dx * cosR - dy * sinR
+      const ly = dx * sinR + dy * cosR
+      const sd = shape === 'rect'
+        ? rectSd(lx, ly, radius * stretch, radius)
+        : shape === 'polygon'
+          ? morphPolygonSd(lx, ly, sides, radius)
+          : ellipseSd(lx, ly, radius * stretch, radius)
+      out[y * W + x] = fieldMode === 'distance'
+        ? clamp01(0.5 - sd / (2 * rangePx))
+        : smoothCoverage(sd, softPx)
+    }
+  }
+  return out
+}
+
 // Sample `field` at coordinates pushed by the dx/dy offset fields. Offsets map
 // 0–1 → −strength…+strength pixels (an unwired offset field = no push). Sample
 // is nearest-neighbour, clamped to the matrix edges.
@@ -441,6 +526,42 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       av instanceof Float32Array ? av : null,
       bv instanceof Float32Array ? bv : null,
       op, W, H,
+    ) }
+  },
+  FieldLevels({ input, num, W, H }, id, props) {
+    const fv = input(id, 'field', null)
+    return { field: evalFieldLevels(
+      fv instanceof Float32Array ? fv : null,
+      num(id, 'low', props, 'low', 0),
+      num(id, 'high', props, 'high', 1),
+      Number(props.steps ?? 1),
+      Boolean(props.invert),
+      W, H,
+    ) }
+  },
+  FieldLerp({ input, num, W, H }, id, props) {
+    const av = input(id, 'a', null)
+    const bv = input(id, 'b', null)
+    return { field: evalFieldLerp(
+      av instanceof Float32Array ? av : null,
+      bv instanceof Float32Array ? bv : null,
+      num(id, 't', props, 't', 0.5),
+      W, H,
+    ) }
+  },
+  ShapeField({ num, W, H }, id, props) {
+    return { field: evalShapeField(
+      String(props.shape ?? 'circle'),
+      String(props.fieldMode ?? 'fill'),
+      num(id, 'cx', props, 'cx', 0.5),
+      num(id, 'cy', props, 'cy', 0.5),
+      num(id, 'size', props, 'size', 0.3),
+      num(id, 'rotation', props, 'rotation', 0),
+      num(id, 'sides', props, 'sides', 5),
+      num(id, 'aspect', props, 'aspect', 1),
+      Number(props.softness ?? 0.1),
+      Number(props.range ?? 0.5),
+      W, H,
     ) }
   },
   FieldWarp({ input, num, W, H }, id, props) {
