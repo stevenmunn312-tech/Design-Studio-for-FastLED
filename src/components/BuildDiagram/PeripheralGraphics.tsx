@@ -21,6 +21,12 @@ import {
   peripheralPowerNet,
   peripheralPadRadius,
   PERIPHERAL_RENDER_W,
+  PART_CAPTION_GAP,
+  PART_TITLE_BASELINE,
+  OUTPUT_TITLE_BASELINE,
+  fitPartTitle,
+  peripheralTitleBudget,
+  stackedBaselineOffsets,
   DIVIDER_RESISTOR_W,
   DIVIDER_RESISTOR_H,
   PERIPHERAL_RENDER_H,
@@ -83,28 +89,35 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
   // The photographed modules already draw each plated ring; colour only the
   // drilled hole inside it, at this part's own measured hole size.
   const padRadius = peripheralPadRadius(item)
+  const titleLines = fitPartTitle(item.title, peripheralTitleBudget())
+  const titleOffsets = stackedBaselineOffsets(-PART_TITLE_BASELINE, titleLines.length)
+  const captionY = y + titleOffsets[0] - PART_CAPTION_GAP
   return (
     <g className={selected ? styles.physicalSelected : undefined}>
-      <text x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 12} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
+      <g data-part-title={item.title}>
+        {titleLines.map((line, index) => (
+          <text key={index} x={x + (PERIPHERAL_RENDER_W / 2)} y={y + titleOffsets[index]} textAnchor="middle" className={styles.physicalComponentLabel}>{line}</text>
+        ))}
+      </g>
       {/* A DAC-fed power amplifier has no GPIO, so no wire says where its
           signal comes from. Its line in is the DAC's line out: say so, or the
           part reads as unconnected. */}
       {item.facts.stage === 'power' && item.facts.feed === 'dac' && (
-        <text data-line-in-from={String(item.facts.fedBy)} x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
+        <text data-line-in-from={String(item.facts.fedBy)} x={x + (PERIPHERAL_RENDER_W / 2)} y={captionY} textAnchor="middle" className={styles.physicalMetaLabel}>
           {`LINE IN ← ${String(item.facts.fedByModule ?? item.facts.fedBy)} LINE OUT`}
         </text>
       )}
       {/* Wires land on the left board; the right board shares them. The
           sheet draws one wire per board pin, so say which lines to bridge. */}
       {sharedPads.length > 0 && (
-        <text data-shared-pads={sharedPads.join(',')} x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
+        <text data-shared-pads={sharedPads.join(',')} x={x + (PERIPHERAL_RENDER_W / 2)} y={captionY} textAnchor="middle" className={styles.physicalMetaLabel}>
           {`RIGHT BOARD SHARES ${sharedPads.join(' · ')}`}
         </text>
       )}
       {/* The bus side goes to the DMX cable, not the controller, so no wire
           on this sheet shows it. Say where each XLR pin lands. */}
       {item.kind === 'dmx-input' && (
-        <text data-dmx-cable="true" x={x + (PERIPHERAL_RENDER_W / 2)} y={y - 30} textAnchor="middle" className={styles.physicalMetaLabel}>
+        <text data-dmx-cable="true" x={x + (PERIPHERAL_RENDER_W / 2)} y={captionY} textAnchor="middle" className={styles.physicalMetaLabel}>
           XLR 1 → GND · 2 → B · 3 → A
         </text>
       )}
@@ -219,9 +232,15 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
   const extenderPartId = extender ? String(item.facts.dataLinkPartId) : ''
   const extenderRender = extenderPartId ? partRenderSrc(extenderPartId) : null
   const maxDistanceFeet = Math.round(Number(item.facts.dataLinkMaxDistanceMeters ?? 0) * 3.28084)
+  const titleLines = fitPartTitle(item.title, width)
+  const titleOffsets = stackedBaselineOffsets(-OUTPUT_TITLE_BASELINE, titleLines.length)
   return (
     <g data-output-card={item.id} className={selected ? styles.physicalSelected : undefined}>
-      <text x={x + (width / 2)} y={y - 32} textAnchor="middle" className={styles.physicalComponentLabel}>{item.title}</text>
+      <g data-part-title={item.title}>
+        {titleLines.map((line, index) => (
+          <text key={index} x={x + (width / 2)} y={y + titleOffsets[index]} textAnchor="middle" className={styles.physicalComponentLabel}>{line}</text>
+        ))}
+      </g>
       <text x={x + (width / 2)} y={y - 14} textAnchor="middle" className={styles.physicalMetaLabel}>{item.subtitle}</text>
       <rect x={x} y={y} width={width} height={height} rx="8" fill="#202426" stroke={selected ? '#1fa5ad' : '#0f1213'} strokeWidth={selected ? 4 : 2} />
       <rect x={x + 18} y={y + (singleRow ? 10 : 12)} width={width - 30} height={singleRow ? 48 : 140} fill="#15191a" stroke="#515759" />

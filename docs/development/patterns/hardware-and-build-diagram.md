@@ -344,6 +344,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Build Diagram
 
+- A peripheral title is centred on its picture and has to stay inside the
+  column slot (`PERIPHERAL_RENDER_W` + `PERIPHERAL_GAP`). Catalogue labels run
+  past that on one line, so `fitPartTitle` wraps them to two lines at the
+  measured Inter 16px advances, and the gap is wide enough that the longer
+  line of the widest label still clears its neighbour. The caption above a
+  title (line-in, shared pads, XLR) moves up with the wrap. Output cards use
+  the same fitter against the card width, with the subtitle left under the
+  title. `physicalDiagramLayout.test.ts` places the longest catalogue labels
+  in adjacent columns and refuses an overlap.
 - On the Build Diagram, a microphone is an ordinary peripheral row item, not a
   bespoke top-of-sheet slot: `itemLayouts` (`physicalDiagramLayout.ts`) dropped
   the `mic-input` carve-out and the

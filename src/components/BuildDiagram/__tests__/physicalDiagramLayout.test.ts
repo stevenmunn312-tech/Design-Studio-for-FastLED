@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ElectricalPlanSummary } from '../../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../../build/powerDistribution'
-import { partById } from '../../../state/partCatalogue'
+import { PART_CATALOGUE, partById } from '../../../state/partCatalogue'
 import { partOptionsFor } from '../../../state/partOptions'
 import {
   COMMON_NET_CALLOUT_GAP,
@@ -17,6 +17,12 @@ import {
   fuseSlotForFeed,
   groundCombLaneY,
   itemLayouts,
+  OUTPUT_TITLE_BASELINE,
+  PERIPHERALS_PER_ROW,
+  fitPartTitle,
+  partTitleWidth,
+  peripheralTitleBoxes,
+  peripheralTitleBudget,
   MODULE_PAD_GEOMETRY,
   peripheralPadPoint,
   physicalAssemblyDiagramHeight,
@@ -362,8 +368,55 @@ describe('sheet spacing', () => {
   it('keeps each output card clear of the title and subtitle of the one below', () => {
     const items = [OUTPUT_ITEM, { ...OUTPUT_ITEM, id: 'output:second' }]
     const [first, second] = itemLayouts(items)
-    // Titles sit 32px above their card, so the gap has to carry both label rows.
-    expect(second.y - 32).toBeGreaterThan(first.y + first.height + 10)
+    // The title baseline sits above the card, so the gap has to carry both label rows.
+    expect(second.y - OUTPUT_TITLE_BASELINE).toBeGreaterThan(first.y + first.height + 10)
+  })
+
+  it('keeps adjacent part titles from overlapping for the longest catalogue labels', () => {
+    const labels = Object.values(PART_CATALOGUE).map((part) => part.label)
+      .sort((left, right) => partTitleWidth(right) - partTitleWidth(left))
+    const budget = peripheralTitleBudget()
+    for (const label of labels) {
+      for (const line of fitPartTitle(label, budget)) {
+        expect(partTitleWidth(line), label).toBeLessThanOrEqual(budget)
+      }
+    }
+    const boxesOverlap = (
+      left: { left: number; right: number; top: number; bottom: number },
+      right: { left: number; right: number; top: number; bottom: number },
+    ) => left.left < right.right && right.left < left.right && left.top < right.bottom && right.top < left.bottom
+    const placed = (titles: string[]) => itemLayouts(titles.map((title, index) => ({
+      id: `part:${index}`,
+      kind: 'pot-input',
+      title,
+      subtitle: '',
+      supported: true,
+      pins: [],
+      facts: {},
+    } as HardwareManifestItem)))
+    // The widest name beside every other name, including a short one such as
+    // Potentiometer next to the Mosfetti.
+    const widest = labels[0]
+    for (const label of labels) {
+      const row = placed([widest, label]).filter((layout) => layout.item.kind !== 'matrix-output')
+      const [first, second] = row
+      expect(first.y).toBe(second.y)
+      for (const box of peripheralTitleBoxes(first)) {
+        for (const other of peripheralTitleBoxes(second)) {
+          expect(boxesOverlap(box, other), `${widest} | ${label}`).toBe(false)
+        }
+      }
+    }
+    const twoRows = placed(labels.slice(0, PERIPHERALS_PER_ROW * 2))
+    const peripherals = twoRows.filter((layout) => layout.item.kind !== 'matrix-output')
+    const upper = peripherals.filter((layout) => layout.y === peripherals[0].y)
+    const lower = peripherals.filter((layout) => layout.y !== peripherals[0].y)
+    expect(upper.length).toBeGreaterThan(1)
+    expect(lower.length).toBeGreaterThan(0)
+    for (const layout of lower) {
+      const top = Math.min(...peripheralTitleBoxes(layout).map((box) => box.top))
+      for (const above of upper) expect(top).toBeGreaterThan(above.y + above.height)
+    }
   })
 
   it('leaves the legend strip clear of the shared-net callout on a sheet with no PSU zones', () => {

@@ -1,7 +1,7 @@
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
-import { partById, partPinLabelForProperty } from '../../state/partCatalogue'
+import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../state/partCatalogue'
 import { oledTransportFor, type OledTransport } from '../../state/oledSurface'
 
 export type ItemLayout = {
@@ -193,7 +193,12 @@ export function powerDistributionSectionLayout(feedCount: number) {
 export const PERIPHERAL_RENDER_W = 220
 /** 220 x (598/828), the cropped render's own aspect. */
 export const PERIPHERAL_RENDER_H = 159
-export const PERIPHERAL_GAP = 30
+/**
+ * Air between part pictures. Wide enough that a two-line title, centred on
+ * its picture, still clears the title in the next column. The pictures stay
+ * 220 wide; only the slot grows.
+ */
+export const PERIPHERAL_GAP = 46
 
 /**
  * Every control signal gets its own horizontal lane beneath the module row.
@@ -956,6 +961,8 @@ export function outputHasDataExtender(item: HardwareManifestItem) {
  * was drawn on the first card's bottom edge.
  */
 export const OUTPUT_CARD_LABEL_HEIGHT = 44
+/** Baseline of an output card's title, above the card. The subtitle sits under it. */
+export const OUTPUT_TITLE_BASELINE = 32
 export const OUTPUT_CARD_PITCH = OUTPUT_CARD_HEIGHT + OUTPUT_CARD_LABEL_HEIGHT + 14
 
 export const LEVEL_SHIFTER_X = 430
@@ -1023,6 +1030,117 @@ export function levelShifterSupplyPoint(
     : { x: LEVEL_SHIFTER_X + LEVEL_SHIFTER_LEFT_PIN_X, y: levelShifterChipY(chipIndex * 4) + LEVEL_SHIFTER_PIN_ROWS[6], side: 'left' }
 }
 
+/**
+ * Inter 16px weight 700 advances, in hundredths of a pixel. That is the face
+ * `.physicalComponentLabel` draws: the diagram inherits Inter, and a request
+ * for weight 750 clamps to the variable font's top weight of 700.
+ * An unlisted character uses W, the widest measured glyph, so a title never
+ * measures narrower than it draws.
+ */
+const PART_TITLE_ADVANCE: Record<string, number> = {
+  ' ': 379, '(': 603, ')': 603, ',': 534, '-': 748, '.': 534, '/': 621,
+  '0': 1079, '1': 690, '2': 1007, '3': 1033, '4': 1082, '5': 995, '6': 1039,
+  '7': 930, '8': 1041, '9': 1039,
+  'A': 1195, 'B': 1059, 'C': 1184, 'D': 1155, 'E': 972, 'F': 939, 'G': 1201,
+  'H': 1195, 'I': 449, 'K': 1151, 'L': 905, 'M': 1491, 'N': 1220, 'O': 1233,
+  'P': 1037, 'R': 1051, 'S': 1048, 'T': 1068, 'U': 1171, 'V': 1195, 'W': 1660,
+  'X': 1181, 'Y': 1170, 'Z': 1062,
+  'a': 929, 'b': 1009, 'c': 941, 'd': 1009, 'e': 953, 'f': 637, 'g': 1011,
+  'h': 996, 'i': 434, 'j': 434, 'k': 928, 'l': 434, 'm': 1460, 'n': 996,
+  'o': 981, 'p': 1009, 'r': 652, 's': 896, 't': 586, 'u': 996, 'v': 959,
+  'w': 1360, 'x': 928, 'y': 963, 'z': 916,
+  '×': 1086, '—': 1600,
+}
+const PART_TITLE_FALLBACK_ADVANCE = PART_TITLE_ADVANCE.W
+/** Clear space kept between the title boxes of neighbouring columns. */
+export const PART_TITLE_GUTTER = 8
+export const PART_TITLE_LINE_PITCH = 18
+/** Bottom title line above a peripheral picture. */
+export const PART_TITLE_BASELINE = 12
+export const PART_TITLE_ASCENT = 12
+export const PART_TITLE_DESCENT = 4
+/** Caption baseline above the top title line. Matches the old single-line y of -30. */
+export const PART_CAPTION_GAP = 18
+export const PART_CAPTION_ASCENT = 9
+/** Air between a row's lane stack and the title ink of the row below. */
+export const PART_TITLE_ROW_AIR = 6
+
+export function peripheralTitleBudget(): number {
+  return PERIPHERAL_RENDER_W + PERIPHERAL_GAP - PART_TITLE_GUTTER
+}
+
+export function partTitleWidth(text: string): number {
+  let hundredths = 0
+  for (const char of text) hundredths += PART_TITLE_ADVANCE[char] ?? PART_TITLE_FALLBACK_ADVANCE
+  return hundredths / 100
+}
+
+/** One line when it fits the column; otherwise the two-line split whose longer line is shortest. */
+export function fitPartTitle(title: string | undefined, budget: number): string[] {
+  const text = (title ?? '').trim()
+  if (text.length === 0) return ['']
+  if (partTitleWidth(text) <= budget) return [text]
+  const words = text.split(/\s+/)
+  if (words.length < 2) return [text]
+  let bestAt = 1
+  let bestScore = Number.POSITIVE_INFINITY
+  for (let index = 1; index < words.length; index += 1) {
+    const score = Math.max(
+      partTitleWidth(words.slice(0, index).join(' ')),
+      partTitleWidth(words.slice(index).join(' ')),
+    )
+    if (score < bestScore) {
+      bestScore = score
+      bestAt = index
+    }
+  }
+  return [words.slice(0, bestAt).join(' '), words.slice(bestAt).join(' ')]
+}
+
+/** Baselines above the anchor, last entry closest to the picture. */
+export function stackedBaselineOffsets(bottomOffset: number, lineCount: number): number[] {
+  return Array.from({ length: lineCount }, (_, index) =>
+    bottomOffset - ((lineCount - 1 - index) * PART_TITLE_LINE_PITCH))
+}
+
+export interface PartTitleBox {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
+export function peripheralTitleBoxes(layout: ItemLayout): PartTitleBox[] {
+  const lines = fitPartTitle(layout.item.title, peripheralTitleBudget())
+  const offsets = stackedBaselineOffsets(-PART_TITLE_BASELINE, lines.length)
+  const center = layout.x + (layout.width / 2)
+  return lines.map((line, index) => {
+    const half = partTitleWidth(line) / 2
+    const baseline = layout.y + offsets[index]
+    return {
+      left: center - half,
+      right: center + half,
+      top: baseline - PART_TITLE_ASCENT,
+      bottom: baseline + PART_TITLE_DESCENT,
+    }
+  })
+}
+
+function peripheralHasCaption(item: HardwareManifestItem): boolean {
+  if (item.kind === 'dmx-input') return true
+  if (item.facts.stage === 'power' && item.facts.feed === 'dac') return true
+  const partId = item.facts.partId
+  return typeof partId === 'string' && sharedPadsAcrossBoards(partId).length > 0
+}
+
+/** How far a peripheral's title ink reaches above its picture. */
+export function partLabelOverhang(title: string | undefined, hasCaption: boolean): number {
+  const lineCount = fitPartTitle(title, peripheralTitleBudget()).length
+  const topTitle = -(PART_TITLE_BASELINE + ((lineCount - 1) * PART_TITLE_LINE_PITCH))
+  if (!hasCaption) return -topTitle + PART_TITLE_ASCENT
+  return -(topTitle - PART_CAPTION_GAP) + PART_CAPTION_ASCENT
+}
+
 export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   const outputs = items.filter((item) => item.kind === 'matrix-output')
   /*
@@ -1043,10 +1161,13 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
     const baseHeight = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
     const height = baseHeight + (outputHasDataExtender(item) ? OUTPUT_DATA_EXTENDER_HEIGHT : 0)
     const layout = { item, x: 820, y: outputY, width: 184, height }
-    outputY += height + OUTPUT_CARD_LABEL_HEIGHT + 14
+    const titleLines = fitPartTitle(item.title, layout.width).length
+    outputY += height + OUTPUT_CARD_LABEL_HEIGHT + ((titleLines - 1) * PART_TITLE_LINE_PITCH) + 14
     return layout
   })
-  const peripheralY = Math.max(500, LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP)) + 24)
+  const shifterBottom = outputs.length > 0
+    ? LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP))
+    : 0
   // Each row is only as deep as its own lane stack needs, so a lone button
   // does not reserve the space an encoder-heavy row would.
   const rowSignalCounts: number[] = []
@@ -1058,8 +1179,20 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
   })
   const rowHeights = rowSignalCounts.map((count, row) =>
     PERIPHERAL_RENDER_H + peripheralClearance(count, rowItems[row] ?? []))
-  const rowTops = rowHeights.map((_, row) =>
-    peripheralY + rowHeights.slice(0, row).reduce((sum, height) => sum + height + PERIPHERAL_ROW_GAP, 0))
+  const rowOverhang = rowItems.map((row) => Math.max(
+    PART_TITLE_BASELINE + PART_TITLE_ASCENT,
+    ...row.map((item) => partLabelOverhang(item.title, peripheralHasCaption(item))),
+  ))
+  const peripheralY = Math.max(500, shifterBottom + (rowOverhang[0] ?? (PART_TITLE_BASELINE + PART_TITLE_ASCENT)))
+  const rowTops: number[] = []
+  rowHeights.forEach((_, row) => {
+    if (row === 0) {
+      rowTops.push(peripheralY)
+      return
+    }
+    const gap = Math.max(PERIPHERAL_ROW_GAP, rowOverhang[row] + PART_TITLE_ROW_AIR)
+    rowTops.push(rowTops[row - 1] + rowHeights[row - 1] + gap)
+  })
   peripherals.forEach((item, index) => {
     const column = index % PERIPHERALS_PER_ROW
     const row = Math.floor(index / PERIPHERALS_PER_ROW)
