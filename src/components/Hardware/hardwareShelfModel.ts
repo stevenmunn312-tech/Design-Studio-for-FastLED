@@ -166,7 +166,7 @@ export function hardwareShelfCategories({
     {
       id: 'switching-power',
       label: 'Switching power',
-      hint: 'Relays and MOSFET switches for on/off loads',
+      hint: 'Relays for on/off loads, and a MOSFET switch that can also dim DC loads',
       items: [
         ...moduleItems('RelayOutput', relayFixture),
         ...moduleItems('PowerSwitchOutput', powerSwitchFixture),

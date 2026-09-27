@@ -50,7 +50,8 @@ import { displayHasTouch, partById } from '../../state/partCatalogue'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import { type TransportTouchAction, TRANSPORT_TOUCH_ACTION_TYPES, emittedTouchBounds } from '../../state/transportTouch'
 import { relayPinKeys } from '../../state/relayModule'
-import { POWER_SWITCH_PIN_KEY, powerSwitchActiveHigh } from '../../state/powerSwitch'
+import { POWER_SWITCH_PIN_KEY, powerSwitchActiveHigh, powerSwitchDims, powerSwitchPwmHz } from '../../state/powerSwitch'
+import { POWER_SWITCH_PWM_HELPER_CPP, powerSwitchPwmLoopCpp, powerSwitchPwmSetupCpp } from '../../codegen/powerSwitchCpp'
 import { stereoVuLoopCpp } from '../../codegen/stereoVuMeterCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, cppComment } from '../../codegen/cppLiterals'
@@ -69,15 +70,37 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       ln(`  digitalWrite(${pin}, ${boolExpr(node.id, `channel${index + 1}`)} ? LOW : HIGH);`)
     }
   },
-  PowerSwitchOutput({ node, p, ln, boolExpr, pinSetupLines }) {
+  PowerSwitchOutput({ node, id, p, ln, f, boolExpr, pinSetupLines, incoming, nodes, props, globalLines }) {
     // The switch is active-high: the PC817's LED lights on a HIGH pin and
     // the MOSFET conducts. Latch LOW before enabling the output so the
     // load cannot pulse on during setup.
     const pin = sanitizePin(p[POWER_SWITCH_PIN_KEY], 25)
-    const [on, off] = powerSwitchActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
-    pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
-    pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
-    ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
+    const activeHigh = powerSwitchActiveHigh(p.partId)
+    const [on, off] = activeHigh ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
+    const levelWired = incoming.has(`${node.id}:level`)
+    const hz = powerSwitchPwmHz(p.partId)
+    if (hz === null || !powerSwitchDims(p.partId, p.level, levelWired)) {
+      pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
+      pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+      ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
+      return
+    }
+    // Dimmed: the same gate and level rule as the preview (powerSwitchGate,
+    // powerSwitchLoad), carried by PWM at the part's frequency.
+    if (!globalLines.includes(POWER_SWITCH_PWM_HELPER_CPP)) globalLines.push(POWER_SWITCH_PWM_HELPER_CPP)
+    const dimmed = nodes.filter((candidate) => candidate.data.nodeType === 'PowerSwitchOutput'
+      && powerSwitchDims(props(candidate).partId, props(candidate).level, incoming.has(`${candidate.id}:level`)))
+    const emit = {
+      id,
+      pin,
+      channel: Math.max(0, dimmed.findIndex((candidate) => candidate.id === node.id)),
+      hz,
+      activeHigh,
+      gateExpr: incoming.has(`${node.id}:on`) ? boolExpr(node.id, 'on') : String(levelWired),
+      levelExpr: f('level', 'level', 1),
+    }
+    for (const line of powerSwitchPwmSetupCpp(emit)) pinSetupLines.add(line)
+    for (const line of powerSwitchPwmLoopCpp(emit)) ln(line)
   },
   InfoDisplay({ node, id, p, ln, ledStatusEmit, bootTitle, bootDevice, incoming, nodeMap, intProp, boolExpr, setupLines, infoDisplays }) {
     // One content input, and a normal sketch has exactly one source it can

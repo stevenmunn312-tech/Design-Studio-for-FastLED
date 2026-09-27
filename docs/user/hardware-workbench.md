@@ -81,6 +81,33 @@ node. In preview there is no sensor, so drag the node's volts and amps sliders.
 Amps run from 0 to 3.2, so put a **Map Range** in front of anything that
 expects 0 to 1.
 
+### Switch or dim a DC load
+
+Choose **Switching power → LR7843 MOSFET switch** to turn a 6-28 V DC load on
+and off, such as a 12 V LED strip that is not addressable, a fan, or a lamp.
+Wire the board's GPIO to **PWM** and ground to **GND**. On the power end, the
+load supply goes across **+** and **-**, the load's positive lead to **+**,
+and its negative lead to **LOAD**. The board has no flyback diode, so add one
+across a motor, solenoid or relay coil.
+
+The node has two inputs:
+
+- **On** switches the load. Nothing wired means off, so a switch you have just
+  added never powers its load by surprise.
+- **Level** dims it, from 0 to 1. Leave it at 1 for a plain on/off switch.
+  Set it lower, or wire a knob, a sensor or a wave into it, and the firmware
+  drives the pin with PWM at 500 Hz instead. That is slow on purpose: this
+  board's MOSFET is driven through its optocoupler and resistors, not a gate
+  driver, and a faster rate would heat it. With **On** unwired, a wire on
+  **Level** runs the load by itself, so a potentiometer alone can be a dimmer.
+
+The node's **Load** bar shows the share of power the load will receive, so a
+dimmer can be tried in preview before anything is on the bench. The Build
+Diagram lists the switch's drive as **on/off** or **PWM 500 Hz**. Dimming does
+not suit addressable strips such as WS2812B: they need steady power and are
+dimmed through their LED output instead. Very fast camera shutters can show
+banding on a PWM-dimmed lamp.
+
 ### Detect stationary presence
 
 The **HLK-LD2410C Presence Sensor** detects a person who is moving or sitting

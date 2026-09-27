@@ -3574,15 +3574,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // One opto-isolated DC MOSFET channel. A terminal sink like the relay,
     // but active-high and DC-only: it switches the load's negative lead, and
-    // its load-side limits come from the catalogued module.
+    // its load-side limits come from the catalogued module. Level dims it
+    // with PWM on a module that can be dimmed; at 1 and unwired it is a plain
+    // switch (state/powerSwitch.ts has the rule both implementations share).
     type: 'PowerSwitchOutput',
     label: 'Power Switch',
     category: 'output',
-    inputs: [{ id: 'on', label: 'On', dataType: 'bool' }],
+    inputs: [
+      { id: 'on', label: 'On', dataType: 'bool' },
+      { id: 'level', label: 'Level', dataType: 'float' },
+    ],
+    propertyInputs: { level: 'level' },
     outputs: [],
     defaultProperties: {
       partId: DEFAULT_POWER_SWITCH_PART_ID,
       [POWER_SWITCH_PIN_KEY]: 25,
+      level: 1,
     },
   },
   {
@@ -4109,7 +4116,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
-  PowerSwitchOutput: 'Switches a DC load through an opto-isolated MOSFET from a boolean signal.',
+  PowerSwitchOutput: 'Switches or dims a DC load through an opto-isolated MOSFET.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -5087,6 +5094,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ),
   PowerSwitchOutput: {
     [POWER_SWITCH_PIN_KEY]: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    level: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   PowerMonitorInput: {
     i2cAddress: { control: 'select', options: powerMonitorAddressOptions(DEFAULT_POWER_MONITOR_PART_ID) },
@@ -5357,6 +5365,9 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  PowerSwitchOutput: {
+    level: 'Share of full power while On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
+  },
   StepValue: {
     initial: 'Value used at preview start, board reboot and each Reset pulse.',
     minimum: 'Lowest runtime value. Decrease clamps here unless Wrap is enabled.',

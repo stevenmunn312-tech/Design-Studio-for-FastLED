@@ -92,6 +92,8 @@ export interface PartMosfetSpec {
   flybackDiode: boolean
   /** Load-side terminals as printed, left to right in the render. */
   loadTerminals?: string[]
+  /** PWM frequency to dim the load at; absent on a module that only switches. */
+  pwmHz?: number
 }
 
 /** Measuring contract carried by an imported current/voltage monitor. */

@@ -203,6 +203,15 @@ def read_part(part_dir: Path) -> dict | None:
             if mosfet.get("powerTerminalsLeftToRight") or data.get("powerTerminalsLeftToRight"):
                 entry["mosfet"]["loadTerminals"] = (mosfet.get("powerTerminalsLeftToRight")
                                                     or data.get("powerTerminalsLeftToRight"))
+            # The frequency firmware dims the load at. It belongs to the board,
+            # not the app: how fast a module can switch is set by its gate
+            # drive, and a module without one is only ever switched on and off.
+            pwm_hz = mosfet.get("pwmHz")
+            if mosfet.get("pwm") and isinstance(pwm_hz, (int, float)) and pwm_hz > 0:
+                entry["mosfet"]["pwmHz"] = pwm_hz
+            elif mosfet.get("pwm"):
+                print(f"  ! {part_id}: mosfet block says pwm but has no positive pwmHz — dimming not offered",
+                      file=sys.stderr)
         else:
             print(f"  ! {part_id}: mosfet block needs a channel count and loadSupply — skipped",
                   file=sys.stderr)

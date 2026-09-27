@@ -33,7 +33,7 @@ import { micModuleFor } from '../state/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
-import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from '../state/powerSwitch'
+import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY, powerSwitchDims, powerSwitchPwmHz } from '../state/powerSwitch'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
@@ -799,12 +799,18 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const entry = partById(partId)
         const spec = entry?.mosfet
         const wired = pins.some((pin) => pin.propertyKey === POWER_SWITCH_PIN_KEY)
+        // A dimmed switch's pin carries PWM, which a wiring review needs to
+        // know: the load sees the frequency, not only the on/off state.
+        const levelWired = edges.some((edge) => edge.target === node.id && edge.targetHandle === 'level')
+        const pwmHz = powerSwitchPwmHz(partId)
+        const dims = powerSwitchDims(partId, props.level, levelWired)
         return {
           ...buildPeripheralItem(node, 'power-switch-output', entry?.label ?? 'DC MOSFET switch', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {
             partId,
+            drive: dims && pwmHz !== null ? `PWM ${pwmHz} Hz` : 'on/off',
             trigger: spec?.trigger ?? 'active-high',
             loadSupply: spec?.loadSupply ?? '',
             continuousCurrent: spec?.continuousCurrent ?? '',

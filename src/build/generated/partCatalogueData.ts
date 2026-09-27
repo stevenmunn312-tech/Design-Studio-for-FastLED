@@ -641,7 +641,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         "-",
         "LOAD",
         "+"
-      ]
+      ],
+      "pwmHz": 500
     },
     "render": {
       "file": "parts/lr7843-mosfet-module.webp",

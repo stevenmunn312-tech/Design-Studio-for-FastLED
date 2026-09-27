@@ -96,6 +96,7 @@ const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
 const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody'))
 const InfoDisplayNodeBody = lazy(() => import('./InfoDisplayNodeBody'))
 const SegmentDisplayNodeBody = lazy(() => import('./SegmentDisplayNodeBody'))
+const PowerSwitchNodeBody = lazy(() => import('./PowerSwitchNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
 const TouchCalibrationBody = lazy(() => import('./TouchCalibrationBody'))
 
@@ -1909,6 +1910,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
+          {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
           {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
 

@@ -52,6 +52,7 @@ import {
 } from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/tftSurface'
 import { displayHasTouch, partById } from '../../state/partCatalogue'
+import { powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/powerSwitch'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displaySignal'
 import { oledControllerForProps, tftControllerForProps, nodeDisplayLabel } from '../../state/nodeLibrary'
@@ -105,7 +106,7 @@ const patternThumbnailCache = instanceState('patternThumbnailCache', new Map<str
 const ledOutputLatchState = instanceState('ledOutputLatchState', new Map<string, LedOutputLatch>())
 const stereoVuState = instanceState('stereoVuState', new Map<string, StereoVuState>())
 
-const powerSwitchOutputOrRelayOutput: NodeEvaluator = () => {
+const relayOutput: NodeEvaluator = () => {
   // Physical sink. Browser preview has no simulated contact load; the
   // connected booleans are still evaluated because this node is hot.
   return {}
@@ -515,8 +516,17 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       brightness: clampSegmentBrightness(props.brightness, segCtl),
     }
   },
-  PowerSwitchOutput: powerSwitchOutputOrRelayOutput,
-  RelayOutput: powerSwitchOutputOrRelayOutput,
+  PowerSwitchOutput({ input, num, incoming }, id, props) {
+    // No simulated load, but the share of power firmware will drive is known
+    // exactly, so it is published for the node body to show. `load` is not a
+    // port; it is read back the way the display sinks' surfaces are.
+    const levelWired = incoming.has(`${id}:level`)
+    const level = num(id, 'level', props, 'level', 1)
+    const dims = powerSwitchDims(props.partId, level, levelWired)
+    const on = { wired: incoming.has(`${id}:on`), value: input(id, 'on', false) === true }
+    return { load: powerSwitchLoad(powerSwitchGate(on, levelWired, dims), dims, level) }
+  },
+  RelayOutput: relayOutput,
   MatrixOutput({ input, t, stateKey, incoming, nodeMap }, id, props, node, type) {
     // Blackout and dimming, applied here rather than at the preview so the
     // main matrix, every per-output preview, an offline recording and the

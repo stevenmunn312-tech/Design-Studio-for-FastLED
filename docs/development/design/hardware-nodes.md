@@ -74,17 +74,44 @@ mains-voltage warnings remain attached to the exact catalogue part; the app
 does not treat switched-load terminals as low-voltage GPIO wiring.
 
 `PowerSwitchOutput` is the DC counterpart: one opto-isolated MOSFET channel
-with a single boolean `On` input and one GPIO (`signalPin`, printed PWM). It
-is active-high, so generated firmware latches the pin LOW before making it an
-output, and a HIGH turns the load on. The load side is described rather than
-wired: the catalogue's `mosfet` block (load supply range, continuous current,
-active level, the absent flyback diode, the `- / LOAD / +` terminal order)
-travels into the hardware manifest as facts. The module takes no supply from
-the controller, because its optocoupler lights from the signal itself, so
-`peripheralPowerPadIndex` reports no supply pad for it and the Build Diagram
-draws GND and PWM only rather than falling back to pad 0, which is GND on this
-board. PWM dimming through the same input is a later extension; the first
-slice matches the relay's on/off behaviour, per the
+with a boolean `On` input, a 0-1 `Level`, and one GPIO (`signalPin`, printed
+PWM). It is active-high, so generated firmware latches the pin LOW before
+making it an output, and a HIGH turns the load on. The load side is described
+rather than wired: the catalogue's `mosfet` block (load supply range,
+continuous current, active level, the absent flyback diode, the
+`- / LOAD / +` terminal order) travels into the hardware manifest as facts.
+The module takes no supply from the controller, because its optocoupler lights
+from the signal itself, so `peripheralPowerPadIndex` reports no supply pad for
+it and the Build Diagram draws GND and PWM only rather than falling back to
+pad 0, which is GND on this board.
+
+`Level` dims the load with PWM. It is a property input (field default 1), and
+`src/state/powerSwitch.ts` holds the one rule the evaluator and the emitter
+both follow:
+
+- The switch dims only when the module has a catalogued `mosfet.pwmHz` and
+  something asks for less than full: a wire on Level, or the field below 1.
+  A Level of 1, unwired, emits the original `digitalWrite` firmware unchanged,
+  and a switch saved without the field reads it as 1, not 0.
+- Nothing wired is off. A wire on `On` gates the load; with `On` unwired, a
+  wire on Level alone may run a dimmed load, so a knob can be a dimmer by
+  itself. The Level field is not a signal and never turns the load on alone.
+- Firmware drives an 8-bit duty through one shim, `flsPwmBegin`/`flsPwmWrite`
+  (`src/codegen/powerSwitchCpp.ts`): LEDC on ESP32 (`ledcAttach` on core 3,
+  a per-switch channel on core 2), `analogWriteFreq` on ESP8266 and RP2040,
+  `analogWriteFrequency` on Teensy, and AVR's fixed ~490 Hz timer PWM. The duty
+  is written only when it changes, because rewriting it every frame restarts
+  ESP8266's software waveform.
+- The frequency is the part's, not the app's. The LR7843's gate charges
+  through its 4.7 k divider rather than a gate driver, so it switches in tens
+  of microseconds; its `pwmHz` of 500 keeps switching loss below conduction
+  loss at the module's 15 A guidance. The derivation is in the part's
+  `Sources.md` in the asset workspace.
+- The preview publishes the resulting share of power as `load`, which the
+  node body draws as a bar; the Build Diagram states `drive` as `on/off` or
+  `PWM 500 Hz`.
+
+Multi-channel MOSFET boards remain open, per the
 [hardware expansion roadmap](../plans/hardware-expansion-roadmap.md).
 
 `PowerMonitorInput` measures a DC load through the Adafruit INA219 and

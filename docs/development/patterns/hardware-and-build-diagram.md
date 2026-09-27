@@ -233,7 +233,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   from the catalogue's `mosfet` block. It takes no supply from the controller,
   so `peripheralPowerPadIndex` returns `null` for it and `peripheralPowerNet`
   follows; a module with no supply pad must say so rather than fall back to pad
-  0, which on this board is GND and drew a VCC wire onto it. See
+  0, which on this board is GND and drew a VCC wire onto it. Dimming reads
+  its PWM frequency from the part (`mosfet.pwmHz`), because a module's gate
+  drive decides how fast it can switch; a module without one only switches.
+  When a new field decides which firmware a node emits, a node saved before
+  the field existed must read the default the evaluator and emitter fall back
+  to: `powerSwitchDims` first read a missing Level as 0 and turned every
+  existing switch into PWM. See
   [hardware nodes](../design/hardware-nodes.md).
 - **Light sensor (experimental):** `LightInput` picks its module from
   `LIGHT_SENSOR_MODULES` (`src/state/lightSensor.ts`), the same one-list shape

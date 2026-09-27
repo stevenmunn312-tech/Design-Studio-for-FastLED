@@ -163,7 +163,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     nodeType: 'PowerSwitchOutput',
     partId: 'power-switch-output',
     label: 'Power switch',
-    hint: 'Switches a DC load on and off from a boolean graph signal',
+    hint: 'Switches a DC load from a boolean signal, or dims it from a level',
     footprint: partDimensionsMm(DEFAULT_POWER_SWITCH_PART_ID, { width: 16, height: 35 }),
     render: partRenderSrc(DEFAULT_POWER_SWITCH_PART_ID) ?? undefined,
     pinFields: [{ key: 'signalPin', label: 'PWM' }],

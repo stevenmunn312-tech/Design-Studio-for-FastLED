@@ -1543,15 +1543,19 @@ const PRESENCE_INPUT_LIVE_EXAMPLE = namedExample(
 
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
-  'Switch a DC load from a boolean signal',
+  'Switch and dim a DC load',
   [
     { key: 'button', type: 'ButtonInput' },
+    { key: 'pot', type: 'PotInput' },
     { key: 'target', type: 'PowerSwitchOutput', properties: { partId: 'lr7843-mosfet-module', signalPin: 25 } },
     { key: 'color', type: 'SolidColor', properties: { r: 92, g: 58, b: 22 } },
   ],
-  [{ source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'on' }],
-  'Power Switch is a hardware-owned terminal. Add the LR7843 MOSFET module from Hardware and feed its On input a boolean signal. The module is active-high and opto-isolated, so a 3.3 V pin drives it directly; generated firmware holds it off until setup has configured the pin. It switches the negative lead of a 6-28 V DC load, and has no flyback diode, so a motor or coil needs one added across it.',
-  'Press the Button node to switch the load on. The solid colour keeps the LED preview visible because the switch drives a separate physical load rather than producing pixels.',
+  [
+    { source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'on' },
+    { source: 'pot', sourceHandle: 'value', target: 'target', targetHandle: 'level' },
+  ],
+  'Power Switch is a hardware-owned terminal. Add the LR7843 MOSFET module from Hardware; On switches the load and Level dims it. With Level at 1 and unwired the firmware is a plain switch; below 1, or wired, it drives the pin with PWM at the module\'s 500 Hz, which its slow optocoupler gate drive can follow. The module is active-high and opto-isolated, so a 3.3 V pin drives it directly, and firmware holds it off until setup has configured the pin. It switches the negative lead of a 6-28 V DC load and has no flyback diode, so a motor or coil needs one added across it.',
+  'Hold the Button node and turn the Potentiometer: the Power Switch node\'s Load bar shows the share of power the load receives. The solid colour keeps the LED preview visible because the switch drives a separate physical load rather than producing pixels.',
 )
 
 // The three text nodes produce a `string`, which is bound for an auxiliary
