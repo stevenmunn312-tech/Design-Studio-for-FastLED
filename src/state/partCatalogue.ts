@@ -120,6 +120,18 @@ export interface PartPresenceSensorSpec {
   maxRangeMeters: number
 }
 
+/** Electrical contract carried by a digital capacitive-touch module. */
+export interface PartTouchSensorSpec {
+  device: string
+  interface: string
+  activeLevel: 'high' | 'low'
+  mode: string
+  supplyMinV: number
+  supplyMaxV: number
+  responseMinMs: number
+  responseMaxMs: number
+}
+
 /** Measuring contract carried by an ambient-light sensor breakout. */
 export interface PartLightSensorSpec {
   device: string
@@ -193,6 +205,8 @@ export interface PartCatalogueEntry {
   powerMonitor?: PartPowerMonitorSpec
   /** Present exactly on radar presence sensors. */
   presenceSensor?: PartPresenceSensorSpec
+  /** Present exactly on digital capacitive-touch sensors. */
+  touchSensor?: PartTouchSensorSpec
   /** Present exactly on calibrated digital ambient-light sensors. */
   lightSensor?: PartLightSensorSpec
   /** Present exactly on wired-Ethernet controller modules. */

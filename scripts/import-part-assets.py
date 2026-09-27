@@ -233,6 +233,34 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: presenceSensor block needs baud, gateMeters and maxRangeMeters — skipped",
                   file=sys.stderr)
+    # A digital capacitive-touch module's electrical contract. The generated
+    # sketch must know whether touch is HIGH or LOW, and the Build Diagram must
+    # choose a safe supply rail, so those facts travel with the exact board.
+    touch = data.get("touchSensor")
+    if touch:
+        active = touch.get("activeLevel")
+        supply_min = touch.get("supplyMinV")
+        supply_max = touch.get("supplyMaxV")
+        response_min = touch.get("responseMinMs")
+        response_max = touch.get("responseMaxMs")
+        if (active in ("high", "low")
+                and isinstance(supply_min, (int, float)) and supply_min > 0
+                and isinstance(supply_max, (int, float)) and supply_max >= supply_min
+                and isinstance(response_min, (int, float)) and response_min >= 0
+                and isinstance(response_max, (int, float)) and response_max >= response_min):
+            entry["touchSensor"] = {
+                "device": touch.get("device") or "",
+                "interface": touch.get("interface") or "digital",
+                "activeLevel": active,
+                "mode": touch.get("mode") or "momentary",
+                "supplyMinV": supply_min,
+                "supplyMaxV": supply_max,
+                "responseMinMs": response_min,
+                "responseMaxMs": response_max,
+            }
+        else:
+            print(f"  ! {part_id}: touchSensor block needs an active level, supply range and response range — skipped",
+                  file=sys.stderr)
     # A wired-Ethernet controller module. The firmware brings the network up
     # through this controller over SPI, and its clock ceiling bounds the bus it
     # can share, so carry both through rather than restating them in the app.

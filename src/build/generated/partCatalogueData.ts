@@ -1337,6 +1337,45 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 8.613
     }
   },
+  "seeed-grove-touch-sensor": {
+    "partId": "seeed-grove-touch-sensor",
+    "label": "Seeed Studio Grove Touch Sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 24.0,
+      "height": 20.0
+    },
+    "manufacturer": "Seeed Studio (SKU 101020037) / TTP223-BA6",
+    "logicVoltage": "2.0-5.5 V supply; active-high CMOS digital output",
+    "pinLabelsLeftToRight": [
+      "SIG",
+      "NC",
+      "VCC",
+      "GND"
+    ],
+    "notes": [
+      "Outputs HIGH while a finger touches or approaches the round electrode, and LOW when released; the board is configured for momentary, active-high operation.",
+      "Power from the controller's 3.3 V rail so the CMOS SIG output is natively safe for an ESP GPIO. The TTP223-BA6 itself accepts 2.0-5.5 V.",
+      "Use SIG as the one digital input. NC is not connected. The fitted Grove cable carries SIG, NC, VCC and GND in that order.",
+      "The sensor auto-calibrates after power-up. Keep fingers and conductive objects away from the electrode while the board settles."
+    ],
+    "touchSensor": {
+      "device": "TTP223-BA6",
+      "interface": "digital",
+      "activeLevel": "high",
+      "mode": "momentary",
+      "supplyMinV": 2.0,
+      "supplyMaxV": 5.5,
+      "responseMinMs": 60,
+      "responseMaxMs": 220
+    },
+    "render": {
+      "file": "parts/seeed-grove-touch-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 337,
+      "pxPerMm": 15.833
+    }
+  },
   "sh1106-oled-096-128x64-spi": {
     "partId": "sh1106-oled-096-128x64-spi",
     "label": "SH1106 0.96-inch 128x64 OLED SPI",
