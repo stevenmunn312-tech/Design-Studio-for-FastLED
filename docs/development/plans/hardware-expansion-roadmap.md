@@ -150,6 +150,12 @@ compile families:
     0x77 or 0x76. All four
     [compile fixtures pass](../environment-sensor-compile-checks.md); the
     physical bench run remains open, so it stays experimental.
+11. Output, layout and media follow-ons from the pattern-node review: a
+    half-resolution render scale, positioned string layouts in the manner of
+    FastLED's ScreenMap, the colour-profile pipeline and a white point per
+    output, SD video through the codec module, and segment-network layouts.
+    Ordered and checkboxed as Phase 11 of the
+    [pattern node expansion plan](pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons).
 
 ## Definition of done for each addition
 

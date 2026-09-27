@@ -232,9 +232,11 @@ build/architecture overview aimed at contributors.
   - [Hardware renders](development/plans/hardware-renders.md)
     — verified Blender source, render/import contract and catalogue ownership.
   - [Pattern node expansion](development/plans/pattern-node-expansion.md)
-    — ordered, checkboxed plan for ten procedural pattern nodes: field helpers,
-      Slice Tiling from the space-subdivision paper, Frame Warp, wallpaper
-      Symmetry, Truchet Tiles, a multi-scale Turing Field and Fourier Epicycles.
+    — ordered, checkboxed plan for the pattern nodes two reviews found missing:
+      field helpers, Slice Tiling from the space-subdivision paper, Frame Warp,
+      wallpaper Symmetry, Truchet Tiles, a multi-scale Turing Field and Fourier
+      Epicycles, then FastLED's audio detectors, string and ring effects, fluid,
+      fractal and automaton fields, the classics, and output follow-ons.
 - [Reports](development/reports/)
   - [Stereo VU bench record](development/reports/stereo-vu-bench.md)
     — preserved exact-rig evidence from the completed implementation plan.
