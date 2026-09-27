@@ -69,6 +69,10 @@ The D-05 presence-sensor normal, slideshow, player and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-24–25.
 The toolchain, FQBN, source hashes, flash and RAM are in the
 [presence-sensor compile record](docs/development/presence-sensor-compile-checks.md).
+The D-05 Grove touch-sensor normal, slideshow, player and no-touch guard
+fixtures all passed on classic ESP32 under arduino-cli on 2026-09-27. The
+toolchain, hashes and resource figures are in the
+[touch-button compile record](docs/development/touch-button-compile-checks.md).
 
 The HW-19 and HW-20 compiles all passed on 2026-09-24:
 - Generic MEMS on arduino-cli, and the microphone path on fbuild;
@@ -129,6 +133,10 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
   combined and absent targets at two measured distances, including UART
   reconnect recovery; the row's requirements are in the support matrix.
+- **D-05 touch button:** the Seeed Grove Touch Sensor powered from 3V3, with
+  SIG idle LOW and touched HIGH on the selected GPIO; release, held and rapid
+  touches in normal, slideshow and player firmware, plus startup and SIG
+  reconnect behaviour. The row's requirements are in the support matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -201,7 +209,12 @@ in the app and marked experimental; nothing here holds up development.
   Well SD-100A/B-5 LED rail converters (`PowerConverter`) are modelled, sized,
   drawn and experimental. The SD-100 path applies the imported temperature
   derating at a 40 °C enclosure ambient and replaces generic 5 V PSUs with a
-  shared upstream-source recommendation.
+  shared upstream-source recommendation. The Seeed Grove Touch Sensor (roadmap
+  step 9, `TouchButtonInput`) is modelled, catalogued, drawn, previewed and
+  generated for normal/show/player paths. Its touch-face pin order is locked as
+  `SIG, NC, VCC, GND`; all four
+  [compile fixtures pass](docs/development/touch-button-compile-checks.md), and
+  its bench row is in section 3.
 
 ## Completed
 

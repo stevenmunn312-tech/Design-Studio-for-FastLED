@@ -489,6 +489,16 @@ Unless a future row says otherwise, treat the following as experimental:
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the
   GPIO2/ADC1 result is suggestive for it, but resemblance is not a pass. See
   [input-peripheral bench records](../development/reports/input-peripheral-bench.md).
+- **Seeed Grove Touch Sensor.** `TouchButtonInput` has the exact TTP223-BA6
+  board model, preview, manifest, Build Diagram and normal/slideshow/player
+  firmware coverage. All four generated fixtures
+  [compile on classic ESP32](../development/touch-button-compile-checks.md), but
+  no physical row exists. It is powered from 3V3, leaves NC unwired and reads
+  SIG HIGH as a touch with no internal pull-up. Graduation needs a dated row
+  naming the sensor SKU, board/FQBN, GPIO and build engine; confirm idle LOW,
+  touched HIGH, release, held and rapid touches in normal, slideshow and player
+  firmware, and record startup behaviour plus recovery after disconnecting and
+  reconnecting SIG.
 - **Switching outputs: relay modules and the LR7843 power switch.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no

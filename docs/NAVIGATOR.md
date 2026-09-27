@@ -184,6 +184,10 @@ build/architecture overview aimed at contributors.
     — real normal/slideshow/player/no-sensor fixtures for the HLK-LD2410C,
     their classic-ESP32 results, resource figures and measured sensor overhead.
   - [Light-sensor firmware compile checks](development/light-sensor-compile-checks.md)
+  - [Touch-button firmware compile checks](development/touch-button-compile-checks.md)
+    — real normal/slideshow/player/no-touch fixtures for the Seeed Grove Touch
+      Sensor, including the active-high plain-input guard and classic-ESP32
+      resource figures.
   - [Wired-Ethernet firmware compile checks](development/ethernet-compile-checks.md)
     — WIZ850io Art-Net, NTP and static-address fixtures on classic ESP32, the
     shared-SPI fixture on ESP32-C3, and a Wi-Fi guard.

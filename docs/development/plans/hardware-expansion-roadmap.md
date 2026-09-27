@@ -1,7 +1,7 @@
 # Hardware expansion roadmap
 
 Status: **candidate roadmap, not an implementation promise** · Owner: app ·
-Updated: 2026-09-21
+Updated: 2026-09-27
 
 This document records the next physical hardware families that would make
 Design Studio more useful for complete LED installations. It deliberately
@@ -36,7 +36,7 @@ build have passed the normal evidence gates.
 | P0 | VS1838B / TSOP38238 demodulating IR receiver | `IRRemoteInput` | Remote control of brightness, patterns, transport, relay channels and other graph properties. |
 | P0 | LD2410C mmWave presence sensor | `PresenceInput` | Detect stationary occupants that a PIR can miss. |
 | P0 | BH1750 digital ambient-light sensor | `LightInput` module option | Calibrated I2C readings and repeatable thresholds instead of raw LDR response. |
-| P0 | TTP223 capacitive-touch module | `TouchButtonInput` | One inexpensive touch event for toggles, scenes and power control. |
+| P0 | Seeed Grove Touch Sensor (TTP223-BA6) | `TouchButtonInput` | One inexpensive active-high touch event for toggles, scenes and power control; software and compile complete, bench open. |
 | P0 | W5500 Ethernet module | Network hardware fixture | Stable wired Art-Net, NTP and future streaming without depending on Wi-Fi. |
 | P0 | Differential pixel-data transmitter/receiver pair | LED-output accessory pair | Reliable addressable-LED data over long cable runs. |
 | P0 | LM2596 / MP1584 buck-converter module | Power-conversion fixture | Make 12/24 V supply to 5 V controller/LED conversion explicit in the power plan. |
@@ -125,6 +125,13 @@ compile families:
    Well SD-100A/B-5 LED rail converters (`PowerConverter`), and main supply
    fuses and trunks. See
    [power conversion and protection](power-conversion-and-protection.md).
+9. One-button capacitive touch. The exact Seeed Grove Touch Sensor
+   (`TouchButtonInput`) is modelled from its board files and product references,
+   catalogued, drawn, previewed and generated for normal/show/player paths. Its
+   orientation is locked as `SIG, NC, VCC, GND` left to right when viewed on the
+   touch face with the connector holes at the bottom. All four
+   [compile fixtures pass](../touch-button-compile-checks.md); the physical bench
+   run remains open, so it stays experimental.
 
 ## Definition of done for each addition
 
