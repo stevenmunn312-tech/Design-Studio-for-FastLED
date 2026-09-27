@@ -6,6 +6,13 @@ microphones, amplifiers, storage modules, LED outputs, support parts.
 
     python scripts/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts"
     python scripts/import-part-assets.py --check "<asset-root>"   # report only
+    python scripts/import-part-assets.py --only <part-id>[,<part-id>] "<asset-root>"
+
+`--only` is for adding or updating a part: it re-encodes just the named renders
+and keeps every other WebP as imported, which takes seconds rather than
+minutes. Every `part.json` is still read, so the generated catalogue stays
+complete and picks up any edited facts. Run without it (or with `--check`) to
+confirm the whole render set.
 
 ## Renders are written only when they change
 
@@ -50,6 +57,9 @@ REPO = Path(__file__).resolve().parent.parent
 # Renders whose WebP differed from the source; filled by convert_render.
 UPDATED_RENDERS: list[str] = []
 CHECK_ONLY = False
+# Part ids named with --only: their renders are re-encoded, every other part
+# keeps the WebP already imported. None means every render is re-encoded.
+ONLY_PARTS: set[str] | None = None
 OUT_TS = REPO / "src" / "build" / "generated" / "partCatalogueData.ts"
 OUT_RENDERS = REPO / "public" / "parts"
 
@@ -86,6 +96,15 @@ def convert_render(part_id: str, part_dir: Path, render: dict) -> dict | None:
 
     OUT_RENDERS.mkdir(parents=True, exist_ok=True)
     dest = OUT_RENDERS / f"{part_id}.webp"
+    if ONLY_PARTS is not None and part_id not in ONLY_PARTS and dest.exists():
+        # Not asked for: keep the imported render and read its size from the
+        # WebP header rather than re-encoding the PNG, which is the slow part.
+        with Image.open(dest) as img:
+            width, height = img.width, img.height
+        out = {"file": f"parts/{part_id}.webp", "widthPx": width, "heightPx": height}
+        if isinstance(render.get("pxPerMm"), (int, float)):
+            out["pxPerMm"] = round(float(render["pxPerMm"]), 3)
+        return out
     with Image.open(source) as img:
         encoded = io.BytesIO()
         img.save(encoded, "WEBP", quality=WEBP_QUALITY, method=6)
@@ -398,16 +417,27 @@ def read_part(part_dir: Path) -> dict | None:
 
 
 def main() -> int:
-    global CHECK_ONLY
+    global CHECK_ONLY, ONLY_PARTS
     args = sys.argv[1:]
     if "--check" in args:
         CHECK_ONLY = True
         args.remove("--check")
+    if "--only" in args:
+        index = args.index("--only")
+        if index + 1 >= len(args):
+            sys.exit("--only needs a part id, or several separated by commas")
+        ONLY_PARTS = {part for part in args[index + 1].split(",") if part}
+        del args[index:index + 2]
     if len(args) < 1:
-        sys.exit(f"usage: {Path(sys.argv[0]).name} [--check] <asset-root>")
+        sys.exit(f"usage: {Path(sys.argv[0]).name} [--check] [--only <part-id>[,...]] <asset-root>")
     root = Path(args[0])
     if not root.is_dir():
         sys.exit(f"not a directory: {root}")
+    if ONLY_PARTS is not None:
+        # A misspelt id would otherwise import nothing and look like success.
+        missing = sorted(part for part in ONLY_PARTS if not (root / part / "part.json").exists())
+        if missing:
+            sys.exit(f"--only: no part.json for {', '.join(missing)} under {root}")
 
     entries = []
     for part_dir in sorted(p for p in root.iterdir() if p.is_dir()):
