@@ -23,7 +23,7 @@ import {
 } from '../../state/hardware'
 import type { LedOutputForm } from '../../state/ledOutputForm'
 import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/relayModule'
-import { DEFAULT_POWER_SWITCH_PART_ID } from '../../state/powerSwitch'
+import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
 
 export const MIC_NODE_TYPE = 'MicInput'
@@ -119,6 +119,7 @@ export const MODULE_PIN_LABELS: Record<string, string> = Object.fromEntries(
 export function modulePinKeys(nodeType: string, moduleId: string | undefined): readonly string[] | null {
   const entry = partById(String(moduleId ?? ''))
   if (nodeType === 'RelayOutput') return relayPinKeys(moduleId)
+  if (nodeType === 'PowerSwitchOutput') return powerSwitchPinKeys(moduleId)
   // A 7-pin SPI SH1106 and a 4-pin I2C SSD1306 are one node with two headers.
   // Asking the board for the union would reserve five pins for a module with
   // two, and drawing it would label wires the module does not bring out.
@@ -163,7 +164,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     nodeType: 'PowerSwitchOutput',
     partId: 'power-switch-output',
     label: 'Power switch',
-    hint: 'Switches a DC load from a boolean signal, or dims it from a level',
+    hint: 'Switches DC loads from boolean signals, or dims them from a level',
     footprint: partDimensionsMm(DEFAULT_POWER_SWITCH_PART_ID, { width: 16, height: 35 }),
     render: partRenderSrc(DEFAULT_POWER_SWITCH_PART_ID) ?? undefined,
     pinFields: [{ key: 'signalPin', label: 'PWM' }],

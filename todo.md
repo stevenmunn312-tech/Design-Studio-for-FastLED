@@ -125,6 +125,9 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 power switch:** the LR7843 switching and dimming a real DC load,
   including the MOSFET temperature at 50% duty; the row's requirements are in
   the support matrix.
+- **D-05 Mosfetti:** the MonkMakes Mosfetti's four channels held off through
+  setup, switched independently, one dimmed at 1 kHz, with the board total kept
+  under 2 A; the row's requirements are in the support matrix.
 - **D-05 power monitor:** INA219 readings against a multimeter; the row's
   requirements are in the support matrix.
 - **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
@@ -192,7 +195,12 @@ in the app and marked experimental; nothing here holds up development.
   `PowerSwitchOutput`) is in software, switches from `On` and dims from
   `Level` with PWM at the part's 500 Hz, and its
   [compile fixtures pass](docs/development/power-switch-compile-checks.md);
-  its bench row is still to do.
+  its bench row is still to do. The first multi-channel board, the MonkMakes
+  Mosfetti (four lettered channels, 3-16 V, 2 A for the board, 1 kHz dimming),
+  is modelled, catalogued, drawn, previewed and generated; the Power Switch's
+  ports and pins now follow its board, and all its compile fixtures pass. Its
+  bench row is in section 3. A four-channel LR7843-class board for LED rails
+  waits on a board with a reliable reference.
   The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
   and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
   is still to do. The MAX485 DMX transceiver (roadmap step 3) is modelled and

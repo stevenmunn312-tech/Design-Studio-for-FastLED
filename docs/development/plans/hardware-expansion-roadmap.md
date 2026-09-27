@@ -30,7 +30,7 @@ build have passed the normal evidence gates.
 
 | Priority | Hardware family | Proposed app role | Primary value |
 | --- | --- | --- | --- |
-| P0 | 1/4/8-channel logic-level N-channel MOSFET modules | `PowerSwitchOutput` | Silent, fast DC LED-power or auxiliary-load switching without mechanical relay wear. |
+| P0 | 1/4/8-channel logic-level N-channel MOSFET modules | `PowerSwitchOutput` | Silent, fast DC LED-power or auxiliary-load switching without mechanical relay wear. The LR7843 (one channel) and MonkMakes Mosfetti (four) are in; software and compile complete, bench open. |
 | P0 | INA219 / INA226 current and voltage monitors | `PowerMonitorInput` | Publish volts, amps and watts to the graph and support measured overcurrent warnings. |
 | P0 | MAX485 / SN75176 DMX transceiver module | Exact physical option for `DMXInput` | Completes the existing ESP32 DMX512 firmware path with a real transceiver, pinout and Build Diagram part. |
 | P0 | VS1838B / TSOP38238 demodulating IR receiver | `IRRemoteInput` | Remote control of brightness, patterns, transport, relay channels and other graph properties. |
@@ -90,7 +90,16 @@ compile families:
    opto-isolated LR7843 module (`PowerSwitchOutput`) is in and experimental.
    It switches from `On` and dims from `Level` with PWM at the part's 500 Hz;
    the [dimming compile fixtures](../power-switch-compile-checks.md) pass.
-   Multi-channel boards are still open.
+   The first multi-channel board is the MonkMakes Mosfetti: four
+   GPIO-driven, lettered channels (A to D) for small loads, 3-16 V and 2 A for
+   the whole board, with a flyback diode per channel. It is modelled from
+   MonkMakes' 1:1 mechanical drawing, the Power Switch's ports and pins now
+   follow the selected board as a relay's do, and its
+   [compile fixtures](../power-switch-compile-checks.md) pass; the bench run is
+   open. A four-channel LR7843-class board for LED rails is still wanted, once
+   one with a reliable reference turns up: the listings found disagree on
+   layout, and the documented FR1205 board overdrives its gates above about
+   20 V.
 2. INA219/INA226 monitoring and a minimal volts/amps/watts signal contract.
    The Adafruit INA219 (`PowerMonitorInput`) is in, experimental, on the
    normal sketch; the INA226 and overcurrent warnings built on the readings are

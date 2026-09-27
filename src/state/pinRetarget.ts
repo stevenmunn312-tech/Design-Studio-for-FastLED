@@ -43,6 +43,7 @@ import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from './buttonBank'
 import { integratedPinsFor } from './integratedBoardHardware'
 import { relayPinKeys } from './relayModule'
+import { ALL_POWER_SWITCH_CHANNELS, powerSwitchPinKeys } from './powerSwitch'
 import { lightSensorPinKeys, lightSensorTransport } from './lightSensor'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
@@ -165,8 +166,12 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     })),
   },
   PowerSwitchOutput: {
-    keys: ['signalPin'],
-    requests: [{ key: 'signalPin', capability: 'digitalOutput' }],
+    keys: ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey),
+    keysFor: (properties) => powerSwitchPinKeys(properties.partId),
+    requests: ALL_POWER_SWITCH_CHANNELS.map((channel) => ({
+      key: channel.pinKey,
+      capability: 'digitalOutput',
+    })),
   },
   ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   TouchButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },

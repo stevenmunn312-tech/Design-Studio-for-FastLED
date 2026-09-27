@@ -33,7 +33,7 @@ import { micModuleFor } from '../state/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
-import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY, powerSwitchDims, powerSwitchPwmHz } from '../state/powerSwitch'
+import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/powerSwitch'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
@@ -382,7 +382,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         }
         break
       case 'PowerSwitchOutput':
-        push(node, `${baseLabel} PWM`, POWER_SWITCH_PIN_KEY, props[POWER_SWITCH_PIN_KEY])
+        // Named as the board prints each input: PWM on the LR7843, A to D on the Mosfetti.
+        for (const channel of powerSwitchChannels(props.partId)) {
+          push(node, `${baseLabel} ${channel.label ?? 'PWM'}`, channel.pinKey, props[channel.pinKey])
+        }
         break
       // Both join the board's one I2C bus, on the board's own Wire pair
       // unless the node names another.
@@ -798,26 +801,38 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? DEFAULT_POWER_SWITCH_PART_ID)
         const entry = partById(partId)
         const spec = entry?.mosfet
-        const wired = pins.some((pin) => pin.propertyKey === POWER_SWITCH_PIN_KEY)
-        // A dimmed switch's pin carries PWM, which a wiring review needs to
+        const channels = powerSwitchChannels(partId)
+        const wired = channels.every((channel) => pins.some((pin) => pin.propertyKey === channel.pinKey))
+        // A dimmed channel's pin carries PWM, which a wiring review needs to
         // know: the load sees the frequency, not only the on/off state.
-        const levelWired = edges.some((edge) => edge.target === node.id && edge.targetHandle === 'level')
         const pwmHz = powerSwitchPwmHz(partId)
-        const dims = powerSwitchDims(partId, props.level, levelWired)
+        const drives = channels.map((channel) => {
+          const levelWired = edges.some((edge) => edge.target === node.id && edge.targetHandle === channel.level)
+          const drive = pwmHz !== null && powerSwitchDims(partId, props[channel.level], levelWired) ? `PWM ${pwmHz} Hz` : 'on/off'
+          return channel.label === null ? drive : `${channel.label} ${drive}`
+        })
         return {
           ...buildPeripheralItem(node, 'power-switch-output', entry?.label ?? 'DC MOSFET switch', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {
             partId,
-            drive: dims && pwmHz !== null ? `PWM ${pwmHz} Hz` : 'on/off',
+            channels: channels.length,
+            drive: drives.join(', '),
             trigger: spec?.trigger ?? 'active-high',
+            // Not isolated means the controller's ground is the load
+            // supply's negative, which is wiring, not a detail.
+            isolation: spec === undefined ? '' : spec.optoIsolated ? 'opto-isolated' : 'none: shares ground with the load supply',
             loadSupply: spec?.loadSupply ?? '',
             continuousCurrent: spec?.continuousCurrent ?? '',
             flybackDiode: spec?.flybackDiode ?? false,
             loadTerminals: (spec?.loadTerminals ?? []).join(' / '),
           },
-          reasons: wired ? undefined : ['This power switch does not have its PWM input pin configured.'],
+          reasons: wired
+            ? undefined
+            : [channels.length === 1
+              ? 'This power switch does not have its PWM input pin configured.'
+              : 'This power switch does not have every channel input pin configured.'],
         }
       }
       case 'PowerMonitorInput': {

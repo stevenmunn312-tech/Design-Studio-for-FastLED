@@ -499,7 +499,7 @@ Unless a future row says otherwise, treat the following as experimental:
   touched HIGH, release, held and rapid touches in normal, slideshow and player
   firmware, and record startup behaviour plus recovery after disconnecting and
   reconnecting SIG.
-- **Switching outputs: relay modules and the LR7843 power switch.** The 1, 2,
+- **Switching outputs: relay modules and the power switches.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no
   switched load has been run on any board. The power switch's generated sketch
@@ -519,6 +519,21 @@ Unless a future row says otherwise, treat the following as experimental:
   the eye, and the MOSFET's temperature after ten minutes at 50% duty and the
   recorded current. An inductive load needs its external flyback diode named
   in the row.
+- **MonkMakes Mosfetti four-channel power switch.** The Mosfetti
+  (`PowerSwitchOutput`, `monkmakes-mosfetti`) is software and generated-firmware
+  coverage only; no load has been run on it. Its four lettered channels, A to
+  D, are each switched from their own `On` and dimmed from their own `Level`
+  at MonkMakes' 1 kHz. It switches the negative lead of 3-16 V DC loads, has a
+  flyback diode on every channel, and one resettable fuse holds the whole
+  board to 2 A. It is not isolated: the header's GND is the load supply's
+  negative. Its fixtures [compile](../development/power-switch-compile-checks.md)
+  on classic ESP32 (cores 3.3.11 and 2.0.17), ESP8266, RP2040 and AVR,
+  including an LR7843 dimmed beside it. Graduating it needs a dated row naming
+  the board/FQBN, the four GPIOs, each load with its supply voltage and
+  current, and the build engine. It must show all four loads held off through
+  reset and setup, each channel switching independently from its own signal,
+  one channel dimmed smoothly from Level with no flicker visible to the eye,
+  and the board's total current kept under 2 A.
 - **INA219 power monitoring.** The Adafruit INA219 (`PowerMonitorInput`) is
   software coverage only; no reading has been compared with a meter on any
   board. Its generated sketch compiles for `esp32:esp32:esp32` on arduino-cli

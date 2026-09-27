@@ -17,7 +17,7 @@ import { partOptionProperty } from '../../state/partOptions'
 import { isHardwareManagedSignalNodeType } from '../../state/hardware'
 import { outputForm, LED_OUTPUT_FORM_LABELS } from '../../state/ledOutputForm'
 import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/stereoVuSizing'
-import { relayInputs } from '../../state/relayModule'
+import { partDerivedInputs } from '../../state/partPorts'
 import { defaultSourceVoltageFor } from '../../state/powerConverter'
 import {
   type FixturePartEntry, type InputPartEntry, fixturePinRequests, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE, MIC_NODE_TYPE,
@@ -229,7 +229,7 @@ export function benchPartActions({
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
           ...vuSizing,
         },
-        inputs: entry.nodeType === 'RelayOutput' ? relayInputs(moduleId) : definition.inputs,
+        inputs: partDerivedInputs(entry.nodeType, moduleId) ?? definition.inputs,
         outputs: definition.outputs,
       },
     } as never)

@@ -46,7 +46,7 @@ import RtcInputBody from './RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../state/boardGpio'
 import { buttonBankOutputs } from '../../state/buttonBank'
 import { playerControlInputs } from '../../state/playerControlAssignments'
-import { relayInputs } from '../../state/relayModule'
+import { partDerivedInputs } from '../../state/partPorts'
 import { isHardwareNodeType } from '../../state/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -74,7 +74,7 @@ import { CUSTOM_DESIGN_LAYOUT,
 import styles from './StudioNode.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import {
-  controllableInputsFor, exposableInputsFor, exposedNodeInputs, propertyInputsFor,
+  controllableInputsFor, exposableInputsFor, exposedNodeInputs, labelledForPart, propertyInputsFor,
 } from '../../state/propertyInputs'
 import { parseDisplayWidgetPortId, TOUCH_CONTROL_ADD_HANDLE } from '../../state/displayRegistry'
 import { touchControlDriver, touchControlPlan, writeTouchControlValue } from '../../state/wireFirstControls'
@@ -400,8 +400,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
   pinProperty,
   unpinProperty,
 }: LivePropertyControlsProps) {
-  const propertyInputs = propertyInputsFor(nodeType)
-  const exposableInputs = exposableInputsFor(nodeType)
+  // Named as this node's own ports are: a Mosfetti's Level B, not the registry's Level 2.
+  const partId = props.partId
+  const propertyInputs = useMemo(() => labelledForPart(nodeType, partId, propertyInputsFor(nodeType)), [nodeType, partId])
+  const exposableInputs = useMemo(() => labelledForPart(nodeType, partId, exposableInputsFor(nodeType)), [nodeType, partId])
   const connectionDrag = useUiStore((s) => s.connectionDrag)
   const setNodeInputExposed = useGraphStore((s) => s.setNodeInputExposed)
   const disconnectInput = useGraphStore((s) => s.disconnectInput)
@@ -609,7 +611,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const propertyInput = propertyInputs.find((port) => port.propertyKey === key)
         const exposedInput = propertyInput && exposedInputIds.includes(propertyInput.id) ? propertyInput : undefined
         const meta = propertyMeta(nodeType, key)
-        const displayLabel = propertyLabel(nodeType, key)
+        const displayLabel = propertyLabel(nodeType, key, props)
         const controlLabel = displayLabel
         const wired = drivenBy(key)
         const touchSource = wired ? sourceMap.get(portFor(key)) : undefined
@@ -1197,9 +1199,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       ? d.inputs ?? def?.inputs ?? []
       : d.nodeType === 'ControlMap'
         ? playerControlInputs(rawProps.controls)
-        : d.nodeType === 'RelayOutput'
-          ? relayInputs(rawProps.partId)
-        : def?.inputs ?? d.inputs ?? []) as PortDef[],
+        : partDerivedInputs(d.nodeType, rawProps.partId) ?? def?.inputs ?? d.inputs ?? []) as PortDef[],
     savedInputs,
   )
   // A template control the Touch node's Controls wire already carries is not
@@ -1366,9 +1366,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       // like Transition. The LED output has forty-six, so a string was showing
       // thirty-three dead rows against thirteen live ones, all sixteen HUB75
       // pins among them. At that ratio the greyed rows stop being context and
-      // start being the thing you have to read past, so this one node hides
-      // them. Empty groups already drop out below.
-      && !(d.nodeType === 'MatrixOutput' && !isPropertyEnabled(d.nodeType, k, props))
+      // start being the thing you have to read past, so this node hides them.
+      // So does a power switch: its board decides how many channels exist,
+      // and a one-channel LR7843 would otherwise show seven dead Level rows.
+      // Empty groups already drop out below.
+      && !((d.nodeType === 'MatrixOutput' || d.nodeType === 'PowerSwitchOutput')
+        && !isPropertyEnabled(d.nodeType, k, props))
   )
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
   // node's default properties); show it only where it would do something.
@@ -1910,7 +1913,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'InfoDisplay' && <InfoDisplayNodeBody nodeId={id} />}
           {d.nodeType === 'SegmentDisplay' && <SegmentDisplayNodeBody nodeId={id} />}
-          {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} />}
+          {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} partId={rawProps.partId} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
           {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
 

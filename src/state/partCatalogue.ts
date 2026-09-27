@@ -90,6 +90,8 @@ export interface PartMosfetSpec {
   optoIsolated: boolean
   /** Whether the board carries its own flyback diode across the load. */
   flybackDiode: boolean
+  /** What the board prints beside each channel, one per channel (A to D on the Mosfetti). */
+  channelLabels?: string[]
   /** Load-side terminals as printed, left to right in the render. */
   loadTerminals?: string[]
   /** PWM frequency to dim the load at; absent on a module that only switches. */
@@ -278,9 +280,23 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   ),
 }
 
+/**
+ * The property holding a MOSFET switch channel's GPIO: `signalPin` for the
+ * first channel, as a one-channel board has always named it, then
+ * `signal2Pin` and on. Defined here because a board's printed channel letters
+ * are those keys' silkscreen labels; `state/powerSwitch.ts` builds its
+ * channels from it.
+ */
+export function mosfetChannelPinKey(index: number): string {
+  return index === 0 ? 'signalPin' : `signal${index + 1}Pin`
+}
+
 /** The exact label printed on a catalogued part for one graph pin property. */
 export function partPinLabelForProperty(partId: string, propertyKey: string): string | null {
-  const labels = partById(partId)?.pinLabelsLeftToRight ?? []
+  const entry = partById(partId)
+  const channel = entry?.mosfet?.channelLabels?.findIndex((_, index) => mosfetChannelPinKey(index) === propertyKey) ?? -1
+  if (channel >= 0) return entry!.mosfet!.channelLabels![channel]
+  const labels = entry?.pinLabelsLeftToRight ?? []
   const aliases = PART_PIN_PROPERTY_ALIASES[propertyKey]
   if (!aliases) return null
   return labels.find((label) => aliases.includes(label.toUpperCase())) ?? null

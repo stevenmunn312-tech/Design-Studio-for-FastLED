@@ -1,4 +1,5 @@
 import { isPropertyEnabled, NODE_LIBRARY } from './nodeLibrary'
+import { partDerivedInputs } from './partPorts'
 import type { NodePort } from '../types'
 
 export interface PropertyInput extends NodePort {
@@ -15,7 +16,8 @@ export interface ExposableInput extends NodePort {
 const INPUTS = new Map(NODE_LIBRARY.map((definition) => [
   definition.type,
   Object.entries(definition.propertyInputs ?? {}).flatMap(([propertyKey, portId]) => {
-    const port = definition.inputs.find((input) => input.id === portId)
+    const port = [...definition.inputs, ...(definition.variantInputs ?? [])]
+      .find((input) => input.id === portId)
     return port ? [{ ...port, propertyKey }] : []
   }),
 ]))
@@ -109,6 +111,19 @@ export function wiredPropertyIsInert(
 
 export function exposableInputsFor(nodeType: string): readonly ExposableInput[] {
   return EXPOSABLES.get(nodeType) ?? EMPTY_EXPOSABLE
+}
+
+/**
+ * The same inputs, named as this node draws them. A port a part option adds
+ * is registered under a numbered label (Level 2); the selected board may
+ * print a letter instead (the Mosfetti's Level B), and a socket or menu entry
+ * should say what the node's own port says. Returns `inputs` itself for a
+ * node whose ports do not follow its part, so callers can memoise on it.
+ */
+export function labelledForPart<T extends NodePort>(nodeType: string, partId: unknown, inputs: readonly T[]): readonly T[] {
+  const drawn = partDerivedInputs(nodeType, partId)
+  if (!drawn) return inputs
+  return inputs.map((input) => ({ ...input, label: drawn.find((port) => port.id === input.id)?.label ?? input.label }))
 }
 
 /** Bound imported presentation data to declared property ports, in registry order. */

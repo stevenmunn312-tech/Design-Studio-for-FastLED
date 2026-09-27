@@ -325,6 +325,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // coordinates (23.75 px/mm, 10 px margin) and checked against the render:
   // both points are real, transparent holes.
   'lr7843-mosfet-module': padPoints(400, 851, [[169.8, 771.2], [230.2, 771.2]]),
+  // The control header A, B, C, D, GND along the bottom of the turned board.
+  // Computed from the model's coordinates (12.01 px/mm, 10 px margin) and
+  // checked against the render: each is an open hole, centred within 0.1 px.
+  'monkmakes-mosfetti': padRow([368.2, 398.7, 429.2, 459.7, 490.2], 808, 536.5, 624),
   // Both RTCs measured from their drilled holes. They had a table of their own
   // with four x-ratios, left from before the catalogue listed six (ZS-042) and
   // five (XC9044) pads, so SDA, VCC and GND clamped onto one point.
@@ -560,9 +564,11 @@ function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], 
 
 /**
  * The pad the controller's supply rail lands on, or `null` for a module that
- * takes no supply from the controller. An opto-isolated switch input lights
- * its optocoupler's LED from the signal itself: the LR7843 board brings out
- * only PWM and GND, and falling back to pad 0 drew a VCC wire onto its GND.
+ * takes no supply from the controller. A power switch never does: the
+ * LR7843's optocoupler lights from the signal itself, and the Mosfetti runs
+ * from the load supply on its own terminal. Its header brings out only the
+ * channel inputs and GND, and falling back to pad 0 drew a VCC wire onto the
+ * LR7843's GND.
  */
 export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
   if (item.kind === 'power-switch-output') return null
@@ -654,7 +660,9 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'pot-input': [['SIG']],
   'encoder-input': [['A'], ['B'], ['SW']],
   'relay-output': Array.from({ length: 8 }, (_, index) => [`IN${index + 1}`]),
-  // The LR7843 board prints PWM for its one input; other builds print IN or SIG.
+  // The LR7843 board prints PWM for its one input; other builds print IN or
+  // SIG. A board with printed channel letters (the Mosfetti's A to D) is
+  // matched by those through the catalogue before this list is read.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'power-monitor-input': [['SDA'], ['SCL']],
   // The board's RX reads the sensor's TX pad.
@@ -770,6 +778,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'max98357a-stereo-pair': 5.1,
   'pam8403-3w-stereo-amplifier': 5.6,
   'lr7843-mosfet-module': 12.3,
+  'monkmakes-mosfetti': 5.6,
   'ds3231-rtc-module': 5.9,
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,

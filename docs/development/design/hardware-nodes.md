@@ -34,8 +34,9 @@ workbench's **Add Hardware** menu is the creation path for:
   line-in ADC, button, button bank, Grove capacitive touch,
   potentiometer, encoder, PIR motion, HLK-LD2410C radar presence, ambient light,
   INA219 power monitor, and RTC modules;
-- switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, and
-  the opto-isolated LR7843 MOSFET module for DC loads;
+- switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, the
+  opto-isolated LR7843 MOSFET module for DC loads, and the four-channel
+  MonkMakes Mosfetti for small DC loads;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
 - LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel outputs.
 
@@ -73,21 +74,46 @@ preventing an active-low relay click during setup. Relay contact ratings and
 mains-voltage warnings remain attached to the exact catalogue part; the app
 does not treat switched-load terminals as low-voltage GPIO wiring.
 
-`PowerSwitchOutput` is the DC counterpart: one opto-isolated MOSFET channel
-with a boolean `On` input, a 0-1 `Level`, and one GPIO (`signalPin`, printed
-PWM). It is active-high, so generated firmware latches the pin LOW before
-making it an output, and a HIGH turns the load on. The load side is described
-rather than wired: the catalogue's `mosfet` block (load supply range,
-continuous current, active level, the absent flyback diode, the
-`- / LOAD / +` terminal order) travels into the hardware manifest as facts.
-The module takes no supply from the controller, because its optocoupler lights
-from the signal itself, so `peripheralPowerPadIndex` reports no supply pad for
-it and the Build Diagram draws GND and PWM only rather than falling back to
-pad 0, which is GND on this board.
+`PowerSwitchOutput` is the DC counterpart: MOSFET channels, each with a
+boolean `On` input, a 0-1 `Level`, and one GPIO. The selected board decides how
+many channels there are, as a relay module's does: the LR7843 has one, the
+MonkMakes Mosfetti four. Every channel is active-high, so generated firmware
+latches each pin LOW before making it an output, and a HIGH turns that load on.
+The load side is described rather than wired: the catalogue's `mosfet` block
+(load supply range, continuous current, active level, isolation, flyback
+diode, terminal order) travels into the hardware manifest as facts, with the
+channel count and each channel's drive. A power switch takes no supply from the
+controller, so `peripheralPowerPadIndex` reports no supply pad for it and the
+Build Diagram draws GND and the channel inputs only rather than falling back
+to pad 0, which is GND on the LR7843.
 
-`Level` dims the load with PWM. It is a property input (field default 1), and
-`src/state/powerSwitch.ts` holds the one rule the evaluator and the emitter
-both follow:
+The first channel keeps the names a one-channel board has always used: `on`,
+`level`, `signalPin`. The rest are numbered: `on2`, `level2`, `signal2Pin` and
+on (`powerSwitchChannels` in `src/state/powerSwitch.ts`). Port labels and
+channel rows come from the board's printed letters (`mosfet.channelLabels`),
+so the Mosfetti's ports read On A to Level D, its pins A to D, and the
+Build Diagram finds each wire's pad by that letter. Everything that draws,
+normalises or creates the node asks `partDerivedInputs` for its ports, the
+same helper the relay uses. The library declares the other channels'
+`Level` ports as `variantInputs`, which lets each Level be a property input
+without the library drawing sixteen ports; the node hides the rows of channels
+its board does not have, as the LED output does.
+
+The two boards differ in more than channel count:
+
+| | LR7843 | MonkMakes Mosfetti |
+| --- | --- | --- |
+| Channels | 1, printed PWM | 4, printed A to D |
+| Gate drive | optocoupler, from the load supply | the GPIO, directly; 100 k pull-down |
+| Isolation | opto-isolated | none: header GND is the load supply's negative |
+| Load supply | 6-28 V DC | 3-16 V DC |
+| Current | 15 A (module guidance) | 2 A per channel and 2 A in total (one resettable fuse) |
+| Flyback diode | none | one per channel |
+| PWM | 500 Hz, derived from the gate drive | 1 kHz, from MonkMakes' own examples |
+
+`Level` dims a channel's load with PWM. It is a property input (field default
+1), and `src/state/powerSwitch.ts` holds the one rule the evaluator and the
+emitter both follow, per channel:
 
 - The switch dims only when the module has a catalogued `mosfet.pwmHz` and
   something asks for less than full: a wire on Level, or the field below 1.
@@ -98,20 +124,33 @@ both follow:
   itself. The Level field is not a signal and never turns the load on alone.
 - Firmware drives an 8-bit duty through one shim, `flsPwmBegin`/`flsPwmWrite`
   (`src/codegen/powerSwitchCpp.ts`): LEDC on ESP32 (`ledcAttach` on core 3,
-  a per-switch channel on core 2), `analogWriteFreq` on ESP8266 and RP2040,
-  `analogWriteFrequency` on Teensy, and AVR's fixed ~490 Hz timer PWM. The duty
-  is written only when it changes, because rewriting it every frame restarts
-  ESP8266's software waveform.
+  a channel per dimmed switch channel on core 2), `analogWriteFreq` on ESP8266
+  and RP2040, `analogWriteFrequency` on Teensy, and AVR's fixed ~490 Hz timer
+  PWM. The duty is written only when it changes, because rewriting it every
+  frame restarts ESP8266's software waveform.
+- Two boards can ask for two frequencies, and some cores cannot give them.
+  `powerSwitchPwmPlan` plans every dimmed channel in the sketch at once. On
+  ESP32 core 2, LEDC channels share a timer in pairs, and a timer runs at one
+  frequency, so each frequency starts on an even channel: an LR7843 at 500 Hz
+  takes channel 0, and a Mosfetti's 1 kHz channels start at 2. ESP8266 and
+  RP2040 set one frequency for every pin, so the shim is built with the lowest
+  any dimmed part asks for. Slower is the safe direction: the LR7843 loses more
+  to switching as the frequency rises, while the Mosfetti's GPIO-driven gates
+  are indifferent.
 - The frequency is the part's, not the app's. The LR7843's gate charges
   through its 4.7 k divider rather than a gate driver, so it switches in tens
   of microseconds; its `pwmHz` of 500 keeps switching loss below conduction
   loss at the module's 15 A guidance. The derivation is in the part's
   `Sources.md` in the asset workspace.
-- The preview publishes the resulting share of power as `load`, which the
-  node body draws as a bar; the Build Diagram states `drive` as `on/off` or
-  `PWM 500 Hz`.
+- The preview publishes each channel's share of power as `load`, `load2` and
+  on, which the node body draws as one bar per channel; the Build Diagram
+  states each channel's drive as `on/off` or `PWM 500 Hz`, prefixed with its
+  letter on a lettered board.
 
-Multi-channel MOSFET boards remain open, per the
+A four-channel LR7843-class board with the high-current channels is still
+wanted. None found so far has a reliable reference: seller listings disagree
+on layout, and the one documented four-channel opto board (FR1205) drives its
+gates past 20 V above about 20 V of supply. See the
 [hardware expansion roadmap](../plans/hardware-expansion-roadmap.md).
 
 `PowerMonitorInput` measures a DC load through the Adafruit INA219 and

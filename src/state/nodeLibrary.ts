@@ -29,7 +29,10 @@ import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, ou
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './pixelDataExtender'
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './powerConverter'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
-import { DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_PIN_KEY } from './powerSwitch'
+import {
+  ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS,
+  POWER_SWITCH_VARIANT_INPUTS, powerSwitchChannelPropertyEnabled, powerSwitchInputs, powerSwitchPropertyLabel,
+} from './powerSwitch'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
@@ -3572,24 +3575,26 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
-    // One opto-isolated DC MOSFET channel. A terminal sink like the relay,
-    // but active-high and DC-only: it switches the load's negative lead, and
-    // its load-side limits come from the catalogued module. Level dims it
+    // DC MOSFET channels. A terminal sink like the relay, but active-high and
+    // DC-only: each channel switches its load's negative lead, and the
+    // load-side limits come from the catalogued module. Level dims a channel
     // with PWM on a module that can be dimmed; at 1 and unwired it is a plain
     // switch (state/powerSwitch.ts has the rule both implementations share).
+    // The selected board decides how many On/Level pairs there are, as it
+    // does for a relay; `inputs` are the default one-channel board's.
     type: 'PowerSwitchOutput',
     label: 'Power Switch',
     category: 'output',
-    inputs: [
-      { id: 'on', label: 'On', dataType: 'bool' },
-      { id: 'level', label: 'Level', dataType: 'float' },
-    ],
-    propertyInputs: { level: 'level' },
+    inputs: powerSwitchInputs(DEFAULT_POWER_SWITCH_PART_ID),
+    variantInputs: POWER_SWITCH_VARIANT_INPUTS,
+    propertyInputs: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [channel.level, channel.level])),
     outputs: [],
     defaultProperties: {
       partId: DEFAULT_POWER_SWITCH_PART_ID,
-      [POWER_SWITCH_PIN_KEY]: 25,
-      level: 1,
+      ...Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.flatMap((channel) => [
+        [channel.pinKey, POWER_SWITCH_PIN_FALLBACKS[channel.index]],
+        [channel.level, POWER_SWITCH_LEVEL_DEFAULT],
+      ])),
     },
   },
   {
@@ -4116,7 +4121,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
-  PowerSwitchOutput: 'Switches or dims a DC load through an opto-isolated MOSFET.',
+  PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -5092,10 +5097,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
       control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
     }]),
   ),
-  PowerSwitchOutput: {
-    [POWER_SWITCH_PIN_KEY]: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    level: { control: 'slider', min: 0, max: 1, step: 0.01 },
-  },
+  PowerSwitchOutput: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.flatMap((channel) => [
+    [channel.pinKey, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 }],
+    [channel.level, { control: 'slider' as const, min: 0, max: 1, step: 0.01 }],
+  ])),
   PowerMonitorInput: {
     i2cAddress: { control: 'select', options: powerMonitorAddressOptions(DEFAULT_POWER_MONITOR_PART_ID) },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -5365,9 +5370,10 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
-  PowerSwitchOutput: {
-    level: 'Share of full power while On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
-  },
+  PowerSwitchOutput: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [
+    channel.level,
+    'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
+  ])),
   StepValue: {
     initial: 'Value used at preview start, board reboot and each Reset pulse.',
     minimum: 'Lowest runtime value. Decrease clamps here unless Wrap is enabled.',
@@ -5625,8 +5631,16 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
 }
 
-/** Display text for a node's property row (StudioNode's inline editors). */
-export function propertyLabel(nodeType: string, key: string): string {
+/**
+ * Display text for a node's property row (StudioNode's inline editors).
+ * Pass the node's properties where a label follows its part: a four-channel
+ * power switch names its rows after the letters printed on the board.
+ */
+export function propertyLabel(nodeType: string, key: string, properties?: Record<string, unknown>): string {
+  if (nodeType === 'PowerSwitchOutput' && properties) {
+    const channelLabel = powerSwitchPropertyLabel(key, properties.partId)
+    if (channelLabel) return channelLabel
+  }
   return PROPERTY_LABELS[nodeType]?.[key] ?? key
 }
 
@@ -5895,7 +5909,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
-  PowerSwitchOutput: new Set([POWER_SWITCH_PIN_KEY]),
+  PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
@@ -6301,6 +6315,8 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
 }
 
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
+  // A channel the selected board does not have has no pin to wire and no load to dim.
+  if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
   if (nodeType === 'LightInput' && ['pin', 'sdaPin', 'sclPin', 'i2cAddress', 'maxLux'].includes(key)) {
     const digital = lightSensorTransport(properties.partId) === 'i2c'
     return digital ? key !== 'pin' : key === 'pin'

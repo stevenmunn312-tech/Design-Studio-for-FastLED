@@ -228,12 +228,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   [IR compile checks](../ir-compile-checks.md), reproduced with
   `npm run gen:ir-compile-fixtures` and `scripts/compile-ir-smoke.py`.
 - **Power switch (experimental):** `PowerSwitchOutput`
-  (`src/state/powerSwitch.ts`) is the relay's DC counterpart: one active-high
-  opto-isolated MOSFET channel on one GPIO (`signalPin`), load-side limits read
-  from the catalogue's `mosfet` block. It takes no supply from the controller,
-  so `peripheralPowerPadIndex` returns `null` for it and `peripheralPowerNet`
-  follows; a module with no supply pad must say so rather than fall back to pad
-  0, which on this board is GND and drew a VCC wire onto it. Dimming reads
+  (`src/state/powerSwitch.ts`) is the relay's DC counterpart: active-high
+  MOSFET channels, one GPIO each, load-side limits read from the catalogue's
+  `mosfet` block. The board decides the channel count (LR7843 one, Mosfetti
+  four), and every view gets the ports from `partDerivedInputs`
+  (`src/state/partPorts.ts`), as for a relay; a new part-derived node joins
+  that helper rather than adding its own ternary at each call site. It takes no
+  supply from the controller, so `peripheralPowerPadIndex` returns `null` for
+  it and `peripheralPowerNet` follows; a module with no supply pad must say so
+  rather than fall back to pad 0, which on the LR7843 is GND and drew a VCC
+  wire onto it. Channel pins are found on the sheet by the board's printed
+  letters (`mosfet.channelLabels` through `partPinLabelForProperty`), not by
+  position. A PWM choice made per node can collide across nodes: channels share
+  LEDC timers on ESP32 core 2 and one frequency on ESP8266 and RP2040, so
+  `powerSwitchPwmPlan` plans every dimmed channel in the sketch together. Dimming reads
   its PWM frequency from the part (`mosfet.pwmHz`), because a module's gate
   drive decides how fast it can switch; a module without one only switches.
   When a new field decides which firmware a node emits, a node saved before

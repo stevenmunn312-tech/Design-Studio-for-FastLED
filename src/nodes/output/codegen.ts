@@ -50,12 +50,37 @@ import { displayHasTouch, partById } from '../../state/partCatalogue'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import { type TransportTouchAction, TRANSPORT_TOUCH_ACTION_TYPES, emittedTouchBounds } from '../../state/transportTouch'
 import { relayPinKeys } from '../../state/relayModule'
-import { POWER_SWITCH_PIN_KEY, powerSwitchActiveHigh, powerSwitchDims, powerSwitchPwmHz } from '../../state/powerSwitch'
-import { POWER_SWITCH_PWM_HELPER_CPP, powerSwitchPwmLoopCpp, powerSwitchPwmSetupCpp } from '../../codegen/powerSwitchCpp'
+import {
+  POWER_SWITCH_PIN_FALLBACKS, powerSwitchActiveHigh, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz,
+} from '../../state/powerSwitch'
+import {
+  type DimmedPowerSwitchChannel, powerSwitchPwmHelperCpp, powerSwitchPwmLoopCpp, powerSwitchPwmPlan, powerSwitchPwmSetupCpp,
+} from '../../codegen/powerSwitchCpp'
+import type { StudioNode } from '../../state/graphStore'
 import { stereoVuLoopCpp } from '../../codegen/stereoVuMeterCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, cppComment } from '../../codegen/cppLiterals'
 import { hub75BlitRowsCpp } from '../../codegen/hub75Cpp'
+
+/**
+ * Every dimmed Power Switch channel in the sketch, in node then channel
+ * order. The PWM plan needs all of them at once: channels share LEDC timers on
+ * ESP32 core 2, and one frequency on ESP8266 and RP2040.
+ */
+function dimmedPowerSwitchChannels(
+  nodes: readonly StudioNode[],
+  incoming: ReadonlyMap<string, unknown>,
+  props: (node: StudioNode) => Record<string, unknown>,
+): DimmedPowerSwitchChannel[] {
+  return nodes.filter((candidate) => candidate.data.nodeType === 'PowerSwitchOutput').flatMap((candidate) => {
+    const q = props(candidate)
+    const hz = powerSwitchPwmHz(q.partId)
+    if (hz === null) return []
+    return powerSwitchChannels(q.partId)
+      .filter((channel) => powerSwitchDims(q.partId, q[channel.level], incoming.has(`${candidate.id}:${channel.level}`)))
+      .map((channel) => ({ key: `${candidate.id}:${channel.index}`, hz }))
+  })
+}
 
 export const OUTPUT_EMITTERS: NodeEmitters = {
   RelayOutput({ node, p, ln, boolExpr, pinSetupLines }) {
@@ -71,36 +96,38 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     }
   },
   PowerSwitchOutput({ node, id, p, ln, f, boolExpr, pinSetupLines, incoming, nodes, props, globalLines }) {
-    // The switch is active-high: the PC817's LED lights on a HIGH pin and
-    // the MOSFET conducts. Latch LOW before enabling the output so the
-    // load cannot pulse on during setup.
-    const pin = sanitizePin(p[POWER_SWITCH_PIN_KEY], 25)
+    // Every channel is active-high: a HIGH pin turns its MOSFET on, through
+    // the LR7843's optocoupler or straight into the Mosfetti's gate. Latch the
+    // off level before enabling each output so no load pulses on during setup.
     const activeHigh = powerSwitchActiveHigh(p.partId)
     const [on, off] = activeHigh ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
-    const levelWired = incoming.has(`${node.id}:level`)
     const hz = powerSwitchPwmHz(p.partId)
-    if (hz === null || !powerSwitchDims(p.partId, p.level, levelWired)) {
-      pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
-      pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
-      ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
-      return
+    for (const channel of powerSwitchChannels(p.partId)) {
+      const pin = sanitizePin(p[channel.pinKey], POWER_SWITCH_PIN_FALLBACKS[channel.index])
+      const levelWired = incoming.has(`${node.id}:${channel.level}`)
+      if (hz === null || !powerSwitchDims(p.partId, p[channel.level], levelWired)) {
+        pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
+        pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+        ln(`  digitalWrite(${pin}, ${boolExpr(node.id, channel.on)} ? ${on} : ${off});`)
+        continue
+      }
+      // Dimmed: the same gate and level rule as the preview (powerSwitchGate,
+      // powerSwitchLoad), carried by PWM at the part's frequency.
+      const plan = powerSwitchPwmPlan(dimmedPowerSwitchChannels(nodes, incoming, props))
+      const helper = powerSwitchPwmHelperCpp(plan.sharedHz)
+      if (!globalLines.includes(helper)) globalLines.push(helper)
+      const emit = {
+        id: channel.index === 0 ? id : `${id}_${channel.index + 1}`,
+        pin,
+        channel: plan.ledcChannels.get(`${node.id}:${channel.index}`) ?? 0,
+        hz,
+        activeHigh,
+        gateExpr: incoming.has(`${node.id}:${channel.on}`) ? boolExpr(node.id, channel.on) : String(levelWired),
+        levelExpr: f(channel.level, channel.level, 1),
+      }
+      for (const line of powerSwitchPwmSetupCpp(emit)) pinSetupLines.add(line)
+      for (const line of powerSwitchPwmLoopCpp(emit)) ln(line)
     }
-    // Dimmed: the same gate and level rule as the preview (powerSwitchGate,
-    // powerSwitchLoad), carried by PWM at the part's frequency.
-    if (!globalLines.includes(POWER_SWITCH_PWM_HELPER_CPP)) globalLines.push(POWER_SWITCH_PWM_HELPER_CPP)
-    const dimmed = nodes.filter((candidate) => candidate.data.nodeType === 'PowerSwitchOutput'
-      && powerSwitchDims(props(candidate).partId, props(candidate).level, incoming.has(`${candidate.id}:level`)))
-    const emit = {
-      id,
-      pin,
-      channel: Math.max(0, dimmed.findIndex((candidate) => candidate.id === node.id)),
-      hz,
-      activeHigh,
-      gateExpr: incoming.has(`${node.id}:on`) ? boolExpr(node.id, 'on') : String(levelWired),
-      levelExpr: f('level', 'level', 1),
-    }
-    for (const line of powerSwitchPwmSetupCpp(emit)) pinSetupLines.add(line)
-    for (const line of powerSwitchPwmLoopCpp(emit)) ln(line)
   },
   InfoDisplay({ node, id, p, ln, ledStatusEmit, bootTitle, bootDevice, incoming, nodeMap, intProp, boolExpr, setupLines, infoDisplays }) {
     // One content input, and a normal sketch has exactly one source it can

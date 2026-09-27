@@ -125,6 +125,28 @@ describe('HardwarePane', () => {
     expect(screen.queryByText(/Add hardware here/)).toBeNull()
   })
 
+  it('adds the Mosfetti with four assigned pins and its part-derived ports', () => {
+    render(<HardwarePane />)
+
+    addPart('Switching power', 'MonkMakes Mosfetti')
+
+    const powerSwitch = useGraphStore.getState().nodes
+      .find((entry) => entry.data.nodeType === 'PowerSwitchOutput')
+    expect(powerSwitch?.data.properties.partId).toBe('monkmakes-mosfetti')
+    const pins = ['signalPin', 'signal2Pin', 'signal3Pin', 'signal4Pin'].map((key) =>
+      powerSwitch?.data.properties[key])
+    expect(pins).toHaveLength(4)
+    expect(pins.every((pin) => typeof pin === 'number')).toBe(true)
+    expect(new Set(pins).size).toBe(4)
+    const inputs = powerSwitch?.data.inputs as Array<{ id: string; label: string }>
+    expect(inputs.map((input) => `${input.id}:${input.label}`)).toEqual([
+      'on:On A', 'level:Level A',
+      'on2:On B', 'level2:Level B',
+      'on3:On C', 'level3:Level C',
+      'on4:On D', 'level4:Level D',
+    ])
+  })
+
   it('draws an ambient backdrop that never takes a pointer event', () => {
     const { container } = render(<HardwarePane />)
     const atmosphere = container.querySelector('[class*="atmosphere"]')

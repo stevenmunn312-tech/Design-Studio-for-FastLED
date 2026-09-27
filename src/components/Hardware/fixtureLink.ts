@@ -1,5 +1,6 @@
 import { oledTransportForProps, segmentControllerForProps, tftTransportForProps } from '../../state/nodeLibrary'
 import { powerConverterModuleFor } from '../../state/powerConverter'
+import { powerSwitchChannelCount } from '../../state/powerSwitch'
 
 /**
  * What a bench run from the board to a fixture carries, in words.
@@ -37,7 +38,7 @@ function fixtureBus(nodeType: string, properties: Record<string, unknown>): stri
     case 'SegmentDisplay': return segmentControllerForProps(properties).id === 'MAX7219' ? 'SPI' : 'two-wire serial'
     case 'StereoVuMeter': return 'LED data'
     case 'RelayOutput': return 'relay control lines'
-    case 'PowerSwitchOutput': return 'switch control line'
+    case 'PowerSwitchOutput': return powerSwitchChannelCount(properties.partId) > 1 ? 'switch control lines' : 'switch control line'
     default: return 'signal'
   }
 }

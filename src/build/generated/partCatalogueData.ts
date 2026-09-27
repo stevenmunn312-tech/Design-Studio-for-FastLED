@@ -971,6 +971,65 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 16.333
     }
   },
+  "monkmakes-mosfetti": {
+    "partId": "monkmakes-mosfetti",
+    "label": "MonkMakes Mosfetti 4-channel MOSFET switch",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 65.6,
+      "height": 50.3
+    },
+    "manufacturer": "MonkMakes (SKU00099), board v1b",
+    "logicVoltage": "3-5 V active-high: each GPIO drives its MOSFET gate directly (about 2 V on-threshold, 100 kOhm pull-down). Not isolated: the header's GND is the load supply's negative.",
+    "pinLabelsLeftToRight": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "GND"
+    ],
+    "notes": [
+      "Four low-side DC switches, A to D, sharing one supply. The supply goes to the power terminal (+ and GND); each load connects across its channel's pair of output terminals. The left terminal of each pair (the square pad) is the fused supply +, the right one is the switched negative lead.",
+      "Not isolated: each GPIO drives its MOSFET gate directly, with a 100 kOhm pull-down holding it off. The controller's GND must connect to the header's fifth pin, which is also the load supply's negative. 3.3 V and 5 V controllers both switch it fully.",
+      "3-16 V DC only; never connect AC. One 2 A resettable fuse (T160) protects the whole board, so 2 A is the limit per channel and also in total across all four; up to 2.5 A for under a minute.",
+      "Each channel carries its own flyback diode across the output, so pumps, motors, solenoids and relay coils can connect directly.",
+      "MonkMakes' examples dim loads with PWM: 1 kHz on the Raspberry Pi Pico and Arduino analogWrite on the Uno. The app dims it at 1 kHz.",
+      "The orange LED in the MonkMakes logo shows board power; each channel's green LED lights while that output is on.",
+      "Sold as a kit: the 5-pin header and 3.5 mm screw terminals ship loose, so every connection is shown as an unpopulated plated hole. The header's fifth pin is printed with a ground symbol rather than the word GND."
+    ],
+    "mosfet": {
+      "channels": 4,
+      "device": "N-channel SOT-23 MOSFET per channel (30 V, 2.1 A), low-side",
+      "trigger": "active-high",
+      "loadSupply": "3-16 V DC",
+      "continuousCurrent": "2 A per channel and 2 A in total through one resettable fuse (2.5 A for under a minute)",
+      "optoIsolated": false,
+      "flybackDiode": true,
+      "channelLabels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "loadTerminals": [
+        "A+",
+        "A-",
+        "B+",
+        "B-",
+        "C+",
+        "C-",
+        "D+",
+        "D-"
+      ],
+      "pwmHz": 1000
+    },
+    "render": {
+      "file": "parts/monkmakes-mosfetti.webp",
+      "widthPx": 808,
+      "heightPx": 624,
+      "pxPerMm": 12.012
+    }
+  },
   "nled-pixel-data-extender-pair": {
     "partId": "nled-pixel-data-extender-pair",
     "label": "NLED Pixel Data Extender TX/RX pair",

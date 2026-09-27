@@ -190,7 +190,7 @@ def read_part(part_dir: Path) -> dict | None:
     mosfet = data.get("mosfet")
     if mosfet:
         channels = mosfet.get("channels")
-        if isinstance(channels, int) and channels >= 1 and mosfet.get("loadSupply"):
+        if isinstance(channels, int) and 1 <= channels <= 8 and mosfet.get("loadSupply"):
             entry["mosfet"] = {
                 "channels": channels,
                 "device": mosfet.get("device") or "",
@@ -200,6 +200,16 @@ def read_part(part_dir: Path) -> dict | None:
                 "optoIsolated": bool(mosfet.get("optoIsolated")),
                 "flybackDiode": bool(mosfet.get("flybackDiode")),
             }
+            # What the board prints beside each channel (the Mosfetti's A to
+            # D). The app names ports and finds header pads by it, so it is
+            # carried only when there is one name per channel.
+            labels = mosfet.get("channelLabels")
+            if isinstance(labels, list) and len(labels) == channels and all(
+                    isinstance(label, str) and label for label in labels):
+                entry["mosfet"]["channelLabels"] = labels
+            elif labels is not None:
+                print(f"  ! {part_id}: mosfet channelLabels needs one name per channel — ignored",
+                      file=sys.stderr)
             if mosfet.get("powerTerminalsLeftToRight") or data.get("powerTerminalsLeftToRight"):
                 entry["mosfet"]["loadTerminals"] = (mosfet.get("powerTerminalsLeftToRight")
                                                     or data.get("powerTerminalsLeftToRight"))
@@ -213,7 +223,7 @@ def read_part(part_dir: Path) -> dict | None:
                 print(f"  ! {part_id}: mosfet block says pwm but has no positive pwmHz — dimming not offered",
                       file=sys.stderr)
         else:
-            print(f"  ! {part_id}: mosfet block needs a channel count and loadSupply — skipped",
+            print(f"  ! {part_id}: mosfet block needs a channel count from 1 to 8 and loadSupply — skipped",
                   file=sys.stderr)
     # A current/voltage monitor's measuring contract. The firmware divides the
     # shunt voltage by shuntOhms and the address list bounds the address

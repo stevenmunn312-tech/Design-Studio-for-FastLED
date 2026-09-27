@@ -112,7 +112,7 @@ import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transpor
 import { designControlBundle } from './designControlBundle'
 import { asTftRotation } from './tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './transportTouch'
-import { relayInputs } from './relayModule'
+import { partDerivedInputs } from './partPorts'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -487,9 +487,8 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const inputs = orderPorts(
       nodeType === 'ControlMap'
         ? playerControlInputs(properties.controls)
-        : nodeType === 'RelayOutput'
-          ? relayInputs(properties.partId)
-          : def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
+        : partDerivedInputs(nodeType, properties.partId)
+          ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
       Array.isArray(data.inputs) ? data.inputs : undefined,
     )
     const outputs = orderPorts(
@@ -646,9 +645,8 @@ function effectiveInputs(node: StudioNode): Array<{ id: string; label: string }>
   if (node.data.nodeType === 'ControlMap') {
     return playerControlInputs(node.data.properties.controls)
   }
-  if (node.data.nodeType === 'RelayOutput') {
-    return relayInputs(node.data.properties.partId).map(({ id, label }) => ({ id, label }))
-  }
+  const derived = partDerivedInputs(node.data.nodeType, node.data.properties.partId)
+  if (derived) return derived.map(({ id, label }) => ({ id, label }))
   return (node.data.inputs ?? []) as Array<{ id: string; label: string }>
 }
 

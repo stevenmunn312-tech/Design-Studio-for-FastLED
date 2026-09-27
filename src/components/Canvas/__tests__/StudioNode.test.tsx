@@ -6,7 +6,7 @@ import { connectTouchControl, useGraphStore } from '../../../state/graphStore'
 import { createDisplayDocument } from '../../../state/displayEditor'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import type { StudioNode as StudioNodeT, StudioNodeData } from '../../../state/graphStore'
-import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { libraryDefaults, NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { useMusicStore } from '../../../state/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useAudioStore } from '../../../state/audioStore'
@@ -130,6 +130,26 @@ describe('StudioNode', () => {
       })).toBeTruthy()
       expect(view.container.querySelector(`[data-handle="target:channel${channel}"]`)).toBeTruthy()
     }
+  })
+
+  it('draws an On socket and a Level field for every lettered channel of a multi-channel power switch', () => {
+    const defaults = libraryDefaults('PowerSwitchOutput')
+    const view = renderNode(makeNode('PowerSwitchOutput', { ...defaults, partId: 'monkmakes-mosfetti' }))
+    for (const [index, letter] of ['A', 'B', 'C', 'D'].entries()) {
+      const n = index === 0 ? '' : String(index + 1)
+      expect(view.container.querySelector(`[data-handle="target:on${n}"]`)).toBeTruthy()
+      // Level is a property input: a field on the node, its socket drawn on demand.
+      expect(view.getByLabelText(`level ${letter} value`)).toBeTruthy()
+    }
+    expect(view.container.querySelector('[data-handle="target:on5"]')).toBeNull()
+  })
+
+  it('shows a one-channel power switch no Level rows for channels it does not have', () => {
+    const defaults = libraryDefaults('PowerSwitchOutput')
+    const view = renderNode(makeNode('PowerSwitchOutput', { ...defaults, partId: 'lr7843-mosfet-module' }))
+    expect(view.getByLabelText('level value')).toBeTruthy()
+    expect(view.queryByLabelText(/level 2|level B/)).toBeNull()
+    expect(view.container.querySelector('[data-handle="target:on2"]')).toBeNull()
   })
 
   it('exposes Juggle property sockets from the menu and context menu, preserving their type colours', () => {

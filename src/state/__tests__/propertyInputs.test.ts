@@ -24,11 +24,14 @@ describe('property input exposure', () => {
 
   it('only offers verified, declared property inputs and preserves their types', () => {
     for (const def of NODE_LIBRARY) {
+      // A port some part option adds (a four-channel switch's Level B) is
+      // declared in `variantInputs`, and counts exactly as `inputs` do.
+      const ports = [...def.inputs, ...(def.variantInputs ?? [])]
       for (const [key, id] of Object.entries(def.propertyInputs ?? {})) {
         expect(def.defaultProperties, `${def.type}.${key}`).toHaveProperty(key)
-        expect(def.inputs.filter((port) => port.id === id)).toHaveLength(1)
+        expect(ports.filter((port) => port.id === id)).toHaveLength(1)
         expect(propertyInputsFor(def.type).find((port) => port.id === id))
-          .toMatchObject({ ...def.inputs.find((port) => port.id === id), propertyKey: key })
+          .toMatchObject({ ...ports.find((port) => port.id === id), propertyKey: key })
       }
     }
     expect(propertyInputsFor('Board')).toEqual([])

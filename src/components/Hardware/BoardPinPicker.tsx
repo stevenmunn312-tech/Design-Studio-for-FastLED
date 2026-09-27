@@ -46,7 +46,7 @@ export default function BoardPinPicker({
   const gpio = boardGpioInfo(selectedFqbn)
   const nodes = useGraphStore(rootGraphNodes)
   const [customOpen, setCustomOpen] = useState(false)
-  const label = propertyLabel(nodeType, propertyKey)
+  const label = propertyLabel(nodeType, propertyKey, properties)
   const requirement = gpioRequirementForProperty(nodeType, propertyKey, properties)
 
   const compatible = useMemo(() => {

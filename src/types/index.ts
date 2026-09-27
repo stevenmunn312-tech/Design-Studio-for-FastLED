@@ -21,6 +21,13 @@ export interface NodeDefinition {
   subcategory?: string
   inputs: NodePort[]
   outputs: NodePort[]
+  /**
+   * Inputs a part option can add beyond `inputs`, which are the default
+   * part's. A node whose ports follow its selected board (a four-channel
+   * MOSFET switch) declares the rest here so `propertyInputs` can name them;
+   * which of them a given node draws is derived from its part.
+   */
+  variantInputs?: readonly NodePort[]
   /** Verified runtime property -> existing input id. Unlisted inputs stay visible. */
   propertyInputs?: Record<string, string>
   /** Optional action/control input ids shown on demand like property inputs. */

@@ -23,8 +23,11 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'in7Pin', label: 'IN7', kind: 'pin' },
     { key: 'in8Pin', label: 'IN8', kind: 'pin' },
   ],
+  // PWM on the LR7843. A board that prints a letter per channel (the
+  // Mosfetti's A to D) is labelled by its silkscreen before this is read.
   PowerSwitchOutput: [
     { key: 'signalPin', label: 'PWM', kind: 'pin' },
+    ...[2, 3, 4, 5, 6, 7, 8].map((n) => ({ key: `signal${n}Pin`, label: `IN${n}`, kind: 'pin' as const })),
   ],
   MicInput: [
     { key: 'channel', label: 'Channel', kind: 'select', options: ['Left', 'Right'] },

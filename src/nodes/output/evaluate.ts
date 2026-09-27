@@ -52,7 +52,7 @@ import {
 } from '../../state/transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/tftSurface'
 import { displayHasTouch, partById } from '../../state/partCatalogue'
-import { powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/powerSwitch'
+import { powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/powerSwitch'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displaySignal'
 import { oledControllerForProps, tftControllerForProps, nodeDisplayLabel } from '../../state/nodeLibrary'
@@ -518,13 +518,16 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   },
   PowerSwitchOutput({ input, num, incoming }, id, props) {
     // No simulated load, but the share of power firmware will drive is known
-    // exactly, so it is published for the node body to show. `load` is not a
-    // port; it is read back the way the display sinks' surfaces are.
-    const levelWired = incoming.has(`${id}:level`)
-    const level = num(id, 'level', props, 'level', 1)
-    const dims = powerSwitchDims(props.partId, level, levelWired)
-    const on = { wired: incoming.has(`${id}:on`), value: input(id, 'on', false) === true }
-    return { load: powerSwitchLoad(powerSwitchGate(on, levelWired, dims), dims, level) }
+    // exactly, so it is published for the node body to show: `load` for the
+    // first channel, `load2` and on for the rest. These are not ports; they
+    // are read back the way the display sinks' surfaces are.
+    return Object.fromEntries(powerSwitchChannels(props.partId).map((channel) => {
+      const levelWired = incoming.has(`${id}:${channel.level}`)
+      const level = num(id, channel.level, props, channel.level, 1)
+      const dims = powerSwitchDims(props.partId, level, levelWired)
+      const on = { wired: incoming.has(`${id}:${channel.on}`), value: input(id, channel.on, false) === true }
+      return [channel.load, powerSwitchLoad(powerSwitchGate(on, levelWired, dims), dims, level)]
+    }))
   },
   RelayOutput: relayOutput,
   MatrixOutput({ input, t, stateKey, incoming, nodeMap }, id, props, node, type) {

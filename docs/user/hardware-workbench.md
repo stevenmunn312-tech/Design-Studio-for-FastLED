@@ -108,6 +108,29 @@ not suit addressable strips such as WS2812B: they need steady power and are
 dimmed through their LED output instead. Very fast camera shutters can show
 banding on a PWM-dimmed lamp.
 
+### Switch four small DC loads
+
+Choose **Switching power → MonkMakes Mosfetti** for four smaller loads from
+one board: fans, pumps, indicator lamps or short 12 V accent strips. It arrives
+as a kit, so solder its header and screw terminals first. Wire four GPIOs to
+the header's **A**, **B**, **C** and **D**, and the board's ground to the fifth
+pin, which carries a ground symbol rather than a label. That ground is not
+optional: the Mosfetti is not isolated, and its header ground is the load
+supply's negative. The load supply, 3-16 V DC, goes to the separate two-way
+power terminal. Each load then connects across its channel's pair of output
+terminals: the square pad is the supply's **+**, the other the switched
+negative lead.
+
+The node has an **On** and a **Level** for each channel, lettered as the board
+is, and they work as the LR7843's do. A channel's Level below 1, or wired,
+dims it with PWM at 1 kHz, the rate MonkMakes' own examples use. The node
+shows a Load bar per channel.
+
+Keep the loads small. One resettable fuse protects the whole board, so 2 A is
+the limit for all four channels together, not for each one. Every channel has
+its own flyback diode, so a pump or motor needs nothing extra. For a load
+above 2 A, such as a long LED strip, use an LR7843 per load instead.
+
 ### Detect stationary presence
 
 The **HLK-LD2410C Presence Sensor** detects a person who is moving or sitting

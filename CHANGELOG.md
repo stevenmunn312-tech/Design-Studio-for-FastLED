@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The MonkMakes Mosfetti joins the Hardware shelf as a four-channel Power
+  Switch for small DC loads. Each channel, A to D, has its own On and Level and
+  dims at 1 kHz, and the Build Diagram lands each wire on its lettered pin. A
+  Power Switch now takes its channel count from the board chosen, as a relay
+  module does. Experimental until a bench run is recorded.
+
 - Copy Graph Link warns when the link is past about 30 KB. The link is still
   copied, and the warning points at Save Project File, which keeps a project
   that size without relying on a URL.

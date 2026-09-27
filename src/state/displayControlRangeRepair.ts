@@ -48,7 +48,7 @@ export function displayWidgetTargetRangeRepair(
   const meta = propertyMeta(target.data.nodeType, input.propertyKey)
   if (meta?.control !== 'slider') return null
 
-  const label = propertyLabel(target.data.nodeType, input.propertyKey)
+  const label = propertyLabel(target.data.nodeType, input.propertyKey, target.data.properties)
   const propertyName = label === input.propertyKey ? input.label : label
   // Through `nodeDisplayLabel`: nothing persists a node label, so reading
   // `data.label` names an LED String "LED Matrix" on every reload.

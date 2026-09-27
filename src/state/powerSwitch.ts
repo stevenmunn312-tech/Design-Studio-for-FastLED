@@ -1,22 +1,116 @@
-import { partById } from './partCatalogue'
+import type { NodePort } from '../types'
+import { mosfetChannelPinKey, partById } from './partCatalogue'
 import type { PartMosfetSpec } from './partCatalogue'
 
 /**
- * A DC power switch: one opto-isolated MOSFET channel turning a load on and
- * off from a boolean graph signal. Unlike a relay module it is active-high,
- * switches DC only (the load's negative lead), and has limits on the load side
- * that the app states rather than infers.
+ * A DC power switch: MOSFET channels turning loads on and off from boolean
+ * graph signals. Unlike a relay module it is active-high, switches DC only
+ * (the load's negative lead), and has limits on the load side that the app
+ * states rather than infers. The selected board decides how many channels
+ * there are, as it does for a relay module.
  */
 export const DEFAULT_POWER_SWITCH_PART_ID = 'lr7843-mosfet-module'
 
-/** The one GPIO the switch takes, printed PWM on the reference board. */
-export const POWER_SWITCH_PIN_KEY = 'signalPin'
+/** The first channel's GPIO, printed PWM on the LR7843. */
+export const POWER_SWITCH_PIN_KEY = mosfetChannelPinKey(0)
 
 /** What an unwired Level means: fully on while On is, which is plain switching. */
 export const POWER_SWITCH_LEVEL_DEFAULT = 1
 
+export const MAX_POWER_SWITCH_CHANNELS = 8
+
+/** Where a board without its own starter pins puts each channel, first to last. */
+export const POWER_SWITCH_PIN_FALLBACKS = [25, 26, 27, 32, 33, 13, 14, 4] as const
+
 export function powerSwitchSpec(partId: unknown): PartMosfetSpec | undefined {
   return partById(String(partId ?? DEFAULT_POWER_SWITCH_PART_ID))?.mosfet
+}
+
+/**
+ * One channel's names. The first keeps the plain `on`, `level` and
+ * `signalPin` a one-channel board has always used; the rest are numbered.
+ */
+export interface PowerSwitchChannel {
+  index: number
+  /** What the board prints beside it (A to D on the Mosfetti), or null on a one-channel board. */
+  label: string | null
+  on: string
+  level: string
+  pinKey: string
+  /** The preview's published share of power for this channel (not a port). */
+  load: string
+}
+
+function channelAt(index: number, label: string | null): PowerSwitchChannel {
+  const n = index === 0 ? '' : String(index + 1)
+  return {
+    index,
+    label,
+    on: `on${n}`,
+    level: `level${n}`,
+    pinKey: mosfetChannelPinKey(index),
+    load: `load${n}`,
+  }
+}
+
+export function powerSwitchChannelCount(partId: unknown): number {
+  const declared = Number(powerSwitchSpec(partId)?.channels ?? 1)
+  return Number.isInteger(declared) ? Math.max(1, Math.min(MAX_POWER_SWITCH_CHANNELS, declared)) : 1
+}
+
+export function powerSwitchChannels(partId: unknown): PowerSwitchChannel[] {
+  const count = powerSwitchChannelCount(partId)
+  const printed = powerSwitchSpec(partId)?.channelLabels
+  return Array.from({ length: count }, (_, index) => channelAt(
+    index,
+    count === 1 ? null : printed?.[index] ?? String(index + 1),
+  ))
+}
+
+/** Every channel a board could have, for registries that must know them all up front. */
+export const ALL_POWER_SWITCH_CHANNELS: readonly PowerSwitchChannel[] = Array.from(
+  { length: MAX_POWER_SWITCH_CHANNELS },
+  (_, index) => channelAt(index, index === 0 ? null : String(index + 1)),
+)
+
+function channelPorts(channel: PowerSwitchChannel): NodePort[] {
+  const suffix = channel.label === null ? '' : ` ${channel.label}`
+  return [
+    { id: channel.on, label: `On${suffix}`, dataType: 'bool' },
+    { id: channel.level, label: `Level${suffix}`, dataType: 'float' },
+  ]
+}
+
+/** The ports the selected board has: On and Level per channel, in board order. */
+export function powerSwitchInputs(partId: unknown): NodePort[] {
+  return powerSwitchChannels(partId).flatMap(channelPorts)
+}
+
+/** Ports beyond the first channel's that some board can add, numbered rather than lettered. */
+export const POWER_SWITCH_VARIANT_INPUTS: readonly NodePort[] =
+  ALL_POWER_SWITCH_CHANNELS.slice(1).flatMap(channelPorts)
+
+export function powerSwitchPinKeys(partId: unknown): string[] {
+  return powerSwitchChannels(partId).map((channel) => channel.pinKey)
+}
+
+/**
+ * Whether a channel-numbered property belongs to a channel this board has.
+ * Properties that are not per-channel are always enabled.
+ */
+export function powerSwitchChannelPropertyEnabled(key: string, partId: unknown): boolean {
+  const channel = ALL_POWER_SWITCH_CHANNELS.find((candidate) =>
+    candidate.pinKey === key || candidate.level === key)
+  return channel === undefined || channel.index < powerSwitchChannelCount(partId)
+}
+
+/** A channel property's label on this board: "Level B" on the Mosfetti, "Level" on the LR7843. */
+export function powerSwitchPropertyLabel(key: string, partId: unknown): string | null {
+  const channel = powerSwitchChannels(partId).find((candidate) =>
+    candidate.pinKey === key || candidate.level === key)
+  if (!channel) return null
+  if (channel.pinKey === key) return channel.label ?? 'PWM'
+  return channel.label === null ? 'level' : `level ${channel.label}`
 }
 
 /** True when the module's input turns the load on with a HIGH level. */
