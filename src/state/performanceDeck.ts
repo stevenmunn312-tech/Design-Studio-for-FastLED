@@ -137,6 +137,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   PresenceInput: new Set(['rxPin']),
   IRRemoteInput: new Set(['pin']),
   LightInput: new Set(['pin']),
+  EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }
 

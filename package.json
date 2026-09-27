@@ -22,6 +22,7 @@
     "gen:ir-compile-fixtures": "node scripts/generate-ir-compile-fixtures.mjs",
     "gen:presence-compile-fixtures": "node scripts/generate-presence-compile-fixtures.mjs",
     "gen:light-compile-fixtures": "node scripts/generate-light-compile-fixtures.mjs",
+    "gen:environment-compile-fixtures": "node scripts/generate-environment-compile-fixtures.mjs",
     "gen:touch-button-compile-fixtures": "node scripts/generate-touch-button-compile-fixtures.mjs",
     "gen:power-switch-compile-fixtures": "node scripts/generate-power-switch-compile-fixtures.mjs",
     "gen:ethernet-compile-fixtures": "node scripts/generate-ethernet-compile-fixtures.mjs",

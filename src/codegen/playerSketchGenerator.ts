@@ -66,6 +66,7 @@ import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuGlobalCpp,
   stereoVuLoopCpp, type StereoVuEmit,
 } from './stereoVuMeterCpp'
+import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './environmentSensorCpp'
 
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */
@@ -422,6 +423,10 @@ export function generatePlayerSketch(
   const graphRouting = opts.controlGraph
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
+  const environmentSensorForward = (compiledGraph?.helpers ?? []).some((block) =>
+    block.includes('struct _Bme280Calibration {'))
+    ? `${ENVIRONMENT_SENSOR_CPP_FORWARD}\n`
+    : ''
   const customDisplays = graphRouting
     ? customDisplayShowCpp(graphRouting.custom, opts.customDisplayAssets, opts.telemetry === true)
     : null
@@ -1071,7 +1076,7 @@ ${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').j
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${customDisplays?.forwards.join('\n') ?? ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${environmentSensorForward}${customDisplays?.forwards.join('\n') ?? ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}

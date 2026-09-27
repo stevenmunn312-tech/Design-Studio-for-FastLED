@@ -8,6 +8,9 @@ import {
 } from '../../state/powerMonitor'
 import { presencePreviewReading, presencePreviewKey, presencePreviewDefaultDistance } from '../../state/presenceSensor'
 import { lightSensorPreviewReading } from '../../state/lightSensor'
+import {
+  environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
+} from '../../state/environmentSensor'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { designControlBundle } from '../../state/designControlBundle'
@@ -316,6 +319,16 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       props.partId,
       useHardwareInputStore.getState().pot.get(id) ?? 0.5,
       props.maxLux,
+    ) }
+  },
+  EnvironmentInput(_c, id, props) {
+    const pot = useHardwareInputStore.getState().pot
+    const start = environmentPreviewDefaults(props.partId)
+    return { ...environmentPreviewReading(
+      props.partId,
+      pot.get(environmentPreviewKey(id, 'temperature')) ?? start.temperature,
+      pot.get(environmentPreviewKey(id, 'humidity')) ?? start.humidity,
+      pot.get(environmentPreviewKey(id, 'pressure')) ?? start.pressure,
     ) }
   },
   // No sensor in the browser: the node body's two sliders stand in for the

@@ -7,6 +7,7 @@ import { presenceSensorLoopCpp, presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_C
 import { LIGHT_SENSOR_HELPER_CPP, lightSensorLoopCpp, lightSensorSetupCpp } from './lightSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
 import { touchButtonPressedLevel } from '../state/touchButton'
+import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -95,6 +96,14 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.lux = 'float'
       break
     }
+    case 'EnvironmentInput': {
+      setup.push(`  Wire.begin(${sanitizePin(p.sdaPin, 21)}, ${sanitizePin(p.sclPin, 22)});  // BME280 I2C bus`)
+      loop.push(...environmentSensorLoopCpp(p, id, (port) => v(port)))
+      outputs.temperature = 'float'
+      outputs.humidity = 'float'
+      outputs.pressure = 'float'
+      break
+    }
     default: return null
   }
   return {
@@ -104,6 +113,9 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     ...(nodeType === 'PresenceInput' ? { helpers: [PRESENCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'LightInput' && lightSensorTransport(p.partId) === 'i2c'
       ? { helpers: [LIGHT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
+      : {}),
+    ...(nodeType === 'EnvironmentInput'
+      ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
     ...(ir ? { ir } : {}),
   }

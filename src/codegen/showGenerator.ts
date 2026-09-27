@@ -73,6 +73,7 @@ import {
   type ShowControlRouting,
 } from './showControlRouting'
 import { controlGraphCpp } from './controlGraph'
+import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './environmentSensorCpp'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
@@ -843,6 +844,7 @@ export function generateShowSketch(
   for (const decl of fastLedDecls) L.push(decl)
   for (const decl of new Set([...displays.forwards, ...selectionCpp.forwards, ...customDisplays.forwards])) L.push(decl)
   if (stereoVuMeters.length > 0) L.push(STEREO_VU_CPP_FORWARD)
+  if (nodes.some((node) => nodeType(node) === 'EnvironmentInput')) L.push(ENVIRONMENT_SENSOR_CPP_FORWARD)
   L.push('')
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)

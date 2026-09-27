@@ -50,6 +50,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 14.961
     }
   },
+  "adafruit-bme280-environment-sensor": {
+    "partId": "adafruit-bme280-environment-sensor",
+    "label": "Adafruit BME280 environment sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 19.05,
+      "height": 25.4
+    },
+    "manufacturer": "Adafruit (product 2652) / Bosch Sensortec BME280",
+    "logicVoltage": "3-5 V VIN; onboard regulator and level shifting make I2C safe at either supply",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "3Vo",
+      "GND",
+      "SCK",
+      "SDO",
+      "SDI",
+      "CS"
+    ],
+    "notes": [
+      "Reports temperature, relative humidity and barometric pressure over I2C; Studio uses the compensated BME280 readings.",
+      "Power VIN from 3.3 V for an ESP controller. The breakout has a regulator and level shifting, but using the logic rail keeps every I2C pull-up in the controller domain.",
+      "The default I2C address is 0x77. Tie SDO low, or close the ADDR jumper, for 0x76.",
+      "The seven-pin header ships loose and is rendered as unpopulated plated holes. SCK is I2C SCL and SDI is I2C SDA; SDO and CS are not wired in I2C mode."
+    ],
+    "environmentSensor": {
+      "device": "BME280",
+      "interface": "I2C",
+      "i2cAddresses": [
+        118,
+        119
+      ],
+      "defaultI2cAddress": 119,
+      "temperatureMinC": -40,
+      "temperatureMaxC": 85,
+      "humidityMinPercent": 0,
+      "humidityMaxPercent": 100,
+      "pressureMinHpa": 300,
+      "pressureMaxHpa": 1100
+    },
+    "render": {
+      "file": "parts/adafruit-bme280-environment-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 527,
+      "pxPerMm": 19.948
+    }
+  },
   "adafruit-ina219-current-sensor": {
     "partId": "adafruit-ina219-current-sensor",
     "label": "Adafruit INA219 current sensor",

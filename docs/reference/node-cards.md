@@ -78,6 +78,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Light Sensor example graph](../../public/node-cards/graphs/light-input.svg)
 
+### Environment Sensor
+
+![Environment Sensor node](../../public/node-cards/environment-input.svg)
+
+![Environment Sensor example graph](../../public/node-cards/graphs/environment-input.svg)
+
 ### Potentiometer
 
 ![Potentiometer node](../../public/node-cards/pot-input.svg)

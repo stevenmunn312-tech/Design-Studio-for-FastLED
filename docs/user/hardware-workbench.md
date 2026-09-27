@@ -165,6 +165,22 @@ react to (a lit room is a few hundred lux, daylight tens of thousands). In
 preview, drag the node's knob. The BH1750 is experimental until the support
 matrix records it on a real board.
 
+### Measure temperature, humidity and pressure
+
+Choose **Add Hardware → Inputs → Adafruit BME280 environment sensor** for three
+calibrated measurements from one I2C board. Power **VIN** from **3V3**. Wire the
+controller's SCL to the breakout's **SCK** pad and SDA to **SDI**; Studio fills
+in the board's shared I2C pins. Leave SDO and CS unwired for the default 0x77
+address. To use 0x76, tie SDO low (or close the ADDR jumper) and select 0x76 in
+the inspector.
+
+The node publishes **Temperature** in °C, **Humidity** in percent relative
+humidity, and **Pressure** in hPa. These are physical values rather than 0–1
+signals, so use Map Range before wiring one into brightness, hue, speed, or a
+similar normalized property. The three on-node sliders simulate the readings
+in preview. BME280 support is experimental until a physical comparison is
+recorded in the support matrix.
+
 ### Connect by Ethernet
 
 Art-Net input and NTP clock sync normally use Wi-Fi. For a cable instead, choose

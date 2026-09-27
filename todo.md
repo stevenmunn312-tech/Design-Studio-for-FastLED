@@ -77,6 +77,10 @@ The D-05 Grove touch-sensor normal, slideshow, player and no-touch guard
 fixtures all passed on classic ESP32 under arduino-cli on 2026-09-27. The
 toolchain, hashes and resource figures are in the
 [touch-button compile record](docs/development/touch-button-compile-checks.md).
+The D-05 BME280 normal, slideshow, player and no-sensor guard fixtures all
+passed on classic ESP32 under arduino-cli on 2026-09-27. The toolchain, hashes
+and resource figures are in the
+[environment-sensor compile record](docs/development/environment-sensor-compile-checks.md).
 
 The HW-19 and HW-20 compiles all passed on 2026-09-24:
 - Generic MEMS on arduino-cli, and the microphone path on fbuild;
@@ -145,6 +149,9 @@ in the app and marked experimental; nothing here holds up development.
   SIG idle LOW and touched HIGH on the selected GPIO; release, held and rapid
   touches in normal, slideshow and player firmware, plus startup and SIG
   reconnect behaviour. The row's requirements are in the support matrix.
+- **D-05 environment sensor:** the Adafruit BME280's temperature, humidity and
+  pressure against trusted references at two conditions, including recovery
+  after unplugging the module. The row's requirements are in the support matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -230,6 +237,11 @@ in the app and marked experimental; nothing here holds up development.
   `SIG, NC, VCC, GND`; all four
   [compile fixtures pass](docs/development/touch-button-compile-checks.md), and
   its bench row is in section 3.
+  The Adafruit BME280 (the next sensor-family item, `EnvironmentInput`) is
+  modelled, catalogued, drawn, previewed and generated for normal/show/player
+  paths at 0x77 or 0x76; all four
+  [compile fixtures pass](docs/development/environment-sensor-compile-checks.md),
+  and its bench row is in section 3.
 
 ## Completed
 

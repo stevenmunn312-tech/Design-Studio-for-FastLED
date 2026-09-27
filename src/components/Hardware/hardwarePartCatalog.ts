@@ -524,6 +524,21 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-ina219-current-sensor' },
   },
   {
+    nodeType: 'EnvironmentInput',
+    partId: 'environment-sensor',
+    label: 'Adafruit BME280 environment sensor',
+    hint: 'Temperature, humidity and pressure on the board I2C bus',
+    footprint: partDimensionsMm('adafruit-bme280-environment-sensor', { width: 19.05, height: 25.4 }),
+    signalPort: 'temperature',
+    dataType: 'float',
+    pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA (SDI)' },
+      { key: 'sclPin', label: 'SCL (SCK)' },
+    ],
+    properties: { partId: 'adafruit-bme280-environment-sensor' },
+  },
+  {
     nodeType: 'PresenceInput',
     partId: 'presence-sensor',
     label: 'HLK-LD2410C presence sensor',

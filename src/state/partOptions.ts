@@ -194,6 +194,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  EnvironmentInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-bme280-environment-sensor',
+        label: 'Adafruit BME280',
+        summary: 'Temperature, humidity and pressure over I2C',
+        note: 'Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address.',
+      },
+    ],
+  },
   PowerSwitchOutput: {
     property: 'partId',
     options: [

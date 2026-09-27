@@ -146,6 +146,20 @@ export interface PartLightSensorSpec {
   maxLux: number
 }
 
+/** Measuring contract carried by a temperature / humidity / pressure sensor. */
+export interface PartEnvironmentSensorSpec {
+  device: string
+  interface: string
+  i2cAddresses: number[]
+  defaultI2cAddress: number
+  temperatureMinC: number
+  temperatureMaxC: number
+  humidityMinPercent: number
+  humidityMaxPercent: number
+  pressureMinHpa: number
+  pressureMaxHpa: number
+}
+
 /** Network contract carried by a wired-Ethernet controller module. */
 export interface PartEthernetSpec {
   /** The controller chip, which picks the firmware's PHY driver. */
@@ -213,6 +227,8 @@ export interface PartCatalogueEntry {
   touchSensor?: PartTouchSensorSpec
   /** Present exactly on calibrated digital ambient-light sensors. */
   lightSensor?: PartLightSensorSpec
+  /** Present exactly on calibrated temperature / humidity / pressure sensors. */
+  environmentSensor?: PartEnvironmentSensorSpec
   /** Present exactly on wired-Ethernet controller modules. */
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */
@@ -260,7 +276,7 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   backlightPin: ['BL', 'LED', 'LITE', 'BACKLIGHT'],
   // An I2C OLED is not always silkscreened SDA/SCL: Adafruit's SSD1306 breakout
   // prints the SPI names DATA and CLK on the same two lines it answers I2C on.
-  sdaPin: ['SDA', 'DATA', 'DIN', 'D1'],
+  sdaPin: ['SDA', 'SDI', 'DATA', 'DIN', 'D1'],
   sclPin: ['SCL', 'CLK', 'SCK', 'D0'],
   // The three I2S MEMS microphones print the same three signals under three
   // sets of names: an INMP441 says WS/SCK/SD, an Adafruit-form ICS-43434 says

@@ -265,6 +265,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   with `npm run gen:light-compile-fixtures` and
   `scripts/compile-presence-smoke.py` (shared with the presence-sensor checks
   via `--label light`).
+- **Environment sensor (experimental):** `EnvironmentInput` is the exact
+  Adafruit product-2652 BME280. It publishes temperature (°C), humidity (% RH)
+  and pressure (hPa) as physical values. The imported `environmentSensor`
+  block owns 0x76/0x77 and the three measurement ranges; preview controls,
+  validation, manifest facts and direct compensated firmware all read that
+  contract. On the I2C route, SDA lands on the breakout's SDI pad and SCL on
+  SCK; SDO and CS remain unwired. The Build Diagram powers VIN from 3V3.
 - **Power monitor (experimental):** `PowerMonitorInput` is an INA219 I2C node.
   Its board's VIN has no regulator and sets the chip's I2C pull-up level, so the
   Build Diagram powers it from 3V3 via `peripheralPowerNet` even though the pad

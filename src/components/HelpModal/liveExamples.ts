@@ -1541,6 +1541,24 @@ const PRESENCE_INPUT_LIVE_EXAMPLE = namedExample(
   'Toggle moving or still on the sensor node, then drag its distance slider. With both target toggles off, distance returns to zero just as stale firmware readings expire to no presence.',
 )
 
+const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
+  'EnvironmentInput',
+  'Shift the LEDs with room temperature',
+  [
+    { key: 'sensor', type: 'EnvironmentInput', properties: { partId: 'adafruit-bme280-environment-sensor', i2cAddress: '0x77' } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 10, inMax: 35, outMin: 1, outMax: 0 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 255, g: 96, b: 24 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'sensor', sourceHandle: 'temperature', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Environment Sensor reads calibrated temperature, relative humidity and barometric pressure from the BME280 on the shared I2C bus. These outputs keep their physical units, so Map Range is the explicit bridge from a useful room-temperature span to a colour control.',
+  'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
+)
+
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
   'Switch and dim a DC load',
@@ -1684,6 +1702,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
+  EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,

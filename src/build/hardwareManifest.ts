@@ -45,6 +45,12 @@ import {
   lightSensorPinKeys,
   lightSensorTransport,
 } from '../state/lightSensor'
+import {
+  BME280_PART_ID,
+  environmentAddress,
+  environmentSensorSpec,
+  formatEnvironmentAddress,
+} from '../state/environmentSensor'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
 import {
@@ -94,7 +100,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -131,6 +137,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'MotionInput',
   'PresenceInput',
   'LightInput',
+  'EnvironmentInput',
   'IRRemoteInput',
   'PowerMonitorInput',
   'RelayOutput',
@@ -370,6 +377,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'LightInput':
         if (lightSensorTransport(props.partId) === 'i2c') pushI2c(node, baseLabel, props)
         else push(node, `${baseLabel} signal pin`, 'pin', props.pin)
+        break
+      case 'EnvironmentInput':
+        pushI2c(node, baseLabel, props)
         break
       case 'EncoderInput':
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
@@ -861,6 +871,32 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             shuntOhms: spec.shuntOhms,
             senseSide: spec.senseSide,
             senseTerminals: 'Vin+ from supply / Vin- to load',
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
+        }
+      }
+      case 'EnvironmentInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? BME280_PART_ID)
+        const entry = partById(partId)
+        const spec = environmentSensorSpec(partId)
+        const address = environmentAddress(props)
+        const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
+          && pins.some((pin) => pin.propertyKey === 'sclPin')
+        const reasons = [
+          ...(wired ? [] : [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this sensor.`]),
+          ...(address === null ? [`${String(props.i2cAddress)} is not an address this BME280 can select.`] : []),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'environment-input', entry?.label ?? 'BME280 environment sensor', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && address !== null,
+          facts: {
+            partId,
+            i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatEnvironmentAddress(address),
+            temperatureRange: `${spec.temperatureMinC} to ${spec.temperatureMaxC} °C`,
+            humidityRange: `${spec.humidityMinPercent} to ${spec.humidityMaxPercent} % RH`,
+            pressureRange: `${spec.pressureMinHpa} to ${spec.pressureMaxHpa} hPa`,
           },
           reasons: reasons.length > 0 ? reasons : undefined,
         }

@@ -213,6 +213,19 @@ error. The breakout's level shifter pulls the controller side of SDA/SCL up to
 VIN, so the Build Diagram powers VIN from 3V3. Normal, slideshow and player
 generators all emit it; the latter two through `controlInputCpp`.
 
+`EnvironmentInput` is the Adafruit product-2652 BME280 on the same shared I2C
+bus. It publishes `temperature` in °C, `humidity` in percent RH and `pressure`
+in hPa, preserving physical units rather than inventing a normalized contract.
+Its catalogue `environmentSensor` block owns the two SDO-selected addresses and
+all three operating ranges. `environmentSensorCpp.ts` reads the Bosch
+calibration registers once per node and applies the published compensation
+formulas directly, avoiding a library dependency; a failed transaction zeros
+that pass and retries initialization. The browser's three sliders span the
+same catalogue ranges. Build Diagram wiring resolves SDA to the board's SDI
+pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
+3V3 so the bus stays in the controller logic domain. Normal, slideshow and
+player generators share the same emitter through `controlInputCpp`.
+
 `EthernetModule` is a hardware-only part with no ports: a WIZnet WIZ850io
 (W5500) that carries Art-Net and NTP over a cable instead of Wi-Fi. It claims
 SCLK, MOSI, MISO, SCNn, INTn and RSTn from the general pool, on its own SPI host

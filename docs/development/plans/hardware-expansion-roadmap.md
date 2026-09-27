@@ -143,6 +143,13 @@ compile families:
    touch face with the connector holes at the bottom. All four
    [compile fixtures pass](../touch-button-compile-checks.md); the physical bench
    run remains open, so it stays experimental.
+10. Environmental sensing. The Adafruit product-2652 BME280
+    (`EnvironmentInput`) is now modelled, catalogued, drawn, previewed and
+    generated for normal/show/player paths. It publishes compensated
+    temperature, relative humidity and pressure from the shared I2C bus at
+    0x77 or 0x76. All four
+    [compile fixtures pass](../environment-sensor-compile-checks.md); the
+    physical bench run remains open, so it stays experimental.
 
 ## Definition of done for each addition
 

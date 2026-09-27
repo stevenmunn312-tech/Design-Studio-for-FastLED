@@ -86,6 +86,9 @@ import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/lightSensor'
 import {
+  environmentAddress, environmentAddressOptions, formatEnvironmentAddress,
+} from '../state/environmentSensor'
+import {
   NLED_PIXEL_DATA_LINK,
   pixelDataExtenderSupports,
   usesNledPixelDataExtender,
@@ -2257,6 +2260,18 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       title: 'Light sensor address is not one its ADDR pin can select',
       message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this BH1750 answers only on ${lightSensorAddressOptions(props.partId).join(', ')}.`,
       fix: `Choose ${formatLightSensorAddress(0x23)} with ADDR low, or ${formatLightSensorAddress(0x5c)} with ADDR tied high.`,
+      nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  for (const sensor of nodes.filter((node) => node.data.nodeType === 'EnvironmentInput')) {
+    const props = sensor.data.properties as Record<string, unknown>
+    if (environmentAddress(props) !== null) continue
+    issues.push({
+      id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
+      title: 'Environment sensor address is not one its SDO strap can select',
+      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this BME280 answers only on ${environmentAddressOptions(props.partId).join(', ')}.`,
+      fix: `Choose ${formatEnvironmentAddress(0x77)} with SDO high, or ${formatEnvironmentAddress(0x76)} with SDO tied low.`,
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
     })
   }

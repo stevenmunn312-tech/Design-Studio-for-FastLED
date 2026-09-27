@@ -1029,6 +1029,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'preview readings come from the sliders; firmware reads the INA219',
     title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
   },
+  EnvironmentInput: {
+    text: 'preview readings come from the sliders; firmware reads the BME280',
+    title: 'The browser has no environment sensor to read, so the sliders stand in for temperature, humidity and pressure. Generated firmware reads and compensates all three measurements from the BME280 over I2C.',
+  },
   RTCInput: {
     text: 'preview follows the configured source; only sync state is simulated',
     title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows UTC plus the configured offset, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
@@ -1402,7 +1406,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput'
     || d.nodeType === 'PresenceInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.

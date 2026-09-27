@@ -404,6 +404,35 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: lightSensor block needs addresses, a default among them and maxLux — skipped",
                   file=sys.stderr)
+    # A temperature / humidity / pressure sensor. These limits define both the
+    # preview controls and the facts exported with the physical build, so they
+    # travel from the exact breakout rather than being copied into the app.
+    environment = data.get("environmentSensor")
+    if environment:
+        try:
+            addresses = [int(str(a), 16) for a in environment.get("i2cAddresses") or []]
+            default_address = int(str(environment.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        range_keys = (
+            "temperatureMinC", "temperatureMaxC", "humidityMinPercent",
+            "humidityMaxPercent", "pressureMinHpa", "pressureMaxHpa",
+        )
+        if (addresses and default_address in addresses
+                and all(isinstance(environment.get(key), (int, float)) for key in range_keys)
+                and environment["temperatureMaxC"] > environment["temperatureMinC"]
+                and environment["humidityMaxPercent"] > environment["humidityMinPercent"]
+                and environment["pressureMaxHpa"] > environment["pressureMinHpa"]):
+            entry["environmentSensor"] = {
+                "device": environment.get("device") or "",
+                "interface": environment.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                **{key: environment[key] for key in range_keys},
+            }
+        else:
+            print(f"  ! {part_id}: environmentSensor block needs addresses, a default among them and valid measurement ranges — skipped",
+                  file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

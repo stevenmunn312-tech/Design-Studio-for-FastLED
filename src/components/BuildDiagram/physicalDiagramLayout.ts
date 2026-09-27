@@ -349,6 +349,8 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // holes. 3Vo is the regulator's output and ADDR is strapped, so neither
   // carries a controller wire.
   'adafruit-bh1750-light-sensor': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 237.5, 286),
+  // VIN, 3Vo, GND, SCK, SDO, SDI, CS; only SCK and SDI carry the I2C bus.
+  'adafruit-bme280-environment-sensor': padRow([49, 99, 149, 200, 250, 301, 351], 400, 471, 527),
   // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
   // bottom (GND, 3V3D, 3V3D, NC, RSTn, MISO), pin 1 of each at the right-hand
   // end. Computed from WIZnet's board file (13.60 px/mm, 10 px margin) and
@@ -665,6 +667,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // matched by those through the catalogue before this list is read.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'power-monitor-input': [['SDA'], ['SCL']],
+  'environment-input': [['SDI'], ['SCK']],
   // The board's RX reads the sensor's TX pad.
   'presence-input': [['TX']],
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
@@ -712,6 +715,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // SDA/SCL pull-ups tie to. On the 5 V rail those pull-ups would hold the
   // controller's I2C pins at 5 V, so it takes the logic rail instead.
   if (item.kind === 'power-monitor-input') return 'v3v3'
+  if (item.kind === 'environment-input') return 'v3v3'
   // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
   // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
@@ -783,6 +787,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,
   'adafruit-bh1750-light-sensor': 7,
+  'adafruit-bme280-environment-sensor': 9.5,
   'max485-rs485-module': 11.9,
   'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,

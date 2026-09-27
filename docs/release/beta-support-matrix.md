@@ -560,6 +560,16 @@ Unless a future row says otherwise, treat the following as experimental:
   dated row naming the board/FQBN, the I2C pins and address, and the supply,
   with Lux compared against a reference meter in dim, room and bright light.
   The LDR row above does not cover it.
+- **Adafruit BME280 environment sensing.** `EnvironmentInput` has a verified
+  product-2652 asset, preview, direct compensated I2C firmware, manifest and
+  Build Diagram coverage in the normal, slideshow and player generators, and
+  [compiles on classic ESP32](../development/environment-sensor-compile-checks.md),
+  but no physical row yet. It
+  reads temperature in °C, relative humidity in percent, and pressure in hPa at
+  0x77 or 0x76.
+  Graduation needs a dated row naming the board/FQBN, I2C pins, address and
+  supply, with all three readings compared against trusted references at two
+  environmental conditions and recovery checked after unplugging the module.
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the

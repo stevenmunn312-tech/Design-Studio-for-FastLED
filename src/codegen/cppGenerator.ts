@@ -94,6 +94,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { powerMonitorSetupCpp, POWER_MONITOR_HELPER_CPP } from './powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
+import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import { sanitizePin } from './hardwarePins'
@@ -642,7 +643,9 @@ export function generateCpp(
   const presenceSensors = sorted.filter((n) => n.data.nodeType === 'PresenceInput')
   const digitalLightSensors = sorted.filter((n) => n.data.nodeType === 'LightInput'
     && lightSensorTransport(props(n).partId) === 'i2c')
-  const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0 || digitalLightSensors.length > 0
+  const environmentSensors = sorted.filter((n) => n.data.nodeType === 'EnvironmentInput')
+  const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0
+    || digitalLightSensors.length > 0 || environmentSensors.length > 0
   /*
    * The header follows the driver, not the transport.
    *
@@ -837,7 +840,7 @@ export function generateCpp(
     const boardPins = rtcI2cPinsForProfile(i2cBoard)
     const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
       && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
-      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0]
+      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0]
     const busProps = busNode ? props(busNode) : {}
     const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)
     const sclPin = sanitizePin(busProps.sclPin, boardPins?.scl.arduinoPin ?? 22)
@@ -1197,6 +1200,7 @@ export function generateCpp(
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_FORWARD)
   if (stereoVuMeters.length > 0) lines.push(STEREO_VU_CPP_FORWARD)
   if (emitRtcHelpers) lines.push(RTC_CPP_FORWARD)
+  if (environmentSensors.length > 0) lines.push(ENVIRONMENT_SENSOR_CPP_FORWARD)
   lines.push(``)
   if (ss) {
     lines.push(`#define SS       ${supersample}          // supersample factor: render at SS×, downscale`)
@@ -1455,6 +1459,7 @@ export function generateCpp(
   if (powerMonitors.length > 0) lines.push(...POWER_MONITOR_HELPER_CPP)
   if (presenceSensors.length > 0) lines.push(...PRESENCE_SENSOR_HELPER_CPP)
   if (digitalLightSensors.length > 0) lines.push(...LIGHT_SENSOR_HELPER_CPP)
+  if (environmentSensors.length > 0) lines.push(...ENVIRONMENT_SENSOR_HELPER_CPP)
 
   if (needsNetwork && ethernetNode) {
     const p = props(ethernetNode)

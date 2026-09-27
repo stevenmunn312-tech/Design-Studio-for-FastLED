@@ -2,6 +2,7 @@ import { controlInputCpp } from '../../codegen/controlInputCpp'
 import { powerMonitorLoopCpp } from '../../codegen/powerMonitorCpp'
 import { presenceSensorLoopCpp } from '../../codegen/presenceSensorCpp'
 import { lightSensorLoopCpp } from '../../codegen/lightSensorCpp'
+import { environmentSensorLoopCpp } from '../../codegen/environmentSensorCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
@@ -35,6 +36,9 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   LightInput({ id, p, ln, v }) {
     for (const line of lightSensorLoopCpp(p, id, v)) ln(line)
+  },
+  EnvironmentInput({ id, p, ln, v }) {
+    for (const line of environmentSensorLoopCpp(p, id, v)) ln(line)
   },
   PowerMonitorInput({ p, ln, v }) {
     for (const line of powerMonitorLoopCpp(p, v)) ln(line)

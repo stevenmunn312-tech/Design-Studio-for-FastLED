@@ -5,6 +5,10 @@ import {
   presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
 } from '../../state/presenceSensor'
 import { lightSensorPreviewReading, lightSensorTransport } from '../../state/lightSensor'
+import {
+  environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
+  type EnvironmentReading,
+} from '../../state/environmentSensor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -125,6 +129,22 @@ function LightInputWidget({ nodeId, partId, maxLux }: { nodeId: string; partId: 
   }} />
 }
 
+function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const start = environmentPreviewDefaults(partId)
+  const row = (field: keyof EnvironmentReading, digits: number, unit: string) => (
+    <PotInputWidget
+      nodeId={nodeId}
+      storeKey={environmentPreviewKey(nodeId, field)}
+      initial={start[field]}
+      readout={(fraction) => {
+        const values = { ...start, [field]: fraction }
+        return `${environmentPreviewReading(partId, values.temperature, values.humidity, values.pressure)[field].toFixed(digits)} ${unit}`
+      }}
+    />
+  )
+  return <>{row('temperature', 1, '°C')}{row('humidity', 0, '%')}{row('pressure', 0, 'hPa')}</>
+}
+
 // Dragging vertically spins the dial (up = increase, matching a mouse-look
 // feel); a click without much movement is treated as a tap of the encoder's
 // integrated push-button (pinSW), pulsed briefly like a real momentary switch.
@@ -176,6 +196,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'EnvironmentInput') return <EnvironmentInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
   if (nodeType === 'TouchButtonInput') return <ButtonInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />

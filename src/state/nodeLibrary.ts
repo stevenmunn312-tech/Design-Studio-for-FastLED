@@ -45,6 +45,12 @@ import {
   lightSensorAddressOptions,
   lightSensorTransport,
 } from './lightSensor'
+import {
+  BME280_PART_ID,
+  BME280_DEFAULT_ADDRESS,
+  environmentAddressOptions,
+  formatEnvironmentAddress,
+} from './environmentSensor'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -3482,6 +3488,25 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // One calibrated I2C weather sensor, kept separate from LightInput because
+    // all three outputs are physical quantities rather than a normalized level.
+    type: 'EnvironmentInput',
+    label: 'Environment Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'temperature', label: 'Temperature (°C)', dataType: 'float' },
+      { id: 'humidity', label: 'Humidity (%)', dataType: 'float' },
+      { id: 'pressure', label: 'Pressure (hPa)', dataType: 'float' },
+    ],
+    defaultProperties: {
+      partId: BME280_PART_ID,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: formatEnvironmentAddress(BME280_DEFAULT_ADDRESS),
+    },
+  },
+  {
     type: 'PotInput',
     label: 'Potentiometer',
     category: 'input',
@@ -4108,6 +4133,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
   PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
+  EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -5092,6 +5118,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2cAddress: { control: 'select', options: lightSensorAddressOptions('adafruit-bh1750-light-sensor') },
     maxLux: { control: 'slider', min: 100, max: 100_000, step: 100 },
   },
+  EnvironmentInput: {
+    i2cAddress: { control: 'select', options: environmentAddressOptions(BME280_PART_ID) },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   RelayOutput: Object.fromEntries(
     relayPinKeys('relay-module-8ch-5v').map((key) => [key, {
       control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
@@ -5415,6 +5446,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
+  EnvironmentInput: {
+    i2cAddress: 'The BME280 address: 0x77 normally, or 0x76 when SDO is tied low or the ADDR jumper is closed.',
+    sdaPin: 'I2C data pin wired to the breakout SDI pad and shared with every other I2C part.',
+    sclPin: 'I2C clock pin wired to the breakout SCK pad and shared with every other I2C part.',
+  },
   RTCInput: {
     timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock using the SDA/SCL properties initialized from the selected board.',
     sdaPin: 'DS3231 I2C data pin. Studio fills this from the selected physical board’s Arduino Wire default.',
@@ -5650,7 +5686,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -5907,6 +5943,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MotionInput: new Set(['pin']),
   PresenceInput: new Set([PRESENCE_RX_PIN_KEY]),
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
+  EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
@@ -5949,7 +5986,7 @@ export function gpioRequirementForProperty(
 ): GpioPropertyRequirement | null {
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
-  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput'
+  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')) return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector
