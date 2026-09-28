@@ -58,7 +58,7 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f;`)
         ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
-        ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy);`)
+        ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy,0u);`)
         ln(`        float _fx=_cx+0.5f+0.45f*sin(_t*_spd+_h*6.2831f);`)
         ln(`        float _fy=_cy+0.5f+0.45f*cos(_t*_spd*1.1f+_h*6.2831f);`)
         ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
@@ -324,18 +324,19 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
     const freq = f('frequency', 'frequency', 1.2)
     const orientation = f('orientation', 'orientation', 45)
     const pal = paletteExpr(node.id, 'paletteIn', p)
+    // The seed reshuffles the cells through the hash, exactly as
+    // `gaborCellHashes` does in the preview; it once shifted time here instead.
     const seed = seedProp(p)
-    const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
     ln(`  { // Gabor noise`)
     ln(`    float _spd=${speed},_sc=${scale},_fr=${freq},_om=${orientation}*0.01745329f,_co=cos(_om),_si=sin(_om);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _v=0;`)
     ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
-    ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy),_h2=_worleyHash(_cx+31,_cy-17);`)
+    ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy,${seed}u),_h2=_worleyHash(_cx+31,_cy-17,${seed}u);`)
     ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
     ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
     ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
-    ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+${timeExpr}*_spd+_h*6.2831853f); }`)
+    ln(`        _v+=_w*_g*cosf(6.2831853f*_fr*_proj+t*_spd+_h*6.2831853f); }`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+0.5f)*255));}}`)
   },
   Blobs({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {

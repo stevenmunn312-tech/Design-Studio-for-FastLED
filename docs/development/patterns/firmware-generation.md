@@ -90,8 +90,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   undefined behaviour. The shared construction casts each operand first,
   `(uint32_t)x * 374761393u`, stays unsigned 32-bit, and keeps the top 24
   bits, which a float32 holds exactly. That is `latticeHash`, `worleyHash` (the
-  same hash with no seed) and their twins in `latticeHelperCpp.ts`, which
-  interpolates the multipliers from `LATTICE_HASH_MULTIPLIERS`.
+  same hash, with a default seed of zero) and their twins in
+  `latticeHelperCpp.ts`, which interpolate the multipliers from
+  `LATTICE_HASH_MULTIPLIERS`. A node seed is the hash's third input on both
+  sides; do not substitute `seededHash` in the preview or a time/cell offset in
+  firmware, because those are different functions even when each looks random.
   `lattice.test.ts` and `random.test.ts` hold each TypeScript hash to a BigInt
   model of the C arithmetic; a new hash needs the same test.
 - A screen-only sketch (a panel plus a screen design, no LED output) is trimmed

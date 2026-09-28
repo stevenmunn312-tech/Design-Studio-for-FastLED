@@ -5,6 +5,9 @@ import { DEFAULT_FONT, textColumns } from '../../state/font'
 import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/micModules'
 import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/ledOutputForm'
 import { resolveSlicePattern } from '../../state/sliceTiling'
+import { worleyHash } from '../../state/evaluator/random'
+import { gaborCellHashes } from '../../nodes/generative/evaluate'
+import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1683,7 +1686,7 @@ describe('generateCpp', () => {
   it('emits Gabor noise with its Gaussian-cosine kernel and hash helper', () => {
     const g = node('g', 'GaborNoise', 'pattern', { speed: 0.5, scale: 0.35, frequency: 1.2, orientation: 45, palette: 'ocean' })
     const cpp = generateCpp([g, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _worleyHash(int x, int y)')
+    expect(cpp).toContain('float _worleyHash(int x, int y, uint32_t seed)')
     expect(cpp).toContain('expf(')
     expect(cpp).toContain('cosf(')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
@@ -1851,12 +1854,12 @@ describe('generateCpp', () => {
   it('emits Worley noise with its hash helper', () => {
     const w = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 0.5, scale: 0.3, palette: 'forest' })
     const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])
-    expect(cpp.match(/^float _worleyHash\(int x, int y\) \{$/gm)).toHaveLength(1)
+    expect(cpp.match(/^float _worleyHash\(int x, int y, uint32_t seed\) \{$/gm)).toHaveLength(1)
     // Unsigned throughout and the top 24 bits kept, as worleyHash does, so the
     // sketch places each feature point where the preview does.
-    expect(cpp).toContain('uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u;')
+    expect(cpp).toContain('uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u + seed * 2246822519u;')
     expect(cpp).toContain('return (float)((h ^ (h >> 16)) >> 8) / 16777216.0f;')
-    expect(cpp).toContain('_worleyHash(_cx,_cy)')
+    expect(cpp).toContain('_worleyHash(_cx,_cy,0u)')
     expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })
 
@@ -4726,5 +4729,47 @@ describe('direct LED output actions reach the fixture', () => {
     ).split('void loop() {')[1]
     expect(loop).not.toContain('LED output run-time controls')
     expect(loop).not.toContain('LED output controls latch')
+  })
+})
+
+/*
+ * A seed has to reshuffle the same cells in the preview and on the LEDs. The
+ * emitted `_worleyHash(...)` call names its cell offsets and its seed, and
+ * random.test.ts holds `worleyHash` to a BigInt model of that C function, so
+ * the preview's value for each cell must be `worleyHash` of exactly the
+ * arguments read back out of the sketch. Gabor Noise once hashed with
+ * `seededHash` in the preview while its sketch shifted time instead; Reaction
+ * Diffusion seeded its patch three different ways.
+ */
+describe('seeded cells agree between preview and sketch', () => {
+  const calls = (cpp: string) => [...cpp.matchAll(/_worleyHash\(_(x|cx)([+-]\d+)?,_(y|cy)([+-]\d+)?,(\d+)u\)/g)]
+    .map((match) => ({ dx: Number(match[2] ?? 0), dy: Number(match[4] ?? 0), seed: Number(match[5]) }))
+
+  it.each([0, 9, 4321])('Gabor Noise with seed %i', (seed) => {
+    const sketch = generateCpp([node('g', 'GaborNoise', 'pattern', { seed }), outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+    const [first, second] = calls(sketch)
+    expect([first, second]).toEqual([{ dx: 0, dy: 0, seed }, { dx: 31, dy: -17, seed }])
+    // The seed no longer shifts time, which the preview never did.
+    expect(sketch).toContain('cosf(6.2831853f*_fr*_proj+t*_spd+_h*6.2831853f)')
+    for (let cx = -4; cx <= 12; cx++) for (let cy = -4; cy <= 12; cy++) {
+      expect(gaborCellHashes(cx, cy, seed), `${cx},${cy}`).toEqual([
+        worleyHash(cx + first.dx, cy + first.dy, first.seed),
+        worleyHash(cx + second.dx, cy + second.dy, second.seed),
+      ])
+    }
+  })
+
+  it.each([0, 9, 4321])('Reaction Diffusion with seed %i', (seed) => {
+    const sketch = generateCpp([node('rd', 'ReactionDiffusion', 'pattern', { seed }), outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
+    // The hash is emitted even unseeded: the patch hashes at seed 0 too.
+    expect(sketch).toContain('float _worleyHash(int x, int y, uint32_t seed) {')
+    const patch = sketch.match(/\]=(\d+\.\d+)f\+_worleyHash\(_x,_y,(\d+)u\)\*(\d+\.\d+)f;/)
+    expect(patch).not.toBeNull()
+    const [, base, emittedSeed, span] = patch!
+    expect(Number(emittedSeed)).toBe(seed)
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
+      expect(reactionDiffusionSeedV(x, y, seed), `${x},${y}`)
+        .toBe(Math.fround(Number(base) + worleyHash(x, y, Number(emittedSeed)) * Number(span)))
+    }
   })
 })

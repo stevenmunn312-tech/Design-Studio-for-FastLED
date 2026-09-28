@@ -497,14 +497,16 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)
     const pal = paletteExpr(node.id, 'paletteIn', p)
+    // The starting patch hashes each pixel with the seed as the hash's third
+    // input, as `reactionDiffusionSeedV` does in the preview; seed 0 included.
     const seed = seedProp(p)
-    if (seed) needsWorley.v = true
+    needsWorley.v = true
     const u = `_u_${id}`, v = `_v_${id}`, un = `_un_${id}`, vn = `_vn_${id}`
     ln(`  { // ReactionDiffusion (Gray-Scott)`)
     ln(`    static float ${u}[NUM_LEDS], ${v}[NUM_LEDS], ${un}[NUM_LEDS], ${vn}[NUM_LEDS]; static bool _rd_${id} = false;`)
     ln(`    if (!_rd_${id}) { for (int _i = 0; _i < NUM_LEDS; _i++) { ${u}[_i] = 1; ${v}[_i] = 0; }`)
     ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
-    ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=${seed ? `0.25f+_worleyHash(_x+${seed},_y-${seed})*0.5f` : '0.5f'}; } _rd_${id}=true; }`)
+    ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.25f+_worleyHash(_x,_y,${seed}u)*0.5f; } _rd_${id}=true; }`)
     ln(`    float _f=${feed}, _k=${kill};`)
     ln(`    for (int _it=0, _iters=max(1,min(20,(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
     ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)

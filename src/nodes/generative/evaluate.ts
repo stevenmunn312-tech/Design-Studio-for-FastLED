@@ -19,7 +19,6 @@ import {
   seedOffset,
   _snoise2,
   worleyHash,
-  seededHash,
   normalizedSeed,
 } from '../../state/evaluator/random'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
@@ -417,6 +416,16 @@ function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W,
   return out
 }
 
+/**
+ * A Gabor cell's two hashes: its kernel phase and position come from the
+ * first, its sign and position from the second. The seed reshuffles both
+ * through the hash, the same `_worleyHash(_cx,_cy,seed)` calls the sketch
+ * makes; the preview once used `seededHash`, which the sketch cannot compute.
+ */
+export function gaborCellHashes(cx: number, cy: number, seed: number): [number, number] {
+  return [worleyHash(cx, cy, seed), worleyHash(cx + 31, cy - 17, seed)]
+}
+
 // Gabor noise: sparse-convolution noise summing one Gaussian-windowed cosine
 // (Gabor) kernel per grid cell. `orientation` fixes the band direction (the
 // anisotropic variant) and `frequency` the band spacing; phase animates over
@@ -432,8 +441,7 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
       for (let dj = -1; dj <= 1; dj++)
         for (let di = -1; di <= 1; di++) {
           const cx = xi + di, cy = yi + dj
-          const h = seed ? seededHash(seed, cx, cy) : worleyHash(cx, cy)
-          const h2 = seed ? seededHash(seed, cx + 31, cy - 17) : worleyHash(cx + 31, cy - 17)
+          const [h, h2] = gaborCellHashes(cx, cy, seed)
           const fx = cx + 0.5 + (h - 0.5)
           const fy = cy + 0.5 + (h2 - 0.5)
           const dx = px - fx, dy = py - fy

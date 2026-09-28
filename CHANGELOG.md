@@ -33,6 +33,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Seeded Gabor Noise and Reaction Diffusion now start from the same hashed
+  cells on the LEDs as in the preview. Gabor firmware previously used Seed as
+  a time offset while the preview used it in a browser-only hash, and Reaction
+  Diffusion used different seeded and unseeded starting patches on each side.
+
 - Generative shows and music-sync collections now compile when a pattern in
   them uses Shape, Shape Field or Slice Tiling, or a Field Formula that uses
   PHI. The show kept each pattern's drawing code but left out the helper

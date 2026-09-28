@@ -18,7 +18,6 @@ import {
   seededRngState,
   seededRandom,
   _snoise2,
-  seededHash,
   worleyHash,
   normalizedSeed,
 } from '../../state/evaluator/random'
@@ -685,6 +684,18 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
   return frame
 }
 
+/**
+ * V in the starting patch: each pixel hashed with the seed as the hash's third
+ * input, the `0.25f+_worleyHash(_x,_y,seed)*0.5f` the sketch computes, seed 0
+ * included. The preview once used `seededHash` and the unseeded sketch a flat
+ * 0.5, so the simulation diverged from its first frame.
+ */
+export function reactionDiffusionSeedV(x: number, y: number, seed: number): number {
+  // `v` is a Float32Array and the sketch performs the same arithmetic in
+  // `float`, so expose the stored value rather than the unrounded JS double.
+  return Math.fround(0.25 + worleyHash(x, y, seed) * 0.5)
+}
+
 // Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
 // and react; V is coloured through a palette. Stateful — steps each frame.
 function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
@@ -695,7 +706,7 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
     // Seed a small central patch of V to kick off the reaction.
     for (let y = (H >> 1) - 2; y <= (H >> 1) + 1; y++)
       for (let x = (W >> 1) - 2; x <= (W >> 1) + 1; x++)
-        if (x >= 0 && x < W && y >= 0 && y < H) { u[y * W + x] = 0.5; v[y * W + x] = 0.25 + (seed ? seededHash(seed, x, y) : worleyHash(x, y)) * 0.5 }
+        if (x >= 0 && x < W && y >= 0 && y < H) { u[y * W + x] = 0.5; v[y * W + x] = reactionDiffusionSeedV(x, y, seed) }
     s = { u, v, un: new Float32Array(N), vn: new Float32Array(N), w: W, h: H, seed }
     rdState.set(nodeId, s)
   }

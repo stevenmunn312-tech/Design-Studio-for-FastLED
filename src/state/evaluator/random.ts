@@ -56,12 +56,16 @@ export function seedOffset(seed: number, channel = 0): number {
 
 /**
  * Integer hash → [0,1), used to place a feature point per cell for Worley
- * noise. Worley's cells are a square lattice, so this is `latticeHash` with no
- * seed: unsigned 32-bit arithmetic keeping the top 24 bits, which float32 holds
+ * noise. Worley's cells are a square lattice, so this is `latticeHash`:
+ * unsigned 32-bit arithmetic keeping the top 24 bits, which float32 holds
  * exactly, so the sketch's `_worleyHash` returns the same number. It used to
  * divide the full 32 bits while the sketch kept the low 24, and every cell's
  * feature point landed somewhere else on the LEDs than in the preview.
+ *
+ * A node's `seed` goes in as the third input, the one way both sides can
+ * reshuffle cells identically: Gabor Noise once hashed with `seededHash` in
+ * the preview (no C++ twin) while its sketch shifted time instead.
  */
-export function worleyHash(x: number, y: number): number {
-  return latticeHash(x, y, 0)
+export function worleyHash(x: number, y: number, seed = 0): number {
+  return latticeHash(x, y, seed)
 }
