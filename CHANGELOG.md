@@ -54,6 +54,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- An Interval, Beat Detect or other computed signal wired into a Palette
+  Bank's Next or Previous, a Control Map, Music Player or LED output action now
+  presses it. Its one-frame pulse was dropped by the 30 ms button debounce, so
+  a 5-second Interval never changed the palette. Only physical buttons are
+  debounced now, in the preview and the sketch; an LED output's own actions
+  now debounce a physical button in firmware as the preview always did.
+
 - Formula nodes now declare their documented `W` and `H` variables in generated
   firmware as well as in the browser preview.
 

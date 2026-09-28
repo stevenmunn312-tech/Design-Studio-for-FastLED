@@ -4,6 +4,7 @@ import {
   blankButtonEdgeState,
   buttonEdge,
 } from '../../state/transportBridge'
+import { pressEdgeSettings } from '../../state/pressSource'
 import {
   paletteBankEntries,
   clampPaletteBankIndex,
@@ -178,7 +179,9 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
         bs = blankButtonEdgeState(nowMs)
         state!.buttons[port] = bs
       }
-      return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, true, edgeSettings)
+      const wire = incoming.get(`${id}:${port}`)
+      const settings = pressEdgeSettings(edgeSettings, wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined)
+      return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, true, settings)
     }
     // Pressed together they cancel, the way +step and -step in one frame net
     // to nothing — no precedence rule needed.

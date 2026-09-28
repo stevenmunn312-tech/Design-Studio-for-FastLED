@@ -2560,15 +2560,17 @@ describe('evaluateGraph', () => {
 
   it('PlayerControls emits debounced edge events, normalized absolutes, and repeatable deltas', () => {
     resetEvaluatorState()
-    const press = node('pc_press', 'Compare', 'math', { a: 0, b: 0.5 })
+    // A physical button: only a contact takes the debounce window.
+    const press = node('pc_press', 'ButtonInput', 'input', {})
+    useHardwareInputStore.getState().setButton(press.id, false)
     const volume = node('pc_volume', 'Math', 'math', { mathOp: 'add', a: 1.4, b: 0 })
     const controls = node('pc', 'ControlMap', 'show', {
       debounceMs: 30, volumeStep: 0.1, repeatDelayMs: 100, repeatIntervalMs: 50,
     })
     const nodes = [press, volume, controls]
     const edges = [
-      edge('pc_e1', press.id, 'result', controls.id, 'playPause'),
-      edge('pc_e2', press.id, 'result', controls.id, 'volumeUp'),
+      edge('pc_e1', press.id, 'pressed', controls.id, 'playPause'),
+      edge('pc_e2', press.id, 'pressed', controls.id, 'volumeUp'),
       edge('pc_e3', volume.id, 'result', controls.id, 'volume'),
     ]
     const read = (tick: number) => evaluateGraphFull(nodes, edges, tick).outputs.get(controls.id)?.controls as {
@@ -2576,11 +2578,26 @@ describe('evaluateGraph', () => {
     }
 
     expect(read(0)).toMatchObject({ playPause: false, volume: 1, volumeDelta: 0 })
-    ;(press.data.properties as Record<string, unknown>).a = 1
+    useHardwareInputStore.getState().setButton(press.id, true)
     expect(read(1).playPause).toBe(false)
     expect(read(3)).toMatchObject({ playPause: true, volume: 1, volumeDelta: 0.1 })
     expect(read(4)).toMatchObject({ playPause: false, volumeDelta: 0 })
     expect(read(10)).toMatchObject({ playPause: false, volumeDelta: 0.1 })
+    useHardwareInputStore.getState().setButton(press.id, false)
+  })
+
+  it('PlayerControls takes a computed one-frame pulse without the contact debounce', () => {
+    resetEvaluatorState()
+    const press = node('pulse_press', 'Compare', 'math', { a: 0, b: 0.5 })
+    const controls = node('pulse_pc', 'ControlMap', 'show', { debounceMs: 30 })
+    const nodes = [press, controls]
+    const edges = [edge('pulse_e1', press.id, 'result', controls.id, 'next')]
+    const read = (tick: number) => (evaluateGraphFull(nodes, edges, tick).outputs.get(controls.id)?.controls as { next: boolean }).next
+    expect(read(0)).toBe(false)
+    ;(press.data.properties as Record<string, unknown>).a = 1
+    expect(read(1)).toBe(true)
+    ;(press.data.properties as Record<string, unknown>).a = 0
+    expect(read(2)).toBe(false)
   })
 
   it('PlayerControls chains command pulses and sums local deltas', () => {
@@ -2673,7 +2690,8 @@ describe('evaluateGraph', () => {
     resetEvaluatorState()
     usePlayerTransport.setState({ controlSerial: 0, controlCommand: null })
     const collection = node('direct_collection', 'PatternCollection', 'show', { patternIds: ['direct_group'] })
-    const press = node('direct_press', 'Compare', 'math', { a: 0, b: 0.5 })
+    const press = node('direct_press', 'ButtonInput', 'input', {})
+    useHardwareInputStore.getState().setButton(press.id, false)
     const player = node('direct_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
     const output = node('direct_output', 'MatrixOutput', 'output', {})
     const solid = node('direct_solid', 'SolidColor', 'pattern', { r: 80, g: 40, b: 20 })
@@ -2682,13 +2700,13 @@ describe('evaluateGraph', () => {
     const nodes = [collection, press, player, output]
     const edges = [
       edge('direct_e1', collection.id, 'patternset', player.id, 'patternset'),
-      edge('direct_e2', press.id, 'result', player.id, 'playPause'),
-      edge('direct_e3', press.id, 'result', player.id, 'ledToggle'),
+      edge('direct_e2', press.id, 'pressed', player.id, 'playPause'),
+      edge('direct_e3', press.id, 'pressed', player.id, 'ledToggle'),
       edge('direct_e4', player.id, 'frame', output.id, 'frame'),
     ]
 
     expect(evaluateGraphFull(nodes, edges, 0, 4, 4, groups).frame?.[0][0]).toEqual({ r: 80, g: 40, b: 20 })
-    ;(press.data.properties as Record<string, unknown>).a = 1
+    useHardwareInputStore.getState().setButton(press.id, true)
     expect(evaluateGraphFull(nodes, edges, 1, 4, 4, groups).frame?.[0][0]).toEqual({ r: 80, g: 40, b: 20 })
     const off = evaluateGraphFull(nodes, edges, 3, 4, 4, groups).frame!
     expect(litPixels(off)).toBe(0)
@@ -2699,6 +2717,7 @@ describe('evaluateGraph', () => {
     expect(usePlayerTransport.getState().controlSerial).toBe(1)
     evaluateGraphFull(nodes, edges, 6, 4, 4, groups)
     expect(usePlayerTransport.getState().controlSerial).toBe(1)
+    useHardwareInputStore.getState().setButton(press.id, false)
   })
 
   it('Music Player consumes a direct volume input as an absolute transport level', () => {

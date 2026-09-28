@@ -9,6 +9,7 @@ import {
   stepPaletteBankIndex,
 } from '../paletteBank'
 import { evaluateScalarSeries } from '../graphEvaluator'
+import { useHardwareInputStore } from '../hardwareInputStore'
 import { touchControlPlan } from '../wireFirstControls'
 import { exposedNodeInputs } from '../propertyInputs'
 import type { StudioEdge, StudioNode } from '../graphStore'
@@ -146,26 +147,47 @@ describe('PaletteBank in the evaluator', () => {
     // rule, and the bank has to be asking it rather than reading the level.
     const nodes = [
       node('bank', 'PaletteBank', BANK),
-      node('btn', 'Compare', { a: 1, b: 0 }),
+      node('btn', 'ButtonInput', {}),
     ]
-    const edges = [edge('e', 'btn', 'bank', 'result', 'next')]
+    const edges = [edge('e', 'btn', 'bank', 'pressed', 'next')]
+    useHardwareInputStore.getState().setButton('btn', true)
     // Ticks are frames, so these are 0s / 0.1s / 0.2s / 0.3s. Held from the
     // first one: the press lands once the 30ms debounce window has passed, and
     // the frames in between do not each count as one.
     expect(evaluateScalarSeries(nodes, edges, 'bank', 'index', [0, 6, 12, 18]))
       .toEqual([0, 1, 1, 1])
+    useHardwareInputStore.getState().setButton('btn', false)
   })
 
   it('wraps back to the first palette rather than running off the end', () => {
     const nodes = [
       node('bank', 'PaletteBank', { palettes: ['ocean', 'lava'] }),
-      node('btn', 'Compare', { a: 1, b: 0 }),
+      node('btn', 'ButtonInput', {}),
     ]
-    const edges = [edge('e', 'btn', 'bank', 'result', 'next')]
+    const edges = [edge('e', 'btn', 'bank', 'pressed', 'next')]
+    useHardwareInputStore.getState().setButton('btn', true)
     // Held past the 400ms repeat delay, which steps it off the end of a
     // two-palette bank and round to the front again.
     expect(evaluateScalarSeries(nodes, edges, 'bank', 'index', [0, 6, 36]))
       .toEqual([0, 1, 0])
+    useHardwareInputStore.getState().setButton('btn', false)
+  })
+
+  it('takes a computed one-frame pulse whole, so an Interval steps the bank', () => {
+    // Interval is true for a single frame. Under the 30ms contact debounce
+    // that frame was gone before it could count, and the bank never moved.
+    const nodes = [
+      node('bank', 'PaletteBank', BANK),
+      node('tick', 'Interval', { interval: 0.5 }),
+    ]
+    const edges = [edge('e', 'tick', 'bank', 'pulse', 'next')]
+    const frames = Array.from({ length: 121 }, (_, frame) => frame)
+    const index = evaluateScalarSeries(nodes, edges, 'bank', 'index', frames)
+    expect(index[29]).toBe(0)
+    expect(index[30]).toBe(1)
+    expect(index[60]).toBe(2)
+    expect(index[90]).toBe(0)
+    expect(index[120]).toBe(1)
   })
 
   it('leaves the cursor alone with nothing wired to it', () => {

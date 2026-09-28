@@ -52,7 +52,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   apart. A node doing both was tried and removed — see
   [auxiliary displays](../design/auxiliary-displays.md). Button debounce and
   rising-edge rules live once in `src/state/transportBridge.ts` so a press means
-  one thing to the evaluator and to the player sketch.
+  one thing to the evaluator and to the player sketch. Only a contact is
+  debounced: `src/state/pressSource.ts` names the sources that can bounce
+  (Button, Button Bank, Touch Button, and a Group Input, which may forward one)
+  and gives every other wired press a 0 ms window. A computed signal is
+  already clean, and Interval's or Beat Detect's pulse lasts one frame, so the
+  30 ms window swallowed it: an Interval into a Palette Bank's Next never
+  changed the palette. Every press sink, preview and firmware, asks the same
+  module. A test that stands a `Compare` in for a held button now tests the
+  clean path; use a `ButtonInput` driven through `useHardwareInputStore` to
+  test the debounce.
 - `src/state/songInfo.ts`'s `SONG_INFO_PORTS` is the one list behind the
   track-report outputs (title/artist/album/.../bitrate), but the node that
   spreads it is the **`SongInfo` unpacker**, not Music Player: the player

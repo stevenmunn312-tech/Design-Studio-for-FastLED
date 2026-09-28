@@ -3,6 +3,7 @@ import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/di
 import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from '../../state/displayRegistry'
 import { readDisplaySourceField } from '../../state/displaySourceFields'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/transportBridge'
+import { pressEdgeSettings } from '../../state/pressSource'
 import {
   segmentControllerFor,
   blankSegmentFrame,
@@ -578,7 +579,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           bs = blankButtonEdgeState(nowMs)
           state!.buttons[port] = bs
         }
-        return buttonEdge(bs, raw, nowMs, repeat, edgeSettings)
+        return buttonEdge(bs, raw, nowMs, repeat, pressEdgeSettings(edgeSettings, source?.data.nodeType))
       }
       applyLedControls(latch, {
         ledToggle: directButton('ledToggle', false),

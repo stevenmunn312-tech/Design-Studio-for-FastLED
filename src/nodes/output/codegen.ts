@@ -10,6 +10,7 @@ import {
 } from '../../state/nodeLibrary'
 import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/ledOutputRuntimeCpp'
 import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/playerControlsCpp'
+import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
 import { displayControlEdges } from '../../state/wireFirstControls'
 import { propertyInputsFor } from '../../state/propertyInputs'
 import {
@@ -607,7 +608,9 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         volumeExpr: null,
         brightnessExpr: null,
         patternPositionExpr: null,
-        settings: { debounceMs: 0, repeatDelayMs: 400, repeatIntervalMs: 120 },
+        // The preview's settings: a contact is debounced, and pressButton
+        // marks a computed source to skip it (state/pressSource.ts).
+        settings: normalizeButtonEdgeSettings({}),
         volumeStep: 0.05,
         brightnessStep: 0.05,
       })) ln(line)

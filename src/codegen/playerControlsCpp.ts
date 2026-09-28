@@ -38,6 +38,11 @@ export interface PlayerControlButtonEmit {
   /** Adjustment buttons repeat on a hold; one-shot actions do not. */
   repeat: boolean
   /**
+   * False for a computed source (state/pressSource.ts): it cannot bounce, and
+   * its one-frame pulse is the whole press, so it takes no debounce window.
+   */
+  debounce?: boolean
+  /**
    * `press` (the default) is the debounced rising edge of a contact. `tap`
    * fires once each time an integer gesture count moves: a screen Toggle's
    * value also follows its Set feedback, so only the count says a finger did
@@ -189,7 +194,7 @@ export function playerControlsServiceCpp(emit: PlayerControlsEmit): string[] {
   const edge = (button: PlayerControlButtonEmit) => button.edge === 'tap'
     ? `_pcE_${id}_${button.port}.update((uint32_t)(${button.expr}))`
     : `_pcE_${id}_${button.port}.update(${button.expr}, _pcNow_${id}, ${button.repeat}, `
-    + `${Math.round(settings.debounceMs)}u, ${Math.round(settings.repeatDelayMs)}u, ${Math.round(settings.repeatIntervalMs)}u)`
+    + `${button.debounce === false ? 0 : Math.round(settings.debounceMs)}u, ${Math.round(settings.repeatDelayMs)}u, ${Math.round(settings.repeatIntervalMs)}u)`
 
   // Actions: either end pressing it is a press.
   for (const port of ['playPause', 'previous', 'next', 'ledToggle', 'patternConfirm'] as const) {

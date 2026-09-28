@@ -1,4 +1,5 @@
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/transportBridge'
+import { pressEdgeSettings } from '../../state/pressSource'
 import { type StudioNode, useGraphStore } from '../../state/graphStore'
 import { songInfoOutputs, blankSongInfo, resolveSongInfo } from '../../state/songInfo'
 import {
@@ -152,7 +153,7 @@ function directPlayerActionControls(
       bs = blankButtonEdgeState(nowMs)
       state!.buttons[port] = bs
     }
-    return buttonEdge(bs, raw, nowMs, playerControlActionRepeats(port), edgeSettings)
+    return buttonEdge(bs, raw, nowMs, playerControlActionRepeats(port), pressEdgeSettings(edgeSettings, source?.data.nodeType))
   }
   if (active.includes('playPause')) controls.playPause = pressed('playPause')
   if (active.includes('previous')) controls.previous = pressed('previous')
@@ -1064,7 +1065,9 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         bs = blankButtonEdgeState(nowMs)
         state!.buttons[port] = bs
       }
-      return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, repeat, edgeSettings)
+      const wire = incoming.get(`${id}:${port}`)
+      const settings = pressEdgeSettings(edgeSettings, wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined)
+      return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, repeat, settings)
     }
 
     const upstreamValue = input(id, 'controlsIn', null)

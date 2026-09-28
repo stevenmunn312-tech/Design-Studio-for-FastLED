@@ -106,6 +106,7 @@ import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP, WORLEY_HASH_CPP } from './latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
 import { TURING_HELPER_CPP } from './turingHelperCpp'
+import { pressSourceBounces } from '../state/pressSource'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
 import {
   type StereoVuEmit,
@@ -763,7 +764,8 @@ export function generateCpp(
     const tap = toggle && document
       ? customDisplayLvglTapExpression({ id: safeId(toggle.documentId), document, bindings: {} }, toggle.widgetId)
       : null
-    return tap ? { port, expr: tap, repeat: false, edge: 'tap' } : { port, expr: boolExpr(nodeId, port), repeat }
+    if (tap) return { port, expr: tap, repeat: false, edge: 'tap' }
+    return { port, expr: boolExpr(nodeId, port), repeat, debounce: pressSourceBounces(wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined) }
   }
 
   function boolExpr(nodeId: string, portId: string): string {

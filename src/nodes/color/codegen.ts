@@ -2,6 +2,7 @@ import { asAnimatedImage, asImage } from '../../state/image'
 import { imagePaletteStops16 } from '../../state/imagePalette'
 import { hexToRgb, polineStops16 } from '../../state/polinePalette'
 import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
+import { pressEdgeSettings } from '../../state/pressSource'
 import { paletteBankEntries, PALETTE_BANK_FALLBACK, paletteBankLabel } from '../../state/paletteBank'
 import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -129,7 +130,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     }
     ln(`  CRGBPalette16 pal_${id}(${cppStops});`)
   },
-  PaletteBank({ node, id, p, ln, v, boolExpr, fastledPalette }) {
+  PaletteBank({ node, id, p, ln, v, boolExpr, fastledPalette, incoming, nodeMap }) {
     // Only the presets the author ticked are named here, so `usedPalettes`
     // records exactly those and `customPaletteDeclarationsCpp` declares
     // exactly those — the bank costs 48 bytes of RAM per palette it holds
@@ -145,6 +146,12 @@ export const COLOR_EMITTERS: NodeEmitters = {
       return
     }
     const edge = normalizeButtonEdgeSettings(p)
+    // A computed source's one-frame pulse is taken whole; only a contact is
+    // debounced (state/pressSource.ts), as in the preview.
+    const debounce = (port: string) => {
+      const wire = incoming.get(`${node.id}:${port}`)
+      return pressEdgeSettings(edge, wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined).debounceMs
+    }
     const count = refs.length
     ln(`  static const CRGBPalette16* const _pbPal_${id}[] = {${refs.map((ref) => `&${ref}`).join(', ')}};`)
     ln(`  static const char* const _pbName_${id}[] = {${entries.map((entry) => cppStringLiteral(paletteBankLabel(entry))).join(', ')}};`)
@@ -155,10 +162,11 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  { static bool _raw[2] = {false, false}, _stable[2] = {false, false};`)
     ln(`    static uint32_t _changed[2] = {0, 0}, _repeatAt[2] = {0, 0};`)
     ln(`    const bool _in[2] = {${boolExpr(node.id, 'next')}, ${boolExpr(node.id, 'previous')}};`)
+    ln(`    const uint32_t _debounce[2] = {${debounce('next')}u, ${debounce('previous')}u};`)
     ln(`    uint32_t _now = millis(); int _delta = 0;`)
     ln(`    for (int _i = 0; _i < 2; _i++) { bool _fired = false;`)
     ln(`      if (_in[_i] != _raw[_i]) { _raw[_i] = _in[_i]; _changed[_i] = _now; }`)
-    ln(`      if (_stable[_i] != _raw[_i] && _now - _changed[_i] >= ${edge.debounceMs}) {`)
+    ln(`      if (_stable[_i] != _raw[_i] && _now - _changed[_i] >= _debounce[_i]) {`)
     ln(`        _stable[_i] = _raw[_i];`)
     ln(`        if (_stable[_i]) { _repeatAt[_i] = _now + ${edge.repeatDelayMs}; _fired = true; } }`)
     ln(`      else if (_stable[_i] && (int32_t)(_now - _repeatAt[_i]) >= 0) {`)

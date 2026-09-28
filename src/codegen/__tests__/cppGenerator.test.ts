@@ -1388,6 +1388,36 @@ describe('generateCpp', () => {
     expect(cpp).toContain('if (_fired) _delta += (_i == 0) ? 1 : -1;')
   })
 
+  it('debounces a Palette Bank button but not a computed pulse', () => {
+    // Interval's pulse lasts one loop pass; under the button's 30 ms debounce
+    // it never counted, and the bank never moved.
+    const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'] })
+    const tick = node('tick', 'Interval', 'signal', { interval: 5 })
+    const btn = node('btn', 'ButtonInput', 'input', { pin: 4 })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([pb, tick, btn, sx, outputNode], [
+      edge('e0', 'tick', 'pb', 'pulse', 'next'),
+      edge('e1', 'btn', 'pb', 'pressed', 'previous'),
+      edge('e2', 'pb', 'sx', 'palette', 'paletteIn'),
+      edge('e3', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('const uint32_t _debounce[2] = {0u, 30u};')
+    expect(cpp).toContain('_now - _changed[_i] >= _debounce[_i]')
+  })
+
+  it('takes a computed pulse into an LED output action without the contact debounce', () => {
+    const tick = node('tick', 'Interval', 'signal', { interval: 5 })
+    const btn = node('btn', 'ButtonInput', 'input', { pin: 4 })
+    const solid = node('solid', 'SolidColor', 'pattern', {})
+    const cpp = generateCpp([tick, btn, solid, outputNode], [
+      edge('e0', 'tick', 'out', 'pulse', 'ledToggle'),
+      edge('e1', 'btn', 'out', 'pressed', 'brightnessUp'),
+      edge('e2', 'solid', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toMatch(/\.update\(n_tick_pulse, _pcNow_\w+, false, 0u,/)
+    expect(cpp).toMatch(/\.update\(n_btn_pressed, _pcNow_\w+, true, 30u,/)
+  })
+
   it('still produces a palette when the bank is empty', () => {
     // Everything downstream reads a palette, so an empty bank renders the
     // library default rather than refusing to build. Graph Health says so.
