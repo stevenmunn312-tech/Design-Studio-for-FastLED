@@ -22,15 +22,20 @@ than once.
 The Phase 1 fixture is one live field chain:
 
 ```text
-Slice Tiling (hex, depth 3) ───┐
-Slice Tiling (square, depth 2) ├─ Field Math ─ Field Math ─ Field → Frame ─ LED output
-Slice Tiling (triangle/custom) ┘
+Slice Tiling (hex, depth 3) ── Field × Cell ─┐
+Slice Tiling (square, depth 2) ──────────────├─ Field Math ─ Field Math ─ Field → Frame ─ LED output
+Slice Tiling (triangle/custom) ──────────────┘
 ```
 
 It exercises all three cell finders, both symmetry modes, all supported depth
 classes, a named preset, parsed custom bits, morphing, warping and hard/soft
-edges. Generation fails if any lattice block is absent or if the shared
-`_squareCell` helper is emitted more than once.
+edges. The hex tiling's Cell output is multiplied into its own field, so the
+fixture also declares `field_hex_cell` and calls `_latticeCellValue` with a
+seed. Generation fails if any lattice block is absent, if the Cell output's
+buffer or hash call is missing, or if the shared `_squareCell` helper is
+emitted more than once. Both fixtures map their field through Field → Frame,
+which now emits `LINEARBLEND_NOWRAP`, and declare `paldef_` tables that end
+on their palette's last colour.
 
 ## Reproduce
 
@@ -49,14 +54,18 @@ re-running the command.
 
 ## Result, 28 September 2026
 
+Re-run after the palette-table, Field → Frame and Slice Tiling Cell output
+changes. Phase 1 RAM rose by 2,048 bytes on both targets: the Cell output's
+buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
+
 | Fixture | Target | Core | Arduino CLI | FastLED | Result | Flash | RAM |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Phase 0 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 398,891 / 3,145,728 (12%) | 33,732 / 327,680 (10%) |
-| Phase 1 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 400,423 / 3,145,728 (12%) | 33,988 / 327,680 (10%) |
-| Phase 1 | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 250,000 / 1,048,576 (23%) | 36,468 / 80,192 (45%) |
+| Phase 0 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 398,899 / 3,145,728 (12%) | 33,732 / 327,680 (10%) |
+| Phase 1 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 400,591 / 3,145,728 (12%) | 36,036 / 327,680 (10%) |
+| Phase 1 | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 250,192 / 1,048,576 (23%) | 38,516 / 80,192 (48%) |
 
-Generated source: 6,147 bytes, SHA-256
-`d0ac565458da7e68555ef8a8604539a8e4fdb465f1b26c730de9d84e44491a97`.
+Generated source: 6,170 bytes, SHA-256
+`b83bc2739107d19f7abe4029df9dc11d343c5266e6c1ac1688560d3e9dd89e93`.
 
-Phase 1 generated source: 10,856 bytes, SHA-256
-`af3684607d38247ef4a1d0ee70e5c4c5300d4ad8a67637e25dd7a2be81918904`.
+Phase 1 generated source: 11,860 bytes, SHA-256
+`eff39c21aebf507964775d7e5c1918eb0e5df93e0808d9f1e4b391a52c18be54`.
