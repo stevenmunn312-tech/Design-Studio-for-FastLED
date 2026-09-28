@@ -138,7 +138,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `paletteCatalog.ts` therefore clamps, and a caller that wants a cycle wraps
   first, as `samplePalette` does. Palette Blend reads its two `CRGBPalette16`s
   entry by entry (`a[_i]`), because `ColorFromPalette(a, i*17)` smeared each
-  entry into the next and wrapped entry 15 round to entry 0.
+  entry into the next and wrapped entry 15 round to entry 0. A field's value
+  is an amount too: `evalFieldToFrame` clamps and Field → Frame emits
+  `LINEARBLEND_NOWRAP`, as does Noise's frame output, which shares that
+  evaluator. Wrapping there gave a hard-edged field's 1 the colour of its 0,
+  so a solid Slice Tiling slice vanished into the space around it.
 - A runtime property that can carry a wire is a **property input**, and
   `src/state/propertyInputs.ts` is the one registry: a node declares
   `propertyInputs` (property key -> an input port it *already* declares) and

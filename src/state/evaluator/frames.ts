@@ -1,4 +1,4 @@
-import { type Frame, type RGB, type Palette, samplePalette } from '../ledColor'
+import { type Frame, type RGB, type Palette, samplePaletteClamped } from '../ledColor'
 import { allocFrame, instanceState } from './memory'
 import type { Field } from './types'
 
@@ -117,12 +117,18 @@ export function heatColor(temperature: number): RGB {
   return { r: ramp, g: 0, b: 0 }
 }
 
+/**
+ * A field's value is an amount, so 1 is the palette's last colour. A wrapping
+ * lookup turned every full-scale pixel (a solid Slice Tiling slice, a filled
+ * Shape Field, anything above Field Levels' High) into the first colour, the
+ * same as 0. Firmware pairs this with `LINEARBLEND_NOWRAP`.
+ */
 export function evalFieldToFrame(field: Field | null, palette: Palette, brightness: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const bv = Math.max(0, Math.min(1, brightness))
   const b8 = (v: number) => Math.max(0, Math.min(255, Math.round(v * bv)))
   return buildFrame(W, H, (x, y) => {
       if (!field) return { r: 0, g: 0, b: 0 }
-      const c = samplePalette(palette, field[y * W + x])
+      const c = samplePaletteClamped(palette, field[y * W + x])
       return { r: b8(c.r), g: b8(c.g), b: b8(c.b) }
     })
 }

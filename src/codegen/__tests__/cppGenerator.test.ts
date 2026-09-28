@@ -2222,8 +2222,9 @@ describe('Float Field codegen', () => {
       [ff, f2f, outputNode],
       [edge('e1', 'ff', 'f2f', 'field', 'field'), edge('e2', 'f2f', 'out', 'frame', 'frame')],
     )
-    expect(cpp).toContain('ColorFromPalette(')
-    expect(cpp).toContain('field_ff[_i]*255')
+    // NOWRAP, as the evaluator clamps: a field of 1 keeps the last colour
+    // rather than blending back round to the first.
+    expect(cpp).toContain('buf_f2f[_i]=ColorFromPalette(paldef_ocean,(uint8_t)(field_ff[_i]*255),(uint8_t)(_br*255),LINEARBLEND_NOWRAP);')
   })
 
   it('emits the float shim helpers only when a formula uses them', () => {
@@ -2253,7 +2254,7 @@ describe('Float Field codegen', () => {
     )
     expect(cpp).toContain('float field_nz[NUM_LEDS];')
     expect(cpp).toContain('field_nz[_y*WIDTH+_x]=')
-    expect(cpp).toContain('buf_nz[_i]=ColorFromPalette(paldef_ocean,(uint8_t)(constrain(field_nz[_i],0.0f,1.0f)*255.0f));')
+    expect(cpp).toContain('buf_nz[_i]=ColorFromPalette(paldef_ocean,(uint8_t)(constrain(field_nz[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP);')
     expect(cpp).toContain('field_nz[_i]*255')
   })
 

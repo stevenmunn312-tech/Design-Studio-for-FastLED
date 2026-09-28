@@ -222,9 +222,11 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (!src) {
       ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     } else {
+      // NOWRAP, as the evaluator clamps: a field of 1 is the palette's last
+      // colour. LINEARBLEND blends indexes 241–255 back towards entry 0.
       ln(`  { float _br=constrain(${bright},0.0f,1.0f);`)
       ln(`    for(int _i=0;_i<NUM_LEDS;_i++)`)
-      ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${src}[_i]*255),(uint8_t)(_br*255)); }`)
+      ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${src}[_i]*255),(uint8_t)(_br*255),LINEARBLEND_NOWRAP); }`)
     }
   },
   // The inverse of FieldToFrame: a 0–1 brightness field from a rendered

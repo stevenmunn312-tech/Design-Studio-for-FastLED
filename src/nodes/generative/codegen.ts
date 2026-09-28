@@ -92,7 +92,9 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`  }`)
         break
     }
-    ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f));`)
+    // Mapped as Field → Frame maps it (the preview shares evalFieldToFrame):
+    // held at the top, so the field's highest values keep the last colour.
+    ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
   },
   Plasma({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true

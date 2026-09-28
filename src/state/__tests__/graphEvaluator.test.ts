@@ -3209,6 +3209,23 @@ describe('Float Field pipeline', () => {
     expect(frame.every((row) => row.every((p) => p.r === p0.r && p.g === p0.g && p.b === p0.b))).toBe(true)
   })
 
+  it('FieldToFrame maps a full-scale field to the palette\'s last colour', () => {
+    // A field value is an amount: 1 is the most, not once round the palette.
+    // Wrapping it made 1 the same colour as 0.
+    const colourOf = (formula: string) => {
+      const ff = node('ff', 'FieldFormula', 'pattern', { formula })
+      const f2f = node('f2f', 'FieldToFrame', 'composite', { palette: 'ocean', brightness: 1 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return evaluateGraph(
+        [ff, f2f, out],
+        [edge('e1', 'ff', 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'out', 'frame')],
+        0, W, H,
+      )![0][0]
+    }
+    expect(colourOf('1')).toEqual({ r: 216, g: 243, b: 255 })
+    expect(colourOf('0')).toEqual({ r: 3, g: 29, b: 68 })
+  })
+
   it('FieldToFrame brightness 0 yields black', () => {
     const ff = node('ff', 'FieldFormula', 'pattern', { formula: '0.5' })
     const f2f = node('f2f', 'FieldToFrame', 'composite', { palette: 'rainbow', brightness: 0 })
@@ -3453,6 +3470,29 @@ describe('Pattern node expansion — Phase 1 Slice Tiling', () => {
       expect([...first]).toEqual([...second])
       expect([...first].every((value) => value >= 0 && value <= 1)).toBe(true)
     }
+  })
+
+  it('shows solid and empty slices as different colours through Field → Frame', () => {
+    // A solid slice is 1 and an empty one 0; a wrapping palette lookup gave
+    // them the same colour, so the tiling vanished once it reached the LEDs.
+    const slice = node('slice-colour', 'SliceTiling', 'field', {
+      lattice: 'hex', depth: 2, symmetry: 'dihedral', preset: 'pinwheel',
+      cells: 1, rotation: 0, spin: 0, warp: 0, morph: 0, edge: 0,
+    })
+    const f2f = node('slice-colour-f2f', 'FieldToFrame', 'field', { palette: 'ocean', brightness: 1 })
+    const out = node('slice-colour-out', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull([slice, f2f, out], [
+      edge('slice-colour-field', slice.id, 'field', f2f.id, 'field'),
+      edge('slice-colour-frame', f2f.id, 'frame', out.id, 'frame'),
+    ], 0, 16, 16)
+    const field = outputs.get(slice.id)!.field as Float32Array
+    const frame = outputs.get(f2f.id)!.frame as Frame
+    const colourAt = (index: number) => frame[Math.floor(index / 16)][index % 16]
+    const solid = field.indexOf(1), empty = field.indexOf(0)
+    expect(solid).toBeGreaterThanOrEqual(0)
+    expect(empty).toBeGreaterThanOrEqual(0)
+    expect(colourAt(solid)).toEqual({ r: 216, g: 243, b: 255 })
+    expect(colourAt(empty)).toEqual({ r: 3, g: 29, b: 68 })
   })
 
   it('morphs custom patterns leaf-wise', () => {

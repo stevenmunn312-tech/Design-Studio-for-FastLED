@@ -101,7 +101,15 @@ Converts a `field` to a `frame` by looking up each pixel's scalar value in a pal
 This is a terminal node in any field chain. It is the only place palette
 choice is made, keeping field nodes palette-agnostic and reusable.
 
-Codegen: a per-pixel `ColorFromPalette(pal, v * 255, brightness * 255)` loop.
+A field value is an amount, so the lookup holds the palette's ends: 0 is its
+first colour and 1 its last. It does not wrap round, which would give 1 the
+same colour as 0 and make a hard-edged field (a solid Slice Tiling slice, a
+filled Shape Field, a Field Levels threshold) disappear. The preview samples
+with `samplePaletteClamped`; the Noise node's own frame output uses the same
+mapping.
+
+Codegen: a per-pixel
+`ColorFromPalette(pal, v * 255, brightness * 255, LINEARBLEND_NOWRAP)` loop.
 
 ---
 

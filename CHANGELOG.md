@@ -30,6 +30,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Field → Frame maps a field of 1 to the palette's last colour instead of
+  wrapping it round to the first, in the preview and on the LEDs. Solid Slice
+  Tiling slices, filled Shape Fields and Field Levels thresholds were coming
+  out the same colour as the empty space around them. The Noise node's own
+  frame output shares the mapping and gets the same fix.
+
 - Every built-in palette on the LEDs now ends on its last colour. The 16-colour
   table each sketch declares had its first colour copied into the last slot,
   so the brightest values of any pattern using a built-in palette turned dark
