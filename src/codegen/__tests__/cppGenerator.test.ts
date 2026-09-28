@@ -1205,11 +1205,12 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('ColorFromPalette(paldef_rainbow')
   })
 
-  it('resolves a connected PaletteBlend to its base palette A', () => {
+  it('resolves a connected PaletteBlend to the palette it blends', () => {
     const blend = node('bl', 'PaletteBlend', 'color', { paletteA: 'forest', paletteB: 'party', amount: 0.5 })
     const samp  = node('s', 'PaletteSampler', 'color', { t: 0.5 })
     const cpp = generateCpp([blend, samp], [edge('e1', 'bl', 's', 'palette', 'paletteIn')])
-    expect(cpp).toContain('ColorFromPalette(paldef_forest')
+    expect(cpp).toContain('ColorFromPalette(pal_bl')
+    expect(cpp).toContain('blend(paldef_forest[_i], paldef_party[_i], _amt)')
   })
 
   it('generates a self-contained eased palette sweep', () => {
@@ -1322,7 +1323,10 @@ describe('generateCpp', () => {
       edge('e2', 'sx', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('CRGBPalette16 pal_pb;')
-    expect(cpp).toContain('blend(ColorFromPalette(paldef_heat, _p), ColorFromPalette(paldef_ocean, _p), _amt)')
+    // Entry by entry, as the evaluator samples at i/15: no lookup at index
+    // 255 to wrap entry 15 round to entry 0.
+    expect(cpp).toContain('for (int _i = 0; _i < 16; _i++) pal_pb[_i] = blend(paldef_heat[_i], paldef_ocean[_i], _amt);')
+    expect(cpp).not.toContain('ColorFromPalette(paldef_heat')
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
   })
 

@@ -1563,6 +1563,23 @@ describe('evaluateGraph', () => {
     expect(driveSimplex(0)).not.toEqual(driveSimplex(1))
   })
 
+  it('PaletteBlend keeps each palette\'s last colour as its last entry', () => {
+    // Sampled at 15/15, a wrapping lookup lands back on the first stop, so the
+    // blend's brightest entry used to come out as heat's black.
+    const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 0 })
+    const sx = noise('sx', 'simplex')
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull(
+      [pb, sx, out],
+      [edge('e1', 'pb', 'palette', 'sx', 'paletteIn'), edge('e2', 'sx', 'frame', 'out', 'frame')],
+      0, 4, 4,
+    )
+    const blended = outputs.get('pb')!.palette as RGB[]
+    expect(blended).toHaveLength(16)
+    expect(blended[0]).toEqual({ r: 0, g: 0, b: 0 })
+    expect(blended[15]).toEqual({ r: 255, g: 243, b: 176 })
+  })
+
   it('FractalNoise produces a varied frame; octaves change the result', () => {
     const mk = (octaves: number) => {
       const fn = node('fn', 'FractalNoise', 'pattern', { speed: 0, scale: 0.2, octaves, palette: 'rainbow' })

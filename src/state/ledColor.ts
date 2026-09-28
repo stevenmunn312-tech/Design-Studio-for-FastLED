@@ -37,8 +37,23 @@ export function hsv(h: number, s: number, v: number): RGB {
   return { r: byte(r + m), g: byte(g + m), b: byte(b + m) }
 }
 
+/** The colour at a position that cycles round the palette: 1 wraps to 0. */
 export function samplePalette(palette: Palette, t: number): RGB {
-  const h = ((t % 1) + 1) % 1
+  return paletteAt(palette, ((t % 1) + 1) % 1)
+}
+
+/**
+ * The colour for a 0–1 amount, with the ends held rather than joined: 1 is
+ * the palette's last colour, where `samplePalette` would wrap it round to the
+ * first. Use it wherever full scale means "most" (a field's value, a 16-entry
+ * table sampled at i/15), not "once round". Firmware's twin is FastLED's
+ * `LINEARBLEND_NOWRAP`.
+ */
+export function samplePaletteClamped(palette: Palette, t: number): RGB {
+  return paletteAt(palette, Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0)
+}
+
+function paletteAt(palette: Palette, h: number): RGB {
   if (Array.isArray(palette)) {
     const stops = palette
     if (stops.length === 0) return { r: 0, g: 0, b: 0 }

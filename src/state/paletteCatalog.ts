@@ -87,7 +87,10 @@ function lerpRgb(a: PaletteRgb, b: PaletteRgb, t: number): PaletteRgb {
 function sampleStops(stops: readonly PaletteRgb[], t: number): PaletteRgb {
   if (stops.length === 0) return { r: 0, g: 0, b: 0 }
   if (stops.length === 1) return { ...stops[0] }
-  const h = ((t % 1) + 1) % 1
+  // A point along the stops, so 1 is the last stop. Whether a position wraps
+  // is the caller's decision (`samplePalette` wraps before it gets here);
+  // wrapping here as well made `paletteStops16`'s last entry the first stop.
+  const h = Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0
   const scaled = h * (stops.length - 1)
   const index = Math.floor(scaled)
   const mix = scaled - index

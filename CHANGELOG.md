@@ -30,6 +30,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Every built-in palette on the LEDs now ends on its last colour. The 16-colour
+  table each sketch declares had its first colour copied into the last slot,
+  so the brightest values of any pattern using a built-in palette turned dark
+  on hardware while the preview looked right. Palette Blend had the same
+  fault in the preview and in firmware, and its firmware now blends the two
+  palettes entry by entry, as the preview does.
+
 - A pattern or project named `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, or
   `LPT1`–`LPT9` no longer tries to create that device file on Windows. The
   saved name gains a trailing underscore (`CON_`).

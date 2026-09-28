@@ -171,7 +171,11 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  float ${v('index')} = (float)_pbIdx_${id};`)
   },
   PaletteBlend({ node, id, p, ln, f, paletteExpr }) {
-    // Build a CRGBPalette16 by blending both palettes entry-by-entry.
+    // Build a CRGBPalette16 by blending both palettes entry-by-entry. Every
+    // palette a port resolves to is itself a CRGBPalette16, so entry i is read
+    // directly — the i/15 sample the evaluator takes. Looking it up through
+    // ColorFromPalette at i*17 instead smeared each entry into the next and
+    // wrapped entry 15 (index 255) back round to entry 0.
     const a = paletteExpr(node.id, 'paletteA', { palette: p.paletteA })
     const b = paletteExpr(node.id, 'paletteB', { palette: p.paletteB })
     const amt = f('amount', 'amount', 0.5)
@@ -180,7 +184,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     // 0-1 slider the knob draws: unwired it can only be in range, but a
     // wire is free to hand over anything, and an unclamped 1.5 wraps
     // through this uint8_t cast to a blend nobody asked for.
-    ln(`  { uint8_t _amt = (uint8_t)(constrain(${amt}, 0.0f, 1.0f) * 255.0f); for (int _i = 0; _i < 16; _i++) { uint8_t _p = (uint8_t)(_i * 255 / 15);`)
-    ln(`    pal_${id}[_i] = blend(ColorFromPalette(${a}, _p), ColorFromPalette(${b}, _p), _amt); } }`)
+    ln(`  { uint8_t _amt = (uint8_t)(constrain(${amt}, 0.0f, 1.0f) * 255.0f);`)
+    ln(`    for (int _i = 0; _i < 16; _i++) pal_${id}[_i] = blend(${a}[_i], ${b}[_i], _amt); }`)
   },
 }

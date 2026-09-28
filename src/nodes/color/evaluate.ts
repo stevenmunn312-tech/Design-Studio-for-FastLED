@@ -15,7 +15,7 @@ import { displayString } from '../../state/displayText'
 import { imagePaletteStops16 } from '../../state/imagePalette'
 import { hexToRgb, polinePalette } from '../../state/polinePalette'
 import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/customPalette'
-import { type RGB, hsv, samplePalette } from '../../state/ledColor'
+import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
@@ -223,13 +223,15 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
   },
   PaletteBlend({ num, pal }, id, props) {
     // Sample both palettes at 16 stops and lerp per entry → a real blend.
+    // Clamped, so entry 15 is each palette's last colour: at 15/15 a wrapping
+    // sample lands back on the first, and the blend's brightest entry went dark.
     const amount = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.5)))
     const palA = pal(id, 'paletteA', props, 'paletteA', 'rainbow')
     const palB = pal(id, 'paletteB', props, 'paletteB', 'ocean')
     const stops: RGB[] = []
     for (let i = 0; i < 16; i++) {
       const ti = i / 15
-      const ca = samplePalette(palA, ti), cb = samplePalette(palB, ti)
+      const ca = samplePaletteClamped(palA, ti), cb = samplePaletteClamped(palB, ti)
       stops.push({
         r: Math.round(ca.r * (1 - amount) + cb.r * amount),
         g: Math.round(ca.g * (1 - amount) + cb.g * amount),

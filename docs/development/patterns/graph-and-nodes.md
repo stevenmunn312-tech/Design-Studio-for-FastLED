@@ -125,6 +125,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   underneath, and Blend is its one use. Reordering a node's inputs for the
   inspector's sake would otherwise move where a drop lands, so
   `nodeAuthoringMetadata.test.ts` asserts the invariant the default rests on.
+- A palette lookup either wraps or holds its ends, and the two are not
+  interchangeable. `samplePalette` (`ledColor.ts`) takes a *position* once
+  round the palette, so 1 wraps back to 0: right for a hue cycle or a scrolling
+  index, and FastLED's default `LINEARBLEND` wraps the same way from index 241
+  up. `samplePaletteClamped` takes an *amount*, so 1 is the last colour; its
+  firmware twin is `LINEARBLEND_NOWRAP`. Sampling a 16-entry table at i/15 is
+  taking amounts. A wrapping sample there once put every built-in palette's
+  first colour in its last slot (`paletteStops16`), so the brightest values
+  went dark on hardware while the preview, which samples the stops
+  continuously and wraps only at exactly 1, looked right. `sampleStops` in
+  `paletteCatalog.ts` therefore clamps, and a caller that wants a cycle wraps
+  first, as `samplePalette` does. Palette Blend reads its two `CRGBPalette16`s
+  entry by entry (`a[_i]`), because `ColorFromPalette(a, i*17)` smeared each
+  entry into the next and wrapped entry 15 round to entry 0.
 - A runtime property that can carry a wire is a **property input**, and
   `src/state/propertyInputs.ts` is the one registry: a node declares
   `propertyInputs` (property key -> an input port it *already* declares) and
