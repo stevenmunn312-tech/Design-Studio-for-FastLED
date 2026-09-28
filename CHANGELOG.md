@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Slice Tiling adds recursive solid/void polygon slices on hexagonal, square,
+  and triangular lattices, with twelve morphable presets, custom hexadecimal
+  patterns, tileable vertex warping, and matching preview/firmware geometry.
+
 - Field Levels, Field Lerp, and Shape Field begin the procedural-pattern
   expansion. Shapes now share signed-distance primitives between preview and
   generated firmware, and Shape Field can emit either coverage or a signed-

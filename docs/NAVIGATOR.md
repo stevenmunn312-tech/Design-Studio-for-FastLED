@@ -195,8 +195,12 @@ build/architecture overview aimed at contributors.
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
   - [Pattern-node firmware compile checks](development/pattern-node-compile-checks.md)
-    — the real Phase 0 Shape Field → Field Lerp → Field Levels graph on classic
-      ESP32, including the shared signed-distance helper guard and resource use.
+    — the Phase 0 field-helper graph on classic ESP32 and the Phase 1
+      three-lattice Slice Tiling graph on classic ESP32 plus ESP8266, including
+      shared-helper guards and resource use.
+  - [Slice Tiling design](development/design/slice-tiling.md)
+    — the section 4 recursive fan subdivision, section 6 warp constraint,
+      lattice geometry, custom-bit order and preview/firmware parity contract.
   - [Touch-button firmware compile checks](development/touch-button-compile-checks.md)
     — real normal/slideshow/player/no-touch fixtures for the Seeed Grove Touch
       Sensor, including the active-high plain-input guard and classic-ESP32

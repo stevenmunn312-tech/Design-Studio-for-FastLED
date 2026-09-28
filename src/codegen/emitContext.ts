@@ -130,6 +130,7 @@ export interface SketchEmitContext {
   needsShims: Need
   needsPhi: Need
   needsSdf: Need
+  needsLattice: Need
   needsDisplayText: { number: boolean; dateTime: boolean }
   segmentDisplays: SegmentDisplayEmit[]
   infoDisplays: InfoDisplayEmit[]

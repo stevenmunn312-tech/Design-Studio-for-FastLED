@@ -4,6 +4,7 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_FONT, textColumns } from '../../state/font'
 import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/micModules'
 import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/ledOutputForm'
+import { resolveSlicePattern } from '../../state/sliceTiling'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -2389,6 +2390,58 @@ describe('Pattern node expansion — Phase 0 codegen', () => {
     expect(cpp).toContain('_sdfMorphPolygon(_lx,_ly,_sides,_size)')
     expect(cpp).toContain('constrain(0.5f-_sd/(2.0f*_range),0.0f,1.0f)')
     expect(cpp.match(/static inline float _sdfPolygon\(/g)).toHaveLength(1)
+  })
+})
+
+describe('Pattern node expansion — Phase 1 Slice Tiling codegen', () => {
+  const generateSlice = (lattice: string) => {
+    const slice = node(`slice-${lattice}`, 'SliceTiling', 'field', {
+      lattice, depth: 3, symmetry: 'dihedral', preset: 'checker',
+      cells: 2, rotation: 10, spin: 15, warp: 0.25, morph: 0.4, edge: 0.05,
+    })
+    const f2f = node(`slice-map-${lattice}`, 'FieldToFrame', 'field', {})
+    return generateCpp([slice, f2f, outputNode], [
+      edge(`slice-field-${lattice}`, slice.id, f2f.id, 'field', 'field'),
+      edge(`slice-frame-${lattice}`, f2f.id, outputNode.id, 'frame', 'frame'),
+    ])
+  }
+
+  it.each([
+    ['hex', '_hexCell'],
+    ['square', '_squareCell'],
+    ['triangle', '_triCell'],
+  ])('emits the shared helper and selected %s finder', (lattice, finder) => {
+    const cpp = generateSlice(lattice)
+    expect(cpp).toContain(`/* SliceTiling: ${lattice}, depth 3 */`)
+    expect(cpp).toContain(`${finder}(_rx,_ry)`)
+    expect(cpp.match(/static inline _LatticeCell _squareCell/g)).toHaveLength(1)
+    expect(cpp).toContain('constrain(0.5f+0.3f*_warp,0.2f,0.8f)')
+    expect(cpp).toContain('const float _sector=6.283185307180f/_sides')
+  })
+
+  it('bakes preset bits into fixed byte arrays and never emits pattern text', () => {
+    const cpp = generateSlice('hex')
+    const pattern = resolveSlicePattern('checker', 3, '', '')
+    const literal = (bytes: Uint8Array) => Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
+    expect(cpp).toContain(`static const uint8_t _bits_slice_hex[8]={${literal(pattern.bits)}};`)
+    expect(cpp).toContain(`static const uint8_t _bitsB_slice_hex[8]={${literal(pattern.bitsB)}};`)
+    expect(cpp).not.toContain('checker')
+  })
+
+  it('turns invalid custom text into numeric all-solid bytes', () => {
+    const slice = node('slice-custom', 'SliceTiling', 'field', {
+      lattice: 'square', depth: 1, symmetry: 'rotational', preset: 'custom',
+      bits: '*/ injected', bitsB: 'not-hex', cells: 1, rotation: 0, spin: 0,
+      warp: 0, morph: 0, edge: 0,
+    })
+    const map = node('slice-custom-map', 'FieldToFrame', 'field', {})
+    const cpp = generateCpp([slice, map, outputNode], [
+      edge('slice-custom-field', slice.id, map.id, 'field', 'field'),
+      edge('slice-custom-frame', map.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('static const uint8_t _bits_slice_custom[8]={0x0f,0x00,0x00,0x00,0x00,0x00,0x00,0x00};')
+    expect(cpp).not.toContain('injected')
+    expect(cpp).not.toContain('not-hex')
   })
 })
 

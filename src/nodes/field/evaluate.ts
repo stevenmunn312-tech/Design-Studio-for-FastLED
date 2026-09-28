@@ -6,6 +6,8 @@ import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/eva
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
+import { fanFold, hexCell, squareCell, triCell } from '../../state/evaluator/lattice'
+import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from '../../state/sliceTiling'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
@@ -439,6 +441,73 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
   return out
 }
 
+function smoothstep01(edge: number, value: number): number {
+  if (edge <= 0) return value >= 0 ? 1 : 0
+  const t = Math.max(0, Math.min(1, value / edge))
+  return t * t * (3 - 2 * t)
+}
+
+/** Paper-style recursively quartered fan slices, repeated on a regular lattice. */
+export function evalSliceTiling(
+  lattice: string,
+  depthValue: number,
+  symmetry: string,
+  preset: unknown,
+  customBits: unknown,
+  customBitsB: unknown,
+  cellsValue: number,
+  rotationDeg: number,
+  spinDeg: number,
+  warpValue: number,
+  morphValue: number,
+  edgeValue: number,
+  t: number,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Field {
+  const out = allocField(W * H)
+  const depth = Math.max(1, Math.min(3, Math.round(depthValue)))
+  const cells = Math.max(0.5, Math.min(8, cellsValue))
+  const warp = Math.max(-1, Math.min(1, warpValue))
+  const morph = clamp01(morphValue)
+  const edge = Math.max(0, Math.min(0.5, edgeValue))
+  const pattern = resolveSlicePattern(preset, depth, customBits, customBitsB)
+  const matrices = buildSliceChildMatrices(warp)
+  const latticeType = lattice === 'square' || lattice === 'triangle' ? lattice : 'hex'
+  const sides = latticeType === 'hex' ? 6 : latticeType === 'square' ? 4 : 3
+  const radius = latticeType === 'hex' ? 2 / 3 : latticeType === 'square' ? Math.SQRT1_2 : 1 / Math.sqrt(3)
+  const sector = Math.PI * 2 / sides
+  const angle = -(rotationDeg + spinDeg * t) * Math.PI / 180
+  const cos = Math.cos(angle), sin = Math.sin(angle)
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const px = (x + 0.5 - W / 2) * cells / W
+      const py = (y + 0.5 - H / 2) * cells / W
+      const rx = cos * px - sin * py
+      const ry = sin * px + cos * py
+      const cell = latticeType === 'square' ? squareCell(rx, ry)
+        : latticeType === 'triangle' ? triCell(rx, ry) : hexCell(rx, ry)
+      let orient = 0
+      if (latticeType === 'hex') orient = -Math.PI / 6
+      else if (latticeType === 'triangle') orient = cell.flipped ? -Math.PI / 6 : Math.PI / 6
+      const oc = Math.cos(orient), os = Math.sin(orient)
+      const lx = oc * cell.x - os * cell.y
+      const ly = os * cell.x + oc * cell.y
+      const folded = fanFold(lx, ly, sides, symmetry === 'dihedral')
+      const sum = folded.x / (radius * Math.cos(sector / 2))
+      const difference = folded.y / (radius * Math.sin(sector / 2))
+      const lambda: [number, number, number] = [1 - sum, (sum - difference) / 2, (sum + difference) / 2]
+      const walked = walkSliceLeaf(lambda, depth, matrices)
+      const bitA = sliceBit(pattern.bits, walked.leaf)
+      const bitB = sliceBit(pattern.bitsB, walked.leaf)
+      const solid = bitA * (1 - morph) + bitB * morph
+      out[y * W + x] = solid * smoothstep01(edge, Math.min(...walked.lambda))
+    }
+  }
+  return out
+}
+
 export const FIELD_EVALUATORS: NodeEvaluators = {
   FieldFormula({ input, num, t, W, H, trusted }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
@@ -453,6 +522,23 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
     const octaves = num(id, 'octaves', props, 'octaves', 4)
     return { field: evalFieldNoise(speed, scale, octaves, t, W, H, normalizedSeed(props.seed)) }
+  },
+  SliceTiling({ num, t, W, H }, id, props) {
+    return { field: evalSliceTiling(
+      String(props.lattice ?? 'hex'),
+      Number(props.depth ?? 2),
+      String(props.symmetry ?? 'dihedral'),
+      props.preset ?? 'pinwheel',
+      props.bits,
+      props.bitsB,
+      num(id, 'cells', props, 'cells', 1),
+      num(id, 'rotation', props, 'rotation', 0),
+      num(id, 'spin', props, 'spin', 0),
+      num(id, 'warp', props, 'warp', 0),
+      num(id, 'morph', props, 'morph', 0),
+      num(id, 'edge', props, 'edge', 0.03),
+      t, W, H,
+    ) }
   },
   // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
   // selected by a dropdown instead of free text — see

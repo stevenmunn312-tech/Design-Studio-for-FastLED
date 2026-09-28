@@ -3417,6 +3417,43 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
   })
 })
 
+describe('Pattern node expansion — Phase 1 Slice Tiling', () => {
+  it('renders every lattice into a bounded deterministic field', () => {
+    for (const lattice of ['hex', 'square', 'triangle']) {
+      const slice = node(`slice-${lattice}`, 'SliceTiling', 'field', {
+        lattice, depth: 3, symmetry: 'dihedral', preset: 'snowflake',
+        cells: 1.5, rotation: 12, spin: 20, warp: 0.4, morph: 0.35, edge: 0.04,
+      })
+      const f2f = node(`f2f-${lattice}`, 'FieldToFrame', 'field', {})
+      const out = node(`out-${lattice}`, 'MatrixOutput', 'output', {})
+      const nodes = [slice, f2f, out]
+      const edges = [
+        edge(`field-${lattice}`, slice.id, 'field', f2f.id, 'field'),
+        edge(`frame-${lattice}`, f2f.id, 'frame', out.id, 'frame'),
+      ]
+      const first = evaluateGraphFull(nodes, edges, 30, W, H).outputs.get(slice.id)!.field as Float32Array
+      const second = evaluateGraphFull(nodes, edges, 30, W, H).outputs.get(slice.id)!.field as Float32Array
+      expect([...first]).toEqual([...second])
+      expect([...first].every((value) => value >= 0 && value <= 1)).toBe(true)
+    }
+  })
+
+  it('morphs custom patterns leaf-wise', () => {
+    const slice = node('slice-morph', 'SliceTiling', 'field', {
+      lattice: 'square', depth: 1, symmetry: 'rotational', preset: 'custom',
+      bits: '0', bitsB: 'f', cells: 1, rotation: 0, spin: 0,
+      warp: 0, morph: 0.25, edge: 0,
+    })
+    const f2f = node('slice-f2f', 'FieldToFrame', 'field', {})
+    const out = node('slice-out', 'MatrixOutput', 'output', {})
+    const nodes = [slice, f2f, out]
+    const edges = [edge('slice-field', slice.id, 'field', f2f.id, 'field'), edge('slice-frame', f2f.id, 'frame', out.id, 'frame')]
+    const field = evaluateGraphFull(nodes, edges, 0, W, H).outputs.get(slice.id)!.field as Float32Array
+    expect([...field].some((value) => Math.abs(value - 0.25) < 1e-6)).toBe(true)
+    expect([...field].every((value) => Math.abs(value) < 1e-6 || Math.abs(value - 0.25) < 1e-6)).toBe(true)
+  })
+})
+
 describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)

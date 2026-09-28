@@ -173,6 +173,13 @@ are shared with the frame-producing `Shape` node and its firmware helper.
   emitted once from `src/codegen/sdfHelperCpp.ts` behind `needsSdf`; both Shape
   and Shape Field call them, so their polygon maths cannot drift.
 
+### `SliceTiling` (category: `field`)
+
+Generates recursively subdivided solid/void fan slices on hexagonal, square,
+or triangular lattices. It is documented separately in the
+[Slice Tiling design note](slice-tiling.md), including its shared lattice
+geometry, custom hexadecimal leaf order, morph and firmware parity contract.
+
 ---
 
 ### `FieldWarp` (category: `composite`)

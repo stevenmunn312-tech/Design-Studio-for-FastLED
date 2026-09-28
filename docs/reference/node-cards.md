@@ -840,6 +840,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Noise example graph](../../public/node-cards/graphs/field-noise.svg)
 
+### Slice Tiling
+
+![Slice Tiling node](../../public/node-cards/slice-tiling.svg)
+
+![Slice Tiling example graph](../../public/node-cards/graphs/slice-tiling.svg)
+
 ### Wave Sim
 
 ![Wave Sim node](../../public/node-cards/wave-sim.svg)

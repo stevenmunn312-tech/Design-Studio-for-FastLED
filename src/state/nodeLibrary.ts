@@ -37,6 +37,7 @@ import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
+import { SLICE_PRESET_NAMES } from './sliceTiling'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   BH1750_DEFAULT_ADDRESS,
@@ -2937,6 +2938,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0 },
   },
   {
+    type: 'SliceTiling',
+    label: 'Slice Tiling',
+    category: 'field',
+    inputs: [
+      { id: 'cells', label: 'Cells', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
+      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'warp', label: 'Warp', dataType: 'float' },
+      { id: 'morph', label: 'Morph', dataType: 'float' },
+      { id: 'edge', label: 'Edge', dataType: 'float' },
+    ],
+    propertyInputs: {
+      cells: 'cells', rotation: 'rotation', spin: 'spin',
+      warp: 'warp', morph: 'morph', edge: 'edge',
+    },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: {
+      lattice: 'hex', depth: 2, symmetry: 'dihedral', preset: 'pinwheel',
+      bits: 'ffff', bitsB: '6996', cells: 1, rotation: 0, spin: 0,
+      warp: 0, morph: 0, edge: 0.03,
+    },
+  },
+  {
     // Curated closed-form fields, selected by a dropdown instead of typing a
     // FieldFormula expression — a third raw-field generator beside
     // FieldFormula (free-text) and FieldNoise (fBm). See
@@ -4320,6 +4344,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
+  SliceTiling: 'Recursive solid/void fan slices on hex, square or triangle lattices.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
@@ -4401,7 +4426,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5252,6 +5277,18 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     softness: N01,
     range: { control: 'slider', min: 0.01, max: 1, step: 0.01 },
   },
+  SliceTiling: {
+    lattice: { control: 'select', options: ['hex', 'square', 'triangle'] },
+    depth: { control: 'slider', min: 1, max: 3, step: 1 },
+    symmetry: { control: 'select', options: ['rotational', 'dihedral'] },
+    preset: { control: 'select', options: [...SLICE_PRESET_NAMES, 'custom'] },
+    cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 5 },
+    warp: { control: 'slider', min: -1, max: 1, step: 0.01 },
+    morph: N01,
+    edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
+  },
   Wireframe3D: {
     model:      { control: 'select', options: WIREFRAME_MODEL_OPTIONS },
     spinX:      { control: 'slider', min: -180, max: 180, step: 1 },
@@ -5599,6 +5636,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
     range: 'Distance on either side of the outline used to map the signed-distance field from 0 to 1.',
   },
+  SliceTiling: {
+    cells: 'Number of lattice polygons across the canvas width.',
+    warp: 'Moves the two radial subdivision points while the shared polygon edge remains at its tileable midpoint.',
+    morph: 'Interpolates each leaf between pattern A and pattern B.',
+    edge: 'Fades solid triangles inward from their boundaries; 0 is a hard fill.',
+    bits: 'Custom pattern A as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
+    bitsB: 'Custom pattern B as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
+  },
   ClockDisplay: {
     displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',
     durationSec: 'Countdown duration in seconds for Timer mode.',
@@ -5623,6 +5668,10 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     fieldMode: 'mode',
     cx: 'center X',
     cy: 'center Y',
+  },
+  SliceTiling: {
+    bits: 'pattern A',
+    bitsB: 'pattern B',
   },
   PresenceInput: {
     rxPin: 'RX (sensor TX)',
@@ -5896,6 +5945,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
     { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides'] },
     { key: 'output', label: 'Field', keys: ['fieldMode', 'softness', 'range'] },
+  ],
+  SliceTiling: [
+    { key: 'geometry', label: 'Geometry', keys: ['lattice', 'cells', 'rotation', 'spin', 'symmetry'] },
+    { key: 'subdivision', label: 'Subdivision', keys: ['depth', 'warp', 'edge'] },
+    { key: 'pattern', label: 'Pattern', keys: ['preset', 'bits', 'bitsB', 'morph'] },
   ],
   Wireframe3D: [
     { key: 'model', label: 'Model', keys: ['model'] },
@@ -6525,6 +6579,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'aspect') return shape === 'circle' || shape === 'rect'
     if (key === 'softness') return mode === 'fill'
     if (key === 'range') return mode === 'distance'
+  }
+  if (nodeType === 'SliceTiling' && (key === 'bits' || key === 'bitsB')) {
+    return properties.preset === 'custom'
   }
   if (nodeType === 'Wireframe3D' && key === 'perspectiveStrength') {
     return properties.projection === 'perspective'

@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phase 0 complete** · Owner: app · Date: 2026-09-28
+Status: **in progress — Phases 0–1 complete** · Owner: app · Date: 2026-09-28
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -154,86 +154,13 @@ The shipped node contracts, SDF-morph recipe and shared-helper architecture now
 live in that design note. The compile record carries the reproducible generated
 fixture, toolchain versions, source hash and resource figures.
 
-## Phase 1 — Slice Tiling (`SliceTiling`, category `field`)
+## Phase 1 — Slice Tiling — **complete**
 
-The paper's section 4, turned into a stateless per-pixel field. A regular
-polygon is a fan of isosceles triangles from its centre; a *slice* is one fan
-triangle recursively split one-to-four with each sub-triangle solid or void;
-rotating the slice around the centre gives the polygon's pattern, and a lattice
-of those polygons tiles the plane. Section 6's vertex perturbation becomes a
-wireable knob so the geometry morphs continuously.
-
-Contract:
-
-- Inputs (all property inputs): `cells` (float, polygons across the canvas
-  width, slider 0.5–8, default 1), `rotation` (deg), `spin` (deg/s), `warp`
-  (float −1..1), `morph` (float 0–1), `edge` (float 0–0.5). Output `field`.
-- Properties: `lattice` select `['hex', 'square', 'triangle']`, `depth`
-  slider 1–3, `symmetry` select `['rotational', 'dihedral']`, `preset` select
-  (named bit patterns plus `'custom'`), `bits` and `bitsB` hex strings of
-  `4^depth` bits (enabled only while `preset` is `'custom'`).
-- Per frame: sector `= 2π / n` with `n` the polygon's side count; the
-  radial-edge split fraction `s = clamp(0.5 + 0.3 * warp, 0.2, 0.8)`; the base
-  edge split stays at 0.5 so adjacent polygons still meet (the paper's
-  tileability rule); the four child-triangle maps per level are precomputed as
-  barycentric 3×3 matrices from those split points.
-- Per pixel: scale pixel centre into lattice units by `cells / W`, rotate by
-  `−(rotation + spin·t)`; find the containing cell (square: round; hex: axial
-  rounding; triangle: row parity, flipping `y` for a down-pointing cell); take
-  local coordinates from the cell centre; fold the angle into one sector, and
-  for `dihedral` reflect odd sectors; convert to barycentric coordinates of the
-  fan triangle; walk `depth` levels, at each classifying the point by the
-  three half-plane tests against the split points and multiplying by that
-  child's matrix, accumulating the leaf index `leaf = leaf * 4 + child`; read
-  bit `leaf` of `bits` and of `bitsB`; output
-  `lerp(bitA, bitB, morph) * smoothstep(0, edge, min(λ0, λ1, λ2))`, so `edge`
-  fades each solid triangle inward from its boundary and 0 is a hard fill.
-- The `bits` string is a flat leaf string, a superset of the paper's tree
-  encoding (a void parent with solid children is expressible). Presets ship
-  a dozen named strings chosen by eye from the paper's figures, in a shared
-  `src/state/sliceTiling.ts` that both sides read; an unparseable custom
-  string renders all-solid.
-- Readability sets the useful depth on a small matrix:
-
-  | Depth | Leaves per slice | Reads on a 16×16 matrix at |
-  |---|---|---|
-  | 1 | 4 | two or three polygons across |
-  | 2 | 16 | one polygon filling the matrix |
-  | 3 | 64 | 32×32 and up |
-
-- Cost: no state; per pixel one `atan2`, a few dozen float operations and
-  `depth` matrix multiplies. Cheaper than Field Noise.
-
-Checklist:
-
-- [ ] `src/state/evaluator/lattice.ts`: `squareCell`, `hexCell`, `triCell`
-      and `fanFold`, with unit tests on cell centres and sector folding
-      (every pixel maps to exactly one cell; fold is idempotent).
-- [ ] `src/codegen/latticeHelperCpp.ts` behind `needsLattice`, same three
-      cell finders and the fold as `static inline` functions.
-- [ ] `src/state/sliceTiling.ts`: bit-string parsing to a byte array, the
-      preset table, and the per-frame child-matrix builder, exported for both
-      sides.
-- [ ] Preview handler in `src/nodes/field/evaluate.ts`.
-- [ ] Emitter in `src/nodes/field/codegen.ts`: presets and parsed bytes land
-      as `static const uint8_t _bits_<id>[8]` literals, never as text.
-- [ ] Library entry: ports in the order above, `isPropertyEnabled` disables
-      `bits`/`bitsB` unless `preset` is `'custom'`, `edge`/`morph`/`warp`
-      ranges in `PROPERTY_META`, `CATEGORY_NODE_ORDER.field` after Field
-      Noise.
-- [ ] Tests: every preset at depths 1–3 is deterministic and within 0–1; a
-      pixel's leaf index agrees between a direct TypeScript walk and the
-      evaluator; `warp = 0` reproduces the midpoint subdivision exactly;
-      `morph` interpolates leaf-wise; the emitted C++ block per lattice.
-- [ ] Parity test: evaluate the C++ block with a small interpreter is out of
-      scope, so instead assert the emitted code contains the same split
-      fraction, sector and preset bytes the evaluator used for that node.
-- [ ] Docs: README, node card, `NODE_DESCRIPTIONS`, help copy for `bits`
-      (hex, `4^depth` bits, leaf order), design note
-      `docs/development/design/slice-tiling.md` citing the paper's sections
-      4 and 6.
-- [ ] Compile check on classic ESP32 and ESP8266 (integer-heavy, so the
-      8266 is the interesting one).
+The shipped contract, paper provenance, lattice geometry, custom-bit format,
+preset/morph behaviour and shared preview/firmware architecture live in the
+[Slice Tiling design note](../design/slice-tiling.md). Classic ESP32 and
+ESP8266 results, source hash and resource figures are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 2 — Frame Warp (`FrameWarp`, category `composite`)
 

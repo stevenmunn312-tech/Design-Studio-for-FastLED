@@ -497,6 +497,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Code: [],
     FieldFormula: ['a'],
     FieldNoise: ['speed', 'scale'],
+    SliceTiling: ['cells', 'rotation', 'morph'],
     WaveSim: ['trigger', 'impulse'],
     DistanceField: ['px', 'py'],
     FieldRotate: ['field', 'angle'],

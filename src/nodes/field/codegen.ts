@@ -4,6 +4,11 @@ import { isNodeFormulaValid } from '../../state/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
+import { resolveSlicePattern } from '../../state/sliceTiling'
+
+function byteArray8(bytes: Uint8Array): string {
+  return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
+}
 
 export const FIELD_EMITTERS: NodeEmitters = {
   FieldFormula({ p, ln, f, ownField, srcField, needsT, needsShims, needsPhi }) {
@@ -47,6 +52,42 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
     ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
     ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+  },
+  SliceTiling({ id, p, ln, f, ownField, needsT, needsLattice, globalLines }) {
+    needsT.v = true
+    needsLattice.v = true
+    const of = ownField()
+    const depth = Math.max(1, Math.min(3, Math.round(Number(p.depth ?? 2))))
+    const pattern = resolveSlicePattern(p.preset ?? 'pinwheel', depth, p.bits, p.bitsB)
+    globalLines.push(`static const uint8_t _bits_${id}[8]={${byteArray8(pattern.bits)}};`)
+    globalLines.push(`static const uint8_t _bitsB_${id}[8]={${byteArray8(pattern.bitsB)}};`)
+    const lattice = ['square', 'triangle'].includes(String(p.lattice)) ? String(p.lattice) : 'hex'
+    const sides = lattice === 'hex' ? 6 : lattice === 'square' ? 4 : 3
+    const radius = lattice === 'hex' ? '0.666666666667f' : lattice === 'square' ? '0.707106781187f' : '0.577350269190f'
+    const finder = lattice === 'square' ? '_squareCell' : lattice === 'triangle' ? '_triCell' : '_hexCell'
+    const dihedral = String(p.symmetry ?? 'dihedral') === 'dihedral' ? 'true' : 'false'
+    ln(`  { /* SliceTiling: ${lattice}, depth ${depth} */`)
+    ln(`    float _cells=constrain(${f('cells', 'cells', 1)},0.5f,8.0f),_warp=constrain(${f('warp', 'warp', 0)},-1.0f,1.0f);`)
+    ln(`    float _morph=constrain(${f('morph', 'morph', 0)},0.0f,1.0f),_edge=constrain(${f('edge', 'edge', 0.03)},0.0f,0.5f);`)
+    ln(`    float _split=constrain(0.5f+0.3f*_warp,0.2f,0.8f),_matrices[4][9]; _sliceBuildMatrices(_split,_matrices);`)
+    ln(`    float _angle=-(${f('rotation', 'rotation', 0)}+${f('spin', 'spin', 0)}*t)*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    ln(`    const int _sides=${sides}; const float _sector=6.283185307180f/_sides,_radius=${radius};`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
+    ln(`      float _rx=_cr*_px-_sr*_py,_ry=_sr*_px+_cr*_py; _LatticeCell _cell=${finder}(_rx,_ry);`)
+    if (lattice === 'hex') {
+      ln(`      float _orient=-0.523598775598f;`)
+    } else if (lattice === 'triangle') {
+      ln(`      float _orient=_cell.flipped?-0.523598775598f:0.523598775598f;`)
+    } else {
+      ln(`      float _orient=0.0f;`)
+    }
+    ln(`      float _oc=cosf(_orient),_os=sinf(_orient),_lx=_oc*_cell.x-_os*_cell.y,_ly=_os*_cell.x+_oc*_cell.y;`)
+    ln(`      _FanFold _fold=_fanFold(_lx,_ly,_sides,${dihedral});`)
+    ln(`      float _sum=_fold.x/(_radius*cosf(_sector*0.5f)),_dif=_fold.y/(_radius*sinf(_sector*0.5f));`)
+    ln(`      float _lambda[3]={1.0f-_sum,(_sum-_dif)*0.5f,(_sum+_dif)*0.5f}; int _leaf=_sliceWalk(_lambda,${depth},_matrices);`)
+    ln(`      float _a=_sliceBit(_bits_${id},_leaf),_b=_sliceBit(_bitsB_${id},_leaf),_solid=_a*(1.0f-_morph)+_b*_morph;`)
+    ln(`      float _inside=min(_lambda[0],min(_lambda[1],_lambda[2])); ${of}[_y*WIDTH+_x]=_solid*_sliceEdge(_inside,_edge); } }`)
   },
   // Curated closed-form fields — exact same math as evalFormulaField in
   // graphEvaluator.ts (no approximation gap, unlike inoise8-backed fields),
