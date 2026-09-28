@@ -384,6 +384,70 @@ describe('StudioNode', () => {
     expect(handle.style.top).toBe('50%')
   })
 
+  /*
+   * An action input is a press with no property behind it, so it has no field
+   * row to carry its socket the way an exposed property does. Exposing one has
+   * to draw it as a port row of its own: filtering it out of the always-drawn
+   * rows and drawing it nowhere else left the Palette Bank, whose only inputs
+   * are Next and Previous, with no input sockets at all.
+   */
+  it('draws the Palette Bank Next and Previous sockets by default, each on its own port row', () => {
+    const view = renderNode(makeNode('PaletteBank', { palettes: ['ocean', 'lava'] }))
+    for (const [port, label] of [['next', 'Next'], ['previous', 'Previous']]) {
+      const handles = view.container.querySelectorAll(`[data-handle="target:${port}"]`)
+      expect(handles, port).toHaveLength(1)
+      const row = handles[0].parentElement as HTMLElement
+      expect(within(row).getByText(label)).toBeTruthy()
+      // Still a landing spot for the Touch node's add-control socket.
+      expect(row.getAttribute('data-property-input')).toBe(`n1|${port}`)
+    }
+  })
+
+  it('draws an exposed action input while it is exposed or wired, and not otherwise', () => {
+    const n = makeNode('PaletteBank', { palettes: ['ocean', 'lava'] })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    function ConnectedNode() {
+      const current = useGraphStore((s) => s.nodes[0])
+      return <StudioNode {...({ id: current.id, data: current.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
+    }
+    const view = render(<ConnectedNode />)
+
+    fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
+    fireEvent.click(view.getByRole('menuitem', { name: /Hide action: Previous/ }))
+    expect(view.container.querySelector('[data-handle="target:previous"]')).toBeNull()
+    expect(view.container.querySelector('[data-handle="target:next"]')).toBeTruthy()
+
+    fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
+    fireEvent.click(view.getByRole('menuitem', { name: /Expose action: Previous/ }))
+    expect(view.container.querySelector('[data-handle="target:previous"]')).toBeTruthy()
+
+    // An edge overrides the list, exactly as it does for a property socket.
+    act(() => {
+      useGraphStore.setState({
+        nodes: [{ ...n, data: { ...n.data, exposedInputs: [] } }],
+        edges: [{ id: 'next-wire', source: 'btn', sourceHandle: 'pressed', target: n.id, targetHandle: 'next' }],
+      })
+    })
+    expect(view.container.querySelector('[data-handle="target:next"]')).toBeTruthy()
+    expect(view.container.querySelector('[data-handle="target:previous"]')).toBeNull()
+  })
+
+  it('keeps an LED output action hidden until it is exposed, then gives it a socket', () => {
+    const n = makeNode('MatrixOutput', { form: 'matrix', width: 16, height: 16, enabled: true, outputBrightness: 1 })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    function ConnectedNode() {
+      const current = useGraphStore((s) => s.nodes[0])
+      return <StudioNode {...({ id: current.id, data: current.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
+    }
+    const view = render(<ConnectedNode />)
+    expect(view.container.querySelector('[data-handle="target:ledToggle"]')).toBeNull()
+
+    fireEvent.click(view.getByRole('button', { name: 'Expose input…' }))
+    fireEvent.click(view.getByRole('menuitem', { name: /Expose action: Toggle blackout/ }))
+    expect(view.container.querySelectorAll('[data-handle="target:ledToggle"]')).toHaveLength(1)
+    expect(view.container.querySelector('[data-handle="target:brightnessUp"]')).toBeNull()
+  })
+
   it('shows the active clock layout instead of unrelated display choices', () => {
     const rtc = { ...makeNode('RTCInput', {}), id: 'rtc' }
     const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Now Playing' }), id: 'panel' }

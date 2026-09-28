@@ -1246,8 +1246,14 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const exposableInputs = exposableInputsFor(d.nodeType)
   const exposedInputs = exposedNodeInputs(d.nodeType, d.exposedInputs, new Set(sourceMap.keys()))
   const exposedInputIds = exposedInputs.map((port) => port.id)
-  const inputs = declaredInputs.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id))
-  const compactInputs = [...inputs, ...exposedInputs]
+  const alwaysDrawnInputs = declaredInputs.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id))
+  // An exposed property input draws its socket on its own field row. An action
+  // input is a press with no field behind it, so exposing one gives it a port
+  // row instead, in declaration order; without that, the Palette Bank's Next
+  // and Previous had no socket at all on an expanded node.
+  const exposedActionIds = new Set(exposedInputs.filter((port) => port.kind === 'action').map((port) => port.id))
+  const inputs = declaredInputs.filter((port) => alwaysDrawnInputs.includes(port) || exposedActionIds.has(port.id))
+  const compactInputs = [...alwaysDrawnInputs, ...exposedInputs]
   const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
   const rowCount = d.nodeType === 'ButtonBank' || d.nodeType === 'IRRemoteInput'
     ? 0
@@ -1849,9 +1855,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           const inputColor = input ? portColor(input.dataType) : null
           const outputColor = output ? portColor(output.dataType) : null
           /*
-           * An always-drawn input is still backed by a property, so it is a
-           * drop target for the Touch node's add-control socket exactly as a
-           * hidden property row is — tagged the same way, read off the DOM by
+           * An always-drawn input is still backed by a property, and an exposed
+           * action row by its `actionInputs` entry, so either is a drop target
+           * for the Touch node's add-control socket exactly as a hidden
+           * property row is — tagged the same way, read off the DOM by
            * the canvas. Judged with this node's own properties and whether
            * the port is already driven, or the hint in the air would claim a
            * control is possible on a port that will refuse it on release.

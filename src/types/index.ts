@@ -32,7 +32,7 @@ export interface NodeDefinition {
   propertyInputs?: Record<string, string>
   /** Optional action/control input ids shown on demand like property inputs. */
   actionInputs?: string[]
-  /** Property inputs shown before the user chooses an exposure list. */
+  /** Property and action inputs shown before the user chooses an exposure list. */
   defaultExposedInputs?: string[]
   /**
    * Which input an existing noodle should land on when this node is dropped

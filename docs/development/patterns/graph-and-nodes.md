@@ -182,7 +182,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rule rather than reading `def.inputs`: `StudioNode`'s port rows, the canvas's
   accessible input *count*, and `scripts/generate-node-card-svgs.ts`, which
   draws the socket on the property row and would otherwise list a property twice
-  per card. Declaring one can cost more than a registry row: `FormulaField`'s
+  per card. An exposed *action* input (`actionInputs` — a press with no
+  property behind it, such as the Palette Bank's Next/Previous or an LED
+  output's Toggle blackout) has no field row to carry its socket, so
+  `StudioNode` draws it as a port row of its own, in declaration order; taking
+  exposables out of the port rows without that drew action sockets only on a
+  minimized node, leaving the Palette Bank with no input sockets at all while
+  the canvas's accessible input count still announced two of them.
+  Declaring one can cost more than a registry row: `FormulaField`'s
   seventeen knobs were *baked as float literals* by `cppGenerator.ts` ("the
   variant isn't wired, so there's nothing to branch on at runtime"), so making
   them property inputs meant hoisting each to a per-frame `float` local fed by
