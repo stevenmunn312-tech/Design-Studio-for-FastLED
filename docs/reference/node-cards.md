@@ -998,6 +998,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Trails example graph](../../public/node-cards/graphs/trails.svg)
 
+### Frame Warp
+
+![Frame Warp node](../../public/node-cards/frame-warp.svg)
+
+![Frame Warp example graph](../../public/node-cards/graphs/frame-warp.svg)
+
 ### Frame Feedback
 
 ![Frame Feedback node](../../public/node-cards/frame-feedback.svg)

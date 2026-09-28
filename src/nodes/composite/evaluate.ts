@@ -1,5 +1,5 @@
 import { type Frame, type RGB, hsv } from '../../state/ledColor'
-import type { NodeEvaluators } from '../../state/evaluator/types'
+import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
   DEFAULT_W,
   DEFAULT_H,
@@ -10,6 +10,8 @@ import {
   scaleRgb,
   blankFrame,
   byte,
+  sampleFrame,
+  type FrameEdgeMode,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
 
@@ -356,6 +358,29 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     }
     trailState.set(key, buf)
     return { frame: buf }
+  },
+  // Milkdrop-style per-pixel frame displacement. The transform is an inverse
+  // read (zoom/rotate about the canvas centre), then dx/dy push that read in
+  // source-pixel units. An absent offset field is neutral at 0.5.
+  FrameWarp({ input, num, W, H }, id, props) {
+    const src = input(id, 'frame', null) as Frame | null
+    if (!src) return { frame: null }
+    const dx = input(id, 'dx', null) as Field | null
+    const dy = input(id, 'dy', null) as Field | null
+    const strength = Math.max(0, Math.min(8, num(id, 'strength', props, 'strength', 2)))
+    const zoom = Math.max(0.25, Math.min(4, num(id, 'zoom', props, 'zoom', 1)))
+    const angle = Math.max(-180, Math.min(180, num(id, 'rotate', props, 'rotate', 0))) * Math.PI / 180
+    const co = Math.cos(angle), si = Math.sin(angle)
+    const cx = (W - 1) / 2, cy = (H - 1) / 2
+    const edgeMode: FrameEdgeMode = props.edgeMode === 'wrap' || props.edgeMode === 'black' ? props.edgeMode : 'clamp'
+    const bilinear = props.sampling !== 'nearest'
+    return { frame: buildFrame(W, H, (x, y) => {
+      const px = (x - cx) / zoom, py = (y - cy) / zoom
+      const i = y * W + x
+      const sx = cx + px * co + py * si + (2 * (dx?.[i] ?? 0.5) - 1) * strength
+      const sy = cy - px * si + py * co + (2 * (dy?.[i] ?? 0.5) - 1) * strength
+      return sampleFrame(src, sx, sy, edgeMode, bilinear)
+    }) }
   },
   // Bounded recursive frame feedback. The node stores its own output in a
   // ring buffer, then composites a delayed, faded/transformed copy over the

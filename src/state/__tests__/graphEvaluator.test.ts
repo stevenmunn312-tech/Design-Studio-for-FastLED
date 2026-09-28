@@ -3356,6 +3356,53 @@ describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () =
   })
 })
 
+describe('Pattern node expansion — Phase 2 Frame Warp', () => {
+  const source = () => node('warp-source', 'GradientFrame', 'pattern', {
+    rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0, vertical: false,
+  })
+  const output = () => node('warp-output', 'MatrixOutput', 'output', {})
+
+  function render(properties: Record<string, unknown>, dxFormula?: string): Frame {
+    const src = source()
+    const warp = node('frame-warp', 'FrameWarp', 'composite', properties)
+    const out = output()
+    const nodes = [src, warp, out]
+    const edges = [
+      edge('warp-frame-in', src.id, 'frame', warp.id, 'frame'),
+      edge('warp-frame-out', warp.id, 'frame', out.id, 'frame'),
+    ]
+    if (dxFormula != null) {
+      const dx = node('warp-dx', 'FieldFormula', 'field', { formula: dxFormula })
+      nodes.splice(1, 0, dx)
+      edges.push(edge('warp-dx-in', dx.id, 'field', warp.id, 'dx'))
+    }
+    return evaluateGraph(nodes, edges, 0, W, H)!
+  }
+
+  it('is an exact identity with neutral transform and no offset fields', () => {
+    const frame = render({ strength: 2, zoom: 1, rotate: 0, edgeMode: 'clamp', sampling: 'bilinear' })
+    expect(frame[0].map((px) => px.r)).toEqual([0, 85, 170, 255])
+  })
+
+  it('uses a constant offset field to shift by strength pixels', () => {
+    const frame = render({ strength: 1, sampling: 'nearest' }, '1')
+    expect(frame[0].map((px) => px.r)).toEqual([85, 170, 255, 255])
+  })
+
+  it('distinguishes clamp, wrap, and black at the source boundary', () => {
+    const last = (edgeMode: string) => render({ strength: 1, edgeMode, sampling: 'nearest' }, '1')[0][W - 1].r
+    expect(last('clamp')).toBe(255)
+    expect(last('wrap')).toBe(0)
+    expect(last('black')).toBe(0)
+    expect(render({ strength: 0.5, edgeMode: 'black', sampling: 'bilinear' }, '1')[0][W - 1].r).toBe(128)
+  })
+
+  it('bilinear sampling is exact at integral coordinates and blends fractional ones', () => {
+    expect(render({ strength: 1, sampling: 'bilinear' }, '1')[0][0].r).toBe(85)
+    expect(render({ strength: 1, sampling: 'bilinear' }, '0.75')[0][0].r).toBe(43)
+  })
+})
+
 describe('Pattern node expansion — Phase 0 field helpers', () => {
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, 0, W, H)

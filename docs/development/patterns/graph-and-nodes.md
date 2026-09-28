@@ -143,6 +143,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `LINEARBLEND_NOWRAP`, as does Noise's frame output, which shares that
   evaluator. Wrapping there gave a hard-edged field's 1 the colour of its 0,
   so a solid Slice Tiling slice vanished into the space around it.
+- Floating-point frame reads share `sampleFrame` in `evaluator/frames.ts` and
+  `_sampleFrame` from `frameSampleHelperCpp.ts`; add edge policies or rounding
+  changes there rather than inside a node. Frame Warp uses the pair directly.
+  The 3D transitions use its scaled form so depth shading stays inside the
+  weighted sum and RGB is still quantised exactly once.
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it

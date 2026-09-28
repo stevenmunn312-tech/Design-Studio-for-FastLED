@@ -90,6 +90,69 @@ export function mixRgb(a: RGB, b: RGB, t: number): RGB {
   return { r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) }
 }
 
+export type FrameEdgeMode = 'clamp' | 'wrap' | 'black'
+
+function sampleCoordinate(value: number, size: number, edgeMode: FrameEdgeMode): number | null {
+  if (edgeMode === 'wrap') return ((value % size) + size) % size
+  if (edgeMode === 'black' && (value < 0 || value >= size)) return null
+  return Math.max(0, Math.min(size - 1, value))
+}
+
+function framePixel(frame: Frame, x: number, y: number, edgeMode: FrameEdgeMode): RGB {
+  const H = frame.length
+  const W = frame[0]?.length ?? 0
+  if (W === 0 || H === 0) return { r: 0, g: 0, b: 0 }
+  const sx = sampleCoordinate(x, W, edgeMode)
+  const sy = sampleCoordinate(y, H, edgeMode)
+  if (sx == null || sy == null) return { r: 0, g: 0, b: 0 }
+  return frame[sy][sx]
+}
+
+/** Sample a frame at floating-point pixel coordinates. Integer coordinates
+ * address pixel centres. */
+export function sampleFrame(
+  frame: Frame,
+  fx: number,
+  fy: number,
+  edgeMode: FrameEdgeMode = 'clamp',
+  bilinear = true,
+): RGB {
+  return sampleFrameScaled(frame, fx, fy, edgeMode, bilinear, 1)
+}
+
+/** Transition-only shaded form. Keeping the scale inside the weighted sum
+ * preserves the existing single-rounding behaviour. */
+export function sampleFrameScaled(
+  frame: Frame,
+  fx: number,
+  fy: number,
+  edgeMode: FrameEdgeMode,
+  bilinear: boolean,
+  scale: number,
+): RGB {
+  if (!bilinear) {
+    const p = framePixel(frame, Math.round(fx), Math.round(fy), edgeMode)
+    return {
+      r: Math.floor(p.r * scale + 0.5),
+      g: Math.floor(p.g * scale + 0.5),
+      b: Math.floor(p.b * scale + 0.5),
+    }
+  }
+  const x0 = Math.floor(fx), y0 = Math.floor(fy)
+  const tx = fx - x0, ty = fy - y0
+  const p00 = framePixel(frame, x0, y0, edgeMode)
+  const p10 = framePixel(frame, x0 + 1, y0, edgeMode)
+  const p01 = framePixel(frame, x0, y0 + 1, edgeMode)
+  const p11 = framePixel(frame, x0 + 1, y0 + 1, edgeMode)
+  const w00 = (1 - tx) * (1 - ty) * scale, w10 = tx * (1 - ty) * scale
+  const w01 = (1 - tx) * ty * scale, w11 = tx * ty * scale
+  return {
+    r: Math.floor(p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11 + 0.5),
+    g: Math.floor(p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11 + 0.5),
+    b: Math.floor(p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11 + 0.5),
+  }
+}
+
 // Soft circular splat centred at a subpixel coordinate. Coverage is based on
 // the distance from each pixel centre to the splat centre, so animating the
 // point across fractional coordinates yields smooth anti-aliased motion.

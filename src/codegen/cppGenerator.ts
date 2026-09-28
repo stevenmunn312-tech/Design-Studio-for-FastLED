@@ -101,6 +101,7 @@ import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP, WORLEY_HASH_CPP } from './latticeHelperCpp'
 import {
@@ -879,6 +880,7 @@ export function generateCpp(
   const needsPhi = { v: false }
   const needsSdf = { v: false }
   const needsLattice = { v: false }
+  const needsFrameSample = { v: false }
   const needsDisplayText = { number: false, dateTime: false }
   const segmentDisplays: SegmentDisplayEmit[] = []
   const infoDisplays: InfoDisplayEmit[] = []
@@ -936,7 +938,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsDisplayText,
+    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     persistentFrameStateBufs, customDisplayOwners,
@@ -1410,6 +1412,11 @@ export function generateCpp(
     lines.push(`  return CRGB(constrain((int)r, 0, 255), constrain((int)g, 0, 255), constrain((int)b, 0, 255));`)
     lines.push(`}`)
     lines.push(``)
+  }
+
+  if (needsFrameSample.v) {
+    lines.push(FRAME_SAMPLE_HELPER_CPP)
+    lines.push()
   }
 
   if (need3d.v) {

@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–1 complete** · Owner: app · Date: 2026-09-28
+Status: **in progress — Phases 0–2 complete** · Owner: app · Date: 2026-09-28
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -162,56 +162,13 @@ preset/morph behaviour and shared preview/firmware architecture live in the
 ESP8266 results, source hash and resource figures are in the
 [pattern-node compile record](../pattern-node-compile-checks.md).
 
-## Phase 2 — Frame Warp (`FrameWarp`, category `composite`)
+## Phase 2 — Frame Warp — **complete**
 
-Milkdrop's signature is a per-pixel displacement of the previous frame, fed
-back each frame. `FieldWarp` displaces fields only and `FrameFeedback` applies
-one global rotate, scale or translate. This node displaces a *frame* by two
-fields, and inside a Frame Feedback loop gives zoom, swirl and smear from any
-Field Formula written in `r` and `angle`.
-
-Contract:
-
-- Inputs, in this order: `frame` (frame), `dx` (field), `dy` (field),
-  `strength` (float, pixels), `zoom` (float), `rotate` (deg). Property inputs:
-  `strength`, `zoom`, `rotate`. Properties: `strength: 2`, `zoom: 1`,
-  `rotate: 0`, `edgeMode` select `['clamp', 'wrap', 'black']`, `sampling`
-  select `['bilinear', 'nearest']`.
-- Per pixel: start from the pixel centre, apply the inverse of `zoom` about the
-  canvas centre and the inverse of `rotate`, then add
-  `(2·dx − 1) · strength` and `(2·dy − 1) · strength`; sample the source
-  there. An unwired offset field means no push, as in `FieldWarp`.
-- Bilinear sampling is the default because nearest sampling makes a rotating
-  edge shimmer; the transition sampler in `src/nodes/show/evaluate.ts` and
-  `_sampleShaded` in `src/codegen/transitionHelperCpp.ts` already say why.
-  This phase moves that pair into a shared `sampleFrame` in
-  `src/state/evaluator/frames.ts` and a `src/codegen/frameSampleHelperCpp.ts`
-  behind `needsFrameSample`, adding the three edge modes; the transition
-  code switches to the shared pair in the same change.
-- Cost: four reads and three lerps per channel per pixel; no state beyond the
-  node's own buffer.
-
-Checklist:
-
-- [ ] Shared `sampleFrame(frame, fx, fy, edgeMode, bilinear)` in
-      `src/state/evaluator/frames.ts`; transitions re-pointed at it with the
-      existing transition golden tests unchanged.
-- [ ] `src/codegen/frameSampleHelperCpp.ts` and `needsFrameSample`; the
-      transition helper re-pointed; `emittedSymbols.test.ts` still green.
-- [ ] Preview handler in `src/nodes/composite/evaluate.ts`.
-- [ ] Emitter in `src/nodes/composite/codegen.ts`.
-- [ ] Library entry (Effects), `PROPERTY_META` for `edgeMode`/`sampling`,
-      `strength` slider 0–8, `zoom` 0.25–4.
-- [ ] Tests: identity when nothing is wired and `zoom = 1`; a constant `dx`
-      field shifts the frame by `strength`; `wrap` versus `clamp` versus
-      `black` at the border; bilinear at integral coordinates reads exactly
-      one pixel; emitted block per edge mode.
-- [ ] Live example: Noise → Frame Warp with two Field Formulas on `dx`/`dy`
-      → Frame Feedback, so the help page shows the feedback loop.
-- [ ] Docs, node card, README Effects line; design note
-      `docs/development/design/frame-warp.md` naming the Milkdrop model and
-      the projectM-eval decision above.
-- [ ] Compile check on classic ESP32.
+The shipped node contract, Milkdrop/projectM provenance, transform order, edge
+policies and shared transition sampler live in the
+[Frame Warp design note](../design/frame-warp.md). The real Frame Warp plus
+Frame Feedback fixture, source hash and classic-ESP32 result are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 3 — Symmetry
 

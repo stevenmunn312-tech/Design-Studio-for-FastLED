@@ -37,7 +37,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
   // Every variant works on the per-node frame buffers (seed `ob` from A,
   // then composite B in) so the generated firmware actually renders the
   // transition. Keep in sync with the `Transition` case in graphEvaluator.ts.
-  Transition({ p, ln, f, ownBuf, srcBuf, need3d }) {
+  Transition({ p, ln, f, ownBuf, srcBuf, need3d, needsFrameSample }) {
     const ob = ownBuf()
     const a = srcBuf('a'), b = srcBuf('b'), tt = f('t', 't', 0.5)
     const type = String(p.transitionType ?? 'crossfade')
@@ -184,6 +184,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
       // writes every pixel, so none of them seeds from A first.
       case 'dolly':
         need3d.v = true
+        needsFrameSample.v = true
         ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
         ln(`    float _cv=_tt*_tt; if(_cv<1e-4f) _cv=1e-4f;`)
         ln(`    float _za=powf(1.12f,_tt),_zb=1.0f/_cv;`)
@@ -198,6 +199,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
         break
       case 'flip':
         need3d.v = true
+        needsFrameSample.v = true
         ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
         ln(`    float _th=_tt*3.14159265f,_ct=cosf(_th),_sn=sinf(_th); bool _bk=_tt>=0.5f;`)
         ln(`    const CRGB* _src=_bk?${bBuf}:${aBuf};`)
@@ -213,6 +215,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
         break
       case 'cube':
         need3d.v = true
+        needsFrameSample.v = true
         ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
         ln(`    float _th=_tt*1.57079633f,_ct=cosf(_th),_sn=sinf(_th),_cd=3.0f,_cf=2.0f;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -231,6 +234,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
         break
       case 'door':
         need3d.v = true
+        needsFrameSample.v = true
         ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
         ln(`    float _ph=_tt*1.57079633f,_ct=cosf(_ph),_sn=sinf(_ph),_dd=3.0f,_df=3.0f;`)
         ln(`    float _pn=_facingShade(_ct),_bl=0.5f+0.5f*_sn;`)
@@ -249,6 +253,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
         break
       case 'tilt':
         need3d.v = true
+        needsFrameSample.v = true
         ln(`  { float _tt=${tt},_cx=WIDTH*0.5f,_cy=HEIGHT*0.5f;`)
         ln(`    float _ph=_tt*1.4f,_ct=cosf(_ph),_sn=sinf(_ph),_td=3.0f,_tf=3.0f;`)
         ln(`    float _zb=_td+0.8f*(1.0f-_tt),_sl=-2.6f*(1.0f-_tt),_sb=_depthShade(_zb/_tf);`)

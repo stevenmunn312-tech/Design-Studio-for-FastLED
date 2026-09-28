@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Frame Warp adds Milkdrop-style per-pixel displacement to any frame. Two
+  fields steer X/Y source reads while centred zoom and rotation shape the
+  feedback motion; clamp, wrap and black edges and nearest or bilinear sampling
+  match between the browser preview and generated firmware. The new shared
+  sampler also replaces the private copy used by 3D transitions.
+
 - Slice Tiling adds recursive solid/void polygon slices on hexagonal, square,
   and triangular lattices, with twelve morphable presets, custom hexadecimal
   patterns, tileable vertex warping, and matching preview/firmware geometry.

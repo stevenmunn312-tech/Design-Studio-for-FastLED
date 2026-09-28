@@ -1698,6 +1698,26 @@ const SLICE_TILING_LIVE_EXAMPLE = namedExample(
   'The Field → Frame node preview shows slowly turning hexagons, each in its own colour. Change Seed on Slice Tiling to deal the colours out again, or pick another palette on Field → Frame.',
 )
 
+const FRAME_WARP_LIVE_EXAMPLE = namedExample(
+  'FrameWarp',
+  'Turn noise into a liquid feedback surface',
+  [
+    { key: 'source', type: 'Noise', properties: { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' } },
+    { key: 'dx', type: 'FieldFormula', properties: { formula: '0.5 + 0.22*sin(angle*3+t)' } },
+    { key: 'dy', type: 'FieldFormula', properties: { formula: '0.5 + 0.22*cos(angle*2-t*0.7)' } },
+    { key: 'target', type: 'FrameWarp', properties: { strength: 2.5, zoom: 1.02, rotate: 2, edgeMode: 'wrap', sampling: 'bilinear' } },
+    { key: 'feedback', type: 'FrameFeedback', properties: { delayFrames: 2, fade: 0.08, amount: 0.58, blendMode: 'screen' } },
+  ],
+  [
+    { source: 'source', sourceHandle: 'frame', target: 'target', targetHandle: 'frame' },
+    { source: 'dx', sourceHandle: 'field', target: 'target', targetHandle: 'dx' },
+    { source: 'dy', sourceHandle: 'field', target: 'target', targetHandle: 'dy' },
+    { source: 'target', sourceHandle: 'frame', target: 'feedback', targetHandle: 'frame' },
+  ],
+  'The two Field Formula nodes describe a slowly changing vector field. Frame Warp reads the Noise frame at those displaced coordinates, then Frame Feedback keeps a faded copy of prior warped frames without making a graph cycle.',
+  'The LED Matrix main preview shows the noise bending into a smooth liquid swirl with persistent luminous trails. Change Strength for more displacement, or switch Edge mode to Black to expose the moving frame boundary.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1731,6 +1751,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
+  FrameWarp: FRAME_WARP_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
   FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,

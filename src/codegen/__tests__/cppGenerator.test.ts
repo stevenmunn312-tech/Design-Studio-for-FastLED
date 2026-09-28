@@ -2405,6 +2405,44 @@ describe('Pattern node expansion — Phase 0 codegen', () => {
   })
 })
 
+describe('Pattern node expansion — Phase 2 Frame Warp codegen', () => {
+  function generateWarp(edgeMode: string, sampling: string): string {
+    const src = node('warp-source', 'GradientFrame', 'pattern', {})
+    const dx = node('warp-dx', 'FieldFormula', 'field', { formula: '1' })
+    const warp = node('frame-warp', 'FrameWarp', 'composite', {
+      strength: 2, zoom: 1.2, rotate: 15, edgeMode, sampling,
+    })
+    return generateCpp([src, dx, warp, outputNode], [
+      edge('warp-source-in', src.id, warp.id, 'frame', 'frame'),
+      edge('warp-dx-in', dx.id, warp.id, 'field', 'dx'),
+      edge('warp-output', warp.id, outputNode.id, 'frame', 'frame'),
+    ])
+  }
+
+  it.each([
+    ['clamp', 0],
+    ['wrap', 1],
+    ['black', 2],
+  ])('emits the shared sampler for %s edges', (edgeMode, modeId) => {
+    const cpp = generateWarp(edgeMode, 'bilinear')
+    expect(cpp).toContain(`/* FrameWarp: ${edgeMode}, bilinear */`)
+    expect(cpp).toContain(`_sampleFrame(buf_warp_source,_sx,_sy,${modeId},true)`)
+    expect(cpp).toContain('2.0f*field_warp_dx[_i]-1.0f')
+    expect(cpp.match(/static inline CRGB _sampleFrame\(/g)).toHaveLength(1)
+  })
+
+  it('emits nearest sampling and neutral constants for unwired fields', () => {
+    const src = node('warp-source', 'GradientFrame', 'pattern', {})
+    const warp = node('frame-warp', 'FrameWarp', 'composite', { sampling: 'nearest' })
+    const cpp = generateCpp([src, warp, outputNode], [
+      edge('warp-source-in', src.id, warp.id, 'frame', 'frame'),
+      edge('warp-output', warp.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('_sampleFrame(buf_warp_source,_sx,_sy,0,false)')
+    expect(cpp).toContain('(2.0f*0.5f-1.0f)*_fw_st')
+  })
+})
+
 describe('Pattern node expansion — Phase 1 Slice Tiling codegen', () => {
   const generateSlice = (lattice: string) => {
     const slice = node(`slice-${lattice}`, 'SliceTiling', 'field', {

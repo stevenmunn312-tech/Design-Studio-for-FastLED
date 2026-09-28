@@ -3,6 +3,7 @@ import { generateShowSketch, isPatternShow, buildPatternRenderers } from '../sho
 import { generateCpp, PHI_DEFINE_CPP } from '../cppGenerator'
 import { SDF_HELPER_CPP } from '../sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from '../latticeHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from '../frameSampleHelperCpp'
 import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
@@ -1126,6 +1127,14 @@ describe('pattern code lifted into a show', () => {
     expect(phi.render).toContain('PHI')
     expect(phi.show).toContain(PHI_DEFINE_CPP)
     expect(undeclared(phi)).toEqual([])
+
+    const warpGroup = {
+      nodes: [node('src', 'Noise'), node('warp', 'FrameWarp', { edgeMode: 'wrap', sampling: 'bilinear' }), node('go', 'GroupOutput')],
+      edges: [edge('warp-in', 'src', 'frame', 'warp', 'frame'), edge('warp-out', 'warp', 'frame', 'go', 'frame')],
+    }
+    const warp = buildPatternRenderers(['warp-pattern'], { 'warp-pattern': warpGroup } as unknown as GroupRegistry)
+    expect(warp.functions[0]).toContain('_sampleFrame(')
+    expect(warp.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
   })
 
   it('emits a block two patterns share once, and each pattern\'s tables apart', () => {

@@ -62,6 +62,26 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     if (nativeMultiRender) ln(`    ::memmove(${ob}, ${state}, sizeof(CRGB) * NUM_LEDS);`)
     ln(`  }`)
   },
+  FrameWarp({ p, ln, f, ownBuf, srcBuf, srcField, needsFrameSample }) {
+    const ob = ownBuf()
+    const src = srcBuf('frame')
+    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // FrameWarp: no input`); return }
+    needsFrameSample.v = true
+    const dx = srcField('dx'), dy = srcField('dy')
+    const edgeMode = p.edgeMode === 'wrap' ? 1 : p.edgeMode === 'black' ? 2 : 0
+    const bilinear = p.sampling !== 'nearest'
+    ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'} */`)
+    ln(`    float _fw_st=constrain(${f('strength', 'strength', 2)},0.0f,8.0f);`)
+    ln(`    float _fw_z=constrain(${f('zoom', 'zoom', 1)},0.25f,4.0f);`)
+    ln(`    float _fw_a=constrain(${f('rotate', 'rotate', 0)},-180.0f,180.0f)*0.01745329252f;`)
+    ln(`    float _fw_co=cosf(_fw_a),_fw_si=sinf(_fw_a),_fw_cx=(WIDTH-1)*0.5f,_fw_cy=(HEIGHT-1)*0.5f;`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ int _i=_y*WIDTH+_x;`)
+    ln(`      float _px=(_x-_fw_cx)/_fw_z,_py=(_y-_fw_cy)/_fw_z;`)
+    ln(`      float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+(2.0f*${dx ? `${dx}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
+    ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+(2.0f*${dy ? `${dy}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
+    ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
+    ln(`    } }`)
+  },
   FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs }) {
     const ob = ownBuf()
     const src = srcBuf('frame')

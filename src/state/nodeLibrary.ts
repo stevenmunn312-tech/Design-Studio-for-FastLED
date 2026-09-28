@@ -1502,6 +1502,31 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { decay: 0.15 },
   },
   {
+    // Per-pixel frame displacement in the Milkdrop/projectM tradition. Two
+    // fields push the source coordinate, while zoom and rotation apply about
+    // the canvas centre before one shared nearest/bilinear frame sample.
+    type: 'FrameWarp',
+    label: 'Frame Warp',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'dx', label: 'Offset X', dataType: 'field' },
+      { id: 'dy', label: 'Offset Y', dataType: 'field' },
+      { id: 'strength', label: 'Strength', dataType: 'float' },
+      { id: 'zoom', label: 'Zoom', dataType: 'float' },
+      { id: 'rotate', label: 'Rotate', dataType: 'float' },
+    ],
+    propertyInputs: { strength: 'strength', zoom: 'zoom', rotate: 'rotate' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      strength: 2,
+      zoom: 1,
+      rotate: 0,
+      edgeMode: 'clamp',
+      sampling: 'bilinear',
+    },
+  },
+  {
     // Bounded recursive frame feedback without graph cycles: composites a
     // delayed copy of this node's own prior output over the live input. The
     // history buffer is fixed by `delayFrames` so RAM cost is predictable.
@@ -4381,6 +4406,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Zones: 'Routes up to four wired frames into their own named rectangle of the matrix.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
+  FrameWarp: 'Displaces a frame per pixel with two fields, plus centred zoom and rotation.',
   Transition: 'Transitions A→B — 21 styles: wipe, iris, push, spiral, dolly, cube + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Music Player or Performance Generator.',
@@ -5256,6 +5282,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     scale:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
   },
+  FrameWarp: {
+    strength: { control: 'slider', min: 0, max: 8, step: 0.1 },
+    zoom:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+    rotate:   { control: 'slider', min: -180, max: 180, step: 1 },
+    edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
+    sampling: { control: 'select', options: ['bilinear', 'nearest'] },
+  },
   Shape: {
     cx:        N01,
     cy:        N01,
@@ -5651,6 +5684,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bits: 'Custom pattern A as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
     bitsB: 'Custom pattern B as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
     seed: 'Shuffles the value each polygon gets on the Cell output. The Field output ignores it.',
+  },
+  FrameWarp: {
+    strength: 'Maximum per-pixel displacement in source pixels. A field value of 0.5 is neutral.',
+    zoom: 'Centred source zoom. Values above 1 enlarge the frame; values below 1 reveal more of it.',
+    rotate: 'Centred source rotation in degrees.',
+    edgeMode: 'How source coordinates outside the frame resolve: hold the edge, wrap around, or fade to black.',
+    sampling: 'Bilinear is smoother in motion; nearest keeps hard pixel edges.',
   },
   ClockDisplay: {
     displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',

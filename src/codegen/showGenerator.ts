@@ -22,6 +22,7 @@ import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { transitionHelperCpp } from './transitionHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from './latticeHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { buildXYTable } from '../state/xyLayout'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -179,7 +180,7 @@ function cppPrototype(definition: string): string | null {
 
 /**
  * File-scope helper blocks a pattern's sketch can carry that the per-line
- * capture below cannot lift: the SDF and lattice helpers span several
+ * capture below cannot lift: the SDF, lattice and frame-sampling helpers span several
  * functions and a struct, so HELPER_SIGS' signature-to-closing-brace capture
  * would stop at the first one, and PHI is a `#define`. generateCpp emits each
  * as one constant, so a sketch holds the whole block or none of it, and the
@@ -191,6 +192,7 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   phi: PHI_DEFINE_CPP,
   sdf: SDF_HELPER_CPP,
   lattice: LATTICE_HELPER_CPP,
+  frameSample: FRAME_SAMPLE_HELPER_CPP,
 }
 
 // The `energy` show role has no physical noodle once the Group is absorbed by a

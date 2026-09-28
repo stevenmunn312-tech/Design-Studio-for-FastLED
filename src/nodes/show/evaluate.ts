@@ -23,7 +23,7 @@ import { hexToRgb } from '../../state/polinePalette'
 import { type Frame, type RGB, hsv } from '../../state/ledColor'
 import { usePlayerTransport } from '../../state/playerTransport'
 import { playerControlActionRepeats, playerControlActionPortsFor } from '../../state/playerControlAssignments'
-import { clamp01, DEFAULT_W, DEFAULT_H, buildFrame, blankFrame, cloneFrame } from '../../state/evaluator/frames'
+import { clamp01, DEFAULT_W, DEFAULT_H, buildFrame, blankFrame, cloneFrame, sampleFrameScaled } from '../../state/evaluator/frames'
 import { seededRandom, seededRngState, normalizedSeed } from '../../state/evaluator/random'
 import {
   blankPlayerControls,
@@ -362,10 +362,6 @@ function facingShade(cosPhi: number): number {
   return 1 - TRANSITION_DEPTH_FADE * (1 - Math.max(0, cosPhi))
 }
 
-function clampIndex(v: number, n: number): number {
-  return v < 0 ? 0 : v >= n ? n - 1 : v
-}
-
 function shadePixel(px: RGB, k: number): RGB {
   return {
     r: Math.floor(px.r * k + 0.5),
@@ -395,18 +391,8 @@ const BLACK_PIXEL: RGB = { r: 0, g: 0, b: 0 }
  * nothing), which is what keeps the endpoint-exactness rule intact.
  */
 function sampleShaded(f: Frame, fx: number, fy: number, k: number, W: number, H: number): RGB {
-  const x0 = Math.floor(fx), y0 = Math.floor(fy)
-  const tx = fx - x0, ty = fy - y0
-  const xa = clampIndex(x0, W), xb = clampIndex(x0 + 1, W)
-  const ya = clampIndex(y0, H), yb = clampIndex(y0 + 1, H)
-  const p00 = f[ya][xa], p10 = f[ya][xb], p01 = f[yb][xa], p11 = f[yb][xb]
-  const w00 = (1 - tx) * (1 - ty) * k, w10 = tx * (1 - ty) * k
-  const w01 = (1 - tx) * ty * k, w11 = tx * ty * k
-  return {
-    r: Math.floor(p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11 + 0.5),
-    g: Math.floor(p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11 + 0.5),
-    b: Math.floor(p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11 + 0.5),
-  }
+  void W; void H
+  return sampleFrameScaled(f, fx, fy, 'clamp', true, k)
 }
 
 /** The same, at a normalised texture coordinate with both axes in [-1, 1]. */

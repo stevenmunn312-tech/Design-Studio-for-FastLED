@@ -9,6 +9,8 @@
 // defaults the preview falls back to. `out` must differ from `a` and `b`.
 // Requires WIDTH / HEIGHT / NUM_LEDS #defines in the host sketch.
 
+import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
+
 /**
  * Shared support for the 3D styles (dolly, card flip, cube, door, tilt).
  *
@@ -36,36 +38,6 @@ static inline float _facingShade(float ct) {
 static inline CRGB _shadePixel(CRGB p, float k) {
   return CRGB((uint8_t)(p.r * k + 0.5f), (uint8_t)(p.g * k + 0.5f), (uint8_t)(p.b * k + 0.5f));
 }
-// Bilinear read at float pixel coordinates, with the shade folded into the
-// weights so each channel is quantised exactly once. Mirrors sampleShaded() in
-// graphEvaluator.ts. Nearest-neighbour makes a rotating edge shimmer rather
-// than move, because the sample points along it cross pixel centres at
-// different moments; four weighted reads buy temporal stability, which reads
-// better in motion than a crisper single frame. Out-of-frame neighbours clamp
-// to the edge, so a turning surface keeps a solid border instead of growing a
-// dark fringe. An integral coordinate still reads exactly one pixel, which is
-// what keeps a style landing exactly on A at t=0 and B at t=1.
-//
-// The null check is for a normal sketch, where a Transition node can have an
-// unconnected A or B input and the generator has no buffer to hand over; the
-// show and player templates always pass real buffers and never take it. Note
-// the signature carries no user-defined struct: a generated struct here would
-// meet the .ino preprocessor's hoisted prototypes above its own definition.
-static inline CRGB _sampleShaded(const CRGB* f, float fx, float fy, float k) {
-  if (!f) return CRGB::Black;
-  int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
-  float tx = fx - x0, ty = fy - y0;
-  int xa = constrain(x0, 0, WIDTH - 1), xb = constrain(x0 + 1, 0, WIDTH - 1);
-  int ya = constrain(y0, 0, HEIGHT - 1), yb = constrain(y0 + 1, 0, HEIGHT - 1);
-  CRGB p00 = f[ya * WIDTH + xa], p10 = f[ya * WIDTH + xb];
-  CRGB p01 = f[yb * WIDTH + xa], p11 = f[yb * WIDTH + xb];
-  float w00 = (1.0f - tx) * (1.0f - ty) * k, w10 = tx * (1.0f - ty) * k;
-  float w01 = (1.0f - tx) * ty * k, w11 = tx * ty * k;
-  return CRGB(
-    (uint8_t)(p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11 + 0.5f),
-    (uint8_t)(p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11 + 0.5f),
-    (uint8_t)(p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11 + 0.5f));
-}
 // The same, at a normalised texture coordinate with both axes in -1..1.
 static inline CRGB _sampleUnitShaded(const CRGB* f, float u, float v, float k) {
   return _sampleShaded(f, u * (WIDTH * 0.5f) + WIDTH * 0.5f - 0.5f,
@@ -75,6 +47,7 @@ static inline CRGB _sampleUnitShaded(const CRGB* f, float u, float v, float k) {
 
 /** The dispatcher itself. See the note at the top of the file. */
 export const TRANSITION_HELPER_CPP = `// ── Transitions ─────────────────────────────────────────────────────────────
+${FRAME_SAMPLE_HELPER_CPP}
 ${TRANSITION_3D_HELPERS_CPP}
 void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt) {
   switch (type) {
