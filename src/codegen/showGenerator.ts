@@ -16,10 +16,12 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
-import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
+import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, PHI_DEFINE_CPP } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { transitionHelperCpp } from './transitionHelperCpp'
+import { SDF_HELPER_CPP } from './sdfHelperCpp'
+import { LATTICE_HELPER_CPP } from './latticeHelperCpp'
 import { buildXYTable } from '../state/xyLayout'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -175,6 +177,22 @@ function cppPrototype(definition: string): string | null {
   return match ? `${match[1]};` : null
 }
 
+/**
+ * File-scope helper blocks a pattern's sketch can carry that the per-line
+ * capture below cannot lift: the SDF and lattice helpers span several
+ * functions and a struct, so HELPER_SIGS' signature-to-closing-brace capture
+ * would stop at the first one, and PHI is a `#define`. generateCpp emits each
+ * as one constant, so a sketch holds the whole block or none of it, and the
+ * block is found by its exact text. Anything before `void setup()` that no
+ * rule lifts is dropped from the show, and a render function calling into it
+ * does not compile; showGenerator.test.ts sweeps the library for that.
+ */
+const SHARED_HELPER_BLOCKS: Record<string, string> = {
+  phi: PHI_DEFINE_CPP,
+  sdf: SDF_HELPER_CPP,
+  lattice: LATTICE_HELPER_CPP,
+}
+
 // The `energy` show role has no physical noodle once the Group is absorbed by a
 // collection. When the show is not driving it as a render parameter and the
 // host supplies audio globals, it follows the mean of the three bands, as the
@@ -234,8 +252,10 @@ function buildPattern(
   const imagePaletteSymbols = nodes
     .filter((node) => nodeType(node) === 'PaletteFromImage')
     .map((node) => `pal_${safeId(node.id)}`)
+  // Slice Tiling's baked pattern bits (`_bits_<id>`, `_bitsB_<id>`) are
+  // per-node file-scope tables as well.
   const pfx = (source: string) => {
-    let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
+    let result = source.replace(/\b(?:buf|field)_[A-Za-z0-9_]+\b|\b_fb_[A-Za-z0-9_]+\b|\b_bitsB?_[A-Za-z0-9_]+\b/g, (m) => `p${index}_${m}`)
     for (const symbol of imagePaletteSymbols) {
       result = result.replace(new RegExp(`\\b${symbol}\\b`, 'g'), `p${index}_${symbol}`)
     }
@@ -252,10 +272,15 @@ function buildPattern(
     mapFloat: /^float mapFloat\(/, kelvinToRGB: /^CRGB kelvinToRGB\(/,
     _worleyHash: /^float _worleyHash\(/, XY: /^uint16_t XY\(/,
   }
+  for (const [name, block] of Object.entries(SHARED_HELPER_BLOCKS)) {
+    if (sketch.includes(block)) helpers.set(name, block)
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (/^(?:CRGB buf_|float field_)[A-Za-z0-9_]+\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
+    const sliceBits = line.match(/^static const uint8_t (_bitsB?_[A-Za-z0-9_]+)\[8\]=/)
+    if (sliceBits) { helpers.set(`sliceBits:${index}:${sliceBits[1]}`, pfx(line)); continue }
     // FrameFeedback's history ring buffer: `CRGB _fb_<id>[<capacity>][NUM_LEDS];`.
     if (/^CRGB _fb_[A-Za-z0-9_]+\[\d+\]\[NUM_LEDS\];$/.test(line)) { buffers.push(pfx(line)); continue }
     // PaletteFromImage is fully baked at generation time and emitted as a

@@ -33,6 +33,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Generative shows and music-sync collections now compile when a pattern in
+  them uses Shape, Shape Field or Slice Tiling, or a Field Formula that uses
+  PHI. The show kept each pattern's drawing code but left out the helper
+  functions those nodes call, and Slice Tiling's pattern tables, so the build
+  failed. Shape shows had worked until Shape moved onto the shared
+  signed-distance helpers.
+
 - Worley noise puts each cell's feature point in the same place on the LEDs as
   in the preview. The firmware hash kept different bits of the number the
   preview used, so every cell landed somewhere else on hardware; Gabor Noise

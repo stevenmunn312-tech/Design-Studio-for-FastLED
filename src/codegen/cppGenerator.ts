@@ -305,6 +305,13 @@ const TERMINAL_NODE_TYPES = new Set(
     .map((def) => def.type),
 )
 
+/**
+ * Golden ratio for a CustomFormula/FieldFormula expression that uses PHI,
+ * matching formulaLang.ts's MATH_CONSTANTS.PHI. One constant, because the show
+ * generator lifts it out of a pattern's sketch by its exact text.
+ */
+export const PHI_DEFINE_CPP = '#define PHI 1.618033988749895f'
+
 function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
   const outputs = nodes.filter((n) => n.data.nodeType === 'MatrixOutput')
   if (outputs.length === 0) return nodes
@@ -1367,9 +1374,7 @@ export function generateCpp(
   }
 
   if (needsPhi.v) {
-    // Golden ratio — matches formulaLang.ts's MATH_CONSTANTS.PHI so a
-    // CustomFormula/FieldFormula expression using PHI compiles unchanged.
-    lines.push(`#define PHI 1.618033988749895f`)
+    lines.push(PHI_DEFINE_CPP)
     lines.push(``)
   }
 

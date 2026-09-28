@@ -269,6 +269,25 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `    case N: {` at a fixed indent, so a new arm's braces must stay balanced
   with none inside comments; the SD player can't narrow and always emits every
   style. See [transition catalogue](../design/transition-catalogue.md).
+- A collected pattern reaches a show as pieces of its own sketch, and what no
+  rule lifts is dropped without a sound. `buildPattern`
+  (`src/codegen/showGenerator.ts`) compiles each pattern with `generateCpp`,
+  then keeps only what it recognises: per-node globals renamed with the
+  pattern's `p<N>_` prefix (`buf_`/`field_` buffers, `_fb_` histories, image
+  palettes, Slice Tiling's `_bits_`/`_bitsB_` tables), formula shims, `_xyMap`,
+  Code-node globals, the one-function helpers in `HELPER_SIGS` (signature to
+  the first line that is exactly `}`), the blocks in `SHARED_HELPER_BLOCKS`
+  (the SDF and lattice helpers and PHI, found by their exact constant text,
+  since several functions and a struct defeat the brace capture) and the loop
+  body. When Shape moved onto the shared SDF helper and Slice Tiling arrived
+  with the lattice helper, every show holding either pattern stopped
+  compiling while every text-level test passed. A new file-scope helper or
+  per-node global needs a lifting rule; `showGenerator.test.ts` sweeps every
+  field, frame and composite node at every select option through a one-pattern
+  show and names any file-scope name the pattern's own sketch declares, its
+  render function uses, and the show never declares. The show category is left
+  out: a Transition's 3D helpers are already inside the show's own
+  `TRANSITION_HELPER_CPP`, so lifting a pattern's copy would define them twice.
 - A collection show schedules patterns by *position*: `SET_PATTERN` carries an
   index into the show's own `ShowFile.patternSet` (version 2 shows only; version
   1 enum shows use `params.name` and have none). `buildShowPayload`

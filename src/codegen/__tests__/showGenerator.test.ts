@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { generateShowSketch, isPatternShow, buildPatternRenderers } from '../showGenerator'
+import { generateCpp, PHI_DEFINE_CPP } from '../cppGenerator'
+import { SDF_HELPER_CPP } from '../sdfHelperCpp'
+import { LATTICE_HELPER_CPP } from '../latticeHelperCpp'
+import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 
@@ -1011,5 +1015,128 @@ describe('displays in a show controller', () => {
       expect(follow).toBeGreaterThan(update)
       expect(render).toBeGreaterThan(follow)
     })
+  })
+})
+
+/*
+ * A collected pattern is compiled on its own, then cut apart: buffers, known
+ * helpers and the loop body are lifted into the show and the rest of its file
+ * is dropped. A helper block no rule lifts disappears, and the render function
+ * calling into it no longer compiles. Shows with a Shape or Slice Tiling
+ * pattern did exactly that.
+ *
+ * So this checks the property directly, derived from the generator's own
+ * output rather than a list of helpers: every name the pattern's own sketch
+ * declares at file scope that its render function then uses must be declared
+ * at file scope by the show, as it is or with the pattern's `p0_` prefix.
+ */
+describe('pattern code lifted into a show', () => {
+  const libNode = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => {
+    const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+    return node(id, nodeType, { ...libraryDefaults(nodeType), ...properties }, def?.inputs ?? [], def?.outputs ?? [])
+  }
+  // Column-0 declarations: generated code indents everything inside a body.
+  const FILE_SCOPE = [
+    /^(?:static\s+)?(?:inline\s+)?(?:const\s+)?[A-Za-z_][\w:<>]*[\s*&]+([A-Za-z_]\w*)\s*[([=;]/gm,
+    /^struct\s+([A-Za-z_]\w*)/gm,
+    /^#define\s+([A-Za-z_]\w*)/gm,
+  ]
+  const fileScopeNames = (cpp: string) => new Set(FILE_SCOPE.flatMap((re) => [...cpp.matchAll(re)].map((m) => m[1])))
+
+  /** A one-pattern show and the pattern's own sketch, from one field or frame node. */
+  function build(nodeType: string, properties: Record<string, unknown> = {}, wireCell = false) {
+    const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
+    const port = def.outputs.find((output) => output.dataType === 'frame' || output.dataType === 'field')!
+    const nodes = [libNode('n', nodeType, properties)]
+    const edges: StudioEdge[] = []
+    let frame: [string, string] = ['n', port.id]
+    if (port.dataType === 'field') {
+      let field: [string, string] = ['n', port.id]
+      if (wireCell) {
+        nodes.push(libNode('mix', 'FieldMath', { fieldOp: 'multiply' }))
+        edges.push(edge('mix-a', 'n', 'field', 'mix', 'a'), edge('mix-b', 'n', 'cell', 'mix', 'b'))
+        field = ['mix', 'field']
+      }
+      nodes.push(libNode('paint', 'FieldToFrame'))
+      edges.push(edge('paint', field[0], field[1], 'paint', 'field'))
+      frame = ['paint', 'frame']
+    }
+    const own = generateCpp(
+      [...nodes, libNode('o', 'MatrixOutput', { width: 8, height: 8 })],
+      [...edges, edge('o', frame[0], frame[1], 'o', 'frame')],
+    )
+    const groups = { p: { nodes: [...nodes, node('go', 'GroupOutput')], edges: [...edges, edge('go', frame[0], frame[1], 'go', 'frame')] } }
+    const show = generateShowSketch([
+      node('pc', 'PatternCollection', { patternIds: ['p'] }),
+      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 0 }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+    ], [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')], groups as unknown as GroupRegistry)
+    const render = show.slice(show.indexOf('void render_p0('), show.indexOf('\n}', show.indexOf('void render_p0(')) + 2)
+    return { own, show, render }
+  }
+
+  function undeclared({ own, show, render }: ReturnType<typeof build>): string[] {
+    const lifted = fileScopeNames(own.slice(0, own.indexOf('void setup() {')))
+    const declared = fileScopeNames(show)
+    const used = new Set(render.match(/\b[A-Za-z_]\w*\b/g))
+    return [...lifted].filter((name) =>
+      (used.has(name) || used.has(`p0_${name}`)) && !declared.has(name) && !declared.has(`p0_${name}`))
+  }
+
+  it('declares every file-scope name each pattern node and variant uses', () => {
+    // Every field, frame and composite node at its defaults and at every
+    // option of each select that picks what it emits, as the literal sweep
+    // does; palettes are left out because they only name a table.
+    const offenders: string[] = []
+    let cases = 0
+    for (const def of NODE_LIBRARY) {
+      if (!['pattern', 'composite', 'field'].includes(def.category)) continue
+      if (!def.outputs.some((output) => output.dataType === 'frame' || output.dataType === 'field')) continue
+      const variants: Record<string, unknown>[] = [{}]
+      for (const key of Object.keys(libraryDefaults(def.type))) {
+        const meta = propertyMeta(def.type, key)
+        if (meta?.control === 'select' && !/palette/i.test(key)) variants.push(...meta.options.map((option) => ({ [key]: option })))
+      }
+      for (const variant of variants) {
+        cases++
+        const missing = undeclared(build(def.type, variant))
+        if (missing.length) offenders.push(`${def.type} ${JSON.stringify(variant)}: ${missing.join(', ')}`)
+      }
+    }
+    // A sweep that generated nothing would pass for the wrong reason.
+    expect(cases).toBeGreaterThan(200)
+    expect(offenders).toEqual([])
+  })
+
+  it('lifts the shared blocks whole and a Slice Tiling pattern\'s bit tables under its prefix', () => {
+    const shape = build('Shape', { shape: 'polygon' })
+    expect(shape.render).toContain('_sdfMorphPolygon(')
+    expect(shape.show).toContain(SDF_HELPER_CPP)
+    expect(undeclared(shape)).toEqual([])
+
+    const slice = build('SliceTiling', { lattice: 'triangle', preset: 'checker', seed: 9 }, true)
+    expect(slice.render).toContain('_latticeCellValue(_cell.a,_cell.b,_cell.flipped,9u)')
+    expect(slice.render).toContain('_sliceBit(p0__bits_n,_leaf)')
+    expect(slice.show).toContain(LATTICE_HELPER_CPP)
+    expect(slice.show).toMatch(/^static const uint8_t p0__bits_n\[8\]=/m)
+    expect(slice.show).toMatch(/^static const uint8_t p0__bitsB_n\[8\]=/m)
+    expect(undeclared(slice)).toEqual([])
+
+    const phi = build('FieldFormula', { formula: 'PHI * 0.1' })
+    expect(phi.render).toContain('PHI')
+    expect(phi.show).toContain(PHI_DEFINE_CPP)
+    expect(undeclared(phi)).toEqual([])
+  })
+
+  it('emits a block two patterns share once, and each pattern\'s tables apart', () => {
+    const slice = (preset: string) => ({
+      nodes: [node('st', 'SliceTiling', { preset }), node('f2f', 'FieldToFrame'), node('go', 'GroupOutput')],
+      edges: [edge('e1', 'st', 'field', 'f2f', 'field'), edge('e2', 'f2f', 'frame', 'go', 'frame')],
+    })
+    const r = buildPatternRenderers(['a', 'b'], { a: slice('pinwheel'), b: slice('braid') } as unknown as GroupRegistry)
+    expect(r.helpers.filter((helper) => helper === LATTICE_HELPER_CPP)).toHaveLength(1)
+    expect(r.helpers.some((helper) => helper.startsWith('static const uint8_t p0__bits_st[8]='))).toBe(true)
+    expect(r.helpers.some((helper) => helper.startsWith('static const uint8_t p1__bits_st[8]='))).toBe(true)
+    expect(r.functions[1]).toContain('_sliceBit(p1__bits_st,_leaf)')
   })
 })
