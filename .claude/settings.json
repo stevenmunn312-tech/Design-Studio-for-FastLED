@@ -5,6 +5,12 @@
         "hooks": [
           {
             "type": "command",
+            "command": "HOOK_ROOT=$(printf %s \"$CLAUDE_PROJECT_DIR\" | sed 's|^/\\([a-zA-Z]\\)/|\\1:/|'); node \"$HOOK_ROOT/.claude/hooks/git-sync/git-sync.cjs\" SessionStart",
+            "timeout": 30,
+            "statusMessage": "Syncing with the upstream branch..."
+          },
+          {
+            "type": "command",
             "command": "touch \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.caveman-nudge-shown\" 2>/dev/null; HOOK_ROOT=$(printf %s \"$CLAUDE_PROJECT_DIR\" | sed 's|^/\\([a-zA-Z]\\)/|\\1:/|'); node \"$HOOK_ROOT/.claude/hooks/caveman/caveman-activate.js\"",
             "timeout": 30,
             "statusMessage": "Loading caveman mode..."
@@ -15,6 +21,12 @@
     "UserPromptSubmit": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK_ROOT=$(printf %s \"$CLAUDE_PROJECT_DIR\" | sed 's|^/\\([a-zA-Z]\\)/|\\1:/|'); node \"$HOOK_ROOT/.claude/hooks/git-sync/git-sync.cjs\" UserPromptSubmit",
+            "timeout": 30,
+            "statusMessage": "Checking the upstream branch..."
+          },
           {
             "type": "command",
             "command": "HOOK_ROOT=$(printf %s \"$CLAUDE_PROJECT_DIR\" | sed 's|^/\\([a-zA-Z]\\)/|\\1:/|'); node \"$HOOK_ROOT/.claude/hooks/caveman/caveman-mode-tracker.js\"",

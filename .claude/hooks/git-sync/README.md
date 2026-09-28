@@ -5,9 +5,9 @@ session clones the repository once when its container starts, and another
 session can push to `Hardware` after that. Without this hook the session
 keeps working on the old commit until someone runs `git pull`.
 
-Register `git-sync.cjs` in `.claude/settings.json` as a `SessionStart` hook
-and a `UserPromptSubmit` hook, before the caveman hooks, passing the event name
-as its only argument. Each run:
+`.claude/settings.json` runs `git-sync.cjs` at `SessionStart` and on every
+`UserPromptSubmit`, before the caveman hooks, passing the event name as its
+only argument. Each run:
 
 1. Skips a detached `HEAD`, a branch without an upstream, or a failed fetch
    (offline, no credentials). Git is never allowed to prompt.
