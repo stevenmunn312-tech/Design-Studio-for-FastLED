@@ -43,11 +43,12 @@ __pycache__/
 .codex-tmp/
 
 # Local Claude Code agent/editor state (settings.local.json, launch.json) —
-# but project skills and shared settings (plugins) are part of the repo's
-# tooling and travel with it.
+# but project skills, the shared settings.json and the hooks it runs are part
+# of the repo's tooling and travel with it.
 .claude/*
 !.claude/skills/
 !.claude/settings.json
+!.claude/hooks/
 # Scratch git worktrees Claude Code creates per-task; always local/disposable.
 .claude/worktrees/
 
