@@ -4,6 +4,7 @@ import { generateCpp, PHI_DEFINE_CPP } from '../cppGenerator'
 import { SDF_HELPER_CPP } from '../sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from '../latticeHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from '../frameSampleHelperCpp'
+import { SYMMETRY_HELPER_CPP } from '../symmetryHelperCpp'
 import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
@@ -1135,6 +1136,16 @@ describe('pattern code lifted into a show', () => {
     const warp = buildPatternRenderers(['warp-pattern'], { 'warp-pattern': warpGroup } as unknown as GroupRegistry)
     expect(warp.functions[0]).toContain('_sampleFrame(')
     expect(warp.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
+
+    const symmetryGroup = {
+      nodes: [node('src', 'Noise'), node('sym', 'Symmetry', { group: 'p6m' }), node('go', 'GroupOutput')],
+      edges: [edge('sym-in', 'src', 'frame', 'sym', 'frame'), edge('sym-out', 'sym', 'frame', 'go', 'frame')],
+    }
+    const symmetry = buildPatternRenderers(['symmetry-pattern'], { 'symmetry-pattern': symmetryGroup } as unknown as GroupRegistry)
+    expect(symmetry.functions[0]).toContain('_foldWallpaper(')
+    expect(symmetry.helpers).toContain(SYMMETRY_HELPER_CPP)
+    expect(symmetry.helpers).toContain(LATTICE_HELPER_CPP)
+    expect(symmetry.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
   })
 
   it('emits a block two patterns share once, and each pattern\'s tables apart', () => {

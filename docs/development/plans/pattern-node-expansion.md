@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–2 complete** · Owner: app · Date: 2026-09-28
+Status: **in progress — Phases 0–3 complete** · Owner: app · Date: 2026-09-28
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -170,44 +170,14 @@ policies and shared transition sampler live in the
 Frame Feedback fixture, source hash and classic-ESP32 result are in the
 [pattern-node compile record](../pattern-node-compile-checks.md).
 
-## Phase 3 — Symmetry
+## Phase 3 — Symmetry — **complete**
 
-Fold the plane into the fundamental domain of a wallpaper group and sample the
-source there. One shared fold, two thin nodes: a field node first, because
-Field to Frame is one node away, then a frame node for images and finished
-patterns.
-
-Contract:
-
-- Groups, first slice: `p1`, `p2`, `pm`, `pmm`, `p4`, `p4m` on the square
-  lattice and `p3`, `p6`, `p6m` on the hex lattice. `cm`, `pg`, `pgg`,
-  `p3m1`, `p31m` and `p4g` are a later slice; the select is append-only.
-- Inputs (property inputs): `cells` (float, cells across the width), `rotation`
-  (deg), `spin` (deg/s), `offsetX`, `offsetY` (cells, for scrolling). Property:
-  `group` select.
-- Per pixel: lattice cell and local coordinates from Phase 1's lattice
-  helper; fold by the group (translate, half-turn, mirror, quarter-turn,
-  45° wedge, 120° or 60° sector, 30° wedge); map the fundamental domain onto
-  the centre of the source canvas the way Kaleidoscope reads its source, so
-  the interesting part of the input is what gets repeated; sample with
-  nearest for a field and Phase 2's `sampleFrame` for a frame.
-- Cost: one fold and one sample per pixel; no state.
-
-Checklist:
-
-- [ ] `foldWallpaper` in `src/state/evaluator/symmetry.ts` with a table
-      test: for every group, folding twice equals folding once, and the image
-      of a cell under the group's generators lands on the same domain point.
-- [ ] `src/codegen/symmetryHelperCpp.ts` behind `needsSymmetry`, one
-      `static inline` fold with a `switch` on the group id.
-- [ ] Field Symmetry (`FieldSymmetry`, category `field`): preview, emitter,
-      library entry, tests, docs.
-- [ ] Symmetry (`Symmetry`, category `composite`): the same, sampling through
-      Phase 2's helper.
-- [ ] README Fields and Effects lines; node cards; design note
-      `docs/development/design/symmetry-groups.md` with a picture of each
-      group's fundamental domain.
-- [ ] Compile check on classic ESP32.
+The shipped `FieldSymmetry` and `Symmetry` contracts, append-only group list,
+fundamental-domain picture, transform order, sampling policy, and shared
+preview/firmware fold live in the
+[wallpaper symmetry design note](../design/symmetry-groups.md). The generated
+two-node fixture, source hash, classic-ESP32 result, flash and RAM are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 4 — Truchet Tiles (`Truchet`, category `field`)
 

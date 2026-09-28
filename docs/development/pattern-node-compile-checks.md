@@ -1,6 +1,6 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–2 complete.** The generated fixtures passed on classic
+> **Status: Phases 0–3 complete.** The generated fixtures passed on classic
 > ESP32, and the integer-heavy Slice Tiling fixture also passed on ESP8266, on
 > 28 September 2026. This is compile evidence, not a physical LED bench run.
 
@@ -50,6 +50,18 @@ rotation, the shared frame sampler and a two-frame recursive history. Generation
 fails if the Frame Warp block, either field, feedback ring or sampler is absent,
 or if `_sampleFrame` is emitted more than once.
 
+The Phase 3 fixture runs both symmetry layers in one chain:
+
+```text
+Field Formula → Field Symmetry (p4m) → Field → Frame → Symmetry (p6m) → LED output
+```
+
+It exercises nearest field sampling, bilinear frame sampling, square and hex
+lattice lookup, every wireable transform, and the append-only group ids. The
+fixture generator refuses a sketch missing either node, either lattice finder,
+either selected fold id, or any shared helper, and verifies the lattice,
+symmetry, and frame-sampling helpers are each emitted once.
+
 ## Reproduce
 
 From the repository root:
@@ -60,6 +72,7 @@ python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-no
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase1.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase1
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase1.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase1
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase2.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase2
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase3.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase3
 ```
 
 The shared compile runner uses the local helper's real Arduino CLI path and
@@ -78,6 +91,7 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 1 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 400,591 / 3,145,728 (12%) | 36,036 / 327,680 (10%) |
 | Phase 1 | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 250,192 / 1,048,576 (23%) | 38,516 / 80,192 (48%) |
 | Phase 2 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 404,379 / 3,145,728 (12%) | 35,780 / 327,680 (10%) |
+| Phase 3 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 399,239 / 3,145,728 (12%) | 31,684 / 327,680 (9%) |
 
 Generated source: 6,170 bytes, SHA-256
 `b83bc2739107d19f7abe4029df9dc11d343c5266e6c1ac1688560d3e9dd89e93`.
@@ -85,5 +99,8 @@ Generated source: 6,170 bytes, SHA-256
 Phase 1 generated source: 11,860 bytes, SHA-256
 `eff39c21aebf507964775d7e5c1918eb0e5df93e0808d9f1e4b391a52c18be54`.
 
-Phase 2 generated source: 7,373 bytes, SHA-256
-`bb631da91ae6a794abeaf48a154d7a244963f2b5502cc3823d65bf49e7c28247`.
+Phase 2 generated source: 7,465 bytes, SHA-256
+`151ebb5340d01c4d9880bf463446237ba5d2be3b50c36c52b106c8a3c20ba7f9`.
+
+Phase 3 generated source: 11,716 bytes, SHA-256
+`9fdb486108a20d8027e0ff813ec5d8aa4d862a9a21d4f0cd206e6de38095d2b5`.

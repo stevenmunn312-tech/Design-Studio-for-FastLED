@@ -150,6 +150,9 @@ build/architecture overview aimed at contributors.
     paths/attractors; pattern category), plus a `PHI` formula-language
     constant. All three are implemented; the note records their shared
     preview/codegen contract and remaining hardware-validation status.
+  - [Wallpaper symmetry groups](development/design/symmetry-groups.md)
+    — the Field Symmetry and Symmetry node contract, square/hexagonal
+      fundamental domains, transform order, sampling, and shared firmware fold.
   - [Board node and hardware capability model](development/design/board-node-architecture.md)
     — the implemented singleton Board/profile contract, board-wide controller
     settings, automatic PSRAM and USB serial policies, plus the capability

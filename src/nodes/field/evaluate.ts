@@ -7,6 +7,7 @@ import { allocField, instanceState } from '../../state/evaluator/memory'
 import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
+import { wallpaperSamplePoint } from '../../state/evaluator/symmetry'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from '../../state/sliceTiling'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
@@ -441,6 +442,29 @@ function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = 
   return out
 }
 
+export function evalFieldSymmetry(
+  field: Field | null,
+  group: unknown,
+  cells: number,
+  rotation: number,
+  spin: number,
+  offsetX: number,
+  offsetY: number,
+  t: number,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Field {
+  const out = allocField(W * H)
+  if (!field) return out
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const source = wallpaperSamplePoint(group, x, y, cells, rotation, spin, offsetX, offsetY, t, W, H)
+    const sx = Math.max(0, Math.min(W - 1, Math.floor(source.x + 0.5)))
+    const sy = Math.max(0, Math.min(H - 1, Math.floor(source.y + 0.5)))
+    out[y * W + x] = field[sy * W + sx]
+  }
+  return out
+}
+
 function smoothstep01(edge: number, value: number): number {
   if (edge <= 0) return value >= 0 ? 1 : 0
   const t = Math.max(0, Math.min(1, value / edge))
@@ -683,5 +707,18 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const tx = num(id, 'tilesX', props, 'tilesX', 2)
     const ty = num(id, 'tilesY', props, 'tilesY', 2)
     return { field: evalFieldTile(field, tx, ty, W, H) }
+  },
+  FieldSymmetry({ input, num, t, W, H }, id, props) {
+    const source = input(id, 'field', null)
+    return { field: evalFieldSymmetry(
+      source instanceof Float32Array ? source : null,
+      props.group ?? 'p4m',
+      num(id, 'cells', props, 'cells', 2),
+      num(id, 'rotation', props, 'rotation', 0),
+      num(id, 'spin', props, 'spin', 0),
+      num(id, 'offsetX', props, 'offsetX', 0),
+      num(id, 'offsetY', props, 'offsetY', 0),
+      t, W, H,
+    ) }
   },
 }

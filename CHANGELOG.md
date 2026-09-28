@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Field Symmetry and Symmetry repeat scalar fields or finished frames through
+  nine square and hexagonal wallpaper groups. Cells, rotation, spin, and
+  offsets are wireable, and one shared fold keeps preview and generated
+  firmware aligned.
+
 - Frame Warp adds Milkdrop-style per-pixel displacement to any frame. Two
   fields steer X/Y source reads while centred zoom and rotation shape the
   feedback motion; clamp, wrap and black edges and nearest or bilinear sampling
@@ -38,6 +43,9 @@ versioning (`0.y.z`) until the first stable release.
   that size without relying on a URL.
 
 ### Fixed
+
+- Formula nodes now declare their documented `W` and `H` variables in generated
+  firmware as well as in the browser preview.
 
 - Seeded Gabor Noise and Reaction Diffusion now start from the same hashed
   cells on the LEDs as in the preview. Gabor firmware previously used Seed as

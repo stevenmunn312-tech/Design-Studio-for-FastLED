@@ -23,6 +23,7 @@ import { transitionHelperCpp } from './transitionHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from './latticeHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
+import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
 import { buildXYTable } from '../state/xyLayout'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -192,6 +193,7 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   phi: PHI_DEFINE_CPP,
   sdf: SDF_HELPER_CPP,
   lattice: LATTICE_HELPER_CPP,
+  symmetry: SYMMETRY_HELPER_CPP,
   frameSample: FRAME_SAMPLE_HELPER_CPP,
 }
 

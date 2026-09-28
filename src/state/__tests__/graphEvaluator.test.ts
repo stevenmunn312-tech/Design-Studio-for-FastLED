@@ -3403,6 +3403,64 @@ describe('Pattern node expansion — Phase 2 Frame Warp', () => {
   })
 })
 
+describe('Pattern node expansion - Phase 3 Symmetry', () => {
+  function renderField(properties: Record<string, unknown>, t = 0, width = 16, height = 16) {
+    const src = node('sym-field-src', 'FieldFormula', 'field', { formula: '(x+2*y)/(3*(W-1))' })
+    const symmetry = node('field-symmetry', 'FieldSymmetry', 'field', properties)
+    const map = node('sym-field-map', 'FieldToFrame', 'field', {})
+    const out = node('sym-field-out', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull([src, symmetry, map, out], [
+      edge('sym-field-in', src.id, 'field', symmetry.id, 'field'),
+      edge('sym-field-map-in', symmetry.id, 'field', map.id, 'field'),
+      edge('sym-field-out-edge', map.id, 'frame', out.id, 'frame'),
+    ], t, width, height)
+    return outputs.get(symmetry.id)!.field as Float32Array
+  }
+
+  it('renders every group deterministically into a bounded field', () => {
+    for (const group of ['p1', 'p2', 'pm', 'pmm', 'p4', 'p4m', 'p3', 'p6', 'p6m']) {
+      const properties = { group, cells: 2.3, rotation: 17, spin: 23, offsetX: 0.13, offsetY: -0.21 }
+      const first = renderField(properties, 0.75)
+      const second = renderField(properties, 0.75)
+      expect([...first], group).toEqual([...second])
+      expect([...first].every((value) => value >= 0 && value <= 1), group).toBe(true)
+    }
+  })
+
+  it('responds to each wireable transform and animates with spin', () => {
+    const baseProperties = {
+      group: 'p4m', cells: 2.3, rotation: 13, spin: 0, offsetX: 0.11, offsetY: -0.17,
+    }
+    const base = [...renderField(baseProperties, 0.7)]
+    for (const properties of [
+      { ...baseProperties, cells: 3.1 },
+      { ...baseProperties, rotation: 39 },
+      { ...baseProperties, spin: 40 },
+      { ...baseProperties, offsetX: 0.36 },
+      { ...baseProperties, offsetY: 0.22 },
+    ]) expect([...renderField(properties, 0.7)]).not.toEqual(base)
+  })
+
+  it('keeps p1 at one cell as an identity for both field and frame nodes', () => {
+    const identity = { group: 'p1', cells: 1, rotation: 0, spin: 0, offsetX: 0, offsetY: 0 }
+    const field = renderField(identity, 0, W, H)
+    for (const [index, expected] of [0, 1 / 9, 2 / 9, 1 / 3].entries()) {
+      expect(field[index]).toBeCloseTo(expected, 6)
+    }
+
+    const src = node('sym-frame-src', 'GradientFrame', 'pattern', {
+      rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0, vertical: false,
+    })
+    const symmetry = node('symmetry', 'Symmetry', 'composite', identity)
+    const out = node('sym-frame-out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([src, symmetry, out], [
+      edge('sym-frame-in', src.id, 'frame', symmetry.id, 'frame'),
+      edge('sym-frame-out-edge', symmetry.id, 'frame', out.id, 'frame'),
+    ], 0, W, H)!
+    expect(frame[0].map((pixel) => pixel.r)).toEqual([0, 85, 170, 255])
+  })
+})
+
 describe('Pattern node expansion — Phase 0 field helpers', () => {
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[]): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, 0, W, H)

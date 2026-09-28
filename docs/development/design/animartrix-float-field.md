@@ -190,6 +190,15 @@ colouring each polygon's slices. It is documented separately in the
 geometry, custom hexadecimal leaf order, morph, Cell output and firmware
 parity contract.
 
+### `FieldSymmetry` (category: `field`)
+
+Repeats a field through one of nine square or hexagonal wallpaper groups.
+Cells, rotation, spin and cell-space offsets are property inputs; nearest
+sampling keeps later Field Levels thresholds crisp. It is the scalar twin of
+the frame `Symmetry` effect. The fold, fundamental domains, and shared
+preview/firmware architecture are in the
+[wallpaper symmetry design note](symmetry-groups.md).
+
 ---
 
 ### `FieldWarp` (category: `composite`)

@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–2 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–3 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -111,11 +111,47 @@ if ((phase2.match(/static inline CRGB _sampleFrame\(/g)?.length ?? 0) !== 1) {
   throw new Error('Phase 2 fixture must emit the shared frame sampler exactly once')
 }
 
+const phase3Nodes = [
+  node('source', 'FieldFormula', { formula: '(x+2*y)/(3*(W-1))' }),
+  node('field-symmetry', 'FieldSymmetry', {
+    group: 'p4m', cells: 2.4, rotation: 12, spin: 18, offsetX: 0.15, offsetY: -0.2,
+  }),
+  node('color', 'FieldToFrame', { palette: 'synthwave', brightness: 1 }),
+  node('symmetry', 'Symmetry', {
+    group: 'p6m', cells: 1.8, rotation: -8, spin: -12, offsetX: -0.1, offsetY: 0.25,
+  }),
+  node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+]
+const phase3Edges = [
+  edge('source-field-symmetry', 'source', 'field', 'field-symmetry', 'field'),
+  edge('field-symmetry-color', 'field-symmetry', 'field', 'color', 'field'),
+  edge('color-symmetry', 'color', 'frame', 'symmetry', 'frame'),
+  edge('symmetry-out', 'symmetry', 'frame', 'out', 'frame'),
+]
+const phase3 = generateCpp(phase3Nodes, phase3Edges)
+for (const marker of [
+  '/* FieldSymmetry: p4m */', '/* Symmetry: p6m */', '_squareCell(', '_hexCell(',
+  '_foldWallpaper(_cell.x,_cell.y,5,_foldX,_foldY)', '_foldWallpaper(_cell.x,_cell.y,8,_foldX,_foldY)',
+  '_sampleFrame(buf_color,_sx,_sy,0,true)',
+]) {
+  if (!phase3.includes(marker)) throw new Error(`Phase 3 fixture is missing ${marker}`)
+}
+if ((phase3.match(/static inline void _foldWallpaper/g)?.length ?? 0) !== 1) {
+  throw new Error('Phase 3 fixture must emit the shared symmetry helper exactly once')
+}
+if ((phase3.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1) {
+  throw new Error('Phase 3 fixture must emit the shared lattice helper exactly once')
+}
+if ((phase3.match(/static inline CRGB _sampleFrame\(/g)?.length ?? 0) !== 1) {
+  throw new Error('Phase 3 fixture must emit the shared frame sampler exactly once')
+}
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
 writeFileSync(resolve(outputDir, 'phase1.ino'), phase1, 'utf8')
 writeFileSync(resolve(outputDir, 'phase2.ino'), phase2, 'utf8')
+writeFileSync(resolve(outputDir, 'phase3.ino'), phase3, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -129,5 +165,9 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     bytes: Buffer.byteLength(phase2),
     sha256: createHash('sha256').update(phase2).digest('hex'),
   },
+  phase3: {
+    bytes: Buffer.byteLength(phase3),
+    sha256: createHash('sha256').update(phase3).digest('hex'),
+  },
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–2 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–3 pattern-node compile fixtures to ${outputDir}`)

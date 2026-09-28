@@ -906,6 +906,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Tile example graph](../../public/node-cards/graphs/field-tile.svg)
 
+### Field Symmetry
+
+![Field Symmetry node](../../public/node-cards/field-symmetry.svg)
+
+![Field Symmetry example graph](../../public/node-cards/graphs/field-symmetry.svg)
+
 ### Field → Frame
 
 ![Field → Frame node](../../public/node-cards/field-to-frame.svg)
@@ -1003,6 +1009,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Frame Warp node](../../public/node-cards/frame-warp.svg)
 
 ![Frame Warp example graph](../../public/node-cards/graphs/frame-warp.svg)
+
+### Symmetry
+
+![Symmetry node](../../public/node-cards/symmetry.svg)
+
+![Symmetry example graph](../../public/node-cards/graphs/symmetry.svg)
 
 ### Frame Feedback
 

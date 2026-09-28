@@ -148,6 +148,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   changes there rather than inside a node. Frame Warp uses the pair directly.
   The 3D transitions use its scaled form so depth shading stays inside the
   weighted sum and RGB is still quantised exactly once.
+- A select whose values are baked as numeric firmware ids keeps one append-only
+  ordered constant in TypeScript and derives the id from that order. Wallpaper
+  symmetry does this with `WALLPAPER_GROUPS`; its browser fold and C++ switch
+  therefore cannot assign different meanings to the same saved group name.
+  Tests cover both the geometry (idempotence and group generators) and every
+  name-to-id emission, while show codegen must lift the complete shared helper.
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it

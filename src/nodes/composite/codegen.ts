@@ -1,5 +1,6 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
+import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
@@ -81,6 +82,29 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+(2.0f*${dy ? `${dy}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
+  },
+  Symmetry({ p, ln, f, ownBuf, srcBuf, needsT, needsLattice, needsSymmetry, needsFrameSample }) {
+    needsT.v = true
+    needsLattice.v = true
+    needsSymmetry.v = true
+    needsFrameSample.v = true
+    const ob = ownBuf()
+    const src = srcBuf('frame')
+    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Symmetry: no input`); return }
+    const group = wallpaperGroupIndex(p.group ?? 'p4m')
+    const groupName = WALLPAPER_GROUPS[group]
+    const finder = group >= 6 ? '_hexCell' : '_squareCell'
+    ln(`  { /* Symmetry: ${groupName} */`)
+    ln(`    float _cells=constrain(${f('cells', 'cells', 2)},0.5f,8.0f);`)
+    ln(`    float _rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f),_spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
+    ln(`    float _ox=constrain(${f('offsetX', 'offsetX', 0)},-8.0f,8.0f),_oy=constrain(${f('offsetY', 'offsetY', 0)},-8.0f,8.0f);`)
+    ln(`    float _angle=-(_rotation+_spin*t)*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
+    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_ox,_sr*_px+_cr*_py+_oy);`)
+    ln(`      float _foldX,_foldY; _foldWallpaper(_cell.x,_cell.y,${group},_foldX,_foldY);`)
+    ln(`      float _sx=(WIDTH-1)*0.5f+_foldX*WIDTH,_sy=(HEIGHT-1)*0.5f+_foldY*WIDTH;`)
+    ln(`      ${ob}[_y*WIDTH+_x]=_sampleFrame(${src},_sx,_sy,0,true); } }`)
   },
   FrameFeedback({ id, p, ln, f, ownBuf, srcBuf, feedbackHistoryBufs }) {
     const ob = ownBuf()

@@ -41,6 +41,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `sdPinProbeSketch.test.ts` guards the class by asserting balanced quotes per
   emitted line, since a C string cannot span one; prefer that shape over
   remembering each new instance.
+  A custom type used as a generated helper's return value has the same failure
+  mode even when the definition visibly precedes the function in the `.ino`.
+  The symmetry fold therefore writes two primitive `float&` outputs instead of
+  returning a `_WallpaperPoint`; use primitive parameters/results or emit the
+  type's forward declaration in the preamble, and prove the choice with a real
+  Arduino compile rather than a text-only assertion.
 - `cppGenerator.ts`'s topological sort drops edges into a `TransportDisplay`
   before ordering, so a panel's own `out -> graph -> set` widget feedback
   doesn't look like a cycle — but only widget edges (`targetHandle` parsing as

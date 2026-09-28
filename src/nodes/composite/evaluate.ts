@@ -14,6 +14,7 @@ import {
   type FrameEdgeMode,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
+import { wallpaperSamplePoint } from '../../state/evaluator/symmetry'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
@@ -380,6 +381,20 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       const sx = cx + px * co + py * si + (2 * (dx?.[i] ?? 0.5) - 1) * strength
       const sy = cy - px * si + py * co + (2 * (dy?.[i] ?? 0.5) - 1) * strength
       return sampleFrame(src, sx, sy, edgeMode, bilinear)
+    }) }
+  },
+  Symmetry({ input, num, t, W, H }, id, props) {
+    const src = input(id, 'frame', null) as Frame | null
+    if (!src) return { frame: null }
+    const group = props.group ?? 'p4m'
+    const cells = num(id, 'cells', props, 'cells', 2)
+    const rotation = num(id, 'rotation', props, 'rotation', 0)
+    const spin = num(id, 'spin', props, 'spin', 0)
+    const offsetX = num(id, 'offsetX', props, 'offsetX', 0)
+    const offsetY = num(id, 'offsetY', props, 'offsetY', 0)
+    return { frame: buildFrame(W, H, (x, y) => {
+      const source = wallpaperSamplePoint(group, x, y, cells, rotation, spin, offsetX, offsetY, t, W, H)
+      return sampleFrame(src, source.x, source.y, 'clamp', true)
     }) }
   },
   // Bounded recursive frame feedback. The node stores its own output in a

@@ -2443,6 +2443,60 @@ describe('Pattern node expansion — Phase 2 Frame Warp codegen', () => {
   })
 })
 
+describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
+  it.each([
+    ['p1', 0, '_squareCell'], ['p2', 1, '_squareCell'], ['pm', 2, '_squareCell'],
+    ['pmm', 3, '_squareCell'], ['p4', 4, '_squareCell'], ['p4m', 5, '_squareCell'],
+    ['p3', 6, '_hexCell'], ['p6', 7, '_hexCell'], ['p6m', 8, '_hexCell'],
+  ])('bakes %s to its shared fold id', (group, groupId, finder) => {
+    const src = node('sym-field-source', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const symmetry = node('field-symmetry', 'FieldSymmetry', 'field', {
+      group, cells: 2.5, rotation: 10, spin: 15, offsetX: 0.2, offsetY: -0.3,
+    })
+    const map = node('sym-field-map', 'FieldToFrame', 'field', {})
+    const cpp = generateCpp([src, symmetry, map, outputNode], [
+      edge('sym-field-in', src.id, symmetry.id, 'field', 'field'),
+      edge('sym-field-map', symmetry.id, map.id, 'field', 'field'),
+      edge('sym-field-out', map.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain(`/* FieldSymmetry: ${group} */`)
+    expect(cpp).toContain('W=WIDTH, H=HEIGHT')
+    expect(cpp).toContain('float _v=x/(W-1)')
+    expect(cpp).toContain(`_LatticeCell _cell=${finder}(`)
+    expect(cpp).toContain(`_foldWallpaper(_cell.x,_cell.y,${groupId},_foldX,_foldY)`)
+    expect(cpp).toContain('field_field_symmetry[_y*WIDTH+_x]=field_sym_field_source[_sy*WIDTH+_sx]')
+    expect(cpp.match(/static inline void _foldWallpaper/g)).toHaveLength(1)
+    expect(cpp.match(/static inline _LatticeCell _squareCell/g)).toHaveLength(1)
+  })
+
+  it('uses the shared bilinear sampler for the frame node', () => {
+    const src = node('sym-frame-source', 'GradientFrame', 'pattern', {})
+    const symmetry = node('symmetry', 'Symmetry', 'composite', { group: 'p6m' })
+    const cpp = generateCpp([src, symmetry, outputNode], [
+      edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
+      edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('/* Symmetry: p6m */')
+    expect(cpp).toContain('_LatticeCell _cell=_hexCell(')
+    expect(cpp).toContain('_foldWallpaper(_cell.x,_cell.y,8,_foldX,_foldY)')
+    expect(cpp).toContain('buf_symmetry[_y*WIDTH+_x]=_sampleFrame(buf_sym_frame_source,_sx,_sy,0,true)')
+    expect(cpp.match(/static inline CRGB _sampleFrame\(/g)).toHaveLength(1)
+  })
+
+  it('falls back to p1 without interpolating an unknown persisted group', () => {
+    const injectedGroup = '*/ invalid firmware text /*'
+    const src = node('sym-frame-source', 'GradientFrame', 'pattern', {})
+    const symmetry = node('symmetry', 'Symmetry', 'composite', { group: injectedGroup })
+    const cpp = generateCpp([src, symmetry, outputNode], [
+      edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
+      edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('/* Symmetry: p1 */')
+    expect(cpp).toContain('_foldWallpaper(_cell.x,_cell.y,0,_foldX,_foldY)')
+    expect(cpp).not.toContain(injectedGroup)
+  })
+})
+
 describe('Pattern node expansion — Phase 1 Slice Tiling codegen', () => {
   const generateSlice = (lattice: string) => {
     const slice = node(`slice-${lattice}`, 'SliceTiling', 'field', {

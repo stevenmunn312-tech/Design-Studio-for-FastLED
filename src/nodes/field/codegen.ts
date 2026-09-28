@@ -5,6 +5,7 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from '../../state/sliceTiling'
+import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 
 function byteArray8(bytes: Uint8Array): string {
   return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
@@ -24,6 +25,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const fin = srcField('fieldIn')
     ln(`  { /* FieldFormula: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
     ln(`    float a=${a}, b=${b}; (void)a;(void)b;`)
+    ln(`    float W=WIDTH, H=HEIGHT; (void)W;(void)H;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float x=_x, y=_y; (void)x;(void)y;`)
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
@@ -362,5 +364,31 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      int _tx=max(1,(int)roundf(${tx})),_ty=max(1,(int)roundf(${ty})); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;`)
     ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+  },
+  FieldSymmetry({ p, ln, f, ownField, srcField, needsT, needsLattice, needsSymmetry }) {
+    needsT.v = true
+    needsLattice.v = true
+    needsSymmetry.v = true
+    const of = ownField()
+    const src = srcField('field')
+    if (!src) {
+      ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // FieldSymmetry: no input`)
+      return
+    }
+    const group = wallpaperGroupIndex(p.group ?? 'p4m')
+    const groupName = WALLPAPER_GROUPS[group]
+    const finder = group >= 6 ? '_hexCell' : '_squareCell'
+    ln(`  { /* FieldSymmetry: ${groupName} */`)
+    ln(`    float _cells=constrain(${f('cells', 'cells', 2)},0.5f,8.0f);`)
+    ln(`    float _rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f),_spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
+    ln(`    float _ox=constrain(${f('offsetX', 'offsetX', 0)},-8.0f,8.0f),_oy=constrain(${f('offsetY', 'offsetY', 0)},-8.0f,8.0f);`)
+    ln(`    float _angle=-(_rotation+_spin*t)*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
+    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_ox,_sr*_px+_cr*_py+_oy);`)
+    ln(`      float _foldX,_foldY; _foldWallpaper(_cell.x,_cell.y,${group},_foldX,_foldY);`)
+    ln(`      int _sx=constrain((int)floorf((WIDTH-1)*0.5f+_foldX*WIDTH+0.5f),0,WIDTH-1);`)
+    ln(`      int _sy=constrain((int)floorf((HEIGHT-1)*0.5f+_foldY*WIDTH+0.5f),0,HEIGHT-1);`)
+    ln(`      ${of}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx]; } }`)
   },
 }

@@ -38,6 +38,7 @@ import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
+import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   BH1750_DEFAULT_ADDRESS,
@@ -1524,6 +1525,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       rotate: 0,
       edgeMode: 'clamp',
       sampling: 'bilinear',
+    },
+  },
+  {
+    // Wallpaper-group repetition for a finished frame. Square and hexagonal
+    // groups select their matching lattice automatically.
+    type: 'Symmetry',
+    label: 'Symmetry',
+    category: 'composite',
+    inputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'cells', label: 'Cells', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
+      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'offsetX', label: 'Offset X', dataType: 'float' },
+      { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
+    ],
+    propertyInputs: {
+      cells: 'cells', rotation: 'rotation', spin: 'spin',
+      offsetX: 'offsetX', offsetY: 'offsetY',
+    },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      group: 'p4m', cells: 2, rotation: 0, spin: 0, offsetX: 0, offsetY: 0,
     },
   },
   {
@@ -3213,6 +3237,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { tilesX: 2, tilesY: 2 },
   },
 
+  {
+    // Scalar-field twin of Symmetry. Nearest sampling keeps field thresholds
+    // crisp; Field to Frame remains the explicit palette boundary.
+    type: 'FieldSymmetry',
+    label: 'Field Symmetry',
+    category: 'field',
+    inputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'cells', label: 'Cells', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
+      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'offsetX', label: 'Offset X', dataType: 'float' },
+      { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
+    ],
+    propertyInputs: {
+      cells: 'cells', rotation: 'rotation', spin: 'spin',
+      offsetX: 'offsetX', offsetY: 'offsetY',
+    },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: {
+      group: 'p4m', cells: 2, rotation: 0, spin: 0, offsetX: 0, offsetY: 0,
+    },
+  },
+
   // ── Output ─────────────────────────────────────────────────────────────
   {
     // The controller every other piece of hardware in the graph is attached
@@ -4388,6 +4436,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
   FieldTile: 'Tiles/repeats a field across the matrix.',
+  FieldSymmetry: 'Repeats a field through a square or hexagonal wallpaper symmetry group.',
   // composite
   Blur2D: 'Box-blurs the frame.',
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add or difference.',
@@ -4407,6 +4456,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   FrameWarp: 'Displaces a frame per pixel with two fields, plus centred zoom and rotation.',
+  Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',
   Transition: 'Transitions A→B — 21 styles: wipe, iris, push, spiral, dolly, cube + more.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Music Player or Performance Generator.',
@@ -4458,7 +4508,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5289,6 +5339,22 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
+  FieldSymmetry: {
+    group: { control: 'select', options: [...WALLPAPER_GROUPS] },
+    cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 5 },
+    offsetX: { control: 'slider', min: -8, max: 8, step: 0.1 },
+    offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
+  },
+  Symmetry: {
+    group: { control: 'select', options: [...WALLPAPER_GROUPS] },
+    cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 5 },
+    offsetX: { control: 'slider', min: -8, max: 8, step: 0.1 },
+    offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
+  },
   Shape: {
     cx:        N01,
     cy:        N01,
@@ -5691,6 +5757,22 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rotate: 'Centred source rotation in degrees.',
     edgeMode: 'How source coordinates outside the frame resolve: hold the edge, wrap around, or fade to black.',
     sampling: 'Bilinear is smoother in motion; nearest keeps hard pixel edges.',
+  },
+  FieldSymmetry: {
+    group: 'Wallpaper group. p1/p2/pm/pmm/p4/p4m use square cells; p3/p6/p6m use hexagonal cells.',
+    cells: 'Number of lattice cells across the canvas width.',
+    rotation: 'Rotates the lattice in degrees.',
+    spin: 'Continuously rotates the lattice in degrees per second.',
+    offsetX: 'Scrolls the lattice horizontally, measured in cells.',
+    offsetY: 'Scrolls the lattice vertically, measured in cells.',
+  },
+  Symmetry: {
+    group: 'Wallpaper group. p1/p2/pm/pmm/p4/p4m use square cells; p3/p6/p6m use hexagonal cells.',
+    cells: 'Number of lattice cells across the canvas width.',
+    rotation: 'Rotates the lattice in degrees.',
+    spin: 'Continuously rotates the lattice in degrees per second.',
+    offsetX: 'Scrolls the lattice horizontally, measured in cells.',
+    offsetY: 'Scrolls the lattice vertically, measured in cells.',
   },
   ClockDisplay: {
     displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',
