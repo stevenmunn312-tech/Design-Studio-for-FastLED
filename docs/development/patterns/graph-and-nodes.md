@@ -143,6 +143,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `LINEARBLEND_NOWRAP`, as does Noise's frame output, which shares that
   evaluator. Wrapping there gave a hard-edged field's 1 the colour of its 0,
   so a solid Slice Tiling slice vanished into the space around it.
+- A node's `field` output is `field_<id>` in the sketch; any other field
+  output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
+  `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it
+  used to take only the source node, so a second output would have read the
+  first one's buffer. A second output costs a whole field buffer, so Slice
+  Tiling writes it only while a wire reads it, and `estimateFirmwareRam`
+  prices each extra field output by that rule
+  (`EXTRA_FIELD_OUTPUTS_BY_NODE_TYPE`, derived from `NODE_LIBRARY`). The
+  preview fills it either way; its pooled buffers make that free.
 - A runtime property that can carry a wire is a **property input**, and
   `src/state/propertyInputs.ts` is the one registry: a node declares
   `propertyInputs` (property key -> an input port it *already* declares) and

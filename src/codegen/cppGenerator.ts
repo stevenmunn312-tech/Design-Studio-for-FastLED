@@ -1081,15 +1081,24 @@ export function generateCpp(
       const s = srcBuf(port)
       return s ? `::memmove(${fbuf}, ${s}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${fbuf}, NUM_LEDS, CRGB::Black);`
     }
-    // This node's own float field buffer.
-    const ffbuf = `field_${id}`
-    const ownField = () => { fieldBufs.add(id); return ffbuf }
-    // The float field buffer of the node feeding `port`, or null if unconnected.
+    // A node's `field` output is `field_<id>`; any other field output it has
+    // (Slice Tiling's `cell`) is `field_<id>_<port>`, so a second output never
+    // shares the first one's buffer.
+    const fieldBufName = (nodeId: string, port = 'field') =>
+      port === 'field' ? safeId(nodeId) : `${safeId(nodeId)}_${safeId(port)}`
+    // This node's own float field buffer for an output port.
+    const ownField = (port = 'field') => {
+      const name = fieldBufName(node.id, port)
+      fieldBufs.add(name)
+      return `field_${name}`
+    }
+    // The float field buffer of the node output feeding `port`, or null if unconnected.
     const srcField = (port: string): string | null => {
       const up = incoming.get(`${node.id}:${port}`)
       if (!up) return null
-      fieldBufs.add(safeId(up.srcId))
-      return `field_${safeId(up.srcId)}`
+      const name = fieldBufName(up.srcId, up.srcPort || 'field')
+      fieldBufs.add(name)
+      return `field_${name}`
     }
 
     // Bypassed effect-chain nodes just copy their matching frame/field input

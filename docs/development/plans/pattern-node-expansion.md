@@ -264,10 +264,13 @@ Contract:
   `rotation` (deg). Property inputs: `cells`, `lineWidth`, `scroll`,
   `rotation`. Properties: `lattice` select `['square', 'hex']`, `motif`
   select `['arcs', 'diagonals', 'smith', 'hexArcs', 'tenPrint']`, `seed`.
-- Per cell: `h = worleyHash(cellX + epoch·31, cellY − epoch·17)`, the hash
-  the Worley variant of Noise already emits as `_worleyHash` behind
-  `needsWorley`, so both sides agree on orientation for free; orientation
-  `k = floor(h · orientations)`.
+- Per cell: `h = latticeHash(cellX + epoch·31, cellY − epoch·17, seed)`, the
+  hash behind Slice Tiling's Cell output, emitted as `_latticeHashBits` in the
+  lattice helper behind `needsLattice`. It is unsigned 32-bit throughout and
+  keeps the top 24 bits, so both sides agree on orientation exactly;
+  orientation `k = floor(h · orientations)`. Not `_worleyHash`: its preview
+  divides the full 32 bits while the sketch keeps the low 24, so the two
+  return different numbers for the same cell.
 - Per pixel: distance to the motif's arcs or segments in the oriented cell;
   `field = 1 − smoothstep(0, lineWidth, d)`.
 - State: only the epoch counter and the previous `reroll` value, in an

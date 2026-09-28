@@ -1,3 +1,7 @@
+import { LATTICE_HASH_MULTIPLIERS } from '../state/evaluator/lattice'
+
+const [HASH_A, HASH_B, HASH_SEED, HASH_MIX] = LATTICE_HASH_MULTIPLIERS
+
 /** Shared lattice and recursive fan-triangle helpers for generated firmware. */
 export const LATTICE_HELPER_CPP = String.raw`struct _LatticeCell { float x, y; int a, b; bool flipped; };
 struct _FanFold { float x, y; int sector; };
@@ -29,6 +33,21 @@ static inline _LatticeCell _triCell(float x, float y) {
   float cv=j+(flip?0.666666666667f:0.333333333333f);
   float ox=cu+cv*0.5f,oy=cv*SQRT3*0.5f;
   _LatticeCell c={x-ox,y-oy,i,j,flip}; return c;
+}
+
+// latticeHashBits' twin: unsigned 32-bit throughout, top 24 bits kept.
+static inline uint32_t _latticeHashBits(int a,int b,uint32_t seed) {
+  uint32_t h=(uint32_t)a*${HASH_A}u+(uint32_t)b*${HASH_B}u+seed*${HASH_SEED}u;
+  h=(h^(h>>13))*${HASH_MIX}u; h^=h>>16;
+  return h>>8;
+}
+
+// latticeCellValue's twin, 0.25-1 in exact integer steps, so the float equals
+// the preview's. Plain ints rather than the struct, so the .ino prototype hoist
+// has no type to trip on.
+static inline float _latticeCellValue(int a,int b,bool flipped,uint32_t seed) {
+  uint32_t bits=_latticeHashBits(a*2+(flipped?1:0),b,seed);
+  return (float)(4194304u+((bits*3u)>>2))/16777216.0f;
 }
 
 static inline _FanFold _fanFold(float x,float y,int sides,bool dihedral) {

@@ -497,7 +497,6 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Code: [],
     FieldFormula: ['a'],
     FieldNoise: ['speed', 'scale'],
-    SliceTiling: ['cells', 'rotation', 'morph'],
     WaveSim: ['trigger', 'impulse'],
     DistanceField: ['px', 'py'],
     FieldRotate: ['field', 'angle'],
@@ -1676,6 +1675,29 @@ const MASTER_SPEED_LIVE_EXAMPLE = namedExample(
   'The plasma keeps its own 0.4 speed; the knob multiplies the clock underneath it rather than rewriting that number.',
 )
 
+// The generic field example maps Slice Tiling's solid/void field through a
+// palette, which shows two colours. The Cell output is how it gets more, so the
+// example is the recipe: Field × Cell into Field → Frame.
+const SLICE_TILING_LIVE_EXAMPLE = namedExample(
+  'SliceTiling',
+  'Give every hexagon its own colour',
+  [
+    {
+      key: 'target', type: 'SliceTiling',
+      properties: { lattice: 'hex', depth: 1, preset: 'pinwheel', cells: 2.2, spin: 12, edge: 0.05, seed: 1 },
+    },
+    { key: 'shade', type: 'FieldMath', properties: { fieldOp: 'multiply' } },
+    { key: 'paint', type: 'FieldToFrame', properties: { palette: 'synthwave', brightness: 1 } },
+  ],
+  [
+    { source: 'target', sourceHandle: 'field', target: 'shade', targetHandle: 'a' },
+    { source: 'target', sourceHandle: 'cell', target: 'shade', targetHandle: 'b' },
+    { source: 'shade', sourceHandle: 'field', target: 'paint', targetHandle: 'field' },
+  ],
+  'Slice Tiling\'s Field output holds its solid and empty slices; its Cell output holds one value per hexagon. Field Math multiplies the two, so each hexagon\'s slices take their own Synthwave colour while the empty slices stay at the palette\'s dark end. Spin turns the lattice, and each colour turns with its hexagon.',
+  'The Field → Frame node preview shows slowly turning hexagons, each in its own colour. Change Seed on Slice Tiling to deal the colours out again, or pick another palette on Field → Frame.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
@@ -1708,6 +1730,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
+  SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   TextValue: TEXT_VALUE_LIVE_EXAMPLE,
   FormatNumber: FORMAT_NUMBER_LIVE_EXAMPLE,
   FormatDateTime: FORMAT_DATE_TIME_LIVE_EXAMPLE,

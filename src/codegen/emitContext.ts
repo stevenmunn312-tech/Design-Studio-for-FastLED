@@ -180,9 +180,9 @@ export interface NodeEmitContext {
   } | undefined
   /** A statement that seeds this node's buffer from a frame input, or black. */
   seedFrom: (port: string) => string
-  /** This node's own float field buffer. */
-  ownField: () => string
-  /** The field buffer of the node feeding `port`, or null if unconnected. */
+  /** This node's own float field buffer for an output port (`field` unless named). */
+  ownField: (port?: string) => string
+  /** The field buffer of the node output feeding `port`, or null if unconnected. */
   srcField: (port: string) => string | null
 }
 

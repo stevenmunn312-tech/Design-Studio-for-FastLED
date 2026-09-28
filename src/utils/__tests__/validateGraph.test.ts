@@ -1500,6 +1500,24 @@ describe('validateGraph', () => {
       expect(ram.internalBytes).toBe(96)
     })
 
+    it('prices a wired Slice Tiling Cell output as a field buffer of its own', () => {
+      const wire = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
+        ({ id, source, sourceHandle, target, targetHandle }) as unknown as StudioEdge
+      const nodes = [
+        node('slice', 'SliceTiling'), node('mix', 'FieldMath', { fieldOp: 'multiply' }),
+        node('paint', 'FieldToFrame'), node('out', 'MatrixOutput', { width: 4, height: 4 }),
+      ]
+      const chain = [
+        wire('a', 'slice', 'field', 'mix', 'a'),
+        wire('m', 'mix', 'field', 'paint', 'field'),
+        wire('o', 'paint', 'frame', 'out', 'frame'),
+      ]
+      // Slice Tiling's and Field Math's own buffers: 16 LEDs × 4 bytes each.
+      expect(estimateFirmwareRam(nodes, chain)!.fieldBufferBytes).toBe(128)
+      // The Cell output is written only while a wire reads it.
+      expect(estimateFirmwareRam(nodes, [...chain, wire('b', 'slice', 'cell', 'mix', 'b')])!.fieldBufferBytes).toBe(192)
+    })
+
     it('counts the terminal buffer when the output remaps pixels on the way out', () => {
       // A serpentine XY table means the render buffer and `leds` differ, so the
       // terminal node cannot render straight into the output.

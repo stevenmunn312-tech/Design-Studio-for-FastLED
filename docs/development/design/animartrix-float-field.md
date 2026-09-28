@@ -184,9 +184,11 @@ are shared with the frame-producing `Shape` node and its firmware helper.
 ### `SliceTiling` (category: `field`)
 
 Generates recursively subdivided solid/void fan slices on hexagonal, square,
-or triangular lattices. It is documented separately in the
+or triangular lattices, plus a Cell output holding one value per polygon for
+colouring each polygon's slices. It is documented separately in the
 [Slice Tiling design note](slice-tiling.md), including its shared lattice
-geometry, custom hexadecimal leaf order, morph and firmware parity contract.
+geometry, custom hexadecimal leaf order, morph, Cell output and firmware
+parity contract.
 
 ---
 

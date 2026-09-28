@@ -12,6 +12,9 @@ versioning (`0.y.z`) until the first stable release.
 - Slice Tiling adds recursive solid/void polygon slices on hexagonal, square,
   and triangular lattices, with twelve morphable presets, custom hexadecimal
   patterns, tileable vertex warping, and matching preview/firmware geometry.
+  Its Cell output holds one value per polygon: multiply it into the Field
+  output with Field Math and each polygon's slices take their own palette
+  colour, reshuffled by Seed. The node's help example is that graph.
 
 - Field Levels, Field Lerp, and Shape Field begin the procedural-pattern
   expansion. Shapes now share signed-distance primitives between preview and

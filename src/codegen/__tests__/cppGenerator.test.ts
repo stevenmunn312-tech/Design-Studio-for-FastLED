@@ -2433,6 +2433,31 @@ describe('Pattern node expansion — Phase 1 Slice Tiling codegen', () => {
     expect(cpp).not.toContain('checker')
   })
 
+  it('writes the Cell output into its own buffer only while a wire reads it', () => {
+    const build = (wireCell: boolean) => {
+      const slice = node('slice-cell', 'SliceTiling', 'field', { lattice: 'triangle', depth: 1, preset: 'checker', seed: 42 })
+      const mix = node('slice-cell-mix', 'FieldMath', 'field', { fieldOp: 'multiply' })
+      const f2f = node('slice-cell-map', 'FieldToFrame', 'field', {})
+      return generateCpp([slice, mix, f2f, outputNode], [
+        edge('slice-cell-a', slice.id, mix.id, 'field', 'a'),
+        ...(wireCell ? [edge('slice-cell-b', slice.id, mix.id, 'cell', 'b')] : []),
+        edge('slice-cell-mixed', mix.id, f2f.id, 'field', 'field'),
+        edge('slice-cell-frame', f2f.id, outputNode.id, 'frame', 'frame'),
+      ])
+    }
+    const wired = build(true)
+    expect(wired).toContain('float field_slice_cell[NUM_LEDS];')
+    expect(wired).toContain('float field_slice_cell_cell[NUM_LEDS];')
+    expect(wired).toContain('field_slice_cell_cell[_y*WIDTH+_x]=_latticeCellValue(_cell.a,_cell.b,_cell.flipped,42u);')
+    // Field Math reads the slice field on A and the Cell buffer on B.
+    expect(wired).toContain('float _a=field_slice_cell[_i], _b=field_slice_cell_cell[_i];')
+    expect(wired.match(/static inline float _latticeCellValue\(/g)).toHaveLength(1)
+
+    const unwired = build(false)
+    expect(unwired).not.toContain('field_slice_cell_cell')
+    expect(unwired).not.toContain('_latticeCellValue(_cell')
+  })
+
   it('turns invalid custom text into numeric all-solid bytes', () => {
     const slice = node('slice-custom', 'SliceTiling', 'field', {
       lattice: 'square', depth: 1, symmetry: 'rotational', preset: 'custom',

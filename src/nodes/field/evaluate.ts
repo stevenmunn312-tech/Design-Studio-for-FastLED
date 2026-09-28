@@ -6,7 +6,7 @@ import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/eva
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
-import { fanFold, hexCell, squareCell, triCell } from '../../state/evaluator/lattice'
+import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from '../../state/sliceTiling'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
@@ -447,7 +447,12 @@ function smoothstep01(edge: number, value: number): number {
   return t * t * (3 - 2 * t)
 }
 
-/** Paper-style recursively quartered fan slices, repeated on a regular lattice. */
+/**
+ * Paper-style recursively quartered fan slices, repeated on a regular lattice.
+ * `field` is the solid/void pattern; `cell` holds one value per lattice polygon
+ * (`latticeCellValue`), taken from the same cell lookup so the two outputs
+ * always agree on which polygon a pixel is in.
+ */
 export function evalSliceTiling(
   lattice: string,
   depthValue: number,
@@ -464,8 +469,10 @@ export function evalSliceTiling(
   t: number,
   W = DEFAULT_W,
   H = DEFAULT_H,
-): Field {
+  seed = 0,
+): { field: Field; cell: Field } {
   const out = allocField(W * H)
+  const cellOut = allocField(W * H)
   const depth = Math.max(1, Math.min(3, Math.round(depthValue)))
   const cells = Math.max(0.5, Math.min(8, cellsValue))
   const warp = Math.max(-1, Math.min(1, warpValue))
@@ -488,6 +495,7 @@ export function evalSliceTiling(
       const ry = sin * px + cos * py
       const cell = latticeType === 'square' ? squareCell(rx, ry)
         : latticeType === 'triangle' ? triCell(rx, ry) : hexCell(rx, ry)
+      cellOut[y * W + x] = latticeCellValue(cell, seed)
       let orient = 0
       if (latticeType === 'hex') orient = -Math.PI / 6
       else if (latticeType === 'triangle') orient = cell.flipped ? -Math.PI / 6 : Math.PI / 6
@@ -505,7 +513,7 @@ export function evalSliceTiling(
       out[y * W + x] = solid * smoothstep01(edge, Math.min(...walked.lambda))
     }
   }
-  return out
+  return { field: out, cell: cellOut }
 }
 
 export const FIELD_EVALUATORS: NodeEvaluators = {
@@ -524,7 +532,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     return { field: evalFieldNoise(speed, scale, octaves, t, W, H, normalizedSeed(props.seed)) }
   },
   SliceTiling({ num, t, W, H }, id, props) {
-    return { field: evalSliceTiling(
+    return evalSliceTiling(
       String(props.lattice ?? 'hex'),
       Number(props.depth ?? 2),
       String(props.symmetry ?? 'dihedral'),
@@ -537,8 +545,8 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       num(id, 'warp', props, 'warp', 0),
       num(id, 'morph', props, 'morph', 0),
       num(id, 'edge', props, 'edge', 0.03),
-      t, W, H,
-    ) }
+      t, W, H, normalizedSeed(props.seed),
+    )
   },
   // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
   // selected by a dropdown instead of free text — see

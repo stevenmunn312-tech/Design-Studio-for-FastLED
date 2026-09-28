@@ -55,16 +55,19 @@ if ((phase0.match(/static inline float _sdfPolygon\(/g)?.length ?? 0) !== 1) {
 }
 
 const phase1Nodes = [
-  node('hex', 'SliceTiling', { lattice: 'hex', depth: 3, symmetry: 'dihedral', preset: 'snowflake', cells: 1.5, spin: 12, warp: 0.35, morph: 0.4, edge: 0.03 }),
+  node('hex', 'SliceTiling', { lattice: 'hex', depth: 3, symmetry: 'dihedral', preset: 'snowflake', cells: 1.5, spin: 12, warp: 0.35, morph: 0.4, edge: 0.03, seed: 3 }),
   node('square', 'SliceTiling', { lattice: 'square', depth: 2, symmetry: 'rotational', preset: 'braid', cells: 2, rotation: 15, edge: 0 }),
   node('triangle', 'SliceTiling', { lattice: 'triangle', depth: 1, symmetry: 'dihedral', preset: 'custom', bits: '6', bitsB: '9', cells: 2.5, morph: 0.25 }),
+  node('shade', 'FieldMath', { fieldOp: 'multiply' }),
   node('mix-a', 'FieldMath', { fieldOp: 'add' }),
   node('mix-b', 'FieldMath', { fieldOp: 'add' }),
   node('color', 'FieldToFrame', { palette: 'rainbow', brightness: 1 }),
   node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
 ]
 const phase1Edges = [
-  edge('hex-a', 'hex', 'field', 'mix-a', 'a'),
+  edge('hex-field', 'hex', 'field', 'shade', 'a'),
+  edge('hex-cell', 'hex', 'cell', 'shade', 'b'),
+  edge('shade-a', 'shade', 'field', 'mix-a', 'a'),
   edge('square-b', 'square', 'field', 'mix-a', 'b'),
   edge('mix-a-a', 'mix-a', 'field', 'mix-b', 'a'),
   edge('triangle-b', 'triangle', 'field', 'mix-b', 'b'),
@@ -72,7 +75,10 @@ const phase1Edges = [
   edge('color-out', 'color', 'frame', 'out', 'frame'),
 ]
 const phase1 = generateCpp(phase1Nodes, phase1Edges)
-for (const marker of ['/* SliceTiling: hex', '/* SliceTiling: square', '/* SliceTiling: triangle', '_sliceBuildMatrices']) {
+for (const marker of [
+  '/* SliceTiling: hex', '/* SliceTiling: square', '/* SliceTiling: triangle', '_sliceBuildMatrices',
+  'float field_hex_cell[NUM_LEDS];', '_latticeCellValue(_cell.a,_cell.b,_cell.flipped,3u)',
+]) {
   if (!phase1.includes(marker)) throw new Error(`Phase 1 fixture is missing ${marker}`)
 }
 if ((phase1.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1) {

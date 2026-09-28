@@ -490,6 +490,15 @@ const OUTPUT_DATATYPES_BY_NODE_TYPE = new Map(
   NODE_LIBRARY.map((def) => [def.type, new Set(def.outputs.map((o) => o.dataType))])
 )
 
+/**
+ * Field outputs other than a node's `field` port (Slice Tiling's `cell`). The
+ * generator gives each its own `field_<id>_<port>` buffer, but only while a
+ * wire reads it, so the budget counts one per wired port.
+ */
+const EXTRA_FIELD_OUTPUTS_BY_NODE_TYPE = new Map(
+  NODE_LIBRARY.map((def) => [def.type, def.outputs.filter((o) => o.dataType === 'field' && o.id !== 'field').map((o) => o.id)])
+)
+
 /** Input ports that consume a `palette`, so a node's palette references can be resolved. */
 const PALETTE_INPUT_PORTS_BY_NODE_TYPE = new Map(
   NODE_LIBRARY.map((def) => [def.type, def.inputs.filter((i) => i.dataType === 'palette').map((i) => i.id)])
@@ -711,7 +720,11 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     if (!n) continue
     const outputTypes = OUTPUT_DATATYPES_BY_NODE_TYPE.get(n.data.nodeType)
     if (outputTypes?.has('frame') && id !== aliasedTerminalId) frameBufferBytes += renderLedCount * 3
-    if (outputTypes?.has('field')) fieldBufferBytes += renderLedCount * 4
+    if (outputTypes?.has('field')) {
+      const wiredExtras = (EXTRA_FIELD_OUTPUTS_BY_NODE_TYPE.get(n.data.nodeType) ?? [])
+        .filter((port) => edges.some((e) => e.source === id && e.sourceHandle === port)).length
+      fieldBufferBytes += renderLedCount * 4 * (1 + wiredExtras)
+    }
     // ColorTrails' separable subpixel advection needs one intermediate CRGB
     // frame in addition to its persistent output buffer. Codegen declares it
     // as a normal render buffer, so PSRAM moves it together with the others.

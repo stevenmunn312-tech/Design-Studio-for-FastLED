@@ -53,10 +53,14 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
     ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
   },
-  SliceTiling({ id, p, ln, f, ownField, needsT, needsLattice, globalLines }) {
+  SliceTiling({ node, id, p, ln, f, ownField, edges, needsT, needsLattice, globalLines }) {
     needsT.v = true
     needsLattice.v = true
     const of = ownField()
+    // The Cell output costs a second field buffer, so it is written only when
+    // a wire reads it (validateGraph prices it by the same rule). The preview
+    // fills it either way; its pool makes that free.
+    const cf = edges.some((e) => e.source === node.id && e.sourceHandle === 'cell') ? ownField('cell') : null
     const depth = Math.max(1, Math.min(3, Math.round(Number(p.depth ?? 2))))
     const pattern = resolveSlicePattern(p.preset ?? 'pinwheel', depth, p.bits, p.bitsB)
     globalLines.push(`static const uint8_t _bits_${id}[8]={${byteArray8(pattern.bits)}};`)
@@ -75,6 +79,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
     ln(`      float _rx=_cr*_px-_sr*_py,_ry=_sr*_px+_cr*_py; _LatticeCell _cell=${finder}(_rx,_ry);`)
+    if (cf) ln(`      ${cf}[_y*WIDTH+_x]=_latticeCellValue(_cell.a,_cell.b,_cell.flipped,${seedProp(p)}u);`)
     if (lattice === 'hex') {
       ln(`      float _orient=-0.523598775598f;`)
     } else if (lattice === 'triangle') {

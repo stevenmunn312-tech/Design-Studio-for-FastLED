@@ -2953,11 +2953,17 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       cells: 'cells', rotation: 'rotation', spin: 'spin',
       warp: 'warp', morph: 'morph', edge: 'edge',
     },
-    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    // `cell` holds one value per lattice polygon, 0.25–1, so Field Math can
+    // multiply it into `field` and give each polygon's slices its own colour
+    // without any matching the empty slices' 0.
+    outputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'cell', label: 'Cell', dataType: 'field' },
+    ],
     defaultProperties: {
       lattice: 'hex', depth: 2, symmetry: 'dihedral', preset: 'pinwheel',
       bits: 'ffff', bitsB: '6996', cells: 1, rotation: 0, spin: 0,
-      warp: 0, morph: 0, edge: 0.03,
+      warp: 0, morph: 0, edge: 0.03, seed: 0,
     },
   },
   {
@@ -4344,7 +4350,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Code: 'Paste raw FastLED C++ that writes into leds[].',
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
-  SliceTiling: 'Recursive solid/void fan slices on hex, square or triangle lattices.',
+  SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
@@ -5288,6 +5294,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     warp: { control: 'slider', min: -1, max: 1, step: 0.01 },
     morph: N01,
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   Wireframe3D: {
     model:      { control: 'select', options: WIREFRAME_MODEL_OPTIONS },
@@ -5643,6 +5650,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     edge: 'Fades solid triangles inward from their boundaries; 0 is a hard fill.',
     bits: 'Custom pattern A as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
     bitsB: 'Custom pattern B as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
+    seed: 'Shuffles the value each polygon gets on the Cell output. The Field output ignores it.',
   },
   ClockDisplay: {
     displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',
@@ -5950,6 +5958,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'geometry', label: 'Geometry', keys: ['lattice', 'cells', 'rotation', 'spin', 'symmetry'] },
     { key: 'subdivision', label: 'Subdivision', keys: ['depth', 'warp', 'edge'] },
     { key: 'pattern', label: 'Pattern', keys: ['preset', 'bits', 'bitsB', 'morph'] },
+    { key: 'cell', label: 'Cell output', keys: ['seed'] },
   ],
   Wireframe3D: [
     { key: 'model', label: 'Model', keys: ['model'] },

@@ -3495,6 +3495,33 @@ describe('Pattern node expansion — Phase 1 Slice Tiling', () => {
     expect(colourAt(empty)).toEqual({ r: 3, g: 29, b: 68 })
   })
 
+  it('colours each polygon\'s slices from the Cell output', () => {
+    // Field × Cell: a solid slice takes its polygon's value, an empty one
+    // stays 0, so every polygon's slices land on their own palette colour.
+    const slice = node('slice-cells', 'SliceTiling', 'field', {
+      lattice: 'hex', depth: 2, symmetry: 'dihedral', preset: 'pinwheel',
+      cells: 2.5, rotation: 0, spin: 0, warp: 0, morph: 0, edge: 0, seed: 3,
+    })
+    const mix = node('slice-cells-mix', 'FieldMath', 'field', { fieldOp: 'multiply' })
+    const f2f = node('slice-cells-f2f', 'FieldToFrame', 'field', { palette: 'synthwave', brightness: 1 })
+    const out = node('slice-cells-out', 'MatrixOutput', 'output', {})
+    const { outputs } = evaluateGraphFull([slice, mix, f2f, out], [
+      edge('slice-cells-a', slice.id, 'field', mix.id, 'a'),
+      edge('slice-cells-b', slice.id, 'cell', mix.id, 'b'),
+      edge('slice-cells-mixed', mix.id, 'field', f2f.id, 'field'),
+      edge('slice-cells-frame', f2f.id, 'frame', out.id, 'frame'),
+    ], 0, 16, 16)
+    const field = outputs.get(slice.id)!.field as Float32Array
+    const cell = outputs.get(slice.id)!.cell as Float32Array
+    const mixed = outputs.get(mix.id)!.field as Float32Array
+    for (let i = 0; i < field.length; i++) expect(mixed[i]).toBeCloseTo(field[i] * cell[i], 6)
+    const frame = outputs.get(f2f.id)!.frame as Frame
+    const solidColours = new Set(frame.flat()
+      .filter((_, index) => field[index] === 1)
+      .map((px) => `${px.r},${px.g},${px.b}`))
+    expect(solidColours.size).toBeGreaterThan(2)
+  })
+
   it('morphs custom patterns leaf-wise', () => {
     const slice = node('slice-morph', 'SliceTiling', 'field', {
       lattice: 'square', depth: 1, symmetry: 'rotational', preset: 'custom',
