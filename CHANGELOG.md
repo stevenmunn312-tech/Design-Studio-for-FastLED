@@ -33,6 +33,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Worley noise puts each cell's feature point in the same place on the LEDs as
+  in the preview. The firmware hash kept different bits of the number the
+  preview used, so every cell landed somewhere else on hardware; Gabor Noise
+  and Prism Storm share the hash and had the same fault. The preview looks the
+  same; the hardware now matches it.
+
 - Field → Frame maps a field of 1 to the palette's last colour instead of
   wrapping it round to the first, in the preview and on the LEDs. Solid Slice
   Tiling slices, filled Shape Fields and Field Levels thresholds were coming

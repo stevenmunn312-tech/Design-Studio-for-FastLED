@@ -1,4 +1,5 @@
 import { instanceState } from './memory'
+import { latticeHash } from './lattice'
 export const seededRngState = instanceState('seededRngState', new Map<string, { seed: number; lcg: number }>())
 
 // ── Simplex noise 2D ─────────────────────────────────────────────────────────
@@ -53,9 +54,14 @@ export function seedOffset(seed: number, channel = 0): number {
   return seed ? seededHash(seed, channel) * 1024 : 0
 }
 
-// Integer hash → [0,1), used to place a feature point per cell for Worley noise.
+/**
+ * Integer hash → [0,1), used to place a feature point per cell for Worley
+ * noise. Worley's cells are a square lattice, so this is `latticeHash` with no
+ * seed: unsigned 32-bit arithmetic keeping the top 24 bits, which float32 holds
+ * exactly, so the sketch's `_worleyHash` returns the same number. It used to
+ * divide the full 32 bits while the sketch kept the low 24, and every cell's
+ * feature point landed somewhere else on the LEDs than in the preview.
+ */
 export function worleyHash(x: number, y: number): number {
-  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263)
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+  return latticeHash(x, y, 0)
 }

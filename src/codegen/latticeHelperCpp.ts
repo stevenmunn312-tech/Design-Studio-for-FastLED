@@ -103,3 +103,20 @@ static inline float _sliceEdge(float value,float edge){
   if(edge<=0.0f)return value>=0.0f?1.0f:0.0f;
   float t=constrain(value/edge,0.0f,1.0f);return t*t*(3.0f-2.0f*t);
 }`
+
+/**
+ * `worleyHash`'s twin, which is the lattice hash with no seed, emitted on its
+ * own behind `needsWorley` so Worley noise does not pull in the lattice helper.
+ * Casting before multiplying keeps the arithmetic unsigned; `(uint32_t)(x *
+ * 374761393)` overflowed a signed int first, which is undefined behaviour. The
+ * show generator hoists it by the signature line through the closing brace.
+ */
+export const WORLEY_HASH_CPP = [
+  '// Integer hash → [0,1) placing one feature point per cell (Worley noise):',
+  '// unsigned 32-bit with the top 24 bits kept, so the float equals the preview\'s.',
+  'float _worleyHash(int x, int y) {',
+  `  uint32_t h = (uint32_t)x * ${HASH_A}u + (uint32_t)y * ${HASH_B}u;`,
+  `  h = (h ^ (h >> 13)) * ${HASH_MIX}u;`,
+  '  return (float)((h ^ (h >> 16)) >> 8) / 16777216.0f;',
+  '}',
+].join('\n')

@@ -1851,7 +1851,11 @@ describe('generateCpp', () => {
   it('emits Worley noise with its hash helper', () => {
     const w = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 0.5, scale: 0.3, palette: 'forest' })
     const cpp = generateCpp([w, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _worleyHash(int x, int y)')
+    expect(cpp.match(/^float _worleyHash\(int x, int y\) \{$/gm)).toHaveLength(1)
+    // Unsigned throughout and the top 24 bits kept, as worleyHash does, so the
+    // sketch places each feature point where the preview does.
+    expect(cpp).toContain('uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u;')
+    expect(cpp).toContain('return (float)((h ^ (h >> 16)) >> 8) / 16777216.0f;')
     expect(cpp).toContain('_worleyHash(_cx,_cy)')
     expect(cpp).toContain('ColorFromPalette(paldef_forest')
   })

@@ -414,6 +414,19 @@ describe('showGenerator', () => {
     expect(r.helpers.join('\n')).toContain('float _fsin8(float x)')
   })
 
+  it('hoists the Worley hash helper once, whole, for every pattern that calls it', () => {
+    const worley = (id: string) => ({
+      nodes: [node(`${id}-nz`, 'Noise', { noiseType: 'worley', speed: 0.5, scale: 0.3, palette: 'forest' }), node(`${id}-go`, 'GroupOutput')],
+      edges: [edge(`${id}-e`, `${id}-nz`, 'frame', `${id}-go`, 'frame')],
+    })
+    const r = buildPatternRenderers(['wa', 'wb'], { wa: worley('wa'), wb: worley('wb') } as unknown as GroupRegistry)
+    expect(r.functions.every((fn) => fn.includes('_worleyHash(_cx,_cy)'))).toBe(true)
+    const hash = r.helpers.filter((helper) => helper.startsWith('float _worleyHash('))
+    expect(hash).toHaveLength(1)
+    expect(hash[0]).toContain('uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u;')
+    expect(hash[0].endsWith('return (float)((h ^ (h >> 16)) >> 8) / 16777216.0f;\n}')).toBe(true)
+  })
+
   it('preserves Code-node file-scope declarations used by a collected pattern', () => {
     const codeGroups = {
       gc: {

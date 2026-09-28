@@ -102,7 +102,7 @@ import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
-import { LATTICE_HELPER_CPP } from './latticeHelperCpp'
+import { LATTICE_HELPER_CPP, WORLEY_HASH_CPP } from './latticeHelperCpp'
 import {
   type StereoVuEmit,
   STEREO_VU_CPP_FORWARD,
@@ -1413,12 +1413,7 @@ export function generateCpp(
   }
 
   if (needsWorley.v) {
-    lines.push(`// Integer hash → [0,1) placing one feature point per cell (Worley noise).`)
-    lines.push(`float _worleyHash(int x, int y) {`)
-    lines.push(`  uint32_t h = (uint32_t)(x * 374761393) + (uint32_t)(y * 668265263);`)
-    lines.push(`  h = (h ^ (h >> 13)) * 1274126177u;`)
-    lines.push(`  return ((h ^ (h >> 16)) & 0xFFFFFF) / 16777216.0f;`)
-    lines.push(`}`)
+    lines.push(WORLEY_HASH_CPP)
     lines.push(``)
   }
 

@@ -81,6 +81,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   directions over the same sweep: an integer carrying the float suffix, and a
   declared local appearing elsewhere in the text with an `f` glued to it unless
   something else declares that glued name too.
+- A hash that the preview and the sketch both compute must return the same
+  number, not a close one, and a text-level test that the helper was emitted
+  cannot tell the difference. `_worleyHash` kept the low 24 bits while
+  `worleyHash` divided all 32 by 2^32, so every Worley feature point sat
+  somewhere else on the LEDs than in the preview. It also multiplied before
+  casting, `(uint32_t)(x * 374761393)`, which overflows a signed int:
+  undefined behaviour. The shared construction casts each operand first,
+  `(uint32_t)x * 374761393u`, stays unsigned 32-bit, and keeps the top 24
+  bits, which a float32 holds exactly. That is `latticeHash`, `worleyHash` (the
+  same hash with no seed) and their twins in `latticeHelperCpp.ts`, which
+  interpolates the multipliers from `LATTICE_HASH_MULTIPLIERS`.
+  `lattice.test.ts` and `random.test.ts` hold each TypeScript hash to a BigInt
+  model of the C arithmetic; a new hash needs the same test.
 - A screen-only sketch (a panel plus a screen design, no LED output) is trimmed
   of FastLED entirely, not just left minimal: `cppGenerator.ts`'s
   `withoutUnusedFastLed(lines)`, applied at the generator's single
