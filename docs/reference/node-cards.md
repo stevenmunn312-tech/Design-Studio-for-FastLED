@@ -858,6 +858,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Wave Sim example graph](../../public/node-cards/graphs/wave-sim.svg)
 
+### Turing Field
+
+![Turing Field node](../../public/node-cards/turing-field.svg)
+
+![Turing Field example graph](../../public/node-cards/graphs/turing-field.svg)
+
 ### Distance Field
 
 ![Distance Field node](../../public/node-cards/distance-field.svg)

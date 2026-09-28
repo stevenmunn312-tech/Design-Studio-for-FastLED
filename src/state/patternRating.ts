@@ -429,7 +429,7 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
 
 const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'GradientFrame', 'PaletteGradient'])
 const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst'])
-const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
+const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'TuringField', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
 const ANIMATED_TYPES = new Set([
   'TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave',
   'BeatSin', 'HueCycle', 'PaletteSweep', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',
@@ -439,7 +439,7 @@ const ANIMATED_TYPES = new Set([
   'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock', 'VocalAurora',
   'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs', 'EmberPulse', 'TurbulentBloom',
-  'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet',
+  'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField',
 ])
 
 export function inferPatternIntent(nodes: StudioNode[]): PatternIntent {

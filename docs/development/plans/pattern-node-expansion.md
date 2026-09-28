@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–4 complete** · Owner: app · Date: 2026-09-28
+Status: **in progress — Phases 0–5 complete** · Owner: app · Date: 2026-09-28
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -188,66 +188,15 @@ shared preview/firmware helper live in the
 lattice fixture, source hash, classic-ESP32 result, flash and RAM are in the
 [pattern-node compile record](../pattern-node-compile-checks.md).
 
-## Phase 5 — Turing Field, and Reaction Diffusion's field output
+## Phase 5 — Turing Field and Reaction Diffusion companions — **complete**
 
-The labyrinthine "Turing pattern" look is McCabe's multi-scale algorithm, not
-Gray-Scott, and it deserves its own field node. Two cheap companion changes
-land with it: a `field` output on Reaction Diffusion, and named feed/kill
-presets.
-
-### Turing Field (`TuringField`, category `field`)
-
-Contract:
-
-- Inputs: `reset` (bool), `speed` (float, iterations per frame, 1–4),
-  `stepSize` (float 0.01–0.2). Property inputs: `speed`, `stepSize`.
-  Properties: `scales` slider 2–5, `baseRadius` slider 1–8 (px), `seed`.
-- State: one float per pixel `a`, plus two scratch float arrays for the
-  separable box blur. Initialised from `seededHash` noise in −1..1.
-- Per iteration: for each scale `k`, activator `= box(a, r_k)` and inhibitor
-  `= box(a, 2·r_k)` with `r_k = baseRadius · 2^k`, both toroidal, both by
-  running-sum passes; per pixel keep the scale with the smallest
-  `|activator − inhibitor|`; step `a` by `±stepSize / (k + 1)` toward the
-  winning scale's sign; renormalise `a` to −1..1 by its min and max. Output
-  `(a + 1) / 2`.
-- RAM: 12 bytes per LED beyond the node's own field buffer, so a row
-  `TuringField: 12` in `STATEFUL_EXTRA_BYTES_PER_LED`.
-- Cost: `2 · scales` separable blurs per iteration, each O(1) per pixel.
-  Trivial at 16×16; on a 64×64 panel with five scales it is the heaviest
-  node in the library, so the capacity verdict must price it and the default
-  is three scales.
-
-### Reaction Diffusion companions
-
-- Add `{ id: 'field', label: 'Field', dataType: 'field' }` to
-  `ReactionDiffusion`'s outputs; the evaluator returns the `v` array as the
-  field, the emitter writes `ownField()` from `_v` beside the palette pass,
-  following the `Noise` dual-output precedent.
-- Add `rdPreset` select `['custom', 'spots', 'stripes', 'worms', 'coral',
-  'mitosis']` with the feed/kill pairs in a shared
-  `src/state/reactionDiffusionPresets.ts`; `feed` and `kill` are read from the
-  table unless the preset is `'custom'`, and `isPropertyEnabled` dims them
-  otherwise, so a wire into a dimmed knob draws dark rather than lying.
-
-Checklist:
-
-- [ ] Multi-scale step in `src/state/evaluator/turing.ts` with a test that a
-      flat field stays flat, a seeded field stays in −1..1, and the output
-      differs between `scales = 2` and `scales = 4`.
-- [ ] Preview handler with `instanceState` keyed by `stateKey(id)`, reset on
-      canvas size change and on the `reset` edge.
-- [ ] Emitter with `static float` arrays, a running-sum box blur helper in
-      `src/codegen/turingHelperCpp.ts` behind `needsTuring`.
-- [ ] `STATEFUL_EXTRA_BYTES_PER_LED` row and a `capacityStore` test that a
-      64×64 graph with five scales is priced as such.
-- [ ] Reaction Diffusion `field` output, evaluator and emitter, with a test
-      that the field equals the frame's palette index per pixel.
-- [ ] Reaction Diffusion presets, shared table, gating, and a
-      `propertyInputFallbacks` check that `feed`/`kill` literals are unchanged.
-- [ ] Library entries, README, node cards, `patternRating` ambient set,
-      design note `docs/development/design/turing-field.md`.
-- [ ] Compile check on classic ESP32 and ESP8266; record RAM at 16×16 and
-      32×32.
+The shipped `TuringField` contract, its toroidal summed-area-table step, the
+two changes from the contract drafted here (one table instead of separable
+blurs, and coarser scales taking the larger step), its RAM and cost, and
+Reaction Diffusion's Field output and solver-tuned presets live in the
+[Turing Field design note](../design/turing-field.md). The 16×16 and 32×32
+fixtures, source hashes, and classic-ESP32 and ESP8266 results are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 6 — Fourier Epicycles (`FourierEpicycles`, category `pattern`, subcategory `Shapes & Text`)
 
@@ -313,7 +262,8 @@ Checklist:
       symmetry and Turing fields.
 - [ ] Each shipped contract above replaced by a pointer to its design note.
 - [ ] `docs/release/beta-support-matrix.md` unchanged unless a node is gated by
-      board (Turing Field on ESP8266 is the one candidate).
+      board. Turing Field on ESP8266 was the one candidate and is not gated;
+      see the resolved decision below.
 - [ ] This document's status line updated.
 
 ## Phase 8 — Audio detectors from FastLED's processor
@@ -632,7 +582,7 @@ field and frame node today; the table lists only what a node adds beyond that.
 | Frame Warp | 0 | small | four reads and three lerps per channel |
 | Field Symmetry, Symmetry | 0 | small | one fold and one sample |
 | Truchet Tiles | 0 | small | one hash and two or three distances |
-| Turing Field | 12 bytes | small | `2 · scales` blur passes per iteration |
+| Turing Field | 8 bytes, plus one row and column | small | a summed-area table, then eight reads per scale, per iteration |
 | Fourier Epicycles | 0 | 12 bytes per harmonic | per frame, not per pixel: `harmonics` sines and cosines |
 | Vibe, Song Structure, Pitch | 0 | FastLED's detector code | per frame, inside the processor |
 | Waveform | 512 bytes once, for the sample ring | small | one segment per column |
@@ -656,6 +606,8 @@ field and frame node today; the table lists only what a node adds beyond that.
 - **Vibe's relative levels.** They are about 1.0 at the song's average and
   unbounded above by design. Decide whether the node also offers clamped
   0–1 copies, or leaves that to a Map Range so the contract stays honest.
-- **Turing Field on ESP8266.** Twelve bytes per LED is fine at 256 LEDs and
-  not at 1024. Decide whether the capacity verdict alone is enough or whether
-  the support matrix should mark the node experimental on that board.
+- **Turing Field on ESP8266 — resolved, no gate.** The node costs 12 bytes
+  per LED with its field buffer, and a 32×32 fixture holding it and Reaction
+  Diffusion compiled at 88% of ESP8266 RAM. The RAM estimate prices the node
+  exactly and the capacity check measures the real build, so the support
+  matrix does not mark it.

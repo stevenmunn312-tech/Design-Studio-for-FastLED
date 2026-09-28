@@ -105,6 +105,7 @@ import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP, WORLEY_HASH_CPP } from './latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
+import { TURING_HELPER_CPP } from './turingHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
 import {
   type StereoVuEmit,
@@ -883,6 +884,7 @@ export function generateCpp(
   const needsSdf = { v: false }
   const needsLattice = { v: false }
   const needsTruchet = { v: false }
+  const needsTuring = { v: false }
   const needsSymmetry = { v: false }
   const needsFrameSample = { v: false }
   const needsDisplayText = { number: false, dateTime: false }
@@ -942,7 +944,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsSymmetry, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsSymmetry, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     persistentFrameStateBufs, customDisplayOwners,
@@ -1396,6 +1398,11 @@ export function generateCpp(
 
   if (needsTruchet.v) {
     lines.push(TRUCHET_HELPER_CPP)
+    lines.push(``)
+  }
+
+  if (needsTuring.v) {
+    lines.push(TURING_HELPER_CPP)
     lines.push(``)
   }
 

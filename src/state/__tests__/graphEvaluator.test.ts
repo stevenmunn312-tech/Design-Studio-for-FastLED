@@ -65,6 +65,7 @@ import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphF
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample, combineWaves } from '../wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
+import { samplePalette } from '../ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../hardwareInputStore'
 import { usePlayerTransport } from '../playerTransport'
@@ -3458,6 +3459,80 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
       edge('sym-frame-out-edge', symmetry.id, 'frame', out.id, 'frame'),
     ], 0, W, H)!
     expect(frame[0].map((pixel) => pixel.r)).toEqual([0, 85, 170, 255])
+  })
+})
+
+describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion', () => {
+  function turingField(id: string, properties: Record<string, unknown>, frames: number, width = 16, height = 16) {
+    const turing = node(id, 'TuringField', 'field', properties)
+    const map = node(`${id}-map`, 'FieldToFrame', 'field', {})
+    const out = node(`${id}-out`, 'MatrixOutput', 'output', {})
+    const nodes = [turing, map, out]
+    const edges = [
+      edge(`${id}-field`, turing.id, 'field', map.id, 'field'),
+      edge(`${id}-frame`, map.id, 'frame', out.id, 'frame'),
+    ]
+    let field = new Float32Array(0)
+    for (let tick = 0; tick < frames; tick++) {
+      field = evaluateGraphFull(nodes, edges, tick, width, height).outputs.get(turing.id)!.field as Float32Array
+    }
+    return [...field]
+  }
+
+  it('renders a bounded Turing field that keeps its range and evolves', () => {
+    const early = turingField('turing-graph', { scales: 3, baseRadius: 1, seed: 4 }, 2)
+    const later = turingField('turing-graph-later', { scales: 3, baseRadius: 1, seed: 4 }, 12)
+    expect(early.every((value) => value >= 0 && value <= 1)).toBe(true)
+    expect(Math.min(...later)).toBe(0)
+    expect(Math.max(...later)).toBe(1)
+    expect(later).not.toEqual(early)
+  })
+
+  it('differs between two and four scales', () => {
+    const two = turingField('turing-two', { scales: 2, seed: 4 }, 12, 32, 32)
+    const four = turingField('turing-four', { scales: 4, seed: 4 }, 12, 32, 32)
+    expect(two).not.toEqual(four)
+  })
+
+  function reactionDiffusion(id: string, properties: Record<string, unknown>, frames: number, wires: { feed?: number } = {}) {
+    const rd = node(id, 'ReactionDiffusion', 'pattern', { speed: 8, palette: 'ocean', ...properties })
+    const out = node(`${id}-out`, 'MatrixOutput', 'output', {})
+    const nodes = [rd, out]
+    const edges = [edge(`${id}-frame`, rd.id, 'frame', out.id, 'frame')]
+    if (wires.feed !== undefined) {
+      nodes.push(node(`${id}-feed`, 'Math', 'math', { mathOp: 'add', a: wires.feed, b: 0 }))
+      edges.push(edge(`${id}-feed-wire`, `${id}-feed`, 'result', rd.id, 'feed'))
+    }
+    let result = evaluateGraphFull(nodes, edges, 0, 16, 16).outputs.get(rd.id)!
+    for (let tick = 1; tick < frames; tick++) result = evaluateGraphFull(nodes, edges, tick, 16, 16).outputs.get(rd.id)!
+    // Pooled buffers are recycled by the next pass, so keep copies.
+    return { field: Float32Array.from(result.field as Float32Array), frame: structuredClone(result.frame as Frame) }
+  }
+
+  it('publishes V as a Field that the frame is the palette lookup of', () => {
+    const { field, frame } = reactionDiffusion('rd-field', { feed: 0.055, kill: 0.062 }, 6)
+    expect(field).toHaveLength(256)
+    expect(new Set(field).size).toBeGreaterThan(1)
+    for (let i = 0; i < 256; i++) {
+      expect(frame[Math.floor(i / 16)][i % 16], String(i)).toEqual(samplePalette('ocean', field[i]))
+    }
+  })
+
+  it('lets a named preset fix feed and kill, wires included', () => {
+    const coral = reactionDiffusion('rd-coral', { rdPreset: 'coral', feed: 0.01, kill: 0.01 }, 30)
+    const explicit = reactionDiffusion('rd-coral-explicit', { rdPreset: 'custom', feed: 0.04, kill: 0.0625 }, 30)
+    expect([...coral.field]).toEqual([...explicit.field])
+
+    const wiredCoral = reactionDiffusion('rd-coral-wired', { rdPreset: 'coral' }, 30, { feed: 0.09 })
+    expect([...wiredCoral.field]).toEqual([...explicit.field])
+    const wiredCustom = reactionDiffusion('rd-custom-wired', { rdPreset: 'custom', kill: 0.0625 }, 30, { feed: 0.09 })
+    expect([...wiredCustom.field]).not.toEqual([...explicit.field])
+  })
+
+  it('gives every preset its own pattern', () => {
+    const patterns = ['spots', 'stripes', 'worms', 'coral', 'mitosis']
+      .map((rdPreset) => JSON.stringify([...reactionDiffusion(`rd-${rdPreset}`, { rdPreset }, 40).field]))
+    expect(new Set(patterns).size).toBe(patterns.length)
   })
 })
 

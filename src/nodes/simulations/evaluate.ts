@@ -1,7 +1,7 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { particleRadius } from '../../state/particleScale'
 import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/ledColor'
-import type { NodeEvaluators } from '../../state/evaluator/types'
+import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
   buildFrame,
   DEFAULT_W,
@@ -13,7 +13,8 @@ import {
   rawBlankFrame,
   byte,
 } from '../../state/evaluator/frames'
-import { allocFrame, instanceState } from '../../state/evaluator/memory'
+import { allocField, allocFrame, instanceState } from '../../state/evaluator/memory'
+import { reactionDiffusionRates } from '../../state/reactionDiffusionPresets'
 import {
   seededRngState,
   seededRandom,
@@ -697,8 +698,9 @@ export function reactionDiffusionSeedV(x: number, y: number, seed: number): numb
 }
 
 // Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
-// and react; V is coloured through a palette. Stateful — steps each frame.
-function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+// and react; V is the field output and, through a palette, the frame output.
+// Stateful — steps each frame.
+function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): { frame: Frame; field: Field } {
   const N = W * H
   let s = rdState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.seed !== seed) {
@@ -728,8 +730,10 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
     }
     s.u = un; s.un = u; s.v = vn; s.vn = v   // swap front/back buffers
   }
-  const v = s.v
-  return buildFrame(W, H, (x, y) => samplePalette(palette, v[y * W + x]))
+  // A copy, not the state: the pooled field is safe to hand downstream.
+  const field = allocField(N)
+  field.set(s.v)
+  return { frame: buildFrame(W, H, (x, y) => samplePalette(palette, field[y * W + x])), field }
 }
 
 // Conway's Game of Life on a toroidal grid. Live cells glow at the palette's hot
@@ -923,11 +927,13 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     return { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, palette, colorMode, t, W, H, normalizedSeed(props.seed)) }
   },
   ReactionDiffusion({ num, pal, W, H, stateKey }, id, props) {
-    const feed  = num(id, 'feed', props, 'feed', 0.055)
-    const kill  = num(id, 'kill', props, 'kill', 0.062)
+    // A named preset fixes feed and kill, wires included; `custom` reads both.
+    const rates = reactionDiffusionRates(props.rdPreset)
+    const feed  = rates?.feed ?? num(id, 'feed', props, 'feed', 0.055)
+    const kill  = rates?.kill ?? num(id, 'kill', props, 'kill', 0.062)
     const iters = Math.max(1, Math.min(20, Math.floor(num(id, 'speed', props, 'speed', 8))))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed)) }
+    return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
   },
   GameOfLife({ num, pal, tick, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')

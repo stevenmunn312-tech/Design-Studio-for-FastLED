@@ -7,6 +7,7 @@ import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from '../../state/sliceTiling'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
+import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
 
 function byteArray8(bytes: Uint8Array): string {
   return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
@@ -224,6 +225,25 @@ export const FIELD_EMITTERS: NodeEmitters = {
         break
       }
     }
+  },
+  // turingStep's twin runs in the shared helper; the radii are baked because
+  // `scales` and `baseRadius` are properties. The seed loop is evalTuringField's.
+  TuringField({ node, id, p, ln, f, ownField, boolExpr, needsWorley, needsTuring }) {
+    needsWorley.v = true
+    needsTuring.v = true
+    const of = ownField()
+    const radii = turingRadii(p.scales, p.baseRadius)
+    const A = `_tf_${id}`
+    ln(`  { /* Turing Field: radii ${radii.join(',')} */`)
+    ln(`    static float ${A}a[NUM_LEDS], ${A}p[(WIDTH+1)*(HEIGHT+1)]; static const int ${A}r[${radii.length}]={${radii.join(',')}};`)
+    ln(`    static uint32_t ${A}epoch=0; static bool ${A}prev=false, ${A}init=false; bool _reset=${boolExpr(node.id, 'reset')};`)
+    ln(`    if(_reset&&!${A}prev){ ${A}epoch++; ${A}init=false; } ${A}prev=_reset;`)
+    ln(`    if(!${A}init){ for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+    ln(`      ${A}a[_y*WIDTH+_x]=_worleyHash(_x+(int)${A}epoch*31,_y-(int)${A}epoch*17,${seedProp(p)}u)*2.0f-1.0f; ${A}init=true; }`)
+    ln(`    int _iters=max(1,min(${TURING_ITERATIONS_MAX},(int)floorf(${f('speed', 'speed', 2)})));`)
+    ln(`    float _step=constrain(${f('stepSize', 'stepSize', 0.05)},${floatLit(TURING_STEP_MIN)},${floatLit(TURING_STEP_MAX)});`)
+    ln(`    for(int _it=0;_it<_iters;_it++) _turingStep(${A}a,${A}p,WIDTH,HEIGHT,${A}r,${radii.length},_step);`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain((${A}a[_i]+1.0f)*0.5f,0.0f,1.0f); }`)
   },
   WaveSim({ node, id, ln, f, ownField, boolExpr }) {
     const of = ownField()

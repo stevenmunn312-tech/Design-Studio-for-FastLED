@@ -1569,6 +1569,28 @@ describe('validateGraph', () => {
       expect(ram.statefulBytes).toBe(16 * 3 * 4) // (delay + current slot) * CRGB pixels
     })
 
+    it('prices a 64×64 five-scale Turing Field by its state and summed-area table', () => {
+      const wire = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
+        ({ id, source, sourceHandle, target, targetHandle }) as unknown as StudioEdge
+      const nodes = [
+        node('turing', 'TuringField', { scales: 5, baseRadius: 8 }), node('paint', 'FieldToFrame'),
+        node('out', 'MatrixOutput', { width: 64, height: 64 }),
+      ]
+      const ram = estimateFirmwareRam(nodes, [
+        wire('f', 'turing', 'field', 'paint', 'field'), wire('o', 'paint', 'frame', 'out', 'frame'),
+      ])!
+      expect(ram.fieldBufferBytes).toBe(4096 * 4)
+      // One float of state per LED plus a (65 × 65)-float table.
+      expect(ram.statefulBytes).toBe(4096 * 4 + 65 * 65 * 4)
+    })
+
+    it('keeps Reaction Diffusion at four floats per LED with V in its field buffer', () => {
+      const nodes = [node('rd', 'ReactionDiffusion'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'rd', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.fieldBufferBytes + ram.statefulBytes).toBe(16 * 16)
+    })
+
     it('counts ColorTrails output plus its intermediate advection buffer', () => {
       const nodes = [node('ct', 'ColorTrails'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'ct', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]

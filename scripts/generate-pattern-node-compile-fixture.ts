@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–4 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–5 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -179,6 +179,42 @@ if ((phase4.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1
   throw new Error('Phase 4 fixture must emit the shared lattice helper exactly once')
 }
 
+// Phase 5 prices its RAM at two sizes, so one graph is generated twice.
+function phase5Sketch(size: number): string {
+  const nodes = [
+    node('pulse', 'Interval', { interval: 8 }),
+    node('turing', 'TuringField', { scales: 3, baseRadius: 1, speed: 2, stepSize: 0.05, seed: 9 }),
+    node('rd', 'ReactionDiffusion', { rdPreset: 'coral', speed: 8, palette: 'ocean', seed: 5 }),
+    node('mix', 'FieldMath', { fieldOp: 'max' }),
+    node('color', 'FieldToFrame', { palette: 'lava', brightness: 1 }),
+    node('out', 'MatrixOutput', { form: 'matrix', width: size, height: size, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('pulse-reset', 'pulse', 'pulse', 'turing', 'reset'),
+    edge('turing-mix', 'turing', 'field', 'mix', 'a'),
+    edge('rd-mix', 'rd', 'field', 'mix', 'b'),
+    edge('mix-color', 'mix', 'field', 'color', 'field'),
+    edge('color-out', 'color', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    '/* Turing Field: radii 1,2,4 */', 'static const int _tf_turingr[3]={1,2,4};',
+    '_turingStep(_tf_turinga,_tf_turingp,WIDTH,HEIGHT,_tf_turingr,3,_step);',
+    'float _f=0.04f, _k=0.0625f;', '::memcpy(field_rd,_vn_rd,NUM_LEDS*sizeof(float));',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 5 fixture (${size}×${size}) is missing ${marker}`)
+  }
+  if ((sketch.match(/static void _turingStep\(/g)?.length ?? 0) !== 1) {
+    throw new Error('Phase 5 fixture must emit the shared Turing helper exactly once')
+  }
+  if ((sketch.match(/float _worleyHash\(/g)?.length ?? 0) !== 1) {
+    throw new Error('Phase 5 fixture must emit the Worley hash exactly once')
+  }
+  return sketch
+}
+const phase5 = phase5Sketch(16)
+const phase5Large = phase5Sketch(32)
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -186,6 +222,8 @@ writeFileSync(resolve(outputDir, 'phase1.ino'), phase1, 'utf8')
 writeFileSync(resolve(outputDir, 'phase2.ino'), phase2, 'utf8')
 writeFileSync(resolve(outputDir, 'phase3.ino'), phase3, 'utf8')
 writeFileSync(resolve(outputDir, 'phase4.ino'), phase4, 'utf8')
+writeFileSync(resolve(outputDir, 'phase5.ino'), phase5, 'utf8')
+writeFileSync(resolve(outputDir, 'phase5-32.ino'), phase5Large, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -207,5 +245,13 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     bytes: Buffer.byteLength(phase4),
     sha256: createHash('sha256').update(phase4).digest('hex'),
   },
+  phase5: {
+    bytes: Buffer.byteLength(phase5),
+    sha256: createHash('sha256').update(phase5).digest('hex'),
+  },
+  'phase5-32': {
+    bytes: Buffer.byteLength(phase5Large),
+    sha256: createHash('sha256').update(phase5Large).digest('hex'),
+  },
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–4 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–5 pattern-node compile fixtures to ${outputDir}`)

@@ -2,6 +2,7 @@ import { rateCpp, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { particleRadius } from '../../state/particleScale'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
+import { reactionDiffusionRates } from '../../state/reactionDiffusionPresets'
 
 // Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
@@ -493,17 +494,23 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      int _tx=(int)fmodf(${bx}[_i]-_dirx+WIDTH,WIDTH),_ty=(int)fmodf(${by}[_i]-_diry+HEIGHT,HEIGHT);`)
     ln(`      if(_tx>=0&&_tx<WIDTH&&_ty>=0&&_ty<HEIGHT){ int _ti=_ty*WIDTH+_tx; ${ob}[_ti].r=max(${ob}[_ti].r,_bt.r); ${ob}[_ti].g=max(${ob}[_ti].g,_bt.g); ${ob}[_ti].b=max(${ob}[_ti].b,_bt.b); } } }`)
   },
-  ReactionDiffusion({ node, id, p, ln, f, ownBuf, paletteExpr, needsWorley }) {
+  ReactionDiffusion({ node, id, p, ln, f, ownBuf, ownField, paletteExpr, needsWorley }) {
     const ob = ownBuf()
-    const feed = f('feed', 'feed', 0.055), kill = f('kill', 'kill', 0.062)
+    // A named preset bakes its pair and ignores wires, as the preview does.
+    const rates = reactionDiffusionRates(p.rdPreset)
+    const feed = rates ? floatLit(rates.feed, 6) : f('feed', 'feed', 0.055)
+    const kill = rates ? floatLit(rates.kill, 6) : f('kill', 'kill', 0.062)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     // The starting patch hashes each pixel with the seed as the hash's third
     // input, as `reactionDiffusionSeedV` does in the preview; seed 0 included.
     const seed = seedProp(p)
     needsWorley.v = true
-    const u = `_u_${id}`, v = `_v_${id}`, un = `_un_${id}`, vn = `_vn_${id}`
+    // V lives in the node's field buffer, so the Field output costs no copy
+    // and no RAM beyond the buffer every field output is priced for. PSRAM
+    // makes that buffer a pointer, so its copies take an explicit size.
+    const u = `_u_${id}`, v = ownField(), un = `_un_${id}`, vn = `_vn_${id}`
     ln(`  { // ReactionDiffusion (Gray-Scott)`)
-    ln(`    static float ${u}[NUM_LEDS], ${v}[NUM_LEDS], ${un}[NUM_LEDS], ${vn}[NUM_LEDS]; static bool _rd_${id} = false;`)
+    ln(`    static float ${u}[NUM_LEDS], ${un}[NUM_LEDS], ${vn}[NUM_LEDS]; static bool _rd_${id} = false;`)
     ln(`    if (!_rd_${id}) { for (int _i = 0; _i < NUM_LEDS; _i++) { ${u}[_i] = 1; ${v}[_i] = 0; }`)
     ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
     ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.25f+_worleyHash(_x,_y,${seed}u)*0.5f; } _rd_${id}=true; }`)
@@ -516,7 +523,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`          float _uvv=${u}[_i]*${v}[_i]*${v}[_i];`)
     ln(`          ${un}[_i]=constrain(${u}[_i]+0.16f*_lu-_uvv+_f*(1-${u}[_i]),0.0f,1.0f);`)
     ln(`          ${vn}[_i]=constrain(${v}[_i]+0.08f*_lv+_uvv-(_k+_f)*${v}[_i],0.0f,1.0f); } }`)
-    ln(`      ::memcpy(${u},${un},sizeof(${u})); ::memcpy(${v},${vn},sizeof(${v})); }`)
+    ln(`      ::memcpy(${u},${un},sizeof(${u})); ::memcpy(${v},${vn},NUM_LEDS*sizeof(float)); }`)
     ln(`    for (int _i=0; _i<NUM_LEDS; _i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}[_i]*255)); }`)
   },
   GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr }) {

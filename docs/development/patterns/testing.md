@@ -44,6 +44,17 @@ patterns here, not in `CLAUDE.md`.
   (`capacityStore`, `masterBrightnessScale`, `projectStore`, `streamStore`,
   `uiStore`) peaked at 1.6 s (`masterBrightnessScale`) or much less.
 
+## Pooled evaluator values
+
+- **A field or frame from one evaluation is recycled by the next.**
+  `evaluateGraphFull` starts each pass with `advanceFramePool()`, and field
+  and frame values come from those pools. A test that keeps
+  `outputs.get(id).field` from one pass and compares it after another pass is
+  comparing the same reused buffer with itself: four Reaction Diffusion runs
+  with different feed rates once compared equal. Copy what you keep with
+  `Float32Array.from(field)`, `[...field]` or `structuredClone(frame)` before
+  the next evaluation.
+
 ## Full-suite runs under load
 
 - The full suite takes about two minutes on an otherwise idle machine. Firmware

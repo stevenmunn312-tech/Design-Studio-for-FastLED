@@ -603,8 +603,9 @@ const PALETTE_BUILDER_TYPES = PALETTE_BUILDER_NODE_TYPES
 const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   Fire2012: 1,            // uint8 heat[HEIGHT][WIDTH]
   GameOfLife: 6,          // uint8 cells + uint8 next + float bright
-  ReactionDiffusion: 16,  // 4 float arrays (u, v, un, vn)
+  ReactionDiffusion: 12,  // 3 float arrays (u, un, vn); v is its own field buffer
   WaveSim: 12,            // 3 float arrays (p, c, n) beyond its own field buffer
+  TuringField: 8,         // float state a plus a (W+1)(H+1) summed-area table
 }
 // Particles uses a fixed-size pool independent of matrix size (see the
 // `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.
@@ -737,6 +738,8 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
 
     const extraPerLed = STATEFUL_EXTRA_BYTES_PER_LED[n.data.nodeType]
     if (extraPerLed) statefulBytes += renderLedCount * extraPerLed
+    // The summed-area table's extra row and column beyond one float per LED.
+    if (n.data.nodeType === 'TuringField') statefulBytes += (w + h + 1) * 4
     if (n.data.nodeType === 'Particles') {
       const mode = String((n.data.properties as Record<string, unknown>)?.particleType ?? 'fountain')
       statefulBytes += PARTICLE_POOL_SIZE(mode) * PARTICLE_BYTES_PER_SLOT

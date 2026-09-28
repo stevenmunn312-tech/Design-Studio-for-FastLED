@@ -41,6 +41,11 @@ import { SLICE_PRESET_NAMES } from './sliceTiling'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
+  TURING_BASE_RADIUS_MAX, TURING_BASE_RADIUS_MIN, TURING_ITERATIONS_MAX, TURING_SCALES_MAX,
+  TURING_SCALES_MIN, TURING_STEP_MAX, TURING_STEP_MIN,
+} from './evaluator/turing'
+import { REACTION_DIFFUSION_PRESETS, reactionDiffusionPreset } from './reactionDiffusionPresets'
+import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   BH1750_DEFAULT_ADDRESS,
   LIGHT_SENSOR_DEFAULT_MAX_LUX,
@@ -2655,7 +2660,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
-    // Gray-Scott reaction-diffusion — organic spots/stripes that evolve.
+    // Gray-Scott reaction-diffusion — organic spots/stripes that evolve. A
+    // named `rdPreset` fixes feed and kill; `custom` reads the two knobs. The
+    // Field output is the V concentration the frame is coloured from.
     type: 'ReactionDiffusion',
     label: 'Reaction Diffusion',
     category: 'pattern',
@@ -2667,8 +2674,11 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { feed: 'feed', kill: 'kill', speed: 'speed', palette: 'paletteIn' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean', seed: 0 },
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'field', label: 'Field', dataType: 'field' },
+    ],
+    defaultProperties: { rdPreset: 'custom', feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean', seed: 0 },
   },
   {
     // Conway's Game of Life with fading trails; reseeds when it stagnates.
@@ -3125,6 +3135,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { speed: 4, damping: 0.985, impulse: 1 },
+  },
+  {
+    // McCabe's multi-scale Turing patterns: labyrinths inside labyrinths. Each
+    // pixel follows whichever scale's activator and inhibitor agree most, so
+    // the look keeps reorganising. `scales` and `baseRadius` are baked into
+    // the sketch; a rising `reset` restarts from a fresh seeded start.
+    type: 'TuringField',
+    label: 'Turing Field',
+    category: 'field',
+    inputs: [
+      { id: 'reset', label: 'Reset', dataType: 'bool' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'stepSize', label: 'Step Size', dataType: 'float' },
+    ],
+    propertyInputs: { speed: 'speed', stepSize: 'stepSize' },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { speed: 2, stepSize: 0.05, scales: 3, baseRadius: 1, seed: 0 },
   },
   {
     type: 'FieldToFrame',
@@ -4434,7 +4461,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   AudioFlow: 'Audio-reactive flowing noise field.',
   ColorTrails: 'Fluid palette trails adapted from a Stefan Petrick prototype.',
   Animartrix: 'AnimARTrix by Stefan Petrick, rebuilt for deep musical control.',
-  ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes.',
+  ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes, with named presets.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
   PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
   PatternSlideshow: 'Plays a Pattern Collection on a timer — the show without the music.',
@@ -4450,6 +4477,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
+  TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   DistanceField: 'Scalar field of distance from each pixel to a movable point.',
   FrameToField: 'Extracts a brightness field from a rendered frame.',
@@ -4532,7 +4560,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5439,7 +5467,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   Counter:           { rate:  { control: 'slider', min: 0, max: 5,   step: 0.1 } },
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
-  ReactionDiffusion: { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  ReactionDiffusion: {
+    rdPreset: { control: 'select', options: [...REACTION_DIFFUSION_PRESETS] },
+    speed: { control: 'slider', min: 1, max: 30,  step: 1 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   PatternMaster: {
     volume: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -5465,6 +5497,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed:   { control: 'slider', min: 1, max: 12,    step: 1 },
     damping: { control: 'slider', min: 0.8, max: 0.999, step: 0.001 },
     impulse: { control: 'slider', min: 0.1, max: 1,   step: 0.01 },
+  },
+  TuringField: {
+    speed: { control: 'slider', min: 1, max: TURING_ITERATIONS_MAX, step: 1 },
+    stepSize: { control: 'slider', min: TURING_STEP_MIN, max: TURING_STEP_MAX, step: 0.01 },
+    scales: { control: 'slider', min: TURING_SCALES_MIN, max: TURING_SCALES_MAX, step: 1 },
+    baseRadius: { control: 'slider', min: TURING_BASE_RADIUS_MIN, max: TURING_BASE_RADIUS_MAX, step: 0.5 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   FieldNoise: {
     speed: N01,
@@ -5800,6 +5839,18 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bitsB: 'Custom pattern B as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
     seed: 'Shuffles the value each polygon gets on the Cell output. The Field output ignores it.',
   },
+  ReactionDiffusion: {
+    rdPreset: 'A named feed/kill pair. Custom uses the Feed and Kill knobs; any other preset ignores them and their wires.',
+    feed: 'Rate chemical U is replenished. Used only by the Custom preset.',
+    kill: 'Rate chemical V is removed. Used only by the Custom preset.',
+  },
+  TuringField: {
+    speed: 'Simulation iterations per frame, 1–4. Each one costs two box blurs per scale.',
+    stepSize: 'How far a pixel moves per iteration. Coarser scales take proportionally larger steps.',
+    scales: 'How many nested pattern sizes compete. Each doubles the radius of the one before.',
+    baseRadius: 'Activator radius of the finest scale, in pixels. Its inhibitor is twice as wide.',
+    seed: 'Chooses the starting noise. Reset restarts from a fresh start derived from it.',
+  },
   Truchet: {
     lattice: 'Square offers arcs, diagonals, Smith curves, and 10 PRINT lines. Hex uses its edge-joining arc motif.',
     motif: 'Tile motif. A motif from the other lattice safely falls back to that lattice\'s arc motif.',
@@ -5863,6 +5914,13 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Truchet: {
     lineWidth: 'line width',
+  },
+  ReactionDiffusion: {
+    rdPreset: 'preset',
+  },
+  TuringField: {
+    stepSize: 'step size',
+    baseRadius: 'base radius',
   },
   PresenceInput: {
     rxPin: 'RX (sensor TX)',
@@ -6142,6 +6200,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'subdivision', label: 'Subdivision', keys: ['depth', 'warp', 'edge'] },
     { key: 'pattern', label: 'Pattern', keys: ['preset', 'bits', 'bitsB', 'morph'] },
     { key: 'cell', label: 'Cell output', keys: ['seed'] },
+  ],
+  TuringField: [
+    { key: 'simulation', label: 'Simulation', keys: ['speed', 'stepSize'] },
+    { key: 'scales', label: 'Scales', keys: ['scales', 'baseRadius'] },
+    { key: 'variation', label: 'Variation', keys: ['seed'] },
   ],
   Truchet: [
     { key: 'geometry', label: 'Geometry', keys: ['lattice', 'motif', 'cells', 'lineWidth'] },
@@ -6750,6 +6813,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'monday' || key === 'tuesday' || key === 'wednesday' || key === 'thursday' || key === 'friday' || key === 'saturday' || key === 'sunday') {
       return String(properties.dayMode ?? 'Every day') === 'Custom'
     }
+  }
+  // A named preset fixes both rates, so their knobs, and any wire into them,
+  // do nothing until the preset is Custom again.
+  if (nodeType === 'ReactionDiffusion' && (key === 'feed' || key === 'kill')) {
+    return reactionDiffusionPreset(properties.rdPreset) === 'custom'
   }
   if (nodeType === 'PerformanceGenerator' && key === 'fixedPalette') {
     return String(properties.paletteMode ?? 'mood') === 'fixed'

@@ -103,6 +103,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   firmware, because those are different functions even when each looks random.
   `lattice.test.ts` and `random.test.ts` hold each TypeScript hash to a BigInt
   model of the C arithmetic; a new hash needs the same test.
+- A simulation whose next step branches on near-equal floats must round like
+  the sketch, or the preview and the LEDs grow apart within seconds. The
+  Turing Field's preview rounds with `Math.fround` after every operation, in
+  the C++ helper's order, and avoids `x * y + z` where `x * y` is inexact,
+  because GCC fuses multiply-adds by default in the Arduino cores' GNU
+  dialect and a fused operation rounds once. A native `g++` test
+  (`turingNativeParity.test.ts`) holds the two bit-exact; copy it for the
+  next such node.
+- Never `sizeof` a render buffer. `buf_<id>` and `field_<id>` are arrays
+  normally, but `usePsram` turns them into pointers allocated in `setup()`,
+  and `sizeof` then copies four bytes. Copy with `NUM_LEDS*sizeof(float)` or
+  `sizeof(CRGB)*NUM_LEDS`, as Reaction Diffusion does now that its V state
+  lives in its own `field_<id>`. A node's own `static` arrays stay arrays, so
+  `sizeof` is safe on those. A stateful node may keep state in its own output
+  buffer like this, because only the owner writes it and the buffer outlives
+  the frame; a show prefixes it per pattern, so patterns never share it.
 - A screen-only sketch (a panel plus a screen design, no LED output) is trimmed
   of FastLED entirely, not just left minimal: `cppGenerator.ts`'s
   `withoutUnusedFastLed(lines)`, applied at the generator's single

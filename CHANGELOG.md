@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Turing Field grows McCabe's multi-scale Turing patterns, labyrinths inside
+  labyrinths that keep reorganising, with two to five nested scales and a
+  reset input. Reaction Diffusion gains a Field output carrying its V
+  concentration, at no extra firmware RAM, and named Spots, Stripes, Worms,
+  Coral and Mitosis presets tuned for its solver. Custom stays the default.
+
 - Truchet Tiles draws deterministic, rerollable arc and line networks across
   square or hexagonal lattices. Cell count, glow width, scrolling, and rotation
   are wireable, with shared preview and firmware distance geometry.

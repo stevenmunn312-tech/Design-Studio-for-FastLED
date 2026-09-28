@@ -198,15 +198,22 @@ build/architecture overview aimed at contributors.
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
   - [Pattern-node firmware compile checks](development/pattern-node-compile-checks.md)
-    — the Phase 0 field-helper graph, Phase 1 three-lattice Slice Tiling graph,
-      and Phase 2 Frame Warp/feedback graph, including shared-helper guards and
-      classic-ESP32 resource use (plus ESP8266 for Slice Tiling).
+    — the Phase 0–5 fixtures (field helpers, Slice Tiling, Frame Warp,
+      symmetry, Truchet, Turing Field with Reaction Diffusion), including
+      shared-helper guards and classic-ESP32 resource use, plus ESP8266 for
+      Slice Tiling and the Turing Field.
   - [Slice Tiling design](development/design/slice-tiling.md)
     — the section 4 recursive fan subdivision, section 6 warp constraint,
       lattice geometry, custom-bit order and preview/firmware parity contract.
   - [Frame Warp design](development/design/frame-warp.md)
     — Milkdrop-style per-pixel frame displacement, the shared browser/firmware
       frame sampler, edge modes, and the Frame Feedback composition recipe.
+  - [Truchet Tiles design](development/design/truchet-tiles.md)
+    — square and hexagonal edge-joining motifs, rising-edge reroll, and the
+      shared lattice hash and distance helper.
+  - [Turing Field design](development/design/turing-field.md)
+    — McCabe multi-scale Turing patterns on a toroidal summed-area table, their
+      RAM and cost, and Reaction Diffusion's Field output and tuned presets.
   - [Touch-button firmware compile checks](development/touch-button-compile-checks.md)
     — real normal/slideshow/player/no-touch fixtures for the Seeed Grove Touch
       Sensor, including the active-high plain-input guard and classic-ESP32

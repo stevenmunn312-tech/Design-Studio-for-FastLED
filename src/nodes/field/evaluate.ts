@@ -12,6 +12,10 @@ import {
   truchetCell, truchetLattice, truchetLineValue, truchetMotif,
   truchetMotifDistance, truchetOrientation, truchetOrientationCount,
 } from '../../state/evaluator/truchet'
+import {
+  turingFieldValue, turingIterations, turingPrefixLength, turingRadii, turingSeed,
+  turingStep, turingStepSize,
+} from '../../state/evaluator/turing'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from '../../state/sliceTiling'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
@@ -63,6 +67,54 @@ export function evalTruchet(
     const distance = truchetMotifDistance(lattice, motif, cell.x, cell.y, orientation)
     out[y * W + x] = truchetLineValue(distance, lineWidth)
   }
+  return out
+}
+
+interface TuringState {
+  a: Float32Array; prefix: Float32Array; w: number; h: number; seed: number; epoch: number; prevReset: boolean
+}
+const turingState = instanceState('turingState', new Map<string, TuringState>())
+
+/**
+ * McCabe multi-scale Turing field. The state restarts from its seeded noise
+ * when the canvas size or seed changes, and from a fresh epoch of that noise on
+ * each rising edge of `reset`, so the same edges give the same pattern on the
+ * controller.
+ */
+export function evalTuringField(
+  nodeId: string,
+  reset: boolean,
+  speedValue: number,
+  stepSizeValue: number,
+  scalesValue: unknown,
+  baseRadiusValue: unknown,
+  seed: number,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Field {
+  const N = W * H
+  let s = turingState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.seed !== seed) {
+    s = {
+      a: new Float32Array(N), prefix: new Float32Array(turingPrefixLength(W, H)),
+      w: W, h: H, seed, epoch: s?.epoch ?? 0, prevReset: s?.prevReset ?? false,
+    }
+    turingSeed(s.a, W, H, s.epoch, seed)
+    turingState.set(nodeId, s)
+  }
+  if (reset && !s.prevReset) {
+    s.epoch++
+    turingSeed(s.a, W, H, s.epoch, seed)
+  }
+  s.prevReset = reset
+
+  const radii = turingRadii(scalesValue, baseRadiusValue)
+  const stepSize = turingStepSize(stepSizeValue)
+  const iterations = turingIterations(speedValue)
+  for (let it = 0; it < iterations; it++) turingStep(s.a, s.prefix, W, H, radii, stepSize)
+
+  const out = allocField(N)
+  for (let i = 0; i < N; i++) out[i] = turingFieldValue(s.a[i])
   return out
 }
 
@@ -665,6 +717,18 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       thickness: num(id, 'thickness', props, 'thickness', 0.1),
     }
     return { field: evalFormulaField(fp, t, W, H) }
+  },
+  TuringField({ input, num, W, H, stateKey }, id, props) {
+    return { field: evalTuringField(
+      stateKey(id),
+      Boolean(input(id, 'reset', false)),
+      num(id, 'speed', props, 'speed', 2),
+      num(id, 'stepSize', props, 'stepSize', 0.05),
+      props.scales ?? 3,
+      props.baseRadius ?? 1,
+      normalizedSeed(props.seed),
+      W, H,
+    ) }
   },
   WaveSim({ input, num, W, H, stateKey }, id, props) {
     const trigger = Boolean(input(id, 'trigger', false))

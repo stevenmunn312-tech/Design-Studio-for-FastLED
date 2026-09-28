@@ -199,6 +199,16 @@ line width, scrolling and rotation are property inputs. The motif geometry and
 shared C++ helper contract are in the
 [Truchet Tiles design note](truchet-tiles.md).
 
+### `TuringField` (category: `field`)
+
+Grows McCabe's multi-scale Turing patterns: every pixel follows whichever of
+two to five nested scales has the closest activator and inhibitor, so the
+labyrinths keep reorganising. Speed and step size are property inputs; scales,
+base radius and seed are baked. A rising Reset restarts from a fresh seeded
+start. The summed-area-table step, its RAM and the Reaction Diffusion Field
+output and presets that shipped with it are in the
+[Turing Field design note](turing-field.md).
+
 ### `FieldSymmetry` (category: `field`)
 
 Repeats a field through one of nine square or hexagonal wallpaper groups.

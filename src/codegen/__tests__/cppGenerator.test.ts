@@ -2497,6 +2497,107 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
   })
 })
 
+describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion codegen', () => {
+  function generateTuring(properties: Record<string, unknown>, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
+    const turing = node('turing', 'TuringField', 'field', properties)
+    const map = node('turing-map', 'FieldToFrame', 'field', {})
+    return generateCpp([...extra, turing, map, outputNode], [
+      ...extraEdges,
+      edge('turing-map-edge', turing.id, map.id, 'field', 'field'),
+      edge('turing-out-edge', map.id, outputNode.id, 'frame', 'frame'),
+    ])
+  }
+
+  it('bakes the radii and runs the shared multi-scale step', () => {
+    const cpp = generateTuring({ scales: 4, baseRadius: 1.5, seed: 21 })
+    expect(cpp).toContain('/* Turing Field: radii 2,3,6,12 */')
+    expect(cpp).toContain('static float _tf_turinga[NUM_LEDS], _tf_turingp[(WIDTH+1)*(HEIGHT+1)]; static const int _tf_turingr[4]={2,3,6,12};')
+    expect(cpp).toContain('_worleyHash(_x+(int)_tf_turingepoch*31,_y-(int)_tf_turingepoch*17,21u)*2.0f-1.0f')
+    expect(cpp).toContain('int _iters=max(1,min(4,(int)floorf(2)));')
+    expect(cpp).toContain('float _step=constrain(0.05,0.01f,0.2f);')
+    expect(cpp).toContain('_turingStep(_tf_turinga,_tf_turingp,WIDTH,HEIGHT,_tf_turingr,4,_step);')
+    expect(cpp).toContain('field_turing[_i]=constrain((_tf_turinga[_i]+1.0f)*0.5f,0.0f,1.0f);')
+    expect(cpp.match(/static void _turingStep\(/g)).toHaveLength(1)
+    expect(cpp.match(/float _worleyHash\(/g)).toHaveLength(1)
+    expect(cpp).toContain('delta=d>0.000001f?amount:(d<-0.000001f?-amount:0.0f);')
+  })
+
+  it('restarts on a rising reset edge and reads wired knobs every frame', () => {
+    const beat = node('beat', 'Button', 'input', {})
+    const lfo = node('lfo', 'Sin', 'signal', {})
+    const cpp = generateTuring({}, [beat, lfo], [
+      edge('reset-edge', beat.id, 'turing', 'pressed', 'reset'),
+      edge('step-edge', lfo.id, 'turing', 'value', 'stepSize'),
+    ])
+    expect(cpp).toMatch(/bool _reset=[^;]+;\n\s+if\(_reset&&!_tf_turingprev\)\{ _tf_turingepoch\+\+; _tf_turinginit=false; \} _tf_turingprev=_reset;/)
+    expect(cpp).not.toContain('float _step=constrain(0.05,')
+  })
+
+  it('emits the helper once for two Turing Fields', () => {
+    const a = node('ta', 'TuringField', 'field', { scales: 2 })
+    const b = node('tb', 'TuringField', 'field', { scales: 5, baseRadius: 8 })
+    const mix = node('mix', 'FieldMath', 'field', { fieldOp: 'max' })
+    const map = node('map', 'FieldToFrame', 'field', {})
+    const cpp = generateCpp([a, b, mix, map, outputNode], [
+      edge('a-mix', a.id, mix.id, 'field', 'a'), edge('b-mix', b.id, mix.id, 'field', 'b'),
+      edge('mix-map', mix.id, map.id, 'field', 'field'), edge('map-out', map.id, outputNode.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('static const int _tf_tar[2]={1,2};')
+    expect(cpp).toContain('static const int _tf_tbr[5]={8,16,32,64,128};')
+    expect(cpp.match(/static void _turingStep\(/g)).toHaveLength(1)
+  })
+
+  function generateRd(properties: Record<string, unknown>, fieldWired = false, feedWired = false) {
+    const rd = node('rd', 'ReactionDiffusion', 'pattern', properties)
+    const nodes = [rd, outputNode]
+    const edges = [edge('rd-out', rd.id, outputNode.id, 'frame', 'frame')]
+    if (fieldWired) {
+      const map = node('rd-map', 'FieldToFrame', 'field', {})
+      const blend = node('rd-blend', 'Blend', 'composite', {})
+      nodes.push(map, blend)
+      edges.splice(0, 1,
+        edge('rd-blend-a', rd.id, blend.id, 'frame', 'a'),
+        edge('rd-map-in', rd.id, map.id, 'field', 'field'),
+        edge('rd-blend-b', map.id, blend.id, 'frame', 'b'),
+        edge('rd-blend-out', blend.id, outputNode.id, 'frame', 'frame'))
+    }
+    if (feedWired) {
+      const lfo = node('rd-lfo', 'Sin', 'signal', {})
+      nodes.push(lfo)
+      edges.push(edge('rd-feed', lfo.id, rd.id, 'value', 'feed'))
+    }
+    return generateCpp(nodes, edges)
+  }
+
+  it('keeps V in the Field output buffer instead of a fourth static array', () => {
+    const cpp = generateRd({ feed: 0.055, kill: 0.062, palette: 'ocean' }, true)
+    expect(cpp).toContain('float field_rd[NUM_LEDS];')
+    expect(cpp).toContain('static float _u_rd[NUM_LEDS], _un_rd[NUM_LEDS], _vn_rd[NUM_LEDS]; static bool _rd_rd = false;')
+    expect(cpp).not.toContain('_v_rd')
+    expect(cpp).toContain('::memcpy(field_rd,_vn_rd,NUM_LEDS*sizeof(float));')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(field_rd[_i]*255))')
+    // Field → Frame reads the same buffer the simulation steps.
+    expect(cpp.match(/field_rd\[/g)!.length).toBeGreaterThan(8)
+  })
+
+  it.each([
+    ['spots', '0.025f', '0.06f'],
+    ['stripes', '0.02f', '0.05f'],
+    ['worms', '0.022f', '0.053f'],
+    ['coral', '0.04f', '0.0625f'],
+    ['mitosis', '0.028f', '0.062f'],
+  ])('bakes the %s preset and ignores a wired feed', (rdPreset, feed, kill) => {
+    const cpp = generateRd({ rdPreset, feed: 0.01, kill: 0.01 }, false, true)
+    expect(cpp).toContain(`float _f=${feed}, _k=${kill};`)
+  })
+
+  it('reads feed and kill, wires included, for the custom preset', () => {
+    const cpp = generateRd({ rdPreset: 'custom', feed: 0.055, kill: 0.062 }, false, true)
+    expect(cpp).toMatch(/float _f=[^,]*_lfo[^,]*, _k=0\.062;/)
+    expect(generateRd({ rdPreset: '*/ injected /*', feed: 0.055, kill: 0.062 })).toContain('float _f=0.055, _k=0.062;')
+  })
+})
+
 describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
   function generateTruchet(lattice: string, motif: string) {
     const truchet = node('truchet', 'Truchet', 'field', {
