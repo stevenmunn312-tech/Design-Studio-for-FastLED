@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–6 complete** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–7 complete; 8–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -209,18 +209,23 @@ preview/firmware arithmetic live in the
 and classic-ESP32 and ESP8266 results are in the
 [pattern-node compile record](../pattern-node-compile-checks.md).
 
-## Phase 7 — Close-out
+## Phase 7 — Close-out — **complete**
 
-- [ ] Three bundled starter patterns in `src/state/bundledPatterns.ts`: a
-      Slice Tiling breathing on a Sin wired to `warp`; Noise through Frame
-      Warp and Frame Feedback; Truchet rerolled by Beat Detect.
-- [ ] README feature map sentence for fields and simulations names tilings,
-      symmetry and Turing fields.
-- [ ] Each shipped contract above replaced by a pointer to its design note.
-- [ ] `docs/release/beta-support-matrix.md` unchanged unless a node is gated by
-      board. Turing Field on ESP8266 was the one candidate and is not gated;
-      see the resolved decision below.
-- [ ] This document's status line updated.
+- Three starters ship, appended after every shelf so no earlier pattern's
+  positional id moves. **Breathing Rosette** (standard shelf) breathes a hex
+  pinwheel Slice Tiling through Time → Sin → Map Range into `warp`.
+  **Liquid Mirage** (standard) runs Worley Noise through Frame Warp, steered
+  by two slow Field Noise offsets, into Frame Feedback. **Truchet Beat Maze**
+  (audio shelf) rerolls a 10 PRINT Truchet maze on every Beat Detect beat and
+  widens its lines with the bass. Each was tuned from renders at 16×16 and
+  32×32; none uses a Formula or Code node, so none asks for trust. All three
+  compile on classic ESP32, built from the shipped subgraphs themselves
+  ([compile record](../pattern-node-compile-checks.md)).
+- The README feature map names the Slice and Truchet tilings, Turing fields,
+  the Reaction Diffusion presets and Fourier epicycles.
+- Phases 0–6 are each a pointer to their design note.
+- The support matrix is unchanged: no node is gated by board. Turing Field on
+  ESP8266 was the one candidate; see the resolved decision below.
 
 ## Phase 8 — Audio detectors from FastLED's processor
 

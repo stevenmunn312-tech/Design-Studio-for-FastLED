@@ -198,11 +198,11 @@ build/architecture overview aimed at contributors.
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
   - [Pattern-node firmware compile checks](development/pattern-node-compile-checks.md)
-    — the Phase 0–6 fixtures (field helpers, Slice Tiling, Frame Warp,
+    — the Phase 0–7 fixtures (field helpers, Slice Tiling, Frame Warp,
       symmetry, Truchet, Turing Field with Reaction Diffusion, Fourier
-      Epicycles), including shared-helper guards and classic-ESP32 resource
-      use, plus ESP8266 for Slice Tiling, the Turing Field and Fourier
-      Epicycles.
+      Epicycles, and the three bundled starters), including shared-helper
+      guards and classic-ESP32 resource use, plus ESP8266 for Slice Tiling,
+      the Turing Field and Fourier Epicycles.
   - [Slice Tiling design](development/design/slice-tiling.md)
     — the section 4 recursive fan subdivision, section 6 warp constraint,
       lattice geometry, custom-bit order and preview/firmware parity contract.

@@ -49,7 +49,7 @@ import turbulentDeep from '../assets/bundled-patterns/Turbulent Deep.json'
 import ultravioletLavaLamp from '../assets/bundled-patterns/Ultraviolet Lava Lamp.json'
 import vocalGravityVeil from '../assets/bundled-patterns/Vocal Gravity Veil.json'
 import wireframeBassCage from '../assets/bundled-patterns/Wireframe Bass Cage.json'
-import { AUDIO_SHELF_THREE_SEEDS } from './bundledAudioShelf3'
+import { AUDIO_SHELF_THREE_SEEDS, PATTERN_EXPANSION_AUDIO_SEEDS } from './bundledAudioShelf3'
 
 export const AUDIO_REACTIVE_CATEGORY_ID = 'audio-reactive'
 export const STANDARD_CATEGORY_ID = 'standard'
@@ -729,6 +729,63 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
       edge('e7', 'sat', 'frame', 'out', 'frame'),
     ],
   ),
+  // Pattern-node expansion starters, appended so every earlier pattern keeps
+  // its positional `bundled-standard-NN` id. See
+  // docs/development/plans/pattern-node-expansion.md, Phase 7.
+  pattern(
+    'Breathing Rosette',
+    [
+      studioNode('time', 'TimeNode', -1320, 120),
+      studioNode('rate', 'Math', -1060, 120, { mathOp: 'multiply', b: 0.12 }),
+      studioNode('breath', 'Sin', -800, 120),
+      studioNode('depth', 'MapRange', -540, 120, { inMin: -1, inMax: 1, outMin: -0.42, outMax: 0.42 }),
+      studioNode('pal', 'Poline', -540, -160, {
+        anchorA: '#08061c',
+        anchorB: '#7a3cff',
+        anchorC: '#ffd27a',
+        points: 6,
+      }),
+      studioNode('slices', 'SliceTiling', -260, 40, {
+        lattice: 'hex', depth: 2, symmetry: 'dihedral', preset: 'pinwheel',
+        cells: 1, spin: 8, morph: 0.3, edge: 0.05, seed: 7,
+      }),
+      studioNode('shade', 'FieldToFrame', 20, 40, { brightness: 1 }),
+      studioNode('blur', 'Blur2D', 300, 40, { amount: 0.05 }),
+      groupOutput('out', 580, 40),
+    ],
+    [
+      edge('e1', 'time', 'time', 'rate', 'a'),
+      edge('e2', 'rate', 'result', 'breath', 'x'),
+      edge('e3', 'breath', 'result', 'depth', 'value'),
+      edge('e4', 'depth', 'result', 'slices', 'warp'),
+      edge('e5', 'slices', 'field', 'shade', 'field'),
+      edge('e6', 'pal', 'palette', 'shade', 'paletteIn', '#ff5cf0'),
+      edge('e7', 'shade', 'frame', 'blur', 'frame'),
+      edge('e8', 'blur', 'frame', 'out', 'frame'),
+    ],
+  ),
+  pattern(
+    'Liquid Mirage',
+    [
+      studioNode('base', 'Noise', -760, 40, { noiseType: 'worley', speed: 0.3, scale: 0.4, palette: 'synthwave' }),
+      studioNode('dx', 'FieldNoise', -760, 260, { speed: 0.12, scale: 0.05, octaves: 1, seed: 11 }),
+      studioNode('dy', 'FieldNoise', -760, 460, { speed: 0.1, scale: 0.05, octaves: 1, seed: 29 }),
+      studioNode('warp', 'FrameWarp', -440, 140, {
+        strength: 4, zoom: 1.04, rotate: 3, edgeMode: 'wrap', sampling: 'bilinear',
+      }),
+      studioNode('feedback', 'FrameFeedback', -140, 140, { delayFrames: 2, fade: 0.08, amount: 0.6, blendMode: 'normal' }),
+      studioNode('sat', 'Saturation', 140, 140, { amount: 1.1 }),
+      groupOutput('out', 420, 140),
+    ],
+    [
+      edge('e1', 'base', 'frame', 'warp', 'frame'),
+      edge('e2', 'dx', 'field', 'warp', 'dx'),
+      edge('e3', 'dy', 'field', 'warp', 'dy'),
+      edge('e4', 'warp', 'frame', 'feedback', 'frame'),
+      edge('e5', 'feedback', 'frame', 'sat', 'frame'),
+      edge('e6', 'sat', 'frame', 'out', 'frame'),
+    ],
+  ),
 ]
 
 const AUDIO_PATTERN_SEEDS = [
@@ -778,6 +835,8 @@ const AUDIO_PATTERN_SEEDS = [
   // Shelf three — appended, never interleaved. Ids stay `bundled-audio-NN`
   // from position, so a collection that names 01–40 is not retargeted.
   ...AUDIO_SHELF_THREE_SEEDS,
+  // The pattern-node expansion's audio starter, appended the same way.
+  ...PATTERN_EXPANSION_AUDIO_SEEDS,
 ] as unknown as BundledSeed[]
 
 /**
@@ -887,6 +946,13 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Pacifica Whitecap Storm': ['string', 'ring'],
   'Heartline Tracer': ['matrix', 'ring'],
   'Plasma Beat Lattice': ['matrix', 'ring'],
+
+  // Pattern-node expansion starters. A rosette is radial by construction and
+  // keeps its idea on a ring; the feedback smear and the Truchet maze both
+  // need a second axis to read as anything but noise on a line.
+  'Breathing Rosette': ['matrix', 'ring'],
+  'Liquid Mirage': ['matrix'],
+  'Truchet Beat Maze': ['matrix'],
 }
 
 /** Every name in the table above, so a test can prove each one still matches a

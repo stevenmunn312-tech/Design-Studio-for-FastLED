@@ -1,9 +1,10 @@
-/** Generate the real pattern-node graphs used by the Phase 0–6 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–7 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { generateCpp } from '../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../src/state/nodeLibrary'
+import { BUNDLED_PATTERNS } from '../src/state/bundledPatterns'
 import type { StudioEdge, StudioNode } from '../src/state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -253,6 +254,42 @@ function phase6Sketch(maxHarmonics: number): string {
 const phase6Small = phase6Sketch(16)
 const phase6Large = phase6Sketch(64)
 
+// Phase 7 compiles the shipped starter patterns themselves. Each bundled
+// subgraph ends at a Group Output, which becomes the LED output; an audio
+// pattern's Group Input becomes an Audio node backed by an INMP441.
+function bundledSketch(name: string, markers: string[]): string {
+  const saved = BUNDLED_PATTERNS.find((entry) => entry.name === name)
+  if (!saved) throw new Error(`Phase 7 fixture: no bundled pattern named ${name}`)
+  const nodes: StudioNode[] = []
+  const renamed = new Map<string, string>()
+  for (const entry of saved.subgraph.nodes) {
+    const type = entry.data.nodeType
+    if (type === 'GroupOutput') {
+      nodes.push(node(entry.id, 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }))
+    } else if (type === 'GroupInput') {
+      // The Board is the sketch's only target authority; without it the
+      // audio engine is not emitted at all.
+      nodes.push(node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' }))
+      nodes.push(node('mic', 'MicInput', {}))
+      nodes.push(node(entry.id, 'Audio', { sourceId: 'mic' }))
+      renamed.set(entry.id, 'audio')
+    } else {
+      nodes.push(node(entry.id, type, entry.data.properties as Record<string, unknown>))
+    }
+  }
+  const edges = saved.subgraph.edges.map((wire) => edge(
+    wire.id, wire.source, renamed.get(wire.source) ?? wire.sourceHandle ?? '', wire.target, wire.targetHandle ?? '',
+  ))
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of markers) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 7 fixture ${name} is missing ${marker}`)
+  }
+  return sketch
+}
+const phase7Rosette = bundledSketch('Breathing Rosette', ['/* SliceTiling:', 'float field_slices[NUM_LEDS];'])
+const phase7Mirage = bundledSketch('Liquid Mirage', ['/* FrameWarp: wrap, bilinear */', '// FrameFeedback:', 'float field_dx[NUM_LEDS];'])
+const phase7Maze = bundledSketch('Truchet Beat Maze', ['/* Truchet: square, tenPrint */', 'fl::audio::Processor'])
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -264,6 +301,9 @@ writeFileSync(resolve(outputDir, 'phase5.ino'), phase5, 'utf8')
 writeFileSync(resolve(outputDir, 'phase5-32.ino'), phase5Large, 'utf8')
 writeFileSync(resolve(outputDir, 'phase6-16.ino'), phase6Small, 'utf8')
 writeFileSync(resolve(outputDir, 'phase6-64.ino'), phase6Large, 'utf8')
+writeFileSync(resolve(outputDir, 'phase7-rosette.ino'), phase7Rosette, 'utf8')
+writeFileSync(resolve(outputDir, 'phase7-mirage.ino'), phase7Mirage, 'utf8')
+writeFileSync(resolve(outputDir, 'phase7-maze.ino'), phase7Maze, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -301,5 +341,11 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     bytes: Buffer.byteLength(phase6Large),
     sha256: createHash('sha256').update(phase6Large).digest('hex'),
   },
+  ...Object.fromEntries(([
+    ['phase7-rosette', phase7Rosette], ['phase7-mirage', phase7Mirage], ['phase7-maze', phase7Maze],
+  ] as const).map(([key, sketch]) => [key, {
+    bytes: Buffer.byteLength(sketch),
+    sha256: createHash('sha256').update(sketch).digest('hex'),
+  }])),
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–6 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–7 pattern-node compile fixtures to ${outputDir}`)

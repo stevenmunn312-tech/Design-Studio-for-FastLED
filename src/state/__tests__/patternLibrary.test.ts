@@ -204,9 +204,9 @@ describe('patternLibrary', () => {
   })
 
   it('ships immutable bundled patterns for both built-in shelves', async () => {
-    expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(20)
-    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(50)
-    expect(BUNDLED_PATTERNS).toHaveLength(70)
+    expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(22)
+    expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(51)
+    expect(BUNDLED_PATTERNS).toHaveLength(73)
     expect(STANDARD_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === STANDARD_CATEGORY_ID
     ))).toBe(true)
@@ -219,7 +219,14 @@ describe('patternLibrary', () => {
       'Radial Kick Halo', 'Pacifica Whitecap Storm', 'Heartline Tracer',
       'Plasma Beat Lattice',
     ]
-    expect(AUDIO_BUNDLED_PATTERNS.slice(40).map((pattern) => pattern.name)).toEqual(shelfThree)
+    expect(AUDIO_BUNDLED_PATTERNS.slice(40, 50).map((pattern) => pattern.name)).toEqual(shelfThree)
+    // Appended after every shelf, so no earlier pattern's positional id moves.
+    expect(STANDARD_BUNDLED_PATTERNS.slice(20).map((pattern) => [pattern.id, pattern.name])).toEqual([
+      ['bundled-standard-21', 'Breathing Rosette'], ['bundled-standard-22', 'Liquid Mirage'],
+    ])
+    expect(AUDIO_BUNDLED_PATTERNS.slice(50).map((pattern) => [pattern.id, pattern.name])).toEqual([
+      ['bundled-audio-51', 'Truchet Beat Maze'],
+    ])
     for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(40)) {
       expect(pattern.inputs).toEqual([{ id: 'param0', label: 'Audio', dataType: 'audio' }])
       expect(pattern.subgraph.nodes.some((node) => node.data.nodeType === 'GroupInput')).toBe(true)
@@ -248,6 +255,20 @@ describe('patternLibrary', () => {
       return max
     }
     for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(40)) {
+      const windows = await captureWindows(pattern, 16, 16, {}, true, 'pulse', 1)
+      expect(maxBrightness(windows), pattern.name).toBeGreaterThan(0.12)
+    }
+  })
+
+  it('lights the pattern-node expansion starters, the maze under a pulse', async () => {
+    const maxBrightness = (frames: Frame[][]) => {
+      let max = 0
+      for (const window of frames) for (const frame of window) for (const row of frame) for (const px of row) {
+        max = Math.max(max, Math.max(px.r, px.g, px.b) / 255)
+      }
+      return max
+    }
+    for (const pattern of [...STANDARD_BUNDLED_PATTERNS.slice(20), ...AUDIO_BUNDLED_PATTERNS.slice(50)]) {
       const windows = await captureWindows(pattern, 16, 16, {}, true, 'pulse', 1)
       expect(maxBrightness(windows), pattern.name).toBeGreaterThan(0.12)
     }

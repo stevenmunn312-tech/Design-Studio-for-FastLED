@@ -1,6 +1,6 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–6 complete.** The generated fixtures passed on classic
+> **Status: Phases 0–7 complete.** The generated fixtures passed on classic
 > ESP32, and the integer-heavy Slice Tiling fixture and the Phase 5 and 6
 > fixtures also passed on ESP8266, on 28 September 2026 (UTC). This is
 > compile evidence, not a physical LED bench run.
@@ -110,6 +110,15 @@ that the shared Fourier helper is emitted once. Byte-level agreement with the
 preview is tested separately, with the host compiler, by
 `fourierNativeParity.test.ts`.
 
+The Phase 7 fixtures are the three bundled starters, built from their shipped
+subgraphs rather than restated: each Group Output becomes a 16×16 LED output,
+and Truchet Beat Maze's audio Group Input becomes an Audio node backed by an
+INMP441 on a classic ESP32 Board node, since the Board is the only thing that
+turns the audio engine on. Generation fails if a pattern is missing, if
+Breathing Rosette lacks its Slice Tiling block, Liquid Mirage its Frame Warp,
+feedback ring or offset field, or Truchet Beat Maze its Truchet block or audio
+processor.
+
 ## Reproduce
 
 From the repository root:
@@ -130,6 +139,9 @@ python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-no
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-64.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase6
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-16.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase6
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-64.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase6
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase7-rosette.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase7
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase7-mirage.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase7
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase7-maze.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase7
 ```
 
 The shared compile runner uses the local helper's real Arduino CLI path and
@@ -158,9 +170,13 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 6, 64 terms | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 400,947 / 3,145,728 (12%) | 32,756 / 327,680 (9%) |
 | Phase 6, 16 terms | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 248,432 / 1,048,576 (23%) | 35,124 / 80,192 (43%) |
 | Phase 6, 64 terms | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 249,584 / 1,048,576 (23%) | 35,124 / 80,192 (43%) |
+| Phase 7, Breathing Rosette | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 405,987 / 3,145,728 (12%) | 30,636 / 327,680 (9%) |
+| Phase 7, Liquid Mirage | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 402,907 / 3,145,728 (12%) | 36,548 / 327,680 (11%) |
+| Phase 7, Truchet Beat Maze | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 517,867 / 3,145,728 (16%) | 33,292 / 327,680 (10%) |
 
-The Phase 5 and 6 rows were built on Linux in a cloud session, not on the
-Windows machine that built the others. Going from 16 to 64 terms on each of
+The Phase 5, 6 and 7 rows were built on Linux in a cloud session, not on
+the Windows machine that built the others. Truchet Beat Maze's larger flash
+is FastLED's audio processor, which the other fixtures do not include. Going from 16 to 64 terms on each of
 the Phase 6 fixture's two nodes adds 1,152 bytes of flash on both targets:
 96 terms at exactly 12 bytes each. RAM does not move, because the tables live
 in flash. Going from 256 to 1,024 LEDs adds 31,616 bytes
@@ -197,3 +213,10 @@ Phase 6 generated source, 16 terms: 9,647 bytes, SHA-256
 
 Phase 6 generated source, 64 terms: 12,951 bytes, SHA-256
 `c7ea8601a0c2b38fd38d1c598b36a159a3dea4482b2b29d8a933fb9058686d01`.
+
+Phase 7 generated sources: Breathing Rosette 8,836 bytes, SHA-256
+`302d20a9cc1fbfb0abaced8f9212ba6a9686df33d7896056092b081b117a8bf8`;
+Liquid Mirage 8,310 bytes, SHA-256
+`590465897b96b681081c74ddb67839cdfa079973c8a18b22a496a5a59d4669ee`;
+Truchet Beat Maze 15,891 bytes, SHA-256
+`27f30662acde1acd2f82d48cb12abfce174ba7cbc1f079af5a632ebba48cf377`.

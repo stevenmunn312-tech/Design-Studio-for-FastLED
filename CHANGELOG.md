@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Three included patterns show off the new pattern nodes: Breathing Rosette
+  breathes a Slice Tiling through a slow sine, Liquid Mirage swirls Worley
+  noise through Frame Warp and Frame Feedback, and Truchet Beat Maze rerolls
+  a 10 PRINT maze on every beat. The library now holds 73 patterns.
+
 - Fourier Epicycles redraws an outline — heart, star, square, infinity, the
   Path curves, or up to 128 of your own points — with a chain of rotating
   circles taken from its Fourier series. A fractional Harmonics knob grows one

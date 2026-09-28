@@ -517,3 +517,41 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
     ],
   ),
 ]
+
+/**
+ * The pattern-node expansion's audio starter: Beat Detect rerolls a 10 PRINT
+ * Truchet maze on every beat, bass widens its lines, and Trails softens the
+ * cut from one maze to the next. Appended after shelf three by `bundledPatterns.ts`, so every
+ * earlier pattern keeps its positional id.
+ */
+export const PATTERN_EXPANSION_AUDIO_SEEDS: BundledSeed[] = [
+  audioPattern(
+    'Truchet Beat Maze',
+    [
+      audioIn(), fft(), beat(),
+      studioNode('width', 'MapRange', -880, -160, { inMin: 0, inMax: 1, outMin: 0.08, outMax: 0.22 }),
+      studioNode('pal', 'Poline', -880, 400, {
+        anchorA: '#030a1a', anchorB: '#00b3ff', anchorC: '#ff4fd8', points: 6,
+      }),
+      studioNode('maze', 'Truchet', -560, 40, {
+        lattice: 'square', motif: 'tenPrint', cells: 5, lineWidth: 0.1, scroll: 0.15, rotation: 0, seed: 12,
+      }),
+      studioNode('shade', 'FieldToFrame', -260, 40, { brightness: 1 }),
+      studioNode('trails', 'Trails', 40, 40, { decay: 0.7 }),
+      studioNode('boost', 'ColorBoost', 340, 40, { boost: 0.35 }),
+      groupOutput('out', 640, 40),
+    ],
+    [
+      edge('in-fft', 'audio', 'out', 'fft', 'audio'),
+      edge('in-beat', 'audio', 'out', 'beat', 'audio'),
+      edge('e-bass', 'fft', 'bass', 'width', 'value'),
+      edge('e-width', 'width', 'result', 'maze', 'lineWidth'),
+      edge('e-reroll', 'beat', 'beat', 'maze', 'reroll'),
+      edge('e-field', 'maze', 'field', 'shade', 'field'),
+      edge('e-pal', 'pal', 'palette', 'shade', 'paletteIn'),
+      edge('e-t', 'shade', 'frame', 'trails', 'frame'),
+      edge('e-c', 'trails', 'frame', 'boost', 'frame'),
+      edge('e-o', 'boost', 'frame', 'out', 'frame'),
+    ],
+  ),
+]

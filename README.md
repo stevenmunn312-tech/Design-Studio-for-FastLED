@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 196 modules · 70 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 196 modules · 73 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -183,7 +183,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 
 - **Audio reactive:** live microphone and PCM1802 line-in analysis, FFT bands, beat/percussion features, audio-driven color and pattern nodes, on-device I2S MEMS microphone support (INMP441, ICS-43434, or a generic MSM261-class board), and decoded-PCM analysis for SD-player collection shows.
 - **IR remote control:** learn named keys from a demodulating receiver, use once or held-repeat events for actions, and route increment/decrement/reset keys through Step Value to drive an exposed numeric property. IR hardware support remains experimental; use the [Hardware guide](docs/user/hardware-workbench.md#add-an-ir-remote-receiver) and [beta matrix](docs/release/beta-support-matrix.md#experimental-until-validated) before choosing a board or receiver.
-- **Fields and simulations:** scalar-field math, warping and wallpaper symmetry, reaction diffusion, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
+- **Fields and simulations:** scalar-field math, Slice and Truchet tilings, warping and wallpaper symmetry, multi-scale Turing fields, reaction diffusion with named presets, Fourier epicycles, Game of Life, particles, flow fields, boids, feedback, trails, image palettes, and custom formulas.
 - **Show control:** reusable pattern collections, 16 transition styles, beat-driven particles, section-aware music shows, timeline editing, and performance controls.
 - **Physical layouts:** strings, rings, unwrapped-cylinder corkscrew authoring, serpentine matrices, tiled panels, multiple outputs, and custom XY maps. Only the exact combinations recorded in the support matrix count as supported today.
 - **DMX / Art-Net:** Art-Net preview plus Art-Net or DMX512 firmware paths. Hardware validation has not yet been recorded, so all modes remain experimental.
