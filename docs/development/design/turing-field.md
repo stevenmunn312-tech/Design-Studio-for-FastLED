@@ -116,7 +116,10 @@ pixels yet.
   copy, and the node's RAM stays at four floats per LED: three state arrays
   (`ReactionDiffusion: 12`) plus the field buffer every field output is
   priced for. PSRAM turns field buffers into pointers, so the copy into V uses
-  an explicit `NUM_LEDS * sizeof(float)`, not `sizeof`.
+  an explicit `NUM_LEDS * sizeof(float)`, not `sizeof`. A sketch with several
+  output shapes (`nativeMultiRender`) reuses one field buffer across its
+  render passes, so there V is a static inside each pass and is copied into
+  the field buffer every frame.
 - **Presets.** `rdPreset` is `custom`, `spots`, `stripes`, `worms`, `coral` or
   `mitosis`. The pairs live in `src/state/reactionDiffusionPresets.ts`. A named
   preset bakes its pair and ignores the Feed and Kill knobs and any wires

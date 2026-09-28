@@ -2610,6 +2610,19 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
     expect(cpp.match(/field_rd\[/g)!.length).toBeGreaterThan(8)
   })
 
+  it('keeps V pass-local when several output shapes share one field buffer', () => {
+    const rd = node('rd', 'ReactionDiffusion', 'pattern', { palette: 'ocean' })
+    const strip = node('strip', 'MatrixOutput', 'output', { form: 'strip', ledCount: 60, dataPin: 5 })
+    const matrix = node('matrix', 'MatrixOutput', 'output', { form: 'matrix', width: 16, height: 16, dataPin: 6 })
+    const cpp = generateCpp([rd, strip, matrix], [
+      edge('strip-feed', rd.id, strip.id, 'frame', 'frame'),
+      edge('matrix-feed', rd.id, matrix.id, 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('static float _u_rd[RENDER_LEDS], _v_rd[RENDER_LEDS], _un_rd[RENDER_LEDS], _vn_rd[RENDER_LEDS];')
+    expect(cpp).toContain('::memcpy(_v_rd,_vn_rd,RENDER_LEDS*sizeof(float));')
+    expect(cpp).toContain('::memcpy(field_rd,_v_rd,RENDER_LEDS*sizeof(float));')
+  })
+
   it.each([
     ['spots', '0.025f', '0.06f'],
     ['stripes', '0.02f', '0.05f'],

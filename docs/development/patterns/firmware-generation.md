@@ -118,7 +118,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   lives in its own `field_<id>`. A node's own `static` arrays stay arrays, so
   `sizeof` is safe on those. A stateful node may keep state in its own output
   buffer like this, because only the owner writes it and the buffer outlives
-  the frame; a show prefixes it per pattern, so patterns never share it.
+  the frame; a show prefixes it per pattern, so patterns never share it. The
+  exception is `nativeMultiRender`: every render pass of a sketch with
+  several output shapes reuses one global set of `buf_`/`field_` buffers, so
+  there the state must be a static inside the templated pass (as Reaction
+  Diffusion's `_v_<id>` and Trails' `_passState_<id>` are), copied out each
+  frame.
 - A screen-only sketch (a panel plus a screen design, no LED output) is trimmed
   of FastLED entirely, not just left minimal: `cppGenerator.ts`'s
   `withoutUnusedFastLed(lines)`, applied at the generator's single
