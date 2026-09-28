@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–3 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–4 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -146,12 +146,46 @@ if ((phase3.match(/static inline CRGB _sampleFrame\(/g)?.length ?? 0) !== 1) {
   throw new Error('Phase 3 fixture must emit the shared frame sampler exactly once')
 }
 
+const phase4Nodes = [
+  node('square', 'Truchet', {
+    lattice: 'square', motif: 'diagonals', cells: 4.2, lineWidth: 0.11,
+    scroll: 0.35, rotation: 14, seed: 23,
+  }),
+  node('hex', 'Truchet', {
+    lattice: 'hex', motif: 'hexArcs', cells: 3.4, lineWidth: 0.09,
+    scroll: -0.2, rotation: -9, seed: 51,
+  }),
+  node('mix', 'FieldMath', { fieldOp: 'max' }),
+  node('color', 'FieldToFrame', { palette: 'synthwave', brightness: 1 }),
+  node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+]
+const phase4Edges = [
+  edge('square-mix', 'square', 'field', 'mix', 'a'),
+  edge('hex-mix', 'hex', 'field', 'mix', 'b'),
+  edge('mix-color', 'mix', 'field', 'color', 'field'),
+  edge('color-out', 'color', 'frame', 'out', 'frame'),
+]
+const phase4 = generateCpp(phase4Nodes, phase4Edges)
+for (const marker of [
+  '/* Truchet: square, diagonals */', '/* Truchet: hex, hexArcs */',
+  '_truchetDistance(0,1,', '_truchetDistance(1,3,', '_latticeHashBits(', '_truchetLine(',
+]) {
+  if (!phase4.includes(marker)) throw new Error(`Phase 4 fixture is missing ${marker}`)
+}
+if ((phase4.match(/static inline float _truchetDistance/g)?.length ?? 0) !== 1) {
+  throw new Error('Phase 4 fixture must emit the shared Truchet helper exactly once')
+}
+if ((phase4.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1) {
+  throw new Error('Phase 4 fixture must emit the shared lattice helper exactly once')
+}
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
 writeFileSync(resolve(outputDir, 'phase1.ino'), phase1, 'utf8')
 writeFileSync(resolve(outputDir, 'phase2.ino'), phase2, 'utf8')
 writeFileSync(resolve(outputDir, 'phase3.ino'), phase3, 'utf8')
+writeFileSync(resolve(outputDir, 'phase4.ino'), phase4, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -169,5 +203,9 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     bytes: Buffer.byteLength(phase3),
     sha256: createHash('sha256').update(phase3).digest('hex'),
   },
+  phase4: {
+    bytes: Buffer.byteLength(phase4),
+    sha256: createHash('sha256').update(phase4).digest('hex'),
+  },
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–3 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–4 pattern-node compile fixtures to ${outputDir}`)

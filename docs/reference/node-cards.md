@@ -846,6 +846,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Slice Tiling example graph](../../public/node-cards/graphs/slice-tiling.svg)
 
+### Truchet Tiles
+
+![Truchet Tiles node](../../public/node-cards/truchet.svg)
+
+![Truchet Tiles example graph](../../public/node-cards/graphs/truchet.svg)
+
 ### Wave Sim
 
 ![Wave Sim node](../../public/node-cards/wave-sim.svg)

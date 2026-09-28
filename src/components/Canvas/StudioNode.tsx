@@ -6,7 +6,7 @@ import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isInternalProperty, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isInternalProperty, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
@@ -671,7 +671,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 : gpioNote ?? propertyDescription(nodeType, key)
         const isTransportLayout = nodeType === 'TransportDisplay' && key === 'tftLayout'
         const selectOptions = meta?.control === 'select'
-          ? (isTransportLayout ? transportLayoutOptions : meta.options)
+          ? (isTransportLayout ? transportLayoutOptions : propertyOptions(nodeType, key, props))
           : []
         const selectValue = isTransportLayout
           ? val === CUSTOM_DESIGN_LAYOUT
@@ -683,7 +683,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
               : 'Waiting'
             : typeof live === 'string' && selectOptions.includes(live as never)
             ? live
-            : String(val)
+            : nodeType === 'Truchet' && key === 'motif' && !selectOptions.includes(String(val))
+              ? selectOptions[0] ?? String(val)
+              : String(val)
         const connectionHint = propertyInput
           ? connectionTargetHint(nodeType, propertyInput, connectionDrag, { properties: props, driven: wired })
           : null

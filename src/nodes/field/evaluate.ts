@@ -8,11 +8,63 @@ import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/rand
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
 import { wallpaperSamplePoint } from '../../state/evaluator/symmetry'
+import {
+  truchetCell, truchetLattice, truchetLineValue, truchetMotif,
+  truchetMotifDistance, truchetOrientation, truchetOrientationCount,
+} from '../../state/evaluator/truchet'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from '../../state/sliceTiling'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
 const waveSimState = instanceState('waveSimState', new Map<string, WaveSimState>())
+
+interface TruchetState { epoch: number; prevReroll: boolean }
+const truchetState = instanceState('truchetState', new Map<string, TruchetState>())
+
+export function evalTruchet(
+  nodeId: string,
+  reroll: boolean,
+  latticeValue: unknown,
+  motifValue: unknown,
+  cellsValue: number,
+  lineWidthValue: number,
+  scrollValue: number,
+  rotationValue: number,
+  seed: number,
+  t: number,
+  W = DEFAULT_W,
+  H = DEFAULT_H,
+): Field {
+  let state = truchetState.get(nodeId)
+  if (!state) {
+    state = { epoch: 0, prevReroll: false }
+    truchetState.set(nodeId, state)
+  }
+  if (reroll && !state.prevReroll) state.epoch++
+  state.prevReroll = reroll
+
+  const lattice = truchetLattice(latticeValue)
+  const motif = truchetMotif(motifValue, lattice)
+  const orientations = truchetOrientationCount(lattice, motif)
+  const cells = Math.max(0.5, Math.min(8, cellsValue))
+  const lineWidth = Math.max(0, Math.min(0.5, lineWidthValue))
+  const scroll = Math.max(-8, Math.min(8, scrollValue))
+  const rotation = Math.max(-180, Math.min(180, rotationValue))
+  const angle = -rotation * Math.PI / 180
+  const cos = Math.cos(angle), sin = Math.sin(angle)
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const px = (x + 0.5 - W / 2) * cells / W
+    const py = (y + 0.5 - H / 2) * cells / W
+    const rx = cos * px - sin * py + scroll * t
+    const ry = sin * px + cos * py
+    const cell = truchetCell(rx, ry, lattice)
+    const orientation = truchetOrientation(cell, state.epoch, seed, orientations)
+    const distance = truchetMotifDistance(lattice, motif, cell.x, cell.y, orientation)
+    out[y * W + x] = truchetLineValue(distance, lineWidth)
+  }
+  return out
+}
 
 // Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
 // field instead of sampling it through a palette — the noise-driven Field
@@ -571,6 +623,20 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       num(id, 'edge', props, 'edge', 0.03),
       t, W, H, normalizedSeed(props.seed),
     )
+  },
+  Truchet({ input, num, t, W, H, stateKey }, id, props) {
+    return { field: evalTruchet(
+      stateKey(id),
+      Boolean(input(id, 'reroll', false)),
+      props.lattice ?? 'square',
+      props.motif ?? 'arcs',
+      num(id, 'cells', props, 'cells', 4),
+      num(id, 'lineWidth', props, 'lineWidth', 0.08),
+      num(id, 'scroll', props, 'scroll', 0),
+      num(id, 'rotation', props, 'rotation', 0),
+      normalizedSeed(props.seed),
+      t, W, H,
+    ) }
   },
   // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
   // selected by a dropdown instead of free text — see

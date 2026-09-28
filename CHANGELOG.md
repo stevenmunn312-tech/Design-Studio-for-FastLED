@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Truchet Tiles draws deterministic, rerollable arc and line networks across
+  square or hexagonal lattices. Cell count, glow width, scrolling, and rotation
+  are wireable, with shared preview and firmware distance geometry.
+
 - Field Symmetry and Symmetry repeat scalar fields or finished frames through
   nine square and hexagonal wallpaper groups. Cells, rotation, spin, and
   offsets are wireable, and one shared fold keeps preview and generated

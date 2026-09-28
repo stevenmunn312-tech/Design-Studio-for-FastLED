@@ -39,6 +39,7 @@ import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOpt
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
+import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   BH1750_DEFAULT_ADDRESS,
@@ -3016,6 +3017,28 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // Hash-oriented motifs meet at cell boundaries, so scrolling or rerolling
+    // changes the topology without breaking the lines between neighbours.
+    type: 'Truchet',
+    label: 'Truchet Tiles',
+    category: 'field',
+    inputs: [
+      { id: 'reroll', label: 'Reroll', dataType: 'bool' },
+      { id: 'cells', label: 'Cells', dataType: 'float' },
+      { id: 'lineWidth', label: 'Line Width', dataType: 'float' },
+      { id: 'scroll', label: 'Scroll', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
+    ],
+    propertyInputs: {
+      cells: 'cells', lineWidth: 'lineWidth', scroll: 'scroll', rotation: 'rotation',
+    },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: {
+      lattice: 'square', motif: 'arcs', cells: 4, lineWidth: 0.08,
+      scroll: 0, rotation: 0, seed: 0,
+    },
+  },
+  {
     // Curated closed-form fields, selected by a dropdown instead of typing a
     // FieldFormula expression — a third raw-field generator beside
     // FieldFormula (free-text) and FieldNoise (fBm). See
@@ -4424,6 +4447,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
   FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
   SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
+  Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
@@ -4508,7 +4532,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5395,6 +5419,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  Truchet: {
+    lattice: { control: 'select', options: [...TRUCHET_LATTICES] },
+    motif: { control: 'select', options: [...TRUCHET_MOTIFS] },
+    cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
+    lineWidth: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
+    scroll: { control: 'slider', min: -8, max: 8, step: 0.05 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   Wireframe3D: {
     model:      { control: 'select', options: WIREFRAME_MODEL_OPTIONS },
     spinX:      { control: 'slider', min: -180, max: 180, step: 1 },
@@ -5542,6 +5575,22 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
   return PROPERTY_META_OVERRIDES[nodeType]?.[key]
     ?? DERIVED_COLOR_CHANNEL_META[nodeType]?.[key]
     ?? PROPERTY_META[key]
+}
+
+/** Select choices that depend on another property of the same node. */
+export function propertyOptions(
+  nodeType: string,
+  key: string,
+  properties: Record<string, unknown>,
+): readonly string[] {
+  const meta = propertyMeta(nodeType, key)
+  if (meta?.control !== 'select') return []
+  if (nodeType === 'Truchet' && key === 'motif') {
+    return properties.lattice === 'hex'
+      ? ['hexArcs']
+      : meta.options.filter((option) => option !== 'hexArcs')
+  }
+  return meta.options
 }
 
 /**
@@ -5751,6 +5800,15 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bitsB: 'Custom pattern B as hexadecimal, containing exactly 4^depth bits. Leaf 0 is the low bit.',
     seed: 'Shuffles the value each polygon gets on the Cell output. The Field output ignores it.',
   },
+  Truchet: {
+    lattice: 'Square offers arcs, diagonals, Smith curves, and 10 PRINT lines. Hex uses its edge-joining arc motif.',
+    motif: 'Tile motif. A motif from the other lattice safely falls back to that lattice\'s arc motif.',
+    cells: 'Number of lattice cells across the canvas width.',
+    lineWidth: 'Glow width measured as a fraction of one cell.',
+    scroll: 'Horizontal travel in cells per second.',
+    rotation: 'Rotates the entire lattice in degrees.',
+    seed: 'Deterministically chooses each cell\'s motif orientation.',
+  },
   FrameWarp: {
     strength: 'Maximum per-pixel displacement in source pixels. A field value of 0.5 is neutral.',
     zoom: 'Centred source zoom. Values above 1 enlarge the frame; values below 1 reveal more of it.',
@@ -5802,6 +5860,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   SliceTiling: {
     bits: 'pattern A',
     bitsB: 'pattern B',
+  },
+  Truchet: {
+    lineWidth: 'line width',
   },
   PresenceInput: {
     rxPin: 'RX (sensor TX)',
@@ -6081,6 +6142,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'subdivision', label: 'Subdivision', keys: ['depth', 'warp', 'edge'] },
     { key: 'pattern', label: 'Pattern', keys: ['preset', 'bits', 'bitsB', 'morph'] },
     { key: 'cell', label: 'Cell output', keys: ['seed'] },
+  ],
+  Truchet: [
+    { key: 'geometry', label: 'Geometry', keys: ['lattice', 'motif', 'cells', 'lineWidth'] },
+    { key: 'motion', label: 'Motion', keys: ['scroll', 'rotation'] },
+    { key: 'variation', label: 'Variation', keys: ['seed'] },
   ],
   Wireframe3D: [
     { key: 'model', label: 'Model', keys: ['model'] },

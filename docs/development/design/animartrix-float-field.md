@@ -190,6 +190,15 @@ colouring each polygon's slices. It is documented separately in the
 geometry, custom hexadecimal leaf order, morph, Cell output and firmware
 parity contract.
 
+### `Truchet` (category: `field`)
+
+Builds edge-joining arc and line networks on square or hexagonal cells. A
+seeded per-cell hash chooses each orientation, and a rising-edge Reroll input
+changes the epoch without introducing preview/firmware randomness. Cells,
+line width, scrolling and rotation are property inputs. The motif geometry and
+shared C++ helper contract are in the
+[Truchet Tiles design note](truchet-tiles.md).
+
 ### `FieldSymmetry` (category: `field`)
 
 Repeats a field through one of nine square or hexagonal wallpaper groups.

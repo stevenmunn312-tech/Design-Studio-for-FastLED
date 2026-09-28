@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–3 complete** · Owner: app · Date: 2026-09-28
+Status: **in progress — Phases 0–4 complete** · Owner: app · Date: 2026-09-28
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -179,42 +179,14 @@ preview/firmware fold live in the
 two-node fixture, source hash, classic-ESP32 result, flash and RAM are in the
 [pattern-node compile record](../pattern-node-compile-checks.md).
 
-## Phase 4 — Truchet Tiles (`Truchet`, category `field`)
+## Phase 4 — Truchet Tiles — **complete**
 
-A lattice of cells, each drawing one motif in a random orientation chosen by a
-per-cell hash. Output the distance to the nearest arc as a glowing line field.
-
-Contract:
-
-- Inputs: `reroll` (bool, rising edge picks a new epoch), `cells` (float),
-  `lineWidth` (float, fraction of a cell), `scroll` (float, cells/s),
-  `rotation` (deg). Property inputs: `cells`, `lineWidth`, `scroll`,
-  `rotation`. Properties: `lattice` select `['square', 'hex']`, `motif`
-  select `['arcs', 'diagonals', 'smith', 'hexArcs', 'tenPrint']`, `seed`.
-- Per cell: `h = latticeHash(cellX + epoch·31, cellY − epoch·17, seed)`, the
-  hash behind Slice Tiling's Cell output and, with no seed, Worley noise's
-  `worleyHash`; emitted as `_latticeHashBits` in the lattice helper behind
-  `needsLattice`. It is unsigned 32-bit throughout and keeps the top 24 bits,
-  so both sides agree on orientation exactly; orientation
-  `k = floor(h · orientations)`.
-- Per pixel: distance to the motif's arcs or segments in the oriented cell;
-  `field = 1 − smoothstep(0, lineWidth, d)`.
-- State: only the epoch counter and the previous `reroll` value, in an
-  `instanceState` map and two `static` locals, as `WaveSim` keeps its trigger.
-- Cost: hash plus two or three distances per pixel.
-
-Checklist:
-
-- [ ] Motif distance functions in `src/state/evaluator/truchet.ts` with a
-      test that every motif's arcs meet its cell edges at the midpoints (the
-      property that makes any orientation tile).
-- [ ] C++ twins in `src/codegen/truchetHelperCpp.ts` behind `needsTruchet`;
-      the hex motifs reuse Phase 1's lattice helper.
-- [ ] Preview, emitter, library entry (`isPropertyEnabled` hides the hex
-      motifs on the square lattice and vice versa), tests, docs.
-- [ ] `signalRange`: `lineWidth` is a 0–0.5 slider; `cells` is un-normalised
-      by design and Graph Health will say so on a wired audio band.
-- [ ] Compile check on classic ESP32.
+The shipped `Truchet` contract, square and hexagonal motif geometry,
+lattice-specific fallback, rising-edge reroll state, deterministic hash, and
+shared preview/firmware helper live in the
+[Truchet Tiles design note](../design/truchet-tiles.md). The generated mixed-
+lattice fixture, source hash, classic-ESP32 result, flash and RAM are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 5 — Turing Field, and Reaction Diffusion's field output
 

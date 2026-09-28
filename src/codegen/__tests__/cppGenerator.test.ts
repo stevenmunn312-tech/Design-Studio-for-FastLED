@@ -2497,6 +2497,42 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
   })
 })
 
+describe('Pattern node expansion - Phase 4 Truchet codegen', () => {
+  function generateTruchet(lattice: string, motif: string) {
+    const truchet = node('truchet', 'Truchet', 'field', {
+      lattice, motif, cells: 3.5, lineWidth: 0.12, scroll: 0.4, rotation: 22, seed: 17,
+    })
+    const map = node('truchet-map', 'FieldToFrame', 'field', {})
+    return generateCpp([truchet, map, outputNode], [
+      edge('truchet-map-edge', truchet.id, map.id, 'field', 'field'),
+      edge('truchet-out-edge', map.id, outputNode.id, 'frame', 'frame'),
+    ])
+  }
+
+  it.each([
+    ['square', 'arcs', 0, 0, '_squareCell'],
+    ['square', 'diagonals', 0, 1, '_squareCell'],
+    ['square', 'smith', 0, 2, '_squareCell'],
+    ['square', 'tenPrint', 0, 4, '_squareCell'],
+    ['hex', 'hexArcs', 1, 3, '_hexCell'],
+  ])('bakes the %s/%s motif ids and shared distance helper', (lattice, motif, latticeId, motifId, finder) => {
+    const cpp = generateTruchet(lattice, motif)
+    expect(cpp).toContain(`/* Truchet: ${lattice}, ${motif} */`)
+    expect(cpp).toContain(`_LatticeCell _cell=${finder}(`)
+    expect(cpp).toContain(`_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation)`)
+    expect(cpp).toContain('_latticeHashBits(_cell.a+(int)_tr_truchetepoch*31')
+    expect(cpp.match(/static inline float _truchetDistance/g)).toHaveLength(1)
+    expect(cpp.match(/static inline _LatticeCell _squareCell/g)).toHaveLength(1)
+  })
+
+  it('falls back without interpolating an unknown motif into firmware', () => {
+    const injected = '*/ firmware text /*'
+    const cpp = generateTruchet('square', injected)
+    expect(cpp).toContain('/* Truchet: square, arcs */')
+    expect(cpp).not.toContain(injected)
+  })
+})
+
 describe('Pattern node expansion — Phase 1 Slice Tiling codegen', () => {
   const generateSlice = (lattice: string) => {
     const slice = node(`slice-${lattice}`, 'SliceTiling', 'field', {

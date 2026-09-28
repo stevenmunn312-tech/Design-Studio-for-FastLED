@@ -131,6 +131,7 @@ export interface SketchEmitContext {
   needsPhi: Need
   needsSdf: Need
   needsLattice: Need
+  needsTruchet: Need
   needsSymmetry: Need
   needsFrameSample: Need
   needsDisplayText: { number: boolean; dateTime: boolean }

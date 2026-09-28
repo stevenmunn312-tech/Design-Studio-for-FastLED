@@ -6,6 +6,7 @@ import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from '../../state/sliceTiling'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
+import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 
 function byteArray8(bytes: Uint8Array): string {
   return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
@@ -95,6 +96,32 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      float _lambda[3]={1.0f-_sum,(_sum-_dif)*0.5f,(_sum+_dif)*0.5f}; int _leaf=_sliceWalk(_lambda,${depth},_matrices);`)
     ln(`      float _a=_sliceBit(_bits_${id},_leaf),_b=_sliceBit(_bitsB_${id},_leaf),_solid=_a*(1.0f-_morph)+_b*_morph;`)
     ln(`      float _inside=min(_lambda[0],min(_lambda[1],_lambda[2])); ${of}[_y*WIDTH+_x]=_solid*_sliceEdge(_inside,_edge); } }`)
+  },
+  Truchet({ node, id, p, ln, f, ownField, boolExpr, needsT, needsLattice, needsTruchet }) {
+    needsT.v = true
+    needsLattice.v = true
+    needsTruchet.v = true
+    const of = ownField()
+    const lattice = truchetLattice(p.lattice)
+    const motif = truchetMotif(p.motif, lattice)
+    const latticeId = lattice === 'hex' ? 1 : 0
+    const motifId = truchetMotifIndex(motif, lattice)
+    const orientations = truchetOrientationCount(lattice, motif)
+    const finder = lattice === 'hex' ? '_hexCell' : '_squareCell'
+    const state = `_tr_${id}`
+    ln(`  { /* Truchet: ${lattice}, ${motif} */`)
+    ln(`    static uint32_t ${state}epoch=0; static bool ${state}prev=false; bool _reroll=${boolExpr(node.id, 'reroll')};`)
+    ln(`    if(_reroll&&!${state}prev)${state}epoch++; ${state}prev=_reroll;`)
+    ln(`    float _cells=constrain(${f('cells', 'cells', 4)},0.5f,8.0f),_lineWidth=constrain(${f('lineWidth', 'lineWidth', 0.08)},0.0f,0.5f);`)
+    ln(`    float _scroll=constrain(${f('scroll', 'scroll', 0)},-8.0f,8.0f),_rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f);`)
+    ln(`    float _angle=-_rotation*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
+    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_scroll*t,_sr*_px+_cr*_py);`)
+    ln(`      uint32_t _bits=_latticeHashBits(_cell.a+(int)${state}epoch*31,_cell.b-(int)${state}epoch*17,${seedProp(p)}u);`)
+    ln(`      int _orientation=(int)(((uint64_t)_bits*${orientations}u)>>24);`)
+    ln(`      float _distance=_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation);`)
+    ln(`      ${of}[_y*WIDTH+_x]=_truchetLine(_distance,_lineWidth); } }`)
   },
   // Curated closed-form fields — exact same math as evalFormulaField in
   // graphEvaluator.ts (no approximation gap, unlike inoise8-backed fields),
