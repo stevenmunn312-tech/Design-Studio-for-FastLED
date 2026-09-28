@@ -1584,6 +1584,14 @@ describe('validateGraph', () => {
       expect(ram.statefulBytes).toBe(4096 * 4 + 65 * 65 * 4)
     })
 
+    it('prices Fourier Epicycles\' trail as one CRGB per LED beside its frame', () => {
+      const nodes = [node('fe', 'FourierEpicycles'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
+      const edges = [edge('e1', 'fe', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, edges)!
+      expect(ram.frameBufferBytes).toBe(48)
+      expect(ram.statefulBytes).toBe(16 * 3)
+    })
+
     it('keeps Reaction Diffusion at four floats per LED with V in its field buffer', () => {
       const nodes = [node('rd', 'ReactionDiffusion'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'rd', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]

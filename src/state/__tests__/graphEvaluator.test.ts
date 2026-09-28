@@ -3481,6 +3481,43 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
   })
 })
 
+describe('Pattern node expansion - Phase 6 Fourier Epicycles', () => {
+  // Each run is a fresh node: the trail is instance state keyed by node id.
+  let run = 0
+  function epicycles(properties: Record<string, unknown>, frames: number, wired: { base?: boolean; harmonics?: number } = {}) {
+    const fe = node(`fe-${run++}`, 'FourierEpicycles', 'pattern', { outline: 'star', showPen: false, ...properties })
+    const out = node('fe-out', 'MatrixOutput', 'output', {})
+    const nodes = [fe, out]
+    const edges = [edge('fe-frame', fe.id, 'frame', out.id, 'frame')]
+    if (wired.base) {
+      nodes.push(node('fe-base', 'SolidColor', 'pattern', { r: 0, g: 0, b: 30 }))
+      edges.push(edge('fe-base-wire', 'fe-base', 'frame', fe.id, 'base'))
+    }
+    if (wired.harmonics !== undefined) {
+      nodes.push(node('fe-h', 'Math', 'math', { mathOp: 'add', a: wired.harmonics, b: 0 }))
+      edges.push(edge('fe-h-wire', 'fe-h', 'result', fe.id, 'harmonics'))
+    }
+    let frame: Frame | null = null
+    for (let tick = 0; tick < frames; tick++) frame = evaluateGraph(nodes, edges, tick, 20, 20)
+    return structuredClone(frame!)
+  }
+
+  it('draws a growing trail over the wired base', () => {
+    const early = epicycles({}, 2, { base: true })
+    const later = epicycles({}, 40, { base: true })
+    const drawn = (frame: Frame) => frame.flat().filter((px) => px.r > 0).length
+    expect(drawn(later)).toBeGreaterThan(drawn(early))
+    expect(later.flat().every((px) => px.b >= 30)).toBe(true)
+  })
+
+  it('follows a wire into Harmonics over the property', () => {
+    const one = epicycles({ harmonics: 32 }, 20, { harmonics: 1 })
+    const property = epicycles({ harmonics: 1 }, 20)
+    expect(JSON.stringify(one)).toBe(JSON.stringify(property))
+    expect(JSON.stringify(epicycles({ harmonics: 32 }, 20))).not.toBe(JSON.stringify(one))
+  })
+})
+
 describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion', () => {
   function turingField(id: string, properties: Record<string, unknown>, frames: number, width = 16, height = 16) {
     const turing = node(id, 'TuringField', 'field', properties)
@@ -5257,10 +5294,12 @@ describe('resetEvaluatorState', () => {
     const stats = getEvaluatorMemoryStats()
     expect(stats.trackedKeys).toBe(0)
     // formulaCache/fieldFormulaCache are pure parse caches keyed by source
-    // text, not per-instance state, so they are deliberately left alone.
+    // text, and fourierTerms a coefficient cache keyed by outline, not
+    // per-instance state, so they are deliberately left alone.
     const perInstance = { ...stats.stateMaps }
     delete (perInstance as Record<string, number>).formulaCache
     delete (perInstance as Record<string, number>).fieldFormulaCache
+    delete (perInstance as Record<string, number>).fourierTerms
     for (const [name, size] of Object.entries(perInstance)) {
       expect(`${name}=${size}`).toBe(`${name}=0`)
     }

@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–5 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–6 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -215,6 +215,44 @@ function phase5Sketch(size: number): string {
 const phase5 = phase5Sketch(16)
 const phase5Large = phase5Sketch(32)
 
+// Phase 6 records the flash each baked harmonic costs, so one graph is
+// generated with two table sizes and nothing else changed.
+const CUSTOM_OUTLINE = '0,0.9 0.3,0.2 0.9,0.1 0.4,-0.3 0.6,-0.9 0,-0.5 -0.6,-0.9 -0.4,-0.3 -0.9,0.1 -0.3,0.2'
+function phase6Sketch(maxHarmonics: number): string {
+  const nodes = [
+    node('base', 'Plasma', { speed: 0.3, palette: 'ocean' }),
+    node('dim', 'BrightnessMod', { brightness: 0.3 }),
+    node('lfo', 'BeatSin', { bpm: 6, low: 1, high: 16 }),
+    node('star', 'FourierEpicycles', { outline: 'star', maxHarmonics, speed: 0.25, persistence: 0.995 }),
+    node('custom', 'FourierEpicycles', {
+      outline: 'custom', customPoints: CUSTOM_OUTLINE, maxHarmonics, speed: -0.2,
+      showCircles: false, r: 80, g: 200, b: 255,
+    }),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('base-dim', 'base', 'frame', 'dim', 'frame'),
+    edge('dim-star', 'dim', 'frame', 'star', 'base'),
+    edge('lfo-harmonics', 'lfo', 'value', 'star', 'harmonics'),
+    edge('star-custom', 'star', 'frame', 'custom', 'base'),
+    edge('custom-out', 'custom', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    `/* Fourier Epicycles: star, ${maxHarmonics} terms */`, `/* Fourier Epicycles: custom, ${maxHarmonics} terms */`,
+    `static const float _fe_star[${maxHarmonics}][3] PROGMEM`, '_fePen(_fe_custom,', ',0,WIDTH,HEIGHT,_col,&_penX,&_penY);',
+    '_feTrail(_fe_startrail,',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 6 fixture (${maxHarmonics}) is missing ${marker}`)
+  }
+  if ((sketch.match(/static void _fePen\(/g)?.length ?? 0) !== 1) {
+    throw new Error('Phase 6 fixture must emit the shared Fourier helper exactly once')
+  }
+  return sketch
+}
+const phase6Small = phase6Sketch(16)
+const phase6Large = phase6Sketch(64)
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -224,6 +262,8 @@ writeFileSync(resolve(outputDir, 'phase3.ino'), phase3, 'utf8')
 writeFileSync(resolve(outputDir, 'phase4.ino'), phase4, 'utf8')
 writeFileSync(resolve(outputDir, 'phase5.ino'), phase5, 'utf8')
 writeFileSync(resolve(outputDir, 'phase5-32.ino'), phase5Large, 'utf8')
+writeFileSync(resolve(outputDir, 'phase6-16.ino'), phase6Small, 'utf8')
+writeFileSync(resolve(outputDir, 'phase6-64.ino'), phase6Large, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -253,5 +293,13 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     bytes: Buffer.byteLength(phase5Large),
     sha256: createHash('sha256').update(phase5Large).digest('hex'),
   },
+  'phase6-16': {
+    bytes: Buffer.byteLength(phase6Small),
+    sha256: createHash('sha256').update(phase6Small).digest('hex'),
+  },
+  'phase6-64': {
+    bytes: Buffer.byteLength(phase6Large),
+    sha256: createHash('sha256').update(phase6Large).digest('hex'),
+  },
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–5 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–6 pattern-node compile fixtures to ${outputDir}`)

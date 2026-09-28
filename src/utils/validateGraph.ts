@@ -606,6 +606,7 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   ReactionDiffusion: 12,  // 3 float arrays (u, un, vn); v is its own field buffer
   WaveSim: 12,            // 3 float arrays (p, c, n) beyond its own field buffer
   TuringField: 8,         // float state a plus a (W+1)(H+1) summed-area table
+  FourierEpicycles: 3,    // CRGB trail, kept apart from the output it is added to
 }
 // Particles uses a fixed-size pool independent of matrix size (see the
 // `Particles` case in cppGenerator.ts): 6 floats + 3 uint8 per slot.

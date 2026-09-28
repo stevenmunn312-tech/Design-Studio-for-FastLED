@@ -20,6 +20,10 @@ import {
 } from '../../state/wireframeModel'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
+import {
+  FOURIER_SCALE_MIN, FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
+  fourierOutline, fourierTable,
+} from '../../state/fourierOutline'
 
 // Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
 // counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
@@ -217,6 +221,33 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`      float _dx = (_x + 0.5f) - _sx, _dy = (_y + 0.5f) - _sy;`)
     ln(`      float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);`)
     ln(`      if (_cov <= 0.0f) continue; CRGB _add = ${colorE}; _add.nscale8((uint8_t)(_cov * 255.0f)); ${ob}[_y * WIDTH + _x] += _add; } }`)
+  },
+  // The coefficient table is computed in TypeScript and baked as numbers;
+  // the per-frame sum and the drawing order are evalFourierEpicycles'.
+  FourierEpicycles({ id, p, ln, f, channelColor, ownBuf, seedFrom, needsT, needsFourier }) {
+    needsT.v = true
+    needsFourier.v = true
+    const ob = ownBuf()
+    const outline = fourierOutline(p.outline)
+    const terms = fourierTable(outline, p.customPoints, p.maxHarmonics)
+    const A = `_fe_${id}`
+    const rows = terms.map((term) => `{${floatLit(term.frequency)},${floatLit(term.amplitude, 9)},${floatLit(term.phase, 9)}}`)
+    ln(`  { /* Fourier Epicycles: ${outline}, ${terms.length} terms */`)
+    ln(`    static const float ${A}[${terms.length}][3] PROGMEM = {${rows.join(',')}};`)
+    ln(`    static CRGB ${A}trail[NUM_LEDS]; static float ${A}turn=0.0f, ${A}x=0.0f, ${A}y=0.0f; static bool ${A}has=false;`)
+    ln(`    ${seedFrom('base')}`)
+    ln(`    CRGB _col=${channelColor('color', 255, 220, 80)};`)
+    ln(`    float _scale=constrain(${f('scale', 'scale', 0.8)},${floatLit(FOURIER_SCALE_MIN)},1.0f);`)
+    ln(`    float _rad=constrain(${f('thickness', 'thickness', 1.25)},${floatLit(FOURIER_THICKNESS_MIN)},${floatLit(FOURIER_THICKNESS_MAX)})*0.5f;`)
+    ln(`    float _ext=fmaxf(0.0f,min(WIDTH,HEIGHT)*0.5f*_scale-_rad), _cx=WIDTH*0.5f, _cy=HEIGHT*0.5f;`)
+    ln(`    float _h=${f('harmonics', 'harmonics', 32)};`)
+    ln(`    float _turn=constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})*t; _turn-=floorf(_turn);`)
+    ln(`    float _penX, _penY;`)
+    ln(`    _fePen(${A},${terms.length},_h,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
+    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${f('persistence', 'persistence', 0.995)},${A},${terms.length},_h,_turn,_ext,_cx,_cy,_penX,_penY,_rad,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]+=${A}trail[_i];`)
+    if (p.showPen !== false) ln(`    _feDisc(${ob},WIDTH,HEIGHT,_penX,_penY,_rad+0.5f,_col,false);`)
+    ln(`  }`)
   },
   // Rotating 3D wireframe. The selected preset (or validated custom
   // upload) is baked as flat vertex/edge arrays at codegen time; the

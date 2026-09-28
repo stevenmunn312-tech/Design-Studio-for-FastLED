@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–5 complete** · Owner: app · Date: 2026-09-28
+Status: **in progress — Phases 0–6 complete** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -198,60 +198,16 @@ Reaction Diffusion's Field output and solver-tuned presets live in the
 fixtures, source hashes, and classic-ESP32 and ESP8266 results are in the
 [pattern-node compile record](../pattern-node-compile-checks.md).
 
-## Phase 6 — Fourier Epicycles (`FourierEpicycles`, category `pattern`, subcategory `Shapes & Text`)
+## Phase 6 — Fourier Epicycles — **complete**
 
-Take the discrete Fourier transform of a closed outline and draw it with nested
-rotating circles, a pen and a trail. The Harmonics knob is the detail level,
-and animating it morphs a circle into the full outline.
-
-Contract:
-
-- Inputs, in this order: `base` (frame), `color` (color), `harmonics` (float),
-  `speed` (float), `scale` (float), `thickness` (float), `persistence`
-  (float), then `r`, `g`, `b` channel ports last, as the other colour nodes
-  declare them. Property inputs: all of the floats and the colour channels.
-- Properties: `outline` select `['circle', 'heart', 'lissajous', 'rose',
-  'star', 'square', 'infinity', 'custom']` (the first four are the `Path`
-  shapes), `customPoints` text (`x,y` pairs in −1..1, up to 128), `maxHarmonics`
-  slider 4–64, `showCircles: true`, `showPen: true`.
-- Generation time, shared `src/state/fourierOutline.ts`: sample the outline
-  at 128 points, DFT, keep the `maxHarmonics` largest coefficients as
-  `(frequency, amplitude, phase)` sorted by amplitude. The evaluator computes
-  the same table once per outline and caches it in an `evaluatorCache`; the
-  emitter bakes it as `static const float _fe_<id>[][3] PROGMEM`.
-  `maxHarmonics` sizes that array, so it stays a property, as `Particles`'
-  `count` does; the wired `harmonics` is clamped to it at runtime.
-- Per frame: `θ = t · speed`; pen `= Σ amp_k · e^{i(freq_k·θ + phase_k)}` over
-  the first `harmonics` coefficients; draw each circle as a thin ring through
-  the shared SDF helper when `showCircles`, splat the pen with `splatDisc`,
-  and fade the node's own buffer in place with `persistence`, the technique
-  `FormulaPoints` already uses for its trails.
-- `customPoints` is parsed to numbers on the TypeScript side; anything else
-  falls back to the circle. The text never reaches C++.
-- Cost: `harmonics` sines and cosines per frame plus the splats; 12 bytes of
-  flash per harmonic.
-
-Checklist:
-
-- [ ] `src/state/fourierOutline.ts`: outline samplers, DFT, coefficient
-      ordering, custom-point parsing, with tests that a circle yields one
-      dominant coefficient and that the reconstruction error falls as
-      harmonics rise.
-- [ ] Preview handler in `src/nodes/shapes/evaluate.ts` with trail state in
-      an `instanceState` map.
-- [ ] Emitter in `src/nodes/shapes/codegen.ts` with the PROGMEM table and a
-      per-frame accumulation loop; `emittedNumericLiterals` green.
-- [ ] Library entry, `PROPERTY_META`, `isPropertyEnabled` for `customPoints`,
-      `patternRating` accent set, `liveExamples` `selectedInputs` row
-      (`harmonics`, `color`) and Trails as the finish, as the sparse shapes
-      already get.
-- [ ] Tests: pen position at `harmonics = 1` traces a circle; at the maximum
-      it reaches every outline sample within a pixel; emitted table matches
-      the evaluator's coefficients to four decimals.
-- [ ] README Patterns line, node card, design note
-      `docs/development/design/fourier-epicycles.md`.
-- [ ] Compile check on classic ESP32; flash delta recorded at 16 and 64
-      harmonics.
+The shipped `FourierEpicycles` contract, outline sampling and custom-point
+rules, coefficient ordering, fractional harmonics, drawing order, the trail's
+own state (3 bytes per LED, where this plan expected none) and the byte-exact
+preview/firmware arithmetic live in the
+[Fourier Epicycles design note](../design/fourier-epicycles.md). The 16- and
+64-term fixtures, the 12 bytes of flash per term they measure, source hashes,
+and classic-ESP32 and ESP8266 results are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 7 — Close-out
 
@@ -583,7 +539,7 @@ field and frame node today; the table lists only what a node adds beyond that.
 | Field Symmetry, Symmetry | 0 | small | one fold and one sample |
 | Truchet Tiles | 0 | small | one hash and two or three distances |
 | Turing Field | 8 bytes, plus one row and column | small | a summed-area table, then eight reads per scale, per iteration |
-| Fourier Epicycles | 0 | 12 bytes per harmonic | per frame, not per pixel: `harmonics` sines and cosines |
+| Fourier Epicycles | 3 bytes, the trail | 12 bytes per harmonic | per frame, not per pixel: `harmonics` sines and cosines, plus the ring scans |
 | Vibe, Song Structure, Pitch | 0 | FastLED's detector code | per frame, inside the processor |
 | Waveform | 512 bytes once, for the sample ring | small | one segment per column |
 | String Particles | 16 bytes per particle | small | per particle, not per pixel |

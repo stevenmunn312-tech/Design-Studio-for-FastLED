@@ -8,6 +8,7 @@ import { resolveSlicePattern } from '../../state/sliceTiling'
 import { worleyHash } from '../../state/evaluator/random'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
+import { fourierTable } from '../../state/fourierOutline'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -2524,6 +2525,60 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
     expect(cpp).toContain('/* Symmetry: p1 */')
     expect(cpp).toContain('_foldWallpaper(_cell.x,_cell.y,0,_foldX,_foldY)')
     expect(cpp).not.toContain(injectedGroup)
+  })
+})
+
+describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
+  function generateEpicycles(properties: Record<string, unknown>, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
+    const fe = node('fe', 'FourierEpicycles', 'pattern', properties)
+    return generateCpp([...extra, fe, outputNode], [...extraEdges, edge('fe-out', fe.id, outputNode.id, 'frame', 'frame')])
+  }
+  function bakedTable(cpp: string): number[][] {
+    const body = cpp.match(/static const float _fe_fe\[\d+\]\[3\] PROGMEM = \{(.*)\};/)
+    expect(body).not.toBeNull()
+    return [...body![1].matchAll(/\{(-?[\d.]+)f,(-?[\d.]+)f,(-?[\d.]+)f\}/g)].map((row) => row.slice(1).map(Number))
+  }
+
+  it.each(['heart', 'star', 'square', 'infinity', 'lissajous', 'rose', 'circle'])('bakes the %s coefficients the preview uses', (outline) => {
+    const cpp = generateEpicycles({ outline, maxHarmonics: 24 })
+    const terms = fourierTable(outline, '', 24)
+    expect(cpp).toContain(`/* Fourier Epicycles: ${outline}, ${terms.length} terms */`)
+    const table = bakedTable(cpp)
+    expect(table).toHaveLength(terms.length)
+    table.forEach(([frequency, amplitude, phase], i) => {
+      expect(frequency).toBe(terms[i].frequency)
+      expect(amplitude).toBeCloseTo(terms[i].amplitude, 4)
+      expect(phase).toBeCloseTo(terms[i].phase, 4)
+    })
+    expect(cpp.match(/static void _fePen\(/g)).toHaveLength(1)
+  })
+
+  it('bakes custom points as numbers and falls back to the circle without echoing bad text', () => {
+    const custom = generateEpicycles({ outline: 'custom', customPoints: '0,0.9 0.8,-0.6 -0.8,-0.6' })
+    expect(bakedTable(custom)).toHaveLength(fourierTable('custom', '0,0.9 0.8,-0.6 -0.8,-0.6', 32).length)
+    const injected = '*/ } firmware(); /*'
+    const fallback = generateEpicycles({ outline: 'custom', customPoints: injected })
+    expect(fallback).not.toContain(injected)
+    expect(fallback).toContain('/* Fourier Epicycles: custom, 1 terms */')
+    expect(generateEpicycles({ outline: '*/ evil /*' })).toContain('/* Fourier Epicycles: heart,')
+  })
+
+  it('draws the circles and pen only when asked', () => {
+    const both = generateEpicycles({ outline: 'heart' })
+    expect(both).toContain('_fePen(_fe_fe,9,_h,_turn,_ext,_cx,_cy,buf_fe,WIDTH,HEIGHT,_col,&_penX,&_penY);')
+    expect(both).toContain('_feDisc(buf_fe,WIDTH,HEIGHT,_penX,_penY,_rad+0.5f,_col,false);')
+    const neither = generateEpicycles({ outline: 'heart', showCircles: false, showPen: false })
+    expect(neither).toContain('_fePen(_fe_fe,9,_h,_turn,_ext,_cx,_cy,0,WIDTH,HEIGHT,_col,&_penX,&_penY);')
+    expect(neither).not.toContain('_rad+0.5f,_col,false);')
+  })
+
+  it('reads wired knobs each frame and keeps the trail in its own state', () => {
+    const lfo = node('lfo', 'Sin', 'signal', {})
+    const cpp = generateEpicycles({ outline: 'star' }, [lfo], [edge('h', lfo.id, 'fe', 'value', 'harmonics')])
+    expect(cpp).not.toContain('float _h=32;')
+    expect(cpp).toMatch(/float _h=[^;]*lfo[^;]*;/)
+    expect(cpp).toContain('static CRGB _fe_fetrail[NUM_LEDS];')
+    expect(cpp).toContain('for(int _i=0;_i<NUM_LEDS;_i++) buf_fe[_i]+=_fe_fetrail[_i];')
   })
 })
 

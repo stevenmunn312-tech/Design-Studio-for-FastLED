@@ -1,9 +1,9 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–5 complete.** The generated fixtures passed on classic
-> ESP32, and the integer-heavy Slice Tiling fixture and the stateful Phase 5
-> fixture also passed on ESP8266, on 28 September 2026. This is compile
-> evidence, not a physical LED bench run.
+> **Status: Phases 0–6 complete.** The generated fixtures passed on classic
+> ESP32, and the integer-heavy Slice Tiling fixture and the Phase 5 and 6
+> fixtures also passed on ESP8266, on 28 September 2026 (UTC). This is
+> compile evidence, not a physical LED bench run.
 
 The fixture is generated from a real Studio graph:
 
@@ -94,6 +94,22 @@ hash are each emitted once. Bit-exact agreement between the step and the
 preview is tested separately, with the host compiler, by
 `turingNativeParity.test.ts`.
 
+The Phase 6 fixture layers two Fourier Epicycles nodes over a dimmed Plasma,
+and is generated twice, with 16 and with 64 baked terms per node and nothing
+else changed, so the flash each term costs can be read off:
+
+```text
+Plasma ─ Brightness ─ Fourier Epicycles (star, Harmonics from BeatSin) ─ Fourier Epicycles (custom, no circles) ─ LED output
+```
+
+It exercises the PROGMEM coefficient tables, a wired fractional Harmonics,
+the guide circles on one node and not the other, a parsed custom outline, the
+trail fade and substeps, and the pen head. Generation fails if either table,
+the custom node's circle-free call or the trail call is absent, and verifies
+that the shared Fourier helper is emitted once. Byte-level agreement with the
+preview is tested separately, with the host compiler, by
+`fourierNativeParity.test.ts`.
+
 ## Reproduce
 
 From the repository root:
@@ -110,6 +126,10 @@ python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-no
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase5-32.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase5
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase5.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase5
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase5-32.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase5
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-16.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase6
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-64.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pattern-node-phase6
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-16.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase6
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pattern-node-fixtures/phase6-64.ino --fqbn esp8266:esp8266:nodemcuv2 --tag esp8266 --label pattern-node-phase6
 ```
 
 The shared compile runner uses the local helper's real Arduino CLI path and
@@ -134,9 +154,16 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 5, 32×32 | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 395,547 / 3,145,728 (12%) | 69,636 / 327,680 (21%) |
 | Phase 5, 16×16 | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 243,424 / 1,048,576 (23%) | 39,432 / 80,192 (49%) |
 | Phase 5, 32×32 | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 245,008 / 1,048,576 (23%) | 71,048 / 80,192 (88%) |
+| Phase 6, 16 terms | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 399,795 / 3,145,728 (12%) | 32,756 / 327,680 (9%) |
+| Phase 6, 64 terms | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 400,947 / 3,145,728 (12%) | 32,756 / 327,680 (9%) |
+| Phase 6, 16 terms | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 248,432 / 1,048,576 (23%) | 35,124 / 80,192 (43%) |
+| Phase 6, 64 terms | `esp8266:esp8266:nodemcuv2` | 3.1.2 | 1.5.1 | 3.10.5 | pass | 249,584 / 1,048,576 (23%) | 35,124 / 80,192 (43%) |
 
-The Phase 5 rows were built on Linux in a cloud session, not on the Windows
-machine that built the others. Going from 256 to 1,024 LEDs adds 31,616 bytes
+The Phase 5 and 6 rows were built on Linux in a cloud session, not on the
+Windows machine that built the others. Going from 16 to 64 terms on each of
+the Phase 6 fixture's two nodes adds 1,152 bytes of flash on both targets:
+96 terms at exactly 12 bytes each. RAM does not move, because the tables live
+in flash. Going from 256 to 1,024 LEDs adds 31,616 bytes
 of RAM on both targets, about 41 bytes per added LED for this graph. Most of
 that is the two simulations: Reaction Diffusion's 16 bytes per LED, the
 Turing Field's 12 (state, table and field buffer) plus its table's extra row
@@ -164,3 +191,9 @@ Phase 5 generated source, 16×16: 7,636 bytes, SHA-256
 
 Phase 5 generated source, 32×32: 10,733 bytes, SHA-256
 `6ddd2cfdfc6651ee3eb34bbe0b83e91e4f647f400de9f09161f2497349d0349e`.
+
+Phase 6 generated source, 16 terms: 9,647 bytes, SHA-256
+`b7c49cdfb29cc4b39f0e53e4d5761dad441db2e91dc599b13d97498349533f78`.
+
+Phase 6 generated source, 64 terms: 12,951 bytes, SHA-256
+`c7ea8601a0c2b38fd38d1c598b36a159a3dea4482b2b29d8a933fb9058686d01`.

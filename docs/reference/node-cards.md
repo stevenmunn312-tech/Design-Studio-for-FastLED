@@ -502,6 +502,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Path example graph](../../public/node-cards/graphs/path.svg)
 
+### Fourier Epicycles
+
+![Fourier Epicycles node](../../public/node-cards/fourier-epicycles.svg)
+
+![Fourier Epicycles example graph](../../public/node-cards/graphs/fourier-epicycles.svg)
+
 ### 3D Wireframe
 
 ![3D Wireframe node](../../public/node-cards/wireframe3-d.svg)

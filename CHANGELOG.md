@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Fourier Epicycles redraws an outline — heart, star, square, infinity, the
+  Path curves, or up to 128 of your own points — with a chain of rotating
+  circles taken from its Fourier series. A fractional Harmonics knob grows one
+  circle into the full outline, and the pen leaves a fading trail that stays
+  a continuous line at low frame rates. The coefficient table is baked into
+  the sketch at 12 bytes of flash per circle, and the drawing matches the
+  preview byte for byte.
+
 - Turing Field grows McCabe's multi-scale Turing patterns, labyrinths inside
   labyrinths that keep reorganising, with two to five nested scales and a
   reset input. Reaction Diffusion gains a Field output carrying its V

@@ -46,6 +46,10 @@ import {
 } from './evaluator/turing'
 import { REACTION_DIFFUSION_PRESETS, reactionDiffusionPreset } from './reactionDiffusionPresets'
 import {
+  FOURIER_MAX_HARMONICS_MAX, FOURIER_MAX_HARMONICS_MIN, FOURIER_OUTLINES, FOURIER_SCALE_MIN,
+  FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
+} from './fourierOutline'
+import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   BH1750_DEFAULT_ADDRESS,
   LIGHT_SENSOR_DEFAULT_MAX_LUX,
@@ -432,6 +436,39 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { t: 't', scale: 'scale', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
+  },
+  {
+    // An outline redrawn by nested rotating circles: its discrete Fourier
+    // transform, largest terms first. `harmonics` is fractional, so animating
+    // it grows a circle into the outline one term at a time. `maxHarmonics`
+    // sizes the baked coefficient table, so it stays a property, as
+    // Particles' `count` does; the wired `harmonics` is clamped to it.
+    type: 'FourierEpicycles',
+    label: 'Fourier Epicycles',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'base', label: 'Base', dataType: 'frame' },
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'harmonics', label: 'Harmonics', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
+      { id: 'persistence', label: 'Persistence', dataType: 'float' },
+      { id: 'r', label: 'R', dataType: 'float' },
+      { id: 'g', label: 'G', dataType: 'float' },
+      { id: 'b', label: 'B', dataType: 'float' },
+    ],
+    propertyInputs: {
+      harmonics: 'harmonics', speed: 'speed', scale: 'scale', thickness: 'thickness',
+      persistence: 'persistence', r: 'r', g: 'g', b: 'b',
+    },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      outline: 'heart', customPoints: '', maxHarmonics: 32, harmonics: 32, speed: 0.2,
+      scale: 0.8, thickness: 1.25, persistence: 0.995, showCircles: true, showPen: true,
+      r: 255, g: 220, b: 80,
+    },
   },
   {
     // Rotating 3D wireframe (a built-in Platonic-solid preset, or an uploaded
@@ -4410,6 +4447,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Line: 'Draws a line between two points.',
   Shape: 'Rect, ellipse or morphing N-gon with a fill and outline colour.',
   Path: 'Traces a parametric curve point with subpixel splatting.',
+  FourierEpicycles: 'Redraws an outline with nested rotating circles, from its Fourier series.',
   Wireframe3D: 'Rotating 3D wireframe model, auto-scaled to fit the matrix.',
   Text: 'Renders scrolling text in a bitmap font.',
   ClockDisplay: 'RTC-fed digital/analog clock plus stopwatch and timer displays.',
@@ -5447,6 +5485,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  FourierEpicycles: {
+    outline: { control: 'select', options: [...FOURIER_OUTLINES] },
+    maxHarmonics: { control: 'slider', min: FOURIER_MAX_HARMONICS_MIN, max: FOURIER_MAX_HARMONICS_MAX, step: 1 },
+    harmonics: { control: 'slider', min: 1, max: FOURIER_MAX_HARMONICS_MAX, step: 0.1 },
+    speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
+    scale: { control: 'slider', min: FOURIER_SCALE_MIN, max: 1, step: 0.01 },
+    thickness: { control: 'slider', min: FOURIER_THICKNESS_MIN, max: FOURIER_THICKNESS_MAX, step: 0.05 },
+    persistence: { control: 'slider', min: 0, max: 1, step: 0.005 },
+  },
   Truchet: {
     lattice: { control: 'select', options: [...TRUCHET_LATTICES] },
     motif: { control: 'select', options: [...TRUCHET_MOTIFS] },
@@ -5844,6 +5891,18 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     feed: 'Rate chemical U is replenished. Used only by the Custom preset.',
     kill: 'Rate chemical V is removed. Used only by the Custom preset.',
   },
+  FourierEpicycles: {
+    outline: 'Shape the circles redraw. Custom uses the Custom points text.',
+    customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined into a closed outline. Anything else draws the circle.',
+    maxHarmonics: 'Most circles kept: the largest terms of the outline\'s Fourier series. Sizes the table baked into the sketch.',
+    harmonics: 'Circles in use, largest first. Fractions fade the next one in, so animating it grows a circle into the outline.',
+    speed: 'Turns of the outline per second. Negative runs backwards.',
+    scale: 'Size as a fraction of half the shorter side of the canvas.',
+    thickness: 'Pen width in pixels.',
+    persistence: 'How much of the trail survives each frame. 1 never fades.',
+    showCircles: 'Draw the rotating circles as dim guides.',
+    showPen: 'Draw a brighter dot where the pen is.',
+  },
   TuringField: {
     speed: 'Simulation iterations per frame, 1–4. Each one costs two box blurs per scale.',
     stepSize: 'How far a pixel moves per iteration. Coarser scales take proportionally larger steps.',
@@ -5921,6 +5980,12 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   TuringField: {
     stepSize: 'step size',
     baseRadius: 'base radius',
+  },
+  FourierEpicycles: {
+    customPoints: 'custom points',
+    maxHarmonics: 'max harmonics',
+    showCircles: 'show circles',
+    showPen: 'show pen',
   },
   PresenceInput: {
     rxPin: 'RX (sensor TX)',
@@ -6200,6 +6265,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'subdivision', label: 'Subdivision', keys: ['depth', 'warp', 'edge'] },
     { key: 'pattern', label: 'Pattern', keys: ['preset', 'bits', 'bitsB', 'morph'] },
     { key: 'cell', label: 'Cell output', keys: ['seed'] },
+  ],
+  FourierEpicycles: [
+    { key: 'outline', label: 'Outline', keys: ['outline', 'customPoints', 'maxHarmonics', 'harmonics'] },
+    { key: 'motion', label: 'Motion', keys: ['speed', 'persistence'] },
+    { key: 'drawing', label: 'Drawing', keys: ['scale', 'thickness', 'showCircles', 'showPen', 'r', 'g', 'b'] },
   ],
   TuringField: [
     { key: 'simulation', label: 'Simulation', keys: ['speed', 'stepSize'] },
@@ -6524,6 +6594,14 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
     prop: 'pathShape',
     labels: { circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose' },
   },
+  FourierEpicycles: {
+    prop: 'outline',
+    labels: {
+      circle: 'Epicycles · Circle', heart: 'Epicycles · Heart', lissajous: 'Epicycles · Lissajous',
+      rose: 'Epicycles · Rose', star: 'Epicycles · Star', square: 'Epicycles · Square',
+      infinity: 'Epicycles · Infinity', custom: 'Epicycles · Custom',
+    },
+  },
   Math: {
     prop: 'mathOp',
     labels: { add: 'Add', subtract: 'Subtract', multiply: 'Multiply', divide: 'Divide', min: 'Min', max: 'Max' },
@@ -6813,6 +6891,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'monday' || key === 'tuesday' || key === 'wednesday' || key === 'thursday' || key === 'friday' || key === 'saturday' || key === 'sunday') {
       return String(properties.dayMode ?? 'Every day') === 'Custom'
     }
+  }
+  if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
+    return properties.outline === 'custom'
   }
   // A named preset fixes both rates, so their knobs, and any wire into them,
   // do nothing until the preset is Custom again.

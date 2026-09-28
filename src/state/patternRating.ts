@@ -428,7 +428,7 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
 // ── Scoring ──────────────────────────────────────────────────────────────────
 
 const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'GradientFrame', 'PaletteGradient'])
-const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst'])
+const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst', 'FourierEpicycles'])
 const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'TuringField', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
 const ANIMATED_TYPES = new Set([
   'TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave',
@@ -439,7 +439,7 @@ const ANIMATED_TYPES = new Set([
   'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock', 'VocalAurora',
   'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs', 'EmberPulse', 'TurbulentBloom',
-  'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField',
+  'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField', 'FourierEpicycles',
 ])
 
 export function inferPatternIntent(nodes: StudioNode[]): PatternIntent {

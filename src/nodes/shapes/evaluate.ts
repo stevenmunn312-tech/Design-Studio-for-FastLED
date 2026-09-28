@@ -6,6 +6,12 @@ import { hexToRgb } from '../../state/polinePalette'
 import { denormRate, SPEED_MAX } from '../../state/speedRange'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from '../../state/wireframeModel'
+import { pathPoint } from '../../state/pathShapes'
+import {
+  FOURIER_RING_HALF_WIDTH, FOURIER_RING_LEVEL, FOURIER_RING_MIN_RADIUS, FOURIER_SCALE_MIN,
+  FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP,
+  FOURIER_TRAIL_STEPS_MAX, fourierPen, fourierTable,
+} from '../../state/fourierOutline'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {
   DEFAULT_W,
@@ -52,29 +58,131 @@ interface ClockDisplayState {
 }
 const clockDisplayState = instanceState('clockDisplayState', new Map<string, ClockDisplayState>())
 
-function wrapUnit(v: number): number {
-  return ((v % 1) + 1) % 1
+// ── Fourier Epicycles ─────────────────────────────────────────────────────────
+// Byte-for-byte the sketch's arithmetic (fourierHelperCpp.ts): FastLED's
+// fixed scale8, truncating float-to-byte casts and saturating adds, so the
+// trail fades and the circles blend the same on the LEDs as here.
+
+interface FourierState { trail: Uint8Array; w: number; h: number; has: boolean; turn: number; px: number; py: number }
+const fourierState = instanceState('fourierState', new Map<string, FourierState>())
+
+function scale8(value: number, scale: number): number {
+  return (value * (1 + scale)) >> 8
 }
 
-function pathPoint(shape: string, t: number): { x: number; y: number } {
-  const TAU = Math.PI * 2
-  const ang = wrapUnit(t) * TAU
-  switch (shape) {
-    case 'heart': {
-      const x = 16 * Math.sin(ang) ** 3 / 18
-      const y = (13 * Math.cos(ang) - 5 * Math.cos(ang * 2) - 2 * Math.cos(ang * 3) - Math.cos(ang * 4)) / 18
-      return { x, y }
-    }
-    case 'lissajous':
-      return { x: Math.sin(ang + Math.PI / 2), y: Math.sin(ang * 2) }
-    case 'rose': {
-      const r = Math.cos(ang * 4)
-      return { x: r * Math.cos(ang), y: r * Math.sin(ang) }
-    }
-    case 'circle':
-    default:
-      return { x: Math.cos(ang), y: Math.sin(ang) }
+type Plot = (index: number, r: number, g: number, b: number) => void
+
+function fourierDisc(W: number, H: number, x: number, y: number, radius: number, color: RGB, plot: Plot): void {
+  const x0 = Math.max(0, Math.floor(x - radius - 1)), x1 = Math.min(W - 1, Math.ceil(x + radius + 1))
+  const y0 = Math.max(0, Math.floor(y - radius - 1)), y1 = Math.min(H - 1, Math.ceil(y + radius + 1))
+  for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+    const dx = (px + 0.5) - x, dy = (py + 0.5) - y
+    const coverage = Math.max(0, Math.min(1, radius + 0.5 - Math.sqrt(dx * dx + dy * dy)))
+    if (coverage <= 0) continue
+    const s = Math.trunc(coverage * 255)
+    plot(py * W + px, scale8(color.r, s), scale8(color.g, s), scale8(color.b, s))
   }
+}
+
+function fourierRing(W: number, H: number, cx: number, cy: number, radius: number, color: RGB, plot: Plot): void {
+  const reach = radius + FOURIER_RING_HALF_WIDTH + 1
+  const x0 = Math.max(0, Math.floor(cx - reach)), x1 = Math.min(W - 1, Math.ceil(cx + reach))
+  const y0 = Math.max(0, Math.floor(cy - reach)), y1 = Math.min(H - 1, Math.ceil(cy + reach))
+  for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+    const dx = (px + 0.5) - cx, dy = (py + 0.5) - cy
+    const coverage = Math.max(0, Math.min(1, FOURIER_RING_HALF_WIDTH + 0.5 - Math.abs(Math.sqrt(dx * dx + dy * dy) - radius)))
+    if (coverage <= 0) continue
+    const s = Math.trunc(coverage * FOURIER_RING_LEVEL * 255)
+    plot(py * W + px, scale8(color.r, s), scale8(color.g, s), scale8(color.b, s))
+  }
+}
+
+export interface FourierEpicyclesParams {
+  outline: unknown
+  customPoints: unknown
+  maxHarmonics: unknown
+  harmonics: number
+  speed: number
+  scale: number
+  thickness: number
+  persistence: number
+  color: RGB
+  showCircles: boolean
+  showPen: boolean
+}
+
+/**
+ * Epicycles over `base`: the guide circles, a persistent trail the pen draws
+ * into, and the pen itself. The trail lives in its own state, not the output,
+ * so the base and the circles never smear into it.
+ */
+export function evalFourierEpicycles(
+  nodeId: string, base: Frame | null, p: FourierEpicyclesParams, t: number, W = DEFAULT_W, H = DEFAULT_H,
+): Frame {
+  const N = W * H
+  let st = fourierState.get(nodeId)
+  if (!st || st.w !== W || st.h !== H) {
+    st = { trail: new Uint8Array(N * 3), w: W, h: H, has: false, turn: 0, px: 0, py: 0 }
+    fourierState.set(nodeId, st)
+  }
+  const out = new Uint8Array(N * 3)
+  if (base) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const px = base[y]?.[x]
+    if (!px) continue
+    const i = (y * W + x) * 3
+    out[i] = px.r; out[i + 1] = px.g; out[i + 2] = px.b
+  }
+  const add: Plot = (i, r, g, b) => {
+    out[i * 3] = Math.min(255, out[i * 3] + r)
+    out[i * 3 + 1] = Math.min(255, out[i * 3 + 1] + g)
+    out[i * 3 + 2] = Math.min(255, out[i * 3 + 2] + b)
+  }
+  const trail = st.trail
+  const lighten: Plot = (i, r, g, b) => {
+    trail[i * 3] = Math.max(trail[i * 3], r)
+    trail[i * 3 + 1] = Math.max(trail[i * 3 + 1], g)
+    trail[i * 3 + 2] = Math.max(trail[i * 3 + 2], b)
+  }
+
+  const terms = fourierTable(p.outline, p.customPoints, p.maxHarmonics)
+  const scale = Math.max(FOURIER_SCALE_MIN, Math.min(1, p.scale))
+  const radius = Math.max(FOURIER_THICKNESS_MIN, Math.min(FOURIER_THICKNESS_MAX, p.thickness)) * 0.5
+  const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
+  const cx = W * 0.5, cy = H * 0.5
+  let turn = Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)) * t
+  turn -= Math.floor(turn)
+  const pen = fourierPen(terms, p.harmonics, turn, extent, (x, y, r) => {
+    if (p.showCircles && r >= FOURIER_RING_MIN_RADIUS) fourierRing(W, H, cx + x, cy - y, r, p.color, add)
+  })
+  const penX = cx + pen.x, penY = cy - pen.y
+
+  // Fade, then draw the pen's path since last frame along the outline itself,
+  // so a slow frame rate leaves the curve rather than dots or corner-cutting
+  // chords. More than a quarter turn since last frame is a restart or a
+  // seek, and draws only the new point.
+  const keep = 255 - Math.trunc((1 - Math.max(0, Math.min(1, p.persistence))) * 255)
+  for (let i = 0; i < N * 3; i++) trail[i] = scale8(trail[i], keep)
+  let delta = turn - st.turn
+  delta -= Math.floor(delta + 0.5)
+  if (!st.has || Math.abs(delta) > FOURIER_TRAIL_JUMP) {
+    fourierDisc(W, H, penX, penY, radius, p.color, lighten)
+  } else {
+    const dx = penX - st.px, dy = penY - st.py
+    const steps = Math.max(1, Math.min(FOURIER_TRAIL_STEPS_MAX, Math.ceil(Math.sqrt(dx * dx + dy * dy) * 2)))
+    for (let i = 1; i <= steps; i++) {
+      const at = i === steps ? pen : fourierPen(terms, p.harmonics, st.turn + delta * i / steps, extent)
+      fourierDisc(W, H, cx + at.x, cy - at.y, radius, p.color, lighten)
+    }
+  }
+  st.turn = turn
+  st.px = penX; st.py = penY; st.has = true
+  for (let i = 0; i < N; i++) add(i, trail[i * 3], trail[i * 3 + 1], trail[i * 3 + 2])
+  if (p.showPen) fourierDisc(W, H, penX, penY, radius + 0.5, p.color, add)
+
+  return buildFrame(W, H, (x, y) => {
+    const i = (y * W + x) * 3
+    return { r: out[i], g: out[i + 1], b: out[i + 2] }
+  })
 }
 
 // Draw a rect / ellipse / regular polygon onto `frame` (which already holds the
@@ -620,6 +728,29 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
     splatDisc(frame, cx + p.x * extent, cy - p.y * extent, radius, color)
     return { frame }
+  },
+  // Discrete Fourier epicycles of an outline — see
+  // docs/development/design/fourier-epicycles.md.
+  FourierEpicycles({ input, num, t, W, H, stateKey }, id, props) {
+    const colorIn = input(id, 'color', null) as RGB | null
+    const color = colorIn ?? {
+      r: byte(num(id, 'r', props, 'r', 255) / 255),
+      g: byte(num(id, 'g', props, 'g', 220) / 255),
+      b: byte(num(id, 'b', props, 'b', 80) / 255),
+    }
+    return { frame: evalFourierEpicycles(stateKey(id), input(id, 'base', null) as Frame | null, {
+      outline: props.outline ?? 'heart',
+      customPoints: props.customPoints ?? '',
+      maxHarmonics: props.maxHarmonics ?? 32,
+      harmonics: num(id, 'harmonics', props, 'harmonics', 32),
+      speed: num(id, 'speed', props, 'speed', 0.2),
+      scale: num(id, 'scale', props, 'scale', 0.8),
+      thickness: num(id, 'thickness', props, 'thickness', 1.25),
+      persistence: num(id, 'persistence', props, 'persistence', 0.995),
+      color,
+      showCircles: props.showCircles !== false,
+      showPen: props.showPen !== false,
+    }, t, W, H) }
   },
   // Rotating 3D wireframe: project every vertex once, then step along
   // each edge splatting AA discs (same technique as Line), dimming by

@@ -467,7 +467,7 @@ const TARGET_PROPERTIES: Record<string, Record<string, unknown>> = {
   },
 }
 
-const SPARSE_FRAME_TYPES = new Set(['Circle', 'Line', 'Shape', 'Path', 'Text', 'Image'])
+const SPARSE_FRAME_TYPES = new Set(['Circle', 'Line', 'Shape', 'Path', 'FourierEpicycles', 'Text', 'Image'])
 const AUDIO_PATTERN_TYPES = new Set([
   'SpectrumBars', 'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock',
@@ -482,6 +482,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Line: ['color', 'x1', 'y2'],
     Shape: ['fill', 'rotation', 'sides'],
     Path: ['t', 'scale'],
+    FourierEpicycles: ['harmonics', 'color'],
     Noise: ['speed', 'paletteIn'],
     Fire: ['intensity', 'paletteIn'],
     Fire2012: ['paletteIn'],
