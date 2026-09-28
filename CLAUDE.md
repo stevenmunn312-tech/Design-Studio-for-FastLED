@@ -58,18 +58,18 @@ Data flows from the React Flow graph through Zustand, graph evaluation, preview/
 <!-- MANUAL -->
 ## Subsystem Patterns
 
-Subsystem contracts, derivation rules and known traps live in `docs/development/patterns/`, not in this file. Read the matching file before changing that area, and record a new pattern there. Link these files; never `@`-import them, which would load them into every session again.
+Detailed contracts and traps live under `docs/development/patterns/`. Read the matching file before changing that area, record new patterns there, and link rather than `@`-importing it.
 
-- [Graph and nodes](docs/development/patterns/graph-and-nodes.md) — workspace trust, evaluation and Master Speed, un-normalised numeric inputs, palette producers, splice targets, property inputs.
-- [Validation and deploy](docs/development/patterns/validation-and-deploy.md) — the deploy gate, Graph Health repairs, capacity verdicts, port status, readiness rows.
-- [Hardware and the Build Diagram](docs/development/patterns/hardware-and-build-diagram.md) — pin assignment and buses, integrated board hardware, the Board node, peripheral modules (mic, audio output, IR, power, light, DMX, Ethernet, data extender), Build Diagram pads and wires.
-- [Player, shows and controls](docs/development/patterns/player-shows-and-controls.md) — Music Player, Player Controls, Song Info, pattern selection, LED output runtime, control phases, Pattern Slideshow, transitions, show files, VU levels.
-- [Fixed displays](docs/development/patterns/fixed-displays.md) — display registration points, the display envelope, pattern thumbnails and names, colour TFT transports and touch, fixed-layout golden tests.
-- [Custom screens](docs/development/patterns/custom-screens.md) — screen designs and widget ports, LVGL generation and baked assets, themes, templates and their control wiring, panel Enabled.
-- [Firmware generation](docs/development/patterns/firmware-generation.md) — `.ino` prototype hoisting, template-literal escapes, float literals, declaration order, FastLED trimming, telemetry and touch-calibration sketches.
-- [Build helper](docs/development/patterns/build-helper.md) — `backend/app.py` build timing, Export Binary, mtime-preserving writes, the arduino-cli sketch cache.
-- [Workspace UI](docs/development/patterns/workspace-ui.md) — workspace tabs, the First project guide, CSS layout traps jsdom cannot catch, `ClampedNumberInput`.
-- [Testing](docs/development/patterns/testing.md) — cold imports charged to a file's first test, timed-out tests leaking into the next, full runs under load.
+- [Graph and nodes](docs/development/patterns/graph-and-nodes.md) — trust/evaluation, timing, inputs, palettes, and splicing.
+- [Validation and deploy](docs/development/patterns/validation-and-deploy.md) — deploy gates, health repairs, capacity, ports, and readiness.
+- [Hardware and Build Diagram](docs/development/patterns/hardware-and-build-diagram.md) — pins, buses, boards, peripherals, pads, and wires.
+- [Player, shows and controls](docs/development/patterns/player-shows-and-controls.md) — playback, controls, output runtime, shows, transitions, and VU levels.
+- [Fixed displays](docs/development/patterns/fixed-displays.md) — registration, envelopes, thumbnails, TFT/touch, and golden tests.
+- [Custom screens](docs/development/patterns/custom-screens.md) — designs, ports, LVGL/assets, themes, templates, and Enabled.
+- [Firmware generation](docs/development/patterns/firmware-generation.md) — C++ generation, escaping/order, FastLED trimming, telemetry, and calibration.
+- [Build helper](docs/development/patterns/build-helper.md) — build timing, binary export, mtime writes, and sketch caching.
+- [Workspace UI](docs/development/patterns/workspace-ui.md) — tabs, guides, CSS traps, and `ClampedNumberInput`.
+- [Testing](docs/development/patterns/testing.md) — cold imports, timeout leakage, and full-run load.
 
 <!-- END MANUAL -->
 
@@ -100,18 +100,15 @@ Subsystem contracts, derivation rules and known traps live in `docs/development/
 <!-- MANUAL -->
 ## Project-Specific Invariants
 
-- Public beta saves may exist outside the repository. On `main`, node types, property names, port ids, and persisted workspace shapes require compatibility or an explicit migration and release note. `Hardware` may intentionally break them.
-- `Hardware` is targeting the breaking LTS v1.0.0 release. Until v1.0.0 ships, backwards compatibility is deliberately not a design constraint: do not preserve legacy graph shapes, compatibility paths, or migrations for pre-1.0 saves unless the user explicitly requests one; prefer removing superseded models cleanly. Treat the v1.0.0 format as the new compatibility baseline after release.
-- In user-facing copy, call `MatrixOutput` the **LED output** or use its concrete form label: **LED String**, **LED Matrix**, **LED Ring**, **LED Corkscrew**, or **HUB75 Panel**. `MatrixOutput` remains the code identifier.
-- New nodes normally require: a `NODE_LIBRARY` entry, a preview handler and a firmware emitter in their category under `src/nodes/`, help/description entry, and focused tests. Preserve preview/firmware parity. A node with inputs and no outputs is a **sink**, and both terminal registries derive from exactly that — `graphEvaluator.ts` `HOT_NODE_TYPES` and `cppGenerator.ts` `TERMINAL_NODE_TYPES` — so it needs no row in either, but a sink left out of them is pruned from the sketch (with everything feeding it) and evaluated only on ~8 fps publish frames. A new node also has to join `README.md`'s per-category module list and count and `HelpModal/liveExamples.ts`; both are asserted by tests.
-- Keep trust propagation intact through every evaluator entry and recursive group/pattern evaluation. Any new path interpolating user text into C++ must validate or resolve it against a known set first. UI that performs I/O on mount must gate itself on workspace trust.
-- Hardware-wide reads use `rootGraphNodes`/`rootGraphEdges` or their hooks. Hardware writes must target the root graph even while a pattern group is open.
-- The LED preview is wall-clock driven. Do not reintroduce frame-count-dependent animation timing. Master Speed scales that one clock (see [graph and nodes](docs/development/patterns/graph-and-nodes.md#evaluation) for how). It is applied in the evaluator, not at the preview, so the main matrix, per-output previews, recordings and the live stream cannot disagree; a music player refuses it on purpose, because its animation time *is* the track position and scaling that would slide the LEDs off the music.
-- `StudioNode` handle positioning depends on its CSS layout; change the component constants and CSS together.
-- A popup that closes on Escape must check `useUiStore.getState().appDialog` first and yield to it — the shared alert/confirm/prompt dialog (`uiStore.ts`) can stack on top of any panel, and if the panel also handles Escape, both consume the same keystroke.
-- The hardware workbench draws each part at its own compressed scale (cube root of its size), not one shared millimetre factor: a bench spans twenty to one once a panel and a microphone are on it, and no framing survives that. Compression is one factor per part, so no part is distorted and physically larger still draws larger. Anything drawn in physical units on a part reads that part's `mmScale`, never a bench-wide one. A run of emitters is the exception twice over — scaled by its emitter rather than its extent, then drawn broken to bound its length. See [hardware nodes](docs/development/design/hardware-nodes.md).
-- New physical-part visuals come from verified Blender assets and dimensions, not hand-drawn placeholders. The local source workspace is `C:\Users\User\Desktop\Blender Assets\`; import with `scripts/import-part-assets.py` or `scripts/import-board-assets.py`. `import-part-assets.py` only rewrites a part's WebP when its encoded bytes actually change, so a listed update means the source PNG changed, not importer noise; `--check` reports without writing. Only the renders and their `part.json` details enter the repo, through the importer; `.blend` files, raw PNGs and reference sources stay in the asset workspace.
-- Release promises belong in `docs/release/beta-support-matrix.md`; implementation history belongs in `CHANGELOG.md` or Git, not here.
-- Current code, `src/themes/tokens.css`, `NODE_LIBRARY`, and documents linked from `docs/NAVIGATOR.md` are authoritative. Superseded initial briefs were removed; recover historical intent from Git. Root `todo.md` is the single active implementation checklist.
+- Saves: on `main`, public-beta node types, property names, port ids, and workspace shapes require compatibility or an explicit migration and release note. On `Hardware`, remove superseded pre-1.0 shapes cleanly unless compatibility is requested; v1.0.0 becomes the baseline after release.
+- User copy: call `MatrixOutput` the **LED output** or its concrete form label; keep `MatrixOutput` only as the code identifier.
+- New nodes normally need `NODE_LIBRARY`, preview and firmware handlers, help/description, focused tests, README module/count, and `HelpModal/liveExamples.ts`; preserve preview/firmware parity. Input-only/no-output nodes are sinks: verify the derived `HOT_NODE_TYPES` and `TERMINAL_NODE_TYPES` include them or evaluation/codegen prunes them. See [graph and nodes](docs/development/patterns/graph-and-nodes.md).
+- Preserve trust through evaluator and recursive group/pattern paths. Validate user text before C++ interpolation; gate mount-time I/O on workspace trust.
+- Hardware-wide reads use `rootGraphNodes`/`rootGraphEdges` or their hooks; hardware writes always target the root graph.
+- Preview animation is wall-clock driven. Master Speed scales the evaluator's single clock, never the preview; Music Player refuses it because track position is its clock.
+- UI invariants: change `StudioNode` handle constants and CSS together. Before an Escape-closing popup acts, check `useUiStore.getState().appDialog` and yield to the shared dialog.
+- The hardware workbench scales each part by the cube root of its own size; physical-unit drawing reads that part's `mmScale`. Emitter runs instead scale by the emitter and draw broken to bound length. See [hardware nodes](docs/development/design/hardware-nodes.md).
+- New physical-part visuals require verified Blender assets from `C:\Users\User\Desktop\Blender Assets\`; import through `scripts/import-part-assets.py` or `scripts/import-board-assets.py`. Commit only importer-produced renders and `part.json`, never `.blend`, raw PNG, or reference files; `--check` is read-only and unchanged encoded bytes are not rewritten.
+- Release promises belong in `docs/release/beta-support-matrix.md`; history belongs in `CHANGELOG.md` or Git. Current code, `src/themes/tokens.css`, `NODE_LIBRARY`, `docs/NAVIGATOR.md` links, and root `todo.md` are authoritative.
 
 <!-- END MANUAL -->
