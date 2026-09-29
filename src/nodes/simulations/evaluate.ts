@@ -1,5 +1,6 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { particleRadius } from '../../state/particleScale'
+import { curlFlow } from '../../state/evaluator/curl'
 import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
@@ -553,7 +554,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
 
 // Flow field: particles drift along a simplex-noise direction field, depositing
 // fading trails that are coloured through a palette. Stateful.
-function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, curl = false): Frame {
   const N = W * H
   const pc = Math.max(8, Math.min(400, Math.floor(count)))
   let s = flowState.get(nodeId)
@@ -570,9 +571,17 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
   for (let i = 0; i < N; i++) trail[i] *= f
   const z = t * 0.1
   for (let i = 0; i < pc; i++) {
-    const a = _snoise2(px[i] * scale + z, py[i] * scale) * Math.PI * 4
-    px[i] = ((px[i] + Math.cos(a) * speed * 0.6) % W + W) % W
-    py[i] = ((py[i] + Math.sin(a) * speed * 0.6) % H + H) % H
+    let dx: number, dy: number
+    if (curl) {
+      // Divergence-free flow: the noise gradient turned a quarter turn.
+      const flow = curlFlow((x, y) => _snoise2(x, y) * 0.5 + 0.5, px[i] * scale + z, py[i] * scale)
+      dx = flow.x; dy = flow.y
+    } else {
+      const a = _snoise2(px[i] * scale + z, py[i] * scale) * Math.PI * 4
+      dx = Math.cos(a); dy = Math.sin(a)
+    }
+    px[i] = ((px[i] + dx * speed * 0.6) % W + W) % W
+    py[i] = ((py[i] + dy * speed * 0.6) % H + H) % H
     const idx = Math.floor(py[i]) * W + Math.floor(px[i])
     trail[idx] = Math.min(1, trail[idx] + 0.5)
   }
@@ -901,7 +910,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const count = num(id, 'count', props, 'count', 80)
     const fade = num(id, 'fade', props, 'fade', 0.9)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H, normalizedSeed(props.seed), props.flowMode === 'curl') }
   },
   Starfield({ num, pal, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)

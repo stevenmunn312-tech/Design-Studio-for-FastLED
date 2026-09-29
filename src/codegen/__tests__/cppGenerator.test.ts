@@ -1382,6 +1382,40 @@ describe('generateCpp', () => {
     }
   })
 
+  it('emits noise shaping, Worley modes and curl flow, leaving the defaults as they were', () => {
+    const noise = (props: Record<string, unknown>) => generateCpp([node('n', 'Noise', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(noise({ noiseType: 'simplex' })).not.toContain('fabsf(2.0f*constrain')
+    expect(noise({ noiseType: 'simplex', noiseShape: 'ridged' }))
+      .toContain('field_n[_i]=(1.0f-fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f));')
+    expect(noise({ noiseType: 'simplex', noiseShape: 'billow' }))
+      .toContain('field_n[_i]=fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f);')
+    // With wrapX the shape runs after both passes have been blended.
+    const wrapped = noise({ noiseType: 'simplex', noiseShape: 'billow', wrapX: true })
+    expect(wrapped.indexOf('_wrapXMix(field_n[')).toBeLessThan(wrapped.indexOf('field_n[_i]=fabsf('))
+
+    const f1 = noise({ noiseType: 'worley' })
+    expect(f1).toContain('float _f1=1e9f;')
+    expect(f1).toContain('field_n[_y*WIDTH+_x]=min(1.0f,_f1);')
+    expect(f1).not.toContain('_f2')
+    const gap = noise({ noiseType: 'worley', worleyMode: 'f2f1' })
+    expect(gap).toContain('float _f1=1e9f,_f2=1e9f;')
+    expect(gap).toContain('if(_d<_f1){_f2=_f1;_f1=_d;}else if(_d<_f2)_f2=_d;')
+    expect(gap).toContain('field_n[_y*WIDTH+_x]=min(1.0f,_f2-_f1);')
+    expect(noise({ noiseType: 'worley', worleyMode: 'edges' })).toContain('=max(0.0f,1.0f-(_f2-_f1)*3.0f);')
+
+    const fractal = (props: Record<string, unknown>) => generateCpp([node('n', 'FractalNoise', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(fractal({})).toContain('(uint8_t)((_v/_norm)*255)')
+    expect(fractal({ noiseShape: 'ridged' })).toContain('(uint8_t)((1.0f-fabsf(2.0f*constrain((_v/_norm),0.0f,1.0f)-1.0f))*255)')
+
+    const flow = (props: Record<string, unknown>) => generateCpp([node('n', 'FlowField', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(flow({})).toContain('float _dx=cos(_a),_dy=sin(_a);')
+    expect(flow({})).not.toContain('inoise16')
+    const curl = flow({ flowMode: 'curl' })
+    expect(curl).toContain('inoise16(_cx+3277u,_cy,_cz)-(float)inoise16(_cx-3277u,_cy,_cz)')
+    expect(curl).toContain('float _dx=_gy*1.5f,_dy=-_gx*1.5f;')
+    expect(curl).not.toContain('inoise8')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

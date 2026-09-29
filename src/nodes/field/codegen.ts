@@ -4,6 +4,7 @@ import { isNodeFormulaValid } from '../../state/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
+import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from '../../state/sliceTiling'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
@@ -65,6 +66,8 @@ export const FIELD_EMITTERS: NodeEmitters = {
     } else {
       for (const line of block) emitLine(line)
     }
+    const shape = noiseShape(p.noiseShape)
+    if (shape !== 'plain') emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${noiseShapeCpp(shape, `${of}[_i]`)};`)
   },
   SliceTiling({ node, id, p, ln, f, ownField, edges, needsT, needsLattice, globalLines }) {
     needsT.v = true

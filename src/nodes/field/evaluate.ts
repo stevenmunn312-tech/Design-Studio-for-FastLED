@@ -5,6 +5,7 @@ import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../s
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
+import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
 import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
@@ -666,7 +667,10 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const seed = normalizedSeed(props.seed)
     const field = evalFieldNoise(speed, scale, octaves, t, W, H, seed)
     // Seamless left/right join: see state/evaluator/wrapX.ts.
-    return { field: props.wrapX === true ? wrapXBlend(field, evalFieldNoise(speed, scale, octaves, t, W, H, seed, W), W, H) : field }
+    const out = props.wrapX === true ? wrapXBlend(field, evalFieldNoise(speed, scale, octaves, t, W, H, seed, W), W, H) : field
+    const shape = noiseShape(props.noiseShape)
+    if (shape !== 'plain') for (let i = 0; i < out.length; i++) out[i] = shapeNoise(out[i], shape)
+    return { field: out }
   },
   SliceTiling({ num, t, W, H }, id, props) {
     return evalSliceTiling(

@@ -15,6 +15,7 @@ import {
 } from '../../state/evaluator/frames'
 import { allocField } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
+import { noiseShape, shapeNoise, worleyMode, worleyValue, type NoiseShape, type WorleyMode } from '../../state/evaluator/noiseShape'
 import {
   seededRandom,
   seedOffset,
@@ -310,21 +311,21 @@ function wrap01(v: number): number {
 // All variants share the (speed, scale)→field signature, then the node maps
 // that field through a palette for its normal `frame` output. Keep the cases
 // in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
-function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, wrapX = false): Field {
-  if (!wrapX) return evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0)
+function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, wrapX = false, worley: WorleyMode = 'f1'): Field {
+  if (!wrapX) return evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0, worley)
   // Seamless left/right join: the plain field blended with itself shifted a
   // canvas width (see state/evaluator/wrapX.ts).
-  const plain = evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0)
-  return wrapXBlend(plain, evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, W), W, H)
+  const plain = evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0, worley)
+  return wrapXBlend(plain, evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, W, worley), W, H)
 }
 
-function evalNoiseFieldVariant(noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number): Field {
+function evalNoiseFieldVariant(noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, worley: WorleyMode): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
     case 'simplex': return evalSimplex2DField(speed, scale, ts, W, H, xo)
     case 'noise3d': return evalNoise3DField(speed, scale, ts, W, H, xo)
     case 'noise4d': return evalNoise4DField(speed, scale, ts, W, H, xo)
-    case 'worley':  return evalWorleyField(speed, scale, ts, W, H, xo)
+    case 'worley':  return evalWorleyField(speed, scale, ts, W, H, xo, worley)
     case 'plasma':  return evalPlasmaFractalField(speed, scale, ts, W, H, xo)
     case 'sine':    return evalSineField(speed, scale, ts, W, H, xo)
     case 'field':
@@ -403,13 +404,13 @@ function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W
 
 // Worley (cellular) noise: distance to the nearest animated feature point,
 // coloured through a palette. Feature points jitter on a circle over time.
-function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0, mode: WorleyMode = 'f1'): Field {
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
-      let f1 = Infinity
+      let f1 = Infinity, f2 = Infinity
       for (let dj = -1; dj <= 1; dj++)
         for (let di = -1; di <= 1; di++) {
           const cx = xi + di, cy = yi + dj
@@ -417,9 +418,9 @@ function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W,
           const fx = cx + 0.5 + 0.45 * Math.sin(t * speed + hh * 6.2831)
           const fy = cy + 0.5 + 0.45 * Math.cos(t * speed * 1.1 + hh * 6.2831)
           const d = Math.hypot(px - fx, py - fy)
-          if (d < f1) f1 = d
+          if (d < f1) { f2 = f1; f1 = d } else if (d < f2) f2 = d
         }
-      out[y * W + x - xo] = Math.min(1, f1)
+      out[y * W + x - xo] = worleyValue(mode, f1, f2)
     }
   }
   return out
@@ -465,7 +466,7 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
 
 // Fractal (fBm) noise: sum simplex octaves at doubling frequency / halving
 // amplitude for a detailed, cloud-like field, coloured through a palette.
-function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, shape: NoiseShape = 'plain'): Frame {
   const z = (t + seedOffset(seed, 0)) * speed * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
   return buildFrame(W, H, (x, y) => {
@@ -474,7 +475,7 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
         v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
         norm += amp; amp *= 0.5; freq *= 2
       }
-      const n = (v / norm) * 0.5 + 0.5
+      const n = shapeNoise((v / norm) * 0.5 + 0.5, shape)
       return samplePalette(palette, ((n % 1) + 1) % 1)
     })
 }
@@ -522,7 +523,9 @@ export const GENERATIVE_EVALUATORS: NodeEvaluators = {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true)
+    const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true, worleyMode(props.worleyMode))
+    const shape = noiseShape(props.noiseShape)
+    if (shape !== 'plain') for (let i = 0; i < field.length; i++) field[i] = shapeNoise(field[i], shape)
     return { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
   },
   Plasma({ num, pal, t, W, H }, id, props) {
@@ -597,7 +600,7 @@ export const GENERATIVE_EVALUATORS: NodeEvaluators = {
     const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FractalNoise)
     const octaves = num(id, 'octaves', props, 'octaves', 4)
     const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
-    return { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed), noiseShape(props.noiseShape)) }
   },
   GaborNoise({ num, pal, t, W, H }, id, props) {
     const speed       = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.GaborNoise)

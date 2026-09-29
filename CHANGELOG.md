@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Noise, Field Noise and Fractal Noise gain a Noise Shape: `ridged` gives sharp
+  bright crests and `billow` gives rounded lumps with dark creases. Noise's
+  Worley variant gains a Worley Mode (`f1`, `f2f1`, or `edges` for thin lines on
+  the cell borders), and Flow Field gains a Flow Mode: `curl` steers particles
+  along the noise's curl, so they swirl without piling up. Every default is the
+  old look.
 - Path gains a Custom shape: type x,y pairs from -1 to 1 into Custom Points
   and the point glides along a smooth closed curve through every one. It reads
   the same text as Fourier Epicycles, and anything that is not an outline draws

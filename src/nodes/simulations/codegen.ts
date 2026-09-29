@@ -1,4 +1,5 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
+import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import { particleRadius } from '../../state/particleScale'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
@@ -425,8 +426,18 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*100);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${fadeL};`)
     ln(`    for(int _i=0;_i<_count;_i++){`)
-    ln(`      float _a=(inoise8((uint16_t)(${px}[_i]*_sc*256),(uint16_t)(${py}[_i]*_sc*256),_z)/255.0f)*6.2831f*2;`)
-    ln(`      ${px}[_i]=fmodf(${px}[_i]+cos(_a)*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+sin(_a)*_spd*0.6f+HEIGHT,HEIGHT);`)
+    if (p.flowMode === 'curl') {
+      // Central differences of inoise16 a CURL_EPS apart (in cells), turned a quarter turn.
+      const eps = Math.round(CURL_EPS * 65536)
+      ln(`      uint32_t _cx=(uint32_t)(${px}[_i]*_sc*65536.0f),_cy=(uint32_t)(${py}[_i]*_sc*65536.0f),_cz=(uint32_t)(t*0.1f*65536.0f);`)
+      ln(`      float _gx=((float)inoise16(_cx+${eps}u,_cy,_cz)-(float)inoise16(_cx-${eps}u,_cy,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
+      ln(`      float _gy=((float)inoise16(_cx,_cy+${eps}u,_cz)-(float)inoise16(_cx,_cy-${eps}u,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
+      ln(`      float _dx=_gy*${CURL_GAIN}f,_dy=-_gx*${CURL_GAIN}f;`)
+    } else {
+      ln(`      float _a=(inoise8((uint16_t)(${px}[_i]*_sc*256),(uint16_t)(${py}[_i]*_sc*256),_z)/255.0f)*6.2831f*2;`)
+      ln(`      float _dx=cos(_a),_dy=sin(_a);`)
+    }
+    ln(`      ${px}[_i]=fmodf(${px}[_i]+_dx*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+_dy*_spd*0.6f+HEIGHT,HEIGHT);`)
     ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${tr}[_i]*255)); }`)
   },

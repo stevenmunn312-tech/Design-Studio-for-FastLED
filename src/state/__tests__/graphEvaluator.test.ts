@@ -70,6 +70,8 @@ import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../hardwareInputStore'
 import { mixGradientColors } from '../hueMix'
 import { wrapXMix } from '../evaluator/wrapX'
+import { noiseShape, shapeNoise, WORLEY_EDGE_GAIN } from '../evaluator/noiseShape'
+import { CURL_EPS, CURL_GAIN, curlFlow } from '../evaluator/curl'
 import { usePlayerTransport } from '../playerTransport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -3564,6 +3566,100 @@ describe('Float Field pipeline', () => {
     const later = evaluateGraph(nodes, edges, 8, W, H)!
     expect(first.flat().some((px) => px.r + px.g + px.b > 0)).toBe(true)
     expect(JSON.stringify(later)).not.toEqual(JSON.stringify(first))
+  })
+})
+
+describe('noise shaping, Worley modes and curl flow', () => {
+  const fieldOf = (type: string, cat: string, props: Record<string, unknown>, w = 16, h = 16) => {
+    const n = node('n', type, cat, props)
+    return Float32Array.from(evaluateGraphFull([n], [], 3, w, h).outputs.get('n')!.field as Float32Array)
+  }
+
+  it('folds a 0-1 value about its midline and leaves plain alone', () => {
+    expect(shapeNoise(0.3, 'plain')).toBe(0.3)
+    expect(shapeNoise(0.5, 'ridged')).toBe(1)
+    expect(shapeNoise(0, 'ridged')).toBe(0)
+    expect(shapeNoise(0, 'billow')).toBe(1)
+    expect(shapeNoise(0.5, 'billow')).toBe(0)
+    for (const n of [0, 0.1, 0.37, 0.8, 1, 1.4, -0.3]) {
+      expect(shapeNoise(n, 'ridged') + shapeNoise(n, 'billow')).toBeCloseTo(1, 6)
+      expect(shapeNoise(n, 'ridged')).toBeGreaterThanOrEqual(0)
+      expect(shapeNoise(n, 'billow')).toBeLessThanOrEqual(1)
+    }
+    expect(noiseShape('nonsense')).toBe('plain')
+  })
+
+  it('shapes Noise and Field Noise fields without touching the default', () => {
+    for (const [type, cat, props] of [
+      ['Noise', 'pattern', { noiseType: 'simplex', speed: 0.4, scale: 0.6 }],
+      ['Noise', 'pattern', { noiseType: 'worley', speed: 0.4, scale: 0.6 }],
+      ['FieldNoise', 'field', { speed: 0.4, scale: 0.6, octaves: 3 }],
+    ] as const) {
+      const plain = fieldOf(type, cat, props)
+      expect(fieldOf(type, cat, { ...props, noiseShape: 'plain' })).toEqual(plain)
+      for (const shape of ['ridged', 'billow'] as const) {
+        const shaped = fieldOf(type, cat, { ...props, noiseShape: shape })
+        expect(shaped).not.toEqual(plain)
+        plain.forEach((v, i) => expect(shaped[i]).toBeCloseTo(shapeNoise(v, shape), 5))
+      }
+    }
+  })
+
+  it('shapes Fractal Noise colours', () => {
+    const frame = (props: Record<string, unknown>) => {
+      const f = node('f', 'FractalNoise', 'pattern', { speed: 0.4, scale: 0.6, palette: 'ocean', ...props })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return JSON.stringify(evaluateGraph([f, out], [edge('e', 'f', 'frame', 'out', 'frame')], 3, 12, 12)!)
+    }
+    expect(frame({ noiseShape: 'plain' })).toEqual(frame({}))
+    expect(frame({ noiseShape: 'ridged' })).not.toEqual(frame({}))
+    expect(frame({ noiseShape: 'ridged' })).not.toEqual(frame({ noiseShape: 'billow' }))
+  })
+
+  it('draws Worley as F1, the F2-F1 gap, or the borders between cells', () => {
+    const base = { noiseType: 'worley', speed: 0.4, scale: 0.6 }
+    const f1 = fieldOf('Noise', 'pattern', base)
+    expect(fieldOf('Noise', 'pattern', { ...base, worleyMode: 'f1' })).toEqual(f1)
+    const gap = fieldOf('Noise', 'pattern', { ...base, worleyMode: 'f2f1' })
+    const edges = fieldOf('Noise', 'pattern', { ...base, worleyMode: 'edges' })
+    expect(gap).not.toEqual(f1)
+    expect(edges).not.toEqual(gap)
+    gap.forEach((g, i) => {
+      expect(g).toBeGreaterThanOrEqual(0)
+      expect(g).toBeLessThanOrEqual(1)
+      expect(edges[i]).toBeCloseTo(Math.max(0, 1 - g * WORLEY_EDGE_GAIN), 5)
+    })
+    // Borders are bright, and there are cell interiors that are not.
+    expect(Math.max(...edges)).toBeGreaterThan(0.8)
+    expect(Math.min(...edges)).toBe(0)
+  })
+
+  it('has no divergence in the curl of any noise', () => {
+    const noise = (x: number, y: number) => 0.5 + 0.5 * Math.sin(1.3 * x + 0.4) * Math.cos(0.9 * y - 0.2) + 0.1 * Math.sin(x * y)
+    for (const [x, y] of [[0.3, 0.7], [2.1, -1.4], [5, 5]]) {
+      const div = (curlFlow(noise, x + CURL_EPS, y).x - curlFlow(noise, x - CURL_EPS, y).x
+        + curlFlow(noise, x, y + CURL_EPS).y - curlFlow(noise, x, y - CURL_EPS).y) / (2 * CURL_EPS)
+      expect(Math.abs(div)).toBeLessThan(1e-6)
+    }
+    // Along a plain slope the flow runs across it, not up it.
+    const flow = curlFlow((x) => 0.5 + 0.1 * x, 1, 1)
+    expect(flow.x).toBeCloseTo(0, 9)
+    expect(flow.y).toBeCloseTo(-0.1 * CURL_GAIN, 6)
+  })
+
+  it('steers Flow Field by curl and keeps angle as the default', () => {
+    let run = 0
+    const frames = (props: Record<string, unknown>) => {
+      const id = `ff-${run++}`
+      const f = node(id, 'FlowField', 'pattern', { count: 60, seed: 5, ...props })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      let last: unknown
+      for (let tick = 0; tick < 30; tick++) last = evaluateGraph([f, out], [edge('e', id, 'frame', 'out', 'frame')], tick, 16, 16)
+      return JSON.stringify(last)
+    }
+    expect(frames({ flowMode: 'angle' })).toEqual(frames({}))
+    expect(frames({ flowMode: 'curl' })).not.toEqual(frames({}))
+    expect(frames({ flowMode: 'curl' })).toEqual(frames({ flowMode: 'curl' }))
   })
 })
 

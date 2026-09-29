@@ -3,6 +3,7 @@ import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from 
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp } from '../../codegen/cppLiterals'
 import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
+import { noiseShape, noiseShapeCpp, worleyMode, worleyValueCpp } from '../../state/evaluator/noiseShape'
 
 export const GENERATIVE_EMITTERS: NodeEmitters = {
   // Bundled noise node — `noiseType` picks the algorithm. Each variant
@@ -18,6 +19,7 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const of = ownField()
     const noiseType = String(p.noiseType ?? 'field')
+    const wMode = worleyMode(p.worleyMode)
     const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const seed = seedProp(p)
@@ -61,13 +63,13 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`  { // Worley noise`)
         ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f;`)
+        ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _f1=1e9f${wMode === 'f1' ? '' : ',_f2=1e9f'};`)
         ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
         ln(`        int _cx=_xi+_di,_cy=_yi+_dj; float _h=_worleyHash(_cx,_cy,0u);`)
         ln(`        float _fx=_cx+0.5f+0.45f*sin(_t*_spd+_h*6.2831f);`)
         ln(`        float _fy=_cy+0.5f+0.45f*cos(_t*_spd*1.1f+_h*6.2831f);`)
-        ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); if(_d<_f1)_f1=_d; }`)
-        ln(`      ${of}[_y*WIDTH+_x]=min(1.0f,_f1);}}`)
+        ln(`        float _d=sqrtf((_px-_fx)*(_px-_fx)+(_py-_fy)*(_py-_fy)); ${wMode === 'f1' ? 'if(_d<_f1)_f1=_d;' : 'if(_d<_f1){_f2=_f1;_f1=_d;}else if(_d<_f2)_f2=_d;'} }`)
+        ln(`      ${of}[_y*WIDTH+_x]=${worleyValueCpp(wMode)};}}`)
         break
       case 'plasma':
         ln(`  { float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*10);`)
@@ -103,6 +105,8 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
     } else {
       for (const line of block) emitLine(line)
     }
+    const shape = noiseShape(p.noiseShape)
+    if (shape !== 'plain') emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${noiseShapeCpp(shape, `${of}[_i]`)};`)
     // Mapped as Field → Frame maps it (the preview shares evalFieldToFrame):
     // held at the top, so the field's highest values keep the last colour.
     emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
@@ -325,7 +329,7 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`      for(int _o=0;_o<${octaves};_o++){`)
     ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
     ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v/_norm)*255));}}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(${noiseShapeCpp(noiseShape(p.noiseShape), '(_v/_norm)')}*255));}}`)
   },
   GaborNoise({ node, p, ln, f, ownBuf, paletteExpr, needsWorley, needsT }) {
     needsT.v = true

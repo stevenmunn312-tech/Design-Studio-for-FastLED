@@ -40,6 +40,7 @@ import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
 import { HARMONY_KINDS } from './harmonyPalette'
 import { GRADIENT_MIX_MODES } from './hueMix'
+import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -605,7 +606,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false },
+    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1' },
   },
   {
     // `direction` rotates which edge sparks (the flame base) and which way heat
@@ -2561,7 +2562,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn', octaves: 'octaves' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest', seed: 0 },
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, palette: 'forest', seed: 0, noiseShape: 'plain' },
   },
   {
     // Gabor noise — sparse-convolution oriented bands through a palette.
@@ -2713,7 +2714,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       fade: 'fade', palette: 'paletteIn',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean', seed: 0 },
+    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean', seed: 0, flowMode: 'angle' },
   },
   {
     // Warp starfield — stars streak outward from the centre.
@@ -3183,7 +3184,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { octaves: 'octaves' },
 
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0, wrapX: false },
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0, wrapX: false, noiseShape: 'plain' },
   },
   {
     type: 'SliceTiling',
@@ -5417,7 +5418,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tiles: { control: 'slider', min: 2, max: 8, step: 1 },
   },
   // Normalised speed/scale pattern nodes (internal range in speedRange.ts).
-  Noise:           { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  Noise: {
+    speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+    noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
+    worleyMode: { control: 'select', options: [...WORLEY_MODES] },
+  },
   Plasma:          { speed: N01 },
   Rainbow:         { speed: N01 },
   RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
@@ -5450,10 +5455,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     radialMix: N01,
     radialScroll: { control: 'slider', min: -1, max: 1, step: 0.01 },
   },
-  FractalNoise:    { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  FractalNoise: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, noiseShape: { control: 'select', options: [...NOISE_SHAPES] } },
   GaborNoise:      { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Blobs:           { speed: N01, scale: N01 },
-  FlowField:       { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  FlowField: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, flowMode: { control: 'select', options: ['angle', 'curl'] } },
   Pride2015:       { speed: N01, scale: N01 },
   Pacifica:        { speed: N01, scale: N01 },
   TwinkleFox:      { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
@@ -5747,6 +5752,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01,
     scale: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+    noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
   },
   FormulaField: {
     speed: N01,
@@ -5947,9 +5953,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     wrapX: 'Let waves leave one side and re-enter the other. Off, the left and right edges reflect them.',
   },
   Noise: {
+    noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
+    worleyMode: 'What Worley draws: the distance to the nearest point (f1), the gap to the second nearest (f2f1), or thin bright lines on the cell borders (edges).',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
   },
   FieldNoise: {
+    noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
   },
   StepValue: {
@@ -6097,6 +6106,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PaletteBank: {
     blend: 'How fast a new palette fades in: colour steps per 10 ms, FastLED\'s nblendPaletteTowardPalette. 0 switches instantly.',
+  },
+  FractalNoise: {
+    noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
+  },
+  FlowField: {
+    flowMode: 'How the noise steers particles: by an angle (angle), or along its curl (curl), which swirls without piling up.',
   },
   Path: {
     pathShape: 'Curve the point traces. Custom runs a smooth spline through the Custom points text.',
@@ -7114,6 +7129,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
     return properties.outline === 'custom'
+  }
+  if (nodeType === 'Noise' && key === 'worleyMode') {
+    return properties.noiseType === 'worley'
   }
   if (nodeType === 'Path' && key === 'customPoints') {
     return properties.pathShape === 'custom'
