@@ -142,6 +142,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   while a false negative breaks the build. Held at both ends by
   `src/codegen/__tests__/screenOnlyFastLed.test.ts`.
 
+- **Resampled LED outputs share one tap rule with the preview.** Half-resolution
+  render scale (`src/state/renderScale.ts`, `src/codegen/renderScaleCpp.ts`) and
+  positioned strings (`src/state/stringPositions.ts`) take their source pixels and
+  weights from `upscaleTap` / `positionTap`, and `routeFrame` and the emitted C++
+  both use them; change the tap in TypeScript and the C++ together. Render scale
+  is matrix-only and mutually exclusive with supersample (supersample wins). A
+  positioned string bakes only fixed-point (1/256 unit) numbers into PROGMEM;
+  the user's text is parsed in TypeScript and never interpolated into C++.
+
 ## Instrument sketches
 
 - Device telemetry (HW-11's bench instrument) is one line format defined once in
