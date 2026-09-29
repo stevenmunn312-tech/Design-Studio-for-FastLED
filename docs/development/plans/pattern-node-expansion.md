@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–9 complete; 10 complete; 11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–10 complete; 11 partly done (white point, render scale and positioned strings shipped; colour profile blocked; SD Video and segment networks open)** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -490,7 +490,7 @@ through step 11 of the
 - [ ] **Segment networks.** A layout where strings are edges of a graph and a
       `Ripple` pattern travels node to node with turning rules, the Chromancer
       model; long-term, since it needs a layout editor.
-- [ ] Add step 11 to the hardware roadmap pointing here.
+- [x] Add step 11 to the hardware roadmap pointing here.
 
 ## Budget
 
