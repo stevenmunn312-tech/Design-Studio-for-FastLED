@@ -325,6 +325,44 @@ function phase8VibeSketch(profileId: string): string {
 const phase8Vibe = phase8VibeSketch('espressif-esp32-s3-devkitc-1')
 const phase8VibeClassic = phase8VibeSketch('esp32-generic-devkit-38pin')
 
+// Song Structure reads six getters and registers five callbacks; the fixture
+// proves the pinned FastLED has every one and the node reads only those globals.
+function phase8StructureSketch(profileId: string): string {
+  const nodes = [
+    node('board', 'Board', { profileId }),
+    node('mic', 'MicInput', {}),
+    node('audio', 'Audio', { sourceId: 'mic' }),
+    node('structure', 'SongStructure'),
+    node('ripples', 'RainRipples'),
+    node('plasma', 'Plasma', { speed: 0.3 }),
+    node('dim', 'BrightnessMod'),
+    node('mix', 'Blend'),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('audio-structure', 'audio', 'audio', 'structure', 'audio'),
+    edge('drop-ripples', 'structure', 'drop', 'ripples', 'trigger'),
+    edge('arousal-dim', 'structure', 'arousal', 'dim', 'brightness'),
+    edge('plasma-dim', 'plasma', 'frame', 'dim', 'frame'),
+    edge('dim-mix', 'dim', 'frame', 'mix', 'a'),
+    edge('ripples-mix', 'ripples', 'frame', 'mix', 'b'),
+    edge('mix-out', 'mix', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    '_audioProcessor->onDownbeat(', '_audioProcessor->onBuildupStart(', '_audioProcessor->onBuildupEnd(',
+    '_audioProcessor->onDrop(', '_audioProcessor->onTempoStable(', '_audioProcessor->onTempoUnstable(',
+    '_audioProcessor->getMeasurePhase()', '_audioProcessor->getCurrentBeatNumber()',
+    '_audioProcessor->getBuildupProgress()', '_audioProcessor->getDropImpact()',
+    '_audioProcessor->getMoodValence()', '_audioProcessor->getMoodArousal()',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 8 Song Structure fixture is missing ${marker}`)
+  }
+  return sketch
+}
+const phase8Structure = phase8StructureSketch('esp32-generic-devkit-38pin')
+const phase8StructureS3 = phase8StructureSketch('espressif-esp32-s3-devkitc-1')
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -341,6 +379,8 @@ writeFileSync(resolve(outputDir, 'phase7-mirage.ino'), phase7Mirage, 'utf8')
 writeFileSync(resolve(outputDir, 'phase7-maze.ino'), phase7Maze, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-vibe-s3.ino'), phase8Vibe, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-vibe.ino'), phase8VibeClassic, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-structure.ino'), phase8Structure, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-structure-s3.ino'), phase8StructureS3, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -381,6 +421,7 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   ...Object.fromEntries(([
     ['phase7-rosette', phase7Rosette], ['phase7-mirage', phase7Mirage], ['phase7-maze', phase7Maze],
     ['phase8-vibe-s3', phase8Vibe], ['phase8-vibe', phase8VibeClassic],
+    ['phase8-structure', phase8Structure], ['phase8-structure-s3', phase8StructureS3],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),

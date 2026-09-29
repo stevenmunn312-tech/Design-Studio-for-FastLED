@@ -234,6 +234,17 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`  float ${levels.map((port) => `${v(port)} = ${source[port]} * ${gain}`).join(', ')};`)
     ln(`  bool ${v('bassSpike')} = _audioVibeBassSpike, ${v('midSpike')} = _audioVibeMidSpike, ${v('trebleSpike')} = _audioVibeTrebleSpike;`)
   },
+  SongStructure({ node, ln, v, nativeFastLedAudio, hasExplicitAudioInput }) {
+    if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {
+      ln(`  // Song Structure — connect a live Audio source for FastLED's downbeat, buildup, drop and mood`)
+      ln(`  bool ${v('downbeat')} = false, ${v('building')} = false, ${v('drop')} = false, ${v('tempoStable')} = false;`)
+      ln(`  float ${['beatNumber', 'measurePhase', 'buildupProgress', 'dropImpact', 'valence', 'arousal'].map((port) => `${v(port)} = 0.0f`).join(', ')};`)
+      return
+    }
+    ln(`  bool ${v('downbeat')} = _audioDownbeat, ${v('building')} = _audioBuilding, ${v('drop')} = _audioDrop, ${v('tempoStable')} = _audioTempoStable;`)
+    ln(`  float ${v('beatNumber')} = (float)_audioBeatNumber, ${v('measurePhase')} = _audioMeasurePhase, ${v('dropImpact')} = _audioDropImpact;`)
+    ln(`  float ${v('buildupProgress')} = _audioBuilding ? _audioBuildupProgress : 0.0f, ${v('valence')} = _audioValence, ${v('arousal')} = _audioArousal;`)
+  },
   AudioHue({ node, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
     // The weights carry wires now, so each is bounded in the emitted text

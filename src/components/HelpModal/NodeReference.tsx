@@ -11,7 +11,7 @@ import {
   MICROPHONE_LIVE_EXAMPLE, BUTTON_LIVE_EXAMPLE, POTENTIOMETER_LIVE_EXAMPLE,
   ENCODER_LIVE_EXAMPLE, MIDI_LIVE_EXAMPLE,
   FFT_ANALYZER_LIVE_EXAMPLE, BEAT_DETECT_LIVE_EXAMPLE, PERCUSSION_DETECT_LIVE_EXAMPLE,
-  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE, VIBE_LIVE_EXAMPLE,
+  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE, VIBE_LIVE_EXAMPLE, SONG_STRUCTURE_LIVE_EXAMPLE,
 } from './liveExamples'
 import type { ReferenceLiveExample } from './liveExamples'
 import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
@@ -150,6 +150,27 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     liveExample: VIBE_LIVE_EXAMPLE,
     successMessage: 'Vibe example added — microphone starting',
     skippedMessage: 'Vibe example added',
+  },
+  SongStructure: {
+    type: 'SongStructure',
+    eyebrow: 'Song events',
+    purpose: 'React to the shape of a song: downbeats, buildups, drops, a stable tempo and the overall mood.',
+    overview: [
+      'Song Structure is the FastLED port of its downbeat, buildup, drop, tempo and mood detectors. Downbeat and Drop are pulses that are true for a single frame. Building stays true from the moment energy starts climbing until it stops, and Buildup progress runs from 0 to 1 over the buildup.',
+      'Beat number counts 1 to the detected beats per measure, and Measure phase runs 0 to 1 across the measure. Drop impact holds the strength of the most recent drop. Valence runs from -1 (dark, unstable) to 1 (bright, calm) and Arousal from 0 (calm) to 1 (energetic); both are heuristics from spectral shape, not a judgement of the music.',
+      'Without a live microphone or decoder source, or with an older recording or baked show that has no structure data, every output reads zero or false. The sketch registers these detectors only when a Song Structure node is present.',
+    ],
+    propertyNote: 'Song Structure has no properties. FastLED tunes its thresholds in the detectors themselves.',
+    exampleTitle: 'Splash a ripple on every drop',
+    examplePath: 'Microphone.audio -> Song Structure.drop -> Rain Ripples.trigger',
+    exampleAlt: 'Tidy graph using Microphone, Song Structure and Rain Ripples',
+    exampleExplanation: 'Microphone feeds Song Structure. Its Drop output is true for the single frame a bass burst follows a buildup, and Rain Ripples splashes a ring on that frame.',
+    previewTitle: 'What you should see',
+    previewDescription: 'The ripples should stay calm through the verse and splash a ring when a drop lands. Drops need a bass burst at least two seconds after the last one.',
+    previewAlt: 'LED Matrix main preview with ripples spawning on drops',
+    liveExample: SONG_STRUCTURE_LIVE_EXAMPLE,
+    successMessage: 'Song Structure example added — microphone starting',
+    skippedMessage: 'Song Structure example added',
   },
   AudioFeatures: {
     type: 'AudioFeatures',

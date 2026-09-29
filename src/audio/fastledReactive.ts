@@ -20,7 +20,8 @@
 // 50) keep their calibration.
 
 import { fftInPlace } from './micAnalysis'
-import type { VibeSignal } from '../state/evaluator/types'
+import type { SongStructureSignal, VibeSignal } from '../state/evaluator/types'
+import { SongStructureDetector, structureBins } from './fastledStructure'
 
 export const I16_FULL_SCALE = 32767
 
@@ -586,6 +587,7 @@ export interface FastLedAudioResult {
   bpm: number
   beatConfidence: number
   vibe: VibeSignal
+  structure: SongStructureSignal
 }
 
 /**
@@ -603,6 +605,9 @@ export class FastLedAudioAnalyzer {
   private bands = new FrequencyBands()
   private beat = new BeatDetector()
   private vibe = new VibeDetector()
+  private structure = new SongStructureDetector()
+  private bins16 = new Float32Array(16)
+  private bins32 = new Float32Array(32)
   private spectrum: EqualizerSpectrum
   private lastMs = 0
 
@@ -659,6 +664,24 @@ export class FastLedAudioAnalyzer {
     const levels = this.bands.update(this.mags, sampleRate, this.fftSize, dtSec)
     const beat = this.beat.update(this.mags, sampleRate, this.fftSize, nowMs)
     const vibe = this.vibe.update(this.mags, sampleRate, this.fftSize, dtSec, silent)
+    structureBins(this.mags, sampleRate, this.fftSize, 16, this.bins16)
+    structureBins(this.mags, sampleRate, this.fftSize, 32, this.bins32)
+    let sumSquares = 0
+    let crossings = 0
+    for (let i = 0; i < n; i++) {
+      sumSquares += this.scaled[i] * this.scaled[i]
+      if (i > 0 && (this.scaled[i - 1] < 0) !== (this.scaled[i] < 0)) crossings++
+    }
+    const structure = this.structure.update({
+      timestampMs: nowMs,
+      bins16: this.bins16,
+      bins32: this.bins32,
+      rms: Math.sqrt(sumSquares / n),
+      zcf: n > 1 ? crossings / (n - 1) : 0,
+      beat: beat.beat,
+      bpm: beat.bpm,
+      silent,
+    })
     this.spectrum.update(this.mags, sampleRate, this.fftSize, dtSec, spectrumOut)
 
     return {
@@ -669,6 +692,7 @@ export class FastLedAudioAnalyzer {
       bpm: beat.bpm,
       beatConfidence: beat.confidence,
       vibe,
+      structure,
     }
   }
 
@@ -677,6 +701,7 @@ export class FastLedAudioAnalyzer {
     this.bands.reset()
     this.beat.reset()
     this.vibe.reset()
+    this.structure.reset()
     this.spectrum.reset()
     this.lastMs = 0
   }

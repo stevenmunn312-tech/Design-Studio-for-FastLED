@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { AudioEngine, NUM_SPECTRUM_BARS } from '../audio/audioEngine'
-import type { VibeSignal } from './evaluator/types'
+import type { SongStructureSignal, VibeSignal } from './evaluator/types'
 
 interface AudioState {
   active: boolean
@@ -23,6 +23,7 @@ interface AudioState {
   rightLevel: number
   channelCount: 1 | 2
   vibe?: VibeSignal
+  structure?: SongStructureSignal
   startAudio: () => Promise<void>
   stopAudio: () => void
 }
@@ -52,6 +53,7 @@ export const useAudioStore = create<AudioState>()((set) => {
       rightLevel: data.rightLevel,
       channelCount: data.channelCount,
       vibe: data.vibe,
+      structure: data.structure,
     })
   })
 
@@ -107,6 +109,7 @@ export const useAudioStore = create<AudioState>()((set) => {
         rightLevel: 0,
         channelCount: 1,
         vibe: undefined,
+        structure: undefined,
       })
     },
   }

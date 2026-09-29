@@ -31,6 +31,21 @@ export interface VibeSignal {
   trebleSpike: boolean
 }
 
+/** Song-structure events from FastLED's downbeat, buildup, drop, mood and tempo
+ * detectors. `downbeat` and `drop` are true only on the frame they fire. */
+export interface SongStructureSignal {
+  downbeat: boolean
+  beatNumber: number
+  measurePhase: number
+  building: boolean
+  buildupProgress: number
+  drop: boolean
+  dropImpact: number
+  tempoStable: boolean
+  valence: number
+  arousal: number
+}
+
 export interface AudioSignal {
   active: boolean
   micActive: boolean
@@ -54,6 +69,8 @@ export interface AudioSignal {
   /** Absent on legacy, baked and recorded payloads from before the detector
    * existed; every reader treats a missing field as inactive. */
   vibe?: VibeSignal
+  /** Absent on payloads from before the detector existed: inactive. */
+  structure?: SongStructureSignal
 }
 
 /** Provider identity carried by the Storage capability port. */

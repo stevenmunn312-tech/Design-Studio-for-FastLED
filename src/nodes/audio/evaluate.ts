@@ -65,6 +65,11 @@ const VIBE_INACTIVE: Record<string, PortValue> = {
   bassSpike: false, midSpike: false, trebleSpike: false,
 }
 
+const STRUCTURE_INACTIVE: Record<string, PortValue> = {
+  downbeat: false, beatNumber: 0, measurePhase: 0, building: false, buildupProgress: 0,
+  drop: false, dropImpact: 0, tempoStable: false, valence: 0, arousal: 0,
+}
+
 export const AUDIO_EVALUATORS: NodeEvaluators = {
   FFTAnalyzer({ input, num, t, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
@@ -328,6 +333,26 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       bassSpike: vibe.bassSpike,
       midSpike: vibe.midSpike,
       trebleSpike: vibe.trebleSpike,
+    }
+  },
+  SongStructure({ input }, id) {
+    const audioValue = input(id, 'audio', null)
+    const audio = isAudioSignal(audioValue) ? audioValue : null
+    const structure = audio?.active ? audio.structure : undefined
+    // A payload from before the detector existed has no `structure`: inactive.
+    if (!structure) return { ...STRUCTURE_INACTIVE }
+    return {
+      downbeat: structure.downbeat,
+      beatNumber: structure.beatNumber,
+      measurePhase: structure.measurePhase,
+      building: structure.building,
+      // The C++ getter keeps the last progress after a buildup ends.
+      buildupProgress: structure.building ? structure.buildupProgress : 0,
+      drop: structure.drop,
+      dropImpact: structure.dropImpact,
+      tempoStable: structure.tempoStable,
+      valence: structure.valence,
+      arousal: structure.arousal,
     }
   },
   AudioHue({ num }, id, props) {

@@ -1,6 +1,6 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–7 complete; Phase 8 has its Vibe fixture only.** The generated fixtures passed on classic
+> **Status: Phases 0–7 complete; Phase 8 has its Vibe and Song Structure fixtures.** The generated fixtures passed on classic
 > ESP32, and the integer-heavy Slice Tiling fixture and the Phase 5 and 6
 > fixtures also passed on ESP8266, on 28 September 2026 (UTC). This is
 > compile evidence, not a physical LED bench run.
@@ -181,6 +181,8 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 7, Truchet Beat Maze | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 517,867 / 3,145,728 (16%) | 33,292 / 327,680 (10%) |
 | Phase 8, Vibe | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 529,459 / 3,145,728 (16%) | 31,468 / 327,680 (9%) |
 | Phase 8, Vibe | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 546,571 / 3,145,728 (17%) | 30,896 / 327,680 (9%) |
+| Phase 8, Song Structure | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 557,931 / 3,145,728 (17%) | 33,284 / 327,680 (10%) |
+| Phase 8, Song Structure | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 574,187 / 3,145,728 (18%) | 32,712 / 327,680 (9%) |
 
 The Phase 5, 6 and 7 rows were built on Linux in a cloud session, not on
 the Windows machine that built the others. Truchet Beat Maze's larger flash
@@ -237,3 +239,9 @@ The ESP32-S3 was compiled without a board-specific PSRAM setting. The plan's
 phase-level compile check on classic ESP32 and ESP32-S3 still waits for
 Song Structure, Pitch and Waveform, so the RAM and flash delta per detector
 is not yet separated from the shared audio engine.
+
+Phase 8 generated source, Song Structure (identical for both boards): 10,519
+bytes, SHA-256 `3ecb153c5d8eab141ca10c7415853290152a6ca1feb0601c79f4f978c9338954`.
+It wires Microphone → Audio → Song Structure into Rain Ripples (drop), a
+Brightness (arousal) and a Blend, and fails generation if any of the twelve
+callback and getter lines is missing. Built on Windows 11 on 29 September 2026.

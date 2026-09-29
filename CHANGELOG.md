@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Song Structure reads FastLED's downbeat, buildup, drop, tempo and mood
+  detectors: one-frame Downbeat and Drop pulses, Beat number, Measure phase,
+  Building with its progress, Drop impact, Tempo stable, Valence and Arousal.
+  The sketch registers the detectors only when a Song Structure node is
+  present, and a baked show reads them as inactive.
+
 - Vibe reads FastLED's MilkDrop-style detector: bass, mid and treble relative
   to the song's own average (1.0 means average), smoothed copies, and a spike
   flag per band. Effects driven by it look the same at any volume. The levels

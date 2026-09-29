@@ -3646,6 +3646,49 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('_audioVibe')
   })
 
+  it('emits Song Structure from the published counters and flags and registers its callbacks', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const ss = node('ss', 'SongStructure', 'audio', {})
+    const cpp = generateCpp([micBoard, mic, audio, ss, out], [
+      edge('e0', 'audio', 'ss', 'audio', 'audio'),
+      edge('e2', 'ss', 'out', 'dropImpact', 'frame'),
+    ])
+    expect(cpp).toContain('_audioProcessor->onDownbeat([] { _audioDownbeatCount = _audioDownbeatCount + 1; });')
+    expect(cpp).toContain('_audioProcessor->onBuildupStart([] { _audioBuilding = true; });')
+    expect(cpp).toContain('_audioProcessor->onBuildupEnd([] { _audioBuilding = false; });')
+    expect(cpp).toContain('_audioProcessor->onDrop([] { _audioDropCount = _audioDropCount + 1; });')
+    expect(cpp).toContain('_audioProcessor->onTempoStable([] { _audioTempoStable = true; });')
+    expect(cpp).toContain('_audioMeasurePhase = _audioProcessor->getMeasurePhase();')
+    expect(cpp).toContain('_audioBeatNumber = _audioProcessor->getCurrentBeatNumber();')
+    expect(cpp).toContain('_audioDropImpact = _audioProcessor->getDropImpact();')
+    expect(cpp).toContain('_audioValence = _audioProcessor->getMoodValence();')
+    expect(cpp).toContain('_audioDrop = dropCount != _audioDropSeen;')
+    expect(cpp).toContain('bool n_ss_downbeat = _audioDownbeat')
+    expect(cpp).toContain('_audioBuilding ? _audioBuildupProgress : 0.0f')
+  })
+
+  it('leaves the Song Structure detectors out of the engine when no such node exists', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const beat = node('bd', 'BeatDetect', 'audio', {})
+    const cpp = generateCpp([micBoard, mic, audio, beat, out], [
+      edge('e0', 'audio', 'bd', 'audio', 'audio'),
+      edge('e2', 'bd', 'out', 'beat', 'frame'),
+    ])
+    expect(cpp).not.toContain('onDownbeat')
+    expect(cpp).not.toContain('getMoodValence')
+    expect(cpp).not.toContain('_audioDrop')
+  })
+
+  it('emits an inactive Song Structure when the audio input is not wired', () => {
+    const ss = node('ss', 'SongStructure', 'audio', {})
+    const cpp = generateCpp([ss, out], [edge('e2', 'ss', 'out', 'dropImpact', 'frame')])
+    expect(cpp).toContain('bool n_ss_downbeat = false')
+    expect(cpp).toContain('float n_ss_beatNumber = 0.0f')
+    expect(cpp).not.toContain('_audioDownbeat')
+  })
+
   it('emits an inactive Vibe when the audio input is not wired', () => {
     const vibe = node('vb', 'Vibe', 'audio', {})
     const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'frame')])

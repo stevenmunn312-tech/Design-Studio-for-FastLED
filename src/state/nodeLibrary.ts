@@ -260,6 +260,29 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     defaultProperties: { gain: 1 },
   },
+  {
+    // FastLED's downbeat, buildup, drop, mood and tempo detectors. `downbeat`
+    // and `drop` are one-frame pulses; the rest are levels or states.
+    type: 'SongStructure',
+    label: 'Song Structure',
+    category: 'audio',
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+    ],
+    outputs: [
+      { id: 'downbeat', label: 'Downbeat', dataType: 'bool' },
+      { id: 'beatNumber', label: 'Beat number', dataType: 'float' },
+      { id: 'measurePhase', label: 'Measure phase', dataType: 'float' },
+      { id: 'building', label: 'Building', dataType: 'bool' },
+      { id: 'buildupProgress', label: 'Buildup progress', dataType: 'float' },
+      { id: 'drop', label: 'Drop', dataType: 'bool' },
+      { id: 'dropImpact', label: 'Drop impact', dataType: 'float' },
+      { id: 'tempoStable', label: 'Tempo stable', dataType: 'bool' },
+      { id: 'valence', label: 'Valence', dataType: 'float' },
+      { id: 'arousal', label: 'Arousal', dataType: 'float' },
+    ],
+    defaultProperties: {},
+  },
 
   // ── Pattern ────────────────────────────────────────────────────────────
   {
@@ -4391,6 +4414,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
   Vibe: 'MilkDrop-style bass/mid/treble relative to the song average (1.0), plus spikes.',
+  SongStructure: 'Downbeats, beat number, buildups, drops, tempo stability and mood from audio.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',

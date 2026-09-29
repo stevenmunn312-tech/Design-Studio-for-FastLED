@@ -164,6 +164,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Vibe example graph](../../public/node-cards/graphs/vibe.svg)
 
+### Song Structure
+
+![Song Structure node](../../public/node-cards/song-structure.svg)
+
+![Song Structure example graph](../../public/node-cards/graphs/song-structure.svg)
+
 ### Audio → Hue
 
 ![Audio → Hue node](../../public/node-cards/audio-hue.svg)

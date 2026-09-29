@@ -437,6 +437,38 @@ describe('evaluateGraph', () => {
     mockAudio.active = false
   })
 
+  it('Song Structure passes the live signal through and zeroes progress once a buildup ends', () => {
+    const mic = node('micss', 'MicInput', 'input', {})
+    const ss = node('ss', 'SongStructure', 'audio', {})
+    const edges = [edge('ess0', 'micss', 'audio', 'ss', 'audio')]
+    const live = mockAudio as Record<string, unknown>
+    const signal = {
+      downbeat: true, beatNumber: 3, measurePhase: 0.4, building: true, buildupProgress: 0.6,
+      drop: false, dropImpact: 0.8, tempoStable: true, valence: -0.25, arousal: 0.7,
+    }
+    mockAudio.active = true
+    live.structure = signal
+    const on = evaluateGraphFull([mic, ss], edges, 0, W, H).outputs.get('ss')!
+    expect(on).toMatchObject({ downbeat: true, beatNumber: 3, building: true, buildupProgress: 0.6, dropImpact: 0.8, tempoStable: true, valence: -0.25, arousal: 0.7 })
+    live.structure = { ...signal, building: false }
+    const ended = evaluateGraphFull([mic, ss], edges, 1, W, H).outputs.get('ss')!
+    expect(ended.buildupProgress).toBe(0)
+    delete live.structure
+    mockAudio.active = false
+  })
+
+  it('Song Structure reads a legacy audio payload and an unwired input as inactive', () => {
+    const mic = node('micss0', 'MicInput', 'input', {})
+    const ss = node('ss0', 'SongStructure', 'audio', {})
+    mockAudio.active = true
+    const legacy = evaluateGraphFull([mic, ss], [edge('ess1', 'micss0', 'audio', 'ss0', 'audio')], 0, W, H).outputs.get('ss0')!
+    expect(legacy).toMatchObject({ downbeat: false, beatNumber: 0, building: false, drop: false, tempoStable: false, valence: 0, arousal: 0 })
+    mockAudio.active = false
+    const unwired = evaluateGraphFull([node('ss00', 'SongStructure', 'audio', {})], [], 0, W, H).outputs.get('ss00')!
+    expect(unwired.drop).toBe(false)
+    expect(unwired.measurePhase).toBe(0)
+  })
+
   it('Vibe is inactive with no audio source wired', () => {
     const out = evaluateGraphFull([node('vb00', 'Vibe', 'audio', {})], [], 0, W, H).outputs.get('vb00')!
     expect(out.bass).toBe(0)

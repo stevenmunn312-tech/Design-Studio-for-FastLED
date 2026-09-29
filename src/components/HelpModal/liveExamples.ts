@@ -1415,6 +1415,22 @@ export const VIBE_LIVE_EXAMPLE = namedExample(
   'The Brightness node preview should breathe with the bass and swell above its resting glow on kicks, whatever the volume of the track.',
 )
 
+export const SONG_STRUCTURE_LIVE_EXAMPLE = namedExample(
+  'SongStructure',
+  'Splash a ripple on every drop',
+  [
+    { key: 'mic', type: 'MicInput' },
+    { key: 'structure', type: 'SongStructure' },
+    { key: 'ripples', type: 'RainRipples' },
+  ],
+  [
+    { source: 'mic', sourceHandle: 'audio', target: 'structure', targetHandle: 'audio' },
+    { source: 'structure', sourceHandle: 'drop', target: 'ripples', targetHandle: 'trigger' },
+  ],
+  'Microphone feeds Song Structure. Its Drop output is true for the single frame a bass burst follows a buildup, and Rain Ripples splashes a ring on that frame.',
+  'The Rain Ripples preview should stay calm through the verse and splash a ring when a drop lands.',
+)
+
 export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
   'AudioHue',
   'Turn spectrum balance into a colour wash',
@@ -1757,6 +1773,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,
   AudioFeatures: AUDIO_FEATURES_LIVE_EXAMPLE,
   Vibe: VIBE_LIVE_EXAMPLE,
+  SongStructure: SONG_STRUCTURE_LIVE_EXAMPLE,
   AudioHue: AUDIO_HUE_LIVE_EXAMPLE,
   RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,

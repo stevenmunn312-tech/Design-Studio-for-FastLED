@@ -4,7 +4,7 @@ import { useDecoderAudioStore } from '../../state/decoderAudioStore'
 import { graphAudioCapabilityKind } from '../../state/audioCapabilities'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { SPECTRUM_BINS } from '../../state/showAudio'
-import type { VibeSignal } from '../../state/evaluator/types'
+import type { SongStructureSignal, VibeSignal } from '../../state/evaluator/types'
 
 // Live-audio capture for the preview recorder.
 //
@@ -36,6 +36,7 @@ export interface AudioSample {
   rightLevel?: number
   channelCount?: 1 | 2
   vibe?: VibeSignal
+  structure?: SongStructureSignal
 }
 
 export type RecordedAudioFrame = AudioOverride & { previewSpectrum?: number[] }
@@ -86,6 +87,7 @@ export function snapshotAudio(audio: AudioSample): RecordedAudioFrame {
     rightLevel: audio.rightLevel,
     channelCount: audio.channelCount,
     vibe: audio.vibe ? { ...audio.vibe } : undefined,
+    structure: audio.structure ? { ...audio.structure } : undefined,
   }
 }
 

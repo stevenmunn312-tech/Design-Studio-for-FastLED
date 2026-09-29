@@ -47,6 +47,7 @@ export const NORMALIZED_OUTPUTS: Readonly<Record<string, readonly string[]>> = {
   FFTAnalyzer: ['bass', 'mids', 'treble'],
   PercussionDetect: ['kick', 'snare', 'hihat'],
   AudioFeatures: ['vocals', 'energy'],
+  SongStructure: ['measurePhase', 'buildupProgress', 'dropImpact', 'arousal'],
   PotInput: ['value'],
   LightInput: ['level'],
 }

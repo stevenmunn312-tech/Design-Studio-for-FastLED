@@ -15,13 +15,18 @@ import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import type { GroupRegistry } from '../state/evaluator/types'
 
-/** Whether a Vibe node exists in the graph or any group it can expand. The
- *  detector is lazy on the processor and allocates, so the engine only
- *  registers it when a node will read it. */
-export function graphUsesVibe(nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean {
-  const isVibe = (node: StudioNode) => node.data.nodeType === 'Vibe'
-  return nodes.some(isVibe) || Object.values(groups).some((group) => group.nodes.some(isVibe))
+/** Whether a node of `type` exists in the graph or any group it can expand.
+ *  Detectors are lazy on the processor and allocate, so the engine only
+ *  registers one when a node will read it. */
+function graphUsesNodeType(type: string, nodes: readonly StudioNode[], groups: GroupRegistry): boolean {
+  const matches = (node: StudioNode) => node.data.nodeType === type
+  return nodes.some(matches) || Object.values(groups).some((group) => group.nodes.some(matches))
 }
+
+export const graphUsesVibe = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
+  graphUsesNodeType('Vibe', nodes, groups)
+export const graphUsesSongStructure = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
+  graphUsesNodeType('SongStructure', nodes, groups)
 
 const VIBE_LEVELS = [
   ['Bass', 'getVibeBass'], ['Mid', 'getVibeMid'], ['Treble', 'getVibeTreb'], ['Volume', 'getVibeVol'],
@@ -51,6 +56,7 @@ function audioEngineCpp(
   mclk = -1,
   micModule: MicModule = DEFAULT_MIC_MODULE,
   vibe = false,
+  structure = false,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
@@ -102,6 +108,16 @@ function audioEngineCpp(
       `float ${VIBE_LEVELS.map(([name]) => `_audioVibe${name} = 0.0f`).join(', ')};`,
       `bool  ${VIBE_SPIKES.map(([name]) => `_audioVibe${name} = false`).join(', ')};`,
     ] : []),
+    ...(structure ? [
+      '// FastLED song structure. Downbeat and drop are callback-only events, so they',
+      '// become counters; buildup and tempo stability become flags the callbacks set.',
+      'bool  _audioDownbeat = false, _audioBuilding = false, _audioDrop = false, _audioTempoStable = false;',
+      'float _audioMeasurePhase = 0.0f, _audioBuildupProgress = 0.0f, _audioDropImpact = 0.0f;',
+      'float _audioValence = 0.0f, _audioArousal = 0.0f;',
+      'int   _audioBeatNumber = 0;',
+      'static volatile uint32_t _audioDownbeatCount = 0, _audioDropCount = 0;',
+      'static uint32_t _audioDownbeatSeen = 0, _audioDropSeen = 0;',
+    ] : []),
     'static float _audioSpectrum[32];',
     ...(source === 'line-in' ? ['static fl::shared_ptr<StudioPcm1802Input> _lineInput;'] : []),
     'static fl::shared_ptr<fl::audio::Processor> _audioProcessor;',
@@ -124,6 +140,15 @@ function audioEngineCpp(
     '  (void)_audioProcessor->getBPM();',
     '  (void)_audioProcessor->getEqBin(0);',
     ...(vibe ? ['  (void)_audioProcessor->getVibeBass();'] : []),
+    ...(structure ? [
+      '  _audioProcessor->onDownbeat([] { _audioDownbeatCount = _audioDownbeatCount + 1; });',
+      '  _audioProcessor->onBuildupStart([] { _audioBuilding = true; });',
+      '  _audioProcessor->onBuildupEnd([] { _audioBuilding = false; });',
+      '  _audioProcessor->onDrop([] { _audioDropCount = _audioDropCount + 1; });',
+      '  _audioProcessor->onTempoStable([] { _audioTempoStable = true; });',
+      '  _audioProcessor->onTempoUnstable([] { _audioTempoStable = false; });',
+      '  (void)_audioProcessor->getMoodValence();',
+    ] : []),
     '}',
     '',
     'void updateAudio() {',
@@ -134,6 +159,11 @@ function audioEngineCpp(
     ...(vibe ? [
       `    ${VIBE_LEVELS.map(([name]) => `_audioVibe${name}`).join(' = ')} = 0.0f;`,
       `    ${VIBE_SPIKES.map(([name]) => `_audioVibe${name}`).join(' = ')} = false;`,
+    ] : []),
+    ...(structure ? [
+      '    _audioDownbeat = _audioBuilding = _audioDrop = _audioTempoStable = false;',
+      '    _audioMeasurePhase = _audioBuildupProgress = _audioDropImpact = _audioValence = _audioArousal = 0.0f;',
+      '    _audioBeatNumber = 0;',
     ] : []),
     '    for (int i = 0; i < 32; ++i) _audioSpectrum[i] = 0.0f;',
     '    return;',
@@ -152,6 +182,19 @@ function audioEngineCpp(
     ...(vibe ? [
       ...VIBE_LEVELS.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
       ...VIBE_SPIKES.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
+    ] : []),
+    ...(structure ? [
+      '  _audioMeasurePhase = _audioProcessor->getMeasurePhase();',
+      '  _audioBeatNumber = _audioProcessor->getCurrentBeatNumber();',
+      '  _audioBuildupProgress = _audioProcessor->getBuildupProgress();',
+      '  _audioDropImpact = _audioProcessor->getDropImpact();',
+      '  _audioValence = _audioProcessor->getMoodValence();',
+      '  _audioArousal = _audioProcessor->getMoodArousal();',
+      '  uint32_t downbeatCount = _audioDownbeatCount, dropCount = _audioDropCount;',
+      '  _audioDownbeat = downbeatCount != _audioDownbeatSeen;',
+      '  _audioDrop = dropCount != _audioDropSeen;',
+      '  _audioDownbeatSeen = downbeatCount;',
+      '  _audioDropSeen = dropCount;',
     ] : []),
     '  uint32_t beatCount = _audioBeatCount;',
     '  _audioBeat = beatCount != _audioBeatSeen;',
@@ -675,6 +718,7 @@ export function audioEngineForGraph(
       lineInput ? sanitizePin(p.i2sMclk, 14) : -1,
       micModule,
       graphUsesVibe(nodes, groups),
+      graphUsesSongStructure(nodes, groups),
     ),
     fqbn,
     backend,

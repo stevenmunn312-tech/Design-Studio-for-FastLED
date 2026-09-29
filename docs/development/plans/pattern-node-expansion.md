@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–7 complete; Phase 8 started (Vibe shipped); 9–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–7 complete; Phase 8 started (Vibe and Song Structure shipped); 9–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -307,25 +307,28 @@ Checklist:
       analysis fills key and mood where it has them; every reader treats an
       absent field as inactive, with a test on a legacy payload. *`vibe` is
       done on the live store, decoder store and recorder, with the legacy
-      payload test. The show bake carries none: the SD player has no
-      processor, so Vibe reads inactive there.*
+      payload test. `structure` is done the same way. The show bake carries
+      none: the SD player has no processor, so both read inactive there.*
 - [ ] `audioEngineCpp.ts`: publish the new globals, register each detector in
       `setup()`, convert callback-only events to counters and flags, and add
-      them to the serial debug line. *Vibe done, registered only when a Vibe
-      node exists in the graph or a group.*
+      them to the serial debug line. *Vibe and Song Structure done, each
+      registered only when its node exists in the graph or a group; neither
+      is on the serial debug line yet.*
 - [x] Port Vibe into `fastledReactive.ts` with a trace test: spikes fire on
       each pulse of a synthetic bass train and levels settle near 1.0 on a
       steady tone.
 - [x] Vibe node: library entry, evaluator, emitter with the no-audio fallback
       the other analysis nodes use, description saying what 1.0 means, live
       example mic → Vibe → Map Range → Brightness.
-- [ ] Port downbeat, buildup, drop and mood; Song Structure node with the
-      synthetic-signal tests above.
+- [x] Port downbeat, buildup, drop and mood; Song Structure node with the
+      synthetic-signal tests above. *Tempo stability is ported too, so
+      `tempoStable` is real. The design note lists the differences.*
 - [ ] Port pitch and key; Pitch node with a test on a synthetic 440 Hz tone
       reading note 69.
 - [ ] Waveform node, the `samples` payload, and the firmware decimation.
 - [ ] Docs (README Audio line, node cards and design note
-      [`audio-detectors.md`](../design/audio-detectors.md) done for Vibe): README Audio and Patterns lines, node cards, design note
+      [`audio-detectors.md`](../design/audio-detectors.md) done for Vibe and
+      Song Structure): README Audio and Patterns lines, node cards, design note
       `docs/development/design/audio-detectors.md` naming the FastLED detector
       each port mirrors and its thresholds; support-matrix wording that the
       detectors are experimental until a bench row with a real microphone.
