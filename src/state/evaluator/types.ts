@@ -15,6 +15,22 @@ export type Field = Float32Array
 
 /** The value carried by an Audio cable. Analysis nodes consume this payload;
  * only source nodes are allowed to sample the browser audio engine. */
+/** Self-normalising MilkDrop levels from FastLED's Vibe detector. Levels sit
+ * near 1.0 at the song's running average and are unbounded above; the spikes
+ * are true while the immediate level exceeds the smoothed one. */
+export interface VibeSignal {
+  bass: number
+  mid: number
+  treble: number
+  volume: number
+  bassAtt: number
+  midAtt: number
+  trebleAtt: number
+  bassSpike: boolean
+  midSpike: boolean
+  trebleSpike: boolean
+}
+
 export interface AudioSignal {
   active: boolean
   micActive: boolean
@@ -35,6 +51,9 @@ export interface AudioSignal {
   leftLevel?: number
   rightLevel?: number
   channelCount?: 1 | 2
+  /** Absent on legacy, baked and recorded payloads from before the detector
+   * existed; every reader treats a missing field as inactive. */
+  vibe?: VibeSignal
 }
 
 /** Provider identity carried by the Storage capability port. */

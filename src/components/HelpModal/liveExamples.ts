@@ -1395,6 +1395,26 @@ export const AUDIO_FEATURES_LIVE_EXAMPLE = namedExample(
   'The Vocal Aurora node preview should lift its curtains for voice-like content, intensify during louder passages, and settle during silence.',
 )
 
+export const VIBE_LIVE_EXAMPLE = namedExample(
+  'Vibe',
+  'Breathe brightness with the bass',
+  [
+    { key: 'mic', type: 'MicInput' },
+    { key: 'vibe', type: 'Vibe' },
+    { key: 'level', type: 'MapRange', properties: { inMin: 0.4, inMax: 1.8, outMin: 0.25, outMax: 1 } },
+    { key: 'plasma', type: 'Plasma', properties: { speed: 0.35 } },
+    { key: 'brightness', type: 'BrightnessMod' },
+  ],
+  [
+    { source: 'mic', sourceHandle: 'audio', target: 'vibe', targetHandle: 'audio' },
+    { source: 'vibe', sourceHandle: 'bass', target: 'level', targetHandle: 'value' },
+    { source: 'level', sourceHandle: 'result', target: 'brightness', targetHandle: 'brightness' },
+    { source: 'plasma', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
+  ],
+  'Microphone feeds Vibe. Its bass level is about 1.0 at the song average, so Map Range turns 0.4 to 1.8 into a brightness between a quarter and full, and Brightness dims and lifts a Plasma with the kick.',
+  'The Brightness node preview should breathe with the bass and swell above its resting glow on kicks, whatever the volume of the track.',
+)
+
 export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
   'AudioHue',
   'Turn spectrum balance into a colour wash',
@@ -1736,6 +1756,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   BeatDetect: BEAT_DETECT_LIVE_EXAMPLE,
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,
   AudioFeatures: AUDIO_FEATURES_LIVE_EXAMPLE,
+  Vibe: VIBE_LIVE_EXAMPLE,
   AudioHue: AUDIO_HUE_LIVE_EXAMPLE,
   RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,

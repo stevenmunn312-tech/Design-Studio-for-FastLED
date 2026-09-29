@@ -402,6 +402,47 @@ describe('evaluateGraph', () => {
     mockAudio.active = false
   })
 
+  it('Vibe reads the live detector levels, scales them by gain, and never scales the spikes', () => {
+    const mic = node('micv', 'MicInput', 'input', {})
+    const vibe = node('vb', 'Vibe', 'audio', { gain: 2 })
+    const edges = [edge('ev0', 'micv', 'audio', 'vb', 'audio')]
+    const signal = {
+      bass: 1.4, mid: 0.8, treble: 0.5, volume: 0.9,
+      bassAtt: 1.1, midAtt: 0.9, trebleAtt: 0.6,
+      bassSpike: true, midSpike: false, trebleSpike: false,
+    }
+    const live = mockAudio as Record<string, unknown>
+    mockAudio.active = true
+    live.vibe = signal
+    const out = evaluateGraphFull([mic, vibe], edges, 0, W, H).outputs.get('vb')!
+    expect(out.bass).toBeCloseTo(2.8, 6)
+    expect(out.bassAtt).toBeCloseTo(2.2, 6)
+    expect(out.volume).toBeCloseTo(1.8, 6)
+    expect(out.bassSpike).toBe(true)
+    expect(out.midSpike).toBe(false)
+
+    // Gain is clamped to 0.25–4 like the other analysis nodes.
+    const clamped = evaluateGraphFull([mic, node('vb2', 'Vibe', 'audio', { gain: 99 })], [edge('ev1', 'micv', 'audio', 'vb2', 'audio')], 1, W, H).outputs.get('vb2')!
+    expect(clamped.bass).toBeCloseTo(5.6, 6)
+    delete live.vibe
+    mockAudio.active = false
+  })
+
+  it('Vibe reads a legacy audio payload with no detector field as inactive', () => {
+    const mic = node('micv0', 'MicInput', 'input', {})
+    const vibe = node('vb0', 'Vibe', 'audio', {})
+    mockAudio.active = true
+    const out = evaluateGraphFull([mic, vibe], [edge('evl', 'micv0', 'audio', 'vb0', 'audio')], 0, W, H).outputs.get('vb0')!
+    expect(out).toMatchObject({ bass: 0, mid: 0, treble: 0, volume: 0, bassAtt: 0, bassSpike: false, trebleSpike: false })
+    mockAudio.active = false
+  })
+
+  it('Vibe is inactive with no audio source wired', () => {
+    const out = evaluateGraphFull([node('vb00', 'Vibe', 'audio', {})], [], 0, W, H).outputs.get('vb00')!
+    expect(out.bass).toBe(0)
+    expect(out.midSpike).toBe(false)
+  })
+
   it('PercussionDetect decays kick/snare/hihat gracefully when audio disconnects instead of snapping to zero', () => {
     mockAudio.active = true
     const mic = node('micp-decay', 'MicInput', 'input', {})

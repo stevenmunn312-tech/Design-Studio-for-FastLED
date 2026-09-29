@@ -3616,6 +3616,44 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_hihatTarget')
   })
 
+  it('emits Vibe from the published FastLED detector globals and registers the detector', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const vibe = node('vb', 'Vibe', 'audio', { gain: 1.5 })
+    const cpp = generateCpp([micBoard, mic, audio, vibe, out], [
+      edge('e0', 'audio', 'vb', 'audio', 'audio'),
+      edge('e2', 'vb', 'out', 'bass', 'frame'),
+    ])
+    expect(cpp).toContain('float _audioVibeBass = 0.0f')
+    expect(cpp).toContain('_audioVibeBass = _audioProcessor->getVibeBass();')
+    expect(cpp).toContain('_audioVibeBassSpike = _audioProcessor->isVibeBassSpike();')
+    expect(cpp).toContain('(void)_audioProcessor->getVibeBass();')
+    expect(cpp).toContain('float _vibeGain_vb=constrain(1.5,0.25f,4.0f);')
+    expect(cpp).toContain('float n_vb_bass = _audioVibeBass * _vibeGain_vb')
+    expect(cpp).toContain('bool n_vb_bassSpike = _audioVibeBassSpike')
+  })
+
+  it('leaves the Vibe detector out of the engine when no Vibe node exists', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const beat = node('bd', 'BeatDetect', 'audio', {})
+    const cpp = generateCpp([micBoard, mic, audio, beat, out], [
+      edge('e0', 'audio', 'bd', 'audio', 'audio'),
+      edge('e2', 'bd', 'out', 'beat', 'frame'),
+    ])
+    expect(cpp).toContain('getBassLevel()')
+    expect(cpp).not.toContain('getVibe')
+    expect(cpp).not.toContain('_audioVibe')
+  })
+
+  it('emits an inactive Vibe when the audio input is not wired', () => {
+    const vibe = node('vb', 'Vibe', 'audio', {})
+    const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'frame')])
+    expect(cpp).toContain('float n_vb_bass = 0.0f')
+    expect(cpp).toContain('bool n_vb_bassSpike = false')
+    expect(cpp).not.toContain('_audioVibe')
+  })
+
   it('emits heuristic AudioFeatures outputs from the live spectrum', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const feat = node('af', 'AudioFeatures', 'audio', { sensitivity: 0.6, gate: 0.1, smoothing: 0.2 })

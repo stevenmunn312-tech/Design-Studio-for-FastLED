@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Vibe reads FastLED's MilkDrop-style detector: bass, mid and treble relative
+  to the song's own average (1.0 means average), smoothed copies, and a spike
+  flag per band. Effects driven by it look the same at any volume. The levels
+  fade to zero when the music stops. The sketch registers the detector only
+  when a Vibe node is present.
+
 - Palette Bank eases from one palette to the next instead of cutting, with
   FastLED's `nblendPaletteTowardPalette` on a 10 ms clock in the sketch and a
   byte-for-byte copy of it in the preview. Blend sets the speed; 0 keeps the

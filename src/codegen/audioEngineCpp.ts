@@ -13,6 +13,23 @@ import {
 import { type MicModule, DEFAULT_MIC_MODULE, micModuleFor } from '../state/micModules'
 import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
+import type { GroupRegistry } from '../state/evaluator/types'
+
+/** Whether a Vibe node exists in the graph or any group it can expand. The
+ *  detector is lazy on the processor and allocates, so the engine only
+ *  registers it when a node will read it. */
+export function graphUsesVibe(nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean {
+  const isVibe = (node: StudioNode) => node.data.nodeType === 'Vibe'
+  return nodes.some(isVibe) || Object.values(groups).some((group) => group.nodes.some(isVibe))
+}
+
+const VIBE_LEVELS = [
+  ['Bass', 'getVibeBass'], ['Mid', 'getVibeMid'], ['Treble', 'getVibeTreb'], ['Volume', 'getVibeVol'],
+  ['BassAtt', 'getVibeBassAtt'], ['MidAtt', 'getVibeMidAtt'], ['TrebleAtt', 'getVibeTrebAtt'],
+] as const
+const VIBE_SPIKES = [
+  ['BassSpike', 'isVibeBassSpike'], ['MidSpike', 'isVibeMidSpike'], ['TrebleSpike', 'isVibeTrebSpike'],
+] as const
 
 // FastLED 3.10.3+ owns the live I2S microphone pipeline: capture, signal
 // conditioning, shared FFT, adaptive frequency-band normalization, equalizer,
@@ -33,6 +50,7 @@ function audioEngineCpp(
   source: 'microphone' | 'line-in' = 'microphone',
   mclk = -1,
   micModule: MicModule = DEFAULT_MIC_MODULE,
+  vibe = false,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
@@ -79,6 +97,11 @@ function audioEngineCpp(
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'float _audioLeftLevel = 0, _audioRightLevel = 0;',
     'bool  _audioBeat = false;',
+    ...(vibe ? [
+      '// FastLED Vibe: levels are relative to the song average (about 1.0), unbounded above.',
+      `float ${VIBE_LEVELS.map(([name]) => `_audioVibe${name} = 0.0f`).join(', ')};`,
+      `bool  ${VIBE_SPIKES.map(([name]) => `_audioVibe${name} = false`).join(', ')};`,
+    ] : []),
     'static float _audioSpectrum[32];',
     ...(source === 'line-in' ? ['static fl::shared_ptr<StudioPcm1802Input> _lineInput;'] : []),
     'static fl::shared_ptr<fl::audio::Processor> _audioProcessor;',
@@ -100,6 +123,7 @@ function audioEngineCpp(
     '  (void)_audioProcessor->getTrebleLevel();',
     '  (void)_audioProcessor->getBPM();',
     '  (void)_audioProcessor->getEqBin(0);',
+    ...(vibe ? ['  (void)_audioProcessor->getVibeBass();'] : []),
     '}',
     '',
     'void updateAudio() {',
@@ -107,6 +131,10 @@ function audioEngineCpp(
     '    _audioBass = _audioMids = _audioTreble = 0.0f;',
     '    _audioLeftLevel = _audioRightLevel = 0.0f;',
     '    _audioBeat = false;',
+    ...(vibe ? [
+      `    ${VIBE_LEVELS.map(([name]) => `_audioVibe${name}`).join(' = ')} = 0.0f;`,
+      `    ${VIBE_SPIKES.map(([name]) => `_audioVibe${name}`).join(' = ')} = false;`,
+    ] : []),
     '    for (int i = 0; i < 32; ++i) _audioSpectrum[i] = 0.0f;',
     '    return;',
     '  }',
@@ -121,6 +149,10 @@ function audioEngineCpp(
       '  _audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));',
     ]),
     '  _audioBpm = _audioProcessor->getBPM();',
+    ...(vibe ? [
+      ...VIBE_LEVELS.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
+      ...VIBE_SPIKES.map(([name, getter]) => `  _audioVibe${name} = _audioProcessor->${getter}();`),
+    ] : []),
     '  uint32_t beatCount = _audioBeatCount;',
     '  _audioBeat = beatCount != _audioBeatSeen;',
     '  _audioBeatSeen = beatCount;',
@@ -137,6 +169,11 @@ function audioEngineCpp(
     '                  _audioBass, _audioMids, _audioTreble, (int)_audioBeat, _audioBpm,',
     '                  (int)stats.noiseGateOpen, (long)stats.dcOffset, (unsigned long)stats.spikesRejected);',
     '    Serial.printf("stereo levels left=%.3f right=%.3f\\n", _audioLeftLevel, _audioRightLevel);',
+    ...(vibe ? [
+      '    Serial.printf("vibe bass=%.2f mid=%.2f treble=%.2f spikes=%d%d%d\\n",',
+      '                  _audioVibeBass, _audioVibeMid, _audioVibeTreble,',
+      '                  (int)_audioVibeBassSpike, (int)_audioVibeMidSpike, (int)_audioVibeTrebleSpike);',
+    ] : []),
     '  }',
     '#endif',
     '}',
@@ -552,6 +589,7 @@ function audioCaptureAdapterCpp(
 export function audioEngineForGraph(
   nodes: StudioNode[],
   capabilityNodes: StudioNode[] = nodes,
+  groups: GroupRegistry = {},
 ): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend } | null {
   const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
@@ -636,6 +674,7 @@ export function audioEngineForGraph(
       lineInput ? 'line-in' : 'microphone',
       lineInput ? sanitizePin(p.i2sMclk, 14) : -1,
       micModule,
+      graphUsesVibe(nodes, groups),
     ),
     fqbn,
     backend,

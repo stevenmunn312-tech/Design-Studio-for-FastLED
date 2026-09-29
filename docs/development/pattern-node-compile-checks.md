@@ -1,9 +1,15 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–7 complete.** The generated fixtures passed on classic
+> **Status: Phases 0–7 complete; Phase 8 has its Vibe fixture only.** The generated fixtures passed on classic
 > ESP32, and the integer-heavy Slice Tiling fixture and the Phase 5 and 6
 > fixtures also passed on ESP8266, on 28 September 2026 (UTC). This is
 > compile evidence, not a physical LED bench run.
+
+Phase 8 adds one fixture per detector as each ships. The Vibe fixture wires
+Microphone → Audio → Vibe (bass) → Map Range → Brightness over a Plasma, with
+an INMP441 engine. It proves the pinned FastLED 3.10.5 has every getter the
+engine publishes (`getVibeBass`, `getVibeBassAtt`, `isVibeBassSpike` and the
+mid and treble forms). Generation fails if any of those lines is missing.
 
 The fixture is generated from a real Studio graph:
 
@@ -173,6 +179,8 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 7, Breathing Rosette | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 405,987 / 3,145,728 (12%) | 30,636 / 327,680 (9%) |
 | Phase 7, Liquid Mirage | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 402,907 / 3,145,728 (12%) | 36,548 / 327,680 (11%) |
 | Phase 7, Truchet Beat Maze | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 517,867 / 3,145,728 (16%) | 33,292 / 327,680 (10%) |
+| Phase 8, Vibe | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 529,459 / 3,145,728 (16%) | 31,468 / 327,680 (9%) |
+| Phase 8, Vibe | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 546,571 / 3,145,728 (17%) | 30,896 / 327,680 (9%) |
 
 The Phase 5, 6 and 7 rows were built on Linux in a cloud session, not on
 the Windows machine that built the others. Truchet Beat Maze's larger flash
@@ -220,3 +228,12 @@ Liquid Mirage 8,310 bytes, SHA-256
 `590465897b96b681081c74ddb67839cdfa079973c8a18b22a496a5a59d4669ee`;
 Truchet Beat Maze 15,891 bytes, SHA-256
 `27f30662acde1acd2f82d48cb12abfce174ba7cbc1f079af5a632ebba48cf377`.
+
+Phase 8 generated source, Vibe (identical for both boards; the engine differs
+only by target): 8,203 bytes, SHA-256
+`624ed24d0a13703e5f251a4083567b212a2d45ddb552a9f1342bbae9621ca90c`.
+Built on Windows 11 on 29 September 2026. Each compile took about 11 minutes.
+The ESP32-S3 was compiled without a board-specific PSRAM setting. The plan's
+phase-level compile check on classic ESP32 and ESP32-S3 still waits for
+Song Structure, Pitch and Waveform, so the RAM and flash delta per detector
+is not yet separated from the shared audio engine.

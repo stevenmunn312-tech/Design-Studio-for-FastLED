@@ -11,7 +11,7 @@ import {
   MICROPHONE_LIVE_EXAMPLE, BUTTON_LIVE_EXAMPLE, POTENTIOMETER_LIVE_EXAMPLE,
   ENCODER_LIVE_EXAMPLE, MIDI_LIVE_EXAMPLE,
   FFT_ANALYZER_LIVE_EXAMPLE, BEAT_DETECT_LIVE_EXAMPLE, PERCUSSION_DETECT_LIVE_EXAMPLE,
-  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE,
+  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE, VIBE_LIVE_EXAMPLE,
 } from './liveExamples'
 import type { ReferenceLiveExample } from './liveExamples'
 import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
@@ -129,6 +129,27 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     liveExample: PERCUSSION_DETECT_LIVE_EXAMPLE,
     successMessage: 'Percussion Detect example added — microphone starting',
     skippedMessage: 'Percussion Detect example added',
+  },
+  Vibe: {
+    type: 'Vibe',
+    eyebrow: 'Relative levels',
+    purpose: 'Read bass, mid and treble relative to the average of the current song, with smoothed copies and spike flags, for effects that should look the same at any volume.',
+    overview: [
+      'Vibe is the FastLED port of the MilkDrop bass, mid and treble model. Each band is divided by its own slow running average, so a level of 1.0 means average for this song and 2.0 means twice as loud as usual. Quiet and loud tracks drive an effect the same way.',
+      'The levels are not limited to 0–1. Send them through Map Range into a 0–1 input, as the example does. Each band also has a smoothed copy, and its Spike output is true while the immediate level is above the smoothed one, which marks a hit in progress.',
+      'When the music stops the levels fade to zero instead of holding at 1.0. Without a live microphone or decoder source, or with an older recording that has no Vibe data, every output reads zero and every spike reads false.',
+    ],
+    propertyNote: 'Gain scales the levels and their smoothed copies. Spikes compare the two, so Gain never changes them.',
+    exampleTitle: 'Breathe brightness with the bass',
+    examplePath: 'Microphone.audio -> Vibe.bass -> Map Range -> Brightness (Plasma)',
+    exampleAlt: 'Tidy graph using Microphone, Vibe, Map Range, Plasma, and Brightness',
+    exampleExplanation: 'Microphone feeds Vibe. Its bass level is about 1.0 at the song average, so Map Range turns 0.4 to 1.8 into a brightness between a quarter and full, and Brightness dims and lifts a Plasma with the kick.',
+    previewTitle: 'What you should see',
+    previewDescription: 'The Plasma should breathe with the bass and swell above its resting glow on kicks, whatever the volume of the track. If it never dims, lower the Map Range In Min.',
+    previewAlt: 'LED Matrix main preview brightness following the bass level',
+    liveExample: VIBE_LIVE_EXAMPLE,
+    successMessage: 'Vibe example added — microphone starting',
+    skippedMessage: 'Vibe example added',
   },
   AudioFeatures: {
     type: 'AudioFeatures',

@@ -158,6 +158,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Audio Features example graph](../../public/node-cards/graphs/audio-features.svg)
 
+### Vibe
+
+![Vibe node](../../public/node-cards/vibe.svg)
+
+![Vibe example graph](../../public/node-cards/graphs/vibe.svg)
+
 ### Audio → Hue
 
 ![Audio → Hue node](../../public/node-cards/audio-hue.svg)

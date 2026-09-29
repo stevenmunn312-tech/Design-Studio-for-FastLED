@@ -233,6 +233,33 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     defaultProperties: { sensitivity: 0.5, gate: 0.12, smoothing: 0.8 },
   },
+  {
+    // FastLED's Vibe detector: MilkDrop's self-normalising bass/mid/treble
+    // model, which reports each band relative to the song's own running
+    // average. Levels are about 1.0 on average and unbounded above, so this
+    // is deliberately not in NORMALIZED_OUTPUTS.
+    type: 'Vibe',
+    label: 'Vibe',
+    category: 'audio',
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'gain', label: 'Gain', dataType: 'float' },
+    ],
+    propertyInputs: { gain: 'gain' },
+    outputs: [
+      { id: 'bass', label: 'Bass', dataType: 'float' },
+      { id: 'mid', label: 'Mid', dataType: 'float' },
+      { id: 'treble', label: 'Treble', dataType: 'float' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+      { id: 'bassAtt', label: 'Bass smoothed', dataType: 'float' },
+      { id: 'midAtt', label: 'Mid smoothed', dataType: 'float' },
+      { id: 'trebleAtt', label: 'Treble smoothed', dataType: 'float' },
+      { id: 'bassSpike', label: 'Bass spike', dataType: 'bool' },
+      { id: 'midSpike', label: 'Mid spike', dataType: 'bool' },
+      { id: 'trebleSpike', label: 'Treble spike', dataType: 'bool' },
+    ],
+    defaultProperties: { gain: 1 },
+  },
 
   // ── Pattern ────────────────────────────────────────────────────────────
   {
@@ -4363,6 +4390,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
   Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
+  Vibe: 'MilkDrop-style bass/mid/treble relative to the song average (1.0), plus spikes.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
@@ -5147,6 +5175,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     gate:        { control: 'slider', min: 0, max: 1, step: 0.01 },
     smoothing:   { control: 'slider', min: 0, max: 0.95, step: 0.01 },
   },
+  Vibe: {
+    gain: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
+  },
   AudioHue: {
     // The unwired band fallbacks share the generic 0–1 slider; the three
     // weights are their own controls so the mix can be retuned per patch.
@@ -5852,6 +5883,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   AudioFeatures: {
     gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
+  },
+  Vibe: {
+    gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
   },
   AudioHue: {
     bass: 'Bass level used when the Bass input is unwired. Scaled by the bass weight below.',

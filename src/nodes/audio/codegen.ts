@@ -214,6 +214,26 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f; bool ${v('silence')} = true;`)
     }
   },
+  Vibe({ node, id, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
+    const levels = ['bass', 'mid', 'treble', 'volume', 'bassAtt', 'midAtt', 'trebleAtt']
+    const spikes = ['bassSpike', 'midSpike', 'trebleSpike']
+    // Only the live FastLED processor carries the detector; a baked show or an
+    // unwired node reads as inactive, exactly as the preview does.
+    if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {
+      ln(`  // Vibe — connect a live Audio source for FastLED's self-normalising levels`)
+      ln(`  float ${levels.map((port) => `${v(port)} = 0.0f`).join(', ')};`)
+      ln(`  bool ${spikes.map((port) => `${v(port)} = false`).join(', ')};`)
+      return
+    }
+    const gain = `_vibeGain_${id}`
+    ln(`  float ${gain}=constrain(${f('gain', 'gain', 1)},0.25f,4.0f);`)
+    const source: Record<string, string> = {
+      bass: '_audioVibeBass', mid: '_audioVibeMid', treble: '_audioVibeTreble', volume: '_audioVibeVolume',
+      bassAtt: '_audioVibeBassAtt', midAtt: '_audioVibeMidAtt', trebleAtt: '_audioVibeTrebleAtt',
+    }
+    ln(`  float ${levels.map((port) => `${v(port)} = ${source[port]} * ${gain}`).join(', ')};`)
+    ln(`  bool ${v('bassSpike')} = _audioVibeBassSpike, ${v('midSpike')} = _audioVibeMidSpike, ${v('trebleSpike')} = _audioVibeTrebleSpike;`)
+  },
   AudioHue({ node, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
     // The weights carry wires now, so each is bounded in the emitted text

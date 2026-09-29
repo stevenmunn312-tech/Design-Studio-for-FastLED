@@ -57,6 +57,7 @@ const INTENT_TAGS: Record<string, string[]> = {
   FFTAnalyzer: ['audio', 'reactive'],
   BeatDetect: ['audio', 'trigger'],
   AudioFeatures: ['audio', 'analysis'],
+  Vibe: ['audio', 'reactive', 'milkdrop'],
   Wave: ['motion', 'signal'],
   Counter: ['motion', 'timing'],
   Random: ['variation', 'signal'],

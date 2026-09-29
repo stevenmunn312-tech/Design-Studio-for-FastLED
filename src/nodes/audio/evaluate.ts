@@ -59,6 +59,12 @@ export function audioHueWeight(value: unknown, fallback: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback
 }
 
+const VIBE_INACTIVE: Record<string, PortValue> = {
+  bass: 0, mid: 0, treble: 0, volume: 0,
+  bassAtt: 0, midAtt: 0, trebleAtt: 0,
+  bassSpike: false, midSpike: false, trebleSpike: false,
+}
+
 export const AUDIO_EVALUATORS: NodeEvaluators = {
   FFTAnalyzer({ input, num, t, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
@@ -303,6 +309,26 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       }
     }
     return out
+  },
+  Vibe({ input, num }, id, props) {
+    const audioValue = input(id, 'audio', null)
+    const audio = isAudioSignal(audioValue) ? audioValue : null
+    const vibe = audio?.active ? audio.vibe : undefined
+    // A payload from before the detector existed has no `vibe`: inactive.
+    if (!vibe) return { ...VIBE_INACTIVE }
+    const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1)))
+    return {
+      bass: vibe.bass * gain,
+      mid: vibe.mid * gain,
+      treble: vibe.treble * gain,
+      volume: vibe.volume * gain,
+      bassAtt: vibe.bassAtt * gain,
+      midAtt: vibe.midAtt * gain,
+      trebleAtt: vibe.trebleAtt * gain,
+      bassSpike: vibe.bassSpike,
+      midSpike: vibe.midSpike,
+      trebleSpike: vibe.trebleSpike,
+    }
   },
   AudioHue({ num }, id, props) {
     const bass   = num(id, 'bass',   props, 'bass',   0.5)

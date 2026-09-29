@@ -7,6 +7,7 @@
 //   signal_conditioner.cpp.hpp     → conditionSamples (DC removal + hysteresis noise gate)
 //   detector/frequency_bands.*     → FrequencyBands (bass/mid/treble, adaptive normalization)
 //   detector/beat.*                → BeatDetector (bass spectral flux, adaptive threshold, BPM)
+//   detector/vibe.*                → VibeDetector (MilkDrop self-normalising levels and spikes)
 //
 // Two deliberate deviations from the C++ originals, both documented inline:
 // the spike filter is skipped (it rejects I2S wire glitches that browser audio
@@ -19,6 +20,7 @@
 // 50) keep their calibration.
 
 import { fftInPlace } from './micAnalysis'
+import type { VibeSignal } from '../state/evaluator/types'
 
 export const I16_FULL_SCALE = 32767
 
@@ -378,6 +380,162 @@ export class BeatDetector {
   }
 }
 
+// ── detector/vibe ────────────────────────────────────────────────────────────
+// Port of fl::audio::detector::Vibe, itself Ryan Geiss's MilkDrop v2.25c
+// DoCustomSoundAnalysis: three linear FFT bands, an asymmetric short average, a
+// slow symmetric long average, and levels reported relative to that long
+// average, so they sit near 1.0 for any song at any volume.
+
+/** Context::getBandEnergy asks for 3 linear bins over 20–11025 Hz. */
+export const VIBE_BAND_MIN_HZ = 20
+export const VIBE_BAND_MAX_HZ = 11025
+/** Per-frame rates are tuned at 30 fps and re-derived for the real interval. */
+export const VIBE_TUNED_FPS = 30
+export const VIBE_ATTACK_RATE = 0.2
+export const VIBE_DECAY_RATE = 0.5
+export const VIBE_LONG_RATE = 0.992
+/** SilenceEnvelope tau in seconds; the target is 0, so music stopping fades. */
+export const VIBE_SILENCE_TAU = 0.3
+const VIBE_LONG_AVG_FLOOR = 0.001
+
+/** Convert a per-frame retention tuned at `VIBE_TUNED_FPS` to the actual fps,
+ *  keeping the per-second behaviour (Vibe::adjustRateToFPS). */
+export function adjustVibeRate(rateAtTunedFps: number, actualFps: number): number {
+  if (actualFps <= 0) return rateAtTunedFps
+  return Math.pow(Math.pow(rateAtTunedFps, VIBE_TUNED_FPS), 1 / actualFps)
+}
+
+/** Mean magnitude of the linear bins falling in each third of [fmin, fmax]. */
+export function linearBandEnergy(
+  mags: Float32Array,
+  sampleRate: number,
+  fftSize: number,
+  out: [number, number, number],
+  fmin = VIBE_BAND_MIN_HZ,
+  fmax = VIBE_BAND_MAX_HZ,
+): void {
+  const binHz = sampleRate / fftSize
+  const top = Math.min(fmax, sampleRate / 2)
+  const maxBin = Math.min(mags.length - 1, fftSize / 2 - 1)
+  const width = (fmax - fmin) / 3
+  for (let b = 0; b < 3; b++) {
+    const lo = fmin + width * b
+    const hi = Math.min(top, fmin + width * (b + 1))
+    const from = Math.max(1, Math.ceil(lo / binHz))
+    const to = Math.min(maxBin, Math.floor(hi / binHz))
+    let sum = 0
+    let count = 0
+    for (let i = from; i <= to; i++) {
+      sum += mags[i]
+      count++
+    }
+    out[b] = count > 0 ? sum / count : 0
+  }
+}
+
+export class VibeDetector {
+  private frames = 0
+  private imm = [0, 0, 0]
+  private avg = [0, 0, 0]
+  private longAvg = [0, 0, 0]
+  private immRel = [1, 1, 1]
+  private avgRel = [1, 1, 1]
+  // SilenceEnvelope state, seeded at 1.0 like the C++ public state.
+  private immEnv = [1, 1, 1]
+  private avgEnv = [1, 1, 1]
+  private spike = [false, false, false]
+  private readonly energy: [number, number, number] = [0, 0, 0]
+
+  /** One frame. `silent` is Context::isSilent(); `dtSec` the frame interval. */
+  update(
+    mags: Float32Array,
+    sampleRate: number,
+    fftSize: number,
+    dtSec: number,
+    silent: boolean,
+  ): VibeSignal {
+    this.frames++
+    linearBandEnergy(mags, sampleRate, fftSize, this.energy)
+    for (let i = 0; i < 3; i++) this.imm[i] = this.energy[i]
+    const fps = dtSec > 0 ? 1 / dtSec : VIBE_TUNED_FPS
+
+    if (this.frames === 1) {
+      // First frame initialises the averages directly: no startup spike.
+      for (let i = 0; i < 3; i++) {
+        this.avg[i] = this.imm[i]
+        this.longAvg[i] = this.imm[i]
+      }
+    } else {
+      const attack = adjustVibeRate(VIBE_ATTACK_RATE, fps)
+      const decay = adjustVibeRate(VIBE_DECAY_RATE, fps)
+      const long = adjustVibeRate(VIBE_LONG_RATE, fps)
+      for (let i = 0; i < 3; i++) {
+        const rate = this.imm[i] > this.avg[i] ? attack : decay
+        this.avg[i] = this.avg[i] * rate + this.imm[i] * (1 - rate)
+        this.longAvg[i] = this.longAvg[i] * long + this.avg[i] * (1 - long)
+      }
+    }
+
+    for (let i = 0; i < 3; i++) {
+      if (this.longAvg[i] < VIBE_LONG_AVG_FLOOR) {
+        this.immRel[i] = 1
+        this.avgRel[i] = 1
+      } else {
+        this.immRel[i] = this.imm[i] / this.longAvg[i]
+        this.avgRel[i] = this.avg[i] / this.longAvg[i]
+      }
+    }
+
+    // Silence gate: pass through during audio, decay toward 0 in silence.
+    for (let i = 0; i < 3; i++) {
+      this.immRel[i] = this.envelope(this.immEnv, i, silent, this.immRel[i], dtSec)
+      this.avgRel[i] = this.envelope(this.avgEnv, i, silent, this.avgRel[i], dtSec)
+      this.spike[i] = this.immRel[i] > this.avgRel[i]
+    }
+
+    return {
+      bass: this.immRel[0],
+      mid: this.immRel[1],
+      treble: this.immRel[2],
+      volume: (this.immRel[0] + this.immRel[1] + this.immRel[2]) / 3,
+      bassAtt: this.avgRel[0],
+      midAtt: this.avgRel[1],
+      trebleAtt: this.avgRel[2],
+      bassSpike: this.spike[0],
+      midSpike: this.spike[1],
+      trebleSpike: this.spike[2],
+    }
+  }
+
+  reset(): void {
+    this.frames = 0
+    for (let i = 0; i < 3; i++) {
+      this.imm[i] = 0
+      this.avg[i] = 0
+      this.longAvg[i] = 0
+      this.immRel[i] = 1
+      this.avgRel[i] = 1
+      this.immEnv[i] = 1
+      this.avgEnv[i] = 1
+      this.spike[i] = false
+    }
+  }
+
+  /** SilenceEnvelope::update with target 0. */
+  private envelope(state: number[], i: number, silent: boolean, value: number, dtSec: number): number {
+    if (!silent) {
+      state[i] = value
+      return value
+    }
+    if (dtSec <= 0) {
+      state[i] = 0
+      return 0
+    }
+    state[i] += (0 - state[i]) * (1 - Math.exp(-dtSec / VIBE_SILENCE_TAU))
+    return state[i]
+  }
+}
+
 // ── detector/equalizer ───────────────────────────────────────────────────────
 // FastLED's EqualizerDetector exposes 16 normalized log bins from 90–5120 Hz.
 // Studio's established audio token carries 32 entries, so each FastLED bin is
@@ -427,6 +585,7 @@ export interface FastLedAudioResult {
   beat: boolean
   bpm: number
   beatConfidence: number
+  vibe: VibeSignal
 }
 
 /**
@@ -443,6 +602,7 @@ export class FastLedAudioAnalyzer {
   private conditioner = createConditionerState()
   private bands = new FrequencyBands()
   private beat = new BeatDetector()
+  private vibe = new VibeDetector()
   private spectrum: EqualizerSpectrum
   private lastMs = 0
 
@@ -473,6 +633,15 @@ export class FastLedAudioAnalyzer {
       this.scaled[i] = (i < samples.length ? samples[i] : 0) * I16_FULL_SCALE * gain
     }
     conditionSamples(this.scaled, this.conditioner)
+    // Context::isSilent stand-in: the conditioner's gate zeroed the whole
+    // buffer, which is what FastLED's noise-floor tracker reports for it.
+    let silent = true
+    for (let i = 0; i < n; i++) {
+      if (this.scaled[i] !== 0) {
+        silent = false
+        break
+      }
+    }
 
     // Hann window + radix-2 FFT; 4/N restores full-scale one-sided amplitude
     // (2/N one-sided × 2 for the Hann window's 0.5 coherent gain).
@@ -489,6 +658,7 @@ export class FastLedAudioAnalyzer {
 
     const levels = this.bands.update(this.mags, sampleRate, this.fftSize, dtSec)
     const beat = this.beat.update(this.mags, sampleRate, this.fftSize, nowMs)
+    const vibe = this.vibe.update(this.mags, sampleRate, this.fftSize, dtSec, silent)
     this.spectrum.update(this.mags, sampleRate, this.fftSize, dtSec, spectrumOut)
 
     return {
@@ -498,6 +668,7 @@ export class FastLedAudioAnalyzer {
       beat: beat.beat,
       bpm: beat.bpm,
       beatConfidence: beat.confidence,
+      vibe,
     }
   }
 
@@ -505,6 +676,7 @@ export class FastLedAudioAnalyzer {
     this.conditioner = createConditionerState()
     this.bands.reset()
     this.beat.reset()
+    this.vibe.reset()
     this.spectrum.reset()
     this.lastMs = 0
   }

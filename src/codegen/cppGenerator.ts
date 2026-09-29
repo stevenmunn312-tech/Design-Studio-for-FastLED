@@ -562,7 +562,7 @@ export function generateCpp(
   // unused hardware providers must not emit the I2S engine any more than a parked Fire
   // node should emit a buffer and a simulation.
   const live = reachableFromOutputs(nodes, edges)
-  const audio = audioEngineForGraph(live, capabilityNodes)
+  const audio = audioEngineForGraph(live, capabilityNodes, groups)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio
   const nativeFastLedAudio = emitEngine || !!opts.nativeFastLedAudio

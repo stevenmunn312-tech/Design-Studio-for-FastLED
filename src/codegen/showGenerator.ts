@@ -757,7 +757,7 @@ export function generateShowSketch(
   // host. Collected patterns' FFTAnalyzer/BeatDetect nodes read the live band
   // globals (externalAudio), so an audio-reactive
   // pattern reacts on-device the same way it does in the live preview.
-  const audio = audioEngineForGraph(nodes)
+  const audio = audioEngineForGraph(nodes, nodes, groups)
   const slideshowAudioConnected = edges.some((edge) =>
     edge.target === info.masterId
     && edge.targetHandle === 'audio'

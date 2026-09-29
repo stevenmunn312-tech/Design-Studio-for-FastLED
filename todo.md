@@ -56,6 +56,11 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   reconcile release copy, freeze the panel/document/control save format, and
   record limitations and deferments. Never merge `main` and `Hardware`.
 
+- [ ] **Pattern node expansion, Phase 8 · audio detectors (M).** Vibe has
+  shipped ([design note](docs/development/design/audio-detectors.md)). Song
+  Structure, Pitch and Waveform are open, then the phase's compile check
+  ([plan](docs/development/plans/pattern-node-expansion.md#phase-8--audio-detectors-from-fastleds-processor)).
+
 ## 2. Compile checks
 
 None open. The D-05 LR7843 dimming fixtures (on/off regression, Level field,

@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–7 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–8 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -290,6 +290,41 @@ const phase7Rosette = bundledSketch('Breathing Rosette', ['/* SliceTiling:', 'fl
 const phase7Mirage = bundledSketch('Liquid Mirage', ['/* FrameWarp: wrap, bilinear */', '// FrameFeedback:', 'float field_dx[NUM_LEDS];'])
 const phase7Maze = bundledSketch('Truchet Beat Maze', ['/* Truchet: square, tenPrint */', 'fl::audio::Processor'])
 
+// Phase 8 wires one detector per graph to a real INMP441 engine. The Vibe
+// fixture proves every FastLED getter the engine publishes exists in the
+// pinned FastLED and that the node's emitter reads only those globals.
+function phase8VibeSketch(profileId: string): string {
+  const nodes = [
+    node('board', 'Board', { profileId }),
+    node('mic', 'MicInput', {}),
+    node('audio', 'Audio', { sourceId: 'mic' }),
+    node('vibe', 'Vibe', { gain: 1.25 }),
+    node('level', 'MapRange', { inMin: 0.4, inMax: 1.8, outMin: 0.25, outMax: 1 }),
+    node('plasma', 'Plasma', { speed: 0.35 }),
+    node('dim', 'BrightnessMod'),
+    node('spikes', 'Counter'),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('audio-vibe', 'audio', 'audio', 'vibe', 'audio'),
+    edge('vibe-level', 'vibe', 'bass', 'level', 'value'),
+    edge('level-dim', 'level', 'result', 'dim', 'brightness'),
+    edge('plasma-dim', 'plasma', 'frame', 'dim', 'frame'),
+    edge('spike-count', 'vibe', 'trebleSpike', 'spikes', 'trigger'),
+    edge('dim-out', 'dim', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    '_audioVibeBass = _audioProcessor->getVibeBass();', '_audioVibeTrebleSpike = _audioProcessor->isVibeTrebSpike();',
+    '(void)_audioProcessor->getVibeBass();', 'float n_vibe_bass = _audioVibeBass * _vibeGain_vibe',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 8 Vibe fixture is missing ${marker}`)
+  }
+  return sketch
+}
+const phase8Vibe = phase8VibeSketch('espressif-esp32-s3-devkitc-1')
+const phase8VibeClassic = phase8VibeSketch('esp32-generic-devkit-38pin')
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -304,6 +339,8 @@ writeFileSync(resolve(outputDir, 'phase6-64.ino'), phase6Large, 'utf8')
 writeFileSync(resolve(outputDir, 'phase7-rosette.ino'), phase7Rosette, 'utf8')
 writeFileSync(resolve(outputDir, 'phase7-mirage.ino'), phase7Mirage, 'utf8')
 writeFileSync(resolve(outputDir, 'phase7-maze.ino'), phase7Maze, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-vibe-s3.ino'), phase8Vibe, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-vibe.ino'), phase8VibeClassic, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -343,9 +380,10 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   },
   ...Object.fromEntries(([
     ['phase7-rosette', phase7Rosette], ['phase7-mirage', phase7Mirage], ['phase7-maze', phase7Maze],
+    ['phase8-vibe-s3', phase8Vibe], ['phase8-vibe', phase8VibeClassic],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),
   }])),
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–7 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–8 pattern-node compile fixtures to ${outputDir}`)
