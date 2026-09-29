@@ -413,8 +413,9 @@ Checklist:
       decays by `dissipation`; a puff spreads symmetrically; velocity stays
       finite), node, emitter with a C++ solver helper behind `needsFluid`, RAM
       row, capacity test.
-- [ ] Fractal: the four types, wired `c`, emitted block per type, an
-      iteration cap test.
+- [x] Fractal: the four types, wired `c`, emitted block per type, an
+      iteration cap test. Iterations are capped at 64 by clamp; the capacity
+      verdict prices RAM only, so it does not cap them on large panels.
 - [x] Automaton: the four types, rule and state tests (rule 90 makes the
       Sierpinski triangle from one seed cell), RAM row. The cyclic test checks
       that a cell only ever advances one state; spirals are left to the eye.

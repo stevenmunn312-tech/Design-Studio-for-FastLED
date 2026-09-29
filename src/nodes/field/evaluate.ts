@@ -6,6 +6,7 @@ import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/eva
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
+import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
 import { seedOffset, _snoise2, normalizedSeed, seededRandom, seededRngState } from '../../state/evaluator/random'
 import {
   SAND_SPAWN_RATE, automatonInterval, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
@@ -803,6 +804,19 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = num(id, 'impulse', props, 'impulse', 1)
     return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
+  },
+  FractalField({ num, W, H }, id, props) {
+    const sample = fractalSampler({
+      type: fractalType(props.fractalType),
+      cRe: num(id, 'cRe', props, 'cRe', -0.8), cIm: num(id, 'cIm', props, 'cIm', 0.156),
+      zoom: num(id, 'zoom', props, 'zoom', 1),
+      centerX: num(id, 'centerX', props, 'centerX', 0), centerY: num(id, 'centerY', props, 'centerY', 0),
+      spin: num(id, 'spin', props, 'spin', 0),
+      iterations: num(id, 'iterations', props, 'iterations', 32), smooth: props.smooth !== false,
+    }, W, H)
+    const out = allocField(W * H)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = sample(x, y)
+    return { field: out }
   },
   Automaton({ input, num, tick, W, H, stateKey }, id, props) {
     const type = automatonType(props.automatonType)

@@ -954,6 +954,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Automaton example graph](../../public/node-cards/graphs/automaton.svg)
 
+### Fractal
+
+![Fractal node](../../public/node-cards/fractal-field.svg)
+
+![Fractal example graph](../../public/node-cards/graphs/fractal-field.svg)
+
 ### Turing Field
 
 ![Turing Field node](../../public/node-cards/turing-field.svg)

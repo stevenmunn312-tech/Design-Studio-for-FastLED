@@ -1500,6 +1500,26 @@ describe('generateCpp', () => {
     expect(sand).toContain('_top*2>=WIDTH')
   })
 
+  it('emits each Fractal type', () => {
+    const fr = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'FractalField', 'field', props), node('f', 'FieldToFrame', 'pattern', {}), outputNode], [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame')])
+    const julia = fr()
+    expect(julia).toContain('int _it=constrain((int)floorf(32),8,64);')
+    expect(julia).toContain('float _jr=-0.8,_ji=0.156;')
+    expect(julia).toContain('_zr=_zr0,_zi=_zi0,_kr=_jr,_ki=_ji;')
+    expect(julia).toContain('log2f(log2f(sqrtf(_m2)))')
+    expect(julia).not.toContain('fabsf(_zr)')
+    expect(fr({ smooth: false })).not.toContain('log2f')
+    const mandel = fr({ fractalType: 'mandelbrot' })
+    expect(mandel).toContain('_zr=0.0f,_zi=0.0f,_kr=_zr0,_ki=_zi0;')
+    expect(mandel).toContain('float _cx=-0.5f+0')
+    expect(mandel).not.toContain('_jr')
+    expect(fr({ fractalType: 'burningShip' })).toContain('_zr=fabsf(_zr); _zi=fabsf(_zi);')
+    const newton = fr({ fractalType: 'newton' })
+    expect(newton).toContain('_dn<1e-12f')
+    expect(newton).toContain('_val=(_rt+1.0f-(float)_n/_it)/3.0f;')
+    expect(newton).not.toContain('_kr')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

@@ -47,6 +47,9 @@ import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
 import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
 } from './evaluator/automaton'
+import {
+  FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
+} from './evaluator/fractal'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -3439,6 +3442,24 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapX: true },
   },
   {
+    // Escape-time and Newton fractals as a field. c, zoom, centre and spin are
+    // ports, so an LFO can morph a Julia set or fly into a Mandelbrot one.
+    type: 'FractalField',
+    label: 'Fractal',
+    category: 'field',
+    inputs: [
+      { id: 'cRe', label: 'C Real', dataType: 'float' },
+      { id: 'cIm', label: 'C Imag', dataType: 'float' },
+      { id: 'zoom', label: 'Zoom', dataType: 'float' },
+      { id: 'centerX', label: 'Center X', dataType: 'float' },
+      { id: 'centerY', label: 'Center Y', dataType: 'float' },
+      { id: 'spin', label: 'Spin', dataType: 'float' },
+    ],
+    propertyInputs: { cRe: 'cRe', cIm: 'cIm', zoom: 'zoom', centerX: 'centerX', centerY: 'centerY', spin: 'spin' },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { fractalType: 'julia', cRe: -0.8, cIm: 0.156, zoom: 1, centerX: 0, centerY: 0, spin: 0, iterations: 32, smooth: true },
+  },
+  {
     // Cellular automata as a field: scrolling elementary rows, cyclic spirals,
     // Brian's Brain and falling sand. One byte per cell; a rising `reset`
     // restarts it.
@@ -4810,6 +4831,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
+  FractalField: 'Julia, Mandelbrot, Newton or Burning Ship fractal as a field.',
   Automaton: 'Cellular automata as a field: rows, spirals, Brian\'s Brain, sand.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
@@ -4895,7 +4917,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5898,6 +5920,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     style: { control: 'slider', min: 0, max: 16, step: 1 },
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  FractalField: {
+    fractalType: { control: 'select', options: [...FRACTAL_TYPES] },
+    cRe: { control: 'slider', min: -2, max: 2, step: 0.001 },
+    cIm: { control: 'slider', min: -2, max: 2, step: 0.001 },
+    zoom: { control: 'slider', min: FRACTAL_ZOOM_MIN, max: FRACTAL_ZOOM_MAX, step: 0.01 },
+    centerX: { control: 'slider', min: -2, max: 2, step: 0.001 },
+    centerY: { control: 'slider', min: -2, max: 2, step: 0.001 },
+    spin: { control: 'slider', min: -180, max: 180, step: 1 },
+    iterations: { control: 'slider', min: FRACTAL_ITERATIONS_MIN, max: FRACTAL_ITERATIONS_MAX, step: 1 },
+  },
   Automaton: {
     automatonType: { control: 'select', options: [...AUTOMATON_TYPES] },
     rule: { control: 'slider', min: 0, max: 255, step: 1 },
@@ -6119,6 +6151,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     channel.level,
     'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
   ])),
+  FractalField: {
+    fractalType: 'Julia: one fixed c, every pixel a starting point. Mandelbrot: every pixel is its own c. Newton: which cube root of 1 the pixel settles on. Burning Ship: Mandelbrot with the parts folded positive.',
+    cRe: 'Real part of the Julia constant. Wire an LFO here to morph the set.',
+    cIm: 'Imaginary part of the Julia constant.',
+    zoom: 'Magnification. 1 shows the whole set.',
+    centerX: 'Slide the view left or right, in units of the complex plane.',
+    centerY: 'Slide the view up or down.',
+    spin: 'Rotate the view, in degrees.',
+    iterations: 'Most steps tried before a pixel counts as inside the set. More detail costs more time per frame.',
+    smooth: 'Blend the escape count into a smooth gradient instead of bands.',
+  },
   Automaton: {
     automatonType: 'Elementary: one-dimensional rules that scroll down the canvas. Cyclic: colours chase each other in spirals. Brian\'s Brain: sparks that die and never rest. Sand: grains fall and pile up.',
     rule: 'Wolfram rule number, 0 to 255. Rule 90 draws Sierpinski\'s triangle from one cell; rule 30 is chaotic.',
@@ -7344,6 +7387,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'Noise' && key === 'worleyMode') {
     return properties.noiseType === 'worley'
+  }
+  if (nodeType === 'FractalField' && (key === 'cRe' || key === 'cIm')) {
+    return properties.fractalType === undefined || properties.fractalType === 'julia'
   }
   if (nodeType === 'Automaton') {
     if (key === 'rule') return properties.automatonType === undefined || properties.automatonType === 'elementary'

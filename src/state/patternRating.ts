@@ -429,7 +429,7 @@ export function scoreAudioCorrectness(nodes: StudioNode[], edges: StudioEdge[]):
 
 const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'GradientFrame', 'PaletteGradient'])
 const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'StringParticles', 'Lightning', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst', 'FourierEpicycles'])
-const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'TuringField', 'Automaton', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
+const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'TuringField', 'Automaton', 'FractalField', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
 const ANIMATED_TYPES = new Set([
   'TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave',
   'BeatSin', 'HueCycle', 'PaletteSweep', 'PolarGradient', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',

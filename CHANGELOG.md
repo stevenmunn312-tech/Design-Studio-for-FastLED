@@ -9,6 +9,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New Fractal field node: Julia, Mandelbrot, Newton and Burning Ship sets, with
+  c, zoom, centre and spin as ports (wire an LFO to morph a Julia set or fly
+  into a Mandelbrot one) and a smooth colour option. Iterations run 8 to 64.
 - New Automaton field node with four cellular automata: elementary rules that
   scroll down the canvas (rule 90 draws Sierpinski's triangle), cyclic spirals,
   Brian's Brain, and falling sand that piles up and clears. A rising Reset

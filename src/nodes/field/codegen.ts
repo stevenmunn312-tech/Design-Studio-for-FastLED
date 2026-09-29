@@ -12,6 +12,10 @@ import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCoun
 import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
 } from '../../state/evaluator/automaton'
+import {
+  FRACTAL_BAILOUT2, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_ORIGIN, FRACTAL_VIEW, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
+  NEWTON_ROOT_Y, NEWTON_TOLERANCE2, fractalType,
+} from '../../state/evaluator/fractal'
 import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
 
 function byteArray8(bytes: Uint8Array): string {
@@ -283,6 +287,41 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
     ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
+  },
+  FractalField({ p, ln, f, ownField }) {
+    const of = ownField()
+    const type = fractalType(p.fractalType)
+    const [ox, oy] = FRACTAL_ORIGIN[type]
+    const smooth = p.smooth !== false
+    ln(`  { // Fractal (${type})`)
+    ln(`    int _it=constrain((int)floorf(${f('iterations', 'iterations', 32)}),${FRACTAL_ITERATIONS_MIN},${FRACTAL_ITERATIONS_MAX});`)
+    ln(`    float _zm=constrain(${f('zoom', 'zoom', 1)},${floatLit(FRACTAL_ZOOM_MIN)},${floatLit(FRACTAL_ZOOM_MAX)}),_sc=${floatLit(FRACTAL_VIEW)}/_zm/(fminf((float)WIDTH,(float)HEIGHT)*0.5f);`)
+    ln(`    float _a=${f('spin', 'spin', 0)}*0.017453293f,_co=cosf(_a),_si=sinf(_a);`)
+    ln(`    float _cx=${floatLit(ox)}+${f('centerX', 'centerX', 0)},_cy=${floatLit(oy)}+${f('centerY', 'centerY', 0)};`)
+    if (type === 'julia') ln(`    float _jr=${f('cRe', 'cRe', -0.8)},_ji=${f('cIm', 'cIm', 0.156)};`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _u=(_x+0.5f-WIDTH*0.5f)*_sc,_v=(_y+0.5f-HEIGHT*0.5f)*_sc;`)
+    ln(`      float _zr0=_cx+_u*_co-_v*_si,_zi0=_cy+_u*_si+_v*_co,_val=0.0f;`)
+    if (type === 'newton') {
+      ln(`      float _zr=_zr0,_zi=_zi0;`)
+      ln(`      for(int _n=1;_n<=_it;_n++){`)
+      ln(`        float _2r=_zr*_zr-_zi*_zi,_2i=2.0f*_zr*_zi,_3r=_2r*_zr-_2i*_zi,_3i=_2r*_zi+_2i*_zr;`)
+      ln(`        float _nr=_3r-1.0f,_ni=_3i,_dr=3.0f*_2r,_di=3.0f*_2i,_dn=_dr*_dr+_di*_di;`)
+      ln(`        if(_dn<1e-12f) break;`)
+      ln(`        _zr-=(_nr*_dr+_ni*_di)/_dn; _zi-=(_ni*_dr-_nr*_di)/_dn;`)
+      ln(`        float _d0=(_zr-1.0f)*(_zr-1.0f)+_zi*_zi,_d1=(_zr+0.5f)*(_zr+0.5f)+(_zi-${floatLit(NEWTON_ROOT_Y, 6)})*(_zi-${floatLit(NEWTON_ROOT_Y, 6)}),_d2=(_zr+0.5f)*(_zr+0.5f)+(_zi+${floatLit(NEWTON_ROOT_Y, 6)})*(_zi+${floatLit(NEWTON_ROOT_Y, 6)});`)
+      ln(`        int _rt=_d0<${floatLit(NEWTON_TOLERANCE2, 6)}?0:(_d1<${floatLit(NEWTON_TOLERANCE2, 6)}?1:(_d2<${floatLit(NEWTON_TOLERANCE2, 6)}?2:-1));`)
+      ln(`        if(_rt>=0){ _val=(_rt+1.0f-(float)_n/_it)/3.0f; break; } }`)
+    } else {
+      const julia = type === 'julia'
+      ln(`      float _zr=${julia ? '_zr0' : '0.0f'},_zi=${julia ? '_zi0' : '0.0f'},_kr=${julia ? '_jr' : '_zr0'},_ki=${julia ? '_ji' : '_zi0'};`)
+      ln(`      for(int _n=1;_n<=_it;_n++){`)
+      if (type === 'burningShip') ln(`        _zr=fabsf(_zr); _zi=fabsf(_zi);`)
+      ln(`        float _t=_zr*_zr-_zi*_zi+_kr; _zi=2.0f*_zr*_zi+_ki; _zr=_t;`)
+      ln(`        float _m2=_zr*_zr+_zi*_zi;`)
+      ln(`        if(_m2>${floatLit(FRACTAL_BAILOUT2)}){ float _mu=${smooth ? '_n+1.0f-log2f(log2f(sqrtf(_m2)))' : '(float)_n'}; _val=constrain(_mu/_it,0.0f,1.0f); break; } }`)
+    }
+    ln(`      ${of}[_y*WIDTH+_x]=_val; } }`)
   },
   Automaton({ node, id, p, ln, f, ownField, boolExpr }) {
     const of = ownField()
