@@ -1,6 +1,13 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { particleRadius } from '../../state/particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
+import {
+  FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, fireSmokeDim, fireStyle,
+} from '../../state/evaluator/fireSmoke'
+import {
+  LUMINOVA_BLUR, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP, LUMINOVA_TRAIL_DECAY,
+  LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
+} from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack, trackIndices, trackSplat, wrapTrack, type StringTrack } from '../../state/evaluator/stringTrack'
 import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
@@ -32,7 +39,7 @@ const fireHeat    = instanceState('fireHeat', new Map<string, number[][]>())
 // unchanged from before this control existed).
 const fireRngState = instanceState('fireRngState', new Map<string, { seed: number; lcg: number }>())
 
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number }
+interface Particle { x: number; y: number; vx: number; vy: number; life: number; r: number; g: number; b: number; seed?: number; emitter?: boolean }
 const particleState = instanceState('particleState', new Map<string, Particle[]>())
 const particleSeedState = instanceState('particleSeedState', new Map<string, string>())
 
@@ -102,6 +109,7 @@ function evalFire(
   nodeId: string, intensity: number, cooling: number, sparking: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
   direction: FireDirection = 'up', turbulence = 1, paletteMix = 1, mirror = false, seed = 0,
+  smoke = false, t = 0,
 ): Frame {
   const P = firePrimaryLen(direction, W, H), S = fireSecondaryLen(direction, W, H)
   const stored = fireHeat.get(nodeId)
@@ -137,7 +145,8 @@ function evalFire(
   for (let p = 0; p < P; p++) {
     for (let s = 0; s < S; s++) {
       const [x, y] = fireToXY(direction, p, s, W, H)
-      const h = heat[p][s]
+      // The smoke style dims the heat with a second noise layer drifting toward the tip.
+      const h = smoke ? heat[p][s] * fireSmokeDim(_snoise2(s * FIRE_SMOKE_SCALE_ACROSS, (P - 1 - p) * FIRE_SMOKE_SCALE_ALONG + t * FIRE_SMOKE_SPEED) * 0.5 + 0.5) : heat[p][s]
       const c = samplePalette(palette, h)
       const px = frame[y][x]
       if (mix >= 1) { px.r = c.r; px.g = c.g; px.b = c.b }
@@ -306,6 +315,30 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       }
       break
     }
+    case 'luminova': {
+      // Noise-steered emitters spiral over the matrix, each dropping a trail dot every frame.
+      const N = luminovaEmitters(count)
+      let emitters = particles.filter((q) => q.emitter)
+      if (emitters.length > N) {
+        emitters = emitters.slice(0, N)
+        particles = particles.filter((q) => !q.emitter || emitters.includes(q))
+      }
+      while (emitters.length < N) {
+        const q: Particle = { x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b, seed: rnd() * 6.28, emitter: true }
+        emitters.push(q); particles.push(q)
+      }
+      emitters.forEach((q, i) => {
+        const n = _snoise2(t * LUMINOVA_NOISE_SPEED + i * LUMINOVA_NOISE_SEPARATION, i * LUMINOVA_NOISE_LANE) * 0.5 + 0.5
+        q.seed = (q.seed ?? 0) + LUMINOVA_TURN + (n - 0.5) * LUMINOVA_WANDER
+        q.x = (((q.x + Math.cos(q.seed) * LUMINOVA_STEP) % W) + W) % W
+        q.y = (((q.y + Math.sin(q.seed) * LUMINOVA_STEP) % H) + H) % H
+        q.life = 1
+        particles.push({ x: q.x, y: q.y, vx: 0, vy: 0, life: 1, r: color.r, g: color.g, b: color.b })
+      })
+      for (const q of particles) if (!q.emitter) q.life *= decay * LUMINOVA_TRAIL_DECAY
+      particles = particles.filter((q) => q.emitter || q.life > 0.05)
+      break
+    }
     case 'confetti': {
       // Short-lived flecks appear throughout the matrix and drift downward.
       const spawn = Math.max(1, Math.round(rate * 4))
@@ -390,7 +423,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
   // size (see particleScale.ts) so a spark reads at roughly the same visual
   // size on a 64x64 panel as on the reference 16x16 one, instead of shrinking
   // to a single near-invisible pixel. `size` further scales that radius.
-  const radius = Math.max(0.5, particleRadius(W, H) * size)
+  const radius = Math.max(0.5, particleRadius(W, H) * size * (mode === 'luminova' ? LUMINOVA_BLUR : 1))
   for (const p of particles) {
     const k = Math.min(1, p.life)
     // Colour each particle by its life through the palette — young/bright
@@ -958,7 +991,7 @@ function evalFire2012(
 }
 
 export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
-  Fire({ num, pal, W, H, stateKey }, id, props) {
+  Fire({ num, pal, t, W, H, stateKey }, id, props) {
     const intensity = num(id, 'intensity', props, 'intensity', 0.7)
     const cooling = num(id, 'cooling', props, 'cooling', 55)
     const sparking = num(id, 'sparking', props, 'sparking', 120)
@@ -968,7 +1001,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
     const mirror = Boolean(props.mirror)
     const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
-    return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
+    return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed, fireStyle(props.fireStyle) === 'smoke', t) }
   },
   Particles({ num, pal, t, W, H, stateKey }, id, props) {
     const mode = String(props.particleType ?? 'fountain')

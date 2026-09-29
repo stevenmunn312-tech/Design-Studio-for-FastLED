@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–9 complete; 10–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–9 complete; 10 built, compile check open; 11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -431,10 +431,11 @@ Checklist:
       near-stateless on one shared integer hash (`classics.ts`), so the preview
       and the sketch agree on every random draw. Lightning keeps a strike
       schedule; the rest are pure functions of `t`. Compile check still open.
-- [ ] Pride palette port, Fire smoke style, Particles luminova variant, each
-      with a golden test that the default is unchanged.
-- [ ] README Patterns and Fields lines; node cards; `patternRating` sets;
-      design note `docs/development/design/simulation-fields.md`.
+- [x] Pride palette port, Fire smoke style, Particles luminova variant, each
+      with a golden test that the default is unchanged (hashes taken from the
+      frames before the variants existed).
+- [x] README Patterns and Fields lines; node cards; `patternRating` sets;
+      design note [`simulation-fields.md`](../design/simulation-fields.md).
 - [ ] Compile check on classic ESP32 and ESP8266; RAM at 16×16 and 32×32
       for Fluid and Automaton.
 

@@ -1567,6 +1567,43 @@ describe('generateCpp', () => {
     expect(generateCpp([outputNode], [])).not.toContain('_fluidStep')
   })
 
+  it('emits Pride 2015 colorwaves only when a palette is wired', () => {
+    const plain = generateCpp([node('n', 'Pride2015', 'pattern', {}), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(plain).toContain('CHSV((uint8_t)(_hue/360.0f*255.0f),230,(uint8_t)(_bri*255.0f))')
+    expect(plain).not.toContain('ColorFromPalette')
+    const wave = generateCpp(
+      [node('n', 'Pride2015', 'pattern', {}), node('sel', 'PaletteSelector', 'color', { palette: 'ocean' }), outputNode],
+      [edge('e', 'n', 'out', 'frame', 'frame'), edge('p', 'sel', 'n', 'palette', 'paletteIn')],
+    )
+    expect(wave).toContain('CRGB _pc=ColorFromPalette(')
+    expect(wave).toContain('(uint8_t)(_pc.r*_bri)')
+    expect(wave).not.toContain('CHSV((uint8_t)(_hue/360.0f*255.0f),230')
+  })
+
+  it('emits the Fire smoke layer only in the smoke style', () => {
+    const fire = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Fire', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const classic = fire()
+    expect(classic).not.toContain('inoise8')
+    expect(classic).toContain('uint8_t _h=_fireHeat_n[_p][_s]; CRGB _c=ColorFromPalette(')
+    const smoke = fire({ fireStyle: 'smoke' })
+    expect(smoke).toContain('_h=(uint8_t)(_h*(1.0f-0.65f*(inoise8((uint16_t)(_s*90),(uint16_t)((')
+    expect(smoke).toContain('-1-_p)*77+t*205.0f))/255.0f)));')
+    expect(smoke).toContain('float t = millis()')
+  })
+
+  it('emits Particles luminova with a pool for its trails', () => {
+    const lum = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'luminova', count: 5 }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(lum).toContain('const int _PN=240;')
+    expect(lum).toContain('static bool _pa_nem[8];')
+    expect(lum).toContain('for(int i=0;i<5;i++){ if(!_pa_nem[i])')
+    expect(lum).toContain('for(int j=5;j<_PN;j++) if(_pa_nl[j]<=0.04f)')
+    expect(lum).toContain('if(i<5) _pa_nl[i]=1; else _pa_nl[i]*=0.92*0.96f;')
+    expect(lum).toContain('*1.5f);')
+    const other = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'fountain' }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(other).toContain('const int _PN=120;')
+    expect(other).not.toContain('_pa_nem')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

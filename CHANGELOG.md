@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Pride 2015 gains a Palette port: wire one and it becomes Kriegsman's
+  colorwaves, the same sweep and breathing wave read through your palette. Left
+  unwired it is the rainbow it always was. Fire gains a Fire Style: `smoke`
+  drifts a second noise layer up through the flame and dims it. Particles gains
+  a `luminova` mode: noise-steered emitters that spiral over the matrix and
+  leave soft fading trails.
 - New Fluid field node: stable-fluids smoke at LED resolution on a wrapping
   canvas. Dye comes out as the field, and the flow comes out as two velocity
   fields so Frame Warp can carry a picture along it. Inject dye anywhere, fire a

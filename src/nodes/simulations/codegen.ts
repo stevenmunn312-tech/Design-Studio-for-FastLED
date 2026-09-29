@@ -1,5 +1,12 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
+import {
+  FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
+} from '../../state/evaluator/fireSmoke'
+import {
+  LUMINOVA_BLUR, LUMINOVA_MAX, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP,
+  LUMINOVA_TRAIL_DECAY, LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
+} from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
 import { particleRadius } from '../../state/particleScale'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -30,13 +37,15 @@ function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: strin
 }
 
 export const SIMULATIONS_EMITTERS: NodeEmitters = {
-  Fire({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }) {
+  Fire({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
     const ob = ownBuf()
     const intensity = f('intensity', 'intensity', 0.7)
     const cooling = f('cooling', 'cooling', 55)
     const sparking = f('sparking', 'sparking', 120)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const direction = String(p.direction ?? 'up')
+    const smoke = fireStyle(p.fireStyle) === 'smoke'
+    if (smoke) needsT.v = true
     // The diffusion window is a loop bound and a divisor, not an array
     // size, so both become runtime reads of one local.
     const spread = `_fireSpread_${id}`
@@ -72,7 +81,12 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      if (${rnd01} < _spark) ${HB}[0][_s] = (uint8_t)(200 + ${rnd01}*55);`)
     ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
     const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
-    ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
+    if (smoke) {
+      const u = (v: number) => Math.round(v * INOISE_UNIT)
+      ln(`      uint8_t _h=${HB}[_p][_s];`)
+      ln(`      _h=(uint8_t)(_h*(1.0f-${floatLit(FIRE_SMOKE_DEPTH)}*(inoise8((uint16_t)(_s*${u(FIRE_SMOKE_SCALE_ACROSS)}),(uint16_t)((${P}-1-_p)*${u(FIRE_SMOKE_SCALE_ALONG)}+t*${floatLit(u(FIRE_SMOKE_SPEED))}))/255.0f)));`)
+      ln(`      CRGB _c=ColorFromPalette(${pal}, _h);`)
+    } else ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
     if (paletteMixP >= 1 && !paletteMixWired) {
       ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
     } else if (paletteMixWired) {
@@ -97,7 +111,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
   Particles({ node, id, p, ln, f, ownBuf, width, height, paletteExpr, needsT }) {
     const ob = ownBuf()
     const mode = String(p.particleType ?? 'fountain')
-    if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor'].includes(mode)) needsT.v = true
+    if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor', 'luminova'].includes(mode)) needsT.v = true
     const rate = f('rate', 'rate', 0.3)
     const decayL = f('decay', 'decay', 0.92)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -116,7 +130,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // Fixed-size pool (SoA): l[i] <= 0.04 marks a free slot. swarm keeps every
     // slot live (boids), so its pool is sized directly from `count` (capped
     // for the O(N^2) step) instead of a fixed 40.
-    const cap = mode === 'swarm' ? Math.max(2, Math.min(80, countP)) : 120
+    const cap = mode === 'swarm' ? Math.max(2, Math.min(80, countP)) : mode === 'luminova' ? 240 : 120
     const A = `_pa_${id}`
     ln(`  { // Particles: ${mode}`)
     ln(`    const int _PN=${cap};`)
@@ -182,7 +196,16 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}l[i]=1; break; } }`)
       else if (mode === 'orbit')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}s[i]=random8()/255.0f*0.08f+0.025f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
-      else if (mode === 'confetti')
+      else if (mode === 'luminova') {
+        const N = luminovaEmitters(countP)
+        ln(`    { static bool ${A}em[${LUMINOVA_MAX}];`)
+        ln(`      for(int i=${N};i<${LUMINOVA_MAX};i++) if(${A}em[i]){ ${A}em[i]=false; ${A}l[i]=0; }`)
+        ln(`      for(int i=0;i<${N};i++){ if(!${A}em[i]){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; ${A}em[i]=true; }`)
+        ln(`        float _n=inoise8((uint16_t)((t*${floatLit(LUMINOVA_NOISE_SPEED)}+i*${floatLit(LUMINOVA_NOISE_SEPARATION)})*256.0f),(uint16_t)(i*${floatLit(LUMINOVA_NOISE_LANE)}*256.0f))/255.0f;`)
+        ln(`        ${A}s[i]+=${floatLit(LUMINOVA_TURN)}+(_n-0.5f)*${floatLit(LUMINOVA_WANDER)};`)
+        ln(`        ${A}x[i]=fmodf(fmodf(${A}x[i]+cos(${A}s[i])*${floatLit(LUMINOVA_STEP)},(float)WIDTH)+WIDTH,(float)WIDTH); ${A}y[i]=fmodf(fmodf(${A}y[i]+sin(${A}s[i])*${floatLit(LUMINOVA_STEP)},(float)HEIGHT)+HEIGHT,(float)HEIGHT); ${A}l[i]=1;`)
+        ln(`        for(int j=${N};j<_PN;j++) if(${A}l[j]<=0.04f){ ${A}x[j]=${A}x[i]; ${A}y[j]=${A}y[i]; ${A}vx[j]=0; ${A}vy[j]=0; ${A}l[j]=1; break; } } }`)
+      } else if (mode === 'confetti')
         ln(`    { int _sp=max(1,(int)(_rate*4)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.16f; ${A}vy[i]=random8()/255.0f*0.08f+0.02f; ${A}l[i]=1; break; } } }`)
       else if (mode === 'fireflies')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.12f; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
@@ -223,6 +246,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`      { float dx=${A}x[i]-(WIDTH-1)/2.0f,dy=${A}y[i]-(HEIGHT-1)/2.0f,d=max(0.5f,sqrtf(dx*dx+dy*dy)); ${A}x[i]+=-dy/d*0.24f-dx*0.006f; ${A}y[i]+=dx/d*0.24f-dy*0.006f; ${A}l[i]*=${decayL}*0.995f; } }`)
       else if (mode === 'orbit')
         ln(`      { float dx=${A}x[i]-(WIDTH-1)/2.0f,dy=${A}y[i]-(HEIGHT-1)/2.0f,c=cos(${A}s[i]),s=sin(${A}s[i]); ${A}x[i]=(WIDTH-1)/2.0f+dx*c-dy*s; ${A}y[i]=(HEIGHT-1)/2.0f+dx*s+dy*c; ${A}l[i]=1; } }`)
+      else if (mode === 'luminova')
+        ln(`      if(i<${luminovaEmitters(countP)}) ${A}l[i]=1; else ${A}l[i]*=${decayL}*${floatLit(LUMINOVA_TRAIL_DECAY)}; }`)
       else if (mode === 'confetti')
         ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.94f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
       else if (mode === 'fireflies')
@@ -260,7 +285,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // WIDTH/HEIGHT, which no wire can change — and only the `size` scale
     // is live.
     const Rf = '_paR'
-    ln(`    float _paR=fmaxf(0.5f, ${floatLit(particleRadius(width, height))}*${sizeE});`)
+    ln(`    float _paR=fmaxf(0.5f, ${floatLit(particleRadius(width, height))}*${sizeE}${mode === 'luminova' ? `*${floatLit(LUMINOVA_BLUR)}` : ''});`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue; float _k=min(1.0f,${A}l[i]), _sx=${A}x[i], _sy=${A}y[i];`)
     ln(`      int _x0=max(0,(int)floorf(_sx-${Rf}-1.0f)), _x1=min(WIDTH-1,(int)ceilf(_sx+${Rf}+1.0f));`)

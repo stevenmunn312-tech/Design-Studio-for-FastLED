@@ -52,6 +52,7 @@ import {
   FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
 } from './evaluator/fractal'
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
+import { FIRE_STYLES } from './evaluator/fireSmoke'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -667,7 +668,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // fall back to, now dialable so a pattern can be judged without audio.
       intensity: 0.7,
       cooling: 55, sparking: 120, palette: 'fire',
-      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0, fireStyle: 'classic',
     },
   },
   {
@@ -773,6 +774,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
     propertyInputs: { speed: 'speed', scale: 'scale' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
@@ -4851,7 +4853,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Spiral: 'Rotating spiral arms.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
   PolarGradient: 'Palette swept around the centre by angle, radius or a spiral of both.',
-  Particles: 'Twenty particle displays: weather, trails, flocking, orbits, and more.',
+  Particles: 'Twenty-one particle displays: weather, trails, flocking, orbits, and more.',
   FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
   GradientFrame: 'Two-color linear gradient fill.',
   FractalNoise: 'Fractal (fBm) noise — summed octaves, cloud-like.',
@@ -5157,7 +5159,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   particleType:   { control: 'select', options: [
     'fountain', 'gravity', 'fireworks', 'sparkle', 'comet', 'snow', 'swarm',
     'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
-    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall',
+    'meteor', 'tornado', 'pinwheel', 'bounce', 'attractor', 'waterfall', 'luminova',
   ] },
   channel:        { control: 'select', options: ['Left', 'Right'] },
   audioOutput:    { control: 'select', options: ['i2s', 'internalDac'] },
@@ -6075,6 +6077,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   Fire: {
     direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
+    fireStyle:   { control: 'select', options: [...FIRE_STYLES] },
     turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
     paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
     seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -6337,6 +6340,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Fire: {
     direction: 'Which way the flame rises.',
+    fireStyle: 'Classic: the flame as it always was. Smoke: a second noise layer drifts up through the flame and dims it, as in FastLED\'s Fire2023.',
     turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
     paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
     mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
@@ -7288,7 +7292,7 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 // controls (isPropertyEnabled below) — keep in sync with the matching mode
 // bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
 // case, which are the ones that actually read each property.
-const PARTICLE_COUNT_MODES = new Set(['swarm', 'orbit', 'bounce', 'fireflies'])
+const PARTICLE_COUNT_MODES = new Set(['swarm', 'orbit', 'bounce', 'fireflies', 'luminova'])
 const PARTICLE_SPREAD_MODES = new Set(['fountain', 'gravity', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
 const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'gravity', 'fireworks', 'waterfall'])
 const PARTICLE_BOUNCE_MODES = new Set(['gravity', 'waterfall'])

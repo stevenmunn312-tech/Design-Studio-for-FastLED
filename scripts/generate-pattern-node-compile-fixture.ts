@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–9 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–10 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -584,6 +584,142 @@ const phase9Matrix = (() => {
   return sketch
 })()
 
+// Phase 10 builds four graphs that between them touch every new emitter: a
+// 60-LED string, a 60-LED ring, a 16×16 matrix that holds every fractal and
+// automaton type beside the fluid, and a 32×32 matrix for the RAM the plan asks
+// about (Fluid and Automaton at 16×16 and 32×32).
+/** Blend a list of frame sources into one, adding each on top of the last. */
+function blendChain(nodes: StudioNode[], edges: StudioEdge[], sources: string[], prefix: string): string {
+  let acc = sources[0]
+  for (let i = 1; i < sources.length; i++) {
+    const id = `${prefix}${i}`
+    nodes.push(node(id, 'Blend', { blendMode: 'add', amount: 0.5 }))
+    edges.push(edge(`${id}-a`, acc, 'frame', id, 'a'), edge(`${id}-b`, sources[i], 'frame', id, 'b'))
+    acc = id
+  }
+  return acc
+}
+
+/** Add every field in `sources` into one and colour it. */
+function fieldChain(nodes: StudioNode[], edges: StudioEdge[], sources: string[], prefix: string): string {
+  let acc = sources[0]
+  for (let i = 1; i < sources.length; i++) {
+    const id = `${prefix}${i}`
+    nodes.push(node(id, 'FieldMath', { fieldOp: 'add' }))
+    edges.push(edge(`${id}-a`, acc, 'field', id, 'a'), edge(`${id}-b`, sources[i], 'field', id, 'b'))
+    acc = id
+  }
+  nodes.push(node(`${prefix}color`, 'FieldToFrame', { palette: 'ocean', brightness: 1 }))
+  edges.push(edge(`${prefix}color-in`, acc, 'field', `${prefix}color`, 'field'))
+  return `${prefix}color`
+}
+
+function requireMarkers(name: string, sketch: string, markers: string[]): string {
+  for (const marker of markers) if (!sketch.includes(marker)) throw new Error(`Phase 10 ${name} fixture is missing ${marker}`)
+  return sketch
+}
+
+const phase10String = (() => {
+  const nodes = [
+    node('harmony', 'HarmonyPalette', { hue: 200, harmony: 'analogous' }),
+    node('lfo', 'NoiseSignal', { speed: 0.3, min: 0.1, max: 1 }),
+    node('tick', 'Interval', { interval: 0.8 }),
+    node('rain', 'DigitalRain', { direction: 'right', tailLength: 10, seed: 3 }),
+    node('gauge', 'Gauge', { gaugeStyle: 'bar', segments: 6, peakHold: 2, direction: 'right', palette: 'heat' }),
+    node('candle', 'Candle', { mode: 'perPixel' }),
+    node('bolt', 'Lightning', { rate: 20 }),
+    node('beat', 'Heartbeat', { bpm: 72 }),
+    node('tv', 'TVSimulator', {}),
+    node('sun', 'Sunrise', { mode: 'manual' }),
+    node('fire', 'Fire', { direction: 'right', fireStyle: 'smoke' }),
+    node('pride', 'Pride2015', {}),
+    node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('lfo-gauge', 'lfo', 'value', 'gauge', 'value'),
+    edge('lfo-sun', 'lfo', 'value', 'sun', 'progress'),
+    edge('tick-bolt', 'tick', 'pulse', 'bolt', 'trigger'),
+    edge('h-pride', 'harmony', 'palette', 'pride', 'paletteIn'),
+  ]
+  const last = blendChain(nodes, edges, ['rain', 'gauge', 'candle', 'bolt', 'beat', 'tv', 'sun', 'fire', 'pride'], 'mix')
+  edges.push(edge('mix-out', last, 'frame', 'out', 'frame'))
+  return requireMarkers('string', generateCpp(nodes, edges), [
+    '// Digital Rain', '// Gauge (bar)', '_gg_gauge', '// Candle', '// Lightning', '// Heartbeat', '// Sunrise',
+    '// TV Simulator', 'inoise8((uint16_t)(_s*90)', 'CRGB _pc=ColorFromPalette', 'x*=0x7feb352dU',
+  ])
+})()
+
+const phase10Ring = (() => {
+  const nodes = [
+    node('harmony', 'HarmonyPalette', { hue: 20, harmony: 'triadic' }),
+    node('lfo', 'NoiseSignal', { speed: 0.25, min: 0.1, max: 1 }),
+    node('rain', 'DigitalRain', { direction: 'left', tailLength: 8 }),
+    node('ring', 'Gauge', { gaugeStyle: 'ring', ringLeds: 60, peakHold: 1.5 }),
+    node('arc', 'Gauge', { gaugeStyle: 'arc', ringLeds: 60, arcStart: 225, arcSweep: 270, segments: 8 }),
+    node('nova', 'Particles', { particleType: 'luminova', count: 6 }),
+    node('pride', 'Pride2015', {}),
+    node('out', 'MatrixOutput', { form: 'ring', ledCount: 60, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('lfo-ring', 'lfo', 'value', 'ring', 'value'),
+    edge('lfo-arc', 'lfo', 'value', 'arc', 'value'),
+    edge('h-pride', 'harmony', 'palette', 'pride', 'paletteIn'),
+  ]
+  const last = blendChain(nodes, edges, ['rain', 'ring', 'arc', 'nova', 'pride'], 'mix')
+  edges.push(edge('mix-out', last, 'frame', 'out', 'frame'))
+  return requireMarkers('ring', generateCpp(nodes, edges), [
+    '// Gauge (ring)', '// Gauge (arc)', 'static uint16_t _gg_ring', 'static bool _pa_novaem[8];', 'const int _PN=240;', 'static float _dr_rainh[HEIGHT]',
+  ])
+})()
+
+const phase10Matrix = (() => {
+  const nodes: StudioNode[] = [
+    node('julia', 'FractalField', { fractalType: 'julia' }),
+    node('mandel', 'FractalField', { fractalType: 'mandelbrot' }),
+    node('newton', 'FractalField', { fractalType: 'newton' }),
+    node('ship', 'FractalField', { fractalType: 'burningShip', smooth: false }),
+    node('elem', 'Automaton', { automatonType: 'elementary', rule: 30 }),
+    node('cyc', 'Automaton', { automatonType: 'cyclic', states: 6 }),
+    node('brain', 'Automaton', { automatonType: 'brianBrain', seed: 5 }),
+    node('sand', 'Automaton', { automatonType: 'sand' }),
+    node('stir', 'FieldNoise', {}),
+    node('fluid', 'FluidSim', {}),
+    node('tick', 'Interval', { interval: 0.9 }),
+    node('fire', 'Fire', { fireStyle: 'smoke' }),
+    node('nova', 'Particles', { particleType: 'luminova' }),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('stir-x', 'stir', 'field', 'fluid', 'forceX'),
+    edge('tick-puff', 'tick', 'pulse', 'fluid', 'trigger'),
+    edge('tick-reset', 'tick', 'pulse', 'brain', 'reset'),
+  ]
+  const fields = fieldChain(nodes, edges, ['julia', 'mandel', 'newton', 'ship', 'elem', 'cyc', 'brain', 'sand', 'fluid'], 'f')
+  // The velocity outputs only get a buffer when a wire reads them.
+  nodes.push(node('flowx', 'FieldToFrame', { palette: 'party' }), node('flowy', 'FieldToFrame', { palette: 'party' }))
+  edges.push(edge('vx', 'fluid', 'velocityX', 'flowx', 'field'), edge('vy', 'fluid', 'velocityY', 'flowy', 'field'))
+  const last = blendChain(nodes, edges, [fields, 'flowx', 'flowy', 'fire', 'nova'], 'mix')
+  edges.push(edge('mix-out', last, 'frame', 'out', 'frame'))
+  return requireMarkers('matrix', generateCpp(nodes, edges), [
+    'static void _fluidStep(', '// Fractal (julia)', '// Fractal (mandelbrot)', '// Fractal (newton)', '// Fractal (burningShip)',
+    '// Automaton (elementary)', '// Automaton (cyclic)', '// Automaton (brianBrain)', '// Automaton (sand)',
+    'field_fluid_velocityX', 'field_fluid_velocityY', 'inoise8((uint16_t)(_s*90)', 'static bool _pa_novaem[8];',
+  ])
+})()
+
+const phase10Big = (() => {
+  const nodes: StudioNode[] = [
+    node('fluid', 'FluidSim', {}),
+    node('cyc', 'Automaton', { automatonType: 'cyclic', states: 8 }),
+    node('julia', 'FractalField', { fractalType: 'julia', iterations: 48 }),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 32, height: 32, dataPin: 5 }),
+  ]
+  const edges: StudioEdge[] = []
+  const color = fieldChain(nodes, edges, ['fluid', 'cyc', 'julia'], 'f')
+  edges.push(edge('color-out', color, 'frame', 'out', 'frame'))
+  return requireMarkers('32×32', generateCpp(nodes, edges), ['static void _fluidStep(', '// Automaton (cyclic)', '// Fractal (julia)'])
+})()
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -613,6 +749,10 @@ writeFileSync(resolve(outputDir, 'phase8-all-s3.ino'), phase8AllS3, 'utf8')
 writeFileSync(resolve(outputDir, 'phase9-string.ino'), phase9String, 'utf8')
 writeFileSync(resolve(outputDir, 'phase9-ring.ino'), phase9Ring, 'utf8')
 writeFileSync(resolve(outputDir, 'phase9-matrix.ino'), phase9Matrix, 'utf8')
+writeFileSync(resolve(outputDir, 'phase10-string.ino'), phase10String, 'utf8')
+writeFileSync(resolve(outputDir, 'phase10-ring.ino'), phase10Ring, 'utf8')
+writeFileSync(resolve(outputDir, 'phase10-matrix.ino'), phase10Matrix, 'utf8')
+writeFileSync(resolve(outputDir, 'phase10-32.ino'), phase10Big, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -657,10 +797,11 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     ['phase8-pitch', phase8Pitch], ['phase8-pitch-s3', phase8PitchS3],
     ['phase8-waveform', phase8Waveform], ['phase8-waveform-s3', phase8WaveformS3],
     ['phase9-string', phase9String], ['phase9-ring', phase9Ring], ['phase9-matrix', phase9Matrix],
+    ['phase10-string', phase10String], ['phase10-ring', phase10Ring], ['phase10-matrix', phase10Matrix], ['phase10-32', phase10Big],
     ['phase8-base', phase8Base], ['phase8-base-s3', phase8BaseS3], ['phase8-all', phase8All], ['phase8-all-s3', phase8AllS3],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),
   }])),
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–9 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–10 pattern-node compile fixtures to ${outputDir}`)

@@ -61,7 +61,9 @@ function evalPlasma(speed: number, t: number, palette: Palette, W = DEFAULT_W, H
 // a breathing brightness wave along the strip. Same evocative-formula approach
 // as Plasma above (identical trig on the preview and firmware side), not a
 // literal port of the original's 16-bit fixed-point beatsin88 arithmetic.
-function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+// With a palette wired it becomes Kriegsman's colorwaves: the same hue sweep and
+// brightness wave, read through the palette instead of the colour wheel.
+function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, palette: Palette | null = null): Frame {
   const out: Frame = []
   let i = 0
   for (let y = 0; y < H; y++) {
@@ -70,7 +72,10 @@ function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H
       const hue = (i * scale * 6 + t * speed * 40) % 360
       const briTheta = i * scale * 3 + t * speed * 15
       const bri = 0.35 + 0.65 * (Math.sin(briTheta) * 0.5 + 0.5)
-      row.push(hsv(hue, 0.9, bri))
+      if (palette) {
+        const c = samplePalette(palette, hue / 360)
+        row.push({ r: Math.floor(c.r * bri), g: Math.floor(c.g * bri), b: Math.floor(c.b * bri) })
+      } else row.push(hsv(hue, 0.9, bri))
       i++
     }
     out.push(row)
@@ -545,10 +550,12 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     const deltaHue = Math.max(0, Math.min(255, num(id, 'deltaHue', props, 'deltaHue', 6)))
     return { frame: evalRainbow(t * speed, deltaHue, W, H) }
   },
-  Pride2015({ num, t, W, H }, id, props) {
+  Pride2015({ input, num, t, W, H }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Pride2015)
-    return { frame: evalPride2015(speed, scale, t, W, H) }
+    const wired = input(id, 'paletteIn', null)
+    const palette = Array.isArray(wired) ? wired as RGB[] : typeof wired === 'string' ? wired : null
+    return { frame: evalPride2015(speed, scale, t, W, H, palette) }
   },
   Pacifica({ num, pal, t, W, H }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.35), SPEED_MAX.Pacifica)

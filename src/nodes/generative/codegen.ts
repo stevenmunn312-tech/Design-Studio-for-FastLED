@@ -140,17 +140,21 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   },
   // Homage to Pride2015 (see the evaluator's evalPride2015 comment) —
   // identical formula on both sides, mapped through CHSV like Plasma.
-  Pride2015({ ln, f, ownBuf, needsT }) {
+  Pride2015({ node, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = rateCpp(f('scale', 'scale', 0.4), SCALE_MAX.Pride2015)
+    // Wired to a palette it becomes colorwaves; unwired it is the rainbow it always was.
+    const wired = incoming.has(`${node.id}:paletteIn`)
+    const pal = wired ? paletteExpr(node.id, 'paletteIn', p) : ''
     ln(`  { float _spd=${speed},_sc=${scale}; int _i=0;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _hue=fmodf(_i*_sc*6.0f+t*_spd*40.0f,360.0f); if(_hue<0)_hue+=360.0f;`)
     ln(`      float _bt=_i*_sc*3.0f+t*_spd*15.0f;`)
     ln(`      float _bri=0.35f+0.65f*(sinf(_bt)*0.5f+0.5f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_hue/360.0f*255.0f),230,(uint8_t)(_bri*255.0f));`)
+    if (wired) ln(`      CRGB _pc=ColorFromPalette(${pal},(uint8_t)(_hue/360.0f*255.0f)); ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(_pc.r*_bri),(uint8_t)(_pc.g*_bri),(uint8_t)(_pc.b*_bri));`)
+    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_hue/360.0f*255.0f),230,(uint8_t)(_bri*255.0f));`)
     ln(`      _i++; } }`)
   },
   // Homage to the FastLED "Pacifica" ocean-wave demo (see the evaluator's
