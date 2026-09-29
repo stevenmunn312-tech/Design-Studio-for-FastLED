@@ -3,6 +3,7 @@ import { usesShims, cppRewriteShims } from '../../state/fastledShims'
 import { isNodeFormulaValid } from '../../state/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
+import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from '../../state/sliceTiling'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
@@ -38,8 +39,10 @@ export const FIELD_EMITTERS: NodeEmitters = {
   },
   // Same fBm construction as FractalNoise's codegen (inoise8), but written
   // straight to the field buffer instead of through a palette.
-  FieldNoise({ id, p, ln, f, ownField, needsT }) {
+  FieldNoise({ id, p, ln: emitLine, f, ownField, needsT, needsWrapX }) {
     needsT.v = true
+    const block: string[] = []
+    const ln = (line: string) => { block.push(line) }
     const of = ownField()
     const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
     const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
@@ -56,6 +59,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`        _v+=_amp*(inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)/255.0f);`)
     ln(`        _norm+=_amp; _amp*=0.5f; _freq*=2; }`)
     ln(`      ${of}[_y*WIDTH+_x]=constrain(_v/_norm,0.0f,1.0f);}}`)
+    if (p.wrapX === true) {
+      needsWrapX.v = true
+      for (const line of wrapXBlockLines(block, of)) emitLine(line)
+    } else {
+      for (const line of block) emitLine(line)
+    }
   },
   SliceTiling({ node, id, p, ln, f, ownField, edges, needsT, needsLattice, globalLines }) {
     needsT.v = true

@@ -14,6 +14,7 @@ import {
   blankFrame,
 } from '../../state/evaluator/frames'
 import { allocField } from '../../state/evaluator/memory'
+import { wrapXBlend } from '../../state/evaluator/wrapX'
 import {
   seededRandom,
   seedOffset,
@@ -248,16 +249,16 @@ function evalJuggle(
   return frame
 }
 
-function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
         v += amp * Math.sin(x * freq + t * speed + oct * 1.7) * Math.cos(y * freq * 1.3 + t * speed * 0.8 + oct * 2.3)
         amp *= 0.5; freq *= 2.1
       }
-      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
     }
   }
   return out
@@ -309,52 +310,60 @@ function wrap01(v: number): number {
 // All variants share the (speed, scale)→field signature, then the node maps
 // that field through a palette for its normal `frame` output. Keep the cases
 // in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
-function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Field {
+function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, wrapX = false): Field {
+  if (!wrapX) return evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0)
+  // Seamless left/right join: the plain field blended with itself shifted a
+  // canvas width (see state/evaluator/wrapX.ts).
+  const plain = evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0)
+  return wrapXBlend(plain, evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, W), W, H)
+}
+
+function evalNoiseFieldVariant(noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
-    case 'simplex': return evalSimplex2DField(speed, scale, ts, W, H)
-    case 'noise3d': return evalNoise3DField(speed, scale, ts, W, H)
-    case 'noise4d': return evalNoise4DField(speed, scale, ts, W, H)
-    case 'worley':  return evalWorleyField(speed, scale, ts, W, H)
-    case 'plasma':  return evalPlasmaFractalField(speed, scale, ts, W, H)
-    case 'sine':    return evalSineField(speed, scale, ts, W, H)
+    case 'simplex': return evalSimplex2DField(speed, scale, ts, W, H, xo)
+    case 'noise3d': return evalNoise3DField(speed, scale, ts, W, H, xo)
+    case 'noise4d': return evalNoise4DField(speed, scale, ts, W, H, xo)
+    case 'worley':  return evalWorleyField(speed, scale, ts, W, H, xo)
+    case 'plasma':  return evalPlasmaFractalField(speed, scale, ts, W, H, xo)
+    case 'sine':    return evalSineField(speed, scale, ts, W, H, xo)
     case 'field':
-    default:        return evalNoiseFieldRaw(speed, scale, ts, W, H)
+    default:        return evalNoiseFieldRaw(speed, scale, ts, W, H, xo)
   }
 }
 
-function evalNoiseFieldRaw(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalNoiseFieldRaw(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       const v = (Math.sin(x * scale * 0.5 + t * speed) +
                  Math.cos(y * scale * 0.5 + t * speed * 0.7)) / 2
-      out[y * W + x] = Math.max(0, Math.min(1, (v + 1) / 2))
+      out[y * W + x - xo] = Math.max(0, Math.min(1, (v + 1) / 2))
     }
   }
   return out
 }
 
-function evalSimplex2DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalSimplex2DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 4; oct++) {
         v += amp * _snoise2(x * freq + t * speed * 0.13, y * freq + t * speed * 0.1)
         amp *= 0.5; freq *= 2
       }
-      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
     }
   }
   return out
 }
 
-function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   // 3D via two orthogonal 2D slices animated along the z (time) axis
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       const z = t * speed * 0.08
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
@@ -362,7 +371,7 @@ function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W
                     _snoise2(x * freq * 0.9, y * freq + z * 0.61) * 0.4)
         amp *= 0.5; freq *= 2.1
       }
-      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
     }
   }
   return out
@@ -372,11 +381,11 @@ function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W
 // circle in two hidden dimensions so the pattern returns to its starting point
 // every cycle, matching the firmware variant's circular z/t path through
 // FastLED's real inoise16(x, y, z, t).
-function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const ang = t * speed * Math.PI * 2
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
         const ox = Math.cos(ang + oct * 0.9) * 0.8
@@ -386,7 +395,7 @@ function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W
         v += amp * (a * 0.65 + b * 0.35)
         amp *= 0.5; freq *= 2
       }
-      out[y * W + x] = wrap01(v * 0.5 + 0.5)
+      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
     }
   }
   return out
@@ -394,10 +403,10 @@ function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W
 
 // Worley (cellular) noise: distance to the nearest animated feature point,
 // coloured through a palette. Feature points jitter on a circle over time.
-function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
       let f1 = Infinity
@@ -410,7 +419,7 @@ function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W,
           const d = Math.hypot(px - fx, py - fy)
           if (d < f1) f1 = d
         }
-      out[y * W + x] = Math.min(1, f1)
+      out[y * W + x - xo] = Math.min(1, f1)
     }
   }
   return out
@@ -488,15 +497,15 @@ function evalBlobs(speed: number, scale: number, count: number, t: number, palet
 }
 
 // Plasma blended with fractal (simplex) noise for an organic flowing field.
-function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       let v = Math.sin(x * 0.2 + t * speed) + Math.sin(y * 0.25 + t * speed * 0.8) + Math.sin((x + y) * 0.15 + t * speed * 0.6)
       let amp = 1, freq = scale, fn = 0
       for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + t * speed * 0.1, y * freq); amp *= 0.5; freq *= 2 }
       v += fn * 2.5
-      out[y * W + x] = wrap01(v * 0.15)
+      out[y * W + x - xo] = wrap01(v * 0.15)
     }
   }
   return out
@@ -513,7 +522,7 @@ export const GENERATIVE_EVALUATORS: NodeEvaluators = {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H, normalizedSeed(props.seed))
+    const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true)
     return { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
   },
   Plasma({ num, pal, t, W, H }, id, props) {

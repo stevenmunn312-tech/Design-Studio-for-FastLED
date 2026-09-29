@@ -105,6 +105,7 @@ import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP, WORLEY_HASH_CPP } from './latticeHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
+import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
 import { TURING_HELPER_CPP } from './turingHelperCpp'
 import { pressSourceBounces } from '../state/pressSource'
@@ -892,6 +893,7 @@ export function generateCpp(
   const needsFourier = { v: false }
   const needsSymmetry = { v: false }
   const needsHueMix = { v: false }
+  const needsWrapX = { v: false }
   const needsFrameSample = { v: false }
   const needsDisplayText = { number: false, dateTime: false }
   const segmentDisplays: SegmentDisplayEmit[] = []
@@ -950,7 +952,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFourier, needsSymmetry, needsHueMix, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFourier, needsSymmetry, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     persistentFrameStateBufs, customDisplayOwners,
@@ -1414,6 +1416,11 @@ export function generateCpp(
 
   if (needsFourier.v) {
     lines.push(FOURIER_HELPER_CPP)
+    lines.push(``)
+  }
+
+  if (needsWrapX.v) {
+    lines.push(WRAP_X_HELPER_CPP)
     lines.push(``)
   }
 

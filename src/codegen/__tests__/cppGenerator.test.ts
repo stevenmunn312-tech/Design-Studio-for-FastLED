@@ -1360,6 +1360,28 @@ describe('generateCpp', () => {
     expect(emit('GradientFrame', 'hsvLong')).toContain('_hueMix(_gfA_gf, _gfB_gf, _t, true)')
   })
 
+  it('repeats a Noise or Field Noise block shifted and blended for wrapX, once-only helper', () => {
+    const emit = (type: string, cat: string, props: Record<string, unknown>) =>
+      generateCpp([node('n', type, cat, props), node('m', 'FieldToFrame', 'field', {}), outputNode], type === 'Noise'
+        ? [edge('e', 'n', 'out', 'frame', 'frame')]
+        : [edge('e1', 'n', 'm', 'field', 'field'), edge('e2', 'm', 'out', 'frame', 'frame')])
+    const plain = emit('FieldNoise', 'field', {})
+    expect(plain).not.toContain('_wrapXMix')
+    const wrapped = emit('FieldNoise', 'field', { wrapX: true })
+    expect(wrapped.match(/static inline float _wrapXMix\(/g)).toHaveLength(1)
+    expect(wrapped).toContain('inoise8((uint16_t)(_x*_freq),(uint16_t)(_y*_freq),_z)')
+    expect(wrapped).toContain('inoise8((uint16_t)((_x+WIDTH)*_freq),(uint16_t)(_y*_freq),_z)')
+    expect(wrapped).toContain('field_n[_y*WIDTH+_x]=_wrapXMix(field_n[_y*WIDTH+_x],constrain(_v/_norm,0.0f,1.0f),_x);')
+    expect(wrapped.match(/for\(int _y=0;_y<HEIGHT;_y\+\+\) for\(int _x=0;_x<WIDTH;_x\+\+\)/g)).toHaveLength(2)
+
+    for (const noiseType of ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine']) {
+      const cpp = emit('Noise', 'pattern', { noiseType, wrapX: true })
+      expect(cpp, noiseType).toContain('_wrapXMix(field_n[')
+      expect(cpp, noiseType).toContain('(_x+WIDTH)')
+      expect(emit('Noise', 'pattern', { noiseType }), noiseType).not.toContain('_wrapXMix')
+    }
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

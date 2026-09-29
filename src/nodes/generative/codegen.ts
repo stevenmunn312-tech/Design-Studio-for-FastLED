@@ -2,14 +2,19 @@ import { juggleDotCount, JUGGLE_COUNT } from '../../state/juggle'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp } from '../../codegen/cppLiterals'
+import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
 
 export const GENERATIVE_EMITTERS: NodeEmitters = {
   // Bundled noise node — `noiseType` picks the algorithm. Each variant
   // writes a raw scalar field, then the node maps that field through its
   // palette for the normal frame output. Keep the cases in sync with
   // PROPERTY_META.noiseType and the `Noise` case in graphEvaluator.
-  Noise({ node, p, ln, f, ownBuf, ownField, paletteExpr, needsWorley, needsT }) {
+  Noise({ node, p, ln: emitLine, f, ownBuf, ownField, paletteExpr, needsWorley, needsT, needsWrapX }) {
     needsT.v = true
+    // The variant is written as one block, then repeated shifted and blended
+    // when `wrapX` asks for a seamless left/right join (see wrapXHelperCpp.ts).
+    const block: string[] = []
+    const ln = (line: string) => { block.push(line) }
     const ob = ownBuf()
     const of = ownField()
     const noiseType = String(p.noiseType ?? 'field')
@@ -92,9 +97,15 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
         ln(`  }`)
         break
     }
+    if (p.wrapX === true) {
+      needsWrapX.v = true
+      for (const line of wrapXBlockLines(block, of)) emitLine(line)
+    } else {
+      for (const line of block) emitLine(line)
+    }
     // Mapped as Field → Frame maps it (the preview shares evalFieldToFrame):
     // held at the top, so the field's highest values keep the last colour.
-    ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
+    emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
   },
   Plasma({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true

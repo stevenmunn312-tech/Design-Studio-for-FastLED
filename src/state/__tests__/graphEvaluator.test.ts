@@ -69,6 +69,7 @@ import { samplePalette } from '../ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../hardwareInputStore'
 import { mixGradientColors } from '../hueMix'
+import { wrapXMix } from '../evaluator/wrapX'
 import { usePlayerTransport } from '../playerTransport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -2128,6 +2129,49 @@ describe('evaluateGraph', () => {
     // but constant down a column (no vertical component).
     expect(JSON.stringify(f[0][3])).toEqual(JSON.stringify(f[7][3]))
     expect(JSON.stringify(mk())).toEqual(JSON.stringify(f)) // deterministic
+  })
+
+  describe('wrapX on Noise and Field Noise', () => {
+    const W = 32, H = 8
+    const fieldOf = (type: string, cat: string, props: Record<string, unknown>) => {
+      const n = node('n', type, cat, props)
+      const out = evaluateGraphFull([n], [], 3, W, H).outputs.get('n')!
+      return Float32Array.from(out.field as Float32Array)
+    }
+    const seamGap = (field: Float32Array) => {
+      let seam = 0, inner = 0
+      for (let y = 0; y < H; y++) {
+        seam += Math.abs(field[y * W + W - 1] - field[y * W])
+        for (let x = 1; x < W; x++) inner += Math.abs(field[y * W + x] - field[y * W + x - 1]) / (W - 1)
+      }
+      return { seam: seam / H, inner: inner / H }
+    }
+
+    it('joins the edges of every Noise variant without a seam', () => {
+      for (const noiseType of ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine']) {
+        const wrapped = fieldOf('Noise', 'pattern', { noiseType, speed: 0.4, scale: 0.6, wrapX: true })
+        const { seam, inner } = seamGap(wrapped)
+        expect(seam, noiseType).toBeLessThanOrEqual(inner * 2 + 0.02)
+        expect(wrapped.every((v) => v >= 0 && v <= 1), noiseType).toBe(true)
+        // Off by default: the plain field is untouched.
+        expect(fieldOf('Noise', 'pattern', { noiseType, speed: 0.4, scale: 0.6, wrapX: false }))
+          .toEqual(fieldOf('Noise', 'pattern', { noiseType, speed: 0.4, scale: 0.6 }))
+        expect(wrapped, noiseType).not.toEqual(fieldOf('Noise', 'pattern', { noiseType, speed: 0.4, scale: 0.6 }))
+      }
+    })
+
+    it('joins Field Noise, whose plain field has a hard seam', () => {
+      const plain = fieldOf('FieldNoise', 'field', { speed: 0.4, scale: 0.6, octaves: 3 })
+      const wrapped = fieldOf('FieldNoise', 'field', { speed: 0.4, scale: 0.6, octaves: 3, wrapX: true })
+      expect(seamGap(wrapped).seam).toBeLessThanOrEqual(seamGap(wrapped).inner * 2 + 0.02)
+      expect(wrapped).not.toEqual(plain)
+    })
+
+    it('blends the shifted copy in fully at column 0 and the plain one at the far edge', () => {
+      expect(wrapXMix(0.2, 0.9, 0, 16)).toBeCloseTo(0.9, 6)
+      expect(wrapXMix(0.2, 0.9, 16, 16)).toBeCloseTo(0.2, 6)
+      expect(wrapXMix(0.5, 0.5, 7, 16)).toBeCloseTo(0.5, 6)
+    })
   })
 
   describe('gradient mixMode', () => {

@@ -605,7 +605,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'field', label: 'Field', dataType: 'field' },
     ],
-    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0 },
+    defaultProperties: { noiseType: 'field', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false },
   },
   {
     // `direction` rotates which edge sparks (the flame base) and which way heat
@@ -3183,7 +3183,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { octaves: 'octaves' },
 
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0 },
+    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0, wrapX: false },
   },
   {
     type: 'SliceTiling',
@@ -5942,6 +5942,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     channel.level,
     'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
   ])),
+  Noise: {
+    wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
+  },
+  FieldNoise: {
+    wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
+  },
   StepValue: {
     initial: 'Value used at preview start, board reboot and each Reset pulse.',
     minimum: 'Lowest runtime value. Decrease clamps here unless Wrap is enabled.',

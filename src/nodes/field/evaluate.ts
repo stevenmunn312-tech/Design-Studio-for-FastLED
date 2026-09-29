@@ -4,6 +4,7 @@ import type { Frame } from '../../state/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
+import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
@@ -121,18 +122,18 @@ export function evalTuringField(
 // Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
 // field instead of sampling it through a palette — the noise-driven Field
 // source, alongside FieldFormula's hand-written expressions.
-function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Field {
+function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, xo = 0): Field {
   const z = (t + seedOffset(seed, 0)) * speed * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+    for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 0.5, freq = scale, norm = 0
       for (let o = 0; o < oct; o++) {
         v += amp * _snoise2(x * freq + z, y * freq - z * 0.5)
         norm += amp; amp *= 0.5; freq *= 2
       }
-      out[y * W + x] = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
+      out[y * W + x - xo] = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
     }
   }
   return out
@@ -657,7 +658,10 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FieldNoise)
     const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
     const octaves = num(id, 'octaves', props, 'octaves', 4)
-    return { field: evalFieldNoise(speed, scale, octaves, t, W, H, normalizedSeed(props.seed)) }
+    const seed = normalizedSeed(props.seed)
+    const field = evalFieldNoise(speed, scale, octaves, t, W, H, seed)
+    // Seamless left/right join: see state/evaluator/wrapX.ts.
+    return { field: props.wrapX === true ? wrapXBlend(field, evalFieldNoise(speed, scale, octaves, t, W, H, seed, W), W, H) : field }
   },
   SliceTiling({ num, t, W, H }, id, props) {
     return evalSliceTiling(

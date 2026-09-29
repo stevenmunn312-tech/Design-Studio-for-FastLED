@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Noise and Field Noise gain Wrap X, which joins the left and right edges
+  without a seam for an LED ring or corkscrew canvas. It blends the field with a
+  copy of itself shifted one canvas width, keeping contrast, at the cost of a
+  second noise pass per pixel.
 - Gradient Frame and Gradient Sampler gain a Mix Mode: `rgb` (the default, so
   every saved graph is unchanged), or `hsvShort` and `hsvLong`, which travel round
   the hue wheel the short or the long way like FastLED's `SHORTEST_HUES` and
