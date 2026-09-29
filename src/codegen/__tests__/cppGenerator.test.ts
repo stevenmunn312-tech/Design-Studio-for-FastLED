@@ -346,6 +346,32 @@ describe('generateCpp', () => {
     expect(at('FastLED.setTemperature(Tungsten100W);')).toBeLessThan(at('FastLED.setDither(DISABLE_DITHER);'))
   })
 
+  it('renders at half resolution and upscales into the panel when renderScale is 1/2', () => {
+    const out = node('out', 'MatrixOutput', 'output', { form: 'matrix', width: 15, height: 9, renderScale: '1/2' })
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const cpp = generateCpp([sc, out], [edge('e1', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('#define PANEL_W  15')
+    expect(cpp).toContain('#define WIDTH    8')
+    expect(cpp).toContain('#define HEIGHT   5')
+    expect(cpp).toContain('CRGB leds[PANEL_LEDS];')
+    expect(cpp).toContain('for (int _y = 0; _y < PANEL_H; _y++) {')
+    expect(cpp).toContain('leds[_y * PANEL_W + _x] = _c;')
+    expect(cpp).not.toContain('#define SS ')
+  })
+
+  it('leaves the sketch unchanged at renderScale 1, and lets supersample win over 1/2', () => {
+    const base = generateCpp([node('a', 'MatrixOutput', 'output', { width: 16, height: 16 })], [])
+    const explicit = generateCpp([node('a', 'MatrixOutput', 'output', { width: 16, height: 16, renderScale: '1' })], [])
+    expect(explicit).toBe(base)
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const both = generateCpp(
+      [sc, node('out', 'MatrixOutput', 'output', { width: 16, height: 16, renderScale: '1/2', supersample: true })],
+      [edge('e1', 'sc', 'out', 'frame', 'frame')],
+    )
+    expect(both).toContain('#define SS ')
+    expect(both).not.toContain('_sy = constrain(')
+  })
+
   it('emits no setTemperature by default, and drops an unknown white point', () => {
     expect(generateCpp([node('a', 'MatrixOutput', 'output', {})], [])).not.toContain('setTemperature')
     const bad = node('b', 'MatrixOutput', 'output', { whitePoint: 'Bogus); system("rm"' })

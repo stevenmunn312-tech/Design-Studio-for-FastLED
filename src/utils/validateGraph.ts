@@ -22,6 +22,7 @@ import { isNodeFormulaValid } from '../state/formulaLang'
 import { isValidRtcDateTime } from '../state/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/outputRouting'
+import { renderScaleHalf } from '../state/renderScale'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
@@ -709,7 +710,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     if (outputs.length !== 1) return null
     const output = outputs[0]
     const p = output.data.properties as Record<string, unknown>
-    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true) return null
+    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p)) return null
     if (String(p.chipset ?? '') === 'HUB75') return null
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')

@@ -228,6 +228,44 @@ describe('routing per LED output form', () => {
     ]])
   })
 
+  it('renders a half-resolution matrix on a canvas halved and rounded up', () => {
+    const nodes = [output('a', { form: 'matrix', width: 15, height: 9, renderScale: '1/2' })]
+    const [route] = outputRoutes(nodes)
+    expect(route.renderScale).toBe(0.5)
+    expect(compositionDims(nodes)).toEqual({ w: 8, h: 5 })
+    expect(outputRenderPasses(nodes, [{ source: 'p', target: 'a', targetHandle: 'frame' }])[0].key).toBe('8x5')
+  })
+
+  it('ignores render scale on a chain, on HUB75, on a shared canvas, and next to supersample', () => {
+    const scale = (props: Record<string, unknown>) =>
+      outputRoutes([output('a', { width: 16, height: 16, renderScale: '1/2', ...props })])[0].renderScale
+    expect(scale({ form: 'strip', ledCount: 30 })).toBe(1)
+    expect(scale({ form: 'ring', ledCount: 24 })).toBe(1)
+    expect(scale({ form: 'hub75' })).toBe(1)
+    expect(scale({ routeMode: 'fit' })).toBe(1)
+    expect(scale({ supersample: true })).toBe(1)
+    expect(outputRoutes([output('a', { width: 16, height: 16, renderScale: '1/2', supersample: true })])[0].supersample).toBe(2)
+  })
+
+  it('upscales a half-resolution frame bilinearly and keeps flat colour, corners and order', () => {
+    const [route] = outputRoutes([output('a', { form: 'matrix', width: 8, height: 4, renderScale: '1/2' })])
+    const px = (r: number) => ({ r, g: r, b: r })
+    const flat = [[px(90), px(90), px(90), px(90)], [px(90), px(90), px(90), px(90)]]
+    const flatOut = routeFrame(flat, route, 4, 2)!
+    expect(flatOut.flat().every((p) => Math.abs(p.r - 90) < 1e-9)).toBe(true)
+
+    const ramp = [[px(0), px(100), px(200), px(255)], [px(0), px(100), px(200), px(255)]]
+    const out = routeFrame(ramp, route, 4, 2)!
+    expect(out).toHaveLength(4)
+    expect(out[0]).toHaveLength(8)
+    expect(out[0][0].r).toBeCloseTo(0, 6)
+    expect(out[0][7].r).toBeCloseTo(255, 6)
+    for (let x = 1; x < 8; x++) expect(out[1][x].r).toBeGreaterThanOrEqual(out[1][x - 1].r)
+    // An interior pixel sits strictly between its neighbours' source values.
+    expect(out[1][3].r).toBeGreaterThan(100)
+    expect(out[1][3].r).toBeLessThan(200)
+  })
+
   it('ignores supersampling on a chain but honours an explicit shared-canvas crop', () => {
     const route = outputRoutes([output('s', {
       form: 'strip', ledCount: 30, supersample: true, routeMode: 'crop', routeX: 5,

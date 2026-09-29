@@ -26,6 +26,7 @@ import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
+import { RENDER_SCALE_OPTIONS } from './renderScale'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './pixelDataExtender'
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './powerConverter'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
@@ -3844,6 +3845,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // down to one physical LED (FastLED-style downscale) — antialiases moving
       // shapes on small panels at ~4× the render cost. Preview + normal sketch.
       supersample: false,
+      // Render at half the panel resolution and upscale bilinearly into the
+      // LEDs ('1' = full resolution). Matrix panels only; excludes supersample.
+      renderScale: '1',
       // FastLED.setCorrection colour-correction profile ('none' = uncorrected).
       correction: 'none',
       // FastLED.setTemperature white point ('none' = uncorrected).
@@ -5178,6 +5182,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
   correction: { control: 'select', options: CORRECTION_OPTIONS },
   whitePoint: { control: 'select', options: WHITE_POINT_OPTIONS },
+  renderScale: { control: 'select', options: RENDER_SCALE_OPTIONS },
   overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
   hub75R1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   hub75G1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6192,6 +6197,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
+  renderScale: 'Render the graph at half the panel resolution and upscale it smoothly onto the LEDs. It quarters the render cost and memory on a large panel, and the picture is softer. Turn off Supersample first: the two cannot combine.',
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
   dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
   correction: "Colour-temperature compensation for the physical LEDs (FastLED.setCorrection) — doesn't change the live preview.",
@@ -6817,7 +6823,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
-    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'whitePoint', 'dither'] },
+    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
     // No 'brightness' here: master brightness is the Board's, on FastLED's
     // native 0-255. The output's own normalised runtime dimmer has the distinct
     // `outputBrightness` property, so the two scales cannot share one name.
@@ -7607,7 +7613,10 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     }
     // Supersampling averages an SS x SS block down to one LED, and panel/custom
     // wiring orders describe a grid — neither means anything on a single chain.
-    if (key === 'supersample') return !linear
+    if (key === 'supersample') return !linear && properties.renderScale !== '1/2'
+    // Half-resolution render is a matrix-panel feature: a chain has no second
+    // axis, HUB75 does not resample, and it cannot combine with supersample.
+    if (key === 'renderScale') return form === 'matrix' && properties.supersample !== true
     if (key === 'layout') return !linear
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return !linear && properties.layout === 'panels'

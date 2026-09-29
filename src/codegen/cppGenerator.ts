@@ -80,6 +80,7 @@ import {
   leadingOutputRoutes,
 } from '../state/outputRouting'
 import { outputForm, isLinearForm, outputCanvasDims, outputLedTotal } from '../state/ledOutputForm'
+import { halfDim, renderScaleHalf } from '../state/renderScale'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import {
@@ -479,11 +480,16 @@ export function generateCpp(
   const width      = multipleOutputs ? (nativeMultiRender ? largestRenderPass.width : composition.w) : singleCanvas.width
   const height     = multipleOutputs ? (nativeMultiRender ? largestRenderPass.height : composition.h) : singleCanvas.height
   const expressionScale = !multipleOutputs && !singleLinear && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
+  // Half-resolution render: the graph runs on a canvas half the panel's size
+  // and the blit upscales it (src/state/renderScale.ts).
+  const rs = !multipleOutputs && !!outputNode && renderScaleHalf(rawProps(outputNode))
+  const renderW = rs ? halfDim(width) : width * expressionScale
+  const renderH = rs ? halfDim(height) : height * expressionScale
   const props = (n: StudioNode) => resolveNodeScalarExpressions(
     n.data.nodeType as string,
     rawProps(n),
-    width * expressionScale,
-    height * expressionScale,
+    renderW,
+    renderH,
   )
   const dataPin    = sanitizePin(outputNode ? props(outputNode).dataPin : undefined, 5)
   // Chipset, colour order, master brightness, correction, dithering, overclock
@@ -524,8 +530,11 @@ export function generateCpp(
   const corkscrewMap = isCorkscrew && outputNode
     ? corkscrewMapFor(outputRoutes([outputNode])[0], width, height)
     : null
-  const physLeds = isRing ? 'RING_LEDS' : isCorkscrew ? 'CORKSCREW_LEDS' : ss ? 'PANEL_LEDS' : 'NUM_LEDS'
-  const panelW = ss ? 'PANEL_W' : 'WIDTH'
+  // Supersampling and a half-resolution render both render on a grid that is
+  // not the panel, so the physical array and XY() follow the PANEL_* macros.
+  const split = ss || rs
+  const physLeds = isRing ? 'RING_LEDS' : isCorkscrew ? 'CORKSCREW_LEDS' : split ? 'PANEL_LEDS' : 'NUM_LEDS'
+  const panelW = split ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
   // Every physical run, mirrors included — a parallel panel is a second panel
@@ -642,7 +651,7 @@ export function generateCpp(
    */
   const aliasedTerminalId: string | null = (() => {
     if (opts.aliasTerminalBuffer === false) return null
-    if (multipleOutputs || isHub75 || ringMap || ss || xyTable) return null
+    if (multipleOutputs || isHub75 || ringMap || split || xyTable) return null
     if (!outputNode) return null
     const up = incoming.get(`${outputNode.id}:frame`)
     if (!up || up.srcPort !== 'frame') return null
@@ -950,7 +959,7 @@ export function generateCpp(
   // Everything a node's emitter may read or collect into, built once.
   const sketch: SketchEmitContext = {
     nodes, edges, opts, bootTitle, bootDevice, incoming, nodeMap, isMirrorOf, multipleOutputs, intProp,
-    nativeMultiRender, width, height, props, hw, isHub75, hub75Hw, xyTable, ss, ringMap, corkscrewMap,
+    nativeMultiRender, width, height, props, hw, isHub75, hub75Hw, xyTable, ss, rs, ringMap, corkscrewMap,
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
@@ -1247,6 +1256,13 @@ export function generateCpp(
     lines.push(`#define PANEL_LEDS (PANEL_W * PANEL_H)   // physical LED count`)
     lines.push(`#define WIDTH    (PANEL_W * SS)`)
     lines.push(`#define HEIGHT   (PANEL_H * SS)`)
+    lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)        // render-buffer resolution`)
+  } else if (rs) {
+    lines.push(`#define PANEL_W  ${width}`)
+    lines.push(`#define PANEL_H  ${height}`)
+    lines.push(`#define PANEL_LEDS (PANEL_W * PANEL_H)   // physical LED count`)
+    lines.push(`#define WIDTH    ${renderW}             // render size: half the panel, upscaled at the output`)
+    lines.push(`#define HEIGHT   ${renderH}`)
     lines.push(`#define NUM_LEDS (WIDTH * HEIGHT)        // render-buffer resolution`)
   } else {
     lines.push(`#define WIDTH    ${width}`)
@@ -1685,7 +1701,7 @@ export function generateCpp(
   } else if (isHub75) {
     lines.push(...hub75SetupCpp(hub75Hw!))
   } else if (outputNode) {
-    lines.push(...fastledSetupCpp(hw, (ss || ringMap || corkscrewMap) ? { ledCountMacro: physLeds } : {}))
+    lines.push(...fastledSetupCpp(hw, (split || ringMap || corkscrewMap) ? { ledCountMacro: physLeds } : {}))
   }
   for (const meter of stereoVuMeters) {
     const meterHw = ledHardwareFromProps(meter.properties)

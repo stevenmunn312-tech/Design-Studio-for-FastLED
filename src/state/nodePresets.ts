@@ -54,6 +54,7 @@ const BLOCKED_KEYS = new Set([
   'previewHidden',
   'psramMode',
   'psramPolicy',
+  'renderScale',
   'pullup',
   'sdCsPin',
   'serialDebug',

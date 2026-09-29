@@ -101,6 +101,8 @@ export interface SketchEmitContext {
   hub75Hw: Hub75Hardware | null
   xyTable: number[] | null
   ss: boolean
+  /** Half-resolution render upscaled into the panel (matrix, single output). */
+  rs: boolean
   ringMap: number[] | null
   corkscrewMap: number[] | null
   physLeds: 'RING_LEDS' | 'CORKSCREW_LEDS' | 'PANEL_LEDS' | 'NUM_LEDS'

@@ -7,6 +7,7 @@ import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { micModuleFor, MIC_MODULES } from '../state/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/ledOutputForm'
+import { renderScaleHalf } from '../state/renderScale'
 
 export type HardwareValidationAction =
   | 'normal-upload'
@@ -64,6 +65,8 @@ export interface HardwareValidationProfile {
     brightness: number
     correction: string
     whitePoint?: string
+    /** Present only for a half-resolution render, so unset configuration keys hold. */
+    renderScale?: string
     dither: boolean
     overclock: number
     powerLimit: boolean
@@ -295,6 +298,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   if (!isLinearForm(form) && layout === 'custom') features.push('Custom XY map')
   if (matrixProps.usePsram === true) features.push(`PSRAM (${String(matrixProps.psramMode ?? 'default')})`)
   if (!isLinearForm(form) && matrixProps.supersample === true) features.push('2× supersampling')
+  if (renderScaleHalf(matrixProps)) features.push('Half-resolution render')
   const micNode = nodes.find((node) => nodeType(node) === 'MicInput')
   if (micNode) features.push(micFeatureLabel((micNode.data.properties as Record<string, unknown>).partId))
   if (nodes.some((node) => nodeType(node) === 'LineInput')) features.push('PCM1802/on-device line input')
@@ -575,6 +579,7 @@ export function buildHardwareValidationProfile(options: {
       brightness: controllerSettingsValue.brightness,
       correction: String(p.correction ?? 'none'),
       // Omitted when unset so existing configuration keys stay valid.
+      ...(renderScaleHalf(p) ? { renderScale: '1/2' } : {}),
       ...(p.whitePoint && p.whitePoint !== 'none' ? { whitePoint: String(p.whitePoint) } : {}),
       dither: p.dither !== false,
       overclock: controllerSettingsValue.overclock,

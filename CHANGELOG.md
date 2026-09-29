@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The LED output gains a Render scale setting (Rendering group) for matrix
+  panels: `1/2` renders the graph at half the panel's resolution and upscales it
+  smoothly onto the LEDs, a quarter of the render cost and memory on a large
+  panel with a softer picture. It cannot combine with Supersample, and the
+  live preview shows the same upscale.
 - The LED output gains a White point setting (Rendering group): pick the colour
   temperature the LEDs treat as white, such as Tungsten100W for a warmer white.
   It is emitted as `FastLED.setTemperature` in normal, show, player and stream

@@ -448,10 +448,16 @@ pattern nodes. They are listed here so the order is in one place, and executed
 through step 11 of the
 [hardware expansion roadmap](hardware-expansion-roadmap.md#suggested-implementation-order).
 
-- [ ] **Render scale.** A per-output `renderScale` select `['1', '1/2']` that
-      renders the graph at half resolution and upscales bilinearly, the
-      counterpart of the existing `supersample` (FastLED's `scale_up`); the two
-      are mutually exclusive, and the capacity verdict prices the render size.
+- [x] **Render scale.** A per-output `renderScale` select `['1', '1/2']` that
+      renders the graph at half resolution (rounded up, so a 15×9 panel renders
+      8×5) and upscales bilinearly, the counterpart of `supersample`. Matrix
+      panels on native routes only; a chain, HUB75 and a shared canvas ignore
+      it, and `supersample` wins if a node holds both. The preview's
+      `routeFrame` and the sketch share one tap rule (`state/renderScale.ts`),
+      and the capacity verdict prices the render size because
+      `compositionDims` reads it. Show and player sketches do not resample,
+      exactly as with supersample. Compiled on classic ESP32, see the
+      [compile record](../pattern-node-compile-checks.md).
 - [ ] **Positioned string layouts.** A `positions` layout for strings: one
       `(x, y)` in canvas units per LED, sampled bilinearly and emitted as a
       PROGMEM table like `ringMap`, with the Sailboat catenary as a preset; the

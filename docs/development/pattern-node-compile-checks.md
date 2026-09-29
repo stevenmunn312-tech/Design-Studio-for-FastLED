@@ -312,3 +312,15 @@ and cost nothing when no node uses them; the rest is the Pitch helper's 3 KB of
 sample and autocorrelation buffers, the Waveform buffers and the node code. The
 per-detector rows above each include the whole audio engine, so they are not
 additive.
+
+## Phase 11, output settings
+
+A 33×17 serpentine matrix (Noise → Field → Frame) with Render scale `1/2`,
+White point `Tungsten100W` and `TypicalLEDStrip` correction, so the half-size
+render (17×9), the bilinear upscale into the XY-mapped panel and
+`setTemperature` are all in one sketch. Compiled on Windows 11 on 30 September
+2026, classic ESP32 (`esp32:esp32:esp32`, core 3.3.11, FastLED 3.10.5): pass,
+398,007 bytes of flash (30% of the 1,310,720-byte default partition), 30,596
+bytes of RAM (9%). Generated source: 5,408 bytes, SHA-256
+`220acd12aa33ac5bd686754a9cd7767b3956f413cd940df8df5269f98d36a278`. ESP8266 was
+not built: the node adds no static float arrays.

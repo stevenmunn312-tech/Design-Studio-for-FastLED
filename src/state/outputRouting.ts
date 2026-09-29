@@ -19,6 +19,7 @@ import {
   type CorkscrewDirection,
   type RingDirection,
 } from './ledOutputForm'
+import { halfDim, renderScaleHalf, upscaleTap } from './renderScale'
 
 export type OutputRouteMode = 'native' | 'fit' | 'crop'
 
@@ -36,6 +37,9 @@ export interface OutputRoute {
   canvasW: number
   canvasH: number
   supersample: number
+  /** 0.5 when a native matrix route renders at half resolution and upscales;
+   *  1 otherwise. Never combined with supersample. */
+  renderScale: 1 | 0.5
   /** The GPIO this run's data line is on. Two runs on the same pin, fed the
    *  same frame, are wired in parallel — see `outputMirrorLeaders`. */
   dataPin: number
@@ -112,6 +116,13 @@ export function corkscrewMapFor(route: OutputRoute, canvasW: number, canvasH: nu
   return map
 }
 
+/** The grid this route's graph renders on: its canvas, times the supersample
+ *  factor, or halved for a half-resolution render. */
+export function routeRenderDims(route: OutputRoute): { w: number; h: number } {
+  if (route.renderScale < 1) return { w: halfDim(route.canvasW), h: halfDim(route.canvasH) }
+  return { w: route.canvasW * route.supersample, h: route.canvasH * route.supersample }
+}
+
 function int(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Math.round(Number(value))
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
@@ -128,6 +139,9 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
       const linear = isLinearForm(form)
       const grid = outputGridDims(props)
       const canvas = outputCanvasDims(props)
+      const routeMode: OutputRouteMode = props.routeMode === 'fit' || props.routeMode === 'crop'
+        ? props.routeMode
+        : 'native'
       return {
         node,
         id: node.id,
@@ -141,9 +155,8 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
         // by default; explicit fit/crop opt it into a shared composition.
         dataPin: int(props.dataPin, 5, 0, 255),
         supersample: linear ? 1 : props.supersample === true ? 2 : 1,
-        routeMode: props.routeMode === 'fit' || props.routeMode === 'crop'
-          ? props.routeMode
-          : 'native',
+        routeMode,
+        renderScale: routeMode === 'native' && renderScaleHalf(props) ? 0.5 : 1,
         routeX: int(props.routeX, 0, 0, 63),
         routeY: int(props.routeY, 0, 0, 63),
         ring: form === 'ring'
@@ -267,8 +280,8 @@ export function compositionDims(nodes: StudioNode[], edges?: FrameFeedEdge[]): {
   const shared = candidates.filter((route) => route.routeMode !== 'native')
   const sizing = shared.length > 0 ? shared : candidates
   return {
-    w: Math.max(...sizing.map((route) => route.canvasW * route.supersample)),
-    h: Math.max(...sizing.map((route) => route.canvasH * route.supersample)),
+    w: Math.max(...sizing.map((route) => routeRenderDims(route).w)),
+    h: Math.max(...sizing.map((route) => routeRenderDims(route).h)),
   }
 }
 
@@ -297,12 +310,9 @@ export function outputRenderPasses(
   const plannedRoutes = connected.length > 0 ? connected : routes
   const passes = new Map<string, OutputRenderPass>()
   for (const route of plannedRoutes) {
-    const width = route.routeMode === 'native'
-      ? route.canvasW * route.supersample
-      : shared.w
-    const height = route.routeMode === 'native'
-      ? route.canvasH * route.supersample
-      : shared.h
+    const own = routeRenderDims(route)
+    const width = route.routeMode === 'native' ? own.w : shared.w
+    const height = route.routeMode === 'native' ? own.h : shared.h
     const key = `${width}x${height}`
     const pass = passes.get(key)
     if (pass) pass.routes.push(route)
@@ -337,8 +347,9 @@ export function outputRenderPassFor(
   route: OutputRoute,
   passes: readonly OutputRenderPass[],
 ): OutputRenderPass {
+  const own = routeRenderDims(route)
   return passes.find((pass) => pass.routes.some((candidate) => candidate.id === route.id))
-    ?? { key: `${route.canvasW * route.supersample}x${route.canvasH * route.supersample}`, width: route.canvasW * route.supersample, height: route.canvasH * route.supersample, routes: [route] }
+    ?? { key: `${own.w}x${own.h}`, width: own.w, height: own.h, routes: [route] }
 }
 
 /** Map a logical composition frame into one output's local grid. `fit` scales
@@ -367,6 +378,29 @@ export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW
       const index = shapeMap[i] ?? 0
       const src = frame[Math.floor(index / stride)]?.[index % stride]
       px.r = src?.r ?? 0; px.g = src?.g ?? 0; px.b = src?.b ?? 0
+    }
+    return out
+  }
+  if (route.renderScale < 1) {
+    // Half-resolution render: interpolate the small frame up to the panel.
+    const srcW = Math.max(1, compositionW)
+    const srcH = Math.max(1, compositionH)
+    for (let y = 0; y < route.height; y++) {
+      const orow = out[y]
+      const ty = upscaleTap(y, srcH, route.height)
+      const r0 = frame[ty.i0]
+      const r1 = frame[ty.i1]
+      for (let x = 0; x < route.width; x++) {
+        const tx = upscaleTap(x, srcW, route.width)
+        const a = r0?.[tx.i0], b = r0?.[tx.i1], c = r1?.[tx.i0], d = r1?.[tx.i1]
+        const px = orow[x]
+        const mix = (ch: 'r' | 'g' | 'b') => {
+          const top = (a?.[ch] ?? 0) * (1 - tx.f) + (b?.[ch] ?? 0) * tx.f
+          const bottom = (c?.[ch] ?? 0) * (1 - tx.f) + (d?.[ch] ?? 0) * tx.f
+          return top * (1 - ty.f) + bottom * ty.f
+        }
+        px.r = mix('r'); px.g = mix('g'); px.b = mix('b')
+      }
     }
     return out
   }
