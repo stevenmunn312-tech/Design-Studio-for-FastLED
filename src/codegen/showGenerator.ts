@@ -27,6 +27,7 @@ import { TURING_HELPER_CPP } from './turingHelperCpp'
 import { FOURIER_HELPER_CPP } from './fourierHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
+import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
 import { buildXYTable } from '../state/xyLayout'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -200,6 +201,7 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   turing: TURING_HELPER_CPP,
   fourier: FOURIER_HELPER_CPP,
   symmetry: SYMMETRY_HELPER_CPP,
+  hueMix: HUE_MIX_HELPER_CPP,
   frameSample: FRAME_SAMPLE_HELPER_CPP,
 }
 

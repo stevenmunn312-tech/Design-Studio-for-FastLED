@@ -17,6 +17,7 @@ import {
   nblendPaletteBytes,
 } from '../../state/paletteBank'
 import { displayString } from '../../state/displayText'
+import { gradientMixMode, mixGradientColors } from '../../state/hueMix'
 import { harmonyKind, harmonyStops16 } from '../../state/harmonyPalette'
 import { imagePaletteStops16 } from '../../state/imagePalette'
 import { hexToRgb, polinePalette } from '../../state/polinePalette'
@@ -150,7 +151,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'gB', props, 'gB', 0) / 255),
       b: byte(num(id, 'bB', props, 'bB', 255) / 255),
     }
-    return { color: { r: Math.round(cA.r*(1-tt)+cB.r*tt), g: Math.round(cA.g*(1-tt)+cB.g*tt), b: Math.round(cA.b*(1-tt)+cB.b*tt) } }
+    return { color: mixGradientColors(cA, cB, tt, gradientMixMode(props.mixMode)) }
   },
   PaletteSampler({ num, pal }, id, props) {
     const tt = num(id, 't', props, 't', 0)

@@ -135,6 +135,7 @@ export interface SketchEmitContext {
   needsTuring: Need
   needsFourier: Need
   needsSymmetry: Need
+  needsHueMix: Need
   needsFrameSample: Need
   needsDisplayText: { number: boolean; dateTime: boolean }
   segmentDisplays: SegmentDisplayEmit[]

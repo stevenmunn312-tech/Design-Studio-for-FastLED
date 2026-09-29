@@ -27,6 +27,7 @@ import {
   splatDisc,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
+import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/hueMix'
 import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 
@@ -453,11 +454,8 @@ function textAlignedStart(value: number, size: number, lengthPx: number, align: 
   return align === 'end' ? edge - lengthPx : edge
 }
 
-function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => {
-      const t = vertical ? y / (H - 1) : x / (W - 1)
-      return { r: Math.round(cA.r * (1-t) + cB.r * t), g: Math.round(cA.g * (1-t) + cB.g * t), b: Math.round(cA.b * (1-t) + cB.b * t) }
-    })
+function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, mode: GradientMixMode, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  return buildFrame(W, H, (x, y) => mixGradientColors(cA, cB, vertical ? y / (H - 1) : x / (W - 1), mode))
 }
 
 // Angled palette gradient: project each pixel onto a direction set by `angle`,
@@ -808,7 +806,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'gB', props, 'gB', 0) / 255),
       b: byte(num(id, 'bB', props, 'bB', 255) / 255),
     }
-    return { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), W, H) }
+    return { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), gradientMixMode(props.mixMode), W, H) }
   },
   PaletteGradient({ num, pal, t, W, H }, id, props) {
     const angle   = num(id, 'angle', props, 'angle', 45)

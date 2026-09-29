@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Gradient Frame and Gradient Sampler gain a Mix Mode: `rgb` (the default, so
+  every saved graph is unchanged), or `hsvShort` and `hsvLong`, which travel round
+  the hue wheel the short or the long way like FastLED's `SHORTEST_HUES` and
+  `LONGEST_HUES`. The sketch uses `blend` on `CHSV`, so it matches the preview
+  to a count or two.
 - Polar Gradient sweeps a palette around the canvas centre by angle, by radius,
   or a spiral of both, with spin and radial scroll over time. Repeat rounds to
   whole turns, so the angular sweep has no seam and reads as a wheel on an LED

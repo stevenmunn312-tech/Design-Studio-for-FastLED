@@ -39,6 +39,7 @@ import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOpt
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
 import { HARMONY_KINDS } from './harmonyPalette'
+import { GRADIENT_MIX_MODES } from './hueMix'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -1782,7 +1783,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, vertical: false },
+    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, vertical: false, mixMode: 'rgb' },
   },
   {
     type: 'GradientSampler',
@@ -1804,7 +1805,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
     },
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
-    defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255 },
+    defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, mixMode: 'rgb' },
   },
   {
     type: 'PaletteSampler',
@@ -5432,6 +5433,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     visualRange: { control: 'slider', min: 1, max: 8, step: 0.5 },
     colorMode:   { control: 'select', options: ['solid', 'palette', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
   },
+  GradientFrame: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
+  GradientSampler: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
   PaletteGradient: { speed: N01 },
   HarmonyPalette: {
     hue: { control: 'slider', min: 0, max: 360, step: 1 },
@@ -6096,6 +6099,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     persistence: 'How much of the trail survives each frame. 1 never fades.',
     showCircles: 'Draw the rotating circles as dim guides.',
     showPen: 'Draw a brighter dot where the pen is.',
+  },
+  GradientFrame: {
+    mixMode: 'How the ends blend: straight through RGB, or round the hue wheel the short or long way.',
+  },
+  GradientSampler: {
+    mixMode: 'How the ends blend: straight through RGB, or round the hue wheel the short or long way.',
   },
   TuringField: {
     speed: 'Simulation iterations per frame, 1–4. Each one costs two box blurs per scale.',

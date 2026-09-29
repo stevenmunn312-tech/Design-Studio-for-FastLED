@@ -1345,6 +1345,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
   })
 
+  it('keeps the rgb gradient emission and adds the hue helper only for hue modes', () => {
+    const emit = (type: string, mixMode?: string) => {
+      const g = node('gf', type, 'pattern', mixMode ? { mixMode } : {})
+      return generateCpp([g, outputNode], [edge('e', 'gf', 'out', 'frame', 'frame')])
+    }
+    const plain = emit('GradientFrame')
+    expect(plain).toContain('(uint8_t)(_gfA_gf.r*(1-_t)+_gfB_gf.r*_t+0.5f)')
+    expect(plain).not.toContain('_hueMix')
+    const short = emit('GradientFrame', 'hsvShort')
+    expect(short).toContain('=_hueMix(_gfA_gf, _gfB_gf, _t, false);')
+    expect(short.match(/static inline CRGB _hueMix\(/g)).toHaveLength(1)
+    expect(short).toContain('LONGEST_HUES:SHORTEST_HUES')
+    expect(emit('GradientFrame', 'hsvLong')).toContain('_hueMix(_gfA_gf, _gfB_gf, _t, true)')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

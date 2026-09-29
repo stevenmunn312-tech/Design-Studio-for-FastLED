@@ -68,6 +68,7 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useHardwareInputStore } from '../hardwareInputStore'
+import { mixGradientColors } from '../hueMix'
 import { usePlayerTransport } from '../playerTransport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -2127,6 +2128,41 @@ describe('evaluateGraph', () => {
     // but constant down a column (no vertical component).
     expect(JSON.stringify(f[0][3])).toEqual(JSON.stringify(f[7][3]))
     expect(JSON.stringify(mk())).toEqual(JSON.stringify(f)) // deterministic
+  })
+
+  describe('gradient mixMode', () => {
+    const red = { r: 255, g: 0, b: 0 }, blue = { r: 0, g: 0, b: 255 }
+    const frame = (type: string, props: Record<string, unknown>) => {
+      const g = node('g', type, 'pattern', { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255, ...props })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return JSON.parse(JSON.stringify(evaluateGraph([g, out], [edge('e', 'g', 'frame', 'out', 'frame')], 0, 9, 1)!))
+    }
+
+    it('rgb is byte-identical to the historical linear mix, in and out of range', () => {
+      for (const t of [-0.5, 0, 0.13, 0.5, 0.987, 1, 1.5]) {
+        expect(mixGradientColors(red, blue, t, 'rgb')).toEqual({
+          r: Math.round(255 * (1 - t)), g: 0, b: Math.round(255 * t),
+        })
+      }
+      expect(frame('GradientFrame', {})).toEqual(frame('GradientFrame', { mixMode: 'rgb' }))
+      expect(frame('GradientFrame', { mixMode: 'nonsense' })).toEqual(frame('GradientFrame', {}))
+    })
+
+    it('hsvShort and hsvLong take opposite ways round the wheel', () => {
+      // red (0°) to blue (240°): short way is through magenta, long way through green.
+      const short = mixGradientColors(red, blue, 0.5, 'hsvShort')
+      const long = mixGradientColors(red, blue, 0.5, 'hsvLong')
+      expect(short.g).toBeLessThan(short.r)
+      expect(long.g).toBeGreaterThan(long.r)
+      expect(long.g).toBeGreaterThan(long.b)
+      for (const mode of ['hsvShort', 'hsvLong'] as const) {
+        expect(mixGradientColors(red, blue, 0, mode)).toEqual(red)
+        expect(mixGradientColors(red, blue, 1, mode)).toEqual(blue)
+        expect(mixGradientColors(red, blue, 4, mode)).toEqual(blue)
+      }
+      expect(frame('GradientFrame', { mixMode: 'hsvShort' })).not.toEqual(frame('GradientFrame', {}))
+      expect(frame('GradientFrame', { mixMode: 'hsvShort' })).not.toEqual(frame('GradientFrame', { mixMode: 'hsvLong' }))
+    })
   })
 
   describe('Polar Gradient and Harmony Palette', () => {

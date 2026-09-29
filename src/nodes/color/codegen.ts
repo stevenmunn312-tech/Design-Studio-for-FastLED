@@ -1,5 +1,6 @@
 import { asAnimatedImage, asImage } from '../../state/image'
 import { imagePaletteStops16 } from '../../state/imagePalette'
+import { gradientMixMode } from '../../state/hueMix'
 import { HARMONY_OFFSETS, harmonyKind } from '../../state/harmonyPalette'
 import { hexToRgb, polineStops16 } from '../../state/polinePalette'
 import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
@@ -44,11 +45,17 @@ export const COLOR_EMITTERS: NodeEmitters = {
     const mix = f('t', 't', 0.5)
     ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, (uint8_t)((${mix}) * 255));`)
   },
-  GradientSampler({ id, ln, v, f, channelColor, gradientChannel }) {
+  GradientSampler({ id, p, ln, v, f, channelColor, gradientChannel, needsHueMix }) {
     const tt = `(${f('t', 't', 0)})`
     const cA = `_gsA_${id}`, cB = `_gsB_${id}`
     ln(`  CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
-    ln(`  CRGB ${v('color')} = CRGB(${gradientChannel(cA, cB, 'r', tt)},${gradientChannel(cA, cB, 'g', tt)},${gradientChannel(cA, cB, 'b', tt)});`)
+    const mode = gradientMixMode(p.mixMode)
+    if (mode === 'rgb') {
+      ln(`  CRGB ${v('color')} = CRGB(${gradientChannel(cA, cB, 'r', tt)},${gradientChannel(cA, cB, 'g', tt)},${gradientChannel(cA, cB, 'b', tt)});`)
+    } else {
+      needsHueMix.v = true
+      ln(`  CRGB ${v('color')} = _hueMix(${cA}, ${cB}, ${tt}, ${mode === 'hsvLong'});`)
+    }
   },
   PaletteSampler({ node, p, ln, v, f, paletteExpr }) {
     const tt = f('t', 't', 0), pal = paletteExpr(node.id, 'paletteIn', p)

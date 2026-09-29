@@ -18,6 +18,7 @@ import {
   WIREFRAME_CAM_NEAR,
   WIREFRAME_FIT_MARGIN,
 } from '../../state/wireframeModel'
+import { gradientMixMode } from '../../state/hueMix'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
 import {
@@ -551,7 +552,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  GradientFrame({ node, id, p, ln, channelColor, gradientChannel, ownBuf, incoming, boolExpr }) {
+  GradientFrame({ node, id, p, ln, channelColor, gradientChannel, ownBuf, incoming, boolExpr, needsHueMix }) {
     const ob = ownBuf()
     // Both ends are hoisted to locals so a wired Color A/B is honoured:
     // the evaluator has always followed those wires and this baked the
@@ -561,7 +562,13 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`  { CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`    float _t=${vert === null ? `((${boolExpr(node.id, 'vertical')}) ? _y/(HEIGHT-1.0f) : _x/(WIDTH-1.0f))` : vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
-    ln(`    ${ob}[_y*WIDTH+_x]=CRGB(${gradientChannel(cA, cB, 'r', '_t')},${gradientChannel(cA, cB, 'g', '_t')},${gradientChannel(cA, cB, 'b', '_t')});}}`)
+    const mode = gradientMixMode(p.mixMode)
+    if (mode === 'rgb') {
+      ln(`    ${ob}[_y*WIDTH+_x]=CRGB(${gradientChannel(cA, cB, 'r', '_t')},${gradientChannel(cA, cB, 'g', '_t')},${gradientChannel(cA, cB, 'b', '_t')});}}`)
+    } else {
+      needsHueMix.v = true
+      ln(`    ${ob}[_y*WIDTH+_x]=_hueMix(${cA}, ${cB}, _t, ${mode === 'hsvLong'});}}`)
+    }
   },
   PaletteGradient({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
     const ob = ownBuf()
