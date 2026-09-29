@@ -13,7 +13,12 @@ import {
   evalFieldToFrame,
   blankFrame,
 } from '../../state/evaluator/frames'
-import { allocField } from '../../state/evaluator/memory'
+import { allocField, instanceState } from '../../state/evaluator/memory'
+import { hexToRgb } from '../../state/customPalette'
+import {
+  candleColor, candleMode, heartbeatEnvelope, heartbeatPhase, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
+  tvColor, tvLayout, type LightningState,
+} from '../../state/evaluator/classics'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise, worleyMode, worleyValue, type NoiseShape, type WorleyMode } from '../../state/evaluator/noiseShape'
 import {
@@ -512,7 +517,7 @@ function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEF
   return out
 }
 
-export const GENERATIVE_EVALUATORS: NodeEvaluators = {
+const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   // Bundled noise generators (NoiseField / Simplex2D / Noise3D / Noise4D /
   // Worley / PlasmaFractal). All share the same scalar-field core; the
   // node exposes that raw `field` output and also maps it through a palette
@@ -618,3 +623,54 @@ export const GENERATIVE_EVALUATORS: NodeEvaluators = {
     return { frame: evalBlobs(speed, scale, count, t, palette, W, H) }
   },
 }
+
+// ── Classics: Candle, Lightning, Heartbeat, Sunrise, TV Simulator ─────────────
+const lightningState = instanceState('lightningState', new Map<string, LightningState>())
+const scaled = (c: RGB, v: number): RGB => ({ r: Math.floor(c.r * v), g: Math.floor(c.g * v), b: Math.floor(c.b * v) })
+
+const CLASSIC_EVALUATORS: NodeEvaluators = {
+  Candle({ num, t, W, H }, id, props) {
+    const flicker = num(id, 'flicker', props, 'flicker', 0.6)
+    const warmth = num(id, 'warmth', props, 'warmth', 0.5)
+    if (candleMode(props.mode) === 'single') {
+      const c = candleColor(t, 0, flicker, warmth)
+      return { frame: buildFrame(W, H, () => c) }
+    }
+    return { frame: buildFrame(W, H, (x, y) => candleColor(t, (y * W + x + 1) * 977, flicker, warmth)) }
+  },
+  Lightning({ input, num, t, W, H, stateKey }, id, props) {
+    const key = stateKey(id)
+    let s = lightningState.get(key)
+    if (!s) { s = { nextAt: -1, start: -1e9, id: 0, prev: false, last: -Infinity }; lightningState.set(key, s) }
+    const level = stepLightning(s, t, num(id, 'rate', props, 'rate', 6), Boolean(input(id, 'trigger', false)))
+    const v = Math.max(0, Math.min(1, num(id, 'intensity', props, 'intensity', 1))) * level
+    const c = scaled(hexToRgb(String(props.color ?? '#cfe0ff')), v)
+    return { frame: buildFrame(W, H, () => c) }
+  },
+  Heartbeat({ num, pal, t, W, H }, id, props) {
+    const env = heartbeatEnvelope(heartbeatPhase(t, num(id, 'bpm', props, 'bpm', 72)))
+    const strength = Math.max(0, Math.min(1, num(id, 'strength', props, 'strength', 0.8)))
+    const c = scaled(samplePalette(pal(id, 'paletteIn', props, 'palette', 'lava'), env), 1 - strength * (1 - env))
+    return { frame: buildFrame(W, H, () => c) }
+  },
+  Sunrise({ num, t, W, H }, id, props) {
+    const mode = sunriseMode(props.mode)
+    const p = sunriseProgress(mode, t, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
+    const c = sunriseColor(p)
+    return { frame: buildFrame(W, H, () => c) }
+  },
+  TVSimulator({ num, t, W, H }, id, props) {
+    const cutRate = Math.max(0.05, num(id, 'cutRate', props, 'cutRate', 0.5))
+    const brightness = num(id, 'brightness', props, 'brightness', 0.8)
+    const slot = Math.floor(t * cutRate)
+    const { cols, rows } = tvLayout(slot)
+    return {
+      frame: buildFrame(W, H, (x, y) => {
+        const blk = Math.min(rows - 1, Math.floor((y * rows) / H)) * cols + Math.min(cols - 1, Math.floor((x * cols) / W))
+        return tvColor(t, slot, blk, brightness)
+      }),
+    }
+  },
+}
+
+export const GENERATIVE_EVALUATORS: NodeEvaluators = { ...CORE_GENERATIVE_EVALUATORS, ...CLASSIC_EVALUATORS }

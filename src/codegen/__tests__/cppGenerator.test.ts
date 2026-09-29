@@ -1441,6 +1441,31 @@ describe('generateCpp', () => {
     expect(row).toContain('qadd8(')
   })
 
+  it('emits the classic generative nodes with the shared hash', () => {
+    const gen = (type: string, props: Record<string, unknown> = {}) => generateCpp([node('n', type, 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const hash = 'x*=0x7feb352dU; x^=x>>15; x*=0x846ca68bU;'
+    const single = gen('Candle')
+    expect(single).toContain(hash)
+    expect(single).toContain('fill_solid(')
+    expect(single).toContain('_cd(0U)')
+    expect(gen('Candle', { mode: 'perPixel' })).toContain('_cd((uint32_t)(_y*WIDTH+_x+1)*977U)')
+    const bolt = gen('Lightning', { color: '#102030' })
+    expect(bolt).toContain('60.0f/fmaxf(0.1f,')
+    expect(bolt).toContain('CRGB(16, 32, 48)')
+    expect(bolt).toContain('(_tr&&!_lt_npv)')
+    const beat = gen('Heartbeat')
+    expect(beat).toContain('constrain(72,20.0f,240.0f)')
+    expect(beat).toContain('expf(-_lb*_lb)+0.7f*expf(-_db*_db)')
+    const timed = gen('Sunrise')
+    expect(timed).toContain('(t-0)/fmaxf(0.001f,30)')
+    expect(timed).toContain('powf(_p,1.6f)')
+    expect(gen('Sunrise', { mode: 'manual', progress: 0.5 })).not.toContain('(t-')
+    const tv = gen('TVSimulator')
+    expect(tv).toContain('(uint32_t)floorf(t*_cr)')
+    expect(tv).toContain('sinf(t*0.8f+(float)_sl)')
+    expect(gen('Heartbeat')).not.toContain(hash)
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

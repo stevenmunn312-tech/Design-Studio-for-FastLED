@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 204 modules · 73 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 209 modules · 73 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 204 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 209 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Live Focus, the Control Deck, Stage View, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -162,14 +162,14 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 204 modules by category</strong></summary>
+<summary><strong>Show all 209 modules by category</strong></summary>
 
 - **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch Button, Touch, IR Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Environment Sensor, Power Monitor, DMX / Art-Net, Ethernet, Buck Converter, RTC Clock, MIDI, Storage
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Vibe, Song Structure, Pitch Detect, Audio → Hue
 - **Signals:** Time, Interval, Counter, Random, Noise LFO, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Math, Clamp, Map Range, Step Value, Lerp, Ease, Abs, Mod, Gate, Smooth, Sample & Hold, Switch, Not, Compare, Trigger, Text Value, Format Number, Format Date/Time, XY → Index
 - **Color:** Hue Cycle, HSV → RGB, RGB → HSV, Color Temperature, Heat Color, Blend Colors, CHSV, Gradient Sampler, Palette Sampler, Palette Sweep, Palette Selector, Custom Palette, Harmony Palette, Palette from Image, Poline Palette, Blend Palettes, Palette Bank
-- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, Fourier Epicycles, 3D Wireframe, Gradient Frame, Palette Gradient, Polar Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Formula Points, Flow Field, Starfield, String Particles, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Waveform, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
+- **Patterns:** Solid Color, Text, Clock Display, Circle, Line, Shape, Path, Fourier Epicycles, 3D Wireframe, Gradient Frame, Palette Gradient, Polar Gradient, Image, Noise, Plasma, Rainbow, Pride 2015, Pacifica, TwinkleFox, Scanner, Confetti, Candle, Lightning, Heartbeat, Sunrise, TV Simulator, Juggle, Radial Burst, Spiral, Kaleidoscope, Fractal Noise, Gabor Noise, Blobs, Fire, Fire 2012, Particles, Formula Points, Flow Field, Starfield, String Particles, Boids, Reaction Diffusion, Game of Life, Spectrum Bars, Spectrum Visualizer, Waveform, Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom, Treble Sparks, Treble Prism, Audio Cascade, Beat Flash, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic, Percussion Blobs, Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples, Prism Storm, Audio Flow, Color Trails, AnimARTrix, Custom Formula, Code
 - **Fields:** Field Formula, Field Noise, Slice Tiling, Truchet Tiles, Formula Field, Wave Sim, Turing Field, Distance Field, Frame → Field, Field Math, Field Levels, Field Lerp, Shape Field, Field Warp, Field Rotate, Field Tile, Field Symmetry, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Brightness, Fade to Black, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Trails, Frame Warp, Symmetry, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transitions, Music Player, Pattern Slideshow, Control Map, Player Particles, Song Info, Sequencer, Transition, Performance Generator, SD Card

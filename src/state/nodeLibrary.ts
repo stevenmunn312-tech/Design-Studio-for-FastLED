@@ -42,6 +42,7 @@ import { HARMONY_KINDS } from './harmonyPalette'
 import { GRADIENT_MIX_MODES } from './hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
+import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -817,6 +818,79 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { density: 'density', fade: 'fade', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { speed: 0.45, density: 0.45, fade: 0.28, palette: 'party', seed: 0 },
+  },
+  {
+    // Candle — warm flame flicker on one shared value or on every pixel.
+    type: 'Candle',
+    label: 'Candle',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'flicker', label: 'Flicker', dataType: 'float' },
+      { id: 'warmth', label: 'Warmth', dataType: 'float' },
+    ],
+    propertyInputs: { flicker: 'flicker', warmth: 'warmth' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { mode: 'single', flicker: 0.6, warmth: 0.5 },
+  },
+  {
+    // Lightning — random strikes of two to five flashes, or one on each trigger.
+    type: 'Lightning',
+    label: 'Lightning',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'rate', label: 'Rate', dataType: 'float' },
+      { id: 'intensity', label: 'Intensity', dataType: 'float' },
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+    ],
+    propertyInputs: { rate: 'rate', intensity: 'intensity' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { rate: 6, intensity: 1, color: '#cfe0ff' },
+  },
+  {
+    // Heartbeat — the lub-dub double pulse as a brightness and palette envelope.
+    type: 'Heartbeat',
+    label: 'Heartbeat',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'bpm', label: 'BPM', dataType: 'float' },
+      { id: 'strength', label: 'Strength', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { bpm: 'bpm', strength: 'strength', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { bpm: 72, strength: 0.8, palette: 'lava' },
+  },
+  {
+    // Sunrise — night blue to warm white, on a timer or from a 0–1 progress input.
+    type: 'Sunrise',
+    label: 'Sunrise',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'progress', label: 'Progress', dataType: 'float' },
+      { id: 'duration', label: 'Duration', dataType: 'float' },
+      { id: 'start', label: 'Start', dataType: 'float' },
+    ],
+    propertyInputs: { progress: 'progress', duration: 'duration', start: 'start' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { mode: 'timed', duration: 30, start: 0, progress: 0 },
+  },
+  {
+    // TV Simulator — seeded scene cuts between coloured blocks, with a slow drift.
+    type: 'TVSimulator',
+    label: 'TV Simulator',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'cutRate', label: 'Cut Rate', dataType: 'float' },
+      { id: 'brightness', label: 'Brightness', dataType: 'float' },
+    ],
+    propertyInputs: { cutRate: 'cutRate', brightness: 'brightness' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { cutRate: 0.5, brightness: 0.8 },
   },
   {
     // DemoReel-style juggling dots — multiple sine-driven palette dots on a
@@ -4636,6 +4710,11 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TwinkleFox: 'Palette-driven lights that twinkle on independent schedules.',
   Scanner: 'Larson scanner / Cylon eye — a palette beam with adjustable width and fade.',
   Confetti: 'Random fading palette speckles on a persistent frame buffer.',
+  Candle: 'Warm flame flicker, one flame or one per pixel.',
+  Lightning: 'Storm flashes: random strikes of two to five flickers, or one on each trigger.',
+  Heartbeat: 'A lub-dub double pulse at a set heart rate.',
+  Sunrise: 'A dawn ramp from night blue to warm white, on a timer or a progress input.',
+  TVSimulator: 'Flickering television light: quick scene cuts between coloured blocks.',
   Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   SpectrumVisualizer: 'Full-spectrum bars, ribbon, orbit, mirror, or waterfall display.',
@@ -5494,6 +5573,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     width: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   Confetti:        { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  Candle:          { flicker: N01, warmth: N01, mode: { control: 'select', options: [...CANDLE_MODES] } },
+  Lightning:       { rate: { control: 'slider', min: 0.5, max: 60, step: 0.5 }, intensity: N01 },
+  Heartbeat:       { bpm: { control: 'slider', min: HEARTBEAT_BPM_MIN, max: HEARTBEAT_BPM_MAX, step: 1 }, strength: N01 },
+  Sunrise:         {
+    mode: { control: 'select', options: [...SUNRISE_MODES] },
+    progress: N01,
+    duration: { control: 'slider', min: 1, max: 3600, step: 1 },
+    start: { control: 'slider', min: 0, max: 3600, step: 1 },
+  },
+  TVSimulator:     { cutRate: { control: 'slider', min: 0.05, max: 4, step: 0.05 }, brightness: N01 },
   Juggle:          {
     speed: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -6136,6 +6225,18 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FractalNoise: {
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
+  },
+  Lightning: {
+    rate: 'Strikes per minute, on average. Each gap is half to one and a half times the average.',
+    intensity: 'Peak brightness of a flash.',
+  },
+  Sunrise: {
+    mode: 'Timed: the ramp starts at Start and runs for Duration. Manual: Progress sets the point on the ramp.',
+    duration: 'Seconds the ramp takes from night to full light.',
+    start: 'Second at which the ramp begins.',
+  },
+  TVSimulator: {
+    cutRate: 'Scene cuts per second.',
   },
   StringParticles: {
     track: 'The line the particles ride: the middle row, the middle column, or the ring of pixels an LED ring reads.',
@@ -7175,6 +7276,10 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'Noise' && key === 'worleyMode') {
     return properties.noiseType === 'worley'
+  }
+  if (nodeType === 'Sunrise') {
+    if (key === 'progress') return properties.mode === 'manual'
+    if (key === 'duration' || key === 'start') return properties.mode !== 'manual'
   }
   if (nodeType === 'StringParticles') {
     if (key === 'ringLeds') return properties.track === 'ring'

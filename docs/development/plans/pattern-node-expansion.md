@@ -420,7 +420,10 @@ Checklist:
       RAM row.
 - [ ] Digital Rain with all four directions and a string test.
 - [ ] Gauge with the four styles and the sensor live example.
-- [ ] Candle, Lightning, Heartbeat, Sunrise, TV Simulator.
+- [x] Candle, Lightning, Heartbeat, Sunrise, TV Simulator: stateless or
+      near-stateless on one shared integer hash (`classics.ts`), so the preview
+      and the sketch agree on every random draw. Lightning keeps a strike
+      schedule; the rest are pure functions of `t`. Compile check still open.
 - [ ] Pride palette port, Fire smoke style, Particles luminova variant, each
       with a golden test that the default is unchanged.
 - [ ] README Patterns and Fields lines; node cards; `patternRating` sets;

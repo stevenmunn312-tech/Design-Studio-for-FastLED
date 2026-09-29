@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Five classic light effects join Patterns: Candle (one flame or one per
+  pixel), Lightning (random strikes of two to five flashes, or one per trigger),
+  Heartbeat (a lub-dub pulse at a set BPM), Sunrise (night blue to warm white,
+  timed or driven by a progress input) and TV Simulator (scene cuts between
+  coloured blocks).
 - New String Particles node: particles drawn along a row, a column, or the
   pixels an LED Ring reads. `drift` wanders and fades; `meteors` fires a streak
   with debris on each trigger, over a noise bed. Set Ring LEDs to the LED

@@ -1,11 +1,15 @@
 import { juggleDotCount, JUGGLE_COUNT } from '../../state/juggle'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import type { NodeEmitters } from '../../codegen/emitContext'
-import { seedProp } from '../../codegen/cppLiterals'
+import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
+import {
+  CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
+  LIGHTNING_FLASH_LEN, SUNRISE_GAMMA, SUNRISE_STOPS, candleMode, sunriseMode,
+} from '../../state/evaluator/classics'
 import { noiseShape, noiseShapeCpp, worleyMode, worleyValueCpp } from '../../state/evaluator/noiseShape'
 
-export const GENERATIVE_EMITTERS: NodeEmitters = {
+const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   // Bundled noise node — `noiseType` picks the algorithm. Each variant
   // writes a raw scalar field, then the node maps that field through its
   // palette for the normal frame output. Keep the cases in sync with
@@ -368,3 +372,95 @@ export const GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_f/(_f+1.0f))*255)); }}`)
   },
 }
+
+const lit = floatLit
+const hexCrgb = (hex: unknown, def: number) => {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex))
+  const n = m ? parseInt(m[1], 16) : def
+  return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+// Candle, Lightning, Heartbeat, Sunrise and TV Simulator: the C++ twins of
+// GENERATIVE classics in state/evaluator/classics.ts. Same integer hash, same
+// constants, so the preview and the sketch flicker together.
+const CLASSIC_EMITTERS: NodeEmitters = {
+  Candle({ p, ln, f, ownBuf, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const perPixel = candleMode(p.mode) === 'perPixel'
+    ln(`  { // Candle`)
+    ln(`    ${CLASSIC_HASH_CPP}`)
+    ln(`    ${CLASSIC_VALUE_NOISE_CPP}`)
+    ln(`    float _fl=constrain(${f('flicker', 'flicker', 0.6)},0.0f,1.0f),_wm=constrain(${f('warmth', 'warmth', 0.5)},0.0f,1.0f);`)
+    ln(`    auto _cd=[&](uint32_t salt)->CRGB{ float _n=0.6f*_vn(t*7.0f,salt)+0.4f*_vn(t*17.0f+31.0f,salt+101U); float _v=1.0f-_fl*(1.0f-_n);`)
+    ln(`      float _mx=constrain(_wm+(_n-0.5f)*0.3f*_fl,0.0f,1.0f); return CRGB((uint8_t)(255.0f*_v),(uint8_t)((60.0f+100.0f*_mx)*_v),(uint8_t)(20.0f*_mx*_v)); };`)
+    if (perPixel) {
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++) ${ob}[_y*WIDTH+_x]=_cd((uint32_t)(_y*WIDTH+_x+1)*977U);`)
+      ln(`  }`)
+    } else {
+      ln(`    fill_solid(${ob},NUM_LEDS,_cd(0U)); }`)
+    }
+  },
+  Lightning({ node, id, p, ln, f, ownBuf, boolExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const A = `_lt_${id}`
+    ln(`  { // Lightning`)
+    ln(`    ${CLASSIC_HASH_CPP}`)
+    ln(`    static float ${A}nx=-1.0f,${A}st=-1000000000.0f; static uint32_t ${A}id=0; static bool ${A}pv=false;`)
+    ln(`    bool _tr=(${boolExpr(node.id, 'trigger')});`)
+    ln(`    float _iv=60.0f/fmaxf(0.1f,${f('rate', 'rate', 6)});`)
+    ln(`    if(${A}nx<0) ${A}nx=t+_iv;`)
+    ln(`    if((_tr&&!${A}pv)||t>=${A}nx){ ${A}id++; ${A}st=t; ${A}nx=t+_iv*(0.5f+_h(${A}id*17U+5U)); }`)
+    ln(`    ${A}pv=_tr;`)
+    ln(`    float _dt=t-${A}st,_lvl=0.0f;`)
+    ln(`    if(_dt>=0){ int _fl=2+(int)floorf(_h(${A}id*31U+1U)*4.0f); float _s0=0.0f,_le=0.0f;`)
+    ln(`      for(int _i=0;_i<_fl;_i++){ if(_dt>=_s0&&_dt<_s0+${lit(LIGHTNING_FLASH_LEN)}) _lvl=1.0f-0.55f*((float)_i/_fl); _le=_s0+${lit(LIGHTNING_FLASH_LEN)}; _s0=_le+0.04f+_h(${A}id*31U+2U+_i)*0.16f; }`)
+    ln(`      if(_lvl<=0.0f&&_dt>=_le) _lvl=${lit(LIGHTNING_AFTERGLOW)}*expf(-(_dt-_le)/${lit(LIGHTNING_AFTERGLOW_TAU)}); }`)
+    ln(`    float _v=constrain(${f('intensity', 'intensity', 1)},0.0f,1.0f)*_lvl; CRGB _c=${hexCrgb(p.color, 0xcfe0ff)};`)
+    ln(`    _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v); fill_solid(${ob},NUM_LEDS,_c); }`)
+  },
+  Heartbeat({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    ln(`  { // Heartbeat`)
+    ln(`    float _b=constrain(${f('bpm', 'bpm', 72)},${lit(HEARTBEAT_BPM_MIN)},${lit(HEARTBEAT_BPM_MAX)}),_pd=60.0f/_b,_ph=fmodf(t,_pd); if(_ph<0) _ph+=_pd; _ph/=_pd;`)
+    ln(`    float _lb=(_ph-0.05f)/0.04f,_db=(_ph-0.3f)/0.05f,_env=min(1.0f,expf(-_lb*_lb)+0.7f*expf(-_db*_db));`)
+    ln(`    float _st=constrain(${f('strength', 'strength', 0.8)},0.0f,1.0f),_v=1.0f-_st*(1.0f-_env);`)
+    ln(`    CRGB _c=ColorFromPalette(${pal},(uint8_t)(_env*255.0f)); _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v);`)
+    ln(`    fill_solid(${ob},NUM_LEDS,_c); }`)
+  },
+  Sunrise({ p, ln, f, ownBuf, needsT }) {
+    const ob = ownBuf()
+    const manual = sunriseMode(p.mode) === 'manual'
+    if (!manual) needsT.v = true
+    const stops = (i: 1 | 2 | 3) => SUNRISE_STOPS.map((s) => lit(s[i])).join(',')
+    const at = SUNRISE_STOPS.map((s) => lit(s[0])).join(',')
+    ln(`  { // Sunrise`)
+    ln(`    static const float _sa[${SUNRISE_STOPS.length}]={${at}},_sr[${SUNRISE_STOPS.length}]={${stops(1)}},_sg[${SUNRISE_STOPS.length}]={${stops(2)}},_sb[${SUNRISE_STOPS.length}]={${stops(3)}};`)
+    ln(manual
+      ? `    float _p=${f('progress', 'progress', 0)};`
+      : `    float _p=(t-${f('start', 'start', 0)})/fmaxf(0.001f,${f('duration', 'duration', 30)});`)
+    ln(`    _p=isfinite(_p)?constrain(_p,0.0f,1.0f):0.0f;`)
+    ln(`    int _k=0; while(_k<${SUNRISE_STOPS.length - 2}&&_p>_sa[_k+1]) _k++;`)
+    ln(`    float _u=constrain((_p-_sa[_k])/(_sa[_k+1]-_sa[_k]),0.0f,1.0f),_v=powf(_p,${lit(SUNRISE_GAMMA)});`)
+    ln(`    fill_solid(${ob},NUM_LEDS,CRGB((uint8_t)((_sr[_k]+(_sr[_k+1]-_sr[_k])*_u)*_v),(uint8_t)((_sg[_k]+(_sg[_k+1]-_sg[_k])*_u)*_v),(uint8_t)((_sb[_k]+(_sb[_k+1]-_sb[_k])*_u)*_v))); }`)
+  },
+  TVSimulator({ ln, f, ownBuf, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    ln(`  { // TV Simulator`)
+    ln(`    ${CLASSIC_HASH_CPP}`)
+    ln(`    float _cr=fmaxf(0.05f,${f('cutRate', 'cutRate', 0.5)}),_br=constrain(${f('brightness', 'brightness', 0.8)},0.0f,1.0f);`)
+    ln(`    uint32_t _sl=(uint32_t)floorf(t*_cr);`)
+    ln(`    int _co=1+(int)floorf(_h(_sl*131U+1U)*3.0f),_ro=1+(int)floorf(_h(_sl*131U+2U)*2.0f);`)
+    ln(`    float _dr=0.92f+0.08f*sinf(t*0.8f+(float)_sl);`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      uint32_t _bk=(uint32_t)(min(_ro-1,(_y*_ro)/HEIGHT)*_co+min(_co-1,(_x*_co)/WIDTH));`)
+    ln(`      float _v=_br*(0.25f+0.75f*_h(_sl*131U+_bk*17U+9U))*_dr;`)
+    ln(`      ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)(255.0f*_v*(0.15f+0.85f*_h(_sl*131U+_bk*17U+3U))),(uint8_t)(255.0f*_v*(0.15f+0.85f*_h(_sl*131U+_bk*17U+4U))),(uint8_t)(255.0f*_v*(0.15f+0.85f*_h(_sl*131U+_bk*17U+5U)))); } }`)
+  },
+}
+
+export const GENERATIVE_EMITTERS: NodeEmitters = { ...CORE_GENERATIVE_EMITTERS, ...CLASSIC_EMITTERS }

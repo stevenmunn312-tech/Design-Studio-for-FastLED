@@ -616,6 +616,36 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Confetti example graph](../../public/node-cards/graphs/confetti.svg)
 
+### Candle
+
+![Candle node](../../public/node-cards/candle.svg)
+
+![Candle example graph](../../public/node-cards/graphs/candle.svg)
+
+### Lightning
+
+![Lightning node](../../public/node-cards/lightning.svg)
+
+![Lightning example graph](../../public/node-cards/graphs/lightning.svg)
+
+### Heartbeat
+
+![Heartbeat node](../../public/node-cards/heartbeat.svg)
+
+![Heartbeat example graph](../../public/node-cards/graphs/heartbeat.svg)
+
+### Sunrise
+
+![Sunrise node](../../public/node-cards/sunrise.svg)
+
+![Sunrise example graph](../../public/node-cards/graphs/sunrise.svg)
+
+### TV Simulator
+
+![TV Simulator node](../../public/node-cards/tv-simulator.svg)
+
+![TV Simulator example graph](../../public/node-cards/graphs/tv-simulator.svg)
+
 ### Juggle
 
 ![Juggle node](../../public/node-cards/juggle.svg)
