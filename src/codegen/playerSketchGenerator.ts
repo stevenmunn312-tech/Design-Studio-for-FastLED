@@ -78,6 +78,7 @@ export interface PlayerConfig {
   chipset:     string
   colorOrder:  string
   correction:  string   // FastLED.setCorrection profile ('none' = uncorrected)
+  whitePoint:  string   // FastLED.setTemperature white point ('none' = uncorrected)
   dither:      boolean  // false → setDither(DISABLE_DITHER)
   overclock:   number   // clockless-chipset FASTLED_OVERCLOCK multiplier
   powerLimit:  boolean
@@ -111,7 +112,7 @@ const DEFAULTS: PlayerConfig = {
   hasPrimaryLedOutput: true,
   ledWidth: 16, ledHeight: 16, ledDataPin: 18, ledClockPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB',
-  correction: 'none', dither: true, overclock: 1,
+  correction: 'none', whitePoint: 'none', dither: true, overclock: 1,
   powerLimit: false, volts: 5, milliamps: 2000,
   // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
   sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11,
@@ -181,6 +182,7 @@ export function playerConfigFromGraph(
     chipset:     str(mo.chipset, DEFAULTS.chipset),
     colorOrder:  str(mo.colorOrder, DEFAULTS.colorOrder),
     correction:  str(mo.correction, DEFAULTS.correction),
+    whitePoint:  str(mo.whitePoint, DEFAULTS.whitePoint),
     dither:      mo.dither !== false,
     overclock:   num(board.overclock, DEFAULTS.overclock),
     powerLimit:  board.powerLimit === true,
@@ -529,7 +531,7 @@ export function generatePlayerSketch(
   // the hard ceiling; show events and Control Map scale beneath it.
   const hw = ledHardwareFromProps({
     chipset: c.chipset, colorOrder: c.colorOrder, correction: c.correction,
-    dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
+    whitePoint: c.whitePoint, dither: c.dither, overclock: c.overclock, clockPin: c.ledClockPin,
   })
   const isHub75 = c.hasPrimaryLedOutput && hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75

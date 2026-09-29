@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The LED output gains a White point setting (Rendering group): pick the colour
+  temperature the LEDs treat as white, such as Tungsten100W for a warmer white.
+  It is emitted as `FastLED.setTemperature` in normal, show, player and stream
+  sketches, and it lowers brightness because it scales the channels. The live
+  preview is unchanged.
 - Pride 2015 gains a Palette port: wire one and it becomes Kriegsman's
   colorwaves, the same sweep and breathing wave read through your palette. Left
   unwired it is the rainbow it always was. Fire gains a Fire Style: `smoke`

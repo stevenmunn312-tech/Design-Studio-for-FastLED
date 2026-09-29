@@ -3,6 +3,7 @@ import {
   CHIPSET_OPTIONS,
   COLOR_ORDER_OPTIONS,
   CORRECTION_OPTIONS,
+  WHITE_POINT_OPTIONS,
   SPI_CHIPSETS,
 } from '../state/nodeLibrary'
 import { outputForm } from '../state/ledOutputForm'
@@ -60,6 +61,7 @@ export interface LedHardware {
   colorOrder: string
   brightness: number   // FastLED.setBrightness, 0–255
   correction: string   // 'none' | a CORRECTION_OPTIONS constant
+  whitePoint: string   // 'none' | a WHITE_POINT_OPTIONS ColorTemperature
   dither: boolean      // false → setDither(DISABLE_DITHER)
   overclock: number    // 1 = stock; >1 → #define FASTLED_OVERCLOCK (clockless only)
   clockPin: number     // SPI chipsets only
@@ -86,6 +88,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
     colorOrder: pick(p.colorOrder, COLOR_ORDER_OPTIONS, 'GRB'),
     brightness: Math.round(num(p.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
     correction: pick(p.correction, CORRECTION_OPTIONS, 'none'),
+    whitePoint: pick(p.whitePoint, WHITE_POINT_OPTIONS, 'none'),
     dither:     p.dither !== false,
     overclock:  num(p.overclock, 1, 1, 2),
     clockPin:   sanitizePin(p.clockPin, 6),
@@ -128,6 +131,7 @@ export function fastledSetupCpp(
   if (brightness !== null) lines.push(`  FastLED.setBrightness(${brightness});`)
   const target = opts.controllerName ?? 'FastLED'
   if (hw.correction !== 'none') lines.push(`  ${target}.setCorrection(${hw.correction});`)
+  if (hw.whitePoint !== 'none') lines.push(`  ${target}.setTemperature(${hw.whitePoint});`)
   if (!hw.dither) lines.push(`  ${target}.setDither(DISABLE_DITHER);`)
   return lines
 }

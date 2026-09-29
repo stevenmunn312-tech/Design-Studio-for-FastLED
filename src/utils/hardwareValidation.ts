@@ -63,6 +63,7 @@ export interface HardwareValidationProfile {
     clockPin: number | null
     brightness: number
     correction: string
+    whitePoint?: string
     dither: boolean
     overclock: number
     powerLimit: boolean
@@ -573,6 +574,8 @@ export function buildHardwareValidationProfile(options: {
       clockPin: CLOCKED_CHIPSETS.has(chipset) ? Math.round(n(p.clockPin, 6)) : null,
       brightness: controllerSettingsValue.brightness,
       correction: String(p.correction ?? 'none'),
+      // Omitted when unset so existing configuration keys stay valid.
+      ...(p.whitePoint && p.whitePoint !== 'none' ? { whitePoint: String(p.whitePoint) } : {}),
       dither: p.dither !== false,
       overclock: controllerSettingsValue.overclock,
       powerLimit: controllerSettingsValue.powerLimit,
@@ -647,7 +650,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     ['LED target', `${LED_OUTPUT_FORM_LABELS[m.form]} · ${m.chipset} · ${m.colorOrder} · ${m.width}×${m.height}`],
     ['Layout', `${m.layout} · pixel serpentine: ${m.serpentine ? 'yes' : 'no'}`],
     ['Pins', `data ${m.dataPin}${m.clockPin == null ? '' : ` · clock ${m.clockPin}`}`],
-    ['Output settings', `brightness ${m.brightness} · correction ${m.correction} · dither ${m.dither ? 'on' : 'off'} · overclock ${m.overclock}×`],
+    ['Output settings', `brightness ${m.brightness} · correction ${m.correction}${m.whitePoint === undefined ? '' : ` · white point ${m.whitePoint}`} · dither ${m.dither ? 'on' : 'off'} · overclock ${m.overclock}×`],
     ['Power cap', m.powerLimit ? `${m.volts} V / ${m.milliamps} mA` : 'disabled'],
     ['Panels', m.tilesX == null ? 'n/a' : `${m.tilesX}×${m.tilesY} · chain serpentine ${m.tileSerpentine ? 'yes' : 'no'} · rotations ${m.tileRotations || 'all 0'}`],
     ['Custom XY map', m.customMap ?? 'n/a'],

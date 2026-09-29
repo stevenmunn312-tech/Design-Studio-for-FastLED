@@ -336,6 +336,22 @@ describe('generateCpp', () => {
     expect(cpp).toContain('FastLED.setDither(DISABLE_DITHER);')
   })
 
+  it('emits FastLED.setTemperature for a white point, after correction and before dither', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      correction: 'TypicalLEDStrip', whitePoint: 'Tungsten100W', dither: false,
+    })
+    const cpp = generateCpp([out], [])
+    const at = (s: string) => cpp.indexOf(s)
+    expect(at('FastLED.setTemperature(Tungsten100W);')).toBeGreaterThan(at('FastLED.setCorrection(TypicalLEDStrip);'))
+    expect(at('FastLED.setTemperature(Tungsten100W);')).toBeLessThan(at('FastLED.setDither(DISABLE_DITHER);'))
+  })
+
+  it('emits no setTemperature by default, and drops an unknown white point', () => {
+    expect(generateCpp([node('a', 'MatrixOutput', 'output', {})], [])).not.toContain('setTemperature')
+    const bad = node('b', 'MatrixOutput', 'output', { whitePoint: 'Bogus); system("rm"' })
+    expect(generateCpp([bad], [])).not.toContain('setTemperature')
+  })
+
   it('emits a setup() pinMode for ButtonInput honouring the pullup property', () => {
     const btn = node('btn', 'ButtonInput', 'input', { pin: 7, pullup: true })
     const bm = node('bm', 'BrightnessMod', 'composite', {})

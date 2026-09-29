@@ -66,6 +66,7 @@ const BLOCKED_KEYS = new Set([
   'usePsram',
   'serialRoute',
   'volts',
+  'whitePoint',
 ])
 
 const BLOCKED_KEY_PARTS = ['pin', 'port', 'fqbn', 'board', 'toolchain']

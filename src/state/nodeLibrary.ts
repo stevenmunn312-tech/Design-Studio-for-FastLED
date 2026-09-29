@@ -3846,6 +3846,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       supersample: false,
       // FastLED.setCorrection colour-correction profile ('none' = uncorrected).
       correction: 'none',
+      // FastLED.setTemperature white point ('none' = uncorrected).
+      whitePoint: 'none',
       // FastLED temporal dithering (recovers colour depth at low brightness);
       // on is FastLED's own default, off emits setDither(DISABLE_DITHER).
       dither: true,
@@ -5095,6 +5097,12 @@ export const COLOR_ORDER_OPTIONS = ['GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG'] as
 
 /** FastLED.setCorrection profiles ('none' = leave colours uncorrected). */
 export const CORRECTION_OPTIONS = ['none', 'TypicalLEDStrip', 'TypicalPixelString'] as const
+/** FastLED.setTemperature white points ('none' = UncorrectedTemperature).
+ *  Each name is a `ColorTemperature` enumerator in FastLED's color.h. */
+export const WHITE_POINT_OPTIONS = [
+  'none', 'Candle', 'Tungsten40W', 'Tungsten100W', 'Halogen', 'HighNoonSun',
+  'OvercastSky', 'ClearBlueSky', 'WarmFluorescent', 'CoolWhiteFluorescent',
+] as const
 
 /**
  * Control hints for inline node property editors (StudioNode), keyed by
@@ -5169,6 +5177,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   chipset:    { control: 'select', options: ADDRESSABLE_CHIPSET_OPTIONS },
   colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
   correction: { control: 'select', options: CORRECTION_OPTIONS },
+  whitePoint: { control: 'select', options: WHITE_POINT_OPTIONS },
   overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
   hub75R1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   hub75G1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6183,6 +6192,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
+  whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
   dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
   correction: "Colour-temperature compensation for the physical LEDs (FastLED.setCorrection) — doesn't change the live preview.",
   powerLimit: 'Caps current draw via FastLED.setMaxPowerInVoltsAndMilliamps, auto-dimming to stay under the volts/mA budget below. Preview-only — no visible effect here.',
@@ -6807,7 +6817,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
-    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'dither'] },
+    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'correction', 'whitePoint', 'dither'] },
     // No 'brightness' here: master brightness is the Board's, on FastLED's
     // native 0-255. The output's own normalised runtime dimmer has the distinct
     // `outputBrightness` property, so the two scales cannot share one name.

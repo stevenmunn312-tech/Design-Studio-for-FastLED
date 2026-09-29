@@ -456,10 +456,15 @@ through step 11 of the
       `(x, y)` in canvas units per LED, sampled bilinearly and emitted as a
       PROGMEM table like `ringMap`, with the Sailboat catenary as a preset; the
       preview and Build Diagram draw LEDs where they sit. FastLED's ScreenMap.
-- [ ] **Colour profile.** A per-output `colorProfile` select from
-      `fl::profiles`, emitted through `ChannelOptions::setColorProfile`, and a
-      per-output white point through `FastLED.setTemperature`, which is not
-      emitted today; document that dimming through the profile is linear flux.
+- [x] **White point.** A per-output `whitePoint` select of FastLED
+      `ColorTemperature` names, emitted through `setTemperature` by
+      `fastledSetupCpp`, so normal, show, player, stream and diagnostic sketches
+      share it. Dimming through it is linear flux. Left out of the hardware
+      validation configuration key while unset so existing keys hold.
+- [ ] **Colour profile.** Blocked: the installed FastLED (3.10.5) has no
+      `fl::profiles` and no `ChannelOptions::setColorProfile`. Revisit when the
+      pinned FastLED gains them; `setCorrection` already covers the strip and
+      pixel-string profiles.
 - [ ] **SD Video.** An `SDVideo` node reading MPEG1 or JPEG frames from the
       card through FastLED's codec module and `fl::Video`, decoded in the
       browser for the preview and provisioned through the existing SD upload;
