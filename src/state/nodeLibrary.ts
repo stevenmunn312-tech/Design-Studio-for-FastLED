@@ -45,6 +45,7 @@ import {
   TURING_SCALES_MIN, TURING_STEP_MAX, TURING_STEP_MIN,
 } from './evaluator/turing'
 import { REACTION_DIFFUSION_PRESETS, reactionDiffusionPreset } from './reactionDiffusionPresets'
+import { PALETTE_BANK_BLEND_DEFAULT, PALETTE_BANK_BLEND_MAX } from './paletteBank'
 import {
   FOURIER_MAX_HARMONICS_MAX, FOURIER_MAX_HARMONICS_MIN, FOURIER_OUTLINES, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
@@ -2360,7 +2361,9 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'name', label: 'Name', dataType: 'string' },
       { id: 'index', label: 'Index', dataType: 'float' },
     ],
-    defaultProperties: { palettes: [] },
+    // `blend` eases a change of palette in with FastLED's
+    // nblendPaletteTowardPalette; 0 cuts straight across.
+    defaultProperties: { palettes: [], blend: PALETTE_BANK_BLEND_DEFAULT },
   },
   {
     type: 'BeatSin',
@@ -4352,7 +4355,7 @@ export function isPaletteBuilderNodeType(nodeType: string): boolean {
 }
 
 export const NODE_DESCRIPTIONS: Record<string, string> = {
-  PaletteBank: 'An ordered bank of palettes Next/Previous steps through, wrapping at both ends.',
+  PaletteBank: 'An ordered bank of palettes Next/Previous steps through, blending between them.',
   // audio
   FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
@@ -5494,6 +5497,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     thickness: { control: 'slider', min: FOURIER_THICKNESS_MIN, max: FOURIER_THICKNESS_MAX, step: 0.05 },
     persistence: { control: 'slider', min: 0, max: 1, step: 0.005 },
   },
+  PaletteBank: {
+    blend: { control: 'slider', min: 0, max: PALETTE_BANK_BLEND_MAX, step: 1 },
+  },
   Truchet: {
     lattice: { control: 'select', options: [...TRUCHET_LATTICES] },
     motif: { control: 'select', options: [...TRUCHET_MOTIFS] },
@@ -5890,6 +5896,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rdPreset: 'A named feed/kill pair. Custom uses the Feed and Kill knobs; any other preset ignores them and their wires.',
     feed: 'Rate chemical U is replenished. Used only by the Custom preset.',
     kill: 'Rate chemical V is removed. Used only by the Custom preset.',
+  },
+  PaletteBank: {
+    blend: 'How fast a new palette fades in: colour steps per 10 ms, FastLED\'s nblendPaletteTowardPalette. 0 switches instantly.',
   },
   FourierEpicycles: {
     outline: 'Shape the circles redraw. Custom uses the Custom points text.',

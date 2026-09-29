@@ -9,7 +9,7 @@ import {
 import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
 import { PALETTE_BUILDER_NODE_TYPES, tftTransportForProps } from '../state/nodeLibrary'
 import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../state/signalRange'
-import { paletteBankEntries } from '../state/paletteBank'
+import { paletteBankBlend, paletteBankEntries } from '../state/paletteBank'
 import type { SignalRangeMismatch } from '../state/signalRange'
 import { playerControlFunction } from '../state/playerControlAssignments'
 import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed, powerAmplifierStage } from '../state/audioOutput'
@@ -741,6 +741,10 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     if (extraPerLed) statefulBytes += renderLedCount * extraPerLed
     // The summed-area table's extra row and column beyond one float per LED.
     if (n.data.nodeType === 'TuringField') statefulBytes += (w + h + 1) * 4
+    // A blending Palette Bank keeps its working CRGBPalette16 between frames.
+    if (n.data.nodeType === 'PaletteBank'
+      && paletteBankBlend(n.data.properties as Record<string, unknown>) > 0
+      && paletteBankEntries(n.data.properties as Record<string, unknown>).length > 0) statefulBytes += 48
     if (n.data.nodeType === 'Particles') {
       const mode = String((n.data.properties as Record<string, unknown>)?.particleType ?? 'fountain')
       statefulBytes += PARTICLE_POOL_SIZE(mode) * PARTICLE_BYTES_PER_SLOT

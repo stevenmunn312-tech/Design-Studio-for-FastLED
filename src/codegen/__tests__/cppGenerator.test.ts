@@ -1368,8 +1368,30 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('CRGBPalette16 paldef_party(')
     // Selected at runtime, and consumed downstream as an ordinary builder.
     expect(cpp).toContain('_pbPal_pb[] = {&paldef_ocean, &paldef_lava, &paldef_forest}')
-    expect(cpp).toContain('CRGBPalette16 pal_pb = *_pbPal_pb[_pbIdx_pb];')
+    expect(cpp).toContain('CRGBPalette16 pal_pb = _pbCur_pb;')
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
+  })
+
+  it('eases a Palette Bank change with FastLED\'s palette blend on a 10 ms clock', () => {
+    const bank = (blend: number) => {
+      const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'], blend })
+      const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+      return generateCpp([pb, sx, outputNode], [
+        edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
+        edge('e2', 'sx', 'out', 'frame', 'frame'),
+      ])
+    }
+    const eased = bank(12)
+    expect(eased).toContain('static CRGBPalette16 _pbCur_pb;')
+    expect(eased).toContain('if (!_pbInit_pb) { _pbCur_pb = _target; _pbT_pb = _now; _pbInit_pb = true; }')
+    expect(eased).toContain('uint32_t _ticks = (_now - _pbT_pb) / 10u;')
+    expect(eased).toContain('if (_ticks > 32u) { _ticks = 32u; _pbT_pb = _now; } else _pbT_pb += _ticks * 10u;')
+    expect(eased).toContain('while (_ticks--) nblendPaletteTowardPalette(_pbCur_pb, _target, 12); }')
+    expect(eased).toContain('CRGBPalette16 pal_pb = _pbCur_pb;')
+    // 0 keeps the old hard cut, with no working palette at all.
+    const cut = bank(0)
+    expect(cut).toContain('CRGBPalette16 pal_pb = *_pbPal_pb[_pbIdx_pb];')
+    expect(cut).not.toContain('_pbCur_pb')
   })
 
   it('wraps a Palette Bank press at both ends and cancels opposing presses', () => {

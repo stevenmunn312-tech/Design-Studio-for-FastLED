@@ -11,6 +11,10 @@ import {
   stepPaletteBankIndex,
   paletteBankSelection,
   paletteBankLabel,
+  paletteBankBlend,
+  paletteBankBlendTicks,
+  paletteBankTable,
+  nblendPaletteBytes,
 } from '../../state/paletteBank'
 import { displayString } from '../../state/displayText'
 import { imagePaletteStops16 } from '../../state/imagePalette'
@@ -27,6 +31,9 @@ const paletteBankState = instanceState('paletteBankState', new Map<string, {
   lastT: number
   index: number
   buttons: Record<string, ButtonEdgeState>
+  /** The working palette a change blends through, as the sketch's 48 bytes. */
+  current?: Uint8Array
+  blendMs?: number
 }>())
 
 const TEMPERATURE_MIN_K = 1000
@@ -190,7 +197,26 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const index = delta === 0 ? held : stepPaletteBankIndex(held, entries.length, delta)
     state.index = index
     const selected = paletteBankSelection(entries, index)
-    return { palette: selected, name: displayString(paletteBankLabel(selected)), index }
+    const name = displayString(paletteBankLabel(selected))
+    // Blend 0 cuts straight to the named palette, as the bank always did.
+    const blend = paletteBankBlend(props)
+    if (blend === 0) {
+      state.current = undefined
+      return { palette: selected, name, index }
+    }
+    // Otherwise a working copy eases toward the selection on a 10 ms clock,
+    // through FastLED's own blend (paletteBank.ts), starting settled.
+    const target = paletteBankTable(selected)
+    if (!state.current || state.blendMs === undefined) {
+      state.current = target.slice()
+      state.blendMs = nowMs
+    }
+    const due = paletteBankBlendTicks(state.blendMs, nowMs)
+    state.blendMs = due.lastMs
+    for (let i = 0; i < due.ticks; i++) nblendPaletteBytes(state.current, target, blend)
+    const current = state.current
+    const palette = Array.from({ length: 16 }, (_, i) => ({ r: current[i * 3], g: current[i * 3 + 1], b: current[i * 3 + 2] }))
+    return { palette, name, index }
   },
   CHSV({ num }, id, props) {
     const hue = num(id, 'hue', props, 'hue', 128)

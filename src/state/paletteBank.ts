@@ -7,7 +7,7 @@
 // others — `customPaletteDeclarationsCpp` declares only the palettes a sketch
 // names, at 48 bytes of RAM each — so what counts as "in the bank" cannot be
 // decided twice.
-import { isStudioPalette, PALETTE_DEFS, resolvePaletteId } from './paletteCatalog'
+import { isStudioPalette, PALETTE_DEFS, paletteStops16, resolvePaletteId } from './paletteCatalog'
 
 /**
  * What an empty bank reports.
@@ -97,4 +97,62 @@ export function movePaletteBankEntry(
 /** How a palette reads on a screen — the catalogue's own label. */
 export function paletteBankLabel(id: string): string {
   return PALETTE_DEFS.find((palette) => palette.id === id)?.label ?? id
+}
+
+// ── Blending between palettes ────────────────────────────────────────────────
+//
+// A change of palette can ease in rather than cut, the way FastLED's own
+// examples do it: a working palette is nudged toward the selected one with
+// `nblendPaletteTowardPalette(current, target, maxChanges)` once per tick. The
+// sketch calls FastLED's function; the preview runs `nblendPaletteBytes`, a
+// byte-for-byte copy of it, on the same 48-byte tables the sketch declares.
+
+/** Default `blend`: FastLED's `maxChanges` per tick. 0 cuts straight across. */
+export const PALETTE_BANK_BLEND_DEFAULT = 24
+export const PALETTE_BANK_BLEND_MAX = 48
+/** One blend step per this many milliseconds, whatever the frame rate. */
+export const PALETTE_BANK_BLEND_TICK_MS = 10
+/** Most steps one frame catches up; a longer stall restarts the clock. */
+export const PALETTE_BANK_BLEND_MAX_TICKS = 32
+
+export function paletteBankBlend(properties: Record<string, unknown>): number {
+  const n = Math.round(Number(properties.blend ?? PALETTE_BANK_BLEND_DEFAULT))
+  return Number.isFinite(n) ? Math.max(0, Math.min(PALETTE_BANK_BLEND_MAX, n)) : PALETTE_BANK_BLEND_DEFAULT
+}
+
+/** A palette as the 48 bytes of the sketch's `CRGBPalette16` for it. */
+export function paletteBankTable(id: string): Uint8Array {
+  const table = new Uint8Array(48)
+  paletteStops16(resolvePaletteId(id)).forEach((stop, i) => {
+    table[i * 3] = stop.r; table[i * 3 + 1] = stop.g; table[i * 3 + 2] = stop.b
+  })
+  return table
+}
+
+/**
+ * FastLED's `nblendPaletteTowardPalette`, byte for byte: walk the 48 bytes
+ * from the start, raise a low one by 1 or lower a high one by up to 2, and
+ * stop once `maxChanges` bytes have moved. Mutates `current`.
+ */
+export function nblendPaletteBytes(current: Uint8Array, target: Uint8Array, maxChanges: number): void {
+  let changes = 0
+  for (let i = 0; i < 48; i++) {
+    if (current[i] === target[i]) continue
+    if (current[i] < target[i]) { current[i]++; changes++ }
+    if (current[i] > target[i]) {
+      current[i]--; changes++
+      if (current[i] > target[i]) current[i]--
+    }
+    if (changes >= (maxChanges & 0xff)) break
+  }
+}
+
+/**
+ * Blend steps due since `lastMs`, and the clock to keep. Capped so a stalled
+ * preview or a long frame does not jump the whole way at once.
+ */
+export function paletteBankBlendTicks(lastMs: number, nowMs: number): { ticks: number; lastMs: number } {
+  const ticks = Math.floor(Math.max(0, nowMs - lastMs) / PALETTE_BANK_BLEND_TICK_MS)
+  if (ticks > PALETTE_BANK_BLEND_MAX_TICKS) return { ticks: PALETTE_BANK_BLEND_MAX_TICKS, lastMs: nowMs }
+  return { ticks, lastMs: lastMs + ticks * PALETTE_BANK_BLEND_TICK_MS }
 }

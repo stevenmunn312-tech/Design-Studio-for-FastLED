@@ -143,6 +143,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `LINEARBLEND_NOWRAP`, as does Noise's frame output, which shares that
   evaluator. Wrapping there gave a hard-edged field's 1 the colour of its 0,
   so a solid Slice Tiling slice vanished into the space around it.
+- A Palette Bank change blends through a working palette: the sketch keeps a
+  static `CRGBPalette16` and calls FastLED's `nblendPaletteTowardPalette`
+  with `blend` as `maxChanges`, once per 10 ms of `millis()`, at most 32 steps
+  a frame. The preview holds the same 48 bytes and runs `nblendPaletteBytes`
+  (`state/paletteBank.ts`), a copy `paletteBlendNative.test.ts` holds to
+  FastLED's own function. While blending, the preview outputs the 16-entry
+  table rather than the palette name; `blend: 0` keeps the name and the cut.
 - Floating-point frame reads share `sampleFrame` in `evaluator/frames.ts` and
   `_sampleFrame` from `frameSampleHelperCpp.ts`; add edge policies or rounding
   changes there rather than inside a node. Frame Warp uses the pair directly.

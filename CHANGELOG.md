@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Palette Bank eases from one palette to the next instead of cutting, with
+  FastLED's `nblendPaletteTowardPalette` on a 10 ms clock in the sketch and a
+  byte-for-byte copy of it in the preview. Blend sets the speed; 0 keeps the
+  old instant switch.
+
 - Three included patterns show off the new pattern nodes: Breathing Rosette
   breathes a Slice Tiling through a slow sine, Liquid Mirage swirls Worley
   noise through Frame Warp and Frame Feedback, and Truchet Beat Maze rerolls

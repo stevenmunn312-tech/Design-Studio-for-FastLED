@@ -1592,6 +1592,17 @@ describe('validateGraph', () => {
       expect(ram.statefulBytes).toBe(16 * 3)
     })
 
+    it('prices a blending Palette Bank\'s working palette, and not a cutting one', () => {
+      const wire = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
+        ({ id, source, sourceHandle, target, targetHandle }) as unknown as StudioEdge
+      const graph = (blend: number) => [
+        node('bank', 'PaletteBank', { palettes: ['ocean', 'lava'], blend }), node('noise', 'Noise'),
+        node('out', 'MatrixOutput', { width: 4, height: 4 }),
+      ]
+      const edges = [wire('p', 'bank', 'palette', 'noise', 'paletteIn'), wire('o', 'noise', 'frame', 'out', 'frame')]
+      expect(estimateFirmwareRam(graph(24), edges)!.statefulBytes - estimateFirmwareRam(graph(0), edges)!.statefulBytes).toBe(48)
+    })
+
     it('keeps Reaction Diffusion at four floats per LED with V in its field buffer', () => {
       const nodes = [node('rd', 'ReactionDiffusion'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'rd', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]

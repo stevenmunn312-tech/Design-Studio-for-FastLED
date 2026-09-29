@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   clampPaletteBankIndex,
+  nblendPaletteBytes,
+  paletteBankBlendTicks,
+  paletteBankTable,
   PALETTE_BANK_FALLBACK,
   paletteBankEntries,
   paletteBankLabel,
@@ -8,7 +11,7 @@ import {
   movePaletteBankEntry,
   stepPaletteBankIndex,
 } from '../paletteBank'
-import { evaluateScalarSeries } from '../graphEvaluator'
+import { evaluateGraphFull, evaluateScalarSeries } from '../graphEvaluator'
 import { useHardwareInputStore } from '../hardwareInputStore'
 import { touchControlPlan } from '../wireFirstControls'
 import { exposedNodeInputs } from '../propertyInputs'
@@ -193,5 +196,47 @@ describe('PaletteBank in the evaluator', () => {
   it('leaves the cursor alone with nothing wired to it', () => {
     const nodes = [node('bank', 'PaletteBank', BANK)]
     expect(evaluateScalarSeries(nodes, [], 'bank', 'index', [0, 60, 300])).toEqual([0, 0, 0])
+  })
+})
+
+describe('blending a Palette Bank change', () => {
+  it('steps bytes the way FastLED\'s nblendPaletteTowardPalette does', () => {
+    // Up by one, down by up to two, from the first byte, until maxChanges
+    // bytes have moved.
+    const current = new Uint8Array(48)
+    const target = new Uint8Array(48)
+    current.set([10, 10, 10, 10]); target.set([12, 10, 5, 9])
+    nblendPaletteBytes(current, target, 2)
+    expect([...current.slice(0, 4)]).toEqual([11, 10, 8, 10])
+    nblendPaletteBytes(current, target, 48)
+    expect([...current.slice(0, 4)]).toEqual([12, 10, 6, 9])
+    nblendPaletteBytes(current, target, 48)
+    expect([...current.slice(0, 4)]).toEqual([12, 10, 5, 9])
+  })
+
+  it('counts 10 ms ticks and restarts after a stall', () => {
+    expect(paletteBankBlendTicks(0, 35)).toEqual({ ticks: 3, lastMs: 30 })
+    expect(paletteBankBlendTicks(0, 5000)).toEqual({ ticks: 32, lastMs: 5000 })
+  })
+
+  it('eases from one palette to the next instead of cutting', () => {
+    const nodes = [
+      node('bank', 'PaletteBank', { palettes: ['ocean', 'lava'], blend: 24 }),
+      node('tick', 'Interval', { interval: 0.5 }),
+    ]
+    const edges = [edge('e', 'tick', 'bank', 'pulse', 'next')]
+    const bytes = (value: unknown) => (value as { r: number; g: number; b: number }[]).flatMap((c) => [c.r, c.g, c.b])
+    const ocean = [...paletteBankTable('ocean')], lava = [...paletteBankTable('lava')]
+    const palettes = Array.from({ length: 60 }, (_, tick) =>
+      bytes(evaluateGraphFull(nodes, edges, tick, 16, 16).outputs.get('bank')!.palette))
+    expect(palettes[0]).toEqual(ocean)
+    // Half a second in, the press lands, and the palette is on its way.
+    const moving = palettes[45]
+    expect(moving).not.toEqual(ocean)
+    expect(moving).not.toEqual(lava)
+    // It keeps moving toward lava, one 10 ms step at a time.
+    const distance = (palette: number[]) => palette.reduce((sum, value, i) => sum + Math.abs(value - lava[i]), 0)
+    expect(distance(palettes[59])).toBeLessThan(distance(palettes[45]))
+    expect(distance(palettes[45])).toBeLessThan(distance(ocean))
   })
 })

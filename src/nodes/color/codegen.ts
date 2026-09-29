@@ -3,7 +3,10 @@ import { imagePaletteStops16 } from '../../state/imagePalette'
 import { hexToRgb, polineStops16 } from '../../state/polinePalette'
 import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
 import { pressEdgeSettings } from '../../state/pressSource'
-import { paletteBankEntries, PALETTE_BANK_FALLBACK, paletteBankLabel } from '../../state/paletteBank'
+import {
+  paletteBankEntries, PALETTE_BANK_FALLBACK, paletteBankLabel, paletteBankBlend,
+  PALETTE_BANK_BLEND_TICK_MS, PALETTE_BANK_BLEND_MAX_TICKS,
+} from '../../state/paletteBank'
 import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
@@ -174,7 +177,21 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`      if (_fired) _delta += (_i == 0) ? 1 : -1; }`)
     ln(`    if (_delta != 0) { int _n = ((int)_pbIdx_${id} + _delta) % ${count};`)
     ln(`      _pbIdx_${id} = (uint8_t)(_n < 0 ? _n + ${count} : _n); } }`)
-    ln(`  CRGBPalette16 pal_${id} = *_pbPal_${id}[_pbIdx_${id}];`)
+    const blend = paletteBankBlend(p)
+    if (blend === 0) {
+      ln(`  CRGBPalette16 pal_${id} = *_pbPal_${id}[_pbIdx_${id}];`)
+    } else {
+      // A working palette eased toward the selection by FastLED's own
+      // nblendPaletteTowardPalette on a 10 ms clock, as the preview's twin
+      // in state/paletteBank.ts does; it starts settled on the first palette.
+      ln(`  static CRGBPalette16 _pbCur_${id}; static uint32_t _pbT_${id} = 0; static bool _pbInit_${id} = false;`)
+      ln(`  { CRGBPalette16 _target = *_pbPal_${id}[_pbIdx_${id}]; uint32_t _now = millis();`)
+      ln(`    if (!_pbInit_${id}) { _pbCur_${id} = _target; _pbT_${id} = _now; _pbInit_${id} = true; }`)
+      ln(`    uint32_t _ticks = (_now - _pbT_${id}) / ${PALETTE_BANK_BLEND_TICK_MS}u;`)
+      ln(`    if (_ticks > ${PALETTE_BANK_BLEND_MAX_TICKS}u) { _ticks = ${PALETTE_BANK_BLEND_MAX_TICKS}u; _pbT_${id} = _now; } else _pbT_${id} += _ticks * ${PALETTE_BANK_BLEND_TICK_MS}u;`)
+      ln(`    while (_ticks--) nblendPaletteTowardPalette(_pbCur_${id}, _target, ${blend}); }`)
+      ln(`  CRGBPalette16 pal_${id} = _pbCur_${id};`)
+    }
     ln(`  const char* ${v('name')} = _pbName_${id}[_pbIdx_${id}];`)
     ln(`  float ${v('index')} = (float)_pbIdx_${id};`)
   },
