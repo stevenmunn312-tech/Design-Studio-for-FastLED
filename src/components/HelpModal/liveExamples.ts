@@ -500,6 +500,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     FieldFormula: ['a'],
     FieldNoise: ['speed', 'scale'],
     WaveSim: ['trigger', 'impulse'],
+    Automaton: ['speed', 'rule'],
     DistanceField: ['px', 'py'],
     FieldRotate: ['field', 'angle'],
     FieldTile: ['field', 'tilesX', 'tilesY'],

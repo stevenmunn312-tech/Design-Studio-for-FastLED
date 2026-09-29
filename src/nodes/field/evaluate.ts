@@ -6,7 +6,11 @@ import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/eva
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
-import { seedOffset, _snoise2, normalizedSeed } from '../../state/evaluator/random'
+import { seedOffset, _snoise2, normalizedSeed, seededRandom, seededRngState } from '../../state/evaluator/random'
+import {
+  SAND_SPAWN_RATE, automatonInterval, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
+  sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
+} from '../../state/evaluator/automaton'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
 import { wallpaperSamplePoint } from '../../state/evaluator/symmetry'
@@ -381,6 +385,56 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
   return out
 }
 
+// Automaton: elementary rows, cyclic spirals, Brian's Brain and falling sand.
+// One byte per cell; the steps live in state/evaluator/automaton.ts.
+interface AutomatonState {
+  cells: Uint8Array; next: Uint8Array; w: number; h: number; type: string; seed: number
+  lastStep: number; prevReset: boolean; stepCount: number
+}
+const automatonState = instanceState('automatonState', new Map<string, AutomatonState>())
+
+function evalAutomaton(
+  nodeId: string, type: AutomatonType, rule: number, states: number, threshold: number, spawn: number, speed: number,
+  reset: boolean, tick: number, seed: number, W = DEFAULT_W, H = DEFAULT_H,
+): Field {
+  const N = W * H
+  const key = `${nodeId}:auto`
+  const rnd = () => seededRandom(key, seed)
+  const fill = (s: AutomatonState) => {
+    s.cells.fill(0)
+    if (type === 'elementary') seedElementary(s.cells, W, H, seed ? rnd : null)
+    else if (type === 'cyclic') for (let i = 0; i < N; i++) s.cells[i] = Math.floor(rnd() * states)
+    else if (type === 'brianBrain') for (let i = 0; i < N; i++) s.cells[i] = rnd() < 0.15 ? 2 : 0
+    s.stepCount = 0
+  }
+  let s = automatonState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.type !== type || s.seed !== seed) {
+    seededRngState.delete(key)
+    s = { cells: new Uint8Array(N), next: new Uint8Array(N), w: W, h: H, type, seed, lastStep: -1e9, prevReset: reset, stepCount: 0 }
+    fill(s)
+    automatonState.set(nodeId, s)
+  } else if (reset && !s.prevReset) fill(s)
+  s.prevReset = reset
+
+  if (tick - s.lastStep >= automatonInterval(speed)) {
+    s.lastStep = tick
+    s.stepCount++
+    if (type === 'elementary') stepElementary(s.cells, W, H, rule)
+    else if (type === 'cyclic') { stepCyclic(s.cells, s.next, W, H, states, threshold); [s.cells, s.next] = [s.next, s.cells] }
+    else if (type === 'brianBrain') { stepBrain(s.cells, s.next, W, H); [s.cells, s.next] = [s.next, s.cells] }
+    else {
+      const p = Math.max(0, Math.min(1, spawn)) * SAND_SPAWN_RATE
+      for (let x = 0; x < W; x++) if (!s.cells[x] && rnd() < p) s.cells[x] = 1
+      stepSand(s.cells, W, H, s.stepCount)
+      if (sandJammed(s.cells, W)) s.cells.fill(0)
+    }
+  }
+  const out = allocField(N)
+  const top = Math.max(1, automatonStates(type, states) - 1)
+  for (let i = 0; i < N; i++) out[i] = s.cells[i] / top
+  return out
+}
+
 // Distance from each pixel to a movable point (px,py in normalised 0–1 space).
 // Output is 0 at the point, rising to 1; `scale` (≥1) stretches the ramp so it
 // reaches 1 sooner. The diagonal of the unit square (√2) is the 1.0 reference.
@@ -749,6 +803,16 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = num(id, 'impulse', props, 'impulse', 1)
     return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
+  },
+  Automaton({ input, num, tick, W, H, stateKey }, id, props) {
+    const type = automatonType(props.automatonType)
+    return {
+      field: evalAutomaton(
+        stateKey(id), type, elementaryRule(num(id, 'rule', props, 'rule', 90)), cyclicStates(props.states), cyclicThreshold(props.threshold),
+        num(id, 'spawn', props, 'spawn', 0.5), num(id, 'speed', props, 'speed', 8), Boolean(input(id, 'reset', false)), tick,
+        normalizedSeed(props.seed), W, H,
+      ),
+    }
   },
   FieldToFrame({ input, num, pal, W, H }, id, props) {
     const fv = input(id, 'field', null)

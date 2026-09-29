@@ -415,9 +415,9 @@ Checklist:
       row, capacity test.
 - [ ] Fractal: the four types, wired `c`, emitted block per type, an
       iteration cap test.
-- [ ] Automaton: the four types, rule and state tests (rule 90 makes the
-      Sierpinski triangle from one seed cell; cyclic converges to spirals),
-      RAM row.
+- [x] Automaton: the four types, rule and state tests (rule 90 makes the
+      Sierpinski triangle from one seed cell), RAM row. The cyclic test checks
+      that a cell only ever advances one state; spirals are left to the eye.
 - [x] Digital Rain with all four directions and a string test (a 1-row canvas
       runs left and right along its length).
 - [ ] Gauge with the four styles and the sensor live example.

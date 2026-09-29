@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New Automaton field node with four cellular automata: elementary rules that
+  scroll down the canvas (rule 90 draws Sierpinski's triangle), cyclic spirals,
+  Brian's Brain, and falling sand that piles up and clears. A rising Reset
+  restarts it.
 - New Digital Rain node: falling streams with bright heads and fading tails,
   with density, speed, tail length and flicker. Direction is down, up, left or
   right, so a string can run the rain along its length.

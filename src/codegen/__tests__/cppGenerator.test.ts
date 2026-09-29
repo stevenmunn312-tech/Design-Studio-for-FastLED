@@ -1480,6 +1480,26 @@ describe('generateCpp', () => {
     expect(down).toContain('x*=0x7feb352dU')
   })
 
+  it('emits each Automaton type', () => {
+    const am = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Automaton', 'field', props), node('f', 'FieldToFrame', 'pattern', {}), outputNode], [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame')])
+    const elem = am()
+    expect(elem).toContain('static uint8_t _am_nc[NUM_LEDS]')
+    expect(elem).toContain('_am_nc[WIDTH/2]=1;')
+    expect(elem).toContain('_row[_x]=(_rule>>(')
+    expect(elem).not.toContain('_dy')
+    expect(am({ seed: 5 })).toContain('_am_nc[_x]=random8()<128?1:0;')
+    const cyc = am({ automatonType: 'cyclic', states: 6, threshold: 2 })
+    expect(cyc).toContain('_w=(_s+1)%6')
+    expect(cyc).toContain('_nb>=2?_w:_s')
+    expect(cyc).toContain('random8(6)')
+    const brain = am({ automatonType: 'brianBrain' })
+    expect(brain).toContain('_s==2?1:(_s==1?0:(_nb==2?2:0))')
+    expect(brain).toContain('/2.0f;')
+    const sand = am({ automatonType: 'sand' })
+    expect(sand).toContain('((_x+_y+_am_nk)&1)==0?-1:1')
+    expect(sand).toContain('_top*2>=WIDTH')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

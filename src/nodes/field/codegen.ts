@@ -9,6 +9,9 @@ import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from '../../state/sliceTiling'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
+import {
+  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
+} from '../../state/evaluator/automaton'
 import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
 
 function byteArray8(bytes: Uint8Array): string {
@@ -280,6 +283,52 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
     ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
+  },
+  Automaton({ node, id, p, ln, f, ownField, boolExpr }) {
+    const of = ownField()
+    const type = automatonType(p.automatonType)
+    const states = cyclicStates(p.states), threshold = cyclicThreshold(p.threshold)
+    const A = `_am_${id}`
+    const seed = seedProp(p)
+    const top = Math.max(1, automatonStates(type, states) - 1)
+    // Neighbour count of state `want` on the torus, for cyclic and Brian's Brain.
+    const count = (want: string) => `int _nb=0; for(int _dy=-1;_dy<=1;_dy++) for(int _dx=-1;_dx<=1;_dx++){ if(!_dx&&!_dy) continue; if(${A}c[((_y+_dy+HEIGHT)%HEIGHT)*WIDTH+((_x+_dx+WIDTH)%WIDTH)]==${want}) _nb++; }`
+    ln(`  { // Automaton (${type})`)
+    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0;`)
+    if (seed) ln(`    static bool ${A}sd=false; if(!${A}sd){ random16_set_seed(${seed}u); ${A}sd=true; }`)
+    ln(`    auto _fill=[&](){ memset(${A}c,0,sizeof(${A}c)); ${A}k=0;`)
+    if (type === 'elementary') ln(seed ? `      for(int _x=0;_x<WIDTH;_x++) ${A}c[_x]=random8()<128?1:0;` : `      ${A}c[WIDTH/2]=1;`)
+    else if (type === 'cyclic') ln(`      for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8(${states});`)
+    else if (type === 'brianBrain') ln(`      for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8()<38?2:0;`)
+    ln(`    };`)
+    ln(`    bool _rs=(${boolExpr(node.id, 'reset')});`)
+    ln(`    if(!${A}init){ _fill(); ${A}init=true; } else if(_rs&&!${A}pr) _fill();`)
+    ln(`    ${A}pr=_rs;`)
+    ln(`    float _sp=constrain(${f('speed', 'speed', 8)},${floatLit(AUTOMATON_SPEED_MIN)},${floatLit(AUTOMATON_SPEED_MAX)});`)
+    ln(`    if(millis()-${A}t>=(uint32_t)(1000.0f/_sp)){ ${A}t=millis(); ${A}k++;`)
+    if (type === 'elementary') {
+      ln(`      uint8_t _rule=(uint8_t)constrain((int)floorf(${f('rule', 'rule', 90)}),0,255), _row[WIDTH];`)
+      ln(`      for(int _x=0;_x<WIDTH;_x++) _row[_x]=(_rule>>(${A}c[(_x-1+WIDTH)%WIDTH]*4+${A}c[_x]*2+${A}c[(_x+1)%WIDTH]))&1;`)
+      ln(`      for(int _y=HEIGHT-1;_y>0;_y--) memmove(&${A}c[_y*WIDTH],&${A}c[(_y-1)*WIDTH],WIDTH);`)
+      ln(`      memcpy(${A}c,_row,WIDTH); }`)
+    } else if (type === 'cyclic') {
+      ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ uint8_t _s=${A}c[_y*WIDTH+_x],_w=(_s+1)%${states}; ${count('_w')}`)
+      ln(`        ${A}n[_y*WIDTH+_x]=_nb>=${threshold}?_w:_s; }`)
+      ln(`      memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
+    } else if (type === 'brianBrain') {
+      ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ uint8_t _s=${A}c[_y*WIDTH+_x]; ${count('2')}`)
+      ln(`        ${A}n[_y*WIDTH+_x]=_s==2?1:(_s==1?0:(_nb==2?2:0)); }`)
+      ln(`      memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
+    } else {
+      ln(`      float _pr=constrain(${f('spawn', 'spawn', 0.5)},0.0f,1.0f)*${floatLit(SAND_SPAWN_RATE)};`)
+      ln(`      for(int _x=0;_x<WIDTH;_x++) if(!${A}c[_x]&&random16()/65535.0f<_pr) ${A}c[_x]=1;`)
+      ln(`      for(int _y=HEIGHT-2;_y>=0;_y--) for(int _x=0;_x<WIDTH;_x++){ int _i=_y*WIDTH+_x; if(!${A}c[_i]) continue; int _b=_i+WIDTH;`)
+      ln(`        if(!${A}c[_b]){ ${A}c[_b]=1; ${A}c[_i]=0; continue; }`)
+      ln(`        int _f=((_x+_y+${A}k)&1)==0?-1:1;`)
+      ln(`        for(int _q=0;_q<2;_q++){ int _d=_q?-_f:_f, _nx=_x+_d; if(_nx<0||_nx>=WIDTH||${A}c[_b+_d]) continue; ${A}c[_b+_d]=1; ${A}c[_i]=0; break; } }`)
+      ln(`      int _top=0; for(int _x=0;_x<WIDTH;_x++) _top+=${A}c[_x]; if(_top*2>=WIDTH) memset(${A}c,0,sizeof(${A}c)); }`)
+    }
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${A}c[_i]/${floatLit(top)}; }`)
   },
   FieldToFrame({ node, p, ln, f, ownBuf, srcField, paletteExpr }) {
     const ob = ownBuf()

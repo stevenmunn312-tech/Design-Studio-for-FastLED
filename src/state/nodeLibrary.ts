@@ -44,6 +44,9 @@ import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
+import {
+  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
+} from './evaluator/automaton'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -3436,6 +3439,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapX: true },
   },
   {
+    // Cellular automata as a field: scrolling elementary rows, cyclic spirals,
+    // Brian's Brain and falling sand. One byte per cell; a rising `reset`
+    // restarts it.
+    type: 'Automaton',
+    label: 'Automaton',
+    category: 'field',
+    inputs: [
+      { id: 'reset', label: 'Reset', dataType: 'bool' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'rule', label: 'Rule', dataType: 'float' },
+      { id: 'spawn', label: 'Spawn', dataType: 'float' },
+    ],
+    propertyInputs: { speed: 'speed', rule: 'rule', spawn: 'spawn' },
+    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    defaultProperties: { automatonType: 'elementary', rule: 90, states: 8, threshold: 3, spawn: 0.5, speed: 8, seed: 0 },
+  },
+  {
     // McCabe's multi-scale Turing patterns: labyrinths inside labyrinths. Each
     // pixel follows whichever scale's activator and inhibitor agree most, so
     // the look keeps reorganising. `scales` and `baseRadius` are baked into
@@ -4790,6 +4810,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
+  Automaton: 'Cellular automata as a field: rows, spirals, Brian\'s Brain, sand.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
@@ -4874,7 +4895,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5877,6 +5898,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     style: { control: 'slider', min: 0, max: 16, step: 1 },
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  Automaton: {
+    automatonType: { control: 'select', options: [...AUTOMATON_TYPES] },
+    rule: { control: 'slider', min: 0, max: 255, step: 1 },
+    states: { control: 'slider', min: CYCLIC_STATES_MIN, max: CYCLIC_STATES_MAX, step: 1 },
+    threshold: { control: 'slider', min: CYCLIC_THRESHOLD_MIN, max: CYCLIC_THRESHOLD_MAX, step: 1 },
+    spawn: N01,
+    speed: { control: 'slider', min: AUTOMATON_SPEED_MIN, max: AUTOMATON_SPEED_MAX, step: 1 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   WaveSim: {
     speed:   { control: 'slider', min: 1, max: 12,    step: 1 },
     damping: { control: 'slider', min: 0.8, max: 0.999, step: 0.001 },
@@ -6089,6 +6119,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     channel.level,
     'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
   ])),
+  Automaton: {
+    automatonType: 'Elementary: one-dimensional rules that scroll down the canvas. Cyclic: colours chase each other in spirals. Brian\'s Brain: sparks that die and never rest. Sand: grains fall and pile up.',
+    rule: 'Wolfram rule number, 0 to 255. Rule 90 draws Sierpinski\'s triangle from one cell; rule 30 is chaotic.',
+    states: 'How many colours chase each other around the cycle.',
+    threshold: 'How many neighbours must already hold the next colour before a cell advances.',
+    spawn: 'How readily new grains fall in from the top.',
+    speed: 'Steps a second.',
+  },
   WaveSim: {
     halfDuplex: 'Show only the positive half of the wave, so crests read as raised water and troughs stay dark.',
     wrapX: 'Let waves leave one side and re-enter the other. Off, the left and right edges reflect them.',
@@ -7306,6 +7344,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'Noise' && key === 'worleyMode') {
     return properties.noiseType === 'worley'
+  }
+  if (nodeType === 'Automaton') {
+    if (key === 'rule') return properties.automatonType === undefined || properties.automatonType === 'elementary'
+    if (key === 'states' || key === 'threshold') return properties.automatonType === 'cyclic'
+    if (key === 'spawn') return properties.automatonType === 'sand'
   }
   if (nodeType === 'Sunrise') {
     if (key === 'progress') return properties.mode === 'manual'

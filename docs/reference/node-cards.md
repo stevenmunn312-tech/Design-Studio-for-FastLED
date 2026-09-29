@@ -948,6 +948,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Wave Sim example graph](../../public/node-cards/graphs/wave-sim.svg)
 
+### Automaton
+
+![Automaton node](../../public/node-cards/automaton.svg)
+
+![Automaton example graph](../../public/node-cards/graphs/automaton.svg)
+
 ### Turing Field
 
 ![Turing Field node](../../public/node-cards/turing-field.svg)
