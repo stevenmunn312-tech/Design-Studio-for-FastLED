@@ -1,4 +1,4 @@
-/** Generate the real pattern-node graphs used by the Phase 0–8 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–9 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -490,6 +490,100 @@ for (const marker of ['_audioVibeBass', '_audioDownbeatCount', '_pitchDetect', '
   if (phase8Base.includes(marker)) throw new Error(`Phase 8 baseline fixture unexpectedly has ${marker}`)
 }
 
+// Phase 9 builds three graphs that between them touch every new emitter: a
+// 60-LED string, a 60-LED ring on the ring track, and a 16×16 matrix for the
+// field options. The string-only graph is the one the plan asks to compile on
+// both classic ESP32 and ESP8266.
+const phase9String = (() => {
+  const nodes = [
+    node('harmony', 'HarmonyPalette', { hue: 30, harmony: 'triadic' }),
+    node('lfo', 'NoiseSignal', { speed: 0.3, min: 0.2, max: 1 }),
+    node('tick', 'Interval', { interval: 0.6 }),
+    node('noise', 'Noise', { noiseType: 'worley', worleyMode: 'edges', wrapX: true, noiseShape: 'billow', speed: 0.3, scale: 0.4 }),
+    node('drift', 'StringParticles', { track: 'row', mode: 'drift', count: 24 }),
+    node('meteors', 'StringParticles', { track: 'row', mode: 'meteors', count: 20, bed: 0.3 }),
+    node('gradient', 'GradientFrame', { mixMode: 'hsvLong' }),
+    node('polar', 'PolarGradient', { repeat: 2, spin: 0.2 }),
+    node('path', 'Path', { pathShape: 'custom', customPoints: CUSTOM_OUTLINE, t: 0.3 }),
+    node('b1', 'Blend', { blendMode: 'normal', amount: 0.4 }),
+    node('b2', 'Blend', { blendMode: 'add', amount: 0.8 }),
+    node('b3', 'Blend', { blendMode: 'add', amount: 0.6 }),
+    node('b4', 'Blend', { blendMode: 'normal', amount: 0.3 }),
+    node('b5', 'Blend', { blendMode: 'add', amount: 0.5 }),
+    node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('h-drift', 'harmony', 'palette', 'drift', 'paletteIn'),
+    edge('h-meteor', 'harmony', 'palette', 'meteors', 'paletteIn'),
+    edge('h-noise', 'harmony', 'palette', 'noise', 'paletteIn'),
+    edge('lfo-spawn', 'lfo', 'value', 'meteors', 'spawn'),
+    edge('tick-trigger', 'tick', 'pulse', 'meteors', 'trigger'),
+    edge('b1-a', 'gradient', 'frame', 'b1', 'a'),
+    edge('b1-b', 'noise', 'frame', 'b1', 'b'),
+    edge('b2-a', 'b1', 'frame', 'b2', 'a'),
+    edge('b2-b', 'drift', 'frame', 'b2', 'b'),
+    edge('b3-a', 'b2', 'frame', 'b3', 'a'),
+    edge('b3-b', 'meteors', 'frame', 'b3', 'b'),
+    edge('b4-a', 'b3', 'frame', 'b4', 'a'),
+    edge('b4-b', 'polar', 'frame', 'b4', 'b'),
+    edge('b5-a', 'b4', 'frame', 'b5', 'a'),
+    edge('b5-b', 'path', 'frame', 'b5', 'b'),
+    edge('b5-out', 'b5', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    '// String Particles', '_len=WIDTH;', 'if(_tr&&!_sp_meteorsprev)', 'inoise8((uint16_t)(_k*90)',
+    '_wrapXMix(', '_hueMix(', '[128][2] PROGMEM', '_f2-_f1',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 9 string fixture is missing ${marker}`)
+  }
+  return sketch
+})()
+
+const phase9Ring = (() => {
+  const nodes = [
+    node('sp', 'StringParticles', { track: 'ring', ringLeds: 60, mode: 'meteors', count: 32 }),
+    node('tick', 'Interval', { interval: 0.5 }),
+    node('flow', 'FlowField', { flowMode: 'curl', count: 60 }),
+    node('b', 'Blend', { blendMode: 'add', amount: 0.7 }),
+    node('out', 'MatrixOutput', { form: 'ring', ledCount: 60, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('tick-sp', 'tick', 'pulse', 'sp', 'trigger'),
+    edge('flow-a', 'flow', 'frame', 'b', 'a'),
+    edge('sp-b', 'sp', 'frame', 'b', 'b'),
+    edge('b-out', 'b', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of ['_len=60;', 'static uint16_t _sp_spix[60];', '_sp_spix[_k]=_y*WIDTH+_x;', 'inoise16(_cx+3277u,_cy,_cz)']) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 9 ring fixture is missing ${marker}`)
+  }
+  return sketch
+})()
+
+const phase9Matrix = (() => {
+  const nodes = [
+    node('noise', 'FieldNoise', { wrapX: true, noiseShape: 'ridged', octaves: 3 }),
+    node('wave', 'WaveSim', { halfDuplex: true, wrapX: false }),
+    node('tick', 'Interval', { interval: 0.7 }),
+    node('mix', 'FieldMath', { fieldOp: 'add' }),
+    node('color', 'FieldToFrame', { palette: 'ocean', brightness: 1 }),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('tick-wave', 'tick', 'pulse', 'wave', 'trigger'),
+    edge('noise-a', 'noise', 'field', 'mix', 'a'),
+    edge('wave-b', 'wave', 'field', 'mix', 'b'),
+    edge('mix-color', 'mix', 'field', 'color', 'field'),
+    edge('color-out', 'color', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of ['_wrapXMix(', 'max(_x-1,0)']) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 9 matrix fixture is missing ${marker}`)
+  }
+  return sketch
+})()
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -516,6 +610,9 @@ writeFileSync(resolve(outputDir, 'phase8-base.ino'), phase8Base, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-base-s3.ino'), phase8BaseS3, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-all.ino'), phase8All, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-all-s3.ino'), phase8AllS3, 'utf8')
+writeFileSync(resolve(outputDir, 'phase9-string.ino'), phase9String, 'utf8')
+writeFileSync(resolve(outputDir, 'phase9-ring.ino'), phase9Ring, 'utf8')
+writeFileSync(resolve(outputDir, 'phase9-matrix.ino'), phase9Matrix, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -559,10 +656,11 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     ['phase8-structure', phase8Structure], ['phase8-structure-s3', phase8StructureS3],
     ['phase8-pitch', phase8Pitch], ['phase8-pitch-s3', phase8PitchS3],
     ['phase8-waveform', phase8Waveform], ['phase8-waveform-s3', phase8WaveformS3],
+    ['phase9-string', phase9String], ['phase9-ring', phase9Ring], ['phase9-matrix', phase9Matrix],
     ['phase8-base', phase8Base], ['phase8-base-s3', phase8BaseS3], ['phase8-all', phase8All], ['phase8-all-s3', phase8AllS3],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),
   }])),
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–8 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–9 pattern-node compile fixtures to ${outputDir}`)

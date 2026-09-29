@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO, Polar Gradient, Harmony Palette, gradient mixMode, wrapX, Wave Sim options, Custom Path, noise shaping and curl, String Particles done; only the compile check open); 10–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–9 complete; 10–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -331,7 +331,7 @@ Checklist:
 - [x] Harmony Palette node, joining the palette-producer classification test.
 - [x] README Patterns, Signals and Color lines; node cards; design note
       `docs/development/design/strings-and-rings.md` for the track contract.
-- [ ] Compile check on classic ESP32 and ESP8266 with a string-only graph.
+- [x] Compile check on classic ESP32 and ESP8266 with a string-only graph, plus a ring and a matrix graph on ESP32 (and the ring on ESP8266); recorded in `docs/development/pattern-node-compile-checks.md`.
 
 ## Phase 10 — Simulations and classics
 
