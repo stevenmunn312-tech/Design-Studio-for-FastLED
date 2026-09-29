@@ -7,6 +7,7 @@ import { denormRate, SPEED_MAX } from '../../state/speedRange'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from '../../state/wireframeModel'
 import { pathPoint } from '../../state/pathShapes'
+import { customPathTable, customPathPoint } from '../../state/customPath'
 import {
   FOURIER_RING_HALF_WIDTH, FOURIER_RING_LEVEL, FOURIER_RING_MIN_RADIUS, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP,
@@ -721,7 +722,9 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const scale = Math.max(0, num(id, 'scale', props, 'scale', 0.8))
     const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1.25))
     const shape = String(props.pathShape ?? 'circle')
-    const p = pathPoint(shape, tt)
+    // Custom follows the author's points; text that is not a valid outline is the circle.
+    const table = shape === 'custom' ? customPathTable(props.customPoints) : null
+    const p = table ? customPathPoint(table, tt) : pathPoint(shape, tt)
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const radius = thickness * 0.5
     const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)

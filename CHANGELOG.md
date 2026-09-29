@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Path gains a Custom shape: type x,y pairs from -1 to 1 into Custom Points
+  and the point glides along a smooth closed curve through every one. It reads
+  the same text as Fourier Epicycles, and anything that is not an outline draws
+  the circle. The sketch bakes a 128-point table into flash (1 KB).
 - Wave Sim gains Half Duplex, which shows only the positive half of the wave so
   crests read as raised water, and Wrap X, which is on as before; turn it off and
   the left and right edges reflect waves instead. A one-row canvas already gives a

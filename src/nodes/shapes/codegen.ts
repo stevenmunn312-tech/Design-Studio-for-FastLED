@@ -18,6 +18,7 @@ import {
   WIREFRAME_CAM_NEAR,
   WIREFRAME_FIT_MARGIN,
 } from '../../state/wireframeModel'
+import { customPathTable } from '../../state/customPath'
 import { gradientMixMode } from '../../state/hueMix'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
@@ -193,7 +194,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  Path({ p, ln, f, channelColor, ownBuf, seedFrom }) {
+  Path({ id, p, ln, f, channelColor, ownBuf, seedFrom }) {
     const ob = ownBuf()
     const colorE = channelColor('color', 255, 220, 80)
     const shape = String(p.pathShape ?? 'circle')
@@ -208,10 +209,22 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     } else if (shape === 'rose') {
       pathExpr = `float _pr = cosf(_ang * 4.0f); float _px = _pr * cosf(_ang), _py = _pr * sinf(_ang);`
     }
+    // A custom outline is baked as a resampled polyline and walked with the
+    // same linear interpolation as customPathPoint; invalid text is the circle.
+    const table = shape === 'custom' ? customPathTable(p.customPoints) : null
     ln(`  { ${seedFrom('base')}`)
     ln(`    float _tt = constrain(${tExpr}, 0.0f, 1.0f);`)
-    ln(`    float _ang = _tt * 6.2831853f;`)
-    ln(`    ${pathExpr}`)
+    if (table) {
+      const T = `_pp_${id}`
+      const rows = table.map((pt) => `{${floatLit(pt.x, 6)},${floatLit(pt.y, 6)}}`)
+      ln(`    static const float ${T}[${table.length}][2] PROGMEM = {${rows.join(',')}};`)
+      ln(`    float _u = _tt * ${table.length}.0f; int _i0 = ((int)_u) % ${table.length}, _i1 = (_i0 + 1) % ${table.length}; float _fr = _u - floorf(_u);`)
+      ln(`    float _ax = pgm_read_float_near(&${T}[_i0][0]), _ay = pgm_read_float_near(&${T}[_i0][1]);`)
+      ln(`    float _px = _ax + (pgm_read_float_near(&${T}[_i1][0]) - _ax) * _fr, _py = _ay + (pgm_read_float_near(&${T}[_i1][1]) - _ay) * _fr;`)
+    } else {
+      ln(`    float _ang = _tt * 6.2831853f;`)
+      ln(`    ${pathExpr}`)
+    }
     ln(`    float _rad = max(0.25f, ${f('thickness', 'thickness', thickness)} * 0.5f);`)
     ln(`    float _ext = max(0.0f, min((float)WIDTH, (float)HEIGHT) * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
     ln(`    float _sx = (WIDTH - 1) * 0.5f + _px * _ext;`)

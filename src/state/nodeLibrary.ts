@@ -510,7 +510,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     propertyInputs: { t: 't', scale: 'scale', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
+    defaultProperties: { pathShape: 'circle', customPoints: '', t: 0, scale: 0.8, thickness: 1.25, r: 255, g: 220, b: 80 },
   },
   {
     // An outline redrawn by nested rotating circles: its discrete Fourier
@@ -4915,7 +4915,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   turns:      { control: 'slider', min: 1, max: 6, step: 1 },
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
-  pathShape:  { control: 'select', options: ['circle', 'heart', 'lissajous', 'rose'] },
+  pathShape:  { control: 'select', options: ['circle', 'heart', 'lissajous', 'rose', 'custom'] },
   operation:  { control: 'select', options: ['add', 'multiply', 'average', 'min', 'max', 'difference'] },
   transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
@@ -6098,6 +6098,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   PaletteBank: {
     blend: 'How fast a new palette fades in: colour steps per 10 ms, FastLED\'s nblendPaletteTowardPalette. 0 switches instantly.',
   },
+  Path: {
+    pathShape: 'Curve the point traces. Custom runs a smooth spline through the Custom points text.',
+    customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined by a smooth closed curve through every one. Anything else draws the circle.',
+  },
   FourierEpicycles: {
     outline: 'Shape the circles redraw. Custom uses the Custom points text.',
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined into a closed outline. Anything else draws the circle.',
@@ -6193,6 +6197,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   TuringField: {
     stepSize: 'step size',
     baseRadius: 'base radius',
+  },
+  Path: {
+    customPoints: 'custom points',
   },
   FourierEpicycles: {
     customPoints: 'custom points',
@@ -6805,7 +6812,7 @@ const BUNDLED_TITLES: Record<string, { prop: string; labels: Record<string, stri
   },
   Path: {
     prop: 'pathShape',
-    labels: { circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose' },
+    labels: { circle: 'Path · Circle', heart: 'Path · Heart', lissajous: 'Path · Lissajous', rose: 'Path · Rose', custom: 'Path · Custom' },
   },
   FourierEpicycles: {
     prop: 'outline',
@@ -7107,6 +7114,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
     return properties.outline === 'custom'
+  }
+  if (nodeType === 'Path' && key === 'customPoints') {
+    return properties.pathShape === 'custom'
   }
   // A named preset fixes both rates, so their knobs, and any wire into them,
   // do nothing until the preset is Custom again.

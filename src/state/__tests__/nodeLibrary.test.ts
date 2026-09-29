@@ -482,7 +482,7 @@ describe('nodeLibrary', () => {
     expect(path?.inputs.map((p) => p.id)).toEqual(['base', 'color', 't', 'scale', 'thickness', 'r', 'g', 'b'])
     expect(path?.defaultProperties).toMatchObject({ pathShape: 'circle', t: 0, scale: 0.8, thickness: 1.25 })
     expect(propertyMeta('Path', 'pathShape')).toMatchObject({ control: 'select' })
-    expect((propertyMeta('Path', 'pathShape') as { options?: string[] }).options).toEqual(['circle', 'heart', 'lissajous', 'rose'])
+    expect((propertyMeta('Path', 'pathShape') as { options?: string[] }).options).toEqual(['circle', 'heart', 'lissajous', 'rose', 'custom'])
     expect(propertyMeta('Path', 'thickness')).toMatchObject({ control: 'slider', min: 0.5 })
   })
 

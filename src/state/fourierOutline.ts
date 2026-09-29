@@ -95,7 +95,7 @@ function closedLength(points: readonly Point[]): number {
 }
 
 /** `count` points spaced evenly by length round a closed polygon. */
-function resampleClosed(points: readonly Point[], count: number): Point[] {
+export function resampleClosed(points: readonly Point[], count: number): Point[] {
   const total = closedLength(points)
   const out: Point[] = []
   let segment = 0, walked = 0

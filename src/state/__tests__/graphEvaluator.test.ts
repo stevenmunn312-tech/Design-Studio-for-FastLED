@@ -1543,6 +1543,24 @@ describe('evaluateGraph', () => {
     expect(top.y).toBeLessThan(right.y - 1)
   })
 
+  it('Path draws a custom outline through its points and the circle when the text is invalid', () => {
+    const render = (props: Record<string, unknown>, tt: number) => {
+      const p = node('p', 'Path', 'pattern', { t: tt, scale: 0.85, thickness: 1, r: 255, g: 0, b: 0, ...props })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return JSON.stringify(evaluateGraph([p, out], [edge('e', 'p', 'frame', 'out', 'frame')], 0, 11, 11)!)
+    }
+    const custom = { pathShape: 'custom', customPoints: '1,0 0,1 -1,0 0,-1' }
+    // Turn 0 sits on the first point, which is where the circle starts too.
+    expect(render(custom, 0)).toEqual(render({ pathShape: 'circle' }, 0))
+    // A quarter turn is not: the custom curve is a diamond, the circle is round.
+    expect(render(custom, 0.125)).not.toEqual(render({ pathShape: 'circle' }, 0.125))
+    expect(render(custom, 0.25)).toEqual(render({ pathShape: 'circle' }, 0.25))
+    // Text that is not an outline draws the circle.
+    for (const customPoints of ['', '1,0 0,1', 'nope', '1,0 0,1 -1']) {
+      expect(render({ pathShape: 'custom', customPoints }, 0.3)).toEqual(render({ pathShape: 'circle' }, 0.3))
+    }
+  })
+
   it('Path uses a wired t input over its property and preserves the base frame elsewhere', () => {
     const tVal = node('tv', 'Math', 'math', { mathOp: 'add', a: 0.25, b: 0 })
     const bg = node('bg', 'SolidColor', 'pattern', { r: 30, g: 0, b: 0 })

@@ -2080,6 +2080,21 @@ describe('generateCpp', () => {
     expect(cpp).toContain('buf_p[_y * WIDTH + _x] += _add;')
   })
 
+  it('bakes a custom Path outline as a PROGMEM table and falls back to the circle', () => {
+    const emit = (props: Record<string, unknown>) =>
+      generateCpp([node('p', 'Path', 'pattern', props), outputNode], [edge('e', 'p', 'out', 'frame', 'frame')])
+    const custom = emit({ pathShape: 'custom', customPoints: '1,0 0,1 -1,0 0,-1' })
+    expect(custom).toContain('static const float _pp_p[128][2] PROGMEM = {{')
+    expect(custom).toContain('float _u = _tt * 128.0f; int _i0 = ((int)_u) % 128, _i1 = (_i0 + 1) % 128;')
+    expect(custom).toContain('pgm_read_float_near(&_pp_p[_i0][0])')
+    expect(custom).not.toContain('cosf(_ang)')
+    for (const customPoints of ['', '1,0 0,1', 'nope']) {
+      const bad = emit({ pathShape: 'custom', customPoints })
+      expect(bad).toContain('float _px = cosf(_ang), _py = sinf(_ang);')
+      expect(bad).not.toContain('_pp_p')
+    }
+  })
+
   it('Path codegen uses a wired t input over the property', () => {
     const tVal = node('tv', 'Math', 'math', { mathOp: 'add', a: 0.25, b: 0 })
     const p = node('p', 'Path', 'pattern', { pathShape: 'rose', t: 0, scale: 0.8, thickness: 1.25 })
