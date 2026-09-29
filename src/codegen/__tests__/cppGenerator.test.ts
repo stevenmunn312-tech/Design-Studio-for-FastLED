@@ -3752,6 +3752,38 @@ describe('generateCpp — INMP441 audio engine', () => {
     }
   })
 
+  it('prints the Song Structure, Pitch and Waveform detectors on the MIC_DEBUG line only when present', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const ss = node('ss', 'SongStructure', 'audio', {})
+    const pd = node('pd', 'PitchDetect', 'audio', {})
+    const wf = node('wf', 'Waveform', 'pattern', {})
+    // Only nodes that reach the output are live, so route every detector there.
+    const sum = node('sum', 'Math', 'math', { mathOp: 'add' })
+    const dim = node('dim', 'BrightnessMod', 'composite', {})
+    const all = generateCpp([micBoard, mic, audio, ss, pd, wf, sum, dim, out], [
+      edge('e0', 'audio', 'ss', 'audio', 'audio'),
+      edge('e1', 'audio', 'pd', 'audio', 'audio'),
+      edge('e3', 'audio', 'wf', 'audio', 'audio'),
+      edge('e4', 'ss', 'sum', 'arousal', 'a'),
+      edge('e5', 'pd', 'sum', 'confidence', 'b'),
+      edge('e6', 'sum', 'dim', 'result', 'brightness'),
+      edge('e7', 'wf', 'dim', 'frame', 'frame'),
+      edge('e2', 'dim', 'out', 'frame', 'frame'),
+    ])
+    expect(all).toContain('Serial.printf("structure beat=%d')
+    expect(all).toContain('Serial.printf("pitch hz=%.1f')
+    expect(all).toContain('Serial.printf("wave min=%.2f max=%.2f\\n", lo, hi);')
+    const beat = node('bd', 'BeatDetect', 'audio', {})
+    const none = generateCpp([micBoard, mic, audio, beat, out], [
+      edge('e0', 'audio', 'bd', 'audio', 'audio'),
+      edge('e2', 'bd', 'out', 'beat', 'frame'),
+    ])
+    expect(none).not.toContain('Serial.printf("structure')
+    expect(none).not.toContain('Serial.printf("pitch')
+    expect(none).not.toContain('Serial.printf("wave')
+  })
+
   it('leaves the waveform buffer out of the engine when no Waveform node exists', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })

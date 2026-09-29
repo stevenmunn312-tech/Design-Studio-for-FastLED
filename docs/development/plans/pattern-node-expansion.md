@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–7 complete; Phase 8 nodes shipped (Vibe, Song Structure, Pitch, Waveform); 9–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–8 complete; 9–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -227,116 +227,21 @@ and classic-ESP32 and ESP8266 results are in the
 - The support matrix is unchanged: no node is gated by board. Turing Field on
   ESP8266 was the one candidate; see the resolved decision below.
 
-## Phase 8 — Audio detectors from FastLED's processor
+## Phase 8 — Audio detectors from FastLED's processor — **complete**
 
-How the audio path is built today decides the shape of this phase.
-`src/codegen/audioEngineCpp.ts` emits one `fl::audio::Processor` as
-`_audioProcessor`, registers each lazy detector in `setup()` by touching its
-getter, and publishes `_audioBass`, `_audioMids`, `_audioTreble`, `_audioBpm`,
-`_audioBeat` and `_audioSpectrum[32]` once per frame. The analysis nodes in
-`src/nodes/audio/codegen.ts` derive their envelopes from that spectrum with the
-same arithmetic the preview uses. In the browser, `src/audio/audioEngine.ts`
-reads the microphone through an `AnalyserNode` and runs the FastLED-ported
-analysis in `src/audio/fastledReactive.ts`, which already mirrors
-FrequencyBands, BeatDetector and the sixteen-bin equaliser. The processor now
-carries about twenty detectors, so a new detector is four small things: a
-global the engine publishes, a browser mirror, an optional field on
-`AudioSignal` in `src/state/evaluator/types.ts`, and a node that reads it.
-Recorded previews and baked shows carry an `AudioOverride`, so every new field
-is optional and an absent one reads as inactive. The offline song analysis in
-`src/audio/essentiaCore.ts` already extracts key and mood, so the SD-show path
-fills those from the analysis while the live path uses the mirror.
-
-### Vibe (`Vibe`, category `audio`)
-
-- Input `audio`. Outputs `bass`, `mid`, `treble`, `volume` (relative levels,
-  about 1.0 at the song's running average, unbounded above), `bassAtt`,
-  `midAtt`, `trebleAtt` (smoothed) and `bassSpike`, `midSpike`, `trebleSpike`
-  (bool, immediate above smoothed). One knob, `gain`.
-- It is the MilkDrop `bass_att` model FastLED ported: band energy over a slow
-  symmetric EMA for the average, fast attack and slow decay for the smoothed
-  copy, frame-rate independent. The Sailboat, hydropack, ElPanelReactive and
-  MoodRing examples are all built on it.
-- The levels are relative by contract, so they stay off `NORMALIZED_OUTPUTS`
-  and Graph Health will ask for a Map Range into a 0–1 input, which is right.
-- Firmware: publish `_audioVibeBass` and friends from `getVibeBass()`,
-  `getVibeBassAtt()` and `isVibeBassSpike()`; register in `setup()` by touching
-  `getVibeBass()`.
-
-### Song Structure (`SongStructure`, category `audio`)
-
-- Input `audio`. Outputs `downbeat` (bool pulse), `beatNumber` (1–4),
-  `measurePhase` (0–1), `building` (bool), `buildupProgress` (0–1), `drop`
-  (bool pulse), `dropImpact` (0–1), `tempoStable` (bool), `valence` (−1..1)
-  and `arousal` (0–1) from the mood analyser.
-- Firmware: callback-only events (`onDownbeat`, `onDrop`, `onTempoStable`,
-  `onTempoUnstable`) become counters and flags the way `_audioBeatCount`
-  already does; the rest are getters (`getMeasurePhase`,
-  `getCurrentBeatNumber`, `getBuildupProgress`, `getDropImpact`,
-  `getMoodValence`, `getMoodArousal`).
-- Browser: ports of FastLED's downbeat, buildup, drop and mood detectors into
-  `fastledReactive.ts`, written from the C++ with the same thresholds. These
-  are the heaviest ports in the phase and get synthetic-signal tests: a 4/4
-  click train with an accented first beat lands `downbeat` on beat one; a
-  rising-energy sweep followed by a bass burst reads `building` then `drop`.
-
-### Pitch (`PitchDetect`, category `audio`)
-
-- Input `audio`. Outputs `hz`, `note` (MIDI 0–127), `noteOn` (bool pulse),
-  `velocity` (0–1), `confidence`, `keyRoot` (0–11), `keyMinor` (bool).
-- Firmware: `getPitch`, `getPitchConfidence`, `getCurrentNote`,
-  `getNoteVelocity`, an `onNoteOn` counter, and `onKey` storing root and mode.
-- Browser: a port of the pitch detector and the key detector's chroma
-  profiles. Chord detection is a later slice; the select is append-only.
-
-### Waveform (`Waveform`, category `pattern`, subcategory `Audio-Reactive`)
-
-- Inputs `base` (frame), `audio`, `gain`, `paletteIn`. Properties `style`
-  select `['line', 'filled', 'mirror', 'ring']`, `thickness`, `smoothing`.
-- Needs raw samples: `AudioSignal` gains an optional `samples` field, 128
-  values decimated from the time buffer `audioEngine.ts` already fills with
-  `getFloatTimeDomainData`; the engine sketch decimates
-  `_audioProcessor->getSample()` into `_audioWave[128]` the same way.
-- `ring` draws the trace around the inscribed circle that `ringSampleMap`
-  reads, so an LED Ring shows it; `line` runs across the width.
-
-Checklist:
-
-- [x] Optional `vibe`, `structure`, `pitch` and `samples` fields on
-      `AudioSignal`; `recordAudio.ts` and the show bake carry them; the song
-      analysis fills key and mood where it has them; every reader treats an
-      absent field as inactive, with a test on a legacy payload. *`vibe` is
-      done on the live store, decoder store and recorder, with the legacy
-      payload test. `structure` is done the same way. The show bake carries
-      none: the SD player has no processor, so both read inactive there.*
-- [ ] `audioEngineCpp.ts`: publish the new globals, register each detector in
-      `setup()`, convert callback-only events to counters and flags, and add
-      them to the serial debug line. *Vibe and Song Structure done, each
-      registered only when its node exists in the graph or a group; neither
-      is on the serial debug line yet.*
-- [x] Port Vibe into `fastledReactive.ts` with a trace test: spikes fire on
-      each pulse of a synthetic bass train and levels settle near 1.0 on a
-      steady tone.
-- [x] Vibe node: library entry, evaluator, emitter with the no-audio fallback
-      the other analysis nodes use, description saying what 1.0 means, live
-      example mic → Vibe → Map Range → Brightness.
-- [x] Port downbeat, buildup, drop and mood; Song Structure node with the
-      synthetic-signal tests above. *Tempo stability is ported too, so
-      `tempoStable` is real. The design note lists the differences.*
-- [x] Port pitch and key; Pitch node with a test on a synthetic 440 Hz tone
-      reading note 69. *Shipped as `PitchDetect`. FastLED's `Pitch` cannot
-      voice on a device (it needs 1102 samples, the I2S input gives 512), so
-      pitch and note run our own autocorrelation with FastLED's arithmetic on
-      both sides; key is FastLED's. Chord detection is still later.*
-- [x] Waveform node, the `samples` payload, and the firmware decimation.
-- [ ] Docs (README Audio line, node cards and design note
-      [`audio-detectors.md`](../design/audio-detectors.md) done for Vibe and
-      Song Structure, Pitch Detect and Waveform): README Audio and Patterns lines, node cards, design note
-      `docs/development/design/audio-detectors.md` naming the FastLED detector
-      each port mirrors and its thresholds; support-matrix wording that the
-      detectors are experimental until a bench row with a real microphone.
-- [ ] Compile check on classic ESP32 and ESP32-S3 with the INMP441 config,
-      recording the RAM and flash delta, since each lazy detector allocates.
+Vibe, Song Structure, Pitch Detect and Waveform shipped. Their contracts, the
+FastLED detector each port mirrors and its thresholds, the browser-mirror
+differences, the firmware registration and the payload rules live in the
+[audio detectors design note](../design/audio-detectors.md). Two findings
+changed the plan and are recorded there: FastLED's `Pitch` cannot voice on a
+device (it needs 1102 samples and the I2S input supplies 512), so Pitch Detect
+runs its arithmetic over the 512-sample chunk itself, and a baked show carries
+none of these payloads, so they read inactive in a show preview and on the SD
+card. Song Structure also exposes tempo stability. Chord detection remains
+later, and the `PitchDetect` select is append-only. The compile evidence, the
+per-node rows and the phase-level cost of all four together (about 55 KB of
+flash and 5.3 KB of RAM) are in the
+[pattern-node compile record](../pattern-node-compile-checks.md).
 
 ## Phase 9 — Strings, rings and small helpers
 

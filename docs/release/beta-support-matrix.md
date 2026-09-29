@@ -406,6 +406,13 @@ Unless a future row says otherwise, treat the following as experimental:
   and 65x1 microphone/live-stream rows above.
 - Baked song envelopes and collection-driven modulation in the music-show
   pipeline.
+- **The FastLED audio detector nodes: Vibe, Song Structure, Pitch Detect and
+  Waveform.** They compile on classic ESP32 and ESP32-S3 with an INMP441
+  engine, and their browser ports are tested against synthetic signals, but
+  no bench row has run them against a real microphone. Pitch Detect covers
+  about 175 Hz to 1 kHz only, and its key output is a coarse estimate.
+  Baked shows and the SD player carry none of them, so they read inactive
+  there.
 - SD show provisioning and player upload (music-sync shows remain experimental).
 - **Auxiliary displays beyond the five recorded rows above.** The
   ESP32-2432S028 board profile, Now Playing / Fixed Transport / Show Status

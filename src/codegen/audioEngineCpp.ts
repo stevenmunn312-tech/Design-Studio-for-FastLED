@@ -266,6 +266,20 @@ function audioEngineCpp(
       '                  _audioVibeBass, _audioVibeMid, _audioVibeTreble,',
       '                  (int)_audioVibeBassSpike, (int)_audioVibeMidSpike, (int)_audioVibeTrebleSpike);',
     ] : []),
+    ...(structure ? [
+      '    Serial.printf("structure beat=%d phase=%.2f building=%d progress=%.2f drop=%d impact=%.2f stable=%d valence=%.2f arousal=%.2f\\n",',
+      '                  _audioBeatNumber, _audioMeasurePhase, (int)_audioBuilding, _audioBuildupProgress,',
+      '                  (int)_audioDrop, _audioDropImpact, (int)_audioTempoStable, _audioValence, _audioArousal);',
+    ] : []),
+    ...(pitch ? [
+      '    Serial.printf("pitch hz=%.1f note=%d conf=%.2f velocity=%.2f key=%d%s keyconf=%.2f\\n",',
+      '                  _audioPitchHz, _audioPitchNote, _audioPitchConf, _audioPitchVelocity,',
+      '                  _audioKeyRoot, _audioKeyMinor ? "m" : "", _audioKeyConf);',
+    ] : []),
+    ...(waveform ? [
+      `    { float lo = 0.0f, hi = 0.0f; for (int i = 0; i < ${WAVE_SAMPLES}; ++i) { if (_audioWave[i] < lo) lo = _audioWave[i]; if (_audioWave[i] > hi) hi = _audioWave[i]; }`,
+      '      Serial.printf("wave min=%.2f max=%.2f\\n", lo, hi); }',
+    ] : []),
     '  }',
     '#endif',
     '}',

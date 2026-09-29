@@ -432,6 +432,64 @@ function phase8WaveformSketch(profileId: string): string {
 const phase8Waveform = phase8WaveformSketch('esp32-generic-devkit-38pin')
 const phase8WaveformS3 = phase8WaveformSketch('espressif-esp32-s3-devkitc-1')
 
+// The phase-level check: the same microphone graph with no detector beyond
+// Beat Detect (the baseline), and with Vibe, Song Structure, Pitch Detect and
+// Waveform all present, so the RAM and flash the lazy detectors add to the
+// shared audio engine can be read off two builds per board.
+function phase8EngineSketch(profileId: string, detectors: boolean): string {
+  const nodes = [
+    node('board', 'Board', { profileId }),
+    node('mic', 'MicInput', {}),
+    node('audio', 'Audio', { sourceId: 'mic' }),
+    node('beat', 'BeatDetect', {}),
+    node('plasma', 'Plasma', { speed: 0.3 }),
+    node('flash', 'BrightnessMod'),
+    ...(detectors ? [
+      node('vibe', 'Vibe', {}),
+      node('structure', 'SongStructure'),
+      node('pitch', 'PitchDetect'),
+      node('wave', 'Waveform', { style: 'ring' }),
+      node('sumA', 'Math', { mathOp: 'add' }),
+      node('sumB', 'Math', { mathOp: 'add' }),
+      node('sumC', 'Math', { mathOp: 'add' }),
+    ] : []),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('audio-beat', 'audio', 'audio', 'beat', 'audio'),
+    edge('plasma-flash', 'plasma', 'frame', 'flash', 'frame'),
+    ...(detectors ? [
+      // Every detector reaches the output through the brightness chain, which
+      // is what makes the engine register it.
+      edge('audio-vibe', 'audio', 'audio', 'vibe', 'audio'),
+      edge('audio-structure', 'audio', 'audio', 'structure', 'audio'),
+      edge('audio-pitch', 'audio', 'audio', 'pitch', 'audio'),
+      edge('audio-wave', 'audio', 'audio', 'wave', 'audio'),
+      edge('vibe-a', 'vibe', 'bass', 'sumA', 'a'),
+      edge('arousal-a', 'structure', 'arousal', 'sumA', 'b'),
+      edge('a-b', 'sumA', 'result', 'sumB', 'a'),
+      edge('confidence-b', 'pitch', 'confidence', 'sumB', 'b'),
+      edge('b-c', 'sumB', 'result', 'sumC', 'a'),
+      edge('bpm-c', 'beat', 'bpm', 'sumC', 'b'),
+      edge('c-flash', 'sumC', 'result', 'flash', 'brightness'),
+      edge('flash-wave', 'flash', 'frame', 'wave', 'base'),
+      edge('wave-out', 'wave', 'frame', 'out', 'frame'),
+    ] : [
+      edge('beat-flash', 'beat', 'bpm', 'flash', 'brightness'),
+      edge('flash-out', 'flash', 'frame', 'out', 'frame'),
+    ]),
+  ]
+  return generateCpp(nodes, edges)
+}
+const phase8Base = phase8EngineSketch('esp32-generic-devkit-38pin', false)
+const phase8BaseS3 = phase8EngineSketch('espressif-esp32-s3-devkitc-1', false)
+const phase8All = phase8EngineSketch('esp32-generic-devkit-38pin', true)
+const phase8AllS3 = phase8EngineSketch('espressif-esp32-s3-devkitc-1', true)
+for (const marker of ['_audioVibeBass', '_audioDownbeatCount', '_pitchDetect', '_audioWaveStep']) {
+  if (!phase8All.includes(marker)) throw new Error(`Phase 8 combined fixture is missing ${marker}`)
+  if (phase8Base.includes(marker)) throw new Error(`Phase 8 baseline fixture unexpectedly has ${marker}`)
+}
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -454,6 +512,10 @@ writeFileSync(resolve(outputDir, 'phase8-pitch.ino'), phase8Pitch, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-pitch-s3.ino'), phase8PitchS3, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-waveform.ino'), phase8Waveform, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-waveform-s3.ino'), phase8WaveformS3, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-base.ino'), phase8Base, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-base-s3.ino'), phase8BaseS3, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-all.ino'), phase8All, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-all-s3.ino'), phase8AllS3, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -497,6 +559,7 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     ['phase8-structure', phase8Structure], ['phase8-structure-s3', phase8StructureS3],
     ['phase8-pitch', phase8Pitch], ['phase8-pitch-s3', phase8PitchS3],
     ['phase8-waveform', phase8Waveform], ['phase8-waveform-s3', phase8WaveformS3],
+    ['phase8-base', phase8Base], ['phase8-base-s3', phase8BaseS3], ['phase8-all', phase8All], ['phase8-all-s3', phase8AllS3],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),

@@ -1,6 +1,6 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–7 complete; Phase 8 has its Vibe, Song Structure, Pitch Detect and Waveform fixtures.** The generated fixtures passed on classic
+> **Status: Phases 0–7 complete; Phase 8 is complete: each detector has its own fixture, and a phase-level pair measures their combined cost.** The generated fixtures passed on classic
 > ESP32, and the integer-heavy Slice Tiling fixture and the Phase 5 and 6
 > fixtures also passed on ESP8266, on 28 September 2026 (UTC). This is
 > compile evidence, not a physical LED bench run.
@@ -187,6 +187,10 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 8, Pitch Detect | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 549,279 / 3,145,728 (17%) | 33,976 / 327,680 (10%) |
 | Phase 8, Waveform | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 525,987 / 3,145,728 (16%) | 33,804 / 327,680 (10%) |
 | Phase 8, Waveform | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 543,295 / 3,145,728 (17%) | 33,232 / 327,680 (10%) |
+| Phase 8, engine baseline (Beat Detect only) | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 521,039 / 3,145,728 (16%) | 31,396 / 327,680 (9%) |
+| Phase 8, engine baseline (Beat Detect only) | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 538,427 / 3,145,728 (17%) | 30,824 / 327,680 (9%) |
+| Phase 8, all four detectors | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 576,007 / 3,145,728 (18%) | 36,660 / 327,680 (11%) |
+| Phase 8, all four detectors | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 591,871 / 3,145,728 (18%) | 36,088 / 327,680 (11%) |
 
 The Phase 5, 6 and 7 rows were built on Linux in a cloud session, not on
 the Windows machine that built the others. Truchet Beat Maze's larger flash
@@ -261,7 +265,26 @@ SHA-256 `3d627395ae27d4fc68c92ce3b53743e0fc076dde3fddb9e763586f03ea55df8f`.
 It chains a line trace and a ring trace over a Plasma base, so the column and
 radial emitters both compile. Built on Windows 11 on 29 September 2026.
 
-Each Phase 8 detector is compiled with its own INMP441 engine, so the rows
-above include the shared audio engine. The delta a single detector adds is the
-difference from the Vibe rows only within a few kilobytes of flash and about
-1 KB of RAM, and is not separated further.
+Phase 8 phase-level check. The same microphone graph (Microphone → Audio →
+Beat Detect → Brightness over a Plasma) is built without any detector beyond
+Beat Detect, and with Vibe, Song Structure, Pitch Detect and a ring Waveform
+all wired into the brightness and output, on each board. The engine registers a
+detector only when its node reaches an output, so the second build is the
+worst case. Generated source: baseline 6,185 bytes, SHA-256
+`20361867c7b35e624de045000e54c2e186b9c68cc0596696fc8e6f7a3ff0035a`; all four
+19,138 bytes, SHA-256
+`f5e3c0134d32acb60a7aab46987c627db6fc4890778989ad1b22f3c6cfae9ce6`. Both
+boards get the same source. Built on Windows 11 on 29 September 2026, with the
+two boards compiled in parallel.
+
+| Cost of all four detectors | Flash | RAM |
+|---|---|---|
+| Classic ESP32 | +54,968 bytes (+1.7% of the partition) | +5,264 bytes (+1.6%) |
+| ESP32-S3 | +53,444 bytes (+1.7%) | +5,264 bytes (+1.6%) |
+
+Roughly 51 KB of the flash and 4 KB of the RAM are FastLED's own detector code
+and buffers (Vibe, downbeat, buildup, drop, mood, tempo, key), which are lazy
+and cost nothing when no node uses them; the rest is the Pitch helper's 3 KB of
+sample and autocorrelation buffers, the Waveform buffers and the node code. The
+per-detector rows above each include the whole audio engine, so they are not
+additive.

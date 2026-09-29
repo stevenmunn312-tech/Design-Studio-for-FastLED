@@ -292,9 +292,30 @@ range.
 when the engine publishes it, and two width-sized float arrays on the stack per
 frame.
 
-## Still to come in this phase
+## Shows and the SD player
 
-The show bake for the detector payloads (the SD player has no processor, so
-they read inactive there), the serial debug line for Song Structure, Pitch and
-Waveform, and the phase-level compile check with the microphone config are
-tracked in the plan's checklist.
+A baked show carries only the coarse envelope (bass, mids, treble and the two
+stereo levels), and the SD player runs no FastLED processor. `showAudioOverride`
+therefore supplies none of `vibe`, `structure`, `pitch` or `samples`, so all four
+nodes read inactive in a show preview and on the card, and the preview matches
+the device. Carrying them would mean baking per-frame detector output offline
+and teaching the player to replay it; a waveform alone is 128 values per frame.
+That is a design choice for a later phase, not a gap in these nodes. The
+song analysis already extracts key and mood offline, and is the natural source
+if a show-side Pitch Detect key or Song Structure mood is ever wanted.
+
+## Serial debug
+
+With `MIC_DEBUG` on, the engine prints one extra line per present node beside
+the Vibe line: `structure` (beat number, measure phase, building, progress,
+drop, impact, tempo stable, valence, arousal), `pitch` (Hz, note, confidence,
+velocity, key and its confidence) and `wave` (the min and max of the 128
+samples).
+
+## Cost
+
+The engine registers each detector only when its node is live, and the
+processor allocates lazily. The phase-level compile check builds the same
+microphone graph with and without all four detectors on each board; the
+figures are in the
+[compile record](../pattern-node-compile-checks.md).
