@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Polar Gradient sweeps a palette around the canvas centre by angle, by radius,
+  or a spiral of both, with spin and radial scroll over time. Repeat rounds to
+  whole turns, so the angular sweep has no seam and reads as a wheel on an LED
+  ring.
+- Harmony Palette builds a 16-stop palette from a colour-wheel harmony
+  (complementary, analogous, triadic, split complementary or tetradic) around a
+  base hue. Hue, Saturation, Value and Spread take wires, and the sketch
+  rebuilds the palette live with `CHSV`.
 - Noise LFO is a signal node that drifts smoothly between Min and Max, the
   FastLED modulator idiom that Random's fresh draw every frame is not. Speed,
   Min and Max take wires; Octaves (1–3) and Seed shape it. The sketch reads

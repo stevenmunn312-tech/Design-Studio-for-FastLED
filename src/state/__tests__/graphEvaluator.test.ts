@@ -2129,6 +2129,51 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(mk())).toEqual(JSON.stringify(f)) // deterministic
   })
 
+  describe('Polar Gradient and Harmony Palette', () => {
+    const polar = (props: Record<string, unknown>, tick = 0, w = 9, h = 9) => {
+      const g = node('pg', 'PolarGradient', 'pattern', { palette: 'rainbow', spin: 0, ...props })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return JSON.parse(JSON.stringify(evaluateGraph([g, out], [edge('e', 'pg', 'frame', 'out', 'frame')], tick, w, h)!))
+    }
+
+    it('sweeps by angle: constant along a ray, different around the centre', () => {
+      const f = polar({})
+      expect(f[4][8]).toEqual(f[4][6]) // same angle (0°), different radius
+      expect(f[4][8]).not.toEqual(f[8][4]) // 0° vs 90°
+      expect(f[4][8]).toEqual(polar({ angleOffset: 360 })[4][8])
+    })
+
+    it('radial mix 1 is constant around a ring and changes with radius', () => {
+      const f = polar({ radialMix: 1 })
+      expect(f[4][6]).toEqual(f[6][4])
+      expect(f[4][6]).not.toEqual(f[4][8])
+    })
+
+    it('spins and scrolls over time, and rounds repeat to whole turns', () => {
+      expect(polar({ spin: 0.25 }, 0)).not.toEqual(polar({ spin: 0.25 }, 1))
+      expect(polar({ radialMix: 1, radialScroll: 0.2 }, 0)).not.toEqual(polar({ radialMix: 1, radialScroll: 0.2 }, 2))
+      expect(polar({ repeat: 2.4 })).toEqual(polar({ repeat: 2 }))
+      expect(polar({ repeat: 3 })).not.toEqual(polar({ repeat: 1 }))
+    })
+
+    const harmony = (props: Record<string, unknown>) => {
+      const pal = node('hp', 'HarmonyPalette', 'color', props)
+      const out = evaluateGraphFull([pal], [], 0, 4, 4).outputs.get('hp')!
+      return out.palette as { r: number; g: number; b: number }[]
+    }
+
+    it('builds 16 stops through the harmony hues and honours spread', () => {
+      const stops = harmony({ hue: 0, harmony: 'complementary', saturation: 1, value: 1, spread: 1 })
+      expect(stops).toHaveLength(16)
+      expect(stops[0]).toEqual({ r: 255, g: 0, b: 0 })
+      expect(stops[15]).toEqual({ r: 0, g: 255, b: 255 })
+      const mono = harmony({ hue: 0, harmony: 'tetradic', spread: 0 })
+      expect(new Set(mono.map((c) => JSON.stringify(c))).size).toBe(1)
+      expect(harmony({ hue: 90 })).not.toEqual(harmony({ hue: 0 }))
+      expect(harmony({ harmony: 'nonsense' })).toEqual(harmony({ harmony: 'triadic' }))
+    })
+  })
+
   it('Image samples an uploaded picture to the matrix', () => {
     // 2×2 image: red, green / blue, white.
     const image = { w: 2, h: 2, pixels: [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255] }

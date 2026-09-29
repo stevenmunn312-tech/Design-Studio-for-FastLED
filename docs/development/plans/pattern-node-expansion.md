@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO done); 10–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO, Polar Gradient, Harmony Palette done); 10–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -313,13 +313,13 @@ Checklist:
       W equal each other; corkscrew starter updated to use it.
 - [ ] Wave Sim `halfDuplex` and `wrapX`, plus the 1-row test.
 - [ ] Custom Path with the shared point parser and the PROGMEM polyline.
-- [ ] Polar Gradient node.
+- [x] Polar Gradient node.
 - [ ] Gradient `mixMode` on both gradient nodes with a golden test that `rgb`
       is byte-identical to today.
 - [x] Noise LFO node, with `speedRange.ts` entry (compile check still open).
 - [ ] Noise shaping, Worley modes and curl flow, each with a variation test
       and the emitted block per mode.
-- [ ] Harmony Palette node, joining the palette-producer classification test.
+- [x] Harmony Palette node, joining the palette-producer classification test.
 - [ ] README Patterns, Signals and Color lines; node cards; design note
       `docs/development/design/strings-and-rings.md` for the track contract.
 - [ ] Compile check on classic ESP32 and ESP8266 with a string-only graph.

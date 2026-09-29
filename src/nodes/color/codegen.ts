@@ -1,5 +1,6 @@
 import { asAnimatedImage, asImage } from '../../state/image'
 import { imagePaletteStops16 } from '../../state/imagePalette'
+import { HARMONY_OFFSETS, harmonyKind } from '../../state/harmonyPalette'
 import { hexToRgb, polineStops16 } from '../../state/polinePalette'
 import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
 import { pressEdgeSettings } from '../../state/pressSource'
@@ -132,6 +133,23 @@ export const COLOR_EMITTERS: NodeEmitters = {
       ln(`  // Poline: wired anchors drive the live preview; firmware bakes the configured anchors.`)
     }
     ln(`  CRGBPalette16 pal_${id}(${cppStops});`)
+  },
+  // Runs harmonyStopHue's loop on the device so a wired hue keeps the palette
+  // live. CHSV goes through hsv2rgb_spectrum, the plain HSV wheel the
+  // preview's `hsv` draws, so both sides agree to a count or two.
+  HarmonyPalette({ id, p, ln, f }) {
+    const offsets = HARMONY_OFFSETS[harmonyKind(p.harmony)]
+    const last = offsets.length - 1
+    ln(`  CRGBPalette16 pal_${id};`)
+    ln(`  { static const float _off[${offsets.length}] = {${offsets.map((o) => `${o}.0f`).join(', ')}};`)
+    ln(`    float _hue = ${f('hue', 'hue', 200)}, _spread = constrain(${f('spread', 'spread', 1)}, 0.0f, 1.0f);`)
+    ln(`    uint8_t _sat = (uint8_t)(constrain(${f('saturation', 'saturation', 1)}, 0.0f, 1.0f) * 255.0f + 0.5f);`)
+    ln(`    uint8_t _val = (uint8_t)(constrain(${f('value', 'value', 1)}, 0.0f, 1.0f) * 255.0f + 0.5f);`)
+    ln(`    for (int _i = 0; _i < 16; _i++) {`)
+    ln(`      float _pos = _i / 15.0f * ${last}.0f; int _j = min((int)_pos, ${last - 1});`)
+    ln(`      float _h = fmodf(_hue + (_off[_j] + (_off[_j + 1] - _off[_j]) * (_pos - _j)) * _spread, 360.0f);`)
+    ln(`      if (_h < 0.0f) _h += 360.0f;`)
+    ln(`      CRGB _c; hsv2rgb_spectrum(CHSV((uint8_t)(_h * 255.0f / 360.0f + 0.5f), _sat, _val), _c); pal_${id}[_i] = _c; } }`)
   },
   PaletteBank({ node, id, p, ln, v, boolExpr, fastledPalette, incoming, nodeMap }) {
     // Only the presets the author ticked are named here, so `usedPalettes`

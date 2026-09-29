@@ -470,6 +470,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Poline Palette example graph](../../public/node-cards/graphs/poline.svg)
 
+### Harmony Palette
+
+![Harmony Palette node](../../public/node-cards/harmony-palette.svg)
+
+![Harmony Palette example graph](../../public/node-cards/graphs/harmony-palette.svg)
+
 ### Blend Palettes
 
 ![Blend Palettes node](../../public/node-cards/palette-blend.svg)
@@ -549,6 +555,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Palette Gradient node](../../public/node-cards/palette-gradient.svg)
 
 ![Palette Gradient example graph](../../public/node-cards/graphs/palette-gradient.svg)
+
+### Polar Gradient
+
+![Polar Gradient node](../../public/node-cards/polar-gradient.svg)
+
+![Polar Gradient example graph](../../public/node-cards/graphs/polar-gradient.svg)
 
 ### Image
 

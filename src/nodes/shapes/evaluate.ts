@@ -27,6 +27,7 @@ import {
   splatDisc,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
+import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 
 function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
@@ -815,6 +816,20 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const speed   = denormRate(num(id, 'speed', props, 'speed', 0), SPEED_MAX.PaletteGradient)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalPaletteGradient(angle, repeat, speed, t, palette, W, H) }
+  },
+  PolarGradient({ num, pal, t, W, H }, id, props) {
+    const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    const angleOffset = num(id, 'angleOffset', props, 'angleOffset', 0)
+    const spin = num(id, 'spin', props, 'spin', 0.1)
+    const repeat = polarRepeat(num(id, 'repeat', props, 'repeat', 1))
+    const radialMix = clamp01(num(id, 'radialMix', props, 'radialMix', 0))
+    const radialScroll = num(id, 'radialScroll', props, 'radialScroll', 0)
+    const cx = (W - 1) / 2, cy = (H - 1) / 2
+    const rMax = Math.max(1e-6, Math.sqrt(cx * cx + cy * cy))
+    return { frame: buildFrame(W, H, (x, y) => {
+      const u = polarGradientU(x - cx, y - cy, rMax, angleOffset, spin, repeat, radialMix, radialScroll, t)
+      return samplePalette(palette, u - Math.floor(u))
+    }) }
   },
   Image({ num, t, W, H }, id, props) {
     // A loaded animation takes precedence over a still; a node has one or

@@ -579,6 +579,20 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`      float _tn=(_x*_co+_y*_si-_pmin)/_rng;`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${repeat}${scroll})*255));}}`)
   },
+  PolarGradient({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    const ob = ownBuf()
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    needsT.v = true
+    ln(`  { // Polar gradient`)
+    ln(`    float _ao=${f('angleOffset', 'angleOffset', 0)},_sp=${f('spin', 'spin', 0.1)},_rs=${f('radialScroll', 'radialScroll', 0)};`)
+    ln(`    float _rp=constrain(roundf(${f('repeat', 'repeat', 1)}),1.0f,16.0f),_mx=constrain(${f('radialMix', 'radialMix', 0)},0.0f,1.0f);`)
+    ln(`    float _cx=(WIDTH-1)*0.5f,_cy=(HEIGHT-1)*0.5f,_rm=max(1e-6f,sqrtf(_cx*_cx+_cy*_cy));`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+    ln(`      float _dx=_x-_cx,_dy=_y-_cy;`)
+    ln(`      float _turn=atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+_sp*t,_rad=sqrtf(_dx*_dx+_dy*_dy)/_rm+_rs*t;`)
+    ln(`      float _u=(1.0f-_mx)*_turn*_rp+_mx*_rad*_rp; _u-=floorf(_u);`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_u*255.0f));}}`)
+  },
   Image({ node, id, p, ln, f, ownBuf }) {
     const ob = ownBuf()
     // Animation if one is loaded, else the still — the node carries one only.

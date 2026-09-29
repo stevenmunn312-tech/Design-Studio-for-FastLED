@@ -1345,6 +1345,29 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(pal_pb,')
   })
 
+  it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
+    const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
+    const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('constrain(roundf(3),1.0f,16.0f)')
+    expect(cpp).toContain('float _ao=90')
+    expect(cpp).toContain('atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+_sp*t')
+    expect(cpp).toContain('_u-=floorf(_u);')
+    expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(_u*255.0f))')
+  })
+
+  it('emits Harmony Palette as a runtime CHSV loop over the harmony offsets', () => {
+    const hp = node('hp', 'HarmonyPalette', 'color', { hue: 40, harmony: 'analogous' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const cpp = generateCpp([hp, sx, outputNode], [
+      edge('e1', 'hp', 'sx', 'palette', 'paletteIn'),
+      edge('e2', 'sx', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('CRGBPalette16 pal_hp;')
+    expect(cpp).toContain('static const float _off[3] = {-30.0f, 0.0f, 30.0f};')
+    expect(cpp).toContain('hsv2rgb_spectrum(CHSV(')
+    expect(cpp).toContain('ColorFromPalette(pal_hp,')
+  })
+
   it('clamps a wired blend amount the way the evaluator does', () => {
     // The evaluator clamps to 0-1 and the knob is a 0-1 slider, so only a wire
     // can be out of range - and an unclamped 1.5 wraps through the uint8_t

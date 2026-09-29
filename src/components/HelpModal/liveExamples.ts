@@ -520,6 +520,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     CustomPalette: ['color0', 'color1'],
     PaletteFromImage: ['image'],
     Poline: ['colorA', 'colorB', 'colorC'],
+    HarmonyPalette: ['hue'],
     PaletteBlend: ['paletteA', 'paletteB', 'amount'],
     PaletteBank: ['next'],
     Math: ['a', 'b'],

@@ -17,6 +17,7 @@ import {
   nblendPaletteBytes,
 } from '../../state/paletteBank'
 import { displayString } from '../../state/displayText'
+import { harmonyKind, harmonyStops16 } from '../../state/harmonyPalette'
 import { imagePaletteStops16 } from '../../state/imagePalette'
 import { hexToRgb, polinePalette } from '../../state/polinePalette'
 import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/customPalette'
@@ -249,6 +250,15 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const points = Number(props.points ?? 4)
     const position = String(props.position ?? 'sinusoidal')
     return { palette: polinePalette([a, b, c], points, position) }
+  },
+  HarmonyPalette({ num }, id, props) {
+    return { palette: harmonyStops16(
+      harmonyKind(props.harmony),
+      num(id, 'hue', props, 'hue', 200),
+      num(id, 'saturation', props, 'saturation', 1),
+      num(id, 'value', props, 'value', 1),
+      num(id, 'spread', props, 'spread', 1),
+    ) }
   },
   PaletteBlend({ num, pal }, id, props) {
     // Sample both palettes at 16 stops and lerp per entry → a real blend.

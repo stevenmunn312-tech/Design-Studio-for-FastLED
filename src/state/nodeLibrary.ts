@@ -38,6 +38,7 @@ import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
+import { HARMONY_KINDS } from './harmonyPalette'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -2426,6 +2427,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { anchorA: '#1020ff', anchorB: '#ff20a0', anchorC: '#20ffd0', points: 4, position: 'sinusoidal' },
   },
   {
+    // A palette built from a colour-wheel harmony around a base hue. A builder,
+    // like Poline: it names no preset, so it carries no `palette` property.
+    type: 'HarmonyPalette',
+    label: 'Harmony Palette',
+    category: 'color',
+    subcategory: 'Palettes',
+    inputs: [
+      { id: 'hue', label: 'Hue', dataType: 'float' },
+      { id: 'saturation', label: 'Saturation', dataType: 'float' },
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'spread', label: 'Spread', dataType: 'float' },
+    ],
+    propertyInputs: { hue: 'hue', saturation: 'saturation', value: 'value', spread: 'spread' },
+    outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    defaultProperties: { hue: 200, harmony: 'triadic', saturation: 1, value: 1, spread: 1 },
+  },
+  {
     type: 'PaletteBlend',
     label: 'Blend Palettes',
     category: 'color',
@@ -2579,6 +2597,26 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { angle: 'angle', repeat: 'repeat', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { angle: 45, repeat: 1, speed: 0, palette: 'rainbow' },
+  },
+  {
+    // Palette swept around the canvas centre by angle, radius, or a spiral of
+    // both. Whole angular repeats keep the ±π cut invisible, so it also reads
+    // as a seamless wheel on an LED ring.
+    type: 'PolarGradient',
+    label: 'Polar Gradient',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'angleOffset', label: 'Angle', dataType: 'float' },
+      { id: 'spin', label: 'Spin', dataType: 'float' },
+      { id: 'repeat', label: 'Repeat', dataType: 'float' },
+      { id: 'radialMix', label: 'Radial Mix', dataType: 'float' },
+      { id: 'radialScroll', label: 'Radial Scroll', dataType: 'float' },
+    ],
+    propertyInputs: { palette: 'paletteIn', angleOffset: 'angleOffset', spin: 'spin', repeat: 'repeat', radialMix: 'radialMix', radialScroll: 'radialScroll' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { palette: 'rainbow', angleOffset: 0, spin: 0.1, repeat: 1, radialMix: 0, radialScroll: 0 },
   },
   {
     // Uploaded image with placement, sampling, alpha, and crop controls.
@@ -4557,6 +4595,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PaletteFromImage: 'Extracts dominant colours from an uploaded Image into a 16-stop palette.',
   Poline: 'Smooth poline palette between up to three anchor colours.',
   PaletteBlend: 'Interpolates between two palettes.',
+  HarmonyPalette: 'Palette of colour-wheel harmony hues around a base hue.',
   // pattern
   SolidColor: 'Fills the matrix with one color.',
   Circle: 'Draws a circle — ring or filled disc, with a fill and outline colour.',
@@ -4602,6 +4641,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
+  PolarGradient: 'Palette swept around the centre by angle, radius or a spiral of both.',
   Particles: 'Twenty particle displays: weather, trails, flocking, orbits, and more.',
   FormulaPoints: 'Curated point generator: phyllotaxis, Lissajous/rose, logistic map, attractor.',
   GradientFrame: 'Two-color linear gradient fill.',
@@ -5393,6 +5433,20 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     colorMode:   { control: 'select', options: ['solid', 'palette', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
   },
   PaletteGradient: { speed: N01 },
+  HarmonyPalette: {
+    hue: { control: 'slider', min: 0, max: 360, step: 1 },
+    harmony: { control: 'select', options: HARMONY_KINDS },
+    saturation: N01,
+    value: N01,
+    spread: N01,
+  },
+  PolarGradient: {
+    angleOffset: { control: 'slider', min: 0, max: 360, step: 1 },
+    spin: { control: 'slider', min: -1, max: 1, step: 0.01 },
+    repeat: { control: 'slider', min: 1, max: 16, step: 1 },
+    radialMix: N01,
+    radialScroll: { control: 'slider', min: -1, max: 1, step: 0.01 },
+  },
   FractalNoise:    { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   GaborNoise:      { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Blobs:           { speed: N01, scale: N01 },
