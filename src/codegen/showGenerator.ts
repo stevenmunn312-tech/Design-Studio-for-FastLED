@@ -24,6 +24,7 @@ import { SDF_HELPER_CPP } from './sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from './latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
 import { TURING_HELPER_CPP } from './turingHelperCpp'
+import { FLUID_HELPER_CPP } from './fluidHelperCpp'
 import { FOURIER_HELPER_CPP } from './fourierHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
@@ -200,6 +201,7 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   lattice: LATTICE_HELPER_CPP,
   truchet: TRUCHET_HELPER_CPP,
   turing: TURING_HELPER_CPP,
+  fluid: FLUID_HELPER_CPP,
   fourier: FOURIER_HELPER_CPP,
   symmetry: SYMMETRY_HELPER_CPP,
   hueMix: HUE_MIX_HELPER_CPP,

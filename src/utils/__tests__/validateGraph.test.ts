@@ -1584,6 +1584,18 @@ describe('validateGraph', () => {
       expect(ram.statefulBytes).toBe(4096 * 4 + 65 * 65 * 4)
     })
 
+    it('prices Fluid at six floats per LED, plus a buffer for each velocity output that is wired', () => {
+      const wire = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
+        ({ id, source, sourceHandle, target, targetHandle }) as unknown as StudioEdge
+      const nodes = [node('fluid', 'FluidSim'), node('paint', 'FieldToFrame'), node('out', 'MatrixOutput', { width: 16, height: 16 })]
+      const dye = [wire('f', 'fluid', 'field', 'paint', 'field'), wire('o', 'paint', 'frame', 'out', 'frame')]
+      const ram = estimateFirmwareRam(nodes, dye)!
+      expect(ram.fieldBufferBytes).toBe(256 * 4)
+      expect(ram.statefulBytes).toBe(256 * 24)
+      const flow = estimateFirmwareRam([...nodes, node('warp', 'FieldToFrame')], [...dye, wire('v', 'fluid', 'velocityX', 'warp', 'field')])!
+      expect(flow.fieldBufferBytes).toBe(256 * 4 * 2)
+    })
+
     it('prices Fourier Epicycles\' trail as one CRGB per LED beside its frame', () => {
       const nodes = [node('fe', 'FourierEpicycles'), node('fd', 'Fade'), node('out', 'MatrixOutput', { width: 4, height: 4 })]
       const edges = [edge('e1', 'fe', 'fd', 'frame'), edge('e2', 'fd', 'out', 'frame')]

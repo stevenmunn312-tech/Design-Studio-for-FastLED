@@ -409,10 +409,13 @@ tool. Each has a settled algorithm and a known cost.
 
 Checklist:
 
-- [ ] Fluid: solver in `src/state/evaluator/fluid.ts` with tests (mass of dye
-      decays by `dissipation`; a puff spreads symmetrically; velocity stays
-      finite), node, emitter with a C++ solver helper behind `needsFluid`, RAM
-      row, capacity test.
+- [x] Fluid: solver in `src/state/evaluator/fluid.ts` with tests (dye decays by
+      `dissipation`; a puff spreads symmetrically to within Gauss-Seidel's
+      sweep bias; velocity stays finite and bounded), node, emitter with a C++
+      solver helper behind `needsFluid`, RAM row (24 bytes per LED) and a
+      capacity test. Adds `buoyancy` so the default plume rises. The C++
+      helper has no native parity test (no host g++ here); the compile check
+      is the evidence.
 - [x] Fractal: the four types, wired `c`, emitted block per type, an
       iteration cap test. Iterations are capped at 64 by clamp; the capacity
       verdict prices RAM only, so it does not cap them on large panels.

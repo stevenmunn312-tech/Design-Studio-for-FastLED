@@ -6,6 +6,9 @@ import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/eva
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
+import {
+  FLUID_VEL_OUT, fluidForces, fluidInject, fluidIterations, fluidPuff, fluidStep, makeFluid, type FluidState,
+} from '../../state/evaluator/fluid'
 import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
 import { seedOffset, _snoise2, normalizedSeed, seededRandom, seededRngState } from '../../state/evaluator/random'
 import {
@@ -392,6 +395,7 @@ interface AutomatonState {
   cells: Uint8Array; next: Uint8Array; w: number; h: number; type: string; seed: number
   lastStep: number; prevReset: boolean; stepCount: number
 }
+const fluidState = instanceState('fluidState', new Map<string, FluidState>())
 const automatonState = instanceState('automatonState', new Map<string, AutomatonState>())
 
 function evalAutomaton(
@@ -804,6 +808,26 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = num(id, 'impulse', props, 'impulse', 1)
     return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
+  },
+  FluidSim({ input, num, W, H, stateKey }, id, props) {
+    const key = stateKey(id)
+    let s = fluidState.get(key)
+    if (!s || s.w !== W || s.h !== H) { s = makeFluid(W, H); fluidState.set(key, s) }
+    const trigger = Boolean(input(id, 'trigger', false))
+    const px = num(id, 'injectX', props, 'injectX', 0.5), py = num(id, 'injectY', props, 'injectY', 0.85)
+    fluidInject(s, px, py, num(id, 'inject', props, 'inject', 0.6))
+    if (trigger && !s.prevTrigger) fluidPuff(s, px, py)
+    s.prevTrigger = trigger
+    const fx = input(id, 'forceX', null), fy = input(id, 'forceY', null)
+    fluidForces(s, fx instanceof Float32Array ? fx : null, fy instanceof Float32Array ? fy : null, Number(props.buoyancy ?? 0.5))
+    fluidStep(s, fluidIterations(num(id, 'speed', props, 'speed', 8)), num(id, 'viscosity', props, 'viscosity', 0), num(id, 'diffusion', props, 'diffusion', 0), num(id, 'dissipation', props, 'dissipation', 0.02))
+    const n = W * H, dye = allocField(n), vx = allocField(n), vy = allocField(n)
+    for (let i = 0; i < n; i++) {
+      dye[i] = Math.max(0, Math.min(1, s.d[i]))
+      vx[i] = Math.max(0, Math.min(1, 0.5 + s.u[i] * FLUID_VEL_OUT))
+      vy[i] = Math.max(0, Math.min(1, 0.5 + s.v[i] * FLUID_VEL_OUT))
+    }
+    return { field: dye, velocityX: vx, velocityY: vy }
   },
   FractalField({ num, W, H }, id, props) {
     const sample = fractalSampler({

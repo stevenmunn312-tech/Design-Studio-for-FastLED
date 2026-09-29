@@ -47,6 +47,7 @@ import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
 import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
 } from './evaluator/automaton'
+import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
 import {
   FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
 } from './evaluator/fractal'
@@ -3462,6 +3463,35 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapX: true },
   },
   {
+    // Stam's stable fluids at LED resolution. Dye comes out as the field, and
+    // the flow as two fields centred on 0.5 so Frame Warp can advect a frame by it.
+    type: 'FluidSim',
+    label: 'Fluid',
+    category: 'field',
+    inputs: [
+      { id: 'inject', label: 'Inject', dataType: 'float' },
+      { id: 'injectX', label: 'Inject X', dataType: 'float' },
+      { id: 'injectY', label: 'Inject Y', dataType: 'float' },
+      { id: 'forceX', label: 'Force X', dataType: 'field' },
+      { id: 'forceY', label: 'Force Y', dataType: 'field' },
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'viscosity', label: 'Viscosity', dataType: 'float' },
+      { id: 'diffusion', label: 'Diffusion', dataType: 'float' },
+      { id: 'dissipation', label: 'Dissipation', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    propertyInputs: {
+      inject: 'inject', injectX: 'injectX', injectY: 'injectY', viscosity: 'viscosity',
+      diffusion: 'diffusion', dissipation: 'dissipation', speed: 'speed',
+    },
+    outputs: [
+      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'velocityX', label: 'Velocity X', dataType: 'field' },
+      { id: 'velocityY', label: 'Velocity Y', dataType: 'field' },
+    ],
+    defaultProperties: { inject: 0.6, injectX: 0.5, injectY: 0.85, viscosity: 0, diffusion: 0, dissipation: 0.02, speed: 8, buoyancy: 0.5 },
+  },
+  {
     // Escape-time and Newton fractals as a field. c, zoom, centre and spin are
     // ports, so an LFO can morph a Julia set or fly into a Mandelbrot one.
     type: 'FractalField',
@@ -4851,6 +4881,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
+  FluidSim: 'Smoke-like fluid: dye and the flow that carries it, as fields.',
   FractalField: 'Julia, Mandelbrot, Newton or Burning Ship fractal as a field.',
   Gauge: 'A 0–1 value as a bar, ring, arc or dot, with an optional held peak.',
   Automaton: 'Cellular automata as a field: rows, spirals, Brian\'s Brain, sand.',
@@ -4938,7 +4969,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -5941,6 +5972,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     style: { control: 'slider', min: 0, max: 16, step: 1 },
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  FluidSim: {
+    inject: N01, injectX: N01, injectY: N01, viscosity: N01, diffusion: N01, buoyancy: N01,
+    dissipation: { control: 'slider', min: 0, max: 0.2, step: 0.001 },
+    speed: { control: 'slider', min: FLUID_ITERATIONS_MIN, max: FLUID_ITERATIONS_MAX, step: 1 },
+  },
   FractalField: {
     fractalType: { control: 'select', options: [...FRACTAL_TYPES] },
     cRe: { control: 'slider', min: -2, max: 2, step: 0.001 },
@@ -6183,6 +6219,19 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     channel.level,
     'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
   ])),
+  FluidSim: {
+    inject: 'Dye added each frame at the injection point. It also gives the flow an upward push.',
+    injectX: 'Where the dye is added, left to right.',
+    injectY: 'Where the dye is added, top to bottom.',
+    forceX: 'A field that pushes the flow sideways. 0.5 is no push; above pushes right, below pushes left.',
+    forceY: 'A field that pushes the flow up or down. 0.5 is no push.',
+    trigger: 'A rising edge fires a puff: a burst of dye that spreads outward.',
+    viscosity: 'How much the flow resists changes, spreading motion sideways.',
+    diffusion: 'How fast the dye spreads by itself.',
+    dissipation: 'Share of the dye that fades each frame.',
+    speed: 'Solver passes each frame. More is smoother and slower.',
+    buoyancy: 'How strongly dye rises. 0 lets it hang.',
+  },
   FractalField: {
     fractalType: 'Julia: one fixed c, every pixel a starting point. Mandelbrot: every pixel is its own c. Newton: which cube root of 1 the pixel settles on. Burning Ship: Mandelbrot with the parts folded positive.',
     cRe: 'Real part of the Julia constant. Wire an LFO here to morph the set.',

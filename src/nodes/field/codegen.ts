@@ -13,6 +13,9 @@ import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
 } from '../../state/evaluator/automaton'
 import {
+  FLUID_BUOYANCY_GAIN, FLUID_FORCE_GAIN, FLUID_INJECT_VY, FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN, FLUID_PUFF_SPEED, FLUID_VEL_OUT,
+} from '../../state/evaluator/fluid'
+import {
   FRACTAL_BAILOUT2, FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_ORIGIN, FRACTAL_VIEW, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
   NEWTON_ROOT_Y, NEWTON_TOLERANCE2, fractalType,
 } from '../../state/evaluator/fractal'
@@ -287,6 +290,32 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
     ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
+  },
+  FluidSim({ node, id, p, ln, f, ownField, srcField, boolExpr, edges, needsFluid }) {
+    needsFluid.v = true
+    // Each velocity output costs a field buffer, so it is written only when a wire reads it.
+    const wired = (port: string) => edges.some((e) => e.source === node.id && e.sourceHandle === port)
+    const dye = ownField(), ovx = wired('velocityX') ? ownField('velocityX') : null, ovy = wired('velocityY') ? ownField('velocityY') : null
+    const fx = srcField('forceX'), fy = srcField('forceY')
+    const A = `_fl_${id}`
+    const buoy = Math.max(0, Math.min(1, Number(p.buoyancy ?? 0.5)))
+    ln(`  { // Fluid`)
+    ln(`    static float ${A}u[NUM_LEDS], ${A}v[NUM_LEDS], ${A}u0[NUM_LEDS], ${A}v0[NUM_LEDS], ${A}d[NUM_LEDS], ${A}d0[NUM_LEDS]; static bool ${A}pr=false;`)
+    ln(`    float _px=constrain(${f('injectX', 'injectX', 0.5)},0.0f,1.0f)*(WIDTH-1),_py=constrain(${f('injectY', 'injectY', 0.85)},0.0f,1.0f)*(HEIGHT-1),_R=fmaxf(1.5f,fminf((float)WIDTH,(float)HEIGHT)*0.08f),_am=fmaxf(0.0f,${f('inject', 'inject', 0.6)});`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _dx=_x-_px,_dy=_y-_py,_g=expf(-(_dx*_dx+_dy*_dy)/(_R*_R)); int _i=_y*WIDTH+_x; ${A}d[_i]+=_am*_g; ${A}v[_i]-=${floatLit(FLUID_INJECT_VY)}*_am*_g; }`)
+    ln(`    bool _tr=(${boolExpr(node.id, 'trigger')});`)
+    ln(`    if(_tr&&!${A}pr){ float _R2=_R*2.0f;`)
+    ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _dx=_x-_px,_dy=_y-_py,_ds=sqrtf(_dx*_dx+_dy*_dy),_g=expf(-(_ds*_ds)/(_R2*_R2)); int _i=_y*WIDTH+_x; float _k=_ds>1e-6f?${floatLit(FLUID_PUFF_SPEED)}*_g/_ds:0.0f; ${A}d[_i]+=_g; ${A}u[_i]+=_dx*_k; ${A}v[_i]+=_dy*_k; } }`)
+    ln(`    ${A}pr=_tr;`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
+    if (fx) ln(`      ${A}u[_i]+=(${fx}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
+    if (fy) ln(`      ${A}v[_i]+=(${fy}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
+    ln(`      ${A}v[_i]-=${floatLit(buoy * FLUID_BUOYANCY_GAIN, 6)}*${A}d[_i]; }`)
+    ln(`    int _it=constrain((int)floorf(${f('speed', 'speed', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
+    ln(`    _fluidStep(${A}u,${A}v,${A}u0,${A}v0,${A}d,${A}d0,WIDTH,HEIGHT,_it,${f('viscosity', 'viscosity', 0)},${f('diffusion', 'diffusion', 0)},${f('dissipation', 'dissipation', 0.02)});`)
+    const vel = (out: string | null, a: string) => (out ? ` ${out}[_i]=constrain(0.5f+${A}${a}[_i]*${floatLit(FLUID_VEL_OUT)},0.0f,1.0f);` : '')
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ ${dye}[_i]=constrain(${A}d[_i],0.0f,1.0f);${vel(ovx, 'u')}${vel(ovy, 'v')} }`)
+    ln(`  }`)
   },
   FractalField({ p, ln, f, ownField }) {
     const of = ownField()

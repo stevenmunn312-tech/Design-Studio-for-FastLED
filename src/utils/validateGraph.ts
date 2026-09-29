@@ -604,6 +604,7 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   Fire2012: 1,            // uint8 heat[HEIGHT][WIDTH]
   GameOfLife: 6,          // uint8 cells + uint8 next + float bright
   ReactionDiffusion: 12,  // 3 float arrays (u, un, vn); v is its own field buffer
+  FluidSim: 24,           // six float arrays (u, v, u0, v0, d, d0); the outputs are their own field buffers
   Automaton: 2,           // uint8 cells + uint8 next
   WaveSim: 12,            // 3 float arrays (p, c, n) beyond its own field buffer
   TuringField: 8,         // float state a plus a (W+1)(H+1) summed-area table

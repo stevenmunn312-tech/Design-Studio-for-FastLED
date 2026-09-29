@@ -502,6 +502,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     WaveSim: ['trigger', 'impulse'],
     Automaton: ['speed', 'rule'],
     Gauge: ['value', 'paletteIn'],
+    FluidSim: ['inject', 'injectX'],
     FractalField: ['cRe', 'cIm', 'zoom'],
     DistanceField: ['px', 'py'],
     FieldRotate: ['field', 'angle'],

@@ -966,6 +966,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Fractal example graph](../../public/node-cards/graphs/fractal-field.svg)
 
+### Fluid
+
+![Fluid node](../../public/node-cards/fluid-sim.svg)
+
+![Fluid example graph](../../public/node-cards/graphs/fluid-sim.svg)
+
 ### Turing Field
 
 ![Turing Field node](../../public/node-cards/turing-field.svg)

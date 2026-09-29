@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New Fluid field node: stable-fluids smoke at LED resolution on a wrapping
+  canvas. Dye comes out as the field, and the flow comes out as two velocity
+  fields so Frame Warp can carry a picture along it. Inject dye anywhere, fire a
+  puff on a trigger, or stir it with a Field Formula through the force inputs.
 - New Gauge node: shows a 0 to 1 value as a bar, a ring, an arc or a dot, in
   any direction, with optional blocks, a held peak marker, and a base frame
   underneath. Ring and arc land on the pixels an LED ring reads. Put a Map

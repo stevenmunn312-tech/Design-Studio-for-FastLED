@@ -1543,6 +1543,30 @@ describe('generateCpp', () => {
     expect(gg({ gaugeStyle: 'arc', arcSweep: 180 })).toContain('_sw=180.0f;')
   })
 
+  it('emits the Fluid solver once, with velocity outputs and optional force fields', () => {
+    const fl = (props: Record<string, unknown> = {}, force = false) => generateCpp(
+      [node('n', 'FluidSim', 'field', props), node('f', 'FieldToFrame', 'pattern', {}), ...(force ? [node('fx', 'FieldNoise', 'field', {})] : []), outputNode],
+      [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame'), ...(force ? [edge('e3', 'fx', 'n', 'field', 'forceX')] : [])],
+    )
+    const plain = fl()
+    expect(plain).toContain('static void _fluidStep(')
+    expect(plain.match(/static void _fluidStep\(/g)?.length).toBe(1)
+    expect(plain).toContain('static float _fl_nu[NUM_LEDS]')
+    expect(plain).toContain('int _it=constrain((int)floorf(8),4,20);')
+    expect(plain).toContain('if(_tr&&!_fl_npr)')
+    expect(plain).not.toContain('velocityX')
+    const wiredVelocity = generateCpp(
+      [node('n', 'FluidSim', 'field', {}), node('f', 'FieldToFrame', 'pattern', {}), node('m', 'FieldMath', 'field', {}), outputNode],
+      [edge('e', 'n', 'm', 'velocityX', 'a'), edge('e1', 'm', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame')],
+    )
+    expect(wiredVelocity).toContain('field_n_velocityX[_i]=constrain(0.5f+_fl_nu[_i]*0.25f')
+    expect(wiredVelocity).not.toContain('velocityY[_i]')
+    expect(plain).toContain('_fluidStep(_fl_nu,_fl_nv,_fl_nu0,_fl_nv0,_fl_nd,_fl_nd0,WIDTH,HEIGHT,_it,0,0,0.02);')
+    expect(plain).not.toContain('*2.0f*0.3f')
+    expect(fl({}, true)).toContain('_fl_nu[_i]+=(field_fx[_i]-0.5f)*2.0f*0.3f;')
+    expect(generateCpp([outputNode], [])).not.toContain('_fluidStep')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

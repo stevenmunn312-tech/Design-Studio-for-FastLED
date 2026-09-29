@@ -108,6 +108,7 @@ import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
 import { TURING_HELPER_CPP } from './turingHelperCpp'
+import { FLUID_HELPER_CPP } from './fluidHelperCpp'
 import { pressSourceBounces } from '../state/pressSource'
 import { FOURIER_HELPER_CPP } from './fourierHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
@@ -890,6 +891,7 @@ export function generateCpp(
   const needsLattice = { v: false }
   const needsTruchet = { v: false }
   const needsTuring = { v: false }
+  const needsFluid = { v: false }
   const needsFourier = { v: false }
   const needsSymmetry = { v: false }
   const needsHueMix = { v: false }
@@ -952,7 +954,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFourier, needsSymmetry, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsFourier, needsSymmetry, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     persistentFrameStateBufs, customDisplayOwners,
@@ -1411,6 +1413,11 @@ export function generateCpp(
 
   if (needsTuring.v) {
     lines.push(TURING_HELPER_CPP)
+    lines.push(``)
+  }
+
+  if (needsFluid.v) {
+    lines.push(FLUID_HELPER_CPP)
     lines.push(``)
   }
 
