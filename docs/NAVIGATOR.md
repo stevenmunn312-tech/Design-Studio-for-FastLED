@@ -212,6 +212,7 @@ build/architecture overview aimed at contributors.
   - [Truchet Tiles design](development/design/truchet-tiles.md)
     — square and hexagonal edge-joining motifs, rising-edge reroll, and the
       shared lattice hash and distance helper.
+  - [Strings and rings: the track contract](development/design/strings-and-rings.md)
   - [Turing Field design](development/design/turing-field.md)
     — McCabe multi-scale Turing patterns on a toroidal summed-area table, their
       RAM and cost, and Reaction Diffusion's Field output and tuned presets.

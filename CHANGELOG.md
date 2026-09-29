@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New String Particles node: particles drawn along a row, a column, or the
+  pixels an LED Ring reads. `drift` wanders and fades; `meteors` fires a streak
+  with debris on each trigger, over a noise bed. Set Ring LEDs to the LED
+  output's LED count and every particle lands on a ring pixel.
 - Noise, Field Noise and Fractal Noise gain a Noise Shape: `ridged` gives sharp
   bright crests and `billow` gives rounded lumps with dark creases. Noise's
   Worley variant gains a Worley Mode (`f1`, `f2f1`, or `edges` for thin lines on

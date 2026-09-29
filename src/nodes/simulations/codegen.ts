@@ -1,5 +1,6 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
+import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
 import { particleRadius } from '../../state/particleScale'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
@@ -440,6 +441,69 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ${px}[_i]=fmodf(${px}[_i]+_dx*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+_dy*_spd*0.6f+HEIGHT,HEIGHT);`)
     ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${tr}[_i]*255)); }`)
+  },
+  StringParticles({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
+    const ob = ownBuf()
+    const track = stringTrack(p.track), meteors = p.mode === 'meteors'
+    const ringLeds = ringTrackLeds(p.ringLeds)
+    if (meteors) needsT.v = true
+    const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.StringParticles)
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const seed = seedProp(p)
+    const bedLevel = Math.max(0, Math.min(1, Number(p.bed ?? 0.3))), bed = floatLit(bedLevel)
+    const A = `_sp_${id}`
+    // Every LED of the track, in order: `_k` is the position, and the index is
+    // the canvas pixel it lands on. The ring's is baked at start-up from the
+    // same inscribed circle `ringSampleMap` reads.
+    const lenExpr = track === 'ring' ? String(ringLeds) : track === 'column' ? 'HEIGHT' : 'WIDTH'
+    const cap = track === 'ring' ? String(ringLeds) : 'NUM_LEDS'
+    const at = track === 'ring' ? `${A}ix[_k]` : track === 'column' ? '_k*WIDTH+WIDTH/2' : '(HEIGHT/2)*WIDTH+_k'
+    const decay = STRING_PARTICLE_DECAY.map((d) => `${floatLit(d)}`).join(',')
+    ln(`  { // String Particles`)
+    ln(`    const int _n=max(1,min(${MAX_STRING_PARTICLES},(int)floorf(${f('count', 'count', 12)}))), _len=${lenExpr};`)
+    ln(`    static float ${A}p[${MAX_STRING_PARTICLES}], ${A}v[${MAX_STRING_PARTICLES}], ${A}l[${MAX_STRING_PARTICLES}], ${A}h[${MAX_STRING_PARTICLES}]; static uint8_t ${A}k[${MAX_STRING_PARTICLES}]; static CRGB ${A}tr[${cap}];${track === 'ring' ? ` static uint16_t ${A}ix[${cap}];` : ''} static bool ${A}prev=false, ${A}init=false;`)
+    ln(`    static const float ${A}dec[4]={${decay}};`)
+    ln(`    bool _tr=(${boolExpr(node.id, 'trigger')});`)
+    ln(`    if(!${A}init){`)
+    if (seed) ln(`      random16_set_seed(${seed}u);`)
+    ln(`      for(int _i=0;_i<${MAX_STRING_PARTICLES};_i++){ ${A}l[_i]=0; ${A}k[_i]=0; } for(int _i=0;_i<${cap};_i++) ${A}tr[_i]=CRGB::Black; ${A}prev=_tr;`)
+    if (track === 'ring') {
+      ln(`      float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rad=min(_cx,_cy);`)
+      ln(`      for(int _k=0;_k<_len;_k++){ float _th=_k*6.2831853f/_len; int _x=constrain((int)floorf(_cx+_rad*sinf(_th)+0.5f),0,WIDTH-1), _y=constrain((int)floorf(_cy-_rad*cosf(_th)+0.5f),0,HEIGHT-1); ${A}ix[_k]=_y*WIDTH+_x; }`)
+    }
+    ln(`      ${A}init=true; }`)
+    ln(`    float _step=max(0.0f,${speed})*0.6f,_sp=constrain(${f('spawn', 'spawn', 0.5)},0.0f,1.0f);`)
+    ln(`    uint8_t _fq=(uint8_t)(constrain(${f('fade', 'fade', 0.85)},0.0f,1.0f)*255.0f);`)
+    ln(`    for(int _k=0;_k<_len;_k++){ ${A}tr[_k].r=scale8(${A}tr[_k].r,_fq); ${A}tr[_k].g=scale8(${A}tr[_k].g,_fq); ${A}tr[_k].b=scale8(${A}tr[_k].b,_fq); }`)
+    ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
+    ln(`    auto _dir=[&]()->float{ return _rnd()<0.5f?-1.0f:1.0f; };`)
+    ln(`    auto _free=[&]()->int{ for(int _i=0;_i<_n;_i++) if(${A}l[_i]<=0) return _i; return -1; };`)
+    ln(`    auto _place=[&](int _i,uint8_t _kd,float _pp,float _vv,float _ll,float _hh){ ${A}k[_i]=_kd; ${A}p[_i]=_pp; ${A}v[_i]=_vv; ${A}l[_i]=_ll; ${A}h[_i]=_hh; };`)
+    if (meteors) {
+      ln(`    if(_rnd()<_sp*0.3f){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*0.3f,_hh=_rnd(); _place(_i,1,_pp,_vv,0.6f,_hh); } }`)
+      ln(`    if(_tr&&!${A}prev){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*(1.0f+_step*2.0f),_hh=_rnd(); _place(_i,2,_pp,_vv,1.0f,_hh);`)
+      ln(`      for(int _d=0;_d<3;_d++){ int _j=_free(); if(_j>=0){ float _rr=_rnd(); _place(_j,3,_pp,-_vv*(0.2f+_rr*0.4f),0.7f,_hh); } } } }`)
+    } else {
+      ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0&&_rnd()<_sp){ float _pp=_rnd()*_len,_vv=_dir(),_hh=_rnd(); _place(_i,0,_pp,_vv,1.0f,_hh); } }`)
+    }
+    ln(`    ${A}prev=_tr;`)
+    ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0) continue;`)
+    ln(`      if(${A}k[_i]==0) ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i]*_step*${A}l[_i],(float)_len)+_len,(float)_len);`)
+    ln(`      else { ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i],(float)_len)+_len,(float)_len); if(${A}k[_i]==3) ${A}v[_i]*=0.92f; }`)
+    ln(`      ${A}l[_i]-=${A}dec[${A}k[_i]]; if(${A}l[_i]<=0){ ${A}l[_i]=0; continue; }`)
+    ln(`      CRGB _b=ColorFromPalette(${pal},(uint8_t)(constrain(${A}h[_i],0.0f,1.0f)*255.0f));`)
+    ln(`      uint8_t _wq=(uint8_t)((1.0f-${A}l[_i])*0.5f*255.0f), _lq=(uint8_t)(${A}l[_i]*255.0f);`)
+    ln(`      uint8_t _c[3]={ scale8(_b.r+scale8(255-_b.r,_wq),_lq), scale8(_b.g+scale8(255-_b.g,_wq),_lq), scale8(_b.b+scale8(255-_b.b,_wq),_lq) };`)
+    ln(`      float _pw=fmodf(fmodf(${A}p[_i],(float)_len)+_len,(float)_len); int _a=min(_len-1,(int)floorf(_pw)); float _fr=_pw-_a;`)
+    ln(`      int _cell[2]={_a,(_a+1)%_len}; float _cv[2]={1.0f-_fr,_fr};`)
+    ln(`      for(int _j=0;_j<2;_j++){ uint8_t _q=(uint8_t)(constrain(_cv[_j],0.0f,1.0f)*255.0f); ${A}tr[_cell[_j]].r=qadd8(${A}tr[_cell[_j]].r,scale8(_c[0],_q)); ${A}tr[_cell[_j]].g=qadd8(${A}tr[_cell[_j]].g,scale8(_c[1],_q)); ${A}tr[_cell[_j]].b=qadd8(${A}tr[_cell[_j]].b,scale8(_c[2],_q)); } }`)
+    ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+    ln(`    for(int _k=0;_k<_len;_k++){ uint8_t _r=${A}tr[_k].r,_g=${A}tr[_k].g,_bl=${A}tr[_k].b;`)
+    if (meteors && bedLevel > 0) {
+      ln(`      float _nv=inoise8((uint16_t)(_k*90),(uint16_t)(t*102.0f))/255.0f; CRGB _nc=ColorFromPalette(${pal},(uint8_t)(_nv*255.0f)); uint8_t _nq=(uint8_t)(constrain(_nv*${bed},0.0f,1.0f)*255.0f);`)
+      ln(`      _r=qadd8(_r,scale8(_nc.r,_nq)); _g=qadd8(_g,scale8(_nc.g,_nq)); _bl=qadd8(_bl,scale8(_nc.b,_nq));`)
+    }
+    ln(`      ${ob}[${at}]=CRGB(_r,_g,_bl); } }`)
   },
   Starfield({ node, id, p, ln, f, ownBuf, paletteExpr }) {
     const ob = ownBuf()

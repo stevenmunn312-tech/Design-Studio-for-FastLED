@@ -1416,6 +1416,31 @@ describe('generateCpp', () => {
     expect(curl).not.toContain('inoise8')
   })
 
+  it('emits String Particles on each track and in each mode', () => {
+    const sp = (props: Record<string, unknown>) => generateCpp([node('n', 'StringParticles', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const row = sp({ track: 'row' })
+    expect(row).toContain('_len=WIDTH;')
+    expect(row).toContain('[(HEIGHT/2)*WIDTH+_k]=CRGB(_r,_g,_bl);')
+    expect(row).toContain('static float _sp_np[64]')
+    expect(row).not.toContain('_sp_nix')
+    expect(row).not.toContain('inoise8((uint16_t)(_k*90)')
+    expect(sp({ track: 'column' })).toContain('[_k*WIDTH+WIDTH/2]=CRGB(_r,_g,_bl);')
+    const ring = sp({ track: 'ring', ringLeds: 40 })
+    expect(ring).toContain('_len=40;')
+    expect(ring).toContain('static uint16_t _sp_nix[40];')
+    expect(ring).toContain('float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rad=min(_cx,_cy);')
+    expect(ring).toContain('_sp_nix[_k]=_y*WIDTH+_x;')
+    // Drift respawns a dead slot; meteors fire on a rising trigger, over a bed.
+    expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_sp)')
+    expect(row).not.toContain('_tr&&!_sp_nprev')
+    const meteors = sp({ track: 'row', mode: 'meteors' })
+    expect(meteors).toContain('if(_tr&&!_sp_nprev)')
+    expect(meteors).toContain('inoise8((uint16_t)(_k*90)')
+    expect(sp({ mode: 'meteors', bed: 0 })).not.toContain('inoise8((uint16_t)(_k*90)')
+    expect(row).toContain('scale8(_sp_ntr[_k].r,_fq)')
+    expect(row).toContain('qadd8(')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

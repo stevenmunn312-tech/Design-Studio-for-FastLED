@@ -492,6 +492,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     Image: ['rotation', 'zoom'],
     Particles: ['paletteIn'],
     Boids: ['speed', 'paletteIn'],
+    StringParticles: ['speed', 'paletteIn'],
     ReactionDiffusion: ['feed', 'kill', 'paletteIn'],
     GameOfLife: ['speed', 'paletteIn'],
     Kaleidoscope: ['frame', 'segments'],

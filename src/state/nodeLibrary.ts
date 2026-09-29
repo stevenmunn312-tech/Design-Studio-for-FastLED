@@ -41,6 +41,7 @@ import { SLICE_PRESET_NAMES } from './sliceTiling'
 import { HARMONY_KINDS } from './harmonyPalette'
 import { GRADIENT_MIX_MODES } from './hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
+import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -2717,6 +2718,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { speed: 0.67, scale: 0.08, count: 80, fade: 0.9, palette: 'ocean', seed: 0, flowMode: 'angle' },
   },
   {
+    // String Particles — a 1-D particle pool drawn along a row, column or ring track.
+    type: 'StringParticles',
+    label: 'String Particles',
+    category: 'pattern',
+    subcategory: 'Simulations',
+    inputs: [
+      { id: 'spawn', label: 'Spawn', dataType: 'float' },
+      { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'fade', label: 'Fade', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { spawn: 'spawn', speed: 'speed', fade: 'fade', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, fade: 0.85, palette: 'rainbow', seed: 0 },
+  },
+  {
     // Warp starfield — stars streak outward from the centre.
     type: 'Starfield',
     label: 'Starfield',
@@ -4653,6 +4671,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PaletteGradient: 'Palette gradient across the matrix at any angle.',
   Image: 'Still or animated (GIF/APNG/WebP) image with fit, crop, colour controls.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
+  StringParticles: 'Particles on one line: a string, a column or an LED ring.',
   Starfield: 'Warp starfield — stars streak outward from the centre.',
   Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   AudioFlow: 'Audio-reactive flowing noise field.',
@@ -5428,6 +5447,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01 },
   Starfield:       { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  StringParticles: {
+    speed: N01, spawn: N01, fade: N01, bed: N01,
+    seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
+    count:    { control: 'slider', min: 1, max: MAX_STRING_PARTICLES, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    track:    { control: 'select', options: [...STRING_TRACKS] },
+    mode:     { control: 'select', options: [...STRING_PARTICLE_MODES] },
+  },
   Boids:           {
     speed: N01,
     seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -6110,6 +6137,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FractalNoise: {
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
   },
+  StringParticles: {
+    track: 'The line the particles ride: the middle row, the middle column, or the ring of pixels an LED ring reads.',
+    mode: 'Drift: particles wander and fade, faster and brighter while strong. Meteors: ambient sparks, and a streak with debris on each trigger, over a noise bed.',
+    count: 'Most particles alive at once. Fixed when the effect starts.',
+    ringLeds: 'LEDs on the ring track. Match the LED output\'s LED count so each particle lands on a ring pixel.',
+    bed: 'Brightness of the noise bed under the meteors.',
+    spawn: 'How readily new particles appear: 0 none, 1 as soon as a slot is free.',
+  },
   FlowField: {
     flowMode: 'How the noise steers particles: by an angle (angle), or along its curl (curl), which swirls without piling up.',
   },
@@ -6205,6 +6240,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Truchet: {
     lineWidth: 'line width',
+  },
+  StringParticles: {
+    ringLeds: 'ring LEDs',
   },
   ReactionDiffusion: {
     rdPreset: 'preset',
@@ -6561,6 +6599,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'pattern', label: 'AnimARTrix Pattern', keys: ['effect'] },
     { key: 'motion', label: 'Motion', keys: ['speed'] },
     { key: 'audio', label: 'Audio Reactivity', keys: ['audioAmount'] },
+  ],
+  StringParticles: [
+    { key: 'track', label: 'Track', keys: ['track', 'ringLeds'] },
+    { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'fade', 'bed'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Boids: [
     { key: 'flock', label: 'Flock', keys: ['speed', 'count', 'separation', 'alignment', 'cohesion', 'visualRange'] },
@@ -7132,6 +7175,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'Noise' && key === 'worleyMode') {
     return properties.noiseType === 'worley'
+  }
+  if (nodeType === 'StringParticles') {
+    if (key === 'ringLeds') return properties.track === 'ring'
+    if (key === 'bed') return properties.mode === 'meteors'
+    if (key === 'trigger') return properties.mode === 'meteors'
   }
   if (nodeType === 'Path' && key === 'customPoints') {
     return properties.pathShape === 'custom'

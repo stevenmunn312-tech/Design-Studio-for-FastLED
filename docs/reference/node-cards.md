@@ -688,6 +688,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Flow Field example graph](../../public/node-cards/graphs/flow-field.svg)
 
+### String Particles
+
+![String Particles node](../../public/node-cards/string-particles.svg)
+
+![String Particles example graph](../../public/node-cards/graphs/string-particles.svg)
+
 ### Starfield
 
 ![Starfield node](../../public/node-cards/starfield.svg)

@@ -1,6 +1,7 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import { particleRadius } from '../../state/particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
+import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack, trackIndices, trackSplat, wrapTrack, type StringTrack } from '../../state/evaluator/stringTrack'
 import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
@@ -588,6 +589,115 @@ function evalFlowField(nodeId: string, speed: number, scale: number, count: numb
   return buildFrame(W, H, (x, y) => samplePalette(palette, trail[y * W + x]))
 }
 
+// String Particles: a 1-D particle pool drawn along a row, column or ring track.
+// Integer maths throughout (scale8, qadd8), a mirror of the C++ emitter: the
+// trail is bytes that `fade` scales down each frame, and every particle splats
+// additively across the two cells its sub-pixel position sits between.
+const scale8 = (a: number, s: number) => (a * (s + 1)) >> 8
+const qadd8 = (a: number, b: number) => Math.min(255, a + b)
+const clampByte = (v: number) => Math.max(0, Math.min(255, Math.floor(v)))
+
+/** Particle kinds in the pool: what spawned it decides how it moves and dies. */
+const SP_DRIFT = 0, SP_AMBIENT = 1, SP_METEOR = 2, SP_DEBRIS = 3
+
+interface StringParticleState {
+  w: number; h: number; len: number; count: number; seed: number; track: string
+  pos: Float32Array; vel: Float32Array; life: Float32Array; hue: Float32Array; kind: Uint8Array
+  trail: Uint8Array; prev: boolean; idx: number[]
+}
+const stringParticleState = instanceState('stringParticleState', new Map<string, StringParticleState>())
+
+export interface StringParticleOptions {
+  track: StringTrack; mode: string; ringLeds: number; count: number; bed: number
+}
+
+function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: number, trigger: boolean, speed: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+  const idx = trackIndices(o.track, W, H, o.ringLeds)
+  const len = idx.length
+  const pc = Math.max(1, Math.min(MAX_STRING_PARTICLES, Math.floor(o.count)))
+  let s = stringParticleState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.len !== len || s.count !== pc || s.seed !== seed || s.track !== o.track) {
+    seededRngState.delete(`${nodeId}:sp`)
+    s = {
+      w: W, h: H, len, count: pc, seed, track: o.track,
+      pos: new Float32Array(pc), vel: new Float32Array(pc), life: new Float32Array(pc), hue: new Float32Array(pc), kind: new Uint8Array(pc),
+      trail: new Uint8Array(len * 3), prev: trigger, idx,
+    }
+    stringParticleState.set(nodeId, s)
+  }
+  const rnd = () => seededRandom(`${nodeId}:sp`, seed)
+  const { pos, vel, life, hue, kind, trail } = s
+  const step = Math.max(0, speed) * 0.6
+  const spawnP = clamp01(spawn)
+  const fadeQ = clampByte(clamp01(fade) * 255)
+  for (let i = 0; i < trail.length; i++) trail[i] = scale8(trail[i], fadeQ)
+
+  const free = () => { for (let i = 0; i < pc; i++) if (life[i] <= 0) return i; return -1 }
+  const place = (i: number, k: number, p: number, v: number, l: number, h: number) => {
+    kind[i] = k; pos[i] = p; vel[i] = v; life[i] = l; hue[i] = h
+  }
+  const dir = () => (rnd() < 0.5 ? -1 : 1)
+
+  if (o.mode === 'meteors') {
+    if (rnd() < spawnP * 0.3) {
+      const i = free()
+      if (i >= 0) place(i, SP_AMBIENT, rnd() * len, dir() * 0.3, 0.6, rnd())
+    }
+    if (trigger && !s.prev) {
+      const i = free()
+      if (i >= 0) {
+        const p = rnd() * len, v = dir() * (1 + step * 2), h = rnd()
+        place(i, SP_METEOR, p, v, 1, h)
+        for (let d = 0; d < 3; d++) {
+          const j = free()
+          if (j >= 0) place(j, SP_DEBRIS, p, -v * (0.2 + rnd() * 0.4), 0.7, h)
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < pc; i++) {
+      if (life[i] <= 0 && rnd() < spawnP) place(i, SP_DRIFT, rnd() * len, dir(), 1, rnd())
+    }
+  }
+  s.prev = trigger
+
+  for (let i = 0; i < pc; i++) {
+    if (life[i] <= 0) continue
+    if (kind[i] === SP_DRIFT) pos[i] = wrapTrack(pos[i] + vel[i] * step * life[i], len)
+    else {
+      pos[i] = wrapTrack(pos[i] + vel[i], len)
+      if (kind[i] === SP_DEBRIS) vel[i] *= 0.92
+    }
+    life[i] -= STRING_PARTICLE_DECAY[kind[i]]
+    if (life[i] <= 0) { life[i] = 0; continue }
+    // Power drives colour and brightness together: a fading particle washes out
+    // toward white and dims as it goes.
+    const base = samplePalette(palette, clamp01(hue[i]))
+    const wq = clampByte((1 - life[i]) * 0.5 * 255)
+    const lq = clampByte(life[i] * 255)
+    const col = [base.r, base.g, base.b].map((c) => scale8(c + scale8(255 - c, wq), lq))
+    const { a, b, covA, covB } = trackSplat(pos[i], len)
+    for (const [cell, cov] of [[a, covA], [b, covB]] as const) {
+      const q = clampByte(cov * 255)
+      for (let c = 0; c < 3; c++) trail[cell * 3 + c] = qadd8(trail[cell * 3 + c], scale8(col[c], q))
+    }
+  }
+
+  const frame = blankFrame(W, H)
+  const bed = clamp01(o.bed)
+  for (let k = 0; k < len; k++) {
+    let r = trail[k * 3], g = trail[k * 3 + 1], b = trail[k * 3 + 2]
+    if (o.mode === 'meteors' && bed > 0) {
+      const v = _snoise2(k * 0.35, t * 0.4) * 0.5 + 0.5
+      const c = samplePalette(palette, clamp01(v)), q = clampByte(v * bed * 255)
+      r = qadd8(r, scale8(c.r, q)); g = qadd8(g, scale8(c.g, q)); b = qadd8(b, scale8(c.b, q))
+    }
+    const at = idx[k]
+    frame[Math.floor(at / W)][at % W] = { r, g, b }
+  }
+  return frame
+}
+
 // Warp starfield: stars fly outward from the centre; nearer stars are brighter.
 function evalStarfield(nodeId: string, speed: number, count: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const pc = Math.max(8, Math.min(300, Math.floor(count)))
@@ -911,6 +1021,20 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const fade = num(id, 'fade', props, 'fade', 0.9)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return { frame: evalFlowField(stateKey(id), speed, scale, count, fade, t, palette, W, H, normalizedSeed(props.seed), props.flowMode === 'curl') }
+  },
+  StringParticles({ input, num, pal, t, W, H, stateKey }, id, props) {
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.StringParticles)
+    const fade = num(id, 'fade', props, 'fade', 0.85)
+    const spawn = num(id, 'spawn', props, 'spawn', 0.5)
+    const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    const opts: StringParticleOptions = {
+      track: stringTrack(props.track),
+      mode: props.mode === 'meteors' ? 'meteors' : 'drift',
+      ringLeds: ringTrackLeds(props.ringLeds),
+      count: Number(props.count ?? 12),
+      bed: Number(props.bed ?? 0.3),
+    }
+    return { frame: evalStringParticles(stateKey(id), opts, spawn, Boolean(input(id, 'trigger', false)), speed, fade, t, palette, W, H, normalizedSeed(props.seed)) }
   },
   Starfield({ num, pal, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.Starfield)

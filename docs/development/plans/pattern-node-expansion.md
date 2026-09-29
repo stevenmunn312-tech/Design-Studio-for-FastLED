@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO, Polar Gradient, Harmony Palette, gradient mixMode, wrapX, Wave Sim options, Custom Path, noise shaping and curl done); 10–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO, Polar Gradient, Harmony Palette, gradient mixMode, wrapX, Wave Sim options, Custom Path, noise shaping and curl, String Particles done; only the compile check open); 10–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -305,10 +305,11 @@ Phases 0–6 make cheap.
 
 Checklist:
 
-- [ ] String Particles: track helper shared with Gauge (Phase 10), both
+- [x] String Particles: track helper shared with Gauge (Phase 10), both
       modes, library entry, evaluator, emitter, tests (a particle on the ring
       track lands on `ringSampleMap` indices; wrap continuity; pool never
-      exceeds `count`), docs.
+      exceeds `count`), docs. Adds `ringLeds` for the ring track's length and
+      `bed` for the meteors noise bed.
 - [x] `wrapX` on Noise and Field Noise, built as a variance-preserving
       cross-fade of the field with itself shifted a canvas width rather than the
       plan's 3-D cylinder sample, so it works for all seven Noise variants and
@@ -328,7 +329,7 @@ Checklist:
       noise to take the curl of (it steers by flocking rules), so the plan's
       Boids half has nothing to attach to.
 - [x] Harmony Palette node, joining the palette-producer classification test.
-- [ ] README Patterns, Signals and Color lines; node cards; design note
+- [x] README Patterns, Signals and Color lines; node cards; design note
       `docs/development/design/strings-and-rings.md` for the track contract.
 - [ ] Compile check on classic ESP32 and ESP8266 with a string-only graph.
 
