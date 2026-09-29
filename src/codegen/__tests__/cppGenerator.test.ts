@@ -2415,6 +2415,27 @@ describe('Float Field codegen', () => {
   })
 })
 
+describe('Wave Sim option codegen', () => {
+  const emit = (props: Record<string, unknown>) => {
+    const ws = node('ws', 'WaveSim', 'field', props)
+    const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
+    return generateCpp([ws, f2f, outputNode], [edge('e2', 'ws', 'f2f', 'field', 'field'), edge('e3', 'f2f', 'out', 'frame', 'frame')])
+  }
+
+  it('wraps X and shows the magnitude by default', () => {
+    const cpp = emit({})
+    expect(cpp).toContain('_xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH')
+    expect(cpp).toContain('constrain(fabsf(_ws_wsc[_i])*1.5f,0.0f,1.0f)')
+  })
+
+  it('reflects at the edges when wrapX is off and drops the negative half for halfDuplex', () => {
+    const cpp = emit({ wrapX: false, halfDuplex: true })
+    expect(cpp).toContain('_xm=max(_x-1,0),_xp=min(_x+1,WIDTH-1)')
+    expect(cpp).toContain('constrain(_ws_wsc[_i]*1.5f,0.0f,1.0f)')
+    expect(cpp).not.toContain('(_x-1+WIDTH)%WIDTH')
+  })
+})
+
 describe('Float Field — Phase 2 codegen', () => {
   const tail = (srcId: string) => {
     const f2f = node('f2f', 'FieldToFrame', 'pattern', {})

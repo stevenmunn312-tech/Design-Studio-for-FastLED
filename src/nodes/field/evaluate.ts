@@ -323,7 +323,12 @@ function injectWaveSimRipple(field: Float32Array, pulse: number, impulse: number
   }
 }
 
-function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+// `wrapX` lets a wave leave one side and re-enter the other; off, the left and
+// right edges reflect (the neighbour past the edge is the edge pixel itself).
+// `halfDuplex` shows only the positive half of the wave, so a crest reads as
+// raised water and the troughs stay dark, where the default shows the size of
+// the displacement either way. Y always wraps, as it always has.
+function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, wrapX: boolean, halfDuplex: boolean, W = DEFAULT_W, H = DEFAULT_H): Field {
   const N = W * H
   let s = waveSimState.get(nodeId)
   if (!s || s.w !== W || s.h !== H) {
@@ -352,7 +357,7 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
     for (let y = 0; y < H; y++) {
       const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
       for (let x = 0; x < W; x++) {
-        const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
+        const xm = wrapX ? (x - 1 + W) % W : Math.max(x - 1, 0), xp = wrapX ? (x + 1) % W : Math.min(x + 1, W - 1), i = yr + x
         const neighbourAvg = (s.cur[ym + x] + s.cur[yp + x] + s.cur[yr + xm] + s.cur[yr + xp]) * 0.5
         s.next[i] = Math.max(-1, Math.min(1, (neighbourAvg - s.prev[i]) * damp))
       }
@@ -371,7 +376,7 @@ function evalWaveSim(nodeId: string, trigger: boolean, speed: number, damping: n
   }
 
   const out = allocField(N)
-  for (let i = 0; i < N; i++) out[i] = Math.max(0, Math.min(1, Math.abs(s.cur[i]) * 1.5))
+  for (let i = 0; i < N; i++) out[i] = Math.max(0, Math.min(1, (halfDuplex ? s.cur[i] : Math.abs(s.cur[i])) * 1.5))
   return out
 }
 
@@ -739,7 +744,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const speed = num(id, 'speed', props, 'speed', 4)
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = num(id, 'impulse', props, 'impulse', 1)
-    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, W, H) }
+    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
   },
   FieldToFrame({ input, num, pal, W, H }, id, props) {
     const fv = input(id, 'field', null)

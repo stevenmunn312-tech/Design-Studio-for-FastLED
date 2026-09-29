@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO, Polar Gradient, Harmony Palette, gradient mixMode, wrapX done); 10–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO, Polar Gradient, Harmony Palette, gradient mixMode, wrapX, Wave Sim options done); 10–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -314,7 +314,9 @@ Checklist:
       plan's 3-D cylinder sample, so it works for all seven Noise variants and
       both sides share one rule. The seam is tested as no larger than the
       neighbouring-pixel gap. Corkscrew starter not yet switched to it.
-- [ ] Wave Sim `halfDuplex` and `wrapX`, plus the 1-row test.
+- [x] Wave Sim `halfDuplex` and `wrapX`, plus the 1-row test. `wrapX` defaults on
+      because the simulation always wrapped; off reflects the left and right
+      edges, and Y still wraps.
 - [ ] Custom Path with the shared point parser and the PROGMEM polyline.
 - [x] Polar Gradient node.
 - [x] Gradient `mixMode` on both gradient nodes with a golden test that `rgb`

@@ -3322,7 +3322,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'impulse', label: 'Impulse', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { speed: 4, damping: 0.985, impulse: 1 },
+    defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapX: true },
   },
   {
     // McCabe's multi-scale Turing patterns: labyrinths inside labyrinths. Each
@@ -5942,6 +5942,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     channel.level,
     'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
   ])),
+  WaveSim: {
+    halfDuplex: 'Show only the positive half of the wave, so crests read as raised water and troughs stay dark.',
+    wrapX: 'Let waves leave one side and re-enter the other. Off, the left and right edges reflect them.',
+  },
   Noise: {
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
   },

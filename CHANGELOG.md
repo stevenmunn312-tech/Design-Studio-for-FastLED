@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Wave Sim gains Half Duplex, which shows only the positive half of the wave so
+  crests read as raised water, and Wrap X, which is on as before; turn it off and
+  the left and right edges reflect waves instead. A one-row canvas already gives a
+  one-dimensional wave.
 - Noise and Field Noise gain Wrap X, which joins the left and right edges
   without a seam for an LED ring or corkscrew canvas. It blends the field with a
   copy of itself shifted one canvas width, keeping contrast, at the cost of a

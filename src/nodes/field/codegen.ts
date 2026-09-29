@@ -254,7 +254,8 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    for(int _it=0;_it<_iters;_it++) _turingStep(${A}a,${A}p,WIDTH,HEIGHT,${A}r,${radii.length},_step);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain((${A}a[_i]+1.0f)*0.5f,0.0f,1.0f); }`)
   },
-  WaveSim({ node, id, ln, f, ownField, boolExpr }) {
+  WaveSim({ node, id, p, ln, f, ownField, boolExpr }) {
+    const wrapX = p.wrapX !== false, halfDuplex = p.halfDuplex === true
     const of = ownField()
     const trig = boolExpr(node.id, 'trigger')
     const speed = `max(1,min(12,(int)floorf(${f('speed', 'speed', 4)})))`
@@ -271,11 +272,11 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${A}pulse,${impulseL}); ${A}pulse++; } ${A}prev=_tr;`)
     ln(`    for(int _it=0;_it<${speed};_it++){`)
     ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
-    ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
+    ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=${wrapX ? '(_x-1+WIDTH)%WIDTH' : 'max(_x-1,0)'},_xp=${wrapX ? '(_x+1)%WIDTH' : 'min(_x+1,WIDTH-1)'},_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
     ln(`      ::memcpy(${A}p,${A}c,sizeof(${A}p)); ::memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
     ln(`    float _peak=0.0f; for(int _i=0;_i<NUM_LEDS;_i++) _peak=max(_peak,fabsf(${A}c[_i]));`)
     ln(`    if(_peak<0.002f){ _wsInject_${id}(${A}pulse,${impulseL}*0.6f); ${A}pulse++; }`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(fabsf(${A}c[_i])*1.5f,0.0f,1.0f); }`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
   },
   FieldToFrame({ node, p, ln, f, ownBuf, srcField, paletteExpr }) {
     const ob = ownBuf()

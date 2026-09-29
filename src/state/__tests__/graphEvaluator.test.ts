@@ -3549,6 +3549,65 @@ describe('Float Field pipeline', () => {
   })
 })
 
+describe('Wave Sim options', () => {
+  // Runs a fresh Wave Sim for `ticks` frames and returns every frame's field.
+  // Each run gets its own node id: the simulation state is keyed by it.
+  let run = 0
+  function waves(props: Record<string, unknown>, ticks: number, w: number, h: number) {
+    const id = `ws-run-${run++}`
+    const ws = node(id, 'WaveSim', 'field', { speed: 4, damping: 0.985, impulse: 1, ...props })
+    const f2f = node('f2f', 'FieldToFrame', 'field', {})
+    const out = node('out', 'MatrixOutput', 'output', {})
+    // The trigger's splash lands off-centre; the opening one is mirror-symmetric,
+    // and on a symmetric field wrapping and reflecting the edges agree.
+    const trig = node('tr', 'Math', 'math', { mathOp: 'add', a: 1, b: 0 })
+    const edges = [
+      edge('e0', 'tr', 'result', id, 'trigger'),
+      edge('e1', id, 'field', 'f2f', 'field'),
+      edge('e2', 'f2f', 'frame', 'out', 'frame'),
+    ]
+    const frames: number[][] = []
+    for (let tick = 0; tick < ticks; tick++) {
+      frames.push([...(evaluateGraphFull([trig, ws, f2f, out], edges, tick, w, h).outputs.get(id)!.field as Float32Array)])
+    }
+    return frames
+  }
+
+  it('keeps the old behaviour by default', () => {
+    expect(waves({ wrapX: true, halfDuplex: false }, 10, 16, 16)).toEqual(waves({}, 10, 16, 16))
+  })
+
+  it('half duplex never exceeds the two-sided field and darkens the troughs', () => {
+    const both = waves({}, 12, 16, 16)
+    const half = waves({ halfDuplex: true }, 12, 16, 16)
+    let darker = 0
+    for (let t = 0; t < both.length; t++) {
+      for (let i = 0; i < both[t].length; i++) {
+        expect(half[t][i]).toBeLessThanOrEqual(both[t][i] + 1e-6)
+        expect(half[t][i]).toBeGreaterThanOrEqual(0)
+        if (half[t][i] < both[t][i] - 1e-6) darker++
+      }
+    }
+    expect(darker).toBeGreaterThan(0)
+  })
+
+  it('reflects at the left and right edges when wrapX is off', () => {
+    const wrapped = waves({ wrapX: true }, 40, 24, 8)
+    const walled = waves({ wrapX: false }, 40, 24, 8)
+    expect(walled).not.toEqual(wrapped)
+    expect(walled.flat().every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true)
+  })
+
+  it('is a one-dimensional wave on a one-row canvas', () => {
+    const frames = waves({ wrapX: false }, 30, 25, 1)
+    const last = frames[frames.length - 1]
+    expect(last.every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true)
+    // The splash spreads sideways along the one row it has.
+    expect(last.some((v) => v > 0.001)).toBe(true)
+    expect(new Set(last.map((v) => v.toFixed(4))).size).toBeGreaterThan(5)
+  })
+})
+
 describe('Float Field — Phase 2 (DistanceField / FieldMath / FieldWarp)', () => {
   // Read a node's `field` output directly.
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
