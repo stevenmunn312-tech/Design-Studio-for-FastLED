@@ -1,7 +1,8 @@
 import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/dmx'
 import { waveSample, combineWaves } from '../../state/wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
-import { normalizedSeed, seededRandom } from '../../state/evaluator/random'
+import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
+import { denormRate, SPEED_MAX } from '../../state/speedRange'
 import { instanceState } from '../../state/evaluator/memory'
 
 const counterVals = instanceState('counterVals', new Map<string, number>())
@@ -101,6 +102,24 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const lo = Number(props.min ?? 0), hi = Number(props.max ?? 1)
     const seed = normalizedSeed(props.seed)
     return { value: lo + seededRandom(stateKey(id), seed) * (hi - lo) }
+  },
+  // Smooth random: fBm of the simplex noise, sampled along time. Firmware reads
+  // inoise16 instead (the documented approximation gap shared with Field Noise).
+  NoiseSignal({ num, t }, id, props) {
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.NoiseSignal)
+    const lo = num(id, 'min', props, 'min', 0)
+    const hi = num(id, 'max', props, 'max', 1)
+    const octaves = Math.max(1, Math.min(3, Math.floor(Number(props.octaves ?? 1))))
+    const seed = normalizedSeed(props.seed)
+    const z = t * speed + seedOffset(seed, 0)
+    const y = seedOffset(seed, 1)
+    let v = 0, amp = 0.5, freq = 1, norm = 0
+    for (let o = 0; o < octaves; o++) {
+      v += amp * _snoise2(z * freq, y + o * 17)
+      norm += amp; amp *= 0.5; freq *= 2
+    }
+    const n = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
+    return { value: lo + n * (hi - lo) }
   },
   Counter({ num, stateKey }, id, props) {
     const rate = num(id, 'rate', props, 'rate', 0.5)

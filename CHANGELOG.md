@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Noise LFO is a signal node that drifts smoothly between Min and Max, the
+  FastLED modulator idiom that Random's fresh draw every frame is not. Speed,
+  Min and Max take wires; Octaves (1–3) and Seed shape it. The sketch reads
+  `inoise16`, so the curve differs slightly from the preview's simplex noise.
 - Waveform draws the raw audio waveform over a base frame as a line, filled,
   mirror or ring trace, in a palette, with gain, thickness and smoothing. The
   ring follows the inscribed circle, so an LED Ring shows it. The sketch

@@ -2025,6 +2025,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { min: 0, max: 1, seed: 0 },
   },
   {
+    // Smooth random value: fBm of the same noise Field Noise uses, sampled along
+    // one axis in time. The FastLED modulator idiom (`inoise8(millis())`) that
+    // Random, a fresh draw per frame, is not.
+    type: 'NoiseSignal',
+    label: 'Noise LFO',
+    category: 'signal',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'min', label: 'Min', dataType: 'float' },
+      { id: 'max', label: 'Max', dataType: 'float' },
+    ],
+    propertyInputs: { speed: 'speed', min: 'min', max: 'max' },
+    outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    defaultProperties: { speed: 0.25, min: 0, max: 1, octaves: 1, seed: 0 },
+  },
+  {
     type: 'Counter',
     label: 'Counter',
     category: 'signal',
@@ -4502,6 +4518,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Abs: 'Absolute value.',
   Mod: 'Modulo — x wrapped into [0, m).',
   Random: 'Random value in a range.',
+  NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
   Counter: 'Ramps 0→1 over time at a set rate.',
   Gate: 'Passes a value when a boolean is true, else a fallback.',
   Smooth: 'Low-pass — eases a jittery value in over a response time.',
@@ -4697,7 +4714,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
+  signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
@@ -5168,6 +5185,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     bpm: { control: 'slider', min: 1, max: 220, step: 1 },
   },
   Random: {
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
+  NoiseSignal: {
+    speed: N01,
+    octaves: { control: 'slider', min: 1, max: 3, step: 1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   // Board brightness is FastLED.setBrightness's native 0–255 (the shared

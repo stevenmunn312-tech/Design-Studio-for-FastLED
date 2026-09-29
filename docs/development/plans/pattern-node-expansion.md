@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–8 complete; 9–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–8 complete; Phase 9 started (Noise LFO done); 10–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -316,7 +316,7 @@ Checklist:
 - [ ] Polar Gradient node.
 - [ ] Gradient `mixMode` on both gradient nodes with a golden test that `rgb`
       is byte-identical to today.
-- [ ] Noise LFO node, with `speedRange.ts` entry.
+- [x] Noise LFO node, with `speedRange.ts` entry (compile check still open).
 - [ ] Noise shaping, Worley modes and curl flow, each with a variation test
       and the emitted block per mode.
 - [ ] Harmony Palette node, joining the palette-producer classification test.

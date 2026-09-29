@@ -259,6 +259,20 @@ describe('evaluateGraph', () => {
     expect(run(0, { low: 0.2, high: 0.8 })).toBeCloseTo(0.5, 5)
   })
 
+  it('Noise LFO drifts smoothly inside min..max and is seed-deterministic', () => {
+    const run = (tick: number, props: Record<string, unknown> = {}) =>
+      evaluateScalar([node('ns', 'NoiseSignal', 'signal', props)], [], 'ns', 'value', tick)
+    const series = Array.from({ length: 200 }, (_, tick) => run(tick, { speed: 0.5, min: 2, max: 4 }))
+    expect(series.every((v) => v >= 2 && v <= 4)).toBe(true)
+    expect(Math.max(...series) - Math.min(...series)).toBeGreaterThan(0.3)
+    // Smooth: adjacent frames never jump anywhere near the full span.
+    for (let i = 1; i < series.length; i++) expect(Math.abs(series[i] - series[i - 1])).toBeLessThan(0.5)
+    expect(run(37, { seed: 5 })).toBe(run(37, { seed: 5 }))
+    expect(run(37, { seed: 5 })).not.toBe(run(37, { seed: 6 }))
+    expect(run(37, { octaves: 3 })).not.toBe(run(37, { octaves: 1 }))
+    expect(run(90, { speed: 0 })).toBe(run(10, { speed: 0 }))
+  })
+
   it('resolves matrix expressions in BeatSin and Random properties', () => {
     const beatSin = node('bs-expr', 'BeatSin', 'signal', { bpm: 60, low: 'h - 2', high: 'w / 2' })
     expect(evaluateScalar([beatSin], [], beatSin.id, 'value', 0, 12, 4)).toBeCloseTo(4, 5)

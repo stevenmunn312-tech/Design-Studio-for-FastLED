@@ -208,6 +208,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Random example graph](../../public/node-cards/graphs/random.svg)
 
+### Noise LFO
+
+![Noise LFO node](../../public/node-cards/noise-signal.svg)
+
+![Noise LFO example graph](../../public/node-cards/graphs/noise-signal.svg)
+
 ### Envelope
 
 ![Envelope node](../../public/node-cards/envelope.svg)

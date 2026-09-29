@@ -768,6 +768,17 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * fmaxf(1.0f,120) / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
   })
 
+  it('emits Noise LFO as inoise16 fBm over time with a wrapped phase', () => {
+    const ns = node('n', 'NoiseSignal', 'signal', { speed: 0.5, min: 1, max: 3, octaves: 2, seed: 7 })
+    const cpp = generateCpp([ns], [])
+    expect(cpp).toContain('for (int _o = 0; _o < 2; _o++) {')
+    expect(cpp).toContain('fmodf(_z * _freq, 256.0f) * 65536.0f')
+    expect(cpp).toContain('inoise16(_x, _y)')
+    expect(cpp).toContain('(constrain((0.5), 0.0f, 1.0f) * 2.000f)')
+    const clamped = generateCpp([node('m', 'NoiseSignal', 'signal', { octaves: 9 })], [])
+    expect(clamped).toContain('_o < 3;')
+  })
+
   it('resolves matrix expressions before emitting scalar properties', () => {
     const bs = node('bx', 'BeatSin', 'math', { bpm: 80, low: 'center_y', high: 'num_leds / 8' })
     const random = node('rx', 'Random', 'signal', { min: 'max_x', max: 'w + h' })

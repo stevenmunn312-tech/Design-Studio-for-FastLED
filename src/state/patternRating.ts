@@ -431,7 +431,7 @@ const STATIC_TYPES = new Set(['SolidColor', 'Text', 'Image', 'ClockDisplay', 'Gr
 const ACCENT_TYPES = new Set(['TwinkleFox', 'Confetti', 'Particles', 'Starfield', 'BeatFlash', 'TrebleSparks', 'KickShock', 'RadialBurst', 'FourierEpicycles'])
 const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FractalNoise', 'FieldNoise', 'TuringField', 'FlowField', 'ReactionDiffusion', 'Blobs', 'TurbulentBloom', 'VocalAurora'])
 const ANIMATED_TYPES = new Set([
-  'TimeNode', 'Interval', 'Counter', 'Random', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave',
+  'TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave',
   'BeatSin', 'HueCycle', 'PaletteSweep', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',
   'TwinkleFox', 'Scanner', 'Confetti', 'Juggle', 'RadialBurst', 'Spiral', 'Kaleidoscope',
   'FractalNoise', 'GaborNoise', 'Blobs', 'Animartrix', 'Fire', 'Fire2012', 'Particles',

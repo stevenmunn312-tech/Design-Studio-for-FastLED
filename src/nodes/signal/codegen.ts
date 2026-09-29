@@ -1,6 +1,8 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, seedProp, floatLit } from '../../codegen/cppLiterals'
 import { scheduleTimeOfDay } from './evaluate'
+import { rateCpp, SPEED_MAX } from '../../state/speedRange'
+import { seedOffset } from '../../state/evaluator/random'
 
 export const SIGNAL_EMITTERS: NodeEmitters = {
   TimeNode({ ln, v, needsT }) {
@@ -164,6 +166,25 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
     } else {
       ln(`  float ${v('value')} = ${loLit} + (random16() / 65535.0f) * ${spanLit};`)
     }
+  },
+  // Mirrors the evaluator's fBm over time with inoise16 (period 256 cells, so
+  // fmodf wraps without a jump). Octaves clamp at 3, as in the evaluator.
+  NoiseSignal({ id, p, ln, v, f }) {
+    const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.NoiseSignal)
+    const lo = `_nsLo_${id}`
+    const octaves = Math.max(1, Math.min(3, Math.floor(Number(p.octaves ?? 1))))
+    const seed = seedProp(p)
+    const zOff = floatLit(seedOffset(seed, 0) % 256)
+    const yOff = floatLit(seedOffset(seed, 1) % 256)
+    ln(`  float ${lo} = ${f('min', 'min', 0)};`)
+    ln(`  float ${v('value')};`)
+    ln(`  { float _z = (millis() / 1000.0f) * ${speed} + ${zOff}, _v = 0.0f, _amp = 0.5f, _norm = 0.0f, _freq = 1.0f;`)
+    ln(`    for (int _o = 0; _o < ${octaves}; _o++) {`)
+    ln(`      uint32_t _x = (uint32_t)(fmodf(_z * _freq, 256.0f) * 65536.0f);`)
+    ln(`      uint32_t _y = (uint32_t)(fmodf(${yOff} + _o * 17.0f, 256.0f) * 65536.0f);`)
+    ln(`      _v += _amp * (inoise16(_x, _y) / 65535.0f);`)
+    ln(`      _norm += _amp; _amp *= 0.5f; _freq *= 2.0f; }`)
+    ln(`    ${v('value')} = ${lo} + constrain(_v / _norm, 0.0f, 1.0f) * (${f('max', 'max', 1)} - ${lo}); }`)
   },
   Counter({ ln, v, f }) {
     const rate = f('rate', 'rate', 0.5)
