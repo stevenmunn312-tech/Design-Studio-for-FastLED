@@ -502,6 +502,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Gauge example graph](../../public/node-cards/graphs/gauge.svg)
 
+### SD Video
+
+![SD Video node](../../public/node-cards/sd-video.svg)
+
+![SD Video example graph](../../public/node-cards/graphs/sd-video.svg)
+
 ### Text
 
 ![Text node](../../public/node-cards/text.svg)
