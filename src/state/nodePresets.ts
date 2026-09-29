@@ -23,6 +23,7 @@ const BLOCKED_KEYS = new Set([
   'animation',
   'bypassed',
   'channel',
+  'clip',
   'chipset',
   'clockPin',
   'clampInputs',

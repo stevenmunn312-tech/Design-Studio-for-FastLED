@@ -131,3 +131,4 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `buildGraphDiagnostics` recovers their node from the message's leading `Name:`
   or `Name.Widget:`; keep that prefix on any new message those walks emit, or
   its card falls back to framing every output or display.
+- SDVideo clip bytes live in IndexedDB (`sdVideoStore`), not the project; the node keeps only `properties.clip`. A moved project loses the bytes, so re-import. `findSdVideoErrors` blocks mixing SDVideo with the music player or show builds, which mount the card themselves. Design: [sd-video](../design/sd-video.md).

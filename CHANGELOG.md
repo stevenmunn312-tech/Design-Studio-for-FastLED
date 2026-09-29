@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New SD Video node plays a video from the SD card. Drop a video on the node and
+  Studio shrinks it to the LED canvas and keeps it as raw frames; Write to card
+  copies the clip to a card in a reader, and the sketch reads it back frame by
+  frame with no decoder on the board. ESP32 boards only, in a normal sketch, and
+  the deploy check needs an SD Card part on the bench. Clips stay in this
+  browser, not in the saved project.
 - An LED String can now be laid out by position. Choose Positions under String
   Layout and each LED sits at its own spot on a canvas you size, reading the
   picture under it smoothly: hang the string in a curve with the Catenary preset

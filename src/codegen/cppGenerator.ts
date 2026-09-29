@@ -907,6 +907,7 @@ export function generateCpp(
   const needsTruchet = { v: false }
   const needsTuring = { v: false }
   const needsFluid = { v: false }
+  const needsSdVideo = { v: false }
   const needsFourier = { v: false }
   const needsSymmetry = { v: false }
   const needsHueMix = { v: false }
@@ -969,7 +970,7 @@ export function generateCpp(
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
-    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsFourier, needsSymmetry, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
+    needsMapFloat, needsWorley, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsHueMix, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
     persistentFrameStateBufs, customDisplayOwners,

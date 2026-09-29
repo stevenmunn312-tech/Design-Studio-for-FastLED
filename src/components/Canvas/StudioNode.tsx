@@ -92,6 +92,7 @@ const TransitionPickerBody = lazy(() => import('./TransitionPickerBody').then((m
 const CustomPaletteEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.CustomPaletteEditorBody })))
 const PolineEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.PolineEditorBody })))
 const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
+const SdVideoNodeBody = lazy(() => import('./SdVideoNodeBody'))
 const BoardNodeBody = lazy(() => import('./BoardNodeBody'))
 const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
 const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody'))
@@ -1346,7 +1347,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     // Bookkeeping the app keeps for itself, declared in one place rather than
     // added to the chain below each time somebody notices one on their canvas.
     ([k]) => !isInternalProperty(k)
-      && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
+      && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'clip' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
     // Pin provenance is bookkeeping, not a setting: which pins the app
     // assigned, which board for, and the user's own choices per board.
     // It was rendering as `[object Object]` rows on every hardware node.
@@ -1939,6 +1940,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
           {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
+          {d.nodeType === 'SDVideo' && <SdVideoNodeBody nodeId={id} />}
           {d.nodeType === 'Board' && <BoardNodeBody nodeId={id} />}
           {d.nodeType === 'Wireframe3D' && props.model === 'custom' && <Wireframe3DNodeBody nodeId={id} />}
           {d.nodeType === 'TransportDisplay' && <TransportDisplayNodeBody nodeId={id} />}

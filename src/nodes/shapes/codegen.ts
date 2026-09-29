@@ -69,7 +69,74 @@ function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: strin
 import { GAUGE_PEAK_FALL, GAUGE_Q_LIFT, gaugeDirection, gaugeSegments, gaugeStyle } from '../../state/evaluator/gauge'
 import { ringTrackLeds } from '../../state/evaluator/stringTrack'
 
+import { asSdVideoClip, SDV_HEADER_BYTES, SDV_MAX_SPEED, sdvFrameBytes, sdvPath } from '../../state/evaluator/sdVideo'
+import { sanitizePin } from '../../codegen/hardwarePins'
+
 export const SHAPES_EMITTERS: NodeEmitters = {
+  SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
+    const clip = asSdVideoClip(p.clip)
+    if (!clip) {
+      ln('  // SD Video — no clip imported, so this node stays black.')
+      ownBuf()
+      return
+    }
+    const ob = ownBuf()
+    needsT.v = true
+    if (!needsSdVideo.v) {
+      needsSdVideo.v = true
+      // The SD Card part carries the bus; a graph without one still builds and
+      // the deploy check says so, so fall back to the same S3 defaults it does.
+      const sd = nodes.find((n) => n.data.nodeType === 'SDCard')
+      const bus = sd ? props(sd) : {}
+      globalLines.push(
+        `#if defined(ESP32)`,
+        `#include <SD.h>`,
+        `#include <SPI.h>`,
+        `#define SDV_CS   ${sanitizePin(bus.sdCsPin, 10)}`,
+        `#define SDV_SCK  ${sanitizePin(bus.sdSckPin, 12)}`,
+        `#define SDV_MISO ${sanitizePin(bus.sdMisoPin, 13)}`,
+        `#define SDV_MOSI ${sanitizePin(bus.sdMosiPin, 11)}`,
+        `static bool _sdvReady = false;`,
+        `static bool _sdvMount() {`,
+        `  SPI.begin(SDV_SCK, SDV_MISO, SDV_MOSI, SDV_CS);`,
+        `  if (SD.begin(SDV_CS, SPI, 20000000)) return true;`,
+        `  return SD.begin(SDV_CS, SPI, 4000000);`,
+        `}`,
+        `#endif`,
+        ``,
+      )
+      setupLines.push(`#if defined(ESP32)`, `  _sdvReady = _sdvMount();`, `#endif`)
+    }
+    const A = `_sv_${id}`
+    const path = sdvPath(clip.name)
+    const fb = sdvFrameBytes(clip.w, clip.h)
+    const loop = p.loop !== false
+    ln(`  { // SD Video ${path} (${clip.w}x${clip.h}, ${clip.fps} fps, ${clip.frames} frames)`)
+    ln(`#if defined(ESP32)`)
+    ln(`    static File ${A}f; static bool ${A}tried=false, ${A}ok=false; static int32_t ${A}last=-1;`)
+    ln(`    if(!${A}tried&&_sdvReady){ ${A}tried=true; ${A}f=SD.open("${path}");`)
+    ln(`      if(${A}f){ uint8_t _h[${SDV_HEADER_BYTES}]; ${A}ok=${A}f.read(_h,${SDV_HEADER_BYTES})==${SDV_HEADER_BYTES}&&_h[0]=='S'&&_h[1]=='D'&&_h[2]=='V'&&_h[3]=='1'`)
+    ln(`        &&(_h[4]|(_h[5]<<8))==${clip.w}&&(_h[6]|(_h[7]<<8))==${clip.h}&&(_h[10]|((uint32_t)_h[11]<<8)|((uint32_t)_h[12]<<16)|((uint32_t)_h[13]<<24))==${clip.frames}u; } }`)
+    ln(`    if(${A}ok){`)
+    ln(`      float _sp=constrain(${f('speed', 'speed', 1)},0.0f,${floatLit(SDV_MAX_SPEED)});`)
+    ln(`      uint32_t _fi=(uint32_t)(fmaxf(t,0.0f)*${floatLit(clip.fps)}*_sp);`)
+    ln(loop
+      ? `      _fi=_fi%${clip.frames}u;`
+      : `      if(_fi>${clip.frames - 1}u) _fi=${clip.frames - 1}u;`)
+    ln(`      if((int32_t)_fi!=${A}last){ ${A}last=(int32_t)_fi;`)
+    ln(`        if constexpr(${clip.w}==WIDTH&&${clip.h}==HEIGHT){`)
+    ln(`          ${A}f.seek(${SDV_HEADER_BYTES}+(uint32_t)_fi*${fb}u); ${A}f.read((uint8_t*)${ob},${fb});`)
+    ln(`        } else {`)
+    ln(`          static uint8_t ${A}row[${clip.w * 3}];`)
+    ln(`          for(int _y=0;_y<HEIGHT;_y++){ int _sy=min(${clip.h - 1},_y*${clip.h}/HEIGHT);`)
+    ln(`            ${A}f.seek(${SDV_HEADER_BYTES}+(uint32_t)_fi*${fb}u+(uint32_t)_sy*${clip.w * 3}u); ${A}f.read(${A}row,${clip.w * 3});`)
+    ln(`            for(int _x=0;_x<WIDTH;_x++){ int _sx=min(${clip.w - 1},_x*${clip.w}/WIDTH); ${ob}[_y*WIDTH+_x]=CRGB(${A}row[_sx*3],${A}row[_sx*3+1],${A}row[_sx*3+2]); } }`)
+    ln(`        }`)
+    ln(`      }`)
+    ln(`    }`)
+    ln(`#endif`)
+    ln(`  }`)
+  },
   Gauge({ node, id, p, ln, f, ownBuf, seedFrom, paletteExpr, needsT }) {
     const ob = ownBuf()
     const style = gaugeStyle(p.gaugeStyle), dir = gaugeDirection(p.direction)

@@ -4035,7 +4035,7 @@ async def upload_show(
 # here: the browser names a destination directory, and without the restriction
 # this endpoint would be a "write anywhere on the host" primitive.
 
-_SD_SUBDIRS = ("music", "shows")
+_SD_SUBDIRS = ("music", "shows", "video")
 
 
 def _removable_drives() -> list[dict]:
@@ -4132,7 +4132,7 @@ def _sd_destination(drive: str, path: str) -> Path:
     """
     parts = [seg for seg in path.replace("\\", "/").split("/") if seg not in ("", ".", "..")]
     if len(parts) != 2 or parts[0].lower() not in _SD_SUBDIRS:
-        raise ValueError(f"refusing to write {path!r} — expected /music/… or /shows/…")
+        raise ValueError(f"refusing to write {path!r} — expected /music/…, /shows/… or /video/…")
     root = Path(drive).resolve()
     dest = (root / parts[0].lower() / os.path.basename(parts[1])).resolve()
     if root not in dest.parents:

@@ -406,6 +406,72 @@ describe('generateCpp', () => {
     expect(matrix).not.toContain('POS_LEDS')
   })
 
+  describe('SD Video', () => {
+    const clip = { id: 'c1', name: 'Sea Waves.mp4', w: 16, h: 16, fps: 24, frames: 120 }
+    const sd = () => node('sd', 'SDCard', 'show', { sdCsPin: 4, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 })
+    const build = (props: Record<string, unknown>, extra: ReturnType<typeof node>[] = [sd()]) =>
+      generateCpp(
+        [node('v', 'SDVideo', 'pattern', props), node('out', 'MatrixOutput', 'output', { form: 'matrix', width: 16, height: 16 }), ...extra],
+        [edge('e1', 'v', 'out', 'frame', 'frame')],
+      )
+
+    it('mounts the card once on the SD Card part\'s pins and reads the clip straight into its buffer', () => {
+      const cpp = build({ clip })
+      expect(cpp).toContain('#define SDV_CS   4')
+      expect(cpp).toContain('#define SDV_SCK  18')
+      expect(cpp).toContain('#define SDV_MISO 19')
+      expect(cpp).toContain('#define SDV_MOSI 23')
+      expect(cpp).toContain('_sdvReady = _sdvMount();')
+      expect(cpp).toContain('SD.open("/video/Sea_Waves.sdv")')
+      expect(cpp).toContain('if constexpr(16==WIDTH&&16==HEIGHT)')
+      expect(cpp).toContain('.seek(16+(uint32_t)_fi*768u)')
+      expect(cpp).toContain('_fi=_fi%120u;')
+      expect(cpp.match(/static bool _sdvMount\(\)/g)).toHaveLength(1)
+    })
+
+    it('holds the last frame with loop off, and names the frame rate literally', () => {
+      const cpp = build({ clip, loop: false })
+      expect(cpp).toContain('if(_fi>119u) _fi=119u;')
+      expect(cpp).not.toContain('_fi=_fi%120u;')
+      expect(cpp).toContain('*24.0f*_sp')
+    })
+
+    it('shares one mount between two SD Video nodes', () => {
+      const cpp = generateCpp(
+        [
+          node('a', 'SDVideo', 'pattern', { clip }), node('b', 'SDVideo', 'pattern', { clip: { ...clip, name: 'other.mp4' } }),
+          node('m', 'FrameSwitch', 'composite', {}), node('out', 'MatrixOutput', 'output', { form: 'matrix', width: 16, height: 16 }), sd(),
+        ],
+        [edge('e1', 'a', 'm', 'frame', 'a'), edge('e2', 'b', 'm', 'frame', 'b'), edge('e3', 'm', 'out', 'frame', 'frame')],
+      )
+      expect(cpp.match(/static bool _sdvMount\(\)/g)).toHaveLength(1)
+      expect(cpp).toContain('/video/Sea_Waves.sdv')
+      expect(cpp).toContain('/video/other.sdv')
+    })
+
+    it('reads row by row when the clip is not the canvas size', () => {
+      const cpp = build({ clip: { ...clip, w: 8, h: 4 } })
+      expect(cpp).toContain('if constexpr(8==WIDTH&&4==HEIGHT)')
+      expect(cpp).toContain('static uint8_t _sv_vrow[24];')
+    })
+
+    it('emits nothing that touches the card without a clip, and keeps hostile names out of C++', () => {
+      const none = build({})
+      expect(none).not.toContain('SD.open')
+      expect(none).not.toContain('_sdvMount')
+      const hostile = build({ clip: { ...clip, name: '");system("x");//.mp4' } })
+      expect(hostile).not.toContain('system(')
+      expect(hostile).toContain('SD.open("/video/system_x.sdv")')
+    })
+
+    it('guards the whole card path for non-ESP32 targets', () => {
+      const cpp = build({ clip })
+      const block = cpp.slice(cpp.indexOf('// SD Video /video'))
+      expect(block.indexOf('#if defined(ESP32)')).toBeGreaterThan(-1)
+      expect(block.indexOf('#endif')).toBeGreaterThan(block.indexOf('#if defined(ESP32)'))
+    })
+  })
+
   it('emits no setTemperature by default, and drops an unknown white point', () => {
     expect(generateCpp([node('a', 'MatrixOutput', 'output', {})], [])).not.toContain('setTemperature')
     const bad = node('b', 'MatrixOutput', 'output', { whitePoint: 'Bogus); system("rm"' })

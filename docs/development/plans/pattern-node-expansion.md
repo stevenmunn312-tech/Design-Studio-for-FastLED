@@ -483,10 +483,19 @@ through step 11 of the
       `fl::profiles` and no `ChannelOptions::setColorProfile`. Revisit when the
       pinned FastLED gains them; `setCorrection` already covers the strip and
       pixel-string profiles.
-- [ ] **SD Video.** An `SDVideo` node reading MPEG1 or JPEG frames from the
-      card through FastLED's codec module and `fl::Video`, decoded in the
-      browser for the preview and provisioned through the existing SD upload;
-      frame-rate and bandwidth limits recorded per board.
+- [x] **SD Video.** An `SDVideo` node (Patterns, Shapes & Text) that plays a
+      clip from the card. Changed from the plan: the clip is raw RGB frames in
+      a small `.sdv` file, not MPEG1 or JPEG through FastLED's codec module and
+      `fl::Video`, because a browser cannot write MPEG1 and FastLED's SD mount
+      takes only a chip-select pin. The browser decodes the video, cover-fits it
+      to the LED canvas and keeps the bytes in IndexedDB; the sketch reads them
+      straight into the node's buffer. Provisioned by the node's *Write to card*
+      button through the existing card-reader route (`/api/sd-copy`, folder
+      `video`); a normal sketch has no serial file receive. ESP32 family, normal
+      sketches only, checked by `findSdVideoErrors`. Contract and limits in
+      [`sd-video.md`](../design/sd-video.md). The 400 KB/s bandwidth warning is an
+      estimate, not a bench measurement, and no per-board figures are recorded
+      yet. Compile record: [Phase 11](../pattern-node-compile-checks.md).
 - [ ] **Segment networks.** A layout where strings are edges of a graph and a
       `Ripple` pattern travels node to node with turning rules, the Chromancer
       model; long-term, since it needs a layout editor.

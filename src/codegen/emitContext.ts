@@ -139,6 +139,7 @@ export interface SketchEmitContext {
   needsLattice: Need
   needsTruchet: Need
   needsTuring: Need
+  needsSdVideo: Need
   needsFluid: Need
   needsFourier: Need
   needsSymmetry: Need

@@ -23,6 +23,7 @@ import app
     "/music/../shows/w.show",   # the traversal is stripped, leaving one segment
     "/firmware/x.bin",          # a plausible-looking directory that is not ours
     "/music",                   # a directory, not a file
+    "/videos/x.sdv",            # a near miss of the video directory
 ])
 def test_only_music_and_shows_paths_are_accepted(tmp_path, path):
     with pytest.raises(ValueError):
@@ -32,6 +33,7 @@ def test_only_music_and_shows_paths_are_accepted(tmp_path, path):
 @pytest.mark.parametrize("path,expected", [
     ("/music/a b.mp3", ("music", "a b.mp3")),
     ("/shows/x.show", ("shows", "x.show")),
+    ("/video/clip.sdv", ("video", "clip.sdv")),
     ("/MUSIC/z.mp3", ("music", "z.mp3")),          # case-folded to the real dir
     ("\\music\\y.mp3", ("music", "y.mp3")),        # Windows separators
     ("/music/../../evil", ("music", "evil")),      # climbs are stripped, not honoured

@@ -332,3 +332,19 @@ flash (30%), 32,772 bytes of RAM (10%). ESP8266 (`esp8266:esp8266:nodemcuv2`,
 core 3.1.2): pass, 246,080 bytes of flash (23%), 35,140 of 80,192 bytes of RAM
 (43%). Generated source: 3,861 bytes, SHA-256
 `98bc410cae455df6f951f6e67398893068dc5b62ddbe7436c5123f3bb3a69cb3`.
+
+SD Video, built on Windows 11 on 30 September 2026 (FastLED 3.10.5, ESP32 SD
+library). Two fixtures, each a clip node (24 fps, 120 frames) feeding an LED
+matrix with an SD Card part on GPIO 5/18/19/23:
+
+| Fixture | Target | Result | Flash | RAM |
+| --- | --- | --- | --- | --- |
+| 16×16 canvas, 16×16 clip, speed 1.5 (straight read into the buffer) | `esp32:esp32:esp32` | pass | 446,435 / 1,310,720 (34%) | 29,348 / 327,680 (8%) |
+| 33×17 canvas, 8×4 clip, loop off (row-by-row read) | `esp32:esp32:esp32` | pass | 447,187 / 1,310,720 (34%) | 31,196 / 327,680 (9%) |
+| 16×16 canvas, 16×16 clip | `esp8266:esp8266:nodemcuv2` | pass, card path compiled out | 239,584 / 1,048,576 (22%) | 30,212 / 80,192 (37%) |
+
+Generated source: 3,302 bytes (16×16), SHA-256
+`c1dacaa6df9d756c939404e27a60cd5aba84aecee502322e025e86aee037173a`; 4,516 bytes
+(33×17), SHA-256
+`85fa4839470f42cd463abfaa34e2650c8cea9d92cf74b036665f131ce992343d`. These
+prove the sketch builds; nothing has read a clip from a real card yet.

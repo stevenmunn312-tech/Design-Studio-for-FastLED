@@ -24,6 +24,7 @@ import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/xyL
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/outputRouting'
 import { renderScaleHalf } from '../state/renderScale'
 import { usesPositions } from '../state/stringPositions'
+import { asSdVideoClip } from '../state/evaluator/sdVideo'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
@@ -1145,6 +1146,48 @@ export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
 }
 
 /** A one-wire extender cannot carry a separate clock line or a HUB75 ribbon. */
+/**
+ * What an SD Video node needs before its sketch can play anything.
+ *
+ * Only nodes that feed an output count: a parked one emits nothing. The clip and
+ * the card are both physical facts the sketch cannot invent, and the SD library
+ * is the ESP32 core's. A music-sync or show build carries its own SD mount on
+ * the same bus, so the two cannot share it.
+ */
+export function findSdVideoErrors(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = ''): string[] {
+  const videos = nodes.filter((node) => node.data.nodeType === 'SDVideo')
+  if (videos.length === 0) return []
+  const upstream = new Map<string, string[]>()
+  for (const edge of edges) upstream.set(edge.target, [...(upstream.get(edge.target) ?? []), edge.source])
+  const live = new Set<string>()
+  const stack = nodes.filter((node) => node.data.nodeType === 'MatrixOutput').map((node) => node.id)
+  while (stack.length) {
+    const id = stack.pop()!
+    if (live.has(id)) continue
+    live.add(id)
+    stack.push(...(upstream.get(id) ?? []))
+  }
+  const used = videos.filter((node) => live.has(node.id))
+  if (used.length === 0) return []
+  const name = (node: StudioNode) => String(node.data.label ?? 'SD Video')
+  const errors: string[] = []
+  for (const node of used) {
+    if (!asSdVideoClip((node.data.properties as Record<string, unknown>).clip)) {
+      errors.push(`${name(node)} has no clip. Drop a video on the node to import it.`)
+    }
+  }
+  if (!nodes.some((node) => node.data.nodeType === 'SDCard')) {
+    errors.push('SD Video reads its clip from an SD card. Add an SD Card part to the bench.')
+  }
+  if (selectedFqbn && !selectedFqbn.startsWith('esp32:')) {
+    errors.push('SD Video needs an ESP32-family board, because the generated sketch reads the card with the ESP32 SD library.')
+  }
+  if (resolveBuildMode(nodes, edges).mode !== 'sketch') {
+    errors.push('SD Video plays in a normal sketch, not in a Music Player or show build, which mount the SD card themselves.')
+  }
+  return errors
+}
+
 export function findPixelDataExtenderErrors(nodes: StudioNode[]): string[] {
   return nodes
     .filter((node) => node.data.nodeType === 'MatrixOutput')
@@ -1552,6 +1595,7 @@ export function findDeployBlockingErrors(
     ...findOutputResourceErrors(nodes),
     ...findMatrixLayoutErrors(nodes),
     ...findPixelDataExtenderErrors(nodes),
+    ...findSdVideoErrors(nodes, edges, selectedFqbn),
     ...findShowOutputFormErrors(nodes, edges),
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
     ...findAudioCapabilityErrors(nodes, edges),

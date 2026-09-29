@@ -32,6 +32,10 @@ import {
   gaugeCells, gaugeCoverage, gaugeDirection, gaugeMarks, gaugeMix, gaugeQ, gaugeSegments, gaugeStyle, stepGaugePeak, type GaugePeak,
 } from '../../state/evaluator/gauge'
 import { ringTrackLeds } from '../../state/evaluator/stringTrack'
+import {
+  asSdVideoClip, parseSdvHeader, SDV_HEADER_BYTES, sdvFrameBytes, sdvFrameIndex, sdvSourceIndex, sdvSpeed,
+} from '../../state/evaluator/sdVideo'
+import { getSdVideoBytes } from '../../state/sdVideoStore'
 import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/hueMix'
 import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
@@ -501,6 +505,25 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       if (!q) continue
       const col = samplePalette(palette, c.frac), y = Math.floor(c.idx / W), x = c.idx % W, b = frame[y][x]
       frame[y][x] = { r: gaugeMix(b.r, col.r, q), g: gaugeMix(b.g, col.g, q), b: gaugeMix(b.b, col.b, q) }
+    }
+    return { frame }
+  },
+  SDVideo({ num, t, W, H }, id, props) {
+    const frame = blankFrame(W, H)
+    const clip = asSdVideoClip(props.clip)
+    const bytes = clip ? getSdVideoBytes(clip.id) : null
+    const header = bytes ? parseSdvHeader(bytes) : null
+    // No clip, or its bytes not loaded yet: black, as the sketch shows when the
+    // file cannot be opened.
+    if (!clip || !bytes || !header || header.w !== clip.w || header.h !== clip.h) return { frame }
+    const index = sdvFrameIndex(t, header.fps, sdvSpeed(num(id, 'speed', props, 'speed', 1)), header.frames, props.loop !== false)
+    const base = SDV_HEADER_BYTES + index * sdvFrameBytes(header.w, header.h)
+    for (let y = 0; y < H; y++) {
+      const row = base + sdvSourceIndex(y, H, header.h) * header.w * 3
+      for (let x = 0; x < W; x++) {
+        const at = row + sdvSourceIndex(x, W, header.w) * 3
+        frame[y][x] = { r: bytes[at], g: bytes[at + 1], b: bytes[at + 2] }
+      }
     }
     return { frame }
   },

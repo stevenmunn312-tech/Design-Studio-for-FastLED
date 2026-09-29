@@ -54,6 +54,7 @@ import {
   FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
 } from './evaluator/fractal'
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
+import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
@@ -357,6 +358,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       gaugeStyle: 'bar', direction: 'right', value: 0.6, segments: 0, peakHold: 0, thickness: 1,
       arcStart: 225, arcSweep: 270, ringLeds: 60, palette: 'heat',
     },
+  },
+  {
+    // SD Video — plays a clip read from the SD card. The Studio decodes the
+    // video, shrinks it to the LED canvas and writes raw RGB frames (see
+    // state/evaluator/sdVideo.ts); the sketch only reads bytes off the card.
+    // The imported clip's record is `properties.clip`; its bytes live in
+    // IndexedDB, not in the project.
+    type: 'SDVideo',
+    label: 'SD Video',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+    ],
+    propertyInputs: { speed: 'speed' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { speed: 1, loop: true },
   },
   {
     // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
@@ -4902,6 +4920,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   FluidSim: 'Smoke-like fluid: dye and the flow that carries it, as fields.',
   FractalField: 'Julia, Mandelbrot, Newton or Burning Ship fractal as a field.',
   Gauge: 'A 0–1 value as a bar, ring, arc or dot, with an optional held peak.',
+  SDVideo: 'Plays a video clip from the SD card, shrunk to the LED canvas.',
   Automaton: 'Cellular automata as a field: rows, spirals, Brian\'s Brain, sand.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
@@ -6017,6 +6036,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     spin: { control: 'slider', min: -180, max: 180, step: 1 },
     iterations: { control: 'slider', min: FRACTAL_ITERATIONS_MIN, max: FRACTAL_ITERATIONS_MAX, step: 1 },
   },
+  SDVideo: {
+    speed: { control: 'slider', min: 0, max: SDV_MAX_SPEED, step: 0.05 },
+  },
   Gauge: {
     gaugeStyle: { control: 'select', options: [...GAUGE_STYLES] },
     direction: { control: 'select', options: [...GAUGE_DIRECTIONS] },
@@ -6280,6 +6302,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     spin: 'Rotate the view, in degrees.',
     iterations: 'Most steps tried before a pixel counts as inside the set. More detail costs more time per frame.',
     smooth: 'Blend the escape count into a smooth gradient instead of bands.',
+  },
+  SDVideo: {
+    speed: 'Playback speed as a multiple of the clip\'s own frame rate. 1 is normal, 0 freezes on the first frame.',
+    loop: 'Start again after the last frame. Off holds the last frame.',
   },
   Gauge: {
     gaugeStyle: 'Bar fills along a line. Ring and Arc fill round the LED ring. Dot marks the value with a single point on the bar.',
