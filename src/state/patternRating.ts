@@ -436,7 +436,7 @@ const ANIMATED_TYPES = new Set([
   'TwinkleFox', 'Scanner', 'Confetti', 'Juggle', 'RadialBurst', 'Spiral', 'Kaleidoscope',
   'FractalNoise', 'GaborNoise', 'Blobs', 'Animartrix', 'Fire', 'Fire2012', 'Particles',
   'FlowField', 'Starfield', 'Boids', 'ReactionDiffusion', 'GameOfLife', 'SpectrumBars',
-  'SpectrumVisualizer', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
+  'SpectrumVisualizer', 'Waveform', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock', 'VocalAurora',
   'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs', 'EmberPulse', 'TurbulentBloom',
   'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField', 'FourierEpicycles',

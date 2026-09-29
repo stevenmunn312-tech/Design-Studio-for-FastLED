@@ -1,6 +1,6 @@
 # Audio detectors from FastLED's processor
 
-Status: in progress, Vibe and Song Structure implemented · Owner: app · Date: 2026-09-29
+Status: complete for the planned nodes; Vibe, Song Structure, Pitch Detect and Waveform implemented · Owner: app · Date: 2026-09-29
 
 ## Purpose
 
@@ -147,7 +147,154 @@ emits the inactive constants.
 recorder carry it. The SD player supplies no processor, so a baked show reads
 Song Structure as inactive.
 
+## Pitch Detect
+
+`PitchDetect` (category `audio`) exposes pitch, note and key. Pitch and note
+are our own code running FastLED's arithmetic, because the stock detector
+cannot work on a device; key is FastLED's `KeyDetector`. The browser side is
+`src/audio/fastledPitch.ts`; the firmware twin is `src/codegen/pitchHelperCpp.ts`,
+which imports its constants from the TypeScript so the two cannot drift.
+
+### Why FastLED's `Pitch` is not used on the device
+
+`detector::Pitch` needs at least `2 x (44100 / 80 Hz)` = 1102 samples per
+chunk. FastLED's I2S input hands the processor 512 (`I2S_AUDIO_BUFFER_LEN` in
+`fl/audio/input.h`, a hard `#define`), and `Processor::getPitchDetector()` is
+private, so its range cannot be lowered. `getPitch()` therefore always reads 0
+and `Note`, which is built on it, never fires. Key detection uses the FFT and
+is unaffected. Worth raising upstream: a chunk of 1024 or a public
+`setMinFrequency` would make the stock detector usable.
+
+### Node contract
+
+- Input `audio`, no properties.
+- Outputs `hz`, `note` (MIDI 0-127, 0 when none), `noteOn` (bool, one frame at
+  a note start or a change of a semitone or more), `velocity` (0-1),
+  `confidence` (0-1), `keyRoot` (0 = C to 11 = B), `keyMinor` (bool) and
+  `keyConfidence` (0-1).
+- `velocity`, `confidence` and `keyConfidence` are in `NORMALIZED_OUTPUTS`.
+- Key outputs are 0 or false until a key is accepted, and again after it ends.
+- An unwired node, a source with no live analysis, and a payload with no
+  `pitch` field read as inactive.
+
+### What differs from FastLED's `Pitch`
+
+- **Range 175-1000 Hz** (lags 44-252 at 44.1 kHz), the lowest period that fits
+  two periods into 512 samples. Bass notes are out of range.
+- **Confidence is normalised.** FastLED's is the raw autocorrelation peak
+  (clamped to 1) with a 0.5 threshold, which a half-scale tone scores at about
+  0.09 and so never voices. Here the peak is divided by the zero-lag power.
+  Clarity weighting (0.7 + 0.3 x clarity) and the 0.5 voicing threshold are as
+  in FastLED.
+- **Octave guard.** FastLED takes the single highest peak, which flips between
+  a period and its double. The port takes the smallest local peak within 90%
+  of the highest.
+- **No smoothing on `hz`.** It is `44100 / lag`, so it steps in whole lags
+  (about 22 Hz at 1 kHz, 0.4 semitone). `getSmoothedPitch()`'s One Euro filter
+  is not used; `note` rounds to the nearest semitone.
+- In the browser the lag range is fixed at 44.1 kHz and the real sample rate
+  only converts lag to Hz, so a 48 kHz context reads slightly sharp at the top
+  of the range and a little differently at the bottom.
+
+### `Note`
+
+The state machine is FastLED's `Note` with its defaults: note-on at
+confidence 0.6, note-off below 0.4 or unvoiced (held at least 50 ms), a change
+event at one semitone. Velocity is FastLED's arithmetic, which saturates:
+`Sample::rms()` is in int16 units, so the energy term is always 1 and velocity
+is `(int(confidence x 126) + 1) / 127`.
+
+### Key
+
+`KeyDetector` folds `getFFT(32)`'s linear bins (32 bins across 90-14080 Hz,
+437 Hz wide) into 12 pitch classes and correlates the 8-frame mean with the
+Krumhansl-Schmuckler profiles; it accepts a key at confidence 0.65 and holds
+it 2 s. Those bins are far wider than a semitone below a few kHz, so the key
+is a coarse tonal-colour estimate, not a musician's reading. It is ported
+literally, including that the confidence in `onKey` is the value at the moment
+the key was accepted. Experimental until benched.
+
+### Firmware
+
+`audioEngineForGraph` includes the helper only when a `PitchDetect` node
+exists in the graph or a group. Each frame `_audioPitchStep()` reads
+`Processor::getSample()`, skips a chunk it has already seen (by timestamp),
+and runs the autocorrelation (about 60,000 multiply-adds over 209 lags) and
+the note machine. `setup()` registers `onKey` and `onKeyEnd`, which store root,
+mode and confidence. The emitter reads those globals only with a live FastLED
+source and otherwise emits the inactive constants. Static RAM is about 3 KB
+for the sample and autocorrelation buffers.
+
+### Payload
+
+`AudioSignal.pitch` is optional. The audio store, decoder store and recorder
+carry it. The SD player has no processor, so a baked show reads Pitch Detect as
+inactive.
+
+## Waveform
+
+`Waveform` (category `pattern`, subcategory Audio-Reactive) draws the raw
+sound as a trace over a base frame. Unlike the other detectors it needs no
+FastLED analysis, only the samples. The drawing is
+`src/state/evaluator/waveform.ts` in the preview and a line-for-line emitter in
+`src/nodes/audioReactive/codegen.ts` on the device; both read their constants
+from that module.
+
+### Node contract
+
+- Inputs `base` (frame, seeds the output; black if unwired), `audio`, `gain`,
+  `paletteIn`, `thickness` and `smoothing`. Every knob is wire-then-property.
+- Property `style`: `line`, `filled`, `mirror` or `ring` (append-only). Defaults:
+  gain 2, thickness 1, smoothing 0.3, palette citrus.
+- Output `frame`. Lit pixels replace the base; the rest keep it.
+- Colour is palette position `0.14 + 0.82 x |sample|`, as Spectrum Visualizer.
+- No live audio, no samples in the payload (older recordings), or no audio
+  wire on the device all draw the flat, silent trace: a centre line, a centre
+  bar or a steady ring, not a blank frame.
+
+### The samples
+
+`AudioSignal.samples` carries 128 values in -1..1, decimated from the chunk the
+analyser already processes (the conditioned 512 samples, /32768). Decimation
+keeps the sample furthest from zero in each block of `floor(n / 128)`, first on
+a tie, so peaks survive. The sketch publishes the same `_audioWave[128]` from
+`Processor::getSample().pcm()`, once per new chunk, and only when a Waveform
+node exists in the graph or a group. The payload is optional; every reader
+treats a missing field as silence, and the SD player (no processor) reads it as
+silence too.
+
+### Styles
+
+- `line`, `filled`, `mirror`: one value per column, interpolated across the 128
+  samples; a row is lit inside the vertical span between this column's line
+  position and the next column's, so steep parts stay connected. `line` widens
+  that span by `thickness / 2`; `filled` extends it to the centre row;
+  `mirror` lights everything within the larger deviation on both sides of the
+  centre, so a silent signal still shows the centre bar.
+- `ring`: each pixel takes the sample at its angle (wrapping, so it is seamless
+  and periodic) and is lit within `thickness / 2 + 0.35` of a radius that runs
+  from 20% to 90% of the inscribed radius. It is the circle `ringSampleMap`
+  reads, so an LED Ring shows it. The 0.35 stops a one-pixel ring breaking on
+  diagonals at small sizes.
+- `thickness` applies to `line` and `ring`; the other styles ignore it.
+
+### Smoothing and gain
+
+Smoothing is a per-sample running mean on the wall clock,
+`retain = smoothing ^ (dt x 60)`, so it behaves the same at any frame rate.
+Gain is clamped to 0.25-8 and applied after smoothing; the output is clamped to
+-1..1. Gain 2 is the default because a conditioned microphone rarely fills the
+range.
+
+### RAM
+
+512 bytes of smoothed samples per node, plus 512 bytes for `_audioWave` once
+when the engine publishes it, and two width-sized float arrays on the stack per
+frame.
+
 ## Still to come in this phase
 
-Pitch and Waveform are tracked in the plan's checklist. Each adds its FastLED
-source citation and thresholds here when it lands.
+The show bake for the detector payloads (the SD player has no processor, so
+they read inactive there), the serial debug line for Song Structure, Pitch and
+Waveform, and the phase-level compile check with the microphone config are
+tracked in the plan's checklist.

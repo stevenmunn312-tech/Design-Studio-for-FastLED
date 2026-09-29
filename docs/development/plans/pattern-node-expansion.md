@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–7 complete; Phase 8 started (Vibe and Song Structure shipped); 9–11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–7 complete; Phase 8 nodes shipped (Vibe, Song Structure, Pitch, Waveform); 9–11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -302,7 +302,7 @@ fills those from the analysis while the live path uses the mirror.
 
 Checklist:
 
-- [ ] Optional `vibe`, `structure`, `pitch` and `samples` fields on
+- [x] Optional `vibe`, `structure`, `pitch` and `samples` fields on
       `AudioSignal`; `recordAudio.ts` and the show bake carry them; the song
       analysis fills key and mood where it has them; every reader treats an
       absent field as inactive, with a test on a legacy payload. *`vibe` is
@@ -323,12 +323,15 @@ Checklist:
 - [x] Port downbeat, buildup, drop and mood; Song Structure node with the
       synthetic-signal tests above. *Tempo stability is ported too, so
       `tempoStable` is real. The design note lists the differences.*
-- [ ] Port pitch and key; Pitch node with a test on a synthetic 440 Hz tone
-      reading note 69.
-- [ ] Waveform node, the `samples` payload, and the firmware decimation.
+- [x] Port pitch and key; Pitch node with a test on a synthetic 440 Hz tone
+      reading note 69. *Shipped as `PitchDetect`. FastLED's `Pitch` cannot
+      voice on a device (it needs 1102 samples, the I2S input gives 512), so
+      pitch and note run our own autocorrelation with FastLED's arithmetic on
+      both sides; key is FastLED's. Chord detection is still later.*
+- [x] Waveform node, the `samples` payload, and the firmware decimation.
 - [ ] Docs (README Audio line, node cards and design note
       [`audio-detectors.md`](../design/audio-detectors.md) done for Vibe and
-      Song Structure): README Audio and Patterns lines, node cards, design note
+      Song Structure, Pitch Detect and Waveform): README Audio and Patterns lines, node cards, design note
       `docs/development/design/audio-detectors.md` naming the FastLED detector
       each port mirrors and its thresholds; support-matrix wording that the
       detectors are experimental until a bench row with a real microphone.

@@ -6,7 +6,7 @@ interface PortLike {
   dataType?: string
 }
 
-const AUDIO_REACTIVE_TYPES = new Set(['FFTAnalyzer', 'BeatDetect', 'PercussionDetect', 'AudioFeatures', 'Vibe', 'SongStructure', 'PatternMaster', 'PatternSlideshow', 'SpectrumVisualizer'])
+const AUDIO_REACTIVE_TYPES = new Set(['FFTAnalyzer', 'BeatDetect', 'PercussionDetect', 'AudioFeatures', 'Vibe', 'SongStructure', 'PitchDetect', 'PatternMaster', 'PatternSlideshow', 'SpectrumVisualizer', 'Waveform'])
 
 function outputReachableNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const reachable = new Set<string>()

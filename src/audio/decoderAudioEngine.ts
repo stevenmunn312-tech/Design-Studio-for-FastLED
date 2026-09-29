@@ -32,6 +32,8 @@ function silentDecoderAudio(): AudioData {
     channelCount: 2,
     vibe: undefined,
     structure: undefined,
+    pitch: undefined,
+    samples: undefined,
   }
 }
 
@@ -217,6 +219,8 @@ export class DecoderAudioEngine {
       channelCount: levels.channelCount,
       vibe: result.vibe,
       structure: result.structure,
+      pitch: result.pitch,
+      samples: result.samples,
     })
     this.animationFrame = requestAnimationFrame(this.sample)
   }

@@ -46,6 +46,19 @@ export interface SongStructureSignal {
   arousal: number
 }
 
+/** Pitch, note and key from the Pitch Detect node's detectors. `noteOn` is true
+ * only on the frame a note starts or changes. */
+export interface PitchSignal {
+  hz: number
+  note: number
+  noteOn: boolean
+  velocity: number
+  confidence: number
+  keyRoot: number
+  keyMinor: boolean
+  keyConfidence: number
+}
+
 export interface AudioSignal {
   active: boolean
   micActive: boolean
@@ -71,6 +84,11 @@ export interface AudioSignal {
   vibe?: VibeSignal
   /** Absent on payloads from before the detector existed: inactive. */
   structure?: SongStructureSignal
+  /** Absent on payloads from before the detector existed: inactive. */
+  pitch?: PitchSignal
+  /** 128 conditioned samples, -1..1, peak-decimated from the analysed chunk.
+   * Absent on payloads from before Waveform existed: read as silence. */
+  samples?: readonly number[]
 }
 
 /** Provider identity carried by the Storage capability port. */

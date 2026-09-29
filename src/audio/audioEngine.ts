@@ -7,7 +7,7 @@ import {
   MIC_SPECTRUM_BARS,
 } from './micAnalysis'
 import { levelsFromSampleChannels } from './stereoLevels'
-import type { SongStructureSignal, VibeSignal } from '../state/evaluator/types'
+import type { PitchSignal, SongStructureSignal, VibeSignal } from '../state/evaluator/types'
 
 const FFT_SIZE = MIC_FFT_SIZE
 export const NUM_SPECTRUM_BARS = MIC_SPECTRUM_BARS
@@ -49,6 +49,8 @@ export interface AudioData {
   /** Absent while stopped: readers treat a missing field as inactive. */
   vibe?: VibeSignal
   structure?: SongStructureSignal
+  pitch?: PitchSignal
+  samples?: readonly number[]
 }
 
 // Mirrors FastLED Processor::setGain. Signal conditioning, adaptive band
@@ -240,6 +242,8 @@ export class AudioEngine {
       channelCount: channelLevels.channelCount,
       vibe: result.vibe,
       structure: result.structure,
+      pitch: result.pitch,
+      samples: result.samples,
     })
   }
 

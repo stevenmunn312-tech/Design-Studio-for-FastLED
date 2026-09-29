@@ -363,6 +363,75 @@ function phase8StructureSketch(profileId: string): string {
 const phase8Structure = phase8StructureSketch('esp32-generic-devkit-38pin')
 const phase8StructureS3 = phase8StructureSketch('espressif-esp32-s3-devkitc-1')
 
+// Pitch Detect runs FastLED's Pitch and Note arithmetic over the 512-sample chunk
+// and takes the key from Processor::onKey. The fixture proves the helper
+// compiles, that the pinned FastLED has getSample()/pcm()/timestamp()/rms() and
+// the key callbacks, and that the node reads only the published globals.
+function phase8PitchSketch(profileId: string): string {
+  const nodes = [
+    node('board', 'Board', { profileId }),
+    node('mic', 'MicInput', {}),
+    node('audio', 'Audio', { sourceId: 'mic' }),
+    node('pitch', 'PitchDetect'),
+    node('level', 'MapRange', { inMin: 0, inMax: 1, outMin: 0.25, outMax: 1 }),
+    node('plasma', 'Plasma', { speed: 0.3 }),
+    node('dim', 'BrightnessMod'),
+    node('notes', 'Counter'),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('audio-pitch', 'audio', 'audio', 'pitch', 'audio'),
+    edge('pitch-level', 'pitch', 'confidence', 'level', 'value'),
+    edge('level-dim', 'level', 'result', 'dim', 'brightness'),
+    edge('plasma-dim', 'plasma', 'frame', 'dim', 'frame'),
+    edge('note-count', 'pitch', 'noteOn', 'notes', 'trigger'),
+    edge('dim-out', 'dim', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    'static float _pitchDetect(const fl::i16* pcm, size_t n, float* confOut)', 'const fl::audio::Sample& sample = _audioProcessor->getSample();',
+    'sample.timestamp()', 'sample.rms()', '_audioProcessor->onKey([](const fl::audio::detector::Key& key)',
+    '_audioProcessor->onKeyEnd(', '  _audioPitchStep();', 'float n_pitch_hz = _audioPitchHz',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 8 Pitch fixture is missing ${marker}`)
+  }
+  return sketch
+}
+const phase8Pitch = phase8PitchSketch('esp32-generic-devkit-38pin')
+const phase8PitchS3 = phase8PitchSketch('espressif-esp32-s3-devkitc-1')
+
+// Waveform chains a line trace and a ring trace over a Plasma base, so both
+// column and radial emitters compile, and proves the sketch decimates the
+// processor's chunk into `_audioWave` with the getters the pinned FastLED has.
+function phase8WaveformSketch(profileId: string): string {
+  const nodes = [
+    node('board', 'Board', { profileId }),
+    node('mic', 'MicInput', {}),
+    node('audio', 'Audio', { sourceId: 'mic' }),
+    node('plasma', 'Plasma', { speed: 0.3 }),
+    node('line', 'Waveform', { style: 'line', gain: 3, palette: 'citrus' }),
+    node('ring', 'Waveform', { style: 'ring', gain: 2, thickness: 1.5, smoothing: 0.4, palette: 'lava' }),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
+  ]
+  const edges = [
+    edge('audio-line', 'audio', 'audio', 'line', 'audio'),
+    edge('audio-ring', 'audio', 'audio', 'ring', 'audio'),
+    edge('plasma-line', 'plasma', 'frame', 'line', 'base'),
+    edge('line-ring', 'line', 'frame', 'ring', 'base'),
+    edge('ring-out', 'ring', 'frame', 'out', 'frame'),
+  ]
+  const sketch = generateCpp(nodes, edges)
+  for (const marker of [
+    'float _audioWave[128] = {0};', 'static void _audioWaveStep()', '  _audioWaveStep();',
+    'const fl::audio::Sample& sample = _audioProcessor->getSample();', '// Waveform · line', '// Waveform · ring',
+  ]) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 8 Waveform fixture is missing ${marker}`)
+  }
+  return sketch
+}
+const phase8Waveform = phase8WaveformSketch('esp32-generic-devkit-38pin')
+const phase8WaveformS3 = phase8WaveformSketch('espressif-esp32-s3-devkitc-1')
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -381,6 +450,10 @@ writeFileSync(resolve(outputDir, 'phase8-vibe-s3.ino'), phase8Vibe, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-vibe.ino'), phase8VibeClassic, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-structure.ino'), phase8Structure, 'utf8')
 writeFileSync(resolve(outputDir, 'phase8-structure-s3.ino'), phase8StructureS3, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-pitch.ino'), phase8Pitch, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-pitch-s3.ino'), phase8PitchS3, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-waveform.ino'), phase8Waveform, 'utf8')
+writeFileSync(resolve(outputDir, 'phase8-waveform-s3.ino'), phase8WaveformS3, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -422,6 +495,8 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     ['phase7-rosette', phase7Rosette], ['phase7-mirage', phase7Mirage], ['phase7-maze', phase7Maze],
     ['phase8-vibe-s3', phase8Vibe], ['phase8-vibe', phase8VibeClassic],
     ['phase8-structure', phase8Structure], ['phase8-structure-s3', phase8StructureS3],
+    ['phase8-pitch', phase8Pitch], ['phase8-pitch-s3', phase8PitchS3],
+    ['phase8-waveform', phase8Waveform], ['phase8-waveform-s3', phase8WaveformS3],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),

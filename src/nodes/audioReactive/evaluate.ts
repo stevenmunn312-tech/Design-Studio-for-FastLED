@@ -21,6 +21,8 @@ import {
 import { _snoise2, worleyHash, normalizedSeed } from '../../state/evaluator/random'
 import { resampleSpectrumBins, isAudioSignal } from '../../state/evaluator/signals'
 import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
+import { cloneFrame } from '../../state/evaluator/frames'
+import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 
 // An AnimARTrix instance is instance state held outside the evaluator's maps.
 onInstanceDisposed(disposeAnimartrixState)
@@ -57,6 +59,7 @@ interface SpectrumVisualizerState {
   lastWaterfallT: number
 }
 const spectrumVisualizerState = instanceState('spectrumVisualizerState', new Map<string, SpectrumVisualizerState>())
+const waveformState = instanceState('waveformState', new Map<string, WaveformState>())
 
 // ── New audio-reactive pattern state ──────────────────────────────────────
 // KickShock — pool of expanding shockwave rings, spawned on kick/snare edges.
@@ -1223,6 +1226,28 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       peakGravity: num(id, 'peakGravity', props, 'peakGravity', 1.8),
       waterfallSpeed: num(id, 'waterfallSpeed', props, 'waterfallSpeed', 10),
     }, t, palette, W, H) }
+  },
+  Waveform({ input, num, pal, t, W, H, stateKey }, id, props) {
+    const audioValue = input(id, 'audio', null)
+    const audio = isAudioSignal(audioValue) ? audioValue : null
+    // No live audio, or a payload from before the node existed, is silence: a
+    // flat trace, which is also what the sketch draws with no audio source.
+    const samples = audio?.active ? audio.samples : undefined
+    const baseIn = input(id, 'base', null) as Frame | null
+    const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+    const key = stateKey(id)
+    let state = waveformState.get(key)
+    if (!state || state.w !== W || state.h !== H) {
+      state = createWaveformState(W, H)
+      waveformState.set(key, state)
+    }
+    drawWaveform(frame, state, samples, {
+      style: String(props.style ?? 'line'),
+      gain: num(id, 'gain', props, 'gain', 2),
+      thickness: num(id, 'thickness', props, 'thickness', 1),
+      smoothing: num(id, 'smoothing', props, 'smoothing', 0.3),
+    }, pal(id, 'paletteIn', props, 'palette', 'citrus'), t, W, H)
+    return { frame }
   },
   BassPulse({ num, pal, W, H }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0)

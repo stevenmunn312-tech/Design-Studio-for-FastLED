@@ -14,6 +14,8 @@ import { type MicModule, DEFAULT_MIC_MODULE, micModuleFor } from '../state/micMo
 import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
 import type { GroupRegistry } from '../state/evaluator/types'
+import { pitchGlobalsCpp, pitchHelperCpp } from './pitchHelperCpp'
+import { WAVE_SAMPLES } from '../state/evaluator/waveform'
 
 /** Whether a node of `type` exists in the graph or any group it can expand.
  *  Detectors are lazy on the processor and allocate, so the engine only
@@ -25,6 +27,37 @@ function graphUsesNodeType(type: string, nodes: readonly StudioNode[], groups: G
 
 export const graphUsesVibe = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
   graphUsesNodeType('Vibe', nodes, groups)
+/** Peak-preserving decimation of the current chunk into `_audioWave`, the
+ *  firmware twin of `decimateWave` in state/evaluator/waveform.ts. */
+function waveformHelperCpp(): string[] {
+  return [
+    '// Waveform: the current chunk peak-decimated to ' + WAVE_SAMPLES + ' samples in -1..1.',
+    'static uint32_t _waveStamp = 0;',
+    'static void _audioWaveStep() {',
+    '  const fl::audio::Sample& sample = _audioProcessor->getSample();',
+    '  if (!sample.isValid() || sample.timestamp() == _waveStamp) return;',
+    '  _waveStamp = sample.timestamp();',
+    '  const auto& pcm = sample.pcm();',
+    '  size_t n = pcm.size();',
+    `  size_t block = n / ${WAVE_SAMPLES};`,
+    '  if (block < 1) block = 1;',
+    `  for (int i = 0; i < ${WAVE_SAMPLES}; ++i) {`,
+    '    float best = 0.0f, bestAbs = -1.0f;',
+    '    for (size_t j = 0; j < block; ++j) {',
+    '      size_t idx = (size_t)i * block + j;',
+    '      float v = idx < n ? (float)pcm[idx] / 32768.0f : 0.0f;',
+    '      if (fabsf(v) > bestAbs) { bestAbs = fabsf(v); best = v; }',
+    '    }',
+    '    _audioWave[i] = best;',
+    '  }',
+    '}',
+  ]
+}
+
+export const graphUsesWaveform = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
+  graphUsesNodeType('Waveform', nodes, groups)
+export const graphUsesPitch = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
+  graphUsesNodeType('PitchDetect', nodes, groups)
 export const graphUsesSongStructure = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
   graphUsesNodeType('SongStructure', nodes, groups)
 
@@ -57,6 +90,8 @@ function audioEngineCpp(
   micModule: MicModule = DEFAULT_MIC_MODULE,
   vibe = false,
   structure = false,
+  pitch = false,
+  waveform = false,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
@@ -118,11 +153,15 @@ function audioEngineCpp(
       'static volatile uint32_t _audioDownbeatCount = 0, _audioDropCount = 0;',
       'static uint32_t _audioDownbeatSeen = 0, _audioDropSeen = 0;',
     ] : []),
+    ...(pitch ? ['#include "fl/audio/detector/key.h"', ...pitchGlobalsCpp()] : []),
+    ...(waveform ? [`float _audioWave[${WAVE_SAMPLES}] = {0};`] : []),
     'static float _audioSpectrum[32];',
     ...(source === 'line-in' ? ['static fl::shared_ptr<StudioPcm1802Input> _lineInput;'] : []),
     'static fl::shared_ptr<fl::audio::Processor> _audioProcessor;',
     'static volatile uint32_t _audioBeatCount = 0;',
     'static uint32_t _audioBeatSeen = 0;',
+    ...(pitch ? ['', ...pitchHelperCpp()] : []),
+    ...(waveform ? ['', ...waveformHelperCpp()] : []),
     '',
     'void setupAudio() {',
     '#if MIC_DEBUG',
@@ -149,6 +188,12 @@ function audioEngineCpp(
       '  _audioProcessor->onTempoUnstable([] { _audioTempoStable = false; });',
       '  (void)_audioProcessor->getMoodValence();',
     ] : []),
+    ...(pitch ? [
+      '  _audioProcessor->onKey([](const fl::audio::detector::Key& key) {',
+      '    _audioKeyRoot = key.rootNote; _audioKeyMinor = key.isMinor; _audioKeyConf = key.confidence;',
+      '  });',
+      '  _audioProcessor->onKeyEnd([] { _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f; });',
+    ] : []),
     '}',
     '',
     'void updateAudio() {',
@@ -165,6 +210,8 @@ function audioEngineCpp(
       '    _audioMeasurePhase = _audioBuildupProgress = _audioDropImpact = _audioValence = _audioArousal = 0.0f;',
       '    _audioBeatNumber = 0;',
     ] : []),
+    ...(waveform ? [`    for (int i = 0; i < ${WAVE_SAMPLES}; ++i) _audioWave[i] = 0.0f;`] : []),
+    ...(pitch ? ['    _audioPitchClear();', '    _audioKeyRoot = 0; _audioKeyMinor = false; _audioKeyConf = 0.0f;'] : []),
     '    for (int i = 0; i < 32; ++i) _audioSpectrum[i] = 0.0f;',
     '    return;',
     '  }',
@@ -196,6 +243,8 @@ function audioEngineCpp(
       '  _audioDownbeatSeen = downbeatCount;',
       '  _audioDropSeen = dropCount;',
     ] : []),
+    ...(pitch ? ['  _audioPitchStep();'] : []),
+    ...(waveform ? ['  _audioWaveStep();'] : []),
     '  uint32_t beatCount = _audioBeatCount;',
     '  _audioBeat = beatCount != _audioBeatSeen;',
     '  _audioBeatSeen = beatCount;',
@@ -719,6 +768,8 @@ export function audioEngineForGraph(
       micModule,
       graphUsesVibe(nodes, groups),
       graphUsesSongStructure(nodes, groups),
+      graphUsesPitch(nodes, groups),
+      graphUsesWaveform(nodes, groups),
     ),
     fqbn,
     backend,

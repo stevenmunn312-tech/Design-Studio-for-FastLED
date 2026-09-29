@@ -469,6 +469,49 @@ describe('evaluateGraph', () => {
     expect(unwired.measurePhase).toBe(0)
   })
 
+  it('Pitch Detect passes the live signal through and reads a legacy payload as inactive', () => {
+    const mic = node('micpd', 'MicInput', 'input', {})
+    const pd = node('pd', 'PitchDetect', 'audio', {})
+    const edges = [edge('epd0', 'micpd', 'audio', 'pd', 'audio')]
+    const live = mockAudio as Record<string, unknown>
+    const signal = { hz: 440, note: 69, noteOn: true, velocity: 0.8, confidence: 0.9, keyRoot: 7, keyMinor: true, keyConfidence: 0.7 }
+    mockAudio.active = true
+    const legacy = evaluateGraphFull([mic, pd], edges, 0, W, H).outputs.get('pd')!
+    expect(legacy).toMatchObject({ hz: 0, note: 0, noteOn: false, velocity: 0, confidence: 0, keyRoot: 0, keyMinor: false, keyConfidence: 0 })
+    live.pitch = signal
+    const on = evaluateGraphFull([mic, pd], edges, 1, W, H).outputs.get('pd')!
+    expect(on).toMatchObject(signal)
+    delete live.pitch
+    mockAudio.active = false
+    const unwired = evaluateGraphFull([node('pd0', 'PitchDetect', 'audio', {})], [], 0, W, H).outputs.get('pd0')!
+    expect(unwired.noteOn).toBe(false)
+    expect(unwired.hz).toBe(0)
+  })
+
+  it('Waveform draws the live samples over its base frame and rests flat without audio', () => {
+    const mic = node('micwf', 'MicInput', 'input', {})
+    const base = node('basewf', 'SolidColor', 'pattern', { r: 0, g: 0, b: 40 })
+    const wf = node('wf', 'Waveform', 'pattern', { style: 'filled', gain: 1, thickness: 1, smoothing: 0, palette: 'citrus' })
+    const edges = [
+      edge('ewf0', 'micwf', 'audio', 'wf', 'audio'),
+      edge('ewf1', 'basewf', 'frame', 'wf', 'base'),
+    ]
+    const live = mockAudio as Record<string, unknown>
+    mockAudio.active = true
+    live.samples = Array.from({ length: 128 }, (_, i) => 0.9 * Math.sin((2 * Math.PI * i) / 128))
+    const loud = evaluateGraphFull([mic, base, wf], edges, 0, W, H).outputs.get('wf')!.frame as { r: number; g: number; b: number }[][]
+    const litRows = (frame: { r: number; g: number; b: number }[][]) => frame.flat().filter((px) => px.r > 0 || px.g > 40).length
+    expect(litRows(loud)).toBeGreaterThan(W * 2)
+    // Unlit pixels keep the base frame.
+    expect(loud.flat().some((px) => px.r === 0 && px.g === 0 && px.b === 40)).toBe(true)
+    delete live.samples
+    const quiet = evaluateGraphFull([mic, base, wf], edges, 1, W, H).outputs.get('wf')!.frame as { r: number; g: number; b: number }[][]
+    expect(litRows(quiet)).toBeLessThan(litRows(loud))
+    mockAudio.active = false
+    const unwired = evaluateGraphFull([node('wf0', 'Waveform', 'pattern', {})], [], 0, W, H).outputs.get('wf0')!.frame as { r: number; g: number; b: number }[][]
+    expect(unwired.flat().some((px) => px.r > 0 || px.g > 0 || px.b > 0)).toBe(true)
+  })
+
   it('Vibe is inactive with no audio source wired', () => {
     const out = evaluateGraphFull([node('vb00', 'Vibe', 'audio', {})], [], 0, W, H).outputs.get('vb00')!
     expect(out.bass).toBe(0)

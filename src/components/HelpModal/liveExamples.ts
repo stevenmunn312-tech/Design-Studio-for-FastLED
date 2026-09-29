@@ -1431,6 +1431,26 @@ export const SONG_STRUCTURE_LIVE_EXAMPLE = namedExample(
   'The Rain Ripples preview should stay calm through the verse and splash a ring when a drop lands.',
 )
 
+export const PITCH_DETECT_LIVE_EXAMPLE = namedExample(
+  'PitchDetect',
+  'Brighten the panel as the note rises',
+  [
+    { key: 'mic', type: 'MicInput' },
+    { key: 'pitch', type: 'PitchDetect' },
+    { key: 'level', type: 'MapRange', properties: { inMin: 48, inMax: 84, outMin: 0.25, outMax: 1 } },
+    { key: 'plasma', type: 'Plasma', properties: { speed: 0.35 } },
+    { key: 'brightness', type: 'BrightnessMod' },
+  ],
+  [
+    { source: 'mic', sourceHandle: 'audio', target: 'pitch', targetHandle: 'audio' },
+    { source: 'pitch', sourceHandle: 'note', target: 'level', targetHandle: 'value' },
+    { source: 'level', sourceHandle: 'result', target: 'brightness', targetHandle: 'brightness' },
+    { source: 'plasma', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
+  ],
+  'Microphone feeds Pitch Detect. Its Note output is the MIDI note number (69 is A4), and Map Range turns the three octaves from C3 to C6 into a brightness between a quarter and full, so a higher note lights a Plasma more.',
+  'The Brightness node preview should brighten as a sung or whistled note rises and dim when the note stops.',
+)
+
 export const AUDIO_HUE_LIVE_EXAMPLE = namedExample(
   'AudioHue',
   'Turn spectrum balance into a colour wash',
@@ -1774,6 +1794,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   AudioFeatures: AUDIO_FEATURES_LIVE_EXAMPLE,
   Vibe: VIBE_LIVE_EXAMPLE,
   SongStructure: SONG_STRUCTURE_LIVE_EXAMPLE,
+  PitchDetect: PITCH_DETECT_LIVE_EXAMPLE,
   AudioHue: AUDIO_HUE_LIVE_EXAMPLE,
   RTCInput: RTC_CLOCK_LIVE_EXAMPLE,
   ClockDisplay: RTC_CLOCK_LIVE_EXAMPLE,

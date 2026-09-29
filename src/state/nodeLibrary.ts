@@ -283,6 +283,28 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     ],
     defaultProperties: {},
   },
+  {
+    // Pitch, note and key. FastLED's Pitch needs more samples per chunk than its
+    // I2S input delivers, so the firmware runs the same arithmetic over the lags
+    // that fit (about 175 Hz to 1 kHz). `noteOn` is a one-frame pulse.
+    type: 'PitchDetect',
+    label: 'Pitch Detect',
+    category: 'audio',
+    inputs: [
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+    ],
+    outputs: [
+      { id: 'hz', label: 'Hz', dataType: 'float' },
+      { id: 'note', label: 'Note', dataType: 'float' },
+      { id: 'noteOn', label: 'Note on', dataType: 'bool' },
+      { id: 'velocity', label: 'Velocity', dataType: 'float' },
+      { id: 'confidence', label: 'Confidence', dataType: 'float' },
+      { id: 'keyRoot', label: 'Key root', dataType: 'float' },
+      { id: 'keyMinor', label: 'Key minor', dataType: 'bool' },
+      { id: 'keyConfidence', label: 'Key confidence', dataType: 'float' },
+    ],
+    defaultProperties: {},
+  },
 
   // ── Pattern ────────────────────────────────────────────────────────────
   {
@@ -858,6 +880,27 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
       peakHold: 0.42, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
     },
+  },
+
+  {
+    // The raw audio waveform drawn over a base frame: the shape of the sound
+    // itself rather than its spectrum. Reads the 128 decimated samples the
+    // audio payload and the sketch engine both carry.
+    type: 'Waveform',
+    label: 'Waveform',
+    category: 'pattern',
+    subcategory: 'Audio-Reactive',
+    inputs: [
+      { id: 'base', label: 'Base', dataType: 'frame' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
+      { id: 'gain', label: 'Gain', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
+      { id: 'smoothing', label: 'Smoothing', dataType: 'float' },
+    ],
+    propertyInputs: { palette: 'paletteIn', gain: 'gain', thickness: 'thickness', smoothing: 'smoothing' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { style: 'line', gain: 2, thickness: 1, smoothing: 0.3, palette: 'citrus' },
   },
 
   // ── Compositing ────────────────────────────────────────────────────────
@@ -4415,6 +4458,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   AudioFeatures: 'Heuristic vocals, energy, and silence features from audio.',
   Vibe: 'MilkDrop-style bass/mid/treble relative to the song average (1.0), plus spikes.',
   SongStructure: 'Downbeats, beat number, buildups, drops, tempo stability and mood from audio.',
+  PitchDetect: 'Pitch in Hz, MIDI note, note-on pulse and musical key from audio.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   AudioHue: 'Maps bass/mids/treble to a hue value.',
@@ -4519,6 +4563,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
   SpectrumVisualizer: 'Full-spectrum bars, ribbon, orbit, mirror, or waterfall display.',
+  Waveform: 'Raw audio waveform as a line, filled, mirror, or ring trace over a base.',
   BassPulse: 'Pulses a palette colour with bass energy.',
   BassRings: 'Concentric rings that swell and brighten with bass.',
   MidrangeWaves: 'Waves driven by midrange audio.',
@@ -5247,6 +5292,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     peakHold:       { control: 'slider', min: 0, max: 2, step: 0.05 },
     peakGravity:    { control: 'slider', min: 0.2, max: 6, step: 0.1 },
     waterfallSpeed: { control: 'slider', min: 1, max: 30, step: 1 },
+  },
+  Waveform: {
+    style:     { control: 'select', options: ['line', 'filled', 'mirror', 'ring'] },
+    gain:      { control: 'slider', min: 0.25, max: 8, step: 0.05 },
+    thickness: { control: 'slider', min: 0.5, max: 4, step: 0.1 },
+    smoothing: { control: 'slider', min: 0, max: 0.95, step: 0.01 },
   },
   MidrangeBloom: {
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },

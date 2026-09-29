@@ -170,6 +170,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Song Structure example graph](../../public/node-cards/graphs/song-structure.svg)
 
+### Pitch Detect
+
+![Pitch Detect node](../../public/node-cards/pitch-detect.svg)
+
+![Pitch Detect example graph](../../public/node-cards/graphs/pitch-detect.svg)
+
 ### Audio → Hue
 
 ![Audio → Hue node](../../public/node-cards/audio-hue.svg)
@@ -699,6 +705,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Spectrum Visualizer node](../../public/node-cards/spectrum-visualizer.svg)
 
 ![Spectrum Visualizer example graph](../../public/node-cards/graphs/spectrum-visualizer.svg)
+
+### Waveform
+
+![Waveform node](../../public/node-cards/waveform.svg)
+
+![Waveform example graph](../../public/node-cards/graphs/waveform.svg)
 
 ### Bass Pulse
 

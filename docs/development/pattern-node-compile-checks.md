@@ -1,6 +1,6 @@
 # Pattern-node firmware compile checks
 
-> **Status: Phases 0–7 complete; Phase 8 has its Vibe and Song Structure fixtures.** The generated fixtures passed on classic
+> **Status: Phases 0–7 complete; Phase 8 has its Vibe, Song Structure, Pitch Detect and Waveform fixtures.** The generated fixtures passed on classic
 > ESP32, and the integer-heavy Slice Tiling fixture and the Phase 5 and 6
 > fixtures also passed on ESP8266, on 28 September 2026 (UTC). This is
 > compile evidence, not a physical LED bench run.
@@ -183,6 +183,10 @@ buffer and the multiply's own field buffer, 1,024 bytes each at 16×16.
 | Phase 8, Vibe | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 546,571 / 3,145,728 (17%) | 30,896 / 327,680 (9%) |
 | Phase 8, Song Structure | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 557,931 / 3,145,728 (17%) | 33,284 / 327,680 (10%) |
 | Phase 8, Song Structure | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 574,187 / 3,145,728 (18%) | 32,712 / 327,680 (9%) |
+| Phase 8, Pitch Detect | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 532,203 / 3,145,728 (16%) | 34,548 / 327,680 (10%) |
+| Phase 8, Pitch Detect | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 549,279 / 3,145,728 (17%) | 33,976 / 327,680 (10%) |
+| Phase 8, Waveform | `esp32:esp32:esp32` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 525,987 / 3,145,728 (16%) | 33,804 / 327,680 (10%) |
+| Phase 8, Waveform | `esp32:esp32:esp32s3` | 3.3.11 | 1.5.1 | 3.10.5 | pass | 543,295 / 3,145,728 (17%) | 33,232 / 327,680 (10%) |
 
 The Phase 5, 6 and 7 rows were built on Linux in a cloud session, not on
 the Windows machine that built the others. Truchet Beat Maze's larger flash
@@ -245,3 +249,19 @@ bytes, SHA-256 `3ecb153c5d8eab141ca10c7415853290152a6ca1feb0601c79f4f978c9338954
 It wires Microphone → Audio → Song Structure into Rain Ripples (drop), a
 Brightness (arousal) and a Blend, and fails generation if any of the twelve
 callback and getter lines is missing. Built on Windows 11 on 29 September 2026.
+
+Phase 8 generated source, Pitch Detect (identical for both boards): 11,404
+bytes, SHA-256 `035e296e516447a7e974e110d6268f7327a044e20f9a7959c4676c581a49e919`.
+It wires Microphone → Audio → Pitch Detect into a Map Range, Brightness and a
+Counter, and fails generation if the helper, the `getSample()` reads, the key
+callbacks or the published globals are missing.
+
+Phase 8 generated source, Waveform (identical for both boards): 9,948 bytes,
+SHA-256 `3d627395ae27d4fc68c92ce3b53743e0fc076dde3fddb9e763586f03ea55df8f`.
+It chains a line trace and a ring trace over a Plasma base, so the column and
+radial emitters both compile. Built on Windows 11 on 29 September 2026.
+
+Each Phase 8 detector is compiled with its own INMP441 engine, so the rows
+above include the shared audio engine. The delta a single detector adds is the
+difference from the Vibe rows only within a few kilobytes of flash and about
+1 KB of RAM, and is not separated further.

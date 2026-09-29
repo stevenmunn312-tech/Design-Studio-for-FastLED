@@ -70,6 +70,10 @@ const STRUCTURE_INACTIVE: Record<string, PortValue> = {
   drop: false, dropImpact: 0, tempoStable: false, valence: 0, arousal: 0,
 }
 
+const PITCH_INACTIVE: Record<string, PortValue> = {
+  hz: 0, note: 0, noteOn: false, velocity: 0, confidence: 0, keyRoot: 0, keyMinor: false, keyConfidence: 0,
+}
+
 export const AUDIO_EVALUATORS: NodeEvaluators = {
   FFTAnalyzer({ input, num, t, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
@@ -354,6 +358,14 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       valence: structure.valence,
       arousal: structure.arousal,
     }
+  },
+  PitchDetect({ input }, id) {
+    const audioValue = input(id, 'audio', null)
+    const audio = isAudioSignal(audioValue) ? audioValue : null
+    const pitch = audio?.active ? audio.pitch : undefined
+    // A payload from before the detector existed has no `pitch`: inactive.
+    if (!pitch) return { ...PITCH_INACTIVE }
+    return { ...pitch }
   },
   AudioHue({ num }, id, props) {
     const bass   = num(id, 'bass',   props, 'bass',   0.5)

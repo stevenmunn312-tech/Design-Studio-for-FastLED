@@ -20,10 +20,14 @@
 // 50) keep their calibration.
 
 import { fftInPlace } from './micAnalysis'
-import type { SongStructureSignal, VibeSignal } from '../state/evaluator/types'
+import type { PitchSignal, SongStructureSignal, VibeSignal } from '../state/evaluator/types'
 import { SongStructureDetector, structureBins } from './fastledStructure'
+import { PitchAnalyzer } from './fastledPitch'
+import { decimateWave, WAVE_SAMPLES } from '../state/evaluator/waveform'
 
 export const I16_FULL_SCALE = 32767
+/** Sample::pcm() / 32768 is how the device normalises a chunk. */
+const I16_FULL_SCALE_PCM = 32768
 
 // ── fl/math/filter ───────────────────────────────────────────────────────────
 
@@ -588,6 +592,8 @@ export interface FastLedAudioResult {
   beatConfidence: number
   vibe: VibeSignal
   structure: SongStructureSignal
+  pitch: PitchSignal
+  samples: number[]
 }
 
 /**
@@ -606,6 +612,8 @@ export class FastLedAudioAnalyzer {
   private beat = new BeatDetector()
   private vibe = new VibeDetector()
   private structure = new SongStructureDetector()
+  private pitch = new PitchAnalyzer()
+  private wave = new Float32Array(WAVE_SAMPLES)
   private bins16 = new Float32Array(16)
   private bins32 = new Float32Array(32)
   private spectrum: EqualizerSpectrum
@@ -682,6 +690,9 @@ export class FastLedAudioAnalyzer {
       bpm: beat.bpm,
       silent,
     })
+    const pitch = this.pitch.update(this.scaled, this.mags, sampleRate, this.fftSize, Math.sqrt(sumSquares / n), nowMs)
+    decimateWave(this.scaled, this.wave)
+    const waveSamples = Array.from(this.wave, (v) => v / I16_FULL_SCALE_PCM)
     this.spectrum.update(this.mags, sampleRate, this.fftSize, dtSec, spectrumOut)
 
     return {
@@ -693,6 +704,8 @@ export class FastLedAudioAnalyzer {
       beatConfidence: beat.confidence,
       vibe,
       structure,
+      pitch,
+      samples: waveSamples,
     }
   }
 
@@ -702,6 +715,7 @@ export class FastLedAudioAnalyzer {
     this.beat.reset()
     this.vibe.reset()
     this.structure.reset()
+    this.pitch.reset()
     this.spectrum.reset()
     this.lastMs = 0
   }

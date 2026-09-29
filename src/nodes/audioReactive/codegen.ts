@@ -2,6 +2,10 @@ import { audioFlowExpr } from '../../state/audioFlowRange'
 import { animartrixCppLines } from '../../animartrix/codegen'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
+import {
+  WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
+  WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
+} from '../../state/evaluator/waveform'
 import { BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN } from './evaluate'
 
 export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
@@ -110,6 +114,42 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ln(`    for(int _x=0;_x<WIDTH;_x++){ int _barH=(int)roundf(_svLevel_${id}[_x]*HEIGHT); for(int _row=0;_row<_barH;_row++){ int _y=HEIGHT-1-_row; float _amount=HEIGHT<=1?1.0f:_row/(float)(HEIGHT-1); float _brightness=${ribbon ? '(_row==_barH-1?1.0f:0.18f+_amount*0.42f)' : '0.34f+_amount*0.66f'}; ${ob}[_y*WIDTH+_x]=_svColor(_amount,_brightness); } int _py=HEIGHT-1-(int)roundf(_svPeak_${id}[_x]*(HEIGHT-1)); if(_svPeak_${id}[_x]>0.015f&&_py>=0&&_py<HEIGHT)${ob}[_py*WIDTH+_x]=_svColor(_svPeak_${id}[_x],1.0f); }`)
     }
     if (!audioConnected) ln(`    // Connect an Audio source to populate the spectrum on-device.`)
+    ln(`  }`)
+  },
+  // The Waveform drawing mirrors drawWaveform in state/evaluator/waveform.ts.
+  Waveform({ node, id, p, ln, f, ownBuf, seedFrom, paletteExpr, hasExplicitAudioInput, nativeFastLedAudio }) {
+    const ob = ownBuf()
+    const style = (WAVE_STYLES as readonly string[]).includes(String(p.style)) ? String(p.style) : 'line'
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    // `_audioWave` exists only with the live FastLED engine; anything else is silence.
+    const live = hasExplicitAudioInput(node.id) && nativeFastLedAudio
+    const W = `_wv_${id}`
+    const N = WAVE_SAMPLES
+    ln(`  { // Waveform · ${style}`)
+    ln(`    static float ${W}[${N}]={0}; static uint32_t ${W}Last=0;`)
+    ln(`    ${seedFrom('base')}`)
+    ln(`    uint32_t _wvNow=millis(); float _wvDt=${W}Last ? constrain((_wvNow-${W}Last)/1000.0f,0.0f,0.1f) : (1.0f/60.0f); ${W}Last=_wvNow;`)
+    ln(`    float _wvGain=constrain(${f('gain', 'gain', 2)},${floatLit(WAVE_GAIN_MIN)},${floatLit(WAVE_GAIN_MAX)});`)
+    ln(`    float _wvTh=constrain(${f('thickness', 'thickness', 1)},${floatLit(WAVE_THICKNESS_MIN)},${floatLit(WAVE_THICKNESS_MAX)});`)
+    ln(`    float _wvRetain=powf(constrain(${f('smoothing', 'smoothing', 0.3)},0.0f,${floatLit(WAVE_SMOOTHING_MAX)}),_wvDt*60.0f);`)
+    ln(`    for(int _i=0;_i<${N};_i++) ${W}[_i]=${W}[_i]*_wvRetain+${live ? '_audioWave[_i]' : '0.0f'}*(1.0f-_wvRetain);`)
+    ln(`    auto _wvAt=[&](float _pos,bool _wrap)->float{ int _i0=(int)floorf(_pos); if(_i0>${N - 1})_i0=${N - 1}; int _i1=_wrap?(_i0+1)%${N}:min(${N - 1},_i0+1); float _m=_pos-floorf(_pos); return constrain((${W}[_i0]*(1.0f-_m)+${W}[_i1]*_m)*_wvGain,-1.0f,1.0f); };`)
+    ln(`    auto _wvPaint=[&](int _x,int _y,float _amt){ ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(constrain(${floatLit(WAVE_PALETTE_BASE)}+constrain(_amt,0.0f,1.0f)*${floatLit(WAVE_PALETTE_SPAN)},0.0f,1.0f)*255.0f),255,LINEARBLEND); };`)
+    if (style === 'ring') {
+      ln(`    float _minR=min(WIDTH,HEIGHT)/2.0f,_cx=(WIDTH-1)*0.5f,_cy=(HEIGHT-1)*0.5f;`)
+      ln(`    for(int _y=0;_y<HEIGHT;_y++)for(int _x=0;_x<WIDTH;_x++){ float _dx=_x-_cx,_dy=_y-_cy; float _fr=atan2f(_dy,_dx)/TWO_PI; _fr-=floorf(_fr); float _v=_wvAt(_fr*${N}.0f,true); float _tg=_minR*${floatLit(WAVE_RING_BASE)}+_v*_minR*${floatLit(WAVE_RING_SPAN)}; if(fabsf(hypotf(_dx,_dy)-_tg)<=_wvTh*0.5f+${floatLit(WAVE_RING_SLACK)})_wvPaint(_x,_y,fabsf(_v)); }`)
+    } else {
+      const cond = style === 'filled'
+        ? '_y>=fminf(_lo,_yc)-0.5f&&_y<=fmaxf(_hi,_yc)+0.5f'
+        : style === 'mirror'
+          ? 'fabsf(_y-_yc)<=fmaxf(fabsf(_yc-_lo),fabsf(_yc-_hi))+0.5f'
+          : '_y>=_lo-_wvTh*0.5f&&_y<=_hi+_wvTh*0.5f'
+      ln(`    float _yc=(HEIGHT-1)*0.5f,_wvV[WIDTH],_wvY[WIDTH];`)
+      ln(`    for(int _x=0;_x<WIDTH;_x++){ _wvV[_x]=_wvAt(WIDTH<=1?0.0f:_x/(float)(WIDTH-1)*${N - 1}.0f,false); _wvY[_x]=_yc-_wvV[_x]*_yc; }`)
+      ln(`    for(int _x=0;_x<WIDTH;_x++){ int _nx=min(WIDTH-1,_x+1); float _lo=fminf(_wvY[_x],_wvY[_nx]),_hi=fmaxf(_wvY[_x],_wvY[_nx]);`)
+      ln(`      for(int _y=0;_y<HEIGHT;_y++){ if(${cond})_wvPaint(_x,_y,fabsf(_wvV[_x])); } }`)
+    }
+    if (!live) ln(`    // Connect an Audio source to draw the waveform on-device.`)
     ln(`  }`)
   },
   BassPulse({ node, p, ln, f, ownBuf, paletteExpr }) {

@@ -3689,6 +3689,87 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('_audioDownbeat')
   })
 
+  it('emits Pitch Detect from the chunk autocorrelation helper and FastLED key callbacks', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const pd = node('pd', 'PitchDetect', 'audio', {})
+    const cpp = generateCpp([micBoard, mic, audio, pd, out], [
+      edge('e0', 'audio', 'pd', 'audio', 'audio'),
+      edge('e2', 'pd', 'out', 'confidence', 'frame'),
+    ])
+    expect(cpp).toContain('#define STUDIO_PITCH_MIN_LAG 44')
+    expect(cpp).toContain('#define STUDIO_PITCH_MAX_LAG 252')
+    expect(cpp).toContain('static float _pitchDetect(const fl::i16* pcm, size_t n, float* confOut)')
+    expect(cpp).toContain('_audioProcessor->getSample()')
+    expect(cpp).toContain('  _audioPitchStep();')
+    expect(cpp).toContain('#include "fl/audio/detector/key.h"')
+    expect(cpp).toContain('_audioProcessor->onKey([](const fl::audio::detector::Key& key)')
+    expect(cpp).toContain('_audioProcessor->onKeyEnd(')
+    expect(cpp).toContain('float n_pd_hz = _audioPitchHz')
+    expect(cpp).toContain('bool n_pd_noteOn = _audioPitchNoteOn')
+    expect(cpp).toContain('_audioKeyConf > 0.0f ? (float)_audioKeyRoot : 0.0f')
+  })
+
+  it('leaves the pitch helper out of the engine when no Pitch Detect node exists', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const beat = node('bd', 'BeatDetect', 'audio', {})
+    const cpp = generateCpp([micBoard, mic, audio, beat, out], [
+      edge('e0', 'audio', 'bd', 'audio', 'audio'),
+      edge('e2', 'bd', 'out', 'beat', 'frame'),
+    ])
+    expect(cpp).not.toContain('_pitchDetect')
+    expect(cpp).not.toContain('onKey')
+    expect(cpp).not.toContain('_audioPitch')
+  })
+
+  it('emits an inactive Pitch Detect when the audio input is not wired', () => {
+    const pd = node('pd', 'PitchDetect', 'audio', {})
+    const cpp = generateCpp([pd, out], [edge('e2', 'pd', 'out', 'confidence', 'frame')])
+    expect(cpp).toContain('bool n_pd_noteOn = false')
+    expect(cpp).toContain('float n_pd_hz = 0.0f')
+    expect(cpp).not.toContain('_audioPitch')
+  })
+
+  it('emits Waveform per style from the published decimated samples and registers the step', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    for (const style of ['line', 'filled', 'mirror', 'ring']) {
+      const wf = node('wf', 'Waveform', 'pattern', { style, gain: 3 })
+      const cpp = generateCpp([micBoard, mic, audio, wf, out], [
+        edge('e0', 'audio', 'wf', 'audio', 'audio'),
+        edge('e2', 'wf', 'out', 'frame', 'frame'),
+      ])
+      expect(cpp).toContain('float _audioWave[128] = {0};')
+      expect(cpp).toContain('static void _audioWaveStep()')
+      expect(cpp).toContain('  _audioWaveStep();')
+      expect(cpp).toContain('_audioProcessor->getSample()')
+      expect(cpp).toContain(`// Waveform · ${style}`)
+      expect(cpp).toContain('_audioWave[_i]')
+      expect(cpp).toContain('float _wvGain=constrain(3,0.25f,8.0f);')
+      if (style === 'ring') expect(cpp).toContain('atan2f(_dy,_dx)/TWO_PI')
+      else expect(cpp).toContain('_wvY[_x]=_yc-_wvV[_x]*_yc;')
+    }
+  })
+
+  it('leaves the waveform buffer out of the engine when no Waveform node exists', () => {
+    const mic = node('mic', 'MicInput', 'hardware', {})
+    const audio = node('audio', 'Audio', 'input', { sourceId: 'mic' })
+    const beat = node('bd', 'BeatDetect', 'audio', {})
+    const cpp = generateCpp([micBoard, mic, audio, beat, out], [
+      edge('e0', 'audio', 'bd', 'audio', 'audio'),
+      edge('e2', 'bd', 'out', 'beat', 'frame'),
+    ])
+    expect(cpp).not.toContain('_audioWave')
+  })
+
+  it('draws a flat Waveform when no audio source is wired', () => {
+    const wf = node('wf', 'Waveform', 'pattern', {})
+    const cpp = generateCpp([wf, out], [edge('e2', 'wf', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('_wv_wf[_i]=_wv_wf[_i]*_wvRetain+0.0f*(1.0f-_wvRetain);')
+    expect(cpp).not.toContain('_audioWave')
+  })
+
   it('emits an inactive Vibe when the audio input is not wired', () => {
     const vibe = node('vb', 'Vibe', 'audio', {})
     const cpp = generateCpp([vibe, out], [edge('e2', 'vb', 'out', 'bass', 'frame')])

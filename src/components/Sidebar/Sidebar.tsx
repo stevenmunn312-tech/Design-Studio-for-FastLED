@@ -58,6 +58,8 @@ const INTENT_TAGS: Record<string, string[]> = {
   BeatDetect: ['audio', 'trigger'],
   AudioFeatures: ['audio', 'analysis'],
   Vibe: ['audio', 'reactive', 'milkdrop'],
+  Waveform: ['audio', 'reactive', 'oscilloscope'],
+  PitchDetect: ['audio', 'pitch', 'note', 'key'],
   SongStructure: ['audio', 'trigger', 'downbeat', 'drop', 'mood'],
   Wave: ['motion', 'signal'],
   Counter: ['motion', 'timing'],

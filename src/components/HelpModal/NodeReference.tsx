@@ -11,7 +11,7 @@ import {
   MICROPHONE_LIVE_EXAMPLE, BUTTON_LIVE_EXAMPLE, POTENTIOMETER_LIVE_EXAMPLE,
   ENCODER_LIVE_EXAMPLE, MIDI_LIVE_EXAMPLE,
   FFT_ANALYZER_LIVE_EXAMPLE, BEAT_DETECT_LIVE_EXAMPLE, PERCUSSION_DETECT_LIVE_EXAMPLE,
-  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE, VIBE_LIVE_EXAMPLE, SONG_STRUCTURE_LIVE_EXAMPLE,
+  AUDIO_FEATURES_LIVE_EXAMPLE, AUDIO_HUE_LIVE_EXAMPLE, VIBE_LIVE_EXAMPLE, SONG_STRUCTURE_LIVE_EXAMPLE, PITCH_DETECT_LIVE_EXAMPLE,
 } from './liveExamples'
 import type { ReferenceLiveExample } from './liveExamples'
 import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
@@ -171,6 +171,27 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     liveExample: SONG_STRUCTURE_LIVE_EXAMPLE,
     successMessage: 'Song Structure example added — microphone starting',
     skippedMessage: 'Song Structure example added',
+  },
+  PitchDetect: {
+    type: 'PitchDetect',
+    eyebrow: 'Pitch and key',
+    purpose: 'Read the pitch of a single voice or instrument as Hz and a MIDI note, catch each new note, and follow the musical key.',
+    overview: [
+      'Pitch Detect finds the repeating period in the sound. Hz is the frequency, Note is the MIDI note number (69 is A4, 440 Hz), and Confidence says how clearly periodic the sound is. Note on is true for the single frame a note starts or moves by a semitone, and Velocity follows Confidence while a note is held.',
+      'It listens between about 175 Hz and 1 kHz, roughly F3 to B5, which covers voices, whistling and most melody lines. Bass notes and drums are outside that range, and chords or dense music read as unvoiced, so Hz and Note fall to 0 and Note on stays false.',
+      "Key root (0 is C, 11 is B), Key minor and Key confidence come from FastLED's key detector. They are coarse and slow to settle, so treat them as a mood rather than a chord label; all three read 0 or false until a key is found. Without a live microphone or decoder source, or with an older recording that has no pitch data, every output reads zero or false.",
+    ],
+    propertyNote: 'Pitch Detect has no properties. The range and thresholds are fixed so the preview and the firmware agree.',
+    exampleTitle: 'Brighten the panel as the note rises',
+    examplePath: 'Microphone.audio -> Pitch Detect.note -> Map Range -> Brightness (Plasma)',
+    exampleAlt: 'Tidy graph using Microphone, Pitch Detect, Map Range, Plasma, and Brightness',
+    exampleExplanation: 'Microphone feeds Pitch Detect. Its Note output is the MIDI note number (69 is A4), and Map Range turns the three octaves from C3 to C6 into a brightness between a quarter and full, so a higher note lights a Plasma more.',
+    previewTitle: 'What you should see',
+    previewDescription: 'The Plasma should brighten as a sung or whistled note rises and dim when the note stops. Steady single notes read best.',
+    previewAlt: 'LED Matrix main preview brightness following the pitch of a note',
+    liveExample: PITCH_DETECT_LIVE_EXAMPLE,
+    successMessage: 'Pitch Detect example added — microphone starting',
+    skippedMessage: 'Pitch Detect example added',
   },
   AudioFeatures: {
     type: 'AudioFeatures',

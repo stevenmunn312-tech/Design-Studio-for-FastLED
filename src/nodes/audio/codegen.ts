@@ -245,6 +245,17 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     ln(`  float ${v('beatNumber')} = (float)_audioBeatNumber, ${v('measurePhase')} = _audioMeasurePhase, ${v('dropImpact')} = _audioDropImpact;`)
     ln(`  float ${v('buildupProgress')} = _audioBuilding ? _audioBuildupProgress : 0.0f, ${v('valence')} = _audioValence, ${v('arousal')} = _audioArousal;`)
   },
+  PitchDetect({ node, ln, v, nativeFastLedAudio, hasExplicitAudioInput }) {
+    if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {
+      ln(`  // Pitch Detect — connect a live Audio source for pitch, note and key`)
+      ln(`  bool ${v('noteOn')} = false, ${v('keyMinor')} = false;`)
+      ln(`  float ${['hz', 'note', 'velocity', 'confidence', 'keyRoot', 'keyConfidence'].map((port) => `${v(port)} = 0.0f`).join(', ')};`)
+      return
+    }
+    ln(`  float ${v('hz')} = _audioPitchHz, ${v('note')} = (float)_audioPitchNote, ${v('velocity')} = _audioPitchVelocity, ${v('confidence')} = _audioPitchConf;`)
+    ln(`  bool ${v('noteOn')} = _audioPitchNoteOn, ${v('keyMinor')} = _audioKeyConf > 0.0f && _audioKeyMinor;`)
+    ln(`  float ${v('keyRoot')} = _audioKeyConf > 0.0f ? (float)_audioKeyRoot : 0.0f, ${v('keyConfidence')} = _audioKeyConf;`)
+  },
   AudioHue({ node, p, ln, v, f, incoming }) {
     const bass = f('bass','bass',0.5), mids = f('mids','mids',0.5), treble = f('treble','treble',0.5)
     // The weights carry wires now, so each is bounded in the emitted text

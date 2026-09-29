@@ -9,6 +9,20 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Waveform draws the raw audio waveform over a base frame as a line, filled,
+  mirror or ring trace, in a palette, with gain, thickness and smoothing. The
+  ring follows the inscribed circle, so an LED Ring shows it. The sketch
+  publishes 128 peak-preserving samples and only when a Waveform node is
+  present; without audio it draws a flat trace.
+
+- Pitch Detect reads a single voice or instrument: Hz, MIDI note, a one-frame
+  Note on pulse, Velocity, Confidence, and the musical key (root, minor,
+  confidence). It listens from about 175 Hz to 1 kHz. FastLED's own pitch
+  detector cannot voice with the 512-sample chunks its I2S input delivers, so
+  the firmware runs the same autocorrelation over the chunk directly; key
+  detection is FastLED's. The sketch includes the helper only when a Pitch
+  Detect node is present.
+
 - Song Structure reads FastLED's downbeat, buildup, drop, tempo and mood
   detectors: one-frame Downbeat and Drop pulses, Beat number, Measure phase,
   Building with its progress, Drop impact, Tempo stable, Valence and Arousal.
