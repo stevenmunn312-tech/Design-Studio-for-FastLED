@@ -421,7 +421,9 @@ Checklist:
       that a cell only ever advances one state; spirals are left to the eye.
 - [x] Digital Rain with all four directions and a string test (a 1-row canvas
       runs left and right along its length).
-- [ ] Gauge with the four styles and the sensor live example.
+- [x] Gauge with the four styles. The live example is the automatic one
+      (Value and Palette wired from a Map Range); a full Environment Sensor
+      chain is left to the node card.
 - [x] Candle, Lightning, Heartbeat, Sunrise, TV Simulator: stateless or
       near-stateless on one shared integer hash (`classics.ts`), so the preview
       and the sketch agree on every random draw. Lightning keeps a strike

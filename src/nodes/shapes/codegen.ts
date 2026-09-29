@@ -66,7 +66,57 @@ function textAxisStartExpr(valueExpr: string, sizeVar: string, lengthExpr: strin
   return align === 'end' ? `(${edge}) - (${lengthExpr})` : edge
 }
 
+import { GAUGE_PEAK_FALL, GAUGE_Q_LIFT, gaugeDirection, gaugeSegments, gaugeStyle } from '../../state/evaluator/gauge'
+import { ringTrackLeds } from '../../state/evaluator/stringTrack'
+
 export const SHAPES_EMITTERS: NodeEmitters = {
+  Gauge({ node, id, p, ln, f, ownBuf, seedFrom, paletteExpr, needsT }) {
+    const ob = ownBuf()
+    const style = gaugeStyle(p.gaugeStyle), dir = gaugeDirection(p.direction)
+    const segments = gaugeSegments(p.segments)
+    const hold = Number(p.peakHold ?? 0) > 0 ? Number(p.peakHold) : 0
+    const thickness = Math.max(0, Math.min(1, Number(p.thickness ?? 1)))
+    const ring = style === 'ring' || style === 'arc'
+    const leds = ringTrackLeds(p.ringLeds)
+    const arcStart = Number(p.arcStart ?? 0)
+    const arcSweep = style === 'ring' ? 360 : Math.max(1, Math.min(360, Number(p.arcSweep ?? 270)))
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const A = `_gg_${id}`
+    if (hold) needsT.v = true
+    ln(`  { // Gauge (${style})`)
+    ln(`    ${seedFrom('base')}`)
+    ln(`    float _v=constrain(${f('value', 'value', 0.6)},0.0f,1.0f);`)
+    if (hold) {
+      ln(`    static float ${A}pk=0.0f,${A}ts=0.0f,${A}ls=0.0f;`)
+      ln(`    if(t<${A}ls-0.001f){ ${A}pk=_v; ${A}ts=t; } float _dt=fmaxf(0.0f,t-${A}ls); ${A}ls=t;`)
+      ln(`    if(_v>=${A}pk){ ${A}pk=_v; ${A}ts=t; } else if(t-${A}ts>${floatLit(hold)}) ${A}pk=fmaxf(_v,${A}pk-${floatLit(GAUGE_PEAK_FALL)}*_dt);`)
+      ln(`    float _pk=${A}pk;`)
+    } else ln(`    float _pk=-1.0f;`)
+    ln(`    auto _cell=[&](int _ix,float _st,float _sp,float _fr,int _k,int _n){`)
+    if (style === 'dot') ln(`      float _cv=constrain(1.0f-fabsf(_v*(_n-1)-_k),0.0f,1.0f);`)
+    else if (segments > 0) ln(`      int _s=min(${segments - 1},(int)floorf(_fr*${segments})); float _cv=_s<(int)floorf(_v*${segments}+0.5f)?1.0f:0.0f;`)
+    else ln(`      float _cv=constrain((_v-_st)/_sp,0.0f,1.0f);`)
+    ln(`      bool _mk=_pk>=0.0f&&((_pk>=_st&&_pk<_st+_sp)||(_pk>=1.0f&&_st+_sp>=0.999999999f));`)
+    ln(`      uint8_t _q=_mk?255:(uint8_t)fminf(255.0f,_cv*255.0f+${floatLit(GAUGE_Q_LIFT)}); if(!_q) return;`)
+    ln(`      CRGB _c=ColorFromPalette(${pal},(uint8_t)(_fr*255.0f)), _b=${ob}[_ix];`)
+    ln(`      ${ob}[_ix]=CRGB((uint8_t)(_b.r+((int)_c.r-(int)_b.r)*_q/255),(uint8_t)(_b.g+((int)_c.g-(int)_b.g)*_q/255),(uint8_t)(_b.b+((int)_c.b-(int)_b.b)*_q/255)); };`)
+    if (ring) {
+      ln(`    static uint16_t ${A}ix[${leds}]; static bool ${A}init=false;`)
+      ln(`    if(!${A}init){ float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rad=min(_cx,_cy);`)
+      ln(`      for(int _k=0;_k<${leds};_k++){ float _th=_k*6.2831853f/${leds}; int _x=constrain((int)floorf(_cx+_rad*sinf(_th)+0.5f),0,WIDTH-1), _y=constrain((int)floorf(_cy-_rad*cosf(_th)+0.5f),0,HEIGHT-1); ${A}ix[_k]=_y*WIDTH+_x; }`)
+      ln(`      ${A}init=true; }`)
+      ln(`    float _stp=360.0f/${leds},_sw=${floatLit(arcSweep)};`)
+      ln(`    for(int _k=0;_k<${leds};_k++){ float _off=fmodf(fmodf(_k*_stp-${floatLit(arcStart)},360.0f)+360.0f,360.0f); if(_off>=_sw) continue;`)
+      ln(`      _cell(${A}ix[_k],_off/_sw,_stp/_sw,fminf(1.0f,(_off+_stp*0.5f)/_sw),_k,${leds}); } }`)
+    } else {
+      const horizontal = dir === 'right' || dir === 'left'
+      const N = horizontal ? 'WIDTH' : 'HEIGHT', cross = horizontal ? 'HEIGHT' : 'WIDTH'
+      const kk = dir === 'right' ? '_x' : dir === 'left' ? '(WIDTH-1-_x)' : dir === 'down' ? '_y' : '(HEIGHT-1-_y)'
+      ln(`    float _lim=fmaxf(0.5f,${floatLit(thickness)}*${cross}*0.5f);`)
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ if(fabsf(${horizontal ? '_y' : '_x'}+0.5f-${cross}*0.5f)>_lim) continue;`)
+      ln(`      int _kk=${kk}; _cell(_y*WIDTH+_x,(float)_kk/${N},1.0f/${N},(_kk+0.5f)/${N},_kk,${N}); } }`)
+    }
+  },
   SolidColor({ ln, channelColor, ownBuf }) {
     const ob = ownBuf()
     const color = channelColor('color', 255, 0, 128)

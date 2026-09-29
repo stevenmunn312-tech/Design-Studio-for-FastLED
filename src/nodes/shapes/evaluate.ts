@@ -28,6 +28,10 @@ import {
   splatDisc,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
+import {
+  gaugeCells, gaugeCoverage, gaugeDirection, gaugeMarks, gaugeMix, gaugeQ, gaugeSegments, gaugeStyle, stepGaugePeak, type GaugePeak,
+} from '../../state/evaluator/gauge'
+import { ringTrackLeds } from '../../state/evaluator/stringTrack'
 import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/hueMix'
 import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
@@ -474,7 +478,32 @@ function evalPaletteGradient(angle: number, repeat: number, speed: number, t: nu
     })
 }
 
+const gaugePeakState = instanceState('gaugePeakState', new Map<string, GaugePeak>())
+
 export const SHAPES_EVALUATORS: NodeEvaluators = {
+  Gauge({ input, num, pal, t, W, H, stateKey }, id, props) {
+    const style = gaugeStyle(props.gaugeStyle)
+    const value = clamp01(num(id, 'value', props, 'value', 0.6))
+    const palette = pal(id, 'paletteIn', props, 'palette', 'heat')
+    const segments = gaugeSegments(props.segments)
+    const key = stateKey(id)
+    let peakState = gaugePeakState.get(key)
+    if (!peakState) { peakState = { peak: value, stamp: t, last: t }; gaugePeakState.set(key, peakState) }
+    const peak = stepGaugePeak(peakState, value, Number(props.peakHold ?? 0), t)
+    const baseIn = input(id, 'base', null) as Frame | null
+    const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
+    const cells = gaugeCells({
+      style, direction: gaugeDirection(props.direction), thickness: Number(props.thickness ?? 1),
+      ringLeds: ringTrackLeds(props.ringLeds), arcStart: Number(props.arcStart ?? 0), arcSweep: Number(props.arcSweep ?? 270),
+    }, W, H)
+    for (const c of cells) {
+      const q = peak >= 0 && gaugeMarks(c, peak) ? 255 : gaugeQ(gaugeCoverage(style, c, value, segments))
+      if (!q) continue
+      const col = samplePalette(palette, c.frac), y = Math.floor(c.idx / W), x = c.idx % W, b = frame[y][x]
+      frame[y][x] = { r: gaugeMix(b.r, col.r, q), g: gaugeMix(b.g, col.g, q), b: gaugeMix(b.b, col.b, q) }
+    }
+    return { frame }
+  },
   SolidColor({ input, num, W, H }, id, props) {
     const colorIn = input(id, 'color', null) as RGB | null
     const color = colorIn ?? {

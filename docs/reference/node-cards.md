@@ -496,6 +496,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Solid Color example graph](../../public/node-cards/graphs/solid-color.svg)
 
+### Gauge
+
+![Gauge node](../../public/node-cards/gauge.svg)
+
+![Gauge example graph](../../public/node-cards/graphs/gauge.svg)
+
 ### Text
 
 ![Text node](../../public/node-cards/text.svg)

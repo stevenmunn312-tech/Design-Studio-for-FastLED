@@ -501,6 +501,7 @@ function selectedInputs(node: NodeDefinition): NodePort[] {
     FieldNoise: ['speed', 'scale'],
     WaveSim: ['trigger', 'impulse'],
     Automaton: ['speed', 'rule'],
+    Gauge: ['value', 'paletteIn'],
     FractalField: ['cRe', 'cIm', 'zoom'],
     DistanceField: ['px', 'py'],
     FieldRotate: ['field', 'angle'],

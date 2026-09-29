@@ -50,6 +50,7 @@ import {
 import {
   FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
 } from './evaluator/fractal'
+import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -333,6 +334,25 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { r: 255, g: 0, b: 128 },
+  },
+  {
+    // Gauge — shows a 0–1 value as a bar, ring, arc or dot, with an optional
+    // held peak. Wire a Map Range in front of it to turn sensor units into 0–1.
+    type: 'Gauge',
+    label: 'Gauge',
+    category: 'pattern',
+    subcategory: 'Shapes & Text',
+    inputs: [
+      { id: 'value', label: 'Value', dataType: 'float' },
+      { id: 'base', label: 'Base', dataType: 'frame' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { value: 'value', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: {
+      gaugeStyle: 'bar', direction: 'right', value: 0.6, segments: 0, peakHold: 0, thickness: 1,
+      arcStart: 225, arcSweep: 270, ringLeds: 60, palette: 'heat',
+    },
   },
   {
     // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
@@ -4832,6 +4852,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
   FractalField: 'Julia, Mandelbrot, Newton or Burning Ship fractal as a field.',
+  Gauge: 'A 0–1 value as a bar, ring, arc or dot, with an optional held peak.',
   Automaton: 'Cellular automata as a field: rows, spirals, Brian\'s Brain, sand.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
@@ -5930,6 +5951,17 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     spin: { control: 'slider', min: -180, max: 180, step: 1 },
     iterations: { control: 'slider', min: FRACTAL_ITERATIONS_MIN, max: FRACTAL_ITERATIONS_MAX, step: 1 },
   },
+  Gauge: {
+    gaugeStyle: { control: 'select', options: [...GAUGE_STYLES] },
+    direction: { control: 'select', options: [...GAUGE_DIRECTIONS] },
+    value: N01,
+    segments: { control: 'slider', min: 0, max: GAUGE_SEGMENTS_MAX, step: 1 },
+    peakHold: { control: 'slider', min: 0, max: 10, step: 0.1 },
+    thickness: N01,
+    arcStart: { control: 'slider', min: 0, max: 359, step: 1 },
+    arcSweep: { control: 'slider', min: 10, max: 360, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+  },
   Automaton: {
     automatonType: { control: 'select', options: [...AUTOMATON_TYPES] },
     rule: { control: 'slider', min: 0, max: 255, step: 1 },
@@ -6161,6 +6193,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     spin: 'Rotate the view, in degrees.',
     iterations: 'Most steps tried before a pixel counts as inside the set. More detail costs more time per frame.',
     smooth: 'Blend the escape count into a smooth gradient instead of bands.',
+  },
+  Gauge: {
+    gaugeStyle: 'Bar fills along a line. Ring and Arc fill round the LED ring. Dot marks the value with a single point on the bar.',
+    direction: 'Which way the bar or dot travels: right, left, up or down.',
+    value: 'The reading, 0 to 1. Put a Map Range in front of a sensor to scale it.',
+    segments: 'Split the fill into this many blocks that light whole. 0 fills smoothly.',
+    peakHold: 'Seconds a marker holds the highest reading before it falls back. 0 turns the marker off.',
+    thickness: 'How much of the bar\'s width is lit, from the middle out.',
+    arcStart: 'Where an arc begins, in degrees clockwise from the top. A ring fills from here too.',
+    arcSweep: 'How far an arc reaches, in degrees.',
+    ringLeds: 'LEDs on the ring. Match the LED output\'s LED count so each cell lands on a ring pixel.',
   },
   Automaton: {
     automatonType: 'Elementary: one-dimensional rules that scroll down the canvas. Cyclic: colours chase each other in spirals. Brian\'s Brain: sparks that die and never rest. Sand: grains fall and pile up.',
@@ -7390,6 +7433,14 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'FractalField' && (key === 'cRe' || key === 'cIm')) {
     return properties.fractalType === undefined || properties.fractalType === 'julia'
+  }
+  if (nodeType === 'Gauge') {
+    const style = properties.gaugeStyle ?? 'bar'
+    const round = style === 'ring' || style === 'arc'
+    if (key === 'direction' || key === 'thickness') return !round
+    if (key === 'ringLeds' || key === 'arcStart') return round
+    if (key === 'arcSweep') return style === 'arc'
+    if (key === 'segments') return style !== 'dot'
   }
   if (nodeType === 'Automaton') {
     if (key === 'rule') return properties.automatonType === undefined || properties.automatonType === 'elementary'

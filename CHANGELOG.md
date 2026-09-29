@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New Gauge node: shows a 0 to 1 value as a bar, a ring, an arc or a dot, in
+  any direction, with optional blocks, a held peak marker, and a base frame
+  underneath. Ring and arc land on the pixels an LED ring reads. Put a Map
+  Range in front of a sensor to scale it.
 - New Fractal field node: Julia, Mandelbrot, Newton and Burning Ship sets, with
   c, zoom, centre and spin as ports (wire an LFO to morph a Julia set or fly
   into a Mandelbrot one) and a smooth colour option. Iterations run 8 to 64.
