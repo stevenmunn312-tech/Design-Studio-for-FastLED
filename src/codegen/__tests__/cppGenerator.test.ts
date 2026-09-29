@@ -1466,6 +1466,20 @@ describe('generateCpp', () => {
     expect(gen('Heartbeat')).not.toContain(hash)
   })
 
+  it('emits Digital Rain lanes and cell mapping per direction', () => {
+    const rain = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'DigitalRain', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const down = rain()
+    expect(down).toContain('static float _dr_nh[WIDTH]')
+    expect(down).toContain('[_ps*WIDTH+_l]=CRGB(')
+    expect(rain({ direction: 'up' })).toContain('[(HEIGHT-1-_ps)*WIDTH+_l]=CRGB(')
+    const right = rain({ direction: 'right' })
+    expect(right).toContain('static float _dr_nh[HEIGHT]')
+    expect(right).toContain('[_l*WIDTH+_ps]=CRGB(')
+    expect(rain({ direction: 'left' })).toContain('[_l*WIDTH+(WIDTH-1-_ps)]=CRGB(')
+    expect(down).toContain('random16()')
+    expect(down).toContain('x*=0x7feb352dU')
+  })
+
   it('emits Polar Gradient with rounded repeat and a floor-wrapped palette index', () => {
     const pg = node('pg', 'PolarGradient', 'pattern', { palette: 'ocean', angleOffset: 90, repeat: 3 })
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])

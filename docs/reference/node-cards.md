@@ -640,6 +640,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Sunrise example graph](../../public/node-cards/graphs/sunrise.svg)
 
+### Digital Rain
+
+![Digital Rain node](../../public/node-cards/digital-rain.svg)
+
+![Digital Rain example graph](../../public/node-cards/graphs/digital-rain.svg)
+
 ### TV Simulator
 
 ![TV Simulator node](../../public/node-cards/tv-simulator.svg)

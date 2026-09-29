@@ -141,3 +141,56 @@ describe('TV Simulator', () => {
     expect(total(frame('TVSimulator', { brightness: 0 }, 1))).toBe(0)
   })
 })
+
+describe('Digital Rain', () => {
+  const rain = (props: Record<string, unknown>, ticks: number, W = 8, H = 12) => {
+    const id = `rain-${run++}`
+    const nodes = [node(id, 'DigitalRain', 'pattern', { seed: 5, density: 1, flicker: 0, ...props }), node('out', 'MatrixOutput', 'output', {})]
+    const edges = [edge('e', id, 'frame', 'out', 'frame')]
+    let f = evaluateGraph(nodes, edges, 0, W, H)!
+    for (let i = 1; i <= ticks; i++) f = evaluateGraph(nodes, edges, i, W, H)!
+    return f
+  }
+  const litCells = (f: { r: number; g: number; b: number }[][]) => f.flatMap((row, y) => row.map((p, x) => (p.r || p.g || p.b ? [x, y] : null)).filter(Boolean) as number[][])
+
+  it('lights something in every direction and stays inside the canvas', () => {
+    for (const direction of ['down', 'up', 'left', 'right']) {
+      const cells = litCells(rain({ direction }, 60))
+      expect(cells.length).toBeGreaterThan(0)
+    }
+  })
+  it('starts at the top going down and at the bottom going up', () => {
+    const early = (direction: string) => litCells(rain({ direction, density: 1 }, 4))
+    expect(Math.max(...early('down').map((c) => c[1]))).toBeLessThan(6)
+    expect(Math.min(...early('up').map((c) => c[1]))).toBeGreaterThan(5)
+    expect(Math.max(...early('right').map((c) => c[0]))).toBeLessThan(6)
+    expect(Math.min(...early('left').map((c) => c[0]))).toBeGreaterThan(1)
+  })
+  it('density 0 stays dark; the head is the brightest cell of a stream', () => {
+    expect(litCells(rain({ density: 0 }, 40)).length).toBe(0)
+    const f = rain({ direction: 'down', density: 1, tailLength: 10 }, 12)
+    const col = litCells(f).filter((c) => c[0] === litCells(f)[0][0]).map((c) => c[1])
+    const lum = (y: number, x: number) => f[y][x].g
+    const x = litCells(f)[0][0]
+    const ys = col.sort((a, b) => a - b)
+    expect(lum(ys[ys.length - 1], x)).toBeGreaterThanOrEqual(lum(ys[0], x))
+  })
+  it('flicker dims cells without lighting new ones', () => {
+    const a = litCells(rain({ flicker: 0 }, 30)).length, b = litCells(rain({ flicker: 1 }, 30)).length
+    expect(b).toBeLessThanOrEqual(a)
+  })
+  it('runs along a one-row string when the direction is left or right', () => {
+    for (const direction of ['left', 'right']) {
+      const f = rain({ direction, tailLength: 6 }, 40, 30, 1)
+      expect(f.length).toBe(1)
+      expect(f[0].filter((p) => p.g > 0).length).toBeGreaterThan(0)
+    }
+  })
+  it('geometry maps each direction to its own edge', async () => {
+    const { rainIndex } = await import('../evaluator/digitalRain')
+    expect(rainIndex('down', 4, 3, 1, 0)).toBe(1)
+    expect(rainIndex('up', 4, 3, 1, 0)).toBe(2 * 4 + 1)
+    expect(rainIndex('right', 4, 3, 1, 0)).toBe(4)
+    expect(rainIndex('left', 4, 3, 1, 0)).toBe(4 + 3)
+  })
+})

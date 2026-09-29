@@ -1,6 +1,7 @@
 import { juggleDotCount, JUGGLE_COUNT } from '../../state/juggle'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
 import type { NodeEmitters } from '../../codegen/emitContext'
+import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
 import {
@@ -446,6 +447,33 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`    int _k=0; while(_k<${SUNRISE_STOPS.length - 2}&&_p>_sa[_k+1]) _k++;`)
     ln(`    float _u=constrain((_p-_sa[_k])/(_sa[_k+1]-_sa[_k]),0.0f,1.0f),_v=powf(_p,${lit(SUNRISE_GAMMA)});`)
     ln(`    fill_solid(${ob},NUM_LEDS,CRGB((uint8_t)((_sr[_k]+(_sr[_k+1]-_sr[_k])*_u)*_v),(uint8_t)((_sg[_k]+(_sg[_k+1]-_sg[_k])*_u)*_v),(uint8_t)((_sb[_k]+(_sb[_k+1]-_sb[_k])*_u)*_v))); }`)
+  },
+  DigitalRain({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+    needsT.v = true
+    const ob = ownBuf()
+    const dir = rainDirection(p.direction)
+    const vertical = dir === 'down' || dir === 'up'
+    const lanes = vertical ? 'WIDTH' : 'HEIGHT', along = vertical ? 'HEIGHT' : 'WIDTH'
+    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const seed = seedProp(p)
+    const A = `_dr_${id}`
+    ln(`  { // Digital Rain`)
+    ln(`    ${CLASSIC_HASH_CPP}`)
+    ln(`    static float ${A}h[${lanes}], ${A}s[${lanes}], ${A}l[${lanes}]; static bool ${A}init=false;`)
+    if (seed) ln(`    static bool ${A}sd=false; if(!${A}sd){ random16_set_seed(${seed}u); ${A}sd=true; }`)
+    ln(`    if(!${A}init){ for(int _l=0;_l<${lanes};_l++){ ${A}h[_l]=${along}+1000.0f; ${A}s[_l]=0.0f; ${A}l[_l]=1.0f; } ${A}init=true; }`)
+    ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
+    ln(`    float _dn=constrain(${f('density', 'density', 0.5)},0.0f,1.0f),_fk=constrain(${f('flicker', 'flicker', 0.3)},0.0f,1.0f),_tl=fmaxf(2.0f,${f('tailLength', 'tailLength', 8)});`)
+    ln(`    float _sp=fmaxf(0.0f,${rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.DigitalRain)});`)
+    ln(`    for(int _l=0;_l<${lanes};_l++){`)
+    ln(`      if(${A}h[_l]>=${along}+${A}l[_l]){ if(_rnd()<_dn*${lit(RAIN_SPAWN)}){ ${A}h[_l]=0.0f; ${A}s[_l]=0.25f+_rnd()*0.75f; ${A}l[_l]=fmaxf(2.0f,_tl*(0.5f+_rnd()*0.5f)); } }`)
+    ln(`      else ${A}h[_l]+=${A}s[_l]*_sp*${lit(RAIN_STEP)}; }`)
+    ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black);`)
+    ln(`    uint32_t _bk=(uint32_t)floorf(t*${lit(RAIN_FLICKER_HZ)});`)
+    ln(`    for(int _l=0;_l<${lanes};_l++){ if(${A}h[_l]>=${along}+${A}l[_l]) continue;`)
+    ln(`      for(int _ps=0;_ps<${along};_ps++){ float _d=${A}h[_l]-_ps; if(_d<0.0f||_d>=${A}l[_l]) continue;`)
+    ln(`        float _b=1.0f-_d/${A}l[_l],_v=_b*(1.0f-_fk*_h((uint32_t)(_l*131+_ps*17)+_bk*7U));`)
+    ln(`        CRGB _c=ColorFromPalette(${pal},(uint8_t)(_b*255.0f)); ${ob}[${rainIndexCpp(dir, '_l', '_ps')}]=CRGB((uint8_t)(_c.r*_v),(uint8_t)(_c.g*_v),(uint8_t)(_c.b*_v)); } } }`)
   },
   TVSimulator({ ln, f, ownBuf, needsT }) {
     needsT.v = true

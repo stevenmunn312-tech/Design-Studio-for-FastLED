@@ -17,6 +17,8 @@ export const SPEED_MAX: Record<string, number> = {
   Boids: 0.7,
   // StringParticles — track cells a full-power drift particle moves per frame, before the 0.6 step.
   StringParticles: 2,
+  // DigitalRain: head cells per frame a full-speed stream advances, before the shared 0.5 step.
+  DigitalRain: 2,
   // NoiseSignal — noise-lattice cells travelled per second at speed 1.
   NoiseSignal: 2,
   Blobs: 2, GaborNoise: 1.5, FractalNoise: 1.2, FieldNoise: 1.2, PaletteGradient: 2,

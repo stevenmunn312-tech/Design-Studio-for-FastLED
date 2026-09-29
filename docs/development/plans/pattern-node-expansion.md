@@ -418,7 +418,8 @@ Checklist:
 - [ ] Automaton: the four types, rule and state tests (rule 90 makes the
       Sierpinski triangle from one seed cell; cyclic converges to spirals),
       RAM row.
-- [ ] Digital Rain with all four directions and a string test.
+- [x] Digital Rain with all four directions and a string test (a 1-row canvas
+      runs left and right along its length).
 - [ ] Gauge with the four styles and the sensor live example.
 - [x] Candle, Lightning, Heartbeat, Sunrise, TV Simulator: stateless or
       near-stateless on one shared integer hash (`classics.ts`), so the preview

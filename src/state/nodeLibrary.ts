@@ -43,6 +43,7 @@ import { GRADIENT_MIX_MODES } from './hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
+import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
 import { WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
@@ -877,6 +878,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     propertyInputs: { progress: 'progress', duration: 'duration', start: 'start' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { mode: 'timed', duration: 30, start: 0, progress: 0 },
+  },
+  {
+    // Digital Rain — falling streams with bright heads and fading tails.
+    type: 'DigitalRain',
+    label: 'Digital Rain',
+    category: 'pattern',
+    subcategory: 'Generative',
+    inputs: [
+      { id: 'density', label: 'Density', dataType: 'float' },
+      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'tailLength', label: 'Tail Length', dataType: 'float' },
+      { id: 'flicker', label: 'Flicker', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+    ],
+    propertyInputs: { density: 'density', speed: 'speed', tailLength: 'tailLength', flicker: 'flicker', palette: 'paletteIn' },
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    defaultProperties: { direction: 'down', density: 0.5, speed: 0.5, tailLength: 8, flicker: 0.3, palette: 'forest', seed: 0 },
   },
   {
     // TV Simulator — seeded scene cuts between coloured blocks, with a slow drift.
@@ -4714,6 +4732,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Lightning: 'Storm flashes: random strikes of two to five flickers, or one on each trigger.',
   Heartbeat: 'A lub-dub double pulse at a set heart rate.',
   Sunrise: 'A dawn ramp from night blue to warm white, on a timer or a progress input.',
+  DigitalRain: 'Falling streams of light with bright heads and fading tails, in any direction.',
   TVSimulator: 'Flickering television light: quick scene cuts between coloured blocks.',
   Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   SpectrumBars: 'Palette-driven equalizer bars with audio-reactive motion.',
@@ -5582,6 +5601,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     duration: { control: 'slider', min: 1, max: 3600, step: 1 },
     start: { control: 'slider', min: 0, max: 3600, step: 1 },
   },
+  DigitalRain:     {
+    direction: { control: 'select', options: [...RAIN_DIRECTIONS] },
+    density: N01, speed: N01, flicker: N01,
+    tailLength: { control: 'slider', min: 2, max: 64, step: 1 },
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+  },
   TVSimulator:     { cutRate: { control: 'slider', min: 0.05, max: 4, step: 0.05 }, brightness: N01 },
   Juggle:          {
     speed: N01,
@@ -6234,6 +6259,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     mode: 'Timed: the ramp starts at Start and runs for Duration. Manual: Progress sets the point on the ramp.',
     duration: 'Seconds the ramp takes from night to full light.',
     start: 'Second at which the ramp begins.',
+  },
+  DigitalRain: {
+    direction: 'Which way the streams fall. On a string, left and right run them along its length.',
+    density: 'How readily idle lanes start a new stream.',
+    tailLength: 'Longest tail, in LEDs. Each stream draws between half and all of this.',
   },
   TVSimulator: {
     cutRate: 'Scene cuts per second.',

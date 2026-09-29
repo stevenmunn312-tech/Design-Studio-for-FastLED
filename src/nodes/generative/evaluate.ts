@@ -14,15 +14,17 @@ import {
   blankFrame,
 } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
+import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainGeometry, rainIndex } from '../../state/evaluator/digitalRain'
 import { hexToRgb } from '../../state/customPalette'
 import {
-  candleColor, candleMode, heartbeatEnvelope, heartbeatPhase, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
+  candleColor, candleMode, classicHash, heartbeatEnvelope, heartbeatPhase, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
   tvColor, tvLayout, type LightningState,
 } from '../../state/evaluator/classics'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise, worleyMode, worleyValue, type NoiseShape, type WorleyMode } from '../../state/evaluator/noiseShape'
 import {
   seededRandom,
+  seededRngState,
   seedOffset,
   _snoise2,
   worleyHash,
@@ -626,6 +628,45 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
 
 // ── Classics: Candle, Lightning, Heartbeat, Sunrise, TV Simulator ─────────────
 const lightningState = instanceState('lightningState', new Map<string, LightningState>())
+interface RainState { w: number; h: number; dir: string; seed: number; head: Float32Array; spd: Float32Array; len: Float32Array }
+const rainState = instanceState('rainState', new Map<string, RainState>())
+
+function evalDigitalRain(
+  nodeId: string, dir: ReturnType<typeof rainDirection>, density: number, speed: number, tail: number, flicker: number,
+  t: number, palette: Palette, W: number, H: number, seed: number,
+): Frame {
+  const { lanes, along } = rainGeometry(dir, W, H)
+  let s = rainState.get(nodeId)
+  if (!s || s.w !== W || s.h !== H || s.dir !== dir || s.seed !== seed) {
+    seededRngState.delete(`${nodeId}:rain`)
+    // Every lane starts idle: its head is past the far end with its whole tail.
+    s = { w: W, h: H, dir, seed, head: new Float32Array(lanes).fill(along + 1000), spd: new Float32Array(lanes), len: new Float32Array(lanes).fill(1) }
+    rainState.set(nodeId, s)
+  }
+  const rnd = () => seededRandom(`${nodeId}:rain`, seed)
+  const dens = clamp01(density), fl = clamp01(flicker), tl = Math.max(2, tail)
+  for (let l = 0; l < lanes; l++) {
+    if (s.head[l] >= along + s.len[l]) {
+      if (rnd() < dens * RAIN_SPAWN) { s.head[l] = 0; s.spd[l] = 0.25 + rnd() * 0.75; s.len[l] = Math.max(2, tl * (0.5 + rnd() * 0.5)) }
+    } else s.head[l] += s.spd[l] * Math.max(0, speed) * RAIN_STEP
+  }
+  const frame = blankFrame(W, H)
+  const bucket = Math.floor(t * RAIN_FLICKER_HZ)
+  for (let l = 0; l < lanes; l++) {
+    if (s.head[l] >= along + s.len[l]) continue
+    for (let pos = 0; pos < along; pos++) {
+      const d = s.head[l] - pos
+      if (d < 0 || d >= s.len[l]) continue
+      const b = 1 - d / s.len[l]
+      const v = b * (1 - fl * classicHash(l * 131 + pos * 17 + bucket * 7))
+      const c = samplePalette(palette, b)
+      const at = rainIndex(dir, W, H, l, pos)
+      frame[Math.floor(at / W)][at % W] = { r: Math.floor(c.r * v), g: Math.floor(c.g * v), b: Math.floor(c.b * v) }
+    }
+  }
+  return frame
+}
+
 const scaled = (c: RGB, v: number): RGB => ({ r: Math.floor(c.r * v), g: Math.floor(c.g * v), b: Math.floor(c.b * v) })
 
 const CLASSIC_EVALUATORS: NodeEvaluators = {
@@ -658,6 +699,15 @@ const CLASSIC_EVALUATORS: NodeEvaluators = {
     const p = sunriseProgress(mode, t, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
     const c = sunriseColor(p)
     return { frame: buildFrame(W, H, () => c) }
+  },
+  DigitalRain({ num, pal, t, W, H, stateKey }, id, props) {
+    return {
+      frame: evalDigitalRain(
+        stateKey(id), rainDirection(props.direction), num(id, 'density', props, 'density', 0.5),
+        denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.DigitalRain), num(id, 'tailLength', props, 'tailLength', 8),
+        num(id, 'flicker', props, 'flicker', 0.3), t, pal(id, 'paletteIn', props, 'palette', 'forest'), W, H, normalizedSeed(props.seed),
+      ),
+    }
   },
   TVSimulator({ num, t, W, H }, id, props) {
     const cutRate = Math.max(0.05, num(id, 'cutRate', props, 'cutRate', 0.5))

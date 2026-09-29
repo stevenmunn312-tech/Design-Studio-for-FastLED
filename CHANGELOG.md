@@ -9,6 +9,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- New Digital Rain node: falling streams with bright heads and fading tails,
+  with density, speed, tail length and flicker. Direction is down, up, left or
+  right, so a string can run the rain along its length.
 - Five classic light effects join Patterns: Candle (one flame or one per
   pixel), Lightning (random strikes of two to five flashes, or one per trigger),
   Heartbeat (a lub-dub pulse at a set BPM), Sunrise (night blue to warm white,
