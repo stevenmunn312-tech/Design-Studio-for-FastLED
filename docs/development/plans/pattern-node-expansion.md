@@ -1,6 +1,6 @@
 # Pattern node expansion — tiling, warp, Turing and Fourier nodes
 
-Status: **in progress — Phases 0–9 complete; 10 built, compile check open; 11 open** · Owner: app · Date: 2026-09-29
+Status: **in progress — Phases 0–9 complete; 10 complete; 11 open** · Owner: app · Date: 2026-09-29
 
 An ordered, checkboxed plan for the pattern-creation nodes two reviews found
 missing. Phases 0–7 came out of a review of the library against two sources: the space-subdivision pattern
@@ -436,8 +436,10 @@ Checklist:
       frames before the variants existed).
 - [x] README Patterns and Fields lines; node cards; `patternRating` sets;
       design note [`simulation-fields.md`](../design/simulation-fields.md).
-- [ ] Compile check on classic ESP32 and ESP8266; RAM at 16×16 and 32×32
-      for Fluid and Automaton.
+- [x] Compile check on classic ESP32 and ESP8266; RAM at 16×16 and 32×32
+      for Fluid and Automaton. ESP32 passes all four graphs. ESP8266 passes
+      string, ring and 16×16 (87% RAM) but Fluid at 32×32 does not fit; see the
+      [compile record](../pattern-node-compile-checks.md).
 
 ## Phase 11 — Output, layout and media follow-ons
 
