@@ -17,6 +17,12 @@ export interface RingGeometry {
   direction: RingDirection
 }
 
+export interface PositionsGeometry {
+  canvasW: number
+  canvasH: number
+  points: ReadonlyArray<readonly [number, number]>
+}
+
 export interface CorkscrewGeometry {
   ledCount: number
   turns: number
@@ -50,6 +56,7 @@ export default function HardwareLedPreview({
   cellFill = 1,
   ring,
   corkscrew,
+  positions,
   run,
   style,
   className,
@@ -76,6 +83,10 @@ export default function HardwareLedPreview({
   /** Draw one physical chain as a front-on helix. Its colours still arrive in
    *  wire order; only the fixed emitter positions change. */
   corkscrew?: CorkscrewGeometry | null
+  /** Draw each LED at its own (x, y) on a canvas of `canvasW` x `canvasH`, the
+   *  positions a positioned string samples the graph at. Colours still arrive
+   *  in wire order. */
+  positions?: PositionsGeometry | null
   /** A run the bench drew broken: which real emitter each drawn cell shows and
    *  the slot it occupies, over `span` slots. The removed middle is a slot
    *  range nothing is drawn in, so both ends keep the pitch an unbroken run
@@ -89,7 +100,7 @@ export default function HardwareLedPreview({
   const previousRef = useRef<Uint32Array>(new Uint32Array(0))
   const onScreenRef = useRef(true)
 
-  const count = run ? run.cells.length : ring?.ledCount ?? corkscrew?.ledCount ?? cols * rows
+  const count = run ? run.cells.length : ring?.ledCount ?? corkscrew?.ledCount ?? positions?.points.length ?? cols * rows
 
   /*
    * A ring's LEDs, laid out on a unit-square viewBox. Angles match
@@ -269,7 +280,43 @@ export default function HardwareLedPreview({
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
-  }, [cols, corkscrew, count, nodeId, port, ring, rows, run])
+  }, [cols, corkscrew, count, nodeId, port, positions, ring, rows, run])
+
+  if (positions) {
+    // Canvas units are the viewBox, so the string sits over the picture it
+    // samples: an LED at (x, y) is drawn at (x, y). The wire joins them in
+    // order, behind the emitters.
+    const radius = Math.max(0.28, Math.min(0.42, 6 / Math.max(positions.points.length, 1) + 0.2))
+    return (
+      <svg
+        ref={wrapRef}
+        className={className}
+        style={style}
+        viewBox={`0 0 ${positions.canvasW} ${positions.canvasH}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <polyline
+          points={positions.points.map(([x, y]) => `${x},${y}`).join(' ')}
+          fill="none"
+          stroke="#5b4824"
+          strokeWidth="0.18"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.8"
+        />
+        {positions.points.map(([x, y], index) => (
+          <g
+            key={index}
+            ref={(element) => { cellRefs.current[index] = element }}
+            fill="rgb(0 0 0)"
+          >
+            <Lamp x={x - radius} y={y - radius} width={radius * 2} height={radius * 2} />
+          </g>
+        ))}
+      </svg>
+    )
+  }
 
   if (ringCells) {
     return (

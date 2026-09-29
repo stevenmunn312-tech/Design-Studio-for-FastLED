@@ -20,6 +20,7 @@ import {
   type RingDirection,
 } from './ledOutputForm'
 import { halfDim, renderScaleHalf, upscaleTap } from './renderScale'
+import { positionsFixedFor, positionTap, stringPositions, type StringPositions } from './stringPositions'
 
 export type OutputRouteMode = 'native' | 'fit' | 'crop'
 
@@ -40,6 +41,9 @@ export interface OutputRoute {
   /** 0.5 when a native matrix route renders at half resolution and upscales;
    *  1 otherwise. Never combined with supersample. */
   renderScale: 1 | 0.5
+  /** For a positioned string: where each LED sits on its canvas. Null otherwise.
+   *  The LED count is `width`; the canvas it reads is `canvasW` x `canvasH`. */
+  positions: StringPositions | null
   /** The GPIO this run's data line is on. Two runs on the same pin, fed the
    *  same frame, are wired in parallel — see `outputMirrorLeaders`. */
   dataPin: number
@@ -157,6 +161,7 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
         supersample: linear ? 1 : props.supersample === true ? 2 : 1,
         routeMode,
         renderScale: routeMode === 'native' && renderScaleHalf(props) ? 0.5 : 1,
+        positions: stringPositions(props),
         routeX: int(props.routeX, 0, 0, 63),
         routeY: int(props.routeY, 0, 0, 63),
         ring: form === 'ring'
@@ -378,6 +383,31 @@ export function routeFrame(frame: Frame | null, route: OutputRoute, compositionW
       const index = shapeMap[i] ?? 0
       const src = frame[Math.floor(index / stride)]?.[index % stride]
       px.r = src?.r ?? 0; px.g = src?.g ?? 0; px.b = src?.b ?? 0
+    }
+    return out
+  }
+  if (route.positions) {
+    // Positioned string: one bilinear read of the composition per LED, at the
+    // LED's own coordinates. Same taps the sketch computes from its table.
+    const orow = out[0]
+    const w = Math.max(1, compositionW)
+    const h = Math.max(1, compositionH)
+    const fixed = positionsFixedFor(route.positions, w, h)
+    for (let i = 0; i < route.width; i++) {
+      const px = orow[i]
+      const fx = fixed[i * 2]
+      const fy = fixed[i * 2 + 1]
+      if (fx === undefined || fy === undefined) { px.r = 0; px.g = 0; px.b = 0; continue }
+      const tx = positionTap(fx, w)
+      const ty = positionTap(fy, h)
+      const a = frame[ty.i0]?.[tx.i0], b = frame[ty.i0]?.[tx.i1]
+      const c = frame[ty.i1]?.[tx.i0], d = frame[ty.i1]?.[tx.i1]
+      const mix = (ch: 'r' | 'g' | 'b') => {
+        const top = (a?.[ch] ?? 0) * (1 - tx.f) + (b?.[ch] ?? 0) * tx.f
+        const bottom = (c?.[ch] ?? 0) * (1 - tx.f) + (d?.[ch] ?? 0) * tx.f
+        return top * (1 - ty.f) + bottom * ty.f
+      }
+      px.r = mix('r'); px.g = mix('g'); px.b = mix('b')
     }
     return out
   }

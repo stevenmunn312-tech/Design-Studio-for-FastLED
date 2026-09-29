@@ -12,6 +12,8 @@
 // how many LEDs there are, what the composition canvas looks like, which
 // editors apply — follows from it.
 
+import { positionCanvasDims, usesPositions } from './stringPositions'
+
 /** The output forms the authoring geometry understands. */
 export type LedOutputForm = 'strip' | 'matrix' | 'ring' | 'corkscrew' | 'hub75'
 
@@ -113,6 +115,7 @@ export function ringCanvasDiameter(ledCount: number): number {
  * need two-axis authoring canvases (see the geometry helpers below).
  */
 export function outputCanvasDims(props: Record<string, unknown>): { width: number; height: number } {
+  if (usesPositions(props)) return positionCanvasDims(props)
   if (outputForm(props) === 'ring') {
     const d = ringCanvasDiameter(Number(props.ledCount ?? 60))
     return { width: d, height: d }

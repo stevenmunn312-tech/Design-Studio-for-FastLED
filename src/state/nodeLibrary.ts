@@ -25,8 +25,9 @@ import { IR_REMOTE_LEARN_HANDLE } from './irRemote'
 import { JUGGLE_COUNT } from './juggle'
 import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
-import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, outputForm } from './ledOutputForm'
+import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './ledOutputForm'
 import { RENDER_SCALE_OPTIONS } from './renderScale'
+import { POSITION_PRESETS, STRIP_LAYOUTS, usesPositions } from './stringPositions'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './pixelDataExtender'
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './powerConverter'
 import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
@@ -3835,6 +3836,15 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // JSON array of WIDTH*HEIGHT ints (a permutation of 0..N-1): grid index
       // (row-major) -> physical LED index. Only used when layout is 'custom'.
       customXYMap: '',
+      // String form only. 'line' is a straight run of tape; 'positions' places
+      // each LED at its own (x, y) on a canvas (src/state/stringPositions.ts).
+      stripLayout: 'line',
+      // 'catenary' is the Sailboat preset; 'custom' reads `positions`.
+      positionsPreset: 'catenary',
+      positionsWidth: 32,
+      positionsHeight: 16,
+      // "x,y" pairs in canvas units, one per LED, any separators.
+      positions: '',
       // The Frame cable into each LED output is an explicit hardware route.
       // Native renders the graph at this output's own geometry. Fit/crop opt
       // into the shared composition canvas for intentional multi-panel work.
@@ -5486,6 +5496,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     corkscrewHeightMm: { control: 'slider', min: 10, max: 4000, step: 10 },
     // 'strip' is gone: a run of tape is a `form` now, not a wiring order.
     layout: { control: 'select', options: ['matrix', 'panels', 'custom'] },
+    stripLayout: { control: 'select', options: STRIP_LAYOUTS },
+    positionsPreset: { control: 'select', options: POSITION_PRESETS },
+    positionsWidth: { control: 'slider', min: 2, max: MAX_MATRIX_SIDE, step: 1 },
+    positionsHeight: { control: 'slider', min: 1, max: MAX_MATRIX_SIDE, step: 1 },
     routeMode: { control: 'select', options: ['native', 'fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
@@ -6197,6 +6211,11 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   bypassed: "Skips this node's own effect entirely and passes the matching input straight through — a quick A/B mute without unwiring.",
   audioOutput: "'i2s' drives an external DAC/amp over the I2S pins below. 'internalDac' uses the classic ESP32's built-in DAC, fixed to GPIO25/26 — not available on ESP32-S3/S2/C3.",
   overclock: 'Clockless chipsets only — multiplies the FastLED output clock. 1 = stock timing.',
+  stripLayout: 'Line runs the string as a straight row. Positions places each LED at its own spot on a canvas, so a string hung in a curve, or wound round a shape, shows the part of the picture it actually sits over.',
+  positionsPreset: 'Catenary hangs the string in a sag between two points along the top of the canvas (the sailboat mast lights). Custom reads the positions list.',
+  positionsWidth: 'Width of the canvas the string sits on, in pixels. Positions are measured in these units.',
+  positionsHeight: 'Height of the canvas the string sits on, in pixels.',
+  positions: 'One x,y pair per LED in wire order, in canvas pixels, for example 2,3 4.5,3.5 7,4. Separate with commas, spaces or new lines. Needs a pair for every LED, otherwise the LEDs fall back to a straight row across the middle.',
   renderScale: 'Render the graph at half the panel resolution and upscale it smoothly onto the LEDs. It quarters the render cost and memory on a large panel, and the picture is softer. Turn off Supersample first: the two cannot combine.',
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
   dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
@@ -6823,6 +6842,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
+    { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'positionsWidth', 'positionsHeight', 'positions'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
     // No 'brightness' here: master brightness is the Board's, on FastLED's
     // native 0-255. The output's own normalised runtime dimmer has the distinct
@@ -7621,6 +7641,11 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return !linear && properties.layout === 'panels'
     if (key === 'customXYMap') return !linear && properties.layout === 'custom'
+    // A positioned layout is a string-only choice, and its sub-settings only
+    // matter once it is chosen.
+    if (key === 'stripLayout') return form === 'strip'
+    if (key === 'positionsPreset' || key === 'positionsWidth' || key === 'positionsHeight') return usesPositions(properties)
+    if (key === 'positions') return usesPositions(properties) && properties.positionsPreset !== 'catenary'
   }
   if (nodeType === 'Mirror' && key === 'glowAmount') {
     return properties.glow === true

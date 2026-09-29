@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- An LED String can now be laid out by position. Choose Positions under String
+  Layout and each LED sits at its own spot on a canvas you size, reading the
+  picture under it smoothly: hang the string in a curve with the Catenary preset
+  (sailboat masts), or type an x,y pair per LED. The LED Output node draws the
+  string over its canvas. Music Player and SD player builds do not support a
+  positioned string yet and say so before upload.
 - The LED output gains a Render scale setting (Rendering group) for matrix
   panels: `1/2` renders the graph at half the panel's resolution and upscales it
   smoothly onto the LEDs, a quarter of the render cost and memory on a large

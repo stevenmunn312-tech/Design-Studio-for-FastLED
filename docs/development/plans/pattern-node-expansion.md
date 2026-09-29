@@ -458,10 +458,22 @@ through step 11 of the
       `compositionDims` reads it. Show and player sketches do not resample,
       exactly as with supersample. Compiled on classic ESP32, see the
       [compile record](../pattern-node-compile-checks.md).
-- [ ] **Positioned string layouts.** A `positions` layout for strings: one
-      `(x, y)` in canvas units per LED, sampled bilinearly and emitted as a
-      PROGMEM table like `ringMap`, with the Sailboat catenary as a preset; the
-      preview and Build Diagram draw LEDs where they sit. FastLED's ScreenMap.
+- [x] **Positioned string layouts.** A `stripLayout` select `['line',
+      'positions']` on the string form: one `(x, y)` in canvas units per LED,
+      sampled bilinearly and emitted as a PROGMEM table (1/256-pixel fixed point,
+      4 bytes per LED), with the Sailboat catenary as `positionsPreset` and a
+      custom `positions` list beside it. FastLED's ScreenMap. The list is parsed
+      to numbers on the TypeScript side and only numbers reach C++; a list with
+      fewer than one pair per LED falls back to a straight row, which the preview
+      shows. Contract and sampling rule live in `state/stringPositions.ts`,
+      shared by the preview's `routeFrame` and the sketch. Deviations from the
+      plan: the LED Output node's own preview draws the string over its canvas,
+      but the main LED Output pane still draws a row (as it does for a ring) and
+      the Build Diagram still draws a straight run, because canvas units are not
+      millimetres; and Music Player and SD player sketches do not generate the
+      map, so `findShowOutputFormErrors` blocks them the way it blocks a ring.
+      Compiled on classic ESP32 and ESP8266, see the
+      [compile record](../pattern-node-compile-checks.md).
 - [x] **White point.** A per-output `whitePoint` select of FastLED
       `ColorTemperature` names, emitted through `setTemperature` by
       `fastledSetupCpp`, so normal, show, player, stream and diagnostic sketches

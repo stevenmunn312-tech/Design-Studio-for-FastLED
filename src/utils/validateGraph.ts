@@ -23,6 +23,7 @@ import { isValidRtcDateTime } from '../state/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/outputRouting'
 import { renderScaleHalf } from '../state/renderScale'
+import { usesPositions } from '../state/stringPositions'
 import { boardGpioInfo } from '../state/uploadStore'
 import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
 import { getNetworkCredentials } from '../state/networkCredentials'
@@ -710,7 +711,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     if (outputs.length !== 1) return null
     const output = outputs[0]
     const p = output.data.properties as Record<string, unknown>
-    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p)) return null
+    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p) || usesPositions(p)) return null
     if (String(p.chipset ?? '') === 'HUB75') return null
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
@@ -1188,15 +1189,19 @@ export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[
   return nodes
     .filter((node) => node.data.nodeType === 'MatrixOutput' && (showDriven.has(node.id) || playerDriven.has(node.id)))
     .filter((node) => {
-      const form = outputForm(node.data.properties as Record<string, unknown>)
-      return form === 'ring' || form === 'corkscrew'
+      const props = node.data.properties as Record<string, unknown>
+      const form = outputForm(props)
+      return form === 'ring' || form === 'corkscrew' || usesPositions(props)
     })
     .map((node) => {
-      const form = outputForm(node.data.properties as Record<string, unknown>)
-      const label = form === 'ring' ? 'ring' : 'corkscrew'
-      const geometry = form === 'ring' ? 'circular' : 'helical'
+      const props = node.data.properties as Record<string, unknown>
+      const form = outputForm(props)
+      const positioned = usesPositions(props)
+      const label = positioned ? 'positioned string' : form === 'ring' ? 'ring' : 'corkscrew'
+      const geometry = positioned ? 'per-LED position' : form === 'ring' ? 'circular' : 'helical'
       const workflow = showDriven.has(node.id) ? 'Music Player' : 'music-sync SD player'
-      return `${String(node.data.label ?? (form === 'ring' ? 'LED Ring' : 'LED Corkscrew'))}: a ${label} cannot be driven by the ${workflow} yet — its ${geometry} LED map is not generated for that firmware. Use a string or matrix output, or drive the ${label} from a normal pattern graph.`
+      const fallbackLabel = positioned ? 'LED String' : form === 'ring' ? 'LED Ring' : 'LED Corkscrew'
+      return `${String(node.data.label ?? fallbackLabel)}: a ${label} cannot be driven by the ${workflow} yet — its ${geometry} LED map is not generated for that firmware. Use a straight string or matrix output, or drive the ${label} from a normal pattern graph.`
     })
 }
 

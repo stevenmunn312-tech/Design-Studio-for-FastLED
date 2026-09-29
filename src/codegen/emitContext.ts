@@ -73,6 +73,8 @@ export interface OutputEmitConfig extends OutputRoute {
   renderHeight: number
   ringMap: number[] | null
   corkscrewMap: number[] | null
+  /** Positioned string: x, y per LED in 1/256 render pixels, or null. */
+  posMap: number[] | null
 }
 
 /** A set-once flag an emitter raises to pull a helper into the sketch. */
@@ -105,7 +107,9 @@ export interface SketchEmitContext {
   rs: boolean
   ringMap: number[] | null
   corkscrewMap: number[] | null
-  physLeds: 'RING_LEDS' | 'CORKSCREW_LEDS' | 'PANEL_LEDS' | 'NUM_LEDS'
+  /** Positioned string: x, y per LED in 1/256 render pixels, or null. */
+  posMap: number[] | null
+  physLeds: 'RING_LEDS' | 'CORKSCREW_LEDS' | 'POS_LEDS' | 'PANEL_LEDS' | 'NUM_LEDS'
   outputConfigs: OutputEmitConfig[]
   nativeFastLedAudio: boolean
   hasExplicitAudioInput: (nodeId: string) => boolean

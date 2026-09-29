@@ -29,6 +29,7 @@ import {
   ringDirection,
   ringStartAngle,
 } from '../../state/ledOutputForm'
+import { stringPositions } from '../../state/stringPositions'
 import { partRenderForNodeType } from '../../state/partRenders'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../state/pinRetarget'
 import MatrixSizePopup from './MatrixSizePopup'
@@ -1495,6 +1496,22 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         frameThumbnail: false,
       }
     }
+    const positioned = stringPositions(rawProps)
+    if (positioned) {
+      // A positioned string is drawn over the canvas it reads, at the canvas's
+      // own aspect, so the curve of the string is the curve on screen.
+      return {
+        cols: grid.width,
+        rows: 1,
+        height: Math.max(FRAME_PREVIEW_MIN_HEIGHT, Math.round((BODY_CONTENT_W * positioned.canvasH) / positioned.canvasW)),
+        width: null,
+        cellFill: LED_CELL_FILL,
+        ring: null,
+        corkscrew: null,
+        positions: positioned,
+        frameThumbnail: false,
+      }
+    }
     if (form === 'strip') {
       // A string is already the same one-row frame shown by its upstream node.
       // Use the generic thumbnail's axis cap, aspect ratio and wrapper as well
@@ -1833,6 +1850,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     cellFill={outputShape.cellFill}
                     ring={outputShape.ring}
                     corkscrew={outputShape.corkscrew}
+                    positions={outputShape.positions}
                     className={styles.outputShapeLeds}
                   />
                 </div>

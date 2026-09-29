@@ -324,3 +324,11 @@ render (17×9), the bilinear upscale into the XY-mapped panel and
 bytes of RAM (9%). Generated source: 5,408 bytes, SHA-256
 `220acd12aa33ac5bd686754a9cd7767b3956f413cd940df8df5269f98d36a278`. ESP8266 was
 not built: the node adds no static float arrays.
+
+A 90-LED positioned string on the Sailboat catenary preset (Noise → Field →
+Frame, canvas 32×16, PROGMEM position map of 90 x, y pairs read bilinearly),
+built the same day. Classic ESP32 (`esp32:esp32:esp32`): pass, 396,979 bytes of
+flash (30%), 32,772 bytes of RAM (10%). ESP8266 (`esp8266:esp8266:nodemcuv2`,
+core 3.1.2): pass, 246,080 bytes of flash (23%), 35,140 of 80,192 bytes of RAM
+(43%). Generated source: 3,861 bytes, SHA-256
+`98bc410cae455df6f951f6e67398893068dc5b62ddbe7436c5123f3bb3a69cb3`.

@@ -372,6 +372,40 @@ describe('generateCpp', () => {
     expect(both).not.toContain('_sy = constrain(')
   })
 
+  it('bakes a positioned string as a PROGMEM position map read bilinearly', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      form: 'strip', stripLayout: 'positions', ledCount: 3, positionsWidth: 8, positionsHeight: 4,
+      positionsPreset: 'custom', positions: '0.5,0.5 2.5,1.5 3.5,3.5',
+    })
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const cpp = generateCpp([sc, out], [edge('e1', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('#define WIDTH    8')
+    expect(cpp).toContain('#define HEIGHT   4')
+    expect(cpp).toContain('#define POS_LEDS 3')
+    expect(cpp).toContain('const uint16_t _posmap[POS_LEDS * 2] PROGMEM = { 128,128,640,384,896,896 };')
+    expect(cpp).toContain('CRGB leds[POS_LEDS];')
+    expect(cpp).toContain('pgm_read_word(&_posmap[_i * 2])')
+    expect(cpp).toContain('leds[_i] = _c;')
+  })
+
+  it('emits only numbers from a positions list, whatever text it holds', () => {
+    const out = node('out', 'MatrixOutput', 'output', {
+      form: 'strip', stripLayout: 'positions', ledCount: 2, positionsPreset: 'custom',
+      positions: '1,1 2,2 */ system("x"); /*',
+    })
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const cpp = generateCpp([sc, out], [edge('e1', 'sc', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('system')
+    expect(cpp).toContain('_posmap[POS_LEDS * 2] PROGMEM = { 256,256,512,512 };')
+  })
+
+  it('leaves a straight string as it was, and ignores positions on a matrix', () => {
+    const line = generateCpp([node('a', 'MatrixOutput', 'output', { form: 'strip', ledCount: 30 })], [])
+    expect(line).not.toContain('POS_LEDS')
+    const matrix = generateCpp([node('b', 'MatrixOutput', 'output', { form: 'matrix', stripLayout: 'positions' })], [])
+    expect(matrix).not.toContain('POS_LEDS')
+  })
+
   it('emits no setTemperature by default, and drops an unknown white point', () => {
     expect(generateCpp([node('a', 'MatrixOutput', 'output', {})], [])).not.toContain('setTemperature')
     const bad = node('b', 'MatrixOutput', 'output', { whitePoint: 'Bogus); system("rm"' })

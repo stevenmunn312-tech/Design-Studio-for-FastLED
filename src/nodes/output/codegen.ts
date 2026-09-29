@@ -9,7 +9,7 @@ import {
   tftTransportForProps,
 } from '../../state/nodeLibrary'
 import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/ledOutputRuntimeCpp'
-import { renderScaleUpscaleCpp } from '../../codegen/renderScaleCpp'
+import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/renderScaleCpp'
 import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/playerControlsCpp'
 import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
 import { displayControlEdges } from '../../state/wireFirstControls'
@@ -577,7 +577,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of segmentDisplaySetupCpp(emit)) setupLines.push(line)
     for (const line of segmentDisplayLoopCpp(emit)) ln(line)
   },
-  MatrixOutput({ node, id, ln, srcBuf, outputRuntimeEmit, incoming, nodeMap, isMirrorOf, multipleOutputs, nativeMultiRender, hw, isHub75, hub75Hw, xyTable, ss, rs, ringMap, corkscrewMap, physLeds, outputConfigs, aliasedTerminalId, pressButton, stereoVuMeters, playerControlNodes, ledLatchOutputs }) {
+  MatrixOutput({ node, id, ln, srcBuf, outputRuntimeEmit, incoming, nodeMap, isMirrorOf, multipleOutputs, nativeMultiRender, hw, isHub75, hub75Hw, xyTable, ss, rs, ringMap, corkscrewMap, posMap, physLeds, outputConfigs, aliasedTerminalId, pressButton, stereoVuMeters, playerControlNodes, ledLatchOutputs }) {
     const mirrorOf = isMirrorOf(node)
     if (mirrorOf) {
       const leader = nodeMap.get(mirrorOf)
@@ -652,6 +652,11 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         ln(`    CRGB _c = ${src}[pgm_read_word(&_corkscrewmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
         ln(`    ${leds}[_i] = _c;`)
         ln(`  }`)
+      } else if (route.posMap) {
+        for (const line of positionReadCpp({
+          src, table: `_posmap_${route.safeId}`, count: String(route.posMap.length / 2),
+          srcW: 'WIDTH', srcH: 'HEIGHT', leds, post: `_c.nscale8_video(${route.hardware.brightness});`,
+        })) ln(line)
       } else if (route.routeMode === 'native' && route.renderScale < 1) {
         for (const line of renderScaleUpscaleCpp({
           src, srcW: 'WIDTH', srcH: 'HEIGHT', dstW: String(route.width), dstH: String(route.height),
@@ -699,6 +704,10 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       ln(`  for (int _i = 0; _i < RING_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_ringmap[_i])];`)
     } else if (corkscrewMap) {
       ln(`  for (int _i = 0; _i < CORKSCREW_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_corkscrewmap[_i])];`)
+    } else if (posMap) {
+      for (const line of positionReadCpp({
+        src, table: '_posmap', count: 'POS_LEDS', srcW: 'WIDTH', srcH: 'HEIGHT', leds: 'leds',
+      })) ln(line)
     } else if (rs) {
       for (const line of renderScaleUpscaleCpp({
         src, srcW: 'WIDTH', srcH: 'HEIGHT', dstW: 'PANEL_W', dstH: 'PANEL_H',

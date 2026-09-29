@@ -81,6 +81,7 @@ import {
 } from '../state/outputRouting'
 import { outputForm, isLinearForm, outputCanvasDims, outputLedTotal } from '../state/ledOutputForm'
 import { halfDim, renderScaleHalf } from '../state/renderScale'
+import { POSITION_FIXED_SCALE, positionsFixedFor } from '../state/stringPositions'
 import { getNetworkCredentials } from '../state/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import {
@@ -530,10 +531,14 @@ export function generateCpp(
   const corkscrewMap = isCorkscrew && outputNode
     ? corkscrewMapFor(outputRoutes([outputNode])[0], width, height)
     : null
+  // A positioned string reads its canvas at one baked (x, y) per LED, so like a
+  // ring it owns a physical count that is not the render buffer's.
+  const singlePositions = !multipleOutputs && outputNode ? outputRoutes([outputNode])[0].positions : null
+  const posMap = singlePositions ? positionsFixedFor(singlePositions, width, height) : null
   // Supersampling and a half-resolution render both render on a grid that is
   // not the panel, so the physical array and XY() follow the PANEL_* macros.
   const split = ss || rs
-  const physLeds = isRing ? 'RING_LEDS' : isCorkscrew ? 'CORKSCREW_LEDS' : split ? 'PANEL_LEDS' : 'NUM_LEDS'
+  const physLeds = isRing ? 'RING_LEDS' : isCorkscrew ? 'CORKSCREW_LEDS' : posMap ? 'POS_LEDS' : split ? 'PANEL_LEDS' : 'NUM_LEDS'
   const panelW = split ? 'PANEL_W' : 'WIDTH'
   // Optional power cap (FastLED.setMaxPowerInVoltsAndMilliamps) — dims globally
   // to keep the PSU draw under a limit so a big matrix can't brown out the board.
@@ -563,6 +568,7 @@ export function generateCpp(
       renderHeight: pass.height,
       ringMap: ringMapFor(route, pass.width, pass.height),
       corkscrewMap: corkscrewMapFor(route, pass.width, pass.height),
+      posMap: route.positions ? positionsFixedFor(route.positions, pass.width, pass.height) : null,
     }
   })
 
@@ -651,7 +657,7 @@ export function generateCpp(
    */
   const aliasedTerminalId: string | null = (() => {
     if (opts.aliasTerminalBuffer === false) return null
-    if (multipleOutputs || isHub75 || ringMap || split || xyTable) return null
+    if (multipleOutputs || isHub75 || ringMap || posMap || split || xyTable) return null
     if (!outputNode) return null
     const up = incoming.get(`${outputNode.id}:frame`)
     if (!up || up.srcPort !== 'frame') return null
@@ -959,7 +965,7 @@ export function generateCpp(
   // Everything a node's emitter may read or collect into, built once.
   const sketch: SketchEmitContext = {
     nodes, edges, opts, bootTitle, bootDevice, incoming, nodeMap, isMirrorOf, multipleOutputs, intProp,
-    nativeMultiRender, width, height, props, hw, isHub75, hub75Hw, xyTable, ss, rs, ringMap, corkscrewMap,
+    nativeMultiRender, width, height, props, hw, isHub75, hub75Hw, xyTable, ss, rs, ringMap, corkscrewMap, posMap,
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
@@ -1272,6 +1278,9 @@ export function generateCpp(
   if (ringMap) {
     lines.push(`#define RING_LEDS ${ringMap.length}                 // LEDs around the ring`)
   }
+  if (posMap) {
+    lines.push(`#define POS_LEDS ${posMap.length / 2}                  // LEDs on the positioned string`)
+  }
   if (corkscrewMap) {
     lines.push(`#define CORKSCREW_LEDS ${corkscrewMap.length}           // LEDs along the helix`)
   }
@@ -1511,11 +1520,21 @@ export function generateCpp(
         lines.push(`const uint16_t _corkscrewmap_${route.safeId}[${route.corkscrewMap.length}] PROGMEM = { ${route.corkscrewMap.join(',')} };`)
         lines.push(``)
       }
+      if (route.posMap) {
+        lines.push(`// Position map for ${cppComment(route.label)} — x, y per LED in 1/${POSITION_FIXED_SCALE} render pixels.`)
+        lines.push(`const uint16_t _posmap_${route.safeId}[${route.posMap.length}] PROGMEM = { ${route.posMap.join(',')} };`)
+        lines.push(``)
+      }
     }
   } else if (ringMap) {
     lines.push(`// Ring sample map (LED index -> render index), baked from the ring's`)
     lines.push(`// LED count, start angle, and direction.`)
     lines.push(`const uint16_t _ringmap[RING_LEDS] PROGMEM = { ${ringMap.join(',')} };`)
+    lines.push(``)
+  } else if (posMap) {
+    lines.push(`// Position map: x, y per LED in 1/${POSITION_FIXED_SCALE} render pixels, baked from the`)
+    lines.push(`// output's positions. The output reads the render buffer bilinearly there.`)
+    lines.push(`const uint16_t _posmap[POS_LEDS * 2] PROGMEM = { ${posMap.join(',')} };`)
     lines.push(``)
   } else if (corkscrewMap) {
     lines.push(`// Corkscrew sample map (LED index -> render index), baked from the`)
@@ -1701,7 +1720,7 @@ export function generateCpp(
   } else if (isHub75) {
     lines.push(...hub75SetupCpp(hub75Hw!))
   } else if (outputNode) {
-    lines.push(...fastledSetupCpp(hw, (split || ringMap || corkscrewMap) ? { ledCountMacro: physLeds } : {}))
+    lines.push(...fastledSetupCpp(hw, (split || ringMap || corkscrewMap || posMap) ? { ledCountMacro: physLeds } : {}))
   }
   for (const meter of stereoVuMeters) {
     const meterHw = ledHardwareFromProps(meter.properties)
