@@ -199,6 +199,24 @@ is unplugged, and Temperature then holds its last good value. In preview, the
 on-node slider simulates the reading. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
+### Measure distance with an ultrasonic sensor
+
+Choose **Add Hardware → Inputs → HC-SR04 ultrasonic distance sensor** for a
+non-contact reading from about 2 cm to 4 m. It has four pins: **VCC** to **5 V**,
+**GND** to **GND**, **Trig** to the first GPIO shown in the inspector and
+**Echo** to the second. Echo swings to 5 V, which a 3.3 V controller pin does not
+tolerate, so it goes through a **1 kΩ and 2 kΩ divider** the Build Diagram draws
+beside the module. Trig can be driven at 3.3 V.
+
+The node publishes **Distance** in millimetres and **Connected**. Distance is a
+physical value, so use Map Range before wiring it into brightness, hue or
+speed. Connected turns false when no echo returns, for instance when nothing is
+in range or the sensor is unplugged, and Distance then holds its last good
+value. Readings are taken every 60 ms. Soft or steeply angled surfaces reflect
+poorly and can read as no echo. In preview, the on-node slider simulates the
+reading. The sensor is experimental until a physical comparison is recorded in
+the support matrix.
+
 ### Connect by Ethernet
 
 Art-Net input and NTP clock sync normally use Wi-Fi. For a cable instead, choose

@@ -272,6 +272,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   validation, manifest facts and direct compensated firmware all read that
   contract. On the I2C route, SDA lands on the breakout's SDI pad and SCL on
   SCK; SDO and CS remain unwired. The Build Diagram powers VIN from 3V3.
+- **Distance sensor (experimental):** `DistanceInput` is the HC-SR04. Trig is
+  `digitalOutput`, Echo is `digitalInput`. VCC takes the 5 V rail, so Echo swings
+  to 5 V and gets the same 1 kΩ / 2 kΩ divider as the MAX485's RO:
+  `receiveDivider` looks up the property and pad per part kind in
+  `RECEIVE_DIVIDER_SOURCES`, so add a new 5 V output there rather than copying the
+  drawing. The render shows the transducer face; its pad row was computed from
+  the model's own coordinates (12 px/mm), so re-measure if the render is replaced.
 - **Temperature probe (experimental):** `TemperatureInput` is the waterproof
   DS18B20 (Adafruit product 381). One GPIO, requested as `digitalOutput`
   because 1-Wire is driven low and released. The bare probe has no pull-up, so

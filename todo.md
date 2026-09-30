@@ -162,6 +162,10 @@ in the app and marked experimental; nothing here holds up development.
   temperatures including an ice bath, with Connected dropping and recovering
   when the probe is unplugged and replugged. The row's requirements are in the
   support matrix.
+- **D-05 distance sensor:** the HC-SR04 on 5 V with its 1 kΩ / 2 kΩ Echo divider,
+  read against a tape measure at two distances, with Connected dropping with
+  nothing in range and recovering. The row's requirements are in the support
+  matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -258,6 +262,11 @@ in the app and marked experimental; nothing here holds up development.
   generated for normal/show/player paths with library-free 1-Wire firmware; all
   four [compile fixtures pass](docs/development/temperature-sensor-compile-checks.md),
   and its bench row is in section 3.
+  The HC-SR04 ultrasonic ranger (`DistanceInput`) is modelled, catalogued, drawn
+  with its 1 kΩ / 2 kΩ Echo divider, previewed and generated for
+  normal/show/player paths; its compile result is in the
+  [distance-sensor record](docs/development/distance-sensor-compile-checks.md), and its bench row is in
+  section 3.
 
 ## Completed
 

@@ -226,6 +226,22 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`DistanceInput` is the HC-SR04 ultrasonic ranger on two GPIOs: Trig, requested
+as `digitalOutput`, and Echo, requested as `digitalInput`. It publishes
+`distance` in millimetres and a `connected` flag; a sensor that hears no echo has
+no reading, so a timeout clears `connected` and holds the last good distance
+rather than publishing a sentinel. The catalogue `distanceSensor` block owns the
+20 to 4000 mm window, the 10 µs trigger and the 5 V Echo level, which the preview
+slider and the Build Diagram both read. `distanceSensorCpp.ts` raises Trig, times
+Echo with `pulseIn` and converts at 0.1715 mm per microsecond, with no library.
+`pulseIn` blocks up to a round trip past 4 m, so a reading is taken at most every
+60 ms, the module's own recommended cycle, and held between; a missing sensor then
+costs a bounded stall about sixteen times a second instead of one on every frame.
+The module runs on 5 V and Echo swings to 5 V, so the Build Diagram powers VCC
+from the 5 V rail and reuses the DMX transceiver's receive divider
+(`receiveDivider`): a 1 kΩ series resistor and a 2 kΩ shunt bring Echo to 3.33 V
+and Echo's controller wire ends on the junction.
+
 `TemperatureInput` is the waterproof DS18B20 probe of Adafruit product 381 on
 one GPIO. It publishes `temperature` in °C and a `connected` flag; a bare probe
 has no meaningful reading, so a failed read clears `connected` and holds the

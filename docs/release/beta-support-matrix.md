@@ -589,6 +589,18 @@ Unless a future row says otherwise, treat the following as experimental:
   readings compared against a trusted thermometer at two temperatures,
   including an ice bath, and Connected going false and recovering when the probe
   is unplugged and reconnected.
+- **HC-SR04 ultrasonic distance sensor.** `DistanceInput` has a modelled
+  asset, preview, library-free trigger/echo firmware (10 µs Trig, timed Echo,
+  a reading every 60 ms with the last good value held), manifest and Build
+  Diagram coverage, including the 1 kΩ / 2 kΩ divider on the 5 V Echo, in the
+  normal, slideshow and player generators. It publishes Distance in mm and
+  Connected, over 2 cm to 4 m. Compile evidence is recorded in
+  [the distance-sensor compile checks](../development/distance-sensor-compile-checks.md),
+  but there is no physical row yet. The transducer placement in the render is
+  approximate.
+  Graduation needs a dated row naming the board/FQBN, both GPIOs and the
+  divider values, with readings compared against a tape measure at two
+  distances, and Connected going false with nothing in range and recovering.
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the
