@@ -35,6 +35,7 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
   // Which row is being dragged, and where it would land. Held here rather than
   // read back out of the drag event, because `dragover` fires on the row being
   // crossed and only this side knows what started moving.
+  const [addOpen, setAddOpen] = useState(false)
   const [dragFrom, setDragFrom] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
   // Read through the same normalizer the evaluator and the generator use, so
@@ -156,6 +157,18 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
               ))}
             </ol>
           )}
+          {/* An empty bank has nothing to show but the catalogue, so it stays open. */}
+          <button
+            type="button"
+            className={styles.addToggle}
+            onClick={() => setAddOpen((current) => !current)}
+            aria-expanded={addOpen || bank.length === 0}
+            disabled={bank.length === 0}
+          >
+            <span className={`${styles.sectionCaret}${addOpen || bank.length === 0 ? ` ${styles.sectionCaretOpen}` : ''}`}>▸</span>
+            <span>Add palettes</span>
+          </button>
+          {(addOpen || bank.length === 0) && (
           <div className={`nowheel ${styles.grid}`}>
             {PALETTE_DEFS.map((palette) => {
               const position = bank.indexOf(palette.id)
@@ -182,6 +195,7 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
               )
             })}
           </div>
+          )}
         </div>
       )}
     </div>

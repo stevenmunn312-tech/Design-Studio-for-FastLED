@@ -93,8 +93,24 @@ describe('PaletteBankBody', () => {
   })
 
   it('appends a newly ticked palette to the end of the bank', () => {
-    const { getByTitle } = render(<PaletteBankBody nodeId="bank" />)
+    const { getByTitle, getByText } = render(<PaletteBankBody nodeId="bank" />)
+    fireEvent.click(getByText('Add palettes'))
     fireEvent.click(getByTitle('Add Ice to the bank'))
     expect(bankNow()).toEqual(['ocean', 'lava', 'forest', 'ice'])
+  })
+
+  it('keeps the catalogue hidden until Add palettes is opened', () => {
+    const { queryByTitle, getByText } = render(<PaletteBankBody nodeId="bank" />)
+    expect(queryByTitle('Add Ice to the bank')).toBeNull()
+    fireEvent.click(getByText('Add palettes'))
+    expect(queryByTitle('Add Ice to the bank')).not.toBeNull()
+    fireEvent.click(getByText('Add palettes'))
+    expect(queryByTitle('Add Ice to the bank')).toBeNull()
+  })
+
+  it('shows the catalogue for an empty bank', () => {
+    installBank([])
+    const { getByTitle } = render(<PaletteBankBody nodeId="bank" />)
+    expect(getByTitle('Add Ice to the bank')).toBeTruthy()
   })
 })

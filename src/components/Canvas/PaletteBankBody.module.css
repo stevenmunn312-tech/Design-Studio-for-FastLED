@@ -49,6 +49,25 @@
   text-transform: none;
 }
 
+.addToggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.addToggle:hover:not(:disabled),
+.addToggle:focus-visible { color: var(--text-primary); }
+.addToggle:disabled { cursor: default; }
+
 .sectionContent {
   display: flex;
   flex-direction: column;
