@@ -362,3 +362,42 @@ describe('captureWindows trust threading', () => {
     expect(anyLit(await captureWindows(saved, 4, 4, {}, false))).toBe(false)
   })
 })
+
+// Vibe, Song Structure and Pitch Detect read fields of the audio payload that
+// used to be missing from the critic's synthetic audio, so a pattern taking its
+// volume from Vibe read as silent and was judged on a black screen.
+describe('captureWindows detector audio', () => {
+  const audioIn = {
+    ...node('in', 'GroupInput', 'group', { paramId: 'audio' }),
+  } as StudioNode
+  ;(audioIn.data as unknown as { outputs: unknown[] }).outputs = [{ id: 'out', label: 'Audio', dataType: 'audio' }]
+  const saved: SavedPattern = {
+    id: 'vibe', name: 'vibe', createdAt: 0, inputs: [], outputs: [],
+    subgraph: {
+      nodes: [
+        audioIn,
+        node('vibe', 'Vibe', 'audio', { gain: 1 }),
+        node('sc', 'SolidColor', 'pattern', { r: 255, g: 96, b: 24 }),
+        node('fade', 'Fade', 'composite', { fade: 0 }),
+        node('out', 'GroupOutput', 'output'),
+      ],
+      edges: [
+        edge('e1', 'in', 'vibe', 'out', 'audio'),
+        edge('e2', 'vibe', 'fade', 'volume', 'fade'),
+        edge('e3', 'sc', 'fade', 'frame', 'frame'),
+        edge('e4', 'fade', 'out', 'frame', 'frame'),
+      ],
+    },
+  }
+  const brightness = (windows: Frame[][]) =>
+    windows.flat().reduce((sum, f) => sum + f.reduce((rows, row) => rows + row.reduce((px, p) => px + p.r + p.g + p.b, 0), 0), 0)
+
+  it('feeds Vibe a volume, so the fade differs between silence and pulse', async () => {
+    // Fade to Black with fade = volume: silence leaves the colour, music darkens
+    // it. An inactive Vibe read 0 in both and the two scenarios were identical.
+    const silent = brightness(await captureWindows(saved, 4, 4, {}, true, 'silent'))
+    const pulse = brightness(await captureWindows(saved, 4, 4, {}, true, 'pulse'))
+    expect(silent).toBeGreaterThan(0)
+    expect(pulse).toBeLessThan(silent)
+  })
+})

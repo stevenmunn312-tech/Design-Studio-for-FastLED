@@ -678,6 +678,38 @@ let rateSerial = 0
 
 type AudioScenario = 'silent' | 'steady' | 'pulse'
 
+/** The Vibe, Song Structure and Pitch Detect nodes read these payload fields, and
+ *  a payload without them reads as inactive, so a pattern that takes its volume
+ *  from Vibe rendered black in every scenario. Levels follow the detector's own
+ *  contract: about 1.0 at the running average, 0 in silence. */
+function syntheticDetectors(
+  i: number, scenario: AudioScenario, bass: number, mids: number, treble: number, beat: boolean,
+): Pick<AudioOverride, 'vibe' | 'structure' | 'pitch'> {
+  const silent = scenario === 'silent'
+  const level = (v: number) => (silent ? 0 : 0.5 + v)
+  const volume = silent ? 0 : 0.5 + (bass + mids + treble) / 3
+  const beatIndex = Math.floor(i / Math.max(1, Math.round(RATE_FPS * 0.5)))
+  const pulse = scenario === 'pulse'
+  return {
+    vibe: {
+      bass: level(bass), mid: level(mids), treble: level(treble), volume,
+      bassAtt: level(bass), midAtt: level(mids), trebleAtt: level(treble),
+      bassSpike: pulse && beat, midSpike: false, trebleSpike: false,
+    },
+    structure: {
+      downbeat: pulse && beat && beatIndex % 4 === 0, beatNumber: (beatIndex % 4) + 1,
+      measurePhase: silent ? 0 : (i / (RATE_FPS * 2)) % 1,
+      building: false, buildupProgress: 0, drop: false, dropImpact: 0,
+      tempoStable: !silent, valence: silent ? 0 : 0.5, arousal: silent ? 0 : 0.6,
+    },
+    pitch: {
+      hz: silent ? 0 : 220, note: silent ? 0 : 57, noteOn: pulse && beat,
+      velocity: silent ? 0 : mids, confidence: silent ? 0 : 0.8,
+      keyRoot: 0, keyMinor: false, keyConfidence: silent ? 0 : 0.5,
+    },
+  }
+}
+
 /** Deterministic audio scenarios let the critic distinguish "looks good during
  *  one sweep" from a pattern that behaves coherently in silence, sustained
  *  energy, and beat-heavy material. */
@@ -692,6 +724,7 @@ function audioForFrame(i: number, scenario: AudioScenario): { override: AudioOve
     active: true, micActive: true, beat, bpm: 120,
     bass, mids, treble, micBass: bass, micMids: mids, micTreble: treble,
     spectrum, detectorSpectrum: spectrum,
+    ...syntheticDetectors(i, scenario, bass, mids, treble, beat),
   }
   const roles: Record<string, number | boolean> = {
     bass, mids, treble, kick: bass, snare: mids, hihat: treble, vocals: mids,
