@@ -221,7 +221,7 @@ in the app and marked experimental; nothing here holds up development.
   The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
   and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
   is still to do. It also has an `Overcurrent` output against an amps limit
-  (software only, not yet compiled); the INA226 is still open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
+  (software; compiled on classic ESP32 under arduino-cli 2026-09-30, 417,791 B flash, 29,060 B RAM); the INA226 is still open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
   drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
   divider on RO. It adds no firmware, so no compile is owed; its bench row is
   in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,
