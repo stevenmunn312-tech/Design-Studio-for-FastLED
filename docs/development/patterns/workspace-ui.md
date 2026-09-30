@@ -138,3 +138,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   abandons the edit instead of clamping it in. `BoardNodeBody.tsx`'s power-cap
   Volts/Milliamps fields use it. Reach for this component rather than a raw
   `type="number"` input for any new numeric field with a non-zero minimum.
+
+- **Scrollable lists inside nodes need `nowheel` and a max-height.** React Flow
+  turns the wheel into canvas zoom, so an overflowing list inside a node either
+  zooms the canvas or, uncapped, grows the node taller than the canvas. Give the
+  list `nowheel`, `overflow-y: auto` and a `max-height`, as `PaletteBankBody.tsx`
+  does for its bank strip and catalogue grid.
