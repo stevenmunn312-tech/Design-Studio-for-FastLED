@@ -853,6 +853,40 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 23.75
     }
   },
+  "matrix-keypad-4x4": {
+    "partId": "matrix-keypad-4x4",
+    "label": "4x4 matrix keypad",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 69.0,
+      "height": 80.5
+    },
+    "manufacturer": "Adafruit product 3844 and compatible membrane keypads",
+    "logicVoltage": "Passive switch matrix, no supply; each key is a contact between one row and one column line",
+    "pinLabelsLeftToRight": [
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "C1",
+      "C2",
+      "C3",
+      "C4"
+    ],
+    "notes": [
+      "Sixteen keys in a 4 by 4 matrix, legended 1 2 3 A / 4 5 6 B / 7 8 9 C / * 0 # D. Each key joins one row line to one column line, so eight GPIOs read all sixteen keys.",
+      "The keypad is passive: it needs no power, only eight controller pins. Rows go to pins with an internal pull-up, and the columns are driven low one at a time to find which key closes a row.",
+      "The pin order is R1, R2, R3, R4, C1, C2, C3, C4 from left to right, the four rows first and the four columns after them. Cheaper keypads sometimes print the order the other way round, so check the tail's own markings.",
+      "The real tail is longer and ends in bare traces or a 2.54 mm header; the render keeps only its end and shows the eight contacts as unpopulated plated holes.",
+      "Two keys pressed together can read as a third (ghosting) because the matrix has no diodes; the firmware reports only the first key found."
+    ],
+    "render": {
+      "file": "parts/matrix-keypad-4x4.webp",
+      "widthPx": 848,
+      "heightPx": 986,
+      "pxPerMm": 12.0
+    }
+  },
   "max485-rs485-module": {
     "partId": "max485-rs485-module",
     "label": "MAX485 RS-485 (DMX) transceiver module",
