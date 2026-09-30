@@ -205,6 +205,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  KeypadInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'matrix-keypad-4x4',
+        label: '4x4 matrix keypad',
+        summary: 'Sixteen keys on eight GPIOs',
+        note: 'Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power.',
+      },
+    ],
+  },
   JoystickInput: {
     property: 'partId',
     options: [

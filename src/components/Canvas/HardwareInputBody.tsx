@@ -13,6 +13,7 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
+import { KEYPAD_LEGENDS, keypadButtonKey, keypadLastKey } from '../../state/keypad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
 } from '../../state/motionVector'
@@ -168,6 +169,39 @@ function MotionVectorInputWidget({ nodeId, partId }: { nodeId: string; partId: u
   ))}</>
 }
 
+function KeypadInputWidget({ nodeId }: { nodeId: string }) {
+  const buttons = useHardwareInputStore((s) => s.button)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  const setPot = useHardwareInputStore((s) => s.setPot)
+  const release = (key: number) => setButton(keypadButtonKey(nodeId, key), false)
+  return (
+    <div className={`nodrag ${styles.keypad}`}>
+      {KEYPAD_LEGENDS.map((legend, key) => {
+        const down = buttons.get(keypadButtonKey(nodeId, key)) ?? false
+        return (
+          <button
+            key={legend}
+            type="button"
+            aria-label={`Key ${legend}`}
+            aria-pressed={down}
+            className={`${styles.keypadKey} ${down ? styles.buttonPressed : ''}`}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              setPot(keypadLastKey(nodeId), key)
+              setButton(keypadButtonKey(nodeId, key), true)
+            }}
+            onPointerUp={() => release(key)}
+            onPointerCancel={() => release(key)}
+            onPointerLeave={() => release(key)}
+          >
+            {legend}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: unknown }) {
   const axis = (which: 'x' | 'y') => (
     <PotInputWidget
@@ -250,6 +284,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux, deadzone }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown; deadzone?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'MotionVectorInput') return <MotionVectorInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'KeypadInput') return <KeypadInputWidget nodeId={nodeId} />
   if (nodeType === 'JoystickInput') return <JoystickInputWidget nodeId={nodeId} deadzone={deadzone} />
   if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />

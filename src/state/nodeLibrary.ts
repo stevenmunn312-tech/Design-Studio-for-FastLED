@@ -85,6 +85,7 @@ import {
 import { DS18B20_PART_ID } from './temperatureSensor'
 import { HCSR04_PART_ID } from './distanceSensor'
 import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './joystick'
+import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from './keypad'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddressOptions, motionVectorSpec } from './motionVector'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
@@ -4176,6 +4177,25 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // A 4x4 matrix keypad on eight GPIOs. Sixteen boolean ports would make a node
+    // taller than the canvas is wide, so it publishes the last key pressed as an
+    // index (0 to 15, row by row) and whether any key is down. That is what a
+    // scene or preset picker wants, and Map Range or Compare turns it into more.
+    type: 'KeypadInput',
+    label: 'Keypad',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'key', label: 'Key (0-15)', dataType: 'float' },
+      { id: 'pressed', label: 'Pressed', dataType: 'bool' },
+    ],
+    defaultProperties: {
+      partId: KEYPAD_PART_ID,
+      row1Pin: 13, row2Pin: 14, row3Pin: 27, row4Pin: 26,
+      col1Pin: 25, col2Pin: 33, col3Pin: 32, col4Pin: 4,
+    },
+  },
+  {
     // A thumb joystick: two analog axes and a push switch. The axes are signed
     // (-1 to 1, 0 at rest) rather than 0-1 like PotInput, because a stick has a
     // centre that means something, and the dead zone is a property because a
@@ -4841,6 +4861,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
   DistanceInput: 'Measures distance in millimetres with an HC-SR04 ultrasonic sensor.',
   JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
+  KeypadInput: 'Reads a 4x4 matrix keypad as the last key pressed and a pressed flag.',
   MotionVectorInput: 'Reads acceleration and rotation on three axes from an MPU-6050.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
@@ -5930,6 +5951,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  KeypadInput: Object.fromEntries([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS].map((key) => [
+    key, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  ])),
   JoystickInput: {
     xPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     yPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6483,6 +6507,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin wired to the breakout SDA pad and shared with every other I2C part.',
     sclPin: 'I2C clock pin wired to the breakout SCL pad and shared with every other I2C part.',
   },
+  KeypadInput: {
+    row1Pin: 'The GPIO wired to R1, the first row line. Rows use the internal pull-up, so avoid GPIO 34 to 39.',
+    row2Pin: 'The GPIO wired to R2. Rows use the internal pull-up, so avoid GPIO 34 to 39.',
+    row3Pin: 'The GPIO wired to R3. Rows use the internal pull-up, so avoid GPIO 34 to 39.',
+    row4Pin: 'The GPIO wired to R4. Rows use the internal pull-up, so avoid GPIO 34 to 39.',
+    col1Pin: 'The GPIO wired to C1, the first column line. Columns are driven low one at a time, so they must be able to output.',
+    col2Pin: 'The GPIO wired to C2. Columns are driven low one at a time, so they must be able to output.',
+    col3Pin: 'The GPIO wired to C3. Columns are driven low one at a time, so they must be able to output.',
+    col4Pin: 'The GPIO wired to C4. Columns are driven low one at a time, so they must be able to output.',
+  },
   JoystickInput: {
     xPin: 'The analog GPIO wired to VRx. On a classic ESP32 use an ADC1 pin (32 to 39): ADC2 stops working while Wi-Fi is on.',
     yPin: 'The analog GPIO wired to VRy. On a classic ESP32 use an ADC1 pin (32 to 39): ADC2 stops working while Wi-Fi is on.',
@@ -6894,7 +6928,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -7187,6 +7221,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   TemperatureInput: new Set(['pin']),
   DistanceInput: new Set(['trigPin', 'echoPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
+  KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
@@ -7243,6 +7278,8 @@ export function gpioRequirementForProperty(
   }
   // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
+  // Rows read through the controller's pull-up; columns are driven low one at a time.
+  if (nodeType === 'KeypadInput') return KEYPAD_ROW_KEYS.includes(key as never) ? { capability: 'digitalInput', pullup: true } : { capability: 'digitalOutput', pullup: false }
   // Two analog axes, and a switch that pulls SW to ground through the controller's pull-up.
   if (nodeType === 'JoystickInput') return key === 'swPin' ? { capability: 'digitalInput', pullup: true } : { capability: 'analogInput', pullup: false }
   // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.

@@ -7,6 +7,7 @@
 // state).
 
 import { propertyMeta } from './nodeLibrary'
+import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from './keypad'
 
 export type PinnedControlKind = 'knob' | 'fader' | 'toggle' | 'select'
 
@@ -141,6 +142,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   TemperatureInput: new Set(['pin']),
   DistanceInput: new Set(['trigPin', 'echoPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
+  KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }

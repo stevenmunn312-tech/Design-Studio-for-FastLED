@@ -18,6 +18,7 @@ import {
   peripheralPowerPadIndex,
   peripheralPadPoint,
   peripheralGroundPadIndex,
+  peripheralHasGround,
   micChannelSelectPadIndex,
   receiveDivider,
   dataPullUp,
@@ -259,7 +260,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 style={active ? { stroke: presentation.color } : undefined}
               />
             })}
-            <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground`} />
+            {peripheralHasGround(layout.item) && (
+              <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground`} />
+            )}
             {/*
               A microphone's channel-select pad picks its I2S slot by being tied
               to ground, so it carries the same ground symbol as the GND pad

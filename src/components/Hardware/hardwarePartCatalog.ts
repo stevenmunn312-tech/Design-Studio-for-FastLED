@@ -3,6 +3,7 @@
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import { transportDisplayPinKeysForProps, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { PART_FIELDS } from '../../state/partFields'
+import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/keypad'
 import type { PartPinRequest } from '../../state/partPinAssignment'
 import { segmentControllerFor } from '../../state/segmentDisplay'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/oledSurface'
@@ -565,6 +566,24 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
       { key: 'sclPin', label: 'SCL' },
     ],
     properties: { partId: 'gy-521-mpu6050-module' },
+  },
+  {
+    nodeType: 'KeypadInput',
+    partId: 'keypad',
+    label: '4x4 matrix keypad',
+    hint: 'Sixteen keys read through eight GPIOs',
+    footprint: partDimensionsMm('matrix-keypad-4x4', { width: 69, height: 80.5 }),
+    signalPort: 'key',
+    dataType: 'float',
+    pinRequests: [
+      ...KEYPAD_ROW_KEYS.map((key) => ({ key })),
+      ...KEYPAD_COL_KEYS.map((key) => ({ key, capability: 'digitalOutput' as const })),
+    ],
+    pinFields: [
+      ...KEYPAD_ROW_KEYS.map((key, index) => ({ key, label: `GPIO (R${index + 1})` })),
+      ...KEYPAD_COL_KEYS.map((key, index) => ({ key, label: `GPIO (C${index + 1})` })),
+    ],
+    properties: { partId: 'matrix-keypad-4x4' },
   },
   {
     nodeType: 'JoystickInput',

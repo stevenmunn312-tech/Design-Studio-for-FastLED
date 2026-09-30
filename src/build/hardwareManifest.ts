@@ -54,6 +54,7 @@ import {
 import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/temperatureSensor'
 import { HCSR04_PART_ID, distanceSensorSpec } from '../state/distanceSensor'
 import { KY023_PART_ID } from '../state/joystick'
+import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from '../state/keypad'
 import {
   MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddress, motionVectorSpec,
 } from '../state/motionVector'
@@ -106,7 +107,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'motion-vector-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -147,6 +148,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'TemperatureInput',
   'DistanceInput',
   'JoystickInput',
+  'KeypadInput',
   'MotionVectorInput',
   'IRRemoteInput',
   'PowerMonitorInput',
@@ -396,6 +398,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'MotionVectorInput':
         pushI2c(node, baseLabel, props)
+        break
+      case 'KeypadInput':
+        KEYPAD_ROW_KEYS.forEach((key, index) => push(node, `${baseLabel} row ${index + 1} pin`, key, props[key]))
+        KEYPAD_COL_KEYS.forEach((key, index) => push(node, `${baseLabel} column ${index + 1} pin`, key, props[key]))
         break
       case 'JoystickInput':
         push(node, `${baseLabel} X axis pin`, 'xPin', props.xPin)
@@ -971,6 +977,19 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             gyroRange: `±${spec.gyroRangeDps} °/s`,
           },
           reasons: reasons.length > 0 ? reasons : undefined,
+        }
+      }
+      case 'KeypadInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? KEYPAD_PART_ID)
+        const entry = partById(partId)
+        const wired = [...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS].every((key) => pins.some((pin) => pin.propertyKey === key))
+        return {
+          ...buildPeripheralItem(node, 'keypad-input', entry?.label ?? '4x4 matrix keypad', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: { partId, keys: '16 (4 x 4)', supply: 'none (passive matrix)' },
+          reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have eight free pins for the keypad's rows and columns.`],
         }
       }
       case 'JoystickInput': {

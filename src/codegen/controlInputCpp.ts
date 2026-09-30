@@ -10,6 +10,7 @@ import { touchButtonPressedLevel } from '../state/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './temperatureSensorCpp'
 import { MOTION_VECTOR_HELPER_CPP, motionVectorLoopCpp, motionVectorSetupCpp } from './motionVectorCpp'
+import { KEYPAD_HELPER_CPP, keypadLoopCpp, keypadSetupCpp } from './keypadCpp'
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './joystickCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
 
@@ -123,6 +124,13 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.connected = 'bool'
       break
     }
+    case 'KeypadInput': {
+      setup.push(...keypadSetupCpp(p))
+      loop.push(...keypadLoopCpp(p, id, (port) => v(port)))
+      outputs.key = 'float'
+      outputs.pressed = 'bool'
+      break
+    }
     case 'JoystickInput': {
       setup.push(...joystickSetupCpp(p))
       loop.push(...joystickLoopCpp(p, (port) => v(port)))
@@ -155,6 +163,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     ...(nodeType === 'MotionVectorInput'
       ? { helpers: [MOTION_VECTOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
+    ...(nodeType === 'KeypadInput' ? { helpers: [KEYPAD_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'JoystickInput' ? { helpers: [JOYSTICK_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'DistanceInput' ? { helpers: [DISTANCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(ir ? { ir } : {}),

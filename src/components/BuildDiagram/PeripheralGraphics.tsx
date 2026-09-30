@@ -15,6 +15,7 @@ import {
   peripheralPadLabel,
   peripheralPowerPadIndex,
   peripheralGroundPadIndex,
+  peripheralHasGround,
   micChannelSelectPadIndex,
   transceiverEnableBridgePads,
   receiveDivider,
@@ -188,15 +189,17 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
           </g>
         )
       })}
-      <g data-terminal={`${item.id}-gnd`}>
-        <circle
-          cx={peripheralPadPoint(layout, groundPadIndex).x}
-          cy={peripheralPadPoint(layout, groundPadIndex).y}
-          r={padRadius}
-          className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
-        />
-        <title>GND</title>
-      </g>
+      {peripheralHasGround(item) && (
+        <g data-terminal={`${item.id}-gnd`}>
+          <circle
+            cx={peripheralPadPoint(layout, groundPadIndex).x}
+            cy={peripheralPadPoint(layout, groundPadIndex).y}
+            r={padRadius}
+            className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
+          />
+          <title>GND</title>
+        </g>
+      )}
       {/* A microphone's channel-select pad carries no GPIO, so it is not one of
           the item's connections and needs drawing beside them. */}
       {channelSelectPadIndex !== null && (

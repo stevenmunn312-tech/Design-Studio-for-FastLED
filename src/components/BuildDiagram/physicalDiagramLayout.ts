@@ -372,6 +372,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // coordinates (12 px/mm, 10 px margin, header at y = 2.2 mm, 2.54 mm pitch centred
   // at x = 27 mm). Only OUT carries a controller wire; 3V3 is an output.
   'rcwl-0516-microwave-motion-module': padRow([273, 303.5, 334, 364.5, 395], 452, 187.6, 224),
+  // R1 to R4 then C1 to C4 along the end of the tail. Computed from the model's
+  // own coordinates (12 px/mm, 10 px margin, contacts at y = 2.4 mm from the tail's
+  // end, 2.54 mm pitch centred on the pad).
+  'matrix-keypad-4x4': padRow([317.3, 347.8, 378.3, 408.8, 439.2, 469.7, 500.2, 530.7], 848, 947.2, 986),
   'ky-023-joystick-module': padRow([125.8, 162.9, 200, 237.1, 274.2], 400, 471.8, 517),
   'hc-sr04-ultrasonic-module': padRow([234.3, 264.8, 295.2, 325.7], 560, 226, 260),
   // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
@@ -595,8 +599,16 @@ function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], 
  * channel inputs and GND, and falling back to pad 0 drew a VCC wire onto the
  * LR7843's GND.
  */
+/**
+ * Whether the module has a ground pad to draw. A membrane keypad is a passive
+ * switch matrix: it has no supply and no ground, only its eight matrix lines.
+ */
+export function peripheralHasGround(item: HardwareManifestItem): boolean {
+  return item.kind !== 'keypad-input'
+}
+
 export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
-  if (item.kind === 'power-switch-output') return null
+  if (item.kind === 'power-switch-output' || item.kind === 'keypad-input') return null
   // The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output, so the
   // supply lands on VIN, never on the first power-looking pad.
   if (item.kind === 'motion-input') {
@@ -700,6 +712,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'temperature-input': [['DATA']],
   'distance-input': [['Trig', 'TRIG'], ['Echo', 'ECHO']],
   'joystick-input': [['VRX'], ['VRY'], ['SW']],
+  'keypad-input': [['R1'], ['R2'], ['R3'], ['R4'], ['C1'], ['C2'], ['C3'], ['C4']],
   'motion-vector-input': [['SDA'], ['SCL']],
   // The board's RX reads the sensor's TX pad.
   'presence-input': [['TX']],
@@ -835,6 +848,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ds18b20-waterproof-probe': 6.5,
   'hc-sr04-ultrasonic-module': 6,
   'ky-023-joystick-module': 7.3,
+  'matrix-keypad-4x4': 6,
   'rcwl-0516-microwave-motion-module': 6,
   'gy-521-mpu6050-module': 9,
   'max485-rs485-module': 11.9,

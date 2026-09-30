@@ -16,6 +16,7 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
+import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadLastKey } from '../../state/keypad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
 } from '../../state/motionVector'
@@ -347,6 +348,14 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         pot.get(motionVectorPreviewKey(id, axis)) ?? motionVectorPreviewDefault(props.partId, axis)),
     ]))
     return { ...readings, connected: true }
+  },
+  // No keypad in the browser: the node body's sixteen buttons stand in for the
+  // keys, and the last one pressed is held the way the firmware holds it.
+  KeypadInput(_c, id) {
+    const state = useHardwareInputStore.getState()
+    let pressed = false
+    for (let key = 0; key < KEYPAD_KEY_COUNT; key += 1) if (state.button.get(keypadButtonKey(id, key))) pressed = true
+    return { key: state.pot.get(keypadLastKey(id)) ?? 0, pressed }
   },
   // No stick in the browser: two sliders stand in for the axes (centred at
   // half travel) and the node body's button for the switch.

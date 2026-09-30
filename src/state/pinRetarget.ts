@@ -31,6 +31,7 @@ import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
+import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from './keypad'
 import { boardI2cDefault } from '../build/boardI2cDefaults'
 import {
   SPI_CHIPSETS,
@@ -179,6 +180,14 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   // The 1-Wire bus is driven low and released, so it needs an output-capable pin.
   TemperatureInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'digitalOutput' }] },
+  // Four rows read through a pull-up and four columns driven low in turn.
+  KeypadInput: {
+    keys: [...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS],
+    requests: [
+      ...KEYPAD_ROW_KEYS.map((key) => ({ key })),
+      ...KEYPAD_COL_KEYS.map((key) => ({ key, capability: 'digitalOutput' as const })),
+    ],
+  },
   // Two analog axes and a switch with a pull-up.
   JoystickInput: {
     keys: ['xPin', 'yPin', 'swPin'],

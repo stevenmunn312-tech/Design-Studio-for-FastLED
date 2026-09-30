@@ -98,6 +98,7 @@ import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSe
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
 import { DISTANCE_SENSOR_HELPER_CPP } from './distanceSensorCpp'
 import { JOYSTICK_HELPER_CPP } from './joystickCpp'
+import { KEYPAD_HELPER_CPP } from './keypadCpp'
 import { MOTION_VECTOR_HELPER_CPP } from './motionVectorCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
@@ -681,6 +682,7 @@ export function generateCpp(
   const temperatureSensors = sorted.filter((n) => n.data.nodeType === 'TemperatureInput')
   const distanceSensors = sorted.filter((n) => n.data.nodeType === 'DistanceInput')
   const joysticks = sorted.filter((n) => n.data.nodeType === 'JoystickInput')
+  const keypads = sorted.filter((n) => n.data.nodeType === 'KeypadInput')
   const digitalLightSensors = sorted.filter((n) => n.data.nodeType === 'LightInput'
     && lightSensorTransport(props(n).partId) === 'i2c')
   const environmentSensors = sorted.filter((n) => n.data.nodeType === 'EnvironmentInput')
@@ -1588,6 +1590,7 @@ export function generateCpp(
   if (temperatureSensors.length > 0) lines.push(...TEMPERATURE_SENSOR_HELPER_CPP)
   if (distanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
   if (joysticks.length > 0) lines.push(...JOYSTICK_HELPER_CPP)
+  if (keypads.length > 0) lines.push(...KEYPAD_HELPER_CPP)
   if (motionVectors.length > 0) lines.push(...MOTION_VECTOR_HELPER_CPP)
 
   if (needsNetwork && ethernetNode) {

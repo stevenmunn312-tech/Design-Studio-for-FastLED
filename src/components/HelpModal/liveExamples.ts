@@ -1625,6 +1625,24 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
 )
 
+const KEYPAD_INPUT_LIVE_EXAMPLE = namedExample(
+  'KeypadInput',
+  'Pick a brightness with a key',
+  [
+    { key: 'pad', type: 'KeypadInput', properties: { partId: 'matrix-keypad-4x4', row1Pin: 13, row2Pin: 14, row3Pin: 27, row4Pin: 26, col1Pin: 25, col2Pin: 33, col3Pin: 32, col4Pin: 4 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 15, outMin: 0.05, outMax: 1 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 255, g: 200, b: 60 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'pad', sourceHandle: 'key', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Keypad reads a 4x4 matrix keypad on eight GPIOs. Key is the last key pressed as an index from 0 to 15, row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and it stays at that value after the key is released. Pressed is true while any key is down. Map Range turns the index into a control, here 0 to 15 onto 0.05 to 1 for a fade.',
+  'Click keys on the node: key 1 is index 0 and the fill is dim, key D is index 15 and the fill is full. The Build Diagram shows the eight lines from R1 to C4; the keypad is passive, so it has no supply or ground.',
+)
+
 const MOTION_VECTOR_INPUT_LIVE_EXAMPLE = namedExample(
   'MotionVectorInput',
   'Tilt to change the brightness',
@@ -1891,6 +1909,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   DistanceInput: DISTANCE_INPUT_LIVE_EXAMPLE,
   JoystickInput: JOYSTICK_INPUT_LIVE_EXAMPLE,
   MotionVectorInput: MOTION_VECTOR_INPUT_LIVE_EXAMPLE,
+  KeypadInput: KEYPAD_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,
