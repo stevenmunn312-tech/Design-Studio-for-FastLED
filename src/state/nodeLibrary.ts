@@ -4076,7 +4076,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     inputs: [],
     outputs: [{ id: 'motion', label: 'Motion', dataType: 'bool' }],
     // No pull-up: the module drives the line both ways, unlike a bare button.
-    defaultProperties: { pin: 5 },
+    defaultProperties: { partId: 'hc-sr501-pir-sensor', pin: 5 },
   },
   {
     // LD2410-family 24 GHz radar. It sees someone sitting still, which a PIR

@@ -216,6 +216,23 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  MotionInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'hc-sr501-pir-sensor',
+        label: 'HC-SR501 PIR',
+        summary: 'Infrared: sees a warm body move',
+        note: 'Power VCC from 5 V. OUT is 3.3 V logic.',
+      },
+      {
+        id: 'rcwl-0516-microwave-motion-module',
+        label: 'RCWL-0516 microwave',
+        summary: 'Radar: senses movement through plastic',
+        note: 'Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired.',
+      },
+    ],
+  },
   DistanceInput: {
     property: 'partId',
     options: [

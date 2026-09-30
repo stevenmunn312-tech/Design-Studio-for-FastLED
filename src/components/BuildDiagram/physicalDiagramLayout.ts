@@ -368,6 +368,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // the model's own coordinates (18.095 px/mm, 10 px margin, header at y = 2 mm,
   // 2.54 mm pitch centred on the board). Only SDA and SCL carry the I2C bus.
   'gy-521-mpu6050-module': padRow([39.1, 85.1, 131.1, 177, 222.9, 268.9, 314.9, 360.9], 400, 263.3, 310),
+  // 3V3, GND, OUT, VIN, CDS along the bottom edge. Computed from the model's own
+  // coordinates (12 px/mm, 10 px margin, header at y = 2.2 mm, 2.54 mm pitch centred
+  // at x = 27 mm). Only OUT carries a controller wire; 3V3 is an output.
+  'rcwl-0516-microwave-motion-module': padRow([273, 303.5, 334, 364.5, 395], 452, 187.6, 224),
   'ky-023-joystick-module': padRow([125.8, 162.9, 200, 237.1, 274.2], 400, 471.8, 517),
   'hc-sr04-ultrasonic-module': padRow([234.3, 264.8, 295.2, 325.7], 560, 226, 260),
   // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
@@ -593,6 +597,12 @@ function padIndexByLabel(item: HardwareManifestItem, wanted: readonly string[], 
  */
 export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
   if (item.kind === 'power-switch-output') return null
+  // The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output, so the
+  // supply lands on VIN, never on the first power-looking pad.
+  if (item.kind === 'motion-input') {
+    const vin = padIndexByLabel(item, ['VIN'], -1)
+    if (vin >= 0) return vin
+  }
   return padIndexByLabel(item, POWER_PAD_LABELS, 0)
 }
 
@@ -825,6 +835,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ds18b20-waterproof-probe': 6.5,
   'hc-sr04-ultrasonic-module': 6,
   'ky-023-joystick-module': 7.3,
+  'rcwl-0516-microwave-motion-module': 6,
   'gy-521-mpu6050-module': 9,
   'max485-rs485-module': 11.9,
   'wiz850io-ethernet-module': 6.2,

@@ -715,11 +715,15 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         return buildPeripheralItem(node, 'pot-input', 'Analog potentiometer input', pins)
       case 'EncoderInput':
         return buildPeripheralItem(node, 'encoder-input', 'Rotary encoder input', pins)
-      case 'MotionInput':
+      case 'MotionInput': {
+        const partId = String((node.data.properties as Record<string, unknown>).partId ?? 'hc-sr501-pir-sensor')
+        const entry = partById(partId)
         return {
-          ...buildPeripheralItem(node, 'motion-input', 'HC-SR501 PIR motion sensor', pins),
-          facts: { partId: 'hc-sr501-pir-sensor' },
+          ...buildPeripheralItem(node, 'motion-input', entry?.label ?? 'HC-SR501 PIR motion sensor', pins),
+          title: entry?.label ?? nodeLabel(node),
+          facts: { partId },
         }
+      }
       case 'IRRemoteInput':
         return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
       // On the power path, not the signal path: no pins. Its role and ratings
