@@ -1436,6 +1436,37 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "rcwl-0516-microwave-motion-module": {
+    "partId": "rcwl-0516-microwave-motion-module",
+    "label": "RCWL-0516 microwave motion sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 36.0,
+      "height": 17.0
+    },
+    "manufacturer": "RCWL-0516 microwave radar module (generic)",
+    "logicVoltage": "4-28 V supply on VIN; OUT is 3.3 V logic, high while it senses movement; the 3V3 pin is a regulated output for other parts",
+    "pinLabelsLeftToRight": [
+      "3V3",
+      "GND",
+      "OUT",
+      "VIN",
+      "CDS"
+    ],
+    "notes": [
+      "A 3.2 GHz Doppler radar switch. OUT goes high, at 3.3 V, while it senses movement, and stays high for about two seconds after the last movement, so it re-triggers rather than pulsing.",
+      "Power VIN from 5 V. The module accepts 4 to 28 V, and its on-board regulator makes OUT a 3.3 V signal that is safe for an ESP32 pin. Do not power VIN from the 3V3 pin: that pin is an output.",
+      "It senses through plastic, glass and thin walls at roughly 5 to 7 m in every direction, so it also trips on a moving object behind it. Keep more than 1 cm of clear space behind the board and away from metal.",
+      "3V3 is a regulated output of about 100 mA and CDS disables the sensor when pulled low (or by a light-dependent resistor). Neither is needed to read motion.",
+      "The five-pin row ships loose and is rendered as unpopulated plated holes."
+    ],
+    "render": {
+      "file": "parts/rcwl-0516-microwave-motion-module.webp",
+      "widthPx": 452,
+      "heightPx": 224,
+      "pxPerMm": 12.0
+    }
+  },
   "relay-module-1ch-5v": {
     "partId": "relay-module-1ch-5v",
     "label": "1-channel 5 V relay module",
