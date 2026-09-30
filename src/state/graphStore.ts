@@ -2793,10 +2793,21 @@ export const useGraphStore = create<GraphState>()(
           // source feeds a new Group input port, surfaced inside via GroupInput.
           const incoming = s.edges.filter((e) => !idSet.has(e.source!) && idSet.has(e.target!))
 
-          const params = incoming.map((e, i) => {
+          // One exposed port per external output, however many selected inputs it
+          // fed: three nodes reading the same Audio cable share one Group input,
+          // not three identical ones. `edge` is the first boundary edge (kept for
+          // rewiring the outside) and `consumers` every inside input it fed.
+          const params: {
+            paramId: string; edge: StudioEdge; dataType: string; label: string; consumers: StudioEdge[]
+          }[] = []
+          for (const e of incoming) {
             const { dataType, label } = portType(e.target!, e.targetHandle)
-            return { paramId: `param${i}`, edge: e, dataType, label }
-          })
+            const shared = params.find((pm) =>
+              pm.edge.source === e.source && (pm.edge.sourceHandle ?? null) === (e.sourceHandle ?? null)
+              && pm.dataType === dataType)
+            if (shared) shared.consumers.push(e)
+            else params.push({ paramId: `param${params.length}`, edge: e, dataType, label, consumers: [e] })
+          }
 
           // The group's terminal frame producer: a selected node feeding an
           // external consumer, else the last selected node with a frame output.
@@ -2830,10 +2841,11 @@ export const useGraphStore = create<GraphState>()(
               inputs: [], outputs: [{ id: 'out', label: pm.label, dataType: pm.dataType }],
             },
           } as StudioNode))
-          const inputEdges = params.map((pm, i) => ({
-            id: `e-${groupId}-in${i}`, source: groupInputNodes[i].id, sourceHandle: 'out',
-            target: pm.edge.target!, targetHandle: pm.edge.targetHandle,
-          } as StudioEdge))
+          const inputEdges = params.flatMap((pm, i) => pm.consumers.map((consumer, j) => ({
+            id: j === 0 ? `e-${groupId}-in${i}` : `e-${groupId}-in${i}-${j}`,
+            source: groupInputNodes[i].id, sourceHandle: 'out',
+            target: consumer.target!, targetHandle: consumer.targetHandle,
+          } as StudioEdge)))
 
           // ── Auto-expose speed/energy/palette as show-input roles ──────────
           // A node's `speed`/`energy`/`paletteIn` port already falls back to its

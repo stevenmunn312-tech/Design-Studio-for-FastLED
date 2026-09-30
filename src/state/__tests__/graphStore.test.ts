@@ -424,6 +424,33 @@ describe('graphStore — grouping', () => {
     expect(s.graphData[gid].nodes.some((n) => n.data.nodeType === 'GroupInput')).toBe(true)
   })
 
+  it('createGroup shares one input port between selected inputs fed by the same output', () => {
+    reset(
+      [
+        node('audio', 'Audio', { sourceId: 'kind:microphone' }),
+        node('f1', 'FFTAnalyzer'), node('f2', 'FFTAnalyzer'), node('f3', 'FFTAnalyzer'),
+        node('out', 'MatrixOutput'),
+      ],
+      [
+        edge('e1', 'audio', 'audio', 'f1', 'audio'),
+        edge('e2', 'audio', 'audio', 'f2', 'audio'),
+        edge('e3', 'audio', 'audio', 'f3', 'audio'),
+        edge('e4', 'f1', 'bass', 'out', 'brightness'),
+      ],
+    )
+    const gid = useGraphStore.getState().createGroup('Three', ['f1', 'f2', 'f3'])
+    const s = useGraphStore.getState()
+    const groupNode = s.nodes.find((n) => n.data.nodeType === 'Group')!
+    // One port, one cable from Audio, but all three analysers are still fed.
+    expect((groupNode.data.inputs as unknown[]).length).toBe(1)
+    expect(s.edges.filter((e) => e.source === 'audio' && e.target === groupNode.id)).toHaveLength(1)
+    const sub = s.graphData[gid]
+    const inputs = sub.nodes.filter((n) => n.data.nodeType === 'GroupInput')
+    expect(inputs).toHaveLength(1)
+    expect(sub.edges.filter((e) => e.source === inputs[0].id).map((e) => e.target).sort())
+      .toEqual(['f1', 'f2', 'f3'])
+  })
+
   it('leaves MatrixOutput and signal sources behind when grouping', () => {
     reset(
       [
