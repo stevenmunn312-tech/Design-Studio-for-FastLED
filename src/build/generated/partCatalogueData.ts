@@ -313,6 +313,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 25.0
     }
   },
+  "gy-521-mpu6050-module": {
+    "partId": "gy-521-mpu6050-module",
+    "label": "GY-521 MPU-6050 accelerometer and gyroscope",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 21.0,
+      "height": 16.0
+    },
+    "manufacturer": "GY-521 breakout / TDK InvenSense MPU-6050",
+    "logicVoltage": "3.3-5 V VCC; onboard 3.3 V regulator. Power from 3.3 V so the I2C pull-ups stay in the controller domain",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "SCL",
+      "SDA",
+      "XDA",
+      "XCL",
+      "AD0",
+      "INT"
+    ],
+    "notes": [
+      "Six-axis motion sensor over I2C: a three-axis accelerometer and a three-axis gyroscope, read at plus or minus 2 g and plus or minus 250 degrees per second by default.",
+      "Power VCC from 3.3 V for an ESP controller. The board has a 3.3 V regulator, but its I2C pull-ups follow VCC, so a 3.3 V supply keeps the bus inside the controller's logic level.",
+      "The default I2C address is 0x68, the same as a DS3231 clock. Tie AD0 high, or bridge the AD0 jumper, for 0x69.",
+      "XDA and XCL are the auxiliary I2C master lines for an external sensor, and INT is the interrupt output. None of them is needed for basic readings.",
+      "The eight-pin row ships loose and is rendered as unpopulated plated holes. The board's mounting hole is not modelled."
+    ],
+    "motionVectorSensor": {
+      "device": "MPU-6050",
+      "interface": "I2C",
+      "i2cAddresses": [
+        104,
+        105
+      ],
+      "defaultI2cAddress": 104,
+      "accelRangeG": 2,
+      "gyroRangeDps": 250
+    },
+    "render": {
+      "file": "parts/gy-521-mpu6050-module.webp",
+      "widthPx": 400,
+      "heightPx": 310,
+      "pxPerMm": 18.095
+    }
+  },
   "hc-sr04-ultrasonic-module": {
     "partId": "hc-sr04-ultrasonic-module",
     "label": "HC-SR04 ultrasonic distance sensor",

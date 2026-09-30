@@ -433,6 +433,30 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: environmentSensor block needs addresses, a default among them and valid measurement ranges — skipped",
                   file=sys.stderr)
+    # A six-axis accelerometer and gyroscope. The address list and the full-scale
+    # ranges travel from the part: the ranges set the firmware's count scaling and
+    # the preview sliders' limits, so they cannot be typed twice.
+    motion = data.get("motionVectorSensor")
+    if motion:
+        try:
+            addresses = [int(str(a), 16) for a in motion.get("i2cAddresses") or []]
+            default_address = int(str(motion.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        if (addresses and default_address in addresses
+                and motion.get("accelRangeG") in (2, 4, 8, 16)
+                and motion.get("gyroRangeDps") in (250, 500, 1000, 2000)):
+            entry["motionVectorSensor"] = {
+                "device": motion.get("device") or "",
+                "interface": motion.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "accelRangeG": motion["accelRangeG"],
+                "gyroRangeDps": motion["gyroRangeDps"],
+            }
+        else:
+            print(f"  ! {part_id}: motionVectorSensor block needs addresses, a default among them and a valid accel and gyro range — skipped",
+                  file=sys.stderr)
     # A two-axis analog joystick with a push switch. The pot value and switch
     # sense travel from the part so the firmware's active level is not typed twice.
     joystick = data.get("joystick")

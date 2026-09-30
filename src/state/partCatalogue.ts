@@ -160,6 +160,18 @@ export interface PartEnvironmentSensorSpec {
   pressureMaxHpa: number
 }
 
+/** Measuring contract carried by a six-axis accelerometer and gyroscope. */
+export interface PartMotionVectorSpec {
+  device: string
+  interface: string
+  i2cAddresses: number[]
+  defaultI2cAddress: number
+  /** Accelerometer full scale, in g. */
+  accelRangeG: number
+  /** Gyroscope full scale, in degrees per second. */
+  gyroRangeDps: number
+}
+
 /** Contract carried by a two-axis analog joystick with a push switch. */
 export interface PartJoystickSpec {
   device: string
@@ -261,6 +273,8 @@ export interface PartCatalogueEntry {
   lightSensor?: PartLightSensorSpec
   /** Present exactly on calibrated temperature / humidity / pressure sensors. */
   environmentSensor?: PartEnvironmentSensorSpec
+  /** Present exactly on six-axis accelerometer and gyroscope modules. */
+  motionVectorSensor?: PartMotionVectorSpec
   /** Present exactly on analog joystick modules. */
   joystick?: PartJoystickSpec
   /** Present exactly on pulse-ranging distance sensors. */
