@@ -433,6 +433,26 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: environmentSensor block needs addresses, a default among them and valid measurement ranges — skipped",
                   file=sys.stderr)
+    # A 1-Wire temperature probe. The range and the pull-up value travel from
+    # the part so the preview limits and the Build Diagram's resistor agree
+    # with the datasheet rather than with a number typed into the app.
+    temperature = data.get("temperatureSensor")
+    if temperature:
+        if (isinstance(temperature.get("temperatureMinC"), (int, float))
+                and isinstance(temperature.get("temperatureMaxC"), (int, float))
+                and temperature["temperatureMaxC"] > temperature["temperatureMinC"]
+                and isinstance(temperature.get("pullUpOhms"), (int, float))
+                and temperature["pullUpOhms"] > 0):
+            entry["temperatureSensor"] = {
+                "device": temperature.get("device") or "",
+                "interface": temperature.get("interface") or "1-Wire",
+                "temperatureMinC": temperature["temperatureMinC"],
+                "temperatureMaxC": temperature["temperatureMaxC"],
+                "pullUpOhms": temperature["pullUpOhms"],
+            }
+        else:
+            print(f"  ! {part_id}: temperatureSensor block needs a valid range and pull-up — skipped",
+                  file=sys.stderr)
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

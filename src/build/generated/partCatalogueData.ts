@@ -184,6 +184,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 19.6
     }
   },
+  "ds18b20-waterproof-probe": {
+    "partId": "ds18b20-waterproof-probe",
+    "label": "Waterproof DS18B20 temperature probe",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 28.0,
+      "height": 72.0
+    },
+    "manufacturer": "Adafruit (product 381) / Maxim DS18B20",
+    "logicVoltage": "3.0-5.5 V VDD; DATA idles at VDD through the 4.7 kohm pull-up, so power it from the controller's 3.3 V rail",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "DATA"
+    ],
+    "notes": [
+      "A 1-Wire digital thermometer in a sealed 6 x 30 mm stainless tube; reads -55 to +125 C, accurate to 0.5 C from -10 to +85 C.",
+      "Red is VDD, black (or blue) is GND and yellow (or white) is DATA. A four-wire cable has a bare shield wire as well, which is left unconnected at the controller.",
+      "DATA needs a 4.7 kohm pull-up to VDD. The bare probe has none, so the Build Diagram fits one.",
+      "The cable is 0.91 m long; the render shows the first 18 mm of it."
+    ],
+    "temperatureSensor": {
+      "device": "DS18B20",
+      "interface": "1-Wire",
+      "temperatureMinC": -55,
+      "temperatureMaxC": 125,
+      "pullUpOhms": 4700
+    },
+    "render": {
+      "file": "parts/ds18b20-waterproof-probe.webp",
+      "widthPx": 400,
+      "heightPx": 997,
+      "pxPerMm": 13.571
+    }
+  },
   "ds3231-rtc-module": {
     "partId": "ds3231-rtc-module",
     "label": "DS3231 RTC module (ZS-042)",

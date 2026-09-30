@@ -160,6 +160,16 @@ export interface PartEnvironmentSensorSpec {
   pressureMaxHpa: number
 }
 
+/** Measuring contract carried by a 1-Wire temperature probe. */
+export interface PartTemperatureSensorSpec {
+  device: string
+  interface: string
+  temperatureMinC: number
+  temperatureMaxC: number
+  /** The DATA-to-VDD pull-up the bare probe needs, in ohms. */
+  pullUpOhms: number
+}
+
 /** Network contract carried by a wired-Ethernet controller module. */
 export interface PartEthernetSpec {
   /** The controller chip, which picks the firmware's PHY driver. */
@@ -229,6 +239,8 @@ export interface PartCatalogueEntry {
   lightSensor?: PartLightSensorSpec
   /** Present exactly on calibrated temperature / humidity / pressure sensors. */
   environmentSensor?: PartEnvironmentSensorSpec
+  /** Present exactly on 1-Wire temperature probes. */
+  temperatureSensor?: PartTemperatureSensorSpec
   /** Present exactly on wired-Ethernet controller modules. */
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */
