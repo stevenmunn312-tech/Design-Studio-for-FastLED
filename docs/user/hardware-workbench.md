@@ -199,6 +199,23 @@ is unplugged, and Temperature then holds its last good value. In preview, the
 on-node slider simulates the reading. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
+### Sense movement with a microwave radar
+
+The **Motion Sensor** node also takes an **RCWL-0516 microwave motion sensor**:
+choose **Add Hardware → Inputs → RCWL-0516 microwave motion sensor**, or switch
+the module in the inspector. It is a 3.2 GHz Doppler radar, so unlike the PIR it
+senses movement through a plastic case, glass or a thin wall, at roughly 5 to 7 m
+in every direction. Wire **VIN** to **5 V** (it takes 4 to 28 V), **GND** to
+**GND** and **OUT** to the GPIO shown in the inspector. OUT is 3.3 V logic, safe
+for an ESP32 pin. Leave **3V3**, which is an output, and **CDS** unwired. Keep more
+than 1 cm of clear space behind the board and away from metal.
+
+The node is the same as for the PIR: **Motion** is true while the radar senses
+movement. The module holds OUT high for about two seconds after the last movement,
+so it re-triggers rather than pulsing. Because it senses through walls, it can
+trip on movement you cannot see. The RCWL-0516 is experimental until a physical
+run is recorded in the support matrix.
+
 ### Read tilt and rotation with an accelerometer and gyroscope
 
 Choose **Add Hardware → Inputs → GY-521 MPU-6050 accelerometer and gyroscope**

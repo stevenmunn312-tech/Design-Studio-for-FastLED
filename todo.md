@@ -174,6 +174,10 @@ in the app and marked experimental; nothing here holds up development.
   each side reading about 1 g on the matching axis, a slow turn compared against a
   known rate, and Connected dropping and recovering on unplug. The row's
   requirements are in the support matrix.
+- **D-05 microwave motion:** the RCWL-0516 on 5 V with OUT on a GPIO, reading high
+  on movement and low after its roughly two-second hold, the range against a tape
+  measure, and behaviour through a plastic case. The row's requirements are in the
+  support matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -283,6 +287,9 @@ in the app and marked experimental; nothing here holds up development.
   previewed and generated for normal/show/player paths; its compile result is in the
   [motion-sensor record](docs/development/motion-sensor-compile-checks.md), and its
   bench row is in section 3.
+  The RCWL-0516 microwave radar is a second `MotionInput` module beside the PIR:
+  modelled, catalogued, drawn and previewed, with the same digital firmware, so
+  no compile is owed; its bench row is in section 3.
 
 ## Completed
 

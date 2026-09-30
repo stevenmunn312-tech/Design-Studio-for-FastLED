@@ -53,7 +53,7 @@ build have passed the normal evidence gates.
 | MPR121 12-channel capacitive-touch module | Dynamic multi-touch input | Named, stable touch outputs using the same dynamic-port discipline as Button Bank. |
 | KY-023 joystick module | `JoystickInput` | Two signed float axes and one boolean. In the app and experimental: powered from 3V3, dead zone property; bench open. |
 | 4×4 matrix keypad | Dynamic key outputs | Direct scene, preset and show selection. |
-| RCWL-0516 microwave-motion module | `MotionInput` option | A second inexpensive presence technology beside PIR and mmWave. |
+| RCWL-0516 microwave-motion module | `MotionInput` option | A second inexpensive presence technology beside PIR and mmWave. In the app and experimental as a second `MotionInput` module: VIN from 5 V, OUT 3.3 V; no new firmware; bench open. |
 | Rotary encoder with an addressable feedback ring | Encoder plus LED fixture | Combines an existing input idiom with visible state feedback. |
 
 ## Outputs, switching and power infrastructure

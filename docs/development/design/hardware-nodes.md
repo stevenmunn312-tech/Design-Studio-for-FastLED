@@ -226,6 +226,15 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`MotionInput` has two modules, chosen by its `partId`: the HC-SR501 PIR and the
+RCWL-0516 microwave radar. Both drive OUT high on movement at 3.3 V, so the node,
+preview and firmware are the same and the choice only changes the picture, the
+notes and the Build Diagram. The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its
+regulator's output, so `peripheralPowerPadIndex` lands the supply on VIN for a
+motion sensor before it falls back to the first power-looking label. Its OUT holds
+about two seconds after the last movement; nothing in the graph compensates, so a
+design that needs a pulse should edge-detect it.
+
 `MotionVectorInput` is the GY-521 MPU-6050 on the shared I2C bus. It publishes
 acceleration in g (`accelX/Y/Z`), rotation rate in degrees per second
 (`gyroX/Y/Z`) and `connected`, and holds the last good values when a read fails.

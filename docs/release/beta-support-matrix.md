@@ -589,6 +589,16 @@ Unless a future row says otherwise, treat the following as experimental:
   readings compared against a trusted thermometer at two temperatures,
   including an ice bath, and Connected going false and recovering when the probe
   is unplugged and reconnected.
+- **RCWL-0516 microwave motion sensor.** `MotionInput` has a second module
+  option beside the HC-SR501 PIR, with a modelled asset, the same preview and
+  generated firmware (an active-high digital read with no pull-up, so no new
+  compile is owed), manifest and Build Diagram coverage. The diagram powers VIN
+  from 5 V and leaves the 3V3 output and CDS unwired. There is no physical row
+  yet. The antenna, controller and passives in the render are approximate.
+  Graduation needs a dated row naming the board/FQBN, the GPIO and the supply,
+  with OUT reading high on movement and low after the roughly two-second hold,
+  the range compared against a tape measure, and behaviour through a plastic
+  case.
 - **GY-521 MPU-6050 accelerometer and gyroscope.** `MotionVectorInput` has a
   modelled asset, preview, library-free register firmware (wake, set the
   full-scale ranges, one 14-byte burst per read), address validation, manifest
