@@ -51,7 +51,7 @@ build have passed the normal evidence gates.
 | HC-SR04 ultrasonic module | `DistanceInput` | Lower-cost distance sensing with explicit 5 V echo-level handling. In the app and experimental: Trig/Echo on two GPIOs with the Build Diagram's 1 kΩ / 2 kΩ echo divider; bench open. |
 | MPU6050 accelerometer and gyroscope | `MotionVectorInput` | Orientation and movement-driven effects for portable installations. |
 | MPR121 12-channel capacitive-touch module | Dynamic multi-touch input | Named, stable touch outputs using the same dynamic-port discipline as Button Bank. |
-| KY-023 joystick module | Two-axis control plus button | Maps naturally to two float signals and one boolean signal. |
+| KY-023 joystick module | `JoystickInput` | Two signed float axes and one boolean. In the app and experimental: powered from 3V3, dead zone property; bench open. |
 | 4×4 matrix keypad | Dynamic key outputs | Direct scene, preset and show selection. |
 | RCWL-0516 microwave-motion module | `MotionInput` option | A second inexpensive presence technology beside PIR and mmWave. |
 | Rotary encoder with an addressable feedback ring | Encoder plus LED fixture | Combines an existing input idiom with visible state feedback. |

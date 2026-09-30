@@ -199,6 +199,24 @@ is unplugged, and Temperature then holds its last good value. In preview, the
 on-node slider simulates the reading. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
+### Steer with a thumb joystick
+
+Choose **Add Hardware → Inputs → KY-023 analog joystick** for a thumb stick with
+two analog axes and a push switch. It has five pins: **GND** to **GND**, **+5V**
+to **3V3**, **VRx** and **VRy** to the two analog GPIOs shown in the inspector,
+and **SW** to the third. The module is marked +5V, but it is only two
+potentiometers and a switch; powering it from 3.3 V keeps both axis voltages
+inside the controller's ADC range. On a classic ESP32 use ADC1 pins (32 to 39)
+for the axes, because ADC2 stops working while Wi-Fi is on.
+
+The node publishes **X** and **Y** from -1 to 1 with 0 at rest, and **Pressed**
+while the stick is pushed down. Use Map Range to bridge an axis to brightness,
+hue or speed. **Dead zone** sets how far the stick must move before an axis
+leaves 0, so a stick that never rests exactly at centre does not flicker the
+graph. Which direction is positive depends on how the module is mounted. In
+preview, two sliders stand in for the axes and the button for the switch. The
+joystick is experimental until a physical run is recorded in the support matrix.
+
 ### Measure distance with an ultrasonic sensor
 
 Choose **Add Hardware → Inputs → HC-SR04 ultrasonic distance sensor** for a

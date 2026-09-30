@@ -166,6 +166,10 @@ in the app and marked experimental; nothing here holds up development.
   read against a tape measure at two distances, with Connected dropping with
   nothing in range and recovering. The row's requirements are in the support
   matrix.
+- **D-05 joystick:** the KY-023 on 3V3 with VRx and VRy on ADC1 pins and SW on a
+  pull-up pin, both axes read centred and at full travel in each direction, the
+  dead zone checked, and SW pressed and released. The row's requirements are in
+  the support matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -267,6 +271,10 @@ in the app and marked experimental; nothing here holds up development.
   normal/show/player paths; its compile result is in the
   [distance-sensor record](docs/development/distance-sensor-compile-checks.md), and its bench row is in
   section 3.
+  The KY-023 joystick (`JoystickInput`) is modelled, catalogued, drawn,
+  previewed and generated for normal/show/player paths; its compile result is in the
+  [joystick record](docs/development/joystick-compile-checks.md), and its bench row
+  is in section 3.
 
 ## Completed
 

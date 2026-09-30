@@ -226,6 +226,18 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`JoystickInput` is the KY-023 thumb stick: two analog axes and a push switch on
+three GPIOs. The axes publish -1 to 1 with 0 at rest (not 0-1 like `PotInput`),
+because a stick's centre means something, and a `deadzone` property removes the
+resting play and rescales the rest so full travel still reaches 1. `joystickAxis`
+in `state/joystick.ts` and the firmware's `_joyAxis` compute the same thing, from a
+slider position and from a 12-bit ADC count. `pressed` reads LOW through
+`INPUT_PULLUP`. The module is marked +5V, but it is only two potentiometers and a
+switch, so the Build Diagram powers it from 3V3 to keep both axes inside the ADC
+range; the catalogue `joystick` block records the pot value and the switch sense.
+The axes request `analogInput`, and `swPin` needs a pin with a pull-up, which
+GPIO 34 to 39 lack.
+
 `DistanceInput` is the HC-SR04 ultrasonic ranger on two GPIOs: Trig, requested
 as `digitalOutput`, and Echo, requested as `digitalInput`. It publishes
 `distance` in millimetres and a `connected` flag; a sensor that hears no echo has

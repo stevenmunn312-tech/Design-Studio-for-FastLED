@@ -589,6 +589,17 @@ Unless a future row says otherwise, treat the following as experimental:
   readings compared against a trusted thermometer at two temperatures,
   including an ice bath, and Connected going false and recovering when the probe
   is unplugged and reconnected.
+- **KY-023 analog joystick.** `JoystickInput` has a modelled asset, preview,
+  library-free firmware (two 12-bit ADC axes centred and rescaled to -1 to 1
+  with a dead zone, plus an INPUT_PULLUP switch), manifest and Build Diagram
+  coverage, powered from 3V3, in the normal, slideshow and player generators.
+  Compile evidence is recorded in
+  [the joystick compile checks](../development/joystick-compile-checks.md), but
+  there is no physical row yet. The board size varies by supplier, and the stick
+  in the render is approximate.
+  Graduation needs a dated row naming the board/FQBN, the three GPIOs and the
+  supply, with both axes centred and at full travel, the dead zone, and SW
+  pressed and released.
 - **HC-SR04 ultrasonic distance sensor.** `DistanceInput` has a modelled
   asset, preview, library-free trigger/echo firmware (10 µs Trig, timed Echo,
   a reading every 60 ms with the last good value held), manifest and Build

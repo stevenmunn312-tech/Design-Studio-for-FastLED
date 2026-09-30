@@ -196,6 +196,7 @@ build/architecture overview aimed at contributors.
       classic-ESP32 resource figures.
   - [Temperature-probe firmware compile checks](development/temperature-sensor-compile-checks.md)
   - [Distance-sensor firmware compile checks](development/distance-sensor-compile-checks.md)
+  - [Joystick firmware compile checks](development/joystick-compile-checks.md)
     — real normal/slideshow/player/no-sensor fixtures for the waterproof
       DS18B20, the library-free 1-Wire helper guard, and classic-ESP32 results.
   - [Power-switch dimming compile checks](development/power-switch-compile-checks.md)
