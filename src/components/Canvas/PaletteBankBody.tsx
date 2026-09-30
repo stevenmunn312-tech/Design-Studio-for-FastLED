@@ -92,7 +92,7 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
           </div>
           {bank.length > 0 && (
             <ol
-              className={styles.bank}
+              className={`nowheel ${styles.bank}`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => {
                 event.preventDefault()
@@ -156,7 +156,7 @@ export default function PaletteBankBody({ nodeId }: { nodeId: string }) {
               ))}
             </ol>
           )}
-          <div className={styles.grid}>
+          <div className={`nowheel ${styles.grid}`}>
             {PALETTE_DEFS.map((palette) => {
               const position = bank.indexOf(palette.id)
               const included = position >= 0

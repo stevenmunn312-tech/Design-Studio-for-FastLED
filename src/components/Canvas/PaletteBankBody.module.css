@@ -84,10 +84,15 @@
 
 .allBtn:hover { color: var(--text-primary); }
 
+/* Both lists scroll inside the node past a few rows: a full bank is dozens of
+   palettes, and an uncapped node grows taller than the canvas. */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
+  max-height: 132px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .card {
@@ -150,6 +155,9 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  max-height: 116px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .bankRow {
