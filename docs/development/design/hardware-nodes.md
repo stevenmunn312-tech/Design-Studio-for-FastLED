@@ -226,6 +226,19 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`KeypadInput` is a 4x4 membrane matrix keypad on eight GPIOs. Sixteen boolean
+ports would make the node taller than it is wide, so it publishes `key`, the last key
+pressed as an index (0 to 15, row by row, in the order printed), and `pressed`, true
+while any key is down; a scene or preset picker wants the index. The firmware scans
+column by column: rows are `INPUT_PULLUP`, one column at a time is driven LOW and the
+others float, and a row that reads LOW is the closed key. Two matching reads accept a
+key, which is a debounce of a frame or two at the sketch's rate, and the last key is
+held after release. With no diodes in the matrix, two keys down can ghost a third and
+only the first found is reported. The keypad is passive, so the Build Diagram draws
+neither a supply nor a ground: `peripheralPowerPadIndex` returns null and
+`peripheralHasGround` is false for it. Rows request a pin with a pull-up and
+columns request `digitalOutput`.
+
 `MotionInput` has two modules, chosen by its `partId`: the HC-SR501 PIR and the
 RCWL-0516 microwave radar. Both drive OUT high on movement at 3.3 V, so the node,
 preview and firmware are the same and the choice only changes the picture, the

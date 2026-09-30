@@ -178,6 +178,10 @@ in the app and marked experimental; nothing here holds up development.
   on movement and low after its roughly two-second hold, the range against a tape
   measure, and behaviour through a plastic case. The row's requirements are in the
   support matrix.
+- **D-05 keypad:** the 4x4 membrane keypad on eight GPIOs, all sixteen keys read in
+  each generator, the tail order confirmed against the keypad's own markings, and a
+  press and release on each row and column. The row's requirements are in the support
+  matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -290,6 +294,10 @@ in the app and marked experimental; nothing here holds up development.
   The RCWL-0516 microwave radar is a second `MotionInput` module beside the PIR:
   modelled, catalogued, drawn and previewed, with the same digital firmware, so
   no compile is owed; its bench row is in section 3.
+  The 4x4 matrix keypad (`KeypadInput`) is modelled, catalogued, drawn, previewed and
+  generated for normal/show/player paths; its compile result is in the
+  [keypad record](docs/development/keypad-compile-checks.md), and its bench row is in
+  section 3.
 
 ## Completed
 

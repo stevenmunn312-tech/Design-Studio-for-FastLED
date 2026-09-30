@@ -199,6 +199,25 @@ is unplugged, and Temperature then holds its last good value. In preview, the
 on-node slider simulates the reading. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
+### Pick scenes with a 4x4 keypad
+
+Choose **Add Hardware → Inputs → 4x4 matrix keypad** for sixteen keys on eight
+GPIOs. The keypad is a passive membrane, so it has no power or ground: its eight
+lines, **R1 to R4** then **C1 to C4**, go to the eight GPIOs shown in the inspector.
+Rows read through the controller's pull-up, so avoid GPIO 34 to 39 for them, and
+columns are driven low one at a time, so they must be able to output. Check the
+order against the markings on your keypad's tail, because some are printed the other
+way round.
+
+The node publishes **Key**, the last key pressed as an index from 0 to 15 row by
+row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and **Pressed**, true while any key is
+down. Key stays at its value after the key is released, so it can pick a scene or a
+preset; use Map Range or a comparison to turn it into a control. Two keys pressed
+together can read as a third, because the matrix has no diodes, and only the first
+key found is reported. In preview, the sixteen buttons on the node stand in for the
+keys. The keypad is experimental until a physical run is recorded in the support
+matrix.
+
 ### Sense movement with a microwave radar
 
 The **Motion Sensor** node also takes an **RCWL-0516 microwave motion sensor**:

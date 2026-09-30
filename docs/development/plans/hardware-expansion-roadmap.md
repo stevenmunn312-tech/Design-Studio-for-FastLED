@@ -52,7 +52,7 @@ build have passed the normal evidence gates.
 | MPU6050 accelerometer and gyroscope | `MotionVectorInput` | Orientation and movement-driven effects for portable installations. In the app and experimental: GY-521 at 0x68 or 0x69, six physical axes in g and degrees per second; bench open. |
 | MPR121 12-channel capacitive-touch module | Dynamic multi-touch input | Named, stable touch outputs using the same dynamic-port discipline as Button Bank. |
 | KY-023 joystick module | `JoystickInput` | Two signed float axes and one boolean. In the app and experimental: powered from 3V3, dead zone property; bench open. |
-| 4×4 matrix keypad | Dynamic key outputs | Direct scene, preset and show selection. |
+| 4×4 matrix keypad | `KeypadInput` | Direct scene, preset and show selection. In the app and experimental as one Key index (0 to 15) plus Pressed rather than sixteen ports; passive, no supply or ground drawn; bench open. |
 | RCWL-0516 microwave-motion module | `MotionInput` option | A second inexpensive presence technology beside PIR and mmWave. In the app and experimental as a second `MotionInput` module: VIN from 5 V, OUT 3.3 V; no new firmware; bench open. |
 | Rotary encoder with an addressable feedback ring | Encoder plus LED fixture | Combines an existing input idiom with visible state feedback. |
 

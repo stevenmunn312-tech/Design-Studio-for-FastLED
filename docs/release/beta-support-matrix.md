@@ -589,6 +589,18 @@ Unless a future row says otherwise, treat the following as experimental:
   readings compared against a trusted thermometer at two temperatures,
   including an ice bath, and Connected going false and recovering when the probe
   is unplugged and reconnected.
+- **4x4 matrix keypad.** `KeypadInput` has a modelled asset, preview (sixteen
+  buttons on the node), library-free column-scan firmware (rows on the internal
+  pull-up, columns driven low in turn, two matching reads to accept a key),
+  manifest and Build Diagram coverage with no supply or ground drawn, in the
+  normal, slideshow and player generators. It publishes Key (0 to 15, row by row,
+  held after release) and Pressed. Compile evidence is recorded in
+  [the keypad compile checks](../development/keypad-compile-checks.md), but there
+  is no physical row yet. The key pitch and tail width in the render are
+  approximate, and the tail is drawn short.
+  Graduation needs a dated row naming the board/FQBN and the eight GPIOs, with all
+  sixteen keys read in each of the three generators, the tail order confirmed
+  against the keypad's own markings, and a press and release on each row and column.
 - **RCWL-0516 microwave motion sensor.** `MotionInput` has a second module
   option beside the HC-SR501 PIR, with a modelled asset, the same preview and
   generated firmware (an active-high digital read with no pull-up, so no new
