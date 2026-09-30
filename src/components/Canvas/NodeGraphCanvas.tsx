@@ -1451,6 +1451,14 @@ function NodeGraphCanvasInner() {
               <path d="M10 5H5v5h2V7h3V5Zm12 0v2h3v3h2V5h-5ZM7 22H5v5h5v-2H7v-3Zm20 0h-2v3h-3v2h5v-5Z" />
             </svg>
           </ControlButton>
+          <ControlButton
+            className={styles.tidyButton}
+            onClick={() => runTidy()}
+            title="Tidy: auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
+            aria-label="Tidy graph layout"
+          >
+            <span aria-hidden="true">▦</span>
+          </ControlButton>
         </Controls>
         {showMinimap && (
           <MiniMap

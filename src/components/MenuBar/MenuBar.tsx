@@ -28,7 +28,6 @@ import {
 } from '../../utils/projectFileIO'
 import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { landOnStartingWorkspace } from '../../utils/startFlow'
-import { runTidy } from '../../utils/tidyGraph'
 import { buildShareUrl, shareUrlSizeWarning } from '../../utils/shareGraph'
 import { isWorkspacePayload, sanitizeWorkspacePayload, workspaceLoadStatus } from '../../utils/workspacePayload'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
@@ -866,14 +865,6 @@ export default function MenuBar() {
           title={`Redo (Ctrl+Y) — ${futureStates.length} step${futureStates.length !== 1 ? 's' : ''}`}
         >
           <span aria-hidden="true">↪</span>{futureStates.length > 0 ? ` ${futureStates.length}` : ''}
-        </button>
-        <button
-          className={`${styles.btn} ${styles.iconBtn}`}
-          onClick={() => runTidy()}
-          aria-label="Tidy graph layout"
-          title="Tidy: auto-arrange nodes into tidy columns (select 2+ nodes to tidy just those)"
-        >
-          <span aria-hidden="true">▦</span>
         </button>
         <button
           className={styles.btn}

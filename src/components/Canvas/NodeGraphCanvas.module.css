@@ -735,6 +735,14 @@
   border-bottom: 1px solid var(--border-glow);
 }
 
+/* Between fit frame and the lock: DOM order keeps it after fit frame. */
+.controls .tidyButton {
+  order: 2;
+  border-bottom: 1px solid var(--border-glow);
+  font-size: 13px;
+  line-height: 1;
+}
+
 .controls :global(.react-flow__controls-interactive) {
   order: 3;
   border-bottom: none;
