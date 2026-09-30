@@ -170,6 +170,10 @@ in the app and marked experimental; nothing here holds up development.
   pull-up pin, both axes read centred and at full travel in each direction, the
   dead zone checked, and SW pressed and released. The row's requirements are in
   the support matrix.
+- **D-05 accelerometer and gyroscope:** the GY-521 on 3V3 at 0x68 and 0x69, flat and on
+  each side reading about 1 g on the matching axis, a slow turn compared against a
+  known rate, and Connected dropping and recovering on unplug. The row's
+  requirements are in the support matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -275,6 +279,10 @@ in the app and marked experimental; nothing here holds up development.
   previewed and generated for normal/show/player paths; its compile result is in the
   [joystick record](docs/development/joystick-compile-checks.md), and its bench row
   is in section 3.
+  The GY-521 MPU-6050 (`MotionVectorInput`) is modelled, catalogued, drawn,
+  previewed and generated for normal/show/player paths; its compile result is in the
+  [motion-sensor record](docs/development/motion-sensor-compile-checks.md), and its
+  bench row is in section 3.
 
 ## Completed
 

@@ -199,6 +199,24 @@ is unplugged, and Temperature then holds its last good value. In preview, the
 on-node slider simulates the reading. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
+### Read tilt and rotation with an accelerometer and gyroscope
+
+Choose **Add Hardware → Inputs → GY-521 MPU-6050 accelerometer and gyroscope**
+for a six-axis motion sensor, useful for portable or wearable builds. Wire
+**VCC** to **3V3**, **GND** to **GND**, and **SDA** and **SCL** to the board's I2C
+pins, which the shelf fills in. Leave **AD0** unwired for address 0x68, or tie it
+high for 0x69. A DS3231 clock also answers at 0x68, so choose 0x69 when both share
+a bus. XDA, XCL and INT are not needed.
+
+The node publishes **Accel X, Y and Z** in g, **Gyro X, Y and Z** in degrees per
+second, and **Connected**. Lying flat, gravity reads about +1 g on Z, so tilting
+the board swings X and Y between -1 and +1. The ranges are plus or minus 2 g and
+plus or minus 250 degrees per second. These are physical values, so use Map Range
+before wiring one into brightness, hue or speed. Connected turns false when the
+sensor stops answering, and the last good values are held. In preview, six sliders
+stand in for the axes. The sensor is experimental until a physical run is recorded
+in the support matrix.
+
 ### Steer with a thumb joystick
 
 Choose **Add Hardware → Inputs → KY-023 analog joystick** for a thumb stick with

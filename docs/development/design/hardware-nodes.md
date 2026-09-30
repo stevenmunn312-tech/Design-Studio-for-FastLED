@@ -226,6 +226,19 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`MotionVectorInput` is the GY-521 MPU-6050 on the shared I2C bus. It publishes
+acceleration in g (`accelX/Y/Z`), rotation rate in degrees per second
+(`gyroX/Y/Z`) and `connected`, and holds the last good values when a read fails.
+The catalogue `motionVectorSensor` block owns the address list and the full-scale
+ranges; the preview sliders and the firmware's count scaling (32768 divided by the
+range) both read it, and setup writes the matching full-scale codes so a board
+another sketch configured reads the same way. `motionVectorCpp.ts` wakes the chip
+(PWR_MGMT_1 with the gyro X PLL as the clock) and reads one 14-byte burst from
+ACCEL_XOUT_H: accel, temperature, gyro. The missing sensor is retried once a
+second. The address is a property (0x68 or 0x69), validated like the BME280's, and
+the default collides with a DS3231 at 0x68, which the shared address check reports.
+VCC comes from 3V3 because the board's I2C pull-ups follow it.
+
 `JoystickInput` is the KY-023 thumb stick: two analog axes and a push switch on
 three GPIOs. The axes publish -1 to 1 with 0 at rest (not 0-1 like `PotInput`),
 because a stick's centre means something, and a `deadzone` property removes the

@@ -589,6 +589,20 @@ Unless a future row says otherwise, treat the following as experimental:
   readings compared against a trusted thermometer at two temperatures,
   including an ice bath, and Connected going false and recovering when the probe
   is unplugged and reconnected.
+- **GY-521 MPU-6050 accelerometer and gyroscope.** `MotionVectorInput` has a
+  modelled asset, preview, library-free register firmware (wake, set the
+  full-scale ranges, one 14-byte burst per read), address validation, manifest
+  and Build Diagram coverage, powered from 3V3, in the normal, slideshow and
+  player generators. It publishes acceleration in g, rotation rate in degrees
+  per second and Connected, at plus or minus 2 g and plus or minus 250 degrees
+  per second, at 0x68 or 0x69. Compile evidence is recorded in
+  [the motion-sensor compile checks](../development/motion-sensor-compile-checks.md),
+  but there is no physical row yet. The regulator, LED and passives in the render
+  are approximate and its mounting hole is not modelled.
+  Graduation needs a dated row naming the board/FQBN, the I2C pins, address and
+  supply, with the board flat and on each side reading about 1 g on the matching
+  axis, a slow turn compared against a known angle rate, and Connected going
+  false and recovering when the module is unplugged.
 - **KY-023 analog joystick.** `JoystickInput` has a modelled asset, preview,
   library-free firmware (two 12-bit ADC axes centred and rescaled to -1 to 1
   with a dead zone, plus an INPUT_PULLUP switch), manifest and Build Diagram

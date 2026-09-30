@@ -49,7 +49,7 @@ build have passed the normal evidence gates.
 | DS18B20 waterproof temperature probe | `TemperatureInput` | Useful for outdoor enclosures, heatsinks and power-supply monitoring. Software and compile complete (Adafruit 381 form, 4.7 kΩ pull-up drawn); bench open. |
 | VL53L0X / VL53L1X time-of-flight sensor | `DistanceInput` | Compact I2C proximity and interaction input. |
 | HC-SR04 ultrasonic module | `DistanceInput` | Lower-cost distance sensing with explicit 5 V echo-level handling. In the app and experimental: Trig/Echo on two GPIOs with the Build Diagram's 1 kΩ / 2 kΩ echo divider; bench open. |
-| MPU6050 accelerometer and gyroscope | `MotionVectorInput` | Orientation and movement-driven effects for portable installations. |
+| MPU6050 accelerometer and gyroscope | `MotionVectorInput` | Orientation and movement-driven effects for portable installations. In the app and experimental: GY-521 at 0x68 or 0x69, six physical axes in g and degrees per second; bench open. |
 | MPR121 12-channel capacitive-touch module | Dynamic multi-touch input | Named, stable touch outputs using the same dynamic-port discipline as Button Bank. |
 | KY-023 joystick module | `JoystickInput` | Two signed float axes and one boolean. In the app and experimental: powered from 3V3, dead zone property; bench open. |
 | 4×4 matrix keypad | Dynamic key outputs | Direct scene, preset and show selection. |
