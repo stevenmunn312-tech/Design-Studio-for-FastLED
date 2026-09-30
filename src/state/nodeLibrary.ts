@@ -83,6 +83,7 @@ import {
   formatEnvironmentAddress,
 } from './environmentSensor'
 import { DS18B20_PART_ID } from './temperatureSensor'
+import { HCSR04_PART_ID } from './distanceSensor'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -4149,6 +4150,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { partId: DS18B20_PART_ID, pin: 4 },
   },
   {
+    // An ultrasonic ranger. Two GPIOs carry it: Trig out, Echo in. `connected`
+    // is separate from the reading because a sensor that hears no echo has no
+    // meaningful distance, and nothing in range is not the same as unplugged.
+    type: 'DistanceInput',
+    label: 'Distance Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'distance', label: 'Distance (mm)', dataType: 'float' },
+      { id: 'connected', label: 'Connected', dataType: 'bool' },
+    ],
+    defaultProperties: { partId: HCSR04_PART_ID, trigPin: 27, echoPin: 26 },
+  },
+  {
     type: 'PotInput',
     label: 'Potentiometer',
     category: 'input',
@@ -4782,6 +4797,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
   EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
+  DistanceInput: 'Measures distance in millimetres with an HC-SR04 ultrasonic sensor.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -5865,6 +5881,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   TemperatureInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  DistanceInput: {
+    trigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    echoPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   EnvironmentInput: {
     i2cAddress: { control: 'select', options: environmentAddressOptions(BME280_PART_ID) },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6403,6 +6423,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
+  DistanceInput: {
+    trigPin: 'The GPIO wired to Trig. It sends a 10 microsecond pulse, so it must be able to output; a 3.3 V pulse is enough to trigger the module.',
+    echoPin: 'The GPIO wired to Echo through the 1 kΩ and 2 kΩ divider the Build Diagram shows. Echo swings to 5 V, above what a 3.3 V controller pin tolerates.',
+  },
   TemperatureInput: {
     pin: 'The GPIO wired to the probe’s yellow DATA wire. It needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram shows. Use one probe per pin.',
   },
@@ -6804,7 +6828,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -7095,6 +7119,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
+  DistanceInput: new Set(['trigPin', 'echoPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
@@ -7149,6 +7174,8 @@ export function gpioRequirementForProperty(
   }
   // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
+  // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.
+  if (nodeType === 'DistanceInput') return { capability: key === 'trigPin' ? 'digitalOutput' : 'digitalInput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }

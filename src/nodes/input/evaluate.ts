@@ -15,6 +15,7 @@ import {
 import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
+import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { designControlBundle } from '../../state/designControlBundle'
@@ -331,6 +332,13 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     const pot = useHardwareInputStore.getState().pot
     const fraction = pot.get(temperaturePreviewKey(id)) ?? temperaturePreviewDefault(props.partId)
     return { temperature: temperaturePreviewReading(props.partId, fraction), connected: true }
+  },
+  // No sensor in the browser: the node body's slider stands in for the
+  // measured distance, and the sensor is always connected.
+  DistanceInput(_c, id, props) {
+    const pot = useHardwareInputStore.getState().pot
+    const fraction = pot.get(distancePreviewKey(id)) ?? distancePreviewDefault(props.partId)
+    return { distance: distancePreviewReading(props.partId, fraction), connected: true }
   },
   EnvironmentInput(_c, id, props) {
     const pot = useHardwareInputStore.getState().pot

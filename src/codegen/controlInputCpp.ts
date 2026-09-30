@@ -9,6 +9,7 @@ import { lightSensorTransport } from '../state/lightSensor'
 import { touchButtonPressedLevel } from '../state/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './temperatureSensorCpp'
+import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -113,6 +114,13 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.connected = 'bool'
       break
     }
+    case 'DistanceInput': {
+      setup.push(...distanceSensorSetupCpp(p))
+      loop.push(...distanceSensorLoopCpp(p, id, (port) => v(port)))
+      outputs.distance = 'float'
+      outputs.connected = 'bool'
+      break
+    }
     default: return null
   }
   return {
@@ -127,6 +135,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
     ...(nodeType === 'TemperatureInput' ? { helpers: [TEMPERATURE_SENSOR_HELPER_CPP.join('\n')] } : {}),
+    ...(nodeType === 'DistanceInput' ? { helpers: [DISTANCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(ir ? { ir } : {}),
   }
 }

@@ -90,6 +90,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Temperature Probe example graph](../../public/node-cards/graphs/temperature-input.svg)
 
+### Distance Sensor
+
+![Distance Sensor node](../../public/node-cards/distance-input.svg)
+
+![Distance Sensor example graph](../../public/node-cards/graphs/distance-input.svg)
+
 ### Potentiometer
 
 ![Potentiometer node](../../public/node-cards/pot-input.svg)

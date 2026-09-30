@@ -52,6 +52,7 @@ import {
   formatEnvironmentAddress,
 } from '../state/environmentSensor'
 import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/temperatureSensor'
+import { HCSR04_PART_ID, distanceSensorSpec } from '../state/distanceSensor'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
 import {
@@ -101,7 +102,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -140,6 +141,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'LightInput',
   'EnvironmentInput',
   'TemperatureInput',
+  'DistanceInput',
   'IRRemoteInput',
   'PowerMonitorInput',
   'RelayOutput',
@@ -385,6 +387,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'TemperatureInput':
         push(node, `${baseLabel} DATA pin`, 'pin', props.pin)
+        break
+      case 'DistanceInput':
+        push(node, `${baseLabel} Trig pin`, 'trigPin', props.trigPin)
+        push(node, `${baseLabel} Echo pin`, 'echoPin', props.echoPin)
         break
       case 'EncoderInput':
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
@@ -922,6 +928,26 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             pullUp: formatPullUp(spec.pullUpOhms),
           },
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} has no free pin for the probe's DATA wire.`],
+        }
+      }
+      case 'DistanceInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? HCSR04_PART_ID)
+        const entry = partById(partId)
+        const spec = distanceSensorSpec(partId)
+        const wired = pins.some((pin) => pin.propertyKey === 'trigPin')
+          && pins.some((pin) => pin.propertyKey === 'echoPin')
+        return {
+          ...buildPeripheralItem(node, 'distance-input', entry?.label ?? 'HC-SR04 ultrasonic sensor', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            partId,
+            distanceRange: `${spec.minMm / 10} to ${spec.maxMm / 10} cm`,
+            echoLevel: `${spec.echoVolts} V`,
+            echoDivider: '1 kΩ / 2 kΩ',
+          },
+          reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have two free pins for Trig and Echo.`],
         }
       }
       case 'DMXInput': {

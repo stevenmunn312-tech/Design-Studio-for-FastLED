@@ -194,6 +194,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  DistanceInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'hc-sr04-ultrasonic-module',
+        label: 'HC-SR04 ultrasonic',
+        summary: 'Ultrasonic ranging, 2 cm to 4 m, on two GPIOs',
+        note: 'Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V.',
+      },
+    ],
+  },
   TemperatureInput: {
     property: 'partId',
     options: [

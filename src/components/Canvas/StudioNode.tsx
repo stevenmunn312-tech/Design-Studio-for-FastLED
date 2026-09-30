@@ -1033,6 +1033,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'preview readings come from the sliders; firmware reads the INA219',
     title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
   },
+  DistanceInput: {
+    text: 'preview reading comes from the slider; firmware times the HC-SR04 echo',
+    title: 'The browser has no ultrasonic sensor, so the slider stands in for the distance and Connected is always true. Generated firmware pulses Trig, times the Echo, and reports Connected false when no echo returns. Readings are taken every 60 ms and held between.',
+  },
   TemperatureInput: {
     text: 'preview reading comes from the slider; firmware reads the DS18B20',
     title: 'The browser has no probe to read, so the slider stands in for the temperature and Connected is always true. Generated firmware starts a conversion, reads the probe 800 ms later and checks its CRC; Connected goes false when a read fails.',
@@ -1420,7 +1424,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput'
     || d.nodeType === 'PresenceInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.

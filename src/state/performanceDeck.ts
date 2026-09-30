@@ -139,6 +139,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   LightInput: new Set(['pin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
+  DistanceInput: new Set(['trigPin', 'echoPin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }
 

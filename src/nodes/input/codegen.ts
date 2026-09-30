@@ -4,6 +4,7 @@ import { presenceSensorLoopCpp } from '../../codegen/presenceSensorCpp'
 import { lightSensorLoopCpp } from '../../codegen/lightSensorCpp'
 import { environmentSensorLoopCpp } from '../../codegen/environmentSensorCpp'
 import { temperatureSensorLoopCpp } from '../../codegen/temperatureSensorCpp'
+import { distanceSensorLoopCpp } from '../../codegen/distanceSensorCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
@@ -43,6 +44,12 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   TemperatureInput({ id, p, ln, v }) {
     for (const line of temperatureSensorLoopCpp(p, id, v)) ln(line)
+  },
+  DistanceInput({ id, p, ln, v, pinSetupLines }) {
+    // Trig is driven and Echo read; setup holds Trig low so a reset never fires a stray pulse.
+    pinSetupLines.add(`  pinMode(${sanitizePin(p.trigPin, 27)}, OUTPUT); digitalWrite(${sanitizePin(p.trigPin, 27)}, LOW);`)
+    pinSetupLines.add(`  pinMode(${sanitizePin(p.echoPin, 26)}, INPUT);`)
+    for (const line of distanceSensorLoopCpp(p, id, v)) ln(line)
   },
   PowerMonitorInput({ p, ln, v }) {
     for (const line of powerMonitorLoopCpp(p, v)) ln(line)

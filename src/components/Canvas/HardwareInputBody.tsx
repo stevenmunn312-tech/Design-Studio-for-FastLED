@@ -12,6 +12,7 @@ import {
 import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
+import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -148,6 +149,15 @@ function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: un
   return <>{row('temperature', 1, '°C')}{row('humidity', 0, '%')}{row('pressure', 0, 'hPa')}</>
 }
 
+function DistanceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  return <PotInputWidget
+    nodeId={nodeId}
+    storeKey={distancePreviewKey(nodeId)}
+    initial={distancePreviewDefault(partId)}
+    readout={(fraction) => `${Math.round(distancePreviewReading(partId, fraction))} mm`}
+  />
+}
+
 function TemperatureInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
   return <PotInputWidget
     nodeId={nodeId}
@@ -208,6 +218,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'EnvironmentInput') return <EnvironmentInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />

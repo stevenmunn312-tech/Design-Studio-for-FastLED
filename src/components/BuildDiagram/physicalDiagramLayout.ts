@@ -358,6 +358,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'adafruit-bme280-environment-sensor': padRow([49, 99, 149, 200, 250, 301, 351], 400, 471, 527),
   // The probe's three bare wire ends: red VCC, black GND, yellow DATA.
   'ds18b20-waterproof-probe': padRow([104.5, 199.5, 294.5], 400, 948, 997),
+  // VCC, Trig, Echo, GND along the bottom edge. Computed from the model's own
+  // coordinates (12 px/mm, 10 px margin, header at y = 2 mm, 2.54 mm pitch
+  // centred on the board) and checked by drawing the result over the render.
+  'hc-sr04-ultrasonic-module': padRow([234.3, 264.8, 295.2, 325.7], 560, 226, 260),
   // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
   // bottom (GND, 3V3D, 3V3D, NC, RSTn, MISO), pin 1 of each at the right-hand
   // end. Computed from WIZnet's board file (13.60 px/mm, 10 px margin) and
@@ -676,6 +680,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
   'temperature-input': [['DATA']],
+  'distance-input': [['Trig', 'TRIG'], ['Echo', 'ECHO']],
   // The board's RX reads the sensor's TX pad.
   'presence-input': [['TX']],
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
@@ -726,6 +731,9 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   if (item.kind === 'environment-input') return 'v3v3'
   // The 4.7 kohm pull-up ties DATA to VCC, so 5 V here would hold the controller's pin at 5 V.
   if (item.kind === 'temperature-input') return 'v3v3'
+  // The HC-SR04 needs 5 V to range reliably; its Echo then swings to 5 V, which
+  // the receive divider brings down to the controller's level.
+  if (item.kind === 'distance-input') return 'v5'
   // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
   // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
@@ -799,6 +807,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,
+  'hc-sr04-ultrasonic-module': 6,
   'max485-rs485-module': 11.9,
   'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,
@@ -858,15 +867,25 @@ export interface ReceiveDivider {
   ground: { x: number; y: number }
 }
 
+/**
+ * Which 5 V outputs get the divider: the wire's property, and the pad it leaves.
+ * A MAX485's RO and an HC-SR04's Echo both swing to 5 V into a 3.3 V pin.
+ */
+const RECEIVE_DIVIDER_SOURCES: Partial<Record<HardwareManifestItem['kind'], { propertyKey: string; pads: readonly string[] }>> = {
+  'dmx-input': { propertyKey: 'dmxRxPin', pads: ['RO'] },
+  'distance-input': { propertyKey: 'echoPin', pads: ['Echo', 'ECHO'] },
+}
+
 function hasReceiveDivider(item: HardwareManifestItem) {
-  return item.kind === 'dmx-input'
+  return item.kind in RECEIVE_DIVIDER_SOURCES
 }
 
 export function receiveDivider(layout: ItemLayout): ReceiveDivider | null {
   const { item } = layout
   if (!hasReceiveDivider(item)) return null
-  const signalIndex = item.pins.findIndex((pin) => pin.propertyKey === 'dmxRxPin')
-  const roIndex = padIndexByLabel(item, ['RO'], -1)
+  const source = RECEIVE_DIVIDER_SOURCES[item.kind]!
+  const signalIndex = item.pins.findIndex((pin) => pin.propertyKey === source.propertyKey)
+  const roIndex = padIndexByLabel(item, source.pads, -1)
   const box = fittedRenderBox(String(item.facts.partId ?? ''))
   if (signalIndex < 0 || roIndex < 0 || !box) return null
   const y = layout.y + PERIPHERAL_RENDER_H + 10

@@ -1625,6 +1625,24 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
 )
 
+const DISTANCE_INPUT_LIVE_EXAMPLE = namedExample(
+  'DistanceInput',
+  'Brighten as something comes closer',
+  [
+    { key: 'ranger', type: 'DistanceInput', properties: { partId: 'hc-sr04-ultrasonic-module', trigPin: 27, echoPin: 26 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 100, inMax: 1500, outMin: 1, outMax: 0 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 255, g: 96, b: 24 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'ranger', sourceHandle: 'distance', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Distance Sensor times an HC-SR04 ultrasonic echo and publishes the distance in millimetres. The value keeps its unit, so Map Range is the explicit bridge from the span you care about, here 100 mm to 1.5 m, to a colour control; the range is flipped so a nearer object means a brighter fill. Connected goes false when no echo returns, so a graph can tell an empty room from an unplugged sensor.',
+  'Drag the distance slider from far to near and watch the orange brighten. The firmware wiring needs a 1 kΩ and 2 kΩ divider on Echo, which the Build Diagram draws, and VCC on 5 V.',
+)
+
 const TEMPERATURE_INPUT_LIVE_EXAMPLE = namedExample(
   'TemperatureInput',
   'Warm the colour with a probe reading',
@@ -1834,6 +1852,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,
   TemperatureInput: TEMPERATURE_INPUT_LIVE_EXAMPLE,
+  DistanceInput: DISTANCE_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,

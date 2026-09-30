@@ -179,6 +179,11 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   // The 1-Wire bus is driven low and released, so it needs an output-capable pin.
   TemperatureInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'digitalOutput' }] },
+  // Trig is driven and Echo is read.
+  DistanceInput: {
+    keys: ['trigPin', 'echoPin'],
+    requests: [{ key: 'trigPin', capability: 'digitalOutput' }, { key: 'echoPin', capability: 'digitalInput' }],
+  },
   // One UART receive line: the sensor streams unprompted, so its RX is unwired.
   PresenceInput: { keys: ['rxPin'], requests: [{ key: 'rxPin' }] },
   // One pin however many keys are learned: a receiver demodulates every

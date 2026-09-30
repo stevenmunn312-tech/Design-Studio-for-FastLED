@@ -539,6 +539,24 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-bme280-environment-sensor' },
   },
   {
+    nodeType: 'DistanceInput',
+    partId: 'distance-sensor',
+    label: 'HC-SR04 ultrasonic distance sensor',
+    hint: 'Ultrasonic ranging, 2 cm to 4 m, on two GPIOs (Echo needs a divider)',
+    footprint: partDimensionsMm('hc-sr04-ultrasonic-module', { width: 45, height: 20 }),
+    signalPort: 'distance',
+    dataType: 'float',
+    pinRequests: [
+      { key: 'trigPin', capability: 'digitalOutput' },
+      { key: 'echoPin', capability: 'digitalInput' },
+    ],
+    pinFields: [
+      { key: 'trigPin', label: 'GPIO (Trig)' },
+      { key: 'echoPin', label: 'GPIO (Echo)' },
+    ],
+    properties: { partId: 'hc-sr04-ultrasonic-module' },
+  },
+  {
     nodeType: 'TemperatureInput',
     partId: 'temperature-probe',
     label: 'Waterproof DS18B20 temperature probe',

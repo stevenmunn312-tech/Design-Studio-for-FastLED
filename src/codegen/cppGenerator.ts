@@ -96,6 +96,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { powerMonitorSetupCpp, POWER_MONITOR_HELPER_CPP } from './powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
+import { DISTANCE_SENSOR_HELPER_CPP } from './distanceSensorCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
@@ -676,6 +677,7 @@ export function generateCpp(
   const powerMonitors = sorted.filter((n) => n.data.nodeType === 'PowerMonitorInput')
   const presenceSensors = sorted.filter((n) => n.data.nodeType === 'PresenceInput')
   const temperatureSensors = sorted.filter((n) => n.data.nodeType === 'TemperatureInput')
+  const distanceSensors = sorted.filter((n) => n.data.nodeType === 'DistanceInput')
   const digitalLightSensors = sorted.filter((n) => n.data.nodeType === 'LightInput'
     && lightSensorTransport(props(n).partId) === 'i2c')
   const environmentSensors = sorted.filter((n) => n.data.nodeType === 'EnvironmentInput')
@@ -1580,6 +1582,7 @@ export function generateCpp(
   if (digitalLightSensors.length > 0) lines.push(...LIGHT_SENSOR_HELPER_CPP)
   if (environmentSensors.length > 0) lines.push(...ENVIRONMENT_SENSOR_HELPER_CPP)
   if (temperatureSensors.length > 0) lines.push(...TEMPERATURE_SENSOR_HELPER_CPP)
+  if (distanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
 
   if (needsNetwork && ethernetNode) {
     const p = props(ethernetNode)
