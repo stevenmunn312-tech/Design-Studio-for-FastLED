@@ -1,4 +1,4 @@
-import { formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
+import { formatI2cAddress, powerMonitorAddress, powerMonitorLimitAmps, powerMonitorSpec } from '../state/powerMonitor'
 
 /*
  * INA219 reads, straight off the registers over the shared `Wire` bus.
@@ -64,12 +64,13 @@ export function powerMonitorSetupCpp(props: Record<string, unknown>): string {
  */
 export function powerMonitorLoopCpp(
   props: Record<string, unknown>,
-  local: (port: 'volts' | 'amps' | 'watts') => string,
+  local: (port: 'volts' | 'amps' | 'watts' | 'overcurrent') => string,
 ): string[] {
   const ohms = powerMonitorSpec(props.partId).shuntOhms
   return [
     `  float ${local('volts')} = 0.0f, ${local('amps')} = 0.0f;`,
     `  _ina219Measure(${powerMonitorAddressCpp(props)}, ${ohms.toFixed(4)}f, ${local('volts')}, ${local('amps')});`,
     `  float ${local('watts')} = ${local('volts')} * ${local('amps')};`,
+    `  bool ${local('overcurrent')} = ${local('amps')} > ${powerMonitorLimitAmps(props.overcurrentAmps).toFixed(3)}f;`,
   ]
 }

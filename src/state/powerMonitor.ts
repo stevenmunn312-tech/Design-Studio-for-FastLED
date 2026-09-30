@@ -47,6 +47,18 @@ export function powerMonitorAddress(props: Record<string, unknown>): number | nu
   return Number.isInteger(value) && spec.i2cAddresses.includes(value) ? value : null
 }
 
+/** The current, in amps, above which the Overcurrent output goes true. */
+export const POWER_MONITOR_DEFAULT_LIMIT_AMPS = 2.5
+
+/**
+ * A usable limit: a finite amount above zero, else the default. A limit of zero
+ * would trip on the noise of an idle shunt, so it is never accepted.
+ */
+export function powerMonitorLimitAmps(raw: unknown): number {
+  const value = typeof raw === 'number' ? raw : Number(String(raw ?? '').trim())
+  return Number.isFinite(value) && value > 0 ? value : POWER_MONITOR_DEFAULT_LIMIT_AMPS
+}
+
 export interface PowerMonitorReading {
   volts: number
   amps: number

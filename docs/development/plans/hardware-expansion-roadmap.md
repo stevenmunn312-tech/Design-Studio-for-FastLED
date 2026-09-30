@@ -102,7 +102,9 @@ compile families:
    20 V.
 2. INA219/INA226 monitoring and a minimal volts/amps/watts signal contract.
    The Adafruit INA219 (`PowerMonitorInput`) is in, experimental, on the
-   normal sketch; the INA226 and overcurrent warnings built on the readings are
+   normal sketch. It also publishes an `Overcurrent` bool, true while the
+   measured amps exceed the node's limit (default 2.5 A); the preview and
+   firmware agree, and no compile fixture has been run for it yet. The INA226 is
    still open.
 3. An exact MAX485-class DMX transceiver and recorded DMX512 bench run.
    The "C25B" MAX485 module (`max485-rs485-module`) is in: modelled, catalogued

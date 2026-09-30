@@ -8,7 +8,9 @@ import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { partById } from '../partCatalogue'
 import {
   powerMonitorAddress,
+  POWER_MONITOR_DEFAULT_LIMIT_AMPS,
   powerMonitorAddressOptions,
+  powerMonitorLimitAmps,
   powerMonitorPreviewReading,
   powerMonitorSpec,
 } from '../powerMonitor'
@@ -150,5 +152,27 @@ describe('bus and wiring', () => {
   it('powers VIN from the logic rail, because the bus pull-ups ride on it', () => {
     const [item] = buildHardwareManifest([node('mon', 'PowerMonitorInput')], [], 'esp32:esp32:esp32').primaryItems
     expect(peripheralPowerNet(item)).toBe('v3v3')
+  })
+})
+
+describe('overcurrent', () => {
+  it('accepts only a positive limit, else falls back to the default', () => {
+    expect(powerMonitorLimitAmps(1.5)).toBe(1.5)
+    expect(powerMonitorLimitAmps('2')).toBe(2)
+    for (const bad of [0, -1, NaN, '', undefined, 'x']) expect(powerMonitorLimitAmps(bad)).toBe(POWER_MONITOR_DEFAULT_LIMIT_AMPS)
+  })
+
+  it('is a bool output beside volts, amps and watts, with a default limit', () => {
+    const def = NODE_LIBRARY.find((entry) => entry.type === 'PowerMonitorInput')!
+    expect(def.outputs.map((o) => [o.id, o.dataType])).toContainEqual(['overcurrent', 'bool'])
+    expect(libraryDefaults('PowerMonitorInput').overcurrentAmps).toBe(POWER_MONITOR_DEFAULT_LIMIT_AMPS)
+  })
+
+  it('compares the measured amps against the limit in firmware', () => {
+    const { nodes, edges } = monitorGraph({ overcurrentAmps: 1.2 })
+    nodes.push(node('sw', 'PowerSwitchOutput'))
+    edges.push(edge('oc', 'mon', 'overcurrent', 'sw', 'on'))
+    const sketch = generateCpp(nodes, edges)
+    expect(sketch).toContain('bool n_mon_overcurrent = n_mon_amps > 1.200f;')
   })
 })

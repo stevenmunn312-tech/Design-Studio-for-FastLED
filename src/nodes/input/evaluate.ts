@@ -2,6 +2,7 @@ import { useAudioStore } from '../../state/audioStore'
 import { useDmxStore } from '../../state/dmxStore'
 import { useHardwareInputStore } from '../../state/hardwareInputStore'
 import {
+  powerMonitorLimitAmps,
   powerMonitorPreviewDefaults,
   powerMonitorPreviewReading,
   powerMonitorPreviewKey,
@@ -347,11 +348,12 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   PowerMonitorInput(_c, id, props) {
     const pot = useHardwareInputStore.getState().pot
     const start = powerMonitorPreviewDefaults(props.partId)
-    return { ...powerMonitorPreviewReading(
+    const reading = powerMonitorPreviewReading(
       props.partId,
       pot.get(powerMonitorPreviewKey(id, 'volts')) ?? start.volts,
       pot.get(powerMonitorPreviewKey(id, 'amps')) ?? start.amps,
-    ) }
+    )
+    return { ...reading, overcurrent: reading.amps > powerMonitorLimitAmps(props.overcurrentAmps) }
   },
   // The browser has no radar, so two latches model the module's moving and
   // stationary target bits and one slider supplies its detection distance.
