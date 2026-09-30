@@ -577,6 +577,18 @@ Unless a future row says otherwise, treat the following as experimental:
   Graduation needs a dated row naming the board/FQBN, I2C pins, address and
   supply, with all three readings compared against trusted references at two
   environmental conditions and recovery checked after unplugging the module.
+- **Waterproof DS18B20 temperature probe.** `TemperatureInput` has a modelled
+  Adafruit product-381 asset, preview, library-free bit-banged 1-Wire firmware
+  (skip-ROM, non-blocking 12-bit conversion, CRC-checked scratchpad), manifest
+  and Build Diagram coverage, including the 4.7 kΩ DATA pull-up to 3V3, in the
+  normal, slideshow and player generators, and
+  [compiles on classic ESP32](../development/temperature-sensor-compile-checks.md),
+  but no physical row yet. It reads -55 to +125 °C and publishes Temperature
+  and Connected. One probe per pin.
+  Graduation needs a dated row naming the board/FQBN, GPIO and supply, with
+  readings compared against a trusted thermometer at two temperatures,
+  including an ice bath, and Connected going false and recovering when the probe
+  is unplugged and reconnected.
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the

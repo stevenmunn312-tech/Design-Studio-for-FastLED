@@ -84,6 +84,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Environment Sensor example graph](../../public/node-cards/graphs/environment-input.svg)
 
+### Temperature Probe
+
+![Temperature Probe node](../../public/node-cards/temperature-input.svg)
+
+![Temperature Probe example graph](../../public/node-cards/graphs/temperature-input.svg)
+
 ### Potentiometer
 
 ![Potentiometer node](../../public/node-cards/pot-input.svg)

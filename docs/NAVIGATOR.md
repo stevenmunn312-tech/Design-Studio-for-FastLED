@@ -194,6 +194,9 @@ build/architecture overview aimed at contributors.
     — real normal/slideshow/player/no-sensor fixtures for the Adafruit BME280,
       the forward declaration the Arduino preprocessor requires, and
       classic-ESP32 resource figures.
+  - [Temperature-probe firmware compile checks](development/temperature-sensor-compile-checks.md)
+    — real normal/slideshow/player/no-sensor fixtures for the waterproof
+      DS18B20, the library-free 1-Wire helper guard, and classic-ESP32 results.
   - [Power-switch dimming compile checks](development/power-switch-compile-checks.md)
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.

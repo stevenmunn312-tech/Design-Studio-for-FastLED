@@ -272,6 +272,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   validation, manifest facts and direct compensated firmware all read that
   contract. On the I2C route, SDA lands on the breakout's SDI pad and SCL on
   SCK; SDO and CS remain unwired. The Build Diagram powers VIN from 3V3.
+- **Temperature probe (experimental):** `TemperatureInput` is the waterproof
+  DS18B20 (Adafruit product 381). One GPIO, requested as `digitalOutput`
+  because 1-Wire is driven low and released. The bare probe has no pull-up, so
+  the diagram draws a 4.7 kΩ resistor from DATA to 3V3 under the probe
+  (`dataPullUp` in `physicalDiagramLayout.ts`). Wire order VCC, GND, DATA puts
+  DATA last so that resistor crosses no supply stub; keep that order if the
+  render is replaced. VCC comes from 3V3, never 5 V, since the pull-up would
+  hold the pin at the supply. Firmware is library-free and CRC-checked; see
+  [hardware nodes](../design/hardware-nodes.md).
 - **Power monitor (experimental):** `PowerMonitorInput` is an INA219 I2C node.
   Its board's VIN has no regulator and sets the chip's I2C pull-up level, so the
   Build Diagram powers it from 3V3 via `peripheralPowerNet` even though the pad

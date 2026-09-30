@@ -46,7 +46,7 @@ build have passed the normal evidence gates.
 | Hardware family | Proposed app role | Notes |
 | --- | --- | --- |
 | BME280 temperature, humidity and pressure sensor | `EnvironmentInput` | Three measured outputs from one shared I2C module. |
-| DS18B20 waterproof temperature probe | `TemperatureInput` | Useful for outdoor enclosures, heatsinks and power-supply monitoring. |
+| DS18B20 waterproof temperature probe | `TemperatureInput` | Useful for outdoor enclosures, heatsinks and power-supply monitoring. Software and compile complete (Adafruit 381 form, 4.7 kΩ pull-up drawn); bench open. |
 | VL53L0X / VL53L1X time-of-flight sensor | `DistanceInput` | Compact I2C proximity and interaction input. |
 | HC-SR04 ultrasonic module | `DistanceInput` option | Lower-cost distance sensing with explicit 5 V echo-level handling. |
 | MPU6050 accelerometer and gyroscope | `MotionVectorInput` | Orientation and movement-driven effects for portable installations. |

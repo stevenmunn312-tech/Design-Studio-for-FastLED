@@ -181,6 +181,24 @@ similar normalized property. The three on-node sliders simulate the readings
 in preview. BME280 support is experimental until a physical comparison is
 recorded in the support matrix.
 
+### Measure temperature with a waterproof probe
+
+Choose **Add Hardware → Inputs → Waterproof DS18B20 temperature probe** for a
+sealed steel-tube thermometer that reads -55 to 125 °C, useful for enclosures,
+heatsinks and outdoor builds. It has three loose wires: **red** to **3V3**,
+**black** to **GND** and **yellow** (DATA) to the GPIO shown in the inspector.
+DATA also needs a **4.7 kΩ pull-up resistor** to 3V3; the bare probe has none,
+and the Build Diagram draws it beside the probe. Power the probe from 3V3, not
+5 V, so DATA never rises above the controller's pin limit. Use one probe per
+pin.
+
+The node publishes **Temperature** in °C and **Connected**. Temperature is a
+physical value, so use Map Range before wiring it into brightness, hue or
+speed. Connected turns false when a reading fails, for instance when the probe
+is unplugged, and Temperature then holds its last good value. In preview, the
+on-node slider simulates the reading. The probe is experimental until a
+physical comparison is recorded in the support matrix.
+
 ### Connect by Ethernet
 
 Art-Net input and NTP clock sync normally use Wi-Fi. For a cable instead, choose

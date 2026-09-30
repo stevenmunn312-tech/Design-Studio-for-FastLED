@@ -226,6 +226,23 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`TemperatureInput` is the waterproof DS18B20 probe of Adafruit product 381 on
+one GPIO. It publishes `temperature` in °C and a `connected` flag; a bare probe
+has no meaningful reading, so a failed read clears `connected` and holds the
+last good temperature instead of publishing a sentinel such as -127. The
+catalogue `temperatureSensor` block owns the -55 to 125 °C range and the 4.7 kΩ
+pull-up, which the preview slider and the Build Diagram both read.
+`temperatureSensorCpp.ts` bit-bangs 1-Wire with no library: reset, skip ROM,
+convert, then read the scratchpad 800 ms later and check its CRC-8, so a
+timing slip drops a reading rather than corrupting one. Each bit slot runs with
+interrupts off. Only one probe per pin is supported, which is why skip ROM is
+safe; the pin claim rejects a second. The bus is driven low and released, so
+the pin request is `digitalOutput` and input-only GPIOs are refused. The three
+wires are ordered VCC, GND, DATA so DATA is the last pad: the Build Diagram
+draws the pull-up under the probe to its right (`dataPullUp`), crossing neither
+supply stub, and ends DATA's controller wire on the resistor junction the way
+the DMX transceiver's receive divider does.
+
 `EthernetModule` is a hardware-only part with no ports: a WIZnet WIZ850io
 (W5500) that carries Art-Net and NTP over a cable instead of Wi-Fi. It claims
 SCLK, MOSI, MISO, SCNn, INTn and RSTn from the general pool, on its own SPI host

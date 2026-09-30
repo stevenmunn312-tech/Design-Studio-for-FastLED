@@ -82,6 +82,11 @@ passed on classic ESP32 under arduino-cli on 2026-09-27. The toolchain, hashes
 and resource figures are in the
 [environment-sensor compile record](docs/development/environment-sensor-compile-checks.md).
 
+The D-05 DS18B20 temperature-probe normal, slideshow, player and no-sensor
+guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-30. The
+toolchain, hashes and resource figures are in the
+[temperature-probe compile record](docs/development/temperature-sensor-compile-checks.md).
+
 The HW-19 and HW-20 compiles all passed on 2026-09-24:
 - Generic MEMS on arduino-cli, and the microphone path on fbuild;
 - the DAC → power amplifier player sketch;
@@ -152,6 +157,11 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 environment sensor:** the Adafruit BME280's temperature, humidity and
   pressure against trusted references at two conditions, including recovery
   after unplugging the module. The row's requirements are in the support matrix.
+- **D-05 temperature probe:** the Adafruit-form waterproof DS18B20 on 3V3 with
+  its 4.7 kΩ DATA pull-up, read against a trusted thermometer at two
+  temperatures including an ice bath, with Connected dropping and recovering
+  when the probe is unplugged and replugged. The row's requirements are in the
+  support matrix.
 - **D-05 controller buck:** a board powered through its 5 V pin from the
   LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
   and its 5 V modules running.
@@ -241,6 +251,11 @@ in the app and marked experimental; nothing here holds up development.
   modelled, catalogued, drawn, previewed and generated for normal/show/player
   paths at 0x77 or 0x76; all four
   [compile fixtures pass](docs/development/environment-sensor-compile-checks.md),
+  and its bench row is in section 3.
+  The waterproof DS18B20 (`TemperatureInput`) is modelled from Adafruit
+  product 381, catalogued, drawn with its 4.7 kΩ pull-up, previewed and
+  generated for normal/show/player paths with library-free 1-Wire firmware; all
+  four [compile fixtures pass](docs/development/temperature-sensor-compile-checks.md),
   and its bench row is in section 3.
 
 ## Completed
