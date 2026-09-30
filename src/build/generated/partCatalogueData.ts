@@ -313,6 +313,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 25.0
     }
   },
+  "hc-sr04-ultrasonic-module": {
+    "partId": "hc-sr04-ultrasonic-module",
+    "label": "HC-SR04 ultrasonic distance sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 45.0,
+      "height": 20.0
+    },
+    "manufacturer": "Elecfreaks HC-SR04 and compatible modules",
+    "logicVoltage": "5 V supply; Echo swings to 5 V, so a 3.3 V controller needs a divider on Echo",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "Trig",
+      "Echo",
+      "GND"
+    ],
+    "notes": [
+      "Ultrasonic time-of-flight ranging at 40 kHz: 2 cm to 4 m, about 3 mm resolution, roughly a 15 degree cone. Soft or angled surfaces reflect poorly.",
+      "Power VCC from 5 V. The module needs 5 V to run reliably, and its Echo pin swings to 5 V, which is above an ESP32's 3.3 V pin limit.",
+      "Put a 1 kohm and 2 kohm divider on Echo for a 3.3 V controller, as the Build Diagram shows. Trig is a 10 microsecond pulse and a 3.3 V output triggers it.",
+      "The 3.3 V variants (HC-SR04P, RCWL-1601) are different modules and are not modelled here.",
+      "The board prints its pin names on the back. The four header holes are rendered as unpopulated plated holes and the pin names are repeated on the transducer face."
+    ],
+    "distanceSensor": {
+      "device": "HC-SR04",
+      "interface": "Trig/Echo pulse",
+      "minMm": 20,
+      "maxMm": 4000,
+      "triggerPulseUs": 10,
+      "echoVolts": 5
+    },
+    "render": {
+      "file": "parts/hc-sr04-ultrasonic-module.webp",
+      "widthPx": 560,
+      "heightPx": 260,
+      "pxPerMm": 12.0
+    }
+  },
   "hc-sr501-pir-sensor": {
     "partId": "hc-sr501-pir-sensor",
     "label": "HC-SR501 PIR motion sensor module",

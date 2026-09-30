@@ -433,6 +433,26 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: environmentSensor block needs addresses, a default among them and valid measurement ranges — skipped",
                   file=sys.stderr)
+    # A pulse-ranging distance sensor. The measuring window and the echo level
+    # travel from the part so the preview limits and the Build Diagram's echo
+    # divider agree with the data sheet rather than with numbers typed into the app.
+    distance = data.get("distanceSensor")
+    if distance:
+        if (isinstance(distance.get("minMm"), (int, float)) and isinstance(distance.get("maxMm"), (int, float))
+                and distance["minMm"] >= 0 and distance["maxMm"] > distance["minMm"]
+                and isinstance(distance.get("triggerPulseUs"), (int, float)) and distance["triggerPulseUs"] > 0
+                and isinstance(distance.get("echoVolts"), (int, float)) and distance["echoVolts"] > 0):
+            entry["distanceSensor"] = {
+                "device": distance.get("device") or "",
+                "interface": distance.get("interface") or "Trig/Echo pulse",
+                "minMm": distance["minMm"],
+                "maxMm": distance["maxMm"],
+                "triggerPulseUs": distance["triggerPulseUs"],
+                "echoVolts": distance["echoVolts"],
+            }
+        else:
+            print(f"  ! {part_id}: distanceSensor block needs a valid range, trigger pulse and echo level — skipped",
+                  file=sys.stderr)
     # A 1-Wire temperature probe. The range and the pull-up value travel from
     # the part so the preview limits and the Build Diagram's resistor agree
     # with the datasheet rather than with a number typed into the app.

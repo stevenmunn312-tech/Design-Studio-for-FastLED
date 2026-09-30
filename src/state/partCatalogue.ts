@@ -160,6 +160,18 @@ export interface PartEnvironmentSensorSpec {
   pressureMaxHpa: number
 }
 
+/** Measuring contract carried by a pulse-ranging distance sensor. */
+export interface PartDistanceSensorSpec {
+  device: string
+  interface: string
+  minMm: number
+  maxMm: number
+  /** The width of the trigger pulse the module needs, in microseconds. */
+  triggerPulseUs: number
+  /** The level the Echo pin swings to, in volts. */
+  echoVolts: number
+}
+
 /** Measuring contract carried by a 1-Wire temperature probe. */
 export interface PartTemperatureSensorSpec {
   device: string
@@ -239,6 +251,8 @@ export interface PartCatalogueEntry {
   lightSensor?: PartLightSensorSpec
   /** Present exactly on calibrated temperature / humidity / pressure sensors. */
   environmentSensor?: PartEnvironmentSensorSpec
+  /** Present exactly on pulse-ranging distance sensors. */
+  distanceSensor?: PartDistanceSensorSpec
   /** Present exactly on 1-Wire temperature probes. */
   temperatureSensor?: PartTemperatureSensorSpec
   /** Present exactly on wired-Ethernet controller modules. */
