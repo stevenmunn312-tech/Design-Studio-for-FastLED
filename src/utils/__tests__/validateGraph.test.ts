@@ -2288,3 +2288,15 @@ describe('diagnostic wording', () => {
     expect(found!.message).not.toContain(found!.fix)
   })
 })
+
+describe('disconnected-node diagnostic and capability providers', () => {
+  const disconnected = (nodes: StudioNode[]) =>
+    buildGraphDiagnostics(nodes, []).filter((d) => d.id.endsWith('-disconnected')).map((d) => d.nodeIds[0])
+
+  it('does not flag a microphone that an Audio node uses as its source', () => {
+    const mic = node('mic', 'MicInput')
+    expect(disconnected([mic])).toEqual(['mic'])
+    expect(disconnected([mic, node('audio', 'Audio', { sourceId: 'kind:microphone' })])).not.toContain('mic')
+    expect(disconnected([mic, node('audio', 'Audio', { sourceId: 'mic' })])).not.toContain('mic')
+  })
+})

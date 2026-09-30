@@ -4041,10 +4041,22 @@ export function buildGraphDiagnostics(
     }
   }
 
+  // A hardware part chosen as the source of an Audio or Storage capability node
+  // is wired by that choice, not by a cable, so it is never "disconnected".
+  const capabilityProviderIds = new Set<string>()
+  for (const node of nodes) {
+    const sourceId = (node.data.properties as Record<string, unknown>).sourceId
+    const provider = node.data.nodeType === 'Audio' ? resolveAudioCapabilitySource(nodes, sourceId)
+      : node.data.nodeType === 'Storage' ? resolveStorageCapabilitySource(nodes, sourceId)
+        : null
+    if (provider) capabilityProviderIds.add(provider.node.id)
+  }
+
   for (const node of nodes) {
     if (
       node.data.nodeType === terminalType ||
       isPortlessNodeType(node.data.nodeType) ||
+      capabilityProviderIds.has(node.id) ||
       edges.some((edge) => edge.source === node.id || edge.target === node.id)
     ) continue
     diagnostics.push({
