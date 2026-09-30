@@ -1625,6 +1625,24 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
 )
 
+const MOTION_VECTOR_INPUT_LIVE_EXAMPLE = namedExample(
+  'MotionVectorInput',
+  'Tilt to change the brightness',
+  [
+    { key: 'imu', type: 'MotionVectorInput', properties: { partId: 'gy-521-mpu6050-module', sdaPin: 21, sclPin: 22, i2cAddress: '0x68' } },
+    { key: 'map', type: 'MapRange', properties: { inMin: -1, inMax: 1, outMin: 0.05, outMax: 1 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 255, g: 120, b: 40 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'imu', sourceHandle: 'accelX', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Accel & Gyro reads an MPU-6050: acceleration on three axes in g and rotation rate on three axes in degrees per second. Lying flat, gravity reads about +1 g on Z and 0 on X and Y, so tilting the board swings X and Y between -1 and +1. The values keep their units, so Map Range is the explicit bridge from that span to a control, here 0.05 to 1 for a fade. Connected goes false when the sensor stops answering.',
+  'Drag the Accel X slider from -2 g to +2 g and watch the orange fill dim and brighten. The firmware needs VCC on 3.3 V and SDA and SCL on the controller I2C pins; use address 0x69 if a DS3231 clock already answers at 0x68.',
+)
+
 const JOYSTICK_INPUT_LIVE_EXAMPLE = namedExample(
   'JoystickInput',
   'Steer the brightness with the stick',
@@ -1872,6 +1890,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   TemperatureInput: TEMPERATURE_INPUT_LIVE_EXAMPLE,
   DistanceInput: DISTANCE_INPUT_LIVE_EXAMPLE,
   JoystickInput: JOYSTICK_INPUT_LIVE_EXAMPLE,
+  MotionVectorInput: MOTION_VECTOR_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,

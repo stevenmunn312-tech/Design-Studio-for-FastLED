@@ -98,6 +98,7 @@ import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSe
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
 import { DISTANCE_SENSOR_HELPER_CPP } from './distanceSensorCpp'
 import { JOYSTICK_HELPER_CPP } from './joystickCpp'
+import { MOTION_VECTOR_HELPER_CPP } from './motionVectorCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
@@ -683,8 +684,9 @@ export function generateCpp(
   const digitalLightSensors = sorted.filter((n) => n.data.nodeType === 'LightInput'
     && lightSensorTransport(props(n).partId) === 'i2c')
   const environmentSensors = sorted.filter((n) => n.data.nodeType === 'EnvironmentInput')
+  const motionVectors = sorted.filter((n) => n.data.nodeType === 'MotionVectorInput')
   const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0
-    || digitalLightSensors.length > 0 || environmentSensors.length > 0
+    || digitalLightSensors.length > 0 || environmentSensors.length > 0 || motionVectors.length > 0
   /*
    * The header follows the driver, not the transport.
    *
@@ -880,7 +882,7 @@ export function generateCpp(
     const boardPins = rtcI2cPinsForProfile(i2cBoard)
     const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
       && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
-      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0]
+      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0] ?? motionVectors[0]
     const busProps = busNode ? props(busNode) : {}
     const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)
     const sclPin = sanitizePin(busProps.sclPin, boardPins?.scl.arduinoPin ?? 22)
@@ -1586,6 +1588,7 @@ export function generateCpp(
   if (temperatureSensors.length > 0) lines.push(...TEMPERATURE_SENSOR_HELPER_CPP)
   if (distanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
   if (joysticks.length > 0) lines.push(...JOYSTICK_HELPER_CPP)
+  if (motionVectors.length > 0) lines.push(...MOTION_VECTOR_HELPER_CPP)
 
   if (needsNetwork && ethernetNode) {
     const p = props(ethernetNode)

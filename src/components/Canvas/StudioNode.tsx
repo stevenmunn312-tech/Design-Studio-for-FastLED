@@ -1033,6 +1033,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'preview readings come from the sliders; firmware reads the INA219',
     title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
   },
+  MotionVectorInput: {
+    text: 'preview axes come from the sliders; firmware reads the MPU-6050',
+    title: 'The browser has no motion sensor, so six sliders stand in for acceleration (g) and rotation rate (degrees per second), starting with the board lying flat, and Connected is always true. Generated firmware reads all six from the MPU-6050 over I2C in one burst; Connected goes false when it stops answering.',
+  },
   JoystickInput: {
     text: 'preview axes come from the sliders; firmware reads the two ADC pins',
     title: 'The browser has no joystick, so the two sliders stand in for the X and Y axes, centred at half travel, and the push button for the switch. Generated firmware reads each axis as a 12-bit ADC count, centres it on half scale, removes the dead zone and rescales to -1 to 1.',
@@ -1428,7 +1432,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput' || d.nodeType === 'JoystickInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput' || d.nodeType === 'JoystickInput' || d.nodeType === 'MotionVectorInput'
     || d.nodeType === 'PresenceInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.

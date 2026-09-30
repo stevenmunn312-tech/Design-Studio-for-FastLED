@@ -6,6 +6,7 @@ import { environmentSensorLoopCpp } from '../../codegen/environmentSensorCpp'
 import { temperatureSensorLoopCpp } from '../../codegen/temperatureSensorCpp'
 import { distanceSensorLoopCpp } from '../../codegen/distanceSensorCpp'
 import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/joystickCpp'
+import { motionVectorLoopCpp } from '../../codegen/motionVectorCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
@@ -45,6 +46,9 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   TemperatureInput({ id, p, ln, v }) {
     for (const line of temperatureSensorLoopCpp(p, id, v)) ln(line)
+  },
+  MotionVectorInput({ id, p, ln, v }) {
+    for (const line of motionVectorLoopCpp(p, id, v)) ln(line)
   },
   JoystickInput({ p, ln, v, pinSetupLines }) {
     for (const line of joystickSetupCpp(p)) pinSetupLines.add(line)

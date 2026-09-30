@@ -54,6 +54,9 @@ import {
 import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/temperatureSensor'
 import { HCSR04_PART_ID, distanceSensorSpec } from '../state/distanceSensor'
 import { KY023_PART_ID } from '../state/joystick'
+import {
+  MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddress, motionVectorSpec,
+} from '../state/motionVector'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
 import {
@@ -103,7 +106,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'motion-vector-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -144,6 +147,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'TemperatureInput',
   'DistanceInput',
   'JoystickInput',
+  'MotionVectorInput',
   'IRRemoteInput',
   'PowerMonitorInput',
   'RelayOutput',
@@ -389,6 +393,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'TemperatureInput':
         push(node, `${baseLabel} DATA pin`, 'pin', props.pin)
+        break
+      case 'MotionVectorInput':
+        pushI2c(node, baseLabel, props)
         break
       case 'JoystickInput':
         push(node, `${baseLabel} X axis pin`, 'xPin', props.xPin)
@@ -935,6 +942,31 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             pullUp: formatPullUp(spec.pullUpOhms),
           },
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} has no free pin for the probe's DATA wire.`],
+        }
+      }
+      case 'MotionVectorInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? MPU6050_PART_ID)
+        const entry = partById(partId)
+        const spec = motionVectorSpec(partId)
+        const address = motionVectorAddress(props)
+        const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
+          && pins.some((pin) => pin.propertyKey === 'sclPin')
+        const reasons = [
+          ...(wired ? [] : [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this sensor.`]),
+          ...(address === null ? [`${String(props.i2cAddress)} is not an address this MPU-6050 can select.`] : []),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'motion-vector-input', entry?.label ?? 'GY-521 MPU-6050', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && address !== null,
+          facts: {
+            partId,
+            i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatMotionVectorAddress(address),
+            accelRange: `±${spec.accelRangeG} g`,
+            gyroRange: `±${spec.gyroRangeDps} °/s`,
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
         }
       }
       case 'JoystickInput': {

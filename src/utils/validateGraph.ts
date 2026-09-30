@@ -91,6 +91,7 @@ import {
 import {
   environmentAddress, environmentAddressOptions, formatEnvironmentAddress,
 } from '../state/environmentSensor'
+import { motionVectorAddress, motionVectorAddressOptions } from '../state/motionVector'
 import {
   NLED_PIXEL_DATA_LINK,
   pixelDataExtenderSupports,
@@ -2345,6 +2346,18 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       title: 'Environment sensor address is not one its SDO strap can select',
       message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this BME280 answers only on ${environmentAddressOptions(props.partId).join(', ')}.`,
       fix: `Choose ${formatEnvironmentAddress(0x77)} with SDO high, or ${formatEnvironmentAddress(0x76)} with SDO tied low.`,
+      nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  for (const sensor of nodes.filter((node) => node.data.nodeType === 'MotionVectorInput')) {
+    const props = sensor.data.properties as Record<string, unknown>
+    if (motionVectorAddress(props) !== null) continue
+    issues.push({
+      id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
+      title: 'Accel & Gyro address is not one its AD0 strap can select',
+      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this MPU-6050 answers only on ${motionVectorAddressOptions(props.partId).join(', ')}.`,
+      fix: 'Choose 0x68 with AD0 low, or 0x69 with AD0 tied high.',
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
     })
   }

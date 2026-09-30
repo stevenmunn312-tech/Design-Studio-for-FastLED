@@ -9,6 +9,7 @@ import { lightSensorTransport } from '../state/lightSensor'
 import { touchButtonPressedLevel } from '../state/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './temperatureSensorCpp'
+import { MOTION_VECTOR_HELPER_CPP, motionVectorLoopCpp, motionVectorSetupCpp } from './motionVectorCpp'
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './joystickCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
 
@@ -115,6 +116,13 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.connected = 'bool'
       break
     }
+    case 'MotionVectorInput': {
+      setup.push(motionVectorSetupCpp(p))
+      loop.push(...motionVectorLoopCpp(p, id, (port) => v(port)))
+      for (const port of ['accelX', 'accelY', 'accelZ', 'gyroX', 'gyroY', 'gyroZ']) outputs[port] = 'float'
+      outputs.connected = 'bool'
+      break
+    }
     case 'JoystickInput': {
       setup.push(...joystickSetupCpp(p))
       loop.push(...joystickLoopCpp(p, (port) => v(port)))
@@ -144,6 +152,9 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
     ...(nodeType === 'TemperatureInput' ? { helpers: [TEMPERATURE_SENSOR_HELPER_CPP.join('\n')] } : {}),
+    ...(nodeType === 'MotionVectorInput'
+      ? { helpers: [MOTION_VECTOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
+      : {}),
     ...(nodeType === 'JoystickInput' ? { helpers: [JOYSTICK_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'DistanceInput' ? { helpers: [DISTANCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(ir ? { ir } : {}),

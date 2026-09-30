@@ -70,6 +70,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'Adafruit INA219 current sensor',
     src: partRenderSrc('adafruit-ina219-current-sensor') ?? '',
   },
+  MotionVectorInput: {
+    label: 'GY-521 MPU-6050 accelerometer and gyroscope',
+    src: partRenderSrc('gy-521-mpu6050-module') ?? '',
+  },
   JoystickInput: {
     label: 'KY-023 analog joystick module',
     src: partRenderSrc('ky-023-joystick-module') ?? '',

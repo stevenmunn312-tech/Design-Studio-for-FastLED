@@ -13,6 +13,9 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
+import {
+  MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
+} from '../../state/motionVector'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import styles from './HardwareInputBody.module.css'
 
@@ -150,6 +153,21 @@ function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: un
   return <>{row('temperature', 1, '°C')}{row('humidity', 0, '%')}{row('pressure', 0, 'hPa')}</>
 }
 
+function MotionVectorInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  return <>{MOTION_VECTOR_AXES.map((axis) => (
+    <PotInputWidget
+      key={axis}
+      nodeId={nodeId}
+      storeKey={motionVectorPreviewKey(nodeId, axis)}
+      initial={motionVectorPreviewDefault(partId, axis)}
+      readout={(fraction) => {
+        const value = motionVectorPreviewReading(partId, axis, fraction)
+        return axis.startsWith('accel') ? `${axis.slice(5)} ${value.toFixed(2)} g` : `${axis.slice(4)} ${Math.round(value)}°/s`
+      }}
+    />
+  ))}</>
+}
+
 function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: unknown }) {
   const axis = (which: 'x' | 'y') => (
     <PotInputWidget
@@ -231,6 +249,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux, deadzone }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown; deadzone?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'MotionVectorInput') return <MotionVectorInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'JoystickInput') return <JoystickInputWidget nodeId={nodeId} deadzone={deadzone} />
   if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />

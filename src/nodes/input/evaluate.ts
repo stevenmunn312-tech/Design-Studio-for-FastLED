@@ -16,6 +16,9 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
+import {
+  MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
+} from '../../state/motionVector'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
@@ -333,6 +336,17 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     const pot = useHardwareInputStore.getState().pot
     const fraction = pot.get(temperaturePreviewKey(id)) ?? temperaturePreviewDefault(props.partId)
     return { temperature: temperaturePreviewReading(props.partId, fraction), connected: true }
+  },
+  // No sensor in the browser: six sliders stand in for the axes, starting with
+  // the board lying flat (1 g on Z, nothing turning), and it is always connected.
+  MotionVectorInput(_c, id, props) {
+    const pot = useHardwareInputStore.getState().pot
+    const readings = Object.fromEntries(MOTION_VECTOR_AXES.map((axis) => [
+      axis,
+      motionVectorPreviewReading(props.partId, axis,
+        pot.get(motionVectorPreviewKey(id, axis)) ?? motionVectorPreviewDefault(props.partId, axis)),
+    ]))
+    return { ...readings, connected: true }
   },
   // No stick in the browser: two sliders stand in for the axes (centred at
   // half travel) and the node body's button for the switch.

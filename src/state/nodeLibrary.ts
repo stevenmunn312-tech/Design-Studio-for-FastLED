@@ -85,6 +85,7 @@ import {
 import { DS18B20_PART_ID } from './temperatureSensor'
 import { HCSR04_PART_ID } from './distanceSensor'
 import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './joystick'
+import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddressOptions, motionVectorSpec } from './motionVector'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -4151,6 +4152,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { partId: DS18B20_PART_ID, pin: 4 },
   },
   {
+    // A six-axis inertial sensor. Acceleration is in g and rotation rate in
+    // degrees per second, so the values keep their physical units and Map Range
+    // is the explicit bridge to a control, like the environment sensor.
+    type: 'MotionVectorInput',
+    label: 'Accel & Gyro',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'accelX', label: 'Accel X (g)', dataType: 'float' },
+      { id: 'accelY', label: 'Accel Y (g)', dataType: 'float' },
+      { id: 'accelZ', label: 'Accel Z (g)', dataType: 'float' },
+      { id: 'gyroX', label: 'Gyro X (°/s)', dataType: 'float' },
+      { id: 'gyroY', label: 'Gyro Y (°/s)', dataType: 'float' },
+      { id: 'gyroZ', label: 'Gyro Z (°/s)', dataType: 'float' },
+      { id: 'connected', label: 'Connected', dataType: 'bool' },
+    ],
+    defaultProperties: {
+      partId: MPU6050_PART_ID,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: formatMotionVectorAddress(motionVectorSpec(MPU6050_PART_ID).defaultI2cAddress),
+    },
+  },
+  {
     // A thumb joystick: two analog axes and a push switch. The axes are signed
     // (-1 to 1, 0 at rest) rather than 0-1 like PotInput, because a stick has a
     // centre that means something, and the dead zone is a property because a
@@ -4816,6 +4841,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
   DistanceInput: 'Measures distance in millimetres with an HC-SR04 ultrasonic sensor.',
   JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
+  MotionVectorInput: 'Reads acceleration and rotation on three axes from an MPU-6050.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -5899,6 +5925,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   TemperatureInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  MotionVectorInput: {
+    i2cAddress: { control: 'select', options: motionVectorAddressOptions(MPU6050_PART_ID) },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   JoystickInput: {
     xPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     yPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6447,6 +6478,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
+  MotionVectorInput: {
+    i2cAddress: 'The MPU-6050 address: 0x68 normally, or 0x69 when AD0 is tied high. 0x68 is also a DS3231 clock\'s address, so use 0x69 when both share a bus.',
+    sdaPin: 'I2C data pin wired to the breakout SDA pad and shared with every other I2C part.',
+    sclPin: 'I2C clock pin wired to the breakout SCL pad and shared with every other I2C part.',
+  },
   JoystickInput: {
     xPin: 'The analog GPIO wired to VRx. On a classic ESP32 use an ADC1 pin (32 to 39): ADC2 stops working while Wi-Fi is on.',
     yPin: 'The analog GPIO wired to VRy. On a classic ESP32 use an ADC1 pin (32 to 39): ADC2 stops working while Wi-Fi is on.',
@@ -6858,7 +6894,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -7151,6 +7187,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   TemperatureInput: new Set(['pin']),
   DistanceInput: new Set(['trigPin', 'echoPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
+  MotionVectorInput: new Set(['sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
@@ -7194,6 +7231,7 @@ export function gpioRequirementForProperty(
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
+    || nodeType === 'MotionVectorInput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')) return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector

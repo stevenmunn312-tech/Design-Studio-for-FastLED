@@ -539,6 +539,21 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-bme280-environment-sensor' },
   },
   {
+    nodeType: 'MotionVectorInput',
+    partId: 'motion-vector',
+    label: 'GY-521 MPU-6050 accelerometer and gyroscope',
+    hint: 'Acceleration and rotation on three axes, on the board I2C bus',
+    footprint: partDimensionsMm('gy-521-mpu6050-module', { width: 21, height: 16 }),
+    signalPort: 'accelX',
+    dataType: 'float',
+    pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
+    properties: { partId: 'gy-521-mpu6050-module' },
+  },
+  {
     nodeType: 'JoystickInput',
     partId: 'joystick',
     label: 'KY-023 analog joystick',

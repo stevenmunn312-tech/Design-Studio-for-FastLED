@@ -194,6 +194,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  MotionVectorInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'gy-521-mpu6050-module',
+        label: 'GY-521 MPU-6050',
+        summary: 'Three-axis accelerometer and gyroscope over I2C',
+        note: 'Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68.',
+      },
+    ],
+  },
   JoystickInput: {
     property: 'partId',
     options: [

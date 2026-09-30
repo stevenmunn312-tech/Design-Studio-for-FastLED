@@ -364,6 +364,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // GND, +5V, VRx, VRy, SW along the bottom edge. Computed from the model's own
   // coordinates (14.615 px/mm, 10 px margin, header at y = 2.4 mm, 2.54 mm pitch
   // centred on the board).
+  // VCC, GND, SCL, SDA, XDA, XCL, AD0, INT along the bottom edge. Computed from
+  // the model's own coordinates (18.095 px/mm, 10 px margin, header at y = 2 mm,
+  // 2.54 mm pitch centred on the board). Only SDA and SCL carry the I2C bus.
+  'gy-521-mpu6050-module': padRow([39.1, 85.1, 131.1, 177, 222.9, 268.9, 314.9, 360.9], 400, 263.3, 310),
   'ky-023-joystick-module': padRow([125.8, 162.9, 200, 237.1, 274.2], 400, 471.8, 517),
   'hc-sr04-ultrasonic-module': padRow([234.3, 264.8, 295.2, 325.7], 560, 226, 260),
   // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
@@ -686,6 +690,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'temperature-input': [['DATA']],
   'distance-input': [['Trig', 'TRIG'], ['Echo', 'ECHO']],
   'joystick-input': [['VRX'], ['VRY'], ['SW']],
+  'motion-vector-input': [['SDA'], ['SCL']],
   // The board's RX reads the sensor's TX pad.
   'presence-input': [['TX']],
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
@@ -742,6 +747,9 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // The module is two potentiometers and a switch. Its +5V pad would put up to 5 V on the
   // analog pins; 3.3 V keeps both axes inside the ADC range.
   if (item.kind === 'joystick-input') return 'v3v3'
+  // The GY-521's I2C pull-ups follow VCC, so a 5 V supply would hold the controller's SDA and
+  // SCL at 5 V; the logic rail keeps the bus inside the controller's level.
+  if (item.kind === 'motion-vector-input') return 'v3v3'
   // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
   // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
@@ -817,6 +825,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ds18b20-waterproof-probe': 6.5,
   'hc-sr04-ultrasonic-module': 6,
   'ky-023-joystick-module': 7.3,
+  'gy-521-mpu6050-module': 9,
   'max485-rs485-module': 11.9,
   'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,

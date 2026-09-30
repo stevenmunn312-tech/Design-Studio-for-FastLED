@@ -90,6 +90,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Temperature Probe example graph](../../public/node-cards/graphs/temperature-input.svg)
 
+### Accel & Gyro
+
+![Accel & Gyro node](../../public/node-cards/motion-vector-input.svg)
+
+![Accel & Gyro example graph](../../public/node-cards/graphs/motion-vector-input.svg)
+
 ### Joystick
 
 ![Joystick node](../../public/node-cards/joystick-input.svg)

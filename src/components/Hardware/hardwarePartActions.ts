@@ -76,7 +76,7 @@ export function inputPartActions({
       : { ok: true as const, pins: {} }
     if (!assigned.ok) return
     const usesBoardI2c = entry.nodeType === 'RTCInput' || entry.nodeType === 'PowerMonitorInput'
-      || entry.nodeType === 'EnvironmentInput'
+      || entry.nodeType === 'EnvironmentInput' || entry.nodeType === 'MotionVectorInput'
       || (entry.nodeType === 'LightInput' && lightSensorTransport(entry.properties?.partId) === 'i2c')
     const rtcDefaults = usesBoardI2c ? boardI2cDefault(boardProfile?.id) : undefined
     const assignedPins = rtcDefaults
