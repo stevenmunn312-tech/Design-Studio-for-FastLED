@@ -25,6 +25,7 @@
     "gen:environment-compile-fixtures": "node scripts/generate-environment-compile-fixtures.mjs",
     "gen:temperature-compile-fixtures": "node scripts/generate-temperature-compile-fixtures.mjs",
     "gen:distance-compile-fixtures": "node scripts/generate-distance-compile-fixtures.mjs",
+    "gen:joystick-compile-fixtures": "node scripts/generate-joystick-compile-fixtures.mjs",
     "gen:touch-button-compile-fixtures": "node scripts/generate-touch-button-compile-fixtures.mjs",
     "gen:power-switch-compile-fixtures": "node scripts/generate-power-switch-compile-fixtures.mjs",
     "gen:pattern-node-compile-fixture": "node scripts/generate-pattern-node-compile-fixture.mjs",

@@ -1033,6 +1033,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'preview readings come from the sliders; firmware reads the INA219',
     title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
   },
+  JoystickInput: {
+    text: 'preview axes come from the sliders; firmware reads the two ADC pins',
+    title: 'The browser has no joystick, so the two sliders stand in for the X and Y axes, centred at half travel, and the push button for the switch. Generated firmware reads each axis as a 12-bit ADC count, centres it on half scale, removes the dead zone and rescales to -1 to 1.',
+  },
   DistanceInput: {
     text: 'preview reading comes from the slider; firmware times the HC-SR04 echo',
     title: 'The browser has no ultrasonic sensor, so the slider stands in for the distance and Connected is always true. Generated firmware pulses Trig, times the Echo, and reports Connected false when no echo returns. Readings are taken every 60 ms and held between.',
@@ -1424,7 +1428,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput' || d.nodeType === 'JoystickInput'
     || d.nodeType === 'PresenceInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.
@@ -1743,7 +1747,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'Storage' && <StorageCapabilityBody nodeId={id} sourceId={props.sourceId} />}
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
-        {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} maxLux={props.maxLux} />}
+        {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} maxLux={props.maxLux} deadzone={props.deadzone} />}
         {d.nodeType === 'ButtonBank' && <ButtonBankBody nodeId={id} />}
         {d.nodeType === 'IRRemoteInput' && <IRRemoteBody nodeId={id} />}
         {d.nodeType === 'ControlMap' && <PlayerControlsBody nodeId={id} />}

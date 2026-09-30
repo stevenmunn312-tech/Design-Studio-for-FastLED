@@ -15,6 +15,7 @@ import {
 import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
+import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
@@ -332,6 +333,16 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     const pot = useHardwareInputStore.getState().pot
     const fraction = pot.get(temperaturePreviewKey(id)) ?? temperaturePreviewDefault(props.partId)
     return { temperature: temperaturePreviewReading(props.partId, fraction), connected: true }
+  },
+  // No stick in the browser: two sliders stand in for the axes (centred at
+  // half travel) and the node body's button for the switch.
+  JoystickInput(_c, id, props) {
+    const state = useHardwareInputStore.getState()
+    return {
+      x: joystickAxis(state.pot.get(joystickPreviewKey(id, 'x')) ?? 0.5, props.deadzone),
+      y: joystickAxis(state.pot.get(joystickPreviewKey(id, 'y')) ?? 0.5, props.deadzone),
+      pressed: state.button.get(id) ?? false,
+    }
   },
   // No sensor in the browser: the node body's slider stands in for the
   // measured distance, and the sensor is always connected.

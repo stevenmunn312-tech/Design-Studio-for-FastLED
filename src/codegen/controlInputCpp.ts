@@ -9,6 +9,7 @@ import { lightSensorTransport } from '../state/lightSensor'
 import { touchButtonPressedLevel } from '../state/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './temperatureSensorCpp'
+import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './joystickCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
 
 export interface ControlInputEmission {
@@ -114,6 +115,14 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.connected = 'bool'
       break
     }
+    case 'JoystickInput': {
+      setup.push(...joystickSetupCpp(p))
+      loop.push(...joystickLoopCpp(p, (port) => v(port)))
+      outputs.x = 'float'
+      outputs.y = 'float'
+      outputs.pressed = 'bool'
+      break
+    }
     case 'DistanceInput': {
       setup.push(...distanceSensorSetupCpp(p))
       loop.push(...distanceSensorLoopCpp(p, id, (port) => v(port)))
@@ -135,6 +144,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
     ...(nodeType === 'TemperatureInput' ? { helpers: [TEMPERATURE_SENSOR_HELPER_CPP.join('\n')] } : {}),
+    ...(nodeType === 'JoystickInput' ? { helpers: [JOYSTICK_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'DistanceInput' ? { helpers: [DISTANCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(ir ? { ir } : {}),
   }

@@ -1625,6 +1625,24 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
 )
 
+const JOYSTICK_INPUT_LIVE_EXAMPLE = namedExample(
+  'JoystickInput',
+  'Steer the brightness with the stick',
+  [
+    { key: 'stick', type: 'JoystickInput', properties: { partId: 'ky-023-joystick-module', xPin: 32, yPin: 33, swPin: 25 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: -1, inMax: 1, outMin: 0.05, outMax: 1 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 90, g: 200, b: 255 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'stick', sourceHandle: 'x', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Joystick reads a thumb stick: X and Y run from -1 to 1 with 0 at rest, and Pressed is true while the stick is pushed down. The axes are signed, so Map Range is the bridge from that span to whatever a control expects, here 0.05 to 1 for a fade. The dead zone keeps a stick that never rests at exactly the centre from flickering the graph.',
+  'Drag the X slider left and right and watch the blue fill dim and brighten; the button stands in for pushing the stick. The firmware wiring powers the module from 3.3 V so both axes stay inside the ADC range.',
+)
+
 const DISTANCE_INPUT_LIVE_EXAMPLE = namedExample(
   'DistanceInput',
   'Brighten as something comes closer',
@@ -1853,6 +1871,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,
   TemperatureInput: TEMPERATURE_INPUT_LIVE_EXAMPLE,
   DistanceInput: DISTANCE_INPUT_LIVE_EXAMPLE,
+  JoystickInput: JOYSTICK_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,

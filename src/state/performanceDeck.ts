@@ -140,6 +140,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
   DistanceInput: new Set(['trigPin', 'echoPin']),
+  JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }
 

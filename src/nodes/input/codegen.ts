@@ -5,6 +5,7 @@ import { lightSensorLoopCpp } from '../../codegen/lightSensorCpp'
 import { environmentSensorLoopCpp } from '../../codegen/environmentSensorCpp'
 import { temperatureSensorLoopCpp } from '../../codegen/temperatureSensorCpp'
 import { distanceSensorLoopCpp } from '../../codegen/distanceSensorCpp'
+import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/joystickCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
@@ -44,6 +45,10 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   TemperatureInput({ id, p, ln, v }) {
     for (const line of temperatureSensorLoopCpp(p, id, v)) ln(line)
+  },
+  JoystickInput({ p, ln, v, pinSetupLines }) {
+    for (const line of joystickSetupCpp(p)) pinSetupLines.add(line)
+    for (const line of joystickLoopCpp(p, v)) ln(line)
   },
   DistanceInput({ id, p, ln, v, pinSetupLines }) {
     // Trig is driven and Echo read; setup holds Trig low so a reset never fires a stray pulse.

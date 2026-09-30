@@ -194,6 +194,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  JoystickInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ky-023-joystick-module',
+        label: 'KY-023 joystick',
+        summary: 'A thumb stick with two analog axes and a push switch',
+        note: 'Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up.',
+      },
+    ],
+  },
   DistanceInput: {
     property: 'partId',
     options: [

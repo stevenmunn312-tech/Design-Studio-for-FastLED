@@ -179,6 +179,15 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   // The 1-Wire bus is driven low and released, so it needs an output-capable pin.
   TemperatureInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'digitalOutput' }] },
+  // Two analog axes and a switch with a pull-up.
+  JoystickInput: {
+    keys: ['xPin', 'yPin', 'swPin'],
+    requests: [
+      { key: 'xPin', capability: 'analogInput' },
+      { key: 'yPin', capability: 'analogInput' },
+      { key: 'swPin' },
+    ],
+  },
   // Trig is driven and Echo is read.
   DistanceInput: {
     keys: ['trigPin', 'echoPin'],

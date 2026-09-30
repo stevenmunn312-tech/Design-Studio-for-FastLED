@@ -12,6 +12,7 @@ import {
 import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/temperatureSensor'
+import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import styles from './HardwareInputBody.module.css'
 
@@ -149,6 +150,18 @@ function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: un
   return <>{row('temperature', 1, '°C')}{row('humidity', 0, '%')}{row('pressure', 0, 'hPa')}</>
 }
 
+function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: unknown }) {
+  const axis = (which: 'x' | 'y') => (
+    <PotInputWidget
+      nodeId={nodeId}
+      storeKey={joystickPreviewKey(nodeId, which)}
+      initial={0.5}
+      readout={(fraction) => `${which.toUpperCase()} ${joystickAxis(fraction, deadzone).toFixed(2)}`}
+    />
+  )
+  return <>{axis('x')}{axis('y')}<ButtonInputWidget nodeId={nodeId} idleLabel="push" /></>
+}
+
 function DistanceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
   return <PotInputWidget
     nodeId={nodeId}
@@ -216,8 +229,9 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
   )
 }
 
-export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown }) {
+export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux, deadzone }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown; deadzone?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'JoystickInput') return <JoystickInputWidget nodeId={nodeId} deadzone={deadzone} />
   if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'EnvironmentInput') return <EnvironmentInputWidget nodeId={nodeId} partId={partId} />

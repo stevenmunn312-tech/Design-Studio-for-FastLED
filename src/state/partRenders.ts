@@ -70,6 +70,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'Adafruit INA219 current sensor',
     src: partRenderSrc('adafruit-ina219-current-sensor') ?? '',
   },
+  JoystickInput: {
+    label: 'KY-023 analog joystick module',
+    src: partRenderSrc('ky-023-joystick-module') ?? '',
+  },
   DistanceInput: {
     label: 'HC-SR04 ultrasonic distance sensor',
     src: partRenderSrc('hc-sr04-ultrasonic-module') ?? '',

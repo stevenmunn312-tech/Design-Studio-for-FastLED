@@ -539,6 +539,26 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-bme280-environment-sensor' },
   },
   {
+    nodeType: 'JoystickInput',
+    partId: 'joystick',
+    label: 'KY-023 analog joystick',
+    hint: 'A thumb stick with two analog axes and a push switch',
+    footprint: partDimensionsMm('ky-023-joystick-module', { width: 26, height: 34 }),
+    signalPort: 'x',
+    dataType: 'float',
+    pinRequests: [
+      { key: 'xPin', capability: 'analogInput' },
+      { key: 'yPin', capability: 'analogInput' },
+      { key: 'swPin' },
+    ],
+    pinFields: [
+      { key: 'xPin', label: 'GPIO (VRx)' },
+      { key: 'yPin', label: 'GPIO (VRy)' },
+      { key: 'swPin', label: 'GPIO (SW)' },
+    ],
+    properties: { partId: 'ky-023-joystick-module' },
+  },
+  {
     nodeType: 'DistanceInput',
     partId: 'distance-sensor',
     label: 'HC-SR04 ultrasonic distance sensor',

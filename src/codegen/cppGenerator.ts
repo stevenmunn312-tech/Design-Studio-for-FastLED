@@ -97,6 +97,7 @@ import { powerMonitorSetupCpp, POWER_MONITOR_HELPER_CPP } from './powerMonitorCp
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
 import { DISTANCE_SENSOR_HELPER_CPP } from './distanceSensorCpp'
+import { JOYSTICK_HELPER_CPP } from './joystickCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
@@ -678,6 +679,7 @@ export function generateCpp(
   const presenceSensors = sorted.filter((n) => n.data.nodeType === 'PresenceInput')
   const temperatureSensors = sorted.filter((n) => n.data.nodeType === 'TemperatureInput')
   const distanceSensors = sorted.filter((n) => n.data.nodeType === 'DistanceInput')
+  const joysticks = sorted.filter((n) => n.data.nodeType === 'JoystickInput')
   const digitalLightSensors = sorted.filter((n) => n.data.nodeType === 'LightInput'
     && lightSensorTransport(props(n).partId) === 'i2c')
   const environmentSensors = sorted.filter((n) => n.data.nodeType === 'EnvironmentInput')
@@ -1583,6 +1585,7 @@ export function generateCpp(
   if (environmentSensors.length > 0) lines.push(...ENVIRONMENT_SENSOR_HELPER_CPP)
   if (temperatureSensors.length > 0) lines.push(...TEMPERATURE_SENSOR_HELPER_CPP)
   if (distanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
+  if (joysticks.length > 0) lines.push(...JOYSTICK_HELPER_CPP)
 
   if (needsNetwork && ethernetNode) {
     const p = props(ethernetNode)

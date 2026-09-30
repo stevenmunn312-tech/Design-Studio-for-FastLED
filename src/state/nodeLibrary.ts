@@ -84,6 +84,7 @@ import {
 } from './environmentSensor'
 import { DS18B20_PART_ID } from './temperatureSensor'
 import { HCSR04_PART_ID } from './distanceSensor'
+import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './joystick'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -4150,6 +4151,22 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     defaultProperties: { partId: DS18B20_PART_ID, pin: 4 },
   },
   {
+    // A thumb joystick: two analog axes and a push switch. The axes are signed
+    // (-1 to 1, 0 at rest) rather than 0-1 like PotInput, because a stick has a
+    // centre that means something, and the dead zone is a property because a
+    // real stick never rests at exactly half scale.
+    type: 'JoystickInput',
+    label: 'Joystick',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'x', label: 'X (-1 to 1)', dataType: 'float' },
+      { id: 'y', label: 'Y (-1 to 1)', dataType: 'float' },
+      { id: 'pressed', label: 'Pressed', dataType: 'bool' },
+    ],
+    defaultProperties: { partId: KY023_PART_ID, xPin: 32, yPin: 33, swPin: 25, deadzone: JOYSTICK_DEFAULT_DEADZONE },
+  },
+  {
     // An ultrasonic ranger. Two GPIOs carry it: Trig out, Echo in. `connected`
     // is separate from the reading because a sensor that hears no echo has no
     // meaningful distance, and nothing in range is not the same as unplugged.
@@ -4798,6 +4815,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
   DistanceInput: 'Measures distance in millimetres with an HC-SR04 ultrasonic sensor.',
+  JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -5881,6 +5899,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   TemperatureInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  JoystickInput: {
+    xPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    yPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    swPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    deadzone: { control: 'slider', min: 0, max: 0.4, step: 0.01 },
+  },
   DistanceInput: {
     trigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     echoPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6423,6 +6447,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
+  JoystickInput: {
+    xPin: 'The analog GPIO wired to VRx. On a classic ESP32 use an ADC1 pin (32 to 39): ADC2 stops working while Wi-Fi is on.',
+    yPin: 'The analog GPIO wired to VRy. On a classic ESP32 use an ADC1 pin (32 to 39): ADC2 stops working while Wi-Fi is on.',
+    swPin: 'The GPIO wired to SW. It uses the internal pull-up and reads pressed when the stick is pushed down. GPIO 34 to 39 have no pull-up, so pick another pin.',
+    deadzone: 'How far from the centre the stick must move before an axis leaves 0. It stops a stick that never rests at exactly half scale from flickering the graph.',
+  },
   DistanceInput: {
     trigPin: 'The GPIO wired to Trig. It sends a 10 microsecond pulse, so it must be able to output; a 3.3 V pulse is enough to trigger the module.',
     echoPin: 'The GPIO wired to Echo through the 1 kΩ and 2 kΩ divider the Build Diagram shows. Echo swings to 5 V, above what a 3.3 V controller pin tolerates.',
@@ -6828,7 +6858,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -7120,6 +7150,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
   DistanceInput: new Set(['trigPin', 'echoPin']),
+  JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
@@ -7174,6 +7205,8 @@ export function gpioRequirementForProperty(
   }
   // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
+  // Two analog axes, and a switch that pulls SW to ground through the controller's pull-up.
+  if (nodeType === 'JoystickInput') return key === 'swPin' ? { capability: 'digitalInput', pullup: true } : { capability: 'analogInput', pullup: false }
   // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.
   if (nodeType === 'DistanceInput') return { capability: key === 'trigPin' ? 'digitalOutput' : 'digitalInput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
