@@ -539,6 +539,18 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-bme280-environment-sensor' },
   },
   {
+    nodeType: 'TemperatureInput',
+    partId: 'temperature-probe',
+    label: 'Waterproof DS18B20 temperature probe',
+    hint: 'A 1-Wire thermometer in a sealed steel tube, on one GPIO',
+    footprint: partDimensionsMm('ds18b20-waterproof-probe', { width: 28, height: 72 }),
+    signalPort: 'temperature',
+    dataType: 'float',
+    pinRequests: [{ key: 'pin', capability: 'digitalOutput' }],
+    pinFields: [{ key: 'pin', label: 'GPIO (DATA)' }],
+    properties: { partId: 'ds18b20-waterproof-probe' },
+  },
+  {
     nodeType: 'PresenceInput',
     partId: 'presence-sensor',
     label: 'HLK-LD2410C presence sensor',

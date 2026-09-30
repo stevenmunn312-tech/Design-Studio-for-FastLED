@@ -11,6 +11,9 @@ import { lightSensorPreviewReading } from '../../state/lightSensor'
 import {
   environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
 } from '../../state/environmentSensor'
+import {
+  temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
+} from '../../state/temperatureSensor'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
 import { designControlBundle } from '../../state/designControlBundle'
@@ -320,6 +323,13 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       useHardwareInputStore.getState().pot.get(id) ?? 0.5,
       props.maxLux,
     ) }
+  },
+  // No probe in the browser: the node body's slider stands in for the
+  // measured temperature, and the probe is always connected.
+  TemperatureInput(_c, id, props) {
+    const pot = useHardwareInputStore.getState().pot
+    const fraction = pot.get(temperaturePreviewKey(id)) ?? temperaturePreviewDefault(props.partId)
+    return { temperature: temperaturePreviewReading(props.partId, fraction), connected: true }
   },
   EnvironmentInput(_c, id, props) {
     const pot = useHardwareInputStore.getState().pot

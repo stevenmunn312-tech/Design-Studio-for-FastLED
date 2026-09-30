@@ -70,6 +70,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'Adafruit INA219 current sensor',
     src: partRenderSrc('adafruit-ina219-current-sensor') ?? '',
   },
+  TemperatureInput: {
+    label: 'Waterproof DS18B20 temperature probe',
+    src: partRenderSrc('ds18b20-waterproof-probe') ?? '',
+  },
   EnvironmentInput: {
     label: 'Adafruit BME280 environment sensor',
     src: partRenderSrc('adafruit-bme280-environment-sensor') ?? '',

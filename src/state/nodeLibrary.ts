@@ -82,6 +82,7 @@ import {
   environmentAddressOptions,
   formatEnvironmentAddress,
 } from './environmentSensor'
+import { DS18B20_PART_ID } from './temperatureSensor'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -4134,6 +4135,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // A 1-Wire thermometer probe. One GPIO carries the bus, pulled up to the
+    // logic rail by an external 4.7 kohm resistor. `connected` is separate from
+    // the reading because an unplugged probe has no meaningful temperature.
+    type: 'TemperatureInput',
+    label: 'Temperature Probe',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'temperature', label: 'Temperature (°C)', dataType: 'float' },
+      { id: 'connected', label: 'Connected', dataType: 'bool' },
+    ],
+    defaultProperties: { partId: DS18B20_PART_ID, pin: 4 },
+  },
+  {
     type: 'PotInput',
     label: 'Potentiometer',
     category: 'input',
@@ -4764,6 +4779,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
   EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',
+  TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
   DMXInput: 'DMX / Art-Net source for preview and firmware (Art-Net or ESP32 DMX512).',
@@ -5844,6 +5860,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2cAddress: { control: 'select', options: lightSensorAddressOptions('adafruit-bh1750-light-sensor') },
     maxLux: { control: 'slider', min: 100, max: 100_000, step: 100 },
   },
+  TemperatureInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   EnvironmentInput: {
     i2cAddress: { control: 'select', options: environmentAddressOptions(BME280_PART_ID) },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6380,6 +6399,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
+  TemperatureInput: {
+    pin: 'The GPIO wired to the probe’s yellow DATA wire. It needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram shows. Use one probe per pin.',
+  },
   EnvironmentInput: {
     i2cAddress: 'The BME280 address: 0x77 normally, or 0x76 when SDO is tied low or the ADDR jumper is closed.',
     sdaPin: 'I2C data pin wired to the breakout SDI pad and shared with every other I2C part.',
@@ -6778,7 +6800,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'EnvironmentInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -7068,6 +7090,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PresenceInput: new Set([PRESENCE_RX_PIN_KEY]),
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
+  TemperatureInput: new Set(['pin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
@@ -7120,7 +7143,8 @@ export function gpioRequirementForProperty(
     || nodeType === 'TouchButtonInput') {
     return { capability: 'digitalInput', pullup: false }
   }
-  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput') return { capability: 'digitalOutput', pullup: false }
+  // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
+  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
   if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank' || nodeType === 'EncoderInput') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }

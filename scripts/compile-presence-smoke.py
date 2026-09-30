@@ -1,6 +1,6 @@
 """Compile a generated sensor fixture through the helper's real build path; never flash.
 
-Used by the presence, light, environment and wired-Ethernet compile gates; --label keeps
+Used by the presence, light, environment, temperature and wired-Ethernet compile gates; --label keeps
 each gate's arduino-cli workspace separate so neither evicts the other's cache.
 """
 import argparse
@@ -19,7 +19,7 @@ parser.add_argument("engine", choices=("arduino-cli", "fbuild"))
 parser.add_argument("sketch", type=Path)
 parser.add_argument("--fqbn", required=True)
 parser.add_argument("--tag", required=True)
-parser.add_argument("--label", default="presence", help="fixture family: presence, light, environment or ethernet")
+parser.add_argument("--label", default="presence", help="fixture family: presence, light, environment, temperature or ethernet")
 args = parser.parse_args()
 ino = args.sketch.read_text(encoding="utf-8")
 report_stem = f".{args.engine}.{args.tag}"

@@ -194,6 +194,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  TemperatureInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ds18b20-waterproof-probe',
+        label: 'Waterproof DS18B20 probe',
+        summary: 'A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C',
+        note: 'Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none.',
+      },
+    ],
+  },
   EnvironmentInput: {
     property: 'partId',
     options: [

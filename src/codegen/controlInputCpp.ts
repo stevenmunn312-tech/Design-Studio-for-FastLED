@@ -8,6 +8,7 @@ import { LIGHT_SENSOR_HELPER_CPP, lightSensorLoopCpp, lightSensorSetupCpp } from
 import { lightSensorTransport } from '../state/lightSensor'
 import { touchButtonPressedLevel } from '../state/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
+import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './temperatureSensorCpp'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -104,6 +105,14 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.pressure = 'float'
       break
     }
+    case 'TemperatureInput': {
+      // The pin is driven and released by the probe helpers; the external
+      // pull-up holds the idle level, so no pinMode is emitted here.
+      loop.push(...temperatureSensorLoopCpp(p, id, (port) => v(port)))
+      outputs.temperature = 'float'
+      outputs.connected = 'bool'
+      break
+    }
     default: return null
   }
   return {
@@ -117,6 +126,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     ...(nodeType === 'EnvironmentInput'
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
+    ...(nodeType === 'TemperatureInput' ? { helpers: [TEMPERATURE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(ir ? { ir } : {}),
   }
 }

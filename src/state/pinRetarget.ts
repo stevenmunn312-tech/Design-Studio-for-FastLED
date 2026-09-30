@@ -177,6 +177,8 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   TouchButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
+  // The 1-Wire bus is driven low and released, so it needs an output-capable pin.
+  TemperatureInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'digitalOutput' }] },
   // One UART receive line: the sensor streams unprompted, so its RX is unwired.
   PresenceInput: { keys: ['rxPin'], requests: [{ key: 'rxPin' }] },
   // One pin however many keys are learned: a receiver demodulates every

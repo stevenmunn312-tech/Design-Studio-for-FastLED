@@ -9,6 +9,9 @@ import {
   environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
   type EnvironmentReading,
 } from '../../state/environmentSensor'
+import {
+  temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
+} from '../../state/temperatureSensor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -145,6 +148,15 @@ function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: un
   return <>{row('temperature', 1, '°C')}{row('humidity', 0, '%')}{row('pressure', 0, 'hPa')}</>
 }
 
+function TemperatureInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  return <PotInputWidget
+    nodeId={nodeId}
+    storeKey={temperaturePreviewKey(nodeId)}
+    initial={temperaturePreviewDefault(partId)}
+    readout={(fraction) => `${temperaturePreviewReading(partId, fraction).toFixed(1)} °C`}
+  />
+}
+
 // Dragging vertically spins the dial (up = increase, matching a mouse-look
 // feel); a click without much movement is treated as a tap of the encoder's
 // integrated push-button (pinSW), pulsed briefly like a real momentary switch.
@@ -196,6 +208,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'EnvironmentInput') return <EnvironmentInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />

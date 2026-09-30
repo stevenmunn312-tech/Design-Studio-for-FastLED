@@ -7,6 +7,7 @@ import potentiometerModuleRender from '../../assets/components/potentiometer-mod
 import encoderModuleRender from '../../assets/components/encoder-module.webp'
 import resistor1kRender from '../../assets/components/1kohm-blue-axial-resistor.webp'
 import resistor2kRender from '../../assets/components/2kohm-blue-axial-resistor.webp'
+import resistor4k7Render from '../../assets/components/4k7ohm-blue-axial-resistor.webp'
 import styles from './BuildDiagramWorkspace.module.css'
 import { HoverWire } from './wireHover'
 import {
@@ -17,6 +18,7 @@ import {
   micChannelSelectPadIndex,
   transceiverEnableBridgePads,
   receiveDivider,
+  dataPullUp,
   peripheralSignalPadIndex,
   peripheralPowerNet,
   peripheralPadRadius,
@@ -81,6 +83,7 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
   const channelSelectPadIndex = micChannelSelectPadIndex(item)
   const enableBridge = transceiverEnableBridgePads(item)
   const divider = receiveDivider(layout)
+  const pullUp = dataPullUp(layout)
   const enableConnection = enableBridge
     ? connections.find((_, index) => peripheralSignalPadIndex(item, index) === enableBridge[1])
     : undefined
@@ -139,6 +142,21 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
           />
         </g>
       ))}
+      {pullUp && (
+        <g data-pull-up-resistor="4.7 kΩ">
+          <text x={pullUp.resistorX + (DIVIDER_RESISTOR_W / 2)} y={pullUp.y - 9} textAnchor="middle" className={styles.physicalComponentLabel}>4.7 kΩ</text>
+          <image
+            data-component-render="4k7ohm-blue-axial-resistor"
+            href={resistor4k7Render}
+            x={pullUp.resistorX}
+            y={pullUp.y - (DIVIDER_RESISTOR_H / 2)}
+            width={DIVIDER_RESISTOR_W}
+            height={DIVIDER_RESISTOR_H}
+            preserveAspectRatio="xMidYMid meet"
+            className={styles.physicalBoardRender}
+          />
+        </g>
+      )}
       {render && (
         <image
           data-component-render={render.id}

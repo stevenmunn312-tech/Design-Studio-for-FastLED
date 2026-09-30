@@ -20,6 +20,7 @@ import {
   peripheralGroundPadIndex,
   micChannelSelectPadIndex,
   receiveDivider,
+  dataPullUp,
   PERIPHERAL_STUB_LEAD,
   peripheralSignalPadIndex,
   peripheralSignalEndPoint,
@@ -211,9 +212,12 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const channelSelectIndex = micChannelSelectPadIndex(layout.item)
           const channelSelectPad = channelSelectIndex === null ? null : peripheralPadPoint(layout, channelSelectIndex)
           const divider = receiveDivider(layout)
+          const pullUp = dataPullUp(layout)
           const dividerConnection = divider ? peripheralConnections[divider.signalIndex] : undefined
           const dividerActive = selectedItemId === 'controller' || selectedItemId === layout.item.id
           const dividerColor = dividerConnection ? signalPresentation(dividerConnection).color : undefined
+          const pullUpConnection = pullUp ? peripheralConnections[pullUp.signalIndex] : undefined
+          const pullUpColor = pullUpConnection ? signalPresentation(pullUpConnection).color : undefined
           return <g key={layout.item.id}>
             {vccPad && vccNet && (
               <NetStub
@@ -281,6 +285,32 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
               then 2 kΩ on to ground. The resistor bodies are drawn with the
               module; these are the leads between them.
             */}
+            {/*
+              A bare 1-Wire probe's DATA line idles high through a 4.7 kΩ
+              resistor to 3.3 V: down out of the pad to the junction the
+              controller wire climbs to, then right through the resistor to the
+              3.3 V symbol. The resistor body is drawn with the module.
+            */}
+            {pullUp && layers.signalWires && (
+              <g data-data-pull-up={layout.item.id}>
+                {([
+                  [`${layout.item.title} DATA · to the junction`, `M${pullUp.dataPad.x} ${pullUp.dataPad.y}V${pullUp.y}`, 'data'],
+                  ['DATA junction · to the 4.7 kΩ pull-up', `M${pullUp.junction.x} ${pullUp.y}H${pullUp.resistorX}`, 'in'],
+                  ['4.7 kΩ pull-up · to 3V3', `M${pullUp.resistorX + DIVIDER_RESISTOR_W} ${pullUp.y}H${pullUp.supply.x}`, 'out'],
+                ] as const).map(([tip, d, part]) => (
+                  <HoverWire
+                    key={part}
+                    tip={tip}
+                    data-wire={`${layout.item.id}-pull-up-${part}`}
+                    d={d}
+                    className={dividerActive ? styles.signalWire : styles.dimWire}
+                    style={dividerActive && pullUpColor ? { stroke: pullUpColor } : undefined}
+                  />
+                ))}
+                <circle data-pull-up-junction="true" cx={pullUp.junction.x} cy={pullUp.junction.y} r={3} style={pullUpColor ? { fill: pullUpColor } : undefined} />
+                <NetStub x={pullUp.supply.x} y={pullUp.supply.y} kind="v3v3" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-pull-up-3v3`} />
+              </g>
+            )}
             {divider && layers.signalWires && (
               <g data-receive-divider={layout.item.id}>
                 {([

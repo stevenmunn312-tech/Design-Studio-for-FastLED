@@ -1625,6 +1625,24 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
 )
 
+const TEMPERATURE_INPUT_LIVE_EXAMPLE = namedExample(
+  'TemperatureInput',
+  'Warm the colour with a probe reading',
+  [
+    { key: 'probe', type: 'TemperatureInput', properties: { partId: 'ds18b20-waterproof-probe', pin: 4 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 5, inMax: 45, outMin: 1, outMax: 0 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 40, g: 140, b: 255 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'probe', sourceHandle: 'temperature', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Temperature Probe reads a waterproof DS18B20 in degrees Celsius on one GPIO. The value keeps its physical unit, so Map Range is the explicit bridge from a span you care about, here 5 to 45 °C, to a colour control. Connected goes false when the probe is unplugged, so a graph can hold its last look instead of following a stale reading.',
+  'Drag the temperature slider from cold to hot and watch the blue fade. The firmware wiring needs a 4.7 kΩ pull-up from DATA to 3.3 V, which the Build Diagram draws.',
+)
+
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
   'Switch and dim a DC load',
@@ -1815,6 +1833,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,
+  TemperatureInput: TEMPERATURE_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,

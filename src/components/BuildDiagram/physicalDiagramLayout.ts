@@ -235,7 +235,7 @@ export const RECEIVE_DIVIDER_DROP = 16
 export function peripheralLaneBase(rowItems: readonly HardwareManifestItem[]) {
   return PERIPHERAL_LANE_BASE
     + (rowHasChannelSelect(rowItems) ? CHANNEL_SELECT_STUB_DROP : 0)
-    + (rowItems.some(hasReceiveDivider) ? RECEIVE_DIVIDER_DROP : 0)
+    + (rowItems.some((item) => hasReceiveDivider(item) || hasDataPullUp(item)) ? RECEIVE_DIVIDER_DROP : 0)
 }
 
 /** Clear of the deepest lane, with room for the downward GND/VCC stub labels. */
@@ -356,6 +356,8 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'adafruit-bh1750-light-sensor': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 237.5, 286),
   // VIN, 3Vo, GND, SCK, SDO, SDI, CS; only SCK and SDI carry the I2C bus.
   'adafruit-bme280-environment-sensor': padRow([49, 99, 149, 200, 250, 301, 351], 400, 471, 527),
+  // The probe's three bare wire ends: red VCC, black GND, yellow DATA.
+  'ds18b20-waterproof-probe': padRow([104.5, 199.5, 294.5], 400, 948, 997),
   // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
   // bottom (GND, 3V3D, 3V3D, NC, RSTn, MISO), pin 1 of each at the right-hand
   // end. Computed from WIZnet's board file (13.60 px/mm, 10 px margin) and
@@ -673,6 +675,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
+  'temperature-input': [['DATA']],
   // The board's RX reads the sensor's TX pad.
   'presence-input': [['TX']],
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
@@ -721,6 +724,8 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // controller's I2C pins at 5 V, so it takes the logic rail instead.
   if (item.kind === 'power-monitor-input') return 'v3v3'
   if (item.kind === 'environment-input') return 'v3v3'
+  // The 4.7 kohm pull-up ties DATA to VCC, so 5 V here would hold the controller's pin at 5 V.
+  if (item.kind === 'temperature-input') return 'v3v3'
   // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
   // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
@@ -793,6 +798,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-ina219-current-sensor': 7,
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
+  'ds18b20-waterproof-probe': 6.5,
   'max485-rs485-module': 11.9,
   'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,
@@ -879,6 +885,49 @@ export function receiveDivider(layout: ItemLayout): ReceiveDivider | null {
 }
 
 /**
+ * The pull-up on a bare 1-Wire probe's DATA line, between its yellow wire and
+ * the 3.3 V rail.
+ *
+ * The probe has no pull-up of its own. The resistor sits under the probe, to
+ * the right of the DATA pad (the probe's last wire, so it crosses no supply
+ * stub), and DATA's controller wire ends on the junction above it. Its far end
+ * takes the 3.3 V symbol.
+ */
+export interface DataPullUp {
+  signalIndex: number
+  dataPad: { x: number; y: number }
+  /** The height the resistor runs at, just below the probe's box. */
+  y: number
+  junction: { x: number; y: number }
+  /** Left edge of the resistor picture. */
+  resistorX: number
+  supply: { x: number; y: number }
+}
+
+function hasDataPullUp(item: HardwareManifestItem) {
+  return item.kind === 'temperature-input'
+}
+
+export function dataPullUp(layout: ItemLayout): DataPullUp | null {
+  const { item } = layout
+  if (!hasDataPullUp(item)) return null
+  const signalIndex = item.pins.findIndex((pin) => pin.propertyKey === 'pin')
+  const dataIndex = padIndexByLabel(item, ['DATA'], -1)
+  if (signalIndex < 0 || dataIndex < 0) return null
+  const dataPad = peripheralPadPoint(layout, dataIndex)
+  const y = layout.y + PERIPHERAL_RENDER_H + 10
+  const resistorX = dataPad.x + DIVIDER_GAP
+  return {
+    signalIndex,
+    dataPad,
+    y,
+    junction: { x: dataPad.x, y },
+    resistorX,
+    supply: { x: resistorX + DIVIDER_RESISTOR_W + DIVIDER_GAP, y },
+  }
+}
+
+/**
  * Where a control wire from the controller ends: on its pad, or, for a
  * receiver's RX line, on the divider's junction. The lane allocator and the
  * router both ask this, so a wire's lane is chosen for the point it actually
@@ -887,6 +936,8 @@ export function receiveDivider(layout: ItemLayout): ReceiveDivider | null {
 export function peripheralSignalEndPoint(layout: ItemLayout, signalIndex: number) {
   const divider = receiveDivider(layout)
   if (divider && divider.signalIndex === signalIndex) return divider.junction
+  const pullUp = dataPullUp(layout)
+  if (pullUp && pullUp.signalIndex === signalIndex) return pullUp.junction
   return peripheralPadPoint(layout, peripheralSignalPadIndex(layout.item, signalIndex))
 }
 
@@ -904,6 +955,7 @@ export function peripheralSignalEndPoint(layout: ItemLayout, signalIndex: number
  */
 export function peripheralApproach(layout: ItemLayout, signalIndex: number): { x: number; jogY: number } | null {
   if (receiveDivider(layout)?.signalIndex === signalIndex) return null
+  if (dataPullUp(layout)?.signalIndex === signalIndex) return null
   const end = peripheralSignalEndPoint(layout, signalIndex)
   const pads = Array.from({ length: peripheralPadCount(layout.item) }, (_, index) => peripheralPadPoint(layout, index))
   const below = pads

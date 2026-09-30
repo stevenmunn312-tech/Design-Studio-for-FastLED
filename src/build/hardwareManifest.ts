@@ -51,6 +51,7 @@ import {
   environmentSensorSpec,
   formatEnvironmentAddress,
 } from '../state/environmentSensor'
+import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/temperatureSensor'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
 import {
@@ -100,7 +101,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -138,6 +139,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PresenceInput',
   'LightInput',
   'EnvironmentInput',
+  'TemperatureInput',
   'IRRemoteInput',
   'PowerMonitorInput',
   'RelayOutput',
@@ -380,6 +382,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'EnvironmentInput':
         pushI2c(node, baseLabel, props)
+        break
+      case 'TemperatureInput':
+        push(node, `${baseLabel} DATA pin`, 'pin', props.pin)
         break
       case 'EncoderInput':
         push(node, `${baseLabel} pin A`, 'pinA', props.pinA)
@@ -899,6 +904,24 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             pressureRange: `${spec.pressureMinHpa} to ${spec.pressureMaxHpa} hPa`,
           },
           reasons: reasons.length > 0 ? reasons : undefined,
+        }
+      }
+      case 'TemperatureInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? DS18B20_PART_ID)
+        const entry = partById(partId)
+        const spec = temperatureSensorSpec(partId)
+        const wired = pins.some((pin) => pin.propertyKey === 'pin')
+        return {
+          ...buildPeripheralItem(node, 'temperature-input', entry?.label ?? 'DS18B20 temperature probe', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            partId,
+            temperatureRange: `${spec.temperatureMinC} to ${spec.temperatureMaxC} °C`,
+            pullUp: formatPullUp(spec.pullUpOhms),
+          },
+          reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} has no free pin for the probe's DATA wire.`],
         }
       }
       case 'DMXInput': {
