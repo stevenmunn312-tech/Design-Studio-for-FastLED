@@ -433,6 +433,21 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: environmentSensor block needs addresses, a default among them and valid measurement ranges — skipped",
                   file=sys.stderr)
+    # A two-axis analog joystick with a push switch. The pot value and switch
+    # sense travel from the part so the firmware's active level is not typed twice.
+    joystick = data.get("joystick")
+    if joystick:
+        if (isinstance(joystick.get("axisPotOhms"), (int, float)) and joystick["axisPotOhms"] > 0
+                and joystick.get("switchActive") in ("low", "high")):
+            entry["joystick"] = {
+                "device": joystick.get("device") or "",
+                "interface": joystick.get("interface") or "",
+                "axisPotOhms": joystick["axisPotOhms"],
+                "switchActive": joystick["switchActive"],
+            }
+        else:
+            print(f"  ! {part_id}: joystick block needs a positive axisPotOhms and switchActive low or high — skipped",
+                  file=sys.stderr)
     # A pulse-ranging distance sensor. The measuring window and the echo level
     # travel from the part so the preview limits and the Build Diagram's echo
     # divider agree with the data sheet rather than with numbers typed into the app.

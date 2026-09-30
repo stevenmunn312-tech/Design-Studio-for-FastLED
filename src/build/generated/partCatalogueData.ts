@@ -683,6 +683,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 17.226
     }
   },
+  "ky-023-joystick-module": {
+    "partId": "ky-023-joystick-module",
+    "label": "KY-023 analog joystick module",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 26.0,
+      "height": 34.0
+    },
+    "manufacturer": "Joy-IT KY-023 and compatible modules",
+    "logicVoltage": "Supply from 3.3 V so both analog outputs stay inside a 3.3 V ADC range; SW pulls to ground when pressed",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "+5V",
+      "VRx",
+      "VRy",
+      "SW"
+    ],
+    "notes": [
+      "Two 10 kohm potentiometers give the X and Y axes as analog voltages, centred at about half the supply. A push on the stick closes the SW switch to ground.",
+      "The module is marked +5V, but it is two potentiometers and a switch. Power it from 3.3 V for an ESP controller so the axis voltages never exceed the ADC's 3.3 V range.",
+      "VRx and VRy need ADC-capable pins. On a classic ESP32 use ADC1 pins (GPIO 32 to 39), because ADC2 stops working while Wi-Fi is on. SW needs a pin with a pull-up; the controller's internal pull-up is enough.",
+      "The 34 x 26 mm board size follows Joy-IT; other suppliers quote 40 x 26 mm. The stick and cap sizes are approximate.",
+      "The five-pin row ships loose and is rendered as unpopulated plated holes."
+    ],
+    "joystick": {
+      "device": "KY-023",
+      "interface": "2 analog axes and 1 switch",
+      "axisPotOhms": 10000,
+      "switchActive": "low"
+    },
+    "render": {
+      "file": "parts/ky-023-joystick-module.webp",
+      "widthPx": 400,
+      "heightPx": 517,
+      "pxPerMm": 14.615
+    }
+  },
   "lm2596-buck-module": {
     "partId": "lm2596-buck-module",
     "label": "LM2596 adjustable buck converter module",
