@@ -710,7 +710,7 @@ function buildSpecialRecipe(node: NodeDefinition): ExampleRecipe | null {
           { from: 'particles', to: 'target' },
           { from: 'target', to: 'sink' },
         ],
-        explanation: `${node.label} performs the live generative show. Control Map maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
+        explanation: `${node.label} performs the live generative show. Pattern Order chooses Sequential collection order or Random playback. Control Map maps physical inputs to transport and LED commands, while Player Particles supplies the optional beat-overlay configuration.`,
         result: 'A live multi-pattern show with dwell timing, transitions, physical controls, and optional audio reactivity.',
       }
     case 'ControlMap':

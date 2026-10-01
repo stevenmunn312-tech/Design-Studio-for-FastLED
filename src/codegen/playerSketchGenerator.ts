@@ -18,6 +18,7 @@ import { displayTextCppHelpers } from './displayTextCpp'
 //     SET_PATTERN index then dispatches to a `render_pN()` function.
 
 import type { PatternRenderers } from './showGenerator'
+import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patternSlideshow'
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
@@ -374,6 +375,8 @@ export function generatePlayerSketch(
   opts: {
     audioEnvelope?: boolean; decoderTap?: boolean; preferredTrack?: string
     genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig
+    /** Automatic collection playback; timed Performance shows keep their own schedule. */
+    patternOrder?: PatternSlideshowOrder
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
     thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
@@ -409,7 +412,8 @@ export function generatePlayerSketch(
       ...ledOutputManualExprs({ enabled: c.outputEnabled, outputBrightness: c.outputBrightness }),
     }).join('\n')
     : ''
-  const collection = !!(renderers && renderers.count > 0)
+  const patternCount = renderers?.count ?? 0
+  const collection = patternCount > 0
   const bakedAudio = !!opts.audioEnvelope
   const stereoVuMeters = opts.stereoVuMeters ?? []
   const hasStereoVu = stereoVuMeters.length > 0
@@ -422,6 +426,7 @@ export function generatePlayerSketch(
   const startingAttenuation = DECODER_VOLUME_TABLE[Math.max(0, Math.min(21, c.maxVolume))]
   const decoderVolumeComp = `${startingAttenuation ? (64 / startingAttenuation).toFixed(4) : '1.0000'}f`
   const genericPlayer = collection && opts.genericPlayer === true
+  const sequentialPatterns = asSlideshowOrder(opts.patternOrder) === 'Sequential'
   const graphRouting = opts.controlGraph
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
@@ -1940,6 +1945,9 @@ ${hasControls ? `${controlPinSetup}\n  applyPlayerBrightness();` : ''}
 ${displaySetupCpp ? displaySetupCpp + '\n' : ''}
 ${playerEarlyStagesCpp ? playerEarlyStagesCpp + '\n' : ''}
 ${playerServicesStageCpp ? playerServicesStageCpp + '\n' : ''}
+${genericPlayer && !sequentialPatterns ? `  patternId = (uint8_t)random(${patternCount});
+  prevPatternId = patternId;
+${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT, patternId);\n` : ''}` : ''}
 
   // The protocol's own wording, not a human sentence: the host reads this
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
@@ -2039,8 +2047,8 @@ ${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the l
   }
 ` : ''}
 ${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate the
-  // collected patterns on a simple wall-clock cadence while their own audio
-  // nodes react to the live decoder signal.
+  // collected patterns in ${sequentialPatterns ? 'collection order' : 'random order without immediate repeats'}.
+  // Their own audio nodes react to the live decoder signal.
   //
   // The cadence steps from wherever the cursor already is, rather than being
   // computed as posMs / dwell % count. An absolute index can only ever land
@@ -2066,14 +2074,14 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
     if (posMs - rotatedAtMs >= rotateMs) {
       rotatedAtMs = posMs;
       _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT,
-                    (uint16_t)((selActive + 1) % PATTERN_COUNT));
+                    (uint16_t)((selActive + 1${sequentialPatterns ? '' : ' + random(PATTERN_COUNT - 1)'}) % PATTERN_COUNT));
       rotatedFrom = _sel_${PLAYER_SELECTION_STEM}.active;
     }
     uint8_t nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
-` : `    static uint8_t rotateIndex = 0;
+` : `    static uint8_t rotateIndex = patternId;
     if (posMs - rotatedAtMs >= rotateMs) {
       rotatedAtMs = posMs;
-      rotateIndex = (uint8_t)((rotateIndex + 1) % ${collection ? renderers?.count ?? 1 : 1});
+      rotateIndex = (uint8_t)((rotateIndex + 1${sequentialPatterns ? '' : ` + random(${patternCount - 1})`}) % ${patternCount});
     }
     uint8_t nextPattern = rotateIndex;
 `}    if (nextPattern != patternId) {

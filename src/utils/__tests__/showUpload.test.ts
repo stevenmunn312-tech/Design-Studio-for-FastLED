@@ -22,6 +22,33 @@ function node(
 }
 
 describe('buildShowPlayer', () => {
+  it.each(['Random', 'Sequential'])('uses the selected Music Player pattern order %s for upload and measurement', (order) => {
+    const groups = Object.fromEntries(['a', 'b', 'c'].map((id) => [id, {
+      nodes: [node('color', 'SolidColor', { r: 12, g: 34, b: 56 }), node('out', 'GroupOutput')],
+      edges: [{ id: 'color-out', source: 'color', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }],
+    }])) as GroupRegistry
+    const nodes = [
+      node('stray-player', 'PatternMaster', { order: order === 'Random' ? 'Sequential' : 'Random' }),
+      node('player', 'PatternMaster', { order }),
+      node('collection', 'PatternCollection', { patternIds: ['c', 'a', 'b'] }),
+      node('sd', 'SDCard'), node('amp', 'Amplifier'),
+      node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const edges = [
+      { id: 'patterns', source: 'collection', sourceHandle: 'patternset', target: 'player', targetHandle: 'patternset' },
+      { id: 'leds', source: 'player', sourceHandle: 'frame', target: 'led', targetHandle: 'frame' },
+    ] as Edge[]
+    const uploaded = buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['c', 'a', 'b'], bakedAudio: false, preferredTrack: '', genericPlayer: true,
+    })
+    const measured = buildShowPlayerForMeasurement(nodes, edges, groups)!
+    for (const sketch of [uploaded, measured]) {
+      expect(sketch).toContain(order === 'Sequential'
+        ? '(uint8_t)((rotateIndex + 1) % 3)'
+        : '(uint8_t)((rotateIndex + 1 + random(2)) % 3)')
+    }
+  })
+
   it('generates from the selected engine in a mixed graph, not the first engine in node order', () => {
     const nodes = [
       node('disconnected-music', 'PatternMaster'),

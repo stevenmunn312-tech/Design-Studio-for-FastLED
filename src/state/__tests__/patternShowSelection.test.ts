@@ -46,11 +46,11 @@ const BLUE: Record<string, number> = { 'grp-a': 10, 'grp-b': 20, 'grp-c': 30, 'g
 const GROUPS = Object.fromEntries(ALL.map((id) => [id, solidGroup(BLUE[id])]))
 
 /** Run one frame of a Music Player over `ids`, returning its rendered blue. */
-function runShow(ids: string[], t: number): number {
+function runShow(ids: string[], t: number, props: Record<string, unknown> = {}): number {
   // A dwell far longer than the test holds the show on one pattern, so any
   // change of pattern is the collection edit rather than the show advancing.
   const collection = node('coll', 'PatternCollection', { patternIds: ids })
-  const master = node('master', 'PatternMaster', { minTime: 9999, maxTime: 9999, transitionSec: 1, seed: 7 })
+  const master = node('master', 'PatternMaster', { minTime: 9999, maxTime: 9999, transitionSec: 1, seed: 7, ...props })
   const out = node('out', 'MatrixOutput', {})
   const frame = evaluateGraph(
     [collection, master, out],
@@ -126,5 +126,52 @@ describe('a running show whose collection is edited', () => {
     const view = getPatternShowSelection('master')!
     expect(view.highlightIndex).toBe(view.currentIndex)
     expect(view.browsing).toBe(false)
+  })
+})
+
+describe('Music Player pattern order', () => {
+  beforeEach(() => resetEvaluatorState())
+
+  it('starts at the first collection entry, follows its order and wraps', () => {
+    const ids = ['grp-c', 'grp-a', 'grp-d', 'grp-b']
+    const props = { order: 'Sequential', minTime: 1, maxTime: 1, transitionSec: 0 }
+    for (let i = 0; i <= ids.length; i++) {
+      const blue = runShow(ids, i * 1.1 * 60, props)
+      expect(playingId(ids)).toBe(ids[i % ids.length])
+      expect(blue).toBe(BLUE[ids[i % ids.length]])
+    }
+  })
+
+  it('preserves the active pattern and dwell when switching order, then advances sequentially', () => {
+    const props = { minTime: 1, maxTime: 1, transitionSec: 0 }
+    runShow(ALL, 0, props)
+    const before = playingId(ALL)
+    runShow(ALL, 0.5 * 60, { ...props, order: 'Sequential' })
+    expect(playingId(ALL)).toBe(before)
+    runShow(ALL, 1.1 * 60, { ...props, order: 'Sequential' })
+    expect(playingId(ALL)).toBe(ALL[(ALL.indexOf(before) + 1) % ALL.length])
+  })
+
+  it.each([undefined, 'Random', 'invalid'])('plays randomly without immediate repeats for order %s', (order) => {
+    const props = { order, minTime: 1, maxTime: 1, transitionSec: 0 }
+    runShow(ALL, 0, props)
+    let before = playingId(ALL)
+    const visited: string[] = []
+    for (let i = 1; i <= 12; i++) {
+      runShow(ALL, i * 1.1 * 60, props)
+      const after = playingId(ALL)
+      expect(after).not.toBe(before)
+      visited.push(after)
+      before = after
+    }
+    // Random playback must offer jumps as well as never repeating immediately.
+    expect(visited.some((id, i) => i > 0 && id !== ALL[(ALL.indexOf(visited[i - 1]) + 1) % ALL.length])).toBe(true)
+  })
+
+  it.each(['Random', 'Sequential'])('keeps a single-pattern collection playing in %s mode', (order) => {
+    const props = { order, minTime: 1, maxTime: 1, transitionSec: 0 }
+    runShow(['grp-c'], 0, props)
+    expect(runShow(['grp-c'], 10 * 60, props)).toBe(BLUE['grp-c'])
+    expect(playingId(['grp-c'])).toBe('grp-c')
   })
 })

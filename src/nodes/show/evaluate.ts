@@ -4,6 +4,7 @@ import { type StudioNode, useGraphStore } from '../../state/graphStore'
 import { songInfoOutputs, blankSongInfo, resolveSongInfo } from '../../state/songInfo'
 import {
   type PatternSlideshowOrder,
+  asSlideshowOrder,
   slideshowSettings,
   advanceSlideshowSilenceFade,
 } from '../../state/patternSlideshow'
@@ -665,8 +666,7 @@ interface ShowOpts {
   seed: number
   /**
    * How the next pattern is chosen. Absent means random, which is what the
-   * generative show has always done; a Pattern Slideshow can ask for the
-   * order its collection is actually in.
+   * generative show has always done. Both players can ask for collection order.
    */
   order?: PatternSlideshowOrder
 }
@@ -1169,6 +1169,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       randomStyle: particleFx?.randomStyle ?? false,
       randomColor: particleFx?.randomColor ?? false,
       seed: normalizedSeed(props.seed),
+      order: asSlideshowOrder(props.order),
     }
     const key = stateKey(id)
     const controlsValue = input(id, 'controls', null)

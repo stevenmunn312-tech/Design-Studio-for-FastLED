@@ -39,8 +39,10 @@ Three distinct concepts (Library ≠ Collection):
    data type.
 3. **Music Player** — the show engine. Inputs: a `patternset`, a chosen pool of
    transitions (from the existing 16), optional beat/drop triggers, optional
-   `playercontrols`, and optional `playerparticles`. It runs the random show,
-   and because it is stateful it can play that show **live in the preview**.
+   `playercontrols`, and optional `playerparticles`. Pattern Order chooses
+   Random (the default) or Sequential, which starts at the first collection
+   entry and wraps after the last. Random avoids repeating the current pattern
+   on an advance. This choice applies to live preview and the SD music player.
    Output → LED output.
 
 ```
@@ -218,9 +220,6 @@ music-free case. Nobody would find that, so nobody did.
 
 **What is different from Music Player**, and why:
 
-- **Order is a choice.** Random or sequential. The generative show is random by
-  design; a slideshow of patterns you arranged in an order you liked should be
-  able to play them in it.
 - **One interval, not a min/max pair.** The randomised dwell exists to keep a
   beat-driven show from feeling metronomic. A slideshow has no beat to feel
   metronomic against.

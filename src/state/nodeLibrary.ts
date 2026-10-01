@@ -3128,7 +3128,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
 
   // ── Music Player — the live, decoder-driven pattern player ───────────────
   {
-    // Runs a random show from a Pattern Collection: holds a random pattern for
+    // Runs a sequential or random show from a Pattern Collection: holds a pattern for
     // a random dwell (minTime…maxTime), then transitions (a random style from
     // the chosen pool) into another. A wired `beat` advances early (after
     // minTime). See docs/development/design/generative-pattern-show.md.
@@ -3164,7 +3164,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
-      volume: 1, minTime: 4, maxTime: 12, transitionSec: 1,
+      volume: 1, order: 'Random', minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,
@@ -5104,7 +5104,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Animartrix: 'AnimARTrix by Stefan Petrick, rebuilt for deep musical control.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes, with named presets.',
   GameOfLife: 'Conway’s Game of Life with fading trails.',
-  PatternMaster: 'Random pattern/transition show from a Pattern Collection.',
+  PatternMaster: 'Plays a Pattern Collection in order or randomly, with transitions and music.',
   PatternSlideshow: 'Plays a Pattern Collection on a timer — the show without the music.',
   TouchInput: 'The touch surface of a Display Panel, as controls.',
   ControlMap: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
@@ -6249,6 +6249,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   PatternMaster: {
     volume: N01,
+    order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   PatternSlideshow: {
@@ -6525,6 +6526,9 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  PatternMaster: {
+    order: 'Sequential plays patterns in collection order and wraps back to the first. Random chooses a different pattern at each advance.',
+  },
   PdTriggerSource: {
     requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',
   },
@@ -6898,6 +6902,9 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  PatternMaster: {
+    order: 'Pattern Order',
+  },
   BuzzerOutput: {
     sigPin: 'SIG',
   },
@@ -7302,7 +7309,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },
   ],
   PatternMaster: [
-    { key: 'timing', label: 'Timing', keys: ['minTime', 'maxTime', 'transitionSec'] },
+    { key: 'timing', label: 'Timing', keys: ['order', 'minTime', 'maxTime', 'transitionSec'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   PatternSlideshow: [

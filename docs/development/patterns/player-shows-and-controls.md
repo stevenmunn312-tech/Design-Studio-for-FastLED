@@ -9,6 +9,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Music Player
 
+- Music Player's `order` property uses the same Random/Sequential choices and
+  `asSlideshowOrder` resolver as Pattern Slideshow. Preview passes the choice
+  into `evalPatternShow`; `buildShowPlayer` passes the selected engine's choice
+  into the generic SD player's `patternOrder` option. Sequential starts at the
+  first collection entry and wraps; Random excludes the current pattern when
+  advancing. Physical confirms still own the cursor and its dwell, and timed
+  Performance Generator shows retain their authored event schedule.
 - The player is modelled as the appliance it is: `PatternMaster` (**Music
   Player**) holds the music and reports what it is playing, `PlayerControls`
   controls it. `PlayerControls` mints one input per job it has been given rather

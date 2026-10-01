@@ -82,6 +82,16 @@ describe('StudioNode', () => {
     localStorage.clear()
   })
 
+  it('offers Music Player pattern order for existing nodes and saves a sequential choice', () => {
+    const { getByText, getByLabelText } = renderNode(makeNode('PatternMaster', {}))
+    fireEvent.click(getByText('Timing'))
+    const order = getByLabelText('Pattern Order value') as HTMLSelectElement
+    expect(order.value).toBe('Random')
+    expect(Array.from(order.options, (option) => option.value)).toEqual(['Random', 'Sequential'])
+    fireEvent.change(order, { target: { value: 'Sequential' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.order).toBe('Sequential')
+  })
+
   /*
    * A Touch node draws the controls its panel's screen design publishes.
    *

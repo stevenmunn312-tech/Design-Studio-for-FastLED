@@ -36,6 +36,7 @@ import { boardSupportsTelemetry } from '../codegen/deviceTelemetryCpp'
 import { wiredPatternCollection } from '../state/patternCollectionWiring'
 import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/showFreshness'
 import { resolveBuildMode } from '../state/buildMode'
+import { asSlideshowOrder } from '../state/patternSlideshow'
 
 export { wiredPatternCollection } from '../state/patternCollectionWiring'
 
@@ -130,6 +131,7 @@ export function buildShowPlayer(
     decoderTap,
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,
+    patternOrder: asSlideshowOrder(pgProps.order),
     psramAllowed: opts.psramAllowed,
     controlGraph,
     customDisplayAssets: opts.customDisplayAssets,

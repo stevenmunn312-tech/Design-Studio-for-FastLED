@@ -184,6 +184,7 @@ describe('playerSketchGenerator', () => {
       }
       const sketch = generatePlayerSketch({}, renderers, {
         genericPlayer: true,
+        patternOrder: 'Sequential',
         controls: {
           bindings: { patternConfirm: { kind: 'button', pin: 7, pullup: true } },
           debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
@@ -200,6 +201,53 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }')
       // posMs rewinds on a track change; the unsigned difference would wrap.
       expect(sketch).toContain('if (posMs < rotatedAtMs) rotatedAtMs = posMs;')
+    })
+  })
+
+  describe('pattern order', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: Array.from({ length: 4 }, (_, i) => `void render_p${i}(uint32_t ms) { (void)ms; }`),
+      count: 4, params: [],
+    }
+    const controls = {
+      bindings: { patternConfirm: { kind: 'button' as const, pin: 7, pullup: true } },
+      debounceMs: 30, volumeStep: 0.05, brightnessStep: 0.05,
+      repeatDelayMs: 400, repeatIntervalMs: 120,
+    }
+
+    it.each([false, true])('walks sequentially with physical controls %s', (hasControls) => {
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true, patternOrder: 'Sequential',
+        controls: hasControls ? controls : undefined,
+      })
+      expect(sketch).not.toContain('patternId = (uint8_t)random(')
+      expect(sketch).toContain(hasControls
+        ? '(uint16_t)((selActive + 1) % PATTERN_COUNT)'
+        : '(uint8_t)((rotateIndex + 1) % 4)')
+    })
+
+    it.each([false, true])('defaults to random playback excluding the current pattern with physical controls %s', (hasControls) => {
+      const sketch = generatePlayerSketch({}, renderers, {
+        genericPlayer: true, controls: hasControls ? controls : undefined,
+      })
+      expect(sketch).toContain('patternId = (uint8_t)random(4);')
+      expect(sketch).toContain(hasControls
+        ? '(uint16_t)((selActive + 1 + random(PATTERN_COUNT - 1)) % PATTERN_COUNT)'
+        : '(uint8_t)((rotateIndex + 1 + random(3)) % 4)')
+      if (hasControls) {
+        expect(sketch).toContain('_selSetActive(_sel_player, PATTERN_COUNT, patternId);')
+        expect(sketch).toContain('if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }')
+      } else {
+        expect(sketch).toContain('static uint8_t rotateIndex = patternId;')
+      }
+    })
+
+    it('leaves Performance show scheduling in charge of its patterns', () => {
+      const sketch = generatePlayerSketch({}, renderers, { patternOrder: 'Random', controls })
+      expect(sketch).not.toContain('patternId = (uint8_t)random(')
+      expect(sketch).not.toContain('const uint32_t rotateMs')
+      expect(sketch).toContain('_selSetActive(_sel_player, PATTERN_COUNT, (uint16_t)patternId);')
     })
   })
 
