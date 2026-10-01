@@ -89,6 +89,26 @@ and the node's address list follows the part you added. Raise the node's
 **Overcurrent** limit to suit the load: the slider reaches 20 A. It is
 experimental until a reading is compared with a meter.
 
+### Dim lights or drive servos with a PCA9685
+
+Choose **Add Hardware → Switching power → Adafruit PCA9685** for sixteen PWM
+outputs on two I2C wires. Power **VCC** from 3V3, join **GND**, and wire **SDA**
+and **SCL** to the board's I2C pins, which it can share with other I2C parts.
+Leave **OE** unconnected to keep the outputs enabled. Each output has three
+holes in a row: the PWM signal, the **V+** supply and ground. Feed the V+
+terminal from a separate supply (5 to 6 V for hobby servos); Studio does not
+draw that rail.
+
+The **PWM Driver** node has sixteen inputs, **Channel 0** to **Channel 15**, each a
+0 to 1 level: 0 is fully off and 1 fully on. Only the channels you wire are
+written, and the chip keeps each waveform running between updates. All sixteen
+share one frequency, set on the node: 1000 Hz suits LEDs and about 50 Hz suits
+servos. The chip's own clock is only accurate to a few percent, so the real
+frequency can differ a little. Pick an address from the node's list when you
+chain boards, so each has its own (0x40 to 0x6F). The PCA9685 is not an
+addressable-pixel output; use an LED output for those. The browser preview makes
+no PWM, and the driver is experimental until a board has been measured.
+
 ### Sound a buzzer
 
 Choose **Add Hardware → Amplifiers & DACs → KY-012 active buzzer** for a beep you

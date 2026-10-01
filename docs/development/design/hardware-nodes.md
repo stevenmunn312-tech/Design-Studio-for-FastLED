@@ -74,6 +74,19 @@ preventing an active-low relay click during setup. Relay contact ratings and
 mains-voltage warnings remain attached to the exact catalogue part; the app
 does not treat switched-load terminals as low-voltage GPIO wiring.
 
+`PwmDriverOutput` is the PCA9685 on the board's one `Wire` bus: sixteen float
+inputs, `channel0` to `channel15`, each a 0 to 1 level. Its `pwmDriver` catalogue block
+carries the channel count, resolution, the offered addresses (0x40 to 0x6F, since 0x70
+is the chip's all-call address and the range above is reserved), the oscillator and the
+frequency range, so the firmware, the address picker and validation read one source.
+The prescale is `round(osc / (4096 * hz)) - 1`, computed in `pwmDriverPrescale`. Firmware
+configures the chip on first contact and again after any failed write, retried once a
+second while it is absent without stalling the loop, writes only the channels that have
+a wire and only when the quantised level changes, and sets the full-off and full-on bits
+at the ends so 0 and 1 are true 0% and 100%. Its helper goes in the sketch once, through
+`globalLines`, however many drivers there are. The Build Diagram powers VCC from the
+logic rail, draws SDA and SCL only, and leaves OE floating (enabled) and V+ undrawn.
+
 `BuzzerOutput` is the smallest terminal sink: one boolean `on` input and one GPIO
 (`sigPin`). The catalogue's `buzzer` block carries the type, the pin level that
 sounds it, the fixed pitch of an active part and the current it draws; the firmware

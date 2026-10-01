@@ -506,6 +506,22 @@ Unless a future row says otherwise, treat the following as experimental:
   touched HIGH, release, held and rapid touches in normal, slideshow and player
   firmware, and record startup behaviour plus recovery after disconnecting and
   reconnecting SIG.
+- **PCA9685 PWM driver.** `PwmDriverOutput` has a modelled asset, sixteen 0 to 1
+  channel inputs, library-free register firmware (sleep, prescale, totem-pole
+  output stage, wake with auto-increment, restart, and four-byte channel writes
+  with the full-off and full-on bits for a true 0% and 100%), manifest and Build
+  Diagram coverage. Only wired channels are written, and only when their level
+  changes. It answers on 0x40 to 0x6F by the A0 to A5 jumpers; 0x70 and above are
+  the chip's all-call address and the reserved range, so they are not offered. It
+  is read by the normal sketch generator only. Generated sketches
+  [compile on classic ESP32](../development/pwm-driver-compile-checks.md), alone
+  and beside an INA226 on one bus, but no output has been measured. The
+  frequency comes from the chip's 25 MHz internal clock, which is only accurate
+  to a few percent, and the V+ output supply is not modelled: it is a separate
+  rail and is not drawn. The render's hole positions are approximate. Graduation
+  needs a dated row naming the board/FQBN, the I2C pins and address, with an LED
+  dimmed across the range, a channel at exactly 0 and 1, a servo or an oscilloscope
+  reading at the chosen frequency, and the outputs staying off until written.
 - **KY-012 active buzzer.** `BuzzerOutput` has a modelled asset, a boolean Sound
   input, firmware that latches the pin LOW before enabling it and then follows the
   input, manifest and Build Diagram coverage. It is read by the normal sketch
