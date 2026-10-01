@@ -27,6 +27,7 @@ import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/relayModule'
 import { BUZZER_PART_ID } from '../../state/buzzer'
 import { PCA9685_PART_ID } from '../../state/pwmDriver'
 import { DARLINGTON_PART_ID, darlingtonPinKeys } from '../../state/darlingtonDriver'
+import { PD_TRIGGER_PART_ID } from '../../state/pdTrigger'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
 
@@ -153,6 +154,16 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     hint: 'Powers the controller or the 5 V LED rail from a higher-voltage source',
     footprint: partDimensionsMm(DEFAULT_POWER_CONVERTER_PART_ID, { width: 43.18, height: 21.08 }),
     render: partRenderSrc(DEFAULT_POWER_CONVERTER_PART_ID) ?? undefined,
+  },
+  {
+    // The upstream USB-C source. No pins: nothing on it reaches the controller,
+    // and the bench draws no board run for it.
+    nodeType: 'PdTriggerSource',
+    partId: 'pd-trigger-source',
+    label: 'USB-C PD trigger',
+    hint: 'Sets the DC voltage a USB-C charger supplies to a converter or load',
+    footprint: partDimensionsMm(PD_TRIGGER_PART_ID, { width: 15, height: 31 }),
+    render: partRenderSrc(PD_TRIGGER_PART_ID) ?? undefined,
   },
   {
     nodeType: 'RelayOutput',

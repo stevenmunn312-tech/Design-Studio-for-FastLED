@@ -39,6 +39,7 @@ import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
 } from '../state/pwmDriver'
 import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/darlingtonDriver'
+import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../state/pdTrigger'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
@@ -115,7 +116,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -169,6 +170,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'DMXInput',
   'EthernetModule',
   'PowerConverter',
+  'PdTriggerSource',
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
@@ -768,6 +770,28 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             sourceVoltage,
           },
           reasons: module ? undefined : ['This converter part is not in the catalogue.'],
+        }
+      }
+      // An upstream source, not a signal device: no pins, and the plan reads the
+      // voltage it requests to check it against the converter it feeds.
+      case 'PdTriggerSource': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? PD_TRIGGER_PART_ID)
+        const entry = partById(partId)
+        const spec = pdTriggerSpec(partId)
+        const voltage = pdTriggerVoltage(props)
+        return {
+          ...buildPeripheralItem(node, 'pd-trigger', `${voltage ?? '?'} V USB-C PD trigger`, pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: voltage !== null,
+          facts: {
+            partId,
+            requestedVoltage: voltage ?? 0,
+            maxCurrent: `${spec.maxCurrentA} A`,
+            maxPower: `${spec.maxPowerW} W`,
+            selection: spec.selection,
+          },
+          reasons: voltage === null ? [`${String(props.requestedVoltage)} V is not a voltage this trigger can request.`] : undefined,
         }
       }
       case 'EthernetModule': {

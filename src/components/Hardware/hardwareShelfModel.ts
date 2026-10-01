@@ -82,6 +82,7 @@ export function hardwareShelfCategories({
   const darlingtonFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'DarlingtonDriverOutput')
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
   const powerConverterFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerConverter')
+  const pdTriggerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PdTriggerSource')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
       ? 'One stereo VU meter per board'
@@ -164,8 +165,11 @@ export function hardwareShelfCategories({
     {
       id: 'power-conversion',
       label: 'Power conversion',
-      hint: 'Where 5 V comes from when your supply is 12 V or 24 V',
-      items: moduleItems('PowerConverter', powerConverterFixture),
+      hint: 'Where 5 V comes from when your supply is 12 V or 24 V, and a USB-C PD source',
+      items: [
+        ...moduleItems('PowerConverter', powerConverterFixture),
+        ...moduleItems('PdTriggerSource', pdTriggerFixture),
+      ],
     },
     {
       id: 'switching-power',

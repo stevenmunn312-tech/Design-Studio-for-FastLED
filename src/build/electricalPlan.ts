@@ -313,6 +313,55 @@ function inputProtection(inputCurrentMa: number, sourceVoltage: number) {
   return { conductor, fuse }
 }
 
+/**
+ * What a USB-C PD trigger on the bench means for the plan. It is the upstream
+ * source the converters share, so the voltage it requests has to be the one they
+ * are configured for, and what they draw from it has to fit its rating. These are
+ * warnings: a trigger may be feeding something the plan cannot see.
+ */
+function pdTriggerWarnings(
+  manifest: HardwareManifest,
+  controllerVoltage: number | undefined,
+  railVoltage: number | undefined,
+  upstreamCurrentMa: number,
+): ElectricalPlanIssue[] {
+  const triggers = manifest.primaryItems.filter((item) => item.kind === 'pd-trigger' && item.supported)
+  if (triggers.length === 0) return []
+  if (triggers.length > 1) {
+    return [{
+      id: 'pd-trigger-count',
+      severity: 'warning',
+      title: 'USB-C PD trigger',
+      detail: `${triggers.length} PD triggers are on the bench. Converters share one upstream source, so the plan cannot tell which one feeds them; keep one, or check each converter's source voltage by hand.`,
+    }]
+  }
+  const trigger = triggers[0]
+  const requested = Number(trigger.facts.requestedVoltage)
+  const issues: ElectricalPlanIssue[] = []
+  const mismatched = [
+    controllerVoltage !== undefined && controllerVoltage !== requested ? `the controller converter is set to ${controllerVoltage} V` : '',
+    railVoltage !== undefined && railVoltage !== requested ? `the LED rail converter is set to ${railVoltage} V` : '',
+  ].filter(Boolean)
+  if (mismatched.length > 0) {
+    issues.push({
+      id: 'pd-trigger-source-voltage',
+      severity: 'warning',
+      title: 'USB-C PD trigger',
+      detail: `The trigger is set to request ${requested} V, but ${mismatched.join(' and ')}. Set them to the same voltage, or change the voltage the trigger asks for.`,
+    })
+  }
+  const ratedMa = Number.parseFloat(String(trigger.facts.maxCurrent)) * 1000
+  if (Number.isFinite(ratedMa) && upstreamCurrentMa > ratedMa) {
+    issues.push({
+      id: 'pd-trigger-current',
+      severity: 'warning',
+      title: 'USB-C PD trigger',
+      detail: `The converters would draw about ${formatRuleCurrent(upstreamCurrentMa)} from the trigger, which is rated ${String(trigger.facts.maxCurrent)}. Split the load, or use a source built for it.`,
+    })
+  }
+  return issues
+}
+
 function planRailConverter(
   manifest: HardwareManifest,
   blockers: ElectricalPlanIssue[],
@@ -670,6 +719,13 @@ export function calculateElectricalPlan(
     })()
     : undefined
 
+  warnings.push(...pdTriggerWarnings(
+    manifest,
+    controllerSupply?.sourceVoltage,
+    railConverter?.sourceVoltage,
+    (totals?.source?.designCurrentMa ?? 0) || (controllerSupply?.inputCurrentMa ?? 0),
+  ))
+
   const unresolved = outputPlans.flatMap((output) => [
     ...output.injections.flatMap((injection) => [
       injection.conductor ? undefined : `${output.title} ${injection.role} feed: no reviewed conductor size meets the generated branch load.`,
@@ -743,6 +799,12 @@ export function calculateElectricalPlan(
     `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
     'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
   ]
+
+  for (const trigger of manifest.primaryItems.filter((item) => item.kind === 'pd-trigger' && item.supported)) {
+    recommendations.push(
+      `Set the ${trigger.title} to ${String(trigger.facts.requestedVoltage)} V with its button or solder pads before connecting anything: its output is at that voltage as soon as the charger is plugged in, and the charger must support USB PD. Check the polarity on its silkscreen.`,
+    )
+  }
 
   if (exactBoard?.confidence === 'pinout-verified' && !controllerSupply) {
     warnings.push({

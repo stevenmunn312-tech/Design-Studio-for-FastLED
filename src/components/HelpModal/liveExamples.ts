@@ -1308,6 +1308,19 @@ export const DMX_INPUT_LIVE_EXAMPLE = namedExample(
   'Without live Art-Net the Brightness node preview is black. Send universe 0, channel 1 to fade Pacifica smoothly from black to full brightness.',
 )
 
+export const PD_TRIGGER_LIVE_EXAMPLE = namedExample(
+  'PdTriggerSource',
+  'Feed a converter from a USB-C charger',
+  [
+    { key: 'trigger', type: 'PdTriggerSource', properties: { partId: 'zy12pdn-usb-c-pd-trigger', requestedVoltage: '12' } },
+    { key: 'converter', type: 'PowerConverter', properties: { partId: 'lm2596-buck-module', sourceVoltage: 12 } },
+    { key: 'pattern', type: 'Juggle' },
+  ],
+  [],
+  'USB-C PD Trigger carries no noodles. It records the voltage the ZY12PDN asks a USB-C charger for, set on the board with its button or solder pads, and the Build Diagram checks it against the converter it feeds: both should say 12 V here. It adds no firmware.',
+  'The preview is unchanged, because the trigger changes where the power comes from, not what it draws. Change the converter to 24 V and the Build Diagram warns that the two disagree.',
+)
+
 export const POWER_CONVERTER_LIVE_EXAMPLE = namedExample(
   'PowerConverter',
   'Power the controller from 12 V',
@@ -1941,6 +1954,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   DMXInput: DMX_INPUT_LIVE_EXAMPLE,
   EthernetModule: ETHERNET_LIVE_EXAMPLE,
   PowerConverter: POWER_CONVERTER_LIVE_EXAMPLE,
+  PdTriggerSource: PD_TRIGGER_LIVE_EXAMPLE,
   FFTAnalyzer: FFT_ANALYZER_LIVE_EXAMPLE,
   BeatDetect: BEAT_DETECT_LIVE_EXAMPLE,
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,

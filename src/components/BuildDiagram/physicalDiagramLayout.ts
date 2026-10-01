@@ -1301,7 +1301,7 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
    * lanes, corridors and descending net stubs that scheme already solves.
    */
   // A controller converter sits in the controller's power slot, not a row.
-  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'power-converter')
+  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'power-converter' && item.kind !== 'pd-trigger')
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
     const baseHeight = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT

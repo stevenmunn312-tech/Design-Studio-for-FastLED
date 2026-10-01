@@ -304,6 +304,8 @@ export default function HardwarePane() {
       // bench has no lane for — so it draws none rather than a board run that
       // does not exist.
       if (part.node.data.nodeType === 'PowerAmplifier' && powerAmplifierFeed(nodes) !== 'internalDac') continue
+      // A PD trigger is an upstream power source: nothing on it reaches the board, so it draws no run.
+      if (part.node.data.nodeType === 'PdTriggerSource') continue
       links.push({ source: BOARD_PART_ID, target: part.partId })
     }
     const usableWidth = Math.max(120, stageBox.width - leftInset - rightInset - 48)

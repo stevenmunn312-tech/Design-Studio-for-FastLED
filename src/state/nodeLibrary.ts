@@ -41,6 +41,7 @@ import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from './buzzer'
 import {
   DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys,
 } from './darlingtonDriver'
+import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './pdTrigger'
 import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddressOptions, pwmDriverInputs, pwmDriverSpec,
 } from './pwmDriver'
@@ -4848,6 +4849,20 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       sourceVoltage: DEFAULT_SOURCE_VOLTAGE,
     },
   },
+  {
+    // A USB-C PD trigger: the upstream DC source. It carries no signal; the
+    // electrical plan reads the voltage it requests and checks it against the
+    // converter it feeds. Config only, like the converter. See state/pdTrigger.ts.
+    type: 'PdTriggerSource',
+    label: 'USB-C PD Trigger',
+    category: 'input',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: PD_TRIGGER_PART_ID,
+      requestedVoltage: String(pdTriggerSpec(PD_TRIGGER_PART_ID).defaultVoltageV),
+    },
+  },
 
   // ── Notes ──────────────────────────────────────────────────────────────
   {
@@ -4948,6 +4963,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PowerAmplifier: 'The analog amp driving the speakers, fed line level by a DAC.',
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
+  PdTriggerSource: 'Asks a USB-C charger for a fixed voltage to feed a converter or load.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   BuzzerOutput: 'Sounds an active buzzer while its input is true.',
@@ -6090,6 +6106,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PowerConverter: {
     sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
   },
+  PdTriggerSource: {
+    requestedVoltage: { control: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
+  },
   EthernetModule: {
     sckPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     mosiPin:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -6494,6 +6513,9 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 
 /** Per-node overrides for property names whose meaning collides across nodes. */
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
+  PdTriggerSource: {
+    requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',
+  },
   PowerSwitchOutput: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [
     channel.level,
     'Share of full power while this channel is On. At 1 the load is simply switched; below 1, or with a wire here, firmware dims it with PWM at the module\'s frequency.',
@@ -6973,6 +6995,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PowerConverter: {
     sourceVoltage: 'source volts',
   },
+  PdTriggerSource: {
+    requestedVoltage: 'requested volts',
+  },
   EthernetModule: {
     sckPin: 'SCLK',
     mosiPin: 'MOSI',
@@ -7051,7 +7076,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
-  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
+  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource',
 ])
 
 /**

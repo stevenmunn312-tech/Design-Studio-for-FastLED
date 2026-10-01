@@ -92,7 +92,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
-  const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output' && layout.item.kind !== 'power-converter')
+  const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output' && layout.item.kind !== 'power-converter' && layout.item.kind !== 'pd-trigger')
   const outputConnections = connections.filter((connection) => outputLayouts.some((layout) => layout.item.id === connection.itemId))
   const controllerConnections = [...outputConnections, ...connections.filter((connection) => !outputConnections.includes(connection))]
   const controller3v3 = controllerPowerPoint('3v3', boardProfile)

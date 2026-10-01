@@ -82,6 +82,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       summary: `${module.spec.role === 'controller' ? 'Controller' : 'LED rail'} · ${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
     })),
   },
+  PdTriggerSource: {
+    property: 'partId',
+    options: [
+      {
+        id: 'zy12pdn-usb-c-pd-trigger',
+        label: 'ZY12PDN',
+        summary: 'Asks a USB-C charger for 5, 9, 12, 15 or 20 V',
+        note: 'A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity.',
+      },
+    ],
+  },
   EthernetModule: {
     property: 'partId',
     options: ETHERNET_MODULES.map((module) => ({

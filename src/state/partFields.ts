@@ -1,3 +1,4 @@
+import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './pdTrigger'
 /**
  * The settings a hardware-only part carries, beyond the module it is.
  *
@@ -59,6 +60,9 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   // Labelled as WIZnet prints them in its pinout; the board itself prints none.
   PowerConverter: [
     { key: 'sourceVoltage', label: 'Source V', kind: 'number', min: 5, max: 48 },
+  ],
+  PdTriggerSource: [
+    { key: 'requestedVoltage', label: 'Requested V', kind: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
   ],
   EthernetModule: [
     { key: 'sckPin', label: 'SCLK', kind: 'pin' },

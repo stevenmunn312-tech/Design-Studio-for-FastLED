@@ -168,6 +168,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Buck Converter example graph](../../public/node-cards/graphs/power-converter.svg)
 
+### USB-C PD Trigger
+
+![USB-C PD Trigger node](../../public/node-cards/pd-trigger-source.svg)
+
+![USB-C PD Trigger example graph](../../public/node-cards/graphs/pd-trigger-source.svg)
+
 ## Audio
 
 ### FFT Analyzer
