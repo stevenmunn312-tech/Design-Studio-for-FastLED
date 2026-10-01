@@ -3209,6 +3209,7 @@ export function buildGraphDiagnostics(
       nodeIds: [], action: target === 'matrix' ? 'open-led-outputs' : undefined,
     })
   } else {
+    const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
     for (const candidate of terminals) {
       const connected = target === 'group'
         ? incoming.has(`${candidate.id}:frame`)
@@ -3219,10 +3220,10 @@ export function buildGraphDiagnostics(
         title: `${terminalName} has no input`,
         message: target === 'group'
           ? 'Nothing is connected to the group frame terminal.'
-          : 'Neither a Frame nor an SD Card signal reaches the output.',
+          : hasCard ? 'Neither a Frame nor an SD Card signal reaches the output.' : 'No Frame signal reaches the output.',
         fix: target === 'group'
           ? 'Connect the pattern’s final Frame output to Group Output.'
-          : 'Connect a Frame output, or wire an SD Card node to the SD Card input.',
+          : hasCard ? 'Connect a Frame output, or wire an SD Card node to the SD Card input.' : 'Connect a pattern’s Frame output to the LED output.',
         nodeIds: [candidate.id], nodeLabel: nodeLabel(candidate),
       })
     }
