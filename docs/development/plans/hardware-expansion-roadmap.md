@@ -63,7 +63,7 @@ build have passed the normal evidence gates.
 | Protected high-side load switch / eFuse module | Protected `PowerSwitchOutput` | Soft start, current limiting and a fault signal are a better LED-rail primitive than a bare relay. |
 | Solid-state relay module | `RelayOutput` option or separate switch type | Only after AC/DC load type, leakage and isolation are represented honestly. |
 | PCA9685 16-channel PWM module | `PwmDriverOutput`, in and experimental: sixteen 0 to 1 channels at one shared frequency, 0x40 to 0x6F, V+ not drawn, bench open. Multi-channel PWM output | Useful for analog dimming, indicators and servos; not an addressable-pixel output. |
-| ULN2803A driver board | Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
+| ULN2803A driver board | `DarlingtonDriverOutput`, in and experimental: eight active-high channels on eight GPIOs, sink only, bench open. Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
 | Fan module with tachometer | Cooling output plus speed input | Enables enclosure cooling tied to temperature or power measurements. |
 | Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch; a passive buzzer with tones from the controller is still open; bench open. |
 | DFPlayer Mini | Player hardware integration | The verified Blender asset already exists; graph control, firmware ownership and audio routing remain to be integrated. |

@@ -89,6 +89,22 @@ and the node's address list follows the part you added. Raise the node's
 **Overcurrent** limit to suit the load: the slider reaches 20 A. It is
 experimental until a reading is compared with a meter.
 
+### Switch loads to ground with a ULN2803A
+
+Choose **Add Hardware → Switching power → ULN2803A** for eight switches that pull a
+load to ground. Wire each input **1B** to **8B** to the GPIO the part shows, and
+**GND** to the controller's ground. Each output **1C** to **8C** sinks its load: connect
+the load between its own supply and the output, never between the output and ground,
+and join the load supply's ground to the controller's ground. For relay coils, solenoids
+and motors, tie **COM** to the load supply so the clamp diodes can absorb the kick.
+
+The **Darlington Driver** node has eight boolean inputs, **Channel 1** to **Channel 8**:
+a true channel turns its output on. The firmware holds every input low through reset and
+setup so nothing pulses on. Each channel takes up to 500 mA at up to 50 V, but do not run
+all eight at full current, because the package limits the total heat. The array only
+sinks and cannot source current, so it cannot drive a load that needs its positive
+side switched. It is experimental until a load has been switched on a board.
+
 ### Dim lights or drive servos with a PCA9685
 
 Choose **Add Hardware → Switching power → Adafruit PCA9685** for sixteen PWM

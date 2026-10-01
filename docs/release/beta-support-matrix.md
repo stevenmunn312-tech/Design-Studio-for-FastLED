@@ -506,6 +506,22 @@ Unless a future row says otherwise, treat the following as experimental:
   touched HIGH, release, held and rapid touches in normal, slideshow and player
   firmware, and record startup behaviour plus recovery after disconnecting and
   reconnecting SIG.
+- **ULN2803A Darlington driver.** `DarlingtonDriverOutput` has a modelled DIP-18
+  asset, eight boolean channel inputs on eight GPIOs, active-high firmware that
+  latches every input LOW before enabling it and then follows each channel,
+  manifest and Build Diagram coverage. It is read by the normal sketch generator
+  only. The generated sketch
+  [compiles on classic ESP32](../development/darlington-compile-checks.md), but no
+  load has been switched on any board. Each channel sinks up to 500 mA at up to 50
+  V, but the package limits the total heat, so all eight are not meant to run at
+  full current together, and the app does not model that. It sinks only: it cannot
+  source current. The Build Diagram draws the eight inputs and GND; the load
+  supply and COM are not drawn, and the load supply ground must be joined to the
+  controller ground. Its inputs are specified for 5 V logic and
+  need a higher voltage as the load current rises, so a 3.3 V controller is tight
+  at the top end; check the datasheet for the chosen variant. Graduation needs a dated row naming the
+  board/FQBN and GPIOs, with every input held off through reset and setup, each
+  channel switching its own load, and the supply used for the load.
 - **PCA9685 PWM driver.** `PwmDriverOutput` has a modelled asset, sixteen 0 to 1
   channel inputs, library-free register firmware (sleep, prescale, totem-pole
   output stage, wake with auto-increment, restart, and four-byte channel writes

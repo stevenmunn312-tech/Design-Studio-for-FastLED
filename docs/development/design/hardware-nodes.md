@@ -74,6 +74,16 @@ preventing an active-low relay click during setup. Relay contact ratings and
 mains-voltage warnings remain attached to the exact catalogue part; the app
 does not treat switched-load terminals as low-voltage GPIO wiring.
 
+`DarlingtonDriverOutput` is the ULN2803A: eight boolean `channel1` to `channel8` inputs
+on eight GPIOs (`drive1Pin` to `drive8Pin`), the relay's shape with an active-high
+contract. The catalogue's `driverChip` block carries the channel count, the input level
+that turns a channel on, the output type and limits, and the package pinout in pin
+order, which is also the Build Diagram's pad order. The part is a bare DIP with no
+header, so its pad points are the lead tips measured from the render, pins 1 to 9 down
+the left edge and 10 to 18 up the right; the diagram draws 1B to 8B and GND and no supply
+pad, since COM is the load supply's clamp return rather than a controller rail. Firmware
+latches each pin LOW before enabling it so reset does not pulse a load.
+
 `PwmDriverOutput` is the PCA9685 on the board's one `Wire` bus: sixteen float
 inputs, `channel0` to `channel15`, each a 0 to 1 level. Its `pwmDriver` catalogue block
 carries the channel count, resolution, the offered addresses (0x40 to 0x6F, since 0x70

@@ -206,6 +206,7 @@ build/architecture overview aimed at contributors.
   - [INA226 firmware compile checks](development/ina226-compile-checks.md)
   - [Buzzer firmware compile checks](development/buzzer-compile-checks.md)
   - [PWM-driver firmware compile checks](development/pwm-driver-compile-checks.md)
+  - [Darlington-driver firmware compile checks](development/darlington-compile-checks.md)
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
   - [Pattern-node firmware compile checks](development/pattern-node-compile-checks.md)
