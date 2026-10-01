@@ -98,6 +98,18 @@ export interface PartMosfetSpec {
   pwmHz?: number
 }
 
+/** Request contract carried by an imported USB-C PD trigger module. */
+export interface PartPdTriggerSpec {
+  protocols: string
+  /** The fixed voltages the module can ask a charger for. */
+  selectableVoltagesV: number[]
+  defaultVoltageV: number
+  maxCurrentA: number
+  maxPowerW: number
+  /** How the voltage is chosen on the board. */
+  selection: string
+}
+
 /** Switching contract carried by an imported low-side driver array (ULN2803A). */
 export interface PartDriverChipSpec {
   device: string
@@ -317,6 +329,8 @@ export interface PartCatalogueEntry {
   relay?: PartRelaySpec
   /** Present exactly on DC MOSFET switch modules. */
   mosfet?: PartMosfetSpec
+  /** Present exactly on USB-C PD trigger modules. */
+  pdTrigger?: PartPdTriggerSpec
   /** Present exactly on low-side driver arrays. */
   driverChip?: PartDriverChipSpec
   /** Present exactly on I2C PWM driver modules. */

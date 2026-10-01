@@ -225,6 +225,27 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: mosfet block needs a channel count from 1 to 8 and loadSupply — skipped",
                   file=sys.stderr)
+    # A USB-C PD trigger's request contract. The plan checks the voltage it
+    # asks for against the converter it feeds, so the selectable voltages and
+    # the current limit come from the board rather than being retyped.
+    trigger = data.get("pdTrigger")
+    if trigger:
+        voltages = trigger.get("selectableVoltagesV")
+        if (isinstance(voltages, list) and voltages and all(isinstance(v, (int, float)) and v > 0 for v in voltages)
+                and trigger.get("defaultVoltageV") in voltages
+                and isinstance(trigger.get("maxCurrentA"), (int, float)) and trigger["maxCurrentA"] > 0
+                and isinstance(trigger.get("maxPowerW"), (int, float)) and trigger["maxPowerW"] > 0):
+            entry["pdTrigger"] = {
+                "protocols": trigger.get("protocols") or "",
+                "selectableVoltagesV": voltages,
+                "defaultVoltageV": trigger["defaultVoltageV"],
+                "maxCurrentA": trigger["maxCurrentA"],
+                "maxPowerW": trigger["maxPowerW"],
+                "selection": trigger.get("selection") or "",
+            }
+        else:
+            print(f"  ! {part_id}: pdTrigger block needs selectableVoltagesV, a defaultVoltageV among them, "
+                  "maxCurrentA and maxPowerW — skipped", file=sys.stderr)
     # A Darlington driver array's contract. Firmware drives each channel input
     # at the active level, and the Build Diagram has to say what the outputs
     # can switch, so both travel with the exact chip.

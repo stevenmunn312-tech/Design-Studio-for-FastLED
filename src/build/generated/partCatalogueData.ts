@@ -2771,6 +2771,20 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "The pictured board marks the left output pad - and the right one + with the USB-C at the bottom. Read the silkscreen on your own board before connecting; a reversed supply can destroy the load.",
       "The 31 x 15 mm size is the solder-pad variant; variants with a USB-A socket or a screw terminal are larger. Five small pads beside the output pads select the voltage on this board."
     ],
+    "pdTrigger": {
+      "protocols": "USB PD 2.0 / 3.0; QC 2.0 / 3.0 detection",
+      "selectableVoltagesV": [
+        5,
+        9,
+        12,
+        15,
+        20
+      ],
+      "defaultVoltageV": 12,
+      "maxCurrentA": 5,
+      "maxPowerW": 100,
+      "selection": "button and solder pads; RGB LED colour shows the chosen voltage"
+    },
     "render": {
       "file": "parts/zy12pdn-usb-c-pd-trigger.webp",
       "widthPx": 400,
