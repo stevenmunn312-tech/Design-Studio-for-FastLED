@@ -1308,6 +1308,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Power Switch example graph](../../public/node-cards/graphs/power-switch-output.svg)
 
+### PWM Driver
+
+![PWM Driver node](../../public/node-cards/pwm-driver-output.svg)
+
+![PWM Driver example graph](../../public/node-cards/graphs/pwm-driver-output.svg)
+
 ### Buzzer
 
 ![Buzzer node](../../public/node-cards/buzzer-output.svg)

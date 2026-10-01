@@ -311,6 +311,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  PwmDriverOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-pca9685-pwm-driver',
+        label: 'Adafruit PCA9685',
+        summary: 'Sixteen 12-bit PWM channels over I2C',
+        note: 'Power VCC from 3.3 V with GND, SDA and SCL to the controller. V+ is the outputs\' own supply (5 to 6 V for servos) and is not drawn here. Leave OE unconnected to keep the outputs enabled. A dimming or servo channel takes its signal from the PWM hole, with V+ and ground beside it.',
+      },
+    ],
+  },
   BuzzerOutput: {
     property: 'partId',
     options: [

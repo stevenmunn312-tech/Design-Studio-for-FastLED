@@ -65,6 +65,10 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
+  PwmDriverOutput: {
+    sdaPin: { kind: 'i2c', role: 'sda' },
+    sclPin: { kind: 'i2c', role: 'scl' },
+  },
   LightInput: {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },

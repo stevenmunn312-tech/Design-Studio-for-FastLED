@@ -35,6 +35,9 @@ import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/powerSwitch'
 import { BUZZER_PART_ID, buzzerSpec } from '../state/buzzer'
+import {
+  PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
+} from '../state/pwmDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
@@ -111,7 +114,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'pwm-driver-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -160,6 +163,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'RelayOutput',
   'PowerSwitchOutput',
   'BuzzerOutput',
+  'PwmDriverOutput',
   'DMXInput',
   'EthernetModule',
   'PowerConverter',
@@ -404,6 +408,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'MotionVectorInput':
       case 'TouchPadInput':
+      case 'PwmDriverOutput':
         pushI2c(node, baseLabel, props)
         break
       case 'KeypadInput':
@@ -845,6 +850,32 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             contactRating: entry?.relay?.contactRating ?? '',
           },
           reasons: complete ? undefined : ['This relay module does not have every active channel input pin configured.'],
+        }
+      }
+      case 'PwmDriverOutput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? PCA9685_PART_ID)
+        const entry = partById(partId)
+        const spec = pwmDriverSpec(partId)
+        const address = pwmDriverAddress(props)
+        const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
+          && pins.some((pin) => pin.propertyKey === 'sclPin')
+        const reasons = [
+          ...(wired ? [] : [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this PWM driver.`]),
+          ...(address === null ? [`${String(props.i2cAddress)} is not an address this PCA9685 can be set to.`] : []),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'pwm-driver-output', entry?.label ?? 'PCA9685 PWM driver', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && address !== null,
+          facts: {
+            partId,
+            i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatPwmDriverAddress(address),
+            channels: String(spec.channels),
+            pwmHz: `${pwmDriverHz(props)} Hz`,
+            outputSupply: 'V+ on the module, separate from the controller',
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
         }
       }
       case 'BuzzerOutput': {

@@ -1733,6 +1733,19 @@ const TEMPERATURE_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cold to hot and watch the blue fade. The firmware wiring needs a 4.7 kΩ pull-up from DATA to 3.3 V, which the Build Diagram draws.',
 )
 
+const PWM_DRIVER_LIVE_EXAMPLE = namedExample(
+  'PwmDriverOutput',
+  'Dim an LED from a knob',
+  [
+    { key: 'pot', type: 'PotInput' },
+    { key: 'target', type: 'PwmDriverOutput', properties: { partId: 'adafruit-pca9685-pwm-driver', i2cAddress: '0x40', pwmHz: 1000 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 22, g: 58, b: 92 } },
+  ],
+  [{ source: 'pot', sourceHandle: 'value', target: 'target', targetHandle: 'channel0' }],
+  'PWM Driver is a hardware-owned terminal. Add the PCA9685 from Hardware, then wire a 0 to 1 level into any of its sixteen channels; only wired channels are written, and the chip keeps each waveform running between updates. Level 0 is fully off and 1 fully on. Every channel shares one PWM frequency, 1000 Hz by default for LEDs; set about 50 Hz for hobby servos.',
+  'Turn the Potentiometer node to set channel 0. The browser preview makes no PWM, and the solid colour keeps the LED preview visible because the driver sets separate outputs rather than producing pixels.',
+)
+
 const BUZZER_OUTPUT_LIVE_EXAMPLE = namedExample(
   'BuzzerOutput',
   'Beep while a button is held',
@@ -1934,6 +1947,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   BuzzerOutput: BUZZER_OUTPUT_LIVE_EXAMPLE,
+  PwmDriverOutput: PWM_DRIVER_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,

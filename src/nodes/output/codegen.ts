@@ -2,6 +2,10 @@ import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp 
 import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/segmentDisplay'
 import { MAX_PIN_NUMBER, NO_PIN } from '../../state/boardGpio'
 import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/buzzer'
+import { PWM_DRIVER_HELPER_CPP } from '../../codegen/pwmDriverCpp'
+import {
+  PWM_DRIVER_FULL_COUNT, formatPwmDriverAddress, pwmDriverAddress, pwmDriverChannelId, pwmDriverPrescale, pwmDriverSpec,
+} from '../../state/pwmDriver'
 import {
   oledControllerForProps,
   oledTransportForProps,
@@ -86,6 +90,29 @@ function dimmedPowerSwitchChannels(
 }
 
 export const OUTPUT_EMITTERS: NodeEmitters = {
+  PwmDriverOutput({ node, id, p, ln, f, incoming, globalLines }) {
+    // Only a wired channel is written, and only when its level changes, so a
+    // quiet graph leaves the bus quiet. The chip is configured on first contact
+    // and again after any failed write, retried once a second while it is absent.
+    if (!globalLines.includes(PWM_DRIVER_HELPER_CPP[0])) globalLines.push(...PWM_DRIVER_HELPER_CPP)
+    const address = formatPwmDriverAddress(pwmDriverAddress(p) ?? pwmDriverSpec(p.partId).defaultI2cAddress)
+    ln(`  static bool _pwmReady_${id} = false, _pwmTried_${id} = false; static uint32_t _pwmT_${id} = 0;`)
+    ln(`  static uint16_t _pwmLast_${id}[16];`)
+    ln(`  if (!_pwmReady_${id} && (!_pwmTried_${id} || millis() - _pwmT_${id} >= 1000)) {`)
+    ln(`    _pwmTried_${id} = true; _pwmT_${id} = millis();`)
+    ln(`    _pwmReady_${id} = _pcaBegin(${address}, ${pwmDriverPrescale(p)});`)
+    ln(`    for (uint8_t i = 0; i < 16; ++i) _pwmLast_${id}[i] = 0xFFFF;`)
+    ln('  }')
+    for (let channel = 0; channel < pwmDriverSpec(p.partId).channels; channel += 1) {
+      const port = pwmDriverChannelId(channel)
+      if (!incoming.has(`${node.id}:${port}`)) continue
+      const duty = `_pwmDuty_${id}_${channel}`
+      ln(`  if (_pwmReady_${id}) {`)
+      ln(`    uint16_t ${duty} = (uint16_t)(constrain(${f(port, port, 0)}, 0.0f, 1.0f) * ${PWM_DRIVER_FULL_COUNT}.0f + 0.5f);`)
+      ln(`    if (${duty} != _pwmLast_${id}[${channel}]) { if (_pcaSet(${address}, ${channel}, ${duty})) _pwmLast_${id}[${channel}] = ${duty}; else _pwmReady_${id} = false; }`)
+      ln('  }')
+    }
+  },
   BuzzerOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // Latch the silent level before the pin becomes an output so reset and
     // setup do not chirp.

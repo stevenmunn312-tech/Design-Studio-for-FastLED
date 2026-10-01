@@ -78,6 +78,7 @@ export function hardwareShelfCategories({
   const relayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'RelayOutput')
   const powerSwitchFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSwitchOutput')
   const buzzerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BuzzerOutput')
+  const pwmDriverFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PwmDriverOutput')
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
   const powerConverterFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerConverter')
   const stereoVuBlocker = stereoVuFixture
@@ -168,10 +169,11 @@ export function hardwareShelfCategories({
     {
       id: 'switching-power',
       label: 'Switching power',
-      hint: 'Relays for on/off loads, and MOSFET switches that can also dim DC loads',
+      hint: 'Relays for on/off loads, MOSFET switches that can also dim DC loads, and a 16-channel PWM driver',
       items: [
         ...moduleItems('RelayOutput', relayFixture),
         ...moduleItems('PowerSwitchOutput', powerSwitchFixture),
+        ...moduleItems('PwmDriverOutput', pwmDriverFixture),
       ],
     },
     {

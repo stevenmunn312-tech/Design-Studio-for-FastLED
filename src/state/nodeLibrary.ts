@@ -38,6 +38,9 @@ import {
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from './buzzer'
+import {
+  PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddressOptions, pwmDriverInputs, pwmDriverSpec,
+} from './pwmDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
@@ -4368,6 +4371,23 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // A 16-channel I2C PWM driver: a terminal sink like the relay, on the board's
+    // one I2C bus. Each channel takes a 0-1 level and only a wired channel is
+    // written, so the others stay off.
+    type: 'PwmDriverOutput',
+    label: 'PWM Driver',
+    category: 'output',
+    inputs: pwmDriverInputs(PCA9685_PART_ID),
+    outputs: [],
+    defaultProperties: {
+      partId: PCA9685_PART_ID,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: formatPwmDriverAddress(pwmDriverSpec(PCA9685_PART_ID).defaultI2cAddress),
+      pwmHz: pwmDriverSpec(PCA9685_PART_ID).defaultPwmHz,
+    },
+  },
+  {
     // An active buzzer on one GPIO: a terminal sink like the relay. It only
     // sounds or does not; the pitch belongs to the part.
     type: 'BuzzerOutput',
@@ -4915,6 +4935,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   BuzzerOutput: 'Sounds an active buzzer while its input is true.',
+  PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -6026,6 +6047,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   BuzzerOutput: {
     sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  PwmDriverOutput: {
+    i2cAddress: { control: 'select', options: pwmDriverAddressOptions(PCA9685_PART_ID) },
+    pwmHz: { control: 'slider', min: pwmDriverSpec(PCA9685_PART_ID).minPwmHz, max: pwmDriverSpec(PCA9685_PART_ID).maxPwmHz, step: 1 },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   PowerMonitorInput: {
     i2cAddress: { control: 'select', options: powerMonitorAddressOptions(DEFAULT_POWER_MONITOR_PART_ID) },
     overcurrentAmps: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
@@ -6546,6 +6573,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sclPin: 'BH1750 I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     i2cAddress: 'The BH1750 address: 0x23 normally, or 0x5C when ADDR is tied high.',
     maxLux: 'Illuminance that maps to Level 1.0. Lux itself remains the calibrated sensor reading.',
+  },
+  PwmDriverOutput: {
+    i2cAddress: 'The address set by the board\'s A0 to A5 jumpers, 0x40 to 0x6F. Give each driver on the bus a different one.',
+    pwmHz: 'How often every channel repeats, 24 to 1526 Hz. 1000 Hz suits LEDs; servos want about 50 Hz. The chip has one frequency for all sixteen channels, and its internal clock is only accurate to a few percent.',
+    sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
   BuzzerOutput: {
     sigPin: 'The GPIO wired to the buzzer\'s SIG pin. The buzzer sounds while the pin is high.',
@@ -7293,6 +7326,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   BuzzerOutput: new Set(['sigPin']),
+  PwmDriverOutput: new Set(['sdaPin', 'sclPin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
@@ -7332,7 +7366,7 @@ export function gpioRequirementForProperty(
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
-    || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput'
+    || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')) return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector

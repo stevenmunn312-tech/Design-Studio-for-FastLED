@@ -39,6 +39,7 @@ function fixtureBus(nodeType: string, properties: Record<string, unknown>): stri
     case 'StereoVuMeter': return 'LED data'
     case 'RelayOutput': return 'relay control lines'
     case 'BuzzerOutput': return 'buzzer control line'
+    case 'PwmDriverOutput': return 'I2C'
     case 'PowerSwitchOutput': return powerSwitchChannelCount(properties.partId) > 1 ? 'switch control lines' : 'switch control line'
     default: return 'signal'
   }

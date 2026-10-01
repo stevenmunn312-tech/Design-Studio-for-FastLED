@@ -689,8 +689,9 @@ export function generateCpp(
   const environmentSensors = sorted.filter((n) => n.data.nodeType === 'EnvironmentInput')
   const motionVectors = sorted.filter((n) => n.data.nodeType === 'MotionVectorInput')
   const touchPads = sorted.filter((n) => n.data.nodeType === 'TouchPadInput')
+  const pwmDrivers = sorted.filter((n) => n.data.nodeType === 'PwmDriverOutput')
   const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0
-    || digitalLightSensors.length > 0 || environmentSensors.length > 0 || motionVectors.length > 0 || touchPads.length > 0
+    || digitalLightSensors.length > 0 || environmentSensors.length > 0 || motionVectors.length > 0 || touchPads.length > 0 || pwmDrivers.length > 0
   /*
    * The header follows the driver, not the transport.
    *
@@ -886,7 +887,7 @@ export function generateCpp(
     const boardPins = rtcI2cPinsForProfile(i2cBoard)
     const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
       && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
-      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0] ?? motionVectors[0] ?? touchPads[0]
+      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0] ?? motionVectors[0] ?? touchPads[0] ?? pwmDrivers[0]
     const busProps = busNode ? props(busNode) : {}
     const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)
     const sclPin = sanitizePin(busProps.sclPin, boardPins?.scl.arduinoPin ?? 22)

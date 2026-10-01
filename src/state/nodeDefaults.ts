@@ -159,7 +159,7 @@ export function resolveDefaultProperties(
     ? state.micOverridesByFqbn[fqbn]
     : state.overrides[nodeType]
   const rtcPins = nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
-    || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput'
+    || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
     ? boardI2cDefault(boardProfile?.id)
     : undefined
   const sdSpiPins = nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, fqbn) : null

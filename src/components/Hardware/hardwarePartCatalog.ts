@@ -25,6 +25,7 @@ import {
 import type { LedOutputForm } from '../../state/ledOutputForm'
 import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/relayModule'
 import { BUZZER_PART_ID } from '../../state/buzzer'
+import { PCA9685_PART_ID } from '../../state/pwmDriver'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
 
@@ -161,6 +162,19 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     render: partRenderSrc(DEFAULT_RELAY_PART_ID) ?? undefined,
     pinFields: [{ key: 'in1Pin', label: 'IN1' }],
     pinRequests: [{ key: 'in1Pin', capability: 'digitalOutput' }],
+  },
+  {
+    nodeType: 'PwmDriverOutput',
+    partId: 'pwm-driver-output',
+    label: 'PWM driver',
+    hint: 'Sixteen PWM levels over I2C, for dimming LEDs and driving servos',
+    footprint: partDimensionsMm(PCA9685_PART_ID, { width: 25.4, height: 62.5 }),
+    render: partRenderSrc(PCA9685_PART_ID) ?? undefined,
+    // Joins the board's one I2C bus rather than taking free GPIO.
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
   },
   {
     nodeType: 'BuzzerOutput',

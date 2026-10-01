@@ -350,6 +350,9 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // GND, OE, SCL, SDA, VCC, V+ along the bottom control header, from the drilled holes. OE floats
+  // enabled and V+ is the outputs' own supply, so only VCC, GND, SDA and SCL carry a wire.
+  'adafruit-pca9685-pwm-driver': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 904.8, 955),
   // GND, NC, SIG along the bottom, measured from the drilled holes. NC is unconnected.
   'ky-012-active-buzzer-module': padRow([137.2, 199.5, 261.8], 400, 413.1, 486),
   // VCC, GND, SCL, SDA, ALE, VBS along the bottom, from the drilled holes. ALE is
@@ -718,6 +721,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // matched by those through the catalogue before this list is read.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'buzzer-output': [['SIG', 'S', 'SIGNAL']],
+  'pwm-driver-output': [['SDA'], ['SCL']],
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
   'temperature-input': [['DATA']],
@@ -787,6 +791,8 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   if (item.kind === 'motion-vector-input') return 'v3v3'
   // The MPR121 runs its own 3.3 V regulator, and the bus stays at that level from a 3.3 V supply.
   if (item.kind === 'touch-pad-input') return 'v3v3'
+  // VCC sets the PCA9685's logic level and the bus pull-ups ride on it, so a 5 V supply would hold SDA and SCL at 5 V.
+  if (item.kind === 'pwm-driver-output') return 'v3v3'
   // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
   // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
@@ -859,6 +865,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-ina219-current-sensor': 7,
   'ina226-current-sensor-module': 7,
   'ky-012-active-buzzer-module': 11.5,
+  'adafruit-pca9685-pwm-driver': 7,
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,

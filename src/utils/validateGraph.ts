@@ -43,6 +43,7 @@ import { customDisplayRamBytes } from '../codegen/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/wireFirstControls'
 import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/powerMonitor'
+import { pwmDriverAddress } from '../state/pwmDriver'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
@@ -2360,6 +2361,18 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this MPU-6050 answers only on ${motionVectorAddressOptions(props.partId).join(', ')}.`,
       fix: 'Choose 0x68 with AD0 low, or 0x69 with AD0 tied high.',
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  for (const driver of nodes.filter((node) => node.data.nodeType === 'PwmDriverOutput')) {
+    const props = driver.data.properties as Record<string, unknown>
+    if (pwmDriverAddress(props) !== null) continue
+    issues.push({
+      id: `${driver.id}-i2c-address`, severity: 'error', category: 'pins',
+      title: 'PWM Driver address is not one its jumpers can select',
+      message: `${nodeLabel(driver)} is set to ${String(props.i2cAddress)}, but this PCA9685 is offered only on 0x40 to 0x6F.`,
+      fix: 'Choose 0x40 with no jumpers bridged, or the address its A0 to A5 pads select.',
+      nodeIds: [driver.id], nodeLabel: nodeLabel(driver), propertyKey: 'i2cAddress',
     })
   }
 
