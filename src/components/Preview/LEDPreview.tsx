@@ -139,9 +139,8 @@ function applyMasterBrightness(frame: Frame | null, brightness: number): Frame |
 }
 
 /** Reuse the selected route buffer as a real black frame while an existing
- * output has no Frame cable. The colourful idle shimmer is reserved for a
- * graph with no LED output at all; showing it behind "Signal standby" made a
- * disconnected route look as though it was still receiving the old pattern. */
+ * output has no Frame cable. Only the Live Stream route still uses it; the
+ * main preview shows the idle sweep instead. */
 function clearOutputFrame(reuse: Frame | null, width: number, height: number): Frame {
   const frame = reuse && reuse.length === height && (reuse[0]?.length ?? 0) === width
     ? reuse
@@ -634,11 +633,9 @@ export default function LEDPreview() {
         let frame = selectedRouted
         if (frame) routeBufRef.current = frame
         frame = applyMasterBrightness(frame, controller.brightness)
-        if (!frame && selectedRoute) {
-          frame = clearOutputFrame(routeBufRef.current, selectedRoute.width, selectedRoute.height)
-          routeBufRef.current = frame
-        }
-        if (!frame) frame = idleFrame(tick, gW, gH)
+        // An output with no Frame cable shows the same standby sweep as a graph
+        // with no output, at the output's own grid size.
+        if (!frame) frame = idleFrame(tick, selectedRoute?.width ?? gW, selectedRoute?.height ?? gH)
         const showStart = PERF_TELEMETRY ? performance.now() : 0
         frame = applyShowPlaybackSignal(frame, useShowPlayback.getState(), gW, gH, groups, trusted)
         const showMs = PERF_TELEMETRY ? performance.now() - showStart : 0
