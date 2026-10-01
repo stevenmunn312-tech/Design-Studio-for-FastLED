@@ -746,6 +746,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "Default I2C address 0x40; the A0 and A1 pads select sixteen addresses in all.",
       "The header is shown unpopulated; the screw terminal is shown fitted, as the listing ships it. The header order and shunt placement are approximated from product photographs."
     ],
+    "powerMonitor": {
+      "device": "INA226",
+      "interface": "I2C",
+      "i2cAddresses": [
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79
+      ],
+      "defaultI2cAddress": 64,
+      "shuntOhms": 0.002,
+      "busVoltageMaxV": 36,
+      "currentMaxA": 20,
+      "senseSide": "high-side"
+    },
     "render": {
       "file": "parts/ina226-current-sensor-module.webp",
       "widthPx": 400,
@@ -1828,6 +1855,16 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "Use SIG as the one digital input. NC is not connected. The fitted Grove cable carries SIG, NC, VCC and GND in that order.",
       "The sensor auto-calibrates after power-up. Keep fingers and conductive objects away from the electrode while the board settles."
     ],
+    "touchSensor": {
+      "device": "TTP223-BA6",
+      "interface": "digital",
+      "activeLevel": "high",
+      "mode": "momentary",
+      "supplyMinV": 2.0,
+      "supplyMaxV": 5.5,
+      "responseMinMs": 60,
+      "responseMaxMs": 220
+    },
     "render": {
       "file": "parts/seeed-grove-touch-sensor.webp",
       "widthPx": 400,
