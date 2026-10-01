@@ -89,6 +89,25 @@ and the node's address list follows the part you added. Raise the node's
 **Overcurrent** limit to suit the load: the slider reaches 20 A. It is
 experimental until a reading is compared with a meter.
 
+### Feed a converter from a USB-C charger
+
+Choose **Add Hardware → Power conversion → ZY12PDN** to record a USB-C PD trigger on
+the bench. The ZY12PDN asks a power-delivery charger for 5, 9, 12, 15 or 20 V and puts
+that voltage on its output pads, so it is the supply for a converter or a load rather
+than a signal device: nothing on it connects to a GPIO. Choose the voltage on the board
+itself with its button or solder pads (its LED colour shows the choice), then set the
+same value in **Requested V** on the part, because Studio cannot read what the board
+chose.
+
+The Build Diagram then checks the trigger against the converters on the bench. It
+warns if a converter's source voltage is not the voltage the trigger requests, if there
+are two triggers, or if the converters would draw more than the trigger's 5 A. Set the
+voltage before you connect anything: the output sits at the requested voltage as soon as
+the charger is plugged in, and the charger must support PD, since a plain 5 V USB
+charger will not negotiate. Read the silkscreen on your own board for the output
+polarity. The trigger appears in the parts list and the plan but is not drawn on the
+wiring diagram, and it is experimental until a charger has been measured.
+
 ### Switch loads to ground with a ULN2803A
 
 Choose **Add Hardware → Switching power → ULN2803A** for eight switches that pull a

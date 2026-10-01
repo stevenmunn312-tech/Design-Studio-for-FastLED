@@ -506,6 +506,21 @@ Unless a future row says otherwise, treat the following as experimental:
   touched HIGH, release, held and rapid touches in normal, slideshow and player
   firmware, and record startup behaviour plus recovery after disconnecting and
   reconnecting SIG.
+- **ZY12PDN USB-C PD trigger.** `PdTriggerSource` has a modelled asset, a
+  requested-voltage setting (5, 9, 12, 15 or 20 V), manifest and parts-list
+  coverage, and electrical-plan checks. It adds no firmware, so no compile is owed.
+  It is the plan's upstream source: the plan warns when a converter's source
+  voltage differs from the voltage the trigger requests, when more than one trigger
+  is on the bench, and when the converters would draw more than the trigger's 5 A
+  rating, and it reminds the user to set the voltage before connecting anything.
+  The Build Diagram lists it in the parts list and the plan but does not draw it,
+  and the app cannot read the voltage actually chosen on the board: the user sets
+  it on the node to match the button or solder pads. The 5 A figure is the part's
+  rating; a charger may offer less at a given voltage, and the app does not model
+  that. The render's pad polarity and the five small pads are approximated from a
+  photograph. Graduation needs a dated row naming the charger and cable, with the
+  voltage the board actually negotiated at each setting used, measured at the
+  output pads before a load is connected.
 - **ULN2803A Darlington driver.** `DarlingtonDriverOutput` has a modelled DIP-18
   asset, eight boolean channel inputs on eight GPIOs, active-high firmware that
   latches every input LOW before enabling it and then follows each channel,

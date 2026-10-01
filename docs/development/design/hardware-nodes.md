@@ -74,6 +74,18 @@ preventing an active-low relay click during setup. Relay contact ratings and
 mains-voltage warnings remain attached to the exact catalogue part; the app
 does not treat switched-load terminals as low-voltage GPIO wiring.
 
+`PdTriggerSource` is the ZY12PDN, a config-only fixture like `PowerConverter`: no
+ports, no pins and no firmware. Its `pdTrigger` catalogue block carries the selectable
+voltages, a default, and the current and power ratings; the node's `requestedVoltage`
+is a string from that list (a select), read by `pdTriggerVoltage`, which returns `null`
+for a value the module cannot request. The manifest item is kind `pd-trigger` with the
+requested voltage as a fact. The bench draws no run from the board to it, since nothing
+on it reaches the board, and the Build Diagram leaves it out of the peripheral rows as
+it does the converters. `pdTriggerWarnings` in `electricalPlan.ts` treats it as the one
+upstream source the converters share and warns, never blocks, because a trigger may feed
+something the plan cannot see: a converter set to a different voltage, more than one
+trigger, and a converter input current above the trigger's rating.
+
 `DarlingtonDriverOutput` is the ULN2803A: eight boolean `channel1` to `channel8` inputs
 on eight GPIOs (`drive1Pin` to `drive8Pin`), the relay's shape with an active-high
 contract. The catalogue's `driverChip` block carries the channel count, the input level

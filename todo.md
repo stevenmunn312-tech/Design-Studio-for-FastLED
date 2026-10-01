@@ -137,6 +137,9 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 Mosfetti:** the MonkMakes Mosfetti's four channels held off through
   setup, switched independently, one dimmed at 1 kHz, with the board total kept
   under 2 A; the row's requirements are in the support matrix.
+- **D-05 PD trigger:** the ZY12PDN negotiating each voltage it offers from a named
+  charger and cable, measured at its output pads before any load is connected; the
+  row's requirements are in the support matrix.
 - **D-05 Darlington driver:** the ULN2803A switching a real load from each channel,
   every input held low through reset and setup, with the load supply's ground joined
   to the controller's; the row's requirements are in the support matrix.

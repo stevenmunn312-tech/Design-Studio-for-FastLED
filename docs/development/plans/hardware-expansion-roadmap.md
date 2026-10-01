@@ -67,7 +67,7 @@ build have passed the normal evidence gates.
 | Fan module with tachometer | Cooling output plus speed input | Enables enclosure cooling tied to temperature or power measurements. |
 | Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch; a passive buzzer with tones from the controller is still open; bench open. |
 | DFPlayer Mini | Player hardware integration | The verified Blender asset already exists; graph control, firmware ownership and audio routing remain to be integrated. |
-| USB-C PD trigger module | Power-negotiation fixture | Records the requested source voltage before a downstream converter or load. |
+| USB-C PD trigger module | `PdTriggerSource`, in and experimental as a config-only fixture; the plan checks its requested voltage against the converters; bench open. Power-negotiation fixture | Records the requested source voltage before a downstream converter or load. |
 
 ## Additional controller profiles
 
