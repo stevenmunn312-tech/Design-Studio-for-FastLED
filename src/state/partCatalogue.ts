@@ -98,6 +98,18 @@ export interface PartMosfetSpec {
   pwmHz?: number
 }
 
+/** Drive contract carried by an imported buzzer module. */
+export interface PartBuzzerSpec {
+  type: 'active' | 'passive'
+  /** The pin level that sounds it. */
+  activeLevel: 'high' | 'low'
+  /** An active buzzer's fixed pitch; absent for a passive one. */
+  resonanceKHz: number | null
+  soundLevel: string
+  /** What it draws from its pin or supply while sounding. */
+  maxCurrentMa: number
+}
+
 /** Measuring contract carried by an imported current/voltage monitor. */
 export interface PartPowerMonitorSpec {
   device: string
@@ -275,6 +287,8 @@ export interface PartCatalogueEntry {
   relay?: PartRelaySpec
   /** Present exactly on DC MOSFET switch modules. */
   mosfet?: PartMosfetSpec
+  /** Present exactly on buzzer modules. */
+  buzzer?: PartBuzzerSpec
   /** Present exactly on current/voltage monitor modules. */
   powerMonitor?: PartPowerMonitorSpec
   /** Present exactly on radar presence sensors. */

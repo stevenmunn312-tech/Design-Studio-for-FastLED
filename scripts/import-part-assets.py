@@ -225,6 +225,23 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: mosfet block needs a channel count from 1 to 8 and loadSupply — skipped",
                   file=sys.stderr)
+    # A buzzer's drive contract. An active buzzer sounds at its own fixed pitch
+    # while its pin sits at the active level, so the firmware needs that level
+    # and the pin current the Build Diagram has to warn about.
+    buzzer = data.get("buzzer")
+    if buzzer:
+        if (buzzer.get("type") in ("active", "passive") and buzzer.get("activeLevel") in ("high", "low")
+                and isinstance(buzzer.get("maxCurrentMa"), (int, float)) and buzzer["maxCurrentMa"] > 0):
+            entry["buzzer"] = {
+                "type": buzzer["type"],
+                "activeLevel": buzzer["activeLevel"],
+                "resonanceKHz": buzzer.get("resonanceKHz") if isinstance(buzzer.get("resonanceKHz"), (int, float)) else None,
+                "soundLevel": buzzer.get("soundLevelDb") or "",
+                "maxCurrentMa": buzzer["maxCurrentMa"],
+            }
+        else:
+            print(f"  ! {part_id}: buzzer block needs type, activeLevel and maxCurrentMa — skipped",
+                  file=sys.stderr)
     # A current/voltage monitor's measuring contract. The firmware divides the
     # shunt voltage by shuntOhms and the address list bounds the address
     # picker, so both have to come from the board rather than be retyped.

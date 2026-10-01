@@ -861,6 +861,13 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "It takes 3.5-5.5 V and about 30 mA at 5 V; a 3.3 V GPIO can drive it but the level is quieter. A passive buzzer, which needs a tone from the controller, looks alike but behaves differently.",
       "The real board lists 19 x 15.5 x 11 mm; it is drawn rotated so the header runs along the bottom. The header ships soldered on some kits and loose on others, so the holes are shown unpopulated."
     ],
+    "buzzer": {
+      "type": "active",
+      "activeLevel": "high",
+      "resonanceKHz": 2.5,
+      "soundLevel": "85 dB at 10 cm",
+      "maxCurrentMa": 30
+    },
     "render": {
       "file": "parts/ky-012-active-buzzer-module.webp",
       "widthPx": 400,
