@@ -3632,7 +3632,9 @@ export function buildGraphDiagnostics(
       title: 'Set a power cap for this many LEDs',
       message: `At full white, ${power.ledCount} LEDs could draw about ${(power.worstCaseMa / 1000).toFixed(1)} A.`,
       fix: 'Turn on the power cap on the Board and enter your supply’s rating. FastLED then dims only the brightest scenes to stay within it.',
-      nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
+      // No nodeIds: the cap is on the Board, not on this node, so Locate would
+      // land on a node with nothing to set.
+      nodeIds: [], nodeLabel: nodeLabel(matrixOutput),
       action: 'open-board-settings',
     })
   }

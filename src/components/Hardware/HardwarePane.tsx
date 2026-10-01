@@ -97,6 +97,8 @@ export default function HardwarePane() {
   const setPaneTab = useUiStore((state) => state.setHardwarePaneTab)
   const shelfTarget = useUiStore((state) => state.hardwareShelfTarget)
   const clearShelfTarget = useUiStore((state) => state.clearHardwareShelfTarget)
+  const boardMenuRequested = useUiStore((state) => state.hardwareBoardMenuRequested)
+  const clearBoardMenuRequest = useUiStore((state) => state.clearHardwareBoardMenuRequest)
   const inspectorNodeId = useUiStore((state) => state.hardwareInspectorNodeId)
   const controllerHintDismissed = useUiStore((state) => state.controllerHintDismissed)
   const dismissControllerHint = useUiStore((state) => state.dismissControllerHint)
@@ -532,6 +534,14 @@ export default function HardwarePane() {
   const openBoardMenu = (anchor?: DOMRect | null) => {
     setBoardMenu({ anchor: anchorBox(anchor ?? boardCardRef.current?.getBoundingClientRect() ?? null) })
   }
+
+  // Graph Health's "Open Board settings" lands here from any workspace.
+  useEffect(() => {
+    if (!boardMenuRequested) return
+    openBoardMenu()
+    clearBoardMenuRequest()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardMenuRequested, clearBoardMenuRequest])
 
   const inspectorPartAnchor = (): PlacementBox => {
     const part = inspectorNodeId

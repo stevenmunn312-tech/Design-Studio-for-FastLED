@@ -312,6 +312,9 @@ interface UiState {
   /** Hardware-owned module requested from Graph search. The parts shelf
    * consumes this after it opens the matching section and focuses the part. */
   hardwareShelfTarget: string | null
+  /** A request to open the Board's settings popup on the bench; the pane
+   *  consumes it, so a later visit does not reopen a stale one. */
+  hardwareBoardMenuRequested: boolean
   /** Hardware part whose physical wiring inspector is open. Session-only. */
   hardwareInspectorNodeId: string | null
   /**
@@ -361,6 +364,8 @@ interface UiState {
    */
   hardwareShelfCategory: string | null
   setHardwareShelfCategory: (id: string | null) => void
+  openHardwareBoardMenu: () => void
+  clearHardwareBoardMenuRequest: () => void
   openHardwareShelf: (nodeType: string) => void
   clearHardwareShelfTarget: () => void
   dismissControllerHint: () => void
@@ -573,6 +578,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   viewCenter: { x: 300, y: 250 },
   hardwarePaneTab: (load<string>(HARDWARE_TAB_KEY, 'hardware') === 'upload' ? 'upload' : 'hardware') as HardwarePaneTab,
   hardwareShelfTarget: null,
+  hardwareBoardMenuRequested: false,
   hardwareInspectorNodeId: null,
   controllerHintDismissed: false,
   fitViewRequest: { nonce: 0 },
@@ -641,6 +647,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     hardwareShelfTarget,
   })),
   clearHardwareShelfTarget: () => set({ hardwareShelfTarget: null }),
+  openHardwareBoardMenu: () => set((state) => ({
+    ...activateWorkspace(state, 'hardware', {}),
+    hardwarePaneTab: 'hardware',
+    hardwareBoardMenuRequested: true,
+  })),
+  clearHardwareBoardMenuRequest: () => set({ hardwareBoardMenuRequested: false }),
   dismissControllerHint: () => set({ controllerHintDismissed: true }),
   restoreControllerHint: () => set({ controllerHintDismissed: false }),
   // These three set `workspaceMode` directly rather than through

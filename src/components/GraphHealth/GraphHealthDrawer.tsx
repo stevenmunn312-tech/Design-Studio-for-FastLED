@@ -149,7 +149,7 @@ export default function GraphHealthDrawer() {
       return
     }
     if (issue.action === 'open-board-settings') {
-      useUiStore.getState().setWorkspaceMode('hardware')
+      useUiStore.getState().openHardwareBoardMenu()
       setStatus('On the Board, tick Enable global power cap and enter your supply’s rating', 'info')
       return
     }
