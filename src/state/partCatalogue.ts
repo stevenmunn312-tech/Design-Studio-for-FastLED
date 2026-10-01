@@ -254,10 +254,13 @@ export interface PartDistanceSensorSpec {
   interface: string
   minMm: number
   maxMm: number
-  /** The width of the trigger pulse the module needs, in microseconds. */
-  triggerPulseUs: number
+  /** The width of the trigger pulse a pulse-ranging module needs, in microseconds. */
+  triggerPulseUs?: number
   /** The level the Echo pin swings to, in volts. */
-  echoVolts: number
+  echoVolts?: number
+  /** Every address an I2C module answers on; absent on a pulse-ranging one. */
+  i2cAddresses?: number[]
+  defaultI2cAddress?: number
 }
 
 /** Measuring contract carried by a 1-Wire temperature probe. */

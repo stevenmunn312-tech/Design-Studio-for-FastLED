@@ -596,8 +596,29 @@ def read_part(part_dir: Path) -> dict | None:
     # divider agree with the data sheet rather than with numbers typed into the app.
     distance = data.get("distanceSensor")
     if distance:
-        if (isinstance(distance.get("minMm"), (int, float)) and isinstance(distance.get("maxMm"), (int, float))
-                and distance["minMm"] >= 0 and distance["maxMm"] > distance["minMm"]
+        range_ok = (isinstance(distance.get("minMm"), (int, float)) and isinstance(distance.get("maxMm"), (int, float))
+                    and distance["minMm"] >= 0 and distance["maxMm"] > distance["minMm"])
+        if distance.get("interface") == "I2C":
+            # A time-of-flight sensor on the I2C bus: no trigger pulse or echo, but
+            # an address list the picker and the bus-collision check read.
+            try:
+                addresses = [int(str(a), 16) for a in distance.get("i2cAddresses") or []]
+                default_address = int(str(distance.get("defaultI2cAddress") or ""), 16)
+            except ValueError:
+                addresses, default_address = [], None
+            if range_ok and addresses and default_address in addresses:
+                entry["distanceSensor"] = {
+                    "device": distance.get("device") or "",
+                    "interface": "I2C",
+                    "minMm": distance["minMm"],
+                    "maxMm": distance["maxMm"],
+                    "i2cAddresses": addresses,
+                    "defaultI2cAddress": default_address,
+                }
+            else:
+                print(f"  ! {part_id}: I2C distanceSensor block needs a valid range and an address list "
+                      "with a default among them — skipped", file=sys.stderr)
+        elif (range_ok
                 and isinstance(distance.get("triggerPulseUs"), (int, float)) and distance["triggerPulseUs"] > 0
                 and isinstance(distance.get("echoVolts"), (int, float)) and distance["echoVolts"] > 0):
             entry["distanceSensor"] = {

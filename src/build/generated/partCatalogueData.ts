@@ -287,6 +287,49 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 14.961
     }
   },
+  "adafruit-vl53l0x-distance-sensor": {
+    "partId": "adafruit-vl53l0x-distance-sensor",
+    "label": "Adafruit VL53L0X distance sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 20.32,
+      "height": 17.78
+    },
+    "manufacturer": "Adafruit (product 3317) / STMicroelectronics VL53L0X",
+    "logicVoltage": "3-5 V VIN; onboard 2.8 V regulator and level shifting make I2C safe at either supply",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "2v8",
+      "GND",
+      "GPIO",
+      "SHDN",
+      "SCL",
+      "SDA"
+    ],
+    "notes": [
+      "Time-of-flight laser distance sensor over I2C: about 30 mm to 1.2 m in the default mode, with 3-12% accuracy depending on light and target.",
+      "Power VIN from 3.3 V for an ESP controller so the I2C pull-ups stay in the controller domain. The board has a 2.8 V regulator and level shifting.",
+      "The address is 0x29 and no jumper changes it. Two sensors on one bus need their SHDN (XSHUT) pins driven separately at start-up.",
+      "2v8 is the regulator output (up to 100 mA); GPIO is the sensor's interrupt output and has no level shifting. SHDN holds the sensor in reset when pulled low. None of the three is needed for basic readings.",
+      "The seven-pin row ships loose and is rendered as unpopulated plated holes."
+    ],
+    "distanceSensor": {
+      "device": "VL53L0X",
+      "interface": "I2C",
+      "minMm": 30,
+      "maxMm": 1200,
+      "i2cAddresses": [
+        41
+      ],
+      "defaultI2cAddress": 41
+    },
+    "render": {
+      "file": "parts/adafruit-vl53l0x-distance-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 353,
+      "pxPerMm": 18.701
+    }
+  },
   "dfplayer-mini": {
     "partId": "dfplayer-mini",
     "label": "DFPlayer Mini MP3 module",
