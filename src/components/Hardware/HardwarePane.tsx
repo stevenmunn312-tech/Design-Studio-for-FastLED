@@ -515,8 +515,6 @@ export default function HardwarePane() {
     }
   }, [closeInspector])
 
-  if (!boardProfile) return null
-
   /*
    * Viewport coordinates, because FloatingMenu measures against the window.
    * These were pane-relative and clamped to the pane, which is what put every
@@ -535,13 +533,17 @@ export default function HardwarePane() {
     setBoardMenu({ anchor: anchorBox(anchor ?? boardCardRef.current?.getBoundingClientRect() ?? null) })
   }
 
-  // Graph Health's "Open Board settings" lands here from any workspace.
+  // Graph Health's "Open Board settings" lands here from any workspace. Waits
+  // for the board card, which anchors the menu, so a request made while the
+  // pane is still mounting is answered on the render that has it.
   useEffect(() => {
-    if (!boardMenuRequested) return
+    if (!boardMenuRequested || !boardProfile) return
     openBoardMenu()
     clearBoardMenuRequest()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardMenuRequested, clearBoardMenuRequest])
+  }, [boardMenuRequested, boardProfile, clearBoardMenuRequest])
+
+  if (!boardProfile) return null
 
   const inspectorPartAnchor = (): PlacementBox => {
     const part = inspectorNodeId
