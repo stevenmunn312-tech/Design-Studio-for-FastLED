@@ -21,6 +21,7 @@ import {
   type GraphDiagnosticCategory,
   type GraphDiagnosticSeverity,
 } from '../../utils/validateGraph'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
 import styles from './GraphHealthDrawer.module.css'
 
@@ -53,6 +54,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'disconnect-touch-controls') return 'Disconnect Controls'
   if (action === 'open-start-gallery') return 'Browse starters'
   if (action === 'open-led-outputs') return 'Show LED outputs'
+  if (action === 'add-audio-node') return 'Add Audio node'
   return 'Open library'
 }
 
@@ -137,6 +139,27 @@ export default function GraphHealthDrawer() {
           : 'That control is no longer waiting — the screen design has changed since this was reported',
         placed ? 'success' : 'info',
       )
+      return
+    }
+    if (issue.action === 'add-audio-node') {
+      const definition = NODE_LIBRARY.find((candidate) => candidate.type === 'Audio')
+      if (!definition) return
+      const id = `Audio-${Date.now()}`
+      useGraphStore.getState().addNode({
+        id,
+        type: 'studioNode',
+        position: { x: 0, y: 0 },
+        data: {
+          label: definition.label,
+          nodeType: definition.type,
+          category: definition.category,
+          properties: { ...definition.defaultProperties },
+          inputs: definition.inputs,
+          outputs: definition.outputs,
+        },
+      } as never)
+      revealGraphNodes([id])
+      setStatus('Audio node added to the graph', 'success')
       return
     }
     if (issue.action === 'open-led-outputs') {

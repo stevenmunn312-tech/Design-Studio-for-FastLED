@@ -2295,7 +2295,12 @@ describe('disconnected-node diagnostic and capability providers', () => {
 
   it('does not flag a microphone that an Audio node uses as its source', () => {
     const mic = node('mic', 'MicInput')
-    expect(disconnected([mic])).toEqual(['mic'])
+    // With no Audio node the mic is "not used yet" rather than "disconnected":
+    // there is nothing to locate, and the fix is to add an Audio node.
+    expect(disconnected([mic])).toEqual([])
+    const unused = buildGraphDiagnostics([mic], []).find((d) => d.id === 'mic-unused')
+    expect(unused?.action).toBe('add-audio-node')
+    expect(unused?.nodeIds).toEqual([])
     expect(disconnected([mic, node('audio', 'Audio', { sourceId: 'kind:microphone' })])).not.toContain('mic')
     expect(disconnected([mic, node('audio', 'Audio', { sourceId: 'mic' })])).not.toContain('mic')
   })

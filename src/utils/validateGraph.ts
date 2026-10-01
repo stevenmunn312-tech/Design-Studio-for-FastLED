@@ -1643,6 +1643,7 @@ export const NO_CONTROLS_TO_CARRY = "'s screen design has no transport controls 
 export type GraphDiagnosticAction =
   | 'open-node-library'
   | 'open-led-outputs'
+  | 'add-audio-node'
   | 'choose-board'
   | 'insert-map-range'
   | 'place-touch-control'
@@ -4115,6 +4116,20 @@ export function buildGraphDiagnostics(
       capabilityProviderIds.has(node.id) ||
       edges.some((edge) => edge.source === node.id || edge.target === node.id)
     ) continue
+    // A microphone is hidden on the canvas and reaches the graph through an
+    // Audio node, so with none there is nothing to locate or wire — say what to add.
+    if ((node.data.nodeType === 'MicInput' || node.data.nodeType === 'LineInput')
+      && !nodes.some((other) => other.data.nodeType === 'Audio')) {
+      diagnostics.push({
+        id: `${node.id}-unused`, severity: 'warning', category: 'connection',
+        title: `${nodeLabel(node)} is not used yet`,
+        message: 'Audio reaches the graph through an Audio node, and there is not one yet.',
+        fix: 'Add an Audio node. It picks up this hardware on its own.',
+        nodeIds: [], nodeLabel: nodeLabel(node),
+        action: 'add-audio-node',
+      })
+      continue
+    }
     diagnostics.push({
       id: `${node.id}-disconnected`, severity: 'warning', category: 'connection',
       title: `${nodeLabel(node)} is disconnected`,

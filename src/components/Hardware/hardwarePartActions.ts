@@ -118,7 +118,9 @@ export function inputPartActions({
     setStatus(
       pins.length
         ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}`
-        : `Added ${entry.label} and its graph node`,
+        : [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
+          ? `Added ${entry.label}. Add an Audio node to use it in the graph`
+          : `Added ${entry.label} and its graph node`,
       'success',
     )
   }
