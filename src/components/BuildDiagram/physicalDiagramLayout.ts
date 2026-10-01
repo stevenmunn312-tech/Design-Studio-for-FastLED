@@ -350,6 +350,9 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // VIN, 2v8, GND, GPIO, SHDN, SCL, SDA along the bottom, from the drilled holes. 2v8 is the regulator
+  // output and GPIO and SHDN are not needed, so only VIN, GND, SCL and SDA carry a wire.
+  'adafruit-vl53l0x-distance-sensor': padRow([57, 104.5, 152, 199.5, 247, 294.5, 342], 400, 294.8, 353),
   // DIP-18 lead tips in pin-number order: pins 1 to 9 down the left edge, 10 to 18 up the right.
   // Inputs 1B to 8B are the controller side; COM and the 1C to 8C outputs carry the load, not a controller wire.
   'uln2803a-dip18': padPoints(400, 996,
@@ -760,6 +763,7 @@ function signalPadNames(item: HardwareManifestItem): string[][] | undefined {
   // A light sensor is either an LDR's one analog line or a BH1750's I2C pair,
   // and the manifest records which.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return [['SDA'], ['SCL']]
+  if (item.kind === 'distance-input' && item.facts.transport === 'i2c') return [['SDA'], ['SCL']]
   return SIGNAL_PAD_NAMES[item.kind]
 }
 
@@ -789,7 +793,8 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   if (item.kind === 'temperature-input') return 'v3v3'
   // The HC-SR04 needs 5 V to range reliably; its Echo then swings to 5 V, which
   // the receive divider brings down to the controller's level.
-  if (item.kind === 'distance-input') return 'v5'
+  // The VL53L0X board level-shifts its bus to VIN, so a 5 V supply would hold SDA and SCL at 5 V.
+  if (item.kind === 'distance-input') return item.facts.transport === 'i2c' ? 'v3v3' : 'v5'
   // The module is two potentiometers and a switch. Its +5V pad would put up to 5 V on the
   // analog pins; 3.3 V keeps both axes inside the ADC range.
   if (item.kind === 'joystick-input') return 'v3v3'
@@ -874,6 +879,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ky-012-active-buzzer-module': 11.5,
   'adafruit-pca9685-pwm-driver': 7,
   'uln2803a-dip18': 10,
+  'adafruit-vl53l0x-distance-sensor': 9,
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,
@@ -952,7 +958,8 @@ const RECEIVE_DIVIDER_SOURCES: Partial<Record<HardwareManifestItem['kind'], { pr
 }
 
 function hasReceiveDivider(item: HardwareManifestItem) {
-  return item.kind in RECEIVE_DIVIDER_SOURCES
+  // A time-of-flight sensor on the I2C bus has no Echo to divide.
+  return item.kind in RECEIVE_DIVIDER_SOURCES && item.facts.transport !== 'i2c'
 }
 
 export function receiveDivider(layout: ItemLayout): ReceiveDivider | null {

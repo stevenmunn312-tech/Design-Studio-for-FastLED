@@ -281,6 +281,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         summary: 'Ultrasonic ranging, 2 cm to 4 m, on two GPIOs',
         note: 'Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V.',
       },
+      {
+        id: 'adafruit-vl53l0x-distance-sensor',
+        label: 'Adafruit VL53L0X laser',
+        summary: 'Laser time-of-flight, 3 cm to 1.2 m, over I2C',
+        note: 'Power VIN from 3.3 V. It answers on 0x29 and joins the I2C bus; leave 2v8, GPIO and SHDN unconnected. The build needs the Pololu VL53L0X library, which Studio installs the first time.',
+      },
     ],
   },
   TemperatureInput: {

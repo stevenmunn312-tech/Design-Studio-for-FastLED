@@ -58,7 +58,9 @@ import {
   formatEnvironmentAddress,
 } from '../state/environmentSensor'
 import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/temperatureSensor'
-import { HCSR04_PART_ID, distanceSensorSpec } from '../state/distanceSensor'
+import {
+  HCSR04_PART_ID, distanceSensorAddress, distanceSensorSpec, distanceSensorTransport, formatDistanceSensorAddress,
+} from '../state/distanceSensor'
 import { KY023_PART_ID } from '../state/joystick'
 import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from '../state/keypad'
 import {
@@ -425,6 +427,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} switch pin`, 'swPin', props.swPin)
         break
       case 'DistanceInput':
+        if (distanceSensorTransport(props.partId) === 'i2c') {
+          pushI2c(node, baseLabel, props)
+          break
+        }
         push(node, `${baseLabel} Trig pin`, 'trigPin', props.trigPin)
         push(node, `${baseLabel} Echo pin`, 'echoPin', props.echoPin)
         break
@@ -1145,6 +1151,25 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? HCSR04_PART_ID)
         const entry = partById(partId)
         const spec = distanceSensorSpec(partId)
+        const transport = distanceSensorTransport(partId)
+        if (transport === 'i2c') {
+          const address = distanceSensorAddress(props)
+          const i2cWired = pins.some((pin) => pin.propertyKey === 'sdaPin') && pins.some((pin) => pin.propertyKey === 'sclPin')
+          return {
+            ...buildPeripheralItem(node, 'distance-input', entry?.label ?? 'VL53L0X laser distance sensor', pins),
+            title: entry?.label ?? nodeLabel(node),
+            supported: i2cWired && address !== null,
+            facts: {
+              partId,
+              transport,
+              distanceRange: `${spec.minMm / 10} to ${spec.maxMm / 10} cm`,
+              i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatDistanceSensorAddress(address),
+            },
+            reasons: !i2cWired
+              ? [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this distance sensor.`]
+              : address === null ? [`${String(props.i2cAddress)} is not an address this VL53L0X answers on.`] : undefined,
+          }
+        }
         const wired = pins.some((pin) => pin.propertyKey === 'trigPin')
           && pins.some((pin) => pin.propertyKey === 'echoPin')
         return {
@@ -1153,8 +1178,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: wired,
           facts: {
             partId,
+            transport,
             distanceRange: `${spec.minMm / 10} to ${spec.maxMm / 10} cm`,
-            echoLevel: `${spec.echoVolts} V`,
+            echoLevel: `${spec.echoVolts ?? 5} V`,
             echoDivider: '1 kΩ / 2 kΩ',
           },
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have two free pins for Trig and Echo.`],

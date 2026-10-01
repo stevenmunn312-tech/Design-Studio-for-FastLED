@@ -91,7 +91,9 @@ import {
   formatEnvironmentAddress,
 } from './environmentSensor'
 import { DS18B20_PART_ID } from './temperatureSensor'
-import { HCSR04_PART_ID } from './distanceSensor'
+import {
+  HCSR04_PART_ID, VL53L0X_PART_ID, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport, formatDistanceSensorAddress,
+} from './distanceSensor'
 import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './joystick'
 import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from './keypad'
 import { MPR121_PART_ID, formatTouchPadAddress, touchPadAddressOptions, touchPadSpec } from './touchPad'
@@ -4256,7 +4258,14 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'distance', label: 'Distance (mm)', dataType: 'float' },
       { id: 'connected', label: 'Connected', dataType: 'bool' },
     ],
-    defaultProperties: { partId: HCSR04_PART_ID, trigPin: 27, echoPin: 26 },
+    defaultProperties: {
+      partId: HCSR04_PART_ID,
+      trigPin: 27,
+      echoPin: 26,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: formatDistanceSensorAddress(distanceSensorSpec(VL53L0X_PART_ID).defaultI2cAddress ?? 0x29),
+    },
   },
   {
     type: 'PotInput',
@@ -4946,7 +4955,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
   EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
-  DistanceInput: 'Measures distance in millimetres with an HC-SR04 ultrasonic sensor.',
+  DistanceInput: 'Measures distance in mm with an HC-SR04 or a VL53L0X.',
   JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
   KeypadInput: 'Reads a 4x4 matrix keypad as the last key pressed and a pressed flag.',
   TouchPadInput: 'Reads twelve capacitive-touch electrodes from an MPR121.',
@@ -6062,6 +6071,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   DistanceInput: {
     trigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     echoPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    i2cAddress: { control: 'select', options: distanceSensorAddressOptions(VL53L0X_PART_ID) },
   },
   EnvironmentInput: {
     i2cAddress: { control: 'select', options: environmentAddressOptions(BME280_PART_ID) },
@@ -6665,6 +6677,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   DistanceInput: {
     trigPin: 'The GPIO wired to Trig. It sends a 10 microsecond pulse, so it must be able to output; a 3.3 V pulse is enough to trigger the module.',
     echoPin: 'The GPIO wired to Echo through the 1 kΩ and 2 kΩ divider the Build Diagram shows. Echo swings to 5 V, above what a 3.3 V controller pin tolerates.',
+    sdaPin: 'VL53L0X I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    sclPin: 'VL53L0X I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    i2cAddress: 'The VL53L0X answers only on 0x29, and no jumper changes it, so two of them on one bus need their SHDN pins driven separately.',
   },
   TemperatureInput: {
     pin: 'The GPIO wired to the probe’s yellow DATA wire. It needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram shows. Use one probe per pin.',
@@ -7365,7 +7380,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
-  DistanceInput: new Set(['trigPin', 'echoPin']),
+  DistanceInput: new Set(['trigPin', 'echoPin', 'sdaPin', 'sclPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
@@ -7417,7 +7432,8 @@ export function gpioRequirementForProperty(
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
-    || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')) return null
+    || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')
+    || (nodeType === 'DistanceInput' && distanceSensorTransport(props.partId) === 'i2c')) return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector
   // output stage and its module pull-up, the same as a PIR — a pull-up here
@@ -7799,6 +7815,11 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   // A channel the selected board does not have has no pin to wire and no load to dim.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
+  if (nodeType === 'DistanceInput' && ['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'i2cAddress'].includes(key)) {
+    return distanceSensorTransport(properties.partId) === 'i2c'
+      ? ['sdaPin', 'sclPin', 'i2cAddress'].includes(key)
+      : ['trigPin', 'echoPin'].includes(key)
+  }
   if (nodeType === 'LightInput' && ['pin', 'sdaPin', 'sclPin', 'i2cAddress', 'maxLux'].includes(key)) {
     const digital = lightSensorTransport(properties.partId) === 'i2c'
     return digital ? key !== 'pin' : key === 'pin'

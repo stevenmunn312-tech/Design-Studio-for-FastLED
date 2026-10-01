@@ -96,7 +96,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
-import { DISTANCE_SENSOR_HELPER_CPP } from './distanceSensorCpp'
+import { DISTANCE_SENSOR_HELPER_CPP, VL53L0X_INCLUDES } from './distanceSensorCpp'
 import { JOYSTICK_HELPER_CPP } from './joystickCpp'
 import { KEYPAD_HELPER_CPP } from './keypadCpp'
 import { MOTION_VECTOR_HELPER_CPP } from './motionVectorCpp'
@@ -104,6 +104,7 @@ import { TOUCH_PAD_HELPER_CPP } from './touchPadCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
 import { lightSensorTransport } from '../state/lightSensor'
+import { distanceSensorTransport } from '../state/distanceSensor'
 import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
 import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
@@ -682,6 +683,8 @@ export function generateCpp(
   const presenceSensors = sorted.filter((n) => n.data.nodeType === 'PresenceInput')
   const temperatureSensors = sorted.filter((n) => n.data.nodeType === 'TemperatureInput')
   const distanceSensors = sorted.filter((n) => n.data.nodeType === 'DistanceInput')
+  const pulseDistanceSensors = distanceSensors.filter((n) => distanceSensorTransport(props(n).partId) === 'pulse')
+  const i2cDistanceSensors = distanceSensors.filter((n) => distanceSensorTransport(props(n).partId) === 'i2c')
   const joysticks = sorted.filter((n) => n.data.nodeType === 'JoystickInput')
   const keypads = sorted.filter((n) => n.data.nodeType === 'KeypadInput')
   const digitalLightSensors = sorted.filter((n) => n.data.nodeType === 'LightInput'
@@ -692,6 +695,7 @@ export function generateCpp(
   const pwmDrivers = sorted.filter((n) => n.data.nodeType === 'PwmDriverOutput')
   const needsWire = needsDs3231 || i2cOleds.length > 0 || powerMonitors.length > 0
     || digitalLightSensors.length > 0 || environmentSensors.length > 0 || motionVectors.length > 0 || touchPads.length > 0 || pwmDrivers.length > 0
+    || i2cDistanceSensors.length > 0
   /*
    * The header follows the driver, not the transport.
    *
@@ -887,7 +891,7 @@ export function generateCpp(
     const boardPins = rtcI2cPinsForProfile(i2cBoard)
     const busNode = sorted.find((node) => node.data.nodeType === 'RTCInput'
       && String(props(node).timeSource ?? 'Compile Time') === 'DS3231')
-      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0] ?? motionVectors[0] ?? touchPads[0] ?? pwmDrivers[0]
+      ?? i2cOleds[0] ?? powerMonitors[0] ?? digitalLightSensors[0] ?? environmentSensors[0] ?? motionVectors[0] ?? touchPads[0] ?? pwmDrivers[0] ?? i2cDistanceSensors[0]
     const busProps = busNode ? props(busNode) : {}
     const sdaPin = sanitizePin(busProps.sdaPin, boardPins?.sda.arduinoPin ?? 21)
     const sclPin = sanitizePin(busProps.sclPin, boardPins?.scl.arduinoPin ?? 22)
@@ -1226,6 +1230,7 @@ export function generateCpp(
   lines.push(...irEmission.includes)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsWireHeader) lines.push(`#include <Wire.h>`)
+  if (i2cDistanceSensors.length > 0) lines.push(VL53L0X_INCLUDES[1])
   // The colour panel is driven through the Arduino SPI library rather than
   // bit-banged: a 240x240 frame is 115 KB, which no software loop ships in
   // time. The OLED beside it needs no include for exactly the opposite reason.
@@ -1591,7 +1596,7 @@ export function generateCpp(
   if (digitalLightSensors.length > 0) lines.push(...LIGHT_SENSOR_HELPER_CPP)
   if (environmentSensors.length > 0) lines.push(...ENVIRONMENT_SENSOR_HELPER_CPP)
   if (temperatureSensors.length > 0) lines.push(...TEMPERATURE_SENSOR_HELPER_CPP)
-  if (distanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
+  if (pulseDistanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
   if (joysticks.length > 0) lines.push(...JOYSTICK_HELPER_CPP)
   if (keypads.length > 0) lines.push(...KEYPAD_HELPER_CPP)
   if (motionVectors.length > 0) lines.push(...MOTION_VECTOR_HELPER_CPP)

@@ -6,14 +6,16 @@ import {
   peripheralGroundPadIndex, peripheralPadPoint, peripheralPowerNet, peripheralPowerPadIndex,
   peripheralSignalEndPoint, peripheralSignalPadIndex, receiveDivider, PERIPHERAL_RENDER_H,
 } from '../../components/BuildDiagram/physicalDiagramLayout'
-import { findPinConflicts } from '../../utils/validateGraph'
+import { findDeployBlockingErrors, findPinConflicts } from '../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { libraryDefaults, NODE_LIBRARY, gpioRequirementForProperty } from '../nodeLibrary'
 import { partById } from '../partCatalogue'
 import { PART_OPTIONS } from '../partOptions'
 import {
-  distancePreviewDefault, distancePreviewReading, distanceSensorSpec, HCSR04_PART_ID,
+  distanceSensorAddress, distanceSensorAddressOptions, distancePreviewDefault, distancePreviewReading,
+  distanceSensorPinKeys, distanceSensorSpec, distanceSensorTransport, HCSR04_PART_ID, VL53L0X_PART_ID,
 } from '../distanceSensor'
+import { VL53L0X_VERSION } from '../../codegen/distanceSensorCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -52,7 +54,7 @@ describe('the catalogued HC-SR04', () => {
     expect(distanceSensorSpec(HCSR04_PART_ID)).toMatchObject({
       device: 'HC-SR04', minMm: 20, maxMm: 4000, triggerPulseUs: 10, echoVolts: 5,
     })
-    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID])
+    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID])
     expect(partById(HCSR04_PART_ID)?.pinLabelsLeftToRight).toEqual(['VCC', 'Trig', 'Echo', 'GND'])
   })
 
@@ -131,5 +133,89 @@ describe('distance wiring and the echo divider', () => {
     expect(divider.y).toBeGreaterThan(layout.y + PERIPHERAL_RENDER_H)
     // Trig is a plain pad: nothing intercepts it.
     expect(peripheralSignalEndPoint(layout, 0)).toEqual(peripheralPadPoint(layout, peripheralSignalPadIndex(item, 0)))
+  })
+})
+
+describe('the catalogued VL53L0X', () => {
+  const props = { partId: VL53L0X_PART_ID, sdaPin: 21, sclPin: 22 }
+
+  it('is an I2C module on 0x29 with its own range, and orders the pads VIN to SDA', () => {
+    expect(distanceSensorSpec(VL53L0X_PART_ID)).toMatchObject({
+      interface: 'I2C', minMm: 30, maxMm: 1200, i2cAddresses: [0x29], defaultI2cAddress: 0x29,
+    })
+    expect(distanceSensorTransport(VL53L0X_PART_ID)).toBe('i2c')
+    expect(distanceSensorTransport(HCSR04_PART_ID)).toBe('pulse')
+    expect(distanceSensorPinKeys(props)).toEqual(['sdaPin', 'sclPin'])
+    expect(distanceSensorPinKeys({})).toEqual(['trigPin', 'echoPin'])
+    expect(distanceSensorAddressOptions(VL53L0X_PART_ID)).toEqual(['0x29'])
+    expect(distanceSensorAddress({ ...props, i2cAddress: '0x29' })).toBe(0x29)
+    expect(distanceSensorAddress({ ...props, i2cAddress: '0x30' })).toBeNull()
+    expect(distanceSensorAddress({})).toBeNull()
+    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID])
+    expect(partById(VL53L0X_PART_ID)?.pinLabelsLeftToRight).toEqual(['VIN', '2v8', 'GND', 'GPIO', 'SHDN', 'SCL', 'SDA'])
+  })
+
+  it('spans its own window in the preview and needs no GPIO capability', () => {
+    expect(distancePreviewReading(VL53L0X_PART_ID, 1)).toBe(1200)
+    expect(distancePreviewReading(VL53L0X_PART_ID, 0)).toBe(30)
+    expect(distancePreviewDefault(VL53L0X_PART_ID)).toBeGreaterThan(0)
+    expect(gpioRequirementForProperty('DistanceInput', 'sdaPin', props)).toBeNull()
+    expect(gpioRequirementForProperty('DistanceInput', 'trigPin', {})).toMatchObject({ capability: 'digitalOutput' })
+  })
+
+  it('includes the pinned Pololu library, starts one I2C bus and drives the sensor through it', () => {
+    const { nodes, edges } = rangerGraph(props)
+    const sketch = generateCpp(nodes, edges)
+    expect(VL53L0X_VERSION).toBe('1.3.1')
+    expect(sketch).toContain('#include <Wire.h>')
+    expect(sketch).toContain('#include <VL53L0X.h>')
+    expect(sketch.match(/Wire\.begin\(/g)).toHaveLength(1)
+    expect(sketch).toContain('static VL53L0X _vl_ranger;')
+    expect(sketch).toContain('_vl_ranger.init()')
+    expect(sketch).toContain('_vl_ranger.startContinuous()')
+    expect(sketch).toContain('readRangeContinuousMillimeters()')
+    expect(sketch).toContain('timeoutOccurred()')
+    expect(sketch).toContain('>= 60')
+    expect(sketch).toContain('float n_ranger_distance = _vlMm_ranger;')
+    expect(sketch).toContain('bool n_ranger_connected = _vlOk_ranger;')
+    // No ultrasonic helper and no Trig/Echo pins for an I2C module.
+    expect(sketch).not.toContain('_sr04Measure')
+    expect(sketch).not.toContain('pinMode(27, OUTPUT)')
+  })
+
+  it('keeps the ultrasonic sketch free of the laser library', () => {
+    const { nodes, edges } = rangerGraph({ trigPin: 27, echoPin: 26 })
+    expect(generateCpp(nodes, edges)).not.toContain('VL53L0X')
+  })
+
+  it('is available to the shared show/player control compiler with the library include', () => {
+    const sensor = node('ranger', 'DistanceInput', props)
+    const map = node('map', 'MapRange', { inMin: 0, inMax: 1200, outMin: 0, outMax: 1 })
+    const graph = createControlGraph([sensor, map], [edge('distance', 'ranger', 'distance', 'map', 'value')])
+    expect(graph.resolve('map', 'result', 'float')).not.toBeNull()
+    const emitted = controlGraphCpp(graph)
+    expect(emitted.includes).toContain('#include <VL53L0X.h>')
+    expect(emitted.includes).toContain('#include <Wire.h>')
+    expect(emitted.helpers.join('\n')).not.toContain('_sr04Measure')
+    expect(emitted.loop.join('\n')).toContain('_vl_ranger.init()')
+  })
+
+  it('shares SDA/SCL, rejects an address it cannot take, and draws VIN from 3.3 V with no echo divider', () => {
+    const ranger = node('ranger', 'DistanceInput', props)
+    expect(collectPinUses([ranger]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])
+    expect(findDeployBlockingErrors([node('bad', 'DistanceInput', { ...props, i2cAddress: '0x30' })], [], 'esp32:esp32:esp32').join('\n'))
+      .toContain('0x29')
+
+    const [item] = buildHardwareManifest([ranger], [], 'esp32:esp32:esp32').primaryItems
+    const pads = partById(VL53L0X_PART_ID)!.pinLabelsLeftToRight!
+    expect(item).toMatchObject({
+      kind: 'distance-input', supported: true, facts: { transport: 'i2c', i2cAddress: '0x29', distanceRange: '3 to 120 cm' },
+    })
+    expect(peripheralPowerNet(item)).toBe('v3v3')
+    expect(pads[peripheralPowerPadIndex(item)!]).toBe('VIN')
+    expect(pads[peripheralGroundPadIndex(item)]).toBe('GND')
+    expect(pads[peripheralSignalPadIndex(item, 0)]).toBe('SDA')
+    expect(pads[peripheralSignalPadIndex(item, 1)]).toBe('SCL')
+    expect(receiveDivider({ x: 0, y: 0, item } as unknown as Parameters<typeof receiveDivider>[0])).toBeNull()
   })
 })

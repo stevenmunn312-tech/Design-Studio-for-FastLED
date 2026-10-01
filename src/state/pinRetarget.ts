@@ -47,6 +47,7 @@ import { integratedPinsFor } from './integratedBoardHardware'
 import { relayPinKeys } from './relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchPinKeys } from './powerSwitch'
 import { lightSensorPinKeys, lightSensorTransport } from './lightSensor'
+import { distanceSensorPinKeys, distanceSensorTransport } from './distanceSensor'
 
 /** Property holding the values the app last assigned, keyed by pin property. */
 export const ASSIGNED_PINS_KEY = 'assignedPins'
@@ -205,8 +206,21 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   },
   // Trig is driven and Echo is read.
   DistanceInput: {
-    keys: ['trigPin', 'echoPin'],
-    requests: [{ key: 'trigPin', capability: 'digitalOutput' }, { key: 'echoPin', capability: 'digitalInput' }],
+    keys: ['trigPin', 'echoPin', 'sdaPin', 'sclPin'],
+    keysFor: distanceSensorPinKeys,
+    fromProfile: (profile, properties) => {
+      if (distanceSensorTransport(properties.partId) !== 'i2c') return null
+      const defaults = boardI2cDefault(profile?.id)
+      return defaults
+        ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
+        : null
+    },
+    requests: [
+      { key: 'trigPin', capability: 'digitalOutput' },
+      { key: 'echoPin', capability: 'digitalInput' },
+      { key: 'sdaPin' },
+      { key: 'sclPin' },
+    ],
   },
   // One UART receive line: the sensor streams unprompted, so its RX is unwired.
   PresenceInput: { keys: ['rxPin'], requests: [{ key: 'rxPin' }] },

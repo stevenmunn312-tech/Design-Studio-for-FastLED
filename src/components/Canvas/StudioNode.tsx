@@ -1050,7 +1050,7 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     title: 'The browser has no joystick, so the two sliders stand in for the X and Y axes, centred at half travel, and the push button for the switch. Generated firmware reads each axis as a 12-bit ADC count, centres it on half scale, removes the dead zone and rescales to -1 to 1.',
   },
   DistanceInput: {
-    text: 'preview reading comes from the slider; firmware times the HC-SR04 echo',
+    text: 'preview reading comes from the slider; firmware times the HC-SR04 echo or reads the VL53L0X',
     title: 'The browser has no ultrasonic sensor, so the slider stands in for the distance and Connected is always true. Generated firmware pulses Trig, times the Echo, and reports Connected false when no echo returns. Readings are taken every 60 ms and held between.',
   },
   TemperatureInput: {

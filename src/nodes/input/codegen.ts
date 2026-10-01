@@ -5,6 +5,7 @@ import { lightSensorLoopCpp } from '../../codegen/lightSensorCpp'
 import { environmentSensorLoopCpp } from '../../codegen/environmentSensorCpp'
 import { temperatureSensorLoopCpp } from '../../codegen/temperatureSensorCpp'
 import { distanceSensorLoopCpp } from '../../codegen/distanceSensorCpp'
+import { distanceSensorTransport } from '../../state/distanceSensor'
 import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/joystickCpp'
 import { keypadLoopCpp, keypadSetupCpp } from '../../codegen/keypadCpp'
 import { motionVectorLoopCpp } from '../../codegen/motionVectorCpp'
@@ -65,8 +66,10 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   DistanceInput({ id, p, ln, v, pinSetupLines }) {
     // Trig is driven and Echo read; setup holds Trig low so a reset never fires a stray pulse.
-    pinSetupLines.add(`  pinMode(${sanitizePin(p.trigPin, 27)}, OUTPUT); digitalWrite(${sanitizePin(p.trigPin, 27)}, LOW);`)
-    pinSetupLines.add(`  pinMode(${sanitizePin(p.echoPin, 26)}, INPUT);`)
+    if (distanceSensorTransport(p.partId) === 'pulse') {
+      pinSetupLines.add(`  pinMode(${sanitizePin(p.trigPin, 27)}, OUTPUT); digitalWrite(${sanitizePin(p.trigPin, 27)}, LOW);`)
+      pinSetupLines.add(`  pinMode(${sanitizePin(p.echoPin, 26)}, INPUT);`)
+    }
     for (const line of distanceSensorLoopCpp(p, id, v)) ln(line)
   },
   PowerMonitorInput({ p, ln, v }) {

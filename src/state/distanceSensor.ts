@@ -1,6 +1,7 @@
 import { partById, type PartDistanceSensorSpec } from './partCatalogue'
 
 export const HCSR04_PART_ID = 'hc-sr04-ultrasonic-module'
+export const VL53L0X_PART_ID = 'adafruit-vl53l0x-distance-sensor'
 
 /** Series and shunt values of the divider that brings a 5 V Echo down to 3.3 V logic. */
 export const ECHO_DIVIDER_OHMS = { series: 1000, shunt: 2000 } as const
@@ -33,4 +34,33 @@ export function distancePreviewReading(partId: unknown, fraction: number): numbe
   const spec = distanceSensorSpec(partId)
   const clamped = Math.max(0, Math.min(1, Number(fraction) || 0))
   return spec.minMm + clamped * (spec.maxMm - spec.minMm)
+}
+
+export type DistanceSensorTransport = 'pulse' | 'i2c'
+
+/** A pulse-ranging module wires Trig and Echo; a time-of-flight one is on the I2C bus. */
+export function distanceSensorTransport(partId: unknown): DistanceSensorTransport {
+  return distanceSensorSpec(partId).interface === 'I2C' ? 'i2c' : 'pulse'
+}
+
+export function distanceSensorPinKeys(properties: Record<string, unknown>): string[] {
+  return distanceSensorTransport(properties.partId) === 'i2c' ? ['sdaPin', 'sclPin'] : ['trigPin', 'echoPin']
+}
+
+export function formatDistanceSensorAddress(address: number): string {
+  return `0x${address.toString(16).toUpperCase().padStart(2, '0')}`
+}
+
+export function distanceSensorAddressOptions(partId: unknown): string[] {
+  return (distanceSensorSpec(partId).i2cAddresses ?? []).map(formatDistanceSensorAddress)
+}
+
+/** The I2C address a node answers on, or `null` for a pulse module or an address the part cannot take. */
+export function distanceSensorAddress(properties: Record<string, unknown>): number | null {
+  const spec = distanceSensorSpec(properties.partId)
+  if (spec.interface !== 'I2C') return null
+  const raw = properties.i2cAddress
+  if (raw === undefined || raw === null || raw === '') return spec.defaultI2cAddress ?? null
+  const value = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 16)
+  return Number.isInteger(value) && (spec.i2cAddresses ?? []).includes(value) ? value : null
 }

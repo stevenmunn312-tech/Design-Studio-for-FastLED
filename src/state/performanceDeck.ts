@@ -140,7 +140,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   LightInput: new Set(['pin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
-  DistanceInput: new Set(['trigPin', 'echoPin']),
+  DistanceInput: new Set(['trigPin', 'echoPin', 'sdaPin', 'sclPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
