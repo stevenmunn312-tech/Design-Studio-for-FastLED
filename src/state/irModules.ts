@@ -31,7 +31,7 @@ export const IR_RECEIVER_MODULES: readonly IrReceiverModule[] = [
   {
     partId: 'ky-022-ir-receiver-module',
     label: 'KY-022 module',
-    summary: 'Infrared remote receiver on a three-pin breakout with an indicator LED',
+    summary: 'IR remote receiver, 3-pin board with LED',
     // The honest half of offering it: the centre pin is the supply on every
     // documented variant, and the outer two are not standardised.
     note: 'Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO.',
@@ -39,7 +39,7 @@ export const IR_RECEIVER_MODULES: readonly IrReceiverModule[] = [
   {
     partId: 'tsop38238-ir-receiver',
     label: 'TSOP38238',
-    summary: 'Bare 38 kHz infrared remote receiver (Vishay), datasheet pin order',
+    summary: 'Bare 38 kHz IR receiver, datasheet pin order',
     note: 'Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking.',
   },
 ]
