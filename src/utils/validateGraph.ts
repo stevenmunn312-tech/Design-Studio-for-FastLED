@@ -351,9 +351,11 @@ export interface PowerEstimate {
   configuredMa: number | null
   /** Worst-case draw rounded up to a sane PSU-shopping figure. */
   recommendedMa: number
-  /** Standard continuous 5 V supply size, including electrical-plan headroom. */
+  /** Standard continuous supply size at the LEDs' voltage, including electrical-plan headroom. */
   requiredSupplyMa: number
   requiredSupplyWattage: number
+  /** The LEDs' supply voltage, derived from their chipset. */
+  supplyVolts: number
   /** True once a configured cap exists and falls short of a sane safety margin
    *  below worst case (see `POWER_CAP_MIN_COVERAGE`) — not simply "any cap
    *  below the theoretical full-white max", since FastLED's power capping is
@@ -414,12 +416,16 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     return sum + (Math.max(1, Number.isFinite(count) ? count : DEFAULT_STANDALONE_VU_LED_COUNT) * 2)
   }, 0)
   const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0) + vuLedCount
-  const worstCaseMa = outputs.reduce((sum, output) => {
+  const controller = controllerSettings(nodes)
+  // The per-LED figure is a 5 V draw. A 12 V chipset draws the same power at
+  // proportionally less current, and the supply, cap and warnings all work in
+  // the strip's own voltage.
+  const voltScale = 5 / controller.volts
+  const worstCaseMa = voltScale * outputs.reduce((sum, output) => {
     const props = output.data.properties as Record<string, unknown>
     const rate = outputForm(props) === 'hub75' ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
     return sum + (outputLedCount(output) * rate)
   }, vuLedCount * MA_PER_LED_WORST_CASE)
-  const controller = controllerSettings(nodes)
   const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
   const supplySizingMa = configuredMa != null && configuredMa > 0
@@ -432,7 +438,8 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     configuredMa,
     recommendedMa,
     requiredSupplyMa,
-    requiredSupplyWattage: Number(((requiredSupplyMa / 1000) * 5).toFixed(1)),
+    requiredSupplyWattage: Number(((requiredSupplyMa / 1000) * controller.volts).toFixed(1)),
+    supplyVolts: controller.volts,
     exceedsConfigured: configuredMa != null && configuredMa < worstCaseMa * POWER_CAP_MIN_COVERAGE,
   }
 }

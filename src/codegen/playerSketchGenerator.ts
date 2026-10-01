@@ -22,6 +22,7 @@ import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patternSl
 import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
+import { ledSupplyVolts } from '../state/controllerSettings'
 import { ledOutputManualExprs, ledOutputRuntimeCpp } from './ledOutputRuntimeCpp'
 import { ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
@@ -187,7 +188,7 @@ export function playerConfigFromGraph(
     dither:      mo.dither !== false,
     overclock:   num(board.overclock, DEFAULTS.overclock),
     powerLimit:  board.powerLimit === true,
-    volts:       num(board.volts, DEFAULTS.volts),
+    volts:       ledSupplyVolts(str(mo.chipset, DEFAULTS.chipset)),
     milliamps:   num(board.milliamps, DEFAULTS.milliamps),
     sdCsPin:    sanitizePin(sd.sdCsPin, sdDefaults?.cs ?? DEFAULTS.sdCsPin),
     sdSckPin:   sanitizePin(sd.sdSckPin, sdDefaults?.sck ?? DEFAULTS.sdSckPin),

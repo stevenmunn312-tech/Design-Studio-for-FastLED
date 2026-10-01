@@ -239,15 +239,8 @@ export default function BoardNodeBody({ nodeId }: Props) {
 
         {settings.powerLimit && (
           <div className={styles.numberRow}>
-            <label>
-              <span>Volts</span>
-              <ClampedNumberInput
-                value={settings.volts} min={3} max={24} step={1}
-                ariaLabel="Power cap volts"
-                onCommit={(next) => updateNodeProperty(nodeId, 'volts', next)} />
-            </label>
-            <label>
-              <span>Milliamps</span>
+            <label title="The cap voltage follows the LED chipset (12 V for WS2811 and WS2815, otherwise 5 V) and is not adjustable.">
+              <span>Milliamps at {settings.volts} V</span>
               <ClampedNumberInput
                 value={settings.milliamps} min={100} max={100000} step={100}
                 ariaLabel="Power cap milliamps"
@@ -260,7 +253,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
           <div className={styles.powerRequirement} aria-label="Required power supply">
             <span>Required power supply</span>
             <strong>
-              5 V · at least {Number((power.requiredSupplyMa / 1000).toFixed(1))} A ·{' '}
+              {power.supplyVolts} V · at least {Number((power.requiredSupplyMa / 1000).toFixed(1))} A ·{' '}
               {power.requiredSupplyWattage} W continuous
             </strong>
             <small>

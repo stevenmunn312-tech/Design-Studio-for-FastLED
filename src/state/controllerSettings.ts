@@ -56,6 +56,16 @@ function serialRoute(props: Record<string, unknown>): SerialRoute {
   return DEFAULT_BOARD_CONTROLLER_PROPERTIES.serialRoute
 }
 
+/** Chipsets sold as 12 V strips; every other addressable part runs from 5 V. */
+const TWELVE_VOLT_CHIPSETS: ReadonlySet<string> = new Set(['WS2811', 'WS2815'])
+
+/** The supply voltage a chipset runs from. FastLED sizes its power cap as
+ * volts x milliamps, so the cap must use the strip's own voltage; it is never
+ * a user setting. */
+export function ledSupplyVolts(chipset: unknown): number {
+  return TWELVE_VOLT_CHIPSETS.has(String(chipset)) ? 12 : 5
+}
+
 function number(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
@@ -70,12 +80,17 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
   const profile = boardProfileById(profileId)
   const selectedPsramPolicy = psramPolicy(props)
   const selectedSerialRoute = serialRoute(props)
+  // One global cap serves every output. Mixed voltages take the lowest, which
+  // dims earliest and so errs toward protecting the supply.
+  const outputVolts = nodes
+    .filter((node) => node.data.nodeType === 'MatrixOutput')
+    .map((node) => ledSupplyVolts((node.data.properties as Record<string, unknown>).chipset))
   const automaticPsram = !!profile?.memory?.psramMb && !!profile.psramMode
   return {
     brightness: Math.round(number(props.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),
     overclock: number(props.overclock, DEFAULT_CONTROLLER_SETTINGS.overclock, 1, 2),
     powerLimit: props.powerLimit === true,
-    volts: number(props.volts, DEFAULT_CONTROLLER_SETTINGS.volts, 1, 60),
+    volts: outputVolts.length ? Math.min(...outputVolts) : DEFAULT_CONTROLLER_SETTINGS.volts,
     milliamps: Math.round(number(props.milliamps, DEFAULT_CONTROLLER_SETTINGS.milliamps, 100, 100000)),
     usePsram: selectedPsramPolicy === 'on' || (selectedPsramPolicy === 'auto' && automaticPsram),
     psramPolicy: selectedPsramPolicy,

@@ -35,6 +35,19 @@ describe('controllerSettings', () => {
       .toEqual(expect.objectContaining({ brightness: 144, overclock: 1.25, dataPin: 5 }))
   })
 
+  it('takes the cap voltage from the LED chipset, never from a saved value', () => {
+    const board = node('board', 'Board', { powerLimit: true, volts: 10 })
+    const volts = (...chipsets: string[]) => controllerSettings([
+      board,
+      ...chipsets.map((chipset, i) => node(`out-${i}`, 'MatrixOutput', { chipset })),
+    ]).volts
+    expect(volts('WS2812B')).toBe(5)
+    expect(volts('WS2815')).toBe(12)
+    expect(volts('WS2811')).toBe(12)
+    expect(volts('WS2815', 'WS2812B')).toBe(5)
+    expect(volts()).toBe(5)
+  })
+
   it('automatically enables the PSRAM mode recorded by an exact physical profile', () => {
     const settings = controllerSettings([
       node('board', 'Board', {
