@@ -225,6 +225,30 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: mosfet block needs a channel count from 1 to 8 and loadSupply — skipped",
                   file=sys.stderr)
+    # A Darlington driver array's contract. Firmware drives each channel input
+    # at the active level, and the Build Diagram has to say what the outputs
+    # can switch, so both travel with the exact chip.
+    chip = data.get("driverChip")
+    if chip:
+        pinout = chip.get("pinout")
+        if (isinstance(chip.get("channels"), int) and 1 <= chip["channels"] <= 8
+                and chip.get("inputActiveLevel") in ("high", "low")
+                and isinstance(chip.get("maxOutputVoltageV"), (int, float)) and chip["maxOutputVoltageV"] > 0
+                and isinstance(chip.get("maxChannelCurrentMa"), (int, float)) and chip["maxChannelCurrentMa"] > 0
+                and isinstance(pinout, list) and all(isinstance(name, str) for name in pinout)):
+            entry["driverChip"] = {
+                "device": chip.get("device") or "",
+                "package": chip.get("package") or "",
+                "channels": chip["channels"],
+                "outputType": chip.get("outputType") or "",
+                "inputActiveLevel": chip["inputActiveLevel"],
+                "maxOutputVoltageV": chip["maxOutputVoltageV"],
+                "maxChannelCurrentMa": chip["maxChannelCurrentMa"],
+                "pinout": pinout,
+            }
+        else:
+            print(f"  ! {part_id}: driverChip block needs channels 1 to 8, inputActiveLevel, "
+                  "maxOutputVoltageV, maxChannelCurrentMa and a pinout — skipped", file=sys.stderr)
     # A PWM driver's contract. The firmware derives the prescale from the
     # oscillator and the requested frequency, and the address list bounds the
     # picker, so both come from the board rather than being retyped.

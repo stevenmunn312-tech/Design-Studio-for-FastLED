@@ -98,6 +98,20 @@ export interface PartMosfetSpec {
   pwmHz?: number
 }
 
+/** Switching contract carried by an imported low-side driver array (ULN2803A). */
+export interface PartDriverChipSpec {
+  device: string
+  package: string
+  channels: number
+  outputType: string
+  /** The input level that turns a channel on. */
+  inputActiveLevel: 'high' | 'low'
+  maxOutputVoltageV: number
+  maxChannelCurrentMa: number
+  /** Package pin names in pin-number order. */
+  pinout: string[]
+}
+
 /** Output contract carried by an imported I2C PWM driver. */
 export interface PartPwmDriverSpec {
   device: string
@@ -303,6 +317,8 @@ export interface PartCatalogueEntry {
   relay?: PartRelaySpec
   /** Present exactly on DC MOSFET switch modules. */
   mosfet?: PartMosfetSpec
+  /** Present exactly on low-side driver arrays. */
+  driverChip?: PartDriverChipSpec
   /** Present exactly on I2C PWM driver modules. */
   pwmDriver?: PartPwmDriverSpec
   /** Present exactly on buzzer modules. */
