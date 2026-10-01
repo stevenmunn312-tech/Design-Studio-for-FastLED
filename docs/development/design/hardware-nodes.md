@@ -339,7 +339,24 @@ range; the catalogue `joystick` block records the pot value and the switch sense
 The axes request `analogInput`, and `swPin` needs a pin with a pull-up, which
 GPIO 34 to 39 lack.
 
-`DistanceInput` is the HC-SR04 ultrasonic ranger on two GPIOs: Trig, requested
+`DistanceInput` has two parts. The VL53L0X is the second, an I2C time-of-flight sensor
+that follows the `LightInput` precedent of one node with a part-dependent transport: the
+catalogue's `distanceSensor.interface` is `I2C`, `distanceSensorTransport` returns `i2c`,
+`distanceSensorPinKeys` swaps Trig/Echo for SDA/SCL, and the manifest, pin plans, GPIO
+requirements, inspector fields, validation and Build Diagram each read the transport
+rather than a list of part ids. The `distanceSensor` block carries the address list and the
+30 to 1200 mm window; the trigger pulse and echo level are optional because only a pulse
+part has them. Firmware is not library-free: ST's init and calibration sequence is long
+and cannot be checked without hardware, so `distanceSensorCpp.ts` drives Pololu's VL53L0X
+library (`init`, `startContinuous`, `readRangeContinuousMillimeters`), reads at most
+every 60 ms, and re-runs `init` once a second when the sensor is absent. The version is
+pinned in `VL53L0X_VERSION` and mirrored by `_VL53L0X_VERSION` in the backend, which
+installs it through arduino-cli, vendors it for fbuild, and puts the version in the sketch
+hash so a bump rebuilds. A test fails if the two constants drift. The Build Diagram powers
+VIN from the logic rail, since the board level-shifts its bus to VIN, and draws no Echo
+divider.
+
+The HC-SR04 is the first part: `DistanceInput` on two GPIOs: Trig, requested
 as `digitalOutput`, and Echo, requested as `digitalInput`. It publishes
 `distance` in millimetres and a `connected` flag; a sensor that hears no echo has
 no reading, so a timeout clears `connected` and holds the last good distance

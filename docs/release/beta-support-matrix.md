@@ -731,6 +731,27 @@ Unless a future row says otherwise, treat the following as experimental:
   Graduation needs a dated row naming the board/FQBN, both GPIOs and the
   divider values, with readings compared against a tape measure at two
   distances, and Connected going false with nothing in range and recovering.
+- **VL53L0X laser distance sensor.** `DistanceInput` also offers the Adafruit
+  VL53L0X as a second part: a time-of-flight sensor on the I2C bus at 0x29, 3 cm to
+  1.2 m in the default mode. It shares the node's Distance and Connected outputs,
+  the preview slider and the Build Diagram, which draws VIN from 3.3 V, GND, SDA
+  and SCL and no Echo divider. Unlike the other I2C parts it is not library-free:
+  its start-up and calibration sequence is ST's, so the sketch uses Pololu's
+  VL53L0X library, pinned to 1.3.1, which Studio installs the first time a sketch
+  needs it (arduino-cli) or vendors from GitHub (fbuild). Readings are taken at
+  most every 60 ms; a sensor that does not answer, or times out, clears Connected
+  and is set up again once a second, and that set-up can stall the frame for a few
+  timeouts, so an unplugged sensor costs a short hitch each second. A reading of
+  8190 mm or more is the library's "nothing in range" and Distance holds its last
+  good value. The normal, slideshow and player sketches
+  [compile on classic ESP32](../development/vl53l0x-compile-checks.md), but no
+  reading has been compared with a tape measure on any board, and the backend's
+  fbuild vendoring path is covered by tests only, not by a real build. The 3 to 12%
+  accuracy depends on the target and the light. Two sensors on one bus would need
+  their SHDN pins driven separately; the app offers no way to do that. Graduation
+  needs a dated row naming the board/FQBN, the I2C pins and the build engine, with
+  readings against a tape measure at two distances and Connected going false when
+  the sensor is unplugged and recovering when it is replugged.
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the

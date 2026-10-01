@@ -383,6 +383,23 @@ poorly and can read as no echo. In preview, the on-node slider simulates the
 reading. The sensor is experimental until a physical comparison is recorded in
 the support matrix.
 
+### Measure distance with a VL53L0X laser sensor
+
+Choose **Add Hardware → Inputs → VL53L0X laser distance sensor** for a reading from
+about 3 cm to 1.2 m over I2C. Wire **VIN** to **3V3**, **GND** to **GND**, and **SDA**
+and **SCL** to the board's I2C pins, which it can share with other I2C parts. Leave
+**2v8**, **GPIO** and **SHDN** unconnected. It answers on 0x29 and no jumper changes
+that, so two of them cannot share a bus.
+
+It uses the same **Distance Sensor** node as the ultrasonic part, with the same **Distance**
+(millimetres) and **Connected** outputs. Unlike the other I2C parts it needs a library, the
+Pololu VL53L0X library, which Studio installs the first time you compile a sketch that
+uses it. A reading of 8190 mm or more means nothing is in range, and Distance holds its last
+good value. If the sensor is unplugged, Connected goes false and Studio looks for it again
+once a second; each look can stall the animation briefly. Accuracy is 3 to 12% depending on
+the target and the light, and dark or very reflective surfaces read worst. It is experimental
+until a physical comparison is recorded in the support matrix.
+
 ### Connect by Ethernet
 
 Art-Net input and NTP clock sync normally use Wi-Fi. For a cable instead, choose
