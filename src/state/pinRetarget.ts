@@ -247,6 +247,15 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
         : null
     },
   },
+  TouchPadInput: {
+    keys: ['sdaPin', 'sclPin'],
+    fromProfile: (profile) => {
+      const defaults = boardI2cDefault(profile?.id)
+      return defaults
+        ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
+        : null
+    },
+  },
   MotionVectorInput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {

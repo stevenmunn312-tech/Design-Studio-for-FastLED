@@ -205,6 +205,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  TouchPadInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-mpr121-touch-sensor',
+        label: 'Adafruit MPR121 breakout',
+        summary: 'Twelve capacitive-touch electrodes over I2C',
+        note: 'Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed.',
+      },
+    ],
+  },
   KeypadInput: {
     property: 'partId',
     options: [

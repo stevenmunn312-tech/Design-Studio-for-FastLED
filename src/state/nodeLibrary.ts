@@ -86,6 +86,7 @@ import { DS18B20_PART_ID } from './temperatureSensor'
 import { HCSR04_PART_ID } from './distanceSensor'
 import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './joystick'
 import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from './keypad'
+import { MPR121_PART_ID, formatTouchPadAddress, touchPadAddressOptions, touchPadSpec } from './touchPad'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddressOptions, motionVectorSpec } from './motionVector'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
@@ -4177,6 +4178,30 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // A twelve-electrode capacitive-touch controller. Twelve boolean ports would make a
+    // node taller than the canvas is wide, so it publishes the lowest electrode touched
+    // as an index (0 to 11, held after release), how many are down and whether any is.
+    // Compare or Map Range turns the index into a scene, a preset or a level.
+    type: 'TouchPadInput',
+    label: 'Touch Pad',
+    category: 'input',
+    inputs: [],
+    outputs: [
+      { id: 'electrode', label: 'Electrode (0-11)', dataType: 'float' },
+      { id: 'touched', label: 'Touched', dataType: 'bool' },
+      { id: 'count', label: 'Count', dataType: 'float' },
+      { id: 'connected', label: 'Connected', dataType: 'bool' },
+    ],
+    defaultProperties: {
+      partId: MPR121_PART_ID,
+      sdaPin: 21,
+      sclPin: 22,
+      i2cAddress: formatTouchPadAddress(touchPadSpec(MPR121_PART_ID).defaultI2cAddress),
+      touchThreshold: touchPadSpec(MPR121_PART_ID).touchThreshold,
+      releaseThreshold: touchPadSpec(MPR121_PART_ID).releaseThreshold,
+    },
+  },
+  {
     // A 4x4 matrix keypad on eight GPIOs. Sixteen boolean ports would make a node
     // taller than the canvas is wide, so it publishes the last key pressed as an
     // index (0 to 15, row by row) and whether any key is down. That is what a
@@ -4862,6 +4887,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   DistanceInput: 'Measures distance in millimetres with an HC-SR04 ultrasonic sensor.',
   JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
   KeypadInput: 'Reads a 4x4 matrix keypad as the last key pressed and a pressed flag.',
+  TouchPadInput: 'Reads twelve capacitive-touch electrodes from an MPR121.',
   MotionVectorInput: 'Reads acceleration and rotation on three axes from an MPU-6050.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',
   EncoderInput: 'Reads a rotary encoder — running position plus its push-button.',
@@ -5951,6 +5977,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  TouchPadInput: {
+    i2cAddress: { control: 'select', options: touchPadAddressOptions(MPR121_PART_ID) },
+    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    touchThreshold: { control: 'slider', min: 1, max: 255, step: 1 },
+    releaseThreshold: { control: 'slider', min: 1, max: 255, step: 1 },
+  },
   KeypadInput: Object.fromEntries([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS].map((key) => [
     key, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 },
   ])),
@@ -6507,6 +6540,13 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sdaPin: 'I2C data pin wired to the breakout SDA pad and shared with every other I2C part.',
     sclPin: 'I2C clock pin wired to the breakout SCL pad and shared with every other I2C part.',
   },
+  TouchPadInput: {
+    i2cAddress: 'The MPR121 address, chosen by tying ADDR: GND (or left open) gives 0x5A, 3V 0x5B, SDA 0x5C and SCL 0x5D.',
+    sdaPin: 'I2C data pin wired to the breakout SDA pad and shared with every other I2C part.',
+    sclPin: 'I2C clock pin wired to the breakout SCL pad and shared with every other I2C part.',
+    touchThreshold: 'How far an electrode must fall below its baseline to count as touched. Lower is more sensitive; raise it if a pad triggers by itself.',
+    releaseThreshold: 'How far an electrode must recover before it counts as released. Keep it below the touch threshold so a touch does not flicker.',
+  },
   KeypadInput: {
     row1Pin: 'The GPIO wired to R1, the first row line. Rows use the internal pull-up, so avoid GPIO 34 to 39.',
     row2Pin: 'The GPIO wired to R2. Rows use the internal pull-up, so avoid GPIO 34 to 39.',
@@ -6928,7 +6968,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
-  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
+  'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter',
 ])
@@ -7223,6 +7263,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
+  TouchPadInput: new Set(['sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
@@ -7266,7 +7307,7 @@ export function gpioRequirementForProperty(
   if (!isGpioPinProperty(nodeType, key)) return null
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
-    || nodeType === 'MotionVectorInput'
+    || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')) return null
   if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
   // A receiver module drives the line both ways through its own open-collector

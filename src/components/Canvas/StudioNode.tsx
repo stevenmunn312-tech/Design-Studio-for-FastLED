@@ -1037,6 +1037,10 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     text: 'preview axes come from the sliders; firmware reads the MPU-6050',
     title: 'The browser has no motion sensor, so six sliders stand in for acceleration (g) and rotation rate (degrees per second), starting with the board lying flat, and Connected is always true. Generated firmware reads all six from the MPU-6050 over I2C in one burst; Connected goes false when it stops answering.',
   },
+  TouchPadInput: {
+    text: 'preview electrodes are the pads on the node; firmware reads the MPR121',
+    title: 'The browser has no touch controller, so the twelve pads stand in for the electrodes and Connected is always true. Electrode holds the lowest one touched, as an index from 0 to 11, and keeps it after release; Touched is true while any pad is down and Count is how many. Generated firmware reads the touch status from the MPR121 over I2C; Connected goes false when it stops answering.',
+  },
   KeypadInput: {
     text: 'preview keys are the buttons on the node; firmware scans the matrix',
     title: 'The browser has no keypad, so the sixteen buttons stand in for the keys. Key holds the last one pressed, as an index from 0 to 15 row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and Pressed is true while any key is down. Generated firmware drives each column low in turn and reads the rows through their pull-ups.',
@@ -1436,7 +1440,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
   const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput' || d.nodeType === 'JoystickInput' || d.nodeType === 'MotionVectorInput' || d.nodeType === 'KeypadInput'
+    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput' || d.nodeType === 'JoystickInput' || d.nodeType === 'MotionVectorInput' || d.nodeType === 'KeypadInput' || d.nodeType === 'TouchPadInput'
     || d.nodeType === 'PresenceInput'
   /*
    * A thumbnail of the part this node is, in the preview slot.

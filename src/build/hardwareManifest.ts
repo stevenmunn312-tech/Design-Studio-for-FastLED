@@ -58,6 +58,9 @@ import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from '../state/keypa
 import {
   MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddress, motionVectorSpec,
 } from '../state/motionVector'
+import {
+  MPR121_PART_ID, formatTouchPadAddress, touchPadAddress, touchPadElectrodeCount,
+} from '../state/touchPad'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
 import {
@@ -107,7 +110,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -150,6 +153,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'JoystickInput',
   'KeypadInput',
   'MotionVectorInput',
+  'TouchPadInput',
   'IRRemoteInput',
   'PowerMonitorInput',
   'RelayOutput',
@@ -397,6 +401,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} DATA pin`, 'pin', props.pin)
         break
       case 'MotionVectorInput':
+      case 'TouchPadInput':
         pushI2c(node, baseLabel, props)
         break
       case 'KeypadInput':
@@ -975,6 +980,29 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatMotionVectorAddress(address),
             accelRange: `±${spec.accelRangeG} g`,
             gyroRange: `±${spec.gyroRangeDps} °/s`,
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
+        }
+      }
+      case 'TouchPadInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? MPR121_PART_ID)
+        const entry = partById(partId)
+        const address = touchPadAddress(props)
+        const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
+          && pins.some((pin) => pin.propertyKey === 'sclPin')
+        const reasons = [
+          ...(wired ? [] : [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this touch controller.`]),
+          ...(address === null ? [`${String(props.i2cAddress)} is not an address this MPR121 can select.`] : []),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'touch-pad-input', entry?.label ?? 'Adafruit MPR121 touch sensor', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && address !== null,
+          facts: {
+            partId,
+            i2cAddress: address === null ? String(props.i2cAddress ?? '') : formatTouchPadAddress(address),
+            electrodes: String(touchPadElectrodeCount(partId)),
           },
           reasons: reasons.length > 0 ? reasons : undefined,
         }

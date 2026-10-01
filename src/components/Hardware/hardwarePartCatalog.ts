@@ -568,6 +568,21 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'gy-521-mpu6050-module' },
   },
   {
+    nodeType: 'TouchPadInput',
+    partId: 'touch-pad',
+    label: 'Adafruit MPR121 12-key touch sensor',
+    hint: 'Twelve touch electrodes on the board I2C bus',
+    footprint: partDimensionsMm('adafruit-mpr121-touch-sensor', { width: 33, height: 19 }),
+    signalPort: 'electrode',
+    dataType: 'float',
+    pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
+    properties: { partId: 'adafruit-mpr121-touch-sensor' },
+  },
+  {
     nodeType: 'KeypadInput',
     partId: 'keypad',
     label: '4x4 matrix keypad',

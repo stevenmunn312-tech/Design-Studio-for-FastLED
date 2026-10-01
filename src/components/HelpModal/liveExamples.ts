@@ -1625,6 +1625,24 @@ const ENVIRONMENT_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cool to warm and watch the amber LEDs brighten. Humidity and pressure remain available for thresholds, displays or other mappings.',
 )
 
+const TOUCH_PAD_INPUT_LIVE_EXAMPLE = namedExample(
+  'TouchPadInput',
+  'Touch a pad to pick the brightness',
+  [
+    { key: 'pad', type: 'TouchPadInput', properties: { partId: 'adafruit-mpr121-touch-sensor', sdaPin: 21, sclPin: 22, i2cAddress: '0x5A', touchThreshold: 12, releaseThreshold: 6 } },
+    { key: 'map', type: 'MapRange', properties: { inMin: 0, inMax: 11, outMin: 0.05, outMax: 1 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 90, g: 200, b: 255 } },
+    { key: 'fade', type: 'Fade' },
+  ],
+  [
+    { source: 'pad', sourceHandle: 'electrode', target: 'map', targetHandle: 'value' },
+    { source: 'color', sourceHandle: 'frame', target: 'fade', targetHandle: 'frame' },
+    { source: 'map', sourceHandle: 'result', target: 'fade', targetHandle: 'fade' },
+  ],
+  'Touch Pad reads an MPR121 with twelve capacitive-touch electrodes. Electrode is the lowest one touched as an index from 0 to 11 and it stays at that value after release; Touched is true while any pad is down and Count is how many are. Map Range turns the index into a control, here 0 to 11 onto 0.05 to 1 for a fade.',
+  'Click pads on the node: pad 0 is dim and pad 11 is full. The Build Diagram shows Vin, GND, SCL and SDA from the controller; leave IRQ unconnected, and tie ADDR to GND for the default address 0x5A.',
+)
+
 const KEYPAD_INPUT_LIVE_EXAMPLE = namedExample(
   'KeypadInput',
   'Pick a brightness with a key',
@@ -1910,6 +1928,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   JoystickInput: JOYSTICK_INPUT_LIVE_EXAMPLE,
   MotionVectorInput: MOTION_VECTOR_INPUT_LIVE_EXAMPLE,
   KeypadInput: KEYPAD_INPUT_LIVE_EXAMPLE,
+  TouchPadInput: TOUCH_PAD_INPUT_LIVE_EXAMPLE,
   MasterSpeed: MASTER_SPEED_LIVE_EXAMPLE,
   SliceTiling: SLICE_TILING_LIVE_EXAMPLE,
   FrameWarp: FRAME_WARP_LIVE_EXAMPLE,

@@ -20,6 +20,7 @@ import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadLastKey } from '../../state/ke
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
 } from '../../state/motionVector'
+import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/touchPad'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
@@ -348,6 +349,23 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         pot.get(motionVectorPreviewKey(id, axis)) ?? motionVectorPreviewDefault(props.partId, axis)),
     ]))
     return { ...readings, connected: true }
+  },
+  // No touch controller in the browser: the node body's twelve pads stand in for the
+  // electrodes. The lowest pad held is the electrode, and it is kept after release the
+  // way the firmware keeps it.
+  TouchPadInput(_c, id, props) {
+    const state = useHardwareInputStore.getState()
+    let count = 0
+    let lowest = -1
+    for (let electrode = 0; electrode < touchPadElectrodeCount(props.partId); electrode += 1) {
+      if (!state.button.get(touchPadButtonKey(id, electrode))) continue
+      count += 1
+      if (lowest < 0) lowest = electrode
+    }
+    return {
+      electrode: lowest >= 0 ? lowest : state.pot.get(touchPadLastElectrode(id)) ?? 0,
+      touched: count > 0, count, connected: true,
+    }
   },
   // No keypad in the browser: the node body's sixteen buttons stand in for the
   // keys, and the last one pressed is held the way the firmware holds it.

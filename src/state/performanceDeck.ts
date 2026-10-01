@@ -144,6 +144,7 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
+  TouchPadInput: new Set(['sdaPin', 'sclPin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
 }
 

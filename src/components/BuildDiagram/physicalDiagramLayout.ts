@@ -367,6 +367,9 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // VCC, GND, SCL, SDA, XDA, XCL, AD0, INT along the bottom edge. Computed from
   // the model's own coordinates (18.095 px/mm, 10 px margin, header at y = 2 mm,
   // 2.54 mm pitch centred on the board). Only SDA and SCL carry the I2C bus.
+  // Vin, 3Vo, GND, SCL, SDA, IRQ, ADDR along the bottom edge. Computed from the model's own
+  // coordinates (12 px/mm, 10 px margin, header at y = 2.54 mm, 2.54 mm pitch centred on the board).
+  'adafruit-mpr121-touch-sensor': padRow([116.6, 147.1, 177.6, 208, 238.4, 268.9, 299.4], 416, 207.5, 248),
   'gy-521-mpu6050-module': padRow([39.1, 85.1, 131.1, 177, 222.9, 268.9, 314.9, 360.9], 400, 263.3, 310),
   // 3V3, GND, OUT, VIN, CDS along the bottom edge. Computed from the model's own
   // coordinates (12 px/mm, 10 px margin, header at y = 2.2 mm, 2.54 mm pitch centred
@@ -714,6 +717,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'joystick-input': [['VRX'], ['VRY'], ['SW']],
   'keypad-input': [['R1'], ['R2'], ['R3'], ['R4'], ['C1'], ['C2'], ['C3'], ['C4']],
   'motion-vector-input': [['SDA'], ['SCL']],
+  'touch-pad-input': [['SDA'], ['SCL']],
   // The board's RX reads the sensor's TX pad.
   'presence-input': [['TX']],
   // The manifest pushes TX, RX, enable: TX drives the transceiver's DI, RX
@@ -773,6 +777,8 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // The GY-521's I2C pull-ups follow VCC, so a 5 V supply would hold the controller's SDA and
   // SCL at 5 V; the logic rail keeps the bus inside the controller's level.
   if (item.kind === 'motion-vector-input') return 'v3v3'
+  // The MPR121 runs its own 3.3 V regulator, and the bus stays at that level from a 3.3 V supply.
+  if (item.kind === 'touch-pad-input') return 'v3v3'
   // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
   // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
@@ -851,6 +857,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'matrix-keypad-4x4': 6,
   'rcwl-0516-microwave-motion-module': 6,
   'gy-521-mpu6050-module': 9,
+  'adafruit-mpr121-touch-sensor': 6,
   'max485-rs485-module': 11.9,
   'wiz850io-ethernet-module': 6.2,
   'hlk-ld2410c-presence-sensor': 7.2,

@@ -14,6 +14,7 @@ import {
 } from '../../state/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
 import { KEYPAD_LEGENDS, keypadButtonKey, keypadLastKey } from '../../state/keypad'
+import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/touchPad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
 } from '../../state/motionVector'
@@ -202,6 +203,45 @@ function KeypadInputWidget({ nodeId }: { nodeId: string }) {
   )
 }
 
+function TouchPadInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const buttons = useHardwareInputStore((s) => s.button)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  const setPot = useHardwareInputStore((s) => s.setPot)
+  const count = touchPadElectrodeCount(partId)
+  const release = (electrode: number) => setButton(touchPadButtonKey(nodeId, electrode), false)
+  return (
+    <div className={`nodrag ${styles.keypad}`}>
+      {Array.from({ length: count }, (_, electrode) => {
+        const down = buttons.get(touchPadButtonKey(nodeId, electrode)) ?? false
+        return (
+          <button
+            key={electrode}
+            type="button"
+            aria-label={`Electrode ${electrode}`}
+            aria-pressed={down}
+            className={`${styles.keypadKey} ${down ? styles.buttonPressed : ''}`}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              // The firmware reports the lowest electrode held, so a higher pad never takes over from a lower one.
+              let lowest = electrode
+              for (let other = 0; other < electrode; other += 1) {
+                if (useHardwareInputStore.getState().button.get(touchPadButtonKey(nodeId, other))) { lowest = other; break }
+              }
+              setPot(touchPadLastElectrode(nodeId), lowest)
+              setButton(touchPadButtonKey(nodeId, electrode), true)
+            }}
+            onPointerUp={() => release(electrode)}
+            onPointerCancel={() => release(electrode)}
+            onPointerLeave={() => release(electrode)}
+          >
+            {electrode}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: unknown }) {
   const axis = (which: 'x' | 'y') => (
     <PotInputWidget
@@ -285,6 +325,7 @@ export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = fal
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'MotionVectorInput') return <MotionVectorInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'KeypadInput') return <KeypadInputWidget nodeId={nodeId} />
+  if (nodeType === 'TouchPadInput') return <TouchPadInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'JoystickInput') return <JoystickInputWidget nodeId={nodeId} deadzone={deadzone} />
   if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />

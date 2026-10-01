@@ -92,6 +92,7 @@ import {
   environmentAddress, environmentAddressOptions, formatEnvironmentAddress,
 } from '../state/environmentSensor'
 import { motionVectorAddress, motionVectorAddressOptions } from '../state/motionVector'
+import { touchPadAddress, touchPadAddressOptions } from '../state/touchPad'
 import {
   NLED_PIXEL_DATA_LINK,
   pixelDataExtenderSupports,
@@ -2358,6 +2359,18 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       title: 'Accel & Gyro address is not one its AD0 strap can select',
       message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this MPU-6050 answers only on ${motionVectorAddressOptions(props.partId).join(', ')}.`,
       fix: 'Choose 0x68 with AD0 low, or 0x69 with AD0 tied high.',
+      nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  for (const sensor of nodes.filter((node) => node.data.nodeType === 'TouchPadInput')) {
+    const props = sensor.data.properties as Record<string, unknown>
+    if (touchPadAddress(props) !== null) continue
+    issues.push({
+      id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
+      title: 'Touch Pad address is not one its ADDR strap can select',
+      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this MPR121 answers only on ${touchPadAddressOptions(props.partId).join(', ')}.`,
+      fix: 'Choose 0x5A with ADDR on GND, 0x5B on 3V, 0x5C on SDA or 0x5D on SCL.',
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
     })
   }

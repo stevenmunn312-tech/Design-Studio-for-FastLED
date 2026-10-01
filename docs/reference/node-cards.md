@@ -96,6 +96,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Accel & Gyro example graph](../../public/node-cards/graphs/motion-vector-input.svg)
 
+### Touch Pad
+
+![Touch Pad node](../../public/node-cards/touch-pad-input.svg)
+
+![Touch Pad example graph](../../public/node-cards/graphs/touch-pad-input.svg)
+
 ### Keypad
 
 ![Keypad node](../../public/node-cards/keypad-input.svg)

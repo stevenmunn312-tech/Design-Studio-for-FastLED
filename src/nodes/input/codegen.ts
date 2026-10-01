@@ -8,6 +8,7 @@ import { distanceSensorLoopCpp } from '../../codegen/distanceSensorCpp'
 import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/joystickCpp'
 import { keypadLoopCpp, keypadSetupCpp } from '../../codegen/keypadCpp'
 import { motionVectorLoopCpp } from '../../codegen/motionVectorCpp'
+import { touchPadLoopCpp } from '../../codegen/touchPadCpp'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
@@ -50,6 +51,9 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   MotionVectorInput({ id, p, ln, v }) {
     for (const line of motionVectorLoopCpp(p, id, v)) ln(line)
+  },
+  TouchPadInput({ id, p, ln, v }) {
+    for (const line of touchPadLoopCpp(p, id, v)) ln(line)
   },
   KeypadInput({ id, p, ln, v, pinSetupLines }) {
     for (const line of keypadSetupCpp(p)) pinSetupLines.add(line)

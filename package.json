@@ -28,6 +28,7 @@
     "gen:joystick-compile-fixtures": "node scripts/generate-joystick-compile-fixtures.mjs",
     "gen:motion-compile-fixtures": "node scripts/generate-motion-compile-fixtures.mjs",
     "gen:keypad-compile-fixtures": "node scripts/generate-keypad-compile-fixtures.mjs",
+    "gen:touchpad-compile-fixtures": "node scripts/generate-touchpad-compile-fixtures.mjs",
     "gen:touch-button-compile-fixtures": "node scripts/generate-touch-button-compile-fixtures.mjs",
     "gen:power-switch-compile-fixtures": "node scripts/generate-power-switch-compile-fixtures.mjs",
     "gen:pattern-node-compile-fixture": "node scripts/generate-pattern-node-compile-fixture.mjs",

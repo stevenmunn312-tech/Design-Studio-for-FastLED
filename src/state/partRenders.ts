@@ -74,6 +74,10 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'GY-521 MPU-6050 accelerometer and gyroscope',
     src: partRenderSrc('gy-521-mpu6050-module') ?? '',
   },
+  TouchPadInput: {
+    label: 'Adafruit MPR121 12-key touch sensor',
+    src: partRenderSrc('adafruit-mpr121-touch-sensor') ?? '',
+  },
   KeypadInput: {
     label: '4x4 matrix keypad',
     src: partRenderSrc('matrix-keypad-4x4') ?? '',
