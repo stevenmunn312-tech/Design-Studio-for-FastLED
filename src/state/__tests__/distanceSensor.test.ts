@@ -13,9 +13,9 @@ import { partById } from '../partCatalogue'
 import { PART_OPTIONS } from '../partOptions'
 import {
   distanceSensorAddress, distanceSensorAddressOptions, distancePreviewDefault, distancePreviewReading,
-  distanceSensorPinKeys, distanceSensorSpec, distanceSensorTransport, HCSR04_PART_ID, VL53L0X_PART_ID,
+  distanceSensorPinKeys, distanceSensorSpec, distanceSensorTransport, HCSR04_PART_ID, VL53L0X_PART_ID, VL53L1X_PART_ID,
 } from '../distanceSensor'
-import { VL53L0X_VERSION } from '../../codegen/distanceSensorCpp'
+import { VL53L0X_VERSION, VL53L1X_VERSION } from '../../codegen/distanceSensorCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -54,7 +54,7 @@ describe('the catalogued HC-SR04', () => {
     expect(distanceSensorSpec(HCSR04_PART_ID)).toMatchObject({
       device: 'HC-SR04', minMm: 20, maxMm: 4000, triggerPulseUs: 10, echoVolts: 5,
     })
-    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID])
+    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID, VL53L1X_PART_ID])
     expect(partById(HCSR04_PART_ID)?.pinLabelsLeftToRight).toEqual(['VCC', 'Trig', 'Echo', 'GND'])
   })
 
@@ -151,7 +151,7 @@ describe('the catalogued VL53L0X', () => {
     expect(distanceSensorAddress({ ...props, i2cAddress: '0x29' })).toBe(0x29)
     expect(distanceSensorAddress({ ...props, i2cAddress: '0x30' })).toBeNull()
     expect(distanceSensorAddress({})).toBeNull()
-    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID])
+    expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID, VL53L1X_PART_ID])
     expect(partById(VL53L0X_PART_ID)?.pinLabelsLeftToRight).toEqual(['VIN', '2v8', 'GND', 'GPIO', 'SHDN', 'SCL', 'SDA'])
   })
 
@@ -210,6 +210,74 @@ describe('the catalogued VL53L0X', () => {
     const pads = partById(VL53L0X_PART_ID)!.pinLabelsLeftToRight!
     expect(item).toMatchObject({
       kind: 'distance-input', supported: true, facts: { transport: 'i2c', i2cAddress: '0x29', distanceRange: '3 to 120 cm' },
+    })
+    expect(peripheralPowerNet(item)).toBe('v3v3')
+    expect(pads[peripheralPowerPadIndex(item)!]).toBe('VIN')
+    expect(pads[peripheralGroundPadIndex(item)]).toBe('GND')
+    expect(pads[peripheralSignalPadIndex(item, 0)]).toBe('SDA')
+    expect(pads[peripheralSignalPadIndex(item, 1)]).toBe('SCL')
+    expect(receiveDivider({ x: 0, y: 0, item } as unknown as Parameters<typeof receiveDivider>[0])).toBeNull()
+  })
+})
+
+describe('the catalogued VL53L1X', () => {
+  const props = { partId: VL53L1X_PART_ID, sdaPin: 21, sclPin: 22 }
+
+  it('is an I2C module on 0x29 reaching 4 m, and orders the pads VIN to GPIO', () => {
+    expect(distanceSensorSpec(VL53L1X_PART_ID)).toMatchObject({
+      device: 'VL53L1X', interface: 'I2C', minMm: 30, maxMm: 4000, i2cAddresses: [0x29], defaultI2cAddress: 0x29,
+    })
+    expect(distanceSensorTransport(VL53L1X_PART_ID)).toBe('i2c')
+    expect(distanceSensorAddress({ ...props, i2cAddress: '0x29' })).toBe(0x29)
+    expect(distancePreviewReading(VL53L1X_PART_ID, 1)).toBe(4000)
+    expect(partById(VL53L1X_PART_ID)?.pinLabelsLeftToRight).toEqual(['VIN', 'GND', 'SDA', 'SCL', 'XSHUT', 'GPIO'])
+  })
+
+  it('includes the pinned Pololu VL53L1X library, never the VL53L0X one, and reads without blocking', () => {
+    const { nodes, edges } = rangerGraph(props)
+    const sketch = generateCpp(nodes, edges)
+    expect(VL53L1X_VERSION).toBe('1.3.1')
+    expect(sketch).toContain('#include <Wire.h>')
+    expect(sketch).toContain('#include <VL53L1X.h>')
+    expect(sketch).not.toContain('VL53L0X')
+    expect(sketch.match(/Wire\.begin\(/g)).toHaveLength(1)
+    expect(sketch).toContain('static VL53L1X _vl_ranger;')
+    expect(sketch).toContain('_vl_ranger.init()')
+    expect(sketch).toContain('setDistanceMode(VL53L1X::Long)')
+    expect(sketch).toContain('startContinuous(50)')
+    expect(sketch).toContain('_vl_ranger.dataReady()')
+    expect(sketch).toContain('_vl_ranger.read(false)')
+    expect(sketch).toContain('range_status == VL53L1X::RangeValid')
+    expect(sketch).toContain('float n_ranger_distance = _vlMm_ranger;')
+    expect(sketch).toContain('bool n_ranger_connected = _vlOk_ranger;')
+    expect(sketch).not.toContain('_sr04Measure')
+  })
+
+  it('keeps each laser library out of the other sensor\'s sketch', () => {
+    const l0 = rangerGraph({ partId: VL53L0X_PART_ID, sdaPin: 21, sclPin: 22 })
+    expect(generateCpp(l0.nodes, l0.edges)).not.toContain('VL53L1X')
+  })
+
+  it('is available to the shared show/player control compiler with the library include', () => {
+    const sensor = node('ranger', 'DistanceInput', props)
+    const map = node('map', 'MapRange', { inMin: 0, inMax: 4000, outMin: 0, outMax: 1 })
+    const graph = createControlGraph([sensor, map], [edge('distance', 'ranger', 'distance', 'map', 'value')])
+    expect(graph.resolve('map', 'result', 'float')).not.toBeNull()
+    const emitted = controlGraphCpp(graph)
+    expect(emitted.includes).toContain('#include <VL53L1X.h>')
+    expect(emitted.includes).toContain('#include <Wire.h>')
+    expect(emitted.includes).not.toContain('#include <VL53L0X.h>')
+    expect(emitted.loop.join('\n')).toContain('_vl_ranger.dataReady()')
+  })
+
+  it('draws VIN from 3.3 V, GND, SDA and SCL, with no echo divider, and names its chip in a bad-address error', () => {
+    const ranger = node('ranger', 'DistanceInput', props)
+    expect(findDeployBlockingErrors([node('bad', 'DistanceInput', { ...props, i2cAddress: '0x30' })], [], 'esp32:esp32:esp32').join('\n'))
+      .toContain('VL53L1X')
+    const [item] = buildHardwareManifest([ranger], [], 'esp32:esp32:esp32').primaryItems
+    const pads = partById(VL53L1X_PART_ID)!.pinLabelsLeftToRight!
+    expect(item).toMatchObject({
+      kind: 'distance-input', supported: true, facts: { transport: 'i2c', i2cAddress: '0x29', distanceRange: '3 to 400 cm' },
     })
     expect(peripheralPowerNet(item)).toBe('v3v3')
     expect(pads[peripheralPowerPadIndex(item)!]).toBe('VIN')

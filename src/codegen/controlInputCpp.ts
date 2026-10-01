@@ -13,7 +13,7 @@ import { MOTION_VECTOR_HELPER_CPP, motionVectorLoopCpp, motionVectorSetupCpp } f
 import { TOUCH_PAD_HELPER_CPP, touchPadLoopCpp, touchPadSetupCpp } from './touchPadCpp'
 import { KEYPAD_HELPER_CPP, keypadLoopCpp, keypadSetupCpp } from './keypadCpp'
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './joystickCpp'
-import { DISTANCE_SENSOR_HELPER_CPP, VL53L0X_INCLUDES, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
+import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorIncludes, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
 import { distanceSensorTransport } from '../state/distanceSensor'
 
 export interface ControlInputEmission {
@@ -181,7 +181,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     ...(nodeType === 'JoystickInput' ? { helpers: [JOYSTICK_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'DistanceInput'
       ? (distanceSensorTransport(p.partId) === 'i2c'
-        ? { includes: [...VL53L0X_INCLUDES] }
+        ? { includes: distanceSensorIncludes(p.partId) }
         : { helpers: [DISTANCE_SENSOR_HELPER_CPP.join('\n')] })
       : {}),
     ...(ir ? { ir } : {}),

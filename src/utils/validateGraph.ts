@@ -44,7 +44,7 @@ import type { DisplayDocumentRegistry } from '../state/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/wireFirstControls'
 import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/powerMonitor'
 import { pwmDriverAddress } from '../state/pwmDriver'
-import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorTransport } from '../state/distanceSensor'
+import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport } from '../state/distanceSensor'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
@@ -2334,9 +2334,9 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
     if (distanceSensorTransport(props.partId) !== 'i2c' || distanceSensorAddress(props) !== null) continue
     issues.push({
       id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
-      title: 'Distance sensor address is not one this VL53L0X answers on',
-      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this VL53L0X answers only on ${distanceSensorAddressOptions(props.partId).join(', ')}.`,
-      fix: 'Choose 0x29. The VL53L0X has no address jumper.',
+      title: 'Distance sensor address is not one this sensor answers on',
+      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this ${distanceSensorSpec(props.partId).device} answers only on ${distanceSensorAddressOptions(props.partId).join(', ')}.`,
+      fix: 'Choose 0x29. The sensor has no address jumper.',
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
     })
   }

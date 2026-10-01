@@ -268,6 +268,10 @@ _IRREMOTE_INCLUDE = "#include <IRremote.hpp>"
 _FBUILD_VL53L0X_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "VL53L0X"
 _VL53L0X_VERSION = "1.3.1"
 _VL53L0X_INCLUDE = "#include <VL53L0X.h>"
+# Pololu VL53L1X driver, pinned for the same reason as the VL53L0X.
+_FBUILD_VL53L1X_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "VL53L1X"
+_VL53L1X_VERSION = "1.3.1"
+_VL53L1X_INCLUDE = "#include <VL53L1X.h>"
 _FBUILD_LV_CONF_PATH = _FBUILD_LVGL_LIB_DIR.parent / "lv_conf.h"
 _FBUILD_OPTIONAL_LIB_STASH_DIR = _FBUILD_PROJECT_DIR / ".optional-libs"
 
@@ -412,6 +416,7 @@ _FBUILD_OPTIONAL_LIBRARIES = (
     (_FBUILD_LVGL_LIB_DIR, (_LVGL_INCLUDE_MARKER,)),
     (_FBUILD_IRREMOTE_LIB_DIR, (_IRREMOTE_INCLUDE,)),
     (_FBUILD_VL53L0X_LIB_DIR, (_VL53L0X_INCLUDE,)),
+    (_FBUILD_VL53L1X_LIB_DIR, (_VL53L1X_INCLUDE,)),
 )
 
 
@@ -1466,6 +1471,54 @@ def _ensure_arduino_vl53l0x_lib():
     return 0
 
 
+def _vl53l1x_checkout_matches_pin(path: Path) -> bool:
+    """True only for a complete checkout of the pinned Pololu VL53L1X release."""
+    try:
+        versions = {
+            line.partition("=")[2].strip()
+            for line in (path / "library.properties").read_text(encoding="utf-8").splitlines()
+            if line.startswith("version=")
+        }
+    except (OSError, UnicodeDecodeError):
+        return False
+    return (path / "VL53L1X.h").is_file() and versions == {_VL53L1X_VERSION}
+
+
+def _ensure_fbuild_vl53l1x_lib():
+    """Vendor the pinned Pololu VL53L1X release the first time a sketch includes it."""
+    if _vl53l1x_checkout_matches_pin(_FBUILD_VL53L1X_LIB_DIR):
+        return
+    yield f"\n=== vendoring Pololu VL53L1X {_VL53L1X_VERSION} (first VL53L1X build only) ===\n"
+    _FBUILD_VL53L1X_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
+    if _FBUILD_VL53L1X_LIB_DIR.exists():
+        _remove_build_cache_tree(_FBUILD_VL53L1X_LIB_DIR)
+    rc = yield from _run_phase(
+        "vendor Pololu VL53L1X",
+        ["git", "clone", "--progress", "--branch", _VL53L1X_VERSION, "--depth", "1",
+         "https://github.com/pololu/vl53l1x-arduino.git", str(_FBUILD_VL53L1X_LIB_DIR)],
+    )
+    if rc != 0 or not _vl53l1x_checkout_matches_pin(_FBUILD_VL53L1X_LIB_DIR):
+        yield (
+            f"[error] failed to vendor Pololu VL53L1X {_VL53L1X_VERSION}. "
+            "VL53L1X sketches need that exact release.\n"
+        )
+
+
+def _ensure_arduino_vl53l1x_lib():
+    """Ask arduino-cli for the same Pololu VL53L1X release fbuild vendors."""
+    rc = yield from _run_phase(
+        f"install Pololu VL53L1X {_VL53L1X_VERSION}",
+        _ARDUINO_BASE + ["lib", "install", f"VL53L1X@{_VL53L1X_VERSION}", "--no-deps"],
+    )
+    if rc != 0:
+        yield (
+            f"[error] failed to install Pololu VL53L1X {_VL53L1X_VERSION}. Check the network connection or run "
+            f"'arduino-cli lib install VL53L1X@{_VL53L1X_VERSION}' and try again.\n"
+        )
+        return rc
+    return 0
+
+
 _arduino_lvgl_lib_ready = False
 
 
@@ -1667,6 +1720,8 @@ def _sketch_workspace(name: str, ino: str):
     if _VL53L0X_INCLUDE in ino:
         # Same reason: a pin bump must change the sketch bytes arduino-cli hashes.
         ino = f"// FLS-VL53L0X: {_VL53L0X_VERSION}\n{ino}"
+    if _VL53L1X_INCLUDE in ino:
+        ino = f"// FLS-VL53L1X: {_VL53L1X_VERSION}\n{ino}"
     lock = _sketch_dir_lock(name)
     if lock.acquire(blocking=False):
         try:
@@ -2034,6 +2089,11 @@ def _compile_upload(
     uses_vl53l0x = any(_VL53L0X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
     if uses_vl53l0x:
         rc = yield from _ensure_arduino_vl53l0x_lib()
+        if rc != 0:
+            return rc, "compile"
+    uses_vl53l1x = any(_VL53L1X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_vl53l1x:
+        rc = yield from _ensure_arduino_vl53l1x_lib()
         if rc != 0:
             return rc, "compile"
     uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
@@ -2412,6 +2472,8 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
             yield from _ensure_fbuild_irremote_lib()
         if _VL53L0X_INCLUDE in ino:
             yield from _ensure_fbuild_vl53l0x_lib()
+        if _VL53L1X_INCLUDE in ino:
+            yield from _ensure_fbuild_vl53l1x_lib()
         env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"

@@ -4955,7 +4955,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
   EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
-  DistanceInput: 'Measures distance in mm with an HC-SR04 or a VL53L0X.',
+  DistanceInput: 'Measures distance in mm with an HC-SR04, VL53L0X or VL53L1X.',
   JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
   KeypadInput: 'Reads a 4x4 matrix keypad as the last key pressed and a pressed flag.',
   TouchPadInput: 'Reads twelve capacitive-touch electrodes from an MPR121.',
@@ -6677,9 +6677,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   DistanceInput: {
     trigPin: 'The GPIO wired to Trig. It sends a 10 microsecond pulse, so it must be able to output; a 3.3 V pulse is enough to trigger the module.',
     echoPin: 'The GPIO wired to Echo through the 1 kΩ and 2 kΩ divider the Build Diagram shows. Echo swings to 5 V, above what a 3.3 V controller pin tolerates.',
-    sdaPin: 'VL53L0X I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
-    sclPin: 'VL53L0X I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
-    i2cAddress: 'The VL53L0X answers only on 0x29, and no jumper changes it, so two of them on one bus need their SHDN pins driven separately.',
+    sdaPin: 'Laser sensor I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    sclPin: 'Laser sensor I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
+    i2cAddress: 'The VL53L0X and VL53L1X answer on 0x29, and no jumper changes it, so two of them on one bus need their SHDN or XSHUT pins driven separately.',
   },
   TemperatureInput: {
     pin: 'The GPIO wired to the probe’s yellow DATA wire. It needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram shows. Use one probe per pin.',

@@ -2,6 +2,7 @@ import { partById, type PartDistanceSensorSpec } from './partCatalogue'
 
 export const HCSR04_PART_ID = 'hc-sr04-ultrasonic-module'
 export const VL53L0X_PART_ID = 'adafruit-vl53l0x-distance-sensor'
+export const VL53L1X_PART_ID = 'adafruit-vl53l1x-distance-sensor'
 
 /** Series and shunt values of the divider that brings a 5 V Echo down to 3.3 V logic. */
 export const ECHO_DIVIDER_OHMS = { series: 1000, shunt: 2000 } as const
@@ -41,6 +42,11 @@ export type DistanceSensorTransport = 'pulse' | 'i2c'
 /** A pulse-ranging module wires Trig and Echo; a time-of-flight one is on the I2C bus. */
 export function distanceSensorTransport(partId: unknown): DistanceSensorTransport {
   return distanceSensorSpec(partId).interface === 'I2C' ? 'i2c' : 'pulse'
+}
+
+/** The chip a part carries, which decides the driver library an I2C sensor needs. */
+export function distanceSensorDevice(partId: unknown): string {
+  return distanceSensorSpec(partId).device
 }
 
 export function distanceSensorPinKeys(properties: Record<string, unknown>): string[] {

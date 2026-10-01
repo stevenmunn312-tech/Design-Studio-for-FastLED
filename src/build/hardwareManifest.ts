@@ -1156,7 +1156,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           const address = distanceSensorAddress(props)
           const i2cWired = pins.some((pin) => pin.propertyKey === 'sdaPin') && pins.some((pin) => pin.propertyKey === 'sclPin')
           return {
-            ...buildPeripheralItem(node, 'distance-input', entry?.label ?? 'VL53L0X laser distance sensor', pins),
+            ...buildPeripheralItem(node, 'distance-input', entry?.label ?? `${spec.device} laser distance sensor`, pins),
             title: entry?.label ?? nodeLabel(node),
             supported: i2cWired && address !== null,
             facts: {
@@ -1167,7 +1167,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             },
             reasons: !i2cWired
               ? [`${physicalBoard?.label ?? 'The selected board'} does not have complete SDA/SCL properties for this distance sensor.`]
-              : address === null ? [`${String(props.i2cAddress)} is not an address this VL53L0X answers on.`] : undefined,
+              : address === null ? [`${String(props.i2cAddress)} is not an address this ${spec.device} answers on.`] : undefined,
           }
         }
         const wired = pins.some((pin) => pin.propertyKey === 'trigPin')

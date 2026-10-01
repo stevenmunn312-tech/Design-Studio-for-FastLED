@@ -287,6 +287,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         summary: 'Laser time-of-flight, 3 cm to 1.2 m, over I2C',
         note: 'Power VIN from 3.3 V. It answers on 0x29 and joins the I2C bus; leave 2v8, GPIO and SHDN unconnected. The build needs the Pololu VL53L0X library, which Studio installs the first time.',
       },
+      {
+        id: 'adafruit-vl53l1x-distance-sensor',
+        label: 'Adafruit VL53L1X laser',
+        summary: 'Laser time-of-flight, 3 cm to 4 m, over I2C',
+        note: 'Power VIN from 3.3 V. It answers on 0x29 and joins the I2C bus; leave XSHUT and GPIO unconnected. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time.',
+      },
     ],
   },
   TemperatureInput: {

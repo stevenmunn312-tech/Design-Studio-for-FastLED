@@ -1,5 +1,5 @@
 import { sanitizePin } from './hardwarePins'
-import { distanceSensorSpec, distanceSensorTransport } from '../state/distanceSensor'
+import { distanceSensorDevice, distanceSensorSpec, distanceSensorTransport } from '../state/distanceSensor'
 
 /**
  * HC-SR04 ranging by pulse width. No library: raise Trig for the part's trigger
@@ -28,7 +28,7 @@ export const DISTANCE_SENSOR_HELPER_CPP: readonly string[] = [
 /** Trig is an output held low and Echo an input, set once in setup. */
 export function distanceSensorSetupCpp(props: Record<string, unknown>): string[] {
   if (distanceSensorTransport(props.partId) === 'i2c') {
-    return [`  Wire.begin(${sanitizePin(props.sdaPin, 21)}, ${sanitizePin(props.sclPin, 22)});  // VL53L0X I2C bus`]
+    return [`  Wire.begin(${sanitizePin(props.sdaPin, 21)}, ${sanitizePin(props.sclPin, 22)});  // VL53L0X / VL53L1X I2C bus`]
   }
   const trig = sanitizePin(props.trigPin, 27)
   const echo = sanitizePin(props.echoPin, 26)
@@ -45,7 +45,9 @@ export function distanceSensorLoopCpp(
   id: string,
   local: (port: 'distance' | 'connected') => string,
 ): string[] {
-  if (distanceSensorTransport(props.partId) === 'i2c') return vl53l0xLoopCpp(id, local)
+  if (distanceSensorTransport(props.partId) === 'i2c') {
+    return distanceSensorDevice(props.partId) === 'VL53L1X' ? vl53l1xLoopCpp(id, local) : vl53l0xLoopCpp(id, local)
+  }
   const trig = sanitizePin(props.trigPin, 27)
   const echo = sanitizePin(props.echoPin, 26)
   const spec = distanceSensorSpec(props.partId)
@@ -80,7 +82,17 @@ export function distanceSensorLoopCpp(
  * the distance holds its last good value rather than jumping.
  */
 export const VL53L0X_VERSION = '1.3.1'
-export const VL53L0X_INCLUDES: readonly string[] = ['#include <Wire.h>', '#include <VL53L0X.h>']
+export const VL53L1X_VERSION = '1.3.1'
+
+/** The library header a sensor's chip needs. */
+export function distanceSensorLibraryInclude(partId: unknown): string {
+  return distanceSensorDevice(partId) === 'VL53L1X' ? '#include <VL53L1X.h>' : '#include <VL53L0X.h>'
+}
+
+/** Wire and the chip's library, for the show and player compilers. */
+export function distanceSensorIncludes(partId: unknown): string[] {
+  return ['#include <Wire.h>', distanceSensorLibraryInclude(partId)]
+}
 
 function vl53l0xLoopCpp(id: string, local: (port: 'distance' | 'connected') => string): string[] {
   return [
@@ -98,6 +110,40 @@ function vl53l0xLoopCpp(id: string, local: (port: 'distance' | 'connected') => s
     `    if (_vl_${id}.timeoutOccurred()) { _vlReady_${id} = false; _vlOk_${id} = false; }`,
     `    else { _vlOk_${id} = true; if (_vlRaw_${id} < 8190) _vlMm_${id} = (float)_vlRaw_${id}; }`,
     '  }',
+    `  if (!_vlReady_${id}) _vlOk_${id} = false;`,
+    `  float ${local('distance')} = _vlMm_${id};`,
+    `  bool ${local('connected')} = _vlOk_${id};`,
+  ]
+}
+
+/*
+ * VL53L1X ranging through Pololu's VL53L1X library, pinned like the VL53L0X's.
+ * The chip is set to long distance mode with a 50 ms timing budget and read every
+ * 50 ms, which reaches about 4 m. Unlike the VL53L0X it is read without blocking:
+ * `dataReady` says a measurement is waiting, and a reading is accepted only when
+ * the library reports a valid range status, so a poor reflection holds the last good
+ * distance instead of publishing noise. The library's `init` checks the chip's model
+ * id, so an absent sensor fails at once with no stall; one that stops answering
+ * for a second is set up again. `connected` is false until the first measurement.
+ */
+function vl53l1xLoopCpp(id: string, local: (port: 'distance' | 'connected') => string): string[] {
+  return [
+    `  static VL53L1X _vl_${id}; static bool _vlReady_${id} = false, _vlTried_${id} = false, _vlOk_${id} = false;`,
+    `  static uint32_t _vlInit_${id} = 0, _vlSeen_${id} = 0; static float _vlMm_${id} = 0.0f;`,
+    `  if (!_vlReady_${id} && (!_vlTried_${id} || millis() - _vlInit_${id} >= 1000)) {`,
+    `    _vlTried_${id} = true; _vlInit_${id} = millis();`,
+    `    _vlReady_${id} = _vl_${id}.init();`,
+    `    if (_vlReady_${id}) {`,
+    `      _vl_${id}.setDistanceMode(VL53L1X::Long); _vl_${id}.setMeasurementTimingBudget(50000);`,
+    `      _vl_${id}.startContinuous(50); _vlSeen_${id} = millis();`,
+    '    }',
+    '  }',
+    `  if (_vlReady_${id} && _vl_${id}.dataReady()) {`,
+    `    uint16_t _vlRaw_${id} = _vl_${id}.read(false);`,
+    `    _vlSeen_${id} = millis(); _vlOk_${id} = true;`,
+    `    if (_vl_${id}.ranging_data.range_status == VL53L1X::RangeValid) _vlMm_${id} = (float)_vlRaw_${id};`,
+    '  }',
+    `  if (_vlReady_${id} && millis() - _vlSeen_${id} >= 1000) _vlReady_${id} = false;`,
     `  if (!_vlReady_${id}) _vlOk_${id} = false;`,
     `  float ${local('distance')} = _vlMm_${id};`,
     `  bool ${local('connected')} = _vlOk_${id};`,

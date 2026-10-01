@@ -350,6 +350,9 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // VIN, GND, SDA, SCL, XSHUT, GPIO along the bottom, from the drilled holes. XSHUT and GPIO are not
+  // needed, so only VIN, GND, SDA and SCL carry a wire.
+  'adafruit-vl53l1x-distance-sensor': padRow([104.8, 142.7, 180.6, 218.4, 256.3, 294.2], 400, 232.5, 281),
   // VIN, 2v8, GND, GPIO, SHDN, SCL, SDA along the bottom, from the drilled holes. 2v8 is the regulator
   // output and GPIO and SHDN are not needed, so only VIN, GND, SCL and SDA carry a wire.
   'adafruit-vl53l0x-distance-sensor': padRow([57, 104.5, 152, 199.5, 247, 294.5, 342], 400, 294.8, 353),
@@ -880,6 +883,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-pca9685-pwm-driver': 7,
   'uln2803a-dip18': 10,
   'adafruit-vl53l0x-distance-sensor': 9,
+  'adafruit-vl53l1x-distance-sensor': 7,
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,

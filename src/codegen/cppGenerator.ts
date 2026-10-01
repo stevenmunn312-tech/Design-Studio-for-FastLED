@@ -96,7 +96,7 @@ import { rtcI2cPinsForProfile } from '../state/rtcPins'
 import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
-import { DISTANCE_SENSOR_HELPER_CPP, VL53L0X_INCLUDES } from './distanceSensorCpp'
+import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLibraryInclude } from './distanceSensorCpp'
 import { JOYSTICK_HELPER_CPP } from './joystickCpp'
 import { KEYPAD_HELPER_CPP } from './keypadCpp'
 import { MOTION_VECTOR_HELPER_CPP } from './motionVectorCpp'
@@ -1230,7 +1230,7 @@ export function generateCpp(
   lines.push(...irEmission.includes)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))
   if (needsWireHeader) lines.push(`#include <Wire.h>`)
-  if (i2cDistanceSensors.length > 0) lines.push(VL53L0X_INCLUDES[1])
+  for (const include of new Set(i2cDistanceSensors.map((n) => distanceSensorLibraryInclude(props(n).partId)))) lines.push(include)
   // The colour panel is driven through the Arduino SPI library rather than
   // bit-banged: a 240x240 frame is 115 KB, which no software loop ships in
   // time. The OLED beside it needs no include for exactly the opposite reason.
