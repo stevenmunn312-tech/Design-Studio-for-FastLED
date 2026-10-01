@@ -2308,8 +2308,16 @@ export const useGraphStore = create<GraphState>()(
        * rather than duplicated. `pinRetarget` keeps those pins still from then
        * on — see `integratedPinsFor`.
        */
-      selectBoardProfile: (id, profileId) => set((s) => {
-        const rootNodes = rootGraphNodes(s)
+      selectBoardProfile: (boardId, profileId) => set((s) => {
+        let id = boardId
+        // A root graph with no Board node (a project that lost it) would make
+        // every pick here a silent no-op and leave the picker stuck on empty.
+        // The Board node is hidden bookkeeping, so restore it rather than refuse.
+        let rootNodes = rootGraphNodes(s)
+        if (!rootNodes.some((node) => node.data.nodeType === 'Board')) {
+          rootNodes = [...rootNodes, createRootBoardNode(profileId)]
+          id = ROOT_BOARD_NODE_ID
+        }
         const board = rootNodes.find((node) => node.id === id && node.data.nodeType === 'Board')
         if (!board) return s
 
