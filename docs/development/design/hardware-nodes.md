@@ -226,6 +226,18 @@ pad and SCL to SCK, leaves SDO and CS unwired in I2C mode, and powers VIN from
 3V3 so the bus stays in the controller logic domain. Normal, slideshow and
 player generators share the same emitter through `controlInputCpp`.
 
+`TouchPadInput` is an MPR121 twelve-electrode capacitive-touch controller on the board
+I2C bus. Twelve boolean ports would make the node taller than it is wide, so it publishes
+`electrode`, the lowest electrode touched as an index (0 to 11, held after release),
+`touched`, `count` and `connected`; a scene or preset picker wants the index. The firmware
+resets the chip, accepts it only if CONFIG2 reads its 0x24 reset value, writes Adafruit's
+baseline-filter, debounce and auto-configuration values and the touch and release
+thresholds, then enables all twelve electrodes and reads the two status bytes each
+frame. A missing chip reads as untouched with `connected` false and is retried once a
+second. The part carries its address list, electrode count and default thresholds, and the
+node's `i2cAddress` joins the shared-bus collision check. The Build Diagram powers Vin from
+3V3 and draws only SDA and SCL; IRQ is not needed.
+
 `KeypadInput` is a 4x4 membrane matrix keypad on eight GPIOs. Sixteen boolean
 ports would make the node taller than it is wide, so it publishes `key`, the last key
 pressed as an index (0 to 15, row by row, in the order printed), and `pressed`, true

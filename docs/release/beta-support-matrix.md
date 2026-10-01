@@ -589,6 +589,18 @@ Unless a future row says otherwise, treat the following as experimental:
   readings compared against a trusted thermometer at two temperatures,
   including an ice bath, and Connected going false and recovering when the probe
   is unplugged and reconnected.
+- **MPR121 touch sensor.** `TouchPadInput` has a modelled asset, preview (twelve
+  pads on the node), library-free register firmware (soft reset, a reset-value
+  check, Adafruit's filter and auto-configuration values, per-electrode thresholds
+  and one two-byte status read), manifest and Build Diagram coverage in the
+  normal, slideshow and player generators. It publishes Electrode (0 to 11, lowest
+  touched, held after release), Touched, Count and Connected, at 0x5A to 0x5D by
+  the ADDR strap. Compile evidence is recorded in
+  [the touch-pad compile checks](../development/touch-pad-compile-checks.md), but
+  there is no physical row yet. The hole positions in the render are approximate.
+  Graduation needs a dated row naming the board/FQBN, the address and the I2C pins,
+  with all twelve electrodes read in each of the three generators, a touch and a
+  release on each, and Connected going false when the breakout is unplugged.
 - **4x4 matrix keypad.** `KeypadInput` has a modelled asset, preview (sixteen
   buttons on the node), library-free column-scan firmware (rows on the internal
   pull-up, columns driven low in turn, two matching reads to accept a key),

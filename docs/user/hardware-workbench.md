@@ -199,6 +199,25 @@ is unplugged, and Temperature then holds its last good value. In preview, the
 on-node slider simulates the reading. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
+### Touch pads with an MPR121
+
+Choose **Add Hardware → Inputs → Adafruit MPR121 12-key touch sensor** for twelve
+capacitive-touch electrodes on the board's I2C bus. Wire **Vin** to 3.3 V, **GND**,
+**SCL** and **SDA** to the controller's I2C pins, and leave **IRQ** unconnected. Each
+of the twelve numbered holes takes a wire to a pad or a piece of foil, and the chip
+senses a finger on it. Tie **ADDR** to GND for address 0x5A, to 3V for 0x5B, to SDA
+for 0x5C or to SCL for 0x5D, and pick the same address in the inspector so two
+controllers on one bus do not collide.
+
+The node publishes **Electrode**, the lowest electrode touched as an index from 0 to 11
+that stays at its value after release, **Touched**, true while any electrode is down,
+**Count**, how many are down, and **Connected**. Use Compare or Map Range to turn the
+index into a scene, a preset or a level. The two thresholds set how far a pad must
+change from its baseline to count as touched or released: lower them for a more
+sensitive pad, and raise the touch threshold if a pad triggers by itself. In preview,
+the twelve pads on the node stand in for the electrodes. The MPR121 is experimental
+until a physical run is recorded in the support matrix.
+
 ### Pick scenes with a 4x4 keypad
 
 Choose **Add Hardware → Inputs → 4x4 matrix keypad** for sixteen keys on eight

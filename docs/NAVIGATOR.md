@@ -199,6 +199,7 @@ build/architecture overview aimed at contributors.
   - [Joystick firmware compile checks](development/joystick-compile-checks.md)
   - [Motion-sensor firmware compile checks](development/motion-sensor-compile-checks.md)
   - [Keypad firmware compile checks](development/keypad-compile-checks.md)
+  - [Touch-pad firmware compile checks](development/touch-pad-compile-checks.md)
     — real normal/slideshow/player/no-sensor fixtures for the waterproof
       DS18B20, the library-free 1-Wire helper guard, and classic-ESP32 results.
   - [Power-switch dimming compile checks](development/power-switch-compile-checks.md)
