@@ -170,6 +170,16 @@ part's own range. The board has no regulator and its bus pull-ups tie to VIN, so
 the Build Diagram powers it from the logic rail, not from 5 V. It is emitted by
 the normal sketch generator only, like the other sensors.
 
+The INA226 module is a second `PowerMonitorInput` part. Its catalogue block says
+`device: 'INA226'`, a 2 milliohm shunt, 36 V and 20 A, and sixteen addresses; the
+firmware picks its driver by that device name, so a sketch carries the INA219
+helper, the INA226 helper, or both, once each, and each node calls its own. The
+INA226 scales differ (bus 1.25 mV per bit, shunt 2.5 uV per bit) and its power-up
+configuration is rewritten at setup, but the read path is the same two registers
+with no calibration. The inspector lists each part's own addresses through
+`propertyOptions`, and validation rejects an address the chosen part cannot be
+strapped to.
+
 `PresenceInput` reads one HLK-LD2410C radar module at 256000 baud and publishes
 `presence`, `moving`, `still`, and detection `distance` in metres. The module
 streams without a command, so the board needs only one receive GPIO: sensor TX

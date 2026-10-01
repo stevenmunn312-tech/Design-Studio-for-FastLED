@@ -549,6 +549,17 @@ Unless a future row says otherwise, treat the following as experimental:
   sketch, not by the show or SD-player generators. Graduating it needs a dated
   row naming the board/FQBN, the I2C pins and address, the supply and load, and
   the monitor's volts and amps against a multimeter at two load currents.
+- **INA226 power monitoring.** The INA226 module (`PowerMonitorInput` with the
+  `ina226-current-sensor-module` part) shares the INA219's node, preview and
+  Overcurrent output, and differs in its firmware scales: bus voltage at 1.25 mV
+  per bit, shunt voltage at 2.5 uV per bit over a 2 milliohm shunt, so it reads up
+  to 36 V and 20 A with no calibration register. It answers on sixteen addresses,
+  0x40 to 0x4F. It is software coverage only; no reading has been compared with a
+  meter, and the render's header order and shunt placement are approximated from
+  photographs. Compile evidence is in
+  [the INA226 compile checks](../development/ina226-compile-checks.md). Graduating
+  it needs the same dated row as the INA219, with the module's volts and amps
+  against a multimeter at two load currents, one of them above 3 A.
 - **HLK-LD2410C radar presence sensing.** `PresenceInput` has software,
   preview, generated-parser, manifest and Build Diagram coverage on ESP32, but
   no compiled or physical row yet. It reads continuous 256000-baud UART reports

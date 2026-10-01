@@ -137,8 +137,8 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05 Mosfetti:** the MonkMakes Mosfetti's four channels held off through
   setup, switched independently, one dimmed at 1 kHz, with the board total kept
   under 2 A; the row's requirements are in the support matrix.
-- **D-05 power monitor:** INA219 readings against a multimeter; the row's
-  requirements are in the support matrix.
+- **D-05 power monitor:** INA219 and INA226 readings against a multimeter, the
+  INA226 with one load above 3 A; the rows' requirements are in the support matrix.
 - **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
   receiving a real DMX512 line; the row's requirements are in the support
   matrix.
@@ -244,7 +244,7 @@ in the app and marked experimental; nothing here holds up development.
   The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
   and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
   is still to do. It also has an `Overcurrent` output against an amps limit
-  (software; compiled on classic ESP32 under arduino-cli 2026-09-30, 417,791 B flash, 29,060 B RAM); the INA226 is still open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
+  (software; compiled on classic ESP32 under arduino-cli 2026-09-30, 417,791 B flash, 29,060 B RAM). The INA226 module is a second part of the same node (modelled, drawn, previewed and generated; compile record in [the INA226 checks](docs/development/ina226-compile-checks.md)) and its bench row is open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
   drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
   divider on RO. It adds no firmware, so no compile is owed; its bench row is
   in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,

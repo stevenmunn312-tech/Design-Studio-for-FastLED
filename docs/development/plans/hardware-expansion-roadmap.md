@@ -31,7 +31,7 @@ build have passed the normal evidence gates.
 | Priority | Hardware family | Proposed app role | Primary value |
 | --- | --- | --- | --- |
 | P0 | 1/4/8-channel logic-level N-channel MOSFET modules | `PowerSwitchOutput` | Silent, fast DC LED-power or auxiliary-load switching without mechanical relay wear. The LR7843 (one channel) and MonkMakes Mosfetti (four) are in; software and compile complete, bench open. |
-| P0 | INA219 / INA226 current and voltage monitors | `PowerMonitorInput` | Publish volts, amps and watts to the graph and support measured overcurrent warnings. |
+| P0 | INA219 / INA226 current and voltage monitors | `PowerMonitorInput` | Both are in and experimental: publish volts, amps and watts to the graph and support measured overcurrent warnings; the INA226 reads to 36 V and 20 A. Bench rows open. |
 | P0 | MAX485 / SN75176 DMX transceiver module | Exact physical option for `DMXInput` | Completes the existing ESP32 DMX512 firmware path with a real transceiver, pinout and Build Diagram part. |
 | P0 | VS1838B / TSOP38238 demodulating IR receiver | `IRRemoteInput` | Remote control of brightness, patterns, transport, relay channels and other graph properties. |
 | P0 | LD2410C mmWave presence sensor | `PresenceInput` | Detect stationary occupants that a PIR can miss. |
@@ -104,8 +104,9 @@ compile families:
    The Adafruit INA219 (`PowerMonitorInput`) is in, experimental, on the
    normal sketch. It also publishes an `Overcurrent` bool, true while the
    measured amps exceed the node's limit (default 2.5 A); the preview and
-   firmware agree, and it compiles on classic ESP32 (2026-09-30). The INA226 is
-   still open.
+   firmware agree, and it compiles on classic ESP32 (2026-09-30). The INA226
+   module is in too as a second part of the same node (2026-10-01), compiled on
+   classic ESP32 and open for a bench row.
 3. An exact MAX485-class DMX transceiver and recorded DMX512 bench run.
    The "C25B" MAX485 module (`max485-rs485-module`) is in: modelled, catalogued
    and drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a

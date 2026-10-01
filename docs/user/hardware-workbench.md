@@ -81,6 +81,14 @@ node. In preview there is no sensor, so drag the node's volts and amps sliders.
 Amps run from 0 to 3.2, so put a **Map Range** in front of anything that
 expects 0 to 1.
 
+The **INA226 power monitor** does the same job for bigger loads: up to 36 V and
+20 A. Wire it the same way, with the supply's positive wire to **IN+** and the
+load's positive wire to **IN-**, and power **VCC** from 3V3. Leave **ALE** and
+**VBS** as they come. Its A0 and A1 pads select sixteen addresses, 0x40 to 0x4F,
+and the node's address list follows the part you added. Raise the node's
+**Overcurrent** limit to suit the load: the slider reaches 20 A. It is
+experimental until a reading is compared with a meter.
+
 ### Switch or dim a DC load
 
 Choose **Switching power → LR7843 MOSFET switch** to turn a 6-28 V DC load on
