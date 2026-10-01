@@ -330,6 +330,48 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 18.701
     }
   },
+  "adafruit-vl53l1x-distance-sensor": {
+    "partId": "adafruit-vl53l1x-distance-sensor",
+    "label": "Adafruit VL53L1X distance sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 25.5,
+      "height": 17.5
+    },
+    "manufacturer": "Adafruit (product 3967) / STMicroelectronics VL53L1X",
+    "logicVoltage": "3-5 V VIN; I2C and XSHUT are level-shifted to VIN, GPIO is 2.8 V",
+    "pinLabelsLeftToRight": [
+      "VIN",
+      "GND",
+      "SDA",
+      "SCL",
+      "XSHUT",
+      "GPIO"
+    ],
+    "notes": [
+      "Time-of-flight laser distance sensor over I2C: about 30 mm to 4 m in long distance mode, with a 27 degree field of view and up to 50 Hz ranging.",
+      "Power VIN with the same level as the controller's logic: 3.3 V for an ESP controller. The board has 10 kilohm pull-ups on SDA and SCL, and XSHUT is level-shifted.",
+      "The address is 0x29 at power-up and software can change it, but two sensors on one bus need their XSHUT pins driven separately at start-up.",
+      "GPIO is the sensor's interrupt output at 2.8 V logic and XSHUT holds the sensor in reset when pulled low; neither is needed for basic readings.",
+      "The six-hole row ships loose and is rendered as unpopulated plated holes; the two STEMMA QT connectors are shown fitted. Hole and component positions are representative, not measured from a board file."
+    ],
+    "distanceSensor": {
+      "device": "VL53L1X",
+      "interface": "I2C",
+      "minMm": 30,
+      "maxMm": 4000,
+      "i2cAddresses": [
+        41
+      ],
+      "defaultI2cAddress": 41
+    },
+    "render": {
+      "file": "parts/adafruit-vl53l1x-distance-sensor.webp",
+      "widthPx": 400,
+      "heightPx": 281,
+      "pxPerMm": 14.902
+    }
+  },
   "dfplayer-mini": {
     "partId": "dfplayer-mini",
     "label": "DFPlayer Mini MP3 module",
