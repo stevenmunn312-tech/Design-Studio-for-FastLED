@@ -9,6 +9,7 @@ import type { PartPowerMonitorSpec } from './partCatalogue'
  * cannot disagree with the board.
  */
 export const DEFAULT_POWER_MONITOR_PART_ID = 'adafruit-ina219-current-sensor'
+export const INA226_PART_ID = 'ina226-current-sensor-module'
 
 /** The three measurements, in the order the node's outputs declare them. */
 export const POWER_MONITOR_OUTPUTS = ['volts', 'amps', 'watts'] as const

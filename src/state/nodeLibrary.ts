@@ -6013,7 +6013,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ])),
   PowerMonitorInput: {
     i2cAddress: { control: 'select', options: powerMonitorAddressOptions(DEFAULT_POWER_MONITOR_PART_ID) },
-    overcurrentAmps: { control: 'slider', min: 0.1, max: 3.2, step: 0.1 },
+    overcurrentAmps: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
@@ -6346,6 +6346,9 @@ export function propertyOptions(
 ): readonly string[] {
   const meta = propertyMeta(nodeType, key)
   if (meta?.control !== 'select') return []
+  if (nodeType === 'PowerMonitorInput' && key === 'i2cAddress') {
+    return powerMonitorAddressOptions(properties.partId)
+  }
   if (nodeType === 'Truchet' && key === 'motif') {
     return properties.lattice === 'hex'
       ? ['hexArcs']
@@ -6530,7 +6533,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     maxLux: 'Illuminance that maps to Level 1.0. Lux itself remains the calibrated sensor reading.',
   },
   PowerMonitorInput: {
-    i2cAddress: 'The address set by the board\'s A0/A1 solder jumpers. Give each monitor on the bus a different one.',
+    i2cAddress: 'The address set by the board\'s A0/A1 pads or jumpers: four choices on the INA219, sixteen on the INA226. Give each monitor on the bus a different one.',
     overcurrentAmps: 'Overcurrent goes true while the measured amps are above this. It clears as soon as they fall back to it or below.',
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',

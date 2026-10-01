@@ -538,6 +538,21 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'adafruit-ina219-current-sensor' },
   },
   {
+    nodeType: 'PowerMonitorInput',
+    partId: 'power-monitor-ina226',
+    label: 'INA226 power monitor',
+    hint: 'Volts, amps and watts of a DC load up to 36 V and 20 A, on the board I2C bus',
+    footprint: partDimensionsMm('ina226-current-sensor-module', { width: 26, height: 22 }),
+    signalPort: 'watts',
+    dataType: 'float',
+    pinRequests: [],
+    pinFields: [
+      { key: 'sdaPin', label: 'SDA' },
+      { key: 'sclPin', label: 'SCL' },
+    ],
+    properties: { partId: 'ina226-current-sensor-module' },
+  },
+  {
     nodeType: 'EnvironmentInput',
     partId: 'environment-sensor',
     label: 'Adafruit BME280 environment sensor',

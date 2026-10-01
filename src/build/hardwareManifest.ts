@@ -910,7 +910,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             currentMax: `${spec.currentMaxA} A`,
             shuntOhms: spec.shuntOhms,
             senseSide: spec.senseSide,
-            senseTerminals: 'Vin+ from supply / Vin- to load',
+            senseTerminals: spec.device === 'INA226' ? 'IN+ from supply / IN- to load' : 'Vin+ from supply / Vin- to load',
           },
           reasons: reasons.length > 0 ? reasons : undefined,
         }

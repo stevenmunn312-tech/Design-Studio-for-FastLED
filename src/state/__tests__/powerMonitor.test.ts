@@ -4,9 +4,10 @@ import { generateCpp } from '../../codegen/cppGenerator'
 import { peripheralPowerNet, peripheralPowerPadIndex, peripheralGroundPadIndex, peripheralSignalPadIndex } from '../../components/BuildDiagram/physicalDiagramLayout'
 import { findDeployBlockingErrors, findI2cBusErrors } from '../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../graphStore'
-import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
+import { NODE_LIBRARY, libraryDefaults, propertyOptions } from '../nodeLibrary'
 import { partById } from '../partCatalogue'
 import {
+  INA226_PART_ID,
   powerMonitorAddress,
   POWER_MONITOR_DEFAULT_LIMIT_AMPS,
   powerMonitorAddressOptions,
@@ -174,5 +175,72 @@ describe('overcurrent', () => {
     edges.push(edge('oc', 'mon', 'overcurrent', 'sw', 'on'))
     const sketch = generateCpp(nodes, edges)
     expect(sketch).toContain('bool n_mon_overcurrent = n_mon_amps > 1.200f;')
+  })
+})
+
+describe('the catalogued INA226', () => {
+  const props = { partId: INA226_PART_ID }
+
+  it('carries its 2 milliohm shunt, 36 V and 20 A limits, and sixteen addresses', () => {
+    expect(powerMonitorSpec(INA226_PART_ID)).toMatchObject({
+      device: 'INA226', shuntOhms: 0.002, busVoltageMaxV: 36, currentMaxA: 20, defaultI2cAddress: 0x40,
+    })
+    const options = powerMonitorAddressOptions(INA226_PART_ID)
+    expect(options).toHaveLength(16)
+    expect(options[0]).toBe('0x40')
+    expect(options[15]).toBe('0x4F')
+    expect(partById(INA226_PART_ID)?.pinLabelsLeftToRight).toEqual(['VCC', 'GND', 'SCL', 'SDA', 'ALE', 'VBS'])
+  })
+
+  it('offers each part its own addresses in the inspector, and accepts the wider range only on the INA226', () => {
+    expect(propertyOptions('PowerMonitorInput', 'i2cAddress', props)).toHaveLength(16)
+    expect(propertyOptions('PowerMonitorInput', 'i2cAddress', {})).toEqual(['0x40', '0x41', '0x44', '0x45'])
+    expect(powerMonitorAddress({ ...props, i2cAddress: '0x4A' })).toBe(0x4a)
+    expect(powerMonitorAddress({ i2cAddress: '0x4A' })).toBeNull()
+  })
+
+  it('spans its own range in the preview', () => {
+    expect(powerMonitorPreviewReading(INA226_PART_ID, 1, 1)).toEqual({ volts: 36, amps: 20, watts: 720 })
+  })
+
+  it('emits only the INA226 driver, with its own scales, and talks to the chosen address', () => {
+    const { nodes, edges } = monitorGraph({ ...props, i2cAddress: '0x4A' })
+    const sketch = generateCpp(nodes, edges)
+    expect(sketch).toContain('_ina226Begin(0x4A);')
+    expect(sketch).toContain('_ina226Measure(0x4A, 0.0020f, n_mon_volts, n_mon_amps);')
+    expect(sketch).toContain('(float)((uint16_t)bus) * 0.00125f')
+    expect(sketch).toContain('* 0.0000025f) / shuntOhms')
+    expect(sketch).not.toContain('_ina219')
+    expect(sketch).not.toMatch(/Wire\.read\(\)[^;\n]*Wire\.read\(\)/)
+  })
+
+  it('emits each driver once when an INA219 and an INA226 share the bus', () => {
+    const { nodes, edges } = monitorGraph()
+    nodes.push(node('mon2', 'PowerMonitorInput', { ...props, i2cAddress: '0x41' }))
+    edges.push(edge('w2', 'mon2', 'amps', 'fill', 'r'))
+    const sketch = generateCpp(nodes, edges)
+    expect(sketch.match(/static void _ina219Measure\(/g)).toHaveLength(1)
+    expect(sketch.match(/static void _ina226Measure\(/g)).toHaveLength(1)
+    expect(sketch).toContain('_ina219Begin(0x40);')
+    expect(sketch).toContain('_ina226Begin(0x41);')
+  })
+
+  it('refuses a clash on the shared bus, rejects an address it cannot be strapped to, and powers VCC from 3.3 V', () => {
+    const a = node('a', 'PowerMonitorInput', { ...props, i2cAddress: '0x44' })
+    const b = node('b', 'PowerMonitorInput', { i2cAddress: '0x44' })
+    expect(findDeployBlockingErrors([a, b], [], 'esp32:esp32:esp32').length).toBeGreaterThan(0)
+    expect(findI2cBusErrors([node('c', 'PowerMonitorInput', { ...props, i2cAddress: '0x50' })]).join('\n')).toContain('0x4F')
+
+    const [item] = buildHardwareManifest([node('mon', 'PowerMonitorInput', props)], [], 'esp32:esp32:esp32').primaryItems
+    const pads = partById(INA226_PART_ID)!.pinLabelsLeftToRight!
+    expect(item).toMatchObject({
+      kind: 'power-monitor-input', supported: true,
+      facts: { partId: INA226_PART_ID, i2cAddress: '0x40', busVoltageMax: '36 V', currentMax: '20 A', senseTerminals: 'IN+ from supply / IN- to load' },
+    })
+    expect(peripheralPowerNet(item)).toBe('v3v3')
+    expect(pads[peripheralPowerPadIndex(item)!]).toBe('VCC')
+    expect(pads[peripheralGroundPadIndex(item)]).toBe('GND')
+    expect(pads[peripheralSignalPadIndex(item, 0)]).toBe('SDA')
+    expect(pads[peripheralSignalPadIndex(item, 1)]).toBe('SCL')
   })
 })

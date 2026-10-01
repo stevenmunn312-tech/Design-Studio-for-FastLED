@@ -189,8 +189,14 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       {
         id: 'adafruit-ina219-current-sensor',
         label: 'Adafruit INA219',
-        summary: 'Volts, amps and watts over I2C: up to 26 V and 3.2 A',
+        summary: 'Volts, amps, watts: 26 V, 3.2 A, I2C',
         note: 'High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board.',
+      },
+      {
+        id: 'ina226-current-sensor-module',
+        label: 'INA226 module',
+        summary: 'Volts, amps, watts: 36 V, 20 A, I2C',
+        note: 'High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed.',
       },
     ],
   },

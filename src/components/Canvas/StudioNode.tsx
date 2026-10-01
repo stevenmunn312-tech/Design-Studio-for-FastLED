@@ -1030,7 +1030,7 @@ const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
     title: 'The browser preview reads Art-Net packets through the local helper. Generated firmware uses this node’s selected DMX source instead: Art-Net over Wi-Fi or DMX512 over an ESP32 transceiver.',
   },
   PowerMonitorInput: {
-    text: 'preview readings come from the sliders; firmware reads the INA219',
+    text: 'preview readings come from the sliders; firmware reads the INA219 or INA226',
     title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
   },
   MotionVectorInput: {

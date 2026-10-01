@@ -93,7 +93,7 @@ import {
   TELEMETRY_REPORT_CPP,
 } from './deviceTelemetryCpp'
 import { rtcI2cPinsForProfile } from '../state/rtcPins'
-import { powerMonitorSetupCpp, POWER_MONITOR_HELPER_CPP } from './powerMonitorCpp'
+import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
 import { DISTANCE_SENSOR_HELPER_CPP } from './distanceSensorCpp'
@@ -1585,7 +1585,7 @@ export function generateCpp(
   if (needsDs3231) {
     lines.push(...ds3231HelperCpp())
   }
-  if (powerMonitors.length > 0) lines.push(...POWER_MONITOR_HELPER_CPP)
+  if (powerMonitors.length > 0) lines.push(...powerMonitorHelperCpp(powerMonitors.map(props)))
   if (presenceSensors.length > 0) lines.push(...PRESENCE_SENSOR_HELPER_CPP)
   if (digitalLightSensors.length > 0) lines.push(...LIGHT_SENSOR_HELPER_CPP)
   if (environmentSensors.length > 0) lines.push(...ENVIRONMENT_SENSOR_HELPER_CPP)
