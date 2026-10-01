@@ -146,6 +146,72 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 14.961
     }
   },
+  "adafruit-mpr121-touch-sensor": {
+    "partId": "adafruit-mpr121-touch-sensor",
+    "label": "Adafruit MPR121 12-key touch sensor",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 33.0,
+      "height": 19.0
+    },
+    "manufacturer": "Adafruit (product 1982) / NXP MPR121",
+    "logicVoltage": "3-5 V supply (Vin); onboard 3.3 V regulator; I2C",
+    "pinLabelsLeftToRight": [
+      "Vin",
+      "3Vo",
+      "GND",
+      "SCL",
+      "SDA",
+      "IRQ",
+      "ADDR"
+    ],
+    "notes": [
+      "Twelve capacitive-touch electrodes on one I2C device: each electrode hole takes a wire to a pad or foil, and the chip reports a touched or released bit per electrode.",
+      "Vin takes 3-5 V and an onboard regulator makes 3Vo for the chip; the I2C lines can be driven at 3.3 V. Do not power the chip from 3Vo with 5 V logic.",
+      "ADDR selects the I2C address: left open or tied to GND gives 0x5A, to 3V 0x5B, to SDA 0x5C and to SCL 0x5D, so up to four can share a bus.",
+      "IRQ is an open-collector, active-low interrupt that falls when any electrode changes state; a polled driver does not need it.",
+      "External connections are shown unpopulated; the header ships loose. The exact hole coordinates and component placement are approximated from the product photographs."
+    ],
+    "render": {
+      "file": "parts/adafruit-mpr121-touch-sensor.webp",
+      "widthPx": 416,
+      "heightPx": 248,
+      "pxPerMm": 12.0
+    }
+  },
+  "adafruit-pca9685-pwm-driver": {
+    "partId": "adafruit-pca9685-pwm-driver",
+    "label": "Adafruit PCA9685 16-channel PWM driver",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 25.4,
+      "height": 62.5
+    },
+    "manufacturer": "Adafruit (product 815) / NXP PCA9685",
+    "logicVoltage": "2.3-5.5 V logic supply (VCC); separate V+ rail for the outputs",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "OE",
+      "SCL",
+      "SDA",
+      "VCC",
+      "V+"
+    ],
+    "notes": [
+      "Sixteen free-running 12-bit PWM outputs on two I2C wires. Each output has three holes in a row: the PWM signal, the V+ rail and ground.",
+      "The PCA9685 is a PWM and servo driver, not an addressable-pixel output. It suits analogue dimming of single-colour LEDs, indicators and hobby servos.",
+      "VCC powers the chip at 2.3-5.5 V and sets the I2C level. V+ is a separate rail for the outputs, 5-6 V for servos, brought in through the power terminal or the V+ header pin.",
+      "OE is an active-low output enable: pull it high to switch every output off without touching the I2C registers.",
+      "Default I2C address 0x40. Bridging the A0-A5 pads changes it, and the identical chain header lets several boards share one bus.",
+      "The headers are shown unpopulated; the green V+/GND screw terminal is shown fitted, as on the pictured board. Output rows follow the pinout photograph: PWM, V+, GND."
+    ],
+    "render": {
+      "file": "parts/adafruit-pca9685-pwm-driver.webp",
+      "widthPx": 400,
+      "heightPx": 955,
+      "pxPerMm": 14.961
+    }
+  },
   "dfplayer-mini": {
     "partId": "dfplayer-mini",
     "label": "DFPlayer Mini MP3 module",
@@ -639,6 +705,40 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "ina226-current-sensor-module": {
+    "partId": "ina226-current-sensor-module",
+    "label": "INA226 current and voltage monitor module",
+    "category": "power-monitor",
+    "dimensionsMm": {
+      "width": 26.0,
+      "height": 22.0
+    },
+    "manufacturer": "Generic INA226 breakout (blue 26 x 22 mm form) / Texas Instruments INA226",
+    "logicVoltage": "2.7-5.5 V supply (VCC); bus voltage 0-36 V on the sense terminal",
+    "pinLabelsLeftToRight": [
+      "VCC",
+      "GND",
+      "SCL",
+      "SDA",
+      "ALE",
+      "VBS"
+    ],
+    "notes": [
+      "Measures bus voltage to 36 V and, from a 2 milliohm shunt, current up to about 20 A (the listing quotes 0-36 V and -20 to +20 A), over I2C. It is the larger sibling of the INA219 already in the app.",
+      "High-side sensing: the supply's positive lead goes to IN+ and the load's positive lead to IN-. The load and the module share ground; the INA226 reads bus voltage against GND.",
+      "VBS is the bus-voltage sense input; it is normally tied to IN- or left to the onboard link, depending on the module. Check the board's own link before changing it.",
+      "VCC powers the chip at 2.7-5.5 V and sets the I2C level; a 3.3 V controller powers it from 3.3 V.",
+      "ALE is an open-drain alert output (over-current, under-voltage or conversion ready) and needs a pull-up when used.",
+      "Default I2C address 0x40; the A0 and A1 pads select sixteen addresses in all.",
+      "The header is shown unpopulated; the screw terminal is shown fitted, as the listing ships it. The header order and shunt placement are approximated from product photographs."
+    ],
+    "render": {
+      "file": "parts/ina226-current-sensor-module.webp",
+      "widthPx": 400,
+      "heightPx": 342,
+      "pxPerMm": 14.615
+    }
+  },
   "inmp441-i2s-microphone": {
     "partId": "inmp441-i2s-microphone",
     "label": "INMP441 I2S microphone",
@@ -697,6 +797,34 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 400,
       "pxPerMm": 26.0
+    }
+  },
+  "ky-012-active-buzzer-module": {
+    "partId": "ky-012-active-buzzer-module",
+    "label": "KY-012 active buzzer module",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 15.5,
+      "height": 19.0
+    },
+    "manufacturer": "Keyes / Joy-IT KY-012 and compatible modules",
+    "logicVoltage": "3.5-5.5 V; one GPIO drives it, about 30 mA at 5 V",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "NC",
+      "SIG"
+    ],
+    "notes": [
+      "An active buzzer has its own oscillator: drive the signal pin high and it sounds at a fixed tone (about 2.5 kHz), low and it stops. The pitch cannot be changed from the controller.",
+      "The middle pin is not connected on this module. The outer pins are ground and signal.",
+      "It takes 3.5-5.5 V and about 30 mA at 5 V; a 3.3 V GPIO can drive it but the level is quieter. A passive buzzer, which needs a tone from the controller, looks alike but behaves differently.",
+      "The real board lists 19 x 15.5 x 11 mm; it is drawn rotated so the header runs along the bottom. The header ships soldered on some kits and loose on others, so the holes are shown unpopulated."
+    ],
+    "render": {
+      "file": "parts/ky-012-active-buzzer-module.webp",
+      "widthPx": 400,
+      "heightPx": 486,
+      "pxPerMm": 24.516
     }
   },
   "ky-022-ir-receiver-module": {
@@ -2174,6 +2302,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "uln2803a-dip18": {
+    "partId": "uln2803a-dip18",
+    "label": "ULN2803A eight-channel driver (DIP-18)",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 8.9,
+      "height": 22.86
+    },
+    "manufacturer": "Texas Instruments / STMicroelectronics ULN2803A",
+    "logicVoltage": "5 V TTL/CMOS inputs; open-collector outputs to 50 V, 500 mA per channel",
+    "notes": [
+      "Eight low-side open-collector Darlington switches: a high level on an input pulls the matching output to ground, so each output sinks the load's current. They cannot source current.",
+      "Each channel takes up to 500 mA and the outputs withstand 50 V, but the package limits the total heat, so do not run all eight at full current.",
+      "Pin 10 (COM) joins the clamp diodes: tie it to the load supply when switching inductive loads such as relay coils, solenoids and motors.",
+      "Pins are 1B-8B inputs on the left (1-8), GND on pin 9, COM on pin 10 and 8C-1C outputs on the right (11-18), so output 1C is directly opposite input 1B across the package.",
+      "The inputs take 5 V logic; a 3.3 V controller can drive them on most parts, but check the datasheet input current at 3.3 V for your variant.",
+      "A standard 7.62 mm wide DIP-18 body, 22.86 mm long."
+    ],
+    "render": {
+      "file": "parts/uln2803a-dip18.webp",
+      "widthPx": 400,
+      "heightPx": 996,
+      "pxPerMm": 42.697
+    }
+  },
   "wiz850io-ethernet-module": {
     "partId": "wiz850io-ethernet-module",
     "label": "WIZnet WIZ850io W5500 Ethernet module",
@@ -2437,6 +2590,34 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 157,
       "pxPerMm": 11.896
+    }
+  },
+  "zy12pdn-usb-c-pd-trigger": {
+    "partId": "zy12pdn-usb-c-pd-trigger",
+    "label": "ZY12PDN USB-C PD trigger module",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 15.0,
+      "height": 31.0
+    },
+    "manufacturer": "ZY12PDN / Joy-IT COM-ZY12PDN, solder-pad variant",
+    "logicVoltage": "Negotiates 5, 9, 12, 15 or 20 V from a USB-C PD source; up to 5 A (100 W with a suitable cable and source)",
+    "pinLabelsLeftToRight": [
+      "VOUT+",
+      "VOUT-"
+    ],
+    "notes": [
+      "Asks a USB-C power-delivery charger for a fixed voltage, 5, 9, 12, 15 or 20 V, and passes it to the output pads. It is a power source, not a signal device: nothing on it connects to a GPIO.",
+      "The chosen voltage is set by the onboard button or solder pads, and the RGB LED colour shows which. Set it before connecting anything that cannot take that voltage; the output sits at the requested voltage as soon as the charger is plugged in.",
+      "Up to 5 A (about 100 W) depends on the charger and the cable, and the charger must support PD. A plain 5 V USB charger will not negotiate.",
+      "The pictured board marks the left output pad - and the right one + with the USB-C at the bottom. Read the silkscreen on your own board before connecting; a reversed supply can destroy the load.",
+      "The 31 x 15 mm size is the solder-pad variant; variants with a USB-A socket or a screw terminal are larger. Five small pads beside the output pads select the voltage on this board."
+    ],
+    "render": {
+      "file": "parts/zy12pdn-usb-c-pd-trigger.webp",
+      "widthPx": 400,
+      "heightPx": 805,
+      "pxPerMm": 25.333
     }
   },
 }
