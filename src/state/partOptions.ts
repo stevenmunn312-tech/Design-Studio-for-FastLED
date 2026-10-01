@@ -311,6 +311,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  DarlingtonDriverOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'uln2803a-dip18',
+        label: 'ULN2803A',
+        summary: 'Eight low-side switches, 50 V and 500 mA each',
+        note: 'Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat.',
+      },
+    ],
+  },
   PwmDriverOutput: {
     property: 'partId',
     options: [

@@ -26,6 +26,7 @@
 // build and wrong for one that already exists, and only the user knows which
 // they have. Remembering what they chose is how the app stops asking.
 
+import { darlingtonPinKeys } from './darlingtonDriver'
 import type { StudioEdge, StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { assignPartPins, type PartPinRequest } from './partPinAssignment'
@@ -157,6 +158,10 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
      * are a tidy choice rather than a hardware constraint.
      */
     requests: [{ key: 'i2sBclk' }, { key: 'i2sLrc' }, { key: 'i2sDout' }],
+  },
+  DarlingtonDriverOutput: {
+    keys: darlingtonPinKeys(),
+    requests: darlingtonPinKeys().map((key) => ({ key, capability: 'digitalOutput' as const })),
   },
   BuzzerOutput: { keys: ['sigPin'], requests: [{ key: 'sigPin', capability: 'digitalOutput' }] },
   RelayOutput: {

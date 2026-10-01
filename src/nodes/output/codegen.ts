@@ -2,6 +2,9 @@ import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp 
 import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/segmentDisplay'
 import { MAX_PIN_NUMBER, NO_PIN } from '../../state/boardGpio'
 import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/buzzer'
+import {
+  DARLINGTON_PIN_FALLBACKS, darlingtonActiveHigh, darlingtonChannelId, darlingtonPinKeys,
+} from '../../state/darlingtonDriver'
 import { PWM_DRIVER_HELPER_CPP } from '../../codegen/pwmDriverCpp'
 import {
   PWM_DRIVER_FULL_COUNT, formatPwmDriverAddress, pwmDriverAddress, pwmDriverChannelId, pwmDriverPrescale, pwmDriverSpec,
@@ -90,6 +93,17 @@ function dimmedPowerSwitchChannels(
 }
 
 export const OUTPUT_EMITTERS: NodeEmitters = {
+  DarlingtonDriverOutput({ node, p, ln, boolExpr, pinSetupLines }) {
+    // Each input is active-high. Latch it LOW before the pin becomes an output so
+    // no load pulses on during reset or setup.
+    const [on, off] = darlingtonActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
+    for (const [index, key] of darlingtonPinKeys().entries()) {
+      const pin = sanitizePin(p[key], DARLINGTON_PIN_FALLBACKS[index])
+      pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
+      pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+      ln(`  digitalWrite(${pin}, ${boolExpr(node.id, darlingtonChannelId(index))} ? ${on} : ${off});`)
+    }
+  },
   PwmDriverOutput({ node, id, p, ln, f, incoming, globalLines }) {
     // Only a wired channel is written, and only when its level changes, so a
     // quiet graph leaves the bus quiet. The chip is configured on first contact

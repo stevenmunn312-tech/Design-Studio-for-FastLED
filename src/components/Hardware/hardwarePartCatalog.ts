@@ -26,6 +26,7 @@ import type { LedOutputForm } from '../../state/ledOutputForm'
 import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/relayModule'
 import { BUZZER_PART_ID } from '../../state/buzzer'
 import { PCA9685_PART_ID } from '../../state/pwmDriver'
+import { DARLINGTON_PART_ID, darlingtonPinKeys } from '../../state/darlingtonDriver'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
 
@@ -162,6 +163,16 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     render: partRenderSrc(DEFAULT_RELAY_PART_ID) ?? undefined,
     pinFields: [{ key: 'in1Pin', label: 'IN1' }],
     pinRequests: [{ key: 'in1Pin', capability: 'digitalOutput' }],
+  },
+  {
+    nodeType: 'DarlingtonDriverOutput',
+    partId: 'darlington-driver-output',
+    label: 'Darlington driver',
+    hint: 'Eight low-side switches to ground for relay coils, motors and lamps',
+    footprint: partDimensionsMm(DARLINGTON_PART_ID, { width: 8.9, height: 22.86 }),
+    render: partRenderSrc(DARLINGTON_PART_ID) ?? undefined,
+    pinFields: [{ key: 'drive1Pin', label: '1B' }],
+    pinRequests: darlingtonPinKeys().map((key) => ({ key, capability: 'digitalOutput' as const })),
   },
   {
     nodeType: 'PwmDriverOutput',

@@ -350,6 +350,10 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // DIP-18 lead tips in pin-number order: pins 1 to 9 down the left edge, 10 to 18 up the right.
+  // Inputs 1B to 8B are the controller side; COM and the 1C to 8C outputs carry the load, not a controller wire.
+  'uln2803a-dip18': padPoints(400, 996,
+    [[25, 64], [25, 172], [25, 280.5], [25, 389], [25, 497.5], [25, 606], [25, 714.5], [25, 823], [25, 931], [375, 931], [375, 823], [375, 714.5], [375, 606], [375, 497.5], [375, 389], [375, 280.5], [375, 172], [375, 64]]),
   // GND, OE, SCL, SDA, VCC, V+ along the bottom control header, from the drilled holes. OE floats
   // enabled and V+ is the outputs' own supply, so only VCC, GND, SDA and SCL carry a wire.
   'adafruit-pca9685-pwm-driver': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 904.8, 955),
@@ -622,6 +626,8 @@ export function peripheralPowerPadIndex(item: HardwareManifestItem): number | nu
   if (item.kind === 'power-switch-output' || item.kind === 'keypad-input') return null
   // The KY-012 has no supply pad: the buzzer runs from its signal pin.
   if (item.kind === 'buzzer-output') return null
+  // The ULN2803A has no controller supply: its COM pin is the load supply's clamp return.
+  if (item.kind === 'darlington-driver-output') return null
   // The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output, so the
   // supply lands on VIN, never on the first power-looking pad.
   if (item.kind === 'motion-input') {
@@ -722,6 +728,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'buzzer-output': [['SIG', 'S', 'SIGNAL']],
   'pwm-driver-output': [['SDA'], ['SCL']],
+  'darlington-driver-output': ['1B', '2B', '3B', '4B', '5B', '6B', '7B', '8B'].map((name) => [name]),
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
   'temperature-input': [['DATA']],
@@ -866,6 +873,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'ina226-current-sensor-module': 7,
   'ky-012-active-buzzer-module': 11.5,
   'adafruit-pca9685-pwm-driver': 7,
+  'uln2803a-dip18': 10,
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,

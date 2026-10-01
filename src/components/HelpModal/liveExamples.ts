@@ -1733,6 +1733,19 @@ const TEMPERATURE_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cold to hot and watch the blue fade. The firmware wiring needs a 4.7 kΩ pull-up from DATA to 3.3 V, which the Build Diagram draws.',
 )
 
+const DARLINGTON_DRIVER_LIVE_EXAMPLE = namedExample(
+  'DarlingtonDriverOutput',
+  'Switch a load to ground from a button',
+  [
+    { key: 'button', type: 'ButtonInput' },
+    { key: 'target', type: 'DarlingtonDriverOutput', properties: { partId: 'uln2803a-dip18', drive1Pin: 4 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 92, g: 58, b: 22 } },
+  ],
+  [{ source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'channel1' }],
+  'Darlington Driver is a hardware-owned terminal. Add the ULN2803A from Hardware, then feed each of its eight channels a boolean signal. A true channel pulls its output to ground, so wire the load between its own supply and the output, and join the load supply ground to the controller ground. The array only sinks current, and the firmware holds every input low through reset and setup so no load pulses on.',
+  'Press the Button node to turn channel 1 on. The solid colour keeps the LED preview visible because the driver switches a separate physical load rather than producing pixels.',
+)
+
 const PWM_DRIVER_LIVE_EXAMPLE = namedExample(
   'PwmDriverOutput',
   'Dim an LED from a knob',
@@ -1948,6 +1961,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   BuzzerOutput: BUZZER_OUTPUT_LIVE_EXAMPLE,
   PwmDriverOutput: PWM_DRIVER_LIVE_EXAMPLE,
+  DarlingtonDriverOutput: DARLINGTON_DRIVER_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,

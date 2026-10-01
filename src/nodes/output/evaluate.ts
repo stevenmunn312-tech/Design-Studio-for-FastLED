@@ -535,6 +535,8 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   BuzzerOutput: relayOutput,
   // A physical sink too: the browser has no PWM output, but wired levels are still evaluated.
   PwmDriverOutput: relayOutput,
+  // A physical sink too: the browser switches no load, but the booleans are still evaluated.
+  DarlingtonDriverOutput: relayOutput,
   MatrixOutput({ input, t, stateKey, incoming, nodeMap }, id, props, node, type) {
     // Blackout and dimming, applied here rather than at the preview so the
     // main matrix, every per-output preview, an offline recording and the

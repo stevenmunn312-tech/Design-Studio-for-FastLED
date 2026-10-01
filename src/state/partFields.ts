@@ -16,6 +16,7 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   BuzzerOutput: [
     { key: 'sigPin', label: 'SIG', kind: 'pin' },
   ],
+  DarlingtonDriverOutput: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ key: `drive${n}Pin`, label: `${n}B`, kind: 'pin' as const })),
   RelayOutput: [
     { key: 'in1Pin', label: 'IN1', kind: 'pin' },
     { key: 'in2Pin', label: 'IN2', kind: 'pin' },

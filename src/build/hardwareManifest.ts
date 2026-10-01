@@ -38,6 +38,7 @@ import { BUZZER_PART_ID, buzzerSpec } from '../state/buzzer'
 import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
 } from '../state/pwmDriver'
+import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/darlingtonDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
@@ -114,7 +115,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'pwm-driver-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -164,6 +165,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PowerSwitchOutput',
   'BuzzerOutput',
   'PwmDriverOutput',
+  'DarlingtonDriverOutput',
   'DMXInput',
   'EthernetModule',
   'PowerConverter',
@@ -433,6 +435,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         for (const [index, key] of relayPinKeys(props.partId).entries()) {
           push(node, `${baseLabel} IN${index + 1}`, key, props[key])
         }
+        break
+      case 'DarlingtonDriverOutput':
+        darlingtonPinKeys().forEach((key, index) => push(node, `${baseLabel} ${index + 1}B`, key, props[key]))
         break
       case 'BuzzerOutput':
         push(node, `${baseLabel} SIG`, 'sigPin', props.sigPin)
@@ -850,6 +855,28 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             contactRating: entry?.relay?.contactRating ?? '',
           },
           reasons: complete ? undefined : ['This relay module does not have every active channel input pin configured.'],
+        }
+      }
+      case 'DarlingtonDriverOutput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? DARLINGTON_PART_ID)
+        const entry = partById(partId)
+        const spec = darlingtonSpec(partId)
+        const wired = darlingtonPinKeys().every((key) => pins.some((pin) => pin.propertyKey === key))
+        return {
+          ...buildPeripheralItem(node, 'darlington-driver-output', entry?.label ?? 'ULN2803A driver', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            partId,
+            channels: String(spec.channels),
+            inputActiveLevel: spec.inputActiveLevel,
+            outputType: spec.outputType,
+            maxOutputVoltage: `${spec.maxOutputVoltageV} V`,
+            maxChannelCurrent: `${spec.maxChannelCurrentMa} mA`,
+            loadSupply: 'separate; COM to the load supply for coils and motors',
+          },
+          reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have eight free pins for the driver's inputs.`],
         }
       }
       case 'PwmDriverOutput': {

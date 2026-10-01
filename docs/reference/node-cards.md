@@ -1314,6 +1314,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![PWM Driver example graph](../../public/node-cards/graphs/pwm-driver-output.svg)
 
+### Darlington Driver
+
+![Darlington Driver node](../../public/node-cards/darlington-driver-output.svg)
+
+![Darlington Driver example graph](../../public/node-cards/graphs/darlington-driver-output.svg)
+
 ### Buzzer
 
 ![Buzzer node](../../public/node-cards/buzzer-output.svg)

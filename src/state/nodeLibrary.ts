@@ -39,6 +39,9 @@ import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
 import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from './buzzer'
 import {
+  DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys,
+} from './darlingtonDriver'
+import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddressOptions, pwmDriverInputs, pwmDriverSpec,
 } from './pwmDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
@@ -4388,6 +4391,19 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // An eight-channel low-side driver array: a terminal sink like the relay,
+    // active-high, one GPIO per channel. It sinks the load's current to ground.
+    type: 'DarlingtonDriverOutput',
+    label: 'Darlington Driver',
+    category: 'output',
+    inputs: darlingtonInputs(),
+    outputs: [],
+    defaultProperties: {
+      partId: DARLINGTON_PART_ID,
+      ...Object.fromEntries(darlingtonPinKeys().map((key, index) => [key, DARLINGTON_PIN_FALLBACKS[index]])),
+    },
+  },
+  {
     // An active buzzer on one GPIO: a terminal sink like the relay. It only
     // sounds or does not; the pitch belongs to the part.
     type: 'BuzzerOutput',
@@ -4936,6 +4952,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   BuzzerOutput: 'Sounds an active buzzer while its input is true.',
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
+  DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -6047,6 +6064,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   BuzzerOutput: {
     sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
+  DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key) => [key, {
+    control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
+  }])),
   PwmDriverOutput: {
     i2cAddress: { control: 'select', options: pwmDriverAddressOptions(PCA9685_PART_ID) },
     pwmHz: { control: 'slider', min: pwmDriverSpec(PCA9685_PART_ID).minPwmHz, max: pwmDriverSpec(PCA9685_PART_ID).maxPwmHz, step: 1 },
@@ -6574,6 +6594,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     i2cAddress: 'The BH1750 address: 0x23 normally, or 0x5C when ADDR is tied high.',
     maxLux: 'Illuminance that maps to Level 1.0. Lux itself remains the calibrated sensor reading.',
   },
+  DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key, index) => [
+    key, `The GPIO wired to input ${index + 1}B of the ULN2803A. The matching output sinks its load to ground while the pin is high.`,
+  ])),
   PwmDriverOutput: {
     i2cAddress: 'The address set by the board\'s A0 to A5 jumpers, 0x40 to 0x6F. Give each driver on the bus a different one.',
     pwmHz: 'How often every channel repeats, 24 to 1526 Hz. 1000 Hz suits LEDs; servos want about 50 Hz. The chip has one frequency for all sixteen channels, and its internal clock is only accurate to a few percent.',
@@ -6841,6 +6864,7 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   BuzzerOutput: {
     sigPin: 'SIG',
   },
+  DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key, index) => [key, `${index + 1}B`])),
   FieldLevels: {
     low: 'low',
     high: 'high',
@@ -7327,6 +7351,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   BuzzerOutput: new Set(['sigPin']),
   PwmDriverOutput: new Set(['sdaPin', 'sclPin']),
+  DarlingtonDriverOutput: new Set(darlingtonPinKeys()),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
@@ -7377,7 +7402,7 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
-  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'BuzzerOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
+  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'BuzzerOutput' || nodeType === 'DarlingtonDriverOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
   // Rows read through the controller's pull-up; columns are driven low one at a time.
   if (nodeType === 'KeypadInput') return KEYPAD_ROW_KEYS.includes(key as never) ? { capability: 'digitalInput', pullup: true } : { capability: 'digitalOutput', pullup: false }
   // Two analog axes, and a switch that pulls SW to ground through the controller's pull-up.
