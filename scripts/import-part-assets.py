@@ -457,6 +457,33 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: motionVectorSensor block needs addresses, a default among them and a valid accel and gyro range — skipped",
                   file=sys.stderr)
+    # A capacitive-touch controller. The address list, electrode count and the
+    # chip's factory-sensible thresholds travel from the part so the firmware
+    # and the node's property limits do not type them twice.
+    touch = data.get("touchPad")
+    if touch:
+        try:
+            addresses = [int(str(a), 16) for a in touch.get("i2cAddresses") or []]
+            default_address = int(str(touch.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        electrodes = touch.get("electrodes")
+        thresholds = [touch.get("touchThreshold"), touch.get("releaseThreshold")]
+        if (addresses and default_address in addresses
+                and isinstance(electrodes, int) and 1 <= electrodes <= 12
+                and all(isinstance(t, int) and 1 <= t <= 255 for t in thresholds)):
+            entry["touchPad"] = {
+                "device": touch.get("device") or "",
+                "interface": touch.get("interface") or "I2C",
+                "electrodes": electrodes,
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "touchThreshold": touch["touchThreshold"],
+                "releaseThreshold": touch["releaseThreshold"],
+            }
+        else:
+            print(f"  ! {part_id}: touchPad block needs addresses, a default among them, 1 to 12 electrodes and thresholds from 1 to 255 — skipped",
+                  file=sys.stderr)
     # A two-axis analog joystick with a push switch. The pot value and switch
     # sense travel from the part so the firmware's active level is not typed twice.
     joystick = data.get("joystick")

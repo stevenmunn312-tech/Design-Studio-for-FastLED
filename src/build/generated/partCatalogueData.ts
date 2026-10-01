@@ -172,6 +172,20 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "IRQ is an open-collector, active-low interrupt that falls when any electrode changes state; a polled driver does not need it.",
       "External connections are shown unpopulated; the header ships loose. The exact hole coordinates and component placement are approximated from the product photographs."
     ],
+    "touchPad": {
+      "device": "MPR121",
+      "interface": "I2C",
+      "electrodes": 12,
+      "i2cAddresses": [
+        90,
+        91,
+        92,
+        93
+      ],
+      "defaultI2cAddress": 90,
+      "touchThreshold": 12,
+      "releaseThreshold": 6
+    },
     "render": {
       "file": "parts/adafruit-mpr121-touch-sensor.webp",
       "widthPx": 416,
@@ -1814,16 +1828,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "Use SIG as the one digital input. NC is not connected. The fitted Grove cable carries SIG, NC, VCC and GND in that order.",
       "The sensor auto-calibrates after power-up. Keep fingers and conductive objects away from the electrode while the board settles."
     ],
-    "touchSensor": {
-      "device": "TTP223-BA6",
-      "interface": "digital",
-      "activeLevel": "high",
-      "mode": "momentary",
-      "supplyMinV": 2.0,
-      "supplyMaxV": 5.5,
-      "responseMinMs": 60,
-      "responseMaxMs": 220
-    },
     "render": {
       "file": "parts/seeed-grove-touch-sensor.webp",
       "widthPx": 400,

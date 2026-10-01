@@ -172,6 +172,18 @@ export interface PartMotionVectorSpec {
   gyroRangeDps: number
 }
 
+/** Contract carried by a multi-electrode capacitive-touch controller. */
+export interface PartTouchPadSpec {
+  device: string
+  interface: string
+  electrodes: number
+  i2cAddresses: number[]
+  defaultI2cAddress: number
+  /** Factory-sensible counts below baseline that count as a touch, and as a release. */
+  touchThreshold: number
+  releaseThreshold: number
+}
+
 /** Contract carried by a two-axis analog joystick with a push switch. */
 export interface PartJoystickSpec {
   device: string
@@ -275,6 +287,8 @@ export interface PartCatalogueEntry {
   environmentSensor?: PartEnvironmentSensorSpec
   /** Present exactly on six-axis accelerometer and gyroscope modules. */
   motionVectorSensor?: PartMotionVectorSpec
+  /** Present exactly on multi-electrode capacitive-touch controller modules. */
+  touchPad?: PartTouchPadSpec
   /** Present exactly on analog joystick modules. */
   joystick?: PartJoystickSpec
   /** Present exactly on pulse-ranging distance sensors. */
