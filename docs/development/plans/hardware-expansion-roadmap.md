@@ -47,7 +47,7 @@ build have passed the normal evidence gates.
 | --- | --- | --- |
 | BME280 temperature, humidity and pressure sensor | `EnvironmentInput` | Three measured outputs from one shared I2C module. |
 | DS18B20 waterproof temperature probe | `TemperatureInput` | Useful for outdoor enclosures, heatsinks and power-supply monitoring. Software and compile complete (Adafruit 381 form, 4.7 kΩ pull-up drawn); bench open. |
-| VL53L0X / VL53L1X time-of-flight sensor | `DistanceInput` | The VL53L0X is in and experimental as a second part, through the pinned Pololu library; the VL53L1X is still open; bench open. Compact I2C proximity and interaction input. |
+| VL53L0X / VL53L1X time-of-flight sensor | `DistanceInput` | The VL53L0X and VL53L1X are in and experimental as parts of the node, through the pinned Pololu libraries; bench open. Compact I2C proximity and interaction input. |
 | HC-SR04 ultrasonic module | `DistanceInput` | Lower-cost distance sensing with explicit 5 V echo-level handling. In the app and experimental: Trig/Echo on two GPIOs with the Build Diagram's 1 kΩ / 2 kΩ echo divider; bench open. |
 | MPU6050 accelerometer and gyroscope | `MotionVectorInput` | Orientation and movement-driven effects for portable installations. In the app and experimental: GY-521 at 0x68 or 0x69, six physical axes in g and degrees per second; bench open. |
 | MPR121 12-channel capacitive-touch module | `TouchPadInput` | In the app and experimental as one Electrode index (0 to 11) plus Touched, Count and Connected rather than twelve ports; 0x5A to 0x5D; bench open. |

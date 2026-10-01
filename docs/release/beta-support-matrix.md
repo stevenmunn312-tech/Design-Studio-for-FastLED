@@ -752,6 +752,22 @@ Unless a future row says otherwise, treat the following as experimental:
   needs a dated row naming the board/FQBN, the I2C pins and the build engine, with
   readings against a tape measure at two distances and Connected going false when
   the sensor is unplugged and recovering when it is replugged.
+- **VL53L1X laser distance sensor.** `DistanceInput` also offers the Adafruit
+  VL53L1X, a longer-range sibling of the VL53L0X: I2C at 0x29, 3 cm to 4 m in long
+  distance mode. It shares the node, preview and Build Diagram of the VL53L0X (VIN
+  from 3.3 V, GND, SDA and SCL, no Echo divider). It uses Pololu's VL53L1X library,
+  pinned to 1.3.1 and installed or vendored like the VL53L0X's. The firmware sets long
+  distance mode with a 50 ms timing budget and reads without blocking: it takes a
+  measurement only when the chip reports one ready, accepts it only with a valid range
+  status, and otherwise holds the last good distance. An absent sensor fails its start-up
+  at once, with no stall, and one that stops answering for a second is set up again. The
+  normal, slideshow and player sketches
+  [compile on classic ESP32](../development/vl53l1x-compile-checks.md), but no reading
+  has been compared with a tape measure on any board, and the render is modelled from the
+  listing, not a board file, so its header position and component placement are
+  approximate. Two sensors on one bus would need their XSHUT pins driven separately; the
+  app offers no way to do that. Graduation needs the same dated row as the VL53L0X, with
+  one reading beyond 1.2 m.
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the

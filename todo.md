@@ -179,7 +179,7 @@ in the app and marked experimental; nothing here holds up development.
   read against a tape measure at two distances, with Connected dropping with
   nothing in range and recovering. The row's requirements are in the support
   matrix.
-- **D-05 laser distance sensor:** the VL53L0X on 3V3 and the I2C bus, read against a
+- **D-05 laser distance sensor:** the VL53L0X and VL53L1X (the latter also past 1.2 m) on 3V3 and the I2C bus, read against a
   tape measure at two distances, with Connected dropping when it is unplugged and
   recovering; the row's requirements are in the support matrix.
 - **D-05 joystick:** the KY-023 on 3V3 with VRx and VRy on ADC1 pins and SW on a

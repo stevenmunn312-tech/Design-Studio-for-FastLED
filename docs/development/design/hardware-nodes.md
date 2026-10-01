@@ -356,6 +356,16 @@ hash so a bump rebuilds. A test fails if the two constants drift. The Build Diag
 VIN from the logic rail, since the board level-shifts its bus to VIN, and draws no Echo
 divider.
 
+The VL53L1X is a third part on the same path. The catalogue's `device` names the chip and
+`distanceSensorLibraryInclude` picks `VL53L1X.h` or `VL53L0X.h` from it, so a sketch includes
+only the library its sensors need; the show and player compilers read the same function.
+The VL53L1X firmware differs from the VL53L0X's because its library does: it sets long
+distance mode and a 50 ms budget, then polls `dataReady` and reads with `read(false)` rather
+than blocking, accepts a range only when `range_status` is valid, and treats one second without
+data as lost. Its `init` checks the model id, so an absent sensor costs no stall. The backend
+pins the second library separately (`_VL53L1X_VERSION`, mirrored by `VL53L1X_VERSION`), with
+its own install, vendoring, sketch-hash marker and drift test.
+
 The HC-SR04 is the first part: `DistanceInput` on two GPIOs: Trig, requested
 as `digitalOutput`, and Echo, requested as `digitalInput`. It publishes
 `distance` in millimetres and a `connected` flag; a sensor that hears no echo has

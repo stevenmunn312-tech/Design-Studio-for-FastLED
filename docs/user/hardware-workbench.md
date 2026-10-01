@@ -400,6 +400,19 @@ once a second; each look can stall the animation briefly. Accuracy is 3 to 12% d
 the target and the light, and dark or very reflective surfaces read worst. It is experimental
 until a physical comparison is recorded in the support matrix.
 
+### Measure distance with a VL53L1X laser sensor
+
+Choose **Add Hardware → Inputs → VL53L1X laser distance sensor** for the same kind of
+reading as the VL53L0X but out to about 4 m. Its six header holes are **VIN**, **GND**,
+**SDA**, **SCL**, **XSHUT** and **GPIO**: wire VIN to **3V3**, GND to **GND**, and SDA and
+SCL to the board's I2C pins, and leave XSHUT and GPIO unconnected. Two fitted STEMMA QT
+connectors offer a plug-in alternative. It uses the same **Distance Sensor** node and
+outputs, and needs Pololu's VL53L1X library, which Studio installs the first time you
+compile a sketch that uses it. It runs in long distance mode, reading about every 50 ms;
+a reading with a poor return holds the last good distance. It answers on 0x29 like the
+VL53L0X, so two cannot share a bus. It is experimental until a physical comparison is
+recorded in the support matrix.
+
 ### Connect by Ethernet
 
 Art-Net input and NTP clock sync normally use Wi-Fi. For a cable instead, choose
