@@ -98,6 +98,22 @@ export interface PartMosfetSpec {
   pwmHz?: number
 }
 
+/** Output contract carried by an imported I2C PWM driver. */
+export interface PartPwmDriverSpec {
+  device: string
+  interface: string
+  channels: number
+  resolutionBits: number
+  /** Every address the board's straps can select, as numbers. */
+  i2cAddresses: number[]
+  defaultI2cAddress: number
+  /** The chip's internal oscillator, the base of its PWM frequency. */
+  oscillatorMHz: number
+  minPwmHz: number
+  maxPwmHz: number
+  defaultPwmHz: number
+}
+
 /** Drive contract carried by an imported buzzer module. */
 export interface PartBuzzerSpec {
   type: 'active' | 'passive'
@@ -287,6 +303,8 @@ export interface PartCatalogueEntry {
   relay?: PartRelaySpec
   /** Present exactly on DC MOSFET switch modules. */
   mosfet?: PartMosfetSpec
+  /** Present exactly on I2C PWM driver modules. */
+  pwmDriver?: PartPwmDriverSpec
   /** Present exactly on buzzer modules. */
   buzzer?: PartBuzzerSpec
   /** Present exactly on current/voltage monitor modules. */

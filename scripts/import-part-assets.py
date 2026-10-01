@@ -225,6 +225,36 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: mosfet block needs a channel count from 1 to 8 and loadSupply — skipped",
                   file=sys.stderr)
+    # A PWM driver's contract. The firmware derives the prescale from the
+    # oscillator and the requested frequency, and the address list bounds the
+    # picker, so both come from the board rather than being retyped.
+    pwm = data.get("pwmDriver")
+    if pwm:
+        try:
+            addresses = [int(str(a), 16) for a in pwm.get("i2cAddresses") or []]
+            default_address = int(str(pwm.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        numbers_ok = all(isinstance(pwm.get(k), (int, float)) and pwm[k] > 0
+                         for k in ("channels", "resolutionBits", "oscillatorMHz", "minPwmHz", "maxPwmHz", "defaultPwmHz"))
+        if (addresses and default_address in addresses and numbers_ok
+                and pwm["minPwmHz"] <= pwm["defaultPwmHz"] <= pwm["maxPwmHz"]):
+            entry["pwmDriver"] = {
+                "device": pwm.get("device") or "",
+                "interface": pwm.get("interface") or "I2C",
+                "channels": pwm["channels"],
+                "resolutionBits": pwm["resolutionBits"],
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "oscillatorMHz": pwm["oscillatorMHz"],
+                "minPwmHz": pwm["minPwmHz"],
+                "maxPwmHz": pwm["maxPwmHz"],
+                "defaultPwmHz": pwm["defaultPwmHz"],
+            }
+        else:
+            print(f"  ! {part_id}: pwmDriver block needs addresses, a default among them, channels, "
+                  "resolutionBits, oscillatorMHz and a frequency range around defaultPwmHz — skipped",
+                  file=sys.stderr)
     # A buzzer's drive contract. An active buzzer sounds at its own fixed pitch
     # while its pin sits at the active level, so the firmware needs that level
     # and the pin current the Build Diagram has to warn about.
