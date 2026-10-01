@@ -77,6 +77,7 @@ export function hardwareShelfCategories({
   const stereoVuFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'StereoVuMeter')
   const relayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'RelayOutput')
   const powerSwitchFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSwitchOutput')
+  const buzzerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BuzzerOutput')
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
   const powerConverterFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerConverter')
   const stereoVuBlocker = stereoVuFixture
@@ -142,6 +143,7 @@ export function hardwareShelfCategories({
       items: [
         ...moduleItems('Amplifier', amplifierFixture),
         ...moduleItems('PowerAmplifier', powerAmplifierFixture),
+        ...moduleItems('BuzzerOutput', buzzerFixture),
       ],
     },
     {

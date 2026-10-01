@@ -1,6 +1,7 @@
 import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp } from '../../codegen/segmentDisplayCpp'
 import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/segmentDisplay'
 import { MAX_PIN_NUMBER, NO_PIN } from '../../state/boardGpio'
+import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/buzzer'
 import {
   oledControllerForProps,
   oledTransportForProps,
@@ -85,6 +86,15 @@ function dimmedPowerSwitchChannels(
 }
 
 export const OUTPUT_EMITTERS: NodeEmitters = {
+  BuzzerOutput({ node, p, ln, boolExpr, pinSetupLines }) {
+    // Latch the silent level before the pin becomes an output so reset and
+    // setup do not chirp.
+    const [on, off] = buzzerActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
+    const pin = sanitizePin(p.sigPin, BUZZER_PIN_FALLBACK)
+    pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
+    pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+    ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
+  },
   RelayOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // These modules are active-low. Drive the inactive level into the
     // output latch before switching the pin to OUTPUT so reset/setup does

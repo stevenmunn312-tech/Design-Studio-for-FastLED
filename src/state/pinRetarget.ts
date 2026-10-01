@@ -158,6 +158,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
      */
     requests: [{ key: 'i2sBclk' }, { key: 'i2sLrc' }, { key: 'i2sDout' }],
   },
+  BuzzerOutput: { keys: ['sigPin'], requests: [{ key: 'sigPin', capability: 'digitalOutput' }] },
   RelayOutput: {
     keys: relayPinKeys('relay-module-8ch-5v'),
     keysFor: (properties) => relayPinKeys(properties.partId),

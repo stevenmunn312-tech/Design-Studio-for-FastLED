@@ -24,6 +24,7 @@ import {
 } from '../../state/hardware'
 import type { LedOutputForm } from '../../state/ledOutputForm'
 import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/relayModule'
+import { BUZZER_PART_ID } from '../../state/buzzer'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
 
@@ -160,6 +161,16 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     render: partRenderSrc(DEFAULT_RELAY_PART_ID) ?? undefined,
     pinFields: [{ key: 'in1Pin', label: 'IN1' }],
     pinRequests: [{ key: 'in1Pin', capability: 'digitalOutput' }],
+  },
+  {
+    nodeType: 'BuzzerOutput',
+    partId: 'buzzer-output',
+    label: 'Active buzzer',
+    hint: 'Beeps while a boolean signal is true',
+    footprint: partDimensionsMm(BUZZER_PART_ID, { width: 15.5, height: 19 }),
+    render: partRenderSrc(BUZZER_PART_ID) ?? undefined,
+    pinFields: [{ key: 'sigPin', label: 'SIG' }],
+    pinRequests: [{ key: 'sigPin', capability: 'digitalOutput' }],
   },
   {
     nodeType: 'PowerSwitchOutput',

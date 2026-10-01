@@ -1308,6 +1308,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Power Switch example graph](../../public/node-cards/graphs/power-switch-output.svg)
 
+### Buzzer
+
+![Buzzer node](../../public/node-cards/buzzer-output.svg)
+
+![Buzzer example graph](../../public/node-cards/graphs/buzzer-output.svg)
+
 ### Info Display
 
 ![Info Display node](../../public/node-cards/info-display.svg)

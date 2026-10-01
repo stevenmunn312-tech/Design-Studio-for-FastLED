@@ -37,6 +37,7 @@ import {
 } from './powerSwitch'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
+import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from './buzzer'
 import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
 import { STEP_VALUE_DEFAULTS } from './stepValue'
 import { SLICE_PRESET_NAMES } from './sliceTiling'
@@ -4367,6 +4368,16 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     },
   },
   {
+    // An active buzzer on one GPIO: a terminal sink like the relay. It only
+    // sounds or does not; the pitch belongs to the part.
+    type: 'BuzzerOutput',
+    label: 'Buzzer',
+    category: 'output',
+    inputs: [{ id: 'on', label: 'Sound', dataType: 'bool' }],
+    outputs: [],
+    defaultProperties: { partId: BUZZER_PART_ID, sigPin: BUZZER_PIN_FALLBACK },
+  },
+  {
     // An I2C current/voltage monitor. It carries a signal (three measured
     // floats), so it is a canvas node, but it is a physical part owned by the
     // bench like the RTC it shares the bus with.
@@ -4903,6 +4914,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
+  BuzzerOutput: 'Sounds an active buzzer while its input is true.',
   PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
@@ -6011,6 +6023,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     [channel.pinKey, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 }],
     [channel.level, { control: 'slider' as const, min: 0, max: 1, step: 0.01 }],
   ])),
+  BuzzerOutput: {
+    sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
   PowerMonitorInput: {
     i2cAddress: { control: 'select', options: powerMonitorAddressOptions(DEFAULT_POWER_MONITOR_PART_ID) },
     overcurrentAmps: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
@@ -6532,6 +6547,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     i2cAddress: 'The BH1750 address: 0x23 normally, or 0x5C when ADDR is tied high.',
     maxLux: 'Illuminance that maps to Level 1.0. Lux itself remains the calibrated sensor reading.',
   },
+  BuzzerOutput: {
+    sigPin: 'The GPIO wired to the buzzer\'s SIG pin. The buzzer sounds while the pin is high.',
+  },
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 pads or jumpers: four choices on the INA219, sixteen on the INA226. Give each monitor on the bus a different one.',
     overcurrentAmps: 'Overcurrent goes true while the measured amps are above this. It clears as soon as they fall back to it or below.',
@@ -6787,6 +6805,9 @@ export function propertyDescription(nodeType: string, key: string): string | und
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  BuzzerOutput: {
+    sigPin: 'SIG',
+  },
   FieldLevels: {
     low: 'low',
     high: 'high',
@@ -7271,6 +7292,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
+  BuzzerOutput: new Set(['sigPin']),
   RTCInput: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
@@ -7321,7 +7343,7 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
-  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
+  if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'BuzzerOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
   // Rows read through the controller's pull-up; columns are driven low one at a time.
   if (nodeType === 'KeypadInput') return KEYPAD_ROW_KEYS.includes(key as never) ? { capability: 'digitalInput', pullup: true } : { capability: 'digitalOutput', pullup: false }
   // Two analog axes, and a switch that pulls SW to ground through the controller's pull-up.

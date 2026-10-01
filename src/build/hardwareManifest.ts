@@ -34,6 +34,7 @@ import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } fr
 import { normalizeButtonBankEntries } from '../state/buttonBank'
 import { relayPinKeys } from '../state/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/powerSwitch'
+import { BUZZER_PART_ID, buzzerSpec } from '../state/buzzer'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
 import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
@@ -110,7 +111,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -158,6 +159,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PowerMonitorInput',
   'RelayOutput',
   'PowerSwitchOutput',
+  'BuzzerOutput',
   'DMXInput',
   'EthernetModule',
   'PowerConverter',
@@ -426,6 +428,9 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         for (const [index, key] of relayPinKeys(props.partId).entries()) {
           push(node, `${baseLabel} IN${index + 1}`, key, props[key])
         }
+        break
+      case 'BuzzerOutput':
+        push(node, `${baseLabel} SIG`, 'sigPin', props.sigPin)
         break
       case 'PowerSwitchOutput':
         // Named as the board prints each input: PWM on the LR7843, A to D on the Mosfetti.
@@ -840,6 +845,26 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             contactRating: entry?.relay?.contactRating ?? '',
           },
           reasons: complete ? undefined : ['This relay module does not have every active channel input pin configured.'],
+        }
+      }
+      case 'BuzzerOutput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? BUZZER_PART_ID)
+        const entry = partById(partId)
+        const spec = buzzerSpec(partId)
+        const wired = pins.some((pin) => pin.propertyKey === 'sigPin')
+        return {
+          ...buildPeripheralItem(node, 'buzzer-output', entry?.label ?? 'Active buzzer', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired,
+          facts: {
+            partId,
+            type: spec.type,
+            activeLevel: spec.activeLevel,
+            pitch: spec.resonanceKHz === null ? 'set by the controller' : `${spec.resonanceKHz} kHz`,
+            maxCurrent: `${spec.maxCurrentMa} mA`,
+          },
+          reasons: wired ? undefined : ['This buzzer does not have its signal pin configured.'],
         }
       }
       case 'PowerSwitchOutput': {

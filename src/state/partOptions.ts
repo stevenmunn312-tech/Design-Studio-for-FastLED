@@ -311,6 +311,17 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       },
     ],
   },
+  BuzzerOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ky-012-active-buzzer-module',
+        label: 'KY-012 active buzzer',
+        summary: 'Beeps at a fixed pitch while its pin is high',
+        note: 'Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V.',
+      },
+    ],
+  },
   RelayOutput: {
     property: 'partId',
     options: [

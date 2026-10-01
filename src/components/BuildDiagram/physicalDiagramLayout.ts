@@ -350,6 +350,8 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
+  // GND, NC, SIG along the bottom, measured from the drilled holes. NC is unconnected.
+  'ky-012-active-buzzer-module': padRow([137.2, 199.5, 261.8], 400, 413.1, 486),
   // VCC, GND, SCL, SDA, ALE, VBS along the bottom, from the drilled holes. ALE is
   // the open-drain alert and VBS the bus sense, so neither carries a controller wire.
   'ina226-current-sensor-module': padRow([106.7, 143.9, 181, 218, 255.1, 292.3], 400, 294.1, 342),
@@ -615,6 +617,8 @@ export function peripheralHasGround(item: HardwareManifestItem): boolean {
 
 export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
   if (item.kind === 'power-switch-output' || item.kind === 'keypad-input') return null
+  // The KY-012 has no supply pad: the buzzer runs from its signal pin.
+  if (item.kind === 'buzzer-output') return null
   // The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output, so the
   // supply lands on VIN, never on the first power-looking pad.
   if (item.kind === 'motion-input') {
@@ -713,6 +717,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // SIG. A board with printed channel letters (the Mosfetti's A to D) is
   // matched by those through the catalogue before this list is read.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
+  'buzzer-output': [['SIG', 'S', 'SIGNAL']],
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
   'temperature-input': [['DATA']],
@@ -853,6 +858,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,
   'ina226-current-sensor-module': 7,
+  'ky-012-active-buzzer-module': 11.5,
   'adafruit-bh1750-light-sensor': 7,
   'adafruit-bme280-environment-sensor': 9.5,
   'ds18b20-waterproof-probe': 6.5,

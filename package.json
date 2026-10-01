@@ -30,6 +30,7 @@
     "gen:keypad-compile-fixtures": "node scripts/generate-keypad-compile-fixtures.mjs",
     "gen:touchpad-compile-fixtures": "node scripts/generate-touchpad-compile-fixtures.mjs",
     "gen:ina226-compile-fixtures": "node scripts/generate-ina226-compile-fixtures.mjs",
+    "gen:buzzer-compile-fixtures": "node scripts/generate-buzzer-compile-fixtures.mjs",
     "gen:touch-button-compile-fixtures": "node scripts/generate-touch-button-compile-fixtures.mjs",
     "gen:power-switch-compile-fixtures": "node scripts/generate-power-switch-compile-fixtures.mjs",
     "gen:pattern-node-compile-fixture": "node scripts/generate-pattern-node-compile-fixture.mjs",

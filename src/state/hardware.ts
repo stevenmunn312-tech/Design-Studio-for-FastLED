@@ -10,7 +10,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
   'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
-  'RelayOutput', 'PowerSwitchOutput',
+  'RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput',
   // Auxiliary displays. Signal-carrying — they consume values and text — but
   // owned by the bench like any other physical part, so they live in the root
   // graph and are added from the workbench rather than the node library.
@@ -27,7 +27,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'RTCInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
-  'RelayOutput', 'PowerSwitchOutput',
+  'RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput',
   'SegmentDisplay', 'InfoDisplay', 'TransportDisplay', 'TouchInput',
   // Carry no signal, so they have no business on the signal canvas at all —
   // they live as hidden nodes purely so their settings persist with the

@@ -1733,6 +1733,19 @@ const TEMPERATURE_INPUT_LIVE_EXAMPLE = namedExample(
   'Drag the temperature slider from cold to hot and watch the blue fade. The firmware wiring needs a 4.7 kΩ pull-up from DATA to 3.3 V, which the Build Diagram draws.',
 )
 
+const BUZZER_OUTPUT_LIVE_EXAMPLE = namedExample(
+  'BuzzerOutput',
+  'Beep while a button is held',
+  [
+    { key: 'button', type: 'ButtonInput' },
+    { key: 'target', type: 'BuzzerOutput', properties: { partId: 'ky-012-active-buzzer-module', sigPin: 26 } },
+    { key: 'color', type: 'SolidColor', properties: { r: 92, g: 58, b: 22 } },
+  ],
+  [{ source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'on' }],
+  'Buzzer is a hardware-owned terminal. Add the KY-012 active buzzer from Hardware, then feed Sound a boolean signal. The buzzer has its own oscillator, so it sounds at one fixed pitch while Sound is true and stops when it is false; the pitch cannot be changed from the graph.',
+  'Hold the Button node to sound the buzzer. The browser preview is silent, and the solid colour keeps the LED preview visible because the buzzer produces sound rather than pixels.',
+)
+
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
   'Switch and dim a DC load',
@@ -1920,6 +1933,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   IRRemoteInput: IR_REMOTE_LIVE_EXAMPLE,
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
+  BuzzerOutput: BUZZER_OUTPUT_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,
   PresenceInput: PRESENCE_INPUT_LIVE_EXAMPLE,
   EnvironmentInput: ENVIRONMENT_INPUT_LIVE_EXAMPLE,

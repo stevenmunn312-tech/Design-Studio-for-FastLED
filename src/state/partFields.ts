@@ -13,6 +13,9 @@ type PartField =
   | { key: string; label: string; kind: 'number'; min: number; max: number }
 
 export const PART_FIELDS: Record<string, readonly PartField[]> = {
+  BuzzerOutput: [
+    { key: 'sigPin', label: 'SIG', kind: 'pin' },
+  ],
   RelayOutput: [
     { key: 'in1Pin', label: 'IN1', kind: 'pin' },
     { key: 'in2Pin', label: 'IN2', kind: 'pin' },
