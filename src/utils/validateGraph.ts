@@ -1642,6 +1642,7 @@ export const NO_CONTROLS_TO_CARRY = "'s screen design has no transport controls 
 
 export type GraphDiagnosticAction =
   | 'open-node-library'
+  | 'open-led-outputs'
   | 'choose-board'
   | 'insert-map-range'
   | 'place-touch-control'
@@ -3204,8 +3205,8 @@ export function buildGraphDiagnostics(
       id: `missing-${terminalType}`, severity: 'error', category: 'connection',
       title: `${terminalName} is missing`,
       message: `This ${target === 'group' ? 'group' : 'graph'} has no terminal for its rendered frame.`,
-      fix: target === 'group' ? 'Recreate the group so it receives a Group Output terminal.' : 'Add one LED output node from the Output section.',
-      nodeIds: [], action: target === 'matrix' ? 'open-node-library' : undefined,
+      fix: target === 'group' ? 'Recreate the group so it receives a Group Output terminal.' : 'Add an LED output from the LED outputs section of the Hardware shelf.',
+      nodeIds: [], action: target === 'matrix' ? 'open-led-outputs' : undefined,
     })
   } else {
     for (const candidate of terminals) {

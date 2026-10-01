@@ -21,6 +21,7 @@ import {
   type GraphDiagnosticCategory,
   type GraphDiagnosticSeverity,
 } from '../../utils/validateGraph'
+import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
 import styles from './GraphHealthDrawer.module.css'
 
 type Filter = 'all' | GraphDiagnosticSeverity
@@ -51,6 +52,7 @@ function actionLabel(action: GraphDiagnosticAction): string {
   if (action === 'route-controls-to-engine') return 'Move the wire'
   if (action === 'disconnect-touch-controls') return 'Disconnect Controls'
   if (action === 'open-start-gallery') return 'Browse starters'
+  if (action === 'open-led-outputs') return 'Show LED outputs'
   return 'Open library'
 }
 
@@ -135,6 +137,11 @@ export default function GraphHealthDrawer() {
           : 'That control is no longer waiting — the screen design has changed since this was reported',
         placed ? 'success' : 'info',
       )
+      return
+    }
+    if (issue.action === 'open-led-outputs') {
+      useUiStore.getState().openHardwareShelf(LED_OUTPUT_NODE_TYPE)
+      setStatus('LED outputs opened on the Hardware shelf', 'info')
       return
     }
     if (issue.action === 'open-start-gallery') {
