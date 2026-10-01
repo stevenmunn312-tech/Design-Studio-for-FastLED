@@ -65,7 +65,7 @@ build have passed the normal evidence gates.
 | PCA9685 16-channel PWM module | Multi-channel PWM output | Useful for analog dimming, indicators and servos; not an addressable-pixel output. |
 | ULN2803A driver board | Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
 | Fan module with tachometer | Cooling output plus speed input | Enables enclosure cooling tied to temperature or power measurements. |
-| Piezo buzzer module | Alert/status output | Small audible warnings for faults, timers and interaction feedback. |
+| Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch; a passive buzzer with tones from the controller is still open; bench open. |
 | DFPlayer Mini | Player hardware integration | The verified Blender asset already exists; graph control, firmware ownership and audio routing remain to be integrated. |
 | USB-C PD trigger module | Power-negotiation fixture | Records the requested source voltage before a downstream converter or load. |
 

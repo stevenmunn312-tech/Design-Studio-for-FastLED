@@ -89,6 +89,18 @@ and the node's address list follows the part you added. Raise the node's
 **Overcurrent** limit to suit the load: the slider reaches 20 A. It is
 experimental until a reading is compared with a meter.
 
+### Sound a buzzer
+
+Choose **Add Hardware → Amplifiers & DACs → KY-012 active buzzer** for a beep you
+can trigger from the graph. Wire **SIG** to the GPIO the part shows and **GND** to
+ground, and leave the middle pin unconnected. The **Buzzer** node has one boolean
+input, **Sound**: the buzzer sounds while it is true and stops when it is false.
+An active buzzer has its own oscillator, so its pitch is fixed at about 2.5 kHz and
+the graph cannot change it. It draws about 30 mA, more than a GPIO should supply
+for long or frequent sounds, so switch it through a transistor for those. It is
+quieter from 3.3 V than from 5 V. The browser preview is silent, and the buzzer is
+experimental until it has been sounded on a board.
+
 ### Switch or dim a DC load
 
 Choose **Switching power → LR7843 MOSFET switch** to turn a 6-28 V DC load on

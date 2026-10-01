@@ -506,6 +506,19 @@ Unless a future row says otherwise, treat the following as experimental:
   touched HIGH, release, held and rapid touches in normal, slideshow and player
   firmware, and record startup behaviour plus recovery after disconnecting and
   reconnecting SIG.
+- **KY-012 active buzzer.** `BuzzerOutput` has a modelled asset, a boolean Sound
+  input, firmware that latches the pin LOW before enabling it and then follows the
+  input, manifest and Build Diagram coverage. It is read by the normal sketch
+  generator only. The generated sketch
+  [compiles on classic ESP32](../development/buzzer-compile-checks.md), but no
+  buzzer has been sounded on any board, and the browser preview is silent. The
+  module sounds at its own fixed pitch (about 2.5 kHz) and has no supply pad, so
+  it draws about 30 mA straight from the pin, more than a GPIO should supply for
+  long or frequent sounds. The render's driver transistor and the pin order are
+  approximated from product photographs. Graduation needs a dated row naming the
+  board/FQBN, GPIO and build engine, with silence through reset and setup, a
+  sound while Sound is true, and silence when it falls, and a note of which
+  supply level the module was run at.
 - **Switching outputs: relay modules and the power switches.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no

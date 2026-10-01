@@ -204,6 +204,7 @@ build/architecture overview aimed at contributors.
       DS18B20, the library-free 1-Wire helper guard, and classic-ESP32 results.
   - [Power-switch dimming compile checks](development/power-switch-compile-checks.md)
   - [INA226 firmware compile checks](development/ina226-compile-checks.md)
+  - [Buzzer firmware compile checks](development/buzzer-compile-checks.md)
     — LR7843 on/off and PWM-dimmed fixtures across classic ESP32 (cores 3 and
       2), ESP8266, RP2040 and AVR, and what PWM costs in flash.
   - [Pattern-node firmware compile checks](development/pattern-node-compile-checks.md)
