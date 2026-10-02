@@ -82,8 +82,9 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     pinsPerRail: 22, holeRadiusPx: 15.5, leftPrefix: 'j1', rightPrefix: 'j3',
     powerAnchors: { v3v3: 'j1-1', ground: 'j3-22' },
     // The UART port, not the native-USB one: that's the port this app's upload
-    // path drives, so it's the one a builder will have a cable in.
-    usbPoint: { x: 224.717, y: 2183.621 },
+    // path drives, so it's the one a builder will have a cable in. The rebuilt
+    // model seats both receptacles 1.5 mm past the edge instead of 7.7 mm.
+    usbPoint: { x: 224.717, y: 1991.275 },
     shortLabel: 'ESP32-S3 DevKitC-1',
   },
   // 20 + 20 rails. Pad rows are the model's own rail-label Y coordinates, which
@@ -97,8 +98,9 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     leftPinX: 55.7763, rightPinX: 744.2237, firstPinY: 211.8, lastPinY: 1955.8,
     pinsPerRail: 20, holeRadiusPx: 10.7, leftPrefix: 'left', rightPrefix: 'right',
     powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
-    // The UART port on the right, not the OTG port on the left.
-    usbPoint: { x: 560, y: 2180 },
+    // The UART port on the right, not the OTG port on the left; 1.7 mm further
+    // onto the board since the rebuild.
+    usbPoint: { x: 560, y: 2127.984 },
     shortLabel: 'LOLIN S3',
   },
   // 7 + 7 rails on a 111.817px pitch, supplied with the render and checked
@@ -127,8 +129,9 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // 3V3 tops the left rail and GND ends the right, so the two stubs leave
     // opposite edges and opposite ends of the board.
     powerAnchors: { v3v3: 'left-1', ground: 'right-22' },
-    // The COM port: the one this app's upload path drives.
-    usbPoint: { x: 253.674, y: 1757.925 },
+    // The COM port: the one this app's upload path drives. Centre of its
+    // receptacle, which the rebuild seats 2 mm further onto the board.
+    usbPoint: { x: 253.674, y: 1774.53 },
     shortLabel: 'ESP32-S3 N16R8',
   },
   // 19 + 19 rails on a 71.536px pitch. Geometry projected from the model, and
@@ -142,7 +145,8 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // Row 1 of each rail: 3V3 on the left, GND on the right, so the two stubs
     // leave opposite edges at the same height.
     powerAnchors: { v3v3: 'left-1', ground: 'right-1' },
-    usbPoint: { x: 400, y: 1699.13 },
+    // The receptacle overhangs the edge by 1.1 mm, as a real one does, not 5.5.
+    usbPoint: { x: 400, y: 1574.927 },
     shortLabel: 'ESP32 DevKit 38-pin',
   },
   // 15 + 15 rails on a 72.367px pitch sharing rows, rail centres symmetric
@@ -157,7 +161,8 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // the right rail they would be adjacent pads, close enough for the ground
     // symbol's bars to run into the 3V3 stub.
     powerAnchors: { v3v3: 'right-15', ground: 'left-14' },
-    usbPoint: { x: 400, y: 1612.646 },
+    // Overhangs the edge by 1.1 mm since the rebuild, not 5.5.
+    usbPoint: { x: 400, y: 1488.817 },
     shortLabel: 'ESP32 DevKit v1',
   },
 }
