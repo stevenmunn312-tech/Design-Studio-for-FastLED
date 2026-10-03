@@ -1272,13 +1272,17 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const exposableInputs = exposableInputsFor(d.nodeType)
   const exposedInputs = exposedNodeInputs(d.nodeType, d.exposedInputs, new Set(sourceMap.keys()))
   const exposedInputIds = exposedInputs.map((port) => port.id)
-  const alwaysDrawnInputs = declaredInputs.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id))
+  // Separate state commands belong to Toggle. Keep an existing wire visible
+  // when switching operation so the user can remove or reconnect it.
+  const activeInputs = declaredInputs.filter((port) => d.nodeType !== 'Trigger'
+    || rawProps.triggerOp === 'toggle' || !['on', 'off'].includes(port.id) || sourceMap.has(port.id))
+  const alwaysDrawnInputs = activeInputs.filter((port) => !exposableInputs.some((exposable) => exposable.id === port.id))
   // An exposed property input draws its socket on its own field row. An action
   // input is a press with no field behind it, so exposing one gives it a port
   // row instead, in declaration order; without that, the Palette Bank's Next
   // and Previous had no socket at all on an expanded node.
   const exposedActionIds = new Set(exposedInputs.filter((port) => port.kind === 'action').map((port) => port.id))
-  const inputs = declaredInputs.filter((port) => alwaysDrawnInputs.includes(port) || exposedActionIds.has(port.id))
+  const inputs = activeInputs.filter((port) => alwaysDrawnInputs.includes(port) || exposedActionIds.has(port.id))
   const compactInputs = [...alwaysDrawnInputs, ...exposedInputs]
   const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
   const rowCount = d.nodeType === 'ButtonBank' || d.nodeType === 'IRRemoteInput'

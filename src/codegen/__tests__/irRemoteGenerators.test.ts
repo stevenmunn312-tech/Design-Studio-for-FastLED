@@ -108,6 +108,42 @@ function expectOnePoll(source: string, player = false) {
 }
 
 describe('IR polling in the three generators', () => {
+  it.each(['normal', 'slideshow', 'player'] as const)('feeds separate remote On/Off keys through Toggle in %s firmware', (mode) => {
+    const nodes = [
+      node('ir', 'IRRemoteInput', keys),
+      node('toggle', 'Trigger', { triggerOp: 'toggle', initialState: true }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
+    ]
+    const edges = [
+      edge('ir', 'button-power', 'toggle', 'on'),
+      edge('ir', 'button-up', 'toggle', 'off'),
+      edge('toggle', 'out', 'out', 'enabled'),
+    ]
+    let source: string
+    if (mode === 'normal') {
+      nodes.push(node('fill', 'SolidColor'))
+      edges.push(edge('fill', 'frame', 'out', 'frame'))
+      source = generateCpp(nodes, edges)
+    } else if (mode === 'slideshow') {
+      nodes.push(node('collection', 'PatternCollection', { patternIds: ['pattern'] }), node('show', 'PatternSlideshow'))
+      edges.push(edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame'))
+      source = generateShowSketch(nodes, edges, groups)
+    } else {
+      // SD players route lighting through their player controls; exercise a
+      // supported boolean consumer without changing that existing contract.
+      edges.pop()
+      nodes.push(node('player', 'PatternMaster'), node('sd', 'SDCard'), panel('tft'))
+      edges.push(edge('player', 'frame', 'out', 'frame'), edge('toggle', 'out', 'tft', 'enabled'))
+      source = buildShowPlayer(nodes, edges, groups, {
+        patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '', displayDocuments: documents,
+      })
+    }
+    expect(source).toContain('static bool n_toggle_out = true;')
+    expect(source).toContain('if (n_ir_button_up) n_toggle_out = false; else if (n_ir_button_power) n_toggle_out = true;')
+    const loop = loopBody(source)
+    expect(loop.indexOf('FLS_IR_RECEIVER.decode(')).toBeLessThan(loop.indexOf('if (n_ir_button_up)'))
+    expect(createControlGraph(nodes, edges).resolve('toggle', 'out', 'bool')).toEqual({ nodeId: 'toggle', port: 'out', type: 'bool' })
+  })
   it('feeds a learned key through a normal sketch ahead of the graph', () => {
     const nodes = [
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),

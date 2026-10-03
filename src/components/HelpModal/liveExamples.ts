@@ -1941,7 +1941,30 @@ const FRAME_WARP_LIVE_EXAMPLE = namedExample(
   'The LED Matrix main preview shows the noise bending into a smooth liquid swirl with persistent luminous trails. Change Strength for more displacement, or switch Edge mode to Black to expose the moving frame boundary.',
 )
 
+const TOGGLE_ON_OFF_LIVE_EXAMPLE = namedExample(
+  'Trigger',
+  'Separate remote On and Off buttons',
+  [
+    { key: 'remote', type: 'IRRemoteInput', properties: { pin: 13, buttons: [
+      { id: 'on', label: 'On', protocol: 'NEC', address: 0, command: 69, repeat: 'once' },
+      { id: 'off', label: 'Off', protocol: 'NEC', address: 0, command: 70, repeat: 'once' },
+    ] } },
+    { key: 'target', type: 'Trigger', properties: { triggerOp: 'toggle', initialState: true } },
+    { key: 'pattern', type: 'Juggle' },
+    { key: 'output', type: 'MatrixOutput', properties: { width: 16, height: 16 } },
+  ],
+  [
+    { source: 'remote', sourceHandle: irRemoteButtonHandle('on'), target: 'target', targetHandle: 'on' },
+    { source: 'remote', sourceHandle: irRemoteButtonHandle('off'), target: 'target', targetHandle: 'off' },
+    { source: 'target', sourceHandle: 'out', target: 'output', targetHandle: 'enabled' },
+    { source: 'pattern', sourceHandle: 'frame', target: 'output', targetHandle: 'frame' },
+  ],
+  'Toggle remembers an on/off state. Connect separate learned remote keys to On and Off, then connect Out to the LED output’s Enabled input. Start on chooses the state at preview start and board reboot. The Trigger input still toggles on each new press; Off takes priority over On and Trigger.',
+  'Click the On and Off key squares on IR Remote to switch the preview. Learn your own remote codes before uploading. Repeated On presses keep the output on, and repeated Off presses keep it off.',
+)
+
 const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
+  Trigger: TOGGLE_ON_OFF_LIVE_EXAMPLE,
   Audio: AUDIO_CAPABILITY_LIVE_EXAMPLE,
   MicInput: MICROPHONE_LIVE_EXAMPLE,
   LineInput: LINE_INPUT_LIVE_EXAMPLE,

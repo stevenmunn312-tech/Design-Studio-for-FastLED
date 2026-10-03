@@ -169,7 +169,9 @@ export const MATH_EVALUATORS: NodeEvaluators = {
         break
       }
       case 'toggle': {
-        if (trig && !st.prevTrig) st.toggleOut = !st.toggleOut
+        if (input(id, 'off', false)) st.toggleOut = false
+        else if (input(id, 'on', false)) st.toggleOut = true
+        else if (trig && !st.prevTrig) st.toggleOut = !st.toggleOut
         result = st.toggleOut
         break
       }

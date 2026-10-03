@@ -88,6 +88,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Node authoring and property inputs
 
+- Trigger's Toggle variant accepts separate boolean `on` and `off` state
+  commands as well as its rising-edge `trigger`. Off wins over On, and both
+  override Trigger. The state holds between commands; `initialState` is labelled
+  Start on. Other Trigger variants ignore these state commands. The normal
+  emitter and template scalar controls share `toggleCpp` so remote On/Off
+  wiring behaves identically in normal, slideshow, and player firmware.
+
 - A node's two implementations sit side by side: its preview is a handler in
   `src/nodes/<category>/evaluate.ts` and its firmware an emitter in the same
   directory's `codegen.ts`, each in a table keyed by node type.

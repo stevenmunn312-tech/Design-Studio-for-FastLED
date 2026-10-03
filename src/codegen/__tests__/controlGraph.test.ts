@@ -20,6 +20,19 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
   ({ id: `${source}-${sourceHandle}-${target}-${targetHandle}`, source, sourceHandle, target, targetHandle }) as StudioEdge
 
 describe('typed control graph', () => {
+  it('shares Toggle On/Off state commands between normal and template control paths', () => {
+    const nodes = [node('on', 'ButtonInput'), node('off', 'ButtonInput'), node('press', 'ButtonInput'),
+      node('toggle', 'Trigger', { triggerOp: 'toggle', initialState: true })]
+    const edges = [edge('on', 'pressed', 'toggle', 'on'), edge('off', 'pressed', 'toggle', 'off'), edge('press', 'pressed', 'toggle', 'trigger')]
+    const graph = createControlGraph(nodes, edges)
+    expect(graph.resolve('toggle', 'out', 'bool')).toEqual({ nodeId: 'toggle', port: 'out', type: 'bool' })
+    expect([...graph.errors]).toEqual([])
+    const emitted = controlGraphCpp(graph).loop
+    const normal = generateCpp(nodes, edges)
+    for (const line of emitted) expect(normal).toContain(line)
+    expect(emitted.join('\n')).toContain('if (n_off_pressed) n_toggle_out = false; else if (n_on_pressed) n_toggle_out = true;')
+    expect(emitted.join('\n')).toContain('static bool n_toggle_out = true;')
+  })
   it.each([true, false])('respects button polarity for pullup=%s in every shared emitter', (pullup) => {
     const graph = createControlGraph([node('button', 'ButtonInput', { pin: 12, pullup }),
       node('encoder', 'EncoderInput', { pinSW: 13, pullup })], [])
@@ -33,7 +46,8 @@ describe('typed control graph', () => {
     for (const [type, output] of Object.entries(SCALAR_CONTROL_NODES)) {
       const definition = NODE_LIBRARY.find((entry) => entry.type === type)!
       expect(definition.outputs).toContainEqual(expect.objectContaining({ id: output.port, dataType: output.type }))
-      expect(Object.keys(scalarControlInputDefaults(type, libraryDefaults(type))).sort())
+      const properties = { ...libraryDefaults(type), ...(type === 'Trigger' ? { triggerOp: 'toggle' } : {}) }
+      expect(Object.keys(scalarControlInputDefaults(type, properties)).sort())
         .toEqual(definition.inputs.filter((port) => ['float', 'bool'].includes(port.dataType)).map((port) => port.id).sort())
     }
   })

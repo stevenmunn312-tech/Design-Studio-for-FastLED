@@ -213,7 +213,10 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
-  ([plan](docs/development/plans/ir-remote-controls.md)).
+  ([plan](docs/development/plans/ir-remote-controls.md)). The
+  [KS0026/S3 partial bench pass](docs/release/beta-support-matrix.md#recorded-validations-that-are-not-yet-full-support-rows)
+  confirms learning and remote LED power, including Toggle's separate On/Off
+  inputs; the remaining key/repeat/long-run and build-mode checks stay open.
 
 ## 4. Explicitly deferred, not release blockers
 

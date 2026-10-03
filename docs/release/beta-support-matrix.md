@@ -218,6 +218,26 @@ they name.
 
 ## Recorded validations that are not yet full support rows
 
+- **2026-10-03 — ESP32-S3 N16R8, Keyestudio KS0026 IR receiver,
+  WS2812B 16×16 matrix (`arduino-cli`), remote power control.** User-reported
+  physical pass on the Generic 44-pin dual USB-C S3 board: receiver signal on
+  GPIO2, LED data on GPIO1, Arduino-ESP32 3.3.11 and Arduino-IRremote 4.7.1
+  with Studio's S3 RMT capture adapter. Compile-checked FQBN:
+  `esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,CDCOnBoot=cdc`.
+  Windows and Chrome were used; exact OS/browser versions and remote model
+  were not recorded. Learning saved a NEC key (address 0, command 69). After
+  uploading the project, LEDs initially stayed dark; the UART boot log exposed
+  `rmt_new_tx_channel: intr_priority conflict`. Matching the IR receiver's RMT
+  interrupt priority to FastLED in `6dcaeae5` restored LED output and remote
+  power control, which the user confirmed. A subsequent physical test confirmed
+  separate learned On and Off keys wired into Toggle's new On/Off inputs,
+  with Toggle Out driving LED Enabled. Their individual codes were not
+  recorded. This confirms learning, upload, IR/clockless-LED coexistence, and
+  remote on/off control for the pictured pattern-slideshow graph. It does not
+  complete the repeat/unknown-key/rapid-press/long-run suite or an SD/player
+  hardware pass; those combinations remain experimental. Receiver voltage and
+  divider resistor values were not measured during this session.
+
 - **2026-08-09 — ESP32-S3, HUB75 output (`fbuild`), two passes same session.**
   A real ESP32-S3 driving a P4 64×64 HUB75 panel (single panel, `layout:
   matrix`, default pinout): (1) 🧪 Flash Wiring Test compiled, flashed, booted
@@ -780,7 +800,9 @@ Unless a future row says otherwise, treat the following as experimental:
   offered receivers include the Keyestudio KS0026 (5 V, 38 kHz), with a
   conservative signal divider in the Build Diagram for the controller input;
   its operation at 3.3 V and actual output-high voltage remain unverified.
-  Current evidence is software and generated-firmware coverage only. The
+  A [limited KS0026/S3 bench pass](#recorded-validations-that-are-not-yet-full-support-rows)
+  now confirms learning and remote LED power control, including separate On/Off
+  keys through Toggle. The full qualification suite is still open. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's
   advertised architectures; ESP32-S3 uses Studio's RMT capture adapter with
   the same protocol decoders and requires Arduino-ESP32 3.x or newer. Passing

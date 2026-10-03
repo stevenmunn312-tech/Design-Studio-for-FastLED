@@ -4407,6 +4407,31 @@ describe('signal utility nodes', () => {
     expect(value(5, 0, 'other-step')).toBe(0.8)
   })
 
+  it('Toggle holds On/Off commands, gives Off precedence and still toggles on Trigger', () => {
+    resetEvaluatorState()
+    const edges = ['on', 'off', 'trigger'].map((port) => edge(port, port, 'result', 'latch', port))
+    const value = (tick: number, on = 0, off = 0, trigger = 0, start = false) => evaluateScalar([
+      boolSrc('on', on), boolSrc('off', off), boolSrc('trigger', trigger),
+      node('latch', 'Trigger', 'math', { triggerOp: 'toggle', initialState: start }),
+      node('other-latch', 'Trigger', 'math', { triggerOp: 'toggle', initialState: true }),
+    ], edges, 'latch', 'out', tick) !== 0
+    expect(value(0)).toBe(false)
+    expect(value(1, 1)).toBe(true)
+    expect(value(2)).toBe(true)
+    expect(value(3, 1)).toBe(true)
+    expect(value(4, 0, 1)).toBe(false)
+    expect(value(5)).toBe(false)
+    expect(value(6, 1, 1, 1)).toBe(false)
+    expect(value(7, 0, 0, 1)).toBe(false) // held trigger is not a new press
+    expect(value(8)).toBe(false)
+    expect(value(9, 0, 0, 1)).toBe(true)
+    expect(value(10)).toBe(true)
+    expect(value(0, 0, 0, 0, true)).toBe(true) // clock reset uses Start on
+    resetEvaluatorState()
+    expect(value(0, 0, 0, 0, true)).toBe(true)
+    expect(value(1, 0, 1, 0, true)).toBe(false)
+  })
+
   it('Envelope jumps to 1 on a trigger and decays linearly to 0', () => {
     const graph = (on: number) => [boolSrc('envt', on), node('env1', 'Envelope', 'signal', { decay: 0.5 })]
     const edges = [edge('e', 'envt', 'result', 'env1', 'trigger')]

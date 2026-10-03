@@ -453,7 +453,11 @@ outputs. To create a mapping:
 4. Wire a learned boolean output to an action. For numeric properties, wire
    increase/decrease/reset keys into **Step Value**, then wire its Value output
    to the property's exposed input. Power commonly goes through a
-   **Trigger** in Toggle mode. In an SD/player graph, route player and LED
+   **Trigger** in Toggle mode. For separate On and Off keys, connect them to
+   Toggle's **On** and **Off** inputs, then connect **Out** to the LED output's
+   **Enabled** input. Toggle remembers the state between presses; **Start on**
+   chooses the startup state, and Off wins if both commands arrive together.
+   In an SD/player graph, route player and LED
    controls through **Control Map → Music Player**.
 5. Upload the project again after learning; the temporary learner is not the
    project firmware. Cancelling or completing the learner releases the serial

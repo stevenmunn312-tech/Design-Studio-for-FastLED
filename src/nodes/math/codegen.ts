@@ -2,6 +2,7 @@ import { formatDateTimeCpp } from '../../codegen/displayTextCpp'
 import { asDateTimeTextMode } from '../../state/displayText'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'
+import { toggleCpp } from '../../codegen/toggleCpp'
 
 export const MATH_EMITTERS: NodeEmitters = {
   // Easing curve on a 0–1 value via legacy lib8tion or FastLED's accurate
@@ -82,8 +83,7 @@ export const MATH_EMITTERS: NodeEmitters = {
     const trig = boolExpr(node.id, 'trigger')
     const outVar = v('out')
     if (op === 'toggle') {
-      ln(`  static bool ${outVar} = ${p.initialState === true ? 'true' : 'false'}; static bool _trP_${id} = false;`)
-      ln(`  { bool _t = (${trig}); if (_t && !_trP_${id}) ${outVar} = !${outVar}; _trP_${id} = _t; }`)
+      for (const line of toggleCpp(id, outVar, p.initialState === true, trig, boolExpr(node.id, 'on'), boolExpr(node.id, 'off'))) ln(line)
     } else if (op === 'changed') {
       ln(`  static bool _trP_${id} = false, _trInit_${id} = false; bool ${outVar} = false;`)
       ln(`  { bool _t = (${trig}); if (!_trInit_${id}) { _trP_${id} = _t; _trInit_${id} = true; } else { ${outVar} = (_t != _trP_${id}); _trP_${id} = _t; } }`)

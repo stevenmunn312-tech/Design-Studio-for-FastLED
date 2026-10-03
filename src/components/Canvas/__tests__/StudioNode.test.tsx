@@ -61,6 +61,19 @@ function renderNode(n: StudioNodeT, options?: { board?: boolean }) {
 }
 
 describe('StudioNode', () => {
+  it('shows On and Off sockets and Start on for Toggle', () => {
+    const { container, getByText } = renderNode(makeNode('Trigger', { ...libraryDefaults('Trigger'), triggerOp: 'toggle' }))
+    expect(container.querySelector('[data-handle="target:on"]')).not.toBeNull()
+    expect(container.querySelector('[data-handle="target:off"]')).not.toBeNull()
+    expect(container.querySelector('[data-handle="target:trigger"]')).not.toBeNull()
+    expect(getByText('Start on')).toBeTruthy()
+  })
+
+  it('keeps unused On and Off sockets out of other Trigger variants', () => {
+    const { container } = renderNode(makeNode('Trigger', libraryDefaults('Trigger')))
+    expect(container.querySelector('[data-handle="target:on"]')).toBeNull()
+    expect(container.querySelector('[data-handle="target:off"]')).toBeNull()
+  })
   beforeEach(() => {
     useGraphStore.setState({
       nodes: [], edges: [],

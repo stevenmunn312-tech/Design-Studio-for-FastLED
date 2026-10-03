@@ -1,6 +1,7 @@
 // Pure scalar operations shared by the normal graph and template control graphs.
 import { displayString, normalizeNumberFormat } from '../state/displayText'
 import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../state/stepValue'
+import { toggleCpp } from './toggleCpp'
 import { formatNumberCpp, textValueCpp } from './displayTextCpp'
 
 export type ControlDataType = 'float' | 'bool' | 'string'
@@ -32,14 +33,14 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
     case 'StepValue': return { increase: 0, decrease: 0, reset: 0 }
     case 'Sin': case 'Cos': return { x: 0 }
     case 'Compare': return { a: 0, b: 0.5 }
-    case 'Trigger': return { trigger: 0 }
+    case 'Trigger': return props.triggerOp === 'toggle' ? { trigger: 0, on: 0, off: 0 } : { trigger: 0 }
     case 'FormatNumber': return { value: 0 }
     default: return {}
   }
 }
 
 export function scalarControlInputType(type: string, port: string): ControlDataType {
-  if ((type === 'Trigger' && port === 'trigger')
+  if ((type === 'Trigger' && ['trigger', 'on', 'off'].includes(port))
     || (type === 'StepValue' && ['increase', 'decrease', 'reset'].includes(port))) return 'bool'
   return 'float'
 }
@@ -105,10 +106,7 @@ export function scalarControlCpp(
     case 'Trigger': {
       const op = String(props.triggerOp ?? 'debounce')
       if (op === 'toggle') {
-        loop = [
-          `  static bool ${output} = ${props.initialState === true ? 'true' : 'false'}; static bool _trP_${id} = false;`,
-          `  { bool _t = (${f.trigger}); if (_t && !_trP_${id}) ${output} = !${output}; _trP_${id} = _t; }`,
-        ]
+        loop = toggleCpp(id, output, props.initialState === true, f.trigger, f.on, f.off)
       } else if (op === 'changed') {
         loop = [
           `  static bool _trP_${id} = false, _trInit_${id} = false; bool ${output} = false;`,

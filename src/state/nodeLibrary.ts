@@ -2303,6 +2303,8 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'math',
     inputs: [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
+      { id: 'on', label: 'On', dataType: 'bool' },
+      { id: 'off', label: 'Off', dataType: 'bool' },
     ],
 
     outputs: [{ id: 'out', label: 'Out', dataType: 'bool' }],
@@ -5004,7 +5006,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
-  Trigger: 'Debounce, Changed, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool.',
+  Trigger: 'Debounce, Changed, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool. Toggle also holds separate On and Off commands; Off wins when both are active.',
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
@@ -7083,6 +7085,7 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
  * power switch names its rows after the letters printed on the board.
  */
 export function propertyLabel(nodeType: string, key: string, properties?: Record<string, unknown>): string {
+  if (nodeType === 'Trigger' && key === 'initialState') return 'Start on'
   if (nodeType === 'PowerSwitchOutput' && properties) {
     const channelLabel = powerSwitchPropertyLabel(key, properties.partId)
     if (channelLabel) return channelLabel
