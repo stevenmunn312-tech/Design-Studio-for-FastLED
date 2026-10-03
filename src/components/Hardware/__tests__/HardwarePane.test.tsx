@@ -538,6 +538,17 @@ describe('HardwarePane', () => {
     expect(screen.getByText('MOSI 5 · SCK 18 · MISO 19 · CS 23')).toBeTruthy()
   })
 
+  it.each([
+    ['IRRemoteInput', { partId: 'keyestudio-ks0026-ir-receiver-module', pin: 2 }, 'S 2 (See build diagram)'],
+    ['DistanceInput', { partId: 'hc-sr04-ultrasonic-module', trigPin: 3, echoPin: 2 }, 'GPIO (Echo) 2 (See build diagram) · GPIO (Trig) 3'],
+  ] as const)('directs the %s divided input to the Build Diagram', (type, properties, caption) => {
+    useGraphStore.setState({
+      nodes: [...useGraphStore.getState().nodes, node(type, 'input', properties) as never],
+    })
+    render(<HardwarePane />)
+    expect(screen.getByText(caption)).toBeTruthy()
+  })
+
   it('uses the ST7789 module silkscreen names in its pin caption', () => {
     useGraphStore.setState({
       nodes: [

@@ -30,6 +30,7 @@ import { DARLINGTON_PART_ID, darlingtonPinKeys } from '../../state/darlingtonDri
 import { PD_TRIGGER_PART_ID } from '../../state/pdTrigger'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
+import { dividedInputPinKey } from '../../state/receiveDivider'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -770,12 +771,14 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
 export function numericPinSummary(
   properties: Record<string, unknown>,
   fields: readonly { key: string; label: string }[],
+  nodeType?: string,
 ): string {
+  const dividedPin = nodeType ? dividedInputPinKey(nodeType, properties) : null
   return fields
-    .map(({ key, label }) => ({ label, pin: Number(properties[key]) }))
+    .map(({ key, label }) => ({ key, label, pin: Number(properties[key]) }))
     .filter(({ pin }) => Number.isFinite(pin))
     .sort((left, right) => left.pin - right.pin || left.label.localeCompare(right.label))
-    .map(({ label, pin }) => `${label} ${pin}`)
+    .map(({ key, label, pin }) => `${label} ${pin}${key === dividedPin ? ' (See build diagram)' : ''}`)
     .join(' · ')
 }
 // One node type for every LED output; the form says what physical geometry the

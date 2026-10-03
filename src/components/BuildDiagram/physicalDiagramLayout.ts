@@ -4,6 +4,7 @@ import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/po
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../state/partCatalogue'
 import { oledTransportFor, type OledTransport } from '../../state/oledSurface'
 import { irReceiverModuleFor } from '../../state/irModules'
+import { receiveDividerSource } from '../../state/receiveDivider'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -961,22 +962,14 @@ export interface ReceiveDivider {
  * Which 5 V outputs get the divider: the wire's property, and the pad it leaves.
  * A MAX485's RO and an HC-SR04's Echo both swing to 5 V into a 3.3 V pin.
  */
-const RECEIVE_DIVIDER_SOURCES: Partial<Record<HardwareManifestItem['kind'], { propertyKey: string; pads: readonly string[] }>> = {
-  'dmx-input': { propertyKey: 'dmxRxPin', pads: ['RO'] },
-  'distance-input': { propertyKey: 'echoPin', pads: ['Echo', 'ECHO'] },
-  'ir-input': { propertyKey: 'pin', pads: ['S'] },
-}
-
 function hasReceiveDivider(item: HardwareManifestItem) {
-  if (item.kind === 'ir-input') return irReceiverModuleFor(item.facts.partId).supplyVoltage === 5
-  // A time-of-flight sensor on the I2C bus has no Echo to divide.
-  return item.kind in RECEIVE_DIVIDER_SOURCES && item.facts.transport !== 'i2c'
+  return receiveDividerSource(item.kind, item.facts.partId, item.facts.transport) !== null
 }
 
 export function receiveDivider(layout: ItemLayout): ReceiveDivider | null {
   const { item } = layout
   if (!hasReceiveDivider(item)) return null
-  const source = RECEIVE_DIVIDER_SOURCES[item.kind]!
+  const source = receiveDividerSource(item.kind, item.facts.partId, item.facts.transport)!
   const signalIndex = item.pins.findIndex((pin) => pin.propertyKey === source.propertyKey)
   const roIndex = padIndexByLabel(item, source.pads, -1)
   const box = fittedRenderBox(String(item.facts.partId ?? ''))

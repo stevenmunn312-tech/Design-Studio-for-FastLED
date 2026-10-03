@@ -238,7 +238,7 @@ export default function HardwarePane() {
       const pins = buttons.map((button) => button.pin).sort((left, right) => left - right)
       return `${buttons.length} button${buttons.length === 1 ? '' : 's'} · GPIO ${pins.join(', ')}`
     }
-    const summary = numericPinSummary(props, entry.pinFields)
+    const summary = numericPinSummary(props, entry.pinFields, entry.nodeType)
     if (!summary && entry.connectionSummary) return entry.connectionSummary
     if (!summary) return 'Mirrored in the graph'
     return summary

@@ -149,6 +149,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   uses that fact for both its supply rail and its conservative signal divider.
   Other IR options use the logic rail and a direct signal connection. The
   KS0026's `-, +, S` header geometry comes from its own imported Blender render.
+  `state/receiveDivider.ts` owns the divider source rules shared by the diagram
+  and the Hardware captions. `numericPinSummary` adds “See build diagram” to
+  the affected assigned input pin (KS0026 S, HC-SR04 Echo, MAX485 RO/RX), rather
+  than presenting it as a direct connection.
   Its
   outputs are the keys someone has learned, derived from `buttons` the way a
   Button Bank derives its own: an IR key is an identity in a saved mapping
