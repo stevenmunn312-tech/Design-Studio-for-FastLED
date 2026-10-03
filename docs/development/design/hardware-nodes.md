@@ -105,7 +105,10 @@ The prescale is `round(osc / (4096 * hz)) - 1`, computed in `pwmDriverPrescale`.
 configures the chip on first contact and again after any failed write, retried once a
 second while it is absent without stalling the loop, writes only the channels that have
 a wire and only when the quantised level changes, and sets the full-off and full-on bits
-at the ends so 0 and 1 are true 0% and 100%. Its helper goes in the sketch once, through
+at the ends so 0 and 1 are true 0% and 100%. Initialization writes ALL_LED_OFF_H before
+sleep, clearing retained outputs after a controller-only reboot; unwired channels stay
+off even when the chip remains powered. Address validation and bus collision detection
+use the same resolver as firmware. Its helper goes in the sketch once, through
 `globalLines`, however many drivers there are. The Build Diagram powers VCC from the
 logic rail, draws SDA and SCL only, and leaves OE floating (enabled) and V+ undrawn.
 

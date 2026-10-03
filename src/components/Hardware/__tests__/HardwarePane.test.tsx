@@ -9,6 +9,7 @@ import { useUploadStore } from '../../../state/uploadStore'
 import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../state/hardware'
 import { MIC_MODULES } from '../../../state/micModules'
+import { boardI2cDefault } from '../../../build/boardI2cDefaults'
 
 class ResizeObserverStub {
   observe() {}
@@ -145,6 +146,23 @@ describe('HardwarePane', () => {
       'on3:On C', 'level3:Level C',
       'on4:On D', 'level4:Level D',
     ])
+  })
+
+  it('adds the PWM driver on the board I2C pins and exposes its wiring popup', () => {
+    render(<HardwarePane />)
+    addPart('Switching power', 'Adafruit PCA9685')
+    const driver = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'PwmDriverOutput')!
+    const bus = boardI2cDefault(DEFAULT_BOARD_PROFILE_ID)!
+    expect(driver.data.properties).toMatchObject({
+      partId: 'adafruit-pca9685-pwm-driver', i2cAddress: '0x40', pwmHz: 1000,
+      sdaPin: bus.sda.arduinoPin, sclPin: bus.scl.arduinoPin,
+    })
+    expect(driver.data.inputs).toHaveLength(16)
+    expect(driver.data.outputs).toEqual([])
+    fireEvent.click(screen.getByTitle('Click for options · right-click for hardware actions'))
+    expect(screen.getByLabelText(`${driver.data.label} hardware inspector`)).toBeTruthy()
+    expect((screen.getByLabelText('SDA') as HTMLSelectElement).value).toBe(String(bus.sda.arduinoPin))
+    expect((screen.getByLabelText('SCL') as HTMLSelectElement).value).toBe(String(bus.scl.arduinoPin))
   })
 
   it('draws an ambient backdrop that never takes a pointer event', () => {

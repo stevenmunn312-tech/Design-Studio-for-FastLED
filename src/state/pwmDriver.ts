@@ -37,7 +37,9 @@ export function pwmDriverAddress(props: Record<string, unknown>): number | null 
   const spec = pwmDriverSpec(props.partId)
   const raw = props.i2cAddress
   if (raw === undefined || raw === null || raw === '') return spec.defaultI2cAddress
-  const value = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 16)
+  const text = typeof raw === 'string' ? raw.trim() : ''
+  const value = typeof raw === 'number' ? raw
+    : /^(?:0x)?[0-9a-f]{2}$/i.test(text) ? Number.parseInt(text, 16) : NaN
   return Number.isInteger(value) && spec.i2cAddresses.includes(value) ? value : null
 }
 

@@ -295,6 +295,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `i2cBusValidationIssues` in `validateGraph.ts` (deploy gate + Graph Health),
   so it now refuses any two I2C parts on different SDA/SCL pairs, not only when
   a display is among them. See [hardware nodes](../design/hardware-nodes.md).
+- An I2C part with its own address resolver must use it in `i2cAddressFor` as
+  well as firmware and validation. The PWM driver's unprefixed hex and missing
+  address defaults once resolved differently in bus collision detection, hiding
+  two devices answering on the same address. Reject partial address parses;
+  `parseInt` alone accepts trailing text that the configuration did not offer.
 - **Power converters (hardware-only):** `src/state/powerConverter.ts` resolves
   ratings from the catalogue's `powerConverter` block (never restated);
   `sourceVoltageIssue`'s minimum is `max(inputMinV, outputSetV + minHeadroomV)`.

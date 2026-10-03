@@ -5,7 +5,8 @@
  * totem-pole output stage (MODE2 OUTDRV), wakes it with register auto-increment
  * on, waits for the oscillator (skipped when the chip does not answer, so an absent
  * board costs no delay), and restarts it (MODE1 RESTART). Every output
- * powers up off and stays off until a channel is written.
+ * is explicitly set fully off before sleep, so a controller-only reboot or a
+ * new graph cannot resume the chip's retained duty on an unwired channel.
  *
  * A channel is four bytes from LED0_ON_L + 4 * channel: ON and OFF counts out of
  * 4096. A level of zero sets the full-off bit and a full level sets the full-on
@@ -22,7 +23,9 @@ export const PWM_DRIVER_HELPER_CPP: readonly string[] = [
   '  return Wire.endTransmission() == 0;',
   '}',
   'static bool _pcaBegin(uint8_t addr, uint8_t prescale) {',
-  '  bool ok = _pcaWrite(addr, 0x00, 0x10);',
+  '  // ALL_LED_OFF_H fills every channel\'s OFF register, including retained PWM.',
+  '  bool ok = _pcaWrite(addr, 0xFD, 0x10);',
+  '  ok = ok && _pcaWrite(addr, 0x00, 0x10);',
   '  ok = ok && _pcaWrite(addr, 0xFE, prescale);',
   '  ok = ok && _pcaWrite(addr, 0x01, 0x04);',
   '  ok = ok && _pcaWrite(addr, 0x00, 0x20);',

@@ -142,6 +142,28 @@ describe('StudioNode', () => {
     }
   })
 
+  it('draws all PWM channels and edits the shared address and frequency', () => {
+    const view = renderNode(makeNode('PwmDriverOutput', libraryDefaults('PwmDriverOutput')))
+    for (let channel = 0; channel < 16; channel += 1) {
+      expect(view.getByRole('button', {
+        name: new RegExp(`Connect to PWM Driver Channel ${channel} input, float`),
+      })).toBeTruthy()
+      expect(view.container.querySelector(`[data-handle="target:channel${channel}"]`)).toBeTruthy()
+    }
+    expect(view.container.querySelector('[data-handle^="source:"]')).toBeNull()
+    // Physical pins have one editor on the bench; chip settings live here.
+    expect(view.queryByLabelText('sdaPin value')).toBeNull()
+    expect(view.queryByLabelText('sclPin value')).toBeNull()
+    const address = view.getByLabelText('i2cAddress value') as HTMLSelectElement
+    expect(address.options).toHaveLength(48)
+    expect([address.options[0].value, address.options[47].value]).toEqual(['0x40', '0x6F'])
+    fireEvent.change(address, { target: { value: '0x41' } })
+    const frequency = view.getByLabelText('pwmHz value') as HTMLInputElement
+    expect([frequency.min, frequency.max]).toEqual(['24', '1526'])
+    fireEvent.change(frequency, { target: { value: '50' } })
+    expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({ i2cAddress: '0x41', pwmHz: 50 })
+  })
+
   it('draws an On socket and a Level field for every lettered channel of a multi-channel power switch', () => {
     const defaults = libraryDefaults('PowerSwitchOutput')
     const view = renderNode(makeNode('PowerSwitchOutput', { ...defaults, partId: 'monkmakes-mosfetti' }))

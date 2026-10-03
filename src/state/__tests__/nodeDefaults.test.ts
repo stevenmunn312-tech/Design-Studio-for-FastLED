@@ -75,6 +75,14 @@ describe('node defaults', () => {
     })
   })
 
+  it('uses the exact board PWM bus while preserving chip settings', () => {
+    useNodeDefaults.getState().setDefault('PwmDriverOutput', { sdaPin: 21, sclPin: 22, i2cAddress: '0x41', pwmHz: 50 })
+    const xiao = boardProfileById('seeed-xiao-esp32s3')
+    expect(resolveDefaultProperties('PwmDriverOutput', { sdaPin: 21, sclPin: 22 }, xiao)).toMatchObject({
+      sdaPin: 5, sclPin: 6, i2cAddress: '0x41', pwmHz: 50,
+    })
+  })
+
   it('uses the selected board core defaults for the complete SD SPI bus', () => {
     useNodeDefaults.getState().setDefault('SDCard', { sdCsPin: 10 })
     const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')

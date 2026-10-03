@@ -1,3 +1,5 @@
+import { pwmDriverAddress } from './pwmDriver'
+
 // What a claimed GPIO actually *is*, so validation can tell a shared bus from a
 // collision.
 //
@@ -171,6 +173,7 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
  * contributes neither.
  */
 export function i2cAddressFor(nodeType: string, props: Record<string, unknown>): number | null {
+  if (nodeType === 'PwmDriverOutput') return pwmDriverAddress(props)
   // A strappable part carries its own setting; the fixed-address parts below
   // ignore it because nothing the user does changes what they answer to.
   const configured = Number(props.i2cAddress)

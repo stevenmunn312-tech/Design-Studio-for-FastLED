@@ -55,6 +55,9 @@ for (const [name, source] of Object.entries(fixtures)) {
   if (found.join() !== expected.join()) {
     throw new Error(`${name}: expected PCA9685 helper, channel writes and bus starts ${expected}, found ${found}`)
   }
+  const off = source.indexOf('_pcaWrite(addr, 0xFD, 0x10)')
+  const sleep = source.indexOf('_pcaWrite(addr, 0x00, 0x10)')
+  if (off < 0 || off >= sleep) throw new Error(`${name}: retained outputs must be turned off before sleep`)
   // The chip is driven through its registers over Wire: no library may be included.
   if (/#include <(Adafruit_PWMServoDriver|PCA9685)/.test(source)) throw new Error(`${name}: unexpected library include`)
 }

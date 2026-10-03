@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { buildHardwareManifest, collectPinUses } from '../../build/hardwareManifest'
 import { generateCpp } from '../../codegen/cppGenerator'
 import {
@@ -8,6 +8,8 @@ import { FIXTURE_PARTS } from '../../components/Hardware/hardwarePartCatalog'
 import { findDeployBlockingErrors, findPinConflicts } from '../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../nodeLibrary'
+import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
+import { useHardwareInputStore } from '../hardwareInputStore'
 import { partById } from '../partCatalogue'
 import { PART_OPTIONS } from '../partOptions'
 import {
@@ -66,6 +68,13 @@ describe('the catalogued PCA9685', () => {
     expect(pwmDriverAddress({ i2cAddress: '0x70' })).toBeNull()
   })
 
+  it('accepts complete hex or numeric addresses and refuses partial parses', () => {
+    for (const i2cAddress of ['41', ' 0x41 ', 65]) expect(pwmDriverAddress({ i2cAddress })).toBe(0x41)
+    for (const i2cAddress of ['0x41junk', '0x41.5', '0x41;evil()', true, {}, 65.5]) {
+      expect(pwmDriverAddress({ i2cAddress })).toBeNull()
+    }
+  })
+
   it('clamps the frequency to the prescaler\'s reach and derives the register value from it', () => {
     expect(pwmDriverHz({})).toBe(1000)
     expect(pwmDriverHz({ pwmHz: 5 })).toBe(24)
@@ -86,6 +95,15 @@ describe('the catalogued PCA9685', () => {
 })
 
 describe('PWM driver firmware', () => {
+  it('turns every retained channel fully off before putting the chip to sleep', () => {
+    const { nodes, edges } = driverGraph()
+    const sketch = generateCpp(nodes, edges)
+    const begin = sketch.slice(sketch.indexOf('static bool _pcaBegin'), sketch.indexOf('static bool _pcaSet'))
+    expect(begin).toContain('bool ok = _pcaWrite(addr, 0xFD, 0x10);')
+    expect(begin.indexOf('0xFD, 0x10')).toBeLessThan(begin.indexOf('0x00, 0x10'))
+    expect(begin).toContain('if (!ok) return false;')
+  })
+
   it('starts one I2C bus, configures the chip once and writes only the wired channels', () => {
     const { nodes, edges } = driverGraph({ i2cAddress: '0x41', pwmHz: 1000 })
     const sketch = generateCpp(nodes, edges)
@@ -107,9 +125,65 @@ describe('PWM driver firmware', () => {
       [edge('frame', 'fill', 'frame', 'out', 'frame')])
     expect(sketch).not.toContain('_pcaSet')
   })
+
+  it('keeps separate driver state and frequencies on one shared bus and helper', () => {
+    const { nodes, edges } = driverGraph()
+    const sketch = generateCpp([...nodes, node('pwm2', 'PwmDriverOutput', { i2cAddress: '0x41', pwmHz: 50 })],
+      [...edges, edge('c15', 'pot', 'value', 'pwm2', 'channel15')])
+    expect(sketch.match(/static bool _pcaBegin\(/g)).toHaveLength(1)
+    expect(sketch.match(/Wire\.begin\(/g)).toHaveLength(1)
+    expect(sketch).toContain('_pcaBegin(0x40, 5)')
+    expect(sketch).toContain('_pcaBegin(0x41, 121)')
+    expect(sketch).toContain('_pwmLast_pwm2[15]')
+    expect(sketch).toContain('_pcaSet(0x41, 15, _pwmDuty_pwm2_15)')
+    expect(sketch).not.toContain('_pcaSet(0x41, 0,')
+  })
+})
+
+describe('PWM driver preview', () => {
+  beforeEach(() => {
+    resetEvaluatorState()
+    useHardwareInputStore.setState({ pot: new Map() })
+  })
+
+  it('evaluates channels at preview cadence without changing the LED frame', () => {
+    const { nodes, edges } = driverGraph()
+    nodes.push(node('idle', 'Wave'))
+    useHardwareInputStore.getState().setPot('pot', 0.25)
+    const first = evaluateGraphFull(nodes, edges, 0, 8, 8, {}, false)
+    const frame = structuredClone(first.frame)
+    expect(first.outputs.get('pwm')).toEqual({})
+    expect(first.outputs.get('pot')?.value).toBe(0.25)
+    expect(first.outputs.has('idle')).toBe(false)
+    expect(frame).not.toBeNull()
+    useHardwareInputStore.getState().setPot('pot', 0.75)
+    const second = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, false)
+    expect(second.outputs.get('pot')?.value).toBe(0.75)
+    expect(second.frame).toEqual(frame)
+  })
+
+  it('keeps the sink and its source hot even without an LED output', () => {
+    const nodes = [node('pwm', 'PwmDriverOutput'), node('pot', 'PotInput')]
+    const edges = [edge('c15', 'pot', 'value', 'pwm', 'channel15')]
+    useHardwareInputStore.getState().setPot('pot', 1)
+    const preview = evaluateGraphFull(nodes, edges, 0, 8, 8, {}, false)
+    expect(preview.frame).toBeNull()
+    expect(preview.outputs.get('pwm')).toEqual({})
+    expect(preview.outputs.get('pot')?.value).toBe(1)
+  })
 })
 
 describe('PWM driver wiring and validation', () => {
+  it('uses the firmware address for collision detection, including defaults and unprefixed hex', () => {
+    const driver = node('pwm', 'PwmDriverOutput')
+    delete driver.data.properties.i2cAddress
+    expect(findPinConflicts([driver, node('pwm2', 'PwmDriverOutput')]).join('\n')).toContain('0x40')
+    expect(findPinConflicts([node('pwm', 'PwmDriverOutput', { i2cAddress: '41' }),
+      node('pwm2', 'PwmDriverOutput', { i2cAddress: 65 })]).join('\n')).toContain('0x41')
+    expect(findDeployBlockingErrors([node('bad', 'PwmDriverOutput', { i2cAddress: '0x41junk' })], [],
+      'esp32:esp32:esp32').join('\n')).toContain('0x40 to 0x6F')
+  })
+
   it('shares SDA/SCL, flags a repeated address, rejects an impossible one, and draws the exact pads', () => {
     const driver = node('pwm', 'PwmDriverOutput', { sdaPin: 21, sclPin: 22 })
     expect(collectPinUses([driver]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])

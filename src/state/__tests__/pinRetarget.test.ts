@@ -253,18 +253,20 @@ describe('retargetHardwarePins', () => {
     expect(result.nodes[0].data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
   })
 
-  it('moves an I2C OLED with the RTC onto the board I2C bus', () => {
+  it('moves an I2C OLED and PWM driver with the RTC onto the board I2C bus', () => {
     const xiao = boardProfileById('seeed-xiao-esp32s3')!
     const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
     const nodes = [
       part('rtc', 'RTCInput', withAssignedPins({ timeSource: 'DS3231' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
       part('oled', 'InfoDisplay', withAssignedPins({ partId: 'ssd1306-oled-128x64' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+      part('pwm', 'PwmDriverOutput', withAssignedPins({ i2cAddress: '0x41', pwmHz: 50 }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
     ]
 
     const result = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32', xiao.id)
     for (const node of result.nodes) {
       expect(node.data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
     }
+    expect(result.nodes.find((node) => node.id === 'pwm')?.data.properties).toMatchObject({ i2cAddress: '0x41', pwmHz: 50 })
   })
 
   it('retargets only the pins physically present on a MAX7219 display', () => {

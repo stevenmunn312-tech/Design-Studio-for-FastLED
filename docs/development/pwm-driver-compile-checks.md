@@ -1,6 +1,6 @@
 # PWM-driver compile checks
 
-> **Status: complete.** Both fixtures passed on classic ESP32 on 1 October 2026.
+> **Status: complete.** Both fixtures passed on classic ESP32 on 3 October 2026.
 > This is compile evidence only; the PCA9685 remains experimental in the
 > [support matrix](../release/beta-support-matrix.md) until its recorded bench
 > run exists.
@@ -10,7 +10,8 @@ The fixtures come from real Studio graphs. Each wires a `PotInput` into channels
 LED output to keep that alive. Fixture generation refuses any set that does not
 contain exactly one register helper, both channel writes and one bus start, and
 any PCA9685 or PWM-servo library include: the chip is driven through its registers
-over `Wire`.
+over `Wire`. It also requires the ALL_LED_OFF_H write before sleep, so outputs
+retained across a controller reboot are cleared before the wired channels resume.
 
 | Fixture | What it holds | Result |
 | --- | --- | --- |
@@ -26,8 +27,8 @@ From the repository root:
 
 ```powershell
 npm run gen:pwm-driver-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/pwm.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/shared.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/pwm.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pwm-driver
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/shared.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pwm-driver
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It
@@ -37,14 +38,14 @@ compiles one at a time: they share one arduino-cli workspace per label, and two
 runs at once, or a run killed part-way, leave a truncated cached object that
 fails the next link with `ld: final link failed: file truncated`.
 
-## Results, 1 October 2026
+## Results, 3 October 2026
 
 Toolchain: arduino-cli 1.5.1, ESP32 core 3.3.11 and FastLED 3.10.5. Target:
 `esp32:esp32:esp32` with the helper's `huge_app` partition setting.
 
-Source hashes: `pwm` `5de6bd6f`, `shared` `0d127726`.
+Source hashes: `pwm` `4da44a89`, `shared` `c62fde0c`.
 
 | Fixture | Engine | Result | Flash | RAM |
 | --- | --- | --- | --- | --- |
-| pwm | arduino-cli | pass | 423,787 / 3,145,728 (13%) | 29,196 / 327,680 (8%) |
-| shared | arduino-cli | pass | 424,123 / 3,145,728 (13%) | 29,196 / 327,680 (8%) |
+| pwm | arduino-cli | pass | 423,799 / 3,145,728 (13%) | 29,196 / 327,680 (8%) |
+| shared | arduino-cli | pass | 424,139 / 3,145,728 (13%) | 29,196 / 327,680 (8%) |
