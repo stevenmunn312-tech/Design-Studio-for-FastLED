@@ -22,14 +22,23 @@ python scripts/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts
 python scripts/import-board-assets.py
 ```
 
-Every controller board is a full 3D rebuild made by `Scripts/board_rebuild/`
-in the asset workspace (see its README): parts sit on solder at the PCB
-surface, so the models also hold up at an angle. A rebuild keeps the camera,
+Pass `--only <part-id>[,...]` to the part importer to re-encode just those parts.
+
+Every controller board, and every part module with its own circuit board, is a
+full 3D rebuild made by `Scripts/board_rebuild/` in the asset workspace (see its
+README): components sit on solder at the PCB surface, so the models also hold
+up at an angle. A part module keeps its approved finishes (ink, mask, plated
+rings and square pads, including the LM2596 pads `CONVERTER_PAD_MM` reads) and
+gains plated barrels. Parts without a board (the probe, speaker, keypad, IR
+receiver and ULN2803A), sealed supplies, the NLED STEP models and the HUB75 face
+keep their original models and renders. The SN74AHCT125N keeps its model but
+gains the lead drops its generator left out. A rebuild keeps the camera,
 plated-hole centres, hole radius and pin labels pixel-identical, and
-`qa_finals.py` checks that against the previous render. It accepts only two
+`qa_finals.py` checks that against the previous render. It accepts only these
 deviations: mounting holes the rebuild drilled where the generator had painted
-a dark disc, and the holes in its `REOPENED` list, which a misplaced passive
-had half covered. It can move a USB-C receptacle that overhung the edge, so update
+a dark disc, the holes in its `REOPENED` list, which a misplaced passive had
+half covered, and image-edge contact that the model already had when the
+rebuild left its footprint unchanged. It can move a USB-C receptacle that overhung the edge, so update
 `usbPoint` in `src/components/BuildDiagram/controllerGeometry.ts` from the
 rebuild report.
 
