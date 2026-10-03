@@ -22,13 +22,16 @@ python scripts/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts
 python scripts/import-board-assets.py
 ```
 
-The ESP boards are full 3D rebuilds made by `Scripts/board_rebuild/` in the
-asset workspace (see its README): parts sit on solder at the PCB surface, so
-the models also hold up at an angle. A rebuild keeps the camera, plated-hole
-centres, hole radius and pin labels pixel-identical, and `qa_finals.py` checks
-that against the previous render. It can move a USB-C receptacle that
-overhung the edge, so update `usbPoint` in
-`src/components/BuildDiagram/controllerGeometry.ts` from the rebuild report.
+Every controller board is a full 3D rebuild made by `Scripts/board_rebuild/`
+in the asset workspace (see its README): parts sit on solder at the PCB
+surface, so the models also hold up at an angle. A rebuild keeps the camera,
+plated-hole centres, hole radius and pin labels pixel-identical, and
+`qa_finals.py` checks that against the previous render. It accepts only two
+deviations: mounting holes the rebuild drilled where the generator had painted
+a dark disc, and the holes in its `REOPENED` list, which a misplaced passive
+had half covered. It can move a USB-C receptacle that overhung the edge, so update
+`usbPoint` in `src/components/BuildDiagram/controllerGeometry.ts` from the
+rebuild report.
 
 The board importer uses the configured Blender source workspace; inspect its
 source configuration before targeting another asset folder. Review catalogue,
