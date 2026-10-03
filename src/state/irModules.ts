@@ -21,6 +21,8 @@ export interface IrReceiverModule {
   summary: string
   /** The caveat worth reading while wiring, when there is one. */
   note?: string
+  /** Modules specified only for 5 V need a divided signal into the logic input. */
+  supplyVoltage?: 5
 }
 
 /**
@@ -35,6 +37,13 @@ export const IR_RECEIVER_MODULES: readonly IrReceiverModule[] = [
     // The honest half of offering it: the centre pin is the supply on every
     // documented variant, and the outer two are not standardised.
     note: 'Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO.',
+  },
+  {
+    partId: 'keyestudio-ks0026-ir-receiver-module',
+    label: 'Keyestudio KS0026',
+    summary: '38 kHz IR receiver module with activity LED, 5 V',
+    supplyVoltage: 5,
+    note: 'Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified.',
   },
   {
     partId: 'tsop38238-ir-receiver',

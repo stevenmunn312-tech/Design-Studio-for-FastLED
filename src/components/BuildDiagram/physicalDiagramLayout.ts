@@ -3,6 +3,7 @@ import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../state/partCatalogue'
 import { oledTransportFor, type OledTransport } from '../../state/oledSurface'
+import { irReceiverModuleFor } from '../../state/irModules'
 
 export type ItemLayout = {
   item: HardwareManifestItem
@@ -330,6 +331,8 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // coordinates (23.75 px/mm, 10 px margin) and checked against the render:
   // both points are real, transparent holes.
   'lr7843-mosfet-module': padPoints(400, 851, [[169.8, 771.2], [230.2, 771.2]]),
+  // KS0026 header holes: 2.54 mm pitch at 19.6 px/mm in the 400 x 596 render.
+  'keyestudio-ks0026-ir-receiver-module': padRow([150.2, 200, 249.8], 400, 539.1, 596),
   // The control header A, B, C, D, GND along the bottom of the turned board.
   // Computed from the model's coordinates (12.01 px/mm, 10 px margin) and
   // checked against the render: each is an open hole, centred within 0.1 px.
@@ -821,6 +824,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // Power the Grove TTP223 from the logic rail so its active-high CMOS output
   // can never drive an ESP input above 3.3 V.
   if (item.kind === 'touch-button-input') return 'v3v3'
+  if (item.kind === 'ir-input' && irReceiverModuleFor(item.facts.partId).supplyVoltage === 5) return 'v5'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.
@@ -866,6 +870,7 @@ export const DEFAULT_PAD_HOLE_RADIUS = 4
  * marker, not a claim about the screw. Re-measure when a render is replaced.
  */
 export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
+  'keyestudio-ks0026-ir-receiver-module': 6.1,
   'inmp441-i2s-microphone': 13,
   'ics-43434-i2s-microphone': 6.4,
   'generic-i2s-mems-microphone': 10.5,
@@ -959,9 +964,11 @@ export interface ReceiveDivider {
 const RECEIVE_DIVIDER_SOURCES: Partial<Record<HardwareManifestItem['kind'], { propertyKey: string; pads: readonly string[] }>> = {
   'dmx-input': { propertyKey: 'dmxRxPin', pads: ['RO'] },
   'distance-input': { propertyKey: 'echoPin', pads: ['Echo', 'ECHO'] },
+  'ir-input': { propertyKey: 'pin', pads: ['S'] },
 }
 
 function hasReceiveDivider(item: HardwareManifestItem) {
+  if (item.kind === 'ir-input') return irReceiverModuleFor(item.facts.partId).supplyVoltage === 5
   // A time-of-flight sensor on the I2C bus has no Echo to divide.
   return item.kind in RECEIVE_DIVIDER_SOURCES && item.facts.transport !== 'i2c'
 }

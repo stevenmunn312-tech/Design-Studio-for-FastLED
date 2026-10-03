@@ -986,6 +986,34 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 26.0
     }
   },
+  "keyestudio-ks0026-ir-receiver-module": {
+    "partId": "keyestudio-ks0026-ir-receiver-module",
+    "label": "Keyestudio KS0026 digital IR receiver module",
+    "category": "input-control",
+    "dimensionsMm": {
+      "width": 20.0,
+      "height": 30.0
+    },
+    "manufacturer": "Keyestudio",
+    "logicVoltage": "5 V supply; use a signal divider for a 3.3 V controller input",
+    "pinLabelsLeftToRight": [
+      "-",
+      "+",
+      "S"
+    ],
+    "notes": [
+      "38 kHz demodulating digital IR receiver with activity LED.",
+      "Header order from the official connection diagram: minus (GND), plus (5 V), S (signal), viewed with the connection header at the bottom.",
+      "Keyestudio specifies 5 V operation; 3.3 V operation and the output-high voltage have not been verified. The Build Diagram conservatively divides the signal for the controller input.",
+      "30 x 20 mm module outline from Keyestudio KS0349 Project 33; component placement follows the KS0026 product photo. External header shown unpopulated."
+    ],
+    "render": {
+      "file": "parts/keyestudio-ks0026-ir-receiver-module.webp",
+      "widthPx": 400,
+      "heightPx": 596,
+      "pxPerMm": 19.6
+    }
+  },
   "ky-012-active-buzzer-module": {
     "partId": "ky-012-active-buzzer-module",
     "label": "KY-012 active buzzer module",

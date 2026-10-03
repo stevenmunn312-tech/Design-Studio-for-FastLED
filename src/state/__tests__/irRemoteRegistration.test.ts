@@ -18,6 +18,10 @@ import {
   peripheralPadLabel,
   peripheralPowerPadIndex,
   peripheralSignalPadIndex,
+  peripheralPowerNet,
+  peripheralSignalEndPoint,
+  peripheralPadPoint,
+  receiveDivider,
 } from '../../components/BuildDiagram/physicalDiagramLayout'
 import type { StudioEdge, StudioNode } from '../graphStore'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
@@ -256,6 +260,23 @@ describe('the offered IR receivers', () => {
     }
     expect(roleOfCentre('ky-022-ir-receiver-module')).toBe('supply')
     expect(roleOfCentre('tsop38238-ir-receiver')).toBe('ground')
+  })
+
+  it('powers the KS0026 at its specified 5 V and routes S through the divider', () => {
+    const item = itemFor('keyestudio-ks0026-ir-receiver-module')
+    expect(partById(item.facts.partId as string)?.pinLabelsLeftToRight).toEqual(['-', '+', 'S'])
+    expect(peripheralPowerNet(item)).toBe('v5')
+    const layout = { item, x: 400, y: 300, width: 200, height: 200 }
+    const divider = receiveDivider(layout)!
+    expect(divider).not.toBeNull()
+    expect(divider.roPad).toEqual(peripheralPadPoint(layout, 2))
+    expect(peripheralSignalEndPoint(layout, 0)).toEqual(divider.junction)
+    // The other receivers continue to use their logic-rail supply and direct input.
+    for (const partId of ['ky-022-ir-receiver-module', 'tsop38238-ir-receiver']) {
+      const other = { ...layout, item: itemFor(partId) }
+      expect(peripheralPowerNet(other.item)).toBe('v3v3')
+      expect(receiveDivider(other)).toBeNull()
+    }
   })
 
   it('resolves an unset or stale module to the one the shelf offers first', () => {

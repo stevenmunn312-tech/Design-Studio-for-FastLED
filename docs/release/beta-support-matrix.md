@@ -777,7 +777,10 @@ Unless a future row says otherwise, treat the following as experimental:
   needs a dated row naming the board/FQBN and the six pins, with link-up, DHCP and static addressing, Art-Net received over the
   cable, an NTP sync, and recovery after pulling and replugging the cable.
 - **IR remote receive on every board, receiver and remote combination.** The
-  current evidence is software and generated-firmware coverage only. The
+  offered receivers include the Keyestudio KS0026 (5 V, 38 kHz), with a
+  conservative signal divider in the Build Diagram for the controller input;
+  its operation at 3.3 V and actual output-high voltage remain unverified.
+  Current evidence is software and generated-firmware coverage only. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's
   advertised architectures; ESP32-S3 uses Studio's RMT capture adapter with
   the same protocol decoders and requires Arduino-ESP32 3.x or newer. Passing

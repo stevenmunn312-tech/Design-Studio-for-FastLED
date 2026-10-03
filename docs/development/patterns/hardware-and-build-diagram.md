@@ -143,7 +143,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   signal node (`HARDWARE_MANAGED_SIGNAL_NODE_TYPES` and
   `HARDWARE_LIBRARY_HIDDEN_NODE_TYPES` in `hardware.ts`) claiming one exclusive
   digital-input pin with no pull-up — the receiver module drives the line
-  itself, the way a PIR does, so a pull-up would fight its output stage. Its
+  itself, the way a PIR does, so a pull-up would fight its output stage.
+  The Keyestudio KS0026 option in `irModules.ts` declares
+  `supplyVoltage: 5` from its manufacturer specification; the Build Diagram
+  uses that fact for both its supply rail and its conservative signal divider.
+  Other IR options use the logic rail and a direct signal connection. The
+  KS0026's `-, +, S` header geometry comes from its own imported Blender render.
+  Its
   outputs are the keys someone has learned, derived from `buttons` the way a
   Button Bank derives its own: an IR key is an identity in a saved mapping
   rather than a pin, so the node grows one output port per key
