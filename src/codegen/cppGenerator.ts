@@ -112,7 +112,7 @@ import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
-import { LATTICE_HELPER_CPP, WORLEY_HASH_CPP } from './latticeHelperCpp'
+import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD, WORLEY_HASH_CPP } from './latticeHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
@@ -1267,6 +1267,7 @@ export function generateCpp(
   // A helper taking one by reference then fails to compile on a line this
   // generator never wrote.
   if (infoDisplays.length > 0) lines.push(INFO_DISPLAY_CPP_FORWARD)
+  if (needsLattice.v) lines.push(LATTICE_CPP_FORWARD)
   if (segmentDisplays.length > 0) lines.push(SEGMENT_DISPLAY_CPP_FORWARD)
   if (tftDisplays.length > 0) lines.push(TFT_DISPLAY_CPP_FORWARD)
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_FORWARD)

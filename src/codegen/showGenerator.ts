@@ -21,7 +21,7 @@ import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
 import { transitionHelperCpp } from './transitionHelperCpp'
 import { SDF_HELPER_CPP } from './sdfHelperCpp'
-import { LATTICE_HELPER_CPP } from './latticeHelperCpp'
+import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './latticeHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
 import { TURING_HELPER_CPP } from './turingHelperCpp'
 import { FLUID_HELPER_CPP } from './fluidHelperCpp'
@@ -883,6 +883,7 @@ export function generateShowSketch(
   L.push('// types are defined, so a helper taking one by reference fails on a')
   L.push('// line nothing in this generator wrote.')
   for (const decl of fastLedDecls) L.push(decl)
+  if (renderers.helpers.includes(LATTICE_HELPER_CPP)) L.push(LATTICE_CPP_FORWARD)
   for (const decl of new Set([...displays.forwards, ...selectionCpp.forwards, ...customDisplays.forwards])) L.push(decl)
   if (stereoVuMeters.length > 0) L.push(STEREO_VU_CPP_FORWARD)
   if (nodes.some((node) => nodeType(node) === 'EnvironmentInput')) L.push(ENVIRONMENT_SENSOR_CPP_FORWARD)

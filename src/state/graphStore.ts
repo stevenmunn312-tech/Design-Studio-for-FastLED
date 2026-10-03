@@ -88,6 +88,7 @@ import {
 import {
   addIrRemoteButton as appendIrRemoteButton,
   irRemoteButtonHandle,
+  IR_REMOTE_LEARN_HANDLE,
   irRemoteHandlesFromEdges,
   irRemoteOutputs,
   insertIrRemoteButton,
@@ -2051,7 +2052,12 @@ export const useGraphStore = create<GraphState>()(
             error = result.error
             return state
           }
-          return editIrRemote(state, nodeId, () => result.buttons)
+          const handle = irRemoteButtonHandle(result.buttons[result.buttons.length - 1].id)
+          return editIrRemote(state, nodeId, () => result.buttons, (edges) => edges.map((edge) =>
+            edge.source === nodeId && edge.sourceHandle === IR_REMOTE_LEARN_HANDLE
+              ? { ...edge, sourceHandle: handle }
+              : edge,
+          ))
         })
         return error
       },

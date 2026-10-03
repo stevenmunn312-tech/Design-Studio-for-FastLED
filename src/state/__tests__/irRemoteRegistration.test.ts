@@ -175,6 +175,26 @@ describe('editing learned IR keys', () => {
   })
   afterEach(() => vi.useRealTimers())
 
+  it('moves all pending Learn wires to the saved key in one undo step', () => {
+    const pending = edge('pending', 'ir', IR_REMOTE_LEARN_HANDLE, 'step', 'increase')
+    useGraphStore.getState().loadGraph(
+      [node('ir', 'IRRemoteInput', { buttons: [] }), node('step', 'StepValue')],
+      [pending],
+    )
+    vi.advanceTimersByTime(400)
+    useGraphStore.temporal.getState().clear()
+    expect(useGraphStore.getState().learnIrRemoteButton('ir', { label: 'Power', protocol: 'NEC', address: 0, command: 69 })).toBeNull()
+    vi.advanceTimersByTime(400)
+    const handle = irRemoteButtonHandle(buttonsOf('ir')[0].id)
+    expect(useGraphStore.getState().edges).toEqual([{ ...pending, sourceHandle: handle }])
+    expect(useGraphStore.temporal.getState().pastStates).toHaveLength(1)
+    useGraphStore.temporal.getState().undo()
+    expect(buttonsOf('ir')).toEqual([])
+    expect(useGraphStore.getState().edges).toEqual([pending])
+    useGraphStore.temporal.getState().redo()
+    expect(useGraphStore.getState().edges[0].sourceHandle).toBe(handle)
+  })
+
   it('adds, renames and removes a key in single undo steps, and keeps the wires of a rename', () => {
     useGraphStore.getState().loadGraph(
       [node('ir', 'IRRemoteInput', { buttons: [button('power', 'Power', 69)] }), node('step', 'StepValue')],

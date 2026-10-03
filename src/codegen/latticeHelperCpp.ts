@@ -3,6 +3,8 @@ import { LATTICE_HASH_MULTIPLIERS } from '../state/evaluator/lattice'
 const [HASH_A, HASH_B, HASH_SEED, HASH_MIX] = LATTICE_HASH_MULTIPLIERS
 
 /** Shared lattice and recursive fan-triangle helpers for generated firmware. */
+export const LATTICE_CPP_FORWARD = 'struct _LatticeCell;\nstruct _FanFold;'
+
 export const LATTICE_HELPER_CPP = String.raw`struct _LatticeCell { float x, y; int a, b; bool flipped; };
 struct _FanFold { float x, y; int sector; };
 

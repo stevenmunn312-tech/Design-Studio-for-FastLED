@@ -28,6 +28,7 @@ import { ledOutputManualRuntime } from '../state/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
+import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './latticeHelperCpp'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp,
@@ -1084,6 +1085,7 @@ ${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').j
 // defined, so a helper taking one by reference fails on a line nothing
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
+${renderers?.helpers.includes(LATTICE_HELPER_CPP) ? LATTICE_CPP_FORWARD + '\n' : ''}
 ${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${environmentSensorForward}${customDisplays?.forwards.join('\n') ?? ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}

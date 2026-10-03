@@ -9,6 +9,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## C++ emission hazards
 
+- The S3 IR RMT adapter must request the same explicit interrupt priority as
+  FastLED's RMT5 transmitter: `FL_RMT5_INTERRUPT_LEVEL` when available, otherwise
+  the pinned FastLED default of 3. Leaving RX at automatic priority (0) causes
+  `rmt_new_tx_channel: intr_priority conflict` on the first LED show, even though
+  the receiver learner alone works. Keep this in the shared adapter used by
+  learning, normal sketches, shows, and collection players.
+
+- Lattice helpers return `_LatticeCell` and `_FanFold` by value. Their
+  `LATTICE_CPP_FORWARD` declarations must precede every function in normal,
+  slideshow, and collection-player sketches to survive Arduino prototype
+  hoisting. A show/player emits them when its compiled renderers contain the
+  shared lattice helper block.
+
 - The Arduino `.ino` preprocessor hoists a function prototype for every function
   to a point *above* all user type definitions, so a generated function that
   takes a display helper struct by reference fails to compile on a line no

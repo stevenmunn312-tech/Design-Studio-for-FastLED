@@ -18,6 +18,8 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { INFO_DISPLAY_CPP_FORWARD } from '../infoDisplayCpp'
+import { LATTICE_CPP_FORWARD } from '../latticeHelperCpp'
+import { buildPatternRenderers } from '../showGenerator'
 import { SEGMENT_DISPLAY_CPP_FORWARD } from '../segmentDisplayCpp'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_FORWARD } from '../customDisplayLvglCpp'
@@ -98,6 +100,12 @@ function declaredBeforeAnyFunction(src: string, declaration: string): void {
 }
 
 describe('normal sketches', () => {
+  it('declares lattice helper return types before Arduino hoists their prototypes', () => {
+    const lattice = node('lattice', 'SliceTiling', {})
+    const wire = { id: 'lattice-out', source: 'lattice', sourceHandle: 'field', target: 'out', targetHandle: 'frame' } as StudioEdge
+    const src = generateCpp([output, lattice], [wire])
+    declaredBeforeAnyFunction(src, LATTICE_CPP_FORWARD)
+  })
   it('names the panel struct before any function that takes one', () => {
     declaredBeforeAnyFunction(generateCpp([output, oled], []), INFO_DISPLAY_CPP_FORWARD)
   })
@@ -186,6 +194,19 @@ describe('every struct a function takes by reference', () => {
 })
 
 describe('the show controller sketch', () => {
+  it('declares lattice helper return types before any functions in a pattern show', () => {
+    const groups = {
+      g0: {
+        nodes: [node('slices', 'SliceTiling'), node('shade', 'FieldToFrame'), node('go', 'GroupOutput')],
+        edges: [
+          { id: 'a', source: 'slices', sourceHandle: 'field', target: 'shade', targetHandle: 'field' },
+          { id: 'b', source: 'shade', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },
+        ],
+      },
+    }
+    const src = generateShowSketch([output, showCollection, node('master', 'PatternSlideshow')], showEdges, groups as never)
+    declaredBeforeAnyFunction(src, LATTICE_CPP_FORWARD)
+  })
   it('names the panel struct before any function that takes one', () => {
     declaredBeforeAnyFunction(showSketch([oled]), INFO_DISPLAY_CPP_FORWARD)
   })
@@ -223,6 +244,17 @@ describe('the show controller sketch', () => {
 })
 
 describe('the SD player sketch', () => {
+  it('declares lattice helper return types for collection patterns', () => {
+    const groups = { g0: {
+      nodes: [node('slice', 'SliceTiling'), node('shade', 'FieldToFrame'), node('out', 'GroupOutput')],
+      edges: [
+        { id: 'a', source: 'slice', sourceHandle: 'field', target: 'shade', targetHandle: 'field' },
+        { id: 'b', source: 'shade', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
+      ],
+    } }
+    const renderers = buildPatternRenderers(['g0'], groups as never)
+    declaredBeforeAnyFunction(generatePlayerSketch({}, renderers), LATTICE_CPP_FORWARD)
+  })
   const displays = (nodes: StudioNode[]) => playerDisplaysFromGraph(nodes as never, [])
 
   it('names the panel struct before any function that takes one', () => {

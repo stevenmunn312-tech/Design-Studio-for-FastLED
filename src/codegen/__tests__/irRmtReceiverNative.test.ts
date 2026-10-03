@@ -42,7 +42,7 @@ using gpio_num_t = int;
 constexpr int RMT_CLK_SRC_DEFAULT = 0;
 struct rmt_symbol_word_t { uint32_t duration0:15, level0:1, duration1:15, level1:1; };
 struct rmt_rx_done_event_data_t { size_t num_symbols; };
-struct rmt_rx_channel_config_t { gpio_num_t gpio_num; int clk_src; uint32_t resolution_hz; size_t mem_block_symbols; };
+struct rmt_rx_channel_config_t { gpio_num_t gpio_num; int clk_src; uint32_t resolution_hz; size_t mem_block_symbols; int intr_priority; };
 struct rmt_receive_config_t { uint32_t signal_range_min_ns, signal_range_max_ns; };
 using Callback = bool (*)(rmt_channel_handle_t, const rmt_rx_done_event_data_t*, void*);
 struct rmt_rx_event_callbacks_t { Callback on_recv_done; };
@@ -53,13 +53,14 @@ static size_t bufferCount, queueSize;
 static unsigned char queued[32];
 static bool ready;
 static int arms, decodes;
+static int groupPriority;
 static int64_t now;
 static int64_t esp_timer_get_time() { return now; }
 static void pinMode(int pin, int mode) { assert(pin == 13 && mode == INPUT); }
 static QueueHandle_t xQueueCreate(int count, size_t size) { assert(count == 1 && size <= sizeof(queued)); queueSize = size; return queued; }
 static int xQueueSendFromISR(QueueHandle_t, const void* item, BaseType_t*) { assert(!ready); memcpy(queued, item, queueSize); ready = true; return pdTRUE; }
 static int xQueueReceive(QueueHandle_t, void* item, int timeout) { assert(timeout == 0); if (!ready) return pdFALSE; memcpy(item, queued, queueSize); ready = false; return pdTRUE; }
-static int rmt_new_rx_channel(const rmt_rx_channel_config_t* cfg, rmt_channel_handle_t* channel) { assert(cfg->gpio_num == 13 && cfg->resolution_hz == 1000000 && cfg->mem_block_symbols == 96); *channel = queued; return ESP_OK; }
+static int rmt_new_rx_channel(const rmt_rx_channel_config_t* cfg, rmt_channel_handle_t* channel) { assert(cfg->gpio_num == 13 && cfg->resolution_hz == 1000000 && cfg->mem_block_symbols == 96); groupPriority = cfg->intr_priority; *channel = queued; return ESP_OK; }
 static int rmt_rx_register_event_callbacks(rmt_channel_handle_t, const rmt_rx_event_callbacks_t* cfg, void* user) { callback = cfg->on_recv_done; context = user; return ESP_OK; }
 static int rmt_enable(rmt_channel_handle_t) { return ESP_OK; }
 static int rmt_receive(rmt_channel_handle_t, void* data, size_t bytes, const rmt_receive_config_t* cfg) { assert(cfg->signal_range_max_ns > 9000000); buffer = static_cast<rmt_symbol_word_t*>(data); bufferCount = bytes / sizeof(*buffer); ++arms; return ESP_OK; }
@@ -85,6 +86,13 @@ static void feed(size_t count, int64_t completedAt) {
 }
 int main() {
   FLS_IR_RECEIVER.begin(13, false);
+  // FastLED allocates its TX channel on the first show, after IR begins.
+  // ESP-IDF rejects differing configured priorities in the shared RMT group.
+#ifdef FL_RMT5_INTERRUPT_LEVEL
+  assert(groupPriority == FL_RMT5_INTERRUPT_LEVEL);
+#else
+  assert(groupPriority == 3);
+#endif
   assert(arms == 1 && bufferCount == 52);
   assert(!FLS_IR_RECEIVER.decode() && arms == 1);
 
@@ -147,7 +155,7 @@ int main() {
 `
 
 describe.skipIf(!nativeGpp && !wslGpp)('S3 RMT capture native behavior', () => {
-  it('preserves decoder timings and capture-time gaps, rejects truncation, and re-arms on noise', () => {
+  it.each([undefined, 2])('shares FastLED priority %s, preserves timings and gaps, and re-arms on noise', (priority) => {
     const directory = mkdtempSync(path.join(tmpdir(), 'ir-rmt-'))
     const cleanupPath = path.resolve(directory)
     if (!cleanupPath.startsWith(path.resolve(tmpdir()) + path.sep)) throw new Error('Unexpected native-test directory')
@@ -156,7 +164,8 @@ describe.skipIf(!nativeGpp && !wslGpp)('S3 RMT capture native behavior', () => {
       const binary = path.join(directory, nativeGpp && process.platform === 'win32' ? 'capture.exe' : 'capture')
       // Platform headers are replaced by the fake hardware contract above.
       const adapter = IR_RMT_RECEIVER_CPP.replace(/^#include.*$/gm, '')
-      writeFileSync(source, [HARNESS, adapter, EXERCISES].join('\n'))
+      const configuration = priority === undefined ? '' : `#define FL_RMT5_INTERRUPT_LEVEL ${priority}`
+      writeFileSync(source, [configuration, HARNESS, adapter, EXERCISES].join('\n'))
       const args = ['-std=c++17', '-Wall', '-Wextra', '-Werror', source, '-o', binary]
       execFileSync(wslGpp ? 'wsl' : 'g++', wslGpp ? ['--exec', 'g++', ...args.map(compilerPath)] : args)
       const output = execFileSync(wslGpp ? 'wsl' : binary, wslGpp ? ['--exec', compilerPath(binary)] : [], { encoding: 'utf8' })

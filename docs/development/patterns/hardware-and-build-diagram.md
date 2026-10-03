@@ -168,8 +168,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   makes it visibly invalid to validation rather than a plausible mapping nobody
   authored, and the wire survives to be repaired. The trailing
   `IR_REMOTE_LEARN_HANDLE` socket is an invitation, not a signal, and mints no
-  button from a wire dropped on it — `liveExamples.test.ts` refuses a wire on
-  that socket from any live example, since the generic bool builder would
+  button from a wire dropped on it. Saving a learned key transfers all pending
+  wires from Learn to that new key, retaining edge identities and destinations
+  in the same undo step as the mapping (`learnIrRemoteButton`). A canceled or
+  rejected save leaves those wires alone. `liveExamples.test.ts` excludes
+  that socket from live examples, since the generic bool builder would
   otherwise wire `outputs[0]`, which here is Learn. Registration touches
   `nodeLibrary.ts` (pin property, `gpioRequirementForProperty`),
   `pinRetarget.ts` (`PART_PIN_PLANS.IRRemoteInput`) and `performanceDeck.ts`

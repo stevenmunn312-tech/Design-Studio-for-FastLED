@@ -48,6 +48,13 @@ public:
     config.gpio_num = static_cast<gpio_num_t>(pin);
     config.clk_src = RMT_CLK_SRC_DEFAULT;
     config.resolution_hz = 1000000; // durations are microseconds
+    // RX and FastLED TX share the S3 RMT group interrupt. Automatic priority
+    // (0) conflicts with FastLED's explicit level 3 at its first LED show.
+#ifdef FL_RMT5_INTERRUPT_LEVEL
+    config.intr_priority = FL_RMT5_INTERRUPT_LEVEL;
+#else
+    config.intr_priority = 3; // pinned FastLED RMT5 default
+#endif
     // Two 48-symbol RX blocks hold every supported (up to 48-bit) protocol.
     config.mem_block_symbols = 96;
     ESP_ERROR_CHECK(rmt_new_rx_channel(&config, &channel));
