@@ -19,9 +19,10 @@ program `irRemoteWorkflow.test.ts` asserts.
 
 | Fixture | Generator | What it proves |
 | --- | --- | --- |
-| `normal` | `generateCpp` | One `IrReceiver.decode()` in a live-graph sketch |
+| `normal` | `generateCpp` | One `FLS_IR_RECEIVER.decode()` in a live-graph sketch |
 | `slideshow` | `generateShowSketch` | The same poll inside the pattern-show controller |
 | `player` | `buildShowPlayer` | The SD player, routed through Control Map, alongside ESP32-audioI2S |
+| `learn` | `generateIrLearnSketch` | Temporary learner with every saved protocol decoder enabled |
 | `no-ir` | `generateCpp` | A sketch with no receiver does not pull in IRremote. The generator refuses to write the fixture set if it contains the include. |
 
 ## Reproduce
@@ -40,6 +41,36 @@ The runner compiles through the helper's own `_compile_upload` or
 report holds the source SHA-256, the toolchain, the pinned IRremote version and
 the flash/RAM figures. `backend/sketches/` is gitignored, so the tables below
 are the durable record.
+
+## ESP32-S3 capture, 3 October 2026
+
+S3 now captures the demodulated signal with native RMT and feeds the pinned
+IRremote decoders. These builds use arduino-cli 1.5.1 with Arduino-ESP32
+3.3.11 and FastLED 3.10.5, or fbuild 2.5.26 with vendored FastLED 3.10.4.
+Both engines use IRremote 4.7.1 (`498dc591` under fbuild). The native capture
+API requires Arduino-ESP32 3.x / ESP-IDF 5 or newer.
+
+Source hashes: `normal` `30143483`, `slideshow` `5d5dd6ce`, `player`
+`6a43eab2`, `learn` `dfeed856`. The `no-ir` fixture remains `401d7057`.
+
+| Fixture | Target (FQBN) | Engine | Result | Flash | RAM |
+| --- | --- | --- | --- | --- | --- |
+| normal | `esp32:esp32:esp32s3` | arduino-cli | pass | 439,051 | 27,852 |
+| normal | `esp32:esp32:esp32s3` | fbuild | pass | 725,207 | 80,384 |
+| slideshow | `esp32:esp32:esp32s3` | arduino-cli | pass | 443,755 | 27,932 |
+| slideshow | `esp32:esp32:esp32s3` | fbuild | pass | 731,064 | 80,712 |
+| player | `esp32:esp32:esp32s3` | arduino-cli | pass | 1,085,259 | 43,300 |
+| player | `esp32:esp32:esp32s3` | fbuild | pass | 1,363,149 | 95,457 |
+| learn | `esp32:esp32:esp32s3` | arduino-cli | pass | 316,273 | 22,728 |
+| learn | `esp32:esp32:esp32s3` | fbuild | pass | 613,110 | 75,274 |
+| normal (timer-path regression) | `esp32:esp32:esp32` | arduino-cli | pass | 406,471 | 28,732 |
+
+Use the same reproduction commands above with `--fqbn esp32:esp32:esp32s3`
+and `--tag esp32s3-rmt`, substituting each fixture name. The emitted C++
+capture adapter also has a native harness covering tick conversion, repeat
+gaps measured at capture time, maximum-length 48-bit frames with leading
+idle, and re-arming after empty, malformed, or truncated captures. This
+evidence does not replace receiver/remote testing on a physical board.
 
 ## Matrix, 22–23 September 2026
 

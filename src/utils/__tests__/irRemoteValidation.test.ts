@@ -39,7 +39,8 @@ describe('IR remote deploy validation', () => {
     expect(irRemoteSupportedForFqbn('arduino:avr:uno')).toBe(true)
     expect(irRemoteSupportedForFqbn('rp2040:rp2040:rpipico')).toBe(true)
     expect(irRemoteSupportedForFqbn('esp32:esp32:esp32c3')).toBe(true)
-    expect(irRemoteSupportedForFqbn('esp32:esp32:esp32s3')).toBe(false)
+    expect(irRemoteSupportedForFqbn('esp32:esp32:esp32s3')).toBe(true)
+    expect(irRemoteSupportedForFqbn('esp32:esp32:XIAO_ESP32S3')).toBe(true)
     expect(irRemoteSupportedForFqbn('arduino:sam:arduino_due_x')).toBe(false)
     expect(irRemoteSupportedForFqbn('vendor:unknown:board')).toBe(false)
   })
@@ -94,6 +95,15 @@ describe('IR remote deploy validation', () => {
   it('keeps a valid supported receiver out of the blocker list', () => {
     const remote = node('Remote', 'IRRemoteInput', { pin: 12, buttons: [key('Power', 69)] })
     expect(findIrRemoteErrors([remote], [], ESP32)).toEqual([])
+  })
+
+  it('allows S3 learned keys through Graph Health and the deploy gate', () => {
+    const remote = node('Remote', 'IRRemoteInput', { pin: 12, buttons: [key('Power', 69)] })
+    const fqbn = 'esp32:esp32:esp32s3'
+    expect(findIrRemoteErrors([remote], [], fqbn)).toEqual([])
+    expect(buildGraphDiagnostics([remote], [], { selectedFqbn: fqbn })
+      .some((issue) => issue.id === 'Remote-board-ir')).toBe(false)
+    expect(findDeployBlockingErrors([remote], [], fqbn).join('\n')).not.toContain('IR receive')
   })
 })
 

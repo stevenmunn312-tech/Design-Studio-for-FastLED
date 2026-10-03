@@ -53,6 +53,7 @@ function edge(id: string, source: string, target: string, th = 'frame'): StudioE
 
 const S3 = 'esp32:esp32:esp32s3'
 const ESP32 = 'esp32:esp32:esp32'
+const DUE = 'arduino:sam:arduino_due_x'
 
 interface GateCase {
   /** The failure class being provoked. */
@@ -383,9 +384,9 @@ const CASES: GateCase[] = [
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ],
     edges: [edge('e1', 'sc', 'out')],
-    fqbn: S3,
+    fqbn: DUE,
     blocks: /IR receive is incompatible with the selected board/,
-    names: ['Arduino-IRremote 4.7.1', S3, 'supported target'],
+    names: ['Arduino-IRremote 4.7.1', DUE, 'supported target'],
     diagnostic: 'ir-board-ir',
   },
   {

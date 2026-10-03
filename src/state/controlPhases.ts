@@ -90,7 +90,7 @@ export const CONTROL_PHASES: readonly ControlPhase[] = [
     summary: 'Decode at most one infrared frame into the learned key outputs, after every touch '
       + 'read and the control snapshot. A key and a widget from this pass then agree, and nothing '
       + 'applies a destination until the frame has been taken.',
-    anchors: [/IrReceiver\.decode\(/],
+    anchors: [/FLS_IR_RECEIVER\.decode\(/],
   },
   {
     id: 'resolve-graph',

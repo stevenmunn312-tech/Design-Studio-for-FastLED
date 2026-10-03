@@ -4,6 +4,7 @@ import {
   normalizeIrRemoteButtons,
   type IrRemoteProtocol,
 } from '../state/irRemote'
+import { IR_RMT_RECEIVER_CPP } from './irRmtReceiverCpp'
 
 /**
  * Pinned Arduino-IRremote release.
@@ -76,20 +77,24 @@ export function irRemoteHeader(protocols: readonly string[]): string {
     `// ${irRemoteInstallInstruction()}`,
     ...macros.map((macro) => `#define ${macro}`),
     '#define NO_LED_RECEIVE_FEEDBACK_CODE',
+    '#if defined(CONFIG_IDF_TARGET_ESP32S3)',
+    '// The app saves protocols up to 48 bits; 100 timing entries cover them.',
+    '#define RAW_BUFFER_LENGTH 100',
+    '#endif',
     IR_REMOTE_INCLUDE,
   ].join('\n')
 }
 
 /** Every protocol the learn sketch must be able to name. */
 export function irLearnHeader(): string {
-  return irRemoteHeader(IR_REMOTE_PROTOCOLS)
+  return [irRemoteHeader(IR_REMOTE_PROTOCOLS), IR_RMT_RECEIVER_CPP].join('\n')
 }
 
 export function irRemoteBeginLine(pin: number | string): string {
   const gpio = typeof pin === 'number'
     ? String(Math.max(0, Math.min(255, Math.trunc(pin))))
     : pin
-  return `IrReceiver.begin(${gpio}, DISABLE_LED_FEEDBACK);`
+  return `FLS_IR_RECEIVER.begin(${gpio}, DISABLE_LED_FEEDBACK);`
 }
 
 /**
@@ -127,15 +132,15 @@ export interface IrRemoteProjectNode {
 }
 
 export interface IrRemoteProjectEmission {
-  /** Lines of `irRemoteHeader`, empty when no saved key names a protocol. */
+  /** Atomic include/helper blocks, empty when no saved key names a protocol. */
   includes: string[]
-  /** File-scope bools. Assigned from `sample`, read by whichever function walks the graph. */
+  /** Capture helper and key bools, emitted after all library includes. */
   globals: string[]
-  /** `IrReceiver.begin` for the one receiver. Empty when there is nothing to decode. */
+  /** Begin the board's capture backend. Empty when there is nothing to decode. */
   setup: string[]
   /**
    * Inlined in `loop()` after the control snapshot and before anything reads a key.
-   * Contains `IrReceiver.decode()` when at least one key has a protocol.
+   * Contains `FLS_IR_RECEIVER.decode()` when at least one key has a protocol.
    */
   sample: string[]
 }
@@ -186,20 +191,25 @@ export function irRemoteProjectEmission(nodes: readonly IrRemoteProjectNode[]): 
   }
   const header = irRemoteHeader(protocols)
   return {
-    includes: header ? header.split('\n') : [],
-    globals,
+    // Keep conditional directives and helper bodies atomic: control graphs
+    // deduplicate includes, which would otherwise remove repeated braces/#endif.
+    includes: header ? [header] : [],
+    // A class body in the include preamble makes fbuild hoist CRGB-typed
+    // player prototypes ahead of FastLED.h. Emit the adapter at file scope
+    // after all includes instead; IRremote.hpp still precedes Audio.h.
+    globals: [IR_RMT_RECEIVER_CPP, ...globals],
     setup: [`  ${irRemoteBeginLine(pin ?? 0)}`],
     sample: [
       '  bool _irRepeat = false;',
       '  decode_type_t _irProtocol = UNKNOWN;',
       '  uint16_t _irAddress = 0;',
       '  uint16_t _irCommand = 0;',
-      '  if (IrReceiver.decode()) {',
+      '  if (FLS_IR_RECEIVER.decode()) {',
       '    _irRepeat = (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) != 0;',
       '    _irProtocol = IrReceiver.decodedIRData.protocol;',
       '    _irAddress = IrReceiver.decodedIRData.address;',
       '    _irCommand = IrReceiver.decodedIRData.command;',
-      '    IrReceiver.resume();',
+      '    FLS_IR_RECEIVER.resume();',
       '  }',
       ...rows.map((row) => {
         if (!row.protocol) return `  ${row.variable} = false;`

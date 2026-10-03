@@ -35,7 +35,7 @@ void setup() {
 }
 
 void loop() {
-  if (!IrReceiver.decode()) return;
+  if (!FLS_IR_RECEIVER.decode()) return;
   const bool repeat = (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) != 0;
   if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
     Serial.printf("FLS_IR v=1 protocol=%s address=0x%lX command=0x%lX repeat=%d\\n",
@@ -44,7 +44,7 @@ void loop() {
                   (unsigned long)IrReceiver.decodedIRData.command,
                   repeat ? 1 : 0);
   }
-  IrReceiver.resume();
+  FLS_IR_RECEIVER.resume();
 }
 `
 }

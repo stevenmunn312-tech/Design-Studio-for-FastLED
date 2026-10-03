@@ -779,8 +779,9 @@ Unless a future row says otherwise, treat the following as experimental:
 - **IR remote receive on every board, receiver and remote combination.** The
   current evidence is software and generated-firmware coverage only. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's
-  advertised architectures and explicitly blocks ESP32-S3; passing the gate
-  is not a hardware result. Graduation requires a dated row naming the receiver
+  advertised architectures; ESP32-S3 uses Studio's RMT capture adapter with
+  the same protocol decoders and requires Arduino-ESP32 3.x or newer. Passing
+  the gate is not a hardware result. Graduation requires a dated row naming the receiver
   part, remote model/protocol, board/FQBN, signal GPIO and build engine. It must
   exercise short presses, holds/repeats, alternating and unknown keys, and
   rapid presses in normal, slideshow and SD/player firmware, including a long

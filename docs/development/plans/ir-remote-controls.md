@@ -154,7 +154,7 @@ for automated tests, but receives the same normalization and duplicate checks.
 Pin the supported Arduino-IRremote version in the helper/toolchain path instead
 of compiling against whichever API happens to be installed. Emit only the
 allow-listed decoder macros needed by the authored mappings, before
-`#include <IRremote.hpp>`, then use `IrReceiver.decode()`, the structured
+`#include <IRremote.hpp>`, then use `FLS_IR_RECEIVER.decode()`, the structured
 decoded fields and the repeat flag. Keep the include/setup/polling emitter in
 one module shared by the normal generator and the two template generators.
 
@@ -203,8 +203,9 @@ Graph Health and the deploy gate must share these failures:
 
 Implemented by one structured issue walk projected into both
 `findDeployBlockingErrors` and `buildGraphDiagnostics`. Selected-board support
-follows Arduino-IRremote 4.7.1's declared architecture list, excluding the
-ESP32-S3 target that the pinned release explicitly marks unsupported. Pin
+follows Arduino-IRremote 4.7.1's declared architecture list. ESP32-S3 replaces
+the library's unsupported timer receiver with Studio's native RMT capture
+adapter while retaining its protocol decoders (Arduino-ESP32 3.x or newer). Pin
 collisions and signal-range mismatches continue through their existing shared
 diagnostics rather than being duplicated here.
 

@@ -187,7 +187,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that checkout from other sketches; arduino-cli installs `IRremote@4.7.1`;
   `// FLS-IRREMOTE:` changes the sketch bytes when the pin changes. Project
   sketches poll through `irRemoteProjectEmission` (`irRemoteCpp.ts`): one
-  `IrReceiver.decode()` in the `sample-ir` input phase, after the control
+  `FLS_IR_RECEIVER.decode()` in the `sample-ir` input phase, after the control
   snapshot and before destination apply, shared by `cppGenerator.ts` and the
   show and player control graphs. A key bool is named like any other GPIO output
   (`n_<id>_button_<key>`), so a direct action or Control Map resolves it; `once`
@@ -201,9 +201,24 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   second receiver, empty/invalid/duplicate/missing mappings, unsupported
   selected FQBNs, and bad Step Value domains, while the existing shared
   pin-collision and signal-range walks remain authoritative for those concerns.
-  Board support follows the pinned release's architecture declaration with its
-  explicit ESP32-S3 exception, so a custom board on a supported core is not
-  rejected merely for having an unknown board id. The shelf fixture and verified
+  Board support follows the pinned release's architecture declaration; S3 uses
+  the native RMT adapter in `irRmtReceiverCpp.ts`, not the unsupported timer
+  receiver. `FLS_IR_RECEIVER` selects that adapter at compile time for both the
+  learner and all project generators, and otherwise aliases `IrReceiver`.
+  RMT captures active-low timings at 1 MHz with a 12 ms idle timeout (NEC's
+  leading mark alone is 9 ms). The ISR queues only a completion count/time;
+  the main loop loads IRremote's reserved-entry-zero raw buffer, copies both
+  rawlen/gap fields into decodedIRData, and re-arms after decode, or immediately
+  on noise/overflow. Gap measurement uses capture time, not the time the loop
+  resumes after LED output. The S3 raw buffer covers the saved protocol list's
+  maximum 48 bits. Its RMT API requires Arduino-ESP32 3.x / ESP-IDF 5 or newer.
+  Keep the full IR header as one includes entry: the show/player control
+  graphs deduplicate entries, so splitting conditional blocks into lines
+  silently removes repeated preprocessor directives. The capture class belongs
+  in globals after all library includes. Putting it beside IRremote's early
+  include in the player makes fbuild insert its CRGB-typed function prototypes
+  before FastLED.h; IRremote itself must still precede Audio.h. A custom board on a
+  supported core is not rejected merely for having an unknown board id. The shelf fixture and verified
   receiver renders followed: `IR_RECEIVER_MODULES` in `src/state/irModules.ts`
   is the one list of demodulating receivers an `IRRemoteInput` can be, the same
   shape `MIC_MODULES` already has — the deciding fact here is *pin order* rather

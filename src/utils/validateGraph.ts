@@ -131,9 +131,9 @@ const HUB75_SUPPORTED_FQBNS = new Set([...CLASSIC_ESP32_FQBNS, 'esp32:esp32:esp3
  *
  * Match the architecture segment of the FQBN rather than maintaining a second
  * board list: custom boards using a supported core should not be refused just
- * because Studio has never seen their board id. ESP32-S3 is the one explicit
- * exception in the pinned release's Supported Boards notes (the broad
- * `architectures=esp32` declaration otherwise includes it).
+ * because Studio has never seen their board id. ESP32-S3 uses our native RMT
+ * capture adapter with the pinned library's protocol decoders, bypassing its
+ * unsupported timer receiver.
  */
 const IR_REMOTE_SUPPORTED_ARCHITECTURES: ReadonlySet<string> = new Set([
   'avr', 'megaavr', 'samd', 'esp8266', 'esp32', 'stm32', 'stm32f1',
@@ -142,9 +142,8 @@ const IR_REMOTE_SUPPORTED_ARCHITECTURES: ReadonlySet<string> = new Set([
 
 export function irRemoteSupportedForFqbn(fqbn: string): boolean {
   if (!fqbn) return true
-  const [, architecture = '', board = ''] = fqbn.toLowerCase().split(':')
-  if (!IR_REMOTE_SUPPORTED_ARCHITECTURES.has(architecture)) return false
-  return architecture !== 'esp32' || !board.includes('s3')
+  const [, architecture = ''] = fqbn.toLowerCase().split(':')
+  return IR_REMOTE_SUPPORTED_ARCHITECTURES.has(architecture)
 }
 
 // Nodes whose live preview reads a browser-only API with no embedded-hardware
@@ -1769,7 +1768,7 @@ function irRemoteValidationIssues(
         id: `${receiver.id}-board-ir`, severity: 'error', category: 'board',
         title: 'IR receive is incompatible with the selected board',
         message: `${label} cannot use Arduino-IRremote 4.7.1 on ${selectedFqbn}; that target is outside the pinned release's supported receiver architectures.`,
-        fix: 'Choose a supported target such as AVR, ESP8266, classic ESP32 / ESP32-C3, SAMD, STM32, RP2040, or remove the IR Receiver.',
+        fix: 'Choose a supported target such as AVR, ESP8266, ESP32 / ESP32-C3 / ESP32-S3, SAMD, STM32, RP2040, or remove the IR Receiver.',
         nodeIds: [receiver.id], nodeLabel: label, action: 'choose-board',
       })
     }

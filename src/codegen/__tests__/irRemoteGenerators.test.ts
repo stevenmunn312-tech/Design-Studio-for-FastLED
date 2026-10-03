@@ -16,6 +16,7 @@ import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { playerControlGraph } from '../playerControlGraph'
 import { buildShowPlayer } from '../../utils/showUpload'
+import { IR_RMT_RECEIVER_CPP } from '../irRmtReceiverCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -82,7 +83,10 @@ function loopBody(source: string): string {
 }
 
 function expectOnePoll(source: string, player = false) {
-  expect(source.match(/IrReceiver\.decode\(/g)).toHaveLength(1)
+  expect(source.match(/FLS_IR_RECEIVER\.decode\(/g)).toHaveLength(1)
+  // Include deduplication must preserve the complete S3 adapter body.
+  expect(source).toContain(IR_RMT_RECEIVER_CPP)
+  expect(source.indexOf('class FlsIrRmtReceiver')).toBeGreaterThan(source.indexOf('#include <FastLED.h>'))
   expect(source).toContain('#define DECODE_NEC')
   expect(source.indexOf('#define DECODE_NEC')).toBeLessThan(source.indexOf('#include <IRremote.hpp>'))
   if (player) {
@@ -91,13 +95,13 @@ function expectOnePoll(source: string, player = false) {
   } else {
     expect(source.indexOf('#include <FastLED.h>')).toBeLessThan(source.indexOf('#include <IRremote.hpp>'))
   }
-  expect(source).toContain('IrReceiver.begin(4, DISABLE_LED_FEEDBACK);')
+  expect(source).toContain('FLS_IR_RECEIVER.begin(4, DISABLE_LED_FEEDBACK);')
   expect(source).toContain('static bool n_ir_button_power;')
   expect(source).toContain('n_ir_button_power = _irProtocol == NEC && _irAddress == 0u && _irCommand == 69u && !_irRepeat;')
   expect(source).toContain('n_ir_button_up = _irProtocol == NEC && _irAddress == 0u && _irCommand == 70u;')
   const loop = loopBody(source)
   expect(controlPhaseViolation(loop)?.reason ?? null, loop).toBeNull()
-  const decodeAt = loop.indexOf('IrReceiver.decode(')
+  const decodeAt = loop.indexOf('FLS_IR_RECEIVER.decode(')
   expect(decodeAt).toBeGreaterThan(loop.indexOf('_cdBoolOutput('))
   const applyAt = loop.search(/_cdPanelOn_\w+ = _cdOn_\w+;|\{ \/\/ LED output run-time controls/)
   expect(applyAt).toBeGreaterThan(decodeAt)
@@ -191,7 +195,7 @@ describe('IR polling in the three generators', () => {
     expect(routing.controls.some((control) => control.buttons.some((button) =>
       button.port === 'next' && button.expr === 'n_ir_button_power'))).toBe(true)
     const sample = controlGraphCpp(routing.graph).loop.join('\n')
-    expect(sample.match(/IrReceiver\.decode\(/g)).toHaveLength(1)
+    expect(sample.match(/FLS_IR_RECEIVER\.decode\(/g)).toHaveLength(1)
     expect(sample).toContain('n_ir_button_power =')
   })
 })

@@ -7,6 +7,7 @@ import { generateShowSketch } from '../src/codegen/showGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../src/state/graphStore'
 import { buildShowPlayer } from '../src/utils/showUpload'
+import { generateIrLearnSketch } from '../src/codegen/irLearnSketch'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -106,7 +107,7 @@ const player = buildShowPlayer(playerNodes, playerEdges, groups, {
   patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
 })
 
-const fixtures = { normal, slideshow, player, 'no-ir': noIr }
+const fixtures = { normal, slideshow, player, learn: generateIrLearnSketch({ pin: 12 }), 'no-ir': noIr }
 for (const [name, source] of Object.entries(fixtures)) {
   const includes = source.match(/#include <IRremote\.hpp>/g)?.length ?? 0
   if ((name === 'no-ir' && includes !== 0) || (name !== 'no-ir' && includes !== 1)) {

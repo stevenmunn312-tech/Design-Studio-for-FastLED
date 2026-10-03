@@ -463,8 +463,11 @@ The learning upload is refused until the workspace is trusted. Project builds
 pin Arduino-IRremote 4.7.1: the helper installs or vendors it lazily, an
 exported `.ino` carries the exact `arduino-cli lib install IRremote@4.7.1`
 instruction, and a project without an IR receiver does not include the
-library. Board acceptance follows the architectures advertised by that pinned
-release plus its explicit exclusions; in particular, ESP32-S3 is blocked.
+library. ESP32-S3 uses native RMT hardware to capture the signal and the same
+library to decode it; it requires Arduino-ESP32 3.x or newer. The learner and
+project firmware select this automatically, so the workflow above also applies
+to S3. Other boards use the library's normal receiver. The selected GPIO must
+be free, and a receiver connected directly to an S3 GPIO must use 3.3 V logic.
 
 Resolve these Graph Health findings before upload or export:
 
