@@ -139,7 +139,10 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
   for (const include of ir.includes) includes.add(include)
   return {
     irDebug: ir.debug,
-    setup: [...setup],
+    setup: [
+      ...[...setup].filter((line) => line.trimStart().startsWith('Wire.begin(')).slice(0, 1),
+      ...[...setup].filter((line) => !line.trimStart().startsWith('Wire.begin(')),
+    ],
     helpers: [...helpers],
     includes: [...includes],
     globals: ir.globals,

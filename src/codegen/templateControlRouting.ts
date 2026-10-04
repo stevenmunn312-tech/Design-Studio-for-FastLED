@@ -74,7 +74,19 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const custom = customDisplayControlPlan(nodes, documents, context.widgetLabel, edges)
   const graph = createControlGraph(nodes, edges, [...custom.sources, ...(context.sampledSources ?? [])])
   bindCustomDisplayControls(custom, graph, edges, context.widgetLabel)
-  bindCustomDisplaySources(custom, context.sourceExpressions ?? {})
+  const powerSources = new Map<string, DisplaySourceExpressions>()
+  for (const edge of edges) {
+    if (edge.targetHandle !== 'display' || !DISPLAY_NODE_TYPES.has(byId.get(edge.target)?.data.nodeType ?? '')) continue
+    const source = byId.get(edge.source)
+    if (source?.data.nodeType !== 'PowerMonitorInput' || edge.sourceHandle !== 'display') continue
+    const readings: Record<string, string> = {}
+    for (const port of ['volts', 'amps', 'watts']) {
+      const reference = graph.resolve(source.id, port, 'float')
+      if (reference) readings[port] = controlReferenceCpp(reference)
+    }
+    powerSources.set(edge.target, readings)
+  }
+  bindCustomDisplaySources(custom, (panelId) => powerSources.get(panelId) ?? context.sourceExpressions ?? {})
   const displaySources = new Map<string, string>()
   const controls: PlayerControlsEmit[] = []
   const bundles = new Map<string, string>()

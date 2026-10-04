@@ -548,6 +548,7 @@ function showDisplaysCpp(
     segmentRemap: display.segmentRemap,
     comScan: display.comScan,
     layout: display.layout,
+    powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     titleExpr: display.sources.title ?? null,
     line2Expr: display.sources.line2 ?? null,
@@ -576,6 +577,7 @@ function showDisplaysCpp(
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,
+    powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
   }))
 
@@ -590,6 +592,7 @@ function showDisplaysCpp(
     sckPin: display.sckPin,
     mosiPin: display.mosiPin,
     backlightPin: display.backlightPin,
+    powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     // A show has no RTC-in-template path yet, so a Clock-kind wire stays
     // unresolved here the same way it already is for the OLED beside it — see

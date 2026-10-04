@@ -180,10 +180,10 @@ export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayC
  */
 export function bindCustomDisplaySources(
   plan: ReturnType<typeof customDisplayControlPlan>,
-  expressions: DisplaySourceExpressions,
+  expressions: DisplaySourceExpressions | ((panelId: string) => DisplaySourceExpressions),
 ): void {
   for (const display of plan.displays) {
-    const resolved = resolveBoundWidgets(display.widgetSources, expressions)
+    const resolved = resolveBoundWidgets(display.widgetSources, typeof expressions === 'function' ? expressions(display.panelNodeId) : expressions)
     for (const bound of resolved.bindings) {
       const bindings = display.bindings[bound.widgetId] ?? (display.bindings[bound.widgetId] = [])
       bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })

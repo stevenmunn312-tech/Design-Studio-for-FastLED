@@ -836,6 +836,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     segmentRemap: display.segmentRemap,
     comScan: display.comScan,
     layout: display.layout,
+    powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     titleExpr: display.sources.title ?? null,
     line2Expr: display.sources.line2 ?? null,
@@ -883,6 +884,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
     dateTimeExpr: null,
+    powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     faultCodeExpr: '!sdMounted ? SEG_FAULT_SD_CARD : (!playbackReady ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE)',
   }))
@@ -902,6 +904,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     sckPin: display.sckPin,
     mosiPin: display.mosiPin,
     backlightPin: display.backlightPin,
+    powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     // The player has no RTC-in-template path yet, so a Clock-kind wire stays
     // unresolved here the same way it already is for the OLED beside it — see

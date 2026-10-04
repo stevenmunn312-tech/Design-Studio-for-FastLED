@@ -1,4 +1,5 @@
 // GPIO controls shared by normal sketches and the fixed show controller.
+import { powerMonitorHelperCpp, powerMonitorSetupCpp, powerMonitorLoopCpp } from './powerMonitorCpp'
 import { sanitizePin } from './hardwarePins'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
 import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/irRemote'
@@ -92,6 +93,13 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       outputs.distance = 'float'
       break
     }
+    case 'PowerMonitorInput': {
+      setup.push(`  Wire.begin(${sanitizePin(p.sdaPin, 21)}, ${sanitizePin(p.sclPin, 22)});  // Power monitor I2C bus`)
+      setup.push(powerMonitorSetupCpp(p))
+      loop.push(...powerMonitorLoopCpp(p, v))
+      Object.assign(outputs, { volts: 'float', amps: 'float', watts: 'float', overcurrent: 'bool' })
+      break
+    }
     case 'LightInput': {
       const digital = lightSensorTransport(p.partId) === 'i2c'
       if (digital) {
@@ -166,6 +174,9 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     ...(nodeType === 'PresenceInput' ? { helpers: [PRESENCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'LightInput' && lightSensorTransport(p.partId) === 'i2c'
       ? { helpers: [LIGHT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
+      : {}),
+    ...(nodeType === 'PowerMonitorInput'
+      ? { helpers: [powerMonitorHelperCpp([p]).join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
     ...(nodeType === 'EnvironmentInput'
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }

@@ -19,6 +19,7 @@
 // what each port is fed by, and report anything that cannot be honoured rather
 // than emitting a display that quietly shows nothing.
 
+import { controlReferenceCpp } from './controlGraph'
 import { infoLayoutForKind, type InfoDisplayLayout } from '../state/infoDisplay'
 import {
   DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind,
@@ -77,6 +78,7 @@ export interface PlayerInfoDisplay {
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
   enabledExpr: string
   /** Port id -> C++ expression, for the ports this sketch can honour. */
+  powerMonitor?: { volts: string; amps: string; watts: string }
   sources: Record<string, string>
 }
 
@@ -94,6 +96,7 @@ export interface PlayerSegmentDisplay {
   enabled: boolean
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
   enabledExpr: string
+  powerMonitor?: { volts: string; amps: string; watts: string }
   sources: Record<string, string>
 }
 
@@ -141,6 +144,7 @@ export interface PlayerTransportDisplay {
   enabled: boolean
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
   enabledExpr: string
+  powerMonitor?: { volts: string; amps: string; watts: string }
   sources: Record<string, string>
 }
 
@@ -321,11 +325,11 @@ function resolveDisplayKind(
     unresolved.push({ display: displayId, port: 'display', source: source.data.nodeType })
     return null
   }
-  if (!kinds.includes(kind)) {
+  if (kind !== 'powerMonitor' && !kinds.includes(kind)) {
     unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
     return null
   }
-  if (sourceIds && !sourceIds.has(source.id)) {
+  if (kind !== 'powerMonitor' && sourceIds && !sourceIds.has(source.id)) {
     unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
     return null
   }
@@ -345,6 +349,12 @@ export function playerDisplaysFromGraph(
     options.controlSources?.get(`${id}:enabled`) ?? (props.enabled !== false ? 'true' : 'false')
   const kinds = options.kinds ?? ['player']
   const sourceIds = options.sourceIds
+  const powerMonitorFor = (displayId: string) => {
+    const edge = edges.find((candidate) => candidate.target === displayId && candidate.targetHandle === 'display')
+    if (!edge || nodes.find((node) => node.id === edge.source)?.data.nodeType !== 'PowerMonitorInput') return undefined
+    const reading = (port: string) => controlReferenceCpp({ nodeId: edge.source, port, type: 'float' })
+    return { volts: reading('volts'), amps: reading('amps'), watts: reading('watts') }
+  }
   const transportTouch = options.transportTouch !== false
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const unresolved: PlayerDisplays['unresolved'] = []
@@ -398,6 +408,7 @@ export function playerDisplaysFromGraph(
         comScan: rotation.comScan,
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
+        powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
         sources,
       })
       continue
@@ -485,6 +496,7 @@ export function playerDisplaysFromGraph(
           : {}),
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
+        powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
         sources,
       })
       continue
@@ -513,6 +525,7 @@ export function playerDisplaysFromGraph(
         showColon: props.showColon !== false && controller.hasColon,
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
+        powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
         sources,
       })
     }

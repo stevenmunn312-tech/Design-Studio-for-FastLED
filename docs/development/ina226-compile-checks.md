@@ -16,8 +16,10 @@ include: both chips are driven through their registers over `Wire`.
 | `ina226` | one INA226 at 0x4A | **Pass** |
 | `both` | an INA219 at 0x40 and an INA226 at 0x41 on one bus | **Pass** |
 
-The power monitor is read by the normal sketch generator only, so there are no
-slideshow or player fixtures.
+These compile fixtures cover the normal sketch generator. Slideshow and player
+display support is also implemented and checked by
+`src/codegen/__tests__/powerMonitorTemplateDisplays.test.ts`; those template
+paths have no recorded Arduino compile results in this report.
 
 ## Reproduce
 

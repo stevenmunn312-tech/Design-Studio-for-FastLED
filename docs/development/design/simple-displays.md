@@ -170,8 +170,8 @@ question: **which kind is plugged in, and can this generator honour that kind?**
 | Generator | Honours |
 | --- | --- |
 | `cppGenerator` (normal sketch) | `clock`, `ledOutput`, `powerMonitor` |
-| `playerSketchGenerator` (SD player) | `player` |
-| `showGenerator` (slideshow) | `slideshow` |
+| `playerSketchGenerator` (SD player) | `player`, `powerMonitor` |
+| `showGenerator` (slideshow) | `slideshow`, `powerMonitor` |
 
 Anything else comes back unresolved, and `findDisplayGeneratorIssues` turns that
 into a warning naming the panel, the source and the generator the graph would
@@ -231,3 +231,5 @@ real playback source; hardware support requires its own recorded evidence.
 Power Monitor publishes its existing reading on a Display envelope. Segment fields use up to two decimal places, reducing precision to fit three numeric digits plus A on a four-digit module, or four digits per quantity on an eight-digit module and showing dashes for invalid or overflowing values. The eight-digit module places amps on the left and watts on the right, each with its own decimal point. OLED and fixed TFT panels show three labelled rows in V, A, W order with two decimal places.
 
 The custom display editor also offers a Power Monitor template: three labelled Numeric Readouts bound to `volts`, `amps` and `watts`, with V/A/W suffixes and two decimal places. It has dedicated landscape, portrait and square layouts and is promoted when the panel is wired to a Power Monitor. The single Display cable fills every reading.
+
+Power Monitor readings are serviced by the shared control graph in slideshow and SD-player builds too, including bound custom-screen readouts. Each referenced sensor is sampled once per loop before its panels draw; the shared I2C bus starts once before sensor setup. Engine scoping still applies to player/slideshow Display sources, while independent power monitors are resolved by their own panel wires.
