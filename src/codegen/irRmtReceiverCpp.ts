@@ -22,27 +22,22 @@ class FlsIrRmtReceiver {
   static constexpr size_t SYMBOL_CAPACITY = RAW_BUFFER_LENGTH / 2 + 2;
   // NEC's leading mark is 9ms; an 8ms timeout would split it in two.
   static constexpr uint32_t IDLE_US = 12000;
-  struct Frame { size_t count; int64_t completedAt; };
+  struct Frame { size_t count; int64_t completedAt; rmt_symbol_word_t symbols[SYMBOL_CAPACITY]; };
   rmt_channel_handle_t channel = nullptr;
   QueueHandle_t queue = nullptr;
   rmt_symbol_word_t symbols[SYMBOL_CAPACITY] = {};
   rmt_receive_config_t receiveConfig = {};
   int64_t lastEnd = 0;
+  volatile esp_err_t receiveError = ESP_OK;
 
-  static bool IRAM_ATTR received(rmt_channel_handle_t, const rmt_rx_done_event_data_t* event, void* context) {
-    auto* self = static_cast<FlsIrRmtReceiver*>(context);
-    const Frame frame = { event->num_symbols, esp_timer_get_time() };
-    BaseType_t wake = pdFALSE;
-    xQueueSendFromISR(self->queue, &frame, &wake);
-    return wake == pdTRUE;
-  }
+  static bool received(rmt_channel_handle_t, const rmt_rx_done_event_data_t* event, void* context);
 
 public:
   void begin(uint_fast8_t pin, bool) {
     // Do not call IrReceiver.begin(): it starts the unsupported sample timer.
     IrReceiver.setReceivePin(pin);
     pinMode(pin, INPUT);
-    queue = xQueueCreate(1, sizeof(Frame));
+    queue = xQueueCreate(4, sizeof(Frame));
     ESP_ERROR_CHECK(queue ? ESP_OK : ESP_ERR_NO_MEM);
     rmt_rx_channel_config_t config = {};
     config.gpio_num = static_cast<gpio_num_t>(pin);
@@ -64,10 +59,11 @@ public:
     receiveConfig.signal_range_min_ns = 1250;
     receiveConfig.signal_range_max_ns = IDLE_US * 1000;
     ESP_ERROR_CHECK(rmt_enable(channel));
-    resume();
+    ESP_ERROR_CHECK(rmt_receive(channel, symbols, sizeof(symbols), &receiveConfig));
   }
 
   bool decode() {
+    ESP_ERROR_CHECK(receiveError); // report any re-arm failure outside the ISR
     Frame frame;
     if (!queue || xQueueReceive(queue, &frame, 0) != pdTRUE) return false;
     auto& raw = IrReceiver.irparams;
@@ -78,8 +74,8 @@ public:
     bool invalid = frame.count >= SYMBOL_CAPACITY;
     for (size_t i = 0; i < frame.count && i < SYMBOL_CAPACITY && !invalid; ++i) {
       for (int half = 0; half < 2; ++half) {
-        const uint32_t duration = half ? symbols[i].duration1 : symbols[i].duration0;
-        const bool high = half ? symbols[i].level1 : symbols[i].level0;
+        const uint32_t duration = half ? frame.symbols[i].duration1 : frame.symbols[i].duration0;
+        const bool high = half ? frame.symbols[i].level1 : frame.symbols[i].level0;
         if (duration == 0) break; // RMT end marker
         if (length == 1 && high) continue; // optional leading idle space
         // Demodulating receivers are active-low; timings must alternate.
@@ -103,8 +99,7 @@ public:
       }
     }
     if (invalid || lastMarkLength == 1) {
-      // Never decode a truncated frame as a key. Re-arm even on noise/overflow.
-      resume();
+      // Never decode a truncated frame as a key. Capture is already re-armed.
       return false;
     }
     // End callback follows the last mark by the configured idle timeout.
@@ -124,9 +119,25 @@ public:
 
   void resume() {
     IrReceiver.resume();
-    ESP_ERROR_CHECK(rmt_receive(channel, symbols, sizeof(symbols), &receiveConfig));
   }
 };
+// Define outside the class: Xtensa misplaces literals for inline IRAM members.
+bool IRAM_ATTR FlsIrRmtReceiver::received(rmt_channel_handle_t, const rmt_rx_done_event_data_t* event, void* context) {
+  auto* self = static_cast<FlsIrRmtReceiver*>(context);
+  Frame frame = {};
+  frame.count = event->num_symbols;
+  frame.completedAt = esp_timer_get_time();
+  for (size_t i = 0; i < frame.count && i < SYMBOL_CAPACITY; ++i) {
+    frame.symbols[i] = event->received_symbols[i];
+  }
+  BaseType_t wake = pdFALSE;
+  // Queue owns the timings before the capture buffer is reused. If full,
+  // drop this frame but keep listening; never wait for the LED render loop.
+  xQueueSendFromISR(self->queue, &frame, &wake);
+  // ESP-IDF explicitly supports rmt_receive from ISR context.
+  self->receiveError = rmt_receive(self->channel, self->symbols, sizeof(self->symbols), &self->receiveConfig);
+  return wake == pdTRUE;
+}
 static FlsIrRmtReceiver _flsIrRmtReceiver;
 #define FLS_IR_RECEIVER _flsIrRmtReceiver
 #else

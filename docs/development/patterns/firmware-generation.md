@@ -15,6 +15,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `rmt_new_tx_channel: intr_priority conflict` on the first LED show, even though
   the receiver learner alone works. Keep this in the shared adapter used by
   learning, normal sketches, shows, and collection players.
+  Define its IRAM callback outside the class: Xtensa can put literals for an
+  inline class member in flash while placing the function in IRAM, causing a
+  `dangerous relocation: l32r` link failure. See
+  [Espressif's reproducer](https://github.com/espressif/esp-idf/issues/16989).
+  Keep it a qualified member definition to avoid Arduino prototype hoisting.
 
 - Lattice helpers return `_LatticeCell` and `_FanFold` by value. Their
   `LATTICE_CPP_FORWARD` declarations must precede every function in normal,

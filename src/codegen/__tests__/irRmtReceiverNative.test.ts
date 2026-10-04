@@ -36,12 +36,13 @@ const HARNESS = `
 using IRRawbufType = uint8_t;
 using IRRawlenType = unsigned int;
 using BaseType_t = int;
+using esp_err_t = int;
 using QueueHandle_t = void*;
 using rmt_channel_handle_t = void*;
 using gpio_num_t = int;
 constexpr int RMT_CLK_SRC_DEFAULT = 0;
 struct rmt_symbol_word_t { uint32_t duration0:15, level0:1, duration1:15, level1:1; };
-struct rmt_rx_done_event_data_t { size_t num_symbols; };
+struct rmt_rx_done_event_data_t { size_t num_symbols; rmt_symbol_word_t* received_symbols; };
 struct rmt_rx_channel_config_t { gpio_num_t gpio_num; int clk_src; uint32_t resolution_hz; size_t mem_block_symbols; int intr_priority; };
 struct rmt_receive_config_t { uint32_t signal_range_min_ns, signal_range_max_ns; };
 using Callback = bool (*)(rmt_channel_handle_t, const rmt_rx_done_event_data_t*, void*);
@@ -50,20 +51,21 @@ static Callback callback;
 static void* context;
 static rmt_symbol_word_t* buffer;
 static size_t bufferCount, queueSize;
-static unsigned char queued[32];
-static bool ready;
+static unsigned char queued[4][256];
+static size_t queueHead, queueCount;
+static bool receiving;
 static int arms, decodes;
 static int groupPriority;
 static int64_t now;
 static int64_t esp_timer_get_time() { return now; }
 static void pinMode(int pin, int mode) { assert(pin == 13 && mode == INPUT); }
-static QueueHandle_t xQueueCreate(int count, size_t size) { assert(count == 1 && size <= sizeof(queued)); queueSize = size; return queued; }
-static int xQueueSendFromISR(QueueHandle_t, const void* item, BaseType_t*) { assert(!ready); memcpy(queued, item, queueSize); ready = true; return pdTRUE; }
-static int xQueueReceive(QueueHandle_t, void* item, int timeout) { assert(timeout == 0); if (!ready) return pdFALSE; memcpy(item, queued, queueSize); ready = false; return pdTRUE; }
+static QueueHandle_t xQueueCreate(int count, size_t size) { assert(count == 4 && size <= sizeof(queued[0])); queueSize = size; return queued; }
+static int xQueueSendFromISR(QueueHandle_t, const void* item, BaseType_t*) { if (queueCount == 4) return pdFALSE; memcpy(queued[(queueHead + queueCount) % 4], item, queueSize); ++queueCount; return pdTRUE; }
+static int xQueueReceive(QueueHandle_t, void* item, int timeout) { assert(timeout == 0); if (!queueCount) return pdFALSE; memcpy(item, queued[queueHead], queueSize); queueHead = (queueHead + 1) % 4; --queueCount; return pdTRUE; }
 static int rmt_new_rx_channel(const rmt_rx_channel_config_t* cfg, rmt_channel_handle_t* channel) { assert(cfg->gpio_num == 13 && cfg->resolution_hz == 1000000 && cfg->mem_block_symbols == 96); groupPriority = cfg->intr_priority; *channel = queued; return ESP_OK; }
 static int rmt_rx_register_event_callbacks(rmt_channel_handle_t, const rmt_rx_event_callbacks_t* cfg, void* user) { callback = cfg->on_recv_done; context = user; return ESP_OK; }
 static int rmt_enable(rmt_channel_handle_t) { return ESP_OK; }
-static int rmt_receive(rmt_channel_handle_t, void* data, size_t bytes, const rmt_receive_config_t* cfg) { assert(cfg->signal_range_max_ns > 9000000); buffer = static_cast<rmt_symbol_word_t*>(data); bufferCount = bytes / sizeof(*buffer); ++arms; return ESP_OK; }
+static int rmt_receive(rmt_channel_handle_t, void* data, size_t bytes, const rmt_receive_config_t* cfg) { assert(!receiving && cfg->signal_range_max_ns > 9000000); receiving = true; buffer = static_cast<rmt_symbol_word_t*>(data); bufferCount = bytes / sizeof(*buffer); ++arms; return ESP_OK; }
 struct FakeDecoder {
   struct { uint8_t StateForISR; bool OverflowFlag; IRRawlenType rawlen; uint16_t initialGapTicks; IRRawbufType rawbuf[RAW_BUFFER_LENGTH]; } irparams = {};
   struct { IRRawlenType rawlen; uint16_t initialGapTicks; } decodedIRData = {};
@@ -80,9 +82,13 @@ struct FakeDecoder {
 
 const EXERCISES = `
 static void feed(size_t count, int64_t completedAt) {
+  assert(receiving);
+  receiving = false;
   now = completedAt;
-  rmt_rx_done_event_data_t event = { count };
+  rmt_rx_done_event_data_t event = { count, buffer };
+  const int previousArms = arms;
   callback(nullptr, &event, context);
+  assert(arms == previousArms + 1); // re-arm without waiting for decode/resume
 }
 int main() {
   FLS_IR_RECEIVER.begin(13, false);
@@ -100,16 +106,20 @@ int main() {
   // to IRremote's 50us ticks without treating the 9ms header as a frame end.
   buffer[0] = {9000, 0, 4500, 1}; buffer[1] = {560, 0, 560, 1}; buffer[2] = {560, 0, 12000, 1};
   feed(3, 100000);
+  // Simulate the LED loop being busy until AFTER the first short repeat.
+  // Both frames must survive, including the initial frame's owned timings.
+  buffer[0] = {9000, 0, 2250, 1}; buffer[1] = {560, 0, 0, 1};
+  feed(2, 200000); now = 999999;
+  const int capturedArms = arms;
   assert(FLS_IR_RECEIVER.decode());
   assert(IrReceiver.irparams.rawlen == 6 && IrReceiver.irparams.initialGapTicks == UINT16_MAX);
   const uint8_t expected[] = {0, 180, 90, 11, 11, 11};
   assert(memcmp(IrReceiver.irparams.rawbuf, expected, sizeof(expected)) == 0);
   FLS_IR_RECEIVER.resume();
+  assert(arms == capturedArms); // decoder resume must not restart active RX
 
   // A completed capture can wait behind an LED show; repeat spacing must
   // use capture timestamps rather than the delayed decode time.
-  buffer[0] = {9000, 0, 2250, 1}; buffer[1] = {560, 0, 0, 1};
-  feed(2, 200000); now = 999999;
   assert(FLS_IR_RECEIVER.decode());
   assert(IrReceiver.irparams.rawlen == 4 && IrReceiver.irparams.initialGapTicks == 1763);
   FLS_IR_RECEIVER.resume();
@@ -150,12 +160,29 @@ int main() {
   buffer[0] = {560, 0, 560, 0}; feed(1, 7300000); // malformed levels
   assert(!FLS_IR_RECEIVER.decode() && arms == ++previousArms);
   assert(decodes == goodDecodes);
+
+  // A prolonged render stall fills the bounded queue. Dropping excess
+  // captures must neither stop RX nor overwrite older queued timings.
+  buffer[0] = {9000, 0, 2250, 1}; buffer[1] = {560, 0, 0, 1};
+  previousArms = arms;
+  for (int i = 0; i < 6; ++i) feed(2, 8000000 + i * 110000);
+  assert(arms == previousArms + 6 && queueCount == 4);
+  memset(buffer, 0, bufferCount * sizeof(*buffer));
+  for (int i = 0; i < 4; ++i) {
+    assert(FLS_IR_RECEIVER.decode() && IrReceiver.irparams.rawlen == 4);
+    if (i) assert(IrReceiver.irparams.initialGapTicks == 1963);
+    FLS_IR_RECEIVER.resume();
+  }
+  assert(!FLS_IR_RECEIVER.decode());
+  buffer[0] = {9000, 0, 2250, 1}; buffer[1] = {560, 0, 0, 1};
+  feed(2, 8700000);
+  assert(FLS_IR_RECEIVER.decode()); // capture recovers after saturation
   puts("OK");
 }
 `
 
 describe.skipIf(!nativeGpp && !wslGpp)('S3 RMT capture native behavior', () => {
-  it.each([undefined, 2])('shares FastLED priority %s, preserves timings and gaps, and re-arms on noise', (priority) => {
+  it.each([undefined, 2])('shares FastLED priority %s and captures queued repeats during render stalls', (priority) => {
     const directory = mkdtempSync(path.join(tmpdir(), 'ir-rmt-'))
     const cleanupPath = path.resolve(directory)
     if (!cleanupPath.startsWith(path.resolve(tmpdir()) + path.sep)) throw new Error('Unexpected native-test directory')

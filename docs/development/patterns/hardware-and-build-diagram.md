@@ -230,10 +230,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   receiver. `FLS_IR_RECEIVER` selects that adapter at compile time for both the
   learner and all project generators, and otherwise aliases `IrReceiver`.
   RMT captures active-low timings at 1 MHz with a 12 ms idle timeout (NEC's
-  leading mark alone is 9 ms). The ISR queues only a completion count/time;
-  the main loop loads IRremote's reserved-entry-zero raw buffer, copies both
-  rawlen/gap fields into decodedIRData, and re-arms after decode, or immediately
-  on noise/overflow. Gap measurement uses capture time, not the time the loop
+  leading mark alone is 9 ms). The ISR copies timings and completion time into
+  a four-frame queue and immediately re-arms capture, independently of LED
+  rendering. ESP-IDF permits `rmt_receive` in ISR context. Queue saturation
+  drops the newest frame without stopping capture. The main loop alone loads
+  IRremote's reserved-entry-zero raw buffer and copies both rawlen/gap fields
+  into decodedIRData; `resume()` resets only the decoder, never active RMT RX.
+  Gap measurement uses capture time, not the time the loop
   resumes after LED output. The S3 raw buffer covers the saved protocol list's
   maximum 48 bits. Its RMT API requires Arduino-ESP32 3.x / ESP-IDF 5 or newer.
   Keep the full IR header as one includes entry: the show/player control

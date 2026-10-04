@@ -44,6 +44,17 @@ are the durable record.
 
 ## ESP32-S3 capture, 3 October 2026
 
+Continuous-capture regression (4 October 2026): the S3 adapter now queues owned
+timings and immediately re-arms in the ISR, so LED rendering cannot leave RX
+stopped until decode. The native harness receives an initial frame and a short
+repeat before any loop decode, checks their independent timings, and exercises
+queue saturation/recovery. Both FastLED interrupt-priority variants pass. The
+normal fixture compiles with Arduino-ESP32 3.3.11, arduino-cli 1.5.1 and IRremote
+4.7.1: 439,319 bytes flash, 27,876 bytes static RAM; source SHA-256 starts
+`3b075c24`. The four-frame queue also allocates roughly 1 KB at runtime.
+The IRAM callback is defined outside the class to avoid Xtensa's literal-section
+linker defect. Physical held-key confirmation in an LED project remains pending.
+
 Held-repeat regression (4 October 2026): the normal ESP32-S3 fixture with
 bounded repeat identity inheritance and a false pass between pulses compiles
 with arduino-cli 1.5.1, IRremote 4.7.1: 439,243 bytes flash and 27,868 bytes RAM.
