@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
+import PatternFormIcons from '../PatternTags/PatternFormIcons'
 import { outputRoutes } from '../../state/outputRouting'
 import {
   PATTERN_FORM_TAGS,
@@ -240,6 +241,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
           <strong>{pattern.name}</strong>
           <small>{shelf}{rating ? ` · ${PATTERN_INTENTS.find((intent) => intent.id === rating.intent)?.label ?? rating.intent}` : ''}{pattern.bundled ? ' · bundled' : ''}</small>
         </span>
+        <PatternFormIcons bestOn={pattern.bestOn} />
         {added ? (
           <span className={styles.addedChip}>Added</span>
         ) : rating ? (

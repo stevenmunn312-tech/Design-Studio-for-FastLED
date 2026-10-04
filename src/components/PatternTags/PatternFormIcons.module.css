@@ -1,0 +1,8 @@
+.icons {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 3px;
+  color: color-mix(in srgb, var(--accent-library) 74%, white);
+  vertical-align: middle;
+}

@@ -50,6 +50,7 @@ import ultravioletLavaLamp from '../assets/bundled-patterns/Ultraviolet Lava Lam
 import vocalGravityVeil from '../assets/bundled-patterns/Vocal Gravity Veil.json'
 import wireframeBassCage from '../assets/bundled-patterns/Wireframe Bass Cage.json'
 import { AUDIO_SHELF_THREE_SEEDS, PATTERN_EXPANSION_AUDIO_SEEDS } from './bundledAudioShelf3'
+import { AUDIO_STRING_SEEDS, STANDARD_STRING_SEEDS } from './bundledStringPatterns'
 
 export const AUDIO_REACTIVE_CATEGORY_ID = 'audio-reactive'
 export const STANDARD_CATEGORY_ID = 'standard'
@@ -971,13 +972,13 @@ function materializeBundledPatterns(
     createdAt: createdAtBase + index,
     categoryId,
     bundled: true,
-    bestOn: BUNDLED_BEST_ON[entry.name],
+    bestOn: entry.bestOn ?? BUNDLED_BEST_ON[entry.name],
   }))
 }
 
 /** Curated standard patterns are the included non-audio showcase shelf. */
 export const STANDARD_BUNDLED_PATTERNS = materializeBundledPatterns(
-  STANDARD_PATTERN_SEEDS,
+  [...STANDARD_PATTERN_SEEDS, ...STANDARD_STRING_SEEDS],
   'standard',
   STANDARD_CATEGORY_ID,
   Date.UTC(2026, 6, 29, 0, 0, 0),
@@ -985,7 +986,7 @@ export const STANDARD_BUNDLED_PATTERNS = materializeBundledPatterns(
 
 /** Curated beta patterns are immutable audio-reactive examples. */
 export const AUDIO_BUNDLED_PATTERNS = materializeBundledPatterns(
-  AUDIO_PATTERN_SEEDS,
+  [...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS],
   'audio',
   AUDIO_REACTIVE_CATEGORY_ID,
   Date.UTC(2026, 6, 29, 12, 0, 0),

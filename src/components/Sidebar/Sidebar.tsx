@@ -5,10 +5,7 @@ import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
 import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
 import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patternTags'
-
-/** A library row is one line, so an author's tags show as marks and spell
- *  themselves out in the row's tooltip and in its context menu. */
-const PATTERN_TAG_MARKS: Record<PatternFormTag, string> = { string: '━', matrix: '▦', ring: '◯' }
+import PatternFormIcons from '../PatternTags/PatternFormIcons'
 
 function tagNames(tags: PatternFormTag[]): string {
   return tags.map((tag) => PATTERN_FORM_TAGS.find((entry) => entry.id === tag)?.label ?? tag).join(', ')
@@ -1082,13 +1079,7 @@ ${pattern.bundled ? 'Bundled pattern · ' : ''}${tags.length ? `Best on ${tagNam
               ) : (
                 <>
                   <span className={styles.patternName}>{pattern.name}</span>
-                  {tags.length > 0 && (
-                    <span className={styles.patternTags} title={`Best on ${tagNames(tags)}`}>
-                      {tags.map((tag) => (
-                        <span key={tag} className={styles.patternTagMark} aria-hidden="true">{PATTERN_TAG_MARKS[tag]}</span>
-                      ))}
-                    </span>
-                  )}
+                  <PatternFormIcons bestOn={pattern.bestOn} />
                   {rating && (
                     <span
                       className={`${styles.patternRating} ${styles[`patternRating_${scoreTier}`]}`}
