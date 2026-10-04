@@ -55,10 +55,12 @@ expiry, replacement by another key, and invalidation by a damaged full command.
 The user's six-pattern show, instrumented with this adapter, compiles under
 Arduino-ESP32 3.3.11 / FastLED 3.10.5 / IRremote 4.7.1 with its actual 16 MB/OPI
 PSRAM settings: 485,215 bytes flash and 29,516 bytes static RAM. These figures
-include diagnostic serial logging. Hardware confirmation awaits correction of
-the user's direct 5 V-powered KS0026 signal connection to the S3 GPIO; its signal
-divider is already specified in the Build Diagram. Software tolerance does not
-replace the required logic-level conversion.
+include diagnostic serial logging. On 5 October the user reported held brightness
+working with the updated diagnostic after signal-wiring adjustments. The final
+interface values and a successful serial trace were not recorded, so this is
+user confirmation rather than a completed support-matrix bench row. The KS0026
+signal divider remains specified in the Build Diagram; software tolerance does
+not replace the required logic-level conversion.
 
 Continuous-capture regression (4 October 2026): the S3 adapter now queues owned
 timings and immediately re-arms in the ISR, so LED rendering cannot leave RX
