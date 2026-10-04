@@ -1,3 +1,5 @@
+import { IR_REMOTE_REPEAT_HOLD_MS } from '../state/irRemote'
+
 /**
  * ESP32-S3 capture adapter for the pinned IRremote decoder.
  *
@@ -28,6 +30,9 @@ class FlsIrRmtReceiver {
   rmt_symbol_word_t symbols[SYMBOL_CAPACITY] = {};
   rmt_receive_config_t receiveConfig = {};
   int64_t lastEnd = 0;
+  decode_type_t lastProtocol = UNKNOWN;
+  uint16_t lastAddress = 0, lastCommand = 0;
+  int64_t lastDecodedAt = 0;
   volatile esp_err_t receiveError = ESP_OK;
 
   static bool received(rmt_channel_handle_t, const rmt_rx_done_event_data_t* event, void* context);
@@ -111,10 +116,45 @@ public:
     lastEnd = end;
     raw.rawlen = static_cast<IRRawlenType>(lastMarkLength); // exclude trailing idle
     raw.initialGapTicks = gapTicks;
+    // IRremote copies the previous decodedIRData into its repeat identity.
+    // A noisy UNKNOWN capture must not poison the next short repeat. Use the
+    // last recognized capture, bounded by capture time rather than loop time.
+    const bool recent = lastProtocol != UNKNOWN && frame.completedAt - lastDecodedAt <= ${IR_REMOTE_REPEAT_HOLD_MS * 1000};
+    IrReceiver.decodedIRData.protocol = recent ? lastProtocol : UNKNOWN;
+    IrReceiver.decodedIRData.address = recent ? lastAddress : 0;
+    IrReceiver.decodedIRData.command = recent ? lastCommand : 0;
+#if defined(DECODE_NEC) || defined(DECODE_ONKYO)
+    const bool necFamily = recent && (lastProtocol == NEC || lastProtocol == NEC2 || lastProtocol == APPLE || lastProtocol == ONKYO);
+    // The demodulator can stretch the repeat's stop mark, and LED noise can
+    // append extra pulses. Require the canonical NEC repeat header and a
+    // bounded stop mark before trimming/normalizing this short repeat only.
+    if (necFamily && raw.rawlen >= 4 && matchMark(raw.rawbuf[1], NEC_HEADER_MARK)
+        && matchSpace(raw.rawbuf[2], NEC_REPEAT_HEADER_SPACE)
+        && matchMarkWithGreaterRange(raw.rawbuf[3], NEC_BIT_MARK)) {
+      raw.rawlen = 4;
+      raw.rawbuf[3] = (NEC_BIT_MARK + MARK_EXCESS_MICROS + MICROS_PER_TICK / 2) / MICROS_PER_TICK;
+    }
+#endif
     IrReceiver.decodedIRData.rawlen = raw.rawlen;
     IrReceiver.decodedIRData.initialGapTicks = gapTicks;
     raw.StateForISR = IR_REC_STATE_STOP;
-    return IrReceiver.decode();
+    const bool decoded = IrReceiver.decode();
+    if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
+#if defined(DECODE_NEC) || defined(DECODE_ONKYO)
+      // A new full NEC command must supersede the old key even if damaged.
+      if (raw.rawlen >= 4 && matchMark(raw.rawbuf[1], NEC_HEADER_MARK)
+          && matchSpace(raw.rawbuf[2], NEC_HEADER_SPACE)) lastProtocol = UNKNOWN;
+#endif
+      IrReceiver.resume();
+      return false;
+    }
+    if (decoded) {
+      lastProtocol = IrReceiver.decodedIRData.protocol;
+      lastAddress = IrReceiver.decodedIRData.address;
+      lastCommand = IrReceiver.decodedIRData.command;
+      lastDecodedAt = frame.completedAt;
+    }
+    return decoded;
   }
 
   void resume() {

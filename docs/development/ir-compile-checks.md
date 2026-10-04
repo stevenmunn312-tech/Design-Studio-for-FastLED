@@ -44,6 +44,22 @@ are the durable record.
 
 ## ESP32-S3 capture, 3 October 2026
 
+Noise/repeat regression (4 October 2026): a live trace of the user's S3 show
+received repeats with zero queue drops, but 750–800 µs stop marks failed the
+pinned decoder's strict NEC check. Subsequent short repeats inherited UNKNOWN,
+and malformed captures also interrupted the hold. The adapter now retains
+recognized identity within a 250 ms capture-time window and normalizes only
+validated NEC-family repeat prefixes using the library's greater-range matcher.
+Native tests cover stretched marks, trailing noise, recovery after UNKNOWN,
+expiry, replacement by another key, and invalidation by a damaged full command.
+The user's six-pattern show, instrumented with this adapter, compiles under
+Arduino-ESP32 3.3.11 / FastLED 3.10.5 / IRremote 4.7.1 with its actual 16 MB/OPI
+PSRAM settings: 485,215 bytes flash and 29,516 bytes static RAM. These figures
+include diagnostic serial logging. Hardware confirmation awaits correction of
+the user's direct 5 V-powered KS0026 signal connection to the S3 GPIO; its signal
+divider is already specified in the Build Diagram. Software tolerance does not
+replace the required logic-level conversion.
+
 Continuous-capture regression (4 October 2026): the S3 adapter now queues owned
 timings and immediately re-arms in the ISR, so LED rendering cannot leave RX
 stopped until decode. The native harness receives an initial frame and a short

@@ -239,6 +239,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Gap measurement uses capture time, not the time the loop
   resumes after LED output. The S3 raw buffer covers the saved protocol list's
   maximum 48 bits. Its RMT API requires Arduino-ESP32 3.x / ESP-IDF 5 or newer.
+  The adapter seeds repeat identity from the last recognized capture for at
+  most 250 ms; UNKNOWN noise is discarded instead of poisoning IRremote's
+  previous decoded identity. A damaged full NEC header invalidates that key.
+  For a recent NEC-family key only, a canonical 9 ms/2.25 ms repeat prefix uses
+  IRremote's bounded greater-range stop-mark matcher before normalizing the
+  stop mark and trimming trailing glitches. Full commands keep the library's
+  ordinary decoder checks. This accommodates stretched 750–800 µs repeat marks
+  without broadening every decoder's tolerance or replaying stale buttons.
   Keep the full IR header as one includes entry: the show/player control
   graphs deduplicate entries, so splitting conditional blocks into lines
   silently removes repeated preprocessor directives. The capture class belongs

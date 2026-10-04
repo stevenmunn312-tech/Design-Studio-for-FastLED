@@ -26,6 +26,12 @@ const HARNESS = `
 #define IRAM_ATTR
 #define RAW_BUFFER_LENGTH 100
 #define MICROS_PER_TICK 50
+#define DECODE_NEC
+#define MARK_EXCESS_MICROS 20
+#define NEC_HEADER_MARK 9000
+#define NEC_HEADER_SPACE 4500
+#define NEC_REPEAT_HEADER_SPACE 2250
+#define NEC_BIT_MARK 560
 #define IR_REC_STATE_STOP 3
 #define INPUT 0
 #define pdFALSE 0
@@ -40,6 +46,10 @@ using esp_err_t = int;
 using QueueHandle_t = void*;
 using rmt_channel_handle_t = void*;
 using gpio_num_t = int;
+enum decode_type_t { UNKNOWN, NEC, NEC2, APPLE, ONKYO, SONY };
+static bool matchMark(uint16_t ticks, uint16_t micros) { const int measured = ticks * 50 - 20; return measured > (micros / 4) * 3 && measured <= (micros / 4) * 5; }
+static bool matchSpace(uint16_t ticks, uint16_t micros) { const int measured = ticks * 50 + 20; return measured > (micros / 4) * 3 && measured <= (micros / 4) * 5; }
+static bool matchMarkWithGreaterRange(uint16_t ticks, uint16_t micros) { const int measured = ticks * 50 - 20; return measured > (micros / 4) * 2 && measured <= (micros / 4) * 6; }
 constexpr int RMT_CLK_SRC_DEFAULT = 0;
 struct rmt_symbol_word_t { uint32_t duration0:15, level0:1, duration1:15, level1:1; };
 struct rmt_rx_done_event_data_t { size_t num_symbols; rmt_symbol_word_t* received_symbols; };
@@ -68,13 +78,24 @@ static int rmt_enable(rmt_channel_handle_t) { return ESP_OK; }
 static int rmt_receive(rmt_channel_handle_t, void* data, size_t bytes, const rmt_receive_config_t* cfg) { assert(!receiving && cfg->signal_range_max_ns > 9000000); receiving = true; buffer = static_cast<rmt_symbol_word_t*>(data); bufferCount = bytes / sizeof(*buffer); ++arms; return ESP_OK; }
 struct FakeDecoder {
   struct { uint8_t StateForISR; bool OverflowFlag; IRRawlenType rawlen; uint16_t initialGapTicks; IRRawbufType rawbuf[RAW_BUFFER_LENGTH]; } irparams = {};
-  struct { IRRawlenType rawlen; uint16_t initialGapTicks; } decodedIRData = {};
+  struct { IRRawlenType rawlen; uint16_t initialGapTicks; decode_type_t protocol; uint16_t address, command; bool repeat; } decodedIRData = {};
+  bool necMode = false;
+  uint16_t nextCommand = 64;
   void setReceivePin(int pin) { assert(pin == 13); }
   void resume() { irparams.StateForISR = 0; }
   bool decode() {
     assert(irparams.StateForISR == IR_REC_STATE_STOP && !irparams.OverflowFlag);
     assert(decodedIRData.rawlen == irparams.rawlen && decodedIRData.initialGapTicks == irparams.initialGapTicks);
     ++decodes;
+    if (!necMode) { decodedIRData.protocol = SONY; return true; }
+    if (irparams.rawlen == 68 && matchSpace(irparams.rawbuf[2], NEC_HEADER_SPACE)) {
+      decodedIRData.protocol = NEC; decodedIRData.address = 0; decodedIRData.command = nextCommand; decodedIRData.repeat = false;
+    } else if (irparams.rawlen == 4 && matchMark(irparams.rawbuf[1], NEC_HEADER_MARK)
+        && matchSpace(irparams.rawbuf[2], NEC_REPEAT_HEADER_SPACE) && matchMark(irparams.rawbuf[3], NEC_BIT_MARK)) {
+      decodedIRData.repeat = true; // identity comes from adapter's seeded previous decode
+    } else {
+      decodedIRData.protocol = UNKNOWN; decodedIRData.address = decodedIRData.command = 0; decodedIRData.repeat = false;
+    }
     return true;
   }
 } IrReceiver;
@@ -177,6 +198,55 @@ int main() {
   buffer[0] = {9000, 0, 2250, 1}; buffer[1] = {560, 0, 0, 1};
   feed(2, 8700000);
   assert(FLS_IR_RECEIVER.decode()); // capture recovers after saturation
+  FLS_IR_RECEIVER.resume();
+
+  IrReceiver.necMode = true;
+  // Hardware trace: a valid full NEC key followed by a 750-800us stop mark
+  // rejected by the pinned decoder's strict 560us mark tolerance.
+  buffer[0] = {9200, 0, 4350, 1};
+  for (size_t i = 1; i <= 32; ++i) buffer[i] = {650, 0, 500, 1};
+  buffer[33] = {650, 0, 12000, 1}; feed(34, 10000000);
+  assert(FLS_IR_RECEIVER.decode() && IrReceiver.decodedIRData.command == 64);
+  FLS_IR_RECEIVER.resume();
+  assert(!matchMark(15, NEC_BIT_MARK) && !matchMark(16, NEC_BIT_MARK));
+  for (int stop = 750; stop <= 800; stop += 50) {
+    buffer[0] = {9200, 0, 2100, 1}; buffer[1] = {static_cast<uint32_t>(stop), 0, 12000, 1};
+    feed(2, now + 110000);
+    assert(FLS_IR_RECEIVER.decode() && IrReceiver.decodedIRData.protocol == NEC && IrReceiver.decodedIRData.repeat);
+    assert(IrReceiver.decodedIRData.command == 64);
+    FLS_IR_RECEIVER.resume();
+  }
+  // A malformed capture must not poison the next valid repeat's identity.
+  buffer[0] = {6000, 0, 350, 1}; buffer[1] = {500, 0, 150, 1}; buffer[2] = {500, 0, 12000, 1};
+  feed(3, now + 110000);
+  assert(!FLS_IR_RECEIVER.decode());
+  buffer[0] = {9200, 0, 2100, 1}; buffer[1] = {800, 0, 150, 1}; buffer[2] = {500, 0, 12000, 1};
+  feed(3, now + 110000); // canonical repeat followed by trailing glitches
+  assert(FLS_IR_RECEIVER.decode() && IrReceiver.decodedIRData.protocol == NEC && IrReceiver.irparams.rawlen == 4);
+  FLS_IR_RECEIVER.resume();
+  // Strongly malformed stop marks and stale repeats remain rejected.
+  buffer[0] = {9200, 0, 2100, 1}; buffer[1] = {2100, 0, 12000, 1}; feed(2, now + 110000);
+  assert(!FLS_IR_RECEIVER.decode());
+  buffer[1] = {800, 0, 12000, 1}; feed(2, now + 300000);
+  assert(!FLS_IR_RECEIVER.decode());
+
+  // An undecodable full NEC command invalidates the previous button.
+  buffer[0] = {9200, 0, 4350, 1};
+  for (size_t i = 1; i <= 32; ++i) buffer[i] = {650, 0, 500, 1};
+  buffer[33] = {650, 0, 12000, 1}; feed(34, now + 1000000);
+  assert(FLS_IR_RECEIVER.decode()); FLS_IR_RECEIVER.resume();
+  buffer[0] = {9200, 0, 4350, 1}; buffer[1] = {650, 0, 12000, 1}; feed(2, now + 110000);
+  assert(!FLS_IR_RECEIVER.decode());
+  buffer[0] = {9200, 0, 2100, 1}; buffer[1] = {800, 0, 12000, 1}; feed(2, now + 110000);
+  assert(!FLS_IR_RECEIVER.decode());
+  IrReceiver.nextCommand = 25;
+  buffer[0] = {9200, 0, 4350, 1};
+  for (size_t i = 1; i <= 32; ++i) buffer[i] = {650, 0, 500, 1};
+  buffer[33] = {650, 0, 12000, 1}; feed(34, now + 1000000);
+  assert(FLS_IR_RECEIVER.decode() && IrReceiver.decodedIRData.command == 25);
+  FLS_IR_RECEIVER.resume();
+  buffer[0] = {9200, 0, 2100, 1}; buffer[1] = {800, 0, 12000, 1}; feed(2, now + 110000);
+  assert(FLS_IR_RECEIVER.decode() && IrReceiver.decodedIRData.command == 25);
   puts("OK");
 }
 `
