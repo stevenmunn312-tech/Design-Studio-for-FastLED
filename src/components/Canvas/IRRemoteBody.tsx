@@ -4,6 +4,7 @@ import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useHardwareInputStore } from '../../state/hardwareInputStore'
 import { useIrLearnStore } from '../../state/irLearnStore'
+import { useUploadStore } from '../../state/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
   IR_REMOTE_LEARN_HANDLE,
@@ -187,16 +188,16 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
       {buttons.length < MAX_IR_REMOTE_BUTTONS && (
         <div className={styles.learn}>
           <button type="button" className="nodrag" onClick={() => { void beginLearn(nodeId) }}>
-            Learn button…
+            Map IR remote buttons
           </button>
           <Handle
             type="source"
             position={Position.Right}
             id={IR_REMOTE_LEARN_HANDLE}
-            title="Learn button…"
+            title="Map IR remote buttons"
             role="button"
             tabIndex={0}
-            aria-label="Connect from IR Remote Learn button output, bool."
+            aria-label="Connect from IR Remote pending mapped button output, bool."
             onKeyDown={activateHandleFromKeyboard}
             style={{ ...NODE_HANDLE_STYLE, top: '50%', right: -8, background: BOOL_COLOR, boxShadow: `0 0 6px ${BOOL_COLOR}` }}
           />
@@ -209,12 +210,6 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
 
 async function beginLearn(nodeId: string) {
   const ui = useUiStore.getState()
-  const label = await ui.requestPrompt({
-    title: 'Learn a button',
-    message: 'Name the key. After the diagnostic sketch uploads, press that key once on the remote.',
-    confirmLabel: 'Continue',
-  })
-  if (!label?.trim()) return
   if (!useGraphStore.getState().trusted) {
     const trust = await ui.requestConfirm({
       title: 'Trust this workspace?',
@@ -225,7 +220,7 @@ async function beginLearn(nodeId: string) {
     if (!trust) return
     useGraphStore.getState().setTrusted(true)
   }
-  useIrLearnStore.getState().start(nodeId, label.trim())
+  useIrLearnStore.getState().start(nodeId)
   void useIrLearnStore.getState().prepare()
 }
 
@@ -233,27 +228,45 @@ function LearnDialog({ nodeId }: { nodeId: string }) {
   const session = useIrLearnStore((state) => state.session?.nodeId === nodeId ? state.session : null)
   const confirm = useIrLearnStore((state) => state.confirm)
   const cancel = useIrLearnStore((state) => state.cancel)
-  const listenAgain = () => useIrLearnStore.setState((state) => state.session?.sketchUploaded
-    ? { session: { ...state.session, phase: 'listening', captured: null, error: null } }
-    : state)
+  const listenAgain = useIrLearnStore((state) => state.listenAgain)
+  const uploadStatus = useUploadStore((state) => state.status)
+  const buttons = useGraphStore((state) => {
+    const node = rootGraphNodes(state).find((candidate) => candidate.id === nodeId)
+    return normalizeIrRemoteButtons(node?.data.properties.buttons).length
+  })
+  const [label, setLabel] = useState('')
+  useEffect(() => setLabel(''), [session?.captured, session?.nodeId])
+  useEffect(() => {
+    if (!session) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !useUiStore.getState().appDialog) cancel()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [session, cancel])
   if (!session || typeof document === 'undefined') return null
   const captured = session.captured
   return createPortal(
     <div className={`nodrag nowheel ${styles.overlay}`} onMouseDown={(event) => { if (event.target === event.currentTarget) cancel() }}>
       <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="ir-learn-title">
-        <h2 id="ir-learn-title">Learn {session.label}</h2>
-        {session.preparing && <p>Uploading a receiver-only sketch. It will not replace Upload last sketch.</p>}
-        {session.phase === 'listening' && !session.preparing && <p>Press {session.label} once on the remote. Repeats are ignored.</p>}
-        {captured && (
-          <p>
-            {captured.protocol} · address {captured.address} · command {captured.command}
-          </p>
+        <h2 id="ir-learn-title">Map IR remote buttons</h2>
+        {session.preparing && <p role="status">{session.compiled || uploadStatus.phase === 'uploading' ? 'Uploading…' : uploadStatus.phase === 'working' ? uploadStatus.message : 'Compiling…'}</p>}
+        {session.phase === 'listening' && !session.preparing && (
+          <p role="status">{buttons >= MAX_IR_REMOTE_BUTTONS ? 'All 32 buttons are mapped. Click Done to finish.' : 'Press a button on your remote.'}</p>
         )}
-        {session.error && <p>{session.error}</p>}
+        {session.sketchUploaded && <p>{buttons} / {MAX_IR_REMOTE_BUTTONS} buttons saved. Connect their outputs after clicking Done.</p>}
+        {captured && (
+          <form id="ir-map-name" onSubmit={(event) => { event.preventDefault(); confirm(label) }}>
+            <label htmlFor="ir-map-label">Name this button</label>
+            <input id="ir-map-label" className={styles.mappingName} autoFocus value={label} onChange={(event) => setLabel(event.target.value)} placeholder="e.g. Power, Brightness up" />
+          </form>
+        )}
+        {session.error && <p role="alert">{session.error}</p>}
         <div className={styles.actions}>
-          <button type="button" onClick={cancel}>Cancel</button>
+          <button type="button" onClick={cancel} disabled={session.preparing}>Done</button>
+          {session.phase === 'prepare' && session.error && <button type="button" onClick={() => { void useIrLearnStore.getState().prepare() }}>Retry</button>}
           {captured && <button type="button" onClick={listenAgain}>Try again</button>}
-          {captured && <button type="button" onClick={confirm}>Save key</button>}
+          {captured && <button type="submit" form="ir-map-name" disabled={!label.trim()}>Save button</button>}
         </div>
       </div>
     </div>,

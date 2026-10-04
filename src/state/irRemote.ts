@@ -172,7 +172,7 @@ export function irRemoteOutputs(value: unknown, includeLearnHandle = true): Node
     id: irRemoteButtonHandle(button.id), label: button.label, dataType: 'bool',
   }))
   if (includeLearnHandle && outputs.length < MAX_IR_REMOTE_BUTTONS) {
-    outputs.push({ id: IR_REMOTE_LEARN_HANDLE, label: 'Learn button…', dataType: 'bool' })
+    outputs.push({ id: IR_REMOTE_LEARN_HANDLE, label: 'Map IR remote buttons', dataType: 'bool' })
   }
   return outputs
 }

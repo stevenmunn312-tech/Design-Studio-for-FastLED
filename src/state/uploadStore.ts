@@ -439,7 +439,7 @@ interface UploadState {
   // `cache: false` skips saving this sketch as the project's "re-upload last
   // sketch" target — used for one-off flashes like the live-stream receiver,
   // which shouldn't clobber the cached pattern sketch.
-  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean }) => Promise<void>
+  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean; reuseCompiled?: boolean }) => Promise<void>
   runLastUpload: () => Promise<void>
   runShowUpload: (payload: { player: string; files: ShowUploadFile[]; fqbnOpt?: string }) => Promise<void>
 
@@ -692,7 +692,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     const fqbn = fqbnOpt ? `${selectedFqbn}:${fqbnOpt}` : selectedFqbn
     set({
       busy: true, log: `Uploading to ${selectedPort} (${fqbn})…\n`,
-      status: { phase: 'working', message: 'Starting…' }, statusIsProject: opts?.cache !== false,
+      status: { phase: opts?.reuseCompiled ? 'uploading' : 'working', message: opts?.reuseCompiled ? 'Uploading…' : 'Starting…' }, statusIsProject: opts?.cache !== false,
     })
     try {
       // The module's own flash size, when the chosen board profile records one.
@@ -711,7 +711,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         const status = parseStatus(log)
         set({ log, status })
         if (status.phase === 'error') set({ consoleOpen: true })
-      }, undefined, flashMb, usbCdcOnBoot)
+      }, undefined, flashMb, usbCdcOnBoot, opts?.reuseCompiled)
       // Settle on a terminal status from the full log.
       const final = parseStatus(get().log)
       const settled = final.phase === 'uploading' || final.phase === 'working'

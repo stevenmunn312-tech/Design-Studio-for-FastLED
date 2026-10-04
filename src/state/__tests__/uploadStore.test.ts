@@ -332,6 +332,7 @@ describe('uploadStore', () => {
       undefined,
       // And no Board node, so `Serial` stays on the UART bridge.
       false,
+      undefined,
     )
 
     mocks.uploadSketch.mockClear()
@@ -347,6 +348,7 @@ describe('uploadStore', () => {
       undefined,
       // And no Board node, so `Serial` stays on the UART bridge.
       false,
+      undefined,
     )
 
     const other = useProjectStore.getState().createProject('Other', workspace(['b']))

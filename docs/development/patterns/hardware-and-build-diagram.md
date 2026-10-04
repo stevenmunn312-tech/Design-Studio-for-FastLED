@@ -190,9 +190,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   are one undo step each (`addIrRemoteButton`, `updateIrRemoteButton`,
   `removeIrRemoteButton`), a rename keeps the entry id, and removing a wired key
   asks first. Learning (`useIrLearnStore`) uploads `generateIrLearnSketch` with
-  `cache: false`, reads one non-repeat `FLS_IR v=1` line off the shared serial
-  ingest, and saves it with `learnIrRemoteButton` in one undo step. Cancel
-  releases the port. An untrusted workspace is refused before any flash.
+  `cache: false` once per mapping session. **Map IR remote buttons** shows build
+  progress, captures a non-repeat `FLS_IR v=1` line from shared serial ingest,
+  then asks for its name. Saving through `learnIrRemoteButton` is one undo step
+  per key and returns to listening without uploading again. Done releases the
+  port and retains saved keys; an unnamed capture is discarded. Duplicate codes
+  remain available to retry, and listening stops accepting keys at the 32-key
+  limit. An untrusted workspace is refused before any flash.
   Arduino-IRremote is pinned at 4.7.1 (`IR_REMOTE_VERSION` /
   `_IRREMOTE_VERSION`). `irRemoteHeader` emits only the `DECODE_*` families a
   sketch's keys use, and emits nothing when there are none, so an IR-free sketch

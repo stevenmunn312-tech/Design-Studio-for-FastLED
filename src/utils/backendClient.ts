@@ -340,11 +340,12 @@ export async function uploadSketch(
   signal?: AbortSignal,
   flashMb?: number,
   usbCdcOnBoot?: boolean,
+  reuseCompiled?: boolean,
 ): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/api/upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, port, flashMb, usbCdcOnBoot }),
+    body: JSON.stringify({ ino, fqbn, port, flashMb, usbCdcOnBoot, reuseCompiled }),
     signal,
   })
   await pipeStream(res, onLog)

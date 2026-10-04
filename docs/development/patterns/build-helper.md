@@ -1,5 +1,14 @@
 # Build helper
 
+- IR mapping's Retry sends `reuseCompiled` after the helper reports
+  `[compiled] firmware ready`. Both engines skip compilation and flash their
+  retained build. `_compiled_uploads` tracks the source and board settings for
+  each Arduino sketch directory and the shared fbuild workspace; every fresh
+  compile invalidates that workspace before building and records it only after
+  compile/size checks pass. A retry with no matching successful build reports an
+  error instead of compiling or flashing another program. Changing the serial
+  port is allowed. Compile failures still require compilation on Retry.
+
 The local FastAPI helper in `backend/app.py`: build timing, binary export, and
 keeping both toolchains' caches warm.
 

@@ -174,6 +174,19 @@
   justify-content: flex-end;
 }
 
+.mappingName {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 8px 0 16px;
+  padding: 8px;
+  border: 1px solid var(--divider);
+  border-radius: 5px;
+  background: var(--surface-recessed, #111820);
+  color: var(--text-primary);
+  font: 13px var(--font-ui, sans-serif);
+}
+
 .actions button {
   padding: 6px 10px;
   border-radius: 6px;

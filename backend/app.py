@@ -2050,9 +2050,15 @@ def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) 
     return "".join(body)
 
 
+# Successful builds retained for upload-only retries. Every fresh compile
+# invalidates its workspace entry before touching shared build artifacts.
+_compiled_uploads: dict[str, tuple] = {}
+
+
 @_reports_total_time
 def _compile_upload(
     label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False, flash_mb=None,
+    reuse_compiled: bool = False,
 ):
     """Compile, then (if a port is given) upload a sketch. Returns
     (exit code, phase) where phase is "compile" or "upload" — the phase the
@@ -2071,76 +2077,91 @@ def _compile_upload(
             "or switch the engine to fbuild.",
         ))
     fqbn = _arduino_fqbn(fqbn, flash_mb, usb_cdc)
-    compile_lines = []
-    uses_lvgl = any(
-        _LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
-        for path in sketch_dir.glob("*.ino")
-    )
-    if uses_lvgl:
-        rc = yield from _ensure_arduino_lvgl_lib()
+    build_key = str(sketch_dir.resolve())
+    build_identity = (fqbn, tuple(
+        (path.name, path.read_text(encoding="utf-8"))
+        for path in sorted(sketch_dir.glob("*.ino"))
+    ))
+    if reuse_compiled:
+        if _compiled_uploads.get(build_key) != build_identity:
+            yield "[error] Compiled firmware is no longer available. Close mapping and start again.\n"
+            return -1, "upload"
+        yield "  Reusing compiled firmware — skipping compilation.\n"
+    else:
+        _compiled_uploads.pop(build_key, None)
+        compile_lines = []
+        uses_lvgl = any(
+            _LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
+            for path in sketch_dir.glob("*.ino")
+        )
+        if uses_lvgl:
+            rc = yield from _ensure_arduino_lvgl_lib()
+            if rc != 0:
+                return rc, "compile"
+        compile_args = _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
+        uses_ir = any(_IRREMOTE_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_ir:
+            rc = yield from _ensure_arduino_irremote_lib()
+            if rc != 0:
+                return rc, "compile"
+        uses_vl53l0x = any(_VL53L0X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_vl53l0x:
+            rc = yield from _ensure_arduino_vl53l0x_lib()
+            if rc != 0:
+                return rc, "compile"
+        uses_vl53l1x = any(_VL53L1X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_vl53l1x:
+            rc = yield from _ensure_arduino_vl53l1x_lib()
+            if rc != 0:
+                return rc, "compile"
+        uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_audio:
+            rc = yield from _ensure_arduino_audio_lib()
+            if rc != 0:
+                return rc, "compile"
+            compile_args += ["--library", str(_ARDUINO_AUDIO_LIB_DIR)]
+        if uses_lvgl:
+            # The sketch directory is already on Arduino's include path. This flag
+            # makes every separately compiled LVGL translation unit include the
+            # generated header instead of falling back to LVGL's broad defaults.
+            # LVGL itself is C while the generated sketch is C++, so both compiler
+            # recipes need the define; setting only cpp.extra_flags configures the
+            # caller but leaves the runtime compiled with its default catalogue.
+            compile_args += [
+                "--build-property", "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+                "--build-property", "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
+            ]
+        if output_dir is not None:
+            # arduino-cli keeps its artifacts in a cache directory it names itself;
+            # this copies them somewhere the caller can read. Only the firmware
+            # export asks for it, so an ordinary upload's build is unchanged.
+            compile_args += ["--output-dir", str(output_dir)]
+        compile_args.append(str(sketch_dir))
+        rc = yield from _run_phase(
+            f"{label} · compile", compile_args,
+            sink=compile_lines,
+        )
         if rc != 0:
+            # A capacity overflow is the interesting failure — say so plainly so the
+            # UI can show "won't fit" instead of a wall of linker errors.
+            if _looks_like_overflow(compile_lines):
+                yield _overflow_message(fqbn, compile_lines)
             return rc, "compile"
-    compile_args = _ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
-    uses_ir = any(_IRREMOTE_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-    if uses_ir:
-        rc = yield from _ensure_arduino_irremote_lib()
-        if rc != 0:
-            return rc, "compile"
-    uses_vl53l0x = any(_VL53L0X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-    if uses_vl53l0x:
-        rc = yield from _ensure_arduino_vl53l0x_lib()
-        if rc != 0:
-            return rc, "compile"
-    uses_vl53l1x = any(_VL53L1X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-    if uses_vl53l1x:
-        rc = yield from _ensure_arduino_vl53l1x_lib()
-        if rc != 0:
-            return rc, "compile"
-    uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-    if uses_audio:
-        rc = yield from _ensure_arduino_audio_lib()
-        if rc != 0:
-            return rc, "compile"
-        compile_args += ["--library", str(_ARDUINO_AUDIO_LIB_DIR)]
-    if uses_lvgl:
-        # The sketch directory is already on Arduino's include path. This flag
-        # makes every separately compiled LVGL translation unit include the
-        # generated header instead of falling back to LVGL's broad defaults.
-        # LVGL itself is C while the generated sketch is C++, so both compiler
-        # recipes need the define; setting only cpp.extra_flags configures the
-        # caller but leaves the runtime compiled with its default catalogue.
-        compile_args += [
-            "--build-property", "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
-            "--build-property", "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
-        ]
-    if output_dir is not None:
-        # arduino-cli keeps its artifacts in a cache directory it names itself;
-        # this copies them somewhere the caller can read. Only the firmware
-        # export asks for it, so an ordinary upload's build is unchanged.
-        compile_args += ["--output-dir", str(output_dir)]
-    compile_args.append(str(sketch_dir))
-    rc = yield from _run_phase(
-        f"{label} · compile", compile_args,
-        sink=compile_lines,
-    )
-    if rc != 0:
-        # A capacity overflow is the interesting failure — say so plainly so the
-        # UI can show "won't fit" instead of a wall of linker errors.
-        if _looks_like_overflow(compile_lines):
-            yield _overflow_message(fqbn, compile_lines)
-        return rc, "compile"
 
-    report = _size_report(compile_lines)
-    if report["flash"] is not None:
-        ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
-        yield f"  [size] flash {report['flash']}%{ram}\n"
-        tight = [
-            f"{kind} {report[kind]}%"
-            for kind in ("flash", "ram")
-            if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
-        ]
-        if tight:
-            yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+        report = _size_report(compile_lines)
+        if report["flash"] is not None:
+            ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
+            yield f"  [size] flash {report['flash']}%{ram}\n"
+            tight = [
+                f"{kind} {report[kind]}%"
+                for kind in ("flash", "ram")
+                if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
+            ]
+            if tight:
+                yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+
+        _compiled_uploads[build_key] = build_identity
+        yield "  [compiled] firmware ready for upload\n"
 
     if not port:
         yield "  (no port selected — compiled only)\n"
@@ -2410,7 +2431,9 @@ def _run_fbuild_compile(label, env, sink):
 
 
 @_reports_total_time
-def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False):
+def _compile_upload_fbuild(
+    label, ino, fqbn, port, flash_mb=None, usb_cdc=False, reuse_compiled: bool = False,
+):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
     contract, so callers don't need to know which engine ran.
 
@@ -2457,64 +2480,76 @@ def _compile_upload_fbuild(label, ino, fqbn, port, flash_mb=None, usb_cdc=False)
         )
         return -1, "busy"
     try:
-        yield from _ensure_fbuild_project()
-        if "#include <Audio.h>" in ino:
-            yield from _ensure_fbuild_audio_lib()
-        if "#include <esp_dmx.h>" in ino:
-            yield from _ensure_fbuild_esp_dmx_lib()
-        if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
-            yield from _ensure_fbuild_hub75_lib()
-        if "#include <Adafruit_ZeroI2S.h>" in ino:
-            yield from _ensure_fbuild_zero_i2s_lib()
-        if _LVGL_INCLUDE_MARKER in ino:
-            yield from _ensure_fbuild_lvgl_lib(ino)
-        if _IRREMOTE_INCLUDE in ino:
-            yield from _ensure_fbuild_irremote_lib()
-        if _VL53L0X_INCLUDE in ino:
-            yield from _ensure_fbuild_vl53l0x_lib()
-        if _VL53L1X_INCLUDE in ino:
-            yield from _ensure_fbuild_vl53l1x_lib()
         env = _fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
             return -1, "compile"
-        compile_lines = []
-        with _fbuild_libraries_for_sketch(ino):
-            _write_fbuild_main(ino)
-            rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
-            if rc != 0 and not _build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
-                # fbuild reuses the now-current archive and completes its own
-                # link, capacity report and binary generation. Retry once only.
-                rc = yield from _run_phase(
-                    f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-                    sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
-                )
-            else:
-                yield from deferred
-        if rc != 0:
-            if _looks_like_overflow(compile_lines):
-                yield _overflow_message(fqbn, compile_lines)
-            return rc, "compile"
+        build_key = "fbuild"
+        build_identity = (ino, fqbn, flash_mb, usb_cdc, env)
+        if reuse_compiled:
+            if _compiled_uploads.get(build_key) != build_identity:
+                yield "[error] Compiled firmware is no longer available. Close mapping and start again.\n"
+                return -1, "upload"
+            yield "  Reusing compiled firmware — skipping compilation.\n"
+        else:
+            _compiled_uploads.pop(build_key, None)
+            yield from _ensure_fbuild_project()
+            if "#include <Audio.h>" in ino:
+                yield from _ensure_fbuild_audio_lib()
+            if "#include <esp_dmx.h>" in ino:
+                yield from _ensure_fbuild_esp_dmx_lib()
+            if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
+                yield from _ensure_fbuild_hub75_lib()
+            if "#include <Adafruit_ZeroI2S.h>" in ino:
+                yield from _ensure_fbuild_zero_i2s_lib()
+            if _LVGL_INCLUDE_MARKER in ino:
+                yield from _ensure_fbuild_lvgl_lib(ino)
+            if _IRREMOTE_INCLUDE in ino:
+                yield from _ensure_fbuild_irremote_lib()
+            if _VL53L0X_INCLUDE in ino:
+                yield from _ensure_fbuild_vl53l0x_lib()
+            if _VL53L1X_INCLUDE in ino:
+                yield from _ensure_fbuild_vl53l1x_lib()
+            compile_lines = []
+            with _fbuild_libraries_for_sketch(ino):
+                _write_fbuild_main(ino)
+                rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
+                if rc != 0 and not _build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
+                    # fbuild reuses the now-current archive and completes its own
+                    # link, capacity report and binary generation. Retry once only.
+                    rc = yield from _run_phase(
+                        f"{label} · compile", [_FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+                        sink=compile_lines, cwd=_FBUILD_PROJECT_DIR,
+                    )
+                else:
+                    yield from deferred
+            if rc != 0:
+                if _looks_like_overflow(compile_lines):
+                    yield _overflow_message(fqbn, compile_lines)
+                return rc, "compile"
 
-        report = _fbuild_size_report(compile_lines)
-        over = _over_capacity(report)
-        if over:
-            yield _overflow_message(
-                fqbn,
-                compile_lines,
-                {kind: report[kind] for kind in over},
-            )
-            return -1, "compile"
-        if report["flash"] is not None:
-            ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
-            yield f"  [size] flash {report['flash']}%{ram}\n"
-            tight = [
-                f"{kind} {report[kind]}%"
-                for kind in ("flash", "ram")
-                if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
-            ]
-            if tight:
-                yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+            report = _fbuild_size_report(compile_lines)
+            over = _over_capacity(report)
+            if over:
+                yield _overflow_message(
+                    fqbn,
+                    compile_lines,
+                    {kind: report[kind] for kind in over},
+                )
+                return -1, "compile"
+            if report["flash"] is not None:
+                ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
+                yield f"  [size] flash {report['flash']}%{ram}\n"
+                tight = [
+                    f"{kind} {report[kind]}%"
+                    for kind in ("flash", "ram")
+                    if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
+                ]
+                if tight:
+                    yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+
+            _compiled_uploads[build_key] = build_identity
+            yield "  [compiled] firmware ready for upload\n"
 
         if not port:
             yield "  (no port selected — compiled only)\n"
@@ -3774,10 +3809,11 @@ def upload(payload: dict = Body(...)):
 
     flash_mb = _flash_mb_from(payload)
     usb_cdc = _usb_cdc_from(payload)
+    retry_options = {"reuse_compiled": True} if payload.get("reuseCompiled") is True else {}
 
     if engine == "fbuild":
         def stream():
-            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port, flash_mb, usb_cdc)
+            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port, flash_mb, usb_cdc, **retry_options)
             yield from _upload_result_lines(rc, phase, port)
         return StreamingResponse(stream(), media_type="text/plain")
 
@@ -3785,7 +3821,7 @@ def upload(payload: dict = Body(...)):
         with _sketch_workspace(SKETCH, ino) as sketch_dir:
             rc, phase = yield from _compile_upload(
                 "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc,
-                flash_mb=flash_mb)
+                flash_mb=flash_mb, **retry_options)
             yield from _upload_result_lines(rc, phase, port)
 
     return StreamingResponse(stream(), media_type="text/plain")

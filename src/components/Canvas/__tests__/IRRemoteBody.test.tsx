@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import IRRemoteBody from '../IRRemoteBody'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioEdge, type StudioNode } from '../../../state/graphStore'
 import { useHardwareInputStore } from '../../../state/hardwareInputStore'
 import { useUiStore } from '../../../state/uiStore'
 import { irRemoteButtonHandle } from '../../../state/irRemote'
+import { useIrLearnStore } from '../../../state/irLearnStore'
+import { useUploadStore } from '../../../state/uploadStore'
 
 vi.mock('@xyflow/react', async () => {
   const React = await import('react')
@@ -35,6 +37,7 @@ const power = { id: 'power', label: 'Power', protocol: 'NEC', address: 0, comman
 
 describe('IR remote node body', () => {
   beforeEach(() => {
+    useIrLearnStore.setState({ session: null })
     useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
     useGraphStore.setState({
       nodes: [node({ buttons: [power] })],
@@ -42,7 +45,41 @@ describe('IR remote node body', () => {
       activeGraphId: ROOT_GRAPH_ID,
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
       graphData: {},
+      trusted: true,
     } as never)
+  })
+
+  it('uploads once, names captured buttons, and finishes mapping with their outputs intact', async () => {
+    let completeUpload!: () => void
+    const runUpload = vi.fn(() => new Promise<void>((resolve) => { completeUpload = resolve }))
+    const stopSerial = vi.fn()
+    useUploadStore.setState({
+      runUpload, stopSerial,
+      startSerial: vi.fn(() => { useUploadStore.setState({ serialConnected: true }); return Promise.resolve() }),
+      status: { phase: 'compiling', message: 'Compiling…' },
+    })
+    render(<IRRemoteBody nodeId="ir" />)
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Map IR remote buttons' })))
+    expect(screen.getByRole('status').textContent).toBe('Compiling…')
+    act(() => useUploadStore.setState({ status: { phase: 'uploading', message: 'Uploading…' } }))
+    expect(screen.getByRole('status').textContent).toBe('Uploading…')
+    await act(async () => { completeUpload(); await Promise.resolve() })
+    expect(screen.getByRole('status').textContent).toBe('Press a button on your remote.')
+    act(() => useIrLearnStore.getState().ingestLine('FLS_IR v=1 protocol=NEC address=0 command=70 repeat=0'))
+    const name = screen.getByRole('textbox', { name: 'Name this button' })
+    fireEvent.change(name, { target: { value: 'Up' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save button' }))
+    expect(screen.getByRole('status').textContent).toBe('Press a button on your remote.')
+    act(() => useIrLearnStore.getState().ingestLine('FLS_IR v=1 protocol=NEC address=0 command=71 repeat=0'))
+    expect((screen.getByRole('textbox', { name: 'Name this button' }) as HTMLInputElement).value).toBe('')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name this button' }), { target: { value: 'Down' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save button' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(runUpload).toHaveBeenCalledOnce()
+    expect(stopSerial).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Press Up' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Press Down' })).toBeTruthy()
   })
 
   it('presses a key into the transient hardware store and releases it', () => {
@@ -52,6 +89,27 @@ describe('IR remote node body', () => {
     expect(useHardwareInputStore.getState().button.get('ir:power')).toBe(true)
     fireEvent.pointerUp(press)
     expect(useHardwareInputStore.getState().button.get('ir:power')).toBe(false)
+  })
+
+  it('shows uploading instead of compiling when retrying a failed flash', async () => {
+    const runUpload = vi.fn(async () => {
+      useUploadStore.setState({ log: '[compiled] firmware ready for upload\n', status: { phase: 'error', message: 'Upload failed' } })
+    })
+    useUploadStore.setState({ runUpload, log: '', status: { phase: 'idle', message: '' } })
+    render(<IRRemoteBody nodeId="ir" />)
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Map IR remote buttons' })))
+    expect(screen.getByRole('alert').textContent).toContain('did not upload')
+    let completeRetry!: () => void
+    runUpload.mockImplementationOnce(() => new Promise<void>((resolve) => { completeRetry = resolve }))
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry' })))
+    expect(runUpload.mock.calls[1]).toEqual(expect.arrayContaining([expect.objectContaining({ reuseCompiled: true })]))
+    expect(screen.getByRole('status').textContent).toBe('Uploading…')
+    await act(async () => {
+      useUploadStore.setState({ status: { phase: 'done', message: 'Done' } })
+      completeRetry()
+      await Promise.resolve()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
   })
 
   it('renames a key without changing its output handle', () => {

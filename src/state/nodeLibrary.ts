@@ -4076,7 +4076,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     label: 'IR Remote',
     category: 'input',
     inputs: [],
-    outputs: [{ id: IR_REMOTE_LEARN_HANDLE, label: 'Learn button…', dataType: 'bool' }],
+    outputs: [{ id: IR_REMOTE_LEARN_HANDLE, label: 'Map IR remote buttons', dataType: 'bool' }],
     defaultProperties: { pin: 13, buttons: [] },
   },
   {
