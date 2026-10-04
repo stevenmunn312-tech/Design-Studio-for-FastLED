@@ -15,6 +15,7 @@ import { TEMPLATE_CONTROL_ROLES, controlRoleTargetsSource } from './templateCont
 
 export type DisplayTemplateId =
   | 'clock'
+  | 'power-monitor'
   | 'now-playing'
   | 'minimal-transport'
   | 'pattern-deck'
@@ -142,6 +143,9 @@ const TEMPLATE_CONTROL_ICONS: Readonly<Record<string, DisplayControlIconName>> =
  * holds the variants in step.
  */
 const TEMPLATE_WIDGET_SOURCES: Readonly<Record<string, string>> = {
+  Volts: 'volts',
+  Amps: 'amps',
+  Watts: 'watts',
   Time: 'time',
   Date: 'date',
   'Clock set': 'valid',
@@ -215,6 +219,26 @@ export const DISPLAY_TEMPLATES: readonly DisplayTemplate[] = [
       widget('Text', 'Time', [8, 48, 224, 64], { fontSize: 48, align: 'center' }),
       widget('Text', 'Date', [8, 128, 224, 32], { fontSize: 24, align: 'center' }),
       widget('Status Indicator', 'Clock set', [72, 176, 96, 40], { offLabel: 'NOT SET', onLabel: 'SET' }),
+    ],
+  },
+  {
+    id: 'power-monitor',
+    label: 'Power Monitor',
+    description: 'Live volts, amps and watts from the Power Monitor wired into the panel, with labelled readouts and two decimal places.',
+    widgets: [
+      widget('Numeric Readout', 'Volts', [16, 16, 288, 64], { showLabel: true, decimals: 2, suffix: ' V', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Amps', [16, 88, 288, 64], { showLabel: true, decimals: 2, suffix: ' A', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Watts', [16, 160, 288, 64], { showLabel: true, decimals: 2, suffix: ' W', min: 0, max: 1000000 }),
+    ],
+    portraitWidgets: [
+      widget('Numeric Readout', 'Volts', [16, 24, 208, 80], { showLabel: true, decimals: 2, suffix: ' V', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Amps', [16, 120, 208, 80], { showLabel: true, decimals: 2, suffix: ' A', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Watts', [16, 216, 208, 80], { showLabel: true, decimals: 2, suffix: ' W', min: 0, max: 1000000 }),
+    ],
+    squareWidgets: [
+      widget('Numeric Readout', 'Volts', [16, 16, 208, 64], { showLabel: true, decimals: 2, suffix: ' V', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Amps', [16, 88, 208, 64], { showLabel: true, decimals: 2, suffix: ' A', min: 0, max: 1000000 }),
+      widget('Numeric Readout', 'Watts', [16, 160, 208, 64], { showLabel: true, decimals: 2, suffix: ' W', min: 0, max: 1000000 }),
     ],
   },
   {

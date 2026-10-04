@@ -2678,6 +2678,7 @@ export function findDisplayGeneratorIssues(
       const table = normalSketchSourceExpressions(
         kind === 'clock' ? PROBE_CLOCK_EXPR : null,
         kind === 'ledOutput' ? PROBE_LED_STATUS : null,
+        kind === 'powerMonitor' ? { volts: '_probeVolts', amps: '_probeAmps', watts: '_probeWatts' } : null,
       )
       const unresolved = resolveBoundWidgets(mounted.panel.data.properties.widgetSources, table).unresolved
       for (const { field } of unresolved) {

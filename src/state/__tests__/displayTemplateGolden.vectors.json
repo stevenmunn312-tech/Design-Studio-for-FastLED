@@ -28,6 +28,35 @@
     ],
     "issues": []
   },
+  "240x240/power-monitor": {
+    "widgets": [
+      {
+        "label": "Volts",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 16,
+        "width": 208,
+        "height": 64
+      },
+      {
+        "label": "Amps",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 88,
+        "width": 208,
+        "height": 64
+      },
+      {
+        "label": "Watts",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 160,
+        "width": 208,
+        "height": 64
+      }
+    ],
+    "issues": []
+  },
   "240x240/now-playing": {
     "widgets": [
       {
@@ -537,6 +566,35 @@
     ],
     "issues": []
   },
+  "240x320/power-monitor": {
+    "widgets": [
+      {
+        "label": "Volts",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 24,
+        "width": 208,
+        "height": 80
+      },
+      {
+        "label": "Amps",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 120,
+        "width": 208,
+        "height": 80
+      },
+      {
+        "label": "Watts",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 216,
+        "width": 208,
+        "height": 80
+      }
+    ],
+    "issues": []
+  },
   "240x320/now-playing": {
     "widgets": [
       {
@@ -1042,6 +1100,35 @@
         "y": 184,
         "width": 96,
         "height": 40
+      }
+    ],
+    "issues": []
+  },
+  "320x240/power-monitor": {
+    "widgets": [
+      {
+        "label": "Volts",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 16,
+        "width": 288,
+        "height": 64
+      },
+      {
+        "label": "Amps",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 88,
+        "width": 288,
+        "height": 64
+      },
+      {
+        "label": "Watts",
+        "type": "Numeric Readout",
+        "x": 16,
+        "y": 160,
+        "width": 288,
+        "height": 64
       }
     ],
     "issues": []

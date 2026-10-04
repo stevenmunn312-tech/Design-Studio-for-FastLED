@@ -10,6 +10,7 @@ import {
   type SegmentFrame,
   segmentDashes,
   renderSegmentClock,
+  renderSegmentPower,
   renderSegmentLevel,
   renderSegmentIndex,
   segmentFrameText,
@@ -215,6 +216,8 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           }
           : (blankInfoData('Clock') as { layout: 'Clock'; data: { timeText: string; dateText: string; valid: boolean; synced: boolean } }).data,
       }
+    } else if (signal.kind === 'powerMonitor') {
+      payload = { layout: 'Power Monitor', data: signal.reading }
     } else if (signal.kind === 'ledOutput') {
       const status = signal.status
       payload = {
@@ -374,6 +377,8 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           browsing: selection?.browsing === true,
         },
       }
+    } else if (layout === 'Power Monitor' && signal.kind === 'powerMonitor') {
+      payload = { layout, data: signal.reading }
     } else if (layout === 'LED Status') {
       // Blank rather than a plausible zero when the wire is not an output:
       // the layout is only reachable from an `ledOutput` source, so the
@@ -499,6 +504,8 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
         Math.floor(elapsed / 60), elapsed % 60,
         blink && segCtl.hasColon, segCtl.digits, 0,
       )
+    } else if (signal.kind === 'powerMonitor') {
+      segment = renderSegmentPower(signal.reading, segCtl.digits)
     } else if (signal.kind === 'ledOutput') {
       // Effective output as whole percent — see renderSegmentLevel on why
       // a blacked-out fixture reads 0 rather than its dimmer position.

@@ -14,6 +14,7 @@
 //
 // See docs/development/design/simple-displays.md.
 
+import type { PowerMonitorReading } from './powerMonitor'
 import type { LedOutputStatus } from './ledOutputRuntime'
 import type { SongInfo } from './songInfo'
 import type { PatternSelectValue } from './patternSelection'
@@ -25,10 +26,11 @@ import type { RtcPreview } from './rtc'
  * Adding a kind is adding a layout to every simple display at once, which is
  * the point: a panel cannot support a source in one place and not another.
  */
-export const DISPLAY_SIGNAL_KINDS = ['clock', 'player', 'slideshow', 'ledOutput'] as const
+export const DISPLAY_SIGNAL_KINDS = ['clock', 'player', 'slideshow', 'ledOutput', 'powerMonitor'] as const
 export type DisplaySignalKind = (typeof DISPLAY_SIGNAL_KINDS)[number]
 
 export type DisplaySignal =
+  | { kind: 'powerMonitor'; reading: PowerMonitorReading }
   | { kind: 'clock'; clock: RtcPreview }
   /**
    * A player answers for two things at once, so its arm carries both.
@@ -75,6 +77,7 @@ export const DISPLAY_WAITING_TEXT = 'WAITING FOR A SIGNAL'
 
 /** The label a source's node carries, for an error that has to name it. */
 export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
+  powerMonitor: 'Power Monitor',
   clock: 'RTC Clock',
   player: 'Music Player',
   slideshow: 'Pattern Slideshow',
@@ -101,7 +104,7 @@ export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
  * finger-sized buttons driving a Juggle in a player-less sketch is a supported
  * shape — the rows read blank and the glass still works.
  */
-export const SKETCH_DISPLAY_SOURCE_KINDS: readonly DisplaySignalKind[] = ['clock', 'ledOutput']
+export const SKETCH_DISPLAY_SOURCE_KINDS: readonly DisplaySignalKind[] = ['clock', 'ledOutput', 'powerMonitor']
 
 /**
  * The node types that publish each kind, for resolution without evaluation.
@@ -114,6 +117,7 @@ export const SKETCH_DISPLAY_SOURCE_KINDS: readonly DisplaySignalKind[] = ['clock
  * that would each need their own layouts, field catalogue and templates.
  */
 export const DISPLAY_SOURCE_NODE_TYPES: Record<string, DisplaySignalKind> = {
+  PowerMonitorInput: 'powerMonitor',
   RTCInput: 'clock',
   PatternMaster: 'player',
   PerformanceGenerator: 'player',

@@ -82,6 +82,7 @@ const LED_OUTPUT_FIELDS: readonly DisplaySourceField[] = [
 ]
 
 const BY_KIND: Record<DisplaySignalKind, readonly DisplaySourceField[]> = {
+  powerMonitor: ['volts', 'amps', 'watts'].map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), dataType: 'float' })),
   player: PLAYER_FIELDS,
   clock: CLOCK_FIELDS,
   slideshow: SLIDESHOW_FIELDS,
@@ -170,6 +171,9 @@ export function readDisplaySourceField(
       case 'level': return Math.round(Math.max(0, Math.min(1, status.brightness)) * 100)
       default: return null
     }
+  }
+  if (signal.kind === 'powerMonitor') {
+    return id === 'volts' || id === 'amps' || id === 'watts' ? signal.reading[id] : null
   }
   const selection = signal.selection
   if (signal.kind === 'player') {

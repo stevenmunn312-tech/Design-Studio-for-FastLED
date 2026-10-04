@@ -1,3 +1,4 @@
+import type { PowerMonitorReading } from './powerMonitor'
 // What a 7-segment module actually shows.
 //
 // Digits and, on some modules, a colon: that is the whole vocabulary. The evaluator
@@ -61,10 +62,11 @@ export function segmentControllerFor(controller: string | undefined): SegmentCon
  * position in a track, or a position in a collection, and each of those has
  * exactly one source that means it.
  */
-export const SEGMENT_DISPLAY_MODES = ['Waiting', 'Clock', 'Elapsed', 'Index', 'Level'] as const
+export const SEGMENT_DISPLAY_MODES = ['Waiting', 'Clock', 'Elapsed', 'Index', 'Level', 'Power'] as const
 export type SegmentDisplayMode = (typeof SEGMENT_DISPLAY_MODES)[number]
 
 const MODE_BY_KIND: Record<DisplaySignalKind, SegmentDisplayMode> = {
+  powerMonitor: 'Power',
   clock: 'Clock',
   // M:SS of the running track, using the colon the TM1637 already has. The
   // only thing four digits can say well about a player.
@@ -111,6 +113,8 @@ export interface SegmentFrame {
   digits: string
   colon: boolean
   decimalAt: number
+  /** Additional point for the watts field on an eight-digit module. */
+  decimalAts?: number[]
   /** False when the module is dark: nothing is written, not even blanks. */
   lit: boolean
 }
@@ -232,8 +236,8 @@ export function renderSegmentLevel(
 export function segmentFrameText(frame: SegmentFrame): string {
   if (!frame.lit) return ''
   if (frame.colon) return `${frame.digits.slice(0, 2)}:${frame.digits.slice(2)}`
-  if (frame.decimalAt >= 0) {
-    return `${frame.digits.slice(0, frame.decimalAt + 1)}.${frame.digits.slice(frame.decimalAt + 1)}`
+  if (frame.decimalAt >= 0 || frame.decimalAts?.length) {
+    return [...frame.digits].map((digit, i) => digit + (i === frame.decimalAt || frame.decimalAts?.includes(i) ? '.' : '')).join('')
   }
   return frame.digits
 }
@@ -260,10 +264,30 @@ export function segmentBytes(frame: SegmentFrame): number[] {
   const bytes: number[] = []
   for (let i = 0; i < width; i++) {
     let byte = SEGMENT_GLYPHS[frame.digits[i]] ?? 0
-    if (i === frame.decimalAt) byte |= 0x80
+    if (i === frame.decimalAt || frame.decimalAts?.includes(i)) byte |= 0x80
     // The TM1637 carries the colon on the second digit's high bit.
     if (frame.colon && i === 1) byte |= 0x80
     bytes.push(byte)
   }
   return bytes
+}
+
+/** Reserve A on four-digit modules; wider modules give each quantity four digits. */
+export function renderSegmentPower(reading: PowerMonitorReading, digits = 4): SegmentFrame {
+  const number = (value: number, width = 4): SegmentFrame => {
+    if (!Number.isFinite(value) || value < 0) return segmentDashes(width)
+    for (let precision = 2; precision >= 0; precision--) {
+      const rounded = Math.round(value * (10 ** precision))
+      const body = String(rounded).padStart(precision + 1, '0')
+      if (body.length <= width) {
+        const padded = body.padStart(width, ' ')
+        return { digits: padded, decimalAt: precision ? width - 1 - precision : -1, colon: false, lit: true }
+      }
+    }
+    return segmentDashes(width)
+  }
+  const amps = number(reading.amps, digits < 8 ? 3 : 4)
+  if (digits < 8) return { ...amps, digits: amps.digits + 'A' }
+  const watts = number(reading.watts)
+  return { ...amps, digits: amps.digits + watts.digits, decimalAts: watts.decimalAt < 0 ? [] : [watts.decimalAt + 4] }
 }

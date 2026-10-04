@@ -37,7 +37,7 @@ export default function SegmentDisplayNodeBody({ nodeId }: { nodeId: string }) {
               {SEGMENTS.map((segment, bit) => (
                 <span key={segment} className={`${styles.segment} ${styles[segment]}`} data-on={(bits & (1 << bit)) !== 0} />
               ))}
-              <span className={styles.dp} data-on={frame.lit && frame.decimalAt === index} />
+              <span className={styles.dp} data-on={frame.lit && (frame.decimalAt === index || frame.decimalAts?.includes(index))} />
               {frame.colon && index === 1 && <span className={styles.colon} data-on="true" />}
             </div>
           )

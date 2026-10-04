@@ -1,3 +1,6 @@
+import { evaluateGraphFull } from '../graphEvaluator'
+import { renderSegmentPower, segmentBytes, segmentFrameText } from '../segmentDisplay'
+import { isDisplaySignal } from '../displaySignal'
 import { describe, expect, it } from 'vitest'
 import { buildHardwareManifest, collectPinUses } from '../../build/hardwareManifest'
 import { generateCpp } from '../../codegen/cppGenerator'
@@ -242,5 +245,59 @@ describe('the catalogued INA226', () => {
     expect(pads[peripheralGroundPadIndex(item)]).toBe('GND')
     expect(pads[peripheralSignalPadIndex(item, 0)]).toBe('SDA')
     expect(pads[peripheralSignalPadIndex(item, 1)]).toBe('SCL')
+  })
+})
+
+
+describe('Power Monitor Display output', () => {
+  it('publishes the same reading its scalar outputs report', () => {
+    const nodes = [node('mon', 'PowerMonitorInput'), node('oled', 'InfoDisplay')]
+    const outputs = evaluateGraphFull(nodes, [edge('display', 'mon', 'display', 'oled', 'display')], 0, 8, 8).outputs
+    const monitor = outputs.get('mon')!
+    expect(isDisplaySignal(monitor.display)).toBe(true)
+    expect(monitor.display).toEqual({ kind: 'powerMonitor', reading: { volts: monitor.volts, amps: monitor.amps, watts: monitor.watts } })
+    expect(outputs.get('oled')?.layout).toBe('Power Monitor')
+  })
+
+  it('fits both quantities independently with decimal points on eight digits', () => {
+    const reading = { volts: 13, amps: 0.8, watts: 10.4 }
+    expect(segmentFrameText(renderSegmentPower(reading))).toBe('0.80A')
+    expect(segmentFrameText(renderSegmentPower({ ...reading, amps: 20 }))).toBe('20.0A')
+    expect(segmentFrameText(renderSegmentPower({ ...reading, amps: 99.99 }))).toBe('100A')
+    expect(segmentBytes(renderSegmentPower(reading))[3]).toBe(0x77)
+    const frame = renderSegmentPower(reading, 8)
+    expect(segmentFrameText(frame)).toBe(' 0.8010.40')
+    expect(segmentBytes(frame).filter((byte) => byte & 0x80)).toHaveLength(2)
+    expect(segmentFrameText(renderSegmentPower({ ...reading, watts: 720 }, 8))).toBe(' 0.80720.0')
+    expect(segmentFrameText(renderSegmentPower({ ...reading, amps: NaN }, 8))).toBe('----10.40')
+    expect(segmentFrameText(renderSegmentPower({ ...reading, amps: 10000 }))).toBe('---A')
+  })
+
+  it.each([
+    ['SegmentDisplay', 'tm1637-4digit-display'],
+    ['SegmentDisplay', 'max7219-8digit-7segment'],
+    ['InfoDisplay', 'ssd1306-oled-128x64'],
+    ['TransportDisplay', 'st7789-tft-240x240'],
+  ])('keeps a display-only monitor live in preview and firmware for %s / %s', (type, partId) => {
+    const nodes = [node('mon', 'PowerMonitorInput'), node('panel', type, { partId })]
+    const edges = [edge('display', 'mon', 'display', 'panel', 'display')]
+    const outputs = evaluateGraphFull(nodes, edges, 0, 8, 8).outputs
+    expect(outputs.get('mon')?.display).toBeDefined()
+    const cpp = generateCpp(nodes, edges)
+    const loop = cpp.slice(cpp.indexOf('void loop()'))
+    expect(loop).toContain('_ina219Measure(0x40, 0.1000f, n_mon_volts, n_mon_amps)')
+    if (type === 'SegmentDisplay') {
+      expect(loop).toContain(`_segPowerField(_segBuf_panel, n_mon_amps, ${partId.includes('max7219') ? 4 : 3})`)
+      if (!partId.includes('max7219')) {
+        expect(loop).toContain("_segBuf_panel[3] = 'A';")
+        expect(cpp).toContain("if (c == 'A') return 0x77;")
+      }
+      expect(loop.includes('_segPowerField(_segBuf_panel + 4, n_mon_watts, 4)')).toBe(partId.includes('max7219'))
+    } else {
+      expect(outputs.get('panel')?.layout).toBe('Power Monitor')
+      for (const quantity of ['volts', 'amps', 'watts']) expect(loop).toContain(`dtostrf((double)(n_mon_${quantity})`)
+      for (const unit of ['V', 'A', 'W']) expect(loop).toContain(`" ${unit}"`)
+    }
+    expect(loop.indexOf('_ina219Measure(')).toBeLessThan(loop.indexOf(type === 'SegmentDisplay' ? '_segPowerField(_segBuf_panel' : 'dtostrf((double)(n_mon_'))
   })
 })

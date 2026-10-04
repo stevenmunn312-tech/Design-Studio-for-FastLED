@@ -122,7 +122,9 @@ export interface LedStatusExpressions {
 export function normalSketchSourceExpressions(
   clockExpr: string | null,
   ledStatus?: LedStatusExpressions | null,
+  powerMonitor?: { volts: string; amps: string; watts: string } | null,
 ): DisplaySourceExpressions {
+  if (powerMonitor) return powerMonitor
   if (ledStatus) {
     const level = `constrain((float)(${ledStatus.brightnessExpr}), 0.0f, 1.0f)`
     return {

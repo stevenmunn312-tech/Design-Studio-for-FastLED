@@ -8,19 +8,19 @@ export interface DisplayReferenceContent {
 export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
   SegmentDisplay: {
     overview: [
-      'A separate physical readout for an RTC clock, Music Player position, Pattern Slideshow index, or LED output level. Connect the source’s Display output to the module’s Display input; the source determines what the digits show. An LED output reads as whole percent of effective brightness (0 when blacked out). An unwired display shows dashes.',
+      'A separate physical readout for an RTC clock, Music Player position, Pattern Slideshow index, or LED output level. Connect the source’s Display output to the module’s Display input; the source determines what the digits show. An LED output reads as whole percent of effective brightness (0 when blacked out). Power Monitor shows amps with a trailing A on four digits, or amps followed by watts on eight digits. An unwired display shows dashes.',
       'Choose the exact TM1637 four-digit module with a colon or MAX7219 eight-digit module without a colon. Other controllers and digit arrangements are unsupported.',
     ],
     steps: [
       'Add the module from Displays in the Hardware shelf. Select it on the Hardware tab to choose its identity and GPIO wiring, then use Show in graph if its node is hidden.',
-      'Connect RTC Clock, Music Player, Pattern Slideshow, or an LED output using the Display socket. A raw number or Format Number string belongs on a custom-screen readout instead.',
+      'Connect RTC Clock, Music Player, Pattern Slideshow, Power Monitor, or an LED output using the Display socket. A raw number or Format Number string belongs on a custom-screen readout instead.',
       'Set brightness and digit formatting on the graph node. Check Graph Health and the generated build before upload; a module appearing in the catalogue does not establish physical validation for your board.',
     ],
     propertyNote: 'Module identity and GPIO belong to the hardware inspector. The graph node controls digit formatting, brightness, and whether the display is enabled. The colon is available only on the TM1637 module.',
   },
   InfoDisplay: {
     overview: [
-      'A separate 128×64 OLED panel. Connect a Display output from RTC Clock, Music Player, Pattern Slideshow, or an LED output: the source chooses the clock, now-playing, pattern-browser, or LED Status screen. There is no layout selector. With no source connected, the panel reports that it is unwired.',
+      'A separate 128×64 OLED panel. Connect a Display output from RTC Clock, Music Player, Pattern Slideshow, Power Monitor, or an LED output: the source chooses the clock, now-playing, pattern-browser, or LED Status screen. Power Monitor shows volts, amps and watts. There is no layout selector. With no source connected, the panel reports that it is unwired.',
       'Choose the exact SH1106 or SSD1306 module in Hardware. SH1106 is offered in SPI and I²C variants; SSD1306 uses I²C. Match the module’s header and identity, since the same controller can use different wiring. An unlisted OLED is unsupported even if its size looks similar.',
     ],
     steps: [
@@ -32,7 +32,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
   },
   TransportDisplay: {
     overview: [
-      'A physical colour TFT. Connect one Display wire from RTC Clock, Music Player, Pattern Slideshow, or an LED output for Clock, Now Playing/Fixed Transport, Show Status, or LED Status. The source determines the content; the layout setting chooses its presentation. An unwired panel says Waiting.',
+      'A physical colour TFT. Connect one Display wire from RTC Clock, Music Player, Pattern Slideshow, Power Monitor, or an LED output for Clock, Now Playing/Fixed Transport, Show Status, or LED Status. The source determines the content; the layout setting chooses its presentation. Power Monitor shows volts, amps and watts. An unwired panel says Waiting.',
       'For custom content, choose Create screen design on the panel. The design belongs to the glass: there is no second node and no Screen Design cable. The panel keeps its Display wire, which bound widgets read. Module, pins, rotation, and Enabled belong to the physical panel.',
       'Choose the non-touch ST7789 1.54-inch 240×240 module or the ST7789V 2.4-inch 240×320 module with XPT2046 touch. Other TFT and touch controllers are unsupported.',
     ],

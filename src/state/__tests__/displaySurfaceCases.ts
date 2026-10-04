@@ -112,6 +112,7 @@ const TRACK_ARTIST = 'The Long Meridian'
 // is a compile error here until someone decides what it should be shown doing.
 
 const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplayData>> = {
+  'Power Monitor': { nominal: { layout: 'Power Monitor', data: { volts: 12, amps: 0.8, watts: 9.6 } } },
   'Waiting': {
     'unwired': { layout: 'Waiting' },
   },
@@ -170,6 +171,7 @@ const TFT_STATES: Record<TransportDisplayLayout, Record<string, TransportDisplay
 }
 
 const OLED_STATES: Record<InfoDisplayLayout, Record<string, InfoDisplayData>> = {
+  'Power Monitor': { nominal: { layout: 'Power Monitor', data: { volts: 12, amps: 0.8, watts: 9.6 } } },
   'Waiting': {
     'unwired': { layout: 'Waiting' },
   },

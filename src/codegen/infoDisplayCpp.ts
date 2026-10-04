@@ -1,3 +1,4 @@
+import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor'
 // SH1106 / SSD1306 driver and layout rendering, emitted into the sketch.
 //
 // Written inline for the same reason the TM1637 driver is: a page-addressed
@@ -13,7 +14,7 @@
 import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
 import {
   INFO_BOOT_STAGE_MIN_MS, INFO_BOOT_TITLE, bootStatusGeometry,
-  browserGeometry, clockGeometry, ledStatusGeometry, nowPlayingGeometry, waitingGeometry,
+  powerMonitorGeometry, browserGeometry, clockGeometry, ledStatusGeometry, nowPlayingGeometry, waitingGeometry,
   type InfoDisplayLayout,
 } from '../state/infoDisplay'
 import { ledStatusCountText } from '../state/ledOutputRuntime'
@@ -419,6 +420,7 @@ export interface InfoDisplayEmit {
   /** The glass this panel actually has, which is what the layout resolves against. */
   width: number
   height: number
+  powerMonitor?: { volts: string; amps: string; watts: string }
   enabledExpr: string
   titleExpr: string | null
   line2Expr: string | null
@@ -626,7 +628,16 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
     )
   }
 
-  if (display.layout === 'Clock') {
+  if (display.layout === 'Power Monitor') {
+    powerMonitorGeometry(width, height).forEach((g, i) => {
+      const value = display.powerMonitor?.[POWER_MONITOR_FIELDS[i]] ?? 'NAN'
+      lines.push(
+        `      dtostrf((double)(${value}), 0, 2, _oledBuf_${display.id});`,
+        `      strcat(_oledBuf_${display.id}, " ${POWER_MONITOR_UNITS[i]}");`,
+        `      _oledText(${p}, ${g.x}, ${g.y}, _oledBuf_${display.id});`,
+      )
+    })
+  } else if (display.layout === 'Clock') {
     const dt = display.dateTimeExpr
     const g = clockGeometry(width, height)
     lines.push(

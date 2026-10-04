@@ -91,3 +91,10 @@ export function powerMonitorPreviewDefaults(partId: unknown): { volts: number; a
   const spec = powerMonitorSpec(partId)
   return { volts: 12 / spec.busVoltageMaxV, amps: 0.5 / spec.currentMaxA }
 }
+
+/** Fixed panel readings, labelled in the same order on mono and colour glass. */
+export const POWER_MONITOR_FIELDS = ['volts', 'amps', 'watts'] as const
+export const POWER_MONITOR_UNITS = ['V', 'A', 'W'] as const
+export function powerMonitorText(value: number, unit: string): string {
+  return `${Number.isFinite(value) ? value.toFixed(2) : '--'} ${unit}`
+}

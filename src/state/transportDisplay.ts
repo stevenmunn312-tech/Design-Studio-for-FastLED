@@ -1,3 +1,4 @@
+import { type PowerMonitorReading, POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS, powerMonitorText } from './powerMonitor'
 // The fixed layouts a `TransportDisplay` can show.
 //
 // The colour twin of state/infoDisplay.ts, and it works the same way: pure
@@ -30,7 +31,7 @@ import { ledStatusCountText, ledStatusLevelText } from './ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 
 export const TRANSPORT_DISPLAY_LAYOUTS = [
-  'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'LED Status', 'Diagnostics',
+  'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'LED Status', 'Power Monitor', 'Diagnostics',
 ] as const
 export type TransportDisplayLayout = (typeof TRANSPORT_DISPLAY_LAYOUTS)[number]
 
@@ -58,6 +59,7 @@ export function asTransportDisplayLayout(value: unknown): TransportDisplayLayout
  * drawn large.
  */
 const TRANSPORT_LAYOUTS_BY_KIND: Record<DisplaySignalKind, readonly TransportDisplayLayout[]> = {
+  powerMonitor: ['Power Monitor'],
   clock: ['Clock'],
   player: ['Now Playing', 'Fixed Transport'],
   slideshow: ['Show Status'],
@@ -911,6 +913,7 @@ export function drawTransportClock(surface: TftSurface, data: TransportClockData
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 export type TransportDisplayData =
+  | { layout: 'Power Monitor'; data: PowerMonitorReading }
   | { layout: 'Waiting' }
   | { layout: 'Clock'; data: TransportClockData }
   | { layout: 'Now Playing'; data: TransportNowPlayingData }
@@ -928,6 +931,7 @@ export function renderTransportDisplay(
   const surface = createTftSurfaceFor(controller, rotation)
   clearTftSurface(surface, TRANSPORT_COLORS.background)
   switch (input.layout) {
+    case 'Power Monitor': drawTransportPowerMonitor(surface, input.data); break
     case 'Waiting': drawTransportWaiting(surface); break
     case 'Clock': drawTransportClock(surface, input.data); break
     case 'Now Playing': drawTransportNowPlaying(surface, input.data); break
@@ -947,6 +951,7 @@ export function renderTransportDisplay(
  * layout renders when it is disabled or has no reading yet.
  */
 export function blankTransportData(layout: TransportDisplayLayout): TransportDisplayData {
+  if (layout === 'Power Monitor') return { layout, data: { volts: NaN, amps: NaN, watts: NaN } }
   if (layout === 'Waiting') return { layout }
   if (layout === 'Clock') {
     return { layout, data: { timeText: '--:--:--', dateText: '', valid: false, synced: false, stale: true } }
@@ -979,4 +984,15 @@ export function blankTransportData(layout: TransportDisplayLayout): TransportDis
       playing: false, volume: 0, patternName: '', artwork: null,
     },
   }
+}
+
+export function transportPowerGeometry(width: number, height: number): TftField[] {
+  const scale = width >= 200 && height >= 100 ? M.headingScale : 1
+  const pitch = Math.floor((height - 2 * M.margin) / 3)
+  return POWER_MONITOR_FIELDS.map((_, i) => field(M.margin, M.margin + i * pitch, width - 2 * M.margin, scale, 'left'))
+}
+export function drawTransportPowerMonitor(surface: TftSurface, reading: PowerMonitorReading): void {
+  transportPowerGeometry(surface.width, surface.height).forEach((g, i) => {
+    drawTftField(surface, g, powerMonitorText(reading[POWER_MONITOR_FIELDS[i]], POWER_MONITOR_UNITS[i]), TRANSPORT_COLORS.text, TRANSPORT_COLORS.background)
+  })
 }

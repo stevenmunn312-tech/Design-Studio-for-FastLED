@@ -1,3 +1,6 @@
+import { evaluateGraphFull } from '../../../state/graphEvaluator'
+import { generateCpp } from '../../../codegen/cppGenerator'
+import { findDisplayGeneratorIssues } from '../../../utils/validateGraph'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import DisplayEditor from '../DisplayEditor'
@@ -103,6 +106,39 @@ describe('DisplayEditor portrait templates', () => {
     fireEvent.click(starts[0])
     expect(useGraphStore.getState().displayDocuments.panel.widgets.length).toBeGreaterThan(0)
     expect(view.queryByRole('region', { name: 'Start with a template' })).toBeNull()
+  })
+
+  it('offers the Power Monitor template first and fills it from one Display cable', () => {
+    useGraphStore.setState({
+      nodes: [
+        libraryNode('tft', 'TransportDisplay', {
+          partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'panel',
+        }),
+        libraryNode('monitor', 'PowerMonitorInput'),
+      ],
+      edges: [{ id: 'e-power', source: 'monitor', sourceHandle: 'display', target: 'tft', targetHandle: 'display' } as never],
+    })
+    const view = renderEditor()
+    const card = within(view.getByRole('region', { name: 'Start with a template' }))
+    expect(card.getByRole('heading', { name: 'Suits Power Monitor' })).toBeTruthy()
+    const starts = card.getAllByRole('button', { name: /^Start with the / })
+    expect(starts[0].getAttribute('aria-label')).toBe('Start with the Power Monitor template')
+    fireEvent.click(starts[0])
+
+    const state = useGraphStore.getState()
+    const doc = state.displayDocuments.panel
+    const outputs = evaluateGraphFull(state.nodes, state.edges, 0, 8, 8).outputs
+    const measured = outputs.get('monitor')!
+    for (const widget of doc.widgets) {
+      const field = String(widget.properties.source)
+      expect(useDisplayRuntimeStore.getState().readDisplayWidget('panel', widget.id)?.roleValues.get('value')).toBe(measured[field])
+    }
+    const sketch = generateCpp(state.nodes, state.edges, {}, { displayDocuments: state.displayDocuments })
+    for (const field of ['volts', 'amps', 'watts']) {
+      expect(sketch).toContain(`(double)(n_monitor_${field})`)
+    }
+    expect(findDisplayGeneratorIssues(state.nodes, state.edges, state.displayDocuments).warnings
+      .filter((issue) => issue.includes('widget reads'))).toEqual([])
   })
 
   it('steps aside for building one widget at a time', () => {

@@ -1,3 +1,4 @@
+import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor'
 // ST7789 driver and colour layout rendering, emitted into the sketch.
 //
 // Written inline for the same reason the OLED and TM1637 drivers are: the
@@ -39,7 +40,7 @@ import {
 } from '../state/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
-  diagnosticsGeometry, fixedTransportGeometry, ledStatusGeometry, nowPlayingGeometry,
+  transportPowerGeometry, diagnosticsGeometry, fixedTransportGeometry, ledStatusGeometry, nowPlayingGeometry,
   showStatusGeometry, transportClockGeometry, transportWaitingGeometry,
   type TransportDisplayLayout,
 } from '../state/transportDisplay'
@@ -190,6 +191,9 @@ export function tftDisplayHelperProfile(displays: readonly TftDisplayEmit[]): Tf
       case 'Show Status':
         textSlots = Math.max(textSlots, Object.keys(SHOW_STATUS_TEXT_SLOTS).length)
         whole = true
+        break
+      case 'Power Monitor':
+        textSlots = Math.max(textSlots, 3)
         break
       case 'LED Status':
         textSlots = Math.max(textSlots, Object.keys(LED_STATUS_TEXT_SLOTS).length)
@@ -832,6 +836,7 @@ export interface TftDisplayEmit {
   parallel?: { dataPins: readonly number[]; wrPin: number; rdPin: number }
   /** 255 when the module ties its backlight high and there is nothing to drive. */
   backlightPin: number
+  powerMonitor?: { volts: string; amps: string; watts: string }
   enabledExpr: string
   /** Clock: the wired RTCInput's `_RtcDateTimeValue`, or null when unresolved. */
   dateTimeExpr: string | null
@@ -1321,7 +1326,9 @@ function diagnosticsLoop(display: TftDisplayEmit, width: number, height: number)
 export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
   const id = display.id
   const size = tftRotatedSize(display.controller, display.rotation)
-  const body = display.layout === 'Waiting'
+  const body = display.layout === 'Power Monitor'
+    ? powerMonitorLoop(display, size.width, size.height)
+    : display.layout === 'Waiting'
     ? waitingLoop(display, size.width, size.height)
     : display.layout === 'Clock'
     ? clockLoop(display, size.width, size.height)
@@ -1345,4 +1352,17 @@ export function tftDisplayLoopCpp(display: TftDisplayEmit): string[] {
     `    }`,
     `  }`,
   ]
+}
+
+function powerMonitorLoop(display: TftDisplayEmit, width: number, height: number): string[] {
+  const p = `_tft_${display.id}`
+  return transportPowerGeometry(width, height).flatMap((g, i) => {
+    const value = display.powerMonitor?.[POWER_MONITOR_FIELDS[i]] ?? 'NAN'
+    return [
+      `      char _powerText_${display.id}_${i}[40];`,
+      `      dtostrf((double)(${value}), 0, 2, _powerText_${display.id}_${i});`,
+      `      strcat(_powerText_${display.id}_${i}, " ${POWER_MONITOR_UNITS[i]}");`,
+      `      if (_tftTextDirty(${p}, ${i}, _powerText_${display.id}_${i}) || _tftFull_${display.id}) _tftField(${p}, ${fieldArgs(g)}, _powerText_${display.id}_${i}, TFT_C_TEXT, TFT_C_BG);`,
+    ]
+  })
 }

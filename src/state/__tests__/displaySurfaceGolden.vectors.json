@@ -132,6 +132,20 @@
     "coverage": 0.82,
     "hash": "dab6604b"
   },
+  "tft/240x240/Power Monitor/nominal": {
+    "width": 240,
+    "height": 240,
+    "colors": 2,
+    "coverage": 2.38,
+    "hash": "eb9c25ff"
+  },
+  "tft/240x240/Power Monitor/at-rest": {
+    "width": 240,
+    "height": 240,
+    "colors": 2,
+    "coverage": 0.8,
+    "hash": "d257db18"
+  },
   "tft/240x240/Diagnostics/untouched": {
     "width": 240,
     "height": 240,
@@ -285,6 +299,20 @@
     "colors": 3,
     "coverage": 0.62,
     "hash": "afb9144b"
+  },
+  "tft/240x320/Power Monitor/nominal": {
+    "width": 240,
+    "height": 320,
+    "colors": 2,
+    "coverage": 1.78,
+    "hash": "4f43dd7f"
+  },
+  "tft/240x320/Power Monitor/at-rest": {
+    "width": 240,
+    "height": 320,
+    "colors": 2,
+    "coverage": 0.6,
+    "hash": "64721918"
   },
   "tft/240x320/Diagnostics/untouched": {
     "width": 240,
@@ -440,6 +468,20 @@
     "coverage": 0.62,
     "hash": "50c8dd4b"
   },
+  "tft/320x240/Power Monitor/nominal": {
+    "width": 320,
+    "height": 240,
+    "colors": 2,
+    "coverage": 1.78,
+    "hash": "d8ab12ff"
+  },
+  "tft/320x240/Power Monitor/at-rest": {
+    "width": 320,
+    "height": 240,
+    "colors": 2,
+    "coverage": 0.6,
+    "hash": "f7ae8398"
+  },
   "tft/320x240/Diagnostics/untouched": {
     "width": 320,
     "height": 240,
@@ -565,5 +607,19 @@
     "colors": 2,
     "coverage": 4.31,
     "hash": "f159274a"
+  },
+  "oled/128x64/Power Monitor/nominal": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 1.86,
+    "hash": "3928bd53"
+  },
+  "oled/128x64/Power Monitor/at-rest": {
+    "width": 128,
+    "height": 64,
+    "colors": 2,
+    "coverage": 0.62,
+    "hash": "475e8756"
   }
 }

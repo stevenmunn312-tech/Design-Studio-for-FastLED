@@ -413,7 +413,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       pot.get(powerMonitorPreviewKey(id, 'volts')) ?? start.volts,
       pot.get(powerMonitorPreviewKey(id, 'amps')) ?? start.amps,
     )
-    return { ...reading, overcurrent: reading.amps > powerMonitorLimitAmps(props.overcurrentAmps) }
+    return { ...reading, overcurrent: reading.amps > powerMonitorLimitAmps(props.overcurrentAmps), display: { kind: 'powerMonitor', reading } }
   },
   // The browser has no radar, so two latches model the module's moving and
   // stationary target bits and one slider supplies its detection distance.

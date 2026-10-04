@@ -92,6 +92,12 @@ function dimmedPowerSwitchChannels(
   })
 }
 
+function powerMonitorExpressions(sourceId: string | undefined) {
+  if (!sourceId) return undefined
+  const stem = `n_${safeId(sourceId)}`
+  return { volts: `${stem}_volts`, amps: `${stem}_amps`, watts: `${stem}_watts` }
+}
+
 export const OUTPUT_EMITTERS: NodeEmitters = {
   DarlingtonDriverOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // Each input is active-high. Latch it LOW before the pin becomes an output so
@@ -213,6 +219,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       segmentRemap: oledRotationCommands(asOledRotation(p.oledRotation)).segmentRemap,
       comScan: oledRotationCommands(asOledRotation(p.oledRotation)).comScan,
       layout: kind && SKETCH_DISPLAY_SOURCE_KINDS.includes(kind) ? infoLayoutForKind(kind) : 'Waiting',
+      powerMonitor: kind === 'powerMonitor' ? powerMonitorExpressions(displayUp?.srcId) : undefined,
       ledStatus: kind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
       enabledExpr: incoming.get(`${node.id}:enabled`)
         ? boolExpr(node.id, 'enabled')
@@ -303,7 +310,11 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
        * already leave. A field this sketch has no reading for is reported
        * by name rather than filled in.
        */
-      for (const bound of resolveBoundWidgets(p.widgetSources, normalSketchSourceExpressions(panelClockExpr, panelLedStatus)).bindings) {
+      const sourceExpressions = normalSketchSourceExpressions(
+        panelClockExpr, panelLedStatus,
+        panelSourceKind === 'powerMonitor' ? powerMonitorExpressions(panelDisplayUp?.srcId) : null,
+      )
+      for (const bound of resolveBoundWidgets(p.widgetSources, sourceExpressions).bindings) {
         const bindings = bindingsByWidget[bound.widgetId] ?? (bindingsByWidget[bound.widgetId] = [])
         bindings.push({ role: bound.role as CustomDisplayLvglBinding['role'], expression: bound.expression })
       }
@@ -513,6 +524,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       browsingExpr: 'false',
       highlightNameExpr: null,
       highlightIndexExpr: '0.0f',
+      powerMonitor: kind === 'powerMonitor' ? powerMonitorExpressions(displayUp?.srcId) : undefined,
       ledStatus: kind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
       diagnosticTouch,
     }
@@ -616,6 +628,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       csPin: intProp(p.csPin, 21, 0, MAX_PIN_NUMBER),
       brightness: clampSegmentBrightness(p.brightness, segCtl),
       mode: segKind && SKETCH_DISPLAY_SOURCE_KINDS.includes(segKind) ? segmentModeForKind(segKind) : 'Waiting',
+      powerMonitor: segKind === 'powerMonitor' ? powerMonitorExpressions(displayUp?.srcId) : undefined,
       ledStatus: segKind === 'ledOutput' ? ledStatusEmit(displaySource) : undefined,
       showColon: p.showColon !== false,
       valueExpr: '0.0f',

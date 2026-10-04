@@ -42,6 +42,7 @@ property. What is plugged in decides what it shows.**
 
 | Source | The panel becomes |
 | --- | --- |
+| `PowerMonitorInput` (Power Monitor) | amps with a trailing A on four digits; amps then watts on eight digits; labelled volts, amps and watts on OLED/TFT panels |
 | `RTCInput` (RTC Clock) | a clock |
 | `PatternMaster` (Music Player) | transport: track, position, play state, volume |
 | `PatternSlideshow` | pattern selection: which pattern, where in the collection |
@@ -168,7 +169,7 @@ question: **which kind is plugged in, and can this generator honour that kind?**
 
 | Generator | Honours |
 | --- | --- |
-| `cppGenerator` (normal sketch) | `clock` |
+| `cppGenerator` (normal sketch) | `clock`, `ledOutput`, `powerMonitor` |
 | `playerSketchGenerator` (SD player) | `player` |
 | `showGenerator` (slideshow) | `slideshow` |
 
@@ -226,3 +227,7 @@ The TFT clock and the panel/document content split are implemented; they are no
 longer tier-2 proposals. Outstanding integration work is [HW-01–08](../../../todo.md).
 Optional density/size policies remain D-02. Performance Generator is now a
 real playback source; hardware support requires its own recorded evidence.
+
+Power Monitor publishes its existing reading on a Display envelope. Segment fields use up to two decimal places, reducing precision to fit three numeric digits plus A on a four-digit module, or four digits per quantity on an eight-digit module and showing dashes for invalid or overflowing values. The eight-digit module places amps on the left and watts on the right, each with its own decimal point. OLED and fixed TFT panels show three labelled rows in V, A, W order with two decimal places.
+
+The custom display editor also offers a Power Monitor template: three labelled Numeric Readouts bound to `volts`, `amps` and `watts`, with V/A/W suffixes and two decimal places. It has dedicated landscape, portrait and square layouts and is promoted when the panel is wired to a Power Monitor. The single Display cable fills every reading.

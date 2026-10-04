@@ -23,6 +23,7 @@ describe('custom display templates', () => {
   it('covers the planned starting layouts exactly once', () => {
     expect(DISPLAY_TEMPLATES.map((template) => template.id)).toEqual([
       'clock',
+      'power-monitor',
       'now-playing',
       'minimal-transport',
       'pattern-deck',
@@ -129,6 +130,14 @@ describe('custom display templates', () => {
    * readout instead — otherwise a template's convenience would be a one-way
    * door out of the graph.
    */
+  it('binds the Power Monitor readouts without creating extra wires', () => {
+    const document = applyDisplayTemplate(referenceDocument(), 'power-monitor')
+    expect(document.widgets.map((widget) => widget.properties.source)).toEqual(['volts', 'amps', 'watts'])
+    expect(document.widgets.map((widget) => widget.properties.suffix)).toEqual([' V', ' A', ' W'])
+    expect(document.widgets.every((widget) => widget.properties.decimals === 2 && widget.properties.showLabel === true)).toBe(true)
+    expect(displayDocumentPorts(document)).toMatchObject({ inputs: [], outputs: [] })
+  })
+
   it('mints the socket again for a reading switched back to the graph', () => {
     const document = applyDisplayTemplate(referenceDocument(), 'now-playing')
     const released = {
@@ -155,6 +164,7 @@ describe('custom display templates', () => {
       .toEqual(['now-playing', 'minimal-transport', 'pattern-deck', 'show-status'])
     expect(ids(displayTemplatesForSource('slideshow').mapped)).toEqual(['pattern-deck', 'show-status'])
     expect(ids(displayTemplatesForSource('clock').mapped)).toEqual(['clock'])
+    expect(ids(displayTemplatesForSource('powerMonitor').mapped)).toEqual(['power-monitor'])
     // Binding nothing, LED Performance is judged by its controls: Brightness
     // and Blackout command an LED output, so it leads on a panel wired from one.
     expect(ids(displayTemplatesForSource('ledOutput').mapped)).toEqual(['led-performance'])

@@ -153,15 +153,16 @@ static uint8_t _tmSegments(char c) {
   if (c >= '0' && c <= '9') return _segDigitGlyph[c - '0'];
   if (c == '-') return _segDash;
   if (c == 'E') return _segE;
+  if (c == 'A') return 0x${SEGMENT_GLYPHS.A.toString(16)};
   return _segBlank;
 }
 
-static void _tmFlush(SegDisplay &d, const char *text, int decimalAt, bool colon, bool lit) {
+static void _tmFlush(SegDisplay &d, const char *text, int decimalMask, bool colon, bool lit) {
   _tmStart(d); _tmByte(d, 0x40); _tmStop(d);            // auto-increment write
   _tmStart(d); _tmByte(d, 0xC0);                         // from address 0
   for (uint8_t i = 0; i < d.digits; i++) {
     uint8_t byte = lit ? _tmSegments(text[i]) : 0x00;
-    if (lit && (int)i == decimalAt) byte |= 0x80;
+    if (lit && (decimalMask & (1 << i))) byte |= 0x80;
     // The TM1637 carries the colon on the second digit's high bit.
     if (lit && colon && i == 1) byte |= 0x80;
     _tmByte(d, byte);
@@ -207,7 +208,7 @@ static bool _maxRawGlyph(char c, uint8_t &value) {
   return false;
 }
 
-static void _maxFlush(SegDisplay &d, const char *text, int decimalAt, bool lit) {
+static void _maxFlush(SegDisplay &d, const char *text, int decimalMask, bool lit) {
   if (!lit) { _maxSend(d, 0x0C, 0x00); return; }   // shutdown
   _maxSend(d, 0x0C, 0x01);
   _maxSend(d, 0x0A, (uint8_t)(d.brightness & 0x0F));
@@ -222,7 +223,7 @@ static void _maxFlush(SegDisplay &d, const char *text, int decimalAt, bool lit) 
     const char c = text[d.digits - 1 - i];
     uint8_t raw = 0;
     uint8_t value = _maxRawGlyph(c, raw) ? raw : _maxCodeB(c);
-    if ((int)(d.digits - 1 - i) == decimalAt) value |= 0x80;
+    if (decimalMask & (1 << (d.digits - 1 - i))) value |= 0x80;
     _maxSend(d, (uint8_t)(i + 1), value);
   }
 }
@@ -251,21 +252,39 @@ static void _segBegin(SegDisplay &d, uint8_t kind, uint8_t digits, uint8_t clk,
   }
 }
 
-// Writes only on a change or once the refresh deadline passes: a bit-banged
-// transfer every LED frame would cost more than the render it reports on.
-static void _segWrite(SegDisplay &d, const char *text, int decimalAt, bool colon, bool lit) {
+// Three or four physical digits, adaptive precision, dashes on overflow.
+static int _segPowerField(char *text, float value, int width) {
+  const long limit = width == 3 ? 999 : 9999;
+  if (!isfinite(value) || value < 0.0f || value >= (float)limit + 0.5f) {
+    for (int i = 0; i < width; i++) text[i] = '-';
+    return 0;
+  }
+  long rounded = 0;
+  int precision = 2;
+  for (; precision >= 0; precision--) {
+    rounded = lroundf(value * (precision == 2 ? 100.0f : precision == 1 ? 10.0f : 1.0f));
+    if (rounded <= limit) break;
+  }
+  char number[8];
+  snprintf(number, sizeof(number), "%0*ld", precision + 1, rounded);
+  int length = strlen(number);
+  for (int i = 0; i < width; i++) text[i] = i < width - length ? ' ' : number[i - (width - length)];
+  return precision > 0 ? (1 << (width - 1 - precision)) : 0;
+}
+// Writes only on change or after the refresh deadline.
+static void _segWrite(SegDisplay &d, const char *text, int decimalMask, bool colon, bool lit) {
   uint32_t now = millis();
-  bool changed = !d.written || d.lastDecimal != decimalAt || d.lastColon != colon;
+  bool changed = !d.written || d.lastDecimal != decimalMask || d.lastColon != colon;
   for (uint8_t i = 0; i < d.digits && !changed; i++) changed = d.last[i] != text[i];
   if (!changed && (now - d.lastWriteMs) < SEG_REFRESH_MS) return;
   for (uint8_t i = 0; i < d.digits; i++) d.last[i] = text[i];
-  d.lastDecimal = decimalAt;
+  d.lastDecimal = decimalMask;
   d.lastColon = colon;
   d.written = true;
   d.lastWriteMs = now;
 
-  if (d.kind == SEG_KIND_MAX7219) _maxFlush(d, text, decimalAt, lit);
-  else _tmFlush(d, text, decimalAt, colon, lit);
+  if (d.kind == SEG_KIND_MAX7219) _maxFlush(d, text, decimalMask, lit);
+  else _tmFlush(d, text, decimalMask, colon, lit);
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -347,6 +366,7 @@ export interface SegmentDisplayEmit {
    * the dimmer position. Absent when no LED output is wired, which dashes.
    */
   ledStatus?: { enabledExpr: string; brightnessExpr: string }
+  powerMonitor?: { volts: string; amps: string; watts: string }
   enabledExpr: string
   /** Zero for healthy, otherwise one of the generated SEG_FAULT_* values. */
   faultCodeExpr?: string | null
@@ -374,7 +394,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
   const lines = [
     `  { // Segment Display`,
     `    char ${v}[SEG_MAX_DIGITS + 1];`,
-    `    int ${d} = -1;`,
+    `    int ${d} = 0;`,
     `    bool ${on} = ${display.enabledExpr};`,
     ...(display.faultCodeExpr ? [`    uint16_t ${fault} = (uint16_t)(${display.faultCodeExpr});`] : []),
     `    if (!${on}) {`,
@@ -402,6 +422,12 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     lines.push(
       `    } else {`,
       `      _segIndex(${v}, ${digits}, ${display.valueExpr ?? '0'});`,
+    )
+  } else if (display.mode === 'Power') {
+    lines.push(
+      `    } else {`,
+      `      ${d} = _segPowerField(${v}, ${display.powerMonitor?.amps ?? 'NAN'}, ${digits >= 8 ? 4 : 3});`,
+      ...(digits >= 8 ? [`      ${d} |= _segPowerField(${v} + 4, ${display.powerMonitor?.watts ?? 'NAN'}, 4) << 4;`] : [`      ${v}[3] = 'A';`]),
     )
   } else if (display.mode === 'Level') {
     // The documented reading for this module class: the *effective* output as
@@ -439,7 +465,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     ? '((millis() / 1000) % 2) == 0'
     // Elapsed keeps a steady colon: a blinking one on a running clock reads as
     // the second hand, and on a track position it reads as a fault.
-    : colon && display.mode !== 'Waiting' ? 'true' : 'false'
+    : colon && display.mode !== 'Waiting' && display.mode !== 'Power' ? 'true' : 'false'
   const colonExpr = display.faultCodeExpr && baseColonExpr !== 'false'
     ? `((${fault} == SEG_FAULT_NONE) && (${baseColonExpr}))`
     : baseColonExpr

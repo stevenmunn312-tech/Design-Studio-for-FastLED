@@ -4438,6 +4438,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'amps', label: 'Amps', dataType: 'float' },
       { id: 'watts', label: 'Watts', dataType: 'float' },
       { id: 'overcurrent', label: 'Overcurrent', dataType: 'bool' },
+      { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
       partId: DEFAULT_POWER_MONITOR_PART_ID,
@@ -4980,7 +4981,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   BuzzerOutput: 'Sounds an active buzzer while its input is true.',
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
   DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',
-  PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C.',
+  PowerMonitorInput: 'Measures a DC load\'s volts, amps and watts over I2C. Connect Display to a segment module for amps (plus watts on eight digits), or another simple panel for volts, amps and watts.',
   // math
   Math: 'Binary math — add, subtract, multiply, divide, min or max (a op b).',
   Clamp: 'Constrains a value between min and max.',

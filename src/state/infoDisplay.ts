@@ -1,3 +1,4 @@
+import { type PowerMonitorReading, POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS, powerMonitorText } from './powerMonitor'
 // The fixed layouts an `InfoDisplay` can show.
 //
 // Pure functions from data to pixels. The evaluator calls them to draw the node
@@ -32,10 +33,11 @@ import { THUMBNAIL_W, THUMBNAIL_H, type PatternThumbnail } from './patternThumbn
  * cannot exist that no source produces, and a source cannot exist that no
  * layout draws.
  */
-export const INFO_DISPLAY_LAYOUTS = ['Waiting', 'Clock', 'Now Playing', 'Pattern Browser', 'LED Status'] as const
+export const INFO_DISPLAY_LAYOUTS = ['Waiting', 'Clock', 'Now Playing', 'Pattern Browser', 'LED Status', 'Power Monitor'] as const
 export type InfoDisplayLayout = (typeof INFO_DISPLAY_LAYOUTS)[number]
 
 const LAYOUT_BY_KIND: Record<DisplaySignalKind, InfoDisplayLayout> = {
+  powerMonitor: 'Power Monitor',
   clock: 'Clock',
   player: 'Now Playing',
   slideshow: 'Pattern Browser',
@@ -200,6 +202,7 @@ export function renderInfoBootStatus(controller: OledController, data: InfoBootS
 }
 
 export type InfoDisplayData =
+  | { layout: 'Power Monitor'; data: PowerMonitorReading }
   | { layout: 'Waiting' }
   | { layout: 'Now Playing'; data: NowPlayingData }
   | { layout: 'Clock'; data: ClockData }
@@ -511,6 +514,7 @@ export function renderInfoDisplay(controller: OledController, input: InfoDisplay
   const surface = createOledSurface(controller)
   clearOledSurface(surface)
   switch (input.layout) {
+    case 'Power Monitor': drawPowerMonitor(surface, input.data); break
     case 'Waiting': drawWaiting(surface); break
     case 'Now Playing': drawNowPlaying(surface, input.data); break
     case 'Clock': drawClock(surface, input.data); break
@@ -529,6 +533,7 @@ export function renderInfoDisplay(controller: OledController, input: InfoDisplay
  */
 export function blankInfoData(layout: InfoDisplayLayout): InfoDisplayData {
   switch (layout) {
+    case 'Power Monitor': return { layout, data: { volts: NaN, amps: NaN, watts: NaN } }
     case 'Clock':
       return { layout, data: { timeText: '--:--', dateText: '', valid: false, synced: false } }
     case 'Pattern Browser':
@@ -549,4 +554,14 @@ export function blankInfoData(layout: InfoDisplayLayout): InfoDisplayData {
     default:
       return { layout: 'Waiting' }
   }
+}
+
+export function powerMonitorGeometry(width: number, height: number): InfoField[] {
+  const pitch = infoRowPitch(height, 3)
+  return POWER_MONITOR_FIELDS.map((_, i) => ({ x: INFO_LAYOUT.margin, y: INFO_LAYOUT.margin + i * pitch, w: width - 2 * INFO_LAYOUT.margin }))
+}
+export function drawPowerMonitor(surface: OledSurface, reading: PowerMonitorReading): void {
+  powerMonitorGeometry(surface.width, surface.height).forEach((g, i) => {
+    drawOledText(surface, g.x, g.y, fitOledText(powerMonitorText(reading[POWER_MONITOR_FIELDS[i]], POWER_MONITOR_UNITS[i]), g.w))
+  })
 }
