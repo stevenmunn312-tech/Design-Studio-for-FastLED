@@ -5006,7 +5006,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   Envelope: 'Ramps up on a trigger, then decays to 0 over the decay time.',
   Not: 'Logical NOT of a boolean.',
   Compare: 'True when a > b.',
-  Trigger: 'Debounce, Changed, Toggle, One Shot, Pulse Divider, or Trigger Delay on a bool. Toggle also holds separate On and Off commands; Off wins when both are active.',
+  Trigger: 'Debounces, detects changes, toggles, delays, or divides boolean pulses.',
   TextValue: 'A fixed line of text for a display to show.',
   FormatNumber: 'Turns a number into display text with decimals, padding, and units.',
   FormatDateTime: 'Turns a clock reading into display text such as HH:MM.',
