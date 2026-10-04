@@ -139,7 +139,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   A DAC alone is deliberately not warned about, since powered speakers are a
   correct build. See
   [audio part expansion](../plans/audio-part-expansion.md#phases).
-- **IR receiver (D-05a):** `IRRemoteInput` is a hardware-managed, root-owned
+- **IR receiver (D-05a):** `IRRemoteInput` has a saved `debug` checkbox
+  (off by default). Enabling it adds
+  serial diagnostics to the normal project, slideshow, or SD-player upload;
+  upload again after changing it and open the serial monitor at 115200 baud.
+  `FLS_IR_DEBUG` reports the effective protocol/address/command/repeat and
+  `FLS_IR_MATCH` names the output pulses. On ESP32-S3, `FLS_IR_CAPTURE` reports
+  cumulative captured/dropped/invalid counts once a second; `FLS_IR_RAW` shows
+  uncorrected header/stop timings in microseconds and `FLS_IR_DECODE` shows the
+  decoder result, including rejected UNKNOWN captures. Only counters run in
+  the ISR; all serial output runs in the main loop. Disabled diagnostics emit
+  no logging or counter overhead. Debug also captures before any keys are
+  learned or wired, enabling the supported decoder families for inspection.
+  It is a hardware-managed, root-owned
   signal node (`HARDWARE_MANAGED_SIGNAL_NODE_TYPES` and
   `HARDWARE_LIBRARY_HIDDEN_NODE_TYPES` in `hardware.ts`) claiming one exclusive
   digital-input pin with no pull-up — the receiver module drives the line

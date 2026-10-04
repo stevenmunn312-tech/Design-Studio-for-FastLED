@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { IR_RMT_RECEIVER_CPP } from '../irRmtReceiverCpp'
+import { irRmtReceiverCpp } from '../irRmtReceiverCpp'
 
 const nativeGpp = spawnSync('g++', ['--version']).status === 0
 const wslGpp = !nativeGpp && process.platform === 'win32'
@@ -21,6 +21,8 @@ const HARNESS = `
 #include <cstddef>
 #include <cstring>
 #include <cstdio>
+#include <string>
+#include <sstream>
 #define CONFIG_IDF_TARGET_ESP32S3 1
 #define ESP_IDF_VERSION_MAJOR 5
 #define IRAM_ATTR
@@ -39,6 +41,16 @@ const HARNESS = `
 #define ESP_OK 0
 #define ESP_ERR_NO_MEM 1
 #define ESP_ERROR_CHECK(result) assert((result) == ESP_OK)
+#define IRDATA_FLAGS_IS_REPEAT 1
+#define millis() (static_cast<uint32_t>(::now / 1000))
+#define getProtocolString(protocol) "decoded"
+static bool inIsr = false;
+struct SerialSink {
+  std::string log;
+  template<typename T> void print(T value) { assert(!inIsr); std::ostringstream stream; stream << value; log += stream.str(); }
+  template<typename T> void println(T value) { print(value); log += "\\n"; }
+};
+[[maybe_unused]] static SerialSink Serial;
 using IRRawbufType = uint8_t;
 using IRRawlenType = unsigned int;
 using BaseType_t = int;
@@ -78,7 +90,7 @@ static int rmt_enable(rmt_channel_handle_t) { return ESP_OK; }
 static int rmt_receive(rmt_channel_handle_t, void* data, size_t bytes, const rmt_receive_config_t* cfg) { assert(!receiving && cfg->signal_range_max_ns > 9000000); receiving = true; buffer = static_cast<rmt_symbol_word_t*>(data); bufferCount = bytes / sizeof(*buffer); ++arms; return ESP_OK; }
 struct FakeDecoder {
   struct { uint8_t StateForISR; bool OverflowFlag; IRRawlenType rawlen; uint16_t initialGapTicks; IRRawbufType rawbuf[RAW_BUFFER_LENGTH]; } irparams = {};
-  struct { IRRawlenType rawlen; uint16_t initialGapTicks; decode_type_t protocol; uint16_t address, command; bool repeat; } decodedIRData = {};
+  struct { IRRawlenType rawlen; uint16_t initialGapTicks; decode_type_t protocol; uint16_t address, command; bool repeat; uint8_t flags; } decodedIRData = {};
   bool necMode = false;
   uint16_t nextCommand = 64;
   void setReceivePin(int pin) { assert(pin == 13); }
@@ -108,7 +120,9 @@ static void feed(size_t count, int64_t completedAt) {
   now = completedAt;
   rmt_rx_done_event_data_t event = { count, buffer };
   const int previousArms = arms;
+  inIsr = true;
   callback(nullptr, &event, context);
+  inIsr = false;
   assert(arms == previousArms + 1); // re-arm without waiting for decode/resume
 }
 int main() {
@@ -252,7 +266,9 @@ int main() {
 `
 
 describe.skipIf(!nativeGpp && !wslGpp)('S3 RMT capture native behavior', () => {
-  it.each([undefined, 2])('shares FastLED priority %s and captures queued repeats during render stalls', (priority) => {
+  it.each([
+    { priority: undefined, debug: false }, { priority: 2, debug: false }, { priority: undefined, debug: true },
+  ])('shares FastLED priority $priority and captures queued repeats with debug=$debug', ({ priority, debug }) => {
     const directory = mkdtempSync(path.join(tmpdir(), 'ir-rmt-'))
     const cleanupPath = path.resolve(directory)
     if (!cleanupPath.startsWith(path.resolve(tmpdir()) + path.sep)) throw new Error('Unexpected native-test directory')
@@ -260,9 +276,14 @@ describe.skipIf(!nativeGpp && !wslGpp)('S3 RMT capture native behavior', () => {
       const source = path.join(directory, 'capture.cpp')
       const binary = path.join(directory, nativeGpp && process.platform === 'win32' ? 'capture.exe' : 'capture')
       // Platform headers are replaced by the fake hardware contract above.
-      const adapter = IR_RMT_RECEIVER_CPP.replace(/^#include.*$/gm, '')
+      const adapter = irRmtReceiverCpp(debug).replace(/^#include.*$/gm, '')
       const configuration = priority === undefined ? '' : `#define FL_RMT5_INTERRUPT_LEVEL ${priority}`
-      writeFileSync(source, [configuration, HARNESS, adapter, EXERCISES].join('\n'))
+      const exercises = debug ? EXERCISES.replace('  puts("OK");', `
+        assert(Serial.log.find("FLS_IR_CAPTURE captured=") != std::string::npos);
+        assert(Serial.log.find("FLS_IR_RAW len=") != std::string::npos);
+        assert(Serial.log.find("FLS_IR_DECODE protocol=") != std::string::npos);
+        puts("OK");`) : EXERCISES
+      writeFileSync(source, [configuration, HARNESS, adapter, exercises].join('\n'))
       const args = ['-std=c++17', '-Wall', '-Wextra', '-Werror', source, '-o', binary]
       execFileSync(wslGpp ? 'wsl' : 'g++', wslGpp ? ['--exec', 'g++', ...args.map(compilerPath)] : args)
       const output = execFileSync(wslGpp ? 'wsl' : binary, wslGpp ? ['--exec', compilerPath(binary)] : [], { encoding: 'utf8' })

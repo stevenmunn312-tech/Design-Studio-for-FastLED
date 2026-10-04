@@ -1375,6 +1375,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     // Bookkeeping the app keeps for itself, declared in one place rather than
     // added to the chain below each time somebody notices one on their canvas.
     ([k]) => !isInternalProperty(k)
+      && !(d.nodeType === 'IRRemoteInput' && k === 'debug')
       && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'clip' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
     // Pin provenance is bookkeeping, not a setting: which pins the app
     // assigned, which board for, and the user's own choices per board.

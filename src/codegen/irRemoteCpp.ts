@@ -5,7 +5,7 @@ import {
   normalizeIrRemoteButtons,
   type IrRemoteProtocol,
 } from '../state/irRemote'
-import { IR_RMT_RECEIVER_CPP } from './irRmtReceiverCpp'
+import { IR_RMT_RECEIVER_CPP, irRmtReceiverCpp } from './irRmtReceiverCpp'
 
 /**
  * Pinned Arduino-IRremote release.
@@ -130,18 +130,21 @@ export interface IrRemoteProjectNode {
   id: string
   pin: number
   buttons: unknown
+  debug?: boolean
 }
 
 export interface IrRemoteProjectEmission {
-  /** Atomic include/helper blocks, empty when no saved key names a protocol. */
+  /** Whether the caller must open the serial port at 115200 baud. */
+  debug: boolean
+  /** Atomic include blocks, empty without saved protocols or diagnostics. */
   includes: string[]
   /** Capture helper and key bools, emitted after all library includes. */
   globals: string[]
-  /** Begin the board's capture backend. Empty when there is nothing to decode. */
+  /** Begin capture when saved protocols or diagnostics require it. */
   setup: string[]
   /**
    * Inlined in `loop()` after the control snapshot and before anything reads a key.
-   * Contains `FLS_IR_RECEIVER.decode()` when at least one key has a protocol.
+   * Contains one `FLS_IR_RECEIVER.decode()` when capture is needed.
    */
   sample: string[]
 }
@@ -164,13 +167,16 @@ function irVariable(id: string, buttonId: string): string {
  * pulses even if the receiver already has the next frame ready.
  *
  * A key with an empty protocol is false and does not, by itself, pull the
- * library in. No protocols anywhere means no include and no begin.
+ * library in. Debug explicitly enables capture and all supported decoders,
+ * even before any keys are learned or connected.
  */
 export function irRemoteProjectEmission(nodes: readonly IrRemoteProjectNode[]): IrRemoteProjectEmission {
-  const empty: IrRemoteProjectEmission = { includes: [], globals: [], setup: [], sample: [] }
+  const debug = nodes.some((node) => node.debug === true)
+  const empty: IrRemoteProjectEmission = { debug: false, includes: [], globals: [], setup: [], sample: [] }
   const rows: { variable: string; protocol: IrRemoteProtocol | ''; address: number; command: number; repeat: 'once' | 'held' }[] = []
   let pin: number | null = null
   for (const node of nodes) {
+    if (pin === null && node.debug) pin = node.pin
     for (const button of normalizeIrRemoteButtons(node.buttons)) {
       rows.push({
         variable: irVariable(node.id, button.id),
@@ -182,32 +188,33 @@ export function irRemoteProjectEmission(nodes: readonly IrRemoteProjectNode[]): 
       if (pin === null && button.protocol) pin = node.pin
     }
   }
-  if (rows.length === 0) return empty
+  if (rows.length === 0 && !debug) return empty
   const globals = rows.map((row) => `static bool ${row.variable};`)
   const protocols = rows.map((row) => row.protocol)
-  if (!protocols.some((protocol) => protocol !== '')) {
+  if (!debug && !protocols.some((protocol) => protocol !== '')) {
     return {
       ...empty,
       globals,
       sample: rows.map((row) => `  ${row.variable} = false;`),
     }
   }
-  const header = irRemoteHeader(protocols)
+  const header = irRemoteHeader(debug ? IR_REMOTE_PROTOCOLS : protocols)
   return {
+    debug,
     // Keep conditional directives and helper bodies atomic: control graphs
     // deduplicate includes, which would otherwise remove repeated braces/#endif.
     includes: header ? [header] : [],
     // A class body in the include preamble makes fbuild hoist CRGB-typed
     // player prototypes ahead of FastLED.h. Emit the adapter at file scope
     // after all includes instead; IRremote.hpp still precedes Audio.h.
-    globals: [IR_RMT_RECEIVER_CPP, ...globals,
+    globals: [irRmtReceiverCpp(debug), ...globals,
       'static decode_type_t _irLastProtocol = UNKNOWN;',
       'static uint16_t _irLastAddress = 0, _irLastCommand = 0;',
       'static uint32_t _irLastFrameAt = 0;',
     ],
     setup: [`  ${irRemoteBeginLine(pin ?? 0)}`],
     sample: [
-      `  bool _irHadPulse = ${rows.map((row) => row.variable).join(' || ')};`,
+      `  bool _irHadPulse = ${rows.map((row) => row.variable).join(' || ') || 'false'};`,
       '  bool _irRepeat = false;',
       '  decode_type_t _irProtocol = UNKNOWN;',
       '  uint16_t _irAddress = 0;',
@@ -229,6 +236,12 @@ export function irRemoteProjectEmission(nodes: readonly IrRemoteProjectNode[]): 
       '      _irLastAddress = _irAddress; _irLastCommand = _irCommand;',
       '      _irLastFrameAt = _irNow;',
       '    }',
+      ...(debug ? [
+        '    Serial.print("FLS_IR_DEBUG protocol="); Serial.print(getProtocolString(_irProtocol));',
+        '    Serial.print(" address=0x"); Serial.print(_irAddress, HEX);',
+        '    Serial.print(" command=0x"); Serial.print(_irCommand, HEX);',
+        '    Serial.print(" repeat="); Serial.println(_irRepeat ? 1 : 0);',
+      ] : []),
       '    FLS_IR_RECEIVER.resume();',
       '  }',
       ...rows.map((row) => {
@@ -237,6 +250,7 @@ export function irRemoteProjectEmission(nodes: readonly IrRemoteProjectNode[]): 
         const expr = row.repeat === 'held' ? matched : `${matched} && !_irRepeat`
         return `  ${row.variable} = ${expr};`
       }),
+      ...(debug ? rows.map((row) => `  if (${row.variable}) Serial.println("FLS_IR_MATCH output=${row.variable}");`) : []),
     ],
   }
 }

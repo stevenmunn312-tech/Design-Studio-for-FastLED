@@ -146,6 +146,9 @@ function KeyRow({ nodeId, button, wired }: { nodeId: string; button: IrRemoteBut
 }
 
 export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
+  const debug = useGraphStore((state) => rootGraphNodes(state)
+    .find((node) => node.id === nodeId)?.data.properties.debug === true)
+  const updateProperty = useGraphStore((state) => state.updateNodeProperty)
   const saved = useGraphStore((state) => {
     const node = rootGraphNodes(state).find((candidate) => candidate.id === nodeId)
     return (node?.data.properties as Record<string, unknown> | undefined)?.buttons
@@ -204,6 +207,10 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
         </div>
       )}
       <LearnDialog nodeId={nodeId} />
+      <label className={`nodrag ${styles.debug}`} title="Include IR diagnostics in the project upload. Read the serial monitor at 115200 baud.">
+        <input type="checkbox" checked={debug} onChange={(event) => updateProperty(nodeId, 'debug', event.target.checked)} />
+        Debug
+      </label>
     </div>
   )
 }

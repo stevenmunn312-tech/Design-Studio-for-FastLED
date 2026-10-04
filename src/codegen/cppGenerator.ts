@@ -587,6 +587,11 @@ export function generateCpp(
   // unused hardware providers must not emit the I2S engine any more than a parked Fire
   // node should emit a buffer and a simulation.
   const live = reachableFromOutputs(nodes, edges)
+  // Debugging a receiver also works before its first button is wired.
+  for (const node of nodes) {
+    if (node.data.nodeType === 'IRRemoteInput' && node.data.properties.debug === true
+        && !live.some((entry) => entry.id === node.id)) live.push(node)
+  }
   const audio = audioEngineForGraph(live, capabilityNodes, groups)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio
@@ -1718,9 +1723,10 @@ export function generateCpp(
   lines.push(...amplifierIdle.setup)
   lines.push(...psramAllocs)
   lines.push(...pinSetupLines)
-  // One Serial.begin, and only if the DS3231 command path has not already
-  // opened the port for its own reasons.
-  if (emitTelemetry && !needsDs3231) lines.push(TELEMETRY_SERIAL_BEGIN_CPP)
+  // Share one serial port between telemetry, IR diagnostics and RTC commands.
+  if ((emitTelemetry || irEmission.debug) && !needsDs3231) {
+    lines.push(emitTelemetry ? TELEMETRY_SERIAL_BEGIN_CPP : '  Serial.begin(115200);  // IR diagnostics')
+  }
   // Must run before any other LVGL call — every custom Display's screen and
   // panel setup below (in setupLines) creates LVGL objects.
   if (customDisplays.length > 0) lines.push(`  lv_init();`)

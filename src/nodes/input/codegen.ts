@@ -30,7 +30,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
   PotInput: controlInput,
   EncoderInput: controlInput,
   IRRemoteInput({ id, p, opts, irNodes }) {
-    if (opts.aliasTerminalBuffer !== false) irNodes.push({ id, pin: sanitizePin(p.pin, 13), buttons: p.buttons })
+    if (opts.aliasTerminalBuffer !== false) irNodes.push({ id, pin: sanitizePin(p.pin, 13), buttons: p.buttons, debug: p.debug === true })
   },
   MotionInput({ p, ln, v, pinSetupLines }) {
     // HC-SR501's OUT idles low and goes high on movement — the opposite

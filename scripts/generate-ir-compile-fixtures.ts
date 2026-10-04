@@ -108,7 +108,10 @@ const player = buildShowPlayer(playerNodes, playerEdges, groups, {
 })
 
 const fixtures = { normal, slideshow, player, learn: generateIrLearnSketch({ pin: 12 }), 'no-ir': noIr }
-for (const [name, source] of Object.entries(fixtures)) {
+const debugNormal = normalNodes.map((entry) => entry.id === 'ir'
+  ? { ...entry, data: { ...entry.data, properties: { ...entry.data.properties, debug: true } } } : entry)
+const debugFixtures = { ...fixtures, 'normal-debug': generateCpp(debugNormal, normalEdges) }
+for (const [name, source] of Object.entries(debugFixtures)) {
   const includes = source.match(/#include <IRremote\.hpp>/g)?.length ?? 0
   if ((name === 'no-ir' && includes !== 0) || (name !== 'no-ir' && includes !== 1)) {
     throw new Error(`${name}: expected ${name === 'no-ir' ? 0 : 1} IRremote includes, found ${includes}`)
@@ -118,7 +121,7 @@ for (const [name, source] of Object.entries(fixtures)) {
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/ir-remote-fixtures')
 mkdirSync(outputDir, { recursive: true })
 const manifest: Record<string, { bytes: number; sha256: string; irremote: boolean }> = {}
-for (const [name, source] of Object.entries(fixtures)) {
+for (const [name, source] of Object.entries(debugFixtures)) {
   writeFileSync(resolve(outputDir, `${name}.ino`), source, 'utf8')
   manifest[name] = {
     bytes: Buffer.byteLength(source),
@@ -127,4 +130,4 @@ for (const [name, source] of Object.entries(fixtures)) {
   }
 }
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-console.log(`wrote ${Object.keys(fixtures).length} IR compile fixtures to ${outputDir}`)
+console.log(`wrote ${Object.keys(debugFixtures).length} IR compile fixtures to ${outputDir}`)

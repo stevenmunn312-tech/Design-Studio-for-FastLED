@@ -7,7 +7,8 @@ import { IR_REMOTE_REPEAT_HOLD_MS } from '../state/irRemote'
  * signal instead; only the main loop touches IRremote's raw buffer/decoders.
  * Keep this shared by the learner and every project generator.
  */
-export const IR_RMT_RECEIVER_CPP = `
+export function irRmtReceiverCpp(debug = false): string {
+  return `
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 #include <esp_idf_version.h>
 #if ESP_IDF_VERSION_MAJOR < 5
@@ -34,6 +35,7 @@ class FlsIrRmtReceiver {
   uint16_t lastAddress = 0, lastCommand = 0;
   int64_t lastDecodedAt = 0;
   volatile esp_err_t receiveError = ESP_OK;
+${debug ? '  volatile uint32_t captured = 0, dropped = 0;\n  uint32_t discarded = 0, lastReportAt = 0;' : ''}
 
   static bool received(rmt_channel_handle_t, const rmt_rx_done_event_data_t* event, void* context);
 
@@ -68,6 +70,13 @@ public:
   }
 
   bool decode() {
+${debug ? `    const uint32_t now = millis();
+    if ((uint32_t)(now - lastReportAt) >= 1000u) {
+      lastReportAt = now;
+      Serial.print("FLS_IR_CAPTURE captured="); Serial.print(captured);
+      Serial.print(" dropped="); Serial.print(dropped);
+      Serial.print(" discarded="); Serial.println(discarded);
+    }` : ''}
     ESP_ERROR_CHECK(receiveError); // report any re-arm failure outside the ISR
     Frame frame;
     if (!queue || xQueueReceive(queue, &frame, 0) != pdTRUE) return false;
@@ -104,6 +113,7 @@ public:
       }
     }
     if (invalid || lastMarkLength == 1) {
+${debug ? '      ++discarded;\n      Serial.println("FLS_IR_RAW invalid=1");' : ''}
       // Never decode a truncated frame as a key. Capture is already re-armed.
       return false;
     }
@@ -116,6 +126,11 @@ public:
     lastEnd = end;
     raw.rawlen = static_cast<IRRawlenType>(lastMarkLength); // exclude trailing idle
     raw.initialGapTicks = gapTicks;
+${debug ? `    Serial.print("FLS_IR_RAW len="); Serial.print(raw.rawlen);
+    Serial.print(" gap_us="); Serial.print((uint32_t)gapTicks * MICROS_PER_TICK);
+    Serial.print(" mark_us="); Serial.print(raw.rawlen > 1 ? (uint32_t)raw.rawbuf[1] * MICROS_PER_TICK : 0);
+    Serial.print(" space_us="); Serial.print(raw.rawlen > 2 ? (uint32_t)raw.rawbuf[2] * MICROS_PER_TICK : 0);
+    Serial.print(" stop_us="); Serial.println(raw.rawlen > 3 ? (uint32_t)raw.rawbuf[3] * MICROS_PER_TICK : 0);` : ''}
     // IRremote copies the previous decodedIRData into its repeat identity.
     // A noisy UNKNOWN capture must not poison the next short repeat. Use the
     // last recognized capture, bounded by capture time rather than loop time.
@@ -139,6 +154,8 @@ public:
     IrReceiver.decodedIRData.initialGapTicks = gapTicks;
     raw.StateForISR = IR_REC_STATE_STOP;
     const bool decoded = IrReceiver.decode();
+${debug ? `    Serial.print("FLS_IR_DECODE protocol="); Serial.print(getProtocolString(IrReceiver.decodedIRData.protocol));
+    Serial.print(" repeat="); Serial.println((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) ? 1 : 0);` : ''}
     if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
 #if defined(DECODE_NEC) || defined(DECODE_ONKYO)
       // A new full NEC command must supersede the old key even if damaged.
@@ -173,7 +190,7 @@ bool IRAM_ATTR FlsIrRmtReceiver::received(rmt_channel_handle_t, const rmt_rx_don
   BaseType_t wake = pdFALSE;
   // Queue owns the timings before the capture buffer is reused. If full,
   // drop this frame but keep listening; never wait for the LED render loop.
-  xQueueSendFromISR(self->queue, &frame, &wake);
+${debug ? '  ++self->captured;\n  if (xQueueSendFromISR(self->queue, &frame, &wake) != pdTRUE) ++self->dropped;' : '  xQueueSendFromISR(self->queue, &frame, &wake);'}
   // ESP-IDF explicitly supports rmt_receive from ISR context.
   self->receiveError = rmt_receive(self->channel, self->symbols, sizeof(self->symbols), &self->receiveConfig);
   return wake == pdTRUE;
@@ -184,3 +201,6 @@ static FlsIrRmtReceiver _flsIrRmtReceiver;
 #define FLS_IR_RECEIVER IrReceiver
 #endif
 `.trim()
+}
+
+export const IR_RMT_RECEIVER_CPP = irRmtReceiverCpp()

@@ -93,6 +93,13 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     const edge = incoming.get(`${nodeId}:${port}`)
     return edge ? resolve(edge.source, edge.sourceHandle ?? '', type) : null
   }
+  // Include an unwired receiver when diagnostics are explicitly requested.
+  for (const node of nodes) {
+    if (node.data.nodeType !== 'IRRemoteInput' || node.data.properties.debug !== true) continue
+    const emission = controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)!
+    instructions.push({ kind: 'gpio', nodeId: node.id, emission })
+    done.add(node.id)
+  }
   return { instructions, errors, resolve, input, usedSamples }
 }
 
@@ -131,6 +138,7 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
   for (const line of ir.setup) setup.add(line)
   for (const include of ir.includes) includes.add(include)
   return {
+    irDebug: ir.debug,
     setup: [...setup],
     helpers: [...helpers],
     includes: [...includes],

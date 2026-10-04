@@ -5,6 +5,17 @@ import { IR_REMOTE_INCLUDE, IR_REMOTE_VERSION, irDecoderMacros, irRemoteHeader, 
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
 describe('IR firmware dependency', () => {
+  it('captures diagnostics even before any keys are learned, and removes them when disabled', () => {
+    const enabled = irRemoteProjectEmission([{ id: 'ir', pin: 2, buttons: [], debug: true }])
+    expect(enabled.debug).toBe(true)
+    expect(enabled.setup).toContain('  FLS_IR_RECEIVER.begin(2, DISABLE_LED_FEEDBACK);')
+    expect(enabled.sample.join('\n')).toContain('bool _irHadPulse = false;')
+    expect(enabled.globals.join('\n')).toContain('FLS_IR_RAW len=')
+    expect(enabled.globals.join('\n')).toContain('FLS_IR_CAPTURE captured=')
+    const callback = enabled.globals.join('\n').split('bool IRAM_ATTR FlsIrRmtReceiver::received')[1]
+    expect(callback).not.toContain('Serial.')
+    expect(irRemoteProjectEmission([{ id: 'ir', pin: 2, buttons: [], debug: false }]).globals).toEqual([])
+  })
   it('pulses each NEC2 repeat through a learned NEC key, with an idle pass even when frames queue', () => {
     const emitted = irRemoteProjectEmission([{ id: 'ir', pin: 4, buttons: [
       { id: 'up', label: 'Up', protocol: 'NEC', address: 0, command: 70, repeat: 'held' },

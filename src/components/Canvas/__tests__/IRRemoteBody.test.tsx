@@ -49,6 +49,19 @@ describe('IR remote node body', () => {
     } as never)
   })
 
+  it('saves the Debug checkbox without changing learned keys or wires', () => {
+    useGraphStore.setState({ edges: [edge('e1', irRemoteButtonHandle('power'))] } as never)
+    render(<IRRemoteBody nodeId="ir" />)
+    const checkbox = screen.getByRole('checkbox', { name: 'Debug' }) as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+    fireEvent.click(checkbox)
+    expect(useGraphStore.getState().nodes[0].data.properties.debug).toBe(true)
+    expect(useGraphStore.getState().nodes[0].data.properties.buttons).toEqual([power])
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+    fireEvent.click(checkbox)
+    expect(useGraphStore.getState().nodes[0].data.properties.debug).toBe(false)
+  })
+
   it('uploads once, names captured buttons, and finishes mapping with their outputs intact', async () => {
     let completeUpload!: () => void
     const runUpload = vi.fn(() => new Promise<void>((resolve) => { completeUpload = resolve }))

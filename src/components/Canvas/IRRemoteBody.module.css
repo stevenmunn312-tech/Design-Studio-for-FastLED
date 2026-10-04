@@ -6,6 +6,19 @@
   min-width: 220px;
 }
 
+.debug {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font: 600 var(--fs-caption) var(--font-code);
+  cursor: pointer;
+}
+
+.debug input {
+  accent-color: var(--accent-input);
+}
+
 .row {
   position: relative;
   display: grid;

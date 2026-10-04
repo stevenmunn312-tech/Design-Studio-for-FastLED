@@ -80,7 +80,7 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
     case 'IRRemoteInput': {
       const buttons = normalizeIrRemoteButtons(p.buttons)
       for (const button of buttons) outputs[irRemoteButtonHandle(button.id)] = 'bool'
-      ir = { id, pin: sanitizePin(p.pin, 13), buttons }
+      ir = { id, pin: sanitizePin(p.pin, 13), buttons, debug: p.debug === true }
       break
     }
     case 'PresenceInput': {

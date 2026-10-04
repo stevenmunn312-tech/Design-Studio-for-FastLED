@@ -997,7 +997,8 @@ export function generateShowSketch(
   for (const line of controlGraph.globals) L.push(line)
   if (controlGraph.globals.length > 0) L.push('')
   L.push('void setup() {')
-  if (emitTelemetry) L.push(TELEMETRY_SERIAL_BEGIN_CPP)
+  if (emitTelemetry || controlGraph.irDebug) L.push(emitTelemetry
+    ? TELEMETRY_SERIAL_BEGIN_CPP : '  Serial.begin(115200);  // IR diagnostics')
   L.push(...amplifierIdle.setup)
   for (const a of psramAllocs) L.push(a)
   if (multiOutput) {

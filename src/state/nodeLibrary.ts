@@ -4077,7 +4077,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: IR_REMOTE_LEARN_HANDLE, label: 'Map IR remote buttons', dataType: 'bool' }],
-    defaultProperties: { pin: 13, buttons: [] },
+    defaultProperties: { pin: 13, buttons: [], debug: false },
   },
   {
     // HC-SR501 PIR module. One digital line that goes high while it sees

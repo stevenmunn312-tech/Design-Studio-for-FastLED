@@ -108,7 +108,16 @@ function expectOnePoll(source: string, player = false) {
 }
 
 describe('IR polling in the three generators', () => {
-  it.each(['normal', 'slideshow', 'player'] as const)('feeds separate remote On/Off keys through Toggle in %s firmware', (mode) => {
+  it('includes an unwired, unmapped receiver only when Debug is enabled', () => {
+    const nodes = [node('ir', 'IRRemoteInput', { pin: 2, debug: true }), node('fill', 'SolidColor'), node('out', 'MatrixOutput')]
+    const edges = [edge('fill', 'frame', 'out', 'frame')]
+    expect(generateCpp(nodes, edges)).toContain('FLS_IR_RECEIVER.begin(2, DISABLE_LED_FEEDBACK)')
+    expect(controlGraphCpp(createControlGraph(nodes, edges)).irDebug).toBe(true)
+    nodes[0].data.properties.debug = false
+    expect(generateCpp(nodes, edges)).not.toContain('IRremote.hpp')
+    expect(controlGraphCpp(createControlGraph(nodes, edges)).irDebug).toBe(false)
+  })
+  it.each(['normal', 'slideshow', 'player'] as const)('feeds separate remote On/Off keys through Toggle with optional debug in %s firmware', (mode) => {
     const nodes = [
       node('ir', 'IRRemoteInput', keys),
       node('toggle', 'Trigger', { triggerOp: 'toggle', initialState: true }),
@@ -143,6 +152,18 @@ describe('IR polling in the three generators', () => {
     const loop = loopBody(source)
     expect(loop.indexOf('FLS_IR_RECEIVER.decode(')).toBeLessThan(loop.indexOf('if (n_ir_button_up)'))
     expect(createControlGraph(nodes, edges).resolve('toggle', 'out', 'bool')).toEqual({ nodeId: 'toggle', port: 'out', type: 'bool' })
+    expect(source).not.toContain('FLS_IR_DEBUG')
+    expect(source).not.toContain('FLS_IR_CAPTURE')
+    nodes.find((entry) => entry.id === 'ir')!.data.properties.debug = true
+    const debugSource = mode === 'normal' ? generateCpp(nodes, edges)
+      : mode === 'slideshow' ? generateShowSketch(nodes, edges, groups)
+        : buildShowPlayer(nodes, edges, groups, {
+          patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '', displayDocuments: documents,
+        })
+    expect(debugSource).toContain('FLS_IR_DEBUG protocol=')
+    expect(debugSource).toContain('FLS_IR_MATCH output=n_ir_button_up')
+    expect(debugSource).toContain('FLS_IR_RAW len=')
+    expect(debugSource.match(/Serial.begin\(115200\)/g)).toHaveLength(1)
   })
   it('feeds a learned key through a normal sketch ahead of the graph', () => {
     const nodes = [
