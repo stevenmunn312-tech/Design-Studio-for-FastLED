@@ -950,7 +950,11 @@ export function generateShowSketch(
   if (transitions) { L.push(transitionHelperCpp(info.transitionIds)); L.push('') }
   // A pattern and a root control chain may both need mapFloat; the shared
   // emitter gives them identical helpers, emitted once at file scope.
-  for (const h of new Set([...renderers.helpers, ...controlGraph.helpers, ...customDisplays.shared])) { L.push(h); L.push('') }
+  // Transitions already include the sampler used by Frame Warp and Symmetry.
+  for (const h of new Set([...renderers.helpers, ...controlGraph.helpers, ...customDisplays.shared])) {
+    if (transitions && h === FRAME_SAMPLE_HELPER_CPP) continue
+    L.push(h); L.push('')
+  }
 
   if (multiOutput) {
     for (const route of routes) {

@@ -39,6 +39,24 @@ describe('showGenerator', () => {
   ]
   const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
 
+  it.each(['FrameWarp', 'Symmetry'])('emits one sampler for %s patterns with and without transitions', (type) => {
+    const pattern = {
+      nodes: [node('src', 'Noise'), node('fx', type), node('go', 'GroupOutput')],
+      edges: [edge('in', 'src', 'frame', 'fx', 'frame'), edge('out', 'fx', 'frame', 'go', 'frame')],
+    }
+    for (const patternIds of [['g0'], ['g0', 'g1']]) {
+      const showNodes = nodes.map((n) => n.id === 'pc' ? node('pc', 'PatternCollection', { patternIds }) : n)
+      const cpp = generateShowSketch(showNodes, edges, { g0: pattern, g1: pattern } as unknown as GroupRegistry)
+      expect(cpp).toContain('void render_p0(')
+      expect(cpp.includes('void render_p1(')).toBe(patternIds.length > 1)
+      expect(/^void compositeTransition\([^\n]+\) \{/m.test(cpp)).toBe(patternIds.length > 1)
+      // Derive all sampler definitions so additions to the shared block are covered.
+      const signatures = FRAME_SAMPLE_HELPER_CPP.match(/^static inline .+ \{/gm)!
+      expect(signatures.length).toBeGreaterThan(0)
+      for (const signature of signatures) expect(cpp.split(signature)).toHaveLength(2)
+    }
+  })
+
   it('detects a pattern show', () => {
     expect(isPatternShow(nodes, edges)).toBe(true)
     expect(isPatternShow([node('x', 'SolidColor')], [])).toBe(false)

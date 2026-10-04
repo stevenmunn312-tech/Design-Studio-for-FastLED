@@ -9,6 +9,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## C++ emission hazards
 
+- Show transitions embed `FRAME_SAMPLE_HELPER_CPP`. When collected patterns
+  also lift that block (Frame Warp or Symmetry), emit it only when transitions
+  are disabled; deduplicating the standalone helper list alone cannot remove
+  a block embedded in the transition helper. Keep coverage for both modes.
+
 - The S3 IR RMT adapter must request the same explicit interrupt priority as
   FastLED's RMT5 transmitter: `FL_RMT5_INTERRUPT_LEVEL` when available, otherwise
   the pinned FastLED default of 3. Leaving RX at automatic priority (0) causes
