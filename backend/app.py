@@ -76,6 +76,7 @@ _BIN_DIR = _DATA_DIR / "bin"  # where a self-installed arduino-cli lands
 _PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_CONTENT_DIR / "My Patterns"))
 _PROJECT_FILE_SUFFIX = ".fastled-project.json"
 _PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_CONTENT_DIR / "Projects"))
+_project_file_lock = threading.RLock()
 
 # Board-manager URLs for the third-party cores we can install, so `core install`
 # works against a fresh CLI that has never seen them.
@@ -4427,8 +4428,10 @@ def _remove_files_for_id(pattern_id: str) -> None:
             continue
 
 
-def _remove_project_files_for_id(project_id: str) -> None:
+def _remove_project_files_for_id(project_id: str, keep: Path | None = None) -> None:
     for f in _iter_project_files():
+        if f == keep:
+            continue
         try:
             if json.loads(f.read_text(encoding="utf-8")).get("id") == project_id:
                 f.unlink(missing_ok=True)
@@ -4789,19 +4792,20 @@ def reveal_patterns_folder():
 @app.get("/api/projects")
 def list_projects():
     """Every saved project on disk, newest first."""
-    out = []
-    for f in _iter_project_files():
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            workspace = data.get("workspace")
-            if (isinstance(data, dict) and data.get("id") and data.get("name")
-                    and isinstance(workspace, dict) and isinstance(workspace.get("nodes"), list)
-                    and isinstance(workspace.get("edges"), list)):
-                out.append(data)
-        except Exception:
-            continue
-    out.sort(key=lambda project: project.get("updatedAt", project.get("createdAt", 0)), reverse=True)
-    return {"ok": True, "dir": str(_PROJECTS_DIR), "projects": out}
+    with _project_file_lock:
+        out = []
+        for f in _iter_project_files():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                workspace = data.get("workspace")
+                if (isinstance(data, dict) and data.get("id") and data.get("name")
+                        and isinstance(workspace, dict) and isinstance(workspace.get("nodes"), list)
+                        and isinstance(workspace.get("edges"), list)):
+                    out.append(data)
+            except Exception:
+                continue
+        out.sort(key=lambda project: project.get("updatedAt", project.get("createdAt", 0)), reverse=True)
+        return {"ok": True, "dir": str(_PROJECTS_DIR), "projects": out}
 
 
 @app.post("/api/projects")
@@ -4813,15 +4817,36 @@ def save_project(project: dict = Body(...)):
     if (not pid or not name or not isinstance(workspace, dict)
             or not isinstance(workspace.get("nodes"), list) or not isinstance(workspace.get("edges"), list)):
         return JSONResponse({"ok": False, "error": "project needs id, name and workspace"}, status_code=400)
-    _remove_project_files_for_id(pid)
-    path = _unique_project_path(_sanitize_filename(name), pid)
-    if _projects_dir().resolve() not in path.resolve().parents:
-        return JSONResponse({"ok": False, "error": "invalid project name"}, status_code=400)
-    try:
-        path.write_text(json.dumps(project, indent=2), encoding="utf-8")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-    return {"ok": True, "file": path.name}
+    with _project_file_lock:
+        # Autosave, explicit Save and pagehide can arrive out of order. Never
+        # let an older snapshot replace the newer workspace already on disk.
+        for existing_path in _iter_project_files():
+            try:
+                existing = json.loads(existing_path.read_text(encoding="utf-8"))
+                if (existing.get("id") == pid
+                        and existing.get("updatedAt", 0) > project.get("updatedAt", 0)):
+                    return {"ok": True, "file": existing_path.name}
+            except (OSError, ValueError, TypeError):
+                continue
+        path = _unique_project_path(_sanitize_filename(name), pid)
+        if _projects_dir().resolve() not in path.resolve().parents:
+            return JSONResponse({"ok": False, "error": "invalid project name"}, status_code=400)
+        temporary_path: Path | None = None
+        try:
+            # Keep the last complete save until its replacement is ready.
+            # A unique non-JSON temp file is invisible to the project listing.
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                             suffix=".tmp", delete=False) as temporary:
+                temporary_path = Path(temporary.name)
+                temporary.write(json.dumps(project, indent=2))
+            temporary_path.replace(path)
+            _remove_project_files_for_id(pid, keep=path)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+        return {"ok": True, "file": path.name}
 
 
 @app.post("/api/projects/dialog/open")
@@ -4867,5 +4892,6 @@ def save_project_dialog(project: dict = Body(...)):
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: str):
     """Delete the file(s) holding this project id."""
-    _remove_project_files_for_id(project_id)
+    with _project_file_lock:
+        _remove_project_files_for_id(project_id)
     return {"ok": True}

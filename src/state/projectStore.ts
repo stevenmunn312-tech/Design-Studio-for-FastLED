@@ -353,9 +353,9 @@ export function reconcileProjectsFromDisk(
       }
       continue
     }
-    if (project.updatedAt >= existing.updatedAt) {
+    if (project.updatedAt > existing.updatedAt) {
       merged.set(project.id, project)
-      if (project.updatedAt > existing.updatedAt) projectsToSave.push(project)
+      projectsToSave.push(project)
     }
   }
   return { projects: sortProjects([...merged.values()]), projectsToSave }
@@ -582,6 +582,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     for (const id of loadSyncJournal().pendingUpserts) {
       const project = get().projects.find((entry) => entry.id === id)
       if (!project) {
+        clearPendingUpsert(id)
+        continue
+      }
+      const existing = nextDisk.find((entry) => entry.id === id)
+      // The browser snapshot can be stale when its storage quota was exceeded,
+      // even though the helper saved the newer workspace. A pending journal
+      // entry is a retry request, not permission to overwrite that newer save.
+      if (existing && existing.updatedAt >= project.updatedAt) {
         clearPendingUpsert(id)
         continue
       }

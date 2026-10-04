@@ -1,5 +1,15 @@
 # Build helper
 
+- Project file saves hold `_project_file_lock` across revision comparison,
+  atomic replacement and rename cleanup; listing and deletion share that lock.
+  An older `updatedAt` cannot overwrite a newer saved workspace. Write to a
+  unique non-JSON temporary file and replace only after the whole JSON is ready,
+  preserving the prior save if writing fails.
+- `projectStore.refreshFromDisk` compares a pending browser save with the disk
+  revision before retrying it. A stale localStorage snapshot (quota exceeded)
+  must never overwrite a newer helper save just because its pending journal
+  entry survived pagehide. Disk wins when its `updatedAt` is equal or newer.
+
 - IR mapping's Retry sends `reuseCompiled` after the helper reports
   `[compiled] firmware ready`. Both engines skip compilation and flash their
   retained build. `_compiled_uploads` tracks the source and board settings for
