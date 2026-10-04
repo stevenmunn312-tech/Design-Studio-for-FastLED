@@ -96,6 +96,14 @@ describe('IR remote mapping primitives', () => {
     expect(reduceIrRemoteFrame(malformed.state, buttons, { repeat: true }, 200).pulseIds).toEqual([])
   })
 
+  it('keeps a learned NEC identity when full held repeats are decoded as NEC2', () => {
+    const first = reduceIrRemoteFrame(blankIrRepeatState(), buttons, { protocol: 'NEC', address: 0, command: 70 }, 1000)
+    const repeat = reduceIrRemoteFrame(first.state, buttons, { protocol: 'NEC2', address: 0, command: 70, repeat: true }, 1110)
+    expect(repeat.pulseIds).toEqual(['brighter'])
+    expect(repeat.state.lastIdentity?.protocol).toBe('NEC')
+    expect(reduceIrRemoteFrame(repeat.state, buttons, { protocol: 'NEC2', address: 0, command: 69, repeat: true }, 1220).pulseIds).toEqual([])
+  })
+
   it('adds a key without disturbing the ones already learned', () => {
     const next = addIrRemoteButton(buttons)
     expect(next.map((button) => button.id)).toEqual(['power', 'brighter', 'key-3'])

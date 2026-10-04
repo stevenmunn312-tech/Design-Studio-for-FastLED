@@ -44,6 +44,13 @@ are the durable record.
 
 ## ESP32-S3 capture, 3 October 2026
 
+Held-repeat regression (4 October 2026): the normal ESP32-S3 fixture with
+bounded repeat identity inheritance and a false pass between pulses compiles
+with arduino-cli 1.5.1, IRremote 4.7.1: 439,243 bytes flash and 27,868 bytes RAM.
+Source SHA-256 starts `0c0f989f`. `irRemoteCpp.test.ts` executes the emitted
+scalar sample logic with NEC-to-NEC2 repeats and queued frames; the existing
+native RMT harness still passes. Physical held-key testing remains necessary.
+
 S3 now captures the demodulated signal with native RMT and feeds the pinned
 IRremote decoders. These builds use arduino-cli 1.5.1 with Arduino-ESP32
 3.3.11 and FastLED 3.10.5, or fbuild 2.5.26 with vendored FastLED 3.10.4.

@@ -62,8 +62,8 @@ export const MAX_IR_REMOTE_BUTTONS = 32
 export const IR_REMOTE_ID_LENGTH = 48
 export const IR_REMOTE_LABEL_LENGTH = 64
 export const IR_REMOTE_REPEAT_HOLD_MS = 250
-/** Browser hold simulation cadence. Real firmware gets naturally separated
- * decoder frames; preview must leave false passes between them so downstream
+/** Browser hold simulation cadence. Preview and firmware leave false passes
+ * between decoder pulses so downstream
  * rising-edge nodes such as Step Value see each held repeat as a new event. */
 export const IR_REMOTE_PREVIEW_REPEAT_MS = 100
 const UINT32_MAX = 0xffff_ffff
@@ -399,6 +399,10 @@ export function reduceIrRemoteFrame(
     identity = state.lastIdentity && nowMs >= state.lastFrameAtMs && nowMs - state.lastFrameAtMs <= windowMs
       ? state.lastIdentity
       : null
+    // Real decoders retain the address/command on a repeat. A frame for a
+    // different key must not replay the previous one merely due to its flag.
+    if (identity && ((frame.address !== undefined && validCode(frame.address) !== identity.address)
+      || (frame.command !== undefined && validCode(frame.command) !== identity.command))) identity = null
     if (!identity) return { state: blankIrRepeatState(), pulseIds: [] }
   } else {
     const protocol = canonicalIrProtocol(frame.protocol)

@@ -1,5 +1,6 @@
 import {
   IR_REMOTE_PROTOCOLS,
+  IR_REMOTE_REPEAT_HOLD_MS,
   irRemoteButtonHandle,
   normalizeIrRemoteButtons,
   type IrRemoteProtocol,
@@ -157,8 +158,10 @@ function irVariable(id: string, buttonId: string): string {
  * The library's receiver is a single global. A second `decode()` in the same
  * pass returns false and clears the frame, so every generator emits this
  * block once and runs it in the input half before any key is read. `once`
- * drops a repeat frame; `held` keeps it. On a repeat the library copies the
- * last complete address and command into the decoded fields.
+ * drops a repeat frame; `held` keeps it. Repeats inherit the last complete
+ * identity within the same bounded window as preview: NEC2 may be reported
+ * only after a key learned as NEC is held. Leave a false graph pass between
+ * pulses even if the receiver already has the next frame ready.
  *
  * A key with an empty protocol is false and does not, by itself, pull the
  * library in. No protocols anywhere means no include and no begin.
@@ -197,18 +200,35 @@ export function irRemoteProjectEmission(nodes: readonly IrRemoteProjectNode[]): 
     // A class body in the include preamble makes fbuild hoist CRGB-typed
     // player prototypes ahead of FastLED.h. Emit the adapter at file scope
     // after all includes instead; IRremote.hpp still precedes Audio.h.
-    globals: [IR_RMT_RECEIVER_CPP, ...globals],
+    globals: [IR_RMT_RECEIVER_CPP, ...globals,
+      'static decode_type_t _irLastProtocol = UNKNOWN;',
+      'static uint16_t _irLastAddress = 0, _irLastCommand = 0;',
+      'static uint32_t _irLastFrameAt = 0;',
+    ],
     setup: [`  ${irRemoteBeginLine(pin ?? 0)}`],
     sample: [
+      `  bool _irHadPulse = ${rows.map((row) => row.variable).join(' || ')};`,
       '  bool _irRepeat = false;',
       '  decode_type_t _irProtocol = UNKNOWN;',
       '  uint16_t _irAddress = 0;',
       '  uint16_t _irCommand = 0;',
-      '  if (FLS_IR_RECEIVER.decode()) {',
+      '  if (!_irHadPulse && FLS_IR_RECEIVER.decode()) {',
       '    _irRepeat = (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) != 0;',
       '    _irProtocol = IrReceiver.decodedIRData.protocol;',
       '    _irAddress = IrReceiver.decodedIRData.address;',
       '    _irCommand = IrReceiver.decodedIRData.command;',
+      '    const uint32_t _irNow = millis();',
+      '    if (_irRepeat) {',
+      `      if (_irLastProtocol != UNKNOWN && (uint32_t)(_irNow - _irLastFrameAt) <= ${IR_REMOTE_REPEAT_HOLD_MS}u`,
+      '          && _irAddress == _irLastAddress && _irCommand == _irLastCommand) {',
+      '        _irProtocol = _irLastProtocol;',
+      '        _irLastFrameAt = _irNow;',
+      '      } else { _irProtocol = UNKNOWN; _irLastProtocol = UNKNOWN; }',
+      '    } else {',
+      '      _irLastProtocol = _irProtocol;',
+      '      _irLastAddress = _irAddress; _irLastCommand = _irCommand;',
+      '      _irLastFrameAt = _irNow;',
+      '    }',
       '    FLS_IR_RECEIVER.resume();',
       '  }',
       ...rows.map((row) => {

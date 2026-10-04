@@ -206,7 +206,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   sketches poll through `irRemoteProjectEmission` (`irRemoteCpp.ts`): one
   `FLS_IR_RECEIVER.decode()` in the `sample-ir` input phase, after the control
   snapshot and before destination apply, shared by `cppGenerator.ts` and the
-  show and player control graphs. A key bool is named like any other GPIO output
+  show and player control graphs. Held repeats inherit the last complete
+  frame's protocol/address/command for
+  up to 250 ms between frames, so NEC keys still match when the decoder labels
+  their full repeats NEC2. Explicit repeat codes must match the remembered
+  address and command. Firmware defers the next decode for one false graph pass
+  after a pulse, so consecutive captures still create separate rising edges for
+  Step Value and other event consumers. A key bool is named like any other GPIO
+  output
   (`n_<id>_button_<key>`), so a direct action or Control Map resolves it; `once`
   drops repeat frames and `held` keeps them. A key with no protocol stays false
   and does not pull in the library. `irRemoteWorkflow.test.ts` holds the
