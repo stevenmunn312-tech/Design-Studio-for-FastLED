@@ -112,6 +112,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   scalar sensor outputs and overcurrent checks remain immediate. Keep the
   preview filter and `SegPowerSmoothing` member method in parity, including
   unsigned firmware timer rollover.
+  Write the TM1637's four fixed digits directly after the range check. Newer
+  GCC versions can warn that dynamic-width `snprintf` of a `long` may truncate
+  even when the preceding conditional bounds its value; native parity tests
+  treat those warnings as errors on CI.
 
 - **Display content and ownership:** SegmentDisplay/InfoDisplay take one
   source-driven `display` envelope. Two node types publish the `player` kind —

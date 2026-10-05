@@ -288,9 +288,11 @@ static bool _segPowerColonAmps(char *text, float value) {
     for (int i = 0; i < 4; i++) text[i] = '-';
     return false;
   }
-  char number[8];
-  snprintf(number, sizeof(number), "%s%0*ld", negative ? "-" : "", negative ? 3 : 4, rounded);
-  for (int i = 0; i < 4; i++) text[i] = number[i];
+  for (int i = 3; i >= 0; i--) {
+    text[i] = (char)('0' + rounded % 10);
+    rounded /= 10;
+  }
+  if (negative) text[0] = '-';
   return true;
 }
 
