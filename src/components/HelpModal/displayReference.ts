@@ -8,7 +8,7 @@ export interface DisplayReferenceContent {
 export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
   SegmentDisplay: {
     overview: [
-      'A separate physical readout for an RTC clock, Music Player position, Pattern Slideshow index, or LED output level. Connect the source’s Display output to the module’s Display input; the source determines what the digits show. An LED output reads as whole percent of effective brightness (0 when blacked out). Power Monitor shows amps with a trailing A on four digits, or amps followed by watts on eight digits. An unwired display shows dashes.',
+      'A separate physical readout for an RTC clock, Music Player position, Pattern Slideshow index, or LED output level. Connect the source’s Display output to the module’s Display input; the source determines what the digits show. An LED output reads as whole percent of effective brightness (0 when blacked out). Power Monitor shows amps across the centre colon on four digits (00:34 means 0.34 A), or amps followed by watts on eight digits. An unwired display shows dashes.',
       'Choose the exact TM1637 four-digit module with a colon or MAX7219 eight-digit module without a colon. Other controllers and digit arrangements are unsupported.',
     ],
     steps: [
@@ -16,7 +16,7 @@ export const DISPLAY_REFERENCE: Record<string, DisplayReferenceContent> = {
       'Connect RTC Clock, Music Player, Pattern Slideshow, Power Monitor, or an LED output using the Display socket. A raw number or Format Number string belongs on a custom-screen readout instead.',
       'Set brightness and digit formatting on the graph node. Check Graph Health and the generated build before upload; a module appearing in the catalogue does not establish physical validation for your board.',
     ],
-    propertyNote: 'Module identity and GPIO belong to the hardware inspector. The graph node controls digit formatting, brightness, and whether the display is enabled. The colon is available only on the TM1637 module.',
+    propertyNote: 'Module identity and GPIO belong to the hardware inspector. The graph node controls digit formatting, brightness, and whether the display is enabled. The colon is available only on the TM1637 module. Power Monitor always uses it as the separator for two decimal places in amps.',
   },
   InfoDisplay: {
     overview: [

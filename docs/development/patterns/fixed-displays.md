@@ -98,6 +98,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Content, ownership and pattern pictures
 
+- Power Monitor segment fields preserve the sensor's signed reading; a negative
+  current is valid data, including a small zero offset. The TM1637 module has
+  only a centre colon, so use fixed hundredths of amps across all four digits:
+  `00:34` means 0.34 A; `-1:92` means -1.92 A. Keep the colon lit for valid data
+  regardless of the clock's Show Colon setting, with no per-digit decimal points
+  or trailing A. Its range is -9.99 through 99.99 A. MAX7219 fields retain
+  adaptive precision and per-digit decimal points. Dashes mean non-finite data
+  or overflow, rather than any reading below zero.
+  Segment power readings use a 500 ms exponential smoothing time constant and
+  publish at most every 500 ms. Filtering belongs to each display, uses unscaled
+  elapsed time, and resets when disabled, disconnected or given invalid data;
+  scalar sensor outputs and overcurrent checks remain immediate. Keep the
+  preview filter and `SegPowerSmoothing` member method in parity, including
+  unsigned firmware timer rollover.
+
 - **Display content and ownership:** SegmentDisplay/InfoDisplay take one
   source-driven `display` envelope. Two node types publish the `player` kind —
   Music Player and Performance Generator — because both hold a file off the card

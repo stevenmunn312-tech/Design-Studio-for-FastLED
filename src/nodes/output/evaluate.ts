@@ -11,6 +11,8 @@ import {
   segmentDashes,
   renderSegmentClock,
   renderSegmentPower,
+  smoothSegmentPower,
+  type SegmentPowerSmoothingState,
   renderSegmentLevel,
   renderSegmentIndex,
   segmentFrameText,
@@ -107,6 +109,11 @@ const patternThumbnailCache = instanceState('patternThumbnailCache', new Map<str
  */
 const ledOutputLatchState = instanceState('ledOutputLatchState', new Map<string, LedOutputLatch>())
 const stereoVuState = instanceState('stereoVuState', new Map<string, StereoVuState>())
+const segmentPowerState = instanceState('segmentPowerState', new Map<string, {
+  sourceId: string
+  amps: SegmentPowerSmoothingState
+  watts: SegmentPowerSmoothingState
+}>())
 
 const relayOutput: NodeEvaluator = () => {
   // Physical sink. Browser preview has no simulated contact load; the
@@ -459,7 +466,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     Object.assign(out, { lit: true, layout, surface: renderTransportDisplay(controller, rotation, payload) })
     return out
   },
-  SegmentDisplay({ input, t, incoming }, id, props): Record<string, PortValue> {
+  SegmentDisplay({ input, t, elapsedT, stateKey, incoming }, id, props): Record<string, PortValue> {
     // A display is a terminal: it updates whether or not anything downstream
     // reads it. The rendered characters come from state/segmentDisplay.ts,
     // which the C++ generator also uses, so the module shows the same four
@@ -472,12 +479,15 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       ? Boolean(input(id, 'enabled', true))
       : props.enabled !== false
     const segCtl = segmentControllerFor(partById(String(props.partId ?? ''))?.display?.controller)
+    const key = stateKey(id)
     if (!enabled) {
+      segmentPowerState.delete(key)
       return { frame: null, segment: blankSegmentFrame(segCtl.digits), text: '' }
     }
 
     const signalValue = input(id, 'display', null)
     const signal = isDisplaySignal(signalValue) ? signalValue : null
+    if (signal?.kind !== 'powerMonitor') segmentPowerState.delete(key)
     let segment: SegmentFrame
     if (!signal) {
       segment = segmentDashes(segCtl.digits)
@@ -505,7 +515,14 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
         blink && segCtl.hasColon, segCtl.digits, 0,
       )
     } else if (signal.kind === 'powerMonitor') {
-      segment = renderSegmentPower(signal.reading, segCtl.digits)
+      const sourceId = incoming.get(`${id}:display`)?.srcId ?? ''
+      const previous = segmentPowerState.get(key)
+      const sameSource = previous?.sourceId === sourceId ? previous : undefined
+      const nowMs = elapsedT * 1000
+      const amps = smoothSegmentPower(sameSource?.amps, signal.reading.amps, nowMs)
+      const watts = smoothSegmentPower(sameSource?.watts, signal.reading.watts, nowMs)
+      segmentPowerState.set(key, { sourceId, amps, watts })
+      segment = renderSegmentPower({ ...signal.reading, amps: amps.shown, watts: watts.shown }, segCtl.digits)
     } else if (signal.kind === 'ledOutput') {
       // Effective output as whole percent — see renderSegmentLevel on why
       // a blacked-out fixture reads 0 rather than its dimmer position.

@@ -14,6 +14,7 @@
 
 import {
   SEGMENT_FAULT_CODES, SEGMENT_GLYPHS, SEGMENT_CONTROLLERS, type SegmentDisplayMode,
+  SEGMENT_POWER_SMOOTH_MS, SEGMENT_POWER_UPDATE_MS,
 } from '../state/segmentDisplay'
 
 const MAX_DIGITS = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
@@ -252,21 +253,65 @@ static void _segBegin(SegDisplay &d, uint8_t kind, uint8_t digits, uint8_t clk,
   }
 }
 
-// Three or four physical digits, adaptive precision, dashes on overflow.
+// Display-only filtering; sensor outputs and overcurrent stay immediate.
+struct SegPowerSmoothing {
+  bool ready = false;
+  float filtered = 0.0f, shown = 0.0f;
+  uint32_t sampledMs = 0, shownMs = 0;
+  float update(float value, uint32_t now) {
+    if (!ready || !isfinite(value) || !isfinite(filtered)) {
+      ready = true;
+      filtered = shown = value;
+      sampledMs = shownMs = now;
+      return shown;
+    }
+    float alpha = 1.0f - expf(-(float)(uint32_t)(now - sampledMs) / ${SEGMENT_POWER_SMOOTH_MS}.0f);
+    filtered += alpha * (value - filtered);
+    sampledMs = now;
+    if ((uint32_t)(now - shownMs) >= ${SEGMENT_POWER_UPDATE_MS}u) {
+      shown = filtered;
+      shownMs = now;
+    }
+    return shown;
+  }
+};
+
+// TM1637 has a centre colon, not per-digit decimal points: fixed hundredths of amps.
+static bool _segPowerColonAmps(char *text, float value) {
+  bool negative = value < 0.0f;
+  if (!isfinite(value) || fabsf(value) >= (negative ? 10.0f : 100.0f)) {
+    for (int i = 0; i < 4; i++) text[i] = '-';
+    return false;
+  }
+  long rounded = lroundf(fabsf(value) * 100.0f);
+  if (rounded > (negative ? 999 : 9999)) {
+    for (int i = 0; i < 4; i++) text[i] = '-';
+    return false;
+  }
+  char number[8];
+  snprintf(number, sizeof(number), "%s%0*ld", negative ? "-" : "", negative ? 3 : 4, rounded);
+  for (int i = 0; i < 4; i++) text[i] = number[i];
+  return true;
+}
+
+// Four physical digits per MAX7219 field, signed readings, adaptive precision.
 static int _segPowerField(char *text, float value, int width) {
-  const long limit = width == 3 ? 999 : 9999;
-  if (!isfinite(value) || value < 0.0f || value >= (float)limit + 0.5f) {
+  bool negative = value < 0.0f;
+  int numberWidth = width - (negative ? 1 : 0);
+  const long limit = numberWidth == 2 ? 99 : numberWidth == 3 ? 999 : 9999;
+  float magnitude = fabsf(value);
+  if (!isfinite(value) || magnitude >= (float)limit + 0.5f) {
     for (int i = 0; i < width; i++) text[i] = '-';
     return 0;
   }
   long rounded = 0;
-  int precision = 2;
+  int precision = numberWidth > 2 ? 2 : 1;
   for (; precision >= 0; precision--) {
-    rounded = lroundf(value * (precision == 2 ? 100.0f : precision == 1 ? 10.0f : 1.0f));
+    rounded = lroundf(magnitude * (precision == 2 ? 100.0f : precision == 1 ? 10.0f : 1.0f));
     if (rounded <= limit) break;
   }
   char number[8];
-  snprintf(number, sizeof(number), "%0*ld", precision + 1, rounded);
+  snprintf(number, sizeof(number), "%s%0*ld", negative ? "-" : "", precision + 1, rounded);
   int length = strlen(number);
   for (int i = 0; i < width; i++) text[i] = i < width - length ? ' ' : number[i - (width - length)];
   return precision > 0 ? (1 << (width - 1 - precision)) : 0;
@@ -373,7 +418,8 @@ export interface SegmentDisplayEmit {
 }
 
 export function segmentDisplayGlobalCpp(display: SegmentDisplayEmit): string {
-  return `static SegDisplay _seg_${display.id};`
+  return `static SegDisplay _seg_${display.id};` + (display.mode === 'Power'
+    ? `\nstatic SegPowerSmoothing _segAmps_${display.id}, _segWatts_${display.id};` : '')
 }
 
 export function segmentDisplaySetupCpp(display: SegmentDisplayEmit): string[] {
@@ -399,6 +445,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     ...(display.faultCodeExpr ? [`    uint16_t ${fault} = (uint16_t)(${display.faultCodeExpr});`] : []),
     `    if (!${on}) {`,
     `      _segBlankAll(${v}, ${digits});`,
+    ...(display.mode === 'Power' ? [`      _segAmps_${display.id}.ready = _segWatts_${display.id}.ready = false;`] : []),
   ]
 
   if (display.faultCodeExpr) {
@@ -426,8 +473,14 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
   } else if (display.mode === 'Power') {
     lines.push(
       `    } else {`,
-      `      ${d} = _segPowerField(${v}, ${display.powerMonitor?.amps ?? 'NAN'}, ${digits >= 8 ? 4 : 3});`,
-      ...(digits >= 8 ? [`      ${d} |= _segPowerField(${v} + 4, ${display.powerMonitor?.watts ?? 'NAN'}, 4) << 4;`] : [`      ${v}[3] = 'A';`]),
+      `      uint32_t _segNow_${display.id} = millis();`,
+      `      float _segAmpValue_${display.id} = _segAmps_${display.id}.update(${display.powerMonitor?.amps ?? 'NAN'}, _segNow_${display.id});`,
+      ...(digits >= 8 ? [`      ${d} = _segPowerField(${v}, _segAmpValue_${display.id}, 4);`]
+        : [`      ${d} = _segPowerColonAmps(${v}, _segAmpValue_${display.id}) ? 2 : 0;`]),
+      ...(digits >= 8 ? [
+        `      float _segWattValue_${display.id} = _segWatts_${display.id}.update(${display.powerMonitor?.watts ?? 'NAN'}, _segNow_${display.id});`,
+        `      ${d} |= _segPowerField(${v} + 4, _segWattValue_${display.id}, 4) << 4;`,
+      ] : []),
     )
   } else if (display.mode === 'Level') {
     // The documented reading for this module class: the *effective* output as
@@ -465,6 +518,7 @@ export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
     ? '((millis() / 1000) % 2) == 0'
     // Elapsed keeps a steady colon: a blinking one on a running clock reads as
     // the second hand, and on a track position it reads as a fault.
+    : display.mode === 'Power' && digits < 8 ? `(${d} != 0)`
     : colon && display.mode !== 'Waiting' && display.mode !== 'Power' ? 'true' : 'false'
   const colonExpr = display.faultCodeExpr && baseColonExpr !== 'false'
     ? `((${fault} == SEG_FAULT_NONE) && (${baseColonExpr}))`

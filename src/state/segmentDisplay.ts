@@ -272,13 +272,46 @@ export function segmentBytes(frame: SegmentFrame): number[] {
   return bytes
 }
 
-/** Reserve A on four-digit modules; wider modules give each quantity four digits. */
+export const SEGMENT_POWER_SMOOTH_MS = 500
+export const SEGMENT_POWER_UPDATE_MS = 500
+
+export interface SegmentPowerSmoothingState {
+  filtered: number
+  shown: number
+  sampledMs: number
+  shownMs: number
+}
+
+/** Display-only smoothing on the unscaled clock, with two visible updates per second. */
+export function smoothSegmentPower(
+  previous: SegmentPowerSmoothingState | undefined, value: number, nowMs: number,
+): SegmentPowerSmoothingState {
+  if (!previous || !Number.isFinite(value) || !Number.isFinite(previous.filtered) || nowMs < previous.sampledMs) {
+    return { filtered: value, shown: value, sampledMs: nowMs, shownMs: nowMs }
+  }
+  const alpha = 1 - Math.exp(-(nowMs - previous.sampledMs) / SEGMENT_POWER_SMOOTH_MS)
+  const filtered = previous.filtered + alpha * (value - previous.filtered)
+  const publish = nowMs - previous.shownMs >= SEGMENT_POWER_UPDATE_MS
+  return { filtered, shown: publish ? filtered : previous.shown, sampledMs: nowMs,
+    shownMs: publish ? nowMs : previous.shownMs }
+}
+
+/** TM1637: fixed hundredths of an amp across its centre colon; MAX7219: amps/watts. */
 export function renderSegmentPower(reading: PowerMonitorReading, digits = 4): SegmentFrame {
+  if (digits < 8) {
+    const value = reading.amps
+    const negative = value < 0
+    const rounded = Math.round(Math.abs(value) * 100)
+    if (!Number.isFinite(value) || rounded > (negative ? 999 : 9999)) return segmentDashes(4)
+    const body = (negative ? '-' : '') + String(rounded).padStart(negative ? 3 : 4, '0')
+    return { digits: body, colon: true, decimalAt: -1, lit: true }
+  }
   const number = (value: number, width = 4): SegmentFrame => {
-    if (!Number.isFinite(value) || value < 0) return segmentDashes(width)
+    if (!Number.isFinite(value)) return segmentDashes(width)
+    const sign = value < 0 ? '-' : ''
     for (let precision = 2; precision >= 0; precision--) {
-      const rounded = Math.round(value * (10 ** precision))
-      const body = String(rounded).padStart(precision + 1, '0')
+      const rounded = Math.round(Math.abs(value) * (10 ** precision))
+      const body = sign + String(rounded).padStart(precision + 1, '0')
       if (body.length <= width) {
         const padded = body.padStart(width, ' ')
         return { digits: padded, decimalAt: precision ? width - 1 - precision : -1, colon: false, lit: true }
@@ -286,8 +319,7 @@ export function renderSegmentPower(reading: PowerMonitorReading, digits = 4): Se
     }
     return segmentDashes(width)
   }
-  const amps = number(reading.amps, digits < 8 ? 3 : 4)
-  if (digits < 8) return { ...amps, digits: amps.digits + 'A' }
+  const amps = number(reading.amps)
   const watts = number(reading.watts)
   return { ...amps, digits: amps.digits + watts.digits, decimalAts: watts.decimalAt < 0 ? [] : [watts.decimalAt + 4] }
 }

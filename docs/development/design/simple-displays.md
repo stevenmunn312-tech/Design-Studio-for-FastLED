@@ -42,7 +42,7 @@ property. What is plugged in decides what it shows.**
 
 | Source | The panel becomes |
 | --- | --- |
-| `PowerMonitorInput` (Power Monitor) | amps with a trailing A on four digits; amps then watts on eight digits; labelled volts, amps and watts on OLED/TFT panels |
+| `PowerMonitorInput` (Power Monitor) | amps across the centre colon on four digits (`00:34` = 0.34 A); amps then watts on eight digits; labelled volts, amps and watts on OLED/TFT panels |
 | `RTCInput` (RTC Clock) | a clock |
 | `PatternMaster` (Music Player) | transport: track, position, play state, volume |
 | `PatternSlideshow` | pattern selection: which pattern, where in the collection |
@@ -228,7 +228,9 @@ longer tier-2 proposals. Outstanding integration work is [HW-01–08](../../../t
 Optional density/size policies remain D-02. Performance Generator is now a
 real playback source; hardware support requires its own recorded evidence.
 
-Power Monitor publishes its existing reading on a Display envelope. Segment fields use up to two decimal places, reducing precision to fit three numeric digits plus A on a four-digit module, or four digits per quantity on an eight-digit module and showing dashes for invalid or overflowing values. The eight-digit module places amps on the left and watts on the right, each with its own decimal point. OLED and fixed TFT panels show three labelled rows in V, A, W order with two decimal places.
+Power Monitor publishes its existing reading on a Display envelope. The TM1637 has a centre colon but no per-digit decimal points, so it uses all four digits for fixed hundredths of an amp: `00:34` means 0.34 A, `01:92` means 1.92 A, and `-1:92` means -1.92 A. The colon stays lit for valid readings regardless of Show Colon. Values outside -9.99 through 99.99 A, or invalid values, show four dashes with the colon off. The eight-digit MAX7219 places amps on the left and watts on the right, each with its own decimal point and up to two decimal places, reducing precision to fit. OLED and fixed TFT panels show three labelled rows in V, A, W order with two decimal places.
+
+Segment Power readings use a half-second exponential moving average and change visibly at most twice per second. Each display owns its filter; the first reading appears immediately, and sensor scalar outputs and overcurrent checks still respond without this smoothing.
 
 The custom display editor also offers a Power Monitor template: three labelled Numeric Readouts bound to `volts`, `amps` and `watts`, with V/A/W suffixes and two decimal places. It has dedicated landscape, portrait and square layouts and is promoted when the panel is wired to a Power Monitor. The single Display cable fills every reading.
 
