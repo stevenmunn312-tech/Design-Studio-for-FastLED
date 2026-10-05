@@ -2,6 +2,10 @@
 
 from contextlib import nullcontext
 from pathlib import Path
+import json
+import subprocess
+
+import pytest
 
 import app as app_module
 
@@ -24,6 +28,83 @@ def test_irremote_checkout_accepts_only_the_pinned_release(tmp_path):
         encoding="utf-8",
     )
     assert app_module._irremote_checkout_matches_pin(library) is True
+
+
+def _mock_arduino_sketchbook(monkeypatch, tmp_path):
+    monkeypatch.setattr(app_module, "_ARDUINO_BASE", ["arduino-cli", "--config-file", "custom.yaml"])
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, json.dumps({
+            "config": {"directories": {"user": str(tmp_path)}},
+        }))
+
+    monkeypatch.setattr(app_module.subprocess, "run", fake_run)
+    return calls
+
+
+def test_arduino_irremote_skips_install_and_rechecks_removed_library(tmp_path, monkeypatch):
+    calls = _mock_arduino_sketchbook(monkeypatch, tmp_path)
+    library = tmp_path / "libraries" / "IRremote"
+    header = library / "src" / "IRremote.hpp"
+    header.parent.mkdir(parents=True)
+    header.write_text("ok", encoding="utf-8")
+    (library / "library.properties").write_text(
+        f"version={app_module._IRREMOTE_VERSION}\n", encoding="utf-8",
+    )
+    installs = []
+
+    def fake_install(label, args):
+        installs.append(args)
+        yield "installed\n"
+        return 0
+
+    monkeypatch.setattr(app_module, "_run_phase", fake_install)
+    for _ in range(2):
+        assert list(app_module._ensure_arduino_irremote_lib()) == []
+    assert installs == []
+    assert calls == [app_module._ARDUINO_BASE + ["config", "dump", "--format", "json"]] * 2
+    header.unlink()
+    assert list(app_module._ensure_arduino_irremote_lib()) == ["installed\n"]
+    assert installs == [app_module._ARDUINO_BASE + [
+        "lib", "install", f"IRremote@{app_module._IRREMOTE_VERSION}", "--no-deps",
+    ]]
+
+
+@pytest.mark.parametrize("version", [None, "4.7.0", "4.8.0"])
+def test_arduino_irremote_installs_missing_or_wrong_version(tmp_path, monkeypatch, version):
+    _mock_arduino_sketchbook(monkeypatch, tmp_path)
+    if version:
+        library = tmp_path / "libraries" / "IRremote"
+        (library / "src").mkdir(parents=True)
+        (library / "src" / "IRremote.hpp").write_text("ok", encoding="utf-8")
+        (library / "library.properties").write_text(f"version={version}\n", encoding="utf-8")
+
+    def fake_install(label, args):
+        yield "installed\n"
+        return 0
+
+    monkeypatch.setattr(app_module, "_run_phase", fake_install)
+    assert list(app_module._ensure_arduino_irremote_lib()) == ["installed\n"]
+
+
+@pytest.mark.parametrize("output", ["invalid json", "[]", '{"config": null}', '{"directories": {}}'])
+def test_arduino_irremote_config_failure_preserves_install_error(monkeypatch, output):
+    monkeypatch.setattr(app_module.subprocess, "run", lambda *args, **kwargs:
+        subprocess.CompletedProcess(args, 0, output))
+
+    def failed_install(label, args):
+        yield "install failed\n"
+        return 1
+
+    monkeypatch.setattr(app_module, "_run_phase", failed_install)
+    generator = app_module._ensure_arduino_irremote_lib()
+    assert next(generator) == "install failed\n"
+    assert "[error] failed to install Arduino-IRremote" in next(generator)
+    with pytest.raises(StopIteration) as stopped:
+        next(generator)
+    assert stopped.value.value == 1
 
 
 def test_compile_upload_fbuild_vendors_irremote_only_when_sketch_includes_it(monkeypatch):

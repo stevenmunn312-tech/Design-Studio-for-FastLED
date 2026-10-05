@@ -253,6 +253,14 @@ int main() {
   assert(!FLS_IR_RECEIVER.decode());
   buffer[0] = {9200, 0, 2100, 1}; buffer[1] = {800, 0, 12000, 1}; feed(2, now + 110000);
   assert(!FLS_IR_RECEIVER.decode());
+  // On-button trace: a NEC header with only 30 captured bit pairs (len=64).
+  // Never invent the missing bits or let its repeat replay the previous key.
+  buffer[0] = {9350, 0, 4250, 1};
+  for (size_t i = 1; i <= 30; ++i) buffer[i] = {850, 0, 300, 1};
+  buffer[31] = {700, 0, 12000, 1}; feed(32, now + 1000000);
+  assert(!FLS_IR_RECEIVER.decode() && IrReceiver.irparams.rawlen == 64);
+  buffer[0] = {9450, 0, 1850, 1}; buffer[1] = {850, 0, 12000, 1}; feed(2, now + 110000);
+  assert(!FLS_IR_RECEIVER.decode());
   IrReceiver.nextCommand = 25;
   buffer[0] = {9200, 0, 4350, 1};
   for (size_t i = 1; i <= 32; ++i) buffer[i] = {650, 0, 500, 1};
@@ -281,6 +289,9 @@ describe.skipIf(!nativeGpp && !wslGpp)('S3 RMT capture native behavior', () => {
       const exercises = debug ? EXERCISES.replace('  puts("OK");', `
         assert(Serial.log.find("FLS_IR_CAPTURE captured=") != std::string::npos);
         assert(Serial.log.find("FLS_IR_RAW len=") != std::string::npos);
+        assert(Serial.log.find(" mark_us=9350 space_us=4250 bit_mark_us=850 stop_us=700") != std::string::npos);
+        assert(Serial.log.find("FLS_IR_TIMINGS len=64 data_us=9350,4250,850,300,") != std::string::npos);
+        assert(Serial.log.find(",850,300,700\\n") != std::string::npos);
         assert(Serial.log.find("FLS_IR_DECODE protocol=") != std::string::npos);
         puts("OK");`) : EXERCISES
       writeFileSync(source, [configuration, HARNESS, adapter, exercises].join('\n'))

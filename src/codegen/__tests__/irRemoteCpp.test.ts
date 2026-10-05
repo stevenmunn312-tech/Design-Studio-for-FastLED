@@ -12,6 +12,7 @@ describe('IR firmware dependency', () => {
     expect(enabled.sample.join('\n')).toContain('bool _irHadPulse = false;')
     expect(enabled.globals.join('\n')).toContain('FLS_IR_RAW len=')
     expect(enabled.globals.join('\n')).toContain('FLS_IR_CAPTURE captured=')
+    expect(enabled.globals.join('\n')).toContain('FLS_IR_TIMINGS len=')
     const callback = enabled.globals.join('\n').split('bool IRAM_ATTR FlsIrRmtReceiver::received')[1]
     expect(callback).not.toContain('Serial.')
     expect(irRemoteProjectEmission([{ id: 'ir', pin: 2, buttons: [], debug: false }]).globals).toEqual([])

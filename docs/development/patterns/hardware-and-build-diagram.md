@@ -146,7 +146,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `FLS_IR_DEBUG` reports the effective protocol/address/command/repeat and
   `FLS_IR_MATCH` names the output pulses. On ESP32-S3, `FLS_IR_CAPTURE` reports
   cumulative captured/dropped/invalid counts once a second; `FLS_IR_RAW` shows
-  uncorrected header/stop timings in microseconds and `FLS_IR_DECODE` shows the
+  uncorrected header/first-bit/stop timings in microseconds; `FLS_IR_TIMINGS`
+  lists every captured mark and space in microseconds, starting with the header
+  mark and excluding the initial gap and trailing idle, before normalization.
+  A full NEC command requires `len=68`; `len=64` is missing two bit pairs and
+  must remain rejected rather than guessing a key from its following repeat.
+  `FLS_IR_DECODE` shows the
   decoder result, including rejected UNKNOWN captures. Only counters run in
   the ISR; all serial output runs in the main loop. Disabled diagnostics emit
   no logging or counter overhead. Debug also captures before any keys are

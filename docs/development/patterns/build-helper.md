@@ -22,6 +22,12 @@
 The local FastAPI helper in `backend/app.py`: build timing, binary export, and
 keeping both toolchains' caches warm.
 
+- Arduino IR builds query `config dump --format json` and check the configured
+  sketchbook's `libraries/IRremote` header and pinned version before installing.
+  An existing 4.7.1 checkout skips `lib install` and its index/network overhead.
+  Recheck the files each build so removal or version changes trigger installation;
+  unavailable configuration falls back to the ordinary install/error path.
+
 Moved out of the always-loaded `CLAUDE.md` so a session reads it only when
 working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.

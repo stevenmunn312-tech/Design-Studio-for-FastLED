@@ -1409,8 +1409,37 @@ def _ensure_fbuild_irremote_lib():
     _fbuild_irremote_lib_ready = True
 
 
+def _arduino_irremote_matches_pin() -> bool:
+    """Check the CLI's configured sketchbook without starting library management."""
+    try:
+        proc = subprocess.run(
+            _ARDUINO_BASE + ["config", "dump", "--format", "json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if proc.returncode != 0:
+            return False
+        payload = json.loads(proc.stdout)
+        if not isinstance(payload, dict):
+            return False
+        config = payload.get("config", payload)
+        if not isinstance(config, dict):
+            return False
+        directories = config.get("directories")
+        if not isinstance(directories, dict):
+            return False
+        user_dir = directories.get("user")
+        if not isinstance(user_dir, str) or not user_dir.strip():
+            return False
+        return _irremote_checkout_matches_pin(Path(user_dir) / "libraries" / "IRremote")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        # Unavailable config must not prevent the normal install/repair path.
+        return False
+
+
 def _ensure_arduino_irremote_lib():
-    """Ask arduino-cli for the same Arduino-IRremote release fbuild vendors."""
+    """Install the pinned release only when its configured checkout is missing."""
+    if _arduino_irremote_matches_pin():
+        return 0
     rc = yield from _run_phase(
         f"install Arduino-IRremote {_IRREMOTE_VERSION}",
         _ARDUINO_BASE + ["lib", "install", f"IRremote@{_IRREMOTE_VERSION}", "--no-deps"],

@@ -130,7 +130,16 @@ ${debug ? `    Serial.print("FLS_IR_RAW len="); Serial.print(raw.rawlen);
     Serial.print(" gap_us="); Serial.print((uint32_t)gapTicks * MICROS_PER_TICK);
     Serial.print(" mark_us="); Serial.print(raw.rawlen > 1 ? (uint32_t)raw.rawbuf[1] * MICROS_PER_TICK : 0);
     Serial.print(" space_us="); Serial.print(raw.rawlen > 2 ? (uint32_t)raw.rawbuf[2] * MICROS_PER_TICK : 0);
-    Serial.print(" stop_us="); Serial.println(raw.rawlen > 3 ? (uint32_t)raw.rawbuf[3] * MICROS_PER_TICK : 0);` : ''}
+    Serial.print(" bit_mark_us="); Serial.print(raw.rawlen > 3 ? (uint32_t)raw.rawbuf[3] * MICROS_PER_TICK : 0);
+    Serial.print(" stop_us="); Serial.println(raw.rawlen > 3 ? (uint32_t)raw.rawbuf[raw.rawlen - 1] * MICROS_PER_TICK : 0);
+    // Preserve the complete capture before repeat normalization or decoding.
+    Serial.print("FLS_IR_TIMINGS len="); Serial.print(raw.rawlen);
+    Serial.print(" data_us=");
+    for (size_t i = 1; i < raw.rawlen; ++i) {
+      if (i > 1) Serial.print(",");
+      Serial.print((uint32_t)raw.rawbuf[i] * MICROS_PER_TICK);
+    }
+    Serial.println("");` : ''}
     // IRremote copies the previous decodedIRData into its repeat identity.
     // A noisy UNKNOWN capture must not poison the next short repeat. Use the
     // last recognized capture, bounded by capture time rather than loop time.
