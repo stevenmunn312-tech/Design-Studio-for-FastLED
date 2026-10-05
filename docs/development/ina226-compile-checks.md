@@ -15,6 +15,7 @@ include: both chips are driven through their registers over `Wire`.
 | --- | --- | --- |
 | `ina226` | one INA226 at 0x4A | **Pass** |
 | `both` | an INA219 at 0x40 and an INA226 at 0x41 on one bus | **Pass** |
+| `both-debug` | both monitors with Debug enabled, shared serial startup and diagnostic helper | **Pass** (6 October 2026) |
 
 These compile fixtures cover the normal sketch generator. Slideshow and player
 display support is also implemented and checked by
@@ -29,6 +30,7 @@ From the repository root:
 npm run gen:ina226-compile-fixtures
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ina226-fixtures/ina226.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
 python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ina226-fixtures/both.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ina226-fixtures/both-debug.ino --fqbn esp32:esp32:esp32 --tag esp32 --label powerdebug
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It
@@ -49,3 +51,11 @@ Source hashes: `ina226` `ced516ca`, `both` `4665bcc8`.
 | --- | --- | --- | --- | --- |
 | ina226 | arduino-cli | pass | 418,043 / 3,145,728 (13%) | 29,060 / 327,680 (8%) |
 | both | arduino-cli | pass | 418,239 / 3,145,728 (13%) | 29,060 / 327,680 (8%) |
+
+## Debug compile check, 6 October 2026
+
+`both-debug` passed with the same ESP32 core and FastLED versions. Source hash:
+`a0a54d0b`. Flash: 431,075 / 3,145,728 bytes (13%); RAM: 29,068 / 327,680
+bytes (8%). This compiles setup configuration readback, I2C error reporting,
+raw readings and per-node diagnostic timers. It does not verify physical
+readings or wiring on a bench.

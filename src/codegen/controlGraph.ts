@@ -93,9 +93,9 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     const edge = incoming.get(`${nodeId}:${port}`)
     return edge ? resolve(edge.source, edge.sourceHandle ?? '', type) : null
   }
-  // Include an unwired receiver when diagnostics are explicitly requested.
+  // Include unwired hardware when diagnostics are explicitly requested.
   for (const node of nodes) {
-    if (node.data.nodeType !== 'IRRemoteInput' || node.data.properties.debug !== true) continue
+    if (!['IRRemoteInput', 'PowerMonitorInput'].includes(node.data.nodeType) || node.data.properties.debug !== true) continue
     const emission = controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)!
     instructions.push({ kind: 'gpio', nodeId: node.id, emission })
     done.add(node.id)
@@ -139,6 +139,8 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
   for (const include of ir.includes) includes.add(include)
   return {
     irDebug: ir.debug,
+    powerMonitorDebug: graph.instructions.some((instruction) => instruction.kind === 'gpio'
+      && instruction.emission.serialDebug === true),
     setup: [
       ...[...setup].filter((line) => line.trimStart().startsWith('Wire.begin(')).slice(0, 1),
       ...[...setup].filter((line) => !line.trimStart().startsWith('Wire.begin(')),

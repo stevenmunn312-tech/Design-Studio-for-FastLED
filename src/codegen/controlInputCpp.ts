@@ -1,5 +1,5 @@
 // GPIO controls shared by normal sketches and the fixed show controller.
-import { powerMonitorHelperCpp, powerMonitorSetupCpp, powerMonitorLoopCpp } from './powerMonitorCpp'
+import { POWER_MONITOR_DEBUG_HELPER_CPP, powerMonitorHelperCpp, powerMonitorSetupCpp, powerMonitorLoopCpp } from './powerMonitorCpp'
 import { sanitizePin } from './hardwarePins'
 import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
 import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/irRemote'
@@ -25,6 +25,8 @@ export interface ControlInputEmission {
   helpers?: string[]
   /** Headers needed by this input, deduped by the caller. */
   includes?: string[]
+  /** This input needs the shared diagnostic serial port started. */
+  serialDebug?: boolean
   /**
    * Set for an IR receiver. The poll itself is not in `loop`: one decode
    * serves every key, so the caller aggregates these and emits it once.
@@ -176,7 +178,10 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       ? { helpers: [LIGHT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
     ...(nodeType === 'PowerMonitorInput'
-      ? { helpers: [powerMonitorHelperCpp([p]).join('\n')], includes: ['#include <Wire.h>'] }
+      ? { helpers: [
+        powerMonitorHelperCpp([{ ...p, debug: false }]).join('\n'),
+        ...(p.debug === true ? [POWER_MONITOR_DEBUG_HELPER_CPP.join('\n')] : []),
+      ], includes: ['#include <Wire.h>'], serialDebug: p.debug === true }
       : {}),
     ...(nodeType === 'EnvironmentInput'
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }

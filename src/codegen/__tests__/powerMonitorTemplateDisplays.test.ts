@@ -35,6 +35,33 @@ const powerEdges = panels.map((panel) => edge(monitor.id, 'display', panel.id, '
 const groups = { p: { nodes: [node('fill', 'SolidColor'), node('end', 'GroupOutput')], edges: [edge('fill', 'frame', 'end', 'frame')] } }
 
 describe('Power Monitor displays in template builds', () => {
+  it.each(['show', 'player'] as const)('services wired and unwired debug monitors once in a %s build', (mode) => {
+    const nodes = [node('debug219', 'PowerMonitorInput', { debug: true }),
+      node('debug226', 'PowerMonitorInput', { debug: true, partId: INA226_PART_ID, i2cAddress: '0x41' }),
+      node('quiet', 'PowerMonitorInput', { i2cAddress: '0x44' }), ...panels.slice(0, 2), node('out', 'MatrixOutput'),
+      node('show', 'PatternSlideshow'), node('set', 'PatternCollection', { patternIds: ['p'] }), node('player', 'PatternMaster')]
+    const edges = [edge('debug219', 'display', 'seg4', 'display'), edge('quiet', 'display', 'seg8', 'display'),
+      edge('set', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')]
+    const cpp = mode === 'show' ? generateShowSketch(nodes, edges, groups)
+      : generatePlayerSketch({}, undefined, { controlGraph: playerControlGraph(nodes, edges, undefined, 'player') })
+    expect(cpp.match(/Serial\.begin\(115200\)/g)).toHaveLength(1)
+    expect(cpp.match(/static void _powerMonitorDebugMeasure\(/g)).toHaveLength(1)
+    expect(cpp.match(/static void _ina219Measure\(/g)).toHaveLength(1)
+    expect(cpp.match(/^\s*Wire\.begin\(/gm)).toHaveLength(1)
+    const setup = cpp.slice(cpp.indexOf('void setup()'), cpp.indexOf('void loop()'))
+    expect(setup.indexOf('Serial.begin(')).toBeLessThan(setup.indexOf('_powerMonitorDebugBegin('))
+    expect(setup.indexOf('Wire.begin(')).toBeLessThan(setup.indexOf('_powerMonitorDebugBegin('))
+    expect(setup).toContain('_powerMonitorDebugBegin(0x40, false, 0.1000f, 2.500f)')
+    expect(setup).toContain('_powerMonitorDebugBegin(0x41, true, 0.0020f, 2.500f)')
+    expect(setup).toContain('_ina219Begin(0x44);')
+    const loop = cpp.slice(cpp.indexOf('void loop()'))
+    expect(loop.match(/_powerMonitorDebugMeasure\(/g)).toHaveLength(2)
+    expect(loop.match(/_ina219Measure\(/g)).toHaveLength(1)
+    expect(loop).toContain('n_debug219_volts_debugLast')
+    expect(loop).toContain('n_debug226_volts_debugLast')
+    expect(loop).not.toContain('n_quiet_volts_debugLast')
+  })
+
   it.each(['show', 'player'] as const)('reads the sensor and removes the unsupported-source suggestion in a %s build', (mode) => {
     const nodes = [monitor, ...panels, node('out', 'MatrixOutput')]
     const edges = [...powerEdges]

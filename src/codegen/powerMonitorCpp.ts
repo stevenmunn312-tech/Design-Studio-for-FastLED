@@ -90,6 +90,80 @@ export const POWER_MONITOR_INA226_HELPER_CPP: readonly string[] = [
   '}',
 ]
 
+// Only emitted when diagnostics are requested. Use Serial.print for boards
+// without printf, and keep all I/O in setup/loop (never in an interrupt).
+export const POWER_MONITOR_DEBUG_HELPER_CPP: readonly string[] = `
+static void _powerMonitorDebugPrefix(uint8_t addr, bool ina226) {
+  Serial.print(F("FLS_POWER_DEBUG device=")); Serial.print(ina226 ? F("INA226") : F("INA219"));
+  Serial.print(F(" addr=0x")); Serial.print(addr, HEX);
+}
+static bool _powerMonitorDebugRead(uint8_t addr, bool ina226, uint8_t reg, int16_t &value, bool log) {
+  Wire.beginTransmission(addr);
+  Wire.write(reg);
+  uint8_t error = Wire.endTransmission();
+  if (error != 0) {
+    if (log) {
+      _powerMonitorDebugPrefix(addr, ina226);
+      Serial.print(F(" read_failed reg=0x")); Serial.print(reg, HEX);
+      Serial.print(F(" i2c_error=")); Serial.print(error);
+      Serial.println(F(" (check power, ground, SDA/SCL and address jumpers)"));
+    }
+    return false;
+  }
+  int received = Wire.requestFrom((int)addr, 2);
+  if (received != 2) {
+    while (Wire.available()) Wire.read();
+    if (log) {
+      _powerMonitorDebugPrefix(addr, ina226);
+      Serial.print(F(" short_read reg=0x")); Serial.print(reg, HEX);
+      Serial.print(F(" bytes=")); Serial.print(received); Serial.println(F(" expected=2"));
+    }
+    return false;
+  }
+  uint8_t hi = Wire.read(), lo = Wire.read();
+  value = (int16_t)((hi << 8) | lo);
+  return true;
+}
+static void _powerMonitorDebugBegin(uint8_t addr, bool ina226, float shuntOhms, float limit) {
+  uint16_t config = ina226 ? 0x4127 : 0x399F;
+  Wire.beginTransmission(addr);
+  Wire.write((uint8_t)0x00);
+  Wire.write((uint8_t)(config >> 8)); Wire.write((uint8_t)config);
+  uint8_t error = Wire.endTransmission();
+  _powerMonitorDebugPrefix(addr, ina226);
+  Serial.print(F(" setup i2c_error=")); Serial.print(error);
+  Serial.print(F(" shunt_ohms=")); Serial.print(shuntOhms, 4);
+  Serial.print(F(" limit_A=")); Serial.print(limit, 3);
+  Serial.print(F(" config_expected=0x")); Serial.println(config, HEX);
+  int16_t actual = 0;
+  if (_powerMonitorDebugRead(addr, ina226, 0x00, actual, true)) {
+    _powerMonitorDebugPrefix(addr, ina226);
+    Serial.print(F(" config_actual=0x")); Serial.print((uint16_t)actual, HEX);
+    Serial.print(F(" config_match=")); Serial.println((uint16_t)actual == config ? 1 : 0);
+  }
+}
+static void _powerMonitorDebugMeasure(uint8_t addr, bool ina226, float shuntOhms, float limit, float &volts, float &amps, bool log) {
+  int16_t bus = 0, shunt = 0;
+  bool busOk = _powerMonitorDebugRead(addr, ina226, 0x02, bus, log);
+  bool shuntOk = _powerMonitorDebugRead(addr, ina226, 0x01, shunt, log);
+  bool connected = busOk && shuntOk;
+  volts = connected ? (ina226 ? (float)((uint16_t)bus) * 0.00125f : (float)(((uint16_t)bus) >> 3) * 0.004f) : 0.0f;
+  amps = connected ? ((float)shunt * (ina226 ? 0.0000025f : 0.00001f)) / shuntOhms : 0.0f;
+  if (log) {
+    _powerMonitorDebugPrefix(addr, ina226);
+    Serial.print(F(" connected=")); Serial.print(connected ? 1 : 0);
+    Serial.print(F(" bus_ok=")); Serial.print(busOk ? 1 : 0);
+    Serial.print(F(" shunt_ok=")); Serial.print(shuntOk ? 1 : 0);
+    Serial.print(F(" bus_raw=0x")); Serial.print((uint16_t)bus, HEX);
+    Serial.print(F(" shunt_raw=")); Serial.print(shunt);
+    Serial.print(F(" volts=")); Serial.print(volts, 3);
+    Serial.print(F(" amps=")); Serial.print(amps, 4);
+    Serial.print(F(" watts=")); Serial.print(volts * amps, 3);
+    Serial.print(F(" overcurrent=")); Serial.println(amps > limit ? 1 : 0);
+  }
+}
+`.trim().split('\n')
+
 /** True when this node's part is an INA226 rather than the INA219. */
 export function powerMonitorIsIna226(props: Record<string, unknown>): boolean {
   return powerMonitorSpec(props.partId).device === 'INA226'
@@ -100,6 +174,7 @@ export function powerMonitorHelperCpp(monitors: readonly Record<string, unknown>
   return [
     ...(monitors.some((props) => !powerMonitorIsIna226(props)) ? POWER_MONITOR_HELPER_CPP : []),
     ...(monitors.some(powerMonitorIsIna226) ? POWER_MONITOR_INA226_HELPER_CPP : []),
+    ...(monitors.some((props) => props.debug === true) ? POWER_MONITOR_DEBUG_HELPER_CPP : []),
   ]
 }
 
@@ -110,6 +185,9 @@ export function powerMonitorAddressCpp(props: Record<string, unknown>): string {
 }
 
 export function powerMonitorSetupCpp(props: Record<string, unknown>): string {
+  if (props.debug === true) {
+    return `  _powerMonitorDebugBegin(${powerMonitorAddressCpp(props)}, ${powerMonitorIsIna226(props)}, ${powerMonitorSpec(props.partId).shuntOhms.toFixed(4)}f, ${powerMonitorLimitAmps(props.overcurrentAmps).toFixed(3)}f);`
+  }
   return `  ${powerMonitorIsIna226(props) ? '_ina226Begin' : '_ina219Begin'}(${powerMonitorAddressCpp(props)});`
 }
 
@@ -122,9 +200,19 @@ export function powerMonitorLoopCpp(
   local: (port: 'volts' | 'amps' | 'watts' | 'overcurrent') => string,
 ): string[] {
   const ohms = powerMonitorSpec(props.partId).shuntOhms
+  const debug = props.debug === true
+  const stamp = `${local('volts')}_debugLast`
+  const due = `${local('volts')}_debugDue`
   return [
+    ...(debug ? [
+      `  static uint32_t ${stamp} = 0;`,
+      `  bool ${due} = (uint32_t)(millis() - ${stamp}) >= 1000u;`,
+      `  if (${due}) ${stamp} = millis();`,
+    ] : []),
     `  float ${local('volts')} = 0.0f, ${local('amps')} = 0.0f;`,
-    `  ${powerMonitorIsIna226(props) ? '_ina226Measure' : '_ina219Measure'}(${powerMonitorAddressCpp(props)}, ${ohms.toFixed(4)}f, ${local('volts')}, ${local('amps')});`,
+    debug
+      ? `  _powerMonitorDebugMeasure(${powerMonitorAddressCpp(props)}, ${powerMonitorIsIna226(props)}, ${ohms.toFixed(4)}f, ${powerMonitorLimitAmps(props.overcurrentAmps).toFixed(3)}f, ${local('volts')}, ${local('amps')}, ${due});`
+      : `  ${powerMonitorIsIna226(props) ? '_ina226Measure' : '_ina219Measure'}(${powerMonitorAddressCpp(props)}, ${ohms.toFixed(4)}f, ${local('volts')}, ${local('amps')});`,
     `  float ${local('watts')} = ${local('volts')} * ${local('amps')};`,
     `  bool ${local('overcurrent')} = ${local('amps')} > ${powerMonitorLimitAmps(props.overcurrentAmps).toFixed(3)}f;`,
   ]

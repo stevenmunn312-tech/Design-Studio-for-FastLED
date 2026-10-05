@@ -89,6 +89,15 @@ and the node's address list follows the part you added. Raise the node's
 **Overcurrent** limit to suit the load: the slider reaches 20 A. It is
 experimental until a reading is compared with a meter.
 
+For either monitor, tick **Debug**, upload again, and open the serial monitor
+at **115200 baud**. `FLS_POWER_DEBUG` identifies the chip and I2C address,
+reports the setup write and configuration readback, then prints raw bus/shunt
+readings, volts, amps, watts and overcurrent once per second. `connected=0`,
+`read_failed` or `short_read` distinguishes a failed measurement from a real
+zero; check power, ground, SDA/SCL and the address jumpers. Debug also works
+before any outputs are wired, in normal, slideshow and SD-player uploads.
+It is off by default.
+
 ### Feed a converter from a USB-C charger
 
 Choose **Add Hardware → Power conversion → ZY12PDN** to record a USB-C PD trigger on

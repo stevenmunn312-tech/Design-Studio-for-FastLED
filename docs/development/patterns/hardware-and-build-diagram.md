@@ -355,8 +355,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   render is replaced. VCC comes from 3V3, never 5 V, since the pull-up would
   hold the pin at the supply. Firmware is library-free and CRC-checked; see
   [hardware nodes](../design/hardware-nodes.md).
-- **Power monitor (experimental):** `PowerMonitorInput` is an INA219 I2C node.
-  Its board's VIN has no regulator and sets the chip's I2C pull-up level, so the
+- **Power monitor (experimental):** `PowerMonitorInput` reads an INA219 or INA226
+  over I2C.
+  INA219 and INA226 both have an opt-in `debug` checkbox. Keep unwired debug
+  monitors in normal and template builds, deduplicate the shared diagnostic
+  helper separately from each chip helper, and initialize Serial at 115200
+  before sensor setup (shared with RTC, IR and telemetry). Per-node wrap-safe
+  timers limit reads' diagnostic output to once a second; measurement still
+  runs every loop, and failed reads still zero the graph outputs. See the
+  [user guide](../../user/hardware-workbench.md#measure-a-dc-load).
+  The INA219 board's VIN has no regulator and sets the chip's I2C pull-up level, so the
   Build Diagram powers it from 3V3 via `peripheralPowerNet` even though the pad
   silkscreens VIN. The one-I2C-bus check moved out of display-specific code into
   `i2cBusValidationIssues` in `validateGraph.ts` (deploy gate + Graph Health),

@@ -4444,6 +4444,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       partId: DEFAULT_POWER_MONITOR_PART_ID,
       i2cAddress: formatI2cAddress(powerMonitorSpec(DEFAULT_POWER_MONITOR_PART_ID).defaultI2cAddress),
       overcurrentAmps: POWER_MONITOR_DEFAULT_LIMIT_AMPS,
+      debug: false,
       sdaPin: 21,
       sclPin: 22,
     },
@@ -6650,6 +6651,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 pads or jumpers: four choices on the INA219, sixteen on the INA226. Give each monitor on the bus a different one.',
     overcurrentAmps: 'Overcurrent goes true while the measured amps are above this. It clears as soon as they fall back to it or below.',
+    debug: 'Print startup configuration, I2C errors, raw sensor readings, volts, amps, watts and overcurrent status once per second. Upload again after changing this and open the serial monitor at 115200 baud. Works even with no output wires.',
     sdaPin: 'I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },

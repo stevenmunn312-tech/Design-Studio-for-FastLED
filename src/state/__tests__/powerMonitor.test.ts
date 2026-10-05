@@ -60,6 +60,42 @@ function monitorGraph(monitorProps: Record<string, unknown> = {}) {
 }
 
 describe('the catalogued INA219', () => {
+  it('defaults diagnostics off, including nodes saved before the checkbox existed', () => {
+    expect(libraryDefaults('PowerMonitorInput').debug).toBe(false)
+    const { nodes, edges } = monitorGraph()
+    delete nodes[0].data.properties.debug
+    expect(generateCpp(nodes, edges)).not.toContain('FLS_POWER_DEBUG')
+  })
+
+  it.each([undefined, INA226_PART_ID])('diagnoses an unwired monitor for part %s', (partId) => {
+    const monitor = node('debug-mon', 'PowerMonitorInput', { debug: true, ...(partId ? { partId } : {}) })
+    const nodes = [monitor, node('fill', 'SolidColor'), node('out', 'MatrixOutput')]
+    const sketch = generateCpp(nodes, [edge('frame', 'fill', 'frame', 'out', 'frame')])
+    expect(sketch).toContain('FLS_POWER_DEBUG device=')
+    expect(sketch.match(/Serial\.begin\(115200\)/g)).toHaveLength(1)
+    expect(sketch.indexOf('Serial.begin(')).toBeLessThan(sketch.indexOf('  _powerMonitorDebugBegin('))
+    expect(sketch.indexOf('Wire.begin(')).toBeLessThan(sketch.indexOf('  _powerMonitorDebugBegin('))
+    expect(sketch).toContain(`_powerMonitorDebugBegin(0x40, ${!!partId}, ${partId ? '0.0020' : '0.1000'}f, ${POWER_MONITOR_DEFAULT_LIMIT_AMPS.toFixed(3)}f)`)
+    const loop = sketch.slice(sketch.indexOf('void loop()'))
+    expect(loop.match(/_powerMonitorDebugMeasure\(/g)).toHaveLength(1)
+    expect(loop).toContain('(uint32_t)(millis() - n_debug_mon_volts_debugLast) >= 1000u')
+    for (const field of ['read_failed reg=0x', 'i2c_error=', 'short_read reg=0x', 'config_match=', 'connected=', 'bus_raw=0x', 'shunt_raw=', 'volts=', 'amps=', 'watts=', 'overcurrent=']) {
+      expect(sketch).toContain(field)
+    }
+  })
+
+  it('shares serial initialization with RTC commands and keeps a quiet monitor quiet', () => {
+    const { nodes, edges } = monitorGraph({ debug: true })
+    nodes.push(node('rtc', 'RTCInput', { timeSource: 'DS3231' }), node('clock', 'InfoDisplay'),
+      node('quiet', 'PowerMonitorInput', { i2cAddress: '0x41' }), node('panel', 'InfoDisplay'))
+    edges.push(edge('clock', 'rtc', 'display', 'clock', 'display'), edge('quiet', 'quiet', 'display', 'panel', 'display'))
+    const sketch = generateCpp(nodes, edges)
+    expect(sketch.match(/Serial\.begin\(115200\)/g)).toHaveLength(1)
+    expect(sketch).toContain('_ina219Begin(0x41);')
+    expect(sketch).toContain('_ina219Measure(0x41, 0.1000f, n_quiet_volts, n_quiet_amps);')
+    expect(sketch).not.toContain('_powerMonitorDebugBegin(0x41,')
+  })
+
   it('carries the measuring contract the firmware and picker read', () => {
     const spec = powerMonitorSpec('adafruit-ina219-current-sensor')
     expect(spec).toMatchObject({ shuntOhms: 0.1, busVoltageMaxV: 26, currentMaxA: 3.2, defaultI2cAddress: 0x40 })

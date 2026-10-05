@@ -51,6 +51,7 @@ function sketch(monitors: Record<string, Record<string, unknown>>): string {
 const fixtures = {
   ina226: sketch({ mon: INA226 }),
   both: sketch({ mon: INA219, mon226: { ...INA226, i2cAddress: '0x41' } }),
+  'both-debug': sketch({ mon: { ...INA219, debug: true }, mon226: { ...INA226, i2cAddress: '0x41', debug: true } }),
 }
 
 for (const [name, source] of Object.entries(fixtures)) {
@@ -58,7 +59,7 @@ for (const [name, source] of Object.entries(fixtures)) {
   const found = [
     count(/static void _ina226Measure\(/g), count(/static void _ina219Measure\(/g), count(/Wire\.begin\(/g),
   ]
-  const expected = name === 'both' ? [1, 1, 1] : [1, 0, 1]
+  const expected = name.startsWith('both') ? [1, 1, 1] : [1, 0, 1]
   if (found.join() !== expected.join()) {
     throw new Error(`${name}: expected INA226/INA219 helpers and bus starts ${expected}, found ${found}`)
   }
