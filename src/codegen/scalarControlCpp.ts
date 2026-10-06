@@ -2,7 +2,7 @@
 import { displayString, normalizeNumberFormat } from '../state/displays/displayText'
 import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../nodes/shared/stepValue'
 import { toggleCpp } from './toggleCpp'
-import { formatNumberCpp, textValueCpp } from './displayTextCpp'
+import { formatNumberCpp, textValueCpp } from './displays/displayTextCpp'
 
 export type ControlDataType = 'float' | 'bool' | 'string'
 

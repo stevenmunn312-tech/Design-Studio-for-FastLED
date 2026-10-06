@@ -3,7 +3,7 @@ import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from 
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
-import { wrapXBlockLines } from '../../codegen/wrapXHelperCpp'
+import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import {
   CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
   LIGHTNING_FLASH_LEN, SUNRISE_GAMMA, SUNRISE_STOPS, candleMode, sunriseMode,

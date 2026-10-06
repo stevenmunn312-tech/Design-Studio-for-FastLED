@@ -23,7 +23,7 @@ import {
   type RawTouchPoint,
   type TouchCalibrationCapture,
 } from './transportTouch'
-import { generateTouchCalibrationSketch, touchCalibrationTargetFor } from '../../codegen/touchCalibrationSketch'
+import { generateTouchCalibrationSketch, touchCalibrationTargetFor } from '../../codegen/sketches/touchCalibrationSketch'
 import { rootGraphNodes, useGraphStore } from '../graphStore'
 import { tftControllerForProps } from '../nodeLibrary'
 import { asTftRotation } from './tftSurface'

@@ -14,9 +14,9 @@ import { controlPhaseViolation } from '../../state/player/controlPhases'
 import { createControlGraph, controlGraphCpp } from '../controlGraph'
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
-import { playerControlGraph } from '../playerControlGraph'
+import { playerControlGraph } from '../player/playerControlGraph'
 import { buildShowPlayer } from '../../utils/showUpload'
-import { IR_RMT_RECEIVER_CPP } from '../irRmtReceiverCpp'
+import { IR_RMT_RECEIVER_CPP } from '../peripherals/irRmtReceiverCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)

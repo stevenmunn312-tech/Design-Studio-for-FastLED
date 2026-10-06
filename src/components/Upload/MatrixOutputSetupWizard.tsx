@@ -3,7 +3,7 @@ import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStor
 import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/nodeLibrary'
 import { validateMatrixLayout } from '../../state/output/xyLayout'
-import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
+import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import { describePort } from '../../utils/portStatus'

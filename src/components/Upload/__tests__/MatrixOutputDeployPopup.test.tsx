@@ -10,7 +10,7 @@ import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/output/streamStore'
 import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { generateCpp } from '../../../codegen/cppGenerator'
-import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
+import { generateWiringDiagnosticSketch } from '../../../codegen/sketches/wiringDiagnosticGenerator'
 import { findDeployBlockingErrors, findFirmwareRamBudgetIssue, findHub75TopologyDiagnosticErrors } from '../../../utils/validateGraph'
 import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { bakeCustomDisplayAssets, type BakedCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
@@ -27,13 +27,13 @@ vi.mock('../../../codegen/showGenerator', () => ({
   isPatternShow: vi.fn(() => false),
 }))
 
-vi.mock('../../../codegen/streamReceiverGenerator', () => ({
+vi.mock('../../../codegen/sketches/streamReceiverGenerator', () => ({
   generateStreamReceiverSketch: vi.fn(() => '// stream receiver'),
   streamLayoutForGraph: vi.fn(() => ({ width: 16, height: 16, map: [0] })),
   streamReceiverCapabilityNotes: vi.fn(() => []),
 }))
 
-vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
+vi.mock('../../../codegen/sketches/wiringDiagnosticGenerator', () => ({
   generateWiringDiagnosticSketch: vi.fn(() => '// wiring diagnostic'),
 }))
 

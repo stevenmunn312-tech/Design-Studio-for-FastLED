@@ -15,7 +15,7 @@ const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
  * `leftLevel`/`rightLevel` — browser capture, browser decoder preview, the
  * offline bake, and both firmware capture paths — owes the fixture the same
  * 0..1 scale, so the conversion lives here rather than being restated at each
- * measurement site. `src/codegen/stereoLevelCpp.ts` emits the C++ half from
+ * measurement site. `src/codegen/audio/stereoLevelCpp.ts` emits the C++ half from
  * these same constants.
  */
 export function conditionRmsLevel(rms: number, gain = 1): number {

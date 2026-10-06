@@ -72,7 +72,7 @@ export interface LocalTrackInfo {
 /**
  * Title a file the way the SD player does when it carries no tags.
  *
- * Mirrors `songResetFromFile` in codegen/playerSongInfoCpp.ts, so a track reads
+ * Mirrors `songResetFromFile` in codegen/player/playerSongInfoCpp.ts, so a track reads
  * the same in preview and on the panel.
  */
 export function localTrackTitle(fileName: string): string {

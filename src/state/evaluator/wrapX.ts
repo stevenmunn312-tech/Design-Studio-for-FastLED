@@ -8,7 +8,7 @@
  * the two canvas edges meet. The weights are normalised by their root sum of
  * squares so the blend keeps a noise field's contrast instead of averaging it
  * flat mid-canvas; values are taken about 0.5, the middle of the 0–1 range.
- * `WRAP_X_HELPER_CPP` (codegen/wrapXHelperCpp.ts) is the C++ twin.
+ * `WRAP_X_HELPER_CPP` (codegen/helpers/wrapXHelperCpp.ts) is the C++ twin.
  */
 export function wrapXMix(plain: number, shifted: number, x: number, width: number): number {
   const wb = x / width

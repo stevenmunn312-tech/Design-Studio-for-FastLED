@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { Frame } from '../graphEvaluator'
 import { startStream, sendStreamFrame, stopStream } from '../../utils/backendClient'
 import { buildAdalightPacketFromRgb } from '../../utils/adalight'
-import type { StreamLayout } from '../../codegen/streamReceiverGenerator'
+import type { StreamLayout } from '../../codegen/sketches/streamReceiverGenerator'
 
 // Latest computed matrix frame, written every render-loop tick (~60fps, see
 // LEDPreview.tsx) and read by the send-loop below at its own throttled rate.

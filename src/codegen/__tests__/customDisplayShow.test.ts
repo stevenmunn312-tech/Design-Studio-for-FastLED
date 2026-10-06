@@ -5,7 +5,7 @@ import { createDisplayDocument, addDisplayWidget } from '../../state/displays/di
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { customDisplayAssetRequests } from '../../state/displays/customDisplayResources'
 import { generateShowSketch } from '../showGenerator'
-import { showControlRouting } from '../showControlRouting'
+import { showControlRouting } from '../player/showControlRouting'
 import { buildGraphDiagnostics, findOutputRuntimeIssues, findDisplayGeneratorIssues } from '../../utils/validateGraph'
 import { assertWireable } from '../../test-utils/assertWireable'
 

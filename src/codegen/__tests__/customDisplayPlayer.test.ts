@@ -5,7 +5,7 @@ import { createDisplayDocument, addDisplayWidget } from '../../state/displays/di
 import { customDisplayAssetRequests } from '../../state/displays/customDisplayResources'
 import { buildShowPlayer, buildShowPlayerForMeasurement, buildShowPayload } from '../../utils/showUpload'
 import { buildGraphDiagnostics, findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../../utils/validateGraph'
-import { playerControlGraph } from '../playerControlGraph'
+import { playerControlGraph } from '../player/playerControlGraph'
 import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

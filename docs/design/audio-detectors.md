@@ -152,7 +152,7 @@ Song Structure as inactive.
 `PitchDetect` (category `audio`) exposes pitch, note and key. Pitch and note
 are our own code running FastLED's arithmetic, because the stock detector
 cannot work on a device; key is FastLED's `KeyDetector`. The browser side is
-`src/audio/fastledPitch.ts`; the firmware twin is `src/codegen/pitchHelperCpp.ts`,
+`src/audio/fastledPitch.ts`; the firmware twin is `src/codegen/helpers/pitchHelperCpp.ts`,
 which imports its constants from the TypeScript so the two cannot drift.
 
 ### Why FastLED's `Pitch` is not used on the device

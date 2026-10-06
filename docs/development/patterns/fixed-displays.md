@@ -154,7 +154,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   added in C++. Ordered rather than error-diffused dither is what makes a bake
   reproducible. Trust is threaded through the bake same as evaluation elsewhere:
   `evaluateGraph` defaults to trusted, and a bake evaluates whatever a collected
-  pattern contains. `src/codegen/patternThumbnailCpp.ts` emits the PROGMEM table
+  pattern contains. `src/codegen/displays/patternThumbnailCpp.ts` emits the PROGMEM table
   once per collection, not per sketch, with an identifier-stemmed name
   (`THUMB_COUNT_<stem>` etc.) — two Pattern Browsers can be showing different
   collections, and one shared table would quietly make the second browser draw
@@ -199,7 +199,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Colour TFT (ST7789/ST7789V) support exists as pure modules mirroring the OLED
   family — `src/state/displays/tftSurface.ts` (surface primitives),
   `src/state/displays/transportDisplay.ts` (Waiting/Clock/Now Playing/Fixed
-  Transport/Show Status layouts), `src/codegen/tftDisplayCpp.ts` (driver) — and
+  Transport/Show Status layouts), `src/codegen/displays/tftDisplayCpp.ts` (driver) — and
   `TransportDisplay` is wired end to end: its preview in `src/nodes/output/evaluate.ts`,
   its firmware in both sketch generators, resolved player displays, controller
   lookup, and RAM validation. Artwork is player-owned baked data rather than a
@@ -213,14 +213,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/utils/bakeTransportArtworks.ts` evaluates at a fixed tick and packs 96x96
   big-endian RGB565; `src/utils/transportArtworks.ts` finds each panel/player
   route and enforces the eight-artwork flash budget;
-  `src/codegen/transportArtworkCpp.ts` emits an indexed PROGMEM table; the
+  `src/codegen/displays/transportArtworkCpp.ts` emits an indexed PROGMEM table; the
   preview caches and draws the same converted bytes. It publishes a
   `playercontrols` bundle for XPT2046 touch; terminal discovery therefore
   derives from input-bearing output-category nodes as well as ordinary
   output-less sinks, so an interactive display remains hot and remains a codegen
   root. `src/state/displays/transportTouch.ts` owns calibration, rotation and hit
   regions; player firmware samples the separately routable touch header through
-  `src/codegen/tftTouchCpp.ts`. The browser node body writes mounted pixel
+  `src/codegen/displays/tftTouchCpp.ts`. The browser node body writes mounted pixel
   coordinates to the transient `transportDisplayTouchStore`, and the evaluator
   applies those same hit regions so pointer preview and firmware do not invent
   separate controls. Fixed Transport exposes finger-sized Previous, Play/Pause

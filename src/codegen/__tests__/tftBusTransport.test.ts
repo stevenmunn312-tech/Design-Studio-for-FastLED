@@ -12,10 +12,10 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { tftDisplayHelpersCpp } from '../tftDisplayCpp'
+import { tftDisplayHelpersCpp } from '../displays/tftDisplayCpp'
 import {
   customDisplayPanelFromProps, customDisplayPanelHelpersCpp, customDisplayPanelSetupCpp,
-} from '../customDisplayPanelCpp'
+} from '../displays/customDisplayPanelCpp'
 
 const cpp = tftDisplayHelpersCpp()
 

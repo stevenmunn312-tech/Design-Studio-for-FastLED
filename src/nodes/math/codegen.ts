@@ -1,4 +1,4 @@
-import { formatDateTimeCpp } from '../../codegen/displayTextCpp'
+import { formatDateTimeCpp } from '../../codegen/displays/displayTextCpp'
 import { asDateTimeTextMode } from '../../state/displays/displayText'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'

@@ -2,7 +2,7 @@
  * The title, artist and album an audio file carries, read in the browser.
  *
  * The SD player reads the same ID3 frames on the device (`audio_id3data` in
- * codegen/playerSongInfoCpp.ts), so a track played from the preview's local
+ * codegen/player/playerSongInfoCpp.ts), so a track played from the preview's local
  * playlist reports what the panel will say rather than a filename and a blank
  * artist row. Tags are read, never guessed: a file without them keeps its
  * filename as the title and leaves the artist blank, exactly as on the device.

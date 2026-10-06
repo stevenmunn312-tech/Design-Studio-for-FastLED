@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { compositeTransition, type Frame } from '../graphEvaluator'
 import { PROPERTY_META } from '../nodeLibrary'
 import { SHOW_TRANSITIONS } from '../../codegen/performanceGenerator'
-import { TRANSITION_HELPER_CPP, transitionHelperCpp } from '../../codegen/transitionHelperCpp'
+import { TRANSITION_HELPER_CPP, transitionHelperCpp } from '../../codegen/helpers/transitionHelperCpp'
 
 const solid = (W: number, H: number, r: number, g: number, b: number): Frame =>
   Array.from({ length: H }, () => Array.from({ length: W }, () => ({ r, g, b })))

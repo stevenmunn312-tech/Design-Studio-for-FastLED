@@ -1,4 +1,4 @@
-import { playerControlGraph } from '../codegen/playerControlGraph'
+import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import {
   CLOCKLESS_CHIPSET_OPTIONS,
@@ -34,18 +34,18 @@ import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
 import {
   controlChainDestinations, playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS,
-} from '../codegen/playerDisplays'
-import { OLED_PANEL_RAM_BYTES } from '../codegen/infoDisplayCpp'
-import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
-import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
-import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
-import { customDisplayRamBytes } from '../codegen/customDisplayRam'
+} from '../codegen/player/playerDisplays'
+import { OLED_PANEL_RAM_BYTES } from '../codegen/displays/infoDisplayCpp'
+import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/displays/segmentDisplayCpp'
+import { TFT_PANEL_RAM_BYTES } from '../codegen/displays/tftDisplayCpp'
+import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/displays/customDisplayLvglCpp'
+import { customDisplayRamBytes } from '../codegen/displays/customDisplayRam'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/player/wireFirstControls'
 import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/peripherals/powerMonitor'
 import { pwmDriverAddress } from '../state/peripherals/pwmDriver'
 import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport } from '../state/peripherals/distanceSensor'
-import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
+import { showControlRouting, showControlOutputIds } from '../codegen/player/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
 } from '../state/displays/mountedDisplays'
@@ -53,7 +53,7 @@ import { transportTouchRegions } from '../state/displays/transportTouch'
 import {
   normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR,
   PROBE_LED_STATUS,
-} from '../codegen/displaySourceExpressions'
+} from '../codegen/displays/displaySourceExpressions'
 import { resolveBuildMode } from '../state/upload/buildMode'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,

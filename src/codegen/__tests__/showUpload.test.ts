@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { generateProvisionerSketch, PROVISION_CHUNK, PROVISION_RX_BUFFER } from '../provisionerSketchGenerator'
+import { generateProvisionerSketch, PROVISION_CHUNK, PROVISION_RX_BUFFER } from '../sketches/provisionerSketchGenerator'
 import { generatePlayerSketch, playerConfigFromGraph } from '../playerSketchGenerator'
-import { TRANSITION_HELPER_CPP } from '../transitionHelperCpp'
+import { TRANSITION_HELPER_CPP } from '../helpers/transitionHelperCpp'
 
 describe('generateProvisionerSketch', () => {
   it('bakes the complete SD SPI bus and chunk size into the sketch', () => {

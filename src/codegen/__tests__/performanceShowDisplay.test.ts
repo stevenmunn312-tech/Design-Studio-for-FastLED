@@ -11,8 +11,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildShowPlayer } from '../../utils/showUpload'
 import { resolveBuildMode } from '../../state/upload/buildMode'
-import { playerDisplaysFromGraph } from '../playerDisplays'
-import { playerControlGraph, PLAYER_SELECTION_STEM } from '../playerControlGraph'
+import { playerDisplaysFromGraph } from '../player/playerDisplays'
+import { playerControlGraph, PLAYER_SELECTION_STEM } from '../player/playerControlGraph'
 import { playerControlsFromGraph } from '../playerSketchGenerator'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 

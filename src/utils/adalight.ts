@@ -1,5 +1,5 @@
 import type { Frame } from '../state/graphEvaluator'
-import type { StreamLayout } from '../codegen/streamReceiverGenerator'
+import type { StreamLayout } from '../codegen/sketches/streamReceiverGenerator'
 
 // Row-major grid coordinate → physical strip index, mirroring the XY() the
 // C++ generator emits for a serpentine MatrixOutput (cppGenerator.ts). The

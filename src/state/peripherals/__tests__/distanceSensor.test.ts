@@ -15,7 +15,7 @@ import {
   distanceSensorAddress, distanceSensorAddressOptions, distancePreviewDefault, distancePreviewReading,
   distanceSensorPinKeys, distanceSensorSpec, distanceSensorTransport, HCSR04_PART_ID, VL53L0X_PART_ID, VL53L1X_PART_ID,
 } from '../distanceSensor'
-import { VL53L0X_VERSION, VL53L1X_VERSION } from '../../../codegen/distanceSensorCpp'
+import { VL53L0X_VERSION, VL53L1X_VERSION } from '../../../codegen/peripherals/distanceSensorCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!

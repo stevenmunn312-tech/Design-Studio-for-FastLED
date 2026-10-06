@@ -33,17 +33,17 @@ import { stringPositions } from '../../state/output/stringPositions'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
 import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
 import MatrixSizePopup from './MatrixSizePopup'
-import BeatDetectBody from './BeatDetectBody'
-import FFTAnalyzerBody from './FFTAnalyzerBody'
-import AudioCapabilityBody from './AudioCapabilityBody'
-import StorageCapabilityBody from './StorageCapabilityBody'
-import HardwareInputBody from './HardwareInputBody'
-import ButtonBankBody from './ButtonBankBody'
-import IRRemoteBody from './IRRemoteBody'
-import PlayerControlsBody from './PlayerControlsBody'
-import MidiInputBody from './MidiInputBody'
-import DmxInputBody from './DmxInputBody'
-import RtcInputBody from './RtcInputBody'
+import BeatDetectBody from './bodies/BeatDetectBody'
+import FFTAnalyzerBody from './bodies/FFTAnalyzerBody'
+import AudioCapabilityBody from './bodies/AudioCapabilityBody'
+import StorageCapabilityBody from './bodies/StorageCapabilityBody'
+import HardwareInputBody from './bodies/HardwareInputBody'
+import ButtonBankBody from './bodies/ButtonBankBody'
+import IRRemoteBody from './bodies/IRRemoteBody'
+import PlayerControlsBody from './bodies/PlayerControlsBody'
+import MidiInputBody from './bodies/MidiInputBody'
+import DmxInputBody from './bodies/DmxInputBody'
+import RtcInputBody from './bodies/RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { playerControlInputs } from '../../state/player/playerControlAssignments'
@@ -84,24 +84,24 @@ import PropertyInputMenu from './PropertyInputMenu'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../nodes/shared/signalRange'
 
-const MusicLibraryNodeBody = lazy(() => import('./MusicLibraryNodeBody'))
-const PerformanceGeneratorBody = lazy(() => import('./PerformanceGeneratorBody'))
-const PatternCollectionBody = lazy(() => import('./PatternCollectionBody'))
-const TransitionSetBody = lazy(() => import('./TransitionSetBody'))
-const PaletteBankBody = lazy(() => import('./PaletteBankBody'))
-const TransitionPickerBody = lazy(() => import('./TransitionPickerBody').then((m) => ({ default: m.TransitionBody })))
-const CustomPaletteEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.CustomPaletteEditorBody })))
-const PolineEditorBody = lazy(() => import('./PaletteEditorBody').then((m) => ({ default: m.PolineEditorBody })))
-const ImageNodeBody = lazy(() => import('./ImageNodeBody'))
-const SdVideoNodeBody = lazy(() => import('./SdVideoNodeBody'))
-const BoardNodeBody = lazy(() => import('./BoardNodeBody'))
-const Wireframe3DNodeBody = lazy(() => import('./Wireframe3DNodeBody'))
-const TransportDisplayNodeBody = lazy(() => import('./TransportDisplayNodeBody'))
-const InfoDisplayNodeBody = lazy(() => import('./InfoDisplayNodeBody'))
-const SegmentDisplayNodeBody = lazy(() => import('./SegmentDisplayNodeBody'))
-const PowerSwitchNodeBody = lazy(() => import('./PowerSwitchNodeBody'))
-const StereoVuMeterNodeBody = lazy(() => import('./StereoVuMeterNodeBody'))
-const TouchCalibrationBody = lazy(() => import('./TouchCalibrationBody'))
+const MusicLibraryNodeBody = lazy(() => import('./bodies/MusicLibraryNodeBody'))
+const PerformanceGeneratorBody = lazy(() => import('./bodies/PerformanceGeneratorBody'))
+const PatternCollectionBody = lazy(() => import('./bodies/PatternCollectionBody'))
+const TransitionSetBody = lazy(() => import('./bodies/TransitionSetBody'))
+const PaletteBankBody = lazy(() => import('./bodies/PaletteBankBody'))
+const TransitionPickerBody = lazy(() => import('./bodies/TransitionPickerBody').then((m) => ({ default: m.TransitionBody })))
+const CustomPaletteEditorBody = lazy(() => import('./bodies/PaletteEditorBody').then((m) => ({ default: m.CustomPaletteEditorBody })))
+const PolineEditorBody = lazy(() => import('./bodies/PaletteEditorBody').then((m) => ({ default: m.PolineEditorBody })))
+const ImageNodeBody = lazy(() => import('./bodies/ImageNodeBody'))
+const SdVideoNodeBody = lazy(() => import('./bodies/SdVideoNodeBody'))
+const BoardNodeBody = lazy(() => import('./bodies/BoardNodeBody'))
+const Wireframe3DNodeBody = lazy(() => import('./bodies/Wireframe3DNodeBody'))
+const TransportDisplayNodeBody = lazy(() => import('./bodies/TransportDisplayNodeBody'))
+const InfoDisplayNodeBody = lazy(() => import('./bodies/InfoDisplayNodeBody'))
+const SegmentDisplayNodeBody = lazy(() => import('./bodies/SegmentDisplayNodeBody'))
+const PowerSwitchNodeBody = lazy(() => import('./bodies/PowerSwitchNodeBody'))
+const StereoVuMeterNodeBody = lazy(() => import('./bodies/StereoVuMeterNodeBody'))
+const TouchCalibrationBody = lazy(() => import('./bodies/TouchCalibrationBody'))
 
 type PortDef = { id: string; label: string; dataType: string; carriedByControls?: boolean }
 type ConnectionTargetHint = {

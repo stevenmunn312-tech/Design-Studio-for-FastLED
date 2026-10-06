@@ -170,7 +170,7 @@ emitter both follow, per channel:
   wire on Level alone may run a dimmed load, so a knob can be a dimmer by
   itself. The Level field is not a signal and never turns the load on alone.
 - Firmware drives an 8-bit duty through one shim, `flsPwmBegin`/`flsPwmWrite`
-  (`src/codegen/powerSwitchCpp.ts`): LEDC on ESP32 (`ledcAttach` on core 3,
+  (`src/codegen/peripherals/powerSwitchCpp.ts`): LEDC on ESP32 (`ledcAttach` on core 3,
   a channel per dimmed switch channel on core 2), `analogWriteFreq` on ESP8266
   and RP2040, `analogWriteFrequency` on Teensy, and AVR's fixed ~490 Hz timer
   PWM. The duty is written only when it changes, because rewriting it every

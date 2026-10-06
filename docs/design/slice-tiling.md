@@ -75,7 +75,7 @@ accumulating `leaf = leaf * 4 + child`.
 `src/nodes/field/sliceTiling.ts` owns pattern parsing, preset bytes, the child-matrix
 builder, and the TypeScript leaf walk. Generated firmware emits the numeric
 preset bytes into two fixed eight-byte arrays and uses the C++ twin in
-`src/codegen/latticeHelperCpp.ts`, emitted once behind `needsLattice`. Parity
+`src/codegen/helpers/latticeHelperCpp.ts`, emitted once behind `needsLattice`. Parity
 tests pin the split fraction, sector constant, lattice branch, and the exact
 bytes selected for the node.
 

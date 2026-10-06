@@ -1,5 +1,5 @@
-import { playerControlGraph } from '../codegen/playerControlGraph'
-import { showControlRouting } from '../codegen/showControlRouting'
+import { playerControlGraph } from '../codegen/player/playerControlGraph'
+import { showControlRouting } from '../codegen/player/showControlRouting'
 import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { useGraphStore, type StudioNode, type StudioEdge } from '../state/graphStore'

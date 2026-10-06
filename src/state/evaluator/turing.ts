@@ -2,7 +2,7 @@ import { worleyHash } from './random'
 
 /**
  * Jonathan McCabe's multi-scale Turing patterns, shared by the Turing Field
- * preview and read by its emitter. `src/codegen/turingHelperCpp.ts` is the
+ * preview and read by its emitter. `src/codegen/helpers/turingHelperCpp.ts` is the
  * firmware twin of `turingStep`; keep the two in the same order of operations.
  *
  * Each scale compares an activator (box mean at radius r) with an inhibitor

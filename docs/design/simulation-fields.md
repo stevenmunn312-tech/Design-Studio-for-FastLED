@@ -38,7 +38,7 @@ wire reads it, the rule Slice Tiling's Cell output follows, and the RAM
 estimate counts the same wires.
 
 RAM is six floats per cell (`FluidSim: 24` in `STATEFUL_EXTRA_BYTES_PER_LED`).
-The solver helper is `codegen/fluidHelperCpp.ts`, emitted once behind
+The solver helper is `codegen/helpers/fluidHelperCpp.ts`, emitted once behind
 `needsFluid`, and a show carries it whole (`SHARED_HELPER_BLOCKS`).
 
 **Known gap.** The preview accumulates in double precision inside each cell and

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildHardwareManifest } from '../../../build/hardwareManifest'
-import { powerSwitchPwmPlan } from '../../../codegen/powerSwitchCpp'
+import { powerSwitchPwmPlan } from '../../../codegen/peripherals/powerSwitchCpp'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import {
   MODULE_PAD_GEOMETRY, peripheralGroundPadIndex, peripheralPadLabel, peripheralPowerPadIndex,

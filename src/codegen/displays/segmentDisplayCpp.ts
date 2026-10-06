@@ -1,0 +1,534 @@
+// Segment-display drivers and digit rendering, emitted into the sketch.
+//
+// Two controllers behind one node contract. A TM1637 is a two-wire part with
+// its own start/stop framing and a raw segment byte per digit; a MAX7219 is a
+// shift register clocked in 16-bit register/value frames. What they share is
+// everything above the wire — the digits, the rounding, the refusal to show a
+// number that will not fit — so that lives in state/displays/segmentDisplay.ts and only
+// the transport differs here.
+//
+// Both drivers are written inline rather than pulled from a library. The
+// protocols are short and stable, and bundling them keeps the segment slices
+// off the optional-library staging path: nothing to fetch, nothing to pin,
+// nothing to fail without a network.
+
+import {
+  SEGMENT_FAULT_CODES, SEGMENT_GLYPHS, SEGMENT_CONTROLLERS, type SegmentDisplayMode,
+  SEGMENT_POWER_SMOOTH_MS, SEGMENT_POWER_UPDATE_MS,
+} from '../../state/displays/segmentDisplay'
+
+const MAX_DIGITS = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
+
+function tm1637GlyphTable(): string {
+  return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    .map((d) => `0x${SEGMENT_GLYPHS[d].toString(16).padStart(2, '0')}`)
+    .join(', ')
+}
+
+const DASH = `0x${SEGMENT_GLYPHS['-'].toString(16).padStart(2, '0')}`
+const BLANK = `0x${SEGMENT_GLYPHS[' '].toString(16).padStart(2, '0')}`
+const E_GLYPH = `0x${SEGMENT_GLYPHS.E.toString(16).padStart(2, '0')}`
+
+/** Convert the shared A..G bit order to MAX7219's G..A raw-segment order. */
+function max7219RawGlyph(glyph: number): number {
+  let raw = 0
+  for (let bit = 0; bit < 7; bit++) raw |= ((glyph >> bit) & 1) << (6 - bit)
+  return raw
+}
+
+const MAX_E_GLYPH = `0x${max7219RawGlyph(SEGMENT_GLYPHS.E).toString(16).padStart(2, '0')}`
+
+/**
+ * Shared struct, rendering and refresh policy for any segment module.
+ *
+ * `_segWrite` only touches a module when the rendered characters change or the
+ * refresh deadline passes. An LED loop runs hundreds of times a second and both
+ * transports are bit-banged, so rewriting every frame would spend more time
+ * clocking digits than rendering the pixels they report on.
+ */
+/**
+ * Forward declaration for the top of a sketch, above the includes' first
+ * function.
+ *
+ * The Arduino .ino preprocessor hoists a prototype for every function it finds
+ * to a point above all user type definitions, so `struct SegDisplay` — declared with
+ * the helpers, far down the file — is not yet a name when the prototype for a
+ * helper taking one by reference arrives. The build then fails on a line the
+ * generator never wrote. The same trap already cost the FastLED declarations
+ * that sit beside this one in the emitted preamble.
+ */
+export const SEGMENT_DISPLAY_CPP_FORWARD = 'struct SegDisplay;'
+
+/**
+ * Internal RAM one `static SegDisplay` costs the sketch.
+ *
+ * Beside the struct it measures, for the same reason the OLED panel's figure
+ * is: `last` is one char per digit at the widest catalogued controller, and the
+ * rest is six pin/mode bytes, two flags, an int and a uint32 with the padding
+ * their alignment forces. Tens of bytes rather than the OLED's thousands — kept
+ * anyway so "a display costs nothing" stops being the answer.
+ *
+ * Sized for a 32-bit target like the OLED figure beside it; an AVR's packed
+ * struct and 2-byte int come out six bytes under.
+ */
+export const SEGMENT_DISPLAY_RAM_BYTES = (() => {
+  const bytes = 6 + MAX_DIGITS          // kind, digits, clk, data, cs, brightness + last[]
+  const withDecimal = align(bytes, 4) + 4        // int lastDecimal
+  const withFlags = withDecimal + 2              // lastColon, written
+  return align(withFlags, 4) + 4                 // uint32_t lastWriteMs
+})()
+
+function align(bytes: number, to: number): number {
+  return Math.ceil(bytes / to) * to
+}
+
+
+export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ────────────────────────────────────────────────────────
+// Mirrors src/state/displays/segmentDisplay.ts so a module shows what the preview does.
+#define SEG_MAX_DIGITS ${MAX_DIGITS}
+#define SEG_KIND_TM1637 0
+#define SEG_KIND_MAX7219 1
+#define SEG_FAULT_NONE 0
+#define SEG_FAULT_SD_CARD ${SEGMENT_FAULT_CODES.NO_SD_CARD}
+#define SEG_FAULT_NO_TRACK ${SEGMENT_FAULT_CODES.NO_PLAYABLE_TRACK}
+// Longest gap between writes when nothing changed, so a module that was
+// unplugged and returned redraws itself without the loop polling it.
+#define SEG_REFRESH_MS 1000
+
+static const uint8_t _segDigitGlyph[10] = { ${tm1637GlyphTable()} };
+static const uint8_t _segDash  = ${DASH};
+static const uint8_t _segBlank = ${BLANK};
+static const uint8_t _segE = ${E_GLYPH};
+static const uint8_t _segMaxE = ${MAX_E_GLYPH};
+
+struct SegDisplay {
+  uint8_t kind;
+  uint8_t digits;
+  // TM1637 uses clk + data; MAX7219 uses clk + data + load/CS.
+  uint8_t clk, data, cs;
+  uint8_t brightness;
+  char last[SEG_MAX_DIGITS];
+  int lastDecimal;
+  bool lastColon;
+  bool written;
+  uint32_t lastWriteMs;
+};
+
+// ── TM1637 ──────────────────────────────────────────────────────────────────
+
+static void _tmStart(SegDisplay &d) {
+  digitalWrite(d.data, HIGH); digitalWrite(d.clk, HIGH); delayMicroseconds(2);
+  digitalWrite(d.data, LOW);  delayMicroseconds(2);
+}
+
+static void _tmStop(SegDisplay &d) {
+  digitalWrite(d.clk, LOW);  delayMicroseconds(2);
+  digitalWrite(d.data, LOW); delayMicroseconds(2);
+  digitalWrite(d.clk, HIGH); delayMicroseconds(2);
+  digitalWrite(d.data, HIGH); delayMicroseconds(2);
+}
+
+// The ack is clocked but not acted on: there is no recovery for a module that
+// is not answering beyond trying again, which the refresh deadline already does.
+static void _tmByte(SegDisplay &d, uint8_t value) {
+  for (uint8_t i = 0; i < 8; i++) {
+    digitalWrite(d.clk, LOW);
+    digitalWrite(d.data, (value & 0x01) ? HIGH : LOW);
+    delayMicroseconds(3);
+    digitalWrite(d.clk, HIGH);
+    delayMicroseconds(3);
+    value >>= 1;
+  }
+  digitalWrite(d.clk, LOW);
+  pinMode(d.data, INPUT);
+  delayMicroseconds(3);
+  digitalWrite(d.clk, HIGH);
+  delayMicroseconds(3);
+  digitalWrite(d.clk, LOW);
+  pinMode(d.data, OUTPUT);
+  delayMicroseconds(3);
+}
+
+// Raw segment bytes, bit 0 = top bar through bit 6 = centre, bit 7 = point.
+static uint8_t _tmSegments(char c) {
+  if (c >= '0' && c <= '9') return _segDigitGlyph[c - '0'];
+  if (c == '-') return _segDash;
+  if (c == 'E') return _segE;
+  if (c == 'A') return 0x${SEGMENT_GLYPHS.A.toString(16)};
+  return _segBlank;
+}
+
+static void _tmFlush(SegDisplay &d, const char *text, int decimalMask, bool colon, bool lit) {
+  _tmStart(d); _tmByte(d, 0x40); _tmStop(d);            // auto-increment write
+  _tmStart(d); _tmByte(d, 0xC0);                         // from address 0
+  for (uint8_t i = 0; i < d.digits; i++) {
+    uint8_t byte = lit ? _tmSegments(text[i]) : 0x00;
+    if (lit && (decimalMask & (1 << i))) byte |= 0x80;
+    // The TM1637 carries the colon on the second digit's high bit.
+    if (lit && colon && i == 1) byte |= 0x80;
+    _tmByte(d, byte);
+  }
+  _tmStop(d);
+  _tmStart(d);
+  _tmByte(d, lit ? (uint8_t)(0x88 | (d.brightness & 0x07)) : (uint8_t)0x80);
+  _tmStop(d);
+}
+
+// ── MAX7219 ─────────────────────────────────────────────────────────────────
+
+static void _maxSend(SegDisplay &d, uint8_t reg, uint8_t value) {
+  digitalWrite(d.cs, LOW);
+  uint16_t frame = ((uint16_t)reg << 8) | value;
+  for (int8_t i = 15; i >= 0; i--) {
+    digitalWrite(d.clk, LOW);
+    digitalWrite(d.data, (frame >> i) & 1 ? HIGH : LOW);
+    digitalWrite(d.clk, HIGH);
+  }
+  digitalWrite(d.cs, HIGH);
+}
+
+/*
+ * Code B decode rather than raw segments.
+ *
+ * The MAX7219 numbers its segment bits in the opposite order to the TM1637, so
+ * writing raw bytes would need a second, reversed glyph table — one more place
+ * for a 6 to lose its top bar on one controller only. Code B has the chip do
+ * the decoding from a digit value, and it covers everything the shared renderer
+ * produces: 0-9, a dash, and blank.
+ */
+static uint8_t _maxCodeB(char c) {
+  if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
+  if (c == '-') return 0x0A;
+  return 0x0F;   // blank
+}
+
+// Error codes need an E, which Code B cannot decode. Select raw mode for that
+// digit only; the remaining digits stay in the chip's reliable Code B mode.
+static bool _maxRawGlyph(char c, uint8_t &value) {
+  if (c == 'E') { value = _segMaxE; return true; }
+  return false;
+}
+
+static void _maxFlush(SegDisplay &d, const char *text, int decimalMask, bool lit) {
+  if (!lit) { _maxSend(d, 0x0C, 0x00); return; }   // shutdown
+  _maxSend(d, 0x0C, 0x01);
+  _maxSend(d, 0x0A, (uint8_t)(d.brightness & 0x0F));
+  uint8_t decodeMask = 0;
+  for (uint8_t i = 0; i < d.digits; i++) {
+    uint8_t raw = 0;
+    if (!_maxRawGlyph(text[d.digits - 1 - i], raw)) decodeMask |= (uint8_t)(1u << i);
+  }
+  _maxSend(d, 0x09, decodeMask);
+  // Digit 1 is the rightmost, so the buffer is written in reverse.
+  for (uint8_t i = 0; i < d.digits; i++) {
+    const char c = text[d.digits - 1 - i];
+    uint8_t raw = 0;
+    uint8_t value = _maxRawGlyph(c, raw) ? raw : _maxCodeB(c);
+    if (decimalMask & (1 << (d.digits - 1 - i))) value |= 0x80;
+    _maxSend(d, (uint8_t)(i + 1), value);
+  }
+}
+
+// ── Shared ──────────────────────────────────────────────────────────────────
+
+static void _segBegin(SegDisplay &d, uint8_t kind, uint8_t digits, uint8_t clk,
+                      uint8_t data, uint8_t cs, uint8_t brightness) {
+  d.kind = kind; d.digits = digits;
+  d.clk = clk; d.data = data; d.cs = cs;
+  d.brightness = brightness;
+  d.written = false; d.lastWriteMs = 0; d.lastDecimal = -1; d.lastColon = false;
+  for (uint8_t i = 0; i < SEG_MAX_DIGITS; i++) d.last[i] = 0;
+
+  pinMode(clk, OUTPUT); pinMode(data, OUTPUT);
+  if (kind == SEG_KIND_MAX7219) {
+    pinMode(cs, OUTPUT);
+    digitalWrite(cs, HIGH);
+    _maxSend(d, 0x0F, 0x00);                       // display test off
+    _maxSend(d, 0x09, 0xFF);                       // Code B on every digit
+    _maxSend(d, 0x0B, (uint8_t)(digits - 1));      // scan limit
+    _maxSend(d, 0x0A, (uint8_t)(brightness & 0x0F));
+    _maxSend(d, 0x0C, 0x01);                       // out of shutdown
+  } else {
+    digitalWrite(clk, LOW); digitalWrite(data, LOW);
+  }
+}
+
+// Display-only filtering; sensor outputs and overcurrent stay immediate.
+struct SegPowerSmoothing {
+  bool ready = false;
+  float filtered = 0.0f, shown = 0.0f;
+  uint32_t sampledMs = 0, shownMs = 0;
+  float update(float value, uint32_t now) {
+    if (!ready || !isfinite(value) || !isfinite(filtered)) {
+      ready = true;
+      filtered = shown = value;
+      sampledMs = shownMs = now;
+      return shown;
+    }
+    float alpha = 1.0f - expf(-(float)(uint32_t)(now - sampledMs) / ${SEGMENT_POWER_SMOOTH_MS}.0f);
+    filtered += alpha * (value - filtered);
+    sampledMs = now;
+    if ((uint32_t)(now - shownMs) >= ${SEGMENT_POWER_UPDATE_MS}u) {
+      shown = filtered;
+      shownMs = now;
+    }
+    return shown;
+  }
+};
+
+// TM1637 has a centre colon, not per-digit decimal points: fixed hundredths of amps.
+static bool _segPowerColonAmps(char *text, float value) {
+  bool negative = value < 0.0f;
+  if (!isfinite(value) || fabsf(value) >= (negative ? 10.0f : 100.0f)) {
+    for (int i = 0; i < 4; i++) text[i] = '-';
+    return false;
+  }
+  long rounded = lroundf(fabsf(value) * 100.0f);
+  if (rounded > (negative ? 999 : 9999)) {
+    for (int i = 0; i < 4; i++) text[i] = '-';
+    return false;
+  }
+  for (int i = 3; i >= 0; i--) {
+    text[i] = (char)('0' + rounded % 10);
+    rounded /= 10;
+  }
+  if (negative) text[0] = '-';
+  return true;
+}
+
+// Four physical digits per MAX7219 field, signed readings, adaptive precision.
+static int _segPowerField(char *text, float value, int width) {
+  bool negative = value < 0.0f;
+  int numberWidth = width - (negative ? 1 : 0);
+  const long limit = numberWidth == 2 ? 99 : numberWidth == 3 ? 999 : 9999;
+  float magnitude = fabsf(value);
+  if (!isfinite(value) || magnitude >= (float)limit + 0.5f) {
+    for (int i = 0; i < width; i++) text[i] = '-';
+    return 0;
+  }
+  long rounded = 0;
+  int precision = numberWidth > 2 ? 2 : 1;
+  for (; precision >= 0; precision--) {
+    rounded = lroundf(magnitude * (precision == 2 ? 100.0f : precision == 1 ? 10.0f : 1.0f));
+    if (rounded <= limit) break;
+  }
+  char number[8];
+  snprintf(number, sizeof(number), "%s%0*ld", negative ? "-" : "", precision + 1, rounded);
+  int length = strlen(number);
+  for (int i = 0; i < width; i++) text[i] = i < width - length ? ' ' : number[i - (width - length)];
+  return precision > 0 ? (1 << (width - 1 - precision)) : 0;
+}
+// Writes only on change or after the refresh deadline.
+static void _segWrite(SegDisplay &d, const char *text, int decimalMask, bool colon, bool lit) {
+  uint32_t now = millis();
+  bool changed = !d.written || d.lastDecimal != decimalMask || d.lastColon != colon;
+  for (uint8_t i = 0; i < d.digits && !changed; i++) changed = d.last[i] != text[i];
+  if (!changed && (now - d.lastWriteMs) < SEG_REFRESH_MS) return;
+  for (uint8_t i = 0; i < d.digits; i++) d.last[i] = text[i];
+  d.lastDecimal = decimalMask;
+  d.lastColon = colon;
+  d.written = true;
+  d.lastWriteMs = now;
+
+  if (d.kind == SEG_KIND_MAX7219) _maxFlush(d, text, decimalMask, lit);
+  else _tmFlush(d, text, decimalMask, colon, lit);
+}
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+// Mirrors renderSegmentClock / renderSegmentIndex. These
+// produce characters rather than segment bytes, so one renderer feeds both
+// controllers and each maps characters to its own wire format above.
+
+static void _segBlankAll(char *out, uint8_t digits) {
+  for (uint8_t i = 0; i < digits; i++) out[i] = ' ';
+  out[digits] = 0;
+}
+
+static void _segAllDash(char *out, uint8_t digits) {
+  for (uint8_t i = 0; i < digits; i++) out[i] = '-';
+  out[digits] = 0;
+}
+
+static void _segFaultCode(char *out, uint8_t digits, uint16_t code) {
+  char body[8];
+  snprintf(body, sizeof(body), "E%03u", (unsigned)(code % 1000u));
+  int len = (int)strlen(body);
+  if (len > digits) { _segAllDash(out, digits); return; }
+  _segBlankAll(out, digits);
+  for (int i = 0; i < len; i++) out[digits - len + i] = body[i];
+}
+
+static void _segClock(char *out, uint8_t digits, int hour, int minute, int second) {
+  char body[16];
+  // Seconds only fit where there are six digits; on four they are the part
+  // nobody reads at a glance.
+  if (digits >= 6) {
+    snprintf(body, sizeof(body), "%02d%02d%02d", abs(hour) % 100, abs(minute) % 100, abs(second) % 100);
+  } else {
+    snprintf(body, sizeof(body), "%02d%02d", abs(hour) % 100, abs(minute) % 100);
+  }
+  int len = (int)strlen(body);
+  for (uint8_t i = 0; i < digits; i++) out[i] = ' ';
+  out[digits] = 0;
+  int start = digits - len;
+  for (int i = 0; i < len && start + i >= 0; i++) out[start + i] = body[i];
+}
+
+static void _segIndex(char *out, uint8_t digits, float value) {
+  // Guarded before the rounding, not after: lroundf on a NaN is unspecified,
+  // so folding first would let this disagree with the browser about a reading
+  // neither of them has.
+  if (!isfinite(value)) { _segAllDash(out, digits); return; }
+  long index = lroundf(value);
+  char body[16];
+  snprintf(body, sizeof(body), "%ld", index < 0 ? -index : index);
+  int len = (int)strlen(body);
+  if (index < 0 || len > digits) { _segAllDash(out, digits); return; }
+  for (uint8_t i = 0; i < digits; i++) out[i] = ' ';
+  out[digits] = 0;
+  for (int i = 0; i < len; i++) out[digits - len + i] = body[i];
+}
+`
+
+export interface SegmentDisplayEmit {
+  /** Unique C identifier stem for this display's globals. */
+  id: string
+  controller: 'TM1637' | 'MAX7219'
+  digits: number
+  clkPin: number
+  /** DIO on a TM1637, DIN on a MAX7219. */
+  dataPin: number
+  /** Load/CS. Unused by the TM1637, which has no select line. */
+  csPin: number
+  brightness: number
+  mode: SegmentDisplayMode
+  showColon: boolean
+  valueExpr: string | null
+  dateTimeExpr: string | null
+  /**
+   * Level mode: the fixture's effective blackout and 0-1 level.
+   *
+   * Two expressions rather than one pre-multiplied number, so the module can
+   * apply the same rule `renderSegmentLevel` does: blacked out reads 0, not
+   * the dimmer position. Absent when no LED output is wired, which dashes.
+   */
+  ledStatus?: { enabledExpr: string; brightnessExpr: string }
+  powerMonitor?: { volts: string; amps: string; watts: string }
+  enabledExpr: string
+  /** Zero for healthy, otherwise one of the generated SEG_FAULT_* values. */
+  faultCodeExpr?: string | null
+}
+
+export function segmentDisplayGlobalCpp(display: SegmentDisplayEmit): string {
+  return `static SegDisplay _seg_${display.id};` + (display.mode === 'Power'
+    ? `\nstatic SegPowerSmoothing _segAmps_${display.id}, _segWatts_${display.id};` : '')
+}
+
+export function segmentDisplaySetupCpp(display: SegmentDisplayEmit): string[] {
+  const kind = display.controller === 'MAX7219' ? 'SEG_KIND_MAX7219' : 'SEG_KIND_TM1637'
+  return [
+    `  _segBegin(_seg_${display.id}, ${kind}, ${display.digits}, ${display.clkPin}, ` +
+      `${display.dataPin}, ${display.csPin}, ${display.brightness});`,
+  ]
+}
+
+/** The per-frame render and conditional write for one display. */
+export function segmentDisplayLoopCpp(display: SegmentDisplayEmit): string[] {
+  const v = `_segBuf_${display.id}`
+  const d = `_segDec_${display.id}`
+  const on = `_segOn_${display.id}`
+  const fault = `_segFault_${display.id}`
+  const digits = display.digits
+  const lines = [
+    `  { // Segment Display`,
+    `    char ${v}[SEG_MAX_DIGITS + 1];`,
+    `    int ${d} = 0;`,
+    `    bool ${on} = ${display.enabledExpr};`,
+    ...(display.faultCodeExpr ? [`    uint16_t ${fault} = (uint16_t)(${display.faultCodeExpr});`] : []),
+    `    if (!${on}) {`,
+    `      _segBlankAll(${v}, ${digits});`,
+    ...(display.mode === 'Power' ? [`      _segAmps_${display.id}.ready = _segWatts_${display.id}.ready = false;`] : []),
+  ]
+
+  if (display.faultCodeExpr) {
+    lines.push(
+      `    } else if (${fault} != SEG_FAULT_NONE) {`,
+      `      _segFaultCode(${v}, ${digits}, ${fault});`,
+    )
+  }
+
+  if (display.mode === 'Clock') {
+    const dt = display.dateTimeExpr
+    // No trustworthy reading shows dashes, never a plausible midnight.
+    lines.push(
+      `    } else if (${dt ? `${dt}.valid` : 'false'}) {`,
+      `      _segClock(${v}, ${digits}, ${dt ? `${dt}.hour` : '0'}, ` +
+        `${dt ? `${dt}.minute` : '0'}, ${dt ? `${dt}.second` : '0'});`,
+      `    } else {`,
+      `      _segAllDash(${v}, ${digits});`,
+    )
+  } else if (display.mode === 'Index') {
+    lines.push(
+      `    } else {`,
+      `      _segIndex(${v}, ${digits}, ${display.valueExpr ?? '0'});`,
+    )
+  } else if (display.mode === 'Power') {
+    lines.push(
+      `    } else {`,
+      `      uint32_t _segNow_${display.id} = millis();`,
+      `      float _segAmpValue_${display.id} = _segAmps_${display.id}.update(${display.powerMonitor?.amps ?? 'NAN'}, _segNow_${display.id});`,
+      ...(digits >= 8 ? [`      ${d} = _segPowerField(${v}, _segAmpValue_${display.id}, 4);`]
+        : [`      ${d} = _segPowerColonAmps(${v}, _segAmpValue_${display.id}) ? 2 : 0;`]),
+      ...(digits >= 8 ? [
+        `      float _segWattValue_${display.id} = _segWatts_${display.id}.update(${display.powerMonitor?.watts ?? 'NAN'}, _segNow_${display.id});`,
+        `      ${d} |= _segPowerField(${v} + 4, _segWattValue_${display.id}, 4) << 4;`,
+      ] : []),
+    )
+  } else if (display.mode === 'Level') {
+    // The documented reading for this module class: the *effective* output as
+    // whole percent, so a blacked-out fixture reads 0 rather than the level it
+    // would return to. See renderSegmentLevel — the panels with room to say
+    // both draw BLACKOUT beside the level; four digits do not have that room,
+    // and 85 beside a dark fixture sends someone hunting a wiring fault.
+    const st = display.ledStatus
+    lines.push(
+      `    } else {`,
+      `      float _segLvl_${display.id} = (${st ? st.enabledExpr : 'false'}) `
+        + `? constrain((float)(${st ? st.brightnessExpr : '0.0f'}), 0.0f, 1.0f) : 0.0f;`,
+      `      _segIndex(${v}, ${digits}, (long)lroundf(_segLvl_${display.id} * 100.0f));`,
+    )
+  } else if (display.mode === 'Elapsed') {
+    // M:SS through the clock renderer, because minutes and seconds on a colon
+    // module are the same two pairs a clock draws.
+    lines.push(
+      `    } else {`,
+      `      long _segSec_${display.id} = (long)(${display.valueExpr ?? '0'});`,
+      `      if (_segSec_${display.id} < 0) _segSec_${display.id} = 0;`,
+      `      _segClock(${v}, ${digits}, (int)(_segSec_${display.id} / 60), (int)(_segSec_${display.id} % 60), 0);`,
+    )
+  } else {
+    // Nothing plugged in. A segment module cannot spell it, so it says the
+    // same thing in the vocabulary it has.
+    lines.push(
+      `    } else {`,
+      `      _segAllDash(${v}, ${digits});`,
+    )
+  }
+
+  const colon = display.showColon && display.controller === 'TM1637'
+  const baseColonExpr = display.mode === 'Clock' && colon
+    ? '((millis() / 1000) % 2) == 0'
+    // Elapsed keeps a steady colon: a blinking one on a running clock reads as
+    // the second hand, and on a track position it reads as a fault.
+    : display.mode === 'Power' && digits < 8 ? `(${d} != 0)`
+    : colon && display.mode !== 'Waiting' && display.mode !== 'Power' ? 'true' : 'false'
+  const colonExpr = display.faultCodeExpr && baseColonExpr !== 'false'
+    ? `((${fault} == SEG_FAULT_NONE) && (${baseColonExpr}))`
+    : baseColonExpr
+  lines.push(
+    `    }`,
+    `    _segWrite(_seg_${display.id}, ${v}, ${d}, ${colonExpr}, ${on});`,
+    `  }`,
+  )
+  return lines
+}

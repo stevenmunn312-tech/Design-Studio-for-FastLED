@@ -42,7 +42,7 @@ credentials, and validation stops warning about a missing SSID.
 Art-Net and NTP call `_netEnsureConnected()` and `_netConnected()`, which were
 `_wifi*` before this. Arduino-ESP32 3.x routes `WiFiUDP` sockets and SNTP over
 whichever interface is up, so those two emitters needed no Ethernet code. Only
-the bootstrap differs: `src/codegen/ethernetCpp.ts` emits `ETH.begin(ETH_PHY_W5500,
+the bootstrap differs: `src/codegen/peripherals/ethernetCpp.ts` emits `ETH.begin(ETH_PHY_W5500,
 ...)` on an `SPIClass`, sets the hostname and, when DHCP is off, `ETH.config`.
 `_netConnected()` is `ETH.connected() && ETH.hasIP()`.
 

@@ -308,7 +308,7 @@ A third port, **Controls**, takes the `playercontrols` bundle. It is not a
 value like the other two: it carries a *toggle* and a *delta*, which only mean
 anything against something that remembers the last press. That something is a
 per-output latch — `blankLedOutputLatch` / `applyLedControls` in the same
-module, mirrored by `ledOutputLatchCpp` in `codegen/playerControlsCpp.ts`.
+module, mirrored by `ledOutputLatchCpp` in `codegen/player/playerControlsCpp.ts`.
 
 The three combine rather than override each other: ANDed for blackout,
 multiplied for level, in `composeLedOutputRuntime`. That is the rule this
@@ -329,7 +329,7 @@ This is what a touch panel needed to be routable in a normal sketch. Before it,
 `PlayerControls` had no emit case there at all — the bundle's only consumers
 were the Music Player, which a normal sketch renders as a black fill, and
 another Control Map. A press had nowhere to land, so validation refused the
-wire. It now lands on a fixture. `codegen/playerControlsCpp.ts` emits the
+wire. It now lands on a fixture. `codegen/player/playerControlsCpp.ts` emits the
 bundle from ordinary graph wires (the debounce and repeat numbers read from
 `state/player/transportBridge.ts`, the detent size from `state/patterns/patternSelection.ts`),
 and `tftTouchServiceCpp` takes a **sink** — the player's own transport

@@ -38,7 +38,7 @@ the generated branch or deterministic hash family.
 distance primitives, orientation count, hash selection, and glow curve. The
 field evaluator owns only rising-edge epoch state and the canvas walk.
 
-Generated firmware uses `src/codegen/truchetHelperCpp.ts` behind
+Generated firmware uses `src/codegen/helpers/truchetHelperCpp.ts` behind
 `needsTruchet`, while cell lookup and `_latticeHashBits` remain in the existing
 lattice helper. The motif and lattice are baked as validated numeric ids; the
 per-cell hash is unsigned 32-bit on both sides and keeps its top 24 bits before

@@ -6,7 +6,7 @@ import {
   diagnosticsGeometry, transportClockGeometry, transportWaitingGeometry,
 } from '../../state/displays/transportDisplay'
 import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/displays/tftSurface'
-import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
+import { TFT_DISPLAY_CPP_FORWARD } from '../displays/tftDisplayCpp'
 
 const PLAIN = 'st7789-tft-240x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'

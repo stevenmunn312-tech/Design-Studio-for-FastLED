@@ -1424,7 +1424,7 @@ describe('StudioNode', () => {
     // the module first is not a longer wait, it is no wait at all — `lazy`
     // resolves from the module cache on the next microtask, so no timeout here
     // has to be guessed at.
-    await import('../PerformanceGeneratorBody')
+    await import('../bodies/PerformanceGeneratorBody')
     const { container, findByText } = renderNode(node)
     expect(await findByText(
       'Analyse music in a Music Library node, then preview the timed show here.',

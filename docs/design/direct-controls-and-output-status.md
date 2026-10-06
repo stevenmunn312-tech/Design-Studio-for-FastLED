@@ -869,7 +869,7 @@ removed panel/document split. Start with `src/state/nodeLibrary.ts`,
 `src/state/player/playerControlAssignments.ts`, `src/state/displays/displaySignal.ts`,
 `src/state/output/ledOutputRuntime.ts`, `src/state/graphEvaluator.ts`,
 `src/state/displays/templateControlPlan.ts`, `src/components/Canvas/StudioNode.tsx`,
-`src/codegen/playerDisplays.ts`, the three sketch generators and
+`src/codegen/player/playerDisplays.ts`, the three sketch generators and
 `src/utils/validateGraph.ts`. Follow their shared helpers for widget
 roles, property ports, screen state and persistence rather than creating
 a parallel routing system.

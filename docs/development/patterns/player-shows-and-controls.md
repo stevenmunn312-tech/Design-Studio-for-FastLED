@@ -40,7 +40,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   which kinds this bundle reaches, and `sensiblePlayerControls` intersects the
   two — so Play / Pause is not offered on a chain ending at an LED output, a
   port that would mint, wire, validate and do nothing. `ControlChainSink` in
-  `codegen/playerDisplays.ts` is an *alias* of that same union rather than a
+  `codegen/player/playerDisplays.ts` is an *alias* of that same union rather than a
   second copy. By **one job per source**: `sensiblePlayerControls` takes a
   `SensibleControlContext` and offers nothing already held by that same source
   on that node, since a press is one event — a button wired to both Brightness
@@ -93,7 +93,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   envelope's track falls back to `usePlayerTransport.localTrack` — the local
   playlist's currently open file, published by `LEDPreview.tsx` (title via
   `localTrackTitle`, mirroring `songResetFromFile` in
-  `codegen/playerSongInfoCpp.ts`) — rather than reporting blank; firmware has no
+  `codegen/player/playerSongInfoCpp.ts`) — rather than reporting blank; firmware has no
   such fallback, since a device player has no local-playlist mode to fall back
   to.
 - The player owns which pattern is playing, not the panel: `PatternMaster` keeps
@@ -114,7 +114,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `display` envelope; a panel only displays it — it does not decide, and does
   not collect its own wire to the collection. Pattern browsing belongs to
   `PatternSlideshow`, not to Music Player: a player screen is transport only.
-  `src/codegen/patternSelectionCpp.ts` emits the firmware half
+  `src/codegen/player/patternSelectionCpp.ts` emits the firmware half
   (`PATTERN_SELECTION_CPP`);
   `patternSelect`/`patternPrevious`/`patternNext`/`patternConfirm` are
   `PlayerControlAction` values in `playerSketchGenerator.ts`, and
@@ -137,7 +137,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   project can't black it out, and `applyLedOutputRuntime` copies the pooled
   `Frame` only when there's something to do — frames are shared across every
   consumer of the same upstream node, so dimming in place would dim other
-  outputs' previews too. `src/codegen/ledOutputRuntimeCpp.ts` emits the firmware
+  outputs' previews too. `src/codegen/output/ledOutputRuntimeCpp.ts` emits the firmware
   equivalent after an output's blit and before its `show()`, the one point every
   geometry branch (ring, corkscrew, crop, downscale, supersample, plain copy)
   has already converged on the physical array, using `nscale8_video` rather than
@@ -147,7 +147,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   driver's own `setBrightness8`/clear. A third port, `controls`, takes the
   `playercontrols` bundle — not a value but a *toggle* and a *delta*, so it
   needs a per-output latch (`blankLedOutputLatch`/`applyLedControls`, mirrored
-  by `ledOutputLatchCpp` in `src/codegen/playerControlsCpp.ts`). All three
+  by `ledOutputLatchCpp` in `src/codegen/player/playerControlsCpp.ts`). All three
   combine rather than override: `composeLedOutputRuntime` ANDs blackout and
   multiplies level, so no port needs a precedence rule and an unwired one
   contributes its identity. An output reads only
@@ -329,7 +329,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   browser/firmware split, not re-derived at each measurement site:
   `src/audio/stereoLevels.ts`'s `VU_RMS_NOISE_GATE`/`VU_RMS_REFERENCE` condition
   every browser producer of `leftLevel`/`rightLevel` (live capture, decoder
-  preview, baked envelope), and `src/codegen/stereoLevelCpp.ts`'s
+  preview, baked envelope), and `src/codegen/audio/stereoLevelCpp.ts`'s
   `vuNormalizedLevelCpp` emits the matching C++ from those same constants.
   `audioEngineCpp.ts`'s PCM1802 capture and `playerSketchGenerator.ts`'s decoder
   tap both call that one emitter instead of measuring raw RMS themselves — the

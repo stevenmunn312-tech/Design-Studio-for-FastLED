@@ -1,0 +1,114 @@
+import { useEffect } from 'react'
+import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
+import { useDmxStore } from '../../../state/peripherals/dmxStore'
+import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
+import { ETHERNET_NODE_TYPE } from '../../../state/peripherals/ethernetModule'
+import { clampDmxUniverse } from '../../../state/peripherals/dmx'
+import styles from './DmxInputBody.module.css'
+
+function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string): string {
+  if (!helperOnline) return 'HELPER OFFLINE'
+  if (error) return 'LISTENER ERROR'
+  if (!listening) return 'NOT LISTENING'
+  return live ? 'ART-NET LIVE' : 'LISTENING'
+}
+
+export default function DmxInputBody({ nodeId }: { nodeId: string }) {
+  const props = useGraphStore((s) =>
+    s.nodes.find((node) => node.id === nodeId)?.data.properties ?? {}
+  )
+  const helperOnline = useDmxStore((s) => s.helperOnline)
+  const listening = useDmxStore((s) => s.listening)
+  const live = useDmxStore((s) => s.live)
+  const packetRate = useDmxStore((s) => s.packetRate)
+  const error = useDmxStore((s) => s.error)
+  const snapshot = useDmxStore((s) => s.snapshot)
+  const configure = useDmxStore((s) => s.configure)
+  const stop = useDmxStore((s) => s.stop)
+  const trusted = useGraphStore((s) => s.trusted)
+  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
+  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
+  // An Ethernet module on the bench carries the network instead of Wi-Fi.
+  const wired = useGraphStore((s) => rootGraphNodes(s).some((node) => node.data.nodeType === ETHERNET_NODE_TYPE))
+
+  const universe = clampDmxUniverse(props.universe ?? 0)
+  const listenPort = Math.max(1, Math.min(65535, Math.round(Number(props.previewPort ?? 6454) || 6454)))
+  const mode = String(props.inputMode ?? 'Art-Net')
+
+  // Opening the listener is a real network side effect performed by the local
+  // helper — it binds a UDP socket on every interface, on a port this node's
+  // own `previewPort` property chooses. That property travels inside a shared
+  // graph, so merely opening someone else's project used to expose a
+  // LAN-reachable socket on a port they picked, before the user had decided
+  // anything. Hold it until the workspace is trusted, the same gate the
+  // formula/Code nodes use (fixed 2026-08-14).
+  useEffect(() => {
+    if (mode !== 'Art-Net') return
+    if (!trusted) return
+    void configure({ listenPort, universe })
+    return () => {
+      void stop()
+    }
+  }, [configure, listenPort, mode, stop, trusted, universe])
+
+  const label = !trusted ? 'LISTENER HELD — UNTRUSTED' : statusLabel(helperOnline, listening, live, error)
+  const liveValues = snapshot.channels.slice(0, 4)
+
+  return (
+    <div className={styles.body}>
+      <div className={styles.status} data-active={live}>
+        <span />
+        {mode === 'Art-Net' ? label : 'DMX512 FIRMWARE MODE'}
+      </div>
+      <div className={styles.readout}>
+        <span>universe {universe} · udp {listenPort}</span>
+        <span>{packetRate > 0 ? `${packetRate.toFixed(1)} fps` : 'idle'}</span>
+      </div>
+      <div className={styles.readout}>
+        <span>ch 1-4</span>
+        <span>{liveValues.map((value) => String(value).padStart(3, ' ')).join(' ')}</span>
+      </div>
+      {error && <div className={styles.note}>{error}</div>}
+      {mode === 'Art-Net' && !trusted && (
+        <div className={styles.note}>
+          This listener came with a project made on another computer, so it stays closed until you trust it. Choose <strong>Trust it</strong> in the banner to start receiving Art-Net.
+        </div>
+      )}
+      {mode !== 'Art-Net' && (
+        <div className={styles.note}>Preview listens for Art-Net only; firmware uses the selected DMX512 pins.</div>
+      )}
+      {mode === 'Art-Net' && wired && (
+        <div className={styles.note}>Firmware reaches the network through the Ethernet module on the bench, so no Wi-Fi credentials are needed.</div>
+      )}
+      {mode === 'Art-Net' && !wired && (
+        <>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-ssid`}>Wi-Fi SSID</label>
+            <input
+              id={`${nodeId}-dmx-ssid`}
+              className={`nodrag ${styles.fieldInput}`}
+              type="text"
+              autoComplete="off"
+              value={credentials.ssid}
+              onChange={(e) => setCredentials(nodeId, { ssid: e.target.value })}
+              placeholder="network name"
+            />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-password`}>Wi-Fi password</label>
+            <input
+              id={`${nodeId}-dmx-password`}
+              className={`nodrag ${styles.fieldInput}`}
+              type="password"
+              autoComplete="off"
+              value={credentials.password}
+              onChange={(e) => setCredentials(nodeId, { password: e.target.value })}
+              placeholder="password"
+            />
+          </div>
+          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
+        </>
+      )}
+    </div>
+  )
+}

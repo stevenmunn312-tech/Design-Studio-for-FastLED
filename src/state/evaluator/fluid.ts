@@ -1,6 +1,6 @@
 // Stam's stable fluids at LED resolution, on a periodic (wrapping) canvas: no
 // walls, so a plume that leaves one edge comes back in at the other, which suits
-// a ring or a cylinder. The C++ twin in codegen/fluidHelperCpp.ts repeats the
+// a ring or a cylinder. The C++ twin in codegen/helpers/fluidHelperCpp.ts repeats the
 // same passes in the same order; keep them together.
 
 export const FLUID_ITERATIONS_MIN = 4

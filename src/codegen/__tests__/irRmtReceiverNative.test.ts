@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { irRmtReceiverCpp } from '../irRmtReceiverCpp'
+import { irRmtReceiverCpp } from '../peripherals/irRmtReceiverCpp'
 
 const nativeGpp = spawnSync('g++', ['--version']).status === 0
 const wslGpp = !nativeGpp && process.platform === 'win32'

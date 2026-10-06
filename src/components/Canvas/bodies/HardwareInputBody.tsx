@@ -1,0 +1,342 @@
+import { useCallback, useRef } from 'react'
+import { useHardwareInputStore } from '../../../state/peripherals/hardwareInputStore'
+import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from '../../../state/peripherals/powerMonitor'
+import {
+  presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
+} from '../../../state/peripherals/presenceSensor'
+import { lightSensorPreviewReading, lightSensorTransport } from '../../../state/peripherals/lightSensor'
+import {
+  environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
+  type EnvironmentReading,
+} from '../../../state/peripherals/environmentSensor'
+import {
+  temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
+} from '../../../state/peripherals/temperatureSensor'
+import { joystickAxis, joystickPreviewKey } from '../../../state/peripherals/joystick'
+import { KEYPAD_LEGENDS, keypadButtonKey, keypadLastKey } from '../../../state/peripherals/keypad'
+import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../../state/peripherals/touchPad'
+import {
+  MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
+} from '../../../state/peripherals/motionVector'
+import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../../state/peripherals/distanceSensor'
+import styles from './HardwareInputBody.module.css'
+
+// Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
+// a pressable button, a draggable slider, and a spin-to-turn dial — so a
+// design can be played with in the browser the same way MicInput reads a
+// real microphone. Writes go straight into hardwareInputStore (transient
+// run-state, not a saved node property) and graphEvaluator reads them back
+// via getState() on the next frame.
+
+function ButtonInputWidget({ nodeId, idleLabel = 'press', activeLabel = 'PRESSED' }: {
+  nodeId: string
+  idleLabel?: string
+  activeLabel?: string
+}) {
+  const pressed = useHardwareInputStore((s) => s.button.get(nodeId) ?? false)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+
+  return (
+    <button
+      type="button"
+      className={`nodrag ${styles.button} ${pressed ? styles.buttonPressed : ''}`}
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setButton(nodeId, true) }}
+      onPointerUp={() => setButton(nodeId, false)}
+      onPointerCancel={() => setButton(nodeId, false)}
+      onPointerLeave={() => setButton(nodeId, false)}
+    >
+      {pressed ? activeLabel : idleLabel}
+    </button>
+  )
+}
+
+function PotInputWidget({ nodeId, storeKey = nodeId, initial = 0.5, readout }: {
+  nodeId: string
+  /** Run-state key; a node with several sliders gives each its own. */
+  storeKey?: string
+  initial?: number
+  /** Formats the readout in the quantity's own units. */
+  readout?: (value: number) => string
+}) {
+  const value = useHardwareInputStore((s) => s.pot.get(storeKey) ?? initial)
+  const setPot = useHardwareInputStore((s) => s.setPot)
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  const setFromClientX = useCallback((clientX: number) => {
+    const track = trackRef.current
+    if (!track) return
+    const rect = track.getBoundingClientRect()
+    const t = rect.width > 0 ? (clientX - rect.left) / rect.width : 0
+    setPot(storeKey, Math.max(0, Math.min(1, t)))
+  }, [storeKey, setPot])
+
+  return (
+    <div className={styles.potRow}>
+      <div
+        ref={trackRef}
+        className={`nodrag ${styles.potTrack}`}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId)
+          setFromClientX(e.clientX)
+        }}
+        onPointerMove={(e) => { if (e.buttons & 1) setFromClientX(e.clientX) }}
+      >
+        <div className={styles.potFill} style={{ width: `${value * 100}%` }} />
+        <div className={styles.potThumb} style={{ left: `${value * 100}%` }} />
+      </div>
+      <span className={styles.potReadout}>{readout ? readout(value) : value.toFixed(2)}</span>
+    </div>
+  )
+}
+
+/**
+ * A power monitor has no sensor in the browser, so the preview takes the two
+ * things it measures from sliders across the part's own range. Watts is not a
+ * third slider: the firmware derives it from these two, and so does preview.
+ */
+function PowerMonitorWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const start = powerMonitorPreviewDefaults(partId)
+  const units = (fraction: number, quantity: 'volts' | 'amps') => {
+    const reading = powerMonitorPreviewReading(partId, quantity === 'volts' ? fraction : 0, quantity === 'amps' ? fraction : 0)
+    return quantity === 'volts' ? `${reading.volts.toFixed(1)} V` : `${reading.amps.toFixed(2)} A`
+  }
+  return (
+    <>
+      <PotInputWidget nodeId={nodeId} storeKey={powerMonitorPreviewKey(nodeId, 'volts')} initial={start.volts}
+        readout={(v) => units(v, 'volts')} />
+      <PotInputWidget nodeId={nodeId} storeKey={powerMonitorPreviewKey(nodeId, 'amps')} initial={start.amps}
+        readout={(v) => units(v, 'amps')} />
+    </>
+  )
+}
+
+function PresenceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const movingKey = presencePreviewKey(nodeId, 'moving')
+  const stillKey = presencePreviewKey(nodeId, 'still')
+  const moving = useHardwareInputStore((s) => s.button.get(movingKey) ?? false)
+  const still = useHardwareInputStore((s) => s.button.get(stillKey) ?? false)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  const distance = presencePreviewDefaultDistance(partId)
+  return (
+    <>
+      <div className={styles.encoderRow}>
+        <button type="button" className={`nodrag ${styles.button} ${moving ? styles.buttonPressed : ''}`}
+          aria-pressed={moving} onClick={() => setButton(movingKey, !moving)}>moving</button>
+        <button type="button" className={`nodrag ${styles.button} ${still ? styles.buttonPressed : ''}`}
+          aria-pressed={still} onClick={() => setButton(stillKey, !still)}>still</button>
+      </div>
+      <PotInputWidget nodeId={nodeId} storeKey={presencePreviewKey(nodeId, 'distance')} initial={distance}
+        readout={(fraction) => `${presencePreviewReading(partId, true, false, fraction).distance.toFixed(2)} m`} />
+    </>
+  )
+}
+
+function LightInputWidget({ nodeId, partId, maxLux }: { nodeId: string; partId: unknown; maxLux: unknown }) {
+  const digital = lightSensorTransport(partId) === 'i2c'
+  return <PotInputWidget nodeId={nodeId} readout={(fraction) => {
+    const reading = lightSensorPreviewReading(partId, fraction, maxLux)
+    return digital ? `${reading.lux.toFixed(0)} lx` : reading.level.toFixed(2)
+  }} />
+}
+
+function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const start = environmentPreviewDefaults(partId)
+  const row = (field: keyof EnvironmentReading, digits: number, unit: string) => (
+    <PotInputWidget
+      nodeId={nodeId}
+      storeKey={environmentPreviewKey(nodeId, field)}
+      initial={start[field]}
+      readout={(fraction) => {
+        const values = { ...start, [field]: fraction }
+        return `${environmentPreviewReading(partId, values.temperature, values.humidity, values.pressure)[field].toFixed(digits)} ${unit}`
+      }}
+    />
+  )
+  return <>{row('temperature', 1, '°C')}{row('humidity', 0, '%')}{row('pressure', 0, 'hPa')}</>
+}
+
+function MotionVectorInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  return <>{MOTION_VECTOR_AXES.map((axis) => (
+    <PotInputWidget
+      key={axis}
+      nodeId={nodeId}
+      storeKey={motionVectorPreviewKey(nodeId, axis)}
+      initial={motionVectorPreviewDefault(partId, axis)}
+      readout={(fraction) => {
+        const value = motionVectorPreviewReading(partId, axis, fraction)
+        return axis.startsWith('accel') ? `${axis.slice(5)} ${value.toFixed(2)} g` : `${axis.slice(4)} ${Math.round(value)}°/s`
+      }}
+    />
+  ))}</>
+}
+
+function KeypadInputWidget({ nodeId }: { nodeId: string }) {
+  const buttons = useHardwareInputStore((s) => s.button)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  const setPot = useHardwareInputStore((s) => s.setPot)
+  const release = (key: number) => setButton(keypadButtonKey(nodeId, key), false)
+  return (
+    <div className={`nodrag ${styles.keypad}`}>
+      {KEYPAD_LEGENDS.map((legend, key) => {
+        const down = buttons.get(keypadButtonKey(nodeId, key)) ?? false
+        return (
+          <button
+            key={legend}
+            type="button"
+            aria-label={`Key ${legend}`}
+            aria-pressed={down}
+            className={`${styles.keypadKey} ${down ? styles.buttonPressed : ''}`}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              setPot(keypadLastKey(nodeId), key)
+              setButton(keypadButtonKey(nodeId, key), true)
+            }}
+            onPointerUp={() => release(key)}
+            onPointerCancel={() => release(key)}
+            onPointerLeave={() => release(key)}
+          >
+            {legend}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function TouchPadInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const buttons = useHardwareInputStore((s) => s.button)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  const setPot = useHardwareInputStore((s) => s.setPot)
+  const count = touchPadElectrodeCount(partId)
+  const release = (electrode: number) => setButton(touchPadButtonKey(nodeId, electrode), false)
+  return (
+    <div className={`nodrag ${styles.keypad}`}>
+      {Array.from({ length: count }, (_, electrode) => {
+        const down = buttons.get(touchPadButtonKey(nodeId, electrode)) ?? false
+        return (
+          <button
+            key={electrode}
+            type="button"
+            aria-label={`Electrode ${electrode}`}
+            aria-pressed={down}
+            className={`${styles.keypadKey} ${down ? styles.buttonPressed : ''}`}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              // The firmware reports the lowest electrode held, so a higher pad never takes over from a lower one.
+              let lowest = electrode
+              for (let other = 0; other < electrode; other += 1) {
+                if (useHardwareInputStore.getState().button.get(touchPadButtonKey(nodeId, other))) { lowest = other; break }
+              }
+              setPot(touchPadLastElectrode(nodeId), lowest)
+              setButton(touchPadButtonKey(nodeId, electrode), true)
+            }}
+            onPointerUp={() => release(electrode)}
+            onPointerCancel={() => release(electrode)}
+            onPointerLeave={() => release(electrode)}
+          >
+            {electrode}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: unknown }) {
+  const axis = (which: 'x' | 'y') => (
+    <PotInputWidget
+      nodeId={nodeId}
+      storeKey={joystickPreviewKey(nodeId, which)}
+      initial={0.5}
+      readout={(fraction) => `${which.toUpperCase()} ${joystickAxis(fraction, deadzone).toFixed(2)}`}
+    />
+  )
+  return <>{axis('x')}{axis('y')}<ButtonInputWidget nodeId={nodeId} idleLabel="push" /></>
+}
+
+function DistanceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  return <PotInputWidget
+    nodeId={nodeId}
+    storeKey={distancePreviewKey(nodeId)}
+    initial={distancePreviewDefault(partId)}
+    readout={(fraction) => `${Math.round(distancePreviewReading(partId, fraction))} mm`}
+  />
+}
+
+function TemperatureInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  return <PotInputWidget
+    nodeId={nodeId}
+    storeKey={temperaturePreviewKey(nodeId)}
+    initial={temperaturePreviewDefault(partId)}
+    readout={(fraction) => `${temperaturePreviewReading(partId, fraction).toFixed(1)} °C`}
+  />
+}
+
+// Dragging vertically spins the dial (up = increase, matching a mouse-look
+// feel); a click without much movement is treated as a tap of the encoder's
+// integrated push-button (pinSW), pulsed briefly like a real momentary switch.
+const ENCODER_DRAG_SENSITIVITY = 0.5
+const ENCODER_CLICK_THRESHOLD_PX = 4
+const ENCODER_TAP_MS = 120
+
+function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnPress: boolean }) {
+  const position = useHardwareInputStore((s) => s.encoder.get(nodeId)?.position ?? 0)
+  const pressed = useHardwareInputStore((s) => s.encoder.get(nodeId)?.pressed ?? false)
+  const setEncoder = useHardwareInputStore((s) => s.setEncoder)
+  const dragRef = useRef<{ lastY: number; moved: number } | null>(null)
+
+  const angle = ((position % 12) / 12) * 360
+
+  return (
+    <div className={styles.encoderRow}>
+      <div
+        className={`nodrag ${styles.encoderDial} ${pressed ? styles.encoderDialPressed : ''}`}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId)
+          dragRef.current = { lastY: e.clientY, moved: 0 }
+        }}
+        onPointerMove={(e) => {
+          const drag = dragRef.current
+          if (!drag || !(e.buttons & 1)) return
+          const dy = drag.lastY - e.clientY
+          drag.lastY = e.clientY
+          drag.moved += Math.abs(dy)
+          if (dy !== 0) setEncoder(nodeId, { position: position + dy * ENCODER_DRAG_SENSITIVITY })
+        }}
+        onPointerUp={() => {
+          const drag = dragRef.current
+          dragRef.current = null
+          if (drag && drag.moved < ENCODER_CLICK_THRESHOLD_PX) {
+            setEncoder(nodeId, resetOnPress ? { pressed: true, position: 0 } : { pressed: true })
+            setTimeout(() => setEncoder(nodeId, { pressed: false }), ENCODER_TAP_MS)
+          }
+        }}
+        onPointerCancel={() => { dragRef.current = null }}
+        title="Drag to turn, click to press"
+      >
+        <div className={styles.encoderNotch} style={{ transform: `rotate(${angle}deg)` }} />
+      </div>
+      <span className={styles.potReadout}>{Math.round(position)}</span>
+    </div>
+  )
+}
+
+export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux, deadzone }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown; deadzone?: unknown }) {
+  if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'MotionVectorInput') return <MotionVectorInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'KeypadInput') return <KeypadInputWidget nodeId={nodeId} />
+  if (nodeType === 'TouchPadInput') return <TouchPadInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'JoystickInput') return <JoystickInputWidget nodeId={nodeId} deadzone={deadzone} />
+  if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'EnvironmentInput') return <EnvironmentInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
+  if (nodeType === 'TouchButtonInput') return <ButtonInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />
+  if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
+  // Same two widgets, same two run-state maps — see the evaluator's note.
+  if (nodeType === 'MotionInput') return <ButtonInputWidget nodeId={nodeId} />
+  if (nodeType === 'LightInput') return <LightInputWidget nodeId={nodeId} partId={partId} maxLux={maxLux} />
+  if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
+  return null
+}

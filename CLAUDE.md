@@ -33,8 +33,8 @@ The npm scripts intentionally suppress an upstream `punycode` warning; direct `n
 - `src/state/` — the graph store, evaluator, node registry and app stores, with domain folders for displays, palettes, patterns, the player (shows and controls), audio, LED output, upload and peripherals.
 - `src/build/` — the hardware home: boards, parts, pins, power and the hardware manifest.
 - `src/nodes/` — each node's preview (`<category>/evaluate.ts`) beside its firmware (`<category>/codegen.ts`) and any helper only that category uses; `shared/` holds helpers several categories use. `graphEvaluator.ts` and `cppGenerator.ts` dispatch to them.
-- `src/components/` — React UI with adjacent CSS Modules; preview rendering lives under `components/Preview/`.
-- `src/codegen/` — normal sketches, generative-show controllers, SD-show players, diagnostics, and stream receivers.
+- `src/components/` — React UI with adjacent CSS Modules; preview rendering lives under `components/Preview/`, node bodies under `components/Canvas/bodies/`.
+- `src/codegen/` — normal sketches, generative-show controllers and SD-show players at the root; emitters grouped into `helpers/`, `displays/`, `peripherals/`, `player/`, `audio/` and `output/`; standalone diagnostic, provisioning and stream-receiver sketches in `sketches/`.
 - `src/utils/` — validation, project/share workflows, recording, layout, and upload helpers.
 - `backend/` — local FastAPI service for toolchains, compilation, serial streaming, disk sync, and upload.
 - `desktop/` — PyInstaller-based desktop packaging.

@@ -3,16 +3,16 @@ import type { GroupRegistry } from '../state/graphEvaluator'
 import { resolvePaletteId, paletteCppRef, customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
 import { CPP_SHIM_HELPERS } from '../nodes/shared/fastledShims'
-import { displayTextCppHelpers } from './displayTextCpp'
+import { displayTextCppHelpers } from './displays/displayTextCpp'
 import {
   type SegmentDisplayEmit,
   SEGMENT_DISPLAY_CPP_FORWARD,
   SEGMENT_DISPLAY_CPP_HELPERS,
   segmentDisplayGlobalCpp,
-} from './segmentDisplayCpp'
+} from './displays/segmentDisplayCpp'
 import { MAX_PIN_NUMBER } from '../build/boards/boardGpio'
 import { ethernetModuleIn, DEFAULT_ETHERNET_PART_ID } from '../state/peripherals/ethernetModule'
-import { ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp } from './ethernetCpp'
+import { ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp } from './peripherals/ethernetCpp'
 import {
   NODE_LIBRARY,
   resolveNodeScalarExpressions,
@@ -25,20 +25,20 @@ import {
   SPI_CHIPSETS,
   libraryDefaults,
 } from '../state/nodeLibrary'
-import { ledOutputManualExprs } from './ledOutputRuntimeCpp'
+import { ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
-import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobalCpp } from './playerControlsCpp'
-import { type IrRemoteProjectNode, irRemoteProjectEmission } from './irRemoteCpp'
-import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './masterSpeedCpp'
+import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobalCpp } from './player/playerControlsCpp'
+import { type IrRemoteProjectNode, irRemoteProjectEmission } from './peripherals/irRemoteCpp'
+import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './player/masterSpeedCpp'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
-import { transportArtworkTableCpp } from './transportArtworkCpp'
+import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import {
   type InfoDisplayEmit,
   INFO_DISPLAY_CPP_FORWARD,
   infoDisplayHelpersCpp,
   infoDisplayGlobalCpp,
   infoDisplayStartupStageBatchCpp,
-} from './infoDisplayCpp'
+} from './displays/infoDisplayCpp'
 import {
   type TftDisplayEmit,
   TFT_DISPLAY_CPP_INCLUDES,
@@ -46,8 +46,8 @@ import {
   tftDisplayHelpersCpp,
   tftDisplayHelperProfile,
   tftDisplayGlobalCpp,
-} from './tftDisplayCpp'
-import { type TftTouchEmit, TFT_TOUCH_CPP_HELPERS, RESISTIVE_TOUCH_CPP_HELPERS, tftTouchGlobalCpp } from './tftTouchCpp'
+} from './displays/tftDisplayCpp'
+import { type TftTouchEmit, TFT_TOUCH_CPP_HELPERS, RESISTIVE_TOUCH_CPP_HELPERS, tftTouchGlobalCpp } from './displays/tftTouchCpp'
 import {
   customDisplayLvglTapExpression,
   type CustomDisplayLvglEmit,
@@ -58,16 +58,16 @@ import {
   customDisplayLvglGlobalCpp,
   customDisplayLvglTimingSetupCpp,
   customDisplayLvglTimingLoopCpp,
-} from './customDisplayLvglCpp'
+} from './displays/customDisplayLvglCpp'
 import {
   type CustomDisplayPanelEmit,
   customDisplayPanelGlobalCpp,
   customDisplayPanelHelpersCpp,
-} from './customDisplayPanelCpp'
+} from './displays/customDisplayPanelCpp'
 import { parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
 import { customDisplayMountPlan } from '../state/displays/mountedDisplays'
 import { toggleWidgetSource } from '../state/displays/designControlBundle'
-import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
+import { customDisplayAssetsCpp } from './displays/customDisplayAssetsCpp'
 import { partById } from '../build/parts/partCatalogue'
 import { buildXYTable } from '../state/output/xyLayout'
 import {
@@ -93,52 +93,52 @@ import {
   TELEMETRY_REPORT_CPP,
 } from './deviceTelemetryCpp'
 import { rtcI2cPinsForProfile } from '../build/pins/rtcPins'
-import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
-import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
-import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
-import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLibraryInclude } from './distanceSensorCpp'
-import { JOYSTICK_HELPER_CPP } from './joystickCpp'
-import { KEYPAD_HELPER_CPP } from './keypadCpp'
-import { MOTION_VECTOR_HELPER_CPP } from './motionVectorCpp'
-import { TOUCH_PAD_HELPER_CPP } from './touchPadCpp'
-import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
-import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
+import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './peripherals/powerMonitorCpp'
+import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './peripherals/presenceSensorCpp'
+import { TEMPERATURE_SENSOR_HELPER_CPP } from './peripherals/temperatureSensorCpp'
+import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLibraryInclude } from './peripherals/distanceSensorCpp'
+import { JOYSTICK_HELPER_CPP } from './peripherals/joystickCpp'
+import { KEYPAD_HELPER_CPP } from './peripherals/keypadCpp'
+import { MOTION_VECTOR_HELPER_CPP } from './peripherals/motionVectorCpp'
+import { TOUCH_PAD_HELPER_CPP } from './peripherals/touchPadCpp'
+import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './peripherals/lightSensorCpp'
+import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './peripherals/environmentSensorCpp'
 import { lightSensorTransport } from '../state/peripherals/lightSensor'
 import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
 import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audio/audioCapabilities'
-import { amplifierIdleCpp } from './amplifierIdle'
-import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
-import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
-import { SDF_HELPER_CPP } from './sdfHelperCpp'
-import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD, WORLEY_HASH_CPP } from './latticeHelperCpp'
-import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
-import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
-import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
-import { TURING_HELPER_CPP } from './turingHelperCpp'
-import { FLUID_HELPER_CPP } from './fluidHelperCpp'
+import { amplifierIdleCpp } from './audio/amplifierIdle'
+import { TRANSITION_3D_HELPERS_CPP } from './helpers/transitionHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
+import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
+import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD, WORLEY_HASH_CPP } from './helpers/latticeHelperCpp'
+import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
+import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
+import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
+import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
+import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
 import { pressSourceBounces } from '../state/player/pressSource'
-import { FOURIER_HELPER_CPP } from './fourierHelperCpp'
-import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
+import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
+import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
 import {
   type StereoVuEmit,
   STEREO_VU_CPP_FORWARD,
   STEREO_VU_CPP_HELPERS,
   stereoVuPaletteId,
   stereoVuGlobalCpp,
-} from './stereoVuMeterCpp'
-import { audioEngineForGraph } from './audioEngineCpp'
+} from './audio/stereoVuMeterCpp'
+import { audioEngineForGraph } from './audio/audioEngineCpp'
 import { safeId, cppStringLiteral, cppComment } from './cppLiterals'
-import { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75SetupCpp } from './hub75Cpp'
+import { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75SetupCpp } from './output/hub75Cpp'
 import {
   ledHardwareFromProps,
   overclockDefineCpp,
   psramBufferDecl,
   PSRAM_ALLOC_CPP,
   fastledSetupCpp,
-} from './ledHardwareCpp'
-import { RTC_CPP_FORWARD, rtcHelperCpp, ds3231HelperCpp } from './rtcCpp'
+} from './output/ledHardwareCpp'
+import { RTC_CPP_FORWARD, rtcHelperCpp, ds3231HelperCpp } from './peripherals/rtcCpp'
 import { AUDIO_EMITTERS } from '../nodes/audio/codegen'
 import { AUDIO_REACTIVE_EMITTERS } from '../nodes/audioReactive/codegen'
 import { CODE_EMITTERS } from '../nodes/code/codegen'
@@ -156,11 +156,11 @@ import { SIGNAL_EMITTERS } from '../nodes/signal/codegen'
 import { SIMULATIONS_EMITTERS } from '../nodes/simulations/codegen'
 import type { GenerateCppOptions, SketchEmitContext, NodeEmitter } from './emitContext'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
-export { PSRAM_ALLOC_CPP, psramBufferDecl, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './ledHardwareCpp'
-export type { LedHardware } from './ledHardwareCpp'
-export { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar, hub75BlitRowsCpp, hub75SetupCpp } from './hub75Cpp'
-export type { Hub75VirtualGrid, Hub75Hardware } from './hub75Cpp'
-export { audioEngineForGraph } from './audioEngineCpp'
+export { PSRAM_ALLOC_CPP, psramBufferDecl, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp } from './output/ledHardwareCpp'
+export type { LedHardware } from './output/ledHardwareCpp'
+export { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75DisplayVar, hub75BlitRowsCpp, hub75SetupCpp } from './output/hub75Cpp'
+export type { Hub75VirtualGrid, Hub75Hardware } from './output/hub75Cpp'
+export { audioEngineForGraph } from './audio/audioEngineCpp'
 export { cppComment } from './cppLiterals'
 
 /**

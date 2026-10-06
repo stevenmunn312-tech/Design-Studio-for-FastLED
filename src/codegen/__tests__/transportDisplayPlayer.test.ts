@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { playerDisplaysFromGraph } from '../playerDisplays'
+import { playerDisplaysFromGraph } from '../player/playerDisplays'
 import { generatePlayerSketch } from '../playerSketchGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
+import { TFT_DISPLAY_CPP_FORWARD } from '../displays/tftDisplayCpp'
 import { fixedTransportGeometry, nowPlayingGeometry } from '../../state/displays/transportDisplay'
 import { assertWireable } from '../../test-utils/assertWireable'
 

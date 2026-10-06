@@ -18,7 +18,7 @@ import { displayDocumentPorts } from '../../state/displays/displayRegistry'
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { generatePlayerSketch } from '../playerSketchGenerator'
-import { playerControlGraph } from '../playerControlGraph'
+import { playerControlGraph } from '../player/playerControlGraph'
 import { findDisplayGeneratorIssues, findDeployBlockingErrors } from '../../utils/validateGraph'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

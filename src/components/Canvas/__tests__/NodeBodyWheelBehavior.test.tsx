@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import PatternCollectionBody from '../PatternCollectionBody'
-import TransitionSetBody from '../TransitionSetBody'
+import PatternCollectionBody from '../bodies/PatternCollectionBody'
+import TransitionSetBody from '../bodies/TransitionSetBody'
 
 function nodeData(type: string, properties: Record<string, unknown>) {
   const def = NODE_LIBRARY.find((n) => n.type === type)!

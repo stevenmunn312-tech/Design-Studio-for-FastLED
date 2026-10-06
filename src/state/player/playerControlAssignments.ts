@@ -49,7 +49,7 @@ export interface PlayerControlFunction {
 /**
  * The things a `playercontrols` cable can end at.
  *
- * `codegen/playerDisplays.ts` walks the graph to find which of these a given
+ * `codegen/player/playerDisplays.ts` walks the graph to find which of these a given
  * bundle actually reaches; this is the other half of the same fact — which of
  * them can *do* anything with each function. A Music Player is holding the
  * track, the lamp and the collection, so it acts on all fourteen. An LED

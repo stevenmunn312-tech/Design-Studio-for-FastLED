@@ -32,7 +32,7 @@ under bilinear sampling at integral coordinates.
 
 The browser implementation uses `sampleFrame` in
 `src/state/evaluator/frames.ts`. The generated sketch uses `_sampleFrame` from
-`src/codegen/frameSampleHelperCpp.ts`, emitted once behind `needsFrameSample`.
+`src/codegen/helpers/frameSampleHelperCpp.ts`, emitted once behind `needsFrameSample`.
 Both resolve every bilinear neighbour independently through the edge policy and
 round the weighted RGB sum once.
 

@@ -32,7 +32,7 @@ fails quietly and differently each time, so they are listed exhaustively:
 | Site | What it is | Failure if omitted |
 | --- | --- | --- |
 | `src/state/graphEvaluator.ts` — `compositeTransition` | The browser preview | Preview silently falls through to crossfade |
-| `src/codegen/transitionHelperCpp.ts` — `TRANSITION_HELPER_CPP` | The show generator **and** the SD player | Device crossfades where the preview does not |
+| `src/codegen/helpers/transitionHelperCpp.ts` — `TRANSITION_HELPER_CPP` | The show generator **and** the SD player | Device crossfades where the preview does not |
 | `src/codegen/cppGenerator.ts` — the `Transition` node arm | A normal sketch's `Transition` node | Normal-sketch export crossfades |
 | `src/codegen/performanceGenerator.ts` — `TRANSITION_IDS` | The numeric id | Style cannot be named in a show or a pool |
 | `src/state/nodeLibrary.ts` — `PROPERTY_META.transitionType` | The option list and its labels | Style exists but nobody can pick it |

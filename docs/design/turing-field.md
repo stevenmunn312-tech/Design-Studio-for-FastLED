@@ -32,7 +32,7 @@ when the canvas size or seed changes.
 
 ## Algorithm
 
-`src/state/evaluator/turing.ts` owns the step. `src/codegen/turingHelperCpp.ts`
+`src/state/evaluator/turing.ts` owns the step. `src/codegen/helpers/turingHelperCpp.ts`
 is its C++ twin, emitted once behind `needsTuring`. One iteration:
 
 1. Build a summed-area table of `a − mean(a)` over the canvas. Removing the

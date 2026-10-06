@@ -58,7 +58,7 @@ export const CYD_TOUCH_DISPLAY: IntegratedTouchDisplay = {
  * HW-12 deliberately left these unrecorded rather than copy them from family
  * documentation, because a pin map from a forum post and one measured on the
  * board look identical in the source and only one of them is evidence. The
- * probe in `codegen/sdPinProbeSketch.ts` was flashed to this unit on
+ * probe in `codegen/sketches/sdPinProbeSketch.ts` was flashed to this unit on
  * 2026-09-22 and mounted a 29,820 MB SDHC card on these pins, listing its root.
  *
  * The bus matters as much as the pins. These are the *second* SPI host — the

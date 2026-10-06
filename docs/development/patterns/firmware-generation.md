@@ -35,10 +35,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - The Arduino `.ino` preprocessor hoists a function prototype for every function
   to a point *above* all user type definitions, so a generated function that
   takes a display helper struct by reference fails to compile on a line no
-  generator wrote. `src/codegen/infoDisplayCpp.ts` (`struct OledPanel`),
-  `src/codegen/segmentDisplayCpp.ts` (`struct SegDisplay`),
-  `src/codegen/patternSelectionCpp.ts` (`struct PatternSel`), and now
-  `src/codegen/rtcCpp.ts` (`RTC_CPP_FORWARD` for `struct _RtcDateTime`, guarded
+  generator wrote. `src/codegen/displays/infoDisplayCpp.ts` (`struct OledPanel`),
+  `src/codegen/displays/segmentDisplayCpp.ts` (`struct SegDisplay`),
+  `src/codegen/player/patternSelectionCpp.ts` (`struct PatternSel`), and now
+  `src/codegen/peripherals/rtcCpp.ts` (`RTC_CPP_FORWARD` for `struct _RtcDateTime`, guarded
   by `emitRtcHelpers` and needed because `_rtcParseBuildStamp`/`_rtcReadDs3231`
   take it by reference) each hold/export a `*_CPP_FORWARD` constant emitted into
   the sketch preamble ahead of the hoisted prototypes by whichever generators
@@ -166,7 +166,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/codegen/__tests__/screenOnlyFastLed.test.ts`.
 
 - **Resampled LED outputs share one tap rule with the preview.** Half-resolution
-  render scale (`src/state/output/renderScale.ts`, `src/codegen/renderScaleCpp.ts`) and
+  render scale (`src/state/output/renderScale.ts`, `src/codegen/output/renderScaleCpp.ts`) and
   positioned strings (`src/state/output/stringPositions.ts`) take their source pixels and
   weights from `upscaleTap` / `positionTap`, and `routeFrame` and the emitted C++
   both use them; change the tap in TypeScript and the C++ together. Render scale
@@ -209,7 +209,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   bench procedure and the per-key table; its acceptance-budget tables are
   deliberately empty until measured on real hardware.
 - Touch calibration is generated and uploaded outside the normal build path on
-  purpose. `src/codegen/touchCalibrationSketch.ts` is a fourth sketch generator
+  purpose. `src/codegen/sketches/touchCalibrationSketch.ts` is a fourth sketch generator
   beside `cppGenerator.ts` (normal), `playerSketchGenerator.ts` (SD player) and
   `showGenerator.ts` (pattern show), but it is not selected by
   `resolveBuildMode`/`sdShowConnected`/`isPatternShow` and never goes through

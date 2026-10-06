@@ -19,17 +19,17 @@ import { customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, PHI_DEFINE_CPP } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
-import { transitionHelperCpp } from './transitionHelperCpp'
-import { SDF_HELPER_CPP } from './sdfHelperCpp'
-import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './latticeHelperCpp'
-import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
-import { TURING_HELPER_CPP } from './turingHelperCpp'
-import { FLUID_HELPER_CPP } from './fluidHelperCpp'
-import { FOURIER_HELPER_CPP } from './fourierHelperCpp'
-import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
-import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
-import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
-import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
+import { transitionHelperCpp } from './helpers/transitionHelperCpp'
+import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
+import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
+import { TRUCHET_HELPER_CPP } from './helpers/truchetHelperCpp'
+import { TURING_HELPER_CPP } from './helpers/turingHelperCpp'
+import { FLUID_HELPER_CPP } from './helpers/fluidHelperCpp'
+import { FOURIER_HELPER_CPP } from './helpers/fourierHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
+import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
+import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
+import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
@@ -46,48 +46,48 @@ import {
   TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
   boardSupportsTelemetry, deviceTelemetryGlobalsCpp, telemetryEmitFromSource,
 } from './deviceTelemetryCpp'
-import { amplifierIdleCpp } from './amplifierIdle'
-import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './playerDisplays'
+import { amplifierIdleCpp } from './audio/amplifierIdle'
+import { playerDisplaysFromGraph, SHOW_DISPLAY_EXPRESSIONS } from './player/playerDisplays'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp, type InfoDisplayEmit,
-} from './infoDisplayCpp'
+} from './displays/infoDisplayCpp'
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp, type SegmentDisplayEmit,
-} from './segmentDisplayCpp'
+} from './displays/segmentDisplayCpp'
 import {
   tftDisplayHelperProfile, tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayGlobalCpp, tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
-} from './tftDisplayCpp'
+} from './displays/tftDisplayCpp'
 import {
   TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit,
-} from './tftTouchCpp'
-import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
+} from './displays/tftTouchCpp'
+import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
+import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './displays/patternThumbnailCpp'
 import {
   bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
-} from './displaySourceExpressions'
-import { boundDisplaySourceFields } from './customDisplayControlGraph'
-import { transportArtworkTableCpp } from './transportArtworkCpp'
+} from './displays/displaySourceExpressions'
+import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
+import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
 import type { TransportArtworks } from '../utils/transportArtworks'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuEmitsFromGraph,
   stereoVuGlobalCpp, stereoVuLoopCpp,
-} from './stereoVuMeterCpp'
-import { masterShowClockLoopCpp, masterShowSpeedUpdateCpp, type MasterSpeedEmit } from './masterSpeedCpp'
+} from './audio/stereoVuMeterCpp'
+import { masterShowClockLoopCpp, masterShowSpeedUpdateCpp, type MasterSpeedEmit } from './player/masterSpeedCpp'
 import {
   controlBundleVariable, showControlRouting, SHOW_PATTERN_INDEX, SHOW_SELECTION_STEM,
   type ShowControlRouting,
-} from './showControlRouting'
+} from './player/showControlRouting'
 import { controlGraphCpp } from './controlGraph'
-import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './environmentSensorCpp'
+import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
-import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
-import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
-import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
+import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
+import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './player/playerControlsCpp'
+import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/player/masterSpeed'

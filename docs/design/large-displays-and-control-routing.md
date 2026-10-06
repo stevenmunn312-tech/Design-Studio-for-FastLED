@@ -210,7 +210,7 @@ By **destination**, because a bundle goes somewhere specific. Each function
 names the `PlayerControlDestination` kinds that act on it — a Music Player
 holds the track, the lamp and the collection and so takes all fourteen; an LED
 output has a blackout and a dimmer; a Pattern Slideshow has a cursor and no
-transport. `controlChainSinks` (`codegen/playerDisplays.ts`) walks the chain to
+transport. `controlChainSinks` (`codegen/player/playerDisplays.ts`) walks the chain to
 find which kinds this node reaches, and `sensiblePlayerControls` intersects the
 two, so Play / Pause is not offered on a chain that ends at an LED output — a
 port that would mint, wire, validate and do nothing. `ControlChainSink` is an

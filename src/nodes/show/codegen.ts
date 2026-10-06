@@ -1,6 +1,6 @@
-import { textValueCpp } from '../../codegen/displayTextCpp'
+import { textValueCpp } from '../../codegen/displays/displayTextCpp'
 import { SONG_INFO_PORTS } from '../../state/player/songInfo'
-import { playerControlsServiceCpp, PLAYER_CONTROL_BUTTONS } from '../../codegen/playerControlsCpp'
+import { playerControlsServiceCpp, PLAYER_CONTROL_BUTTONS } from '../../codegen/player/playerControlsCpp'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'

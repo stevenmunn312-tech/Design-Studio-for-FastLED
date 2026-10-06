@@ -2,7 +2,7 @@
  * The shared input half of the Stereo VU golden vectors.
  *
  * Two implementations render this fixture — `renderStereoVu` here and the C++
- * emitted by `src/codegen/stereoVuMeterCpp.ts` — and visual comparison cannot
+ * emitted by `src/codegen/audio/stereoVuMeterCpp.ts` — and visual comparison cannot
  * tell a correct rail from one that is a frame late or a shade off. Freezing a
  * fixed input sequence gives both sides the same question to answer.
  *

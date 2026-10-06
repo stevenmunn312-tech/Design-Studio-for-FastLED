@@ -51,7 +51,7 @@ group's generators to prove equivalent points land on the same domain point.
 
 The browser owns one fold in `src/state/evaluator/symmetry.ts`; both evaluators
 call its shared source-coordinate resolver. Generated firmware owns the numeric
-twin in `src/codegen/symmetryHelperCpp.ts`, emitted once behind
+twin in `src/codegen/helpers/symmetryHelperCpp.ts`, emitted once behind
 `needsSymmetry`. Its numeric group ids are the append-only TypeScript group
 order. The node emitters also reuse the existing lattice helper, and the frame
 node reuses the Frame Warp sampler.

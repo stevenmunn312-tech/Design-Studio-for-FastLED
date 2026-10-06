@@ -178,7 +178,7 @@ are shared with the frame-producing `Shape` node and its firmware helper.
   exterior toward 0 over `range`. Lerp two distance Shape Fields, then put
   Field Levels at `low = high = 0.5`, for a closed-region SDF morph.
 - `src/state/evaluator/sdf.ts` owns the preview primitives. Their C++ twins are
-  emitted once from `src/codegen/sdfHelperCpp.ts` behind `needsSdf`; both Shape
+  emitted once from `src/codegen/helpers/sdfHelperCpp.ts` behind `needsSdf`; both Shape
   and Shape Field call them, so their polygon maths cannot drift.
 
 ### `SliceTiling` (category: `field`)

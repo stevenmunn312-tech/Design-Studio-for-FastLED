@@ -6,7 +6,7 @@
 // irRemote.ts. This store only owns the run.
 
 import { create } from 'zustand'
-import { generateIrLearnSketch } from '../../codegen/irLearnSketch'
+import { generateIrLearnSketch } from '../../codegen/sketches/irLearnSketch'
 import { rootGraphNodes, useGraphStore } from '../graphStore'
 import {
   parseIrLearnLine,

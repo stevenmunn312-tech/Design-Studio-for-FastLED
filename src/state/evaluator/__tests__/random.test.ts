@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { worleyHash } from '../random'
 import { LATTICE_HASH_MULTIPLIERS, latticeHash } from '../lattice'
-import { WORLEY_HASH_CPP } from '../../../codegen/latticeHelperCpp'
+import { WORLEY_HASH_CPP } from '../../../codegen/helpers/latticeHelperCpp'
 
 describe('worleyHash', () => {
   // The sketch's `_worleyHash`, written as C evaluates it: every step

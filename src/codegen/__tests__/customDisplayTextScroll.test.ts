@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { createDisplayDocument, addDisplayWidget, updateDisplayWidget } from '../../state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../state/displays/displayTemplates'
 import { displayWidgetTextTokens } from '../../state/displays/displayTheme'
-import { customDisplayLvglSetupCpp } from '../customDisplayLvglCpp'
+import { customDisplayLvglSetupCpp } from '../displays/customDisplayLvglCpp'
 import type { DisplayWidgetProperty } from '../../state/displays/displayDocument'
 
 function textDocument(properties: Record<string, DisplayWidgetProperty>) {

@@ -1,11 +1,11 @@
-import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp } from '../../codegen/segmentDisplayCpp'
+import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp } from '../../codegen/displays/segmentDisplayCpp'
 import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/displays/segmentDisplay'
 import { MAX_PIN_NUMBER, NO_PIN } from '../../build/boards/boardGpio'
 import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/peripherals/buzzer'
 import {
   DARLINGTON_PIN_FALLBACKS, darlingtonActiveHigh, darlingtonChannelId, darlingtonPinKeys,
 } from '../../state/peripherals/darlingtonDriver'
-import { PWM_DRIVER_HELPER_CPP } from '../../codegen/pwmDriverCpp'
+import { PWM_DRIVER_HELPER_CPP } from '../../codegen/peripherals/pwmDriverCpp'
 import {
   PWM_DRIVER_FULL_COUNT, formatPwmDriverAddress, pwmDriverAddress, pwmDriverChannelId, pwmDriverPrescale, pwmDriverSpec,
 } from '../../state/peripherals/pwmDriver'
@@ -16,9 +16,9 @@ import {
   transportDisplayPinKeysForProps,
   tftTransportForProps,
 } from '../../state/nodeLibrary'
-import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/ledOutputRuntimeCpp'
-import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/renderScaleCpp'
-import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/playerControlsCpp'
+import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/output/ledOutputRuntimeCpp'
+import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/output/renderScaleCpp'
+import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/player/playerControlsCpp'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import { displayControlEdges } from '../../state/player/wireFirstControls'
 import { propertyInputsFor } from '../../state/propertyInputs'
@@ -27,10 +27,10 @@ import {
   columnOffsetFor,
   infoDisplaySetupCpp,
   infoDisplayLoopCpp,
-} from '../../codegen/infoDisplayCpp'
+} from '../../codegen/displays/infoDisplayCpp'
 import { infoLayoutForKind } from '../../state/displays/infoDisplay'
 import { DISPLAY_SOURCE_NODE_TYPES, SKETCH_DISPLAY_SOURCE_KINDS } from '../../state/displays/displaySignal'
-import { type TftDisplayEmit, tftDisplaySetupCpp, tftDisplayLoopCpp } from '../../codegen/tftDisplayCpp'
+import { type TftDisplayEmit, tftDisplaySetupCpp, tftDisplayLoopCpp } from '../../codegen/displays/tftDisplayCpp'
 import {
   shownDesignId,
   type TransportDisplayLayout,
@@ -38,7 +38,7 @@ import {
   transportLayoutForKind,
 } from '../../state/displays/transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, PARALLEL_TOUCH_ELECTRODES } from '../../state/displays/tftSurface'
-import { type TftTouchEmit, tftTouchSetupCpp, tftTouchServiceCpp } from '../../codegen/tftTouchCpp'
+import { type TftTouchEmit, tftTouchSetupCpp, tftTouchServiceCpp } from '../../codegen/displays/tftTouchCpp'
 import {
   type CustomDisplayLvglBinding,
   type CustomDisplayLvglEmit,
@@ -46,15 +46,15 @@ import {
   customDisplayLvglOutputExpression,
   customDisplayLvglSetupCpp,
   customDisplayLvglTapExpression,
-} from '../../codegen/customDisplayLvglCpp'
+} from '../../codegen/displays/customDisplayLvglCpp'
 import {
   customDisplayPanelFromProps,
   customDisplayPanelSetupCpp,
   customDisplayPanelEnableCpp,
-} from '../../codegen/customDisplayPanelCpp'
+} from '../../codegen/displays/customDisplayPanelCpp'
 import { displayDocumentPorts, parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
 import { designControlBundle } from '../../state/displays/designControlBundle'
-import { resolveBoundWidgets, normalSketchSourceExpressions } from '../../codegen/displaySourceExpressions'
+import { resolveBoundWidgets, normalSketchSourceExpressions } from '../../codegen/displays/displaySourceExpressions'
 import { OLED_CONTROLLERS, asOledAddress, oledRotationCommands, asOledRotation } from '../../state/displays/oledSurface'
 import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
 import { sanitizePin } from '../../codegen/hardwarePins'
@@ -65,12 +65,12 @@ import {
 } from '../../state/peripherals/powerSwitch'
 import {
   type DimmedPowerSwitchChannel, powerSwitchPwmHelperCpp, powerSwitchPwmLoopCpp, powerSwitchPwmPlan, powerSwitchPwmSetupCpp,
-} from '../../codegen/powerSwitchCpp'
+} from '../../codegen/peripherals/powerSwitchCpp'
 import type { StudioNode } from '../../state/graphStore'
-import { stereoVuLoopCpp } from '../../codegen/stereoVuMeterCpp'
+import { stereoVuLoopCpp } from '../../codegen/audio/stereoVuMeterCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, cppComment } from '../../codegen/cppLiterals'
-import { hub75BlitRowsCpp } from '../../codegen/hub75Cpp'
+import { hub75BlitRowsCpp } from '../../codegen/output/hub75Cpp'
 
 /**
  * Every dimmed Power Switch channel in the sketch, in node then channel

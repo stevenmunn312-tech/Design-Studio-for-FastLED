@@ -1,11 +1,11 @@
 import { controlGraphCpp } from './controlGraph'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
-import type { PlayerControlGraph } from './playerControlGraph'
-import { playerControlApplyCpp } from './playerControlGraph'
-import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
-import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp } from './playerControlsCpp'
-import { controlBundleVariable } from './templateControlRouting'
-import { displayTextCppHelpers } from './displayTextCpp'
+import type { PlayerControlGraph } from './player/playerControlGraph'
+import { playerControlApplyCpp } from './player/playerControlGraph'
+import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
+import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp } from './player/playerControlsCpp'
+import { controlBundleVariable } from './displays/templateControlRouting'
+import { displayTextCppHelpers } from './displays/displayTextCpp'
 // Generates the ESP32-S3 player sketch that:
 //   - plays MP3 from SD card via I2S
 //   - reads the companion .show file
@@ -23,39 +23,39 @@ import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '..
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { ledSupplyVolts } from '../build/controllerSettings'
-import { ledOutputManualExprs, ledOutputRuntimeCpp } from './ledOutputRuntimeCpp'
+import { ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
 import { ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
-import { vuNormalizedLevelCpp } from './stereoLevelCpp'
-import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
-import type { PlayerDisplays } from './playerDisplays'
-import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './latticeHelperCpp'
+import { vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
+import { PLAYER_SONG_INFO_CPP } from './player/playerSongInfoCpp'
+import type { PlayerDisplays } from './player/playerDisplays'
+import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import {
   infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp,
-} from './infoDisplayCpp'
+} from './displays/infoDisplayCpp'
 import {
   tftDisplayHelperProfile, tftDisplayHelpersCpp, TFT_DISPLAY_CPP_FORWARD, tftDisplayGlobalCpp,
   tftDisplaySetupCpp, tftDisplayLoopCpp, type TftDisplayEmit,
-} from './tftDisplayCpp'
-import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './patternThumbnailCpp'
-import { PLAYER_SELECTION_STEM } from './playerControlGraph'
+} from './displays/tftDisplayCpp'
+import { patternNameStringCpp, patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from './displays/patternThumbnailCpp'
+import { PLAYER_SELECTION_STEM } from './player/playerControlGraph'
 import {
   bindsAnyField, DISPLAY_NAME_SOURCE_FIELDS, DISPLAY_SELECTION_SOURCE_FIELDS,
-} from './displaySourceExpressions'
-import { boundDisplaySourceFields } from './customDisplayControlGraph'
-import { TRANSITION_HELPER_CPP } from './transitionHelperCpp'
-import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './patternSelectionCpp'
-import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './tftTouchCpp'
+} from './displays/displaySourceExpressions'
+import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
+import { TRANSITION_HELPER_CPP } from './helpers/transitionHelperCpp'
+import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
+import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
 import type { PatternNames } from '../utils/patternNames'
 import type { TransportArtworks } from '../utils/transportArtworks'
-import { transportArtworkTableCpp } from './transportArtworkCpp'
+import { transportArtworkTableCpp } from './displays/transportArtworkCpp'
 
 /** The player's own selection. A player sketch has exactly one show. */
 import {
   SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
-} from './segmentDisplayCpp'
+} from './displays/segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
@@ -68,8 +68,8 @@ import { buttonBankEntryForHandle } from '../state/player/buttonBank'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuGlobalCpp,
   stereoVuLoopCpp, type StereoVuEmit,
-} from './stereoVuMeterCpp'
-import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './environmentSensorCpp'
+} from './audio/stereoVuMeterCpp'
+import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */

@@ -60,13 +60,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - `Board` is a hardware-only node type and is `hidden` on the graph canvas, so
   the grouped property controls `PROPERTY_GROUPS` declares for it (its "Bench"
   group included) never render anywhere — that generic renderer only draws for
-  visible canvas nodes. `src/components/Canvas/BoardNodeBody.tsx`, rendered from
+  visible canvas nodes. `src/components/Canvas/bodies/BoardNodeBody.tsx`, rendered from
   the Hardware tab, stands in for the hidden node but does not read
   `PROPERTY_GROUPS`; a Board property needing a UI control must be added there
   by hand. `reportTelemetry`'s checkbox has been added, reverted and restored,
   and the reason it is back is the whole of its scope: it was removed once touch
   calibration got its own generated instrument sketch
-  (`src/codegen/touchCalibrationSketch.ts`) and stopped needing telemetry, which
+  (`src/codegen/sketches/touchCalibrationSketch.ts`) and stopped needing telemetry, which
   left no *user* needing the word — but HW-11's display-budget bench reads this
   switch and nothing else, and an instrument that cannot be switched on is not
   an instrument. So it is a bench control, not a feature: off by default,
@@ -431,7 +431,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - **Wired Ethernet (experimental):** `EthernetModule` is a hardware-only WIZnet
   WIZ850io (W5500) that replaces Wi-Fi for Art-Net and NTP in the normal sketch;
   both call the transport-neutral `_netEnsureConnected`/`_netConnected`, and
-  only `src/codegen/ethernetCpp.ts`'s bootstrap differs. It takes
+  only `src/codegen/peripherals/ethernetCpp.ts`'s bootstrap differs. It takes
   `SPIClass(HSPI)` where the chip has a second SPI host, because a colour panel
   owns the default `SPI` object and `SPI.begin` keeps the first pins it is
   given; on the one-host C3/C6 it shares `SPI` and validation requires the

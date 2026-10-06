@@ -25,7 +25,7 @@ function rgbToHsv(c: RGB): { h: number; s: number; v: number } {
 /** Mix `a` to `b` at `t`. `rgb` rounds per channel and leaves `t` unclamped,
  *  exactly as both gradient nodes always did; the hue modes clamp `t` to 0–1.
  *  The sketch mirrors the hue modes with `blend(CHSV, CHSV, amount, dir)`
- *  (see `codegen/hueMixHelperCpp.ts`), so the two agree to a count or two. */
+ *  (see `codegen/helpers/hueMixHelperCpp.ts`), so the two agree to a count or two. */
 export function mixGradientColors(a: RGB, b: RGB, t: number, mode: GradientMixMode): RGB {
   if (mode === 'rgb') {
     return { r: Math.round(a.r * (1 - t) + b.r * t), g: Math.round(a.g * (1 - t) + b.g * t), b: Math.round(a.b * (1 - t) + b.b * t) }

@@ -1,6 +1,6 @@
-import { playerControlGraph } from '../codegen/playerControlGraph'
+import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
-import type { CustomDisplayAssets } from '../codegen/customDisplayShowCpp'
+import type { CustomDisplayAssets } from '../codegen/displays/customDisplayShowCpp'
 
 export interface PlayerDisplayBuildOptions {
   displayDocuments?: DisplayDocumentRegistry
@@ -26,11 +26,11 @@ import { bakeBrowserThumbnails } from './browserThumbnails'
 import { collectionPatternNames } from './patternNames'
 import { bakeDisplayArtworks } from './transportArtworks'
 import { generatePlayerSketch, playerConfigFromGraph, playerParticlesFromGraph } from '../codegen/playerSketchGenerator'
-import { playerDisplaysFromGraph } from '../codegen/playerDisplays'
+import { playerDisplaysFromGraph } from '../codegen/player/playerDisplays'
 import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/showGenerator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
-import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
+import { stereoVuEmitsFromGraph } from '../codegen/audio/stereoVuMeterCpp'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { boardSupportsTelemetry } from '../codegen/deviceTelemetryCpp'
 import { wiredPatternCollection } from '../state/patterns/patternCollectionWiring'

@@ -7,7 +7,7 @@ import { generateShowSketch } from '../../src/codegen/showGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
 import { buildShowPlayer } from '../../src/utils/showUpload'
-import { generateIrLearnSketch } from '../../src/codegen/irLearnSketch'
+import { generateIrLearnSketch } from '../../src/codegen/sketches/irLearnSketch'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)

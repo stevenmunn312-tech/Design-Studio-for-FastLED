@@ -3256,7 +3256,7 @@ def set_rtc_time(payload: dict = Body(...)):
 
 # ── Live streaming (Adalight) ─────────────────────────────────────────────────
 # A lightweight alternative to a compile+flash cycle: once the tiny generic
-# Adalight receiver sketch (src/codegen/streamReceiverGenerator.ts) is flashed
+# Adalight receiver sketch (src/codegen/sketches/streamReceiverGenerator.ts) is flashed
 # once, the already-computed live-preview frames can be pushed straight to the
 # board over the same serial port at interactive rates. Unlike every other
 # serial use in this file, the port has to stay open *across* many small

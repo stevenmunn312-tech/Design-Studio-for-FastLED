@@ -308,7 +308,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 - **Wiring a template's controls to the graph is a plan-then-apply pair**
   (`state/displays/templateControlPlan.ts` decides what should be wired; the similarly
-  named `codegen/templateControlRouting.ts` is unrelated — it resolves the
+  named `codegen/displays/templateControlRouting.ts` is unrelated — it resolves the
   controls a template *sketch* already has), split so the plan stays pure and
   testable apart from its side effects. `src/state/displays/templateControlPlan.ts`'s
   `templateControlPlan(panel, document, nodes, edges)` decides, for one panel's

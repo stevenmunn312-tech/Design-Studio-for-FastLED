@@ -8,7 +8,7 @@ import {
   customDisplayLvglLoopCpp,
   customDisplayLvglSetupCpp,
   type CustomDisplayLvglEmit,
-} from '../customDisplayLvglCpp'
+} from '../displays/customDisplayLvglCpp'
 import { createDisplayDocument } from '../../state/displays/displayEditor'
 import { defaultDisplayWidgetBounds, defaultDisplayWidgetProperties } from '../../state/displays/displayRegistry'
 import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displays/displayDocument'

@@ -29,7 +29,7 @@ import {
   WS2812B_PITCH_MM,
   isHardwareManagedSignalNodeType,
 } from '../../build/hardware'
-import HardwarePartBody from '../Canvas/HardwarePartBody'
+import HardwarePartBody from '../Canvas/bodies/HardwarePartBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareVuRailPreview from './HardwareVuRailPreview'
 import BenchDisplayScreen from './BenchDisplayScreen'
@@ -72,7 +72,7 @@ import {
 } from './hardwarePartCatalog'
 
 const MatrixOutputDeployPopup = lazy(() => import('../Upload/MatrixOutputDeployPopup'))
-const BoardNodeBody = lazy(() => import('../Canvas/BoardNodeBody'))
+const BoardNodeBody = lazy(() => import('../Canvas/bodies/BoardNodeBody'))
 
 /** How long the controller rings take to bow out once the board is clicked. */
 const CONTROLLER_HINT_FADE_MS = 600

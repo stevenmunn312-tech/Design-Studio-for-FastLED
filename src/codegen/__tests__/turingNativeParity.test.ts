@@ -15,8 +15,8 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { TURING_HELPER_CPP } from '../turingHelperCpp'
-import { WORLEY_HASH_CPP } from '../latticeHelperCpp'
+import { TURING_HELPER_CPP } from '../helpers/turingHelperCpp'
+import { WORLEY_HASH_CPP } from '../helpers/latticeHelperCpp'
 import { turingPrefixLength, turingRadii, turingSeed, turingStep } from '../../state/evaluator/turing'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0

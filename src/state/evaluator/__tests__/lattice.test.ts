@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fanFold, hexCell, LATTICE_HASH_MULTIPLIERS, latticeCellValue, latticeHash, squareCell, triCell } from '../lattice'
-import { LATTICE_HELPER_CPP } from '../../../codegen/latticeHelperCpp'
+import { LATTICE_HELPER_CPP } from '../../../codegen/helpers/latticeHelperCpp'
 
 describe('lattice cell finders', () => {
   it('maps square and hex centres to zero local coordinates', () => {

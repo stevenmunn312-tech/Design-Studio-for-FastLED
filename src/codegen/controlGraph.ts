@@ -5,8 +5,8 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { compositionDims } from '../state/output/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
-import { irRemoteProjectEmission, type IrRemoteProjectNode } from './irRemoteCpp'
-import { displayTextCppHelpers } from './displayTextCpp'
+import { irRemoteProjectEmission, type IrRemoteProjectNode } from './peripherals/irRemoteCpp'
+import { displayTextCppHelpers } from './displays/displayTextCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 
 export const MAX_CONTROL_GRAPH_NODES = 256

@@ -58,7 +58,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   zero can still be turned back up; computing it from already-scaled time
   couldn't undo itself. The browser preview does the equivalent by sliding the
   wall-clock origin (`masterSpeedOriginShift`), the same mechanism the pause
-  feature already uses. `src/codegen/masterSpeedCpp.ts` swaps a normal sketch's
+  feature already uses. `src/codegen/player/masterSpeedCpp.ts` swaps a normal sketch's
   plain `float t = millis() / 1000.0f` for a static accumulator only when a
   MasterSpeed node is present, and emits the update to `_tSpeed` at the foot of
   the loop — after every node — because a wired speed expression may itself read

@@ -4,9 +4,9 @@ import MatrixOutputSetupWizard from '../MatrixOutputSetupWizard'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useUiStore } from '../../../state/uiStore'
-import { generateWiringDiagnosticSketch } from '../../../codegen/wiringDiagnosticGenerator'
+import { generateWiringDiagnosticSketch } from '../../../codegen/sketches/wiringDiagnosticGenerator'
 
-vi.mock('../../../codegen/wiringDiagnosticGenerator', () => ({
+vi.mock('../../../codegen/sketches/wiringDiagnosticGenerator', () => ({
   generateWiringDiagnosticSketch: vi.fn(() => '// wiring diagnostic'),
 }))
 
