@@ -2,6 +2,7 @@
 import type { ControllerSupplyPlan } from '../../build/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
 import { partById, partRenderSrc } from '../../state/partCatalogue'
+import { CustomBoardGraphicFragment } from '../Hardware/CustomBoardGraphic'
 import styles from './BuildDiagramWorkspace.module.css'
 import { NetStub } from './netStubs'
 import {
@@ -14,6 +15,8 @@ import {
   controllerTerminalFillRadius,
   controllerConnectionPoint,
   controllerConnectionY,
+  customControllerLayout,
+  type ControllerTerminalPoint,
 } from './controllerGeometry'
 import {
   formatAmps,
@@ -111,12 +114,97 @@ export function LedPixels({ x, y, width, height, singleRow = false }: { x: numbe
   )
 }
 
+/**
+ * Where a custom board's controller power stands when it is not USB: an
+ * external supply is the user's own declaration, and an unchosen method is
+ * shown as unresolved. Neither is drawn as a connector the board may not have.
+ */
+export function CustomControllerPowerNote({ boardProfile, x, y }: { boardProfile: PhysicalBoardProfile; x: number; y: number }) {
+  const power = boardProfile.custom?.definition.controllerPower
+  if (!power) return null
+  const input = boardProfile.pins?.find((pin) => pin.role === 'power-in')
+  const [title, detail] = power === 'external'
+    ? ['External supply', input ? `into ${input.label} · user-declared` : 'no supply input pad defined']
+    : ['Controller power', 'unresolved · choose in custom board setup']
+  return (
+    <g data-controller-power={power} transform={`translate(${x} ${y})`}>
+      <rect width="184" height="62" rx="12" fill="#e9ecea" stroke={power === 'external' && input ? '#879092' : '#c9822b'} strokeWidth="2" strokeDasharray={power === 'external' && input ? undefined : '6 4'} />
+      <text x="18" y="27" className={styles.physicalComponentLabel}>{title}</text>
+      <text x="18" y="46" className={styles.physicalMetaLabel}>{detail}</text>
+    </g>
+  )
+}
+
+function PowerTerminal({ point, kind, radius, title }: { point: ControllerTerminalPoint | undefined; kind: '3v3' | 'gnd' | 'usb'; radius: number; title: string }) {
+  if (!point) return null
+  const className = kind === '3v3' ? styles.controllerPowerTerminal
+    : kind === 'gnd' ? styles.controllerGroundTerminal
+      : styles.controllerUsbTerminal
+  return (
+    <g data-terminal={`controller-${kind}`}>
+      <circle cx={point.x} cy={point.y} r={radius} className={className} />
+      <title>{title}</title>
+    </g>
+  )
+}
+
+function SignalTerminals({ boardProfile, connections, mappedRadius, unmappedRadius }: {
+  boardProfile: PhysicalBoardProfile
+  connections: PhysicalDiagramConnection[]
+  mappedRadius: number
+  unmappedRadius: number
+}) {
+  return connections.map((connection, index) => {
+    const point = controllerConnectionPoint(connection, index, connections.length, boardProfile)
+    const presentation = signalPresentation(connection)
+    return (
+      <g key={connection.id} data-terminal={`controller-${connection.id}`} data-board-anchor={connection.boardAnchorId} data-signal-role={presentation.role}>
+        <circle
+          cx={point.x}
+          cy={point.y}
+          r={point.mapped ? mappedRadius : unmappedRadius}
+          className={point.mapped
+            ? `${styles.controllerSignalTerminal} ${styles.photoTerminalFill}`
+            : styles.controllerUnmappedTerminal}
+          style={point.mapped ? { fill: presentation.color } : undefined}
+        />
+        {!point.mapped && (
+          <text x={point.x + 11} y={point.y + 4} className={styles.controllerUnmappedLabel}>
+            {connection.pinLabel} · NOT ON BOARD
+          </text>
+        )}
+        <title>{connection.pinLabel} · {connection.useLabel}{point.mapped ? '' : ' · not exposed by this board'}</title>
+      </g>
+    )
+  })
+}
+
 export function ControllerGraphic({ boardProfile, connections, selected }: { boardProfile: PhysicalBoardProfile; connections: PhysicalDiagramConnection[]; selected: boolean }) {
+  const custom = customControllerLayout(boardProfile)
+  if (custom && boardProfile.custom) {
+    // The schematic's own pads are r=5; terminals fill them exactly.
+    const padFillRadius = 5 * custom.scale
+    const padRadius = Math.min(6, custom.geometry.rowPitch * custom.scale * 0.42)
+    return (
+      <g className={selected ? styles.physicalSelected : undefined} data-controller-render={boardProfile.id} data-board-provenance="user-defined-schematic">
+        <g transform={`translate(${custom.x} ${custom.y}) scale(${custom.scale})`}>
+          <CustomBoardGraphicFragment definition={boardProfile.custom.definition} defaultI2c={boardProfile.custom.defaultI2c} />
+        </g>
+        <text x={custom.x + (custom.width / 2)} y={custom.y + custom.height + 24} textAnchor="middle" className={styles.physicalComponentLabel}>{shortBoardLabel(boardProfile.label)}</text>
+        <text x={custom.x + (custom.width / 2)} y={custom.y + custom.height + 38} textAnchor="middle" className={styles.physicalMetaLabel}>USER-DEFINED PINOUT — SCHEMATIC</text>
+        <PowerTerminal point={controllerPowerPoint('3v3', boardProfile)} kind="3v3" radius={padFillRadius} title="3V3 output · user-declared" />
+        <SignalTerminals boardProfile={boardProfile} connections={connections} mappedRadius={padFillRadius} unmappedRadius={padRadius} />
+        <PowerTerminal point={controllerPowerPoint('ground', boardProfile)} kind="gnd" radius={padFillRadius} title="GND" />
+        <PowerTerminal point={controllerPowerPoint('usb', boardProfile)} kind="usb" radius={padRadius} title="USB power · user-declared" />
+      </g>
+    )
+  }
   const render = controllerRender(boardProfile)
   if (render) {
-    const power3v3 = controllerPowerPoint('3v3', boardProfile)
-    const ground = controllerPowerPoint('ground', boardProfile)
-    const usb = controllerPowerPoint('usb', boardProfile)
+    // A measured render always carries its 3V3, GND and USB points.
+    const power3v3 = controllerPowerPoint('3v3', boardProfile)!
+    const ground = controllerPowerPoint('ground', boardProfile)!
+    const usb = controllerPowerPoint('usb', boardProfile)!
     const padRadius = controllerTerminalRadius(render)
     const padFillRadius = controllerTerminalFillRadius(render)
     return (
@@ -135,29 +223,7 @@ export function ControllerGraphic({ boardProfile, connections, selected }: { boa
           <circle cx={power3v3.x} cy={power3v3.y} r={padFillRadius} className={styles.controllerPowerTerminal} />
           <title>3V3</title>
         </g>
-        {connections.map((connection, index) => {
-          const point = controllerConnectionPoint(connection, index, connections.length, boardProfile)
-          const presentation = signalPresentation(connection)
-          return (
-            <g key={connection.id} data-terminal={`controller-${connection.id}`} data-board-anchor={connection.boardAnchorId} data-signal-role={presentation.role}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={point.mapped ? padFillRadius : padRadius}
-                className={point.mapped
-                  ? `${styles.controllerSignalTerminal} ${styles.photoTerminalFill}`
-                  : styles.controllerUnmappedTerminal}
-                style={point.mapped ? { fill: presentation.color } : undefined}
-              />
-              {!point.mapped && (
-                <text x={point.x + 11} y={point.y + 4} className={styles.controllerUnmappedLabel}>
-                  {connection.pinLabel} · NOT ON BOARD
-                </text>
-              )}
-              <title>{connection.pinLabel} · {connection.useLabel}{point.mapped ? '' : ' · not exposed by this board'}</title>
-            </g>
-          )
-        })}
+        <SignalTerminals boardProfile={boardProfile} connections={connections} mappedRadius={padFillRadius} unmappedRadius={padRadius} />
         <g data-terminal="controller-gnd">
           <circle cx={ground.x} cy={ground.y} r={padFillRadius} className={styles.controllerGroundTerminal} />
           <title>GND</title>

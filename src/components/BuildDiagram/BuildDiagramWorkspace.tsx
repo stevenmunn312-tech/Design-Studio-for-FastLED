@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import {
-  boardProfileById,
-  isBoardProfileCompatibleWithFqbn,
+  boardPinForGpio,
+  boardProfileMatchesFqbn,
   selectedPhysicalBoardProfile,
   type PhysicalBoardPinAnchor,
   type PhysicalBoardProfile,
@@ -14,6 +14,7 @@ import {
   type BuildExportMode,
 } from '../../build/buildProfile'
 import { calculateElectricalPlan } from '../../build/electricalPlan'
+import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPad } from '../../build/customBoardGeometry'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/powerDistribution'
@@ -112,17 +113,33 @@ function formatVoltage(value: number): string {
 function confidenceSummary(profile: PhysicalBoardProfile): string {
   if (profile.confidence === 'manufacturer-verified') return 'Manufacturer verified'
   if (profile.confidence === 'pinout-verified') return 'Pinout verified only - power-path review still pending.'
+  if (profile.custom) return `User-defined pinout — schematic. Build settings are inherited from ${profile.custom.referenceLabel}; check every pad against the real board before wiring.`
   return 'Visual match only - wiring guidance stays disabled.'
 }
 
+/**
+ * What a completed item was checked against. On a custom board the pads are
+ * the user's, so each pin's pad and the shared power pads join the record: a
+ * pad move stales the connections it moves, while a label rename does not.
+ */
 function itemFingerprint(
   item: HardwareManifestItem,
   selectedFqbn: string,
-  exactBoardProfileId: string | undefined,
+  exactBoard: PhysicalBoardProfile | undefined,
 ): string {
+  const geometry = exactBoard?.custom ? customBoardGeometry(exactBoard.custom.definition) : undefined
+  const endpoint = (slotId: string | undefined) => geometry && slotId
+    ? customBoardEndpointFingerprint(geometry, slotId) ?? null
+    : null
   return fingerprintValue({
     selectedFqbn,
-    exactBoardProfileId,
+    exactBoardProfileId: exactBoard?.id,
+    ...(geometry ? {
+      power: [
+        endpoint(customBoardPowerPad(geometry, 'ground')?.slot.id),
+        endpoint(customBoardPowerPad(geometry, 'supply', 3.3, 'output')?.slot.id),
+      ],
+    } : {}),
     item: {
       id: item.id,
       kind: item.kind,
@@ -132,6 +149,7 @@ function itemFingerprint(
         propertyKey: pin.propertyKey,
         pin: pin.pin,
         requirement: pin.requirement,
+        ...(geometry ? { pad: endpoint(boardPinForGpio(exactBoard, pin.pin)?.id) } : {}),
       })),
     },
   })
@@ -214,16 +232,14 @@ export default function BuildDiagramWorkspace() {
   // The Board node is where the user says which controller is on the bench, so
   // it is the only place this view may read that from. Keeping a second exact
   // board selection in the build profile once let the two views disagree.
-  const benchBoardProfileId = useGraphStore((state) => selectedPhysicalBoardProfile(rootGraphNodes(state))?.id)
+  const benchBoard = useGraphStore((state) => selectedPhysicalBoardProfile(rootGraphNodes(state)))
   // A chosen exact board only applies while it still matches the upload target.
   // Switching FQBN used to leave the old board's render and pin map in place —
   // an ESP32 wiring diagram presented as if it were for the newly selected S3.
   // Dropping back to the empty state sends the user to the Hardware tab rather
   // than quietly showing wiring for hardware that is no longer selected. The id
   // stays on the Board node, so switching the target back restores it.
-  const exactBoard = isBoardProfileCompatibleWithFqbn(benchBoardProfileId, selectedFqbn)
-    ? boardProfileById(benchBoardProfileId ?? '')
-    : undefined
+  const exactBoard = benchBoard && boardProfileMatchesFqbn(benchBoard, selectedFqbn) ? benchBoard : undefined
   const selectedTarget = boardByFqbn(selectedFqbn)
   const [selectedItemId, setSelectedItemId] = useState<string>(() => exactBoard ? 'controller' : '')
   const [isolatedItemId, setIsolatedItemId] = useState<string | null>(null)
@@ -249,11 +265,11 @@ export default function BuildDiagramWorkspace() {
       map.set(item.id, itemFingerprint(
         item,
         selectedFqbn,
-        benchBoardProfileId,
+        exactBoard,
       ))
     }
     return map
-  }, [benchBoardProfileId, primaryItems, selectedFqbn])
+  }, [exactBoard, primaryItems, selectedFqbn])
 
   const completedItemIds = useMemo(() => {
     const ids = new Set<string>()
@@ -417,7 +433,7 @@ export default function BuildDiagramWorkspace() {
     const fingerprint = itemFingerprint(
       item,
       selectedFqbn,
-      benchBoardProfileId,
+      exactBoard,
     )
     patchBuildProfile((current) => {
       const done = { ...(current.done ?? {}) }

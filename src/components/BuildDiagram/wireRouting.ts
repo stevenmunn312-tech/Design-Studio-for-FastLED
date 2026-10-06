@@ -59,7 +59,7 @@ const CONTROLLER_LANE_SPACING = 6
 const CONTROLLER_CAPTION_CLEARANCE = 40
 const CONTROLLER_DETOUR_FALLBACK_Y = 542
 
-export function controllerDetourBaseY(render: ControllerRender | undefined) {
+export function controllerDetourBaseY(render: Pick<ControllerRender, 'y' | 'height'> | undefined) {
   return render ? render.y + render.height + CONTROLLER_CAPTION_CLEARANCE : CONTROLLER_DETOUR_FALLBACK_Y
 }
 
@@ -78,7 +78,7 @@ const CONTROLLER_TOP_BAND_INSET = 14
  * in the same column does leave a gap, and crossing it turns a loop around the
  * entire board into a short hop.
  */
-export function controllerTopBandY(render: ControllerRender | undefined) {
+export function controllerTopBandY(render: Pick<ControllerRender, 'y' | 'height'> | undefined) {
   if (!render) return undefined
   if (render.y - WIRING_PLAN_CALLOUT_BOTTOM < CONTROLLER_TOP_BAND_MIN) return undefined
   return WIRING_PLAN_CALLOUT_BOTTOM + CONTROLLER_TOP_BAND_INSET

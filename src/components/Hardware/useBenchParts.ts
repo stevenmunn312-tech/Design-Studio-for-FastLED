@@ -9,6 +9,7 @@ import { resolvePartIdentity } from '../../state/partOptions'
 import { INTEGRATED_BOARD_PROFILE_KEY } from '../../state/integratedBoardHardware'
 import { boardScreensFor } from './benchScreenGeometry'
 import { boardProfileById, type PhysicalBoardProfile } from '../../build/boardProfiles'
+import { UNRESOLVED_CUSTOM_BOARD_PROFILE } from '../../build/customBoardProfile'
 import { ledPitchMm, DEFAULT_BOARD_PROFILE_ID, WS2812B_PITCH_MM } from '../../state/hardware'
 import {
   outputForm, outputGridDims, LED_OUTPUT_FORM_LABELS, ringStartAngle, ringDirection, corkscrewTurns,
@@ -24,10 +25,12 @@ export interface BenchPartsInputs {
   nodes: StudioNode[]
   edges: StudioEdge[]
   selectedBoard: PhysicalBoardProfile | undefined
+  /** The project's custom board is selected but does not resolve. */
+  boardUnresolved?: boolean
 }
 
 /** The parts on the bench, recomputed only when the root graph changes. */
-export function useBenchParts({ nodes, edges, selectedBoard }: BenchPartsInputs) {
+export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = false }: BenchPartsInputs) {
   /*
    * Every input part on the canvas, paired with its catalogue entry. Several
    * buttons are ordinary, so a part id has to distinguish them — the entry's
@@ -139,7 +142,9 @@ export function useBenchParts({ nodes, edges, selectedBoard }: BenchPartsInputs)
         }
       })
   }, [edges, nodes])
-  const boardProfile = selectedBoard ?? boardProfileById(DEFAULT_BOARD_PROFILE_ID)
+  // An unresolved custom board never borrows the default stock board's pins.
+  const boardProfile = selectedBoard
+    ?? (boardUnresolved ? UNRESOLVED_CUSTOM_BOARD_PROFILE : boardProfileById(DEFAULT_BOARD_PROFILE_ID))
   /*
    * LED outputs are limited by the board, not by a count. Multi-output routing
    * is a real feature — several strips and panels on their own pins — so the

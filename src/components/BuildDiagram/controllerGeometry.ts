@@ -1,6 +1,7 @@
 // Where the controller sits on the physical assembly diagram: its render,
 // its pads, and the points wires land on.
 import type { PhysicalBoardProfile } from '../../build/boardProfiles'
+import { customBoardGeometry, customBoardPowerPad, type CustomBoardGeometry, type CustomBoardPad } from '../../build/customBoardGeometry'
 import type { PhysicalDiagramConnection } from './signalPresentation'
 
 /**
@@ -180,6 +181,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
  */
 export const CONTROLLER_SLOT_X = 74
 const CONTROLLER_SLOT_WIDTH = 184
+export const CONTROLLER_SLOT_CENTER_X = CONTROLLER_SLOT_X + (CONTROLLER_SLOT_WIDTH / 2)
 const CONTROLLER_BASELINE_Y = 530
 /** Ceiling for the column: the wiring-plan callout ends at y=96. */
 const CONTROLLER_SLOT_TOP_Y = 104
@@ -225,6 +227,48 @@ export const CONVERTER_SHEET_WIDTH = 184
 
 export function controllerRender(boardProfile: PhysicalBoardProfile): ControllerRender | undefined {
   return CONTROLLER_RENDERS[boardProfile.id]
+}
+
+/**
+ * A custom board's schematic, placed in the controller slot.
+ *
+ * Drawn from the same geometry as its SVG, with one transform for artwork and
+ * terminals alike, so a wire always ends on the pad the label names. It is
+ * sized to fit the slot rather than to scale: the drawing is schematic, so it
+ * makes no claim about the board's physical size.
+ */
+export interface CustomControllerLayout {
+  x: number
+  y: number
+  width: number
+  height: number
+  scale: number
+  geometry: CustomBoardGeometry
+}
+
+export function customControllerLayout(boardProfile: PhysicalBoardProfile): CustomControllerLayout | undefined {
+  if (!boardProfile.custom) return undefined
+  const geometry = customBoardGeometry(boardProfile.custom.definition)
+  const scale = Math.min(CONTROLLER_SLOT_WIDTH / geometry.width, CONTROLLER_SLOT_HEIGHT / geometry.height)
+  const width = geometry.width * scale
+  const height = geometry.height * scale
+  return {
+    x: CONTROLLER_SLOT_X + ((CONTROLLER_SLOT_WIDTH - width) / 2),
+    y: CONTROLLER_BASELINE_Y - height,
+    width,
+    height,
+    scale,
+    geometry,
+  }
+}
+
+/** The sheet box of whichever controller artwork is drawn. */
+export function controllerBox(boardProfile: PhysicalBoardProfile): { y: number; height: number } | undefined {
+  return controllerRender(boardProfile) ?? customControllerLayout(boardProfile)
+}
+
+export function customPadPoint(layout: CustomControllerLayout, pad: CustomBoardPad): ControllerTerminalPoint {
+  return { x: layout.x + (pad.x * layout.scale), y: layout.y + (pad.y * layout.scale), side: pad.side, mapped: true }
 }
 
 /** Diagram units between adjacent pads on a render's header. */
@@ -293,13 +337,38 @@ export function controllerConnectionPoint(
     const point = renderTerminalPoint(render, connection.boardAnchorId)
     if (point) return point
   }
+  const custom = customControllerLayout(boardProfile)
+  const pad = custom && connection.boardAnchorId ? custom.geometry.padsBySlotId.get(connection.boardAnchorId) : undefined
+  if (custom && pad) return customPadPoint(custom, pad)
   return { x: 280, y: controllerConnectionY(index, count), side: 'right', mapped: false }
 }
 
+/**
+ * Where a controller rail meets the sheet. A custom board answers only with
+ * pads it declares — 3V3 is a 3.3 V output, USB only when USB power was
+ * chosen — and a rail it lacks is undefined rather than a stock coordinate.
+ */
 export function controllerPowerPoint(
   kind: '3v3' | 'ground' | 'usb',
   boardProfile: PhysicalBoardProfile,
-): ControllerTerminalPoint {
+): ControllerTerminalPoint | undefined {
+  const custom = customControllerLayout(boardProfile)
+  if (custom) {
+    if (kind === 'usb') {
+      if (boardProfile.custom?.definition.controllerPower !== 'usb') return undefined
+      const { body } = custom.geometry
+      return {
+        x: custom.x + ((body.x + (body.width / 2)) * custom.scale),
+        y: custom.y + ((body.y + body.height) * custom.scale),
+        side: 'right',
+        mapped: true,
+      }
+    }
+    const pad = kind === 'ground'
+      ? customBoardPowerPad(custom.geometry, 'ground')
+      : customBoardPowerPad(custom.geometry, 'supply', 3.3, 'output')
+    return pad ? customPadPoint(custom, pad) : undefined
+  }
   const render = controllerRender(boardProfile)
   if (render) {
     if (kind === '3v3') return renderTerminalPoint(render, render.powerAnchors.v3v3)!

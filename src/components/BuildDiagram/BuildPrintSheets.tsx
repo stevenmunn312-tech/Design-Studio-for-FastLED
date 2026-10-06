@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
+import { boardDataProvenance, type PhysicalBoardProfile } from '../../build/boardProfiles'
 import type { BuildBomRow, BuildConnectionRow } from '../../build/buildExports'
 import type { ElectricalPlanSummary } from '../../build/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
@@ -134,7 +134,7 @@ export default function BuildPrintSheets({
             <dl className={styles.printFacts}>
               <div><dt>Controller</dt><dd>{boardProfile.label}</dd></div>
               <div><dt>Upload target</dt><dd>{targetLabel}</dd></div>
-              <div><dt>Board data</dt><dd>{boardProfile.confidence.replace(/-/g, ' ')}</dd></div>
+              <div><dt>Board data</dt><dd>{boardDataProvenance(boardProfile)}</dd></div>
               <div><dt>Status</dt><dd>{status}</dd></div>
               <div><dt>Rule set</dt><dd>{plan.ruleSetVersion}</dd></div>
               <div><dt>Scope</dt><dd>{exportScopeLabel}</dd></div>

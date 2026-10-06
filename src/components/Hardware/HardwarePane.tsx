@@ -22,7 +22,7 @@ import { powerAmplifierFeed } from '../../state/audioOutput'
 import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import PartIdentity from './PartIdentity'
 import { useUploadStore } from '../../state/uploadStore'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { selectedBoardResolution } from '../../build/boardProfiles'
 import {
   ROOT_BOARD_NODE_ID,
   WS2812B_PITCH_MM,
@@ -148,14 +148,15 @@ export default function HardwarePane() {
     return () => observer.disconnect()
   }, [])
 
-  const selectedBoard = useMemo(() => selectedPhysicalBoardProfile(nodes), [nodes])
+  const boardSelection = useMemo(() => selectedBoardResolution(nodes), [nodes])
+  const selectedBoard = boardSelection.profile
   const boardNodeId = useMemo(
     () => nodes.find((node) => node.data.nodeType === 'Board')?.id ?? ROOT_BOARD_NODE_ID,
     [nodes],
   )
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
   const { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts, boardPanels } = useBenchParts({
-    nodes, edges, selectedBoard,
+    nodes, edges, selectedBoard, boardUnresolved: boardSelection.kind === 'custom' && !selectedBoard,
   })
   const boardScreens = useMemo(() => boardScreensFor(boardProfile?.render), [boardProfile])
 

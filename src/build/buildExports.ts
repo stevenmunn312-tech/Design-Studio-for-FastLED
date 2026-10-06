@@ -1,4 +1,4 @@
-import type { PhysicalBoardProfile } from './boardProfiles'
+import { boardDataProvenance, type PhysicalBoardProfile } from './boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './electricalPlan'
 import { boardPinLabelForUse, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
@@ -232,7 +232,7 @@ export function buildBomRows(
   const items = manifest.primaryItems.filter(include)
   const rows: BuildBomRow[] = []
   const outputPlanByItemId = new Map(plan.outputs.map((output) => [output.itemId, output]))
-  if (exactBoard) rows.push({ quantity: '1', item: exactBoard.label, specification: exactBoard.confidence.replace(/-/g, ' '), status: 'configured' })
+  if (exactBoard) rows.push({ quantity: '1', item: exactBoard.label, specification: boardDataProvenance(exactBoard), status: 'configured' })
   for (const item of items) {
     if (item.kind === 'power-converter' && item.facts.role === 'led-rail') continue
     const outputPlan = outputPlanByItemId.get(item.id)

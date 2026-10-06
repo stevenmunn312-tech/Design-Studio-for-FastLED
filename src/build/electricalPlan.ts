@@ -541,6 +541,14 @@ function planControllerSupply(
       detail: `${exactBoard.label} has no 5 V input pin in its profile, so there is nowhere safe to land the converter's output. Power the controller over USB instead.`,
     })
   }
+  if (exactBoard?.custom) {
+    blockers.push({
+      id: `${item.id}:custom-board-power-path`,
+      severity: 'blocking',
+      title: exactBoard.label,
+      detail: "This custom board's supply pads are user-declared, so Studio does not plan a converter into an unverified input. Power it as declared in the custom board setup, or choose a board whose power path is verified.",
+    })
+  }
   if (exactBoard?.confidence === 'pinout-verified') {
     blockers.push({
       id: `${item.id}:board-power-path`,
@@ -566,6 +574,36 @@ function planControllerSupply(
     inputCurrentMa,
     inputConductor: input.conductor,
     inputFuse: input.fuse,
+  }
+}
+
+/**
+ * How a custom board is powered, exactly as the user declared it. A pad
+ * printed VIN is not a rated input, and a board that did not declare USB is
+ * not given a USB-C connector it may not have.
+ */
+function customControllerPower(board: PhysicalBoardProfile): { path: string; recommendation: string; unresolved?: string } {
+  const power = board.custom?.definition.controllerPower
+  if (power === 'usb') {
+    return {
+      path: 'USB power (user-declared, controller only)',
+      recommendation: 'Power the controller through its USB connector; do not route LED load through the controller board.',
+    }
+  }
+  if (power === 'external') {
+    const input = board.pins?.find((pin) => pin.role === 'power-in')
+    return {
+      path: input
+        ? `External supply into ${input.label} (user-declared; input rating unverified)`
+        : 'External supply (user-declared; no supply input pad defined)',
+      recommendation: 'Power the controller from its declared external supply after checking the board’s own input rating; do not route LED load through the controller board.',
+      unresolved: input ? undefined : 'Custom board: external controller power is declared, but no supply input pad is defined.',
+    }
+  }
+  return {
+    path: 'Unresolved — choose USB or external supply in the custom board setup',
+    recommendation: 'Choose how the controller is powered in the custom board setup; do not route LED load through the controller board.',
+    unresolved: 'Custom board: the controller power method is unresolved.',
   }
 }
 
@@ -742,6 +780,8 @@ export function calculateElectricalPlan(
       unresolved.push(`${zone} converter input fuse: ${supply.converter.inputFuse.unresolvedReason}`)
     }
   }
+  const customPower = exactBoard?.custom ? customControllerPower(exactBoard) : undefined
+  if (customPower?.unresolved) unresolved.push(customPower.unresolved)
   const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const powerReadyPasses = blockers.length === 0 && unresolved.length === 0
   const requirementsCalculatedText = blockers.length > 0
@@ -756,7 +796,7 @@ export function calculateElectricalPlan(
   const recommendations = [
     controllerSupply
       ? `Power the controller from the ${controllerSupply.label} into its ${controllerSupply.powerInPinLabel ?? '5 V input'} pin; do not route LED load through the controller board.`
-      : 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
+      : customPower?.recommendation ?? 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
     ...(controllerSupply ? controllerSupplyRecommendations(controllerSupply) : []),
     ...(railConverter ? [
       `Use one ${railConverter.module.label} per 5 V distribution zone; never parallel converter outputs.`,
@@ -828,7 +868,7 @@ export function calculateElectricalPlan(
       ? undefined
       : controllerSupply
         ? `${controllerSupply.label}, ${controllerSupply.sourceVoltage} V to ${controllerSupply.outputVoltage} V, into the board's ${controllerSupply.powerInPinLabel ?? '5 V input'} pin`
-        : 'USB-C power (controller only)',
+        : customPower?.path ?? 'USB-C power (controller only)',
     controllerSupply,
     branchChecks: [],
     recommendations,

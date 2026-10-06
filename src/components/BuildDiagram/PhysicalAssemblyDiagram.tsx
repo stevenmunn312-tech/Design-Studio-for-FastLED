@@ -44,12 +44,13 @@ import {
   powerZoneBands,
 } from './physicalDiagramLayout'
 import {
+  CONTROLLER_SLOT_CENTER_X,
+  controllerBox,
   controllerPowerPoint,
-  controllerRender,
   controllerConnectionPoint,
   type ControllerTerminalPoint,
 } from './controllerGeometry'
-import { ControllerConverterGraphic, ControllerGraphic } from './ControllerGraphic'
+import { ControllerConverterGraphic, ControllerGraphic, CustomControllerPowerNote } from './ControllerGraphic'
 import { OutputGraphic, InputGraphic } from './PeripheralGraphics'
 import { PowerDistributionSections, WireLabel } from './PowerDistribution'
 import { type PhysicalDiagramConnection, signalPresentation } from './signalPresentation'
@@ -107,8 +108,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const usesThreeVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
   const usesTwelveVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v12')
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
-  const detourBaseY = controllerDetourBaseY(controllerRender(boardProfile))
-  const topBandY = controllerTopBandY(controllerRender(boardProfile))
+  const detourBaseY = controllerDetourBaseY(controllerBox(boardProfile))
+  const topBandY = controllerTopBandY(controllerBox(boardProfile))
   /**
    * Left-rail lanes ordered by how far each wire has to travel, not by the
    * order its connection happens to appear in.
@@ -369,8 +370,10 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           placement, so a board whose 3V3 sits on the other rail aimed its stub
           into the board and had it painted over by the render.
         */}
-        <NetStub x={controllerGround.x} y={controllerGround.y} kind="gnd" direction={controllerGround.side} lead={26} wireId="controller-common-ground" />
-        {usesThreeVolt && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction={controller3v3.side} lead={26} wireId="controller-3v3-rail" />}
+        {/* A custom board lacking a declared rail draws no stub for it: its
+            absence is reported, never placed at a stock board's pad. */}
+        {controllerGround && <NetStub x={controllerGround.x} y={controllerGround.y} kind="gnd" direction={controllerGround.side} lead={26} wireId="controller-common-ground" />}
+        {usesThreeVolt && controller3v3 && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction={controller3v3.side} lead={26} wireId="controller-3v3-rail" />}
       </g>
 
       {layers.levelShifter && outputLayouts.length > 0 && <g filter="url(#component-shadow)">
@@ -480,7 +483,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}
 
       {controllerSupply ? (
-        <ControllerConverterGraphic supply={controllerSupply} boardProfile={boardProfile} x={controllerUsb.x - 92} y={592} />
+        <ControllerConverterGraphic supply={controllerSupply} boardProfile={boardProfile} x={(controllerUsb?.x ?? CONTROLLER_SLOT_CENTER_X) - 92} y={592} />
+      ) : !controllerUsb ? (
+        <CustomControllerPowerNote boardProfile={boardProfile} x={CONTROLLER_SLOT_CENTER_X - 92} y={592} />
       ) : <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />

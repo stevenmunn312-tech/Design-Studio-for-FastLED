@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
-import { boardPinVerdict, boardProfileById } from '../../build/boardProfiles'
+import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useUploadStore } from '../../state/uploadStore'
+import { CustomBoardGraphic } from '../Hardware/CustomBoardGraphic'
 import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../../build/boardProfiles'
 import styles from './BoardPinout.module.css'
 
@@ -39,7 +41,12 @@ function PinRow({ profile, pin, align }: {
 export default function BoardPinoutPopup() {
   const pinoutProfileId = useUploadStore((s) => s.pinoutProfileId)
   const closePinout = useUploadStore((s) => s.closePinout)
-  const profile = pinoutProfileId ? boardProfileById(pinoutProfileId) : undefined
+  const selectedBoard = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
+  // The project's custom board is not in the stock catalogue; it is the one
+  // selected board whose ID matches.
+  const profile = !pinoutProfileId ? undefined
+    : selectedBoard?.custom && selectedBoard.id === pinoutProfileId ? selectedBoard
+      : boardProfileById(pinoutProfileId)
 
   const { left, right, other } = useMemo(() => {
     const pins = profile?.pins ?? []
@@ -73,6 +80,11 @@ export default function BoardPinoutPopup() {
               {profile.memory ? ` · ${profile.memory.flashMb} MB flash` : ''}
               {profile.memory?.psramMb ? ` · ${profile.memory.psramMb} MB PSRAM` : ''}
             </div>
+            {profile.custom && (
+              <div className={styles.subtitle}>
+                {`${profile.sourceSummary} · build settings from ${profile.custom.referenceLabel}`}
+              </div>
+            )}
           </div>
           <button className={styles.closeBtn} onClick={closePinout} aria-label="Close pinout">×</button>
         </div>
@@ -82,7 +94,15 @@ export default function BoardPinoutPopup() {
             {left.map((pin) => <PinRow key={pin.id} profile={profile} pin={pin} align="left" />)}
           </ul>
 
-          {profile.render
+          {profile.custom
+            ? (
+              <CustomBoardGraphic
+                className={styles.render}
+                definition={profile.custom.definition}
+                defaultI2c={profile.custom.defaultI2c}
+              />
+            )
+            : profile.render
             ? (
               <img
                 className={styles.render}
