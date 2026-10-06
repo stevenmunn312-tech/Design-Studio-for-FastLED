@@ -76,11 +76,12 @@ If you touched the upload helper, also run `pytest backend/tests`.
 
 A new node needs four touch-points, enforced by tests:
 
-1. an entry in `src/state/nodeLibrary.ts`;
-2. a handler in its category's `src/nodes/<category>/evaluate.ts` table (live
-   preview);
+1. a definition in its category's `src/nodes/<category>/definitions.ts`;
+2. a handler in the same category's `evaluate.ts` table (live preview);
 3. an emitter in the same category's `codegen.ts` table (firmware);
-4. a one-line tooltip in `NODE_DESCRIPTIONS`.
+4. a one-line tooltip in that `definitions.ts` file's descriptions table.
+
+Property controls, labels and gating stay shared in `src/state/nodeLibrary.ts`.
 
 Preview and generated firmware must match — when the two can't use identical
 math, document the divergence.

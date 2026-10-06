@@ -73,12 +73,13 @@ Every node in every phase below has to clear this list. It is the same list
 `CLAUDE.md` states, expanded to the file each item lives in, so the phase
 sections can say "the per-node checklist" instead of repeating it ten times.
 
-1. **Library entry** in `src/state/nodeLibrary.ts`: the `NODE_LIBRARY` row with
-   its primary input declared first (`spliceTargetPorts` takes declaration
-   order), a `propertyInputs` row for every runtime knob, `PROPERTY_META`
-   sliders or selects for every numeric or enumerated property (a boolean or
+1. **Library entry**: the definition in its category's
+   `src/nodes/<category>/definitions.ts`, with its primary input declared first
+   (`spliceTargetPorts` takes declaration order), a `propertyInputs` row for
+   every runtime knob and a description beside it; then, in
+   `src/state/nodeLibrary.ts`, `PROPERTY_META` sliders or selects for every numeric or enumerated property (a boolean or
    string default renders as a checkbox or text field, as `Shape.wrap` and
-   `Code.code` do), a `NODE_DESCRIPTIONS` one-liner, `PROPERTY_LABELS` and
+   `Code.code` do), `PROPERTY_LABELS` and
    `PROPERTY_DESCRIPTIONS_OVERRIDES` where a key such as `a` or `cells` is
    ambiguous, `isPropertyEnabled` gating for knobs a variant does not read, and
    a place in `CATEGORY_NODE_ORDER.field` for a field node.

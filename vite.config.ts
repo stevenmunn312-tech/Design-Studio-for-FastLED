@@ -91,7 +91,9 @@ export default defineConfig(() => {
             if (moduleId.includes('/src/state/graphEvaluator.ts')
               || moduleId.includes('/src/state/evaluator/')
               || /\/src\/nodes\/[^/]+\/evaluate\.ts$/.test(moduleId)) return 'graph-runtime'
-            if (moduleId.includes('/src/state/nodeLibrary.ts')) return 'node-catalog'
+            // The node registry and every category's definitions beside it.
+            if (moduleId.includes('/src/state/nodeLibrary.ts')
+              || /\/src\/nodes\/[^/]+\/definitions\.ts$/.test(moduleId)) return 'node-catalog'
             if (!id.includes('node_modules')) return
             if (id.includes('@xyflow/react')) return 'xyflow'
             if (id.includes('react') || id.includes('zustand') || id.includes('zundo')) return 'react-vendor'

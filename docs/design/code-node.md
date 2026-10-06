@@ -187,7 +187,7 @@ and unit tests (transpile/eval cases + codegen snapshots).
 
 ## Touch points
 
-- `src/state/nodeLibrary.ts` — node entry (`globalCode` + `code`) + `NODE_DESCRIPTIONS`.
+- `src/nodes/code/definitions.ts` — node entry (`globalCode` + `code`) and its description.
 - `src/state/graphEvaluator.ts` — `Code` case, calling `evalCodeAsync` (below);
   no longer owns the compile/execute pipeline itself.
 - `src/state/codeSandboxRuntime.ts` — main-thread controller: `transpileCode`
