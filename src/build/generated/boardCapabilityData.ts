@@ -1286,7 +1286,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1650,
       indicators: [
         {
-          rectPx: [463.1, 628.9, 37.4, 18.7],
+          rectPx: [416.9, 855.9, 18.7, 37.4],
           color: [255, 15, 8],
           drive: "power",
         },

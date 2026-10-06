@@ -447,6 +447,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   both importers and scales a board's with its downsized render.
   `BenchIndicators` draws them only when that render is the picture on screen
   (`indicatorRenderFor`).
+- Indicator measurement must also check camera visibility: a projected lens
+  rectangle can belong to an LED buried under another component. The measurement
+  script samples camera rays through the lens and excludes fully occluded LEDs,
+  ignoring objects hidden from the render. An occluded LED requires correcting
+  its source model placement against the board references, re-rendering and
+  remeasuring; excluding its overlay alone does not repair the asset. The generic
+  ESP32-S3 N16R8 power/TX/RX row sits below BOOT on exposed PCB. Its source repair
+  script is `Blender Assets/Scripts/fix_n16r8_status_led_seats.py`; staged renders
+  pass `relight_qa.py` before promotion with `relight_promote.py`.
 - The board rebuild names each LED `LED n` with `LED n lens` and `LED n die`,
   and a die material ending " lit" was rendered emitting. A lit LED is a power
   LED: the render already shows it on, so the bench adds only its glow. An
