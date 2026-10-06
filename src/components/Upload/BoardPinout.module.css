@@ -80,6 +80,12 @@
   border-radius: 8px;
 }
 
+/* An inline schematic has no intrinsic size, so it is given a width and takes
+   its height from its viewBox. */
+.customRender {
+  width: min(300px, 100%);
+}
+
 .noRender {
   padding: var(--space-2);
   text-align: center;

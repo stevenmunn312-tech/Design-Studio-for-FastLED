@@ -97,7 +97,7 @@ export default function BoardPinoutPopup() {
           {profile.custom
             ? (
               <CustomBoardGraphic
-                className={styles.render}
+                className={`${styles.render} ${styles.customRender}`}
                 definition={profile.custom.definition}
                 defaultI2c={profile.custom.defaultI2c}
               />

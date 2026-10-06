@@ -229,3 +229,16 @@
   line-height: 1.35;
   opacity: 0.85;
 }
+
+/* The custom board's name sits where the stock Board select would. */
+.customName {
+  padding: 4px 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-glow);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

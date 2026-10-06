@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
 import { controllerSettings } from '../../state/controllerSettings'
@@ -8,12 +8,15 @@ import { serialRouteSummary } from '../../state/serialRouting'
 import { estimatePowerLoad } from '../../utils/validateGraph'
 import BoardPinoutPicker from './BoardPinoutPicker'
 import ClampedNumberInput from './ClampedNumberInput'
+import CustomBoardEditor from '../Hardware/CustomBoardEditor'
 import {
   BOARD_PROFILE_FAMILIES,
   boardProfileById,
   boardProfileFamilyId,
   boardProfilesForFamily,
+  resolveBoardSelection,
 } from '../../build/boardProfiles'
+import { CUSTOM_BOARD_PROFILE_ID } from '../../state/customBoard'
 import styles from './BoardNodeBody.module.css'
 
 // The Board node picks a *profile*, not an FQBN. `esp32:esp32:esp32` names the
@@ -42,12 +45,19 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const ports = useUploadStore((s) => s.ports)
   const graphNodes = useRootNodes()
   const [pinoutPickerOpen, setPinoutPickerOpen] = useState(false)
+  const [customEditorOpen, setCustomEditorOpen] = useState(false)
+  const closeCustomEditor = useCallback(() => setCustomEditorOpen(false), [])
 
-  const profileId = useMemo(() => {
+  const boardProps = useMemo(() => {
     const node = graphNodes.find((n) => n.id === nodeId)
-    const props = node?.data.properties as Record<string, unknown> | undefined
-    return typeof props?.profileId === 'string' ? props.profileId : ''
+    return (node?.data.properties ?? {}) as Record<string, unknown>
   }, [graphNodes, nodeId])
+  const profileId = typeof boardProps.profileId === 'string' ? boardProps.profileId : ''
+  const savedCustomBoard = boardProps.customBoard
+  // The project's custom board, resolved the way every other view resolves
+  // it; a stock choice is still the catalogue entry.
+  const selection = useMemo(() => resolveBoardSelection(boardProps), [boardProps])
+  const isCustom = selection.kind === 'custom'
 
   /*
    * Read straight off the node rather than through `controllerSettings`.
@@ -70,7 +80,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
     [graphNodes],
   )
 
-  const profile = useMemo(() => boardProfileById(profileId), [profileId])
+  const profile = selection.profile
   const boardTarget = boardByFqbn(selectedFqbn)
   const psramOptions = boardTarget?.psram
   const psramSupported = !!psramOptions || !!profile?.psramMode
@@ -82,7 +92,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   const power = useMemo(() => estimatePowerLoad(graphNodes), [graphNodes])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
   const serialPort = ports.find((port) => port.address === selectedPort)
-  const familyId = profile ? boardProfileFamilyId(profile) : ''
+  const familyId = isCustom ? CUSTOM_BOARD_PROFILE_ID : profile ? boardProfileFamilyId(profile) : ''
   const familyBoards = useMemo(() => boardProfilesForFamily(familyId), [familyId])
 
   function chooseBoard(nextId: string) {
@@ -95,6 +105,19 @@ export default function BoardNodeBody({ nodeId }: Props) {
   }
 
   function chooseFamily(nextFamilyId: string) {
+    if (nextFamilyId === CUSTOM_BOARD_PROFILE_ID) {
+      // A retained definition is selected straight back; otherwise the editor
+      // opens on a draft, and nothing changes until Apply.
+      const retained = resolveBoardSelection({ profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: savedCustomBoard }).profile
+      if (retained) {
+        selectBoardProfile(nodeId, CUSTOM_BOARD_PROFILE_ID)
+        const fqbn = retained.compatibleFqbns[0]
+        if (fqbn) setSelectedFqbn(fqbn)
+      } else {
+        setCustomEditorOpen(true)
+      }
+      return
+    }
     const firstBoard = boardProfilesForFamily(nextFamilyId)[0]
     chooseBoard(firstBoard?.id ?? '')
   }
@@ -123,9 +146,37 @@ export default function BoardNodeBody({ nodeId }: Props) {
           {BOARD_PROFILE_FAMILIES.map((family) => (
             <option key={family.id} value={family.id}>{family.label}</option>
           ))}
+          <option value={CUSTOM_BOARD_PROFILE_ID}>Custom board</option>
         </select>
       </label>
 
+      {isCustom ? (
+        <div className={styles.pickerRow}>
+          <div className={styles.pickerField}>
+            <span className={styles.pickerLabel}>Board</span>
+            <span className={styles.customName}>{profile?.label ?? 'Custom board — needs repair'}</span>
+          </div>
+          <button
+            type="button"
+            className={styles.eyeBtn}
+            onClick={() => setCustomEditorOpen(true)}
+            title="Edit the custom board's headers and build template"
+            aria-label="Edit custom board"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className={styles.eyeBtn}
+            onClick={() => profile && openPinout(profile.id)}
+            disabled={!profile}
+            title={profile ? `View the ${profile.label} pinout` : 'Repair the custom board first'}
+            aria-label="View board pinout"
+          >
+            👁
+          </button>
+        </div>
+      ) : (
       <div className={styles.pickerRow}>
         <label className={styles.pickerField}>
           <span className={styles.pickerLabel}>Board</span>
@@ -165,6 +216,11 @@ export default function BoardNodeBody({ nodeId }: Props) {
           👁
         </button>
       </div>
+      )}
+
+      {customEditorOpen && (
+        <CustomBoardEditor boardNodeId={nodeId} saved={savedCustomBoard} onClose={closeCustomEditor} />
+      )}
 
       {pinoutPickerOpen && (
         <BoardPinoutPicker
@@ -178,9 +234,21 @@ export default function BoardNodeBody({ nodeId }: Props) {
         />
       )}
 
-      {!profile && (
+      {!profile && !isCustom && (
         <p className={styles.empty}>
           Pin advice stays chip-level until an exact board is chosen.
+        </p>
+      )}
+
+      {isCustom && !profile && (
+        <p className={styles.warning}>
+          This custom board’s definition needs repair before firmware can be built. Choose Edit to fix it.
+        </p>
+      )}
+
+      {profile?.custom && (
+        <p className={styles.empty}>
+          User-defined pinout — schematic. Build settings from {profile.custom.referenceLabel}.
         </p>
       )}
 
