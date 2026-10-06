@@ -3,27 +3,13 @@ import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { usePreviewStore } from '../../state/previewStore'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { asTftRotation, rgb565Components, TFT_CONTROLLERS, tftRotatedSize, type TftSurface } from '../../state/tftSurface'
+import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize } from '../../state/tftSurface'
 import { displayHasTouch } from '../../state/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../../state/transportDisplay'
-import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
-import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displayTheme'
-import DisplayWidgetPreview from '../DisplayEditor/DisplayWidgetPreview'
-import DisplayRuntimeWidgets from '../DisplayEditor/DisplayRuntimeWidgets'
-import {
-  displayBackgroundStyle,
-  displayThemeVariables,
-  displayWidgetThemeVariables,
-} from '../DisplayEditor/displayPreviewStyles'
+import DisplayDesignSurface from '../DisplayEditor/DisplayDesignSurface'
+import { isTftSurface, paintTftSurface } from '../Preview/displaySurfaceRaster'
 import styles from './TransportDisplayNodeBody.module.css'
-
-function isTftSurface(value: unknown): value is TftSurface {
-  if (!value || typeof value !== 'object') return false
-  const surface = value as Partial<TftSurface>
-  return Number.isInteger(surface.width) && Number.isInteger(surface.height)
-    && surface.data instanceof Uint16Array
-}
 
 /** Compact physical-screen preview; canvas pixels keep the panel's true ratio. */
 export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string }) {
@@ -136,14 +122,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
       return
     }
     const image = context.createImageData(surface.width, surface.height)
-    for (let i = 0; i < surface.data.length; i++) {
-      const { r, g, b } = rgb565Components(surface.data[i])
-      const at = i * 4
-      image.data[at] = r
-      image.data[at + 1] = g
-      image.data[at + 2] = b
-      image.data[at + 3] = 255
-    }
+    paintTftSurface(image, surface)
     context.putImageData(image, 0, 0)
   }, [surface])
 
@@ -161,44 +140,13 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
             role="img"
             aria-label={`${panelEnabled ? 'Live' : 'Disabled'} custom display preview, ${customDocument.designSize.width} by ${customDocument.designSize.height} pixels`}
           >
-            {panelEnabled && <div
-              className={styles.customSurface}
-              style={{
-                ...displayBackgroundStyle(resolveDisplayThemeTokens(customDocument.theme).background),
-                ...displayThemeVariables(customDocument),
-                width: customDocument.designSize.width,
-                height: customDocument.designSize.height,
-                transform: `scale(${scale})`,
-              }}
-            >
-              <DisplayRuntimeWidgets displayId={customDisplayId} document={customDocument}>
-                {(widget, value) => {
-                  const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
-                  const state = displayWidgetVisualState(widget, value)
-                  return (
-                    <div
-                      key={widget.id}
-                      className={styles.customWidget}
-                      style={{
-                        left: widget.bounds.x,
-                        top: widget.bounds.y,
-                        width: widget.bounds.width,
-                        height: widget.bounds.height,
-                        ...displayWidgetThemeVariables(customDocument.theme, state),
-                      }}
-                    >
-                      <DisplayWidgetPreview
-                        widget={widget}
-                        renderer={definition.previewRenderer}
-                        theme={customDocument.theme}
-                        state={state}
-                        value={value}
-                      />
-                    </div>
-                  )
-                }}
-              </DisplayRuntimeWidgets>
-            </div>}
+            {panelEnabled && (
+              <DisplayDesignSurface
+                displayId={customDisplayId}
+                document={customDocument}
+                style={{ transform: `scale(${scale})` }}
+              />
+            )}
           </div>
           {designAction}
         </div>

@@ -1,0 +1,17 @@
+.surface {
+  position: absolute;
+  inset: 0 auto auto 0;
+  overflow: hidden;
+  transform-origin: top left;
+  color: var(--display-text);
+  font-family: var(--font-body);
+}
+
+.widget {
+  position: absolute;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  color: var(--widget-state-text);
+  opacity: var(--widget-state-opacity, 1);
+}
