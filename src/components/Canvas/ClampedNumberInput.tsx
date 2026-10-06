@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 /**
  * A number field that does not fight the person typing into it.
@@ -29,6 +29,9 @@ export default function ClampedNumberInput({
 }: ClampedNumberInputProps) {
   // null means "not being edited": show the canonical value from the store.
   const [draft, setDraft] = useState<string | null>(null)
+  // Set only while Escape blurs the field: that blur's commit still sees the
+  // draft from before Escape cleared it, and would clamp it into the store.
+  const abandoning = useRef(false)
 
   function change(raw: string): void {
     setDraft(raw)
@@ -39,7 +42,7 @@ export default function ClampedNumberInput({
   }
 
   function commit(): void {
-    if (draft === null) return
+    if (draft === null || abandoning.current) return
     const parsed = Number(draft)
     if (draft.trim() !== '' && Number.isFinite(parsed)) {
       onCommit(Math.min(max, Math.max(min, parsed)))
@@ -64,8 +67,13 @@ export default function ClampedNumberInput({
           event.currentTarget.blur()
         } else if (event.key === 'Escape') {
           // Abandon the partial edit rather than clamping it into the store.
+          // That answers this Escape, so the menu or editor around the field
+          // stays open; with no edit in progress, Escape closes it as usual.
+          if (draft !== null) event.preventDefault()
           setDraft(null)
+          abandoning.current = true
           event.currentTarget.blur()
+          abandoning.current = false
         }
       }}
     />

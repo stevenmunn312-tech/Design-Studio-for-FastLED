@@ -135,7 +135,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/components/Canvas/ClampedNumberInput.tsx` fixes this by holding the
   partial text in local state, committing only keystrokes that already parse
   in-range (so live readouts stay responsive), and clamping once on blur; Escape
-  abandons the edit instead of clamping it in. `BoardNodeBody.tsx`'s power-cap
+  abandons the edit instead of clamping it in. Escape also blurs the field, and
+  that blur's commit still sees the old draft, so an `abandoning` ref skips it;
+  without it, Escape clamped the abandoned text into the store. `BoardNodeBody.tsx`'s power-cap
   Volts/Milliamps fields use it. Reach for this component rather than a raw
   `type="number"` input for any new numeric field with a non-zero minimum.
 
@@ -155,8 +157,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   while `appDialog` was set saw it already cleared, because the dialog resolves
   before document and window listeners run. Pass `open` for a component that
   stays mounted while closed, or it swallows every Escape while invisible. An
-  element that answers Escape itself (`MenuBar`'s keyboard handling) calls
-  `preventDefault`, and both the stack and `App.tsx` then leave the event
-  alone. `PropertyInputMenu` (capture phase) and the Performance deck's key
+  element that answers Escape itself (`MenuBar`'s keyboard handling,
+  `ClampedNumberInput` abandoning an edit) calls `preventDefault`, and both the
+  stack and `App.tsx` then leave the event alone. `PropertyInputMenu` (capture phase) and the Performance deck's key
   learning are deliberate exceptions that take the keystroke before anything
   else.
