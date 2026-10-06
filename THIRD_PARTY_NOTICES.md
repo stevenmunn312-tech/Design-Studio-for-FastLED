@@ -34,7 +34,7 @@ set. Refresh this file when the lockfile changes in a release-significant way.
 - The package metadata in `node_modules/essentia.js/package.json` marks it as
   `AGPL-3.0`.
 - The app already carries the required origin acknowledgement in `README.md`
-  and `src/components/Canvas/MusicLibraryNodeBody.tsx`:
+  and `src/components/Canvas/bodies/MusicLibraryNodeBody.tsx`:
   `http://essentia.upf.edu`.
 - Anyone redistributing a build that includes `essentia.js` must preserve its
   license notice and review the AGPL obligations that apply to their
