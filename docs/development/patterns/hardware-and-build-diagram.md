@@ -103,9 +103,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   unmounted with the menu. It renders in place with a fixed backdrop, as
   `BoardPinoutPicker` does. The board pinout (`BoardPinoutPopup`) is the one
   App-level exception: its overlay sits at z-index 1050, above the floating
-  menus (1000), and `HardwarePane` ignores outside clicks and Escape while
-  `pinoutProfileId` is set, so the menu stays open beneath it. `AppDialogHost`
-  sits at 1200, above both, because every popup yields Escape to it.
+  menus (1000), and `HardwarePane` ignores outside clicks while
+  `pinoutProfileId` is set, so the menu stays open beneath it; Escape needs no
+  such check, since the pinout opened later and so is the higher Escape layer.
+  `AppDialogHost` sits at 1200, above both, matching its place as the last
+  layer opened.
 
 ## Peripherals
 

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HelpModal.module.css'
 import NodeReference from './NodeReference'
@@ -861,11 +862,7 @@ export default function HelpModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeHelp() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [closeHelp])
+  useEscapeLayer(closeHelp)
 
   // Roving focus across the tab strip, matching the MenuBar convention.
   function handleTabKeyDown(e: ReactKeyboardEvent<HTMLButtonElement>) {

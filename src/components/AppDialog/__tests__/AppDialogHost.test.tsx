@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import AppDialogHost from '../AppDialogHost'
 import { useUiStore } from '../../../state/uiStore'
+import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
+
+function PopupLayer({ onEscape }: { onEscape: () => void }) {
+  useEscapeLayer(onEscape)
+  return null
+}
 
 describe('AppDialogHost', () => {
   beforeEach(() => {
@@ -68,21 +74,19 @@ describe('AppDialogHost', () => {
     opener.remove()
   })
 
-  it('keeps the Escape it answers from reaching popups beneath it', async () => {
-    // Those popups yield while `appDialog` is set, but the dialog clears it
-    // before document and window listeners run.
-    const beneath = vi.fn()
-    document.addEventListener('keydown', beneath)
-    window.addEventListener('keydown', beneath)
+  it('answers Escape before the popup that asked for it', async () => {
+    const popup = vi.fn()
+    const workspace = vi.fn()
+    window.addEventListener('keydown', workspace)
     try {
+      const { findByRole } = render(<><PopupLayer onEscape={popup} /><AppDialogHost /></>)
       const promise = useUiStore.getState().requestConfirm({ title: 'Discard?', message: 'Continue?' })
-      const { getByRole } = render(<AppDialogHost />)
-      fireEvent.keyDown(getByRole('dialog', { name: 'Discard?' }), { key: 'Escape' })
+      fireEvent.keyDown(await findByRole('dialog', { name: 'Discard?' }), { key: 'Escape' })
       await expect(promise).resolves.toBe(false)
-      expect(beneath).not.toHaveBeenCalled()
+      expect(popup).not.toHaveBeenCalled()
+      expect(workspace).not.toHaveBeenCalled()
     } finally {
-      document.removeEventListener('keydown', beneath)
-      window.removeEventListener('keydown', beneath)
+      window.removeEventListener('keydown', workspace)
     }
   })
 })

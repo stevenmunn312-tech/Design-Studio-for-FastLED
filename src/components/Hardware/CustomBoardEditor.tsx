@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { boardI2cDefault, profileI2cDefault } from '../../build/boardI2cDefaults'
 import { customBoardRowsFromReference, resolveCustomBoard } from '../../build/customBoardProfile'
@@ -18,7 +19,6 @@ import {
 } from '../../state/customBoard'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
 import { retargetDefaultI2c } from '../../state/pinRetarget'
-import { useUiStore } from '../../state/uiStore'
 import { useUploadStore } from '../../state/uploadStore'
 import ClampedNumberInput from '../Canvas/ClampedNumberInput'
 import { CustomBoardGraphic } from './CustomBoardGraphic'
@@ -101,14 +101,8 @@ export default function CustomBoardEditor({ boardNodeId, saved, onClose }: Props
   const [applyIssues, setApplyIssues] = useState<CustomBoardIssue[]>([])
 
   useEffect(() => { nameRef.current?.focus() }, [])
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      // The shared dialog, when open, owns Escape.
-      if (event.key === 'Escape' && !useUiStore.getState().appDialog) onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Opened from the board menu, so it answers Escape before the menu does.
+  useEscapeLayer(onClose)
 
   const reference = boardProfileById(draft.referenceProfileId)
   const template = customBoardTemplate(draft.referenceProfileId)

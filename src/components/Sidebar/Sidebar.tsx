@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audioStore'
@@ -626,18 +627,14 @@ function Sidebar() {
   useEffect(() => {
     if (!patternContextMenu) return
     const close = () => setPatternContextMenu(null)
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-    }
     window.addEventListener('mousedown', close)
     window.addEventListener('blur', close)
-    window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('mousedown', close)
       window.removeEventListener('blur', close)
-      window.removeEventListener('keydown', onKey)
     }
   }, [patternContextMenu])
+  useEscapeLayer(() => setPatternContextMenu(null), patternContextMenu !== null)
 
   const handlePatternSelection = (
     event: Pick<React.MouseEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>,

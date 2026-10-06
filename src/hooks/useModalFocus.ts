@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useEscapeLayer } from './useEscapeLayer'
 
 const FOCUSABLE = [
   'a[href]',
@@ -21,23 +22,23 @@ export function useModalFocus<T extends HTMLElement>(onClose: () => void) {
   const restoreFocusRef = useRef<HTMLElement | null>(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  // Escape goes through the shared stack, so a modal opened from a menu closes
+  // alone. Live only once the effect below has found the dialog.
+  const [mounted, setMounted] = useState(false)
+  useEscapeLayer(onClose, mounted)
 
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
 
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setMounted(true)
     const timer = window.setTimeout(() => {
       const first = focusableElements(dialog)[0]
       ;(first ?? dialog).focus()
     }, 0)
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        closeRef.current()
-        return
-      }
       if (event.key !== 'Tab') return
 
       const items = focusableElements(dialog)

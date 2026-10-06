@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useGraphStore } from '../../state/graphStore'
 import PatternTagChips from '../PatternTags/PatternTagChips'
 import type { PatternFormTag } from '../../state/patternTags'
@@ -34,6 +35,7 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
   const [saveToLibrary, setSaveToLibrary] = useState(false)
   const [bestOn, setBestOn] = useState<PatternFormTag[]>([])
   const [checkedPalettes, setCheckedPalettes] = useState<Set<string>>(new Set())
+  useEscapeLayer(onClose)
 
   // Candidates: selected nodes with an unwired `paletteIn` port — a node
   // whose palette is already driven by something else is left alone.
@@ -82,7 +84,6 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
             onFocus={(e) => e.currentTarget.select()}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleCreate()
-              if (e.key === 'Escape') onClose()
             }}
           />
         </label>

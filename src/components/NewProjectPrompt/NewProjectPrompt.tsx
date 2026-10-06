@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useUiStore } from '../../state/uiStore'
 import styles from './NewProjectPrompt.module.css'
 
@@ -8,14 +9,10 @@ export default function NewProjectPrompt() {
   const primaryButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (!prompt.open) return
-    primaryButtonRef.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') resolveNewProjectDecision('cancel')
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [prompt.open, resolveNewProjectDecision])
+    if (prompt.open) primaryButtonRef.current?.focus()
+  }, [prompt.open])
+  // Always mounted, so the layer follows the prompt rather than the component.
+  useEscapeLayer(() => resolveNewProjectDecision('cancel'), prompt.open)
 
   if (!prompt.open) return null
 

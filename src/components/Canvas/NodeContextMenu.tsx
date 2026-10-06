@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useGraphStore } from '../../state/graphStore'
 import {
   defaultPropertiesForNodeType,
@@ -171,14 +172,10 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
     }
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('mousedown', handler)
-    document.addEventListener('keydown', keyHandler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('keydown', keyHandler)
-    }
+    return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
+  useEscapeLayer(onClose)
 
   const act = (fn: () => void) => { fn(); onClose() }
 

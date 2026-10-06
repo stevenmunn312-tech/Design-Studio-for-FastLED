@@ -12,6 +12,7 @@ import {
   Fragment,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useGraphStore, useRootNodes, useRootEdges, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_COLOR } from '../../state/nodeLibrary'
@@ -503,30 +504,23 @@ export default function HardwarePane() {
   }
 
   // The board pinout opens from the board menu and sits above it; while it is
-  // open, its clicks and Escape belong to it and the menus stay put beneath.
+  // open, its clicks belong to it and the menus stay put beneath.
   useEffect(() => {
-    const pinoutOpen = () => useUploadStore.getState().pinoutProfileId !== null
     const onPointerDown = (event: PointerEvent) => {
-      if (pinoutOpen()) return
+      if (useUploadStore.getState().pinoutProfileId !== null) return
       const target = event.target as Node
       if (boardMenuRef.current && !boardMenuRef.current.contains(target)) setBoardMenu(null)
       if (itemMenuRef.current && !itemMenuRef.current.contains(target)) setItemMenu(null)
       if (inspectorMenuRef.current && !inspectorMenuRef.current.contains(target)) closeInspector()
     }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !pinoutOpen()) {
-        setBoardMenu(null)
-        setItemMenu(null)
-        closeInspector()
-      }
-    }
     document.addEventListener('pointerdown', onPointerDown, { capture: true })
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown, { capture: true })
-      document.removeEventListener('keydown', onKeyDown)
-    }
+    return () => document.removeEventListener('pointerdown', onPointerDown, { capture: true })
   }, [closeInspector])
+  useEscapeLayer(() => {
+    setBoardMenu(null)
+    setItemMenu(null)
+    closeInspector()
+  }, Boolean(boardMenu || itemMenu || inspectorOpen))
 
   /*
    * Viewport coordinates, because FloatingMenu measures against the window.

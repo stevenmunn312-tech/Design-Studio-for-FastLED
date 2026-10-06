@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, NODE_DESCRIPTIONS, portsCompatible } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -218,19 +219,13 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
     const onMouseDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
     }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (mode === 'picker' && !connectFrom && !startInPicker) setMode('main')
-        else onClose()
-      }
-    }
     document.addEventListener('mousedown', onMouseDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose, mode, connectFrom, startInPicker])
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [onClose])
+  useEscapeLayer(() => {
+    if (mode === 'picker' && !connectFrom && !startInPicker) setMode('main')
+    else onClose()
+  })
 
   useEffect(() => {
     if (mode === 'picker') inputRef.current?.focus()

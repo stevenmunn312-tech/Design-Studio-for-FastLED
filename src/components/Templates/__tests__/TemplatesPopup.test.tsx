@@ -63,18 +63,18 @@ describe('TemplatesPopup', () => {
   })
 
   describe('from the keyboard', () => {
-    it('closes on Escape', () => {
-      render(<TemplatesPopup />)
-      fireEvent.keyDown(window, { key: 'Escape' })
-      expect(useUiStore.getState().templatesOpen).toBe(false)
-    })
-
-    it('leaves Escape to its own replace confirmation while one is asking', () => {
-      render(<TemplatesPopup />)
-      void useUiStore.getState().requestConfirm({ title: 'Replace current graph?', message: 'Continue?' })
-      fireEvent.keyDown(window, { key: 'Escape' })
-      expect(useUiStore.getState().templatesOpen).toBe(true)
-      useUiStore.setState({ appDialog: null })
+    it('closes on Escape, and only itself', () => {
+      // App.tsx's window handler would also close the Build Diagram beneath.
+      const beneath = vi.fn()
+      window.addEventListener('keydown', beneath)
+      try {
+        render(<TemplatesPopup />)
+        fireEvent.keyDown(document.body, { key: 'Escape' })
+        expect(useUiStore.getState().templatesOpen).toBe(false)
+        expect(beneath).not.toHaveBeenCalled()
+      } finally {
+        window.removeEventListener('keydown', beneath)
+      }
     })
 
     it('stays open when Escape answers its replace confirmation', async () => {

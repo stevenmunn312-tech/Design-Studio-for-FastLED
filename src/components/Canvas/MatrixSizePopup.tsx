@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import styles from './MatrixSizePopup.module.css'
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
 export default function MatrixSizePopup({ width, height, onApply, onClose }: Props) {
   const [w, setW] = useState(String(width))
   const [h, setH] = useState(String(height))
+
+  useEscapeLayer(onClose)
 
   const clamp = (v: string) => Math.max(1, Math.min(64, Math.round(Number(v)) || 1))
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useHardwareInputStore } from '../../state/hardwareInputStore'
@@ -243,14 +244,7 @@ function LearnDialog({ nodeId }: { nodeId: string }) {
   })
   const [label, setLabel] = useState('')
   useEffect(() => setLabel(''), [session?.captured, session?.nodeId])
-  useEffect(() => {
-    if (!session) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !useUiStore.getState().appDialog) cancel()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [session, cancel])
+  useEscapeLayer(cancel, Boolean(session))
   if (!session || typeof document === 'undefined') return null
   const captured = session.captured
   return createPortal(

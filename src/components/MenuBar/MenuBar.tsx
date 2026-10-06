@@ -39,6 +39,7 @@ import { DevPerformanceHudToggle } from '../Preview/DevPerformanceHud'
 import { isDiffusedStyle, previewStyleLabel } from '../Preview/previewStyles'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { scrollRailOnWheel, useScrollOverflow } from '../../hooks/useScrollRail'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import styles from './MenuBar.module.css'
 
 const MIC_BLOCKED_MESSAGE = 'Microphone is disabled while a performance is playing music. Stop the player to enable the microphone.'
@@ -238,16 +239,9 @@ export default function MenuBar() {
     if (micActive && micUnavailableMessage) stopAudio()
   }, [micActive, micUnavailableMessage, stopAudio])
 
-  useEffect(() => {
-    if (!fileMenuOpen && !viewMenuOpen) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenus()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [fileMenuOpen, viewMenuOpen])
+  // Focus inside a menu answers Escape itself (handleMenuKeyDown) and returns
+  // focus to its trigger; this covers Escape from anywhere else.
+  useEscapeLayer(closeMenus, fileMenuOpen || viewMenuOpen)
 
   const toggleMic = () => {
     if (micUnavailableMessage) {

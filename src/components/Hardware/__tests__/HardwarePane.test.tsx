@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { fireEvent, render as renderView, screen, waitFor, within } from '@testing-library/react'
 import HardwarePane from '../HardwarePane'
+import BoardPinoutPopup from '../../Upload/BoardPinoutPopup'
 import { HARDWARE_SHELF_HOST_ID } from '../HardwarePartsShelf'
 import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../state/hardware'
+import { CUSTOM_BOARD_PROFILE_ID } from '../../../state/customBoard'
 import { MIC_MODULES } from '../../../state/micModules'
 import { boardI2cDefault } from '../../../build/boardI2cDefaults'
 
@@ -649,22 +651,31 @@ describe('HardwarePane', () => {
   })
 
   it('keeps the board menu open beneath its pinout', async () => {
-    render(<HardwarePane />)
+    render(<><HardwarePane /><BoardPinoutPopup /></>)
     fireEvent.click(screen.getByTitle('Click for board options'))
-    expect(await within(document.body).findByLabelText('Board family', undefined, { timeout: 5000 })).toBeTruthy()
+    fireEvent.click(await within(document.body).findByRole('button', { name: 'View board pinout' }, { timeout: 5000 }))
+    const pinout = within(document.body).getByRole('dialog', { name: /pinout$/ })
 
     // The pinout sits above the menu; its clicks and Escape are its own.
-    useUploadStore.setState({ pinoutProfileId: DEFAULT_BOARD_PROFILE_ID })
-    try {
-      fireEvent.pointerDown(document.body)
-      fireEvent.keyDown(document, { key: 'Escape' })
-      expect(within(document.body).queryByLabelText('Board family')).toBeTruthy()
-    } finally {
-      useUploadStore.setState({ pinoutProfileId: null })
-    }
+    fireEvent.pointerDown(pinout)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(within(document.body).queryByRole('dialog', { name: /pinout$/ })).toBeNull()
+    expect(within(document.body).queryByLabelText('Board family')).toBeTruthy()
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(within(document.body).queryByLabelText('Board family')).toBeNull()
+  })
+
+  it('closes the custom board editor on Escape and leaves the board menu open', async () => {
+    render(<HardwarePane />)
+    fireEvent.click(screen.getByTitle('Click for board options'))
+    const family = await within(document.body).findByLabelText('Board family', undefined, { timeout: 5000 })
+    fireEvent.change(family, { target: { value: CUSTOM_BOARD_PROFILE_ID } })
+    expect(await within(document.body).findByRole('dialog', { name: 'Custom board' }, { timeout: 5000 })).toBeTruthy()
+
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(within(document.body).queryByRole('dialog', { name: 'Custom board' })).toBeNull()
+    expect(within(document.body).queryByLabelText('Board family')).toBeTruthy()
   })
 
   it('opens the board menu beside the board so the full panel can fit', async () => {

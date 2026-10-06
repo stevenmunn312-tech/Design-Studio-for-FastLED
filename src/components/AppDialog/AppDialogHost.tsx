@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useUiStore, type AppDialogState } from '../../state/uiStore'
 import styles from './AppDialogHost.module.css'
 
@@ -25,6 +26,15 @@ function dialogName(dialog: AppDialogState): string {
   }
 }
 
+/** What each kind resolves to when dismissed rather than answered. */
+function dismissedValue(dialog: AppDialogState) {
+  switch (dialog.kind) {
+    case 'alert': return undefined
+    case 'confirm': return false
+    case 'prompt': return null
+  }
+}
+
 export default function AppDialogHost() {
   const dialog = useUiStore((s) => s.appDialog)
   const resolveAppDialog = useUiStore((s) => s.resolveAppDialog)
@@ -36,6 +46,10 @@ export default function AppDialogHost() {
   const titleId = useId()
   const messageId = useId()
   const promptId = useId()
+  // Opened after whatever asked for it, so it is the top layer while open.
+  useEscapeLayer(() => {
+    if (dialog) resolveAppDialog(dismissedValue(dialog))
+  }, dialog !== null)
 
   useEffect(() => {
     if (!dialog) return
@@ -69,19 +83,7 @@ export default function AppDialogHost() {
 
   if (!dialog || typeof document === 'undefined') return null
 
-  const close = () => {
-    switch (dialog.kind) {
-      case 'alert':
-        resolveAppDialog(undefined)
-        break
-      case 'confirm':
-        resolveAppDialog(false)
-        break
-      case 'prompt':
-        resolveAppDialog(null)
-        break
-    }
-  }
+  const close = () => resolveAppDialog(dismissedValue(dialog))
 
   const submit = () => {
     switch (dialog.kind) {
@@ -99,15 +101,6 @@ export default function AppDialogHost() {
   }
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      // The dialog clears itself before document and window listeners run, so
-      // a popup beneath it checking `appDialog` would see none and close too.
-      // The keystroke is the dialog's alone.
-      event.preventDefault()
-      event.stopPropagation()
-      close()
-      return
-    }
     if (event.key === 'Enter' && dialog.kind === 'prompt' && event.target === inputRef.current) {
       event.preventDefault()
       submit()

@@ -68,17 +68,8 @@ describe('BoardPinoutPopup', () => {
   it('closes on Escape', () => {
     open('seeed-xiao-esp32s3')
     render(<BoardPinoutPopup />)
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(useUploadStore.getState().pinoutProfileId).toBeNull()
-  })
-
-  it('leaves Escape to the shared dialog above it', () => {
-    open('seeed-xiao-esp32s3')
-    render(<BoardPinoutPopup />)
-    void useUiStore.getState().requestConfirm({ title: 'Replace?', message: 'Continue?' })
-    fireEvent.keyDown(window, { key: 'Escape' })
-    expect(useUploadStore.getState().pinoutProfileId).toBe('seeed-xiao-esp32s3')
-    useUiStore.setState({ appDialog: null })
   })
 
   it('stays open when Escape answers the shared dialog', async () => {

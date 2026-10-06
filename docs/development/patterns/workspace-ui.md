@@ -144,10 +144,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   zooms the canvas or, uncapped, grows the node taller than the canvas. Give the
   list `nowheel`, `overflow-y: auto` and a `max-height`, as `PaletteBankBody.tsx`
   does for its bank strip and catalogue grid.
-- **The shared dialog keeps the Escape it answers.** Popups beneath
-  `AppDialogHost` yield Escape while `useUiStore.getState().appDialog` is set,
-  but the dialog's own React handler resolves and clears `appDialog` before
-  document and window listeners run, so the check alone saw no dialog and the
-  Templates gallery closed together with its own replace confirmation. The
-  dialog stops the event's propagation instead; keep the `appDialog` check in
-  new popups for when focus is outside the dialog.
+- **One Escape closes one layer.** Every popup, menu and dialog that closes on
+  Escape registers with `useEscapeLayer(onEscape, open)`
+  (`src/hooks/useEscapeLayer.ts`), which gives the keystroke to the most
+  recently opened layer and stops it there. Separate listeners could not
+  express that: listeners on one target run in the order they were added, so
+  the lowest layer always answered first. Escape on Help or the Start gallery
+  also closed the Build Diagram through `App.tsx`'s window handler, a dialog
+  opened from a Hardware menu also closed the menu, and popups that yielded
+  while `appDialog` was set saw it already cleared, because the dialog resolves
+  before document and window listeners run. Pass `open` for a component that
+  stays mounted while closed, or it swallows every Escape while invisible. An
+  element that answers Escape itself (`MenuBar`'s keyboard handling) calls
+  `preventDefault`, and both the stack and `App.tsx` then leave the event
+  alone. `PropertyInputMenu` (capture phase) and the Performance deck's key
+  learning are deliberate exceptions that take the keystroke before anything
+  else.

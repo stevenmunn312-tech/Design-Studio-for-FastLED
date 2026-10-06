@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useShowPlayback } from '../../state/showPlayback'
 import { outputRoutes } from '../../state/outputRouting'
 import { latestStreamFrameCopy } from '../../state/streamStore'
@@ -84,13 +85,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   // Abandon any in-flight capture when the dialog unmounts.
   useEffect(() => () => { cancelRef.current = true }, [])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { cancelRef.current = true; onClose() }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  useEscapeLayer(() => { cancelRef.current = true; onClose() })
 
   const webmMime = pickWebmMime()
   const totalFrames = Math.max(1, Math.round(durationSec * fps))

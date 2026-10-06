@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
 import type {
   PhysicalBoardPinAnchor,
   PhysicalBoardPinProfile,
   PhysicalBoardProfile,
 } from '../../build/boardProfiles'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import styles from './BoardPinoutPicker.module.css'
 
 /*
@@ -111,13 +111,7 @@ export default function BoardPinoutPicker({ profiles, selectedId, onPick, onClos
   onPick: (profileId: string) => void
   onClose: () => void
 }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [onClose])
+  useEscapeLayer(onClose)
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => {

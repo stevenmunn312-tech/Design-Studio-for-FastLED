@@ -505,7 +505,9 @@ export default function App() {
       const el = e.target as HTMLElement | null
       const isTyping = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
 
-      if (e.key === 'Escape' && !isTyping) {
+      // Open popups and menus take Escape through `useEscapeLayer`, which stops
+      // it before it reaches here; an element that answered it itself marks it.
+      if (e.key === 'Escape' && !isTyping && !e.defaultPrevented) {
         // The deck hosts the panic button and MIDI-learn/key-learn capture —
         // close it first so Escape can't leave a "listening…" state armed
         // mid-performance, before falling through to the existing

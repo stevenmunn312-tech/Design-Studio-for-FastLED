@@ -3,6 +3,7 @@ import { CATEGORY_COLOR } from '../../state/nodeLibrary'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/starterTemplates'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
 import { startBlankCanvas, startTemplate } from '../../utils/startFlow'
 import styles from './TemplatesPopup.module.css'
@@ -147,16 +148,8 @@ export default function TemplatesPopup() {
     }
   }, [])
 
-  // Escape closes the gallery, but not while its own replace confirmation is
-  // asking: that dialog answers Escape itself.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || useUiStore.getState().appDialog) return
-      closeTemplates()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [closeTemplates])
+  // Its own replace confirmation opens later, so it answers Escape first.
+  useEscapeLayer(closeTemplates)
 
   // Keep Tab inside the dialog, as Help does.
   function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
