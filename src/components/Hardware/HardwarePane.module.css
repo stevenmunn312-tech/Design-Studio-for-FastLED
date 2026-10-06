@@ -577,7 +577,7 @@
 }
 
 /* A part with no render yet — the MAX98357A is still on the outstanding list
-   in docs/development/plans/hardware-renders.md. Drawn as a labelled board at
+   in docs/development/hardware-asset-import.md. Drawn as a labelled board at
    the part's real footprint, so it takes the space the photo will and the
    layout does not shift when the render lands. */
 /* Hardware | Upload bridge the graph and hardware surfaces, reading as the

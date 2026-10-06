@@ -1,5 +1,5 @@
 // The persistent **pattern library** (Phase 1 of the generative-pattern-show
-// workflow — see docs/development/design/generative-pattern-show.md). A saved
+// workflow — see docs/design/generative-pattern-show.md). A saved
 // pattern is a named group: its port signature plus its subgraph. Stored in
 // localStorage so it survives across sessions and grows over time; the sidebar
 // lists them and the canvas can instantiate copies. Later phases (Collection,

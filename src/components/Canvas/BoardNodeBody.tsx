@@ -27,7 +27,7 @@ import styles from './BoardNodeBody.module.css'
 // Non-breaking slice: the profile lives on the node, and its first compatible
 // FQBN is mirrored into uploadStore so upload keeps working unchanged. Pin
 // ownership has not moved off the peripheral nodes yet.
-// See docs/development/design/board-node-architecture.md.
+// See docs/architecture/board-capabilities.md.
 
 interface Props { nodeId: string }
 

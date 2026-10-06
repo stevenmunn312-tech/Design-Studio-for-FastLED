@@ -150,7 +150,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   // graphEvaluator.ts (no approximation gap, unlike inoise8-backed fields),
   // one dedicated block per formulaType baked at generation time (the
   // variant isn't wired, so there's nothing to branch on at runtime). See
-  // docs/development/design/formula-pattern-nodes.md.
+  // docs/design/formula-pattern-nodes.md.
   FormulaField({ p, ln, f, ownField, needsT }) {
     needsT.v = true
     const of = ownField()

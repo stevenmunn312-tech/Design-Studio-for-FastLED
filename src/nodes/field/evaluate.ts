@@ -170,7 +170,7 @@ function evalFieldFormula(formula: string, a: number, b: number, fieldIn: Field 
 }
 
 // ── Formula Field (curated closed-form fields — see
-// docs/development/design/formula-pattern-nodes.md) ────────────────────────
+// docs/design/formula-pattern-nodes.md) ────────────────────────
 // Each `formulaType` is exact closed-form math, so the evaluator and codegen
 // share the identical formula with no approximation gap (unlike inoise8-backed
 // fields) — the same property FieldFormula's shim table and Pride2015/Pacifica/
@@ -764,7 +764,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   },
   // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
   // selected by a dropdown instead of free text — see
-  // docs/development/design/formula-pattern-nodes.md. Every knob is a
+  // docs/design/formula-pattern-nodes.md. Every knob is a
   // property input; only the chosen variant's are read, so a wire into a
   // knob another formulaType owns is inert rather than wrong.
   FormulaField({ num, t, W, H }, id, props) {

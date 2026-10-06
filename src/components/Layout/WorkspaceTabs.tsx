@@ -6,7 +6,7 @@ import styles from './WorkspaceTabs.module.css'
 /**
  * The four workspaces, each taking the whole canvas.
  *
- * See docs/development/design/workspace-tabs.md. The order tells the build
+ * See docs/design/workspace-tabs.md. The order tells the build
  * story in the sequence it is actually done — name the hardware, write the
  * effect, flash it, then take the wiring diagram to the bench, which is the
  * other three's output. A session with anything in it lands on Graph, because

@@ -25,7 +25,7 @@ consider sensitive, or unrelated log contents.
 
 Reports from real wiring are how experimental combinations become supported
 ones. The preferred path is the in-app flow: after an upload or wiring test,
-Matrix Output's deploy panel offers an opt-in report that pre-fills a GitHub
+the Upload tab offers an opt-in report that pre-fills a GitHub
 issue with the exact configuration. See the
 [hardware validation guide](docs/release/beta-hardware-validation.md) and the
 [beta support matrix](docs/release/beta-support-matrix.md).
@@ -51,13 +51,16 @@ PRs are welcome during the beta with two caveats:
    wasted work.
 2. **Keep PRs small and focused.** One fix or one feature per PR.
 
-All changes must come through a branch and pull request; do not commit directly
-to `main`. Start from the latest `main`, create a short-lived descriptive branch
-such as `fix/audio-meter`, `feature/new-pattern`, or `docs/upload-guide`, and
-push that branch to your fork or the main repository before opening the PR.
-Automated Codex work uses the `codex/` prefix. Open a draft PR if the change is
-not ready for review, and update the branch from `main` without force-pushing or
-rewriting shared history.
+`Hardware` is the active development line. Start contributor branches from
+`Hardware` and target pull requests there. Repository maintainers and authorized
+agents work directly on `Hardware` by default; use a focused branch when one is
+requested. Automated Codex branches use the `codex/` prefix.
+
+`main` is the frozen public-beta line. Change it only for an explicitly requested
+beta hotfix, using a focused branch and pull request unless the maintainer
+requests another hotfix workflow. Never merge `main` and `Hardware` in either
+direction. Update a contribution from its own target line without force-pushing
+or rewriting shared history. Open a draft PR while work is still in progress.
 
 Before submitting, all three gates must pass locally:
 
@@ -92,12 +95,11 @@ that license and preserve attribution. See
 
 ## Development setup
 
-1. Install [Node.js](https://nodejs.org) 20.19+ (22.13+ or 24+ also work; 21
-   and 23 do not) and Python 3 for the upload helper.
-2. `npm install`
-3. `npm run dev` — the app is at `http://localhost:5173`; the dev server
-   auto-launches the Python helper on port 8008 when available.
+Follow [development setup](docs/getting-started/development-setup.md) for the
+supported runtimes, installation and local servers. The
+[upload-helper guide](docs/getting-started/upload-helper.md) covers Python and
+firmware toolchains.
 
-`CLAUDE.md` contains the concise repository invariants and commands agents need
-on every task. Follow `docs/NAVIGATOR.md` to the detailed architecture and
-feature contracts.
+[CLAUDE.md](CLAUDE.md) contains the concise repository invariants and commands
+agents need on every task. The [documentation index](docs/index.md) routes to
+architecture, feature contracts, plans and validation evidence.

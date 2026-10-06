@@ -241,7 +241,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
   TransportDisplay({ node, id, p, ln, ledStatusEmit, nodes, edges, opts, incoming, nodeMap, intProp, nativeMultiRender, boolExpr, customDisplaySamples, customDisplayPublication, setupLines, globalLines, needsDisplayText, tftDisplays, playerControlNodes, tftTouches, emitTelemetry, customDisplays, customDisplayPanels, customDisplayOwners }) {
     // A panel draws its own screen design when it has one, and one of the
     // fixed layouts otherwise (see
-    // docs/development/design/large-displays-and-control-routing.md).
+    // docs/design/large-displays-and-control-routing.md).
     // The design is named by the panel's `displayId` rather than wired in,
     // so there is no second content input to be exclusive with. Its widget
     // bindings and outputs stay keyed by the design's own id (matching

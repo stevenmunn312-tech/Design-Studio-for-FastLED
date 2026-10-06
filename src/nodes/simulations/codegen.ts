@@ -309,7 +309,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
      * emitted as `constrain`/`fmaxf` so they still hold on a wired value.
      * Leaving the bakes in place while declaring the ports would be the
      * exact parity break the registry forbids — preview follows the wire,
-     * firmware ignores it. See docs/development/design/formula-pattern-nodes.md.
+     * firmware ignores it. See docs/design/formula-pattern-nodes.md.
      */
   FormulaPoints({ node, id, p, ln, f, ownBuf, width, height, paletteExpr, needsT }) {
     const ob = ownBuf()

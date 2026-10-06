@@ -12,7 +12,7 @@
 // the RTC preview from rtc.ts — so a panel and the node feeding it cannot
 // disagree about what the value is, only about how to draw it.
 //
-// See docs/development/design/simple-displays.md.
+// See docs/design/simple-displays.md.
 
 import type { PowerMonitorReading } from './powerMonitor'
 import type { LedOutputStatus } from './ledOutputRuntime'

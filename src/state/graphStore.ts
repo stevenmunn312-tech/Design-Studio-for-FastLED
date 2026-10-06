@@ -3751,7 +3751,7 @@ export type TouchControlOutcome =
  * The widget normally arrives with **no bounds**: it exists, it has a port,
  * the edge is real, and it waits in the designer's Connected group until
  * someone says where it goes. See
- * docs/development/design/wire-first-touch-controls.md.
+ * docs/design/wire-first-touch-controls.md.
  *
  * `placeOnVisibleScreen` is the one exception, and it is doubly gated on
  * purpose. Placing uninvited was rejected because six wires would drop six

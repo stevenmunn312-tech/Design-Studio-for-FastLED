@@ -732,7 +732,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
   ),
   // Pattern-node expansion starters, appended so every earlier pattern keeps
   // its positional `bundled-standard-NN` id. See
-  // docs/development/plans/pattern-node-expansion.md, Phase 7.
+  // docs/plans/pattern-node-expansion.md, Phase 7.
   pattern(
     'Breathing Rosette',
     [

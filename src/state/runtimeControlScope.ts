@@ -1,5 +1,5 @@
 /*
- * Step 9 of docs/development/design/direct-controls-and-output-status.md.
+ * Step 9 of docs/design/direct-controls-and-output-status.md.
  *
  * A property input is only honest if preview and firmware both read it
  * wire-then-field. This module names the player/show/group fields that meet

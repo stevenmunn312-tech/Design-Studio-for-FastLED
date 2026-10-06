@@ -4533,7 +4533,7 @@ describe('PSRAM buffer placement (Board psramPolicy)', () => {
   })
 })
 
-describe('HUB75 codegen (docs/development/design/hub75-output.md)', () => {
+describe('HUB75 codegen (docs/design/hub75-output.md)', () => {
   const hub75Out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
   const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
   const wiring = [edge('e1', 'sc', 'out', 'frame', 'frame')]

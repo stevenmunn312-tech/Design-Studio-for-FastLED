@@ -25,7 +25,7 @@ const groups = { pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'Gro
 
 // Panel/document split: the document (`screen`) has no pins of its own; a
 // `TransportDisplay` panel carries them, wired through `customDisplay`. See
-// docs/development/design/large-displays-and-control-routing.md.
+// docs/design/large-displays-and-control-routing.md.
 const panel = (id: string, properties: Record<string, unknown> = {}) => node(id, 'TransportDisplay', {
   partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'screen', ...properties,
 })

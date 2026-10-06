@@ -62,8 +62,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `graphStore.ts` that fires on `displayDocuments` identity change — the only
   way to cover the two writers that never call `setDisplayDocument` (undo/redo
   rebases the registry, a load replaces it). See
-  [the live touch screen](../design/live-touch-screen.md). See
-  [workspace tabs](../design/workspace-tabs.md). `.graphPane` (`src/App.tsx`) is
+  [the live touch screen](../../design/live-touch-screen.md). See
+  [workspace tabs](../../design/workspace-tabs.md). `.graphPane` (`src/App.tsx`) is
   a plain block container, not flex, so a full-canvas workspace root that only
   declares `flex: 1` sizes to its own tallest content instead of the pane —
   every root (`NodeGraphCanvas` `.canvas`, `HardwarePane` `.hardwarePane`,

@@ -30,7 +30,7 @@ import { useUiStore } from '../uiStore'
  * only thing that knows the control's type, range, step and label, so this is
  * where that derivation and the single-undo-step minting are held.
  *
- * See docs/development/design/wire-first-touch-controls.md.
+ * See docs/design/wire-first-touch-controls.md.
  */
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

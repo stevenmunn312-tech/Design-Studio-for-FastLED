@@ -90,7 +90,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `hardwareValidation.ts`), and the report form opens only from **Share a
   report…**, never by itself after an upload. The tools expander is **Build
   tools & port** with a plain Ready badge, never "Ready to upload". This follows
-  the tone rules in `review 24-9-2026.md` item 8: red only for what blocks the
+  the tone rules in `docs/plans/2026-09-24-app-review.md` item 8: red only for what blocks the
   action being taken, a repair button wherever the fix is knowable, each issue
   said once (graph problems on the Upload tab are never a copy of Graph Health),
   and "not yet" is not a fault. A blocked Upload/Flash button goes grey (not
@@ -131,4 +131,4 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `buildGraphDiagnostics` recovers their node from the message's leading `Name:`
   or `Name.Widget:`; keep that prefix on any new message those walks emit, or
   its card falls back to framing every output or display.
-- SDVideo clip bytes live in IndexedDB (`sdVideoStore`), not the project; the node keeps only `properties.clip`. A moved project loses the bytes, so re-import. `findSdVideoErrors` blocks mixing SDVideo with the music player or show builds, which mount the card themselves. Design: [sd-video](../design/sd-video.md).
+- SDVideo clip bytes live in IndexedDB (`sdVideoStore`), not the project; the node keeps only `properties.clip`. A moved project loses the bytes, so re-import. `findSdVideoErrors` blocks mixing SDVideo with the music player or show builds, which mount the card themselves. Design: [sd-video](../../design/sd-video.md).

@@ -555,7 +555,7 @@ export const DISPLAY_RAM_BYTES_BY_NODE_TYPE: Record<string, number> = {
  *
  * `Display` (the document node) is added explicitly rather than derived: the
  * panel/document split (see
- * docs/development/design/large-displays-and-control-routing.md) left it
+ * docs/design/large-displays-and-control-routing.md) left it
  * selecting no catalogued module of its own, so the same derivation that
  * finds InfoDisplay/SegmentDisplay/TransportDisplay can no longer see it —
  * but it still costs RAM when wired to a panel and still needs the same

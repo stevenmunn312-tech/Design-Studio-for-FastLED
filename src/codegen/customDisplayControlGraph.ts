@@ -37,7 +37,7 @@ export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string
  * crossing multiple displays. Validation and template codegen share this plan.
  *
  * A panel owns the screen drawn on it (see
- * docs/development/design/large-displays-and-control-routing.md), so this
+ * docs/design/large-displays-and-control-routing.md), so this
  * walks `TransportDisplay` panels that name a design in `displayId`, pulling
  * physical config and widgets both from the panel. A panel with no design
  * builds nothing here, the same way it builds nothing in codegen.

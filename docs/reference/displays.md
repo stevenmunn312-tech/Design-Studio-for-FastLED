@@ -300,7 +300,7 @@ repairs gave build rules for — is no longer possible to express, since a panel
 owns its design outright. Fresh compile runs and physical validation
 remain separate gates; see [the active checklist](../../todo.md).
 
-The [compile record](../development/display-compile-checks.md) preserves historical
+The [compile record](../reports/compile/display-compile-checks.md) preserves historical
 normal/show/player builds through both toolchains; it is not a fresh validation
 of the panel/document split. Calibration, rotation on real modules, bus sharing
 under load, LED rate and runtime memory still require physical checks. The

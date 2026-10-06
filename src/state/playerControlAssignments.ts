@@ -19,7 +19,7 @@
 // the evaluator, every generator and the firmware read exactly what they read
 // before; the only thing that changed is whether the socket is there at all.
 //
-// See docs/development/design/large-displays-and-control-routing.md.
+// See docs/design/large-displays-and-control-routing.md.
 
 import type { NodePort } from '../types'
 

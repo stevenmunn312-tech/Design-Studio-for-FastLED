@@ -1,5 +1,8 @@
 # Multi-output routing
 
+The rendering strategy and its rationale are documented separately in
+[per-output native rendering](per-output-native-render.md).
+
 Each `MatrixOutput` node is an explicit hardware route. Its incoming `frame`
 cable selects the frame-producing branch for that controller; the node owns the
 controller's pins, chipset, color order, physical dimensions, XY layout, and

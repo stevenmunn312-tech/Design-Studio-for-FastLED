@@ -56,7 +56,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `Wire.begin`, since a build with no I²C device has no pins to start a bus
   with. `src/codegen/__tests__/emittedIncludes.test.ts` derives this rule rather
   than listing headers. See
-  [auxiliary displays](../design/auxiliary-displays.md). Three generators pick a
+  [auxiliary displays](../../design/auxiliary-displays.md). Three generators pick a
   graph by `sdShowConnected` (`src/utils/showUpload.ts`) tested before
   `isPatternShow`, and all three draw displays: `cppGenerator.ts` (normal
   sketch) emits one from the node walk, while `playerSketchGenerator.ts` (SD
@@ -80,7 +80,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   of the cursor — confirming has to change the pixels, not only what a panel
   says. Confirm-on-any-non-zero-step mirrors the evaluator's slideshow rule
   rather than restating it. Fixed touch routing and generator limits are defined
-  in [auxiliary displays](../design/auxiliary-displays.md); `selectedGenerator`
+  in [auxiliary displays](../../design/auxiliary-displays.md); `selectedGenerator`
   in `validateGraph.ts` has to name the generator a graph would *actually* build
   with — a Show Engine writing to a card builds the player sketch, and the same
   graph without a card builds an ordinary one. `infoDisplayCpp.ts`'s
@@ -128,7 +128,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the generic player's rotation — the only other writer of `_sel_player` — is
   compiled out there and the cursor would otherwise name pattern 1 for the whole
   song. See
-  [collection-driven performance](../design/collection-driven-performance.md#the-generator-as-a-player).
+  [collection-driven performance](../../design/collection-driven-performance.md#the-generator-as-a-player).
   TransportDisplay takes only `display`/`enabled` inputs, owns all physical
   pins/rotation, and has **no outputs** — the panel/document split is gone:
   there is no `Display` node, no `customDisplay` input, and no mount edge. A
@@ -139,8 +139,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the glass it reads), created and deleted together with its panel. Music Player
   reports one envelope; Song Info unpacks its fields. Normal firmware supports
   fixed RTC Clock (including TFT); player/show templates honor their own source
-  kinds. See [simple displays](../design/simple-displays.md) and
-  [large displays/control routing](../design/large-displays-and-control-routing.md).
+  kinds. See [simple displays](../../design/simple-displays.md) and
+  [large displays/control routing](../../design/large-displays-and-control-routing.md).
 - Pattern thumbnails are baked in the browser at export, never rendered
   on-device: `src/state/patternThumbnail.ts` owns what a thumbnail *is* (32x32 =
   exactly four OLED pages, page-major bit-0-at-top matching `OledSurface`, Rec.
@@ -240,7 +240,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/state/designControlBundle.ts`, the one mapping the evaluator, all three
   generators and validation read. A Toggle presses on a finger's gesture count,
   never its value, because Set feedback moves the value too; see
-  [large displays](../design/large-displays-and-control-routing.md).
+  [large displays](../../design/large-displays-and-control-routing.md).
   `tftControllerFor` must match the longest controller name first (`ST7789V`
   starts with `ST7789`). Descriptors state native-portrait geometry only;
   rotation is a node property, and `tftWindowOrigin` derives each rotation's RAM

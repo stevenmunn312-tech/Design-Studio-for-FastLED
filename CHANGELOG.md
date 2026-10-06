@@ -467,7 +467,7 @@ versioning (`0.y.z`) until the first stable release.
   rails independently; mono sources mirror one measured channel to both rather
   than pretending to separation they do not have. Works in normal sketches,
   generative shows and the SD Music Player, and validated end to end on
-  hardware: see the [bench record](docs/development/plans/vu-meter.md).
+  hardware: see the [bench record](docs/reports/bench/stereo-vu-bench.md).
 
 - Uploads report how long they took. Each phase's exit line carries its own
   duration and the run ends with one total, so a build that felt slow can be
@@ -1100,7 +1100,7 @@ First public beta.
 
 - The public-beta support promise is now narrower and explicit: only recorded
   end-to-end validation rows are promoted from experimental status.
-- Release/readiness references in `README.md`, `CLAUDE.md`, `docs/NAVIGATOR.md`,
+- Release/readiness references in `README.md`, `CLAUDE.md`, `docs/index.md`,
   and `todo.md` now point to the release docs as the source of truth.
 - `README.md` now states the beta stability scope explicitly: breaking changes
   are expected between beta releases, file formats are not final, and saved

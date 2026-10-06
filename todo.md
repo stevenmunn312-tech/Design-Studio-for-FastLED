@@ -20,7 +20,7 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   waiting on someone else.
 - Contracts live in design notes, evidence in reports and support rows. Remove
   an entry once its outcome is recorded, and route details through
-  [docs/NAVIGATOR.md](docs/NAVIGATOR.md).
+  [docs/index.md](docs/index.md).
 
 ## 1. Open engineering work
 
@@ -30,14 +30,14 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   controller and fixed pins have to be identified on the board, because there is
   no reliable documentation. The ESP32-2432S028R profile is in the app and
   bench-proven, and a full board now says so by name
-  ([hardware nodes](docs/development/design/hardware-nodes.md#boards-with-hardware-already-on-them)).
+  ([hardware nodes](docs/architecture/hardware-model.md#boards-with-hardware-already-on-them)).
 - [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
   happens *after* components are in the app and appear in the Build Diagram:
   a career electronics engineering lecturer checks that the generated wiring,
   calculations, tables and wording are safe and recommended practice. It
   reviews what exists, so it gates nothing in D-05. Record findings and
   corrections against
-  [the Build Diagram contract](docs/development/plans/build-diagram-handoff.md).
+  [the Build Diagram contract](docs/architecture/build-diagram.md).
   One change to review first: on 2026-09-27 the wire table moved from figures
   of uncertain origin (10 AWG at 65 A) to NEC 310.16 at 90 C, fuse and wire
   are now coordinated, and each supply has a main fuse and trunk
@@ -61,38 +61,38 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 None open. The D-05 LR7843 dimming fixtures (on/off regression, Level field,
 wired Level and two gated switches) passed on classic ESP32 cores 3.3.11 and
 2.0.17, ESP8266, RP2040 and Uno under arduino-cli on 2026-09-27
-([power-switch compile record](docs/development/power-switch-compile-checks.md)).
+([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
 The D-05 wired-Ethernet Art-Net, NTP, static-address and Wi-Fi
 guard fixtures passed on classic ESP32, and the shared-SPI fixture on ESP32-C3,
 under arduino-cli on 2026-09-25
-([Ethernet compile record](docs/development/ethernet-compile-checks.md)).
+([Ethernet compile record](docs/reports/compile/ethernet-compile-checks.md)).
 The D-05 light-sensor normal, slideshow, player, LDR and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-25
-([light-sensor compile record](docs/development/light-sensor-compile-checks.md)).
+([light-sensor compile record](docs/reports/compile/light-sensor-compile-checks.md)).
 The D-05 presence-sensor normal, slideshow, player and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-24–25.
 The toolchain, FQBN, source hashes, flash and RAM are in the
-[presence-sensor compile record](docs/development/presence-sensor-compile-checks.md).
+[presence-sensor compile record](docs/reports/compile/presence-sensor-compile-checks.md).
 The D-05 Grove touch-sensor normal, slideshow, player and no-touch guard
 fixtures all passed on classic ESP32 under arduino-cli on 2026-09-27. The
 toolchain, hashes and resource figures are in the
-[touch-button compile record](docs/development/touch-button-compile-checks.md).
+[touch-button compile record](docs/reports/compile/touch-button-compile-checks.md).
 The D-05 BME280 normal, slideshow, player and no-sensor guard fixtures all
 passed on classic ESP32 under arduino-cli on 2026-09-27. The toolchain, hashes
 and resource figures are in the
-[environment-sensor compile record](docs/development/environment-sensor-compile-checks.md).
+[environment-sensor compile record](docs/reports/compile/environment-sensor-compile-checks.md).
 
 The D-05 DS18B20 temperature-probe normal, slideshow, player and no-sensor
 guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-30. The
 toolchain, hashes and resource figures are in the
-[temperature-probe compile record](docs/development/temperature-sensor-compile-checks.md).
+[temperature-probe compile record](docs/reports/compile/temperature-sensor-compile-checks.md).
 
 The HW-19 and HW-20 compiles all passed on 2026-09-24:
 - Generic MEMS on arduino-cli, and the microphone path on fbuild;
 - the DAC → power amplifier player sketch;
 - the SPH0645LM4H on fbuild and on esp32 core 2.0.17.
 
-Records are in [audio part expansion](docs/development/plans/audio-part-expansion.md#phases).
+Records are in [audio part expansion](docs/design/audio-hardware.md#phases).
 
 ## 3. Community and bench testing (non-blocking)
 
@@ -101,7 +101,7 @@ in the app and marked experimental; nothing here holds up development.
 
 - **Direct controls:** real touch, panel enable and re-enable, LED and status
   response, and widget feedback during playback, on hardware
-  ([design, step 10](docs/development/design/direct-controls-and-output-status.md#10-verify-the-complete-workflows)).
+  ([design, step 10](docs/design/direct-controls-and-output-status.md#10-verify-the-complete-workflows)).
 - **HW-11 shared bus:** TFT + SD + touch on one bus with audio playing. The CYD
   cannot host this run (its card is on the second SPI host), so it needs another
   rig. All other HW-11 measurements are recorded, and its budgets are set.
@@ -213,7 +213,7 @@ in the app and marked experimental; nothing here holds up development.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
-  ([plan](docs/development/plans/ir-remote-controls.md)). The
+  ([plan](docs/design/ir-remote-controls.md)). The
   [KS0026/S3 partial bench pass](docs/release/beta-support-matrix.md#recorded-validations-that-are-not-yet-full-support-rows)
   confirms learning and remote LED power, including Toggle's separate On/Off
   inputs; the remaining key/repeat/long-run and build-mode checks stay open.
@@ -245,7 +245,7 @@ in the app and marked experimental; nothing here holds up development.
   a concrete use case justifies the work.
 - [ ] **D-05 · Hardware expansion.** Candidate families, their order and the
   shared definition of done are in the
-  [hardware expansion roadmap](docs/development/plans/hardware-expansion-roadmap.md).
+  [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md).
   Each starts with its Blender model. Switching power (MOSFET modules) and
   energy (batteries, charging, BMS) are built like the relay slice: in the app,
   in the Build Diagram, and marked experimental. The HW-14 review then checks
@@ -253,7 +253,7 @@ in the app and marked experimental; nothing here holds up development.
   compile; its bench row is in section 3. The first MOSFET switch (LR7843,
   `PowerSwitchOutput`) is in software, switches from `On` and dims from
   `Level` with PWM at the part's 500 Hz, and its
-  [compile fixtures pass](docs/development/power-switch-compile-checks.md);
+  [compile fixtures pass](docs/reports/compile/power-switch-compile-checks.md);
   its bench row is still to do. The first multi-channel board, the MonkMakes
   Mosfetti (four lettered channels, 3-16 V, 2 A for the board, 1 kHz dimming),
   is modelled, catalogued, drawn, previewed and generated; the Power Switch's
@@ -263,7 +263,7 @@ in the app and marked experimental; nothing here holds up development.
   The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
   and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
   is still to do. It also has an `Overcurrent` output against an amps limit
-  (software; compiled on classic ESP32 under arduino-cli 2026-09-30, 417,791 B flash, 29,060 B RAM). The INA226 module is a second part of the same node (modelled, drawn, previewed and generated; compile record in [the INA226 checks](docs/development/ina226-compile-checks.md)) and its bench row is open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
+  (software; compiled on classic ESP32 under arduino-cli 2026-09-30, 417,791 B flash, 29,060 B RAM). The INA226 module is a second part of the same node (modelled, drawn, previewed and generated; compile record in [the INA226 checks](docs/reports/compile/ina226-compile-checks.md)) and its bench row is open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
   drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
   divider on RO. It adds no firmware, so no compile is owed; its bench row is
   in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,
@@ -274,12 +274,12 @@ in the app and marked experimental; nothing here holds up development.
   in section 3. The WIZnet WIZ850io (roadmap step 6, `EthernetModule`) is
   modelled from WIZnet's board file, drawn, and generated for the normal
   sketch, replacing Wi-Fi for Art-Net and NTP
-  ([design](docs/development/design/wired-ethernet.md)); all five compile
+  ([design](docs/design/wired-ethernet.md)); all five compile
   fixtures pass, and its bench row is in section 3. The NLED Pixel Data
   Extender (roadmap step 7) is an LED output's **data link** option, modelled
   and drawn on the Build Diagram. It adds no firmware, so no compile is owed;
   its bench row is in section 3. Roadmap step 8 is complete in software
-  ([plan](docs/development/plans/power-conversion-and-protection.md)): each
+  ([plan](docs/plans/power-conversion-and-protection.md)): each
   supply now has a main fuse and trunk; the LM2596 controller buck and Mean
   Well SD-100A/B-5 LED rail converters (`PowerConverter`) are modelled, sized,
   drawn and experimental. The SD-100 path applies the imported temperature
@@ -288,41 +288,41 @@ in the app and marked experimental; nothing here holds up development.
   step 9, `TouchButtonInput`) is modelled, catalogued, drawn, previewed and
   generated for normal/show/player paths. Its touch-face pin order is locked as
   `SIG, NC, VCC, GND`; all four
-  [compile fixtures pass](docs/development/touch-button-compile-checks.md), and
+  [compile fixtures pass](docs/reports/compile/touch-button-compile-checks.md), and
   its bench row is in section 3.
   The Adafruit BME280 (the next sensor-family item, `EnvironmentInput`) is
   modelled, catalogued, drawn, previewed and generated for normal/show/player
   paths at 0x77 or 0x76; all four
-  [compile fixtures pass](docs/development/environment-sensor-compile-checks.md),
+  [compile fixtures pass](docs/reports/compile/environment-sensor-compile-checks.md),
   and its bench row is in section 3.
   The waterproof DS18B20 (`TemperatureInput`) is modelled from Adafruit
   product 381, catalogued, drawn with its 4.7 kΩ pull-up, previewed and
   generated for normal/show/player paths with library-free 1-Wire firmware; all
-  four [compile fixtures pass](docs/development/temperature-sensor-compile-checks.md),
+  four [compile fixtures pass](docs/reports/compile/temperature-sensor-compile-checks.md),
   and its bench row is in section 3.
   The HC-SR04 ultrasonic ranger (`DistanceInput`) is modelled, catalogued, drawn
   with its 1 kΩ / 2 kΩ Echo divider, previewed and generated for
   normal/show/player paths; its compile result is in the
-  [distance-sensor record](docs/development/distance-sensor-compile-checks.md), and its bench row is in
+  [distance-sensor record](docs/reports/compile/distance-sensor-compile-checks.md), and its bench row is in
   section 3.
   The KY-023 joystick (`JoystickInput`) is modelled, catalogued, drawn,
   previewed and generated for normal/show/player paths; its compile result is in the
-  [joystick record](docs/development/joystick-compile-checks.md), and its bench row
+  [joystick record](docs/reports/compile/joystick-compile-checks.md), and its bench row
   is in section 3.
   The GY-521 MPU-6050 (`MotionVectorInput`) is modelled, catalogued, drawn,
   previewed and generated for normal/show/player paths; its compile result is in the
-  [motion-sensor record](docs/development/motion-sensor-compile-checks.md), and its
+  [motion-sensor record](docs/reports/compile/motion-sensor-compile-checks.md), and its
   bench row is in section 3.
   The RCWL-0516 microwave radar is a second `MotionInput` module beside the PIR:
   modelled, catalogued, drawn and previewed, with the same digital firmware, so
   no compile is owed; its bench row is in section 3.
   The MPR121 touch controller (`TouchPadInput`) is modelled, catalogued, drawn, previewed
   and generated for normal/show/player paths; its compile result is in the
-  [touch-pad record](docs/development/touch-pad-compile-checks.md), and its bench row is
+  [touch-pad record](docs/reports/compile/touch-pad-compile-checks.md), and its bench row is
   in section 3.
   The 4x4 matrix keypad (`KeypadInput`) is modelled, catalogued, drawn, previewed and
   generated for normal/show/player paths; its compile result is in the
-  [keypad record](docs/development/keypad-compile-checks.md), and its bench row is in
+  [keypad record](docs/reports/compile/keypad-compile-checks.md), and its bench row is in
   section 3.
 
 ## Completed
@@ -334,13 +334,13 @@ Outcomes are recorded where linked; the per-item narratives are in the
   and helper work.
 - **Direct controls and LED output status**: software complete; bench readings
   are in section 3
-  ([design](docs/development/design/direct-controls-and-output-status.md)).
+  ([design](docs/design/direct-controls-and-output-status.md)).
 - **HW-11 · Touch/LVGL budget and calibration**: instrument built, five
   runs recorded, budgets set, and guided calibration done on the CYD
   ([bench](docs/development/testing/display-budget-bench.md)). The shared-bus
   run is in section 3.
 - **HW-13 · display compile half**: twelve fixtures pass on both engines
-  ([compile record](docs/development/display-compile-checks.md)). The bench
+  ([compile record](docs/reports/compile/display-compile-checks.md)). The bench
   matrix is in section 3.
 - **HW-16 · First-user journey**: a first-time user built and uploaded a
   working sketch within minutes, without guidance (reported 2026-09-24).
@@ -349,9 +349,9 @@ Outcomes are recorded where linked; the per-item narratives are in the
   pass on arduino-cli and fbuild.
 - **HW-20 phases 2–5**: Option B chain, power amplifiers, the SPH0645LM4H
   (classic ESP32, app-owned capture) and the MAX98357A stereo pair
-  ([plan](docs/development/plans/audio-part-expansion.md#phases)).
+  ([plan](docs/design/audio-hardware.md#phases)).
 - **D-05a · IR remote**: steps 1–13
-  ([IR compile checks](docs/development/ir-compile-checks.md)).
+  ([IR compile checks](docs/reports/compile/ir-compile-checks.md)).
 - **D-05 · HLK-LD2410C presence sensor compile**: normal, slideshow, player
   and no-sensor guard fixtures pass on classic ESP32
-  ([compile record](docs/development/presence-sensor-compile-checks.md)).
+  ([compile record](docs/reports/compile/presence-sensor-compile-checks.md)).

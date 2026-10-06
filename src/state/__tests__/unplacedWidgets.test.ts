@@ -26,7 +26,7 @@ import { applyDisplayTemplate, canonicalDisplayTemplateBounds } from '../display
  *   ports  — all widgets, because a connected one still has a port and an edge
  *   pixels — placed widgets only, because nothing else draws
  *
- * See docs/development/design/wire-first-touch-controls.md. Optional bounds
+ * See docs/design/wire-first-touch-controls.md. Optional bounds
  * turn most of that question into a compile error, but three of these cases
  * compile perfectly well while being wrong, so they are asserted here.
  */

@@ -119,7 +119,7 @@ def install_bundle_files(app_dir: Path, esptool: Path) -> None:
     shutil.copy2(esptool, tools / executable_name("esptool"))
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copy2(ROOT / name, app_dir / name)
-    shutil.copy2(ROOT / "desktop" / "BUNDLE_README.txt", app_dir / "README.txt")
+    shutil.copy2(ROOT / "desktop" / "bundle-readme.txt", app_dir / "README.txt")
     install_dependency_notices(app_dir)
 
 

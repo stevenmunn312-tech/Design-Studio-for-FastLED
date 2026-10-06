@@ -551,7 +551,7 @@ def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
 
 
 def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monkeypatch):
-    # HUB75 (docs/development/design/hub75-output.md) is vendored lazily, same
+    # HUB75 (docs/design/hub75-output.md) is vendored lazily, same
     # as ESP32-audioI2S/esp_dmx: only sketches that actually include the DMA
     # library's header should trigger the vendor-clone.
     monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))

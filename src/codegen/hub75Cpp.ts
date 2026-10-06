@@ -3,7 +3,7 @@ import { DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
 import { sanitizePin } from './hardwarePins'
 
 // ── HUB75 hardware setup (MatrixOutput → ESP32-HUB75-MatrixPanel-DMA) ──────
-// A HUB75 route (docs/development/design/hub75-output.md) has no FastLED
+// A HUB75 route (docs/design/hub75-output.md) has no FastLED
 // driver — it's driven over its own 13-14 signal ribbon via a separate DMA
 // library instead of FastLED's addLeds<>()/leds[]/show(). Scoped for now to a
 // single LED output route and no supersampling — see findHub75ConfigIssues

@@ -7,7 +7,7 @@
 // which is how a preview that fades for a second and a device that cuts get
 // built from the same graph.
 //
-// See docs/development/design/generative-pattern-show.md#pattern-slideshow.
+// See docs/design/generative-pattern-show.md#pattern-slideshow.
 
 export const PATTERN_SLIDESHOW_ORDERS = ['Random', 'Sequential'] as const
 export type PatternSlideshowOrder = (typeof PATTERN_SLIDESHOW_ORDERS)[number]

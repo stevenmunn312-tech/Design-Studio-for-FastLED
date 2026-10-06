@@ -154,7 +154,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     //
     // One content input. What is plugged in picks the layout, so there is
     // no property to disagree with the wire and no port that only one
-    // layout reads. See docs/development/design/simple-displays.md.
+    // layout reads. See docs/design/simple-displays.md.
     const enabled = incoming.has(`${id}:enabled`)
       ? Boolean(input(id, 'enabled', true))
       : props.enabled !== false

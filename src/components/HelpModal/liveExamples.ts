@@ -1804,7 +1804,7 @@ const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
 
 // The three text nodes produce a `string`, which is bound for an auxiliary
 // display rather than the LED frame — see
-// docs/development/design/auxiliary-displays.md. Until display nodes exist
+// docs/design/auxiliary-displays.md. Until display nodes exist
 // there is nothing downstream to wire them into, so each example follows the
 // Storage precedent: show the node doing its real job, and keep a frame
 // producer alongside so the article still previews something.

@@ -1,7 +1,7 @@
 // Which screen documents are actually mounted on a panel, and at what size.
 //
 // After the panel/document split (see
-// docs/development/design/large-displays-and-control-routing.md) a `Display`
+// docs/design/large-displays-and-control-routing.md) a `Display`
 // node carries widgets and a design size and nothing physical; a
 // `TransportDisplay` panel carries the module, its pins, its rotation and its
 // Enabled state. Everything that has to know how large a mounted document is

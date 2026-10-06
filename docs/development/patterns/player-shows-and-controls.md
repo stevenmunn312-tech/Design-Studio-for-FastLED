@@ -57,7 +57,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   list with the functions its edges already land on, since a pre-feature save
   and a fresh node both present an empty list and only the wires tell them
   apart. A node doing both was tried and removed — see
-  [auxiliary displays](../design/auxiliary-displays.md). Button debounce and
+  [auxiliary displays](../../design/auxiliary-displays.md). Button debounce and
   rising-edge rules live once in `src/state/transportBridge.ts` so a press means
   one thing to the evaluator and to the player sketch. Only a contact is
   debounced: `src/state/pressSource.ts` names the sources that can bounce
@@ -127,7 +127,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   cursor keeping a show on the same pattern across a reorder) stays deliberately
   browser-only: a device's collection is fixed at compile time, so there is no
   "underneath you" for it to change — see
-  [generative pattern show](../design/generative-pattern-show.md#which-pattern-is-playing).
+  [generative pattern show](../../design/generative-pattern-show.md#which-pattern-is-playing).
 
 ## Controls and LED output runtime
 
@@ -184,7 +184,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `apply-destinations` writes it (`priorSample`) — deliberate, since evaluating
   the same expression at three sites that could disagree is worse than one frame
   of lag on the single frame a gate changes. See
-  [direct controls and LED output status](../design/direct-controls-and-output-status.md#6-preserve-feedback-and-evaluation-order).
+  [direct controls and LED output status](../../design/direct-controls-and-output-status.md#6-preserve-feedback-and-evaluation-order).
 - `src/state/__tests__/directControlWorkflow.test.ts` is a workflow test rather
   than a per-rule one: it builds a single realistic graph (Juggle → LED String,
   a status OLED reading that output back, two pots — one on brightness, one on
@@ -228,7 +228,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   gap is now closed the other way too: a Music Player with no SD card and
   amplifier is a validation error (`showEngineIssues` in `validateGraph.ts`),
   not a silent stand-in for the slideshow. See
-  [generative pattern show](../design/generative-pattern-show.md#pattern-slideshow).
+  [generative pattern show](../../design/generative-pattern-show.md#pattern-slideshow).
 - Pattern **author tags** (`src/state/patternTags.ts`, `SavedPattern.bestOn`)
   answer "where does this look best", which is taste and therefore authored —
   not "will this render", which is mechanical and almost always yes. They
@@ -247,7 +247,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `categoryId` across a `replaceByName` save because the tweak-and-resave loop
   must not discard curation. The picker's facets are OR-within/AND-across with
   counts computed excluding their own facet. See
-  [generative pattern show](../design/generative-pattern-show.md#choosing-patterns-for-a-collection).
+  [generative pattern show](../../design/generative-pattern-show.md#choosing-patterns-for-a-collection).
 - **Transitions: a style is a pure inverse per-pixel sample.** Every A→B
   transition style is `(A, B, t, W, H) → pixel`, never a forward blit, particle
   system, or per-frame state — that contract is why the 3D styles needed no new
@@ -284,7 +284,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `TRANSITION_HELPER_CPP` to only the styles in its pool by scanning for
   `    case N: {` at a fixed indent, so a new arm's braces must stay balanced
   with none inside comments; the SD player can't narrow and always emits every
-  style. See [transition catalogue](../design/transition-catalogue.md).
+  style. See [transition catalogue](../../design/transition-catalogue.md).
 - A collected pattern reaches a show as pieces of its own sketch, and what no
   rule lifts is dropped without a sound. `buildPattern`
   (`src/codegen/showGenerator.ts`) compiles each pattern with `generateCpp`,
@@ -321,7 +321,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   repair message names Revert instead of the generator; `regenerateShow`
   (musicStore) reads the wired collection live, so `PerformanceGeneratorBody`'s
   regenerate effect keys on it as well as the generator's own options. See
-  [collection-driven performance](../design/collection-driven-performance.md).
+  [collection-driven performance](../../design/collection-driven-performance.md).
 
 ## Audio levels
 

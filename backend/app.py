@@ -249,7 +249,7 @@ _ARDUINO_AUDIO_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-audioI2S"
 _PLAYER_AUDIO_VERSION = "3.0.12"
 _arduino_audio_lock = threading.Lock()
 _FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
-# HUB75 scan-panel output (docs/development/design/hub75-output.md) — FastLED
+# HUB75 scan-panel output (docs/design/hub75-output.md) — FastLED
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
 # library instead. Vendored the same lazy way as ESP32-audioI2S/esp_dmx above.
 _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-DMA"

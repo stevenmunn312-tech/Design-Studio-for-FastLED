@@ -434,7 +434,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
 }
 
 // ── Formula Points (curated stateful point/trajectory generators — see
-// docs/development/design/formula-pattern-nodes.md) ────────────────────────
+// docs/design/formula-pattern-nodes.md) ────────────────────────
 // The pattern-category, self-contained-frame-generator sibling of
 // FormulaField: unlike Particles' procedural spawn/decay pools, each variant
 // is exact closed-form/iterated math shared identically by evaluator and
@@ -1028,7 +1028,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
   },
   // Curated stateful point/trajectory generators (phyllotaxis/Lissajous/
   // rose paths/logistic map/de Jong attractor) — see
-  // docs/development/design/formula-pattern-nodes.md. Every numeric knob
+  // docs/design/formula-pattern-nodes.md. Every numeric knob
   // reads wire-then-property; the two selects are baked by the generator
   // and so stay properties.
   FormulaPoints({ num, pal, t, W, H, stateKey }, id, props) {

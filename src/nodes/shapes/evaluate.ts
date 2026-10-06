@@ -784,7 +784,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     return { frame }
   },
   // Discrete Fourier epicycles of an outline — see
-  // docs/development/design/fourier-epicycles.md.
+  // docs/design/fourier-epicycles.md.
   FourierEpicycles({ input, num, t, W, H, stateKey }, id, props) {
     const colorIn = input(id, 'color', null) as RGB | null
     const color = colorIn ?? {

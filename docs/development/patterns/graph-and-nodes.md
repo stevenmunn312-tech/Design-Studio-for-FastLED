@@ -318,7 +318,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `channelColor(...)`/`f(...)` calls out of the generator source, so a helper
   that hides a channel's default from that parse would silently drop it from the
   comparison. See
-  [direct controls and LED output status](../design/direct-controls-and-output-status.md).
+  [direct controls and LED output status](../../design/direct-controls-and-output-status.md).
 - A property input's `defaultProperties` entry must hold not just *a* default
   but the exact literal the code already falls back to:
   `src/state/__tests__/propertyInputFallbacks.test.ts` reads
@@ -351,4 +351,4 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   holds this end to end (preview, normal sketch, show/player firmware, Graph
   Health's "Set Layout to Custom design to use it again" warning, and the
   design's return when Custom design is chosen again). See
-  [large displays](../design/large-displays-and-control-routing.md).
+  [large displays](../../design/large-displays-and-control-routing.md).

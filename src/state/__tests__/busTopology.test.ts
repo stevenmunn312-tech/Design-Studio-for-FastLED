@@ -80,7 +80,7 @@ describe('findPinCollisions', () => {
 
   // The panel carries these pins now, not the document — see the
   // panel/document split in
-  // docs/development/design/large-displays-and-control-routing.md.
+  // docs/design/large-displays-and-control-routing.md.
   it('accepts a custom touch display sharing its display and touch SPI host', () => {
     const uses = [
       pinUse('screen', 'TransportDisplay', 'sckPin', 18),

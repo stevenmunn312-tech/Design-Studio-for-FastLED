@@ -70,7 +70,7 @@ export interface DisplayWidget {
    * before anyone has decided where it goes, and the screen designer lists
    * those in its "Connected" group. The presence of bounds is the whole
    * distinction between connected and placed; there is no third state and no
-   * second list. See docs/development/design/wire-first-touch-controls.md.
+   * second list. See docs/design/wire-first-touch-controls.md.
    *
    * Every walk over a document's widgets therefore has to say whether it means
    * *ports* (all of them) or *pixels* (only the placed ones). Optional rather

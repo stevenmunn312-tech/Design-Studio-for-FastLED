@@ -1690,7 +1690,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Curated stateful point/trajectory generators, selected by a dropdown —
     // the pattern-category, self-contained-frame-generator sibling of
     // FormulaField (field category). See
-    // docs/development/design/formula-pattern-nodes.md.
+    // docs/design/formula-pattern-nodes.md.
     type: 'FormulaPoints',
     label: 'Formula Points',
     category: 'pattern',
@@ -2319,7 +2319,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   },
   // ── Text ────────────────────────────────────────────────────────────────
   // The three nodes that produce a `string`. Auxiliary displays are the
-  // consumer (see docs/development/design/auxiliary-displays.md); formatting
+  // consumer (see docs/design/auxiliary-displays.md); formatting
   // is a node rather than something a display does privately, so the decision
   // about how a number reads is visible on the canvas instead of buried in a
   // display's properties.
@@ -3133,7 +3133,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Runs a sequential or random show from a Pattern Collection: holds a pattern for
     // a random dwell (minTime…maxTime), then transitions (a random style from
     // the chosen pool) into another. A wired `beat` advances early (after
-    // minTime). See docs/development/design/generative-pattern-show.md.
+    // minTime). See docs/design/generative-pattern-show.md.
     type: 'PatternMaster',
     label: 'Music Player',
     category: 'show',
@@ -3215,7 +3215,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Holds a chosen subset of pattern groups for a show. Wire a Group node's
     // frame output here and confirm to *absorb* it into the collection's list
     // (it leaves the canvas). Outputs a `patternset` for the Show Engine.
-    // See docs/development/design/generative-pattern-show.md.
+    // See docs/design/generative-pattern-show.md.
     type: 'PatternCollection',
     label: 'Pattern Collection',
     category: 'show',
@@ -3252,7 +3252,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
      * here), an explicit order, transitions that default to a fade without
      * requiring a TransitionSet, and reactivity off unless asked for — the
      * point of the mode is slow patterns that do not twitch at room noise.
-     * See docs/development/design/generative-pattern-show.md#pattern-slideshow.
+     * See docs/design/generative-pattern-show.md#pattern-slideshow.
      */
     type: 'PatternSlideshow',
     label: 'Pattern Slideshow',
@@ -3304,7 +3304,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // Paste raw FastLED C++ (a loop body that writes into leds[]). The text is
     // emitted verbatim into the sketch; the live preview approximates it via a
-    // lightweight C++→JS shim. See docs/development/design/code-node.md.
+    // lightweight C++→JS shim. See docs/design/code-node.md.
     type: 'Code',
     label: 'Code',
     category: 'pattern',
@@ -3333,7 +3333,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   // ── Float Field (ANIMartRIX-style coordinate → scalar pipeline) ─────────
   // FieldFormula emits a per-pixel scalar `field` (0–1); FieldToFrame maps a
   // field through a palette to a frame. See
-  // docs/development/design/animartrix-float-field.md.
+  // docs/design/animartrix-float-field.md.
   {
     type: 'FieldFormula',
     label: 'Field Formula',
@@ -3418,7 +3418,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Curated closed-form fields, selected by a dropdown instead of typing a
     // FieldFormula expression — a third raw-field generator beside
     // FieldFormula (free-text) and FieldNoise (fBm). See
-    // docs/development/design/formula-pattern-nodes.md.
+    // docs/design/formula-pattern-nodes.md.
     type: 'FormulaField',
     label: 'Formula Field',
     category: 'field',
@@ -3753,7 +3753,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // is the failure this node exists to remove. The FQBN is derived from the
     // chosen profile and mirrored into uploadStore for upload.
     //
-    // See docs/development/design/board-node-architecture.md. This is the
+    // See docs/architecture/board-capabilities.md. This is the
     // non-breaking half: pins still live on the peripheral nodes and outputs
     // are not yet attached by a `route` edge.
     type: 'Board',
@@ -3902,7 +3902,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // on is FastLED's own default, off emits setDither(DISABLE_DITHER).
       dither: true,
       // HUB75 scan-panel wiring (`form === 'hub75'` only; see
-      // docs/development/design/hub75-output.md). ESP32-HUB75-MatrixPanel-DMA's
+      // docs/design/hub75-output.md). ESP32-HUB75-MatrixPanel-DMA's
       // own documented default pinout (R1=25/G1=26/B1=27/A=23/...) is tuned for
       // the classic ESP32 — hardware-tested-false on ESP32-S3 (2026-08-09,
       // GitHub issue tracker N/A, see todo.md): G1(26)/B1(27) collide with the
@@ -4454,7 +4454,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // plugged into `Display` decides what it shows, one layout per source. The
     // port set is therefore stable by construction rather than by discipline,
     // and a panel wired to nothing says so rather than sitting blank.
-    // See docs/development/design/simple-displays.md.
+    // See docs/design/simple-displays.md.
     type: 'InfoDisplay',
     label: 'Info Display',
     category: 'output',
@@ -4584,7 +4584,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // takes one `Display` input and shows what the source implies: an RTC's
     // time, a player's elapsed position, a slideshow's ordinal. A raw number
     // from anywhere in the graph is a custom-UI capability, not this.
-    // See docs/development/design/simple-displays.md.
+    // See docs/design/simple-displays.md.
     type: 'SegmentDisplay',
     label: 'Segment Display',
     category: 'output',
@@ -5325,7 +5325,7 @@ export const CLOCKLESS_CHIPSET_OPTIONS = ADDRESSABLE_CHIPSET_OPTIONS.filter(
   (chipset) => !SPI_CHIPSETS.has(chipset),
 )
 
-/** HUB75 scan-panel matrices (docs/development/design/hub75-output.md) — driven
+/** HUB75 scan-panel matrices (docs/design/hub75-output.md) — driven
  *  over a 13-14 signal ribbon via a DMA library, not a FastLED addLeds<>() pin
  *  pair, so they're neither a clockless nor an SPI chipset in the sense above. */
 export const HUB75_CHIPSET = 'HUB75'
@@ -6503,7 +6503,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   serialRoute: "Chooses where Serial appears. Auto identifies native USB versus a UART bridge from the selected USB port when possible.",
   reportTelemetry: 'Prints free heap, PSRAM, frame rate and touch response to Serial every couple of seconds, for the telemetry card in the Upload tab to record. A bench instrument: leave it off for a finished build. ESP32 and ESP8266 only — other boards have no Serial.printf to report with.',
   layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',
-  chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/development/design/hub75-output.md.',
+  chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/design/hub75-output.md.',
   sourceVoltage: "The DC supply feeding the converter, in volts. It must sit inside the module's input range and above its output by the module's dropout.",
   dataLink: 'How the one-wire pixel signal reaches the LEDs. Direct is ordinary short wiring; NLED Pixel Data Extender inserts its matched TX/RX pair and a twisted A/B/ground run for long distance.',
   form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',

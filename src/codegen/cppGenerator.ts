@@ -347,7 +347,7 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
     ...nodes.filter((n) => TERMINAL_NODE_TYPES.has(n.data.nodeType)),
     // No explicit root for the custom Display document node: it has no
     // physical existence of its own any more (see the panel/document split in
-    // docs/development/design/large-displays-and-control-routing.md), so an
+    // docs/design/large-displays-and-control-routing.md), so an
     // unwired one correctly has nothing to draw with. A screen design is the
     // panel's own property now rather than a node wired into it, so there is
     // no mount edge to follow: the panel is already a root above, and its

@@ -22,7 +22,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   board's pads. `findExactBoardPinIssues` reads the same allowlist through
   `boardSparePins`, so a part stranded on a reserved pin after a board change is
   told the board is full and to free a pad. See
-  [hardware nodes](../design/hardware-nodes.md).
+  [hardware nodes](../../architecture/hardware-model.md).
 - Hardware soldered to the controller board is stated once, in
   `src/state/integratedBoardHardware.ts`, and read twice:
   `graphStore.selectBoardProfile` (the one action board choice goes through —
@@ -56,7 +56,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   change. `UNLISTED_SAFETY_IDS` (via `lacksPinAdvice`) counts a profile with *no*
   `pinSafety` as a gap as well as one with an empty allowlist; asking only the
   second let the sole board with no data read as complete. See
-  [hardware nodes](../design/hardware-nodes.md#boards-with-hardware-already-on-them).
+  [hardware nodes](../../architecture/hardware-model.md#boards-with-hardware-already-on-them).
 - `Board` is a hardware-only node type and is `hidden` on the graph canvas, so
   the grouped property controls `PROPERTY_GROUPS` declares for it (its "Bench"
   group included) never render anywhere — that generic renderer only draws for
@@ -96,7 +96,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   table. The resolver caches by the saved definition object, so a store
   selector gets the same profile back until the Board properties change; keep
   that when touching it, or selectors re-render forever. See
-  [Board architecture](../design/board-node-architecture.md#project-custom-boards).
+  [Board architecture](../../architecture/board-capabilities.md#project-custom-boards).
 - **A dialog opened from the workbench board menu must not be portalled.**
   `HardwarePane` closes the board menu on any `pointerdown` outside the menu's
   own DOM, so a portalled `CustomBoardEditor` lost its first click and
@@ -163,7 +163,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   feeding a power amp is one structured issue in both the gate and Graph Health.
   A DAC alone is deliberately not warned about, since powered speakers are a
   correct build. See
-  [audio part expansion](../plans/audio-part-expansion.md#phases).
+  [audio part expansion](../../design/audio-hardware.md#phases).
 - **IR receiver (D-05a):** `IRRemoteInput` has a saved `debug` checkbox
   (off by default). Enabling it adds
   serial diagnostics to the normal project, slideshow, or SD-player upload;
@@ -317,7 +317,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   generators/toolchains/boards — including the still-open fbuild legs (RP2040
   fails on a boot2 assembler issue that isn't a Studio bug;
   SAMD/Renesas/Teensy/STM32 unexercised) — is tracked in
-  [IR compile checks](../ir-compile-checks.md), reproduced with
+  [IR compile checks](../../reports/compile/ir-compile-checks.md), reproduced with
   `npm run gen:ir-compile-fixtures` and `scripts/compile-ir-smoke.py`.
 - **Power switch (experimental):** `PowerSwitchOutput`
   (`src/state/powerSwitch.ts`) is the relay's DC counterpart: active-high
@@ -340,7 +340,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the field existed must read the default the evaluator and emitter fall back
   to: `powerSwitchDims` first read a missing Level as 0 and turned every
   existing switch into PWM. See
-  [hardware nodes](../design/hardware-nodes.md).
+  [hardware nodes](../../architecture/hardware-model.md).
 - **Light sensor (experimental):** `LightInput` picks its module from
   `LIGHT_SENSOR_MODULES` (`src/state/lightSensor.ts`), the same one-list shape
   as `MIC_MODULES`: an LDR on one ADC pin or the Adafruit BH1750 on the shared
@@ -350,10 +350,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   has no calibration. The BH1750's breakout pulls the controller side of SDA/SCL
   up to VIN, so `peripheralPowerNet` powers it from 3V3 despite the VIN
   silkscreen, the same trap as the INA219. See
-  [hardware nodes](../design/hardware-nodes.md). Firmware compile evidence
+  [hardware nodes](../../architecture/hardware-model.md). Firmware compile evidence
   (BH1750 normal/slideshow/player, the LDR path, and a no-sensor guard, all
   classic ESP32) is tracked in
-  [light-sensor compile checks](../light-sensor-compile-checks.md), reproduced
+  [light-sensor compile checks](../../reports/compile/light-sensor-compile-checks.md), reproduced
   with `npm run gen:light-compile-fixtures` and
   `scripts/compile-presence-smoke.py` (shared with the presence-sensor checks
   via `--label light`).
@@ -379,7 +379,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   DATA last so that resistor crosses no supply stub; keep that order if the
   render is replaced. VCC comes from 3V3, never 5 V, since the pull-up would
   hold the pin at the supply. Firmware is library-free and CRC-checked; see
-  [hardware nodes](../design/hardware-nodes.md).
+  [hardware nodes](../../architecture/hardware-model.md).
 - **Power monitor (experimental):** `PowerMonitorInput` reads an INA219 or INA226
   over I2C.
   INA219 and INA226 both have an opt-in `debug` checkbox. Keep unwired debug
@@ -394,7 +394,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   silkscreens VIN. The one-I2C-bus check moved out of display-specific code into
   `i2cBusValidationIssues` in `validateGraph.ts` (deploy gate + Graph Health),
   so it now refuses any two I2C parts on different SDA/SCL pairs, not only when
-  a display is among them. See [hardware nodes](../design/hardware-nodes.md).
+  a display is among them. See [hardware nodes](../../architecture/hardware-model.md).
 - An I2C part with its own address resolver must use it in `i2cAddressFor` as
   well as firmware and validation. The PWM driver's unprefixed hex and missing
   address defaults once resolved differently in bus collision detection, hiding
@@ -417,7 +417,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   out-of-range sources block the electrical plan. The Build Diagram follows
   terminals 1 V+, 2 V-, 3 FG, 4-5 -V and 6-7 +V, including the isolated-output
   ground bond; converter outputs are never paralleled. See
-  [hardware nodes](../design/hardware-nodes.md#converting-a-12-v-or-24-v-source-to-5-v).
+  [hardware nodes](../../architecture/hardware-model.md#converting-a-12-v-or-24-v-source-to-5-v).
 - **DMX transceiver (experimental):** a DMX512 `DMXInput` is drawn as the "C25B"
   MAX485 module (`dmx-input`, `src/state/dmxTransceiver.ts`). It is not a
   `PART_OPTIONS` row, because that would put the module's picture on an Art-Net
@@ -427,7 +427,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   junction for both the lane allocator and the router, so the wire's lane is
   chosen for the point it climbs to. RE has no GPIO:
   `transceiverEnableBridgePads` finds it by name and the sheet draws a jumper to
-  DE. See [DMX / Art-Net input](../design/dmx-artnet-input.md#the-transceiver).
+  DE. See [DMX / Art-Net input](../../design/dmx-artnet-input.md#the-transceiver).
 - **Wired Ethernet (experimental):** `EthernetModule` is a hardware-only WIZnet
   WIZ850io (W5500) that replaces Wi-Fi for Art-Net and NTP in the normal sketch;
   both call the transport-neutral `_netEnsureConnected`/`_netConnected`, and
@@ -437,9 +437,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   given; on the one-host C3/C6 it shares `SPI` and validation requires the
   panel's SCLK/MOSI. Its two-row header is why `peripheralApproach` exists: a
   wire to a top-row pad climbs between the bottom-row pads rather than through
-  one. See [wired Ethernet](../design/wired-ethernet.md); firmware compile
+  one. See [wired Ethernet](../../design/wired-ethernet.md); firmware compile
   evidence is tracked in
-  [Ethernet compile checks](../ethernet-compile-checks.md).
+  [Ethernet compile checks](../../reports/compile/ethernet-compile-checks.md).
 - **NLED pixel data extender (experimental):** an LED output's `dataLink`
   property (`Direct` | `NLED Pixel Data Extender`,
   `src/state/pixelDataExtender.ts`) is a physical-route fact only — firmware
@@ -459,7 +459,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   field stays editable while it already names the extender, so a chipset change
   that invalidated the choice can be undone from the field itself rather than
   getting stuck disabled. See
-  [hardware nodes](../design/hardware-nodes.md#long-data-runs); marked
+  [hardware nodes](../../architecture/hardware-model.md#long-data-runs); marked
   experimental (unvalidated long-run distance) in
   `docs/release/beta-support-matrix.md`.
 

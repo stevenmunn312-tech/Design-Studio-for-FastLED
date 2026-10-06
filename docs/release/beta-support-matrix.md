@@ -32,9 +32,9 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | Validation `hw-f57928b9` (`2026-07-25`): color order, orientation, and power cap passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | Validation `hw-7adaec6f` (`2026-07-25`): full diagnostic sequence passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | Validation `hw-b0b34ed3` (`2026-07-25`): passed after the one-row frame-dimension fix |
-| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.64 | ESP32-S3 + microSD + MAX98357A | WS2812B | 16x16 matrix plus paired 32x1 VU rails | Single rectangular matrix (serpentine) flanked by a Stereo VU Meter fixture (left GPIO 42, right GPIO 2, data-in Bottom both sides) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate the SD Music Player sketch with a Stereo VU Meter, compile, flash, and run the full fifteen-item bench matrix: silence, channel separation, mono mirroring, a calibrated level staircase, ballistics, clipping, all twelve visualizations, all four selection policies, a fifteen-minute soak with the matrix rendering concurrently, track-skip and card-pull interruption, channel swap, both data-in directions, and power draw at the cap | [Bench record (`2026-09-02`)](../development/reports/stereo-vu-bench.md#bench-record--2026-09-02): all fifteen passed; 2.90-2.92 A measured against a 3000 mA cap at 4.82 V far-end, strips barely warm after ten minutes. Found and fixed two level-scale defects (`c43113f3`, `173dcc3d`) that compile and browser tests could not see |
-| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 (Generic N16R8, 44-pin dual USB-C) + photosensitive LDR module (KS6026 form) | WS2812B | 32x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch whose `Light Sensor` on GPIO2/ADC1 drives LED output brightness through Map Range and Smooth; compile, flash, and verify the strip tracks light across covered, normal room light, and direct torch | [Input-peripheral bench record (`2026-09-02`)](../development/reports/input-peripheral-bench.md#ldr-light-sensor--2026-09-02): all three light conditions passed; ADC measured across the full range with a probe sketch using the same `analogRead(pin) / 4095.0f` expression the generator emits |
-| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 + plain rotary encoder (A GPIO8, B GPIO9, switch GPIO21) | WS2812B | 16x16 | Single rectangular matrix, with an ST7789 1.54-inch panel on Show Status | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a ten-pattern generative show whose pattern selection is driven by a physical encoder through Control Map into the Pattern Slideshow's Controls input; compile, flash, and verify that turning the encoder changes the running pattern on the LEDs and the panel names it | [Rotary encoder bench record (`2026-09-08`)](../development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08): review finding F1 repaired on hardware — the same chain was dropped by the show generator before `1608c790` |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.64 | ESP32-S3 + microSD + MAX98357A | WS2812B | 16x16 matrix plus paired 32x1 VU rails | Single rectangular matrix (serpentine) flanked by a Stereo VU Meter fixture (left GPIO 42, right GPIO 2, data-in Bottom both sides) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate the SD Music Player sketch with a Stereo VU Meter, compile, flash, and run the full fifteen-item bench matrix: silence, channel separation, mono mirroring, a calibrated level staircase, ballistics, clipping, all twelve visualizations, all four selection policies, a fifteen-minute soak with the matrix rendering concurrently, track-skip and card-pull interruption, channel swap, both data-in directions, and power draw at the cap | [Bench record (`2026-09-02`)](../reports/bench/stereo-vu-bench.md#bench-record--2026-09-02): all fifteen passed; 2.90-2.92 A measured against a 3000 mA cap at 4.82 V far-end, strips barely warm after ten minutes. Found and fixed two level-scale defects (`c43113f3`, `173dcc3d`) that compile and browser tests could not see |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 (Generic N16R8, 44-pin dual USB-C) + photosensitive LDR module (KS6026 form) | WS2812B | 32x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch whose `Light Sensor` on GPIO2/ADC1 drives LED output brightness through Map Range and Smooth; compile, flash, and verify the strip tracks light across covered, normal room light, and direct torch | [Input-peripheral bench record (`2026-09-02`)](../reports/bench/input-peripheral-bench.md#ldr-light-sensor--2026-09-02): all three light conditions passed; ADC measured across the full range with a probe sketch using the same `analogRead(pin) / 4095.0f` expression the generator emits |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 + plain rotary encoder (A GPIO8, B GPIO9, switch GPIO21) | WS2812B | 16x16 | Single rectangular matrix, with an ST7789 1.54-inch panel on Show Status | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a ten-pattern generative show whose pattern selection is driven by a physical encoder through Control Map into the Pattern Slideshow's Controls input; compile, flash, and verify that turning the encoder changes the running pattern on the LEDs and the panel names it | [Rotary encoder bench record (`2026-09-08`)](../reports/bench/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08): review finding F1 repaired on hardware — the same chain was dropped by the show generator before `1608c790` |
 
 These are the only fully recorded public-beta support rows today.
 
@@ -159,7 +159,7 @@ Enabled semantics; and touch, which this module has no controller for.
 
 What this run did not cover, the rotation here being the slideshow's own timer:
 control-driven pattern selection, since settled the same day by the
-[rotary encoder record](../development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)
+[rotary encoder record](../reports/bench/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)
 on this same board and panel. An OLED and a TFT sharing one cursor was also
 open here, and is settled by the two-panel record below. Still open: the
 panel's Enabled semantics, and touch, which this module has no controller for.
@@ -209,7 +209,7 @@ an unchanged build spent 181.5 seconds deciding that no compilation was needed, 
 the full re-upload 3m 40s versus 26.8s with arduino-cli. fbuild remains available in
 Board & Port as an explicit **experimental workflow choice** because it manages its own
 toolchains and may still suit users who accept that latency. See the
-[fbuild workaround report](../development/reports/fbuild-workarounds.md#9-a-build-with-nothing-to-do-still-takes-three-minutes).
+[fbuild workaround report](../runbooks/fbuild-workarounds.md#9-a-build-with-nothing-to-do-still-takes-three-minutes).
 
 This recommendation does not retroactively invalidate the fbuild hardware rows above,
 and it does not promote unrecorded arduino-cli/board combinations to supported status.
@@ -252,7 +252,7 @@ they name.
   and the show/player generators are still **unvalidated on real HUB75
   hardware**. Mixed HUB75 + **addressable-strip** output on one board is not
   a validation gap here — it is unsupported by design. See
-  `docs/development/design/hub75-output.md` and `todo.md`.
+  `docs/design/hub75-output.md` and `todo.md`.
 - **2026-07-28 — classic ESP32, music-sync SD-show pipeline (`fbuild`),
   partial/failed bring-up.** The run reached the real provisioning/player path
   and exposed four defects: the provisioner's initial SD-write acknowledgement
@@ -520,11 +520,11 @@ Unless a future row says otherwise, treat the following as experimental:
   Potentiometer, Encoder, and PIR Motion have no hardware record of any
   kind. `PotInput` shares the LDR's ADC path and pin-capability rule, so the
   GPIO2/ADC1 result is suggestive for it, but resemblance is not a pass. See
-  [input-peripheral bench records](../development/reports/input-peripheral-bench.md).
+  [input-peripheral bench records](../reports/bench/input-peripheral-bench.md).
 - **Seeed Grove Touch Sensor.** `TouchButtonInput` has the exact TTP223-BA6
   board model, preview, manifest, Build Diagram and normal/slideshow/player
   firmware coverage. All four generated fixtures
-  [compile on classic ESP32](../development/touch-button-compile-checks.md), but
+  [compile on classic ESP32](../reports/compile/touch-button-compile-checks.md), but
   no physical row exists. It is powered from 3V3, leaves NC unwired and reads
   SIG HIGH as a touch with no internal pull-up. Graduation needs a dated row
   naming the sensor SKU, board/FQBN, GPIO and build engine; confirm idle LOW,
@@ -551,7 +551,7 @@ Unless a future row says otherwise, treat the following as experimental:
   latches every input LOW before enabling it and then follows each channel,
   manifest and Build Diagram coverage. It is read by the normal sketch generator
   only. The generated sketch
-  [compiles on classic ESP32](../development/darlington-compile-checks.md), but no
+  [compiles on classic ESP32](../reports/compile/darlington-compile-checks.md), but no
   load has been switched on any board. Each channel sinks up to 500 mA at up to 50
   V, but the package limits the total heat, so all eight are not meant to run at
   full current together, and the app does not model that. It sinks only: it cannot
@@ -570,7 +570,7 @@ Unless a future row says otherwise, treat the following as experimental:
   changes. It answers on 0x40 to 0x6F by the A0 to A5 jumpers; 0x70 and above are
   the chip's all-call address and the reserved range, so they are not offered. It
   is read by the normal sketch generator only. Generated sketches
-  [compile on classic ESP32](../development/pwm-driver-compile-checks.md), alone
+  [compile on classic ESP32](../reports/compile/pwm-driver-compile-checks.md), alone
   and beside an INA226 on one bus, but no output has been measured. The
   frequency comes from the chip's 25 MHz internal clock, which is only accurate
   to a few percent, and the V+ output supply is not modelled: it is a separate
@@ -582,7 +582,7 @@ Unless a future row says otherwise, treat the following as experimental:
   input, firmware that latches the pin LOW before enabling it and then follows the
   input, manifest and Build Diagram coverage. It is read by the normal sketch
   generator only. The generated sketch
-  [compiles on classic ESP32](../development/buzzer-compile-checks.md), but no
+  [compiles on classic ESP32](../reports/compile/buzzer-compile-checks.md), but no
   buzzer has been sounded on any board, and the browser preview is silent. The
   module sounds at its own fixed pitch (about 2.5 kHz) and has no supply pad, so
   it draws about 30 mA straight from the pin, more than a GPIO should supply for
@@ -601,7 +601,7 @@ Unless a future row says otherwise, treat the following as experimental:
   dims: a `Level` below 1, or wired, drives the pin with 8-bit PWM at the
   part's 500 Hz, a frequency derived from its slow optocoupler gate drive
   rather than measured. The dimming fixtures
-  [compile](../development/power-switch-compile-checks.md), but no dimmed load
+  [compile](../reports/compile/power-switch-compile-checks.md), but no dimmed load
   has been run. Graduating the power switch needs a dated row naming the
   board/FQBN, the signal GPIO, the load and its supply voltage and current,
   and the build engine. It must show the load held off through reset and
@@ -618,7 +618,7 @@ Unless a future row says otherwise, treat the following as experimental:
   at MonkMakes' 1 kHz. It switches the negative lead of 3-16 V DC loads, has a
   flyback diode on every channel, and one resettable fuse holds the whole
   board to 2 A. It is not isolated: the header's GND is the load supply's
-  negative. Its fixtures [compile](../development/power-switch-compile-checks.md)
+  negative. Its fixtures [compile](../reports/compile/power-switch-compile-checks.md)
   on classic ESP32 (cores 3.3.11 and 2.0.17), ESP8266, RP2040 and AVR,
   including an LR7843 dimmed beside it. Graduating it needs a dated row naming
   the board/FQBN, the four GPIOs, each load with its supply voltage and
@@ -642,7 +642,7 @@ Unless a future row says otherwise, treat the following as experimental:
   0x40 to 0x4F. It is software coverage only; no reading has been compared with a
   meter, and the render's header order and shunt placement are approximated from
   photographs. Compile evidence is in
-  [the INA226 compile checks](../development/ina226-compile-checks.md). Graduating
+  [the INA226 compile checks](../reports/compile/ina226-compile-checks.md). Graduating
   it needs the same dated row as the INA219, with the module's volts and amps
   against a multimeter at two load currents, one of them above 3 A.
 - **HLK-LD2410C radar presence sensing.** `PresenceInput` has software,
@@ -657,7 +657,7 @@ Unless a future row says otherwise, treat the following as experimental:
 - **Adafruit BH1750 ambient-light sensing.** `LightInput` with the BH1750
   module has software, preview, generated-firmware, manifest and Build Diagram
   coverage in the normal, slideshow and player generators, and
-  [compiles on classic ESP32](../development/light-sensor-compile-checks.md),
+  [compiles on classic ESP32](../reports/compile/light-sensor-compile-checks.md),
   but no physical row yet. It reads continuous high-resolution mode over I2C at 0x23
   or 0x5C and publishes Lux plus Level scaled by Max Lux. Graduation needs a
   dated row naming the board/FQBN, the I2C pins and address, and the supply,
@@ -666,7 +666,7 @@ Unless a future row says otherwise, treat the following as experimental:
 - **Adafruit BME280 environment sensing.** `EnvironmentInput` has a verified
   product-2652 asset, preview, direct compensated I2C firmware, manifest and
   Build Diagram coverage in the normal, slideshow and player generators, and
-  [compiles on classic ESP32](../development/environment-sensor-compile-checks.md),
+  [compiles on classic ESP32](../reports/compile/environment-sensor-compile-checks.md),
   but no physical row yet. It
   reads temperature in °C, relative humidity in percent, and pressure in hPa at
   0x77 or 0x76.
@@ -678,7 +678,7 @@ Unless a future row says otherwise, treat the following as experimental:
   (skip-ROM, non-blocking 12-bit conversion, CRC-checked scratchpad), manifest
   and Build Diagram coverage, including the 4.7 kΩ DATA pull-up to 3V3, in the
   normal, slideshow and player generators, and
-  [compiles on classic ESP32](../development/temperature-sensor-compile-checks.md),
+  [compiles on classic ESP32](../reports/compile/temperature-sensor-compile-checks.md),
   but no physical row yet. It reads -55 to +125 °C and publishes Temperature
   and Connected. One probe per pin.
   Graduation needs a dated row naming the board/FQBN, GPIO and supply, with
@@ -692,7 +692,7 @@ Unless a future row says otherwise, treat the following as experimental:
   normal, slideshow and player generators. It publishes Electrode (0 to 11, lowest
   touched, held after release), Touched, Count and Connected, at 0x5A to 0x5D by
   the ADDR strap. Compile evidence is recorded in
-  [the touch-pad compile checks](../development/touch-pad-compile-checks.md), but
+  [the touch-pad compile checks](../reports/compile/touch-pad-compile-checks.md), but
   there is no physical row yet. The hole positions in the render are approximate.
   Graduation needs a dated row naming the board/FQBN, the address and the I2C pins,
   with all twelve electrodes read in each of the three generators, a touch and a
@@ -703,7 +703,7 @@ Unless a future row says otherwise, treat the following as experimental:
   manifest and Build Diagram coverage with no supply or ground drawn, in the
   normal, slideshow and player generators. It publishes Key (0 to 15, row by row,
   held after release) and Pressed. Compile evidence is recorded in
-  [the keypad compile checks](../development/keypad-compile-checks.md), but there
+  [the keypad compile checks](../reports/compile/keypad-compile-checks.md), but there
   is no physical row yet. The key pitch and tail width in the render are
   approximate, and the tail is drawn short.
   Graduation needs a dated row naming the board/FQBN and the eight GPIOs, with all
@@ -726,7 +726,7 @@ Unless a future row says otherwise, treat the following as experimental:
   player generators. It publishes acceleration in g, rotation rate in degrees
   per second and Connected, at plus or minus 2 g and plus or minus 250 degrees
   per second, at 0x68 or 0x69. Compile evidence is recorded in
-  [the motion-sensor compile checks](../development/motion-sensor-compile-checks.md),
+  [the motion-sensor compile checks](../reports/compile/motion-sensor-compile-checks.md),
   but there is no physical row yet. The regulator, LED and passives in the render
   are approximate and its mounting hole is not modelled.
   Graduation needs a dated row naming the board/FQBN, the I2C pins, address and
@@ -738,7 +738,7 @@ Unless a future row says otherwise, treat the following as experimental:
   with a dead zone, plus an INPUT_PULLUP switch), manifest and Build Diagram
   coverage, powered from 3V3, in the normal, slideshow and player generators.
   Compile evidence is recorded in
-  [the joystick compile checks](../development/joystick-compile-checks.md), but
+  [the joystick compile checks](../reports/compile/joystick-compile-checks.md), but
   there is no physical row yet. The board size varies by supplier, and the stick
   in the render is approximate.
   Graduation needs a dated row naming the board/FQBN, the three GPIOs and the
@@ -750,7 +750,7 @@ Unless a future row says otherwise, treat the following as experimental:
   Diagram coverage, including the 1 kΩ / 2 kΩ divider on the 5 V Echo, in the
   normal, slideshow and player generators. It publishes Distance in mm and
   Connected, over 2 cm to 4 m. Compile evidence is recorded in
-  [the distance-sensor compile checks](../development/distance-sensor-compile-checks.md),
+  [the distance-sensor compile checks](../reports/compile/distance-sensor-compile-checks.md),
   but there is no physical row yet. The transducer placement in the render is
   approximate.
   Graduation needs a dated row naming the board/FQBN, both GPIOs and the
@@ -769,7 +769,7 @@ Unless a future row says otherwise, treat the following as experimental:
   timeouts, so an unplugged sensor costs a short hitch each second. A reading of
   8190 mm or more is the library's "nothing in range" and Distance holds its last
   good value. The normal, slideshow and player sketches
-  [compile on classic ESP32](../development/vl53l0x-compile-checks.md), but no
+  [compile on classic ESP32](../reports/compile/vl53l0x-compile-checks.md), but no
   reading has been compared with a tape measure on any board, and the backend's
   fbuild vendoring path is covered by tests only, not by a real build. The 3 to 12%
   accuracy depends on the target and the light. Two sensors on one bus would need
@@ -787,7 +787,7 @@ Unless a future row says otherwise, treat the following as experimental:
   status, and otherwise holds the last good distance. An absent sensor fails its start-up
   at once, with no stall, and one that stops answering for a second is set up again. The
   normal, slideshow and player sketches
-  [compile on classic ESP32](../development/vl53l1x-compile-checks.md), but no reading
+  [compile on classic ESP32](../reports/compile/vl53l1x-compile-checks.md), but no reading
   has been compared with a tape measure on any board, and the render is modelled from the
   listing, not a board file, so its header position and component placement are
   approximate. Two sensors on one bus would need their XSHUT pins driven separately; the
@@ -797,7 +797,7 @@ Unless a future row says otherwise, treat the following as experimental:
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the
   ESP32 core's W5500 driver. Its sketches
-  [compile on classic ESP32 and ESP32-C3](../development/ethernet-compile-checks.md)
+  [compile on classic ESP32 and ESP32-C3](../reports/compile/ethernet-compile-checks.md)
   (2026-09-25, arduino-cli), but nothing has run on hardware yet. Graduation
   needs a dated row naming the board/FQBN and the six pins, with link-up, DHCP and static addressing, Art-Net received over the
   cable, an NTP sync, and recovery after pulling and replugging the cable.
@@ -854,7 +854,7 @@ Notes:
   third-party library dependency. Pin labels vary by board, and the current GPIO
   validator cannot infer those board-default aliases, so users must avoid
   assigning the same physical pins to a non-I²C role. Other RTC chips are not
-  supported. See [`rtc-clock-and-schedule.md`](../development/design/rtc-clock-and-schedule.md)
+  supported. See [`rtc-clock-and-schedule.md`](../design/rtc-clock-and-schedule.md)
   for the full contract.
 
 ## How to graduate a new supported row

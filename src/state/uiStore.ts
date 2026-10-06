@@ -31,7 +31,7 @@ export type HardwarePaneTab = 'hardware' | 'upload'
  * Which workspace has the canvas.
  *
  * Four peers rather than a graph with a hardware pane bolted under it — see
- * docs/development/design/workspace-tabs.md. `graph` is where the hours go, so
+ * docs/design/workspace-tabs.md. `graph` is where the hours go, so
  * it is where a session lands; the tab order tells the build story instead.
  */
 export type WorkspaceMode = 'hardware' | 'build' | 'graph' | 'upload'

@@ -59,26 +59,18 @@ The portable package is designed to include the Studio, local upload helper, `fb
 
 ### Run from source
 
-Install the current [Node.js](https://nodejs.org) LTS — 20.19+, 22.13+, or 24+ (Node 21 and 23 are not supported) — then:
+Follow [development setup](docs/getting-started/development-setup.md) for the
+active `Hardware` checkout, Node.js requirements and platform launchers.
+Use [upload-helper setup](docs/getting-started/upload-helper.md) for Python,
+build engines and USB upload.
 
-```bash
-git clone https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED.git
-cd Design-Studio-for-FastLED
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173`. Install [Python 3](https://python.org) as well if you want the local upload helper and hardware features.
-
-You can also use the included launchers:
-
-- **Windows:** double-click `Start Design Studio for FastLED.bat`
-- **macOS:** double-click `Start Design Studio for FastLED.command`; on first use, right-click it and choose **Open**
-- **Linux:** run `./start.sh`
-
-Without Python, visual authoring, hardware configuration, live preview, projects, sharing, and code export still work. Compile, USB upload, serial monitoring, Live Stream, native file dialogs, and disk-backed sync remain unavailable.
+Browser authoring, preview and code export work without the helper. Compile,
+USB upload, serial monitoring, Live Stream, native file dialogs and disk-backed
+sync require it.
 
 ## Your first five minutes
+
+For the complete starter-to-upload walkthrough, see [Your first project](docs/getting-started/first-project.md).
 
 1. Choose **Start with Juggle** or open **✦ Start** and pick a guided patch.
 2. Read the graph from left to right. Sources create signals or pixels; effects transform them; **LED Output** is the destination.
@@ -259,7 +251,7 @@ npm run preview        # serve the production build
 npm run package:desktop
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports, development conventions, pull requests, and hardware validation.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for bug reports, development conventions, pull requests, and hardware validation. The [documentation index](docs/index.md) covers architecture, feature design, API reference, plans and validation evidence.
 
 ## Credits and licensing
 

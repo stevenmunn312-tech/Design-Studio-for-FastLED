@@ -23,7 +23,7 @@ const RUN_TIMEOUT_MS = 100
 // in the live preview. Strips C++ type keywords from declarations and
 // rewrites leds[] writes to shim calls (JS can't overload |=). The pasted
 // text is still emitted verbatim into the firmware. See
-// docs/development/design/code-node.md for the rules and known divergences.
+// docs/design/code-node.md for the rules and known divergences.
 // Runs on the main thread; only the *result* is sent into the sandbox worker.
 const FN_RET_TYPES = 'void|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGB|CHSV|fract8|fract16|accum88'
 

@@ -302,7 +302,7 @@ export default function HardwarePane() {
       // No footprint means no physical existence — Display (the document
       // node) still needs its place in `fixtureParts` for menus and removal,
       // but draws no box on the bench. See the panel/document split in
-      // docs/development/design/large-displays-and-control-routing.md.
+      // docs/design/large-displays-and-control-routing.md.
       if (!part.entry.footprint) continue
       parts.push({
         id: part.partId,

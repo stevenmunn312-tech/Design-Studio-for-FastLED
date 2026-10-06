@@ -37,7 +37,7 @@ The npm scripts intentionally suppress an upstream `punycode` warning; direct `n
 - `src/utils/` — validation, project/share workflows, recording, layout, and upload helpers.
 - `backend/` — local FastAPI service for toolchains, compilation, serial streaming, disk sync, and upload.
 - `desktop/` — PyInstaller-based desktop packaging.
-- `docs/NAVIGATOR.md` — routing index for detailed architecture, design, release, and reference documents.
+- `docs/index.md` — routing index for detailed architecture, design, release, and reference documents.
 
 Data flows from the React Flow graph through Zustand, graph evaluation, preview/output routing, shared validation, and the selected code-generation/upload path.
 
@@ -108,8 +108,8 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 - Hardware-wide reads use `rootGraphNodes`/`rootGraphEdges` or their hooks; hardware writes always target the root graph.
 - Preview animation is wall-clock driven. Master Speed scales the evaluator's single clock, never the preview; Music Player refuses it because track position is its clock.
 - UI invariants: change `StudioNode` handle constants and CSS together. Popups, menus and dialogs close on Escape through `useEscapeLayer` (`src/hooks/useEscapeLayer.ts`), never their own keydown listener, so one Escape closes only the most recently opened layer.
-- The hardware workbench scales each part by the cube root of its own size; physical-unit drawing reads that part's `mmScale`. Emitter runs instead scale by the emitter and draw broken to bound length. See [hardware nodes](docs/development/design/hardware-nodes.md).
+- The hardware workbench scales each part by the cube root of its own size; physical-unit drawing reads that part's `mmScale`. Emitter runs instead scale by the emitter and draw broken to bound length. See [hardware nodes](docs/architecture/hardware-model.md).
 - New physical-part visuals require verified Blender assets from `C:\Users\User\Desktop\Blender Assets\`; import through `scripts/import-part-assets.py` or `scripts/import-board-assets.py`. Commit only importer-produced renders and `part.json`, never `.blend`, raw PNG, or reference files; `--check` is read-only and unchanged encoded bytes are not rewritten.
-- Release promises belong in `docs/release/beta-support-matrix.md`; history belongs in `CHANGELOG.md` or Git. Current code, `src/themes/tokens.css`, `NODE_LIBRARY`, `docs/NAVIGATOR.md` links, and root `todo.md` are authoritative.
+- Release promises belong in `docs/release/beta-support-matrix.md`; history belongs in `CHANGELOG.md` or Git. Current code, `src/themes/tokens.css`, `NODE_LIBRARY`, `docs/index.md` links, and root `todo.md` are authoritative.
 
 <!-- END MANUAL -->

@@ -83,7 +83,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   shrunken touch target underneath, since the emitter has never called
   `lv_obj_set_ext_click_area` at all, so the DOM preview's grown hit region is
   already fiction on device; restore the target in the emitter before reporting
-  its loss. See [on-glass widget labels](../design/on-glass-widget-labels.md).
+  its loss. See [on-glass widget labels](../../design/on-glass-widget-labels.md).
   Physical geometry and Enabled belong to the owning TransportDisplay, and both
   are resolved in one place: `src/state/mountedDisplays.ts` answers how large a
   mounted design is (the panel's rotated size), used by the editor's orientation
@@ -118,7 +118,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `DISPLAY_DOCUMENT_SCHEMA_VERSION` stays unbumped since
   `normalizeDisplayDocument` would otherwise drop every saved screen design for
   no format change. See
-  [wire-first touch controls](../design/wire-first-touch-controls.md). Creating
+  [wire-first touch controls](../../design/wire-first-touch-controls.md). Creating
   a control by dropping a wire (rather than placing a widget first) goes through
   one derivation, `src/state/wireFirstControls.ts`'s
   `touchControlPlan(nodeType, portId, properties, driven)`: it reads
@@ -365,7 +365,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   reported once per panel (`template-controls-waiting-<panelId>`) with a
   `connect-template-controls` repair, or with the plan's own refusal reason when
   there is nothing to connect to. See
-  [direct controls and LED output status](../design/direct-controls-and-output-status.md#8-auto-wire-templates-and-fixed-layouts),
+  [direct controls and LED output status](../../design/direct-controls-and-output-status.md#8-auto-wire-templates-and-fixed-layouts),
   which records why Blackout and Play/Pause arrive through visible adapter nodes
   rather than direct edges. A `level` control in the bundle (Volume, Brightness)
   reports nothing until a finger has actually moved its widget:

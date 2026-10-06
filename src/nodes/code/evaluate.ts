@@ -31,7 +31,7 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: Palet
 // The Code node's transpile + compile + execute pipeline lives in
 // `codeSandboxRuntime.ts` (main-thread controller) and `codeSandbox.worker.ts`
 // (the sandboxed Worker that actually runs the transpiled body) — see those
-// files, and docs/development/design/code-node.md for the transpile rules.
+// files, and docs/design/code-node.md for the transpile rules.
 export const CODE_EVALUATORS: NodeEvaluators = {
   CustomFormula({ num, pal, t, W, H, trusted }, id, props) {
     const a = num(id, 'a', props, 'a', 0)

@@ -1,0 +1,273 @@
+# HUB75 output — design note
+
+Status: in progress — property model, vendoring, single-panel codegen (normal
+Upload/Export, Flash Wiring Test, Live Stream), board-family gating, and a
+HUB75-specific power estimate implemented. Flash Wiring Test now also has a
+dedicated folded-grid topology mode driven by the MatrixOutput panel count,
+serpentine-chain, and per-tile rotation settings; it marks every panel with
+fixed-colour corners, X/Y axes and coordinates, rotation, chain ordinal, and
+chain direction. **Hardware-validated (2026-08-09)**
+on a real ESP32-S3 + P4 64×64 panel, same session: (1) Flash Wiring Test
+confirmed the diagnostic pattern displays correctly (see `todo.md` for the two
+boot-failure bugs found and fixed along the way — a validation gap in
+`collectPinUses` and a default pinout that collided with the S3's flash pins),
+then (2) a normal `generateCpp` Upload of a real pattern graph — including a
+wired `MicInput` (FastLED's native on-device audio engine) — ran correctly,
+confirming HUB75 output and the FastLED audio engine coexist on this board
+with no conflict. Single-row panel chaining (`layout: 'panels'`,
+`tilesY === 1`) is also now implemented — verified against the
+real library source that the base `MatrixPanel_I2S_DMA` class addresses a
+horizontal chain directly, no `VirtualMatrixPanel_T` wrapper needed — but not
+yet hardware-validated. **All five sketch generators now support HUB75**
+(single panel and single-row chain): the generative Pattern Show controller
+(`showGenerator.ts`) and the music-sync SD player (`playerSketchGenerator.ts`)
+turned out to need the same mechanical swap as the other three — `leds[]`
+already held the final composited frame as chipset-agnostic CRGB math in both,
+so only the include/setup/output step changed (the player's live
+`SET_BRIGHTNESS` show event routes to `dma_display->setBrightness8()` for
+HUB75 too). Neither has a hardware pass yet. **Folded 2D panel grids
+(`layout: 'panels'`, `tilesY > 1`) are also now implemented** via the
+library's `VirtualMatrixPanel_T` wrapper — verified against the real vendored
+header/example at tag `3.0.14`. **Per-panel rotation is now implemented too**
+via a generated coordinate remap layered on top of the DMA library's chain
+routing: `0°/180°` work on any equal tile, while `90°/270°` quarter-turns are
+supported when each tile is square (the chain's panel resolution is fixed, so
+non-square quarter-turns cannot be represented safely). Mixed
+HUB75+**addressable-strip** output on one board is no longer an open question
+here — it is deliberately unsupported by design. The multi-panel chain/grid
+paths, rotated layouts, Live Stream, and the show/player generators still need
+real HUB75 hardware validation, and the specific `PANEL_CHAIN_TYPE` chosen is
+a best-effort source-reading match rather than a confirmed topology from real
+2+ panel hardware. · Owner: app · Date: 2026-08-09
+
+Scopes a second physical-output family for `MatrixOutput`: HUB75 scan-panel
+matrices (the common indoor P2–P10 modules), driven over their ribbon
+connector instead of a single-wire addressable chipset. Originally written
+before any code existed; update it as decisions get made (see `todo.md`'s
+**HUB75 Output node** entry for the current checklist).
+
+## The shape of the problem
+
+Every output Studio currently drives — WS2812B, APA102, WS2801, HD108, … —
+is an **addressable strip**: one data pin (plus a clock pin for SPI parts),
+driven through FastLED's own `addLeds<CHIPSET, PIN, ORDER>()`. HUB75 is a
+different animal:
+
+1. **No FastLED driver.** FastLED has no native HUB75 support today —
+   confirmed against the current upstream repo and release notes. Every
+   working HUB75 setup in the wild goes through a separate library.
+2. **A 13–14 signal ribbon, not one pin.** `R1/G1/B1/R2/G2/B2` (two pixel
+   rows driven per clock, feeding the panel's row-doubled scan), `A/B/C/D`
+   (and `E` on 64-row panels) row-select address lines, plus `CLK`/`LAT`/`OE`.
+   None of this fits `MatrixOutput`'s existing single-`dataPin`(+`clockPin`)
+   model.
+3. **A DMA-driven refresh loop, not `FastLED.show()`.** A HUB75 panel has no
+   per-pixel latch — it must be continuously scanned (bit-angle modulation
+   across the row-select lines) or it flickers/dims. The standard approach
+   uses the ESP32's I2S/LCD peripheral + DMA to do this in the background,
+   which is a fundamentally different runtime model from FastLED writing a
+   framebuffer once per frame.
+4. **Real brightness/power tradeoffs the current model doesn't capture.**
+   Indoor HUB75 panels are quite dim outside artificial-light conditions —
+   confirmed against direct hardware experience with a P4 indoor panel — and
+   draw meaningfully more current per panel than the ~60 mA/LED assumption
+   `estimatePowerLoad()` already uses for addressable strips.
+
+## Proposed decisions
+
+### Driver: `ESP32-HUB75-MatrixPanel-DMA`, not SmartMatrix
+
+Researched two real options (see the conversation this note came out of for
+the source links):
+
+- **[`mrcodetastic/ESP32-HUB75-MatrixPanel-DMA`](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA)**
+  — actively maintained, ESP32/S2/S3-native, DMA/I2S-driven, Adafruit-GFX
+  compatible, with a `Framebuffer_GFX` shim that exposes a CRGB-buffer-style
+  surface.
+- **[`pixelmatix/SmartMatrix`](https://github.com/pixelmatix/SmartMatrix)**
+  — the library closest to a literal "FastLED → HUB75 bridge" (its own docs
+  describe drawing patterns with FastLED while SmartMatrix owns the HUB75
+  refresh). Mature on Teensy 3/4; explicitly **experimental** on ESP32, with
+  a long-standing FastLED issue
+  ([FastLED#586](https://github.com/FastLED/FastLED/issues/586)) about the
+  ESP32 path needing a Teensy-core-only header.
+
+Studio's validated hardware center of gravity is ESP32-S3. Recommendation:
+build against `ESP32-HUB75-MatrixPanel-DMA`. Personal hardware experience
+(a plain ESP32 + 64×64 P4 panel) confirms this library works well on exactly
+this class of board. SmartMatrix's ESP32 path stays a "not this" unless a
+Teensy-first user specifically asks for it later.
+
+### A new route family on `MatrixOutput`, not a standalone node type
+
+`MatrixOutput` is already a multi-route architecture (`src/state/outputRouting.ts`,
+`docs/architecture/multi-output-routing.md`): each instance is an independent
+physical route with its own pins, chipset, size, layout, and brightness,
+composited from a shared canvas via `fit`/crop. A HUB75 panel is still
+conceptually "a Frame routed to physical LEDs" — it just needs a third
+hardware family alongside the existing clockless/SPI chipset lists.
+
+Proposed: add `'HUB75'` as a `chipset` option whose selection swaps the pin
+editors from the current `dataPin`/`clockPin` pair to the full HUB75 pin set
+(gated the same way `isPropertyEnabled` already gates SPI-only `clockPin`)
+and swaps codegen's `addLeds<>()` path for the DMA library's panel-config +
+init. This reuses composition, power/RAM estimation plumbing, and the Graph
+Health/GPIO-conflict machinery instead of duplicating them in a parallel node
+type. Rejected alternative: a standalone `HUB75Output` node — would fork the
+route/composition logic MatrixOutput already owns for no clear benefit, since
+a HUB75 panel plays the identical *role* in a graph (a Frame sink).
+
+### New per-route properties (implemented — `src/state/nodeLibrary.ts`)
+
+- No separate panel-resolution/chain-length properties: per-panel resolution
+  falls out of the existing `width`/`height` ÷ `tilesX`/`tilesY` (reusing the
+  `panels` layout — see the resolved chaining-model question below).
+- `hub75ColorDepthBits` (PWM bit depth, 1–8 — trades refresh-rate
+  smoothness/flicker against CPU/DMA bandwidth; the DMA library exposes this
+  directly)
+- `hub75WideScan` (bool) gates `hub75EPin`, the row-select line only 1:32-scan
+  (typically 64-row) panels need
+- The 13–14 HUB75 pin fields (`hub75R1Pin`…`hub75OePin`), defaulted to the DMA
+  library's documented classic-ESP32 pinout (per-board remapping is a
+  follow-up, same as every other hardware node), each joining the existing
+  shared GPIO-conflict namespace (`GPIO_PIN_PROPERTIES`, `collectPinUses` in
+  `src/utils/validateGraph.ts`)
+
+### Vendoring (implemented — `backend/app.py`)
+
+Follows the existing `ESP32-audioI2S`/`esp_dmx` pattern
+(`_ensure_fbuild_hub75_lib`): `git clone` the DMA library into the fbuild
+project's `lib/` on first use, pinned to tag `3.0.14` (the newest
+non-prerelease release as of 2026-08-08) rather than tracking a
+branch (the audio-lib vendoring hit a real regression from doing that — see
+`todo.md`'s hardware-validation entry from 2026-07-28). `arduino-cli` should
+be able to pull it through its own library manager as a fallback engine.
+
+### Codegen (implemented in all five sketch generators — `src/codegen/`)
+
+`hub75HardwareFromProps`/`hub75SetupCpp` (`cppGenerator.ts`) swap
+`ledHardwareFromProps`/`FastLED.addLeds<>()` for `HUB75_I2S_CFG`/
+`MatrixPanel_I2S_DMA` — verified against the vendored library's real header
+and bundled example sketches at tag `3.0.14`, not guessed: the `i2s_pins`
+struct field order, the `HUB75_I2S_CFG(width, height, chain, pins)`
+constructor, `setPixelColorDepthBits()`, `begin()`, `setBrightness8()`, and
+`drawPixelRGB888(x, y, r, g, b)` are all real API surface. Per frame, the
+composited buffer is walked pixel-by-pixel into `drawPixelRGB888()` instead
+of a `leds[]` array + `FastLED.show()`; `FastLED.setMaxPowerInVoltsAndMilliamps`
+is skipped for HUB75 since no `CLEDController` is registered for it to
+throttle. `chain_length`/per-panel resolution come from `tilesX`/`tilesY`/
+`layout`. For a folded 2D grid (`tilesY > 1`), `hub75Hardware.virtualGrid` is
+set and every generator additionally constructs a `VirtualMatrixPanel_T`
+wrapper around `dma_display` and draws through it instead (see the resolved
+"Virtual-panel chaining model" open question below for the full picture).
+
+Scoped to a **single** `MatrixOutput` route, `layout: 'matrix'` or a
+`'panels'` chain (single-row or folded 2D grid), and no
+supersampling. `findHub75ConfigErrors`/`findHub75ConfigIssues` in
+`validateGraph.ts` (renamed from the earlier blanket
+`findUnimplementedChipsetErrors`) allow that supported shape and block every
+other combination — multiple LED output routes, an unsupported layout,
+non-square `90°/270°` quarter-turns, or supersampling — each with its own
+message. All
+**five** sketch generators that share these hardware helpers now have real
+HUB75 support:
+
+- `generateCpp` (normal Upload/Export) — the original implementation.
+- `generateWiringDiagnosticSketch` (🧪 Flash Wiring Test) and
+  `generateStreamReceiverSketch` (⚡ Flash Stream Receiver / 📡 Live Stream) —
+  both already isolated their `CRGB leds[]`-based logic from the
+  FastLED-specific setup/output step, so the swap was small; these two had to
+  be *implemented* rather than blocked, since they're always reachable
+  (independent of graph shape) and share `blockingErrors` with plain Upload.
+- `generateShowSketch` (the Pattern Show controller) and
+  `generatePlayerSketch` (the music-sync SD player) — turned out to need the
+  same mechanical swap: `leds[]` already held the final composited/
+  transitioned frame as chipset-agnostic CRGB math in both (pattern
+  rendering, `compositeTransition`, beat flash, the particle overlay), so
+  only the include/setup/output step changed. The player's live
+  `CMD_SET_BRIGHTNESS` show event now routes to `dma_display->setBrightness8()`
+  instead of `FastLED.setBrightness()` for HUB75.
+
+Hardware-validated so far: only `generateCpp` and the original general
+`generateWiringDiagnosticSketch` sequence (see the status line above). The
+new dedicated HUB75 2D topology mode is generator/validation-tested but has
+not yet had a multi-panel hardware pass. The other
+three — `generateStreamReceiverSketch`, `generateShowSketch`,
+`generatePlayerSketch` — compile and pass their unit tests but have no real
+hardware pass yet.
+
+## Open questions
+
+- ~~**Can a HUB75 route and an addressable-strip route share one board?**~~
+  **Resolved as a product decision: no.** HUB75 remains a deliberately
+  single-output route family in this project. If a board is driving a HUB75
+  panel, it does not also support an addressable-strip `MatrixOutput`.
+- ~~**Virtual-panel chaining model.**~~ **Resolved, single row and folded 2D
+  grid both implemented:** the property model reuses the existing
+  `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
+  `tileSerpentine`, `src/state/xyLayout.ts`) rather than inventing separate
+  panel-resolution/chain-length properties — a HUB75 chain's per-panel
+  resolution falls out of `width`/`height` ÷ `tilesX`/`tilesY`, same as an
+  addressable panel grid. Codegen handles a single row (`tilesY === 1`,
+  unrotated) with no wrapper at all: verified against the vendored library
+  source at tag `3.0.14` that the base `MatrixPanel_I2S_DMA` class already
+  addresses a horizontal chain directly
+  (`PIXELS_PER_ROW = mx_width * chain_length`), so `chain_length = tilesX` in
+  `HUB75_I2S_CFG` is all that's needed — virtual (x, y) is physical (x, y) for
+  this shape. **Folded 2D grids (`tilesY > 1`) now use `VirtualMatrixPanel_T`**
+  (2026-08-09): `Hub75Hardware.virtualGrid` is set whenever `tilesY > 1`
+  (`{ rows: tilesY, cols: tilesX, chainType }`), and every generator
+  constructs `new VirtualMatrixPanel_T<chainType>(rows, cols, panelResX,
+  panelResY)` + `setDisplay(*dma_display)` in setup, then draws through
+  `hub75Virtual->drawPixelRGB888(...)` instead of `dma_display` directly
+  (`hub75DisplayVar()` picks the right one). `chainType` is
+  `CHAIN_TOP_LEFT_DOWN` normally, or `CHAIN_TOP_LEFT_DOWN_ZZ` when
+  `tileSerpentine` is on — reusing the existing per-chain serpentine property
+  rather than adding a new one, on the theory that a folded panel grid's
+  physical ribbon-cable wiring snakes the same way an addressable panel grid's
+  pixel wiring would. **Per-panel rotation is now resolved too:** codegen
+  emits a compact `_hub75CoordMap` table that remaps each logical `(x, y)` into
+  the correct panel-local rotated coordinate before calling
+  `drawPixelRGB888()`, so the DMA display object still handles only the chain
+  routing while the generated sketch handles each tile's independent mount
+  angle. `0°/180°` work for any tile aspect ratio; `90°/270°` are supported
+  when each tile is square. Non-square quarter-turns stay blocked because the
+  DMA library's panel resolution is fixed per chain, so a `64×32` panel cannot
+  safely masquerade as a `32×64` tile inside the existing equal-tiles model.
+  **Caveat carried forward, not yet resolved:** the `CHAIN_TOP_LEFT_DOWN`
+  default is a best-effort match from reading the library's source and
+  `VirtualMatrixPanel.ino` example — not verified against real 2+ panel
+  hardware or the library's own referenced wiring-topology PDF. Revisit once
+  real multi-panel hardware exists to confirm the chain type actually matches
+  a typical top-left-start, snake-down physical wiring convention. Also
+  confirmed while implementing this: `VirtualMatrixPanel_T` exposes no
+  `setBrightness8` of its own (it only wraps drawing methods), so brightness
+  control (the player's live `CMD_SET_BRIGHTNESS` event) correctly stays
+  hardcoded to `dma_display->setBrightness8()` regardless of whether a virtual
+  grid is in play.
+- **Preview fidelity.** The live preview already renders LEDs as discs with
+  glow (`webglRenderer.ts`); a HUB75 panel's actual visual character (visible
+  scan lines, lower effective bit depth at high refresh) is different enough
+  that the preview may want a distinct render mode, or may be fine reusing
+  the existing one — needs a look once something is on screen.
+- ~~**Brightness/power model.**~~ **Resolved:** `estimatePowerLoad()` now
+  rates HUB75 routes at `MA_PER_HUB75_PIXEL_WORST_CASE` (~1 mA/px) instead of
+  the addressable-strip `MA_PER_LED_WORST_CASE` (60 mA/LED) — derived from
+  real current draw Steve reported on a P4 64×64 panel (1.0–2.5 A typical, up
+  to ~4 A worst case; anchored to the ~4 A high end, matching the existing
+  figure's "worst case" framing). One measured data point for one panel
+  model, not a published spec-sheet figure — may not generalize to other
+  panel resolutions or driver ICs.
+
+## Deliberately out of v1
+
+- Outdoor-brightness / higher-PWM-frequency panel variants — start with the
+  common indoor P2–P10 class.
+- Mixed HUB75 + addressable-strip rigs — unsupported by design.
+- Any board family besides ESP32/S2/S3 — the DMA library is ESP32-only.
+
+## Follow-ups
+
+Hardware validation and remaining topology/network evidence are consolidated in
+[root todo, HW-13](../../todo.md). Existing recorded support belongs to the
+[support matrix](../release/beta-support-matrix.md).

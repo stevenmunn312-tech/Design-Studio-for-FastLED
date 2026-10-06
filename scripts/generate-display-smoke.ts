@@ -1,4 +1,4 @@
-/** Generate current-model, compile-only display fixtures. See docs/development/display-compile-checks.md. */
+/** Generate current-model, compile-only display fixtures. See docs/reports/compile/display-compile-checks.md. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'

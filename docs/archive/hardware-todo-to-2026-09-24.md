@@ -6,7 +6,7 @@
 
 Single active checklist, consolidated 2026-09-08 against local `Hardware`
 `09bd307e`. Work on Hardware; main remains frozen. See the
-[branch review](../development/reports/hardware-branch-review.md) for evidence
+[branch review](../reports/reviews/2026-09-08-hardware-branch-review.md) for evidence
 and workflow recommendations. Software completion, compilation and a physical
 support row are separate gates.
 
@@ -36,7 +36,7 @@ matrix, not a reason to postpone testing earlier changes.
   Control-driven selection is now bench-proven too: a plain rotary encoder into
   Player Controls into the Slideshow's Controls input changes the running pattern
   on the LEDs (F1 on hardware, see the
-  [encoder record](../development/reports/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)).
+  [encoder record](../reports/bench/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08)).
   The last genuinely untested case — an OLED and a TFT sharing one cursor in one
   sketch — is now bench-proven too: an SH1106 1.3-inch I2C Pattern Browser and an
   ST7789 1.54-inch Show Status on one ESP32-S3, advancing in step off one
@@ -150,7 +150,7 @@ matrix, not a reason to postpone testing earlier changes.
   custom display of its own, and the unplugged design as costing nothing: emitted
   once and priced at zero, measured rather than read off the emitted text.
   Figures in [display compile
-  checks](../development/display-compile-checks.md). fbuild needed the Windows
+  checks](../reports/compile/display-compile-checks.md). fbuild needed the Windows
   LVGL archive recovery here as it did on the player, which makes it two of the
   three custom-screen fixtures on that engine — the normal path on this platform
   rather than an exception.
@@ -215,7 +215,7 @@ matrix, not a reason to postpone testing earlier changes.
 
   **All ten fixtures are compiled on both engines — twenty runs, all passing** —
   with hashes, toolchains and memory figures in
-  [display compile checks](../development/display-compile-checks.md). The seven
+  [display compile checks](../reports/compile/display-compile-checks.md). The seven
   shapes with no generator of their own were built 2026-09-11; the three
   generator paths were rebuilt 2026-09-12 because the LVGL background-opacity
   pairing (`fd143099`) and the FastLED trim (`8a7334ea`) landed after their
@@ -263,7 +263,7 @@ matrix, not a reason to postpone testing earlier changes.
 ## 2. Make the workflow understandable
 
 - [ ] **Direct controls and LED output status redesign.** Implement the
-  [agreed design and ordered checklist](../development/design/direct-controls-and-output-status.md):
+  [agreed design and ordered checklist](../design/direct-controls-and-output-status.md):
   named Touch widget outputs, property inputs exposed on demand, optional Control
   Map bundles and LED-output status screens. Include template/fixed-layout
   auto-wiring only when destinations are unambiguous, using ordinary editable
@@ -528,7 +528,7 @@ matrix, not a reason to postpone testing earlier changes.
   HW-11.
 - [x] **HW-09 · Collection freshness/music completeness (M).** Both open
   questions from [collection-driven
-  performance](../development/design/collection-driven-performance.md#open-questions)
+  performance](../design/collection-driven-performance.md#open-questions)
   answered; the first was a real defect.
 
   **Collection drift — was not covered.** The design note asked to "confirm"
@@ -744,7 +744,7 @@ matrix, not a reason to postpone testing earlier changes.
   and never moves them; the panel reset, tied to `EN` on this board, is stated
   as `NO_PIN` and no longer reads as a part on GPIO 255. The board's I2C default
   moved off GPIO21 (the panel backlight) to GPIO27/22, the two output-capable
-  pads it breaks out. See [hardware nodes](../development/design/hardware-nodes.md#boards-with-hardware-already-on-them).
+  pads it breaks out. See [hardware nodes](../architecture/hardware-model.md#boards-with-hardware-already-on-them).
 
   *Bench evidence, 2026-09-14:* the stored pin map drove the real panel and
   digitiser with nothing typed in, the tied reset held, the classic-ESP32
@@ -809,7 +809,7 @@ matrix, not a reason to postpone testing earlier changes.
 - [ ] **HW-13 · Remaining firmware/bench matrix (L).** *Current-model display
   compile half done 2026-09-22: all twelve generated fixtures pass on both
   Arduino CLI and fbuild against matching hashes, recorded in
-  [the compile record](../development/display-compile-checks.md). This adds the
+  [the compile record](../reports/compile/display-compile-checks.md). This adds the
   parallel-interface catalogue fixture that was absent from the older eleven-row
   matrix. The separate firmware paths and physical bench matrix below remain
   open.*
@@ -1097,7 +1097,7 @@ matrix, not a reason to postpone testing earlier changes.
   per-request source/project isolation. Together with the current matrix's
   response-file recovery and the strict no-op measurement above, every surviving
   workaround had current evidence in the
-  [fbuild report](../development/reports/fbuild-workarounds.md). At closure no
+  [fbuild report](../runbooks/fbuild-workarounds.md). At closure no
   workaround was removed, no dependency was upgraded, and no hardware support
   claim changed.
 
@@ -1194,7 +1194,7 @@ matrix, not a reason to postpone testing earlier changes.
   **experimental** in the support matrix, with what a bench row has to show:
   live FFT and beat response against the INMP441 on the same fixture and
   source, since a profile swap is heard rather than reasoned about.
-  See [the plan](../development/plans/audio-part-expansion.md#phases).
+  See [the plan](../design/audio-hardware.md#phases).
 
   *The INMP441-only naming came out 2026-09-23*, which was the half of this
   item's exit still outstanding in software. The banner refusing a microphone
@@ -1219,7 +1219,7 @@ matrix, not a reason to postpone testing earlier changes.
   **Left: the compile and the bench rows**, unchanged — no firmware path moved.
 
   *ICS-43434 compile passed 2026-09-24* (ESP32-S3, arduino-cli 1.5.1, FastLED
-  3.10.5; details in [the plan](../development/plans/audio-part-expansion.md#phases)).
+  3.10.5; details in [the plan](../design/audio-hardware.md#phases)).
   Still to compile: Generic MEMS, and the fbuild leg.
 - [ ] **HW-20 · Audio chain/amplifiers (L; after HW-19).** Record the DAC →
   power amplifier → speaker decision (Option B is the current proposal), resolve
@@ -1234,7 +1234,7 @@ matrix, not a reason to postpone testing earlier changes.
   DAC feeds it). Validation refuses a MAX98357A feeding a power amp, the Build
   Diagram draws 12 V boards on their own supply with measured pads, and the
   connection table carries the DAC line-out row. The contract and its costs are
-  in [the plan](../development/plans/audio-part-expansion.md#phases).
+  in [the plan](../design/audio-hardware.md#phases).
   **Left:** a compile of a DAC-fed SD-player sketch, a bench row per amplifier,
   then phase 4 (SPH0645LM4H, hardware-verified alignment first).
 
@@ -1270,11 +1270,11 @@ matrix, not a reason to postpone testing earlier changes.
   here because the three classes cost very different amounts rather than being
   one list. The prioritised candidate families and their shared definition of
   done are maintained in the
-  [hardware expansion roadmap](../development/plans/hardware-expansion-roadmap.md).
+  [hardware expansion roadmap](../plans/hardware-expansion-roadmap.md).
   **Signal inputs** — human presence sensors (PIR, mmWave), IR and
   remote control — are the cheapest: a presence sensor is `MotionInput`'s
   sibling. The IR/remote-control design is now specified in
-  [IR remote controls for graph properties](../development/plans/ir-remote-controls.md):
+  [IR remote controls for graph properties](../design/ir-remote-controls.md):
   one learned event source plus a general Step Value adapter, wired into the
   existing property-input and action model rather than mutating graph fields.
   **Switching power** — the first slice now ships as exact 1, 2, 4, and
@@ -1298,7 +1298,7 @@ matrix, not a reason to postpone testing earlier changes.
   in order; software, compilation and bench support are separate gates.
 
   - [x] **1. Freeze the v1 contract.** Done 2026-09-23. The
-    [feature contract](../development/plans/ir-remote-controls.md) fixes one
+    [feature contract](../design/ir-remote-controls.md) fixes one
     root-owned receiver, learned
     recognized protocol/address/command mappings, stable mapping ids, per-key
     `once`/`held` repeat policy, runtime reset to authored initial values, and
@@ -1521,7 +1521,7 @@ matrix, not a reason to postpone testing earlier changes.
     emitted include/symbol/order and no-IR negative fixtures.
     Software gates pass (`npm test` 5,650, lint, build, backend 221). Every
     claimed family has a passing engine in
-    [IR compile checks](../development/ir-compile-checks.md); fbuild RP2040,
+    [IR compile checks](../reports/compile/ir-compile-checks.md); fbuild RP2040,
     Renesas and SAMD21 are blocked by fbuild defects that fail without IR too,
     and STM32 is fbuild-only until its FQBNs carry a `pnum`.
   - [ ] **14. Bench and promote deliberately.** Record receiver/remote/board/
@@ -1539,7 +1539,7 @@ matrix, not a reason to postpone testing earlier changes.
 
 ## Tracking rules
 
-Details and evidence are routed through [docs/NAVIGATOR.md](../NAVIGATOR.md).
+Details and evidence are routed through [docs/index.md](../index.md).
 Keep new checkboxes here, contracts in design notes and evidence in reports/
 support rows. Remove completed entries after recording their outcome. Private
 confidential exploration stays outside tracked documents.

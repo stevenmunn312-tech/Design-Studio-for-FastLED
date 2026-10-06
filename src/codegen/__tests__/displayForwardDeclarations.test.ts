@@ -54,7 +54,7 @@ const tft = node('tft', 'TransportDisplay', {
 })
 // Panel/document split: the document has no pins of its own, so a
 // TransportDisplay panel carries them and a `customDisplay` wire connects
-// the two — see docs/development/design/large-displays-and-control-routing.md.
+// the two — see docs/design/large-displays-and-control-routing.md.
 const customPanel = node('customPanel', 'TransportDisplay', {
   tftLayout: 'Custom design', displayId: 'custom',
   partId: 'st7789-tft-240x240', tftRotation: '0',

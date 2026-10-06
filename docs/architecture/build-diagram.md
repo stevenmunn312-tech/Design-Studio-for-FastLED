@@ -1,5 +1,9 @@
 # Build Diagram Architecture
 
+Scope: `Hardware`. This document owns the generated-wiring contract, including
+the requirements formerly kept in the Build Diagram handoff. Independent
+electrical verification remains [HW-14 in the active backlog](../../todo.md).
+
 ## Purpose
 
 Build Diagram turns the hardware already configured in the logical graph into a
@@ -41,6 +45,15 @@ distribution, and wiring.
 - **Electrical plan:** derived recommendation recalculated from the graph,
   board profile, and versioned electrical rules. It is not editable source data.
 
+### Persistence And Compatibility
+
+Exact-board selection, visibility and Done state are saved per project.
+Wiring-progress fingerprints remain tied to graph and board identity. Legacy
+Build Profile planning fields may deserialize, but owned supplies, manual
+injection, controller-power choices and installation facts are ignored by the
+generated recommendation workflow. Derived electrical results are recalculated
+rather than stored as a second editable source of truth.
+
 ## Readiness
 
 - **Graph hardware:** supported physical hardware was found in the graph.
@@ -54,6 +67,8 @@ distribution, and wiring.
 
 Readiness describes completeness of the generated recommendation. It does not
 wait for the user to buy parts or confirm that a recommended component exists.
+An invalid GPIO remains a blocker; generation cannot silently change a firmware
+pin to make the drawing pass.
 
 ## Wiring Invariants
 
@@ -176,6 +191,12 @@ so there is nothing to wire to.
 
 ## Viewport And Export Contract
 
+The user opens the **Build Diagram** tab, confirms the exact controller board
+if needed, inspects the generated diagram, connections and BOM, then exports
+the current view or complete build reference. Hiding, isolating or marking
+hardware Done changes only the view or assembly progress. These actions use
+icons with accessible names, and the copy explains the recommended wiring.
+
 - Target authoring size: `1440x900`; supported minimum: `1280x720`.
 - Left panel: generic controller-family outline, horizontal reviewed-pinout
   picker, compact graph-hardware action rows, and power summary.
@@ -189,6 +210,28 @@ so there is nothing to wire to.
   target width.
 - SVG, print/PDF, Connections CSV, and BOM CSV outputs carry the ruleset version
   and generated readiness state.
+
+## Verification
+
+Maintain unit coverage for immediate graph-derived calculations and small/large
+matrix supply and feed recommendations. Component coverage must check:
+
+- physical wires by circuit ID, including both ends of every fuse and the
+  separation of independent PSU positive rails;
+- complete button, potentiometer and encoder signal, supply where needed,
+  and ground connections;
+- exact-board-only input, no installation questionnaires, and invalid-GPIO
+  blocking;
+- visibility, isolation, accessible icon controls, persistence and export scope;
+- 4x4 LED previews, cursor-centred zoom, visible total-load labels and PSU BOM
+  recommendations; and
+- compact initial sidebars, panel sizing, board details and the horizontal
+  reviewed-pinout picker.
+
+The retired handoff recorded successful automated tests, lint and production
+builds. Those historical results do not qualify physical wiring. The independent
+review in [HW-14](../../todo.md) still owns verification of formulas, source
+tables and wording before authoritative-guidance claims are made.
 
 ## Current Scope
 

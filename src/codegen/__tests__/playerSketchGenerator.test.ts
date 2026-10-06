@@ -456,7 +456,7 @@ describe('playerSketchGenerator', () => {
     })
   })
 
-  describe('HUB75 (docs/development/design/hub75-output.md)', () => {
+  describe('HUB75 (docs/design/hub75-output.md)', () => {
     const hub75Cfg = playerConfigFromGraph([
       generator,
       { id: 'mo', data: { nodeType: 'MatrixOutput', properties: { width: 8, height: 8, chipset: 'HUB75' } } },

@@ -212,7 +212,7 @@ describe('showGenerator', () => {
     expect(cpp.indexOf('pinMode(AMP_I2S_BCLK')).toBeLessThan(cpp.indexOf('FastLED.addLeds<'))
   })
 
-  describe('HUB75 (docs/development/design/hub75-output.md)', () => {
+  describe('HUB75 (docs/design/hub75-output.md)', () => {
     const hub75Out = node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'HUB75' })
 
     it('drives the DMA library instead of FastLED addLeds/show, still rendering patterns into leds', () => {

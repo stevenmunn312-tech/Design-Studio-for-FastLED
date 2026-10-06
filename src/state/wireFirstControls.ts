@@ -23,7 +23,7 @@ import { useDisplayRuntimeStore } from './displayRuntimeStore'
  * The property is the only thing that knows all five facts a control needs —
  * its type, range, step, label and default — so a control created by dropping
  * a wire on it arrives fully specified rather than needing the range repair
- * afterwards. See docs/development/design/wire-first-touch-controls.md.
+ * afterwards. See docs/design/wire-first-touch-controls.md.
  *
  * Deriving the widget *type* rather than asking is deliberate: a bounded
  * number wants a Slider, a boolean wants a Toggle, and a momentary action
@@ -389,7 +389,7 @@ export function controlDestinationLabel(
  * Asked only of the four widget types with an `out` port
  * (`displayWidgetIsControl`). A Label or a bound readout has no connection to
  * be missing, and reporting one as inert would call most of a finished screen
- * broken. See docs/development/design/wire-first-touch-controls.md.
+ * broken. See docs/design/wire-first-touch-controls.md.
  */
 export type DisplayControlInertReason = 'unplaced' | 'unconnected' | 'target-disabled'
 
