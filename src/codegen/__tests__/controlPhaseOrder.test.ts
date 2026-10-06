@@ -187,7 +187,7 @@ describe('control pass phase order', () => {
   } catch { generated = [] }
 
   if (generated.length === 0) {
-    it.skip('no compile fixtures are generated — run scripts/generate-display-smoke.mjs', () => {})
+    it.skip('no compile fixtures are generated — run npm run gen:compile-fixtures -- display', () => {})
   }
   for (const name of generated) {
     it(`${name} honours the shared order`, () => {

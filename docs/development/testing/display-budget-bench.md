@@ -112,7 +112,7 @@ four are constrained by this board rather than by the software under test.
   | Screen complexity | 14 widgets | 14 widgets | the design every custom fixture uses |
   | Source SHA-256 | — | `4c09d5cb35c2` | `artifacts/display-compile/cyd-custom.ino` |
 
-  Reproduce with `python scripts/compile-display-smoke.py arduino-cli
+  Reproduce with `python scripts/compile-fixtures/compile-display-smoke.py arduino-cli
   artifacts/display-compile/cyd-custom.ino --fqbn "esp32:esp32:esp32" --tag cyd`.
 
   **The accounting checks out, which is why the result is believable.** Against
@@ -220,7 +220,7 @@ measured instead by the custom-screen build below, which run 0 showed links here
 with 222 KB to spare.
 
 Fixture: `artifacts/display-compile/cyd-run1.ino`, from
-`node scripts/generate-display-smoke.mjs`. Its clock is `Manual`, so it claims
+`npm run gen:compile-fixtures -- display`. Its clock is `Manual`, so it claims
 no I2C pins — a DS3231 would need two, this board has GPIO22 and GPIO27 free,
 and the strip holds one, so a real I2C clock does not fit here at all.
 
@@ -417,7 +417,7 @@ frame-rate collapse or a touch that answers late.
 One hour, undisturbed, on whichever of the three is heaviest. Press the panel
 occasionally so the touch figure means something.
 
-Capture it with `python scripts/soak-capture.py COM6 --minutes 60`, which
+Capture it with `python scripts/bench/soak-capture.py COM6 --minutes 60`, which
 writes every line as it arrives so a run interrupted at minute 50 still has
 fifty minutes of evidence.
 

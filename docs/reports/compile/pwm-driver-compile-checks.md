@@ -26,9 +26,9 @@ slideshow or player fixtures.
 From the repository root:
 
 ```powershell
-npm run gen:pwm-driver-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/pwm.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pwm-driver
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/shared.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pwm-driver
+npm run gen:compile-fixtures -- pwm-driver
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/pwm.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pwm-driver
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/pwm-driver-fixtures/shared.ino --fqbn esp32:esp32:esp32 --tag esp32 --label pwm-driver
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

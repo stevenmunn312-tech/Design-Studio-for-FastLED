@@ -30,12 +30,12 @@ the reverse. See [wired Ethernet](../../design/wired-ethernet.md).
 From the repository root:
 
 ```powershell
-npm run gen:ethernet-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/artnet.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/ntp.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/static.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/c3.ino --fqbn esp32:esp32:esp32c3 --tag esp32c3 --label ethernet
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/wifi.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
+npm run gen:compile-fixtures -- ethernet
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/artnet.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/ntp.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/static.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/c3.ino --fqbn esp32:esp32:esp32c3 --tag esp32c3 --label ethernet
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/ethernet-fixtures/wifi.ino --fqbn esp32:esp32:esp32 --tag esp32 --label ethernet
 ```
 
 The runner is shared with the [presence-sensor](presence-sensor-compile-checks.md)

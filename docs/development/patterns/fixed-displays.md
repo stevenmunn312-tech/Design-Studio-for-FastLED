@@ -429,7 +429,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (size, distinct-colour count, ink coverage, and a hash) instead of a bare
   hash, because a layout that stops drawing and one that shifted a pixel both
   fail a hash check identically, and only the coverage number tells them apart;
-  `npm run gen:display-sheets` (`scripts/generate-display-sheets.ts`/`.mjs`)
+  `npm run gen:display-sheets` (`scripts/assets/display-sheets.ts`)
   rasterises the same cases into a PNG contact sheet per geometry at the panel's
   true pixel size, labelled in the panel's own bitmap font, written to the
   gitignored `artifacts/` tree, because a committed picture is a second

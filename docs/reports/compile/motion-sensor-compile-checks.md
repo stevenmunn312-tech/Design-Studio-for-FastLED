@@ -28,11 +28,11 @@ library include: the sensor is driven by the sketch's own register helper over
 From the repository root:
 
 ```powershell
-npm run gen:motion-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
+npm run gen:compile-fixtures -- motion
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/motion-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label motion
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

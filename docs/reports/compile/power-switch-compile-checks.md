@@ -39,8 +39,8 @@ branch must contain `analogWriteFreq(500)`.
 From the repository root:
 
 ```powershell
-npm run gen:power-switch-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/power-switch-fixtures/plain.ino --fqbn esp32:esp32:esp32 --tag esp32 --label power-switch
+npm run gen:compile-fixtures -- power-switch
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/power-switch-fixtures/plain.ino --fqbn esp32:esp32:esp32 --tag esp32 --label power-switch
 ```
 
 Repeat with `esp32:esp32:esp32` for `plain`, `level-field`, `level-wired`,

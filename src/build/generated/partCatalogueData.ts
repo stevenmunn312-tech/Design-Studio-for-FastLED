@@ -1,5 +1,5 @@
 // GENERATED FILE — do not edit by hand.
-// Produced by scripts/import-part-assets.py from the Blender part assets.
+// Produced by scripts/assets/import-part-assets.py from the Blender part assets.
 //
 // Every dimension here is verified against a datasheet or fabrication
 // print in the asset's own part.json. Do not replace one with a figure

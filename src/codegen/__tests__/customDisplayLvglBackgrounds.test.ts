@@ -15,7 +15,7 @@ import path from 'node:path'
  * Asserted over the emitted sketches rather than over the emitter's source,
  * so a colour added anywhere reaches this check: a new widget part, a new
  * state selector, or a path that never goes through `styleLines`. The
- * fixtures are the ones `scripts/generate-display-smoke.ts` writes, which is
+ * fixtures are the ones `scripts/compile-fixtures/display.ts` writes, which is
  * also what the compile checks build, so this cannot drift from what ships.
  *
  * Which fixtures those are is *found*, not listed: every generated sketch that
@@ -125,7 +125,7 @@ const BARE_SELECTOR = /LV_PART_[A-Z_0-9]+\s*\|\s*LV_STATE_[A-Z_0-9]+|LV_STATE_[A
 
 describe('LVGL background opacity', () => {
   if (FIXTURES.length === 0) {
-    it.skip('no LVGL fixtures are generated — run scripts/generate-display-smoke.mjs', () => {})
+    it.skip('no LVGL fixtures are generated — run npm run gen:compile-fixtures -- display', () => {})
   }
   for (const fixture of FIXTURES) {
     const file = path.join(FIXTURE_DIRECTORY, `${fixture}.ino`)
@@ -134,9 +134,8 @@ describe('LVGL background opacity', () => {
       source = readFileSync(file, 'utf8')
     } catch {
       // The fixtures are generated, not committed. Skip rather than fail when
-      // they are absent: `node scripts/generate-display-sheets.mjs`'s sibling,
-      // `node scripts/generate-display-smoke.mjs`, writes them.
-      it.skip(`${fixture}.ino is not generated — run scripts/generate-display-smoke.mjs`, () => {})
+      // they are absent: `npm run gen:compile-fixtures -- display` writes them.
+      it.skip(`${fixture}.ino is not generated — run npm run gen:compile-fixtures -- display`, () => {})
       continue
     }
 

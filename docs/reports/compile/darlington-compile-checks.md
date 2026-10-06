@@ -19,8 +19,8 @@ slideshow or player fixtures.
 From the repository root:
 
 ```powershell
-npm run gen:darlington-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/darlington-fixtures/driver.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+npm run gen:compile-fixtures -- darlington
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/darlington-fixtures/driver.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

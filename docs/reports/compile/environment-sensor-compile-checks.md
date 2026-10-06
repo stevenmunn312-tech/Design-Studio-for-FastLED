@@ -33,11 +33,11 @@ after that.
 From the repository root:
 
 ```powershell
-npm run gen:environment-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
+npm run gen:compile-fixtures -- environment
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/environment-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label environment
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

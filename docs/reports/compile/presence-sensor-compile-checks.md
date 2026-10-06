@@ -27,11 +27,11 @@ exactly one parser/setup pair per sensor sketch and none in the guard.
 From the repository root:
 
 ```powershell
-npm run gen:presence-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32
+npm run gen:compile-fixtures -- presence
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/presence-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32
 ```
 
 The runner uses the helper's real `_compile_upload` or

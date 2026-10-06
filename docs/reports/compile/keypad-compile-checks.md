@@ -27,11 +27,11 @@ or I2C-expander include: a matrix scan is plain GPIO and needs no library.
 From the repository root:
 
 ```powershell
-npm run gen:keypad-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/no-keypad.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
+npm run gen:compile-fixtures -- keypad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/keypad-fixtures/no-keypad.ino --fqbn esp32:esp32:esp32 --tag esp32 --label keypad
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

@@ -12,7 +12,7 @@ an internal record.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
-  `scripts/compile-display-smoke.py` — which
+  `scripts/compile-fixtures/compile-display-smoke.py` — which
   imports the helper under whichever interpreter invokes it — ran **2.5.22** out of the
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
@@ -377,7 +377,7 @@ already a silent no-op, which is its own argument for deleting rather than repoi
 > **Fixed upstream.** [#1411](https://github.com/FastLED/fbuild/issues/1411) was closed
 > as completed on 2026-09-03, the day it was filed, and 2.5.22 shipped that evening.
 > Re-measured here on **2.5.22**, 2026-09-10, through
-> `scripts/compile-display-smoke.py`: the `show` display-smoke fixture reports a
+> `scripts/compile-fixtures/compile-display-smoke.py`: the `show` display-smoke fixture reports a
 > **47.4s compile inside a 47.5s total** — a fixed cost of roughly a tenth of a second
 > where this section measured 181.5s.
 >

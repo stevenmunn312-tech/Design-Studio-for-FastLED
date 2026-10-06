@@ -30,11 +30,11 @@ The library was installed with `arduino-cli lib install VL53L0X@1.3.1`.
 From the repository root:
 
 ```powershell
-npm run gen:vl53l0x-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/no-laser.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+npm run gen:compile-fixtures -- vl53l0x
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/vl53l0x-fixtures/no-laser.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touchpad
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

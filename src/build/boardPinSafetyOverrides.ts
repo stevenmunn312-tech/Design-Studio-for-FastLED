@@ -2,7 +2,7 @@
  * Hand-authored pin safety for boards the asset manifests do not describe.
  *
  * Every other board's `pinSafety` is imported from its Blender asset's
- * `pinSafetySummary` (see `scripts/import-board-assets.py`). A board package
+ * `pinSafetySummary` (see `scripts/assets/import-board-assets.py`). A board package
  * that carries no such summary arrives with no safety data at all, and a
  * profile with none is not merely undecorated: `safeGeneralPurpose` is the
  * allowlist `assignPartPins` draws candidates from, so with the field absent

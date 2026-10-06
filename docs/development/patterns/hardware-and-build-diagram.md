@@ -318,7 +318,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   fails on a boot2 assembler issue that isn't a Studio bug;
   SAMD/Renesas/Teensy/STM32 unexercised) — is tracked in
   [IR compile checks](../../reports/compile/ir-compile-checks.md), reproduced with
-  `npm run gen:ir-compile-fixtures` and `scripts/compile-ir-smoke.py`.
+  `npm run gen:compile-fixtures -- ir` and `scripts/compile-fixtures/compile-ir-smoke.py`.
 - **Power switch (experimental):** `PowerSwitchOutput`
   (`src/state/powerSwitch.ts`) is the relay's DC counterpart: active-high
   MOSFET channels, one GPIO each, load-side limits read from the catalogue's
@@ -354,8 +354,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (BH1750 normal/slideshow/player, the LDR path, and a no-sensor guard, all
   classic ESP32) is tracked in
   [light-sensor compile checks](../../reports/compile/light-sensor-compile-checks.md), reproduced
-  with `npm run gen:light-compile-fixtures` and
-  `scripts/compile-presence-smoke.py` (shared with the presence-sensor checks
+  with `npm run gen:compile-fixtures -- light` and
+  `scripts/compile-fixtures/compile-presence-smoke.py` (shared with the presence-sensor checks
   via `--label light`).
 - **Environment sensor (experimental):** `EnvironmentInput` is the exact
   Adafruit product-2652 BME280. It publishes temperature (°C), humidity (% RH)
@@ -468,7 +468,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A part's or board's indicator LEDs are measured from its model by
   `Blender Assets/Scripts/measure_part_indicators.py` into the manifest's
   `indicators`. The importers carry them onto the render they were measured
-  on (`render.indicators`); `scripts/render_indicators.py` validates them for
+  on (`render.indicators`); `scripts/assets/render_indicators.py` validates them for
   both importers and scales a board's with its downsized render.
   `BenchIndicators` draws them only when that render is the picture on screen
   (`indicatorRenderFor`).

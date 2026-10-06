@@ -18,8 +18,8 @@ raw Cycles PNG. Check silkscreen contrast, pin order and readability at bench
 size. The importers create WebP and generated TypeScript catalogue data:
 
 ```powershell
-python scripts/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts"
-python scripts/import-board-assets.py
+python scripts/assets/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts"
+python scripts/assets/import-board-assets.py
 ```
 
 Pass `--only <part-id>[,...]` to the part importer to re-encode just those parts.

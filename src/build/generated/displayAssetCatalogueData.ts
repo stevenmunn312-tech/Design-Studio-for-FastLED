@@ -1,5 +1,5 @@
 // GENERATED FILE - do not edit by hand.
-// Produced by scripts/import-display-assets.py from the display design pack.
+// Produced by scripts/assets/import-display-assets.py from the display design pack.
 //
 // Every entry is addressed by its stable id. A display document persists
 // that id and nothing else: the pack's own working-folder paths stop at the

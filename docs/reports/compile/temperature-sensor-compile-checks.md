@@ -30,11 +30,11 @@ the BME280, because the helper's signatures use only primitive types.
 From the repository root:
 
 ```powershell
-npm run gen:temperature-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
+npm run gen:compile-fixtures -- temperature
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/temperature-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label temperature
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

@@ -1929,7 +1929,7 @@ def _missing_engine(label, engine, hint):
     """Refuse a build whose engine binary is not installed.
 
     Every HTTP entry point checks this and answers 400, but the two compile
-    generators are also called directly — `scripts/compile-display-smoke.py`
+    generators are also called directly — `scripts/compile-fixtures/compile-display-smoke.py`
     runs the display fixture matrix through them — and neither checked. fbuild
     was the worse of the two: `_FBUILD_BIN` is None, so building its argument
     list raised `TypeError: sequence item 0: expected str instance, NoneType

@@ -45,26 +45,26 @@ From the repository root, with npm dependencies and the Python helper dependenci
 installed:
 
 ```powershell
-node scripts/generate-display-smoke.mjs
+npm run gen:compile-fixtures -- display
 ```
 
 The three generator paths, on both engines:
 
 ```powershell
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/normal.ino
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/show.ino
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/player.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/normal.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/show.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/player.ino
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/normal.ino
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/show.ino
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/player.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/normal.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/show.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/player.ino
 ```
 
 The focused template level-control fixtures. Run one command to completion
 before starting the next; the recorded 26 September check used Arduino CLI:
 
 ```powershell
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/template-led.ino
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/template-player.ino
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/template-led.ino
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/template-player.ino
 ```
 
 The shapes that have no generator of their own but fail in their own ways —
@@ -75,13 +75,13 @@ The commands below show fbuild; repeat them with `arduino-cli` as the engine to
 reproduce the other half of the current matrix:
 
 ```powershell
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/isolated-tft.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/headless.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/disabled.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/multi-panel.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-families-i2c.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/part-parallel.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/isolated-tft.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/headless.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/disabled.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/multi-panel.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/part-families.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/part-families-i2c.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/part-parallel.ino
 ```
 
 There is no fixture for a design on two panels or on none. Those shapes were
@@ -92,8 +92,8 @@ The bench instrument, which is the normal graph with the Board's telemetry
 property on:
 
 ```powershell
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/telemetry.ino
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/telemetry.ino
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/telemetry.ino
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/telemetry.ino
 ```
 
 The other advertised board. A classic ESP32 is a different chip family with no
@@ -103,8 +103,8 @@ fit beside FastLED there (HW-25). Pass its FQBN and a `--tag`, which keeps the
 report beside the S3 one instead of overwriting it:
 
 ```powershell
-python scripts/compile-display-smoke.py arduino-cli artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
-python scripts/compile-display-smoke.py fbuild artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
+python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
 ```
 
 Generation uses empty in-memory browser storage and opens no browser. Compilation
@@ -173,7 +173,7 @@ The initial runs exposed these gaps, now covered by regression tests:
   also invalidates Arduino's cached caller object when the audio API changes;
   identical rebuilds retain their source mtime and library cache.
 - The smoke generator still took widget outputs from the panel after those
-  ports moved to the paired Touch node. `generate-display-smoke.mjs` then
+  ports moved to the paired Touch node. `scripts/compile-fixtures/display.ts` then
   refused the show sketch. The fixtures mint a `TouchInput` per touch
   panel; `assertWireable` holds the cables to what the editor can draw.
 

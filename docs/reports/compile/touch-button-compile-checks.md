@@ -27,11 +27,11 @@ from a mechanical button.
 From the repository root:
 
 ```powershell
-npm run gen:touch-button-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/no-touch.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
+npm run gen:compile-fixtures -- touch-button
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/touch-button-fixtures/no-touch.ino --fqbn esp32:esp32:esp32 --tag esp32 --label touch-button
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

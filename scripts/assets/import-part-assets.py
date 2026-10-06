@@ -1,0 +1,791 @@
+#!/usr/bin/env python3
+"""Import Blender *part* assets into the app's part catalogue.
+
+The sibling of `import-board-assets.py`, for everything that is not a board:
+microphones, amplifiers, storage modules, LED outputs, support parts.
+
+    python scripts/assets/import-part-assets.py "C:/Users/User/Desktop/Blender Assets/Parts"
+    python scripts/assets/import-part-assets.py --check "<asset-root>"   # report only
+    python scripts/assets/import-part-assets.py --only <part-id>[,<part-id>] "<asset-root>"
+
+`--only` is for adding or updating a part: it re-encodes just the named renders
+and keeps every other WebP as imported, which takes seconds rather than
+minutes. Every `part.json` is still read, so the generated catalogue stays
+complete and picks up any edited facts. Run without it (or with `--check`) to
+confirm the whole render set.
+
+## Renders are written only when they change
+
+WebP encoding here is deterministic: the same PNG always yields the same bytes.
+So a render that shows up as modified after an import means its *source PNG
+changed* in the asset workspace, not that the importer churned it. That
+happened once already: a through-hole drilling pass re-rendered ten parts, the
+renders were never imported, and the next import's diff looked like noise and
+was reverted. The importer therefore writes a WebP only when its bytes differ,
+names every render it updated at the end, and `--check` lists stale renders
+without writing anything.
+
+Reads each `<asset-root>/<part-id>/part.json`, converts the raw Cycles PNG to
+WebP under `public/parts/`, and emits a generated TypeScript module.
+
+## Why the app should not hand-declare these numbers
+
+Every `part.json` records `dimensionsMm` verified against a datasheet or a
+fabrication print — that is a rule of the modelling brief, not a courtesy. The
+app had been declaring footprints from memory instead, and two of the three it
+had guessed were wrong: the MAX98357A by nearly half its length, and a ring's
+diameter by a formula that is off at both ends of the range. The hardware view
+exists to show parts at true relative scale, so a wrong millimetre figure is
+not a cosmetic issue — it is the view telling a quiet lie about the bench.
+
+Importing the measurements removes the opportunity to guess.
+"""
+from __future__ import annotations
+
+import io
+import json
+import sys
+from pathlib import Path
+
+try:
+    from PIL import Image
+except ImportError:
+    sys.exit("Pillow is required: pip install Pillow")
+
+from render_indicators import import_indicators
+
+REPO = Path(__file__).resolve().parents[2]
+
+# Renders whose WebP differed from the source; filled by convert_render.
+UPDATED_RENDERS: list[str] = []
+CHECK_ONLY = False
+# Part ids named with --only: their renders are re-encoded, every other part
+# keeps the WebP already imported. None means every render is re-encoded.
+ONLY_PARTS: set[str] | None = None
+OUT_TS = REPO / "src" / "build" / "generated" / "partCatalogueData.ts"
+OUT_RENDERS = REPO / "public" / "parts"
+
+# Matches the board importer. Parts are rendered at 12 px/mm clamped to
+# 400-1200 px, so they arrive already sized for display; only the encoding
+# changes here.
+WEBP_QUALITY = 82
+
+CATEGORIES = {
+    "microphone", "amplifier", "storage", "led-output",
+    "input-control", "audio-source", "support", "display", "switching-power", "power-monitor",
+    "power-conversion",
+    "communication",
+}
+
+# Spellings the modelling pipeline emits that mean an existing category. The
+# app's categories are singular ("microphone", "amplifier"), and normalising
+# here rather than editing each manifest keeps a re-export from quietly
+# reintroducing a category the app does not know.
+CATEGORY_ALIASES = {
+    "displays": "display",
+}
+
+
+def convert_render(part_id: str, part_dir: Path, render: dict) -> dict | None:
+    """PNG -> WebP under public/parts. Returns the app-facing render record."""
+    name = render.get("file")
+    if not name:
+        return None
+    source = part_dir / name
+    if not source.exists():
+        print(f"  ! {part_id}: render {name} missing", file=sys.stderr)
+        return None
+
+    OUT_RENDERS.mkdir(parents=True, exist_ok=True)
+    dest = OUT_RENDERS / f"{part_id}.webp"
+    if ONLY_PARTS is not None and part_id not in ONLY_PARTS and dest.exists():
+        # Not asked for: keep the imported render and read its size from the
+        # WebP header rather than re-encoding the PNG, which is the slow part.
+        with Image.open(dest) as img:
+            width, height = img.width, img.height
+        out = {"file": f"parts/{part_id}.webp", "widthPx": width, "heightPx": height}
+        if isinstance(render.get("pxPerMm"), (int, float)):
+            out["pxPerMm"] = round(float(render["pxPerMm"]), 3)
+        return out
+    with Image.open(source) as img:
+        encoded = io.BytesIO()
+        img.save(encoded, "WEBP", quality=WEBP_QUALITY, method=6)
+        width, height = img.width, img.height
+    data = encoded.getvalue()
+    if not dest.exists() or dest.read_bytes() != data:
+        UPDATED_RENDERS.append(part_id)
+        if not CHECK_ONLY:
+            dest.write_bytes(data)
+
+    out = {"file": f"parts/{part_id}.webp", "widthPx": width, "heightPx": height}
+    # Recorded rather than recomputed: the asset states the density it actually
+    # achieved, which is below the 12 px/mm target for parts over ~100 mm
+    # because the 1200 px cap wins. Recomputing here would silently disagree.
+    if isinstance(render.get("pxPerMm"), (int, float)):
+        out["pxPerMm"] = round(float(render["pxPerMm"]), 3)
+    return out
+
+
+def read_part(part_dir: Path) -> dict | None:
+    manifest = part_dir / "part.json"
+    if not manifest.exists():
+        return None
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+
+    part_id = data.get("partId") or part_dir.name
+
+    # A manifest declaring a board profile is a board that happens to carry a
+    # screen, not a module you attach to one. Importing it here would offer an
+    # ESP32 in the Add Hardware display menu as something to plug into a board.
+    # It belongs to the board catalogue instead, so this importer says so and
+    # leaves it alone rather than silently doing the wrong thing with it.
+    if data.get("boardProfileId"):
+        print(f"  - {part_id}: declares boardProfileId — belongs in the board "
+              f"catalogue, skipped here", file=sys.stderr)
+        return None
+
+    dims = data.get("dimensionsMm") or {}
+    width, height = dims.get("width"), dims.get("height")
+    if not isinstance(width, (int, float)) or not isinstance(height, (int, float)):
+        print(f"  ! {part_id}: no usable dimensionsMm — skipped", file=sys.stderr)
+        return None
+
+    category = CATEGORY_ALIASES.get(data.get("category"), data.get("category"))
+    if category not in CATEGORIES:
+        print(f"  ! {part_id}: unknown category {category!r}", file=sys.stderr)
+
+    entry = {
+        "partId": part_id,
+        "label": data.get("label") or part_id,
+        "category": category,
+        "dimensionsMm": {"width": float(width), "height": float(height)},
+    }
+    for key in ("manufacturer", "logicVoltage"):
+        if data.get(key):
+            entry[key] = data[key]
+    if data.get("pinLabelsLeftToRight"):
+        entry["pinLabelsLeftToRight"] = data["pinLabelsLeftToRight"]
+    if data.get("notes"):
+        entry["notes"] = data["notes"]
+    # The pixel geometry an LED output needs: form plus count or width/height.
+    if data.get("ledLayout"):
+        entry["ledLayout"] = data["ledLayout"]
+    relay = data.get("relay")
+    if relay:
+        channels = relay.get("channels")
+        if isinstance(channels, int) and 1 <= channels <= 8:
+            entry["relay"] = {
+                "channels": channels,
+                "coilVoltage": relay.get("coilVoltage") or "5 V DC",
+                "trigger": relay.get("trigger") or "active-low",
+                "contacts": relay.get("contacts") or "SPDT (NO/COM/NC)",
+                "contactRating": relay.get("contactRating") or "",
+                "optoIsolated": bool(relay.get("optoIsolated")),
+            }
+        else:
+            print(f"  ! {part_id}: relay block has no channel count from 1 to 8 — skipped",
+                  file=sys.stderr)
+    # A DC MOSFET switch's electrical identity. Carried through because the
+    # app states these limits (load supply, continuous current, the missing
+    # flyback diode) wherever the part is wired, and a number retyped in the
+    # app is a number that can disagree with the module.
+    mosfet = data.get("mosfet")
+    if mosfet:
+        channels = mosfet.get("channels")
+        if isinstance(channels, int) and 1 <= channels <= 8 and mosfet.get("loadSupply"):
+            entry["mosfet"] = {
+                "channels": channels,
+                "device": mosfet.get("device") or "",
+                "trigger": mosfet.get("trigger") or "active-high",
+                "loadSupply": mosfet["loadSupply"],
+                "continuousCurrent": mosfet.get("continuousCurrent") or "",
+                "optoIsolated": bool(mosfet.get("optoIsolated")),
+                "flybackDiode": bool(mosfet.get("flybackDiode")),
+            }
+            # What the board prints beside each channel (the Mosfetti's A to
+            # D). The app names ports and finds header pads by it, so it is
+            # carried only when there is one name per channel.
+            labels = mosfet.get("channelLabels")
+            if isinstance(labels, list) and len(labels) == channels and all(
+                    isinstance(label, str) and label for label in labels):
+                entry["mosfet"]["channelLabels"] = labels
+            elif labels is not None:
+                print(f"  ! {part_id}: mosfet channelLabels needs one name per channel — ignored",
+                      file=sys.stderr)
+            if mosfet.get("powerTerminalsLeftToRight") or data.get("powerTerminalsLeftToRight"):
+                entry["mosfet"]["loadTerminals"] = (mosfet.get("powerTerminalsLeftToRight")
+                                                    or data.get("powerTerminalsLeftToRight"))
+            # The frequency firmware dims the load at. It belongs to the board,
+            # not the app: how fast a module can switch is set by its gate
+            # drive, and a module without one is only ever switched on and off.
+            pwm_hz = mosfet.get("pwmHz")
+            if mosfet.get("pwm") and isinstance(pwm_hz, (int, float)) and pwm_hz > 0:
+                entry["mosfet"]["pwmHz"] = pwm_hz
+            elif mosfet.get("pwm"):
+                print(f"  ! {part_id}: mosfet block says pwm but has no positive pwmHz — dimming not offered",
+                      file=sys.stderr)
+        else:
+            print(f"  ! {part_id}: mosfet block needs a channel count from 1 to 8 and loadSupply — skipped",
+                  file=sys.stderr)
+    # A USB-C PD trigger's request contract. The plan checks the voltage it
+    # asks for against the converter it feeds, so the selectable voltages and
+    # the current limit come from the board rather than being retyped.
+    trigger = data.get("pdTrigger")
+    if trigger:
+        voltages = trigger.get("selectableVoltagesV")
+        if (isinstance(voltages, list) and voltages and all(isinstance(v, (int, float)) and v > 0 for v in voltages)
+                and trigger.get("defaultVoltageV") in voltages
+                and isinstance(trigger.get("maxCurrentA"), (int, float)) and trigger["maxCurrentA"] > 0
+                and isinstance(trigger.get("maxPowerW"), (int, float)) and trigger["maxPowerW"] > 0):
+            entry["pdTrigger"] = {
+                "protocols": trigger.get("protocols") or "",
+                "selectableVoltagesV": voltages,
+                "defaultVoltageV": trigger["defaultVoltageV"],
+                "maxCurrentA": trigger["maxCurrentA"],
+                "maxPowerW": trigger["maxPowerW"],
+                "selection": trigger.get("selection") or "",
+            }
+        else:
+            print(f"  ! {part_id}: pdTrigger block needs selectableVoltagesV, a defaultVoltageV among them, "
+                  "maxCurrentA and maxPowerW — skipped", file=sys.stderr)
+    # A Darlington driver array's contract. Firmware drives each channel input
+    # at the active level, and the Build Diagram has to say what the outputs
+    # can switch, so both travel with the exact chip.
+    chip = data.get("driverChip")
+    if chip:
+        pinout = chip.get("pinout")
+        if (isinstance(chip.get("channels"), int) and 1 <= chip["channels"] <= 8
+                and chip.get("inputActiveLevel") in ("high", "low")
+                and isinstance(chip.get("maxOutputVoltageV"), (int, float)) and chip["maxOutputVoltageV"] > 0
+                and isinstance(chip.get("maxChannelCurrentMa"), (int, float)) and chip["maxChannelCurrentMa"] > 0
+                and isinstance(pinout, list) and all(isinstance(name, str) for name in pinout)):
+            entry["driverChip"] = {
+                "device": chip.get("device") or "",
+                "package": chip.get("package") or "",
+                "channels": chip["channels"],
+                "outputType": chip.get("outputType") or "",
+                "inputActiveLevel": chip["inputActiveLevel"],
+                "maxOutputVoltageV": chip["maxOutputVoltageV"],
+                "maxChannelCurrentMa": chip["maxChannelCurrentMa"],
+                "pinout": pinout,
+            }
+        else:
+            print(f"  ! {part_id}: driverChip block needs channels 1 to 8, inputActiveLevel, "
+                  "maxOutputVoltageV, maxChannelCurrentMa and a pinout — skipped", file=sys.stderr)
+    # A PWM driver's contract. The firmware derives the prescale from the
+    # oscillator and the requested frequency, and the address list bounds the
+    # picker, so both come from the board rather than being retyped.
+    pwm = data.get("pwmDriver")
+    if pwm:
+        try:
+            addresses = [int(str(a), 16) for a in pwm.get("i2cAddresses") or []]
+            default_address = int(str(pwm.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        numbers_ok = all(isinstance(pwm.get(k), (int, float)) and pwm[k] > 0
+                         for k in ("channels", "resolutionBits", "oscillatorMHz", "minPwmHz", "maxPwmHz", "defaultPwmHz"))
+        if (addresses and default_address in addresses and numbers_ok
+                and pwm["minPwmHz"] <= pwm["defaultPwmHz"] <= pwm["maxPwmHz"]):
+            entry["pwmDriver"] = {
+                "device": pwm.get("device") or "",
+                "interface": pwm.get("interface") or "I2C",
+                "channels": pwm["channels"],
+                "resolutionBits": pwm["resolutionBits"],
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "oscillatorMHz": pwm["oscillatorMHz"],
+                "minPwmHz": pwm["minPwmHz"],
+                "maxPwmHz": pwm["maxPwmHz"],
+                "defaultPwmHz": pwm["defaultPwmHz"],
+            }
+        else:
+            print(f"  ! {part_id}: pwmDriver block needs addresses, a default among them, channels, "
+                  "resolutionBits, oscillatorMHz and a frequency range around defaultPwmHz — skipped",
+                  file=sys.stderr)
+    # A buzzer's drive contract. An active buzzer sounds at its own fixed pitch
+    # while its pin sits at the active level, so the firmware needs that level
+    # and the pin current the Build Diagram has to warn about.
+    buzzer = data.get("buzzer")
+    if buzzer:
+        if (buzzer.get("type") in ("active", "passive") and buzzer.get("activeLevel") in ("high", "low")
+                and isinstance(buzzer.get("maxCurrentMa"), (int, float)) and buzzer["maxCurrentMa"] > 0):
+            entry["buzzer"] = {
+                "type": buzzer["type"],
+                "activeLevel": buzzer["activeLevel"],
+                "resonanceKHz": buzzer.get("resonanceKHz") if isinstance(buzzer.get("resonanceKHz"), (int, float)) else None,
+                "soundLevel": buzzer.get("soundLevelDb") or "",
+                "maxCurrentMa": buzzer["maxCurrentMa"],
+            }
+        else:
+            print(f"  ! {part_id}: buzzer block needs type, activeLevel and maxCurrentMa — skipped",
+                  file=sys.stderr)
+    # A current/voltage monitor's measuring contract. The firmware divides the
+    # shunt voltage by shuntOhms and the address list bounds the address
+    # picker, so both have to come from the board rather than be retyped.
+    monitor = data.get("powerMonitor")
+    if monitor:
+        try:
+            addresses = [int(str(a), 16) for a in monitor.get("i2cAddresses") or []]
+            default_address = int(str(monitor.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        shunt = monitor.get("shuntOhms")
+        if (addresses and default_address in addresses
+                and isinstance(shunt, (int, float)) and shunt > 0
+                and isinstance(monitor.get("busVoltageMaxV"), (int, float))
+                and isinstance(monitor.get("currentMaxA"), (int, float))):
+            entry["powerMonitor"] = {
+                "device": monitor.get("device") or "",
+                "interface": monitor.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "shuntOhms": shunt,
+                "busVoltageMaxV": monitor["busVoltageMaxV"],
+                "currentMaxA": monitor["currentMaxA"],
+                "senseSide": monitor.get("senseSide") or "high-side",
+            }
+        else:
+            print(f"  ! {part_id}: powerMonitor block needs addresses, a default among them, "
+                  "shuntOhms, busVoltageMaxV and currentMaxA — skipped", file=sys.stderr)
+    # A radar presence sensor's reporting contract. Firmware opens its UART at
+    # the module's own baud, and the preview spans its own range, so both come
+    # from the board rather than being retyped.
+    presence = data.get("presenceSensor")
+    if presence:
+        if (isinstance(presence.get("baud"), int) and presence["baud"] > 0
+                and isinstance(presence.get("gateMeters"), (int, float)) and presence["gateMeters"] > 0
+                and isinstance(presence.get("maxRangeMeters"), (int, float)) and presence["maxRangeMeters"] > 0):
+            entry["presenceSensor"] = {
+                "device": presence.get("device") or "",
+                "interface": presence.get("interface") or "UART",
+                "baud": presence["baud"],
+                "gateMeters": presence["gateMeters"],
+                "maxRangeMeters": presence["maxRangeMeters"],
+            }
+        else:
+            print(f"  ! {part_id}: presenceSensor block needs baud, gateMeters and maxRangeMeters — skipped",
+                  file=sys.stderr)
+    # A digital capacitive-touch module's electrical contract. The generated
+    # sketch must know whether touch is HIGH or LOW, and the Build Diagram must
+    # choose a safe supply rail, so those facts travel with the exact board.
+    touch = data.get("touchSensor")
+    if touch:
+        active = touch.get("activeLevel")
+        supply_min = touch.get("supplyMinV")
+        supply_max = touch.get("supplyMaxV")
+        response_min = touch.get("responseMinMs")
+        response_max = touch.get("responseMaxMs")
+        if (active in ("high", "low")
+                and isinstance(supply_min, (int, float)) and supply_min > 0
+                and isinstance(supply_max, (int, float)) and supply_max >= supply_min
+                and isinstance(response_min, (int, float)) and response_min >= 0
+                and isinstance(response_max, (int, float)) and response_max >= response_min):
+            entry["touchSensor"] = {
+                "device": touch.get("device") or "",
+                "interface": touch.get("interface") or "digital",
+                "activeLevel": active,
+                "mode": touch.get("mode") or "momentary",
+                "supplyMinV": supply_min,
+                "supplyMaxV": supply_max,
+                "responseMinMs": response_min,
+                "responseMaxMs": response_max,
+            }
+        else:
+            print(f"  ! {part_id}: touchSensor block needs an active level, supply range and response range — skipped",
+                  file=sys.stderr)
+    # A wired-Ethernet controller module. The firmware brings the network up
+    # through this controller over SPI, and its clock ceiling bounds the bus it
+    # can share, so carry both through rather than restating them in the app.
+    ethernet = data.get("ethernet")
+    if ethernet:
+        clock = ethernet.get("maxSpiClockMHz")
+        if ethernet.get("controller") and isinstance(clock, (int, float)) and clock > 0:
+            entry["ethernet"] = {
+                "controller": ethernet["controller"],
+                "interface": ethernet.get("interface") or "SPI",
+                "maxSpiClockMHz": clock,
+                "link": ethernet.get("link") or "",
+            }
+        else:
+            print(f"  ! {part_id}: ethernet block needs a controller and maxSpiClockMHz — skipped",
+                  file=sys.stderr)
+    # A matched long-range pixel-data transmitter/receiver pair. The normal
+    # sketch still generates the same one-wire signal; these facts describe
+    # only the physical route the Build Diagram must draw around it.
+    extender = data.get("pixelDataExtender")
+    if extender:
+        conductors = extender.get("pairConductors")
+        max_distance = extender.get("maxDistanceMeters")
+        max_rate = extender.get("maxDataRateMbps")
+        supply_min = extender.get("supplyMinV")
+        supply_max = extender.get("supplyMaxV")
+        if (isinstance(conductors, list) and len(conductors) >= 3
+                and all(isinstance(name, str) and name for name in conductors)
+                and isinstance(max_distance, (int, float)) and max_distance > 0
+                and isinstance(max_rate, (int, float)) and max_rate > 0
+                and isinstance(supply_min, (int, float))
+                and isinstance(supply_max, (int, float)) and supply_max >= supply_min):
+            entry["pixelDataExtender"] = {
+                "mode": extender.get("mode") or "one-wire differential",
+                "maxDistanceMeters": max_distance,
+                "maxDataRateMbps": max_rate,
+                "supplyMinV": supply_min,
+                "supplyMaxV": supply_max,
+                "pairConductors": conductors,
+            }
+        else:
+            print(f"  ! {part_id}: pixelDataExtender block needs conductors, distance, rate and supply range — skipped",
+                  file=sys.stderr)
+    # A DC-DC converter the power plan draws between a 12/24 V source and a
+    # 5 V load. Its role (controller-only or LED rail) and ratings are part
+    # facts, read by the electrical plan instead of restated in TypeScript.
+    converter = data.get("powerConverter")
+    if converter:
+        number = lambda key: isinstance(converter.get(key), (int, float))
+        role = converter.get("role")
+        if (role in ("controller", "led-rail")
+                and all(number(key) for key in ("inputMinV", "inputMaxV", "outputSetV", "continuousCurrentMa", "typicalEfficiency"))
+                and converter["inputMaxV"] > converter["inputMinV"] > 0
+                and converter["continuousCurrentMa"] > 0
+                and 0 < converter["typicalEfficiency"] <= 1
+                and isinstance(converter.get("isolated"), bool)):
+            entry["powerConverter"] = {
+                "role": role,
+                "topology": converter.get("topology") or "buck",
+                "inputMinV": converter["inputMinV"],
+                "inputMaxV": converter["inputMaxV"],
+                "minHeadroomV": converter.get("minHeadroomV", 0),
+                "outputSetV": converter["outputSetV"],
+                "continuousCurrentMa": converter["continuousCurrentMa"],
+                "peakCurrentMa": converter.get("peakCurrentMa", converter["continuousCurrentMa"]),
+                "typicalEfficiency": converter["typicalEfficiency"],
+                "isolated": converter["isolated"],
+                "adjustable": bool(converter.get("adjustable", False)),
+            }
+            # Output current against ambient temperature, as (C, percent)
+            # points in rising temperature order; absent means no derating.
+            curve = converter.get("deratingCurve")
+            if (isinstance(curve, list) and len(curve) >= 2
+                    and all(isinstance(p, list) and len(p) == 2 and all(isinstance(v, (int, float)) for v in p) for p in curve)
+                    and all(0 <= p[1] <= 100 for p in curve)
+                    and all(a[0] < b[0] for a, b in zip(curve, curve[1:]))):
+                entry["powerConverter"]["deratingCurve"] = curve
+            elif curve is not None:
+                print(f"  ! {part_id}: powerConverter deratingCurve must be rising (C, 0-100 percent) pairs — dropped", file=sys.stderr)
+        else:
+            print(f"  ! {part_id}: powerConverter block needs a role, input range, output, current, efficiency and isolation — skipped",
+                  file=sys.stderr)
+    # A calibrated digital ambient-light sensor. Its address straps and
+    # measurement range are part facts used by the picker, validation and
+    # generated Wire transaction, so carry them through from the asset.
+    light_sensor = data.get("lightSensor")
+    if light_sensor:
+        try:
+            addresses = [int(str(a), 16) for a in light_sensor.get("i2cAddresses") or []]
+            default_address = int(str(light_sensor.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        max_lux = light_sensor.get("maxLux")
+        if (addresses and default_address in addresses
+                and isinstance(max_lux, (int, float)) and max_lux > 0):
+            entry["lightSensor"] = {
+                "device": light_sensor.get("device") or "",
+                "interface": light_sensor.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "maxLux": max_lux,
+            }
+        else:
+            print(f"  ! {part_id}: lightSensor block needs addresses, a default among them and maxLux — skipped",
+                  file=sys.stderr)
+    # A temperature / humidity / pressure sensor. These limits define both the
+    # preview controls and the facts exported with the physical build, so they
+    # travel from the exact breakout rather than being copied into the app.
+    environment = data.get("environmentSensor")
+    if environment:
+        try:
+            addresses = [int(str(a), 16) for a in environment.get("i2cAddresses") or []]
+            default_address = int(str(environment.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        range_keys = (
+            "temperatureMinC", "temperatureMaxC", "humidityMinPercent",
+            "humidityMaxPercent", "pressureMinHpa", "pressureMaxHpa",
+        )
+        if (addresses and default_address in addresses
+                and all(isinstance(environment.get(key), (int, float)) for key in range_keys)
+                and environment["temperatureMaxC"] > environment["temperatureMinC"]
+                and environment["humidityMaxPercent"] > environment["humidityMinPercent"]
+                and environment["pressureMaxHpa"] > environment["pressureMinHpa"]):
+            entry["environmentSensor"] = {
+                "device": environment.get("device") or "",
+                "interface": environment.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                **{key: environment[key] for key in range_keys},
+            }
+        else:
+            print(f"  ! {part_id}: environmentSensor block needs addresses, a default among them and valid measurement ranges — skipped",
+                  file=sys.stderr)
+    # A six-axis accelerometer and gyroscope. The address list and the full-scale
+    # ranges travel from the part: the ranges set the firmware's count scaling and
+    # the preview sliders' limits, so they cannot be typed twice.
+    motion = data.get("motionVectorSensor")
+    if motion:
+        try:
+            addresses = [int(str(a), 16) for a in motion.get("i2cAddresses") or []]
+            default_address = int(str(motion.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        if (addresses and default_address in addresses
+                and motion.get("accelRangeG") in (2, 4, 8, 16)
+                and motion.get("gyroRangeDps") in (250, 500, 1000, 2000)):
+            entry["motionVectorSensor"] = {
+                "device": motion.get("device") or "",
+                "interface": motion.get("interface") or "I2C",
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "accelRangeG": motion["accelRangeG"],
+                "gyroRangeDps": motion["gyroRangeDps"],
+            }
+        else:
+            print(f"  ! {part_id}: motionVectorSensor block needs addresses, a default among them and a valid accel and gyro range — skipped",
+                  file=sys.stderr)
+    # A capacitive-touch controller. The address list, electrode count and the
+    # chip's factory-sensible thresholds travel from the part so the firmware
+    # and the node's property limits do not type them twice.
+    touch = data.get("touchPad")
+    if touch:
+        try:
+            addresses = [int(str(a), 16) for a in touch.get("i2cAddresses") or []]
+            default_address = int(str(touch.get("defaultI2cAddress") or ""), 16)
+        except ValueError:
+            addresses, default_address = [], None
+        electrodes = touch.get("electrodes")
+        thresholds = [touch.get("touchThreshold"), touch.get("releaseThreshold")]
+        if (addresses and default_address in addresses
+                and isinstance(electrodes, int) and 1 <= electrodes <= 12
+                and all(isinstance(t, int) and 1 <= t <= 255 for t in thresholds)):
+            entry["touchPad"] = {
+                "device": touch.get("device") or "",
+                "interface": touch.get("interface") or "I2C",
+                "electrodes": electrodes,
+                "i2cAddresses": addresses,
+                "defaultI2cAddress": default_address,
+                "touchThreshold": touch["touchThreshold"],
+                "releaseThreshold": touch["releaseThreshold"],
+            }
+        else:
+            print(f"  ! {part_id}: touchPad block needs addresses, a default among them, 1 to 12 electrodes and thresholds from 1 to 255 — skipped",
+                  file=sys.stderr)
+    # A two-axis analog joystick with a push switch. The pot value and switch
+    # sense travel from the part so the firmware's active level is not typed twice.
+    joystick = data.get("joystick")
+    if joystick:
+        if (isinstance(joystick.get("axisPotOhms"), (int, float)) and joystick["axisPotOhms"] > 0
+                and joystick.get("switchActive") in ("low", "high")):
+            entry["joystick"] = {
+                "device": joystick.get("device") or "",
+                "interface": joystick.get("interface") or "",
+                "axisPotOhms": joystick["axisPotOhms"],
+                "switchActive": joystick["switchActive"],
+            }
+        else:
+            print(f"  ! {part_id}: joystick block needs a positive axisPotOhms and switchActive low or high — skipped",
+                  file=sys.stderr)
+    # A pulse-ranging distance sensor. The measuring window and the echo level
+    # travel from the part so the preview limits and the Build Diagram's echo
+    # divider agree with the data sheet rather than with numbers typed into the app.
+    distance = data.get("distanceSensor")
+    if distance:
+        range_ok = (isinstance(distance.get("minMm"), (int, float)) and isinstance(distance.get("maxMm"), (int, float))
+                    and distance["minMm"] >= 0 and distance["maxMm"] > distance["minMm"])
+        if distance.get("interface") == "I2C":
+            # A time-of-flight sensor on the I2C bus: no trigger pulse or echo, but
+            # an address list the picker and the bus-collision check read.
+            try:
+                addresses = [int(str(a), 16) for a in distance.get("i2cAddresses") or []]
+                default_address = int(str(distance.get("defaultI2cAddress") or ""), 16)
+            except ValueError:
+                addresses, default_address = [], None
+            if range_ok and addresses and default_address in addresses:
+                entry["distanceSensor"] = {
+                    "device": distance.get("device") or "",
+                    "interface": "I2C",
+                    "minMm": distance["minMm"],
+                    "maxMm": distance["maxMm"],
+                    "i2cAddresses": addresses,
+                    "defaultI2cAddress": default_address,
+                }
+            else:
+                print(f"  ! {part_id}: I2C distanceSensor block needs a valid range and an address list "
+                      "with a default among them — skipped", file=sys.stderr)
+        elif (range_ok
+                and isinstance(distance.get("triggerPulseUs"), (int, float)) and distance["triggerPulseUs"] > 0
+                and isinstance(distance.get("echoVolts"), (int, float)) and distance["echoVolts"] > 0):
+            entry["distanceSensor"] = {
+                "device": distance.get("device") or "",
+                "interface": distance.get("interface") or "Trig/Echo pulse",
+                "minMm": distance["minMm"],
+                "maxMm": distance["maxMm"],
+                "triggerPulseUs": distance["triggerPulseUs"],
+                "echoVolts": distance["echoVolts"],
+            }
+        else:
+            print(f"  ! {part_id}: distanceSensor block needs a valid range, trigger pulse and echo level — skipped",
+                  file=sys.stderr)
+    # A 1-Wire temperature probe. The range and the pull-up value travel from
+    # the part so the preview limits and the Build Diagram's resistor agree
+    # with the datasheet rather than with a number typed into the app.
+    temperature = data.get("temperatureSensor")
+    if temperature:
+        if (isinstance(temperature.get("temperatureMinC"), (int, float))
+                and isinstance(temperature.get("temperatureMaxC"), (int, float))
+                and temperature["temperatureMaxC"] > temperature["temperatureMinC"]
+                and isinstance(temperature.get("pullUpOhms"), (int, float))
+                and temperature["pullUpOhms"] > 0):
+            entry["temperatureSensor"] = {
+                "device": temperature.get("device") or "",
+                "interface": temperature.get("interface") or "1-Wire",
+                "temperatureMinC": temperature["temperatureMinC"],
+                "temperatureMaxC": temperature["temperatureMaxC"],
+                "pullUpOhms": temperature["pullUpOhms"],
+            }
+        else:
+            print(f"  ! {part_id}: temperatureSensor block needs a valid range and pull-up — skipped",
+                  file=sys.stderr)
+    # An auxiliary display's driver contract. Carried through for the same
+    # reason dimensionsMm is: a resolution typed into the app is a resolution
+    # that can disagree with the panel, and every fixed layout is computed
+    # from it.
+    display = data.get("display")
+    if display:
+        resolution = display.get("resolutionPx")
+        if (isinstance(resolution, list) and len(resolution) == 2
+                and all(isinstance(n, int) and n > 0 for n in resolution)
+                and display.get("controller") and display.get("interface")):
+            entry["display"] = {
+                "controller": display["controller"],
+                "resolutionPx": [resolution[0], resolution[1]],
+                "interface": display["interface"],
+                "touchController": display.get("touchController") or None,
+                # A panel can have a touch surface and no touch controller: a
+                # bare resistive sheet is two layers wired to lines the LCD
+                # already owns, with nothing to name as a digitiser. Without
+                # this the app reads "no controller" as "no touch".
+                "touchSurface": display.get("touchSurface") or None,
+            }
+            # Where the lit pixels sit on the render: the panel's active area,
+            # or one window per digit package. Projected from the model by
+            # Scripts/measure_display_screens.py, never typed in. A rectangle
+            # outside the render is a measurement against another camera, so
+            # the whole list is dropped rather than drawn in the wrong place.
+            screens = display.get("screensPx")
+            if screens is not None:
+                render_meta = data.get("render") or {}
+                width, height = render_meta.get("widthPx"), render_meta.get("heightPx")
+                if (isinstance(screens, list) and screens
+                        and isinstance(width, (int, float)) and isinstance(height, (int, float))
+                        and all(isinstance(r, list) and len(r) == 4
+                                and all(isinstance(n, (int, float)) for n in r)
+                                and r[0] >= 0 and r[1] >= 0 and r[2] > 0 and r[3] > 0
+                                and r[0] + r[2] <= width and r[1] + r[3] <= height
+                                for r in screens)):
+                    entry["display"]["screensPx"] = [[float(n) for n in r] for r in screens]
+                else:
+                    print(f"  ! {part_id}: display.screensPx is not inside the render — skipped",
+                          file=sys.stderr)
+        else:
+            print(f"  ! {part_id}: display block is incomplete — skipped",
+                  file=sys.stderr)
+
+    render = convert_render(part_id, part_dir, data.get("render") or {})
+    if render:
+        # Part renders are imported at their own size, so the LEDs keep the
+        # pixels they were measured in.
+        indicators = import_indicators(
+            data.get("indicators"), render["widthPx"], render["heightPx"], 1.0, part_id,
+        )
+        if indicators:
+            render["indicators"] = indicators
+        entry["render"] = render
+    return entry
+
+
+def main() -> int:
+    global CHECK_ONLY, ONLY_PARTS
+    args = sys.argv[1:]
+    if "--check" in args:
+        CHECK_ONLY = True
+        args.remove("--check")
+    if "--only" in args:
+        index = args.index("--only")
+        if index + 1 >= len(args):
+            sys.exit("--only needs a part id, or several separated by commas")
+        ONLY_PARTS = {part for part in args[index + 1].split(",") if part}
+        del args[index:index + 2]
+    if len(args) < 1:
+        sys.exit(f"usage: {Path(sys.argv[0]).name} [--check] [--only <part-id>[,...]] <asset-root>")
+    root = Path(args[0])
+    if not root.is_dir():
+        sys.exit(f"not a directory: {root}")
+    if ONLY_PARTS is not None:
+        # A misspelt id would otherwise import nothing and look like success.
+        missing = sorted(part for part in ONLY_PARTS if not (root / part / "part.json").exists())
+        if missing:
+            sys.exit(f"--only: no part.json for {', '.join(missing)} under {root}")
+
+    entries = []
+    for part_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        entry = read_part(part_dir)
+        if entry:
+            entries.append(entry)
+            print(f"  + {entry['partId']}  {entry['dimensionsMm']['width']}x"
+                  f"{entry['dimensionsMm']['height']} mm")
+
+    if not entries:
+        sys.exit("no parts found")
+
+    if CHECK_ONLY:
+        if UPDATED_RENDERS:
+            print(f"\n{len(UPDATED_RENDERS)} render(s) differ from their source PNG:")
+            for part_id in UPDATED_RENDERS:
+                print(f"  ~ {part_id}")
+            return 1
+        print("\nEvery render matches its source PNG.")
+        return 0
+
+    body = ",\n".join(
+        f"  {json.dumps(e['partId'])}: " + json.dumps(e, indent=2, ensure_ascii=False)
+        .replace("\n", "\n  ")
+        for e in entries
+    )
+    OUT_TS.parent.mkdir(parents=True, exist_ok=True)
+    OUT_TS.write_text(
+        "// GENERATED FILE — do not edit by hand.\n"
+        "// Produced by scripts/assets/import-part-assets.py from the Blender part assets.\n"
+        "//\n"
+        "// Every dimension here is verified against a datasheet or fabrication\n"
+        "// print in the asset's own part.json. Do not replace one with a figure\n"
+        "// measured off a photograph or remembered — the hardware view draws parts\n"
+        "// at true relative scale, so these numbers are load-bearing.\n\n"
+        "import type { PartCatalogueEntry } from '../../state/partCatalogue'\n\n"
+        "export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {\n"
+        f"{body},\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    print(f"\nWrote {len(entries)} parts to {OUT_TS.relative_to(REPO)}")
+    print(f"Renders in {OUT_RENDERS.relative_to(REPO)}")
+    if UPDATED_RENDERS:
+        # Each of these is a changed source PNG, never re-encoding noise.
+        print(f"\nUpdated {len(UPDATED_RENDERS)} render(s) from changed source PNGs:")
+        for part_id in UPDATED_RENDERS:
+            print(f"  ~ {part_id}")
+    else:
+        print("No render changed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

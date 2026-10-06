@@ -1,7 +1,7 @@
 """A build whose engine binary is absent must say so, not crash.
 
 Every HTTP entry point checks for the engine and answers 400, but the two
-compile generators are also called directly — `scripts/compile-display-smoke.py`
+compile generators are also called directly — `scripts/compile-fixtures/compile-display-smoke.py`
 runs the display fixture matrix through them — and neither checked. Found by
 running that matrix: with fbuild off PATH, `_FBUILD_BIN` is None and building
 its argument list raised `TypeError: sequence item 0: expected str instance,

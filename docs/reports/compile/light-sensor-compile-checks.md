@@ -30,12 +30,12 @@ and none in the LDR or guard.
 From the repository root:
 
 ```powershell
-npm run gen:light-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/ldr.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
+npm run gen:compile-fixtures -- light
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/ldr.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/light-sensor-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label light
 ```
 
 The runner is shared with the [presence-sensor checks](presence-sensor-compile-checks.md);

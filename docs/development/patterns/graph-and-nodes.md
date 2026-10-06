@@ -202,7 +202,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `onConnectEnd`) exposes it and connects in the same tick, which the history
   burst collapses into one undo step. Three derived readers must follow the same
   rule rather than reading `def.inputs`: `StudioNode`'s port rows, the canvas's
-  accessible input *count*, and `scripts/generate-node-card-svgs.ts`, which
+  accessible input *count*, and `scripts/assets/node-cards.ts`, which
   draws the socket on the property row and would otherwise list a property twice
   per card. An exposed *action* input (`actionInputs` — a press with no
   property behind it, such as the Palette Bank's Next/Previous or an LED

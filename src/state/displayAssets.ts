@@ -10,7 +10,7 @@ import type { DisplayAssetKind, DisplayClass } from './displayRegistry'
  *
  * The counterpart to `partCatalogue.ts`: the parts on the bench are imported
  * from modelled assets, and the pictures on a screen are imported from the
- * design pack by `scripts/import-display-assets.py`. Neither is hand-declared,
+ * design pack by `scripts/assets/import-display-assets.py`. Neither is hand-declared,
  * for the same reason — a remembered dimension or a guessed flash figure is the
  * app telling a quiet lie about something the user will meet on hardware.
  *

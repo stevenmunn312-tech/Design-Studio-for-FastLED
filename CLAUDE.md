@@ -110,7 +110,7 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 - Preview animation is wall-clock driven. Master Speed scales the evaluator's single clock, never the preview; Music Player refuses it because track position is its clock.
 - UI invariants: change `StudioNode` handle constants and CSS together. Popups, menus and dialogs close on Escape through `useEscapeLayer` (`src/hooks/useEscapeLayer.ts`), never their own keydown listener, so one Escape closes only the most recently opened layer.
 - The hardware workbench scales each part by the cube root of its own size; physical-unit drawing reads that part's `mmScale`. Emitter runs instead scale by the emitter and draw broken to bound length. See [hardware nodes](docs/architecture/hardware-model.md).
-- New physical-part visuals require verified Blender assets from `C:\Users\User\Desktop\Blender Assets\`; import through `scripts/import-part-assets.py` or `scripts/import-board-assets.py`. Commit only importer-produced renders and `part.json`, never `.blend`, raw PNG, or reference files; `--check` is read-only and unchanged encoded bytes are not rewritten.
+- New physical-part visuals require verified Blender assets from `C:\Users\User\Desktop\Blender Assets\`; import through `scripts/assets/import-part-assets.py` or `scripts/assets/import-board-assets.py`. Commit only importer-produced renders and `part.json`, never `.blend`, raw PNG, or reference files; `--check` is read-only and unchanged encoded bytes are not rewritten.
 - Release promises belong in `docs/release/beta-support-matrix.md`; history belongs in `CHANGELOG.md` or Git. Current code, `src/themes/tokens.css`, `NODE_LIBRARY`, `docs/index.md` links, and root `todo.md` are authoritative.
 
 <!-- END MANUAL -->

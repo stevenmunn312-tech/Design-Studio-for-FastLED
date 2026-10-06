@@ -43,8 +43,8 @@ The help modal keeps a fixed node-library directory on the left and a scrollable
   - `public/node-cards/<slug>.svg` for the node card
   - `public/node-cards/graphs/<slug>.svg` for the example graph
   - `public/node-cards/previews/<slug>.svg` for the evaluated preview
-- `scripts/generate-node-card-svgs.ts` is the generator. Run it through
-  `npm run gen:node-cards`. The `scripts/generate-node-cards.mjs` entry point
+- `scripts/assets/node-cards.ts` is the generator. Run it through
+  `npm run gen:node-cards`. The shared `scripts/run-ts.mjs` runner
   supplies empty in-memory browser storage before importing the app stores;
   generated examples never load the user's project or network credentials.
   `src/utils/nodeReferenceAssets.ts` supplies the shared filenames and URLs for

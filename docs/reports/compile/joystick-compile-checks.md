@@ -27,11 +27,11 @@ include: the module is two ADC reads and a switch and needs no library.
 From the repository root:
 
 ```powershell
-npm run gen:joystick-compile-fixtures
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
-python scripts/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
+npm run gen:compile-fixtures -- joystick
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/slideshow.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/player.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/joystick-fixtures/no-sensor.ino --fqbn esp32:esp32:esp32 --tag esp32 --label joystick
 ```
 
 The runner uses the helper's real `_compile_upload` path and never flashes. It

@@ -30,9 +30,9 @@ program `irRemoteWorkflow.test.ts` asserts.
 From the repository root:
 
 ```powershell
-npm run gen:ir-compile-fixtures
-python scripts/compile-ir-smoke.py arduino-cli backend/sketches/ir-remote-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
-python scripts/compile-ir-smoke.py fbuild backend/sketches/ir-remote-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
+npm run gen:compile-fixtures -- ir
+python scripts/compile-fixtures/compile-ir-smoke.py arduino-cli backend/sketches/ir-remote-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
+python scripts/compile-fixtures/compile-ir-smoke.py fbuild backend/sketches/ir-remote-fixtures/normal.ino --fqbn esp32:esp32:esp32 --tag esp32
 ```
 
 The runner compiles through the helper's own `_compile_upload` or

@@ -252,7 +252,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - The asset registry an Image/Icon widget (and a themed background) validates
   against is imported, not hand-declared, the same boundary-script pattern as
   physical-part visuals but for the design pack instead of Blender assets:
-  `scripts/import-display-assets.py` is the only thing that ever sees the pack's
+  `scripts/assets/import-display-assets.py` is the only thing that ever sees the pack's
   own working-folder paths. It reads the pack's manifests
   (`Custom UI Kit/asset-manifest.json`, `player-controls-reference.json`, and
   the pack root's `manifest.json` for the themed player-control sets), refuses a

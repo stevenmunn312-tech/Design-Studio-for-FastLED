@@ -1,7 +1,7 @@
 # Node cards
 
 One reference card per node in the library, generated from `NODE_LIBRARY`
-by `scripts/generate-node-card-svgs.ts` (`npm run gen:node-cards`).
+by `scripts/assets/node-cards.ts` (`npm run gen:node-cards`).
 Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ## Inputs

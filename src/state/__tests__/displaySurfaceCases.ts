@@ -4,7 +4,7 @@
  * The visual half of HW-08. Two consumers read this module and they have to
  * be looking at the same set or neither is worth much:
  * `displaySurfaceGolden.test.ts` freezes each case against a recorded digest,
- * and `scripts/generate-display-sheets.mjs` rasterises the same cases into
+ * and `scripts/assets/display-sheets.ts` rasterises the same cases into
  * contact sheets a person can actually look at. Keeping the enumeration in
  * one module rather than restating it in each is the same reasoning that put
  * `stereoVuGoldenVectors.ts` beside its test: a comparison between two
