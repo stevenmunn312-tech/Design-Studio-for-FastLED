@@ -133,6 +133,15 @@ function nodeDescription(def: NodeDefinition) {
   return NODE_DESCRIPTIONS[def.type] ?? def.label
 }
 
+/** One line per node a bridge chain adds, each with its library description. */
+function bridgeStepDescriptions(bridge: BridgeSuggestion) {
+  return bridge.steps
+    .map((step) => NODE_BY_TYPE.get(step.type))
+    .filter((def): def is NodeDefinition => !!def)
+    .map((def) => `${def.label}: ${nodeDescription(def)}`)
+    .join('\n')
+}
+
 function compatibleInputFor(def: NodeDefinition, connectFrom?: { handleId: string; dataType: string }) {
   return connectFrom && def.inputs.find((p) => portsCompatible(connectFrom.dataType, p.dataType))
 }
@@ -446,6 +455,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
                         data-suggestion-type="direct"
                         data-node-type={def.type}
                         className={styles.suggestionCard}
+                        title={nodeDescription(def)}
                         onClick={() => placeNode(def)}
                       >
                         <span className={styles.suggestionTitle}>{def.label}</span>
@@ -468,6 +478,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
                         data-suggestion-type="bridge"
                         data-bridge-id={bridge.id}
                         className={styles.suggestionCard}
+                        title={bridgeStepDescriptions(bridge)}
                         onClick={() => placeBridge(bridge)}
                       >
                         <span className={styles.suggestionTitle}>{bridge.title}</span>

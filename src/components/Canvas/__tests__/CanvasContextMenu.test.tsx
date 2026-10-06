@@ -137,6 +137,39 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
     expect(getAllByText('Connects straight into its Frame input.').length).toBeGreaterThan(0)
   })
 
+  it('describes each ranked match on hover', () => {
+    render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'src', handleId: 'frame', dataType: 'frame' }}
+        onClose={() => {}}
+      />
+    )
+
+    const cards = Array.from(document.body.querySelectorAll('[data-suggestion-type="direct"]'))
+    expect(cards.length).toBeGreaterThan(0)
+    for (const card of cards) {
+      expect(card.getAttribute('title')).toBe(NODE_DESCRIPTIONS[card.getAttribute('data-node-type')!])
+    }
+  })
+
+  it('describes every node a bridge chain adds on hover', () => {
+    seedMicSourceNode()
+    render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        connectFrom={{ nodeId: 'mic', handleId: 'audio', dataType: 'audio' }}
+        onClose={() => {}}
+      />
+    )
+
+    const card = document.body.querySelector('[data-bridge-id="audio-to-color"]')!
+    expect(card.getAttribute('title')!.split('\n')).toEqual(['FFTAnalyzer', 'AudioHue', 'HSVToRGB'].map((type) => {
+      const def = NODE_LIBRARY.find((n) => n.type === type)!
+      return `${def.label}: ${NODE_DESCRIPTIONS[type]}`
+    }))
+  })
+
   it('fans out FFT bass, mids, and treble together for Audio Flow', () => {
     seedFftSourceNode()
     const { getByText } = render(
