@@ -60,6 +60,32 @@ export interface BoardRenderAsset {
   file: string
   widthPx: number
   heightPx: number
+  /** The board's indicator LEDs on this render, in its own pixels. */
+  indicators?: RenderIndicator[]
+}
+
+/**
+ * An indicator LED on a part's or board's render, and what lights it.
+ *
+ * Measured from the model by `Blender Assets/Scripts/measure_part_indicators.py`
+ * and imported with the render it belongs to, so the bench can light an LED
+ * where the picture has one.
+ */
+export interface RenderIndicator {
+  /** The LED's lens, `[x, y, width, height]` in render pixels from the top-left. */
+  rectPx: [number, number, number, number]
+  /** The light it emits, 0-255 per channel. */
+  color: [number, number, number]
+  /**
+   * What lights it. `power`: lit whenever the bench is, and already shown lit
+   * by the render. `channel`: the part's output channel `channel` (a relay's
+   * coil, a MOSFET's load). `signal`: the input's received signal (an IR
+   * receiver's indicator). `voltage`: lit in the colour `colorsByVoltage`
+   * gives the requested voltage.
+   */
+  drive: 'power' | 'channel' | 'signal' | 'voltage'
+  channel?: number
+  colorsByVoltage?: Record<string, [number, number, number]>
 }
 
 /**

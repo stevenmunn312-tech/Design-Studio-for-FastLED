@@ -52,6 +52,8 @@ try:
 except ImportError:
     sys.exit("Pillow is required: pip install Pillow")
 
+from render_indicators import import_indicators
+
 REPO = Path(__file__).resolve().parent.parent
 
 # Renders whose WebP differed from the source; filled by convert_render.
@@ -699,6 +701,13 @@ def read_part(part_dir: Path) -> dict | None:
 
     render = convert_render(part_id, part_dir, data.get("render") or {})
     if render:
+        # Part renders are imported at their own size, so the LEDs keep the
+        # pixels they were measured in.
+        indicators = import_indicators(
+            data.get("indicators"), render["widthPx"], render["heightPx"], 1.0, part_id,
+        )
+        if indicators:
+            render["indicators"] = indicators
         entry["render"] = render
     return entry
 

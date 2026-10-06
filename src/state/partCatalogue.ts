@@ -13,6 +13,7 @@
 // small inaccuracy — it is the view lying about the bench.
 
 import { PART_CATALOGUE_DATA } from '../build/generated/partCatalogueData'
+import type { RenderIndicator } from '../build/boardCapabilities'
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
@@ -27,6 +28,8 @@ export interface PartRenderAsset {
   /** Density the render actually achieved — below the 12 px/mm target for parts
    *  over ~100 mm, where the 1200 px cap wins. */
   pxPerMm?: number
+  /** The part's indicator LEDs on this render, in its own pixels. */
+  indicators?: RenderIndicator[]
 }
 
 /** The pixel geometry an LED output's asset was built for. */

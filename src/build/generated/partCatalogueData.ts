@@ -47,7 +47,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/adafruit-bh1750-light-sensor.webp",
       "widthPx": 400,
       "heightPx": 286,
-      "pxPerMm": 14.961
+      "pxPerMm": 14.961,
+      "indicators": [
+        {
+          "rectPx": [
+            57.5,
+            77.3,
+            11.4,
+            21.2
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "adafruit-bme280-environment-sensor": {
@@ -94,7 +110,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/adafruit-bme280-environment-sensor.webp",
       "widthPx": 400,
       "heightPx": 527,
-      "pxPerMm": 19.948
+      "pxPerMm": 19.948,
+      "indicators": [
+        {
+          "rectPx": [
+            74.2,
+            143.6,
+            15.2,
+            28.3
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "adafruit-ina219-current-sensor": {
@@ -143,7 +175,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/adafruit-ina219-current-sensor.webp",
       "widthPx": 400,
       "heightPx": 324,
-      "pxPerMm": 14.961
+      "pxPerMm": 14.961,
+      "indicators": [
+        {
+          "rectPx": [
+            57.5,
+            87.9,
+            11.4,
+            22.7
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "adafruit-mpr121-touch-sensor": {
@@ -190,7 +238,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/adafruit-mpr121-touch-sensor.webp",
       "widthPx": 416,
       "heightPx": 248,
-      "pxPerMm": 12.0
+      "pxPerMm": 12.0,
+      "indicators": [
+        {
+          "rectPx": [
+            349.8,
+            95.7,
+            9.1,
+            18.2
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "adafruit-pca9685-pwm-driver": {
@@ -284,7 +348,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/adafruit-pca9685-pwm-driver.webp",
       "widthPx": 400,
       "heightPx": 955,
-      "pxPerMm": 14.961
+      "pxPerMm": 14.961,
+      "indicators": [
+        {
+          "rectPx": [
+            56.7,
+            576.8,
+            11.4,
+            22.7
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "adafruit-vl53l0x-distance-sensor": {
@@ -474,7 +554,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/ds3231-rtc-module.webp",
       "widthPx": 464,
       "heightPx": 272,
-      "pxPerMm": 12.0
+      "pxPerMm": 12.0,
+      "indicators": [
+        {
+          "rectPx": [
+            381.9,
+            41.1,
+            14.6,
+            12.1
+          ],
+          "color": [
+            255,
+            15,
+            8
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "dx-0809-stereo-amplifier": {
@@ -581,7 +677,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/gy-521-mpu6050-module.webp",
       "widthPx": 400,
       "heightPx": 310,
-      "pxPerMm": 18.095
+      "pxPerMm": 18.095,
+      "indicators": [
+        {
+          "rectPx": [
+            43.3,
+            46.8,
+            27.5,
+            13.8
+          ],
+          "color": [
+            255,
+            15,
+            8
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "hc-sr04-ultrasonic-module": {
@@ -931,7 +1043,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/ina226-current-sensor-module.webp",
       "widthPx": 400,
       "heightPx": 342,
-      "pxPerMm": 14.615
+      "pxPerMm": 14.615,
+      "indicators": [
+        {
+          "rectPx": [
+            74.6,
+            203.7,
+            11.1,
+            22.2
+          ],
+          "color": [
+            255,
+            15,
+            8
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "inmp441-i2s-microphone": {
@@ -1019,7 +1147,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/keyestudio-ks0026-ir-receiver-module.webp",
       "widthPx": 400,
       "heightPx": 596,
-      "pxPerMm": 19.6
+      "pxPerMm": 19.6,
+      "indicators": [
+        {
+          "rectPx": [
+            130.8,
+            258.6,
+            20.8,
+            12.2
+          ],
+          "color": [
+            255,
+            14,
+            10
+          ],
+          "drive": "signal"
+        }
+      ]
     }
   },
   "ky-012-active-buzzer-module": {
@@ -1083,7 +1227,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/ky-022-ir-receiver-module.webp",
       "widthPx": 400,
       "heightPx": 315,
-      "pxPerMm": 17.226
+      "pxPerMm": 17.226,
+      "indicators": [
+        {
+          "rectPx": [
+            56.0,
+            94.1,
+            26.2,
+            13.1
+          ],
+          "color": [
+            255,
+            14,
+            10
+          ],
+          "drive": "signal"
+        }
+      ]
     }
   },
   "ky-023-joystick-module": {
@@ -1280,7 +1440,23 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/max485-rs485-module.webp",
       "widthPx": 400,
       "heightPx": 1160,
-      "pxPerMm": 25.333
+      "pxPerMm": 25.333,
+      "indicators": [
+        {
+          "rectPx": [
+            248.6,
+            399.2,
+            29.4,
+            29.6
+          ],
+          "color": [
+            255,
+            15,
+            8
+          ],
+          "drive": "power"
+        }
+      ]
     }
   },
   "max7219-8digit-7segment": {
@@ -1635,7 +1811,83 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/monkmakes-mosfetti.webp",
       "widthPx": 808,
       "heightPx": 624,
-      "pxPerMm": 12.012
+      "pxPerMm": 12.012,
+      "indicators": [
+        {
+          "rectPx": [
+            47.2,
+            561.5,
+            14.5,
+            14.7
+          ],
+          "color": [
+            255,
+            120,
+            0
+          ],
+          "drive": "power"
+        },
+        {
+          "rectPx": [
+            258.4,
+            208.2,
+            14.5,
+            14.7
+          ],
+          "color": [
+            40,
+            255,
+            60
+          ],
+          "drive": "channel",
+          "channel": 1
+        },
+        {
+          "rectPx": [
+            379.0,
+            208.2,
+            14.5,
+            14.7
+          ],
+          "color": [
+            40,
+            255,
+            60
+          ],
+          "drive": "channel",
+          "channel": 2
+        },
+        {
+          "rectPx": [
+            535.6,
+            208.2,
+            14.5,
+            14.7
+          ],
+          "color": [
+            40,
+            255,
+            60
+          ],
+          "drive": "channel",
+          "channel": 3
+        },
+        {
+          "rectPx": [
+            656.1,
+            208.2,
+            14.5,
+            14.7
+          ],
+          "color": [
+            40,
+            255,
+            60
+          ],
+          "drive": "channel",
+          "channel": 4
+        }
+      ]
     }
   },
   "nled-pixel-data-extender-pair": {
@@ -1908,7 +2160,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/relay-module-1ch-5v.webp",
       "widthPx": 620,
       "heightPx": 332,
-      "pxPerMm": 12.0
+      "pxPerMm": 12.0,
+      "indicators": [
+        {
+          "rectPx": [
+            553.8,
+            88.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        },
+        {
+          "rectPx": [
+            477.0,
+            182.3,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 1
+        }
+      ]
     }
   },
   "relay-module-2ch-5v": {
@@ -1947,7 +2230,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/relay-module-2ch-5v.webp",
       "widthPx": 620,
       "heightPx": 512,
-      "pxPerMm": 12.0
+      "pxPerMm": 12.0,
+      "indicators": [
+        {
+          "rectPx": [
+            523.8,
+            421.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        },
+        {
+          "rectPx": [
+            162.0,
+            349.1,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 1
+        },
+        {
+          "rectPx": [
+            360.0,
+            349.1,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 2
+        }
+      ]
     }
   },
   "relay-module-4ch-5v": {
@@ -1988,7 +2317,83 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/relay-module-4ch-5v.webp",
       "widthPx": 932,
       "heightPx": 680,
-      "pxPerMm": 12.0
+      "pxPerMm": 12.0,
+      "indicators": [
+        {
+          "rectPx": [
+            835.8,
+            589.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        },
+        {
+          "rectPx": [
+            120.0,
+            454.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 1
+        },
+        {
+          "rectPx": [
+            318.0,
+            454.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 2
+        },
+        {
+          "rectPx": [
+            516.0,
+            454.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 3
+        },
+        {
+          "rectPx": [
+            714.0,
+            454.7,
+            16.4,
+            10.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 4
+        }
+      ]
     }
   },
   "relay-module-8ch-5v": {
@@ -2033,7 +2438,143 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/relay-module-8ch-5v.webp",
       "widthPx": 1200,
       "heightPx": 502,
-      "pxPerMm": 8.613
+      "pxPerMm": 8.613,
+      "indicators": [
+        {
+          "rectPx": [
+            1128.1,
+            434.5,
+            11.8,
+            7.6
+          ],
+          "color": [
+            26,
+            255,
+            51
+          ],
+          "drive": "power"
+        },
+        {
+          "rectPx": [
+            78.7,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 1
+        },
+        {
+          "rectPx": [
+            217.6,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 2
+        },
+        {
+          "rectPx": [
+            356.5,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 3
+        },
+        {
+          "rectPx": [
+            495.4,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 4
+        },
+        {
+          "rectPx": [
+            634.3,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 5
+        },
+        {
+          "rectPx": [
+            773.1,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 6
+        },
+        {
+          "rectPx": [
+            912.0,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 7
+        },
+        {
+          "rectPx": [
+            1050.9,
+            333.3,
+            11.8,
+            7.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 8
+        }
+      ]
     }
   },
   "seeed-grove-touch-sensor": {
@@ -2988,7 +3529,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "file": "parts/zy12pdn-usb-c-pd-trigger.webp",
       "widthPx": 400,
       "heightPx": 805,
-      "pxPerMm": 25.333
+      "pxPerMm": 25.333,
+      "indicators": [
+        {
+          "rectPx": [
+            317.0,
+            294.6,
+            19.3,
+            38.5
+          ],
+          "color": [
+            40,
+            255,
+            60
+          ],
+          "drive": "voltage",
+          "colorsByVoltage": {
+            "5": [
+              255,
+              32,
+              24
+            ],
+            "9": [
+              255,
+              200,
+              0
+            ],
+            "12": [
+              40,
+              255,
+              60
+            ],
+            "15": [
+              0,
+              230,
+              255
+            ],
+            "20": [
+              40,
+              90,
+              255
+            ]
+          }
+        }
+      ]
     }
   },
 }

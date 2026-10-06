@@ -607,6 +607,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-c3-devkitm-1.webp",
       widthPx: 700,
       heightPx: 1347,
+      indicators: [
+        {
+          rectPx: [189.2, 950.7, 41.4, 20.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "esp32-c3-super-mini": {
@@ -689,6 +696,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-c6-devkitc-1.webp",
       widthPx: 700,
       heightPx: 1774,
+      indicators: [
+        {
+          rectPx: [277.8, 612.9, 41.3, 20.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "esp32-c6-devkitm-1": {
@@ -727,6 +741,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-c6-devkitm-1.webp",
       widthPx: 700,
       heightPx: 1610,
+      indicators: [
+        {
+          rectPx: [296.8, 562.0, 24.9, 12.5],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "esp32-c6-super-mini": {
@@ -796,6 +817,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-devkit-v1-30pin-esp32d.webp",
       widthPx: 700,
       heightPx: 1427,
+      indicators: [
+        {
+          rectPx: [279.6, 704.1, 37.4, 18.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "esp32-generic-devkit-38pin": {
@@ -829,6 +857,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-generic-devkit-38pin.webp",
       widthPx: 700,
       heightPx: 1503,
+      indicators: [
+        {
+          rectPx: [279.6, 742.3, 37.4, 18.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "esp32-h2-devkitm-1": {
@@ -869,6 +904,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-h2-devkitm-1.webp",
       widthPx: 700,
       heightPx: 1610,
+      indicators: [
+        {
+          rectPx: [296.8, 562.0, 24.9, 12.5],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "esp32-h2-super-mini": {
@@ -1048,6 +1090,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/espressif-esp32-devkitc-v4-38pin.webp",
       widthPx: 700,
       heightPx: 1503,
+      indicators: [
+        {
+          rectPx: [279.6, 742.3, 37.4, 18.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "espressif-esp32-s2-devkitc-1": {
@@ -1104,6 +1153,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/espressif-esp32-s2-devkitc-1.webp",
       widthPx: 700,
       heightPx: 1924,
+      indicators: [
+        {
+          rectPx: [248.0, 732.8, 41.3, 20.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "espressif-esp32-s3-devkitc-1": {
@@ -1140,6 +1196,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/espressif-esp32-s3-devkitc-1.webp",
       widthPx: 700,
       heightPx: 1924,
+      indicators: [
+        {
+          rectPx: [248.0, 732.8, 41.3, 20.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "generic-esp32-s3-n16r8-44pin-dual-usbc": {
@@ -1176,6 +1239,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/generic-esp32-s3-n16r8-44pin-dual-usbc.webp",
       widthPx: 700,
       heightPx: 1650,
+      indicators: [
+        {
+          rectPx: [463.1, 628.9, 37.4, 18.7],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "lolin-c3-mini": {

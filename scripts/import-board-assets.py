@@ -47,6 +47,8 @@ try:
 except ImportError:
     sys.exit("Pillow is required: pip install Pillow")
 
+from render_indicators import import_indicators
+
 REPO = Path(__file__).resolve().parent.parent
 OUT_TS = REPO / "src" / "build" / "generated" / "boardCapabilityData.ts"
 OUT_RENDERS = REPO / "public" / "boards"
@@ -281,15 +283,26 @@ def convert_render(folder: Path, board: dict, profile_id: str) -> dict | None:
     # on every run; Pillow can read the cached dimensions from the WebP header.
     if dest.is_file() and dest.stat().st_mtime >= src.stat().st_mtime:
         with Image.open(dest) as cached:
-            return {"file": f"boards/{profile_id}.webp",
-                    "widthPx": cached.width, "heightPx": cached.height}
-    with Image.open(src) as img:
-        img = img.convert("RGBA")
-        if img.width > RENDER_MAX_W:
-            h = round(img.height * RENDER_MAX_W / img.width)
-            img = img.resize((RENDER_MAX_W, h), Image.LANCZOS)
-        img.save(dest, "WEBP", quality=WEBP_QUALITY, method=6)
-        return {"file": f"boards/{profile_id}.webp", "widthPx": img.width, "heightPx": img.height}
+            out = {"file": f"boards/{profile_id}.webp",
+                   "widthPx": cached.width, "heightPx": cached.height}
+    else:
+        with Image.open(src) as img:
+            img = img.convert("RGBA")
+            if img.width > RENDER_MAX_W:
+                h = round(img.height * RENDER_MAX_W / img.width)
+                img = img.resize((RENDER_MAX_W, h), Image.LANCZOS)
+            img.save(dest, "WEBP", quality=WEBP_QUALITY, method=6)
+            out = {"file": f"boards/{profile_id}.webp", "widthPx": img.width, "heightPx": img.height}
+    # The LEDs were measured on the Cycles render; scale them with the resize.
+    source_width = render.get("widthPx")
+    if isinstance(source_width, (int, float)) and source_width > 0:
+        indicators = import_indicators(
+            board.get("indicators"), source_width, render.get("heightPx"),
+            out["widthPx"] / source_width, profile_id,
+        )
+        if indicators:
+            out["indicators"] = indicators
+    return out
 
 
 # --- Profile generation for boards with no authored pin map ------------------
