@@ -7,22 +7,23 @@ rather than one engine's path.
 """
 import sys
 
-import app
+import firmware
+import toolchain
 
 
 def test_format_duration_reads_as_a_person_would_say_it():
-    assert app._format_duration(0.42) == "0.4s"
-    assert app._format_duration(8.44) == "8.4s"
+    assert toolchain._format_duration(0.42) == "0.4s"
+    assert toolchain._format_duration(8.44) == "8.4s"
     # A decimal is worth having under a minute and noise above it.
-    assert app._format_duration(59.9) == "59.9s"
-    assert app._format_duration(60) == "1m 00s"
-    assert app._format_duration(111.6) == "1m 52s"
-    assert app._format_duration(3600) == "1h 00m 00s"
-    assert app._format_duration(3723) == "1h 02m 03s"
+    assert toolchain._format_duration(59.9) == "59.9s"
+    assert toolchain._format_duration(60) == "1m 00s"
+    assert toolchain._format_duration(111.6) == "1m 52s"
+    assert toolchain._format_duration(3600) == "1h 00m 00s"
+    assert toolchain._format_duration(3723) == "1h 02m 03s"
 
 
 def test_run_phase_reports_how_long_the_phase_took():
-    lines = list(app._run_phase("Sketch · compile", [sys.executable, "-c", "print('built')"]))
+    lines = list(toolchain._run_phase("Sketch · compile", [sys.executable, "-c", "print('built')"]))
     exit_line = [line for line in lines if "exit code" in line]
     assert len(exit_line) == 1
     # The exit code still leads the line — `parseStatus` keys its failure rule
@@ -32,7 +33,7 @@ def test_run_phase_reports_how_long_the_phase_took():
 
 
 def test_a_finished_run_ends_with_one_total_line():
-    @app._reports_total_time
+    @toolchain._reports_total_time
     def fake_run(label, port):
         yield "compiling\n"
         return 0, "upload"
@@ -52,12 +53,12 @@ def test_a_finished_run_ends_with_one_total_line():
 
 
 def test_a_failed_run_still_reports_its_total():
-    @app._reports_total_time
+    @toolchain._reports_total_time
     def fake_run():
         yield "error: expected ';'\n"
         return 1, "compile"
 
-    lines, (rc, phase) = app._drain_compile(fake_run())
+    lines, (rc, phase) = firmware._drain_compile(fake_run())
     assert (rc, phase) == (1, "compile")
     assert any("[time] total" in line for line in lines)
 
@@ -65,11 +66,11 @@ def test_a_failed_run_still_reports_its_total():
 def test_a_refused_build_reports_no_time_at_all():
     # Nothing was compiled or flashed — a duration beside "DID NOT RUN" would
     # read as a build that took that long.
-    @app._reports_total_time
+    @toolchain._reports_total_time
     def fake_run():
         yield "  [waiting] the build directory is busy with another build\n"
         return -1, "busy"
 
-    lines, (rc, phase) = app._drain_compile(fake_run())
+    lines, (rc, phase) = firmware._drain_compile(fake_run())
     assert (rc, phase) == (-1, "busy")
     assert not any("[time]" in line for line in lines)

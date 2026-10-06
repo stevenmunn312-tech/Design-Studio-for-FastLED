@@ -178,7 +178,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   finished A8/RGB565/RGB565A8 bytes. Do not fetch, decode or scale inside a
   generator. Equal variants share one indexed table, while authored ids, labels
   and paths never become C++ identifiers. The `// FLS-LVGL-FONTS:` marker is an
-  allow-listed build-helper contract: `backend/app.py` specializes `lv_conf.h`
+  allow-listed build-helper contract: `backend/toolchain.py` specializes `lv_conf.h`
   so only the nearest pinned Montserrat sizes selected by
   `customDisplayFontSizes` compile into flash; keep the marker, emitter and
   helper tests in step.

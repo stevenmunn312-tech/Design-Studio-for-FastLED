@@ -51,22 +51,22 @@ def test_projects_post_requires_id_name_workspace(client):
 
 
 def test_upload_reports_missing_engine(client, monkeypatch):
-    monkeypatch.setattr("app._active_engine", lambda: "fbuild")
-    monkeypatch.setattr("app._FBUILD_BIN", None)
+    monkeypatch.setattr("toolchain._active_engine", lambda: "fbuild")
+    monkeypatch.setattr("toolchain._FBUILD_BIN", None)
     r = client.post("/api/upload", json={"ino": "void setup(){}", "port": ""})
     assert r.status_code == 400
     assert "fbuild" in r.json()["error"]
 
-    monkeypatch.setattr("app._active_engine", lambda: "arduino-cli")
-    monkeypatch.setattr("app._ARDUINO_CLI", None)
+    monkeypatch.setattr("toolchain._active_engine", lambda: "arduino-cli")
+    monkeypatch.setattr("toolchain._ARDUINO_CLI", None)
     r = client.post("/api/upload", json={"ino": "void setup(){}", "port": ""})
     assert r.status_code == 400
     assert "arduino-cli" in r.json()["error"]
 
 
 def test_upload_show_reports_missing_engine(client, monkeypatch):
-    monkeypatch.setattr("app._active_engine", lambda: "fbuild")
-    monkeypatch.setattr("app._FBUILD_BIN", None)
+    monkeypatch.setattr("toolchain._active_engine", lambda: "fbuild")
+    monkeypatch.setattr("toolchain._FBUILD_BIN", None)
     r = client.post(
         "/api/upload-show",
         data={"meta": "{}", "provisioner": "x", "player": "y"},

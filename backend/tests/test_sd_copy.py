@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-import app
+import sd_card
 
 
 # ── path guard ────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ import app
 ])
 def test_only_music_and_shows_paths_are_accepted(tmp_path, path):
     with pytest.raises(ValueError):
-        app._sd_destination(str(tmp_path), path)
+        sd_card._sd_destination(str(tmp_path), path)
 
 
 @pytest.mark.parametrize("path,expected", [
@@ -39,7 +39,7 @@ def test_only_music_and_shows_paths_are_accepted(tmp_path, path):
     ("/music/../../evil", ("music", "evil")),      # climbs are stripped, not honoured
 ])
 def test_accepted_paths_land_inside_the_chosen_drive(tmp_path, path, expected):
-    dest = app._sd_destination(str(tmp_path), path)
+    dest = sd_card._sd_destination(str(tmp_path), path)
     assert dest.parent.name == expected[0]
     assert dest.name == expected[1]
     assert tmp_path.resolve() in dest.parents
@@ -59,7 +59,7 @@ def _post(client, drive, files):
 
 def test_a_drive_that_is_not_removable_is_refused(client, monkeypatch, tmp_path):
     # The whole guard: without it this endpoint writes anywhere on the host.
-    monkeypatch.setattr(app, "_removable_drives", lambda: [])
+    monkeypatch.setattr(sd_card, "_removable_drives", lambda: [])
     r = _post(client, tmp_path, [("/music/x.mp3", b"abc")])
     assert r.status_code == 400
     assert "not a mounted removable drive" in r.json()["error"]
@@ -67,7 +67,7 @@ def test_a_drive_that_is_not_removable_is_refused(client, monkeypatch, tmp_path)
 
 
 def test_files_are_written_under_music_and_shows(client, monkeypatch, tmp_path):
-    monkeypatch.setattr(app, "_removable_drives", lambda: [{"path": str(tmp_path)}])
+    monkeypatch.setattr(sd_card, "_removable_drives", lambda: [{"path": str(tmp_path)}])
     r = _post(client, tmp_path, [("/music/Song.mp3", b"a" * 32), ("/shows/Song.show", b"b" * 8)])
     assert r.status_code == 200
     assert (tmp_path / "music" / "Song.mp3").read_bytes() == b"a" * 32
@@ -78,7 +78,7 @@ def test_files_are_written_under_music_and_shows(client, monkeypatch, tmp_path):
 def test_a_song_already_on_the_card_is_not_copied_again(client, monkeypatch, tmp_path):
     # This is what makes "update the show, keep the music" fast — otherwise the
     # reader path re-copies megabytes to change a few kilobytes of events.
-    monkeypatch.setattr(app, "_removable_drives", lambda: [{"path": str(tmp_path)}])
+    monkeypatch.setattr(sd_card, "_removable_drives", lambda: [{"path": str(tmp_path)}])
     (tmp_path / "music").mkdir()
     (tmp_path / "music" / "Song.mp3").write_bytes(b"a" * 32)
 
@@ -88,7 +88,7 @@ def test_a_song_already_on_the_card_is_not_copied_again(client, monkeypatch, tmp
 
 
 def test_a_changed_file_of_a_different_size_is_rewritten(client, monkeypatch, tmp_path):
-    monkeypatch.setattr(app, "_removable_drives", lambda: [{"path": str(tmp_path)}])
+    monkeypatch.setattr(sd_card, "_removable_drives", lambda: [{"path": str(tmp_path)}])
     (tmp_path / "shows").mkdir()
     (tmp_path / "shows" / "Song.show").write_bytes(b"old")
 
@@ -100,6 +100,6 @@ def test_no_part_files_are_left_behind(client, monkeypatch, tmp_path):
     # Writes go to a .part file and are renamed, so a card pulled mid-write
     # leaves the previous file rather than a truncated one. A completed run
     # must not leave the scaffolding visible to the player's directory scan.
-    monkeypatch.setattr(app, "_removable_drives", lambda: [{"path": str(tmp_path)}])
+    monkeypatch.setattr(sd_card, "_removable_drives", lambda: [{"path": str(tmp_path)}])
     _post(client, tmp_path, [("/music/Song.mp3", b"a" * 32)])
     assert [p.name for p in (tmp_path / "music").iterdir()] == ["Song.mp3"]

@@ -2,7 +2,8 @@
 import contextlib
 import json
 
-import app
+import firmware
+import toolchain
 
 
 def archive_fixture(tmp_path, monkeypatch):
@@ -16,7 +17,7 @@ def archive_fixture(tmp_path, monkeypatch):
     objects[0].parent.mkdir(parents=True)
     for obj in objects:
         obj.touch()
-    monkeypatch.setattr(app, "_FBUILD_PROJECT_DIR", project)
+    monkeypatch.setattr(toolchain, "_FBUILD_PROJECT_DIR", project)
     args = [str(ar), "rcs", str(library / "liblvgl.a"), *map(str, objects)]
     return cache, args, objects
 
@@ -27,7 +28,7 @@ def failure(args):
 
 def test_recognizes_only_existing_lvgl_objects_and_cached_archiver(tmp_path, monkeypatch):
     cache, args, objects = archive_fixture(tmp_path, monkeypatch)
-    command = app._fbuild_lvgl_archive_command([failure(args)], "test", cache)
+    command = firmware._fbuild_lvgl_archive_command([failure(args)], "test", cache)
     assert command is not None
     assert command[2] == objects
     for index, replacement in (
@@ -39,18 +40,18 @@ def test_recognizes_only_existing_lvgl_objects_and_cached_archiver(tmp_path, mon
     ):
         changed = [*args]
         changed[index] = replacement
-        assert app._fbuild_lvgl_archive_command([failure(changed)], "test", cache) is None
-    assert app._fbuild_lvgl_archive_command([failure(args).replace("206", "5")], "test", cache) is None
-    assert app._fbuild_lvgl_archive_command([failure(args).replace("'lvgl'", "'FastLED'")], "test", cache) is None
+        assert firmware._fbuild_lvgl_archive_command([failure(changed)], "test", cache) is None
+    assert firmware._fbuild_lvgl_archive_command([failure(args).replace("206", "5")], "test", cache) is None
+    assert firmware._fbuild_lvgl_archive_command([failure(args).replace("'lvgl'", "'FastLED'")], "test", cache) is None
     objects[0].unlink()
-    assert app._fbuild_lvgl_archive_command([failure(args)], "test", cache) is None
+    assert firmware._fbuild_lvgl_archive_command([failure(args)], "test", cache) is None
 
 
 def test_response_file_quotes_paths_and_executes_only_fixed_archive_flags(tmp_path, monkeypatch):
     cache, args, objects = archive_fixture(tmp_path, monkeypatch)
-    command = app._fbuild_lvgl_archive_command([failure(args)], "test", cache)
-    monkeypatch.setattr(app, "_fbuild_lvgl_archive_command", lambda *args: command)
-    monkeypatch.setattr(app.platform, "system", lambda: "Windows")
+    command = firmware._fbuild_lvgl_archive_command([failure(args)], "test", cache)
+    monkeypatch.setattr(firmware, "_fbuild_lvgl_archive_command", lambda *args: command)
+    monkeypatch.setattr(toolchain.platform, "system", lambda: "Windows")
     calls = []
 
     def run(label, argv, **kwargs):
@@ -58,8 +59,8 @@ def test_response_file_quotes_paths_and_executes_only_fixed_archive_flags(tmp_pa
         yield "archive complete\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", run)
-    _, recovered = app._drain_compile(app._recover_fbuild_lvgl_archive([], "test"))
+    monkeypatch.setattr(toolchain, "_run_phase", run)
+    _, recovered = firmware._drain_compile(firmware._recover_fbuild_lvgl_archive([], "test"))
     assert recovered is True
     assert calls[0][:3] == args[:3]
     response = command[1].parent / "lvgl-objects.rsp"
@@ -68,11 +69,11 @@ def test_response_file_quotes_paths_and_executes_only_fixed_archive_flags(tmp_pa
 
 
 def test_compile_retries_once_after_archive_recovery(monkeypatch):
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *args: "test")
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_build_was_cancelled", lambda: False)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args: "test")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_build_was_cancelled", lambda: False)
     calls = []
 
     def run(label, args, sink=None, **kwargs):
@@ -85,9 +86,9 @@ def test_compile_retries_once_after_archive_recovery(monkeypatch):
         yield "recovered\n"
         return True
 
-    monkeypatch.setattr(app, "_run_phase", run)
-    monkeypatch.setattr(app, "_recover_fbuild_lvgl_archive", recover)
-    lines, result = app._drain_compile(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    monkeypatch.setattr(toolchain, "_run_phase", run)
+    monkeypatch.setattr(firmware, "_recover_fbuild_lvgl_archive", recover)
+    lines, result = firmware._drain_compile(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
     assert result == (0, "compile")
     assert len(calls) == 2
     assert calls[0] == calls[1]

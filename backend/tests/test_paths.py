@@ -6,7 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import app
+import storage
+import toolchain
 
 
 def test_windows_save_dialog_is_owned_and_topmost(tmp_path, monkeypatch):
@@ -17,9 +18,9 @@ def test_windows_save_dialog_is_owned_and_topmost(tmp_path, monkeypatch):
         captured["env"] = kwargs["env"]
         return SimpleNamespace(stdout=str(tmp_path / "My Show.fastled-project.json"))
 
-    monkeypatch.setattr(app.subprocess, "run", fake_run)
+    monkeypatch.setattr(toolchain.subprocess, "run", fake_run)
 
-    chosen = app._show_windows_save_dialog(tmp_path, "My Show.fastled-project.json")
+    chosen = storage._show_windows_save_dialog(tmp_path, "My Show.fastled-project.json")
 
     script = captured["command"][-1]
     assert "$owner.TopMost = $true" in script
@@ -31,49 +32,49 @@ def test_windows_save_dialog_is_owned_and_topmost(tmp_path, monkeypatch):
 
 
 def test_sanitize_filename_strips_path_traversal():
-    assert app._sanitize_filename("../../etc/passwd") == "....etcpasswd"
-    assert app._sanitize_filename("..\\..\\Windows\\System32") == "....WindowsSystem32"
+    assert storage._sanitize_filename("../../etc/passwd") == "....etcpasswd"
+    assert storage._sanitize_filename("..\\..\\Windows\\System32") == "....WindowsSystem32"
 
 
 def test_sanitize_filename_strips_illegal_windows_chars():
-    assert app._sanitize_filename('a<b>c:d"e|f?g*h') == "abcdefgh"
+    assert storage._sanitize_filename('a<b>c:d"e|f?g*h') == "abcdefgh"
 
 
 def test_sanitize_filename_collapses_whitespace_and_trims_trailing_dots():
-    assert app._sanitize_filename("  My   Cool Pattern...  ") == "My Cool Pattern"
+    assert storage._sanitize_filename("  My   Cool Pattern...  ") == "My Cool Pattern"
 
 
 def test_sanitize_filename_caps_length():
-    assert len(app._sanitize_filename("a" * 500)) == 80
+    assert len(storage._sanitize_filename("a" * 500)) == 80
 
 
 def test_sanitize_filename_never_returns_empty():
-    assert app._sanitize_filename("") == "pattern"
-    assert app._sanitize_filename("///...") == "pattern"
+    assert storage._sanitize_filename("") == "pattern"
+    assert storage._sanitize_filename("///...") == "pattern"
 
 
 @pytest.mark.parametrize("name", [
     "CON", "con", "PRN", "AUX", "NUL", "COM1", "COM9", "LPT1", "LPT9",
 ])
 def test_sanitize_filename_suffixes_windows_device_names(name):
-    assert app._sanitize_filename(name) == f"{name}_"
+    assert storage._sanitize_filename(name) == f"{name}_"
 
 
 def test_sanitize_filename_suffixes_a_device_name_before_its_extension():
     # `CON.json` is still the CON device. The stem has to change before the
     # caller appends `.json` or `.fastled-project.json`.
-    assert app._sanitize_filename("CON.txt") == "CON_.txt"
+    assert storage._sanitize_filename("CON.txt") == "CON_.txt"
 
 
 def test_sanitize_filename_leaves_names_that_only_resemble_devices():
-    assert app._sanitize_filename("Console") == "Console"
-    assert app._sanitize_filename("COM10") == "COM10"
-    assert app._sanitize_filename("My AUX Show") == "My AUX Show"
+    assert storage._sanitize_filename("Console") == "Console"
+    assert storage._sanitize_filename("COM10") == "COM10"
+    assert storage._sanitize_filename("My AUX Show") == "My AUX Show"
 
 
 def test_save_pattern_lands_inside_patterns_dir(client, tmp_path, monkeypatch):
     patterns_dir = tmp_path / "My Patterns"
-    monkeypatch.setattr(app, "_PATTERNS_DIR", patterns_dir)
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", patterns_dir)
 
     pattern = {"id": "p1", "name": "../../evil", "subgraph": {"nodes": [], "edges": []}}
     r = client.post("/api/patterns", json=pattern)
@@ -87,7 +88,7 @@ def test_save_pattern_lands_inside_patterns_dir(client, tmp_path, monkeypatch):
 
 def test_save_pattern_rename_removes_old_file(client, tmp_path, monkeypatch):
     patterns_dir = tmp_path / "My Patterns"
-    monkeypatch.setattr(app, "_PATTERNS_DIR", patterns_dir)
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", patterns_dir)
 
     base = {"id": "p1", "subgraph": {"nodes": [], "edges": []}}
     client.post("/api/patterns", json={**base, "name": "First Name"})
@@ -101,7 +102,7 @@ def test_save_pattern_rename_removes_old_file(client, tmp_path, monkeypatch):
 
 def test_save_pattern_disambiguates_same_name_different_id(client, tmp_path, monkeypatch):
     patterns_dir = tmp_path / "My Patterns"
-    monkeypatch.setattr(app, "_PATTERNS_DIR", patterns_dir)
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", patterns_dir)
 
     client.post("/api/patterns", json={"id": "p1", "name": "Same Name", "subgraph": {}})
     client.post("/api/patterns", json={"id": "p2", "name": "Same Name", "subgraph": {}})
@@ -114,7 +115,7 @@ def test_save_pattern_disambiguates_same_name_different_id(client, tmp_path, mon
 
 def test_delete_pattern_removes_file_by_id(client, tmp_path, monkeypatch):
     patterns_dir = tmp_path / "My Patterns"
-    monkeypatch.setattr(app, "_PATTERNS_DIR", patterns_dir)
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", patterns_dir)
 
     client.post("/api/patterns", json={"id": "p1", "name": "Doomed", "subgraph": {}})
     assert len(list(patterns_dir.glob("*.json"))) == 1
@@ -127,7 +128,7 @@ def test_delete_pattern_removes_file_by_id(client, tmp_path, monkeypatch):
 def test_list_patterns_skips_unreadable_files(client, tmp_path, monkeypatch):
     patterns_dir = tmp_path / "My Patterns"
     patterns_dir.mkdir(parents=True)
-    monkeypatch.setattr(app, "_PATTERNS_DIR", patterns_dir)
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", patterns_dir)
 
     (patterns_dir / "good.json").write_text(json.dumps({"id": "p1", "name": "Good"}))
     (patterns_dir / "broken.json").write_text("{not json")
@@ -141,7 +142,7 @@ def test_list_patterns_skips_unreadable_files(client, tmp_path, monkeypatch):
 
 def test_save_project_lands_inside_projects_dir(client, tmp_path, monkeypatch):
     projects_dir = tmp_path / "Projects"
-    monkeypatch.setattr(app, "_PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", projects_dir)
 
     project = {
         "id": "proj1",
@@ -154,12 +155,12 @@ def test_save_project_lands_inside_projects_dir(client, tmp_path, monkeypatch):
     saved = list(projects_dir.glob("*.json"))
     assert len(saved) == 1
     assert saved[0].parent.resolve() == projects_dir.resolve()
-    assert saved[0].name.endswith(app._PROJECT_FILE_SUFFIX)
+    assert saved[0].name.endswith(storage._PROJECT_FILE_SUFFIX)
 
 
 def test_delete_project_removes_file_by_id(client, tmp_path, monkeypatch):
     projects_dir = tmp_path / "Projects"
-    monkeypatch.setattr(app, "_PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", projects_dir)
 
     client.post(
         "/api/projects",

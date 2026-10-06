@@ -19,7 +19,7 @@
   error instead of compiling or flashing another program. Changing the serial
   port is allowed. Compile failures still require compilation on Retry.
 
-The local FastAPI helper in `backend/app.py`: build timing, binary export, and
+The local FastAPI helper in `backend/` (`app.py` wires up `toolchain.py`, `firmware.py`, `streaming.py`, `sd_card.py` and `storage.py`): build timing, binary export, and
 keeping both toolchains' caches warm.
 
 - Arduino IR builds query `config dump --format json` and check the configured
@@ -33,7 +33,7 @@ working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.
 
 - Build/upload timing is computed once and shared by both engines, not measured
-  per call site: `backend/app.py`'s `_run_phase` (the one per-phase runner both
+  per call site: `backend/toolchain.py`'s `_run_phase` (the one per-phase runner both
   `_compile_upload` and `_compile_upload_fbuild` call) times itself onto its
   `[label exit code: N]` line, and the `_reports_total_time` decorator wraps
   both compile/upload generators so every run ends with one `  [time] total ...`
@@ -47,7 +47,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   regex has to name any new always-visible log marker explicitly (as it does
   `\[time\]`) or the condensed Output console view filters it out as noise.
 - **Export Binary** is the same compile an Upload runs, stopped at the image:
-  `backend/app.py`'s `/api/compile-binary` streams the build log exactly as
+  `backend/firmware.py`'s `/api/compile-binary` streams the build log exactly as
   `/api/upload` does — a build is minutes long and a silent wait reads as a hang
   — and ends with a marker line, `[binary] id=<id> name=<file> bytes=<n>`, that
   `GET /api/compile-binary/{id}` then serves. That marker is a three-site
@@ -69,7 +69,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the browser and needs no toolchain.
 - Every write to the fbuild scaffold's generated sketch, vendored FastLED
   patches, or a reused arduino-cli sketch directory goes through
-  `backend/app.py`'s `_write_if_changed(path, text)`, never a bare
+  `backend/toolchain.py`'s `_write_if_changed(path, text)`, never a bare
   `path.write_text(...)`: both toolchains decide what to recompile from mtimes,
   so rewriting a file with the bytes it already has forces a rebuild nobody
   asked for. `_write_fbuild_main`'s `main.ino` (the project's largest
@@ -80,7 +80,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   leaves the file's mtime untouched while a real change still lands.
 - arduino-cli keys its own build cache (`~/.cache/arduino/sketches/<hash>`,
   `%LOCALAPPDATA%\arduino\sketches` on Windows) on a hash of the *sketch path*,
-  so `backend/app.py`'s `_sketch_workspace(name, ino)` compiles from one reused
+  so `backend/firmware.py`'s `_sketch_workspace(name, ino)` compiles from one reused
   directory per sketch name (`_SKETCH_DIR_ROOT = _DATA_DIR / "sketches"`,
   gitignored as `backend/sketches/`) instead of a fresh `tempfile.mkdtemp()` per
   build — the old per-call temp dir was a guaranteed cache miss that rebuilt all

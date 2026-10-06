@@ -3,8 +3,14 @@
 Scope: the `Hardware` checkout. The helper defaults to `http://localhost:8008`.
 [Setup](../../getting-started/upload-helper.md) covers starting it.
 
-Routes and manually validated request fields are implemented in
-[`backend/app.py`](../../../backend/app.py). The browser client in
+Routes and manually validated request fields are implemented in the helper's
+router modules: [`toolchain.py`](../../../backend/toolchain.py) (engine choice and
+arduino-cli setup), [`firmware.py`](../../../backend/firmware.py) (compile, upload
+and serial), [`streaming.py`](../../../backend/streaming.py) (Adalight and
+Art-Net), [`sd_card.py`](../../../backend/sd_card.py) and
+[`storage.py`](../../../backend/storage.py) (patterns and projects).
+[`app.py`](../../../backend/app.py) applies the local-only trust checks to all of
+them. The browser client in
 [`backendClient.ts`](../../../src/utils/backendClient.ts) records the matching
 request and response handling. With the helper running, its
 [OpenAPI document](http://localhost:8008/openapi.json) and

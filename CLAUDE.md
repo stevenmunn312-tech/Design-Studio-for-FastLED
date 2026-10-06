@@ -36,7 +36,7 @@ The npm scripts intentionally suppress an upstream `punycode` warning; direct `n
 - `src/components/` — React UI with adjacent CSS Modules; preview rendering lives under `components/Preview/`, node bodies under `components/Canvas/bodies/`.
 - `src/codegen/` — normal sketches, generative-show controllers and SD-show players at the root; emitters grouped into `helpers/`, `displays/`, `peripherals/`, `player/`, `audio/` and `output/`; standalone diagnostic, provisioning and stream-receiver sketches in `sketches/`.
 - `src/utils/` — validation, project/share workflows, recording, layout, and upload helpers.
-- `backend/` — local FastAPI service for toolchains, compilation, serial streaming, disk sync, and upload.
+- `backend/` — local FastAPI helper: `app.py` holds the app and trust middleware; routers are `toolchain.py` (build engines), `firmware.py` (compile, upload, serial), `streaming.py`, `sd_card.py` and `storage.py` (saved patterns and projects).
 - `desktop/` — PyInstaller-based desktop packaging.
 - `docs/index.md` — routing index for detailed architecture, design, release, and reference documents.
 

@@ -194,7 +194,7 @@ describe('custom display firmware RAM', () => {
   })
 
   it('matches the heap reserved by the pinned build-helper configuration', () => {
-    const backend = readFileSync('backend/app.py', 'utf8')
+    const backend = readFileSync('backend/toolchain.py', 'utf8')
     const kib = Number(backend.match(/#define LV_MEM_SIZE \((\d+) \* 1024U\)/)?.[1])
     expect(kib * 1024).toBe(CUSTOM_DISPLAY_LVGL_HEAP_BYTES)
   })

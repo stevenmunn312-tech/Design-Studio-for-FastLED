@@ -12,7 +12,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
-import app as helper  # noqa: E402
+import firmware  # noqa: E402
+import toolchain  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("engine", choices=("arduino-cli", "fbuild"))
@@ -49,15 +50,15 @@ def drain(generator, log):
 with log_path.open("w", encoding="utf-8") as log:
     print(f"Compiling {args.sketch.name} for {args.fqbn} with {args.engine}; log: {log_path}", flush=True)
     if args.engine == "fbuild":
-        result = drain(helper._compile_upload_fbuild(f"{args.label.capitalize()} sensor smoke", ino, args.fqbn, "", 16), log)
-        sizes = helper._fbuild_size_bytes_report(lines)
+        result = drain(firmware._compile_upload_fbuild(f"{args.label.capitalize()} sensor smoke", ino, args.fqbn, "", 16), log)
+        sizes = firmware._fbuild_size_bytes_report(lines)
     else:
         board = "".join(ch for ch in args.fqbn.split(":")[2] if ch.isalnum())
         # Keep one stable path per board so arduino-cli can reuse its library
         # objects as the normal/show/player/no-sensor source changes.
-        with helper._sketch_workspace(f"{args.label}_smoke_{board}", ino) as workspace:
-            result = drain(helper._compile_upload(f"{args.label.capitalize()} sensor smoke", workspace, args.fqbn, ""), log)
-        sizes = helper._size_bytes_report(lines)
+        with firmware._sketch_workspace(f"{args.label}_smoke_{board}", ino) as workspace:
+            result = drain(firmware._compile_upload(f"{args.label.capitalize()} sensor smoke", workspace, args.fqbn, ""), log)
+        sizes = firmware._size_bytes_report(lines)
 
 report = {
     "engine": args.engine,
@@ -68,8 +69,8 @@ report = {
     "result": result,
     "toolchain": {
         "engine_version": command_text(
-            [helper._FBUILD_BIN, "--version"] if args.engine == "fbuild"
-            else [helper._ARDUINO_CLI, "version"]
+            [toolchain._FBUILD_BIN, "--version"] if args.engine == "fbuild"
+            else [toolchain._ARDUINO_CLI, "version"]
         ),
     },
     **sizes,

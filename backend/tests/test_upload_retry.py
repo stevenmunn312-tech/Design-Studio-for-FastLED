@@ -1,41 +1,42 @@
 """Upload retries must flash the previously compiled firmware without a build."""
 import pytest
 
-import app
+import firmware
+import toolchain
 
 
 @pytest.fixture(autouse=True)
 def clear_compiled_uploads():
-    app._compiled_uploads.clear()
+    firmware._compiled_uploads.clear()
     yield
-    app._compiled_uploads.clear()
+    firmware._compiled_uploads.clear()
 
 
 @pytest.mark.parametrize("engine", ["arduino-cli", "fbuild"])
 def test_failed_flash_retries_without_compiling(engine, tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "arduino-cli")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *args: "arduino_avr_uno")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args: "arduino_avr_uno")
 
     def phase(label, args, **kwargs):
         calls.append(args)
         yield f"=== {label} ===\n"
         return 1 if "upload" in args or "deploy" in args else 0
 
-    monkeypatch.setattr(app, "_run_phase", phase)
+    monkeypatch.setattr(toolchain, "_run_phase", phase)
     sketch = tmp_path / "sketch"
     sketch.mkdir()
     (sketch / "sketch.ino").write_text("void setup(){}", encoding="utf-8")
 
     def run(reuse=False, source="void setup(){}", fqbn="arduino:avr:uno"):
         if engine == "fbuild":
-            return app._drain_compile(app._compile_upload_fbuild(
+            return firmware._drain_compile(firmware._compile_upload_fbuild(
                 "Sketch", source, fqbn, "COM7", reuse_compiled=reuse))
         (sketch / "sketch.ino").write_text(source, encoding="utf-8")
-        return app._drain_compile(app._compile_upload(
+        return firmware._drain_compile(firmware._compile_upload(
             "Sketch", sketch, fqbn, "COM7", reuse_compiled=reuse))
 
     lines, result = run()
@@ -66,11 +67,11 @@ def test_failed_flash_retries_without_compiling(engine, tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("engine", ["arduino-cli", "fbuild"])
 def test_failed_compile_cannot_be_reused(engine, tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "arduino-cli")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *args: "arduino_avr_uno")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args: "arduino_avr_uno")
     calls = []
 
     def phase(label, args, **kwargs):
@@ -78,16 +79,16 @@ def test_failed_compile_cannot_be_reused(engine, tmp_path, monkeypatch):
         yield "compile error\n"
         return 1
 
-    monkeypatch.setattr(app, "_run_phase", phase)
+    monkeypatch.setattr(toolchain, "_run_phase", phase)
     sketch = tmp_path / "sketch"
     sketch.mkdir()
     (sketch / "sketch.ino").write_text("void setup(){}", encoding="utf-8")
 
     def run(reuse):
         if engine == "fbuild":
-            return app._drain_compile(app._compile_upload_fbuild(
+            return firmware._drain_compile(firmware._compile_upload_fbuild(
                 "Sketch", "void setup(){}", "arduino:avr:uno", "COM7", reuse_compiled=reuse))
-        return app._drain_compile(app._compile_upload(
+        return firmware._drain_compile(firmware._compile_upload(
             "Sketch", sketch, "arduino:avr:uno", "COM7", reuse_compiled=reuse))
 
     assert run(False)[1] == (1, "compile")

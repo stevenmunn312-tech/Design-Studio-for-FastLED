@@ -8,7 +8,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
-import app as helper  # noqa: E402
+import firmware  # noqa: E402
+import toolchain  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("engine", choices=("arduino-cli", "fbuild"))
@@ -51,8 +52,8 @@ def drain(generator, log):
 with log_path.open("w", encoding="utf-8") as log:
     print(f"Compiling {args.sketch.name} with {args.engine}; log: {log_path}", flush=True)
     if args.engine == "fbuild":
-        result = drain(helper._compile_upload_fbuild("Display smoke", ino, args.fqbn, "", 16), log)
-        sizes = helper._fbuild_size_bytes_report(lines)
+        result = drain(firmware._compile_upload_fbuild("Display smoke", ino, args.fqbn, "", 16), log)
+        sizes = firmware._fbuild_size_bytes_report(lines)
     else:
         # One serialized workspace per board reuses the library cache across
         # every fixture built for it. Keyed on the board, not on one stable
@@ -60,24 +61,24 @@ with log_path.open("w", encoding="utf-8") as log:
         # directory between an S3 and a classic ESP32 makes each run evict the
         # other's cores and rebuild all of FastLED.
         board = "".join(ch if ch.isalnum() else "_" for ch in args.fqbn.split(":")[2] if ch != ":")
-        with helper._sketch_workspace(f"display_smoke_{board or 'board'}", ino) as workspace:
-            result = drain(helper._compile_upload("Display smoke", workspace, args.fqbn, ""), log)
-        sizes = helper._size_bytes_report(lines)
+        with firmware._sketch_workspace(f"display_smoke_{board or 'board'}", ino) as workspace:
+            result = drain(firmware._compile_upload("Display smoke", workspace, args.fqbn, ""), log)
+        sizes = firmware._size_bytes_report(lines)
 toolchain = {
     "engine_version": command_text(
-        [helper._FBUILD_BIN, "--version"] if args.engine == "fbuild"
-        else [helper._ARDUINO_CLI, "version"]
+        [toolchain._FBUILD_BIN, "--version"] if args.engine == "fbuild"
+        else [toolchain._ARDUINO_CLI, "version"]
     ),
-    "lvgl_pin": helper._LVGL_VERSION,
-    "player_audio_pin": helper._PLAYER_AUDIO_VERSION,
+    "lvgl_pin": toolchain._LVGL_VERSION,
+    "player_audio_pin": toolchain._PLAYER_AUDIO_VERSION,
 }
 if args.engine == "arduino-cli":
-    toolchain["installed_cores"] = command_text([helper._ARDUINO_CLI, "core", "list"])
-    toolchain["installed_display_libraries"] = command_text([helper._ARDUINO_CLI, "lib", "list"])
+    toolchain["installed_cores"] = command_text([toolchain._ARDUINO_CLI, "core", "list"])
+    toolchain["installed_display_libraries"] = command_text([toolchain._ARDUINO_CLI, "lib", "list"])
 else:
-    toolchain["vendored_fastled_sha"] = git_revision(helper._FBUILD_LIB_DIR)
-    toolchain["vendored_lvgl_sha"] = git_revision(helper._FBUILD_LVGL_LIB_DIR)
-    toolchain["vendored_player_audio_sha"] = git_revision(helper._FBUILD_AUDIO_LIB_DIR)
+    toolchain["vendored_fastled_sha"] = git_revision(toolchain._FBUILD_LIB_DIR)
+    toolchain["vendored_lvgl_sha"] = git_revision(toolchain._FBUILD_LVGL_LIB_DIR)
+    toolchain["vendored_player_audio_sha"] = git_revision(toolchain._FBUILD_AUDIO_LIB_DIR)
 
 report = {
     "engine": args.engine, "sketch": args.sketch.name, "fqbn": args.fqbn,

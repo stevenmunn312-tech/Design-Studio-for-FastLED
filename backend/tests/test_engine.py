@@ -5,70 +5,72 @@ import stat
 import threading
 import time
 
+import firmware
+import toolchain
 import app
 
 
 def test_active_engine_prefers_arduino_cli_when_no_saved_preference(monkeypatch):
-    monkeypatch.setattr(app, "_load_config", lambda: {})
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert app._active_engine() == "arduino-cli"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    assert toolchain._active_engine() == "arduino-cli"
 
 
 def test_active_engine_falls_back_to_arduino_cli_when_fbuild_missing(monkeypatch):
-    monkeypatch.setattr(app, "_load_config", lambda: {})
-    monkeypatch.setattr(app, "_FBUILD_BIN", None)
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert app._active_engine() == "arduino-cli"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    assert toolchain._active_engine() == "arduino-cli"
 
 
 def test_active_engine_falls_back_to_fbuild_when_arduino_cli_missing(monkeypatch):
-    monkeypatch.setattr(app, "_load_config", lambda: {})
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ARDUINO_CLI", None)
-    assert app._active_engine() == "fbuild"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
+    assert toolchain._active_engine() == "fbuild"
 
 
 def test_active_engine_honours_saved_preference_when_available(monkeypatch):
-    monkeypatch.setattr(app, "_load_config", lambda: {"engine": "arduino-cli"})
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert app._active_engine() == "arduino-cli"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "arduino-cli"})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    assert toolchain._active_engine() == "arduino-cli"
 
 
 def test_active_engine_honours_explicit_fbuild_choice_when_available(monkeypatch):
-    monkeypatch.setattr(app, "_load_config", lambda: {"engine": "fbuild"})
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert app._active_engine() == "fbuild"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    assert toolchain._active_engine() == "fbuild"
 
 
 def test_active_engine_ignores_saved_preference_when_unavailable(monkeypatch):
     # Saved "fbuild" but fbuild isn't actually installed -> falls through to
     # the default logic rather than reporting an engine that can't run.
-    monkeypatch.setattr(app, "_load_config", lambda: {"engine": "fbuild"})
-    monkeypatch.setattr(app, "_FBUILD_BIN", None)
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    assert app._active_engine() == "arduino-cli"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    assert toolchain._active_engine() == "arduino-cli"
 
 
 def test_active_engine_returns_arduino_cli_when_neither_installed(monkeypatch):
-    monkeypatch.setattr(app, "_load_config", lambda: {})
-    monkeypatch.setattr(app, "_FBUILD_BIN", None)
-    monkeypatch.setattr(app, "_ARDUINO_CLI", None)
-    assert app._active_engine() == "arduino-cli"
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
+    assert toolchain._active_engine() == "arduino-cli"
 
 
 def test_find_interpreter_esptool_uses_python_scripts_directory(tmp_path, monkeypatch):
     scripts = tmp_path / "Scripts"
     scripts.mkdir()
-    executable = scripts / ("esptool.exe" if app.os.name == "nt" else "esptool")
+    executable = scripts / ("esptool.exe" if toolchain.os.name == "nt" else "esptool")
     executable.write_bytes(b"tool")
-    monkeypatch.setattr(app.sysconfig, "get_path", lambda name: str(scripts))
-    monkeypatch.setattr(app.sys, "executable", str(tmp_path / "python"))
-    monkeypatch.delattr(app.sys, "frozen", raising=False)
+    monkeypatch.setattr(toolchain.sysconfig, "get_path", lambda name: str(scripts))
+    monkeypatch.setattr(toolchain.sys, "executable", str(tmp_path / "python"))
+    monkeypatch.delattr(toolchain.sys, "frozen", raising=False)
 
-    assert app._find_interpreter_esptool() == str(executable)
+    assert toolchain._find_interpreter_esptool() == str(executable)
 
 
 def test_find_interpreter_esptool_uses_frozen_tools_directory(tmp_path, monkeypatch):
@@ -76,7 +78,7 @@ def test_find_interpreter_esptool_uses_frozen_tools_directory(tmp_path, monkeypa
     # launcher. A requirements.txt install puts the console script in the
     # interpreter's scripts directory instead. Either layout must resolve,
     # or every ESP32 fbuild deploy reports the tool as missing.
-    executable_name = "esptool.exe" if app.os.name == "nt" else "esptool"
+    executable_name = "esptool.exe" if toolchain.os.name == "nt" else "esptool"
     app_dir = tmp_path / "Design Studio for FastLED"
     tools = app_dir / "tools"
     tools.mkdir(parents=True)
@@ -84,28 +86,28 @@ def test_find_interpreter_esptool_uses_frozen_tools_directory(tmp_path, monkeypa
     bundled.write_bytes(b"tool")
     scripts = tmp_path / "empty-scripts"
     scripts.mkdir()
-    monkeypatch.setattr(app.sysconfig, "get_path", lambda name: str(scripts))
-    monkeypatch.setattr(app.sys, "executable", str(app_dir / "Design Studio for FastLED.exe"))
-    monkeypatch.setattr(app.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(toolchain.sysconfig, "get_path", lambda name: str(scripts))
+    monkeypatch.setattr(toolchain.sys, "executable", str(app_dir / "Design Studio for FastLED.exe"))
+    monkeypatch.setattr(toolchain.sys, "frozen", True, raising=False)
 
-    assert app._find_interpreter_esptool() == str(bundled)
+    assert toolchain._find_interpreter_esptool() == str(bundled)
 
 
 def test_parse_fqbn_splits_base_and_psram_option():
-    assert app._parse_fqbn("esp32:esp32:esp32s3") == ("esp32:esp32:esp32s3", None)
-    assert app._parse_fqbn("esp32:esp32:esp32s3:PSRAM=opi") == ("esp32:esp32:esp32s3", "opi")
-    assert app._parse_fqbn("esp32:esp32:esp32s3:PSRAM=enabled") == ("esp32:esp32:esp32s3", "qspi")
-    assert app._parse_fqbn("arduino:avr:uno") == ("arduino:avr:uno", None)
+    assert toolchain._parse_fqbn("esp32:esp32:esp32s3") == ("esp32:esp32:esp32s3", None)
+    assert toolchain._parse_fqbn("esp32:esp32:esp32s3:PSRAM=opi") == ("esp32:esp32:esp32s3", "opi")
+    assert toolchain._parse_fqbn("esp32:esp32:esp32s3:PSRAM=enabled") == ("esp32:esp32:esp32s3", "qspi")
+    assert toolchain._parse_fqbn("arduino:avr:uno") == ("arduino:avr:uno", None)
 
 
 def test_parse_fqbn_ignores_unknown_menu_option():
-    base, psram = app._parse_fqbn("esp32:esp32:esp32s3:CPUFreq=240")
+    base, psram = toolchain._parse_fqbn("esp32:esp32:esp32s3:CPUFreq=240")
     assert base == "esp32:esp32:esp32s3"
     assert psram is None
 
 
 def test_arduino_fqbn_resolves_the_n16r8_physical_partition():
-    assert app._arduino_fqbn(
+    assert toolchain._arduino_fqbn(
         "esp32:esp32:esp32s3:PSRAM=opi", 16,
     ) == (
         "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,"
@@ -114,7 +116,7 @@ def test_arduino_fqbn_resolves_the_n16r8_physical_partition():
 
 
 def test_arduino_fqbn_replaces_stale_physical_options_without_duplicates():
-    assert app._arduino_fqbn(
+    assert toolchain._arduino_fqbn(
         "esp32:esp32:esp32s3:FlashSize=4M,PartitionScheme=default,PSRAM=opi",
         16,
         True,
@@ -126,47 +128,47 @@ def test_arduino_fqbn_replaces_stale_physical_options_without_duplicates():
 
 def test_arduino_fqbn_does_not_invent_flash_for_an_unknown_board():
     fqbn = "someone:elses:board:PSRAM=opi"
-    assert app._arduino_fqbn(fqbn, 16, True) == fqbn
+    assert toolchain._arduino_fqbn(fqbn, 16, True) == fqbn
 
 
 def test_fbuild_keeps_psram_with_multiple_board_menu_options():
     for options in ("PSRAM=opi,FlashSize=16M", "FlashSize=16M,PSRAM=opi,CPUFreq=240"):
-        assert app._fbuild_env_for_fqbn(f"esp32:esp32:esp32s3:{options}", 16) == "esp32_esp32_esp32s3_opi"
-    assert app._parse_fqbn("esp32:esp32:esp32s3:Unrelated=opi")[1] is None
+        assert toolchain._fbuild_env_for_fqbn(f"esp32:esp32:esp32s3:{options}", 16) == "esp32_esp32_esp32s3_opi"
+    assert toolchain._parse_fqbn("esp32:esp32:esp32s3:Unrelated=opi")[1] is None
 
 
 def test_env_id_slugifies_and_suffixes():
-    assert app._env_id("esp32:esp32:esp32s3") == "esp32_esp32_esp32s3"
-    assert app._env_id("esp32:esp32:esp32s3", "opi") == "esp32_esp32_esp32s3_opi"
+    assert toolchain._env_id("esp32:esp32:esp32s3") == "esp32_esp32_esp32s3"
+    assert toolchain._env_id("esp32:esp32:esp32s3", "opi") == "esp32_esp32_esp32s3_opi"
 
 
 def test_fbuild_env_for_fqbn_known_board_with_psram():
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi") == "esp32_esp32_esp32s3_opi"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi") == "esp32_esp32_esp32s3_opi"
 
 
 def test_fbuild_env_for_fqbn_unknown_board_returns_none():
-    assert app._fbuild_env_for_fqbn("someone:elses:board") is None
+    assert toolchain._fbuild_env_for_fqbn("someone:elses:board") is None
 
 
 def test_fbuild_env_for_fqbn_drops_unsupported_psram_option():
     # esp32:esp32:esp32 only maps "qspi", not "opi" -> build without PSRAM
     # rather than fail outright.
-    env = app._fbuild_env_for_fqbn("esp32:esp32:esp32:PSRAM=opi")
+    env = toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32:PSRAM=opi")
     assert env == "esp32_esp32_esp32"
 
 
 def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, monkeypatch):
     ini_path = tmp_path / "platformio.ini"
-    monkeypatch.setattr(app, "_FBUILD_INI_PATH", ini_path)
+    monkeypatch.setattr(toolchain, "_FBUILD_INI_PATH", ini_path)
 
-    app._write_fbuild_ini()
+    toolchain._write_fbuild_ini()
     text = ini_path.read_text(encoding="utf-8")
 
-    for base_fqbn, meta in app._PIO_BOARDS.items():
-        assert f"[env:{app._env_id(base_fqbn)}]" in text
+    for base_fqbn, meta in toolchain._PIO_BOARDS.items():
+        assert f"[env:{toolchain._env_id(base_fqbn)}]" in text
         assert f"board = {meta['board']}" in text
         for psram_id in meta.get("psram_memory_type", {}):
-            assert f"[env:{app._env_id(base_fqbn, psram_id)}]" in text
+            assert f"[env:{toolchain._env_id(base_fqbn, psram_id)}]" in text
 
     # ESP32 boards get the CORE_DEBUG_LEVEL workaround; non-espressif boards don't.
     assert "-DCORE_DEBUG_LEVEL=0" in text
@@ -200,7 +202,7 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
 
 def test_patch_fastled_samd51_disables_unused_generic_i2s_backend(tmp_path, monkeypatch):
     lib_dir = tmp_path / "FastLED"
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_dir)
     audio = lib_dir / "src" / "fl" / "audio" / "audio_input.cpp.hpp"
     audio.parent.mkdir(parents=True)
     audio.write_text(
@@ -221,8 +223,8 @@ def test_patch_fastled_samd51_disables_unused_generic_i2s_backend(tmp_path, monk
         encoding="utf-8",
     )
 
-    app._patch_fastled_samd51_build()
-    app._patch_fastled_samd51_build()  # idempotent
+    toolchain._patch_fastled_samd51_build()
+    toolchain._patch_fastled_samd51_build()  # idempotent
 
     patched = audio.read_text(encoding="utf-8")
     assert patched.count("defined(FL_IS_SAMD51)") == 1
@@ -236,7 +238,7 @@ def test_patch_fastled_samd51_disables_unused_generic_i2s_backend(tmp_path, monk
 
 def test_patch_fastled_samd51_honours_software_spi_selection(tmp_path, monkeypatch):
     lib_dir = tmp_path / "FastLED"
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_dir)
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_dir)
     for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
         dispatcher = lib_dir / "src" / relative
         dispatcher.parent.mkdir(parents=True, exist_ok=True)
@@ -245,8 +247,8 @@ def test_patch_fastled_samd51_honours_software_spi_selection(tmp_path, monkeypat
             encoding="utf-8",
         )
 
-    app._patch_fastled_samd51_build()
-    app._patch_fastled_samd51_build()
+    toolchain._patch_fastled_samd51_build()
+    toolchain._patch_fastled_samd51_build()
 
     for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
         patched = (lib_dir / "src" / relative).read_text(encoding="utf-8")
@@ -254,7 +256,7 @@ def test_patch_fastled_samd51_honours_software_spi_selection(tmp_path, monkeypat
 
 
 def test_fbuild_size_report_keeps_sane_ram_percentage():
-    report = app._fbuild_size_report([
+    report = firmware._fbuild_size_report([
         "Flash: 4.45KB / 31.50KB (14.1%)\n",
         "RAM:   367 bytes / 2.00KB (17.9%)\n",
     ])
@@ -267,7 +269,7 @@ def test_fbuild_size_report_keeps_an_over_100_percent_reading():
     # sections that were not the board's SRAM (fixed upstream in 2.5.17). The
     # discard hid the worse case: fbuild reports "build succeeded" for an AVR
     # image at 2059.8% of RAM, and the percentage is the only evidence there is.
-    report = app._fbuild_size_report([
+    report = firmware._fbuild_size_report([
         "Flash: 665.41KB / 8.00MB (8.1%)\n",
         "RAM:   1.28MB / 320.00KB (409.2%)\n",
         "build succeeded in 150.2s (flash: 681375 bytes, ram: 1340869 bytes)\n",
@@ -277,15 +279,15 @@ def test_fbuild_size_report_keeps_an_over_100_percent_reading():
 
 
 def test_over_capacity_names_each_metric_past_its_limit():
-    assert app._over_capacity({"flash": 135, "ram": 2059}) == ["flash", "ram"]
-    assert app._over_capacity({"flash": 8, "ram": 409}) == ["ram"]
-    assert app._over_capacity({"flash": 98, "ram": 87}) == []
+    assert firmware._over_capacity({"flash": 135, "ram": 2059}) == ["flash", "ram"]
+    assert firmware._over_capacity({"flash": 8, "ram": 409}) == ["ram"]
+    assert firmware._over_capacity({"flash": 98, "ram": 87}) == []
     # A metric fbuild did not report cannot be over its limit.
-    assert app._over_capacity({"flash": None, "ram": None}) == []
+    assert firmware._over_capacity({"flash": None, "ram": None}) == []
 
 
 def test_size_bytes_report_extracts_used_limit_and_percent():
-    report = app._size_bytes_report([
+    report = firmware._size_bytes_report([
         "Sketch uses 25972 bytes (10%) of program storage space. Maximum is 253952 bytes.\n",
         "Global variables use 1568 bytes (19%) of dynamic memory, leaving 6624 bytes for "
         "local variables. Maximum is 8192 bytes.\n",
@@ -296,11 +298,11 @@ def test_size_bytes_report_extracts_used_limit_and_percent():
 
 
 def test_size_bytes_report_returns_none_for_missing_lines():
-    assert app._size_bytes_report(["Compiling sketch...\n"]) == {"flash": None, "ram": None}
+    assert firmware._size_bytes_report(["Compiling sketch...\n"]) == {"flash": None, "ram": None}
 
 
 def test_size_bytes_report_understands_esp8266_segment_totals():
-    report = app._size_bytes_report([
+    report = firmware._size_bytes_report([
         ". Variables and constants in RAM (global, static), used 38956 / 80192 bytes (48%)\n",
         ". Instruction RAM (IRAM_ATTR, ICACHE_RAM_ATTR), used 60519 / 65536 bytes (92%)\n",
         ". Code in flash (default, ICACHE_FLASH_ATTR), used 255936 / 1048576 bytes (24%)\n",
@@ -311,7 +313,7 @@ def test_size_bytes_report_understands_esp8266_segment_totals():
 
 
 def test_fbuild_size_bytes_report_converts_units_to_bytes():
-    report = app._fbuild_size_bytes_report([
+    report = firmware._fbuild_size_bytes_report([
         "Flash: 4.45KB / 31.50KB (14.1%)\n",
         "RAM:   367 bytes / 2.00KB (17.9%)\n",
     ])
@@ -321,7 +323,7 @@ def test_fbuild_size_bytes_report_converts_units_to_bytes():
 
 
 def test_fbuild_size_bytes_report_keeps_an_over_100_percent_reading():
-    report = app._fbuild_size_bytes_report([
+    report = firmware._fbuild_size_bytes_report([
         "Flash: 665.41KB / 8.00MB (8.1%)\n",
         "RAM:   1.28MB / 320.00KB (409.2%)\n",
     ])
@@ -341,7 +343,7 @@ _REAL_DRAM_OVERFLOW_LOG = [
 
 
 def test_overflow_message_names_ram_region_bytes_and_ram_remedies():
-    message = app._overflow_message("esp32:esp32:esp32", [
+    message = firmware._overflow_message("esp32:esp32:esp32", [
         "ld.exe: region `dram0_0_seg' overflowed by 22496 bytes\n",
     ])
 
@@ -354,7 +356,7 @@ def test_overflow_message_names_ram_region_bytes_and_ram_remedies():
 
 
 def test_overflow_message_names_flash_region_bytes_and_flash_remedies():
-    message = app._overflow_message("arduino:avr:uno", [
+    message = firmware._overflow_message("arduino:avr:uno", [
         "ld.exe: region `text' overflowed by 7,052 bytes\n",
     ])
 
@@ -365,7 +367,7 @@ def test_overflow_message_names_flash_region_bytes_and_flash_remedies():
 
 
 def test_overflow_message_keeps_only_largest_repeat_for_each_region():
-    message = app._overflow_message("test:board", [
+    message = firmware._overflow_message("test:board", [
         "region `dram0_0_seg' overflowed by 100 bytes\n",
         "region `dram0_0_seg' overflowed by 500 bytes\n",
         "region `iram0_0_seg' overflowed by 25 bytes\n",
@@ -381,7 +383,7 @@ def test_arduino_cli_compile_uses_region_specific_overflow_message(tmp_path, mon
     sketch = tmp_path / "sketch"
     sketch.mkdir()
     (sketch / "sketch.ino").write_text("void setup() {}\n", encoding="utf-8")
-    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
+    monkeypatch.setattr(toolchain, "_ARDUINO_BASE", ["arduino-cli"])
 
     def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
         line = "ld.exe: region `dram0_0_seg' overflowed by 22496 bytes\n"
@@ -390,9 +392,9 @@ def test_arduino_cli_compile_uses_region_specific_overflow_message(tmp_path, mon
         yield line
         return 1
 
-    monkeypatch.setattr(app, "_run_phase", fake_phase)
-    lines, result = app._drain_compile(
-        app._compile_upload("Sketch", sketch, "esp32:esp32:esp32", "")
+    monkeypatch.setattr(toolchain, "_run_phase", fake_phase)
+    lines, result = firmware._drain_compile(
+        firmware._compile_upload("Sketch", sketch, "esp32:esp32:esp32", "")
     )
     message = "".join(lines)
 
@@ -403,7 +405,7 @@ def test_arduino_cli_compile_uses_region_specific_overflow_message(tmp_path, mon
 
 
 def test_fbuild_overflow_estimate_computes_percentage_from_real_ld_output():
-    result = app._fbuild_overflow_estimate(_REAL_DRAM_OVERFLOW_LOG)
+    result = firmware._fbuild_overflow_estimate(_REAL_DRAM_OVERFLOW_LOG)
 
     ram_max = 320 * 1024
     assert result["ram"] == {
@@ -415,7 +417,7 @@ def test_fbuild_overflow_estimate_computes_percentage_from_real_ld_output():
 
 
 def test_fbuild_overflow_estimate_attributes_a_text_region_to_flash():
-    result = app._fbuild_overflow_estimate([
+    result = firmware._fbuild_overflow_estimate([
         "Memory: 31.50KB Flash, 2.00KB RAM\n",
         "ld.exe: region `text' overflowed by 7052 bytes\n",
     ])
@@ -430,12 +432,12 @@ def test_fbuild_overflow_estimate_attributes_a_text_region_to_flash():
 
 
 def test_fbuild_overflow_estimate_returns_none_without_a_memory_line():
-    result = app._fbuild_overflow_estimate(["region `dram0_0_seg' overflowed by 100 bytes\n"])
+    result = firmware._fbuild_overflow_estimate(["region `dram0_0_seg' overflowed by 100 bytes\n"])
     assert result == {"flash": None, "ram": None}
 
 
 def test_fbuild_overflow_estimate_keeps_the_larger_repeated_overflow():
-    result = app._fbuild_overflow_estimate([
+    result = firmware._fbuild_overflow_estimate([
         "Memory: 8.00MB Flash, 320.00KB RAM\n",
         "region `dram0_0_seg' overflowed by 100 bytes\n",
         "region `dram0_0_seg' overflowed by 500 bytes\n",
@@ -451,9 +453,9 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
     # reports success with no parseable size line, or a spurious failure a
     # caller could misread as a capacity overflow. `_fbuild_build_lock` must
     # keep every real build fully serialized.
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
 
     active = 0
     max_active = 0
@@ -472,10 +474,10 @@ def test_compile_upload_fbuild_serializes_concurrent_builds(monkeypatch):
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
     def run():
-        list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+        list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
 
     threads = [threading.Thread(target=run) for _ in range(4)]
     for t in threads:
@@ -492,13 +494,13 @@ def test_compile_upload_fbuild_fails_fast_when_lock_is_wedged(monkeypatch):
     # silently starved every later build/upload/capacity-check request forever
     # — the UI just showed "Starting…" indefinitely with zero output and no
     # error. A bounded acquire must fail fast with a clear message instead.
-    monkeypatch.setattr(app, "_FBUILD_LOCK_TIMEOUT_S", 0.05)
-    monkeypatch.setattr(app, "_FBUILD_LOCK_STALE_S", 60)  # not old enough to reclaim
-    held = app._fbuild_build_lock.acquire(1, 60)  # simulate another build already wedged
+    monkeypatch.setattr(toolchain, "_FBUILD_LOCK_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(toolchain, "_FBUILD_LOCK_STALE_S", 60)  # not old enough to reclaim
+    held = toolchain._fbuild_build_lock.acquire(1, 60)  # simulate another build already wedged
     try:
-        lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+        lines = list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
     finally:
-        app._fbuild_build_lock.release(held)
+        toolchain._fbuild_build_lock.release(held)
 
     log = "".join(lines)
     assert "still running" in log
@@ -511,14 +513,14 @@ def test_compile_upload_fbuild_narrates_the_wait_for_a_busy_build_directory(monk
     # another one used to emit nothing at all until it either got the lock or
     # timed out - the Upload button sat on "Starting..." for three minutes with
     # no way to tell queued from compiling from wedged.
-    monkeypatch.setattr(app, "_FBUILD_LOCK_TIMEOUT_S", 0.2)
-    monkeypatch.setattr(app, "_FBUILD_LOCK_POLL_S", 0.05)
-    monkeypatch.setattr(app, "_FBUILD_LOCK_STALE_S", 60)  # not old enough to reclaim
-    held = app._fbuild_build_lock.acquire(1, 60)
+    monkeypatch.setattr(toolchain, "_FBUILD_LOCK_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(toolchain, "_FBUILD_LOCK_POLL_S", 0.05)
+    monkeypatch.setattr(toolchain, "_FBUILD_LOCK_STALE_S", 60)  # not old enough to reclaim
+    held = toolchain._fbuild_build_lock.acquire(1, 60)
     try:
-        lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+        lines = list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
     finally:
-        app._fbuild_build_lock.release(held)
+        toolchain._fbuild_build_lock.release(held)
 
     log = "".join(lines)
     assert "[waiting]" in log
@@ -529,10 +531,10 @@ def test_compile_upload_fbuild_narrates_the_wait_for_a_busy_build_directory(monk
 def test_compile_upload_fbuild_does_not_narrate_a_wait_it_never_had(monkeypatch):
     # An uncontended build is the common case and must stay silent about the
     # lock - a "queued" line on every upload would be noise that means nothing.
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: None)
 
-    log = "".join(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
+    log = "".join(firmware._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
     assert "[waiting]" not in log
 
 
@@ -540,26 +542,26 @@ def test_compile_upload_fbuild_releases_lock_after_a_failed_build(monkeypatch):
     # The lock must release on every return path (bad fqbn, failed compile,
     # successful compile-only, successful upload) or a single failed build
     # would itself become the next "wedged lock" case above.
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: None)
 
-    list(app._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
+    list(firmware._compile_upload_fbuild("Test", "void setup(){}", "someone:elses:board", ""))
 
-    token = app._fbuild_build_lock.acquire(1, 60)
+    token = toolchain._fbuild_build_lock.acquire(1, 60)
     assert token is not None
-    app._fbuild_build_lock.release(token)
+    toolchain._fbuild_build_lock.release(token)
 
 
 def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monkeypatch):
     # HUB75 (docs/design/hub75-output.md) is vendored lazily, same
     # as ESP32-audioI2S/esp_dmx: only sketches that actually include the DMA
     # library's header should trigger the vendor-clone.
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
 
     calls = []
-    monkeypatch.setattr(app, "_ensure_fbuild_hub75_lib", lambda: calls.append(1) or iter(()))
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_hub75_lib", lambda: calls.append(1) or iter(()))
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if sink is not None:
@@ -567,23 +569,23 @@ def test_compile_upload_fbuild_vendors_hub75_lib_only_when_sketch_needs_it(monke
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
     assert calls == []
 
-    list(app._compile_upload_fbuild(
+    list(firmware._compile_upload_fbuild(
         "Test", '#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>\nvoid setup(){}', "esp32:esp32:esp32s3", "",
     ))
     assert calls == [1]
 
 
 def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatch):
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
     calls = []
-    monkeypatch.setattr(app, "_ensure_fbuild_lvgl_lib", lambda ino="": calls.append(ino) or iter(()))
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_lvgl_lib", lambda ino="": calls.append(ino) or iter(()))
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if sink is not None:
@@ -591,12 +593,12 @@ def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatc
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", ""))
     assert calls == []
 
-    list(app._compile_upload_fbuild(
+    list(firmware._compile_upload_fbuild(
         "Test", "#include <lvgl.h>\nvoid setup(){}", "esp32:esp32:esp32s3", "",
     ))
     assert calls == ["#include <lvgl.h>\nvoid setup(){}"]
@@ -604,47 +606,47 @@ def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatc
 
 def test_compile_only_player_vendors_audio_before_writing_source(monkeypatch):
     calls = []
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", lambda: calls.append("audio") or iter(()))
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: calls.append("source"))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *args: "esp32_esp32_esp32s3_opi")
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_audio_lib", lambda: calls.append("audio") or iter(()))
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: calls.append("source"))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args: "esp32_esp32_esp32s3_opi")
 
     def fake_run_phase(*args, **kwargs):
         yield "Flash: 1.00KB / 10.00KB (10.0%)\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
-    list(app._compile_upload_fbuild("Capacity check", "void setup(){}", "esp32:esp32:esp32s3", ""))
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
+    list(firmware._compile_upload_fbuild("Capacity check", "void setup(){}", "esp32:esp32:esp32s3", ""))
     assert calls == ["source"]
     calls.clear()
-    list(app._compile_upload_fbuild("Capacity check", "#include <Audio.h>\nvoid setup(){}", "esp32:esp32:esp32s3:PSRAM=opi", ""))
+    list(firmware._compile_upload_fbuild("Capacity check", "#include <Audio.h>\nvoid setup(){}", "esp32:esp32:esp32s3:PSRAM=opi", ""))
     assert calls == ["audio", "source"]
 
 
 def test_fbuild_lvgl_vendor_is_exactly_pinned_and_writes_config(tmp_path, monkeypatch):
     library = tmp_path / "lib" / "lvgl"
     config = tmp_path / "lib" / "lv_conf.h"
-    monkeypatch.setattr(app, "_FBUILD_LVGL_LIB_DIR", library)
-    monkeypatch.setattr(app, "_FBUILD_LV_CONF_PATH", config)
-    monkeypatch.setattr(app, "_fbuild_lvgl_lib_ready", False)
+    monkeypatch.setattr(toolchain, "_FBUILD_LVGL_LIB_DIR", library)
+    monkeypatch.setattr(toolchain, "_FBUILD_LV_CONF_PATH", config)
+    monkeypatch.setattr(toolchain, "_fbuild_lvgl_lib_ready", False)
     calls = []
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         calls.append(args)
         library.mkdir(parents=True)
         (library / "library.properties").write_text(
-            f"name=lvgl\nversion={app._LVGL_VERSION}\n", encoding="utf-8",
+            f"name=lvgl\nversion={toolchain._LVGL_VERSION}\n", encoding="utf-8",
         )
         (library / "lvgl.h").write_text("// public API\n", encoding="utf-8")
         yield "cloned\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    assert "cloned\n" in list(app._ensure_fbuild_lvgl_lib())
-    assert calls[0][calls[0].index("--branch") + 1] == f"v{app._LVGL_VERSION}"
-    assert config.read_text(encoding="utf-8") == app._LV_CONF_TEXT
+    assert "cloned\n" in list(toolchain._ensure_fbuild_lvgl_lib())
+    assert calls[0][calls[0].index("--branch") + 1] == f"v{toolchain._LVGL_VERSION}"
+    assert config.read_text(encoding="utf-8") == toolchain._LV_CONF_TEXT
 
 
 def test_fbuild_lvgl_vendor_replaces_wrong_or_incomplete_cache(tmp_path, monkeypatch):
@@ -653,29 +655,29 @@ def test_fbuild_lvgl_vendor_replaces_wrong_or_incomplete_cache(tmp_path, monkeyp
     (library / "library.properties").write_text("name=lvgl\nversion=9.4.0\n", encoding="utf-8")
     stale = library / "stale.txt"
     stale.write_text("old checkout", encoding="utf-8")
-    monkeypatch.setattr(app, "_FBUILD_LVGL_LIB_DIR", library)
-    monkeypatch.setattr(app, "_FBUILD_LV_CONF_PATH", tmp_path / "lib" / "lv_conf.h")
-    monkeypatch.setattr(app, "_fbuild_lvgl_lib_ready", False)
+    monkeypatch.setattr(toolchain, "_FBUILD_LVGL_LIB_DIR", library)
+    monkeypatch.setattr(toolchain, "_FBUILD_LV_CONF_PATH", tmp_path / "lib" / "lv_conf.h")
+    monkeypatch.setattr(toolchain, "_fbuild_lvgl_lib_ready", False)
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         assert not stale.exists()
         library.mkdir(parents=True)
         (library / "library.properties").write_text(
-            f"name=lvgl\nversion={app._LVGL_VERSION}\n", encoding="utf-8",
+            f"name=lvgl\nversion={toolchain._LVGL_VERSION}\n", encoding="utf-8",
         )
         (library / "lvgl.h").write_text("// public API\n", encoding="utf-8")
         yield "cloned\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    list(app._ensure_fbuild_lvgl_lib())
-    assert app._lvgl_checkout_matches_pin(library)
+    list(toolchain._ensure_fbuild_lvgl_lib())
+    assert toolchain._lvgl_checkout_matches_pin(library)
 
 
 def test_arduino_cli_lvgl_install_is_pinned_and_cached(monkeypatch):
-    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
-    monkeypatch.setattr(app, "_arduino_lvgl_lib_ready", False)
+    monkeypatch.setattr(toolchain, "_ARDUINO_BASE", ["arduino-cli"])
+    monkeypatch.setattr(toolchain, "_arduino_lvgl_lib_ready", False)
     calls = []
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
@@ -683,18 +685,18 @@ def test_arduino_cli_lvgl_install_is_pinned_and_cached(monkeypatch):
         yield "installed\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    assert list(app._ensure_arduino_lvgl_lib()) == ["installed\n"]
+    assert list(toolchain._ensure_arduino_lvgl_lib()) == ["installed\n"]
     assert calls == [[
-        "arduino-cli", "lib", "install", f"lvgl@{app._LVGL_VERSION}", "--no-deps",
+        "arduino-cli", "lib", "install", f"lvgl@{toolchain._LVGL_VERSION}", "--no-deps",
     ]]
-    assert list(app._ensure_arduino_lvgl_lib()) == []
+    assert list(toolchain._ensure_arduino_lvgl_lib()) == []
     assert len(calls) == 1
 
 
 def test_arduino_cli_compile_activates_lv_conf_only_for_lvgl(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
+    monkeypatch.setattr(toolchain, "_ARDUINO_BASE", ["arduino-cli"])
     installed = []
 
     def fake_install():
@@ -712,21 +714,21 @@ def test_arduino_cli_compile_activates_lv_conf_only_for_lvgl(tmp_path, monkeypat
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_ensure_arduino_lvgl_lib", fake_install)
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_ensure_arduino_lvgl_lib", fake_install)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
     ordinary = tmp_path / "ordinary"
     ordinary.mkdir()
     (ordinary / "ordinary.ino").write_text("void setup() {}\n", encoding="utf-8")
-    list(app._compile_upload("Test", ordinary, "esp32:esp32:esp32s3", ""))
+    list(firmware._compile_upload("Test", ordinary, "esp32:esp32:esp32s3", ""))
     assert installed == []
     assert not any("LV_CONF_INCLUDE_SIMPLE" in arg for arg in calls[-1])
 
     custom = tmp_path / "custom"
     custom.mkdir()
     (custom / "custom.ino").write_text("#include <lvgl.h>\nvoid setup() {}\n", encoding="utf-8")
-    (custom / "lv_conf.h").write_text(app._LV_CONF_TEXT, encoding="utf-8")
-    list(app._compile_upload("Test", custom, "esp32:esp32:esp32s3", ""))
+    (custom / "lv_conf.h").write_text(toolchain._LV_CONF_TEXT, encoding="utf-8")
+    list(firmware._compile_upload("Test", custom, "esp32:esp32:esp32s3", ""))
     assert installed == [True]
     lv_conf_flags = [arg for arg in calls[-1] if "LV_CONF_INCLUDE_SIMPLE" in arg]
     assert lv_conf_flags == [
@@ -748,9 +750,9 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
         path.mkdir(parents=True)
         (path / "sentinel.txt").write_text(path.name, encoding="utf-8")
 
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
-    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
-    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_root / "FastLED")
+    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
+    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIBRARIES", (
         (audio, ("#include <Audio.h>",)),
         (dmx, ("#include <esp_dmx.h>",)),
         (zero_i2s, ("#include <Adafruit_ZeroI2S.h>",)),
@@ -759,7 +761,7 @@ def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_pa
         (irremote, ("#include <IRremote.hpp>",)),
     ))
 
-    with app._fbuild_libraries_for_sketch("#include <Adafruit_ZeroI2S.h>"):
+    with toolchain._fbuild_libraries_for_sketch("#include <Adafruit_ZeroI2S.h>"):
         assert not audio.exists()
         assert not dmx.exists()
         assert zero_i2s.exists()
@@ -777,14 +779,14 @@ def test_fbuild_libraries_for_sketch_restores_hidden_libs_after_failure(tmp_path
     stash = tmp_path / ".optional-libs"
     audio = lib_root / "ESP32-audioI2S"
     audio.mkdir(parents=True)
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
-    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
-    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_root / "FastLED")
+    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
+    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIBRARIES", (
         (audio, ("#include <Audio.h>",)),
     ))
 
     try:
-        with app._fbuild_libraries_for_sketch("void setup(){}"):
+        with toolchain._fbuild_libraries_for_sketch("void setup(){}"):
             assert not audio.exists()
             raise RuntimeError("build failed")
     except RuntimeError:
@@ -801,13 +803,13 @@ def test_restore_stranded_fbuild_optional_libraries_recovers_interrupted_move(tm
     staged = stash / audio.name
     staged.mkdir(parents=True)
     (staged / "sentinel.txt").write_text("cached", encoding="utf-8")
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib_root / "FastLED")
-    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
-    monkeypatch.setattr(app, "_FBUILD_OPTIONAL_LIBRARIES", (
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_root / "FastLED")
+    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
+    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIBRARIES", (
         (audio, ("#include <Audio.h>",)),
     ))
 
-    app._restore_stranded_fbuild_optional_libraries()
+    toolchain._restore_stranded_fbuild_optional_libraries()
 
     assert (audio / "sentinel.txt").read_text(encoding="utf-8") == "cached"
     assert not stash.exists()
@@ -818,9 +820,9 @@ def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(mo
     # of fbuild 2.5.4: "deployer for Espressif8266 not yet implemented"). A
     # bare failure there reads as "upload broken" when it's really "wrong
     # engine for this board" — point at the engine that actually works.
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp8266_esp8266_nodemcuv2")
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp8266_esp8266_nodemcuv2")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if "deploy" in args:
@@ -834,9 +836,9 @@ def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(mo
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp8266:esp8266:nodemcuv2", "COM6"))
+    lines = list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp8266:esp8266:nodemcuv2", "COM6"))
 
     assert any("Switch to the arduino-cli engine and try again" in line for line in lines)
 
@@ -845,9 +847,9 @@ def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch
     # The engine-gap hint is specific to the "not yet implemented" deployer
     # gap — an unrelated upload failure (board unplugged, wrong port, ...)
     # shouldn't get a misleading "switch engines" suggestion.
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if "deploy" in args:
@@ -861,9 +863,9 @@ def test_compile_upload_fbuild_stays_silent_on_other_upload_failures(monkeypatch
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    lines = list(app._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"))
+    lines = list(firmware._compile_upload_fbuild("Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"))
 
     assert not any("arduino-cli" in line for line in lines)
 
@@ -875,16 +877,16 @@ def test_compile_upload_fbuild_esp32_binds_slow_esptool_experiment(tmp_path, mon
     prepend is enough to bind its bare ``esptool`` spawn without duplicating
     fbuild's board-specific flash layout in this helper.
     """
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
     monkeypatch.setattr(
-        app,
+        toolchain,
         "_fbuild_env_for_fqbn",
         lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3",
     )
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
     scripts = tmp_path / "python-scripts"
-    esptool = scripts / ("esptool.exe" if app.os.name == "nt" else "esptool")
-    monkeypatch.setattr(app, "_ESPTOOL_BIN", str(esptool))
+    esptool = scripts / ("esptool.exe" if toolchain.os.name == "nt" else "esptool")
+    monkeypatch.setattr(toolchain, "_ESPTOOL_BIN", str(esptool))
     deploy_calls = []
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
@@ -895,10 +897,10 @@ def test_compile_upload_fbuild_esp32_binds_slow_esptool_experiment(tmp_path, mon
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
     lines = list(
-        app._compile_upload_fbuild(
+        firmware._compile_upload_fbuild(
             "Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"
         )
     )
@@ -906,7 +908,7 @@ def test_compile_upload_fbuild_esp32_binds_slow_esptool_experiment(tmp_path, mon
     assert len(deploy_calls) == 1
     args, tool_env = deploy_calls[0]
     assert args[args.index("-b") + 1] == "115200"
-    assert tool_env["PATH"].split(app.os.pathsep)[0] == str(scripts)
+    assert tool_env["PATH"].split(toolchain.os.pathsep)[0] == str(scripts)
     assert any(
         "baud 115200" in line and str(esptool) in line
         for line in lines
@@ -914,14 +916,14 @@ def test_compile_upload_fbuild_esp32_binds_slow_esptool_experiment(tmp_path, mon
 
 
 def test_compile_upload_fbuild_esp32_keeps_arduino_cli_fallback_when_esptool_missing(monkeypatch):
-    monkeypatch.setattr(app, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
     monkeypatch.setattr(
-        app,
+        toolchain,
         "_fbuild_env_for_fqbn",
         lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3",
     )
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_ESPTOOL_BIN", None)
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_ESPTOOL_BIN", None)
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
         if "deploy" in args:
@@ -931,10 +933,10 @@ def test_compile_upload_fbuild_esp32_keeps_arduino_cli_fallback_when_esptool_mis
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
     lines = list(
-        app._compile_upload_fbuild(
+        firmware._compile_upload_fbuild(
             "Test", "void setup(){}", "esp32:esp32:esp32s3", "COM7"
         )
     )
@@ -949,7 +951,7 @@ def test_drain_compile_collects_lines_and_return_value():
         yield "b\n"
         return 0, "compile"
 
-    lines, result = app._drain_compile(gen())
+    lines, result = firmware._drain_compile(gen())
 
     assert lines == ["a\n", "b\n"]
     assert result == (0, "compile")
@@ -962,7 +964,7 @@ def test_drain_compile_collects_lines_and_return_value():
 
 
 def test_build_lock_grants_and_releases_by_token():
-    lock = app._FbuildBuildLock()
+    lock = toolchain._FbuildBuildLock()
     token = lock.acquire(1, 60)
     assert token is not None
     assert lock.acquire(0.05, 60) is None  # held
@@ -974,7 +976,7 @@ def test_build_lock_ignores_release_from_a_reclaimed_holder():
     # The abandoned generator may still be collected later and call release().
     # If that freed the *new* holder's lock, two builds could share one project
     # directory — the exact corruption the lock exists to prevent.
-    lock = app._FbuildBuildLock()
+    lock = toolchain._FbuildBuildLock()
     stale = lock.acquire(1, 60)
     reclaimed = lock.acquire(1, 0)  # stale_after=0 → immediately reclaimable
     assert reclaimed is not None and reclaimed != stale
@@ -989,7 +991,7 @@ def test_build_lock_ignores_release_from_a_reclaimed_holder():
 def test_build_lock_does_not_steal_from_a_holder_that_is_still_working():
     # A slow build that keeps emitting output must never be reclaimed, however
     # impatient the waiter is.
-    lock = app._FbuildBuildLock()
+    lock = toolchain._FbuildBuildLock()
     token = lock.acquire(1, 60)
     assert token is not None
     time.sleep(0.05)
@@ -1000,7 +1002,7 @@ def test_build_lock_does_not_steal_from_a_holder_that_is_still_working():
 
 
 def test_build_lock_reclaims_a_holder_that_has_gone_silent():
-    lock = app._FbuildBuildLock()
+    lock = toolchain._FbuildBuildLock()
     abandoned = lock.acquire(1, 60)
     assert abandoned is not None
     time.sleep(0.12)
@@ -1010,7 +1012,7 @@ def test_build_lock_reclaims_a_holder_that_has_gone_silent():
 
 def test_build_lock_touch_is_a_noop_when_unheld():
     # `_run_phase` is shared with the arduino-cli path, which takes no lock.
-    lock = app._FbuildBuildLock()
+    lock = toolchain._FbuildBuildLock()
     lock.touch()
     assert lock.seconds_since_progress() is None
 
@@ -1018,11 +1020,11 @@ def test_build_lock_touch_is_a_noop_when_unheld():
 def test_stale_threshold_exceeds_the_wait_timeout():
     # A single impatient waiter must never be able to reclaim: only a holder
     # silent for longer than anyone is willing to wait counts as abandoned.
-    assert app._FBUILD_LOCK_STALE_S > app._FBUILD_LOCK_TIMEOUT_S
+    assert toolchain._FBUILD_LOCK_STALE_S > toolchain._FBUILD_LOCK_TIMEOUT_S
 
 
 def test_busy_result_does_not_blame_the_sketch():
-    lines = "".join(app._upload_result_lines(-1, "busy", "COM8"))
+    lines = "".join(firmware._upload_result_lines(-1, "busy", "COM8"))
     assert "DID NOT RUN" in lines
     assert "didn't compile" not in lines
     assert "UPLOAD FAILED" not in lines
@@ -1036,27 +1038,27 @@ def test_a_bigger_module_builds_against_its_own_flash():
     build — and the capacity meter reading its size report — targets 8MB on a
     part with 16MB, which is half the real ceiling.
     """
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3") == "esp32_esp32_esp32s3"
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 16) == "esp32_esp32_esp32s3_f16"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3") == "esp32_esp32_esp32s3"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 16) == "esp32_esp32_esp32s3_f16"
 
 
 def test_an_unknown_flash_size_keeps_the_board_manifest():
     # Only sizes the board declares a variant for are honoured. Telling an N8
     # part it has 16MB produces an image it cannot boot, so an unrecognised
     # size falls back rather than inventing an env.
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 4) == "esp32_esp32_esp32s3"
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32doit-devkit-v1", 16) == "esp32_esp32_esp32doit_devkit_v1"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 4) == "esp32_esp32_esp32s3"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32doit-devkit-v1", 16) == "esp32_esp32_esp32doit_devkit_v1"
 
 
 def test_a_psram_option_pins_its_own_flash_size():
     # The PSRAM envs already set flash_size themselves, so the two never stack.
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", 16) == "esp32_esp32_esp32s3_opi"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", 16) == "esp32_esp32_esp32s3_opi"
 
 
 def test_the_psram_envs_state_the_flash_mode_their_memory_type_implies(tmp_path, monkeypatch):
     """The image header and SDK memory type must describe the same flash bus."""
-    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
-    app._write_fbuild_ini()
+    monkeypatch.setattr(toolchain, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    toolchain._write_fbuild_ini()
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
 
     opi = ini.split("[env:esp32_esp32_esp32s3_opi]")[1].split("[env:")[0]
@@ -1076,8 +1078,8 @@ def test_the_plain_env_leaves_an_unknown_module_alone(tmp_path, monkeypatch):
     # The non-PSRAM env is for a module nobody has described, whose stock
     # bootloader is DIO. Forcing QIO there would inflict on an N8 exactly the
     # mismatch the PSRAM envs exist to resolve.
-    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
-    app._write_fbuild_ini()
+    monkeypatch.setattr(toolchain, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    toolchain._write_fbuild_ini()
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
 
     plain = ini.split("[env:esp32_esp32_esp32s3]")[1].split("[env:")[0]
@@ -1092,8 +1094,8 @@ def test_usb_cdc_gives_every_s3_env_a_twin(tmp_path, monkeypatch):
     the RTC handshake times out, the SD show transfer never starts and live
     streaming drops every frame — all silently.
     """
-    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
-    app._write_fbuild_ini()
+    monkeypatch.setattr(toolchain, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    toolchain._write_fbuild_ini()
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
 
     # Orthogonal to the PSRAM and flash variants, not multiplied out by hand.
@@ -1119,31 +1121,31 @@ def test_usb_cdc_gives_every_s3_env_a_twin(tmp_path, monkeypatch):
 def test_a_board_with_one_socket_gets_no_cdc_env(tmp_path, monkeypatch):
     # The classic ESP32 has no native USB at all — offering the choice would be
     # offering a cable that does not exist.
-    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
-    app._write_fbuild_ini()
+    monkeypatch.setattr(toolchain, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    toolchain._write_fbuild_ini()
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
     assert "[env:esp32_esp32_esp32_cdc]" not in ini
     assert "[env:esp32_esp32_esp32doit_devkit_v1_cdc]" not in ini
 
 
 def test_cdc_is_ignored_for_a_board_that_cannot_offer_it():
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", None, True) == "esp32_esp32_esp32s3_cdc"
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", None, True) == "esp32_esp32_esp32s3_opi_cdc"
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 16, True) == "esp32_esp32_esp32s3_f16_cdc"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3", None, True) == "esp32_esp32_esp32s3_cdc"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3:PSRAM=opi", None, True) == "esp32_esp32_esp32s3_opi_cdc"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32s3", 16, True) == "esp32_esp32_esp32s3_f16_cdc"
     # No native USB on the classic part, so the request is dropped rather than
     # resolving to an env that was never written.
-    assert app._fbuild_env_for_fqbn("esp32:esp32:esp32", None, True) == "esp32_esp32_esp32"
+    assert toolchain._fbuild_env_for_fqbn("esp32:esp32:esp32", None, True) == "esp32_esp32_esp32"
 
 
 def test_usb_cdc_is_read_off_the_request():
-    assert app._usb_cdc_from({"usbCdcOnBoot": True}) is True
+    assert toolchain._usb_cdc_from({"usbCdcOnBoot": True}) is True
     for off in ({}, {"usbCdcOnBoot": False}, {"usbCdcOnBoot": "yes"}, {"usbCdcOnBoot": None}):
-        assert app._usb_cdc_from(off) is False
+        assert toolchain._usb_cdc_from(off) is False
 
 
 def test_the_flash_variant_env_is_actually_written(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
-    app._write_fbuild_ini()
+    monkeypatch.setattr(toolchain, "_FBUILD_INI_PATH", tmp_path / "platformio.ini")
+    toolchain._write_fbuild_ini()
     ini = (tmp_path / "platformio.ini").read_text(encoding="utf-8")
     assert "[env:esp32_esp32_esp32s3_f16]" in ini
     body = ini.split("[env:esp32_esp32_esp32s3_f16]")[1].split("[env:")[0]
@@ -1154,17 +1156,17 @@ def test_the_flash_variant_env_is_actually_written(tmp_path, monkeypatch):
 
 
 def test_flash_size_is_read_off_the_request_or_ignored():
-    assert app._flash_mb_from({"flashMb": 16}) == 16
-    assert app._flash_mb_from({"flashMb": "16"}) == 16
+    assert toolchain._flash_mb_from({"flashMb": 16}) == 16
+    assert toolchain._flash_mb_from({"flashMb": "16"}) == 16
     for bad in ({}, {"flashMb": None}, {"flashMb": 0}, {"flashMb": "big"}):
-        assert app._flash_mb_from(bad) is None
+        assert toolchain._flash_mb_from(bad) is None
 
 
 def test_cancelling_with_nothing_running_is_not_an_error():
     # The UI offers Cancel whenever an upload is busy, and a build that finished
     # a moment earlier is not a failure worth reporting.
-    app._register_build(None)
-    assert app._cancel_active_build() is False
+    toolchain._register_build(None)
+    assert toolchain._cancel_active_build() is False
 
 
 def test_a_cancelled_build_is_not_reported_as_a_failed_one(monkeypatch):
@@ -1174,21 +1176,21 @@ def test_a_cancelled_build_is_not_reported_as_a_failed_one(monkeypatch):
     sending someone to hunt for a compile error in a graph they never doubted is
     the worst possible answer.
     """
-    monkeypatch.setattr(app, "_build_cancelled", True)
-    lines = "".join(app._upload_result_lines(130, "compile", "COM7"))
+    monkeypatch.setattr(toolchain, "_build_cancelled", True)
+    lines = "".join(firmware._upload_result_lines(130, "compile", "COM7"))
     assert "BUILD FAILED" not in lines
 
 
 def test_a_real_failure_still_says_so(monkeypatch):
-    monkeypatch.setattr(app, "_build_cancelled", False)
-    lines = "".join(app._upload_result_lines(1, "compile", "COM7"))
+    monkeypatch.setattr(toolchain, "_build_cancelled", False)
+    lines = "".join(firmware._upload_result_lines(1, "compile", "COM7"))
     assert "BUILD FAILED" in lines
 
 
 def test_the_cancel_endpoint_reports_whether_it_stopped_anything(client, monkeypatch):
-    monkeypatch.setattr(app, "_cancel_active_build", lambda: True)
+    monkeypatch.setattr(toolchain, "_cancel_active_build", lambda: True)
     assert client.post("/api/build/cancel").json() == {"ok": True, "cancelled": True}
-    monkeypatch.setattr(app, "_cancel_active_build", lambda: False)
+    monkeypatch.setattr(toolchain, "_cancel_active_build", lambda: False)
     assert client.post("/api/build/cancel").json() == {"ok": True, "cancelled": False}
 
 
@@ -1207,8 +1209,8 @@ def test_vendoring_replaces_a_checkout_whose_git_packs_are_read_only(monkeypatch
     pack.write_text("pack", encoding="utf-8")
     pack.chmod(stat.S_IREAD)
 
-    monkeypatch.setattr(app, "_FBUILD_AUDIO_LIB_DIR", stale)
-    monkeypatch.setattr(app, "_fbuild_audio_lib_ready", False)
+    monkeypatch.setattr(toolchain, "_FBUILD_AUDIO_LIB_DIR", stale)
+    monkeypatch.setattr(toolchain, "_fbuild_audio_lib_ready", False)
 
     cloned = []
 
@@ -1220,9 +1222,9 @@ def test_vendoring_replaces_a_checkout_whose_git_packs_are_read_only(monkeypatch
         yield "cloned\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
-    lines = list(app._ensure_fbuild_audio_lib())
+    lines = list(toolchain._ensure_fbuild_audio_lib())
 
     assert any("vendoring ESP32-audioI2S" in line for line in lines)
     assert cloned, "the stale checkout was removed and a fresh clone ran"
@@ -1241,8 +1243,8 @@ def test_vendoring_is_skipped_when_upstream_is_already_cached(monkeypatch, tmp_p
     def must_not_clone(*args, **kwargs):
         raise AssertionError("a cached upstream checkout must not be re-cloned")
 
-    monkeypatch.setattr(app, "_FBUILD_AUDIO_LIB_DIR", cached)
-    monkeypatch.setattr(app, "_fbuild_audio_lib_ready", False)
-    monkeypatch.setattr(app, "_run_phase", must_not_clone)
+    monkeypatch.setattr(toolchain, "_FBUILD_AUDIO_LIB_DIR", cached)
+    monkeypatch.setattr(toolchain, "_fbuild_audio_lib_ready", False)
+    monkeypatch.setattr(toolchain, "_run_phase", must_not_clone)
 
-    assert list(app._ensure_fbuild_audio_lib()) == []
+    assert list(toolchain._ensure_fbuild_audio_lib()) == []

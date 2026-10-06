@@ -16,6 +16,8 @@ tries to delegate to it.
 """
 import io
 
+import firmware
+import toolchain
 import app
 
 
@@ -43,8 +45,8 @@ def _compile_sequence(results: dict):
 
 
 def test_upload_show_reports_when_no_port_given(client, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
     r = client.post(
         "/api/upload-show",
         data={"meta": "{}", "player": "player-ino"},
@@ -54,11 +56,11 @@ def test_upload_show_reports_when_no_port_given(client, monkeypatch):
 
 
 def _setup(monkeypatch, compile_fake, transfer_ok=True):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    monkeypatch.setattr(app, "_compile_upload_fbuild", compile_fake)
-    monkeypatch.setattr(app, "_serial_send", _fake_generator(transfer_ok))
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_audio_lib", _fake_generator(None))
+    monkeypatch.setattr(firmware, "_compile_upload_fbuild", compile_fake)
+    monkeypatch.setattr(firmware, "_serial_send", _fake_generator(transfer_ok))
 
 
 def _post(client):
@@ -82,7 +84,7 @@ def test_player_compile_failure_touches_neither_board_nor_card(client, monkeypat
             yield  # pragma: no cover
         return True
 
-    monkeypatch.setattr(app, "_serial_send", send_fake)
+    monkeypatch.setattr(firmware, "_serial_send", send_fake)
 
     r = _post(client)
     assert "nothing was flashed" in r.text and "card was not touched" in r.text
@@ -129,11 +131,11 @@ def test_success_is_one_build_flashed_to_the_port_then_the_transfer(client, monk
             yield  # pragma: no cover
         return True
 
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_ensure_fbuild_audio_lib", _fake_generator(None))
-    monkeypatch.setattr(app, "_compile_upload_fbuild", compile_fake)
-    monkeypatch.setattr(app, "_serial_send", send_fake)
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_audio_lib", _fake_generator(None))
+    monkeypatch.setattr(firmware, "_compile_upload_fbuild", compile_fake)
+    monkeypatch.setattr(firmware, "_serial_send", send_fake)
 
     r = _post_with_files(client)
     # One build, flashed to the real port, and the transfer runs through it.
@@ -178,7 +180,7 @@ def test_no_files_flashes_the_player_and_skips_the_transfer(client, monkeypatch)
             yield  # pragma: no cover
         return True
 
-    monkeypatch.setattr(app, "_serial_send", send_fake)
+    monkeypatch.setattr(firmware, "_serial_send", send_fake)
 
     r = _post(client)
     assert fake.calls == ["Player"]
@@ -238,8 +240,8 @@ def _run_send(monkeypatch, lines):
     import serial
     fake = _GreetingSerial(lines)
     monkeypatch.setattr(serial, "Serial", lambda *a, **k: fake)
-    monkeypatch.setattr(app.time, "sleep", lambda _s: None)
-    out = list(app._serial_send("COM7", [("/music/x.mp3", b"abc")]))
+    monkeypatch.setattr(toolchain.time, "sleep", lambda _s: None)
+    out = list(firmware._serial_send("COM7", [("/music/x.mp3", b"abc")]))
     return fake, "".join(out)
 
 

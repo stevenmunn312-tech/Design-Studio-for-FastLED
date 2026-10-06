@@ -43,7 +43,7 @@ export interface CapacitySummary {
   tone: CapacityLevel
 }
 
-// Matches the helper's own `_SIZE_WARN_PCT` (backend/app.py) — tight but not
+// Matches the helper's own `_SIZE_WARN_PCT` (backend/firmware.py) — tight but not
 // overflowing headroom.
 const SIZE_WARN_PCT = 90
 
@@ -106,7 +106,7 @@ function summarizeCapacityText(
   // boards, e.g. ESP32/ESP32-S3 via fbuild, self-report an "impossible" RAM
   // figure on a *successful* build — often over 100% even on a build that
   // compiles and runs fine, since it counts flash-mapped sections that aren't
-  // real usable SRAM — which `_fbuild_cached_size` in backend/app.py already
+  // real usable SRAM — which `_fbuild_cached_size` in backend/firmware.py already
   // discards as unreliable, while a *failed* build's overflow percentage has
   // no such guard and is trustworthy at any magnitude). Pairing both figures
   // unconditionally — the real percentage, or "n/a" when genuinely

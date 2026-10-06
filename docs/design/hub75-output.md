@@ -133,7 +133,7 @@ a HUB75 panel plays the identical *role* in a graph (a Frame sink).
   shared GPIO-conflict namespace (`GPIO_PIN_PROPERTIES`, `collectPinUses` in
   `src/utils/validateGraph.ts`)
 
-### Vendoring (implemented — `backend/app.py`)
+### Vendoring (implemented — `backend/toolchain.py`)
 
 Follows the existing `ESP32-audioI2S`/`esp_dmx` pattern
 (`_ensure_fbuild_hub75_lib`): `git clone` the DMA library into the fbuild

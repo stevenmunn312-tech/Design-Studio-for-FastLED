@@ -9,7 +9,8 @@ NoneType found` from inside `_run_phase`, losing the run and the reason for it.
 arduino-cli did not crash but reported "failed to launch compile", naming the
 subcommand as though it were the missing program.
 """
-import app
+import firmware
+import toolchain
 
 
 def drain(generator):
@@ -22,9 +23,9 @@ def drain(generator):
 
 
 def test_fbuild_refuses_without_its_binary(monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_BIN", None)
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)
 
-    text, result = drain(app._compile_upload_fbuild("Smoke", "// sketch", "esp32:esp32:esp32s3", "", 16))
+    text, result = drain(firmware._compile_upload_fbuild("Smoke", "// sketch", "esp32:esp32:esp32s3", "", 16))
 
     assert result == (-1, "compile")
     assert "fbuild was not found" in text
@@ -34,20 +35,20 @@ def test_fbuild_refuses_without_its_binary(monkeypatch):
 
 def test_fbuild_refusal_does_not_take_the_build_lock(monkeypatch):
     """A build that cannot run must not make the next one queue behind it."""
-    monkeypatch.setattr(app, "_FBUILD_BIN", None)
-    drain(app._compile_upload_fbuild("Smoke", "// sketch", "esp32:esp32:esp32s3", "", 16))
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)
+    drain(firmware._compile_upload_fbuild("Smoke", "// sketch", "esp32:esp32:esp32s3", "", 16))
 
-    token = app._fbuild_build_lock.acquire(0, app._FBUILD_LOCK_STALE_S)
+    token = toolchain._fbuild_build_lock.acquire(0, toolchain._FBUILD_LOCK_STALE_S)
     assert token is not None
-    app._fbuild_build_lock.release(token)
+    toolchain._fbuild_build_lock.release(token)
 
 
 def test_arduino_cli_refuses_without_its_binary(monkeypatch, tmp_path):
-    monkeypatch.setattr(app, "_ARDUINO_CLI", None)
-    monkeypatch.setattr(app, "_ARDUINO_BASE", [])
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
+    monkeypatch.setattr(toolchain, "_ARDUINO_BASE", [])
     (tmp_path / "smoke.ino").write_text("// sketch", encoding="utf-8")
 
-    text, result = drain(app._compile_upload("Smoke", tmp_path, "esp32:esp32:esp32s3", ""))
+    text, result = drain(firmware._compile_upload("Smoke", tmp_path, "esp32:esp32:esp32s3", ""))
 
     assert result == (-1, "compile")
     assert "arduino-cli was not found" in text
@@ -57,7 +58,7 @@ def test_arduino_cli_refuses_without_its_binary(monkeypatch, tmp_path):
 
 def test_run_phase_cannot_raise_on_an_unresolved_binary():
     """The one phase runner both engines call, guarded at the funnel too."""
-    text, rc = drain(app._run_phase("Smoke · compile", [None, "build"]))
+    text, rc = drain(toolchain._run_phase("Smoke · compile", [None, "build"]))
 
     assert rc == -1
     assert "no build tool to run" in text

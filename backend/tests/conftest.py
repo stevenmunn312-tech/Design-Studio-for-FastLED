@@ -3,6 +3,9 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+import storage
+import streaming
+import toolchain
 import app as app_module
 
 
@@ -17,7 +20,7 @@ def client():
 def _no_real_legacy_patterns(monkeypatch, tmp_path):
     """Startup moves a checkout's old root "My Patterns" folder into the patterns
     folder. A test that starts the app must never move the developer's files."""
-    monkeypatch.setattr(app_module, "_LEGACY_PATTERNS_DIR", tmp_path / "legacy-patterns")
+    monkeypatch.setattr(storage, "_LEGACY_PATTERNS_DIR", tmp_path / "legacy-patterns")
 
 
 @pytest.fixture(autouse=True)
@@ -33,12 +36,12 @@ def _engine_binaries_present(monkeypatch):
     and the esptool-missing deploy test) sets it back to None and wins, because
     its own monkeypatch runs after this one.
     """
-    if app_module._FBUILD_BIN is None:
-        monkeypatch.setattr(app_module, "_FBUILD_BIN", "fbuild")
-    if app_module._ARDUINO_CLI is None:
-        monkeypatch.setattr(app_module, "_ARDUINO_CLI", "arduino-cli")
-    if app_module._ESPTOOL_BIN is None:
-        monkeypatch.setattr(app_module, "_ESPTOOL_BIN", "esptool")
+    if toolchain._FBUILD_BIN is None:
+        monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    if toolchain._ARDUINO_CLI is None:
+        monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
+    if toolchain._ESPTOOL_BIN is None:
+        monkeypatch.setattr(toolchain, "_ESPTOOL_BIN", "esptool")
 
 
 @pytest.fixture(autouse=True)
@@ -46,16 +49,16 @@ def _clean_stream_state():
     """Every test starts with (and leaves) no open streaming session, no
     matter what a test does to app_module's stream globals."""
     yield
-    with app_module._stream_lock:
-        if app_module._stream_serial is not None:
+    with streaming._stream_lock:
+        if streaming._stream_serial is not None:
             try:
-                app_module._stream_serial.close()
+                streaming._stream_serial.close()
             except Exception:
                 pass
-        app_module._stream_serial = None
-        app_module._stream_port = None
-        app_module._stream_baud = 0
-    app_module._artnet_stop_listener(clear_error=True)
+        streaming._stream_serial = None
+        streaming._stream_port = None
+        streaming._stream_baud = 0
+    streaming._artnet_stop_listener(clear_error=True)
 
 
 class FakeSerial:

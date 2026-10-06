@@ -1,6 +1,6 @@
 # fbuild workarounds in the upload helper
 
-Every accommodation `backend/app.py` makes for the **fbuild** build engine, why it
+Every accommodation `backend/toolchain.py` and `backend/firmware.py` make for the **fbuild** build engine, why it
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
@@ -24,7 +24,7 @@ an internal record.
   and flashed with `fbuild deploy -e <env> -p <port> --skip-build --no-timestamp`.
   The focused ESP32 experiment additionally passes `-b 115200` and binds the pinned
   interpreter-side `esptool` through the caller `PATH`; see the dated result below.
-  See `_compile_upload_fbuild` in [`backend/app.py`](../../backend/app.py).
+  See `_compile_upload_fbuild` in [`backend/firmware.py`](../../backend/firmware.py).
 
 > [!IMPORTANT]
 > **Verify before sending upstream.** Items marked only against an older fbuild may
@@ -882,7 +882,7 @@ local library 'lvgl' failed to compile: failed to spawn [...] (os error 206)
 os error 206 is `ERROR_FILENAME_EXCED_RANGE`. Windows only; the limit does not exist on
 the other hosts.
 
-**Workaround.** `_recover_fbuild_lvgl_archive` in [`backend/app.py`](../../backend/app.py)
+**Workaround.** `_recover_fbuild_lvgl_archive` in [`backend/firmware.py`](../../backend/firmware.py)
 writes the object list to `lvgl-objects.rsp` and re-runs the same archiver with `@rsp`,
 which GCC's `ar` accepts. The build then continues. `_run_fbuild_compile` defers the
 failing exit status until recovery has been tried, so a recoverable archive failure is

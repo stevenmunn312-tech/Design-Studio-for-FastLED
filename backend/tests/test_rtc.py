@@ -1,6 +1,6 @@
 import serial
 
-import app as app_module
+import toolchain
 
 
 class RtcSerial:
@@ -37,7 +37,7 @@ class RtcSerial:
 def test_set_rtc_sends_one_validated_command(client, monkeypatch):
     RtcSerial.instances = []
     monkeypatch.setattr(serial, "Serial", RtcSerial)
-    monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(toolchain.time, "sleep", lambda _seconds: None)
 
     response = client.post("/api/rtc/set", json={
         "port": "COM7",
@@ -73,7 +73,7 @@ def test_set_rtc_returns_the_board_failure_message(client, monkeypatch):
             self.replies = [b"RTC clock set failed\n", b"FLS_RTC_ERROR\n"]
 
     monkeypatch.setattr(serial, "Serial", FailedRtcSerial)
-    monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(toolchain.time, "sleep", lambda _seconds: None)
 
     response = client.post("/api/rtc/set", json={
         "port": "COM7",

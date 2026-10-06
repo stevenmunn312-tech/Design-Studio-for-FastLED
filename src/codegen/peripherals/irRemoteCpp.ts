@@ -10,7 +10,7 @@ import { IR_RMT_RECEIVER_CPP, irRmtReceiverCpp } from './irRmtReceiverCpp'
 /**
  * Pinned Arduino-IRremote release.
  *
- * Keep this identical to `_IRREMOTE_VERSION` in `backend/app.py`. A newer
+ * Keep this identical to `_IRREMOTE_VERSION` in `backend/toolchain.py`. A newer
  * checkout is not compatible just because the include name stayed the same.
  */
 export const IR_REMOTE_VERSION = '4.7.1'

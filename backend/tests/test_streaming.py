@@ -2,6 +2,9 @@
 open across many small requests, and every other consumer of that same port
 (upload, upload-show, serial monitor) must back off with a 409 rather than
 silently racing it — all exercised against a fake serial port."""
+import firmware
+import streaming
+import toolchain
 import app
 
 
@@ -42,8 +45,8 @@ def test_frame_after_stop_is_conflict(client, fake_serial):
 
 
 def test_upload_refuses_to_start_while_port_is_streaming(client, fake_serial, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
 
     client.post("/api/stream/start", json={"port": "COM7", "baud": 115200})
     r = client.post("/api/upload", json={"ino": "void setup(){}", "port": "COM7"})
@@ -52,8 +55,8 @@ def test_upload_refuses_to_start_while_port_is_streaming(client, fake_serial, mo
 
 
 def test_upload_on_a_different_port_is_unaffected_by_streaming(client, fake_serial, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", None)  # forces the missing-engine 400, not a real compile
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", None)  # forces the missing-engine 400, not a real compile
 
     client.post("/api/stream/start", json={"port": "COM7", "baud": 115200})
     r = client.post("/api/upload", json={"ino": "void setup(){}", "port": "COM9"})
@@ -63,8 +66,8 @@ def test_upload_on_a_different_port_is_unaffected_by_streaming(client, fake_seri
 
 
 def test_upload_show_refuses_to_start_while_port_is_streaming(client, fake_serial, monkeypatch):
-    monkeypatch.setattr(app, "_active_engine", lambda: "fbuild")
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "fbuild")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
 
     client.post("/api/stream/start", json={"port": "COM7", "baud": 115200})
     r = client.post(
@@ -88,7 +91,7 @@ def test_frame_write_that_hangs_past_write_timeout_fails_fast_and_frees_the_port
     # later frame/start/stop request too. The app's own independent
     # _STREAM_WRITE_TIMEOUT_S watchdog must catch this and force the port
     # closed instead of hanging forever.
-    monkeypatch.setattr(app, "_STREAM_WRITE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(streaming, "_STREAM_WRITE_TIMEOUT_S", 0.05)
     client.post("/api/stream/start", json={"port": "COM7", "baud": 115200})
     fake_serial.instances[0].hang_seconds = 0.3  # comfortably longer than the watchdog
 
@@ -119,7 +122,7 @@ def test_serial_monitor_releases_a_quiet_port_when_cancelled(fake_serial):
     # says almost nothing, which is precisely when it bit.
     import asyncio
 
-    response = app.serial_monitor("COM7", 115200)
+    response = firmware.serial_monitor("COM7", 115200)
 
     async def drive():
         body = response.body_iterator
@@ -150,7 +153,7 @@ def test_the_monitor_does_not_reset_the_board_it_attaches_to(fake_serial):
     """
     import asyncio
 
-    response = app.serial_monitor("COM7", 115200)
+    response = firmware.serial_monitor("COM7", 115200)
 
     async def exercise():
         body = response.body_iterator
@@ -162,7 +165,7 @@ def test_the_monitor_does_not_reset_the_board_it_attaches_to(fake_serial):
         await body.aclose()
 
     asyncio.run(exercise())
-    app._release_monitor("COM7")
+    firmware._release_monitor("COM7")
 
 
 def test_release_monitor_closes_a_held_port(fake_serial):
@@ -172,7 +175,7 @@ def test_release_monitor_closes_a_held_port(fake_serial):
     # one. Reclaiming the handle explicitly is what makes the next flash work.
     import asyncio
 
-    response = app.serial_monitor("COM7", 115200)
+    response = firmware.serial_monitor("COM7", 115200)
 
     async def exercise():
         body = response.body_iterator
@@ -180,12 +183,12 @@ def test_release_monitor_closes_a_held_port(fake_serial):
         port = fake_serial.instances[-1]
         assert port.closed is False
 
-        assert app._release_monitor("COM9") is False, "must not touch a different port"
+        assert firmware._release_monitor("COM9") is False, "must not touch a different port"
         assert port.closed is False
-        assert app._release_monitor("COM7") is True
+        assert firmware._release_monitor("COM7") is True
         assert port.closed is True
         # Idempotent: a second upload must not fail because the first reclaimed it.
-        assert app._release_monitor("COM7") is False
+        assert firmware._release_monitor("COM7") is False
 
         # The stream notices the closed handle and ends cleanly rather than
         # raising into the response body.
@@ -202,9 +205,9 @@ def test_board_list_is_skipped_while_a_flash_holds_the_port(client, monkeypatch)
     # flash with a bare "Access is denied" that looks like a stuck monitor, a
     # wedged driver or a dead board. Measured on 2026-08-16: the probe held
     # COM4 for ~4s, and the frontend polls this endpoint.
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
     called = []
-    monkeypatch.setattr(app.subprocess, "run",
+    monkeypatch.setattr(toolchain.subprocess, "run",
                         lambda *a, **k: called.append(a) or subprocess_result())
 
     def subprocess_result():
@@ -218,7 +221,7 @@ def test_board_list_is_skipped_while_a_flash_holds_the_port(client, monkeypatch)
     assert called, "board list should run when nothing is flashing"
 
     called.clear()
-    with app._flashing():
+    with firmware._flashing():
         r = client.get("/api/serial/ports")
         assert r.status_code == 200
         assert r.json()["ok"] is True
@@ -232,9 +235,9 @@ def test_board_list_is_skipped_while_a_flash_holds_the_port(client, monkeypatch)
 def test_flash_guard_nests_for_the_three_phase_show_upload():
     # upload-show flashes provisioner, transfers, then flashes the player.
     # An inner phase finishing must not clear the guard for the outer one.
-    assert app._flash_in_progress() is False
-    with app._flashing():
-        with app._flashing():
-            assert app._flash_in_progress() is True
-        assert app._flash_in_progress() is True, "inner exit must not release the outer guard"
-    assert app._flash_in_progress() is False
+    assert firmware._flash_in_progress() is False
+    with firmware._flashing():
+        with firmware._flashing():
+            assert firmware._flash_in_progress() is True
+        assert firmware._flash_in_progress() is True, "inner exit must not release the outer guard"
+    assert firmware._flash_in_progress() is False

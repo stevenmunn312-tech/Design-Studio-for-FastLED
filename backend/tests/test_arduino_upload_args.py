@@ -1,15 +1,16 @@
 """Focused command-line coverage for the arduino-cli upload path."""
 
-import app
+import firmware
+import toolchain
 
 
 def test_physical_flash_partition_and_native_usb_reach_compile_and_upload(
     client, monkeypatch, tmp_path,
 ):
-    monkeypatch.setattr(app, "_active_engine", lambda: "arduino-cli")
-    monkeypatch.setattr(app, "_ARDUINO_CLI", "/fake/arduino-cli")
-    monkeypatch.setattr(app, "_ARDUINO_BASE", ["arduino-cli"])
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    monkeypatch.setattr(toolchain, "_active_engine", lambda: "arduino-cli")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "/fake/arduino-cli")
+    monkeypatch.setattr(toolchain, "_ARDUINO_BASE", ["arduino-cli"])
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
     calls = []
 
     def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
@@ -22,7 +23,7 @@ def test_physical_flash_partition_and_native_usb_reach_compile_and_upload(
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(app, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
 
     response = client.post("/api/upload", json={
         "ino": "void setup() {}\nvoid loop() {}",

@@ -126,7 +126,7 @@ export async function setRtcDateTime(
 
 // ── Live streaming (Adalight) ────────────────────────────────────────────────
 // The port is opened once and held by the helper across many small per-frame
-// POSTs — see backend/app.py's /api/stream/* for why (reopening it every frame
+// POSTs — see backend/streaming.py's /api/stream/* for why (reopening it every frame
 // would blow the frame budget).
 
 /** Open (or reuse) a serial port for a live-streaming session. */
@@ -401,7 +401,7 @@ export async function exportBinary(
  *
  * Server-side on purpose: aborting the fetch would only stop *reading* the log
  * while the compile carried on holding the helper's build lock. See
- * `_cancel_active_build` in backend/app.py.
+ * `_cancel_active_build` in backend/toolchain.py.
  */
 export async function cancelBuild(): Promise<boolean> {
   try {

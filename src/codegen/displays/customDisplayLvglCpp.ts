@@ -49,7 +49,7 @@ export const CUSTOM_DISPLAY_LVGL_HANDLER_MIN_MS = 5
 
 /** The pinned helper lv_conf.h reserves this once per sketch, shared by every
  * screen, widget, style and dynamically allocated label. Keep in step with
- * backend/app.py's LV_MEM_SIZE (checked by the RAM contract test). */
+ * backend/toolchain.py's LV_MEM_SIZE (checked by the RAM contract test). */
 export const CUSTOM_DISPLAY_LVGL_HEAP_BYTES = 64 * 1024
 
 /** CustomDisplayWidgetRuntime on the supported 32-bit targets: pointer,

@@ -1,12 +1,12 @@
 from types import SimpleNamespace
 
-import app
+import toolchain
 
 
 def test_serial_ports_exposes_usb_identity(client, monkeypatch):
     from serial.tools import list_ports
 
-    monkeypatch.setattr(app, "_ARDUINO_CLI", None)
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
     monkeypatch.setattr(list_ports, "comports", lambda: [SimpleNamespace(
         device="COM7",
         description="USB JTAG/serial debug unit",

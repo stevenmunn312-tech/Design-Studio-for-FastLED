@@ -62,7 +62,7 @@ sending."
 | | Preview (browser) | Firmware `Art-Net` | Firmware `DMX512` |
 |---|---|---|---|
 | Transport | helper UDP listener, polled | `WiFiUDP` on the sketch's Wi-Fi | `esp_dmx` on an RS-485 transceiver |
-| Where | `backend/app.py` + `dmxStore.ts` | generated `loop()` | generated `loop()` |
+| Where | `backend/streaming.py` + `dmxStore.ts` | generated `loop()` | generated `loop()` |
 | Filter | universe must match the node's | opcode `0x5000` + universe match | driver-level |
 | Goes stale after | helper's own liveness check | 2000 ms without a packet | 1000 ms without a packet |
 | Boards | any | ESP32 / ESP8266 | ESP32 only |

@@ -68,7 +68,7 @@ export interface Board {
 // entries carry an extra inline caveat where the exact arduino-cli FQBN or
 // fbuild/PlatformIO board id couldn't be verified against a real toolchain in
 // this environment; fbuild is expected to work for all of them via
-// `_PIO_BOARDS` in `backend/app.py` — arduino-cli may not
+// `_PIO_BOARDS` in `backend/toolchain.py` — arduino-cli may not
 // for the STM32/Zero entries flagged below.
 export const BOARDS: Board[] = [
   { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,
@@ -177,7 +177,7 @@ export const BOARDS: Board[] = [
   // chip variant (e.g. `:pnum=BLUEPILL_F103C8`), which this app doesn't set —
   // so the arduino-cli engine likely can't build these as-is. fbuild (the
   // preferred engine) builds them directly via `_PIO_BOARDS` in
-  // `backend/app.py`, which is the reliable path for this group.
+  // `backend/toolchain.py`, which is the reliable path for this group.
   { label: 'STM32F103C8 (Blue Pill, experimental)', fqbn: 'STMicroelectronics:stm32:bluepill_f103c8', core: 'STMicroelectronics:stm32', thirdParty: true },
   { label: 'STM32F411CE (Black Pill, experimental)', fqbn: 'STMicroelectronics:stm32:blackpill_f411ce', core: 'STMicroelectronics:stm32', thirdParty: true },
   { label: 'Nucleo F429ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f429zi', core: 'STMicroelectronics:stm32', thirdParty: true },

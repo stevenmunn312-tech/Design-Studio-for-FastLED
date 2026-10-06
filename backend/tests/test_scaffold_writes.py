@@ -5,7 +5,8 @@ with its own bytes is a rebuild nobody asked for: on an ESP32-S3 re-upload of
 an unchanged design it recompiled the sketch, relinked, and rebuilt every
 FastLED object including a patched header.
 """
-import app
+import firmware
+import toolchain
 
 
 def test_write_if_changed_leaves_an_identical_file_alone(tmp_path):
@@ -13,7 +14,7 @@ def test_write_if_changed_leaves_an_identical_file_alone(tmp_path):
     target.write_text("void setup() {}\n", encoding="utf-8")
     before = target.stat().st_mtime_ns
 
-    assert app._write_if_changed(target, "void setup() {}\n") is False
+    assert toolchain._write_if_changed(target, "void setup() {}\n") is False
     assert target.stat().st_mtime_ns == before
 
 
@@ -21,7 +22,7 @@ def test_write_if_changed_writes_when_the_content_differs(tmp_path):
     target = tmp_path / "main.ino"
     target.write_text("void setup() {}\n", encoding="utf-8")
 
-    assert app._write_if_changed(target, "void loop() {}\n") is True
+    assert toolchain._write_if_changed(target, "void loop() {}\n") is True
     assert target.read_text(encoding="utf-8") == "void loop() {}\n"
 
 
@@ -29,23 +30,23 @@ def test_write_if_changed_creates_a_missing_file(tmp_path):
     target = tmp_path / "new" / "main.ino"
     target.parent.mkdir()
 
-    assert app._write_if_changed(target, "fresh\n") is True
+    assert toolchain._write_if_changed(target, "fresh\n") is True
     assert target.read_text(encoding="utf-8") == "fresh\n"
 
 
 def test_re_writing_the_same_sketch_does_not_touch_main_ino(tmp_path, monkeypatch):
     src = tmp_path / "src"
     src.mkdir()
-    monkeypatch.setattr(app, "_FBUILD_SRC_DIR", src)
+    monkeypatch.setattr(toolchain, "_FBUILD_SRC_DIR", src)
     ino = "#include <FastLED.h>\nvoid setup() {}\nvoid loop() {}\n"
 
-    app._write_fbuild_main(ino)
+    toolchain._write_fbuild_main(ino)
     before = (src / "main.ino").stat().st_mtime_ns
-    app._write_fbuild_main(ino)
+    toolchain._write_fbuild_main(ino)
 
     assert (src / "main.ino").stat().st_mtime_ns == before
     # A real edit still lands, or the board would keep running the old design.
-    app._write_fbuild_main(ino + "// changed\n")
+    toolchain._write_fbuild_main(ino + "// changed\n")
     assert (src / "main.ino").read_text(encoding="utf-8").endswith("// changed\n")
 
 
@@ -53,7 +54,7 @@ def test_patching_an_already_patched_fastled_touches_nothing(tmp_path, monkeypat
     # The patcher runs once per helper process against a tree that is almost
     # always already patched -- the second run must be a no-op on disk.
     lib = tmp_path / "FastLED"
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib)
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib)
     sources = {
         "src/platforms/arm/samd/isr_samd.hpp":
             "PORT_PMUX_PMUXO_A PORT_PMUX_PMUXE_A NVIC_DisableIRQ(EIC_IRQn)\n",
@@ -69,7 +70,7 @@ def test_patching_an_already_patched_fastled_touches_nothing(tmp_path, monkeypat
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
 
-    app._patch_fastled_samd51_build()
+    toolchain._patch_fastled_samd51_build()
     patched = {
         relative: ((lib / relative).stat().st_mtime_ns,
                    (lib / relative).read_text(encoding="utf-8"))
@@ -80,7 +81,7 @@ def test_patching_an_already_patched_fastled_touches_nothing(tmp_path, monkeypat
     for relative, text in sources.items():
         assert patched[relative][1] != text, relative
 
-    app._patch_fastled_samd51_build()
+    toolchain._patch_fastled_samd51_build()
     for relative, (mtime, text) in patched.items():
         assert (lib / relative).stat().st_mtime_ns == mtime, relative
         assert (lib / relative).read_text(encoding="utf-8") == text, relative
@@ -89,13 +90,13 @@ def test_patching_an_already_patched_fastled_touches_nothing(tmp_path, monkeypat
 def test_the_sketch_workspace_is_the_same_directory_every_build(tmp_path, monkeypatch):
     # arduino-cli keys its build cache on a hash of the sketch path, so the
     # path has to be stable across builds or every compile is a cache miss.
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
     ino = "void setup() {}\n"
 
-    with app._sketch_workspace("fastled_pattern", ino) as first:
+    with firmware._sketch_workspace("fastled_pattern", ino) as first:
         assert (first / "fastled_pattern.ino").read_text(encoding="utf-8") == ino
         written = (first / "fastled_pattern.ino").stat().st_mtime_ns
-    with app._sketch_workspace("fastled_pattern", ino) as second:
+    with firmware._sketch_workspace("fastled_pattern", ino) as second:
         assert second == first
         # Unchanged source must not be touched either, or arduino-cli rebuilds
         # the sketch object it just cached.
@@ -106,21 +107,21 @@ def test_the_sketch_workspace_is_the_same_directory_every_build(tmp_path, monkey
 
 
 def test_a_changed_sketch_still_reaches_the_workspace(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
-    with app._sketch_workspace("fastled_pattern", "void setup() {}\n"):
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    with firmware._sketch_workspace("fastled_pattern", "void setup() {}\n"):
         pass
-    with app._sketch_workspace("fastled_pattern", "void loop() {}\n") as sketch_dir:
+    with firmware._sketch_workspace("fastled_pattern", "void loop() {}\n") as sketch_dir:
         assert (sketch_dir / "fastled_pattern.ino").read_text(encoding="utf-8") == "void loop() {}\n"
 
 
 def test_lvgl_sketch_workspace_gets_the_minimal_config(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
     ino = "#include <lvgl.h>\nvoid setup() {}\n"
 
-    with app._sketch_workspace("fastled_pattern", ino) as sketch_dir:
+    with firmware._sketch_workspace("fastled_pattern", ino) as sketch_dir:
         config = (sketch_dir / "lv_conf.h").read_text(encoding="utf-8")
 
-    assert config == app._LV_CONF_TEXT
+    assert config == toolchain._LV_CONF_TEXT
     assert "#define LV_COLOR_DEPTH 16" in config
     assert "#define LV_MEM_SIZE (64 * 1024U)" in config
     assert "#define LV_USE_LABEL 1" in config
@@ -132,10 +133,10 @@ def test_lvgl_sketch_workspace_gets_the_minimal_config(tmp_path, monkeypatch):
 
 
 def test_lvgl_sketch_workspace_enables_only_generated_font_sizes(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
     ino = "#include <lvgl.h>\n// FLS-LVGL-FONTS:16,22\nvoid setup() {}\n"
 
-    with app._sketch_workspace("custom_fonts", ino) as sketch_dir:
+    with firmware._sketch_workspace("custom_fonts", ino) as sketch_dir:
         config = (sketch_dir / "lv_conf.h").read_text(encoding="utf-8")
 
     assert "#define LV_FONT_MONTSERRAT_14 0" in config
@@ -146,7 +147,7 @@ def test_lvgl_sketch_workspace_enables_only_generated_font_sizes(tmp_path, monke
 
 
 def test_lvgl_font_markers_are_allowlisted_and_combined():
-    config = app._lv_conf_for_sketch(
+    config = toolchain._lv_conf_for_sketch(
         "// FLS-LVGL-FONTS:8,18\n// FLS-LVGL-FONTS:18,48\n"
         "// FLS-LVGL-FONTS:13,999\n"
     )
@@ -159,18 +160,18 @@ def test_lvgl_font_markers_are_allowlisted_and_combined():
 
 
 def test_non_lvgl_sketch_workspace_does_not_create_a_config(tmp_path, monkeypatch):
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
 
-    with app._sketch_workspace("ordinary", "void setup() {}\n") as sketch_dir:
+    with firmware._sketch_workspace("ordinary", "void setup() {}\n") as sketch_dir:
         assert not (sketch_dir / "lv_conf.h").exists()
 
 
 def test_two_sketch_names_get_their_own_workspace(tmp_path, monkeypatch):
     # A player and an ordinary sketch are different programs; sharing one
     # directory would make each build evict the other's cache.
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
-    with app._sketch_workspace("fastled_pattern", "a\n") as one:
-        with app._sketch_workspace("player", "b\n") as two:
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    with firmware._sketch_workspace("fastled_pattern", "a\n") as one:
+        with firmware._sketch_workspace("player", "b\n") as two:
             assert one != two
             assert (two / "player.ino").read_text(encoding="utf-8") == "b\n"
 
@@ -179,9 +180,9 @@ def test_a_concurrent_build_gets_a_private_directory(tmp_path, monkeypatch):
     # Two builds writing different sketches into one directory would flash a
     # binary built from the other one's source, so the second falls back to a
     # throwaway directory rather than sharing or waiting.
-    monkeypatch.setattr(app, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
-    with app._sketch_workspace("fastled_pattern", "first\n") as held:
-        with app._sketch_workspace("fastled_pattern", "second\n") as fallback:
+    monkeypatch.setattr(firmware, "_SKETCH_DIR_ROOT", tmp_path / "sketches")
+    with firmware._sketch_workspace("fastled_pattern", "first\n") as held:
+        with firmware._sketch_workspace("fastled_pattern", "second\n") as fallback:
             assert fallback != held
             assert (fallback / "fastled_pattern.ino").read_text(encoding="utf-8") == "second\n"
             # The held workspace keeps the sketch actually being built.
@@ -190,7 +191,7 @@ def test_a_concurrent_build_gets_a_private_directory(tmp_path, monkeypatch):
         # A fallback owns its directory and takes it away with it.
         assert not private_root.exists()
     # The shared one is reusable again once released.
-    with app._sketch_workspace("fastled_pattern", "third\n") as again:
+    with firmware._sketch_workspace("fastled_pattern", "third\n") as again:
         assert again == held
 
 
@@ -203,10 +204,10 @@ def test_a_build_that_linked_over_capacity_is_refused(monkeypatch, tmp_path):
     treats a successful compile as proof it fits -- so the fbuild path has to
     catch it from the numbers instead, or it would flash the board with it.
     """
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_fbuild_project_ready", True)
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *a, **k: "arduino_avr_uno")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_fbuild_project_ready", True)
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *a, **k: "arduino_avr_uno")
 
     def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
         for line in (
@@ -220,10 +221,10 @@ def test_a_build_that_linked_over_capacity_is_refused(monkeypatch, tmp_path):
                 sink.append(line)
             yield line
         return 0
-    monkeypatch.setattr(app, "_run_phase", fake_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_phase)
 
-    lines, (rc, phase) = app._drain_compile(
-        app._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", "COM5"))
+    lines, (rc, phase) = firmware._drain_compile(
+        firmware._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", "COM5"))
     log = "".join(lines)
 
     assert rc != 0 and phase == "compile"
@@ -237,10 +238,10 @@ def test_a_build_that_linked_over_capacity_is_refused(monkeypatch, tmp_path):
 
 
 def test_fbuild_hard_ram_overflow_uses_region_specific_advice(monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_fbuild_project_ready", True)
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *a, **k: "esp32_esp32_esp32")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_fbuild_project_ready", True)
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *a, **k: "esp32_esp32_esp32")
 
     def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
         line = "ld.exe: region `dram0_0_seg' overflowed by 22496 bytes\n"
@@ -249,9 +250,9 @@ def test_fbuild_hard_ram_overflow_uses_region_specific_advice(monkeypatch):
         yield line
         return 1
 
-    monkeypatch.setattr(app, "_run_phase", fake_phase)
-    lines, result = app._drain_compile(
-        app._compile_upload_fbuild("Sketch", "void setup(){}", "esp32:esp32:esp32", "")
+    monkeypatch.setattr(toolchain, "_run_phase", fake_phase)
+    lines, result = firmware._drain_compile(
+        firmware._compile_upload_fbuild("Sketch", "void setup(){}", "esp32:esp32:esp32", "")
     )
     log = "".join(lines)
 
@@ -262,10 +263,10 @@ def test_fbuild_hard_ram_overflow_uses_region_specific_advice(monkeypatch):
 
 
 def test_a_build_that_fits_still_uploads(monkeypatch):
-    monkeypatch.setattr(app, "_FBUILD_BIN", "/fake/fbuild")
-    monkeypatch.setattr(app, "_fbuild_project_ready", True)
-    monkeypatch.setattr(app, "_write_fbuild_main", lambda ino: None)
-    monkeypatch.setattr(app, "_fbuild_env_for_fqbn", lambda *a, **k: "arduino_avr_uno")
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "/fake/fbuild")
+    monkeypatch.setattr(toolchain, "_fbuild_project_ready", True)
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *a, **k: "arduino_avr_uno")
 
     def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
         for line in ("Flash: 4.75KB / 31.50KB (15.1%)\n", "RAM: 444 bytes / 2.00KB (21.7%)\n"):
@@ -273,10 +274,10 @@ def test_a_build_that_fits_still_uploads(monkeypatch):
                 sink.append(line)
             yield line
         return 0
-    monkeypatch.setattr(app, "_run_phase", fake_phase)
+    monkeypatch.setattr(toolchain, "_run_phase", fake_phase)
 
-    lines, (rc, phase) = app._drain_compile(
-        app._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", "COM5"))
+    lines, (rc, phase) = firmware._drain_compile(
+        firmware._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", "COM5"))
 
     assert (rc, phase) == (0, "upload")
     assert "[size-error]" not in "".join(lines)
@@ -288,10 +289,10 @@ def test_fastled_patch_keeps_the_shared_eic_irq_name(tmp_path, monkeypatch):
     # SAMD21 builds, so the patcher must leave the upstream name in place and
     # restore it where an earlier helper rewrote it.
     lib = tmp_path / "FastLED"
-    monkeypatch.setattr(app, "_FBUILD_LIB_DIR", lib)
+    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib)
     isr = lib / "src/platforms/arm/samd/isr_samd.hpp"
     isr.parent.mkdir(parents=True)
     for before in ("NVIC_DisableIRQ(EIC_IRQn)\n", "NVIC_DisableIRQ(EIC_0_IRQn)\n"):
         isr.write_text(before, encoding="utf-8")
-        app._patch_fastled_samd51_build()
+        toolchain._patch_fastled_samd51_build()
         assert isr.read_text(encoding="utf-8") == "NVIC_DisableIRQ(EIC_IRQn)\n"
