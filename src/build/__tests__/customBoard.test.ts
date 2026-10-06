@@ -16,6 +16,7 @@ import {
   createCustomBoardDraft,
   customBoardAssignmentId,
   customBoardIssueBlocksApply,
+  customBoardSlotLabel,
   parseCustomBoardDefinition,
   resizeCustomBoardSide,
   type CustomBoardDefinition,
@@ -296,5 +297,13 @@ describe('copying a reference pin map', () => {
 
   it('refuses a template with no two-rail map', () => {
     expect(customBoardRowsFromReference({ ...boardProfileById(CLASSIC)!, pins: [] } as PhysicalBoardProfile)).toBeUndefined()
+  })
+})
+
+describe('custom board labels', () => {
+  it('does not repeat a GPIO number the printed label already names', () => {
+    expect(customBoardSlotLabel({ id: 'a', role: 'gpio', gpio: 36, enabled: true, label: 'VP / GPIO36' })).toBe('VP / GPIO36')
+    expect(customBoardSlotLabel({ id: 'b', role: 'gpio', gpio: 3, enabled: true, label: 'GPIO36' })).toBe('GPIO36 / GPIO3')
+    expect(customBoardSlotLabel({ id: 'c', role: 'gpio', gpio: 16, enabled: true, label: 'D4' })).toBe('D4 / GPIO16')
   })
 })

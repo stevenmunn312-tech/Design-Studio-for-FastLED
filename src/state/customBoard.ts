@@ -172,7 +172,12 @@ export function resizeCustomBoardSide(slots: readonly CustomBoardSlot[], count: 
 }
 
 export function customBoardSlotLabel(slot: CustomBoardSlot): string {
-  if (slot.role === 'gpio') return slot.label ? `${slot.label} / GPIO${slot.gpio}` : `GPIO${slot.gpio}`
+  if (slot.role === 'gpio') {
+    // A printed label that already names the GPIO (a stock "VP / GPIO36") is
+    // shown as printed rather than repeating the number.
+    if (!slot.label) return `GPIO${slot.gpio}`
+    return new RegExp(`\\bGPIO${slot.gpio}\\b`).test(slot.label) ? slot.label : `${slot.label} / GPIO${slot.gpio}`
+  }
   if (slot.role === 'supply') return `${slot.label ? `${slot.label} / ` : ''}${slot.voltage}V ${slot.direction === 'input' ? 'IN' : 'OUT'}`
   return slot.label || { ground: 'GND', reset: 'RESET', reserved: 'Reserved', unconnected: 'NC', undefined: 'Undefined' }[slot.role]
 }
