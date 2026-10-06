@@ -93,6 +93,13 @@ function validCode(value: unknown): number | null {
   return Number.isInteger(numeric) && numeric >= 0 && numeric <= UINT32_MAX ? numeric : null
 }
 
+/**
+ * Where the preview publishes that a remote's key is being held on the node,
+ * which is when a receiver module's indicator LED lights. Not a port, and
+ * never a key handle, which always starts `button-`.
+ */
+export const IR_RECEIVING_KEY = 'receiving'
+
 export function irRemoteButtonHandle(entryId: string): string {
   return `button-${entryId}`
 }

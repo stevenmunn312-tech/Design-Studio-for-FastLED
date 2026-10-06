@@ -19,6 +19,14 @@ export function relayInputs(partId: unknown): NodePort[] {
   }))
 }
 
+/**
+ * Where the preview publishes whether channel `channel`'s coil is energised.
+ * Not a port: the bench reads it back to light that channel's status LED.
+ */
+export function relayEnergisedKey(channel: number): string {
+  return `energised${channel}`
+}
+
 export function relayPinKeys(partId: unknown): string[] {
   return Array.from(
     { length: relayChannelCountForPart(partId) },

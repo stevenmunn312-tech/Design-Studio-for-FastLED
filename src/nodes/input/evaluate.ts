@@ -34,6 +34,7 @@ import {
   stepIrRemotePreview,
   blankIrRepeatState,
   irRemoteButtonHandle,
+  IR_RECEIVING_KEY,
 } from '../../state/irRemote'
 import { rtcPreviewSnapshot } from '../../state/rtc'
 import {
@@ -310,10 +311,15 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       stateClock(),
     )
     irPreviewState.set(key, stepped.memory)
-    return Object.fromEntries(buttons.map((button) => [
-      irRemoteButtonHandle(button.id),
-      stepped.active.has(button.id),
-    ]))
+    return {
+      ...Object.fromEntries(buttons.map((button) => [
+        irRemoteButtonHandle(button.id),
+        stepped.active.has(button.id),
+      ])),
+      // A held key is a remote firing frames at the receiver, which is what
+      // lights the module's indicator LED on the bench.
+      [IR_RECEIVING_KEY]: buttons.some((button) => live.get(`${id}:${button.id}`) ?? false),
+    }
   },
   PotInput(_c, id) {
     return { value: useHardwareInputStore.getState().pot.get(id) ?? 0.5 }

@@ -57,6 +57,7 @@ import {
 import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/tftSurface'
 import { displayHasTouch, partById } from '../../state/partCatalogue'
 import { powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/powerSwitch'
+import { relayEnergisedKey, relayInputs } from '../../state/relayModule'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displaySignal'
 import { oledControllerForProps, tftControllerForProps, nodeDisplayLabel } from '../../state/nodeLibrary'
@@ -115,9 +116,9 @@ const segmentPowerState = instanceState('segmentPowerState', new Map<string, {
   watts: SegmentPowerSmoothingState
 }>())
 
-const relayOutput: NodeEvaluator = () => {
-  // Physical sink. Browser preview has no simulated contact load; the
-  // connected booleans are still evaluated because this node is hot.
+const physicalSink: NodeEvaluator = () => {
+  // Physical sink. Browser preview has no simulated load; the connected
+  // inputs are still evaluated because this node is hot.
   return {}
 }
 
@@ -554,13 +555,22 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       return [channel.load, powerSwitchLoad(powerSwitchGate(on, levelWired, dims), dims, level)]
     }))
   },
-  RelayOutput: relayOutput,
+  RelayOutput({ input }, id, props) {
+    // No contact load to simulate, but whether each coil is energised is
+    // known exactly, and it is what lights that channel's status LED. It is
+    // published for the bench the way the Power Switch's `load` is: read
+    // back, not a port. Unwired is off, as the firmware's `boolExpr` is.
+    return Object.fromEntries(relayInputs(props.partId).map((port, index) => [
+      relayEnergisedKey(index + 1),
+      input(id, port.id, false) === true,
+    ]))
+  },
   // A physical sink like the relay: the browser has no sound, but the boolean is still evaluated.
-  BuzzerOutput: relayOutput,
+  BuzzerOutput: physicalSink,
   // A physical sink too: the browser has no PWM output, but wired levels are still evaluated.
-  PwmDriverOutput: relayOutput,
+  PwmDriverOutput: physicalSink,
   // A physical sink too: the browser switches no load, but the booleans are still evaluated.
-  DarlingtonDriverOutput: relayOutput,
+  DarlingtonDriverOutput: physicalSink,
   MatrixOutput({ input, t, stateKey, incoming, nodeMap }, id, props, node, type) {
     // Blackout and dimming, applied here rather than at the preview so the
     // main matrix, every per-output preview, an offline recording and the
