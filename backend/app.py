@@ -50,6 +50,8 @@ from fastapi import Body, FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
+from user_data import default_data_dir
+
 # ── arduino-cli resolution ────────────────────────────────────────────────────
 # Resolve the CLI (saved path > env override > PATH > the IDE's bundled binary >
 # our own installed copy) and its config file, so it sees the ESP32 core + FastLED
@@ -62,20 +64,24 @@ SKETCH = "fastled_pattern"
 _HELPER_DIR = Path(__file__).parent
 # A frozen desktop bundle is normally installed in a read-only/application
 # directory, so all mutable helper state can be redirected to a per-user data
-# root. Source checkouts keep the historical backend-local paths when the env
+# root. Source checkouts keep the helper's machine state beside it when the env
 # var is absent.
 _DATA_DIR = Path(os.environ.get("FLS_DATA_DIR") or _HELPER_DIR)
-_CONTENT_DIR = _DATA_DIR if os.environ.get("FLS_DATA_DIR") else _HELPER_DIR.parent
+# Saved projects and patterns are the user's own work, so every mode keeps them
+# in the per-user data folder, never inside a checkout or an installed bundle.
+_CONTENT_DIR = Path(os.environ.get("FLS_DATA_DIR") or default_data_dir())
 _CONFIG_PATH = _DATA_DIR / ".helper-config.json"
 _BIN_DIR = _DATA_DIR / "bin"  # where a self-installed arduino-cli lands
 
 # Saved node-graph patterns ("My Patterns") live as one JSON file each in this
-# folder at the repo root, so users can share a pattern by simply sending the
-# file. The browser can't write arbitrary folders, so it round-trips through the
+# folder, so users can share a pattern by simply sending the file. The browser can't write arbitrary folders, so it round-trips through the
 # /api/patterns endpoints below. Override the location with FLS_PATTERNS_DIR.
 _PATTERNS_DIR = Path(os.environ.get("FLS_PATTERNS_DIR") or (_CONTENT_DIR / "My Patterns"))
 _PROJECT_FILE_SUFFIX = ".fastled-project.json"
 _PROJECTS_DIR = Path(os.environ.get("FLS_PROJECTS_DIR") or (_CONTENT_DIR / "Projects"))
+# Source checkouts kept "My Patterns" at the repository root until the library
+# moved to the per-user data folder; startup moves those files across once.
+_LEGACY_PATTERNS_DIR = _HELPER_DIR.parent / "My Patterns"
 _project_file_lock = threading.RLock()
 
 # Board-manager URLs for the third-party cores we can install, so `core install`
@@ -1591,7 +1597,13 @@ def _write_fbuild_main(ino: str) -> None:
         old_cpp.unlink()
 
 
-app = FastAPI(title="Design Studio for FastLED Upload Helper")
+@contextlib.asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _migrate_legacy_patterns(_LEGACY_PATTERNS_DIR, _PATTERNS_DIR)
+    yield
+
+
+app = FastAPI(title="Design Studio for FastLED Upload Helper", lifespan=_lifespan)
 
 # Hosts the helper will answer. `*.localhost` covers the named Vite dev and
 # preview origins (`design-studio-for-fastled.localhost`, `fastled-studio.localhost`).
@@ -4425,6 +4437,28 @@ def _sanitize_filename(name: str) -> str:
 def _patterns_dir() -> Path:
     _PATTERNS_DIR.mkdir(parents=True, exist_ok=True)
     return _PATTERNS_DIR
+
+
+def _migrate_legacy_patterns(legacy: Path, target: Path) -> int:
+    """Move every pattern file from `legacy` into `target`, then remove `legacy`
+    once it is empty. A name already taken by a different file gets a suffix,
+    so no pattern is overwritten or left behind. Returns the files moved."""
+    if not legacy.is_dir() or (target.exists() and legacy.resolve() == target.resolve()):
+        return 0
+    target.mkdir(parents=True, exist_ok=True)
+    moved = 0
+    for src in sorted(legacy.glob("*.json")):
+        dest = target / src.name
+        if dest.exists():
+            if dest.read_bytes() == src.read_bytes():
+                src.unlink()
+                continue
+            dest = target / f"{src.stem}-{uuid.uuid4().hex[:8]}.json"
+        shutil.move(str(src), str(dest))
+        moved += 1
+    with contextlib.suppress(OSError):
+        legacy.rmdir()
+    return moved
 
 
 def _projects_dir() -> Path:

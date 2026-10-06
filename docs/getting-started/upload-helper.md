@@ -92,5 +92,15 @@ and `engine` to determine whether a compiler is available.
 The frontend defaults to `http://localhost:8008`. Set `VITE_BACKEND_URL` before
 starting Vite if using a different local helper address.
 
+## Where saved work lives
+
+The helper keeps saved projects and the pattern library in `Projects` and
+`My Patterns` under the same per-user data folder as the
+[desktop bundle](../release/desktop-distribution.md), so a source checkout never
+holds personal work. A checkout's old root `My Patterns` folder moves there the
+first time the helper starts. Set `FLS_PROJECTS_DIR` or `FLS_PATTERNS_DIR` to use
+another folder. Helper configuration and a self-installed `arduino-cli` stay in
+`backend/`.
+
 For endpoint behavior and streaming contracts, see the
 [upload-helper API reference](../reference/api/upload-helper.md).

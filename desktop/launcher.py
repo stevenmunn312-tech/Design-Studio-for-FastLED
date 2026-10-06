@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import platform
 import socket
 import sys
 import threading
@@ -38,20 +37,11 @@ def resource_dir() -> Path:
     return Path(__file__).resolve().parent if is_frozen() else Path(__file__).resolve().parents[1]
 
 
-def default_data_dir(system: str | None = None) -> Path:
-    """Return the per-user mutable-data root for the active desktop OS."""
-    name = system or platform.system()
-    if name == "Windows":
-        base = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
-        return base / "Design Studio for FastLED"
-    if name == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "Design Studio for FastLED"
-    base = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share"))
-    return base / "design-studio-for-fastled"
-
-
 def configure_environment(data_dir: Path | None = None) -> Path:
     """Point every mutable helper path outside the installed application."""
+    _source_backend_on_path()
+    from user_data import default_data_dir
+
     data = (data_dir or default_data_dir()).resolve()
     data.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("FLS_DATA_DIR", str(data))

@@ -12,17 +12,6 @@ if str(ROOT) not in sys.path:
 from desktop import launcher  # noqa: E402
 
 
-def test_default_data_dir_uses_native_user_locations(monkeypatch, tmp_path):
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
-
-    assert launcher.default_data_dir("Windows") == tmp_path / "local" / "Design Studio for FastLED"
-    assert launcher.default_data_dir("Linux") == tmp_path / "xdg" / "design-studio-for-fastled"
-    assert launcher.default_data_dir("Darwin").parts[-2:] == (
-        "Application Support", "Design Studio for FastLED",
-    )
-
-
 def test_configure_environment_keeps_mutable_state_outside_bundle(monkeypatch, tmp_path):
     bundle = tmp_path / "installed"
     tools = bundle / "tools"

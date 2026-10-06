@@ -14,6 +14,13 @@ def client():
 
 
 @pytest.fixture(autouse=True)
+def _no_real_legacy_patterns(monkeypatch, tmp_path):
+    """Startup moves a checkout's old root "My Patterns" folder into the patterns
+    folder. A test that starts the app must never move the developer's files."""
+    monkeypatch.setattr(app_module, "_LEGACY_PATTERNS_DIR", tmp_path / "legacy-patterns")
+
+
+@pytest.fixture(autouse=True)
 def _engine_binaries_present(monkeypatch):
     """Assume an installed build engine unless a test says otherwise.
 
