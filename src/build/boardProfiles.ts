@@ -4,6 +4,10 @@ import { BOARD_CAPABILITY_DATA, GENERATED_BOARD_PROFILES } from './generated/boa
 import { boardI2cDefault } from './boardI2cDefaults'
 import { boardPinSafetyOverride } from './boardPinSafetyOverrides'
 import { CLASSIC_ESP32_RAM_BUDGET_BYTES, ESP32_S3_RAM_BUDGET_BYTES } from './ramBudgets'
+import { CUSTOM_BOARD_PROFILE_ID, type CustomBoardDefinition, type CustomBoardIssue } from '../state/customBoard'
+import type { BoardGpio } from '../state/boardGpio'
+import type { BoardI2cDefault } from './boardI2cDefaults'
+import { resolveCustomBoard } from './customBoardProfile'
 import type {
   BoardCapabilityData,
   BoardPeripheralPins,
@@ -14,7 +18,7 @@ import type {
 // Re-exported so consumers keep importing board types from this one module.
 export type { BoardCapabilityData, BoardPeripheralPins, BoardPinSafety, BoardRenderAsset }
 
-export type BoardProfileConfidence = 'manufacturer-verified' | 'pinout-verified' | 'visual-match-only'
+export type BoardProfileConfidence = 'manufacturer-verified' | 'pinout-verified' | 'visual-match-only' | 'user-defined'
 export type BoardPinRole = 'gpio' | 'power-in' | 'power-out' | 'ground' | 'usb' | 'analog' | 'reserved'
 export type BoardPinLabelAlign = 'left' | 'right' | 'top' | 'bottom'
 export type BoardPinAvailability = 'available' | 'unavailable'
@@ -71,6 +75,16 @@ export interface PhysicalBoardProfile {
   /** Present once the board has been imported from the Blender asset set;
    *  absent while the profile is still on the generated `previewSvg` placeholder. */
   render?: BoardRenderAsset
+  /** Effective project profile only; never inserted into the stock catalogue.
+   * An empty GPIO table is explicit exposure, not missing stock pin advice. */
+  custom?: {
+    definition: CustomBoardDefinition
+    /** The stock template whose build settings this board inherits. */
+    referenceLabel: string
+    gpio: BoardGpio
+    /** Absent when the requested pair is not on this board's enabled pins. */
+    defaultI2c?: BoardI2cDefault
+  }
 }
 
 export type BoardPinStanding = 'safe' | 'caution' | 'reserved' | 'unknown'
@@ -864,7 +878,6 @@ export function boardProfileById(id: string): PhysicalBoardProfile | undefined {
   return BOARD_PROFILES.find((profile) => profile.id === id)
 }
 
-/** The physical board explicitly chosen on the active graph, if there is one. */
 /**
  * The module's flash size in MB, when the chosen board profile records one.
  *
@@ -879,14 +892,42 @@ export function selectedBoardFlashMb(nodes: readonly {
   return selectedPhysicalBoardProfile(nodes)?.memory?.flashMb
 }
 
+export interface BoardSelectionResolution {
+  kind: 'stock' | 'custom' | 'none'
+  profile?: PhysicalBoardProfile
+  /** Always empty for a stock board. A custom board with definition issues
+   *  may have no profile; it never falls back to another board. */
+  issues: CustomBoardIssue[]
+}
+
+const NO_BOARD: BoardSelectionResolution = { kind: 'none', issues: [] }
+
+/** Resolve a Board node's properties to the stock or project-custom board. */
+export function resolveBoardSelection(properties: Record<string, unknown>): BoardSelectionResolution {
+  const profileId = properties.profileId
+  if (profileId === CUSTOM_BOARD_PROFILE_ID) {
+    return { kind: 'custom', ...resolveCustomBoard(properties.customBoard, boardProfileById) }
+  }
+  if (typeof profileId !== 'string' || !profileId) return NO_BOARD
+  return { kind: 'stock', profile: boardProfileById(profileId), issues: [] }
+}
+
+export function selectedBoardResolution(nodes: readonly {
+  data: { nodeType?: unknown; properties?: unknown }
+}[]): BoardSelectionResolution {
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  const properties = board?.data.properties
+  if (!properties || typeof properties !== 'object') return NO_BOARD
+  return resolveBoardSelection(properties as Record<string, unknown>)
+}
+
+/** The board chosen on the active graph: a stock profile or the project's
+ *  custom board, resolved. Stable for unchanged Board properties, so it is
+ *  safe inside store selectors. */
 export function selectedPhysicalBoardProfile(nodes: readonly {
   data: { nodeType?: unknown; properties?: unknown }
 }[]): PhysicalBoardProfile | undefined {
-  const board = nodes.find((node) => node.data.nodeType === 'Board')
-  const properties = board?.data.properties
-  if (!properties || typeof properties !== 'object') return undefined
-  const profileId = (properties as Record<string, unknown>).profileId
-  return typeof profileId === 'string' && profileId ? boardProfileById(profileId) : undefined
+  return selectedBoardResolution(nodes).profile
 }
 
 export function compatibleBoardProfilesForFqbn(fqbn: string): PhysicalBoardProfile[] {
@@ -896,11 +937,22 @@ export function compatibleBoardProfilesForFqbn(fqbn: string): PhysicalBoardProfi
 }
 
 export function isBoardProfileCompatibleWithFqbn(profileId: string | undefined, fqbn: string): boolean {
-  if (!profileId) return false
-  const profile = boardProfileById(profileId)
-  if (!profile) return false
+  const profile = profileId ? boardProfileById(profileId) : undefined
+  return !!profile && boardProfileMatchesFqbn(profile, fqbn)
+}
+
+/** Whether a resolved profile (stock or custom) builds for this upload target. */
+export function boardProfileMatchesFqbn(profile: PhysicalBoardProfile, fqbn: string): boolean {
   if (profile.compatibleFqbns.includes(fqbn)) return true
   return profile.targetFamilies.includes(targetFamilyFromFqbn(fqbn))
+}
+
+/** What the board's pin data rests on, for printed and exported records. A
+ *  custom board is the user's own schematic and never claims verification. */
+export function boardDataProvenance(profile: PhysicalBoardProfile): string {
+  return profile.custom
+    ? `${profile.sourceSummary}; build settings from ${profile.custom.referenceLabel}`
+    : profile.confidence.replace(/-/g, ' ')
 }
 
 export function boardPinForGpio(

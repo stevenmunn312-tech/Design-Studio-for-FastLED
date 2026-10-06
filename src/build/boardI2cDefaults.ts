@@ -105,6 +105,18 @@ export const BOARD_I2C_DEFAULTS: Readonly<Record<string, BoardI2cDefault>> = {
   'weact-black-pill-f411ce': pins(23, 22, { sdaLabels: ['B7', 'PB7'], sclLabels: ['B6', 'PB6'], sdaDisplay: 'PB7', sclDisplay: 'PB6' }),
 }
 
+/** Stock catalogue lookup by profile ID. */
 export function boardI2cDefault(profileId: string | undefined): BoardI2cDefault | undefined {
   return profileId ? BOARD_I2C_DEFAULTS[profileId] : undefined
+}
+
+/**
+ * The default bus of the board actually selected. A custom board's pair comes
+ * from its own validated definition, never from its build template's ID, and
+ * is absent when that pair is not on the board's enabled pins.
+ */
+export function profileI2cDefault(
+  profile: { id: string; custom?: { defaultI2c?: BoardI2cDefault } } | undefined,
+): BoardI2cDefault | undefined {
+  return profile?.custom ? profile.custom.defaultI2c : boardI2cDefault(profile?.id)
 }
