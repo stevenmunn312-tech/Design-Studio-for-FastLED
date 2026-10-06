@@ -1,5 +1,5 @@
-// Zero-dependency animated GIF (GIF89a) encoder, in the spirit of
-// zipExport.ts: no library, just the format. Frames are added one at a time
+// Zero-dependency animated GIF (GIF89a) encoder.
+// Frames are added one at a time
 // as opaque RGBA pixel buffers (a canvas getImageData().data); each frame
 // carries its own local colour table. Frames with ≤256 colours stay exact;
 // gradient-heavy frames use a balanced 6×7×6 RGB cube. That fixed palette

@@ -60,12 +60,6 @@ Compiles owed by features that are already in the app:
   the only branch not compiled, because no Teensy core is installed
   ([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
 
-Small fix:
-
-- [ ] Delete `src/components/Layout/HorizontalResizeHandle.tsx`. Nothing has
-  used it since the workspace tabs replaced the split layout (found in
-  [app review, item 23](docs/plans/2026-09-24-app-review.md#7-align-documentation-and-complete-the-product-pass)).
-
 ## 2. Remaining engineering before v1
 
 - [ ] **HW-12 · Integrated display boards (M).** Add exact profiles, bus

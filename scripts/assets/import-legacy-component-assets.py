@@ -2,7 +2,7 @@
 """Import Blender renders still used as bundled UI artwork.
 
 Canonical board and part packages are handled by the two catalogue importers.
-Six older models still live at the Blender Assets root.  Four additional
+Six older models still live at the Blender Assets root.  Three additional
 bundled imports are fallbacks or direct component artwork for canonical parts.
 All retain their established filenames so existing UI imports stay stable.
 
@@ -36,7 +36,6 @@ ASSETS = {
 CANONICAL_ASSETS = {
     "Parts/inmp441-i2s-microphone/inmp441-i2s-microphone.png": (
         "inmp441-i2s-microphone.webp",
-        "inmp441-breakout.webp",
     ),
     "Parts/max98357a-i2s-amplifier/max98357a-i2s-amplifier.png": (
         "max98357a-i2s-amplifier.webp",

@@ -503,8 +503,8 @@ verified; adding the UI alone is not completion.
     old split layout and top bar; they were recaptured at 1600x900 in fresh
     headless contexts (helper blocked, dev-only Metrics hidden) and committed
     as WebP, and a Hardware tab shot was added. The Stage View shot hides the
-    chrome and was kept. Found in passing: `HorizontalResizeHandle` is no
-    longer used by anything; its removal is left as a separate task.
+    chrome and was kept. The unused `HorizontalResizeHandle` and its styles
+    have since been removed.
 
 24. [x] **Run the final acceptance walkthrough.** Repeat all baseline scenarios
     after the changes, including narrow-window and keyboard checks. Confirm that
