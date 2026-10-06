@@ -414,6 +414,11 @@ Unless a future row says otherwise, treat the following as experimental:
 - All boards except ESP32-S3, ESP8266, and the classic ESP32 (see the rows
   above). The classic-ESP32 row covers a normal live-graph upload only — its
   SD-show path is still experimental, per the 2026-07-28 note.
+- **Custom boards** (Hardware → Custom board). A user-defined header map on
+  a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
+  pad positions and supply pads are the user's declarations, and no custom
+  layout has yet been compared against a real board or compiled and flashed
+  on the bench. Its build settings are those of the chosen template's module.
 - All LED chipsets except the recorded WS2812B row above.
 - All matrix/strip sizes except the recorded 16x16, 10x1, 60x1, and 65x1 rows above.
 - Tiled panels and custom XY maps (non-rectangular layouts) — strip layout has

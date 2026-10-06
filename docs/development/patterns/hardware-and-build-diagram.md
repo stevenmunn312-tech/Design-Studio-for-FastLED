@@ -84,6 +84,25 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   straight off the node rather than through `controllerSettings` (durable
   controller *policy*) for a per-session instrument like this.
 
+- **Read the selected board through the resolver, never by `profileId`.**
+  `profileId` may be `custom`, which no catalogue lookup knows.
+  `selectedPhysicalBoardProfile` (or `resolveBoardSelection` for a bare Board
+  property bag) returns the stock profile or the project's custom board; ask
+  `boardProfileById` only for the stock catalogue. Default buses follow the
+  same rule: `profileI2cDefault(profile)`, not `boardI2cDefault(profile.id)`,
+  and a chip-level default (SD, I2S) is adopted on a custom board only when
+  `boardOffersPins` says the header carries it. A custom pool is always
+  explicit (`boardHasExplicitPinPool`): an empty one is no pins, not the chip
+  table. The resolver caches by the saved definition object, so a store
+  selector gets the same profile back until the Board properties change; keep
+  that when touching it, or selectors re-render forever. See
+  [Board architecture](../design/board-node-architecture.md#project-custom-boards).
+- **A dialog opened from the workbench board menu must not be portalled.**
+  `HardwarePane` closes the board menu on any `pointerdown` outside the menu's
+  own DOM, so a portalled `CustomBoardEditor` lost its first click and
+  unmounted with the menu. It renders in place with a fixed backdrop, as
+  `BoardPinoutPicker` does.
+
 ## Peripherals
 
 - **An actively driven touch module is not a mechanical button.**

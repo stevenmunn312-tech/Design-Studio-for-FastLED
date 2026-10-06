@@ -1,7 +1,8 @@
 # Board node and hardware capability model
 
 Status: board/profile architecture plus microphone, PCM1802 line-in, and
-player-decoder Audio and Storage capabilities implemented on `Hardware` · Owner: app · Updated: 2026-09-10
+player-decoder Audio and Storage capabilities implemented on `Hardware`; project
+custom boards implemented · Owner: app · Updated: 2026-10-06
 
 The Board node is the root authority for the controller a project targets. The
 original proposal has now shipped far enough that this document describes the
@@ -38,7 +39,9 @@ remembering user-owned choices per board.
 
 The Board owns values that one firmware image can apply only once:
 
-- `profileId` — exact physical board;
+- `profileId` — exact physical board, or `custom` for the project's own board;
+- `customBoard` — that board's definition, retained while a stock board is
+  selected;
 - `brightness` — global FastLED master brightness;
 - `overclock` — global clockless-chipset timing multiplier;
 - `powerLimit`, `volts`, and `milliamps` — the controller-wide FastLED cap;
@@ -108,6 +111,50 @@ The workbench chooses the physical profile. The Upload tab's Board/Port control
 owns build engine, detected port, custom compile targets, and core updates. A
 profile or target being present means Studio can describe or build for it; only
 the beta support matrix records end-to-end hardware support.
+
+## Project custom boards
+
+A project may define one board of its own: Hardware → Family → **Custom
+board**. Its versioned definition (`src/state/customBoard.ts`) lives in the
+Board node's `customBoard` property beside `profileId: 'custom'`, so it saves,
+shares, imports and undoes with the project and needs no local catalogue. It
+names a reviewed build template (`src/build/customBoardTemplates.ts`), the
+controller power method, the default I2C pair, and two ordered headers of
+slots: GPIO (Arduino number, enabled), supply (voltage, direction), ground,
+reset, reserved or unconnected, each with an optional printed label.
+
+`selectedPhysicalBoardProfile` resolves the selection through
+`resolveBoardSelection` (`boardProfiles.ts`), so every consumer sees the same
+board. `resolveCustomBoard` (`src/build/customBoardProfile.ts`) builds the
+effective profile:
+
+- **From the template:** FQBNs, target family, processor, memory, PSRAM mode
+  and internal-RAM allowance — inherited assumptions about the equivalent
+  module, stated as such.
+- **From the definition only:** pins, labels, power pads and the schematic
+  geometry. No render, indicator, integrated hardware, peripheral starting
+  point or verification is inherited; confidence is `user-defined`.
+- **Pin pool:** enabled, exposed GPIOs the module supports. Boot straps, UART0
+  and native USB are cautions, never handed out automatically, and every chip
+  pin the header does not offer is stated unavailable, so an empty or
+  exhausted pool stays empty (`boardPinPolicy.ts`).
+- **Identity:** the profile ID is `custom:<definition id>:<template>`. Layout
+  and name edits keep it, so they move no part; changing the template is a
+  board change and retargets as one.
+
+An unresolved definition never falls back to another board. It blocks firmware
+in the deploy gate and Graph Health, the workbench draws a repair placeholder,
+and board-following retargeting waits until it is repaired. The one editor
+(`CustomBoardEditor.tsx`) owns a local draft and applies it through
+`graphStore.applyCustomBoard` as one undo step. Only app-placed I2C pins
+follow a changed default pair; explicit choices stay and are reported.
+
+The schematic is drawn from one geometry (`customBoardGeometry.ts`) by one SVG
+renderer (`customBoardSvg.ts`) for the workbench, pinout, editor preview and
+Build Diagram, where terminals and power stubs come from the same pads. The
+electrical plan states the declared power method, plans no converter into a
+user-declared input and leaves an unchosen method unresolved. See the
+[plan](../plans/custom-board-pin-layouts.md).
 
 ## Pin capability model
 

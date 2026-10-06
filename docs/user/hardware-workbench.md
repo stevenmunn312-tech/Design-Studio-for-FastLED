@@ -25,6 +25,28 @@ when the exact profile records a PSRAM interface. `Auto` serial routing examines
 the selected USB port and chooses native USB or a UART bridge from its identity;
 an unknown device falls back to UART unless the user overrides it.
 
+### Use a custom board
+
+When no profile matches your board, choose **Custom board** in the family
+list. Name it, then pick the template that uses the **same processor and
+module** — its flash, PSRAM and pin limits apply to your board. Set the number
+of pins on each side, front side up with row 1 at the top, and define every
+position: a GPIO by its Arduino number (with the label printed beside it, such
+as `D4`), a supply pad by its voltage and direction, ground, reset, reserved or
+unconnected. **Copy pin map** seeds the rows from the template's own header;
+supply pads arrive undefined for you to confirm.
+
+Choose the controller power method and, if your board's I2C pins differ, pick
+SDA and SCL from its enabled GPIOs. The preview shows the board as every view
+will draw it, and the editor lists any existing part whose pin your board will
+not offer before you apply. Those parts keep their pins and block the upload
+until you move them. **Cancel** changes nothing; **Edit** reopens the board.
+
+A custom board is a schematic of your own declarations, not a verified
+pinout. Check every pad against the real board before wiring, and treat a pad
+printed VIN as unrated until you have checked it. Custom boards are
+experimental in the support matrix.
+
 ## Add the parts that exist
 
 Use the **Hardware shelf** in the Hardware tab's left panel. The current

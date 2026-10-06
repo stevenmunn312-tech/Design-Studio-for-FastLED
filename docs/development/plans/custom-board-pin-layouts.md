@@ -1,7 +1,11 @@
 # Generic custom board with configurable pin headers
 
-Status: implementation proposed, not started.
-Revised for the generic SVG approach on the `Hardware` branch, 2026-10-06.
+Status: implemented on `Hardware`, 2026-10-06, steps 1–8 in code and tests.
+Not yet done: comparing a real custom layout against its board and compiling
+and flashing representative projects on the bench, so custom boards stay
+experimental in the [support matrix](../../release/beta-support-matrix.md).
+The built contract is in the
+[Board architecture note](../design/board-node-architecture.md#project-custom-boards).
 
 ## Outcome and scope
 
@@ -393,8 +397,12 @@ per-board asset maintenance.
 
 ## Assessment validation
 
-Earlier in this feasibility task, the existing `boardProfiles`, `pinRetarget`,
-`BoardPinoutPopup` and `boardI2cDefaults` suites passed: 4 files, 83 tests.
-That is a baseline for existing behaviour, not verification of this revised
-design. This revision changes planning documentation only; no custom-board
-implementation, new tests or physical-board verification has been performed.
+The implementation is covered by focused suites beside each layer:
+`customBoard.test.ts` (definition, resolver, geometry, SVG, reference copy),
+`customBoardPins.test.ts` (allocation, retargeting, diagnostics, store),
+`customBoardPersistence.test.ts` (project file, share link, load),
+`customBoardFirmware.test.ts` (generated pins and I2C bus),
+`customBoardDiagram.test.ts` (diagram endpoints, power rails, electrical plan,
+parts list) and `CustomBoardEditor.test.tsx` (Apply, Cancel, pinout). The
+editor, workbench, pinout and Build Diagram were also exercised in the browser
+preview. No physical-board verification has been performed.
