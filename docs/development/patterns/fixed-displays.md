@@ -376,6 +376,37 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   not yet wired into any generator's emit path or a part-menu entry — see the
   XC4630/`CATALOGUE_ONLY` note above.
 
+## On the Hardware bench
+
+- A display's live output is drawn over its part render by
+  `src/components/Hardware/BenchDisplayScreen.tsx`. Where the output lands is
+  imported, not typed: `display.screensPx` in each part.json holds the active
+  area (one rectangle) or the digit-package windows (one per package) in render
+  pixels, written by `Blender Assets/Scripts/measure_display_screens.py`. That
+  script projects a named mesh through the part's fixed orthographic render
+  camera. The TFT models carry an "active display" mesh. The OLED models carry
+  only glass, so the datasheet active area is placed in it. A new display needs
+  a rule there, a re-run, and `import-part-assets.py --only`.
+  `benchScreenGeometry.test.ts` fails for any catalogued display with no screens
+  unless it is named in `SCREEN_NOT_IN_RENDER` (the XC4630 is rendered from its
+  component side).
+- The picture faces the way the real panel would with the module header-down,
+  so a mounting rotation shows on the bench. An OLED reads upright at `0`.
+  This is bench-verified on the 1.3-inch SH1106 and assumed for the other OLED
+  modules. A TFT rotation is how far the panel
+  is turned clockwise to read upright, because the MADCTL table matches
+  TFT_eSPI's `setRotation`. On a fixed render the picture therefore turns the
+  other way (`tftScreenTurn`). A landscape-rendered TFT (the DFRobot ILI9341)
+  is assumed upright at `90`, which no bench run has yet confirmed against 270.
+- Segment digits are drawn from `segmentBytes`, the bytes the firmware writes,
+  so the bench cannot light a segment the module would not. On the colon form,
+  digit 1's high bit is the colon and there are no points.
+- No live `<canvas>` on the bench: panels rasterise on one off-DOM canvas into
+  an SVG `<image>`. Rasterising happens only when the pixels change, at most
+  every 100 ms. A mounted screen design draws through the shared
+  `DisplayDesignSurface` inside a `foreignObject`. See
+  `HardwareLedPreview` for why a visible canvas is avoided.
+
 ## Layout invariants and golden tests
 
 - A fixed display layout is frozen with golden-vector tests the same way the VU

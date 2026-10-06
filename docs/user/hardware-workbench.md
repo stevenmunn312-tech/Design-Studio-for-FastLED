@@ -650,6 +650,13 @@ selects **LED Status**. The TFT's presentation setting chooses between
 treatments of its connected source. There are no separate
 Title/Artist/Progress inputs on the physical panel.
 
+On the Hardware tab, each display shows its live output on the module's own
+screen, as the real part would with its header at the bottom. A rotation set
+for an upside-down or sideways mounting therefore looks upside down or sideways
+there, the way the panel would look on your desk. A disabled panel goes dark.
+The XC4630 shield is pictured from its component side, so its screen is not
+visible on the bench.
+
 For fixed music touch, wire named Touch outputs such as **Play / Pause**
 straight to matching Music Player action inputs, or connect **Touch
 Controls → Control Map Controls In → Music Player Controls** when you

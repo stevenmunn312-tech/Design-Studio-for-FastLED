@@ -195,6 +195,8 @@ export function useBenchParts({ nodes, edges, selectedBoard }: BenchPartsInputs)
       },
       node,
       partId: ordinal === 0 ? entry.partId : `${entry.partId}-${node.id}`,
+      /** The catalogued module this node is, which the bench reads its screen from. */
+      modulePartId: chosen?.partId ?? null,
       pinSummary,
       // A rail stands on end, so an unbroken one sets the height every other
       // part is scaled against — the case the break was written for.

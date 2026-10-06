@@ -31,6 +31,7 @@ import {
 import HardwarePartBody from '../Canvas/HardwarePartBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareVuRailPreview from './HardwareVuRailPreview'
+import BenchDisplayScreen from './BenchDisplayScreen'
 import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
@@ -794,7 +795,19 @@ export default function HardwarePane() {
                     })}
                   </span>
                 ) : part.entry.render
-                  ? <img src={part.entry.render} alt={part.entry.label} draggable={false} />
+                  ? (
+                    <>
+                      <img src={part.entry.render} alt={part.entry.label} draggable={false} />
+                      {/* What the panel is showing, on its own glass. */}
+                      <BenchDisplayScreen
+                        nodeId={part.node.id}
+                        nodeType={part.node.data.nodeType}
+                        partId={part.modulePartId}
+                        properties={part.node.data.properties as Record<string, unknown>}
+                        className={styles.displayScreen}
+                      />
+                    </>
+                  )
                   : <span className={styles.placeholderLabel}>{part.entry.label}</span>}
               </button>
               {(() => {

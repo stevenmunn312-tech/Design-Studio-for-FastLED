@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Displays on the Hardware tab now show their live output on the module's own
+  screen. OLED and colour TFT panels show the picture the evaluator draws,
+  including a mounted screen design. Segment modules light the segments,
+  colon and points the firmware would. A rotation set for an upside-down or
+  sideways mounting shows that way on the bench, as it would on a real panel.
+  The XC4630 shield is pictured from behind, so its screen is not shown.
 - New SD Video node plays a video from the SD card. Drop a video on the node and
   Studio shrinks it to the LED canvas and keeps it as raw frames; Write to card
   copies the clip to a card in a reader, and the sketch reads it back frame by
