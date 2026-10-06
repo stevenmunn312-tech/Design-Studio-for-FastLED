@@ -452,10 +452,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   LED: the render already shows it on, so the bench adds only its glow. An
   unlit LED is recorded only under an explicit rule in that script, and a rule
   never targets a rendered-lit LED, because baked light cannot be turned off.
-  A board that renders more than one LED lit records none: the Arduino and
-  Nucleo renders bake TX/RX or user LEDs lit, and which one is power is not in
-  the model. Boards whose single lit LED may be a user or charge LED are
-  skipped by name until checked against the board.
+  A board that renders more than one LED lit records none, since which one is
+  power is not in the model. The generators had lit the Arduino Nano's TX, RX
+  and L, the Uno's L, the R4s' TX/RX, SCK and matrix, the nRF52840 DK's user
+  LEDs and the Nucleo-144's LD1-LD3, which an idle board has dark.
+  `board_rebuild/relight.py` turned those off and re-rendered them; it names
+  each LED from the generator's object names in the pre-rebuild backups. Run
+  `relight_qa.py` before `relight_promote.py` when relighting a board. QA
+  allows only light to be removed: glossy leads and gold rings reflect an LED
+  from across the board, so a fixed radius around it is the wrong test. Boards whose single lit
+  LED may be a user or charge LED are skipped by name until checked against
+  the board.
 - What lights a state-driven LED is read from the same evaluated values the
   firmware acts on (`indicatorGlow`): a relay publishes each coil as
   `relayEnergisedKey(n)`, a Power Switch its per-channel `load` (so a dimmed

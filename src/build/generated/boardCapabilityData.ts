@@ -390,6 +390,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/arduino-nano-classic.webp",
       widthPx: 700,
       heightPx: 1933,
+      indicators: [
+        {
+          rectPx: [179.2, 329.7, 35.3, 17.6],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "arduino-nano-every": {
@@ -414,6 +421,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/arduino-nano-every.webp",
       widthPx: 700,
       heightPx: 1933,
+      indicators: [
+        {
+          rectPx: [179.2, 329.7, 35.3, 17.6],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "arduino-nano-rp2040-connect": {
@@ -465,6 +479,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/arduino-uno-r3-dip.webp",
       widthPx: 700,
       heightPx: 984,
+      indicators: [
+        {
+          rectPx: [253.7, 471.3, 11.9, 6.0],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "arduino-uno-r3-smd": {
@@ -491,6 +512,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/arduino-uno-r3-smd.webp",
       widthPx: 700,
       heightPx: 984,
+      indicators: [
+        {
+          rectPx: [253.7, 471.3, 11.9, 6.0],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "arduino-uno-r4-minima": {
@@ -515,6 +543,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/arduino-uno-r4-minima.webp",
       widthPx: 700,
       heightPx: 985,
+      indicators: [
+        {
+          rectPx: [207.0, 520.8, 11.9, 6.0],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "arduino-uno-r4-wifi": {
@@ -546,6 +581,13 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/arduino-uno-r4-wifi.webp",
       widthPx: 700,
       heightPx: 985,
+      indicators: [
+        {
+          rectPx: [201.9, 562.2, 11.9, 6.0],
+          color: [255, 15, 8],
+          drive: "power",
+        },
+      ],
     },
   },
   "arduino-zero": {
