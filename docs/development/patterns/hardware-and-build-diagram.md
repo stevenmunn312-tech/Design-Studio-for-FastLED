@@ -460,9 +460,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   each LED from the generator's object names in the pre-rebuild backups. Run
   `relight_qa.py` before `relight_promote.py` when relighting a board. QA
   allows only light to be removed: glossy leads and gold rings reflect an LED
-  from across the board, so a fixed radius around it is the wrong test. Boards whose single lit
-  LED may be a user or charge LED are skipped by name until checked against
-  the board.
+  from across the board, so a fixed radius around it is the wrong test. The
+  same script recolours LEDs (the Arduino power LEDs are green) and reseats
+  one the generator put on another part (the Uno R3's L). Those render twice:
+  first with the LED off, so QA can check the first step only removed light
+  and the second only added it. Boards whose single lit LED may be a user or
+  charge LED are skipped by name until checked against the board.
 - What lights a state-driven LED is read from the same evaluated values the
   firmware acts on (`indicatorGlow`): a relay publishes each coil as
   `relayEnergisedKey(n)`, a Power Switch its per-channel `load` (so a dimmed

@@ -25,7 +25,8 @@ versioning (`0.y.z`) until the first stable release.
 - The Arduino Nano, Nano Every, Uno R3, Uno R4 Minima and R4 WiFi,
   nRF52840 DK and Nucleo-144 pictures no longer show TX, RX, user LEDs or the
   R4 WiFi matrix lit. An idle board lights only its power LED, which now glows
-  on the Hardware tab.
+  on the Hardware tab. The Arduino power LEDs are green, and the Uno R3's L
+  LED no longer sits on top of a resistor.
 - New SD Video node plays a video from the SD card. Drop a video on the node and
   Studio shrinks it to the LED canvas and keeps it as raw frames; Write to card
   copies the clip to a card in a reader, and the sketch reads it back frame by
