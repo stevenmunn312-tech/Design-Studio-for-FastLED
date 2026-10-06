@@ -7,8 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from backend import app as helper  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+import app as helper  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("engine", choices=("arduino-cli", "fbuild"))
