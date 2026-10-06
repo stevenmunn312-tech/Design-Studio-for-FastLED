@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import TemplatesPopup from '../TemplatesPopup'
+import AppDialogHost from '../../AppDialog/AppDialogHost'
 import { useUiStore } from '../../../state/uiStore'
 import { useGraphStore } from '../../../state/graphStore'
 import { STARTER_TEMPLATES } from '../../../state/starterTemplates'
@@ -74,6 +75,15 @@ describe('TemplatesPopup', () => {
       fireEvent.keyDown(window, { key: 'Escape' })
       expect(useUiStore.getState().templatesOpen).toBe(true)
       useUiStore.setState({ appDialog: null })
+    })
+
+    it('stays open when Escape answers its replace confirmation', async () => {
+      const { findByRole } = render(<><TemplatesPopup /><AppDialogHost /></>)
+      const answer = useUiStore.getState().requestConfirm({ title: 'Replace current graph?', message: 'Continue?' })
+      // Escape lands on the confirmation, where its focus is, not on the window.
+      fireEvent.keyDown(await findByRole('dialog', { name: 'Replace current graph?' }), { key: 'Escape' })
+      await expect(answer).resolves.toBe(false)
+      expect(useUiStore.getState().templatesOpen).toBe(true)
     })
 
     it('keeps Tab inside the dialog', () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import AppDialogHost from '../AppDialogHost'
 import { useUiStore } from '../../../state/uiStore'
@@ -66,5 +66,23 @@ describe('AppDialogHost', () => {
     await expect(promise).resolves.toBe(false)
     await waitFor(() => expect(document.activeElement).toBe(opener))
     opener.remove()
+  })
+
+  it('keeps the Escape it answers from reaching popups beneath it', async () => {
+    // Those popups yield while `appDialog` is set, but the dialog clears it
+    // before document and window listeners run.
+    const beneath = vi.fn()
+    document.addEventListener('keydown', beneath)
+    window.addEventListener('keydown', beneath)
+    try {
+      const promise = useUiStore.getState().requestConfirm({ title: 'Discard?', message: 'Continue?' })
+      const { getByRole } = render(<AppDialogHost />)
+      fireEvent.keyDown(getByRole('dialog', { name: 'Discard?' }), { key: 'Escape' })
+      await expect(promise).resolves.toBe(false)
+      expect(beneath).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener('keydown', beneath)
+      window.removeEventListener('keydown', beneath)
+    }
   })
 })

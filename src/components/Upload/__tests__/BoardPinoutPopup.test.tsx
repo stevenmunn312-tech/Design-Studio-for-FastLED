@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import BoardPinoutPopup from '../BoardPinoutPopup'
+import AppDialogHost from '../../AppDialog/AppDialogHost'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { boardProfileById } from '../../../build/boardProfiles'
@@ -78,11 +79,14 @@ describe('BoardPinoutPopup', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(useUploadStore.getState().pinoutProfileId).toBe('seeed-xiao-esp32s3')
     useUiStore.setState({ appDialog: null })
-    // The dialog clears itself before window listeners run, so its mark is
-    // what stops the same keystroke from closing the pinout too.
-    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
-    event.preventDefault()
-    window.dispatchEvent(event)
+  })
+
+  it('stays open when Escape answers the shared dialog', async () => {
+    open('seeed-xiao-esp32s3')
+    render(<><BoardPinoutPopup /><AppDialogHost /></>)
+    const answer = useUiStore.getState().requestConfirm({ title: 'Replace?', message: 'Continue?' })
+    fireEvent.keyDown(await screen.findByRole('dialog', { name: 'Replace?' }), { key: 'Escape' })
+    await expect(answer).resolves.toBe(false)
     expect(useUploadStore.getState().pinoutProfileId).toBe('seeed-xiao-esp32s3')
   })
 })

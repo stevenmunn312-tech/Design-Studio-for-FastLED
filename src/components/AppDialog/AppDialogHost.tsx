@@ -100,7 +100,11 @@ export default function AppDialogHost() {
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
+      // The dialog clears itself before document and window listeners run, so
+      // a popup beneath it checking `appDialog` would see none and close too.
+      // The keystroke is the dialog's alone.
       event.preventDefault()
+      event.stopPropagation()
       close()
       return
     }
