@@ -15,6 +15,11 @@ versioning (`0.y.z`) until the first stable release.
   colon and points the firmware would. A rotation set for an upside-down or
   sideways mounting shows that way on the bench, as it would on a real panel.
   The XC4630 shield is pictured from behind, so its screen is not shown.
+- Indicator LEDs on the Hardware tab now light as they would on the real
+  parts. Power LEDs on modules and ESP32 boards glow. Relay channel LEDs light
+  while their channel is on, and Mosfetti channel LEDs dim with their
+  channel. IR receiver indicators light while a key is held on the node. The
+  ZY12PDN's LED shows the colour of its requested voltage.
 - New SD Video node plays a video from the SD card. Drop a video on the node and
   Studio shrinks it to the LED canvas and keeps it as raw frames; Write to card
   copies the clip to a card in a reader, and the sketch reads it back frame by

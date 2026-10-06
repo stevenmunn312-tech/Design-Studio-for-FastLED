@@ -242,6 +242,18 @@
   pointer-events: none;
 }
 
+/* Light from a part's indicator LEDs. Added to what is beneath, as light is,
+   and allowed past the part's edge for an LED that sits near one. */
+.indicatorGlow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
 .vuPair {
   position: absolute;
   inset: 0;

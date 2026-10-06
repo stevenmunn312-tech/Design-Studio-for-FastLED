@@ -32,6 +32,8 @@ import HardwarePartBody from '../Canvas/HardwarePartBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareVuRailPreview from './HardwareVuRailPreview'
 import BenchDisplayScreen from './BenchDisplayScreen'
+import BenchIndicators from './BenchIndicators'
+import { indicatorRenderFor } from './benchIndicatorGlow'
 import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
 import HardwareLink from './HardwareLink'
@@ -72,6 +74,8 @@ const BoardNodeBody = lazy(() => import('../Canvas/BoardNodeBody'))
 
 /** How long the controller rings take to bow out once the board is clicked. */
 const CONTROLLER_HINT_FADE_MS = 600
+/** The board's LEDs read no node properties; one stable object for them. */
+const NO_PROPERTIES: Record<string, unknown> = {}
 
 export default function HardwarePane() {
   const addNode = useGraphStore((state) => state.addNode)
@@ -655,35 +659,39 @@ export default function HardwarePane() {
             </svg>
           )}
 
-          {inputParts.map((part) => (
-            <Fragment key={part.node.id}>
-              <button
-                type="button"
-                data-hardware-node-id={part.node.id}
-                className={styles.part}
-                style={partStyle(part.partId)}
-                onClick={(event) => {
-                  if (view.consumedByPan()) return
-                  inspectPart(part.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault()
-                  openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
-                }}
-                title="Click to configure wiring · right-click for hardware actions"
-              >
-                <img
-                  src={partRenderForNodeType(
-                    part.entry.nodeType,
-                    part.node.data.properties as Record<string, unknown>,
-                  )?.src}
-                  alt={part.entry.label}
-                  draggable={false}
-                />
-              </button>
-              {renderCaption(part.partId, part.entry.label, partPinSummary(part.node, part.entry))}
-            </Fragment>
-          ))}
+          {inputParts.map((part) => {
+            const properties = part.node.data.properties as Record<string, unknown>
+            const src = partRenderForNodeType(part.entry.nodeType, properties)?.src
+            return (
+              <Fragment key={part.node.id}>
+                <button
+                  type="button"
+                  data-hardware-node-id={part.node.id}
+                  className={styles.part}
+                  style={partStyle(part.partId)}
+                  onClick={(event) => {
+                    if (view.consumedByPan()) return
+                    inspectPart(part.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    openItemMenu(part.node.id, (event.currentTarget as HTMLButtonElement).getBoundingClientRect())
+                  }}
+                  title="Click to configure wiring · right-click for hardware actions"
+                >
+                  <img src={src} alt={part.entry.label} draggable={false} />
+                  <BenchIndicators
+                    nodeId={part.node.id}
+                    nodeType={part.node.data.nodeType}
+                    properties={properties}
+                    render={indicatorRenderFor(part.modulePartId, src)}
+                    className={styles.indicatorGlow}
+                  />
+                </button>
+                {renderCaption(part.partId, part.entry.label, partPinSummary(part.node, part.entry))}
+              </Fragment>
+            )
+          })}
 
           {benchIsEmpty && controllerHintMounted && (
             <div
@@ -716,6 +724,13 @@ export default function HardwarePane() {
             title="Click for board options"
           >
             <img src={boardImageSrc(boardProfile)} alt={boardProfile.label} draggable={false} />
+            <BenchIndicators
+              nodeId={null}
+              nodeType="Board"
+              properties={NO_PROPERTIES}
+              render={boardProfile.render}
+              className={styles.indicatorGlow}
+            />
           </button>
           {renderCaption(BOARD_PART_ID, boardProfile.label, 'Click for board options')}
 
@@ -805,6 +820,13 @@ export default function HardwarePane() {
                         partId={part.modulePartId}
                         properties={part.node.data.properties as Record<string, unknown>}
                         className={styles.displayScreen}
+                      />
+                      <BenchIndicators
+                        nodeId={part.node.id}
+                        nodeType={part.node.data.nodeType}
+                        properties={part.node.data.properties as Record<string, unknown>}
+                        render={indicatorRenderFor(part.modulePartId, part.entry.render)}
+                        className={styles.indicatorGlow}
                       />
                     </>
                   )

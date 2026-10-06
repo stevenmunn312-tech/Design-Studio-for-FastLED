@@ -50,6 +50,9 @@ export function useBenchParts({ nodes, edges, selectedBoard }: BenchPartsInputs)
           entry,
           node,
           partId: index === 0 ? entry.partId : `${entry.partId}-${node.id}`,
+          /** The catalogued module this node is, when it names one. */
+          modulePartId: resolvePartIdentity(node.data.nodeType, props)?.entry?.partId
+            ?? (typeof props.partId === 'string' ? props.partId : null),
           signalKey: `${node.id}:${bankFirst ? buttonBankHandle(bankFirst.id) : entry.signalPort}`,
         }]
       })

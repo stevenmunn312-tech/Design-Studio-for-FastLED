@@ -438,6 +438,33 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   experimental (unvalidated long-run distance) in
   `docs/release/beta-support-matrix.md`.
 
+## Indicator LEDs on the bench
+
+- A part's or board's indicator LEDs are measured from its model by
+  `Blender Assets/Scripts/measure_part_indicators.py` into the manifest's
+  `indicators`. The importers carry them onto the render they were measured
+  on (`render.indicators`); `scripts/render_indicators.py` validates them for
+  both importers and scales a board's with its downsized render.
+  `BenchIndicators` draws them only when that render is the picture on screen
+  (`indicatorRenderFor`).
+- The board rebuild names each LED `LED n` with `LED n lens` and `LED n die`,
+  and a die material ending " lit" was rendered emitting. A lit LED is a power
+  LED: the render already shows it on, so the bench adds only its glow. An
+  unlit LED is recorded only under an explicit rule in that script, and a rule
+  never targets a rendered-lit LED, because baked light cannot be turned off.
+  A board that renders more than one LED lit records none: the Arduino and
+  Nucleo renders bake TX/RX or user LEDs lit, and which one is power is not in
+  the model. Boards whose single lit LED may be a user or charge LED are
+  skipped by name until checked against the board.
+- What lights a state-driven LED is read from the same evaluated values the
+  firmware acts on (`indicatorGlow`): a relay publishes each coil as
+  `relayEnergisedKey(n)`, a Power Switch its per-channel `load` (so a dimmed
+  Mosfetti channel LED dims with it), an IR receiver `IR_RECEIVING_KEY` while a
+  key is held, and a ZY12PDN shows its requested voltage's stock-firmware
+  colour. These keys are read-back values like the displays' surfaces, not
+  ports. A rule's LED order follows the generator: relay channel n's status
+  LED is at increasing x, and Mosfetti A to D run left to right.
+
 ## Build Diagram
 
 - A peripheral title is centred on its picture and has to stay inside the
