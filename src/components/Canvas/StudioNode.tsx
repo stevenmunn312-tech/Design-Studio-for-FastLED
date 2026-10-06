@@ -57,6 +57,7 @@ import {
   micUnsupportedMessage,
 } from '../../state/micPinDefaults'
 import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { boardPinTable } from '../../state/boardPinPolicy'
 import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
 import { getCodeError } from '../../state/graphEvaluator'
 import { useMusicStore } from '../../state/musicStore'
@@ -428,7 +429,8 @@ const LivePropertyControls = memo(function LivePropertyControls({
   // Non-hardware nodes with generated pins (currently DMX) retain the shared
   // picker here until they gain a physical part in the hardware workbench.
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
-  const boardGpio = boardGpioInfo(selectedFqbn)
+  const pinBoard = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
+  const boardGpio = pinBoard?.custom ? boardPinTable(pinBoard, selectedFqbn) : boardGpioInfo(selectedFqbn)
 
   // "Set Default" is meant to keep tracking this node's settings, not just
   // snapshot them once — otherwise a pin edited after the checkbox was

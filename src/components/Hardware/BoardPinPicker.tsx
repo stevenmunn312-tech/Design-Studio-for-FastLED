@@ -8,6 +8,8 @@ import {
 } from '../../state/nodeLibrary'
 import { pinDisplayLabel, pinSupports, pinWarningForCapability } from '../../state/boardGpio'
 import { boardGpioInfo, useUploadStore } from '../../state/uploadStore'
+import { boardPinTable } from '../../state/boardPinPolicy'
+import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import styles from './BoardPinPicker.module.css'
 
 interface Props {
@@ -43,8 +45,10 @@ export default function BoardPinPicker({
   onChange,
 }: Props) {
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
-  const gpio = boardGpioInfo(selectedFqbn)
   const nodes = useGraphStore(rootGraphNodes)
+  // A custom board's own exposed pins replace the chip table outright.
+  const board = useMemo(() => selectedPhysicalBoardProfile(nodes), [nodes])
+  const gpio = board?.custom ? boardPinTable(board, selectedFqbn) : boardGpioInfo(selectedFqbn)
   const [customOpen, setCustomOpen] = useState(false)
   const label = propertyLabel(nodeType, propertyKey, properties)
   const requirement = gpioRequirementForProperty(nodeType, propertyKey, properties)

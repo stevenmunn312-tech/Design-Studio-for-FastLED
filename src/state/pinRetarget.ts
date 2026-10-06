@@ -33,7 +33,8 @@ import { assignPartPins, type PartPinRequest } from './partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from './ledOutputForm'
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from './keypad'
-import { boardI2cDefault } from '../build/boardI2cDefaults'
+import { profileI2cDefault } from '../build/boardI2cDefaults'
+import { boardOffersPins } from './boardPinPolicy'
 import {
   SPI_CHIPSETS,
   oledTransportForProps,
@@ -210,7 +211,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     keysFor: distanceSensorPinKeys,
     fromProfile: (profile, properties) => {
       if (distanceSensorTransport(properties.partId) !== 'i2c') return null
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -232,7 +233,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     keysFor: lightSensorPinKeys,
     fromProfile: (profile, properties) => {
       if (lightSensorTransport(properties.partId) !== 'i2c') return null
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -250,7 +251,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   RTCInput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -261,7 +262,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   PowerMonitorInput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -270,7 +271,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   PwmDriverOutput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -279,7 +280,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   TouchPadInput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -288,7 +289,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   MotionVectorInput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -297,7 +298,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   EnvironmentInput: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -331,7 +332,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
      */
     fromProfile: (profile, properties) => {
       if (oledTransportForProps(properties) !== 'i2c') return null
-      const defaults = boardI2cDefault(profile?.id)
+      const defaults = profileI2cDefault(profile)
       return defaults
         ? { sdaPin: defaults.sda.arduinoPin, sclPin: defaults.scl.arduinoPin }
         : null
@@ -504,6 +505,24 @@ function peripheralPins(
     if (typeof value === 'number') pins[key] = value
   })
   return Object.keys(pins).length === plan.keys.length ? pins : null
+}
+
+/**
+ * A part's fixed starting pins on this board: the profile's peripheral entry,
+ * then its own board rule, then the chip's. One question for both the ordering
+ * and the assignment below, so the two cannot disagree. A default this board
+ * does not actually offer (a custom header without the chip's SD pins) is no
+ * answer at all, so the part allocates from the pool or keeps its pins and is
+ * reported, rather than being moved onto a pad that is not there.
+ */
+function fixedPinsFor(
+  plan: PartPinPlan,
+  profile: PhysicalBoardProfile | undefined,
+  properties: Record<string, unknown>,
+  fqbn: string,
+): Record<string, number> | null {
+  const pins = peripheralPins(plan, profile) ?? plan.fromProfile?.(profile, properties) ?? plan.fromFqbn?.(fqbn) ?? null
+  return pins && boardOffersPins(profile, pins) ? pins : null
 }
 
 export interface RetargetResult {
@@ -730,10 +749,7 @@ export function retargetHardwarePins(
   const takesFixedPins = (node: StudioNode): boolean => {
     const plan = PART_PIN_PLANS[node.data.nodeType]
     if (!plan) return false
-    const properties = node.data.properties as Record<string, unknown>
-    return (peripheralPins(plan, profile)
-      ?? plan.fromProfile?.(profile, properties)
-      ?? plan.fromFqbn?.(fqbn)) != null
+    return fixedPinsFor(plan, profile, node.data.properties as Record<string, unknown>, fqbn) != null
   }
   const order = [...nodes].sort((a, b) => Number(takesFixedPins(b)) - Number(takesFixedPins(a)))
 
@@ -774,7 +790,7 @@ export function retargetHardwarePins(
 
     let next: Record<string, number> | null = movable.length === 0
       ? {}
-      : peripheralPins(plan, profile) ?? plan.fromProfile?.(profile, properties) ?? plan.fromFqbn?.(fqbn) ?? null
+      : fixedPinsFor(plan, profile, properties, fqbn)
     if (next && movable.length > 0) {
       // Only the movable subset, and only when the board actually says
       // something different from what is already there.
@@ -857,4 +873,34 @@ function claimedAsNodes(claimed: Set<number>): StudioNode[] {
       properties: { pin }, inputs: [], outputs: [],
     },
   } as unknown as StudioNode))
+}
+
+/**
+ * Follow a changed default I2C pair on the same board.
+ *
+ * Editing a custom board keeps its assignment identity, so this is not a board
+ * change and nothing else moves. Only the I2C pins the app placed follow the
+ * new pair; a pin the user chose for a device stays, and the shared-bus check
+ * reports it if it no longer matches the bus.
+ */
+export function retargetDefaultI2c(
+  inputNodes: StudioNode[],
+  profile: PhysicalBoardProfile,
+): RetargetResult {
+  let moved = 0
+  const nodes = inputNodes.map((node) => {
+    const plan = PART_PIN_PLANS[node.data.nodeType]
+    const properties = node.data.properties as Record<string, unknown>
+    const pins = plan?.fromProfile?.(profile, properties)
+    if (!plan || !pins || !('sdaPin' in pins) || !('sclPin' in pins)) return node
+    const next = Object.fromEntries(['sdaPin', 'sclPin']
+      .filter((key) => planKeys(plan, properties).includes(key)
+        && Number(properties[key]) !== pins[key]
+        && isPinAppOwned(node.data.nodeType, properties, key, profile.id))
+      .map((key) => [key, pins[key]]))
+    if (Object.keys(next).length === 0) return node
+    moved += 1
+    return { ...node, data: { ...node.data, properties: withAssignedPins(properties, next, profile.id) } }
+  })
+  return { nodes: moved > 0 ? nodes : inputNodes, moved }
 }

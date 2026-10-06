@@ -8,7 +8,8 @@
 import { create } from 'zustand'
 import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
 import { useUploadStore } from './uploadStore'
-import { boardI2cDefault } from '../build/boardI2cDefaults'
+import { profileI2cDefault } from '../build/boardI2cDefaults'
+import { boardOffersPins } from './boardPinPolicy'
 import { sdSpiPinsForBoard } from './sdPinDefaults'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 
@@ -160,10 +161,10 @@ export function resolveDefaultProperties(
     : state.overrides[nodeType]
   const rtcPins = nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
-    ? boardI2cDefault(boardProfile?.id)
+    ? profileI2cDefault(boardProfile)
     : undefined
   const sdSpiPins = nodeType === 'SDCard' ? sdSpiPinsForBoard(boardProfile, fqbn) : null
-  const boardDefault = nodeType === 'MicInput'
+  const preferred = nodeType === 'MicInput'
     ? micPinDefaultsForSelectedBoard(boardProfile)
     : rtcPins
       ? { sdaPin: rtcPins.sda.arduinoPin, sclPin: rtcPins.scl.arduinoPin }
@@ -175,6 +176,9 @@ export function resolveDefaultProperties(
             sdMosiPin: sdSpiPins.mosi,
           }
         : undefined
+  // A custom board offers only the pins it defines; a chip default it does
+  // not bring out is left to the library default and reported, not adopted.
+  const boardDefault = preferred && boardOffersPins(boardProfile, preferred) ? preferred : undefined
   return sanitizeProperties(nodeType, {
     ...(libraryDefault ?? {}),
     ...(boardDefault ?? {}),

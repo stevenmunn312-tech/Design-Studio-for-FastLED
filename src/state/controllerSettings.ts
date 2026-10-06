@@ -1,5 +1,5 @@
 import type { StudioNode } from './graphStore'
-import { boardProfileById } from '../build/boardProfiles'
+import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
 
 export type PsramPolicy = 'auto' | 'on' | 'off'
 export type SerialRoute = 'auto' | 'native' | 'uart'
@@ -76,8 +76,8 @@ function number(value: unknown, fallback: number, min: number, max: number): num
 export function controllerSettings(nodes: readonly StudioNode[]): ControllerSettings {
   const board = nodes.find((node) => node.data.nodeType === 'Board')
   const props = (board?.data.properties ?? {}) as Record<string, unknown>
-  const profileId = typeof props.profileId === 'string' ? props.profileId : ''
-  const profile = boardProfileById(profileId)
+  // Through the resolver, so a custom board's inherited PSRAM facts apply.
+  const profile = selectedPhysicalBoardProfile(nodes)
   const selectedPsramPolicy = psramPolicy(props)
   const selectedSerialRoute = serialRoute(props)
   // One global cap serves every output. Mixed voltages take the lowest, which

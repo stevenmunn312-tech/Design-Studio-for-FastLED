@@ -10,12 +10,12 @@
 import type { StudioNode } from './graphStore'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import {
-  BOARD_GPIO_BY_FQBN,
   pinSupports,
   pinWarningForCapability,
   type GpioCapability,
   type PinNote,
 } from './boardGpio'
+import { boardHasExplicitPinPool, boardPinTable } from './boardPinPolicy'
 import { collectPinUses, type HardwarePinUse } from '../build/hardwareManifest'
 
 /** One pin a part needs, and what it has to be able to do. */
@@ -38,8 +38,8 @@ export type PartPinAssignment =
   | { ok: true; pins: Record<string, number> }
   | { ok: false; reason: string }
 
-function pinNotesByNumber(fqbn: string): Map<number, PinNote> {
-  const table = BOARD_GPIO_BY_FQBN[fqbn]
+function pinNotesByNumber(profile: PhysicalBoardProfile | undefined, fqbn: string): Map<number, PinNote> {
+  const table = boardPinTable(profile, fqbn)
   return new Map((table?.recommended ?? []).map((note) => [note.pin, note]))
 }
 
@@ -85,7 +85,7 @@ export function assignPartPins(
   const reserved = new Set(
     Object.keys(profile?.pinSafety?.boardReservedOrNotExposed ?? {}).map((key) => Number(key)),
   )
-  const notes = pinNotesByNumber(fqbn)
+  const notes = pinNotesByNumber(profile, fqbn)
 
   /*
    * The profile's pool is an *allowlist*, not a preference: `BoardPinSafety`
@@ -94,11 +94,12 @@ export function assignPartPins(
    * nobody can reach with a jumper wire" — the XIAO's underside pads being the
    * case that motivated it. So the FQBN table is a fallback for profiles that
    * carry no safety data at all, never a second chance for pins one excluded.
+   * A custom board's pool is always explicit, so an empty one stays empty.
    */
   const pool = profile?.pinSafety?.safeGeneralPurpose
-  const candidates: number[] = pool && pool.length > 0
-    ? [...pool]
-    : (BOARD_GPIO_BY_FQBN[fqbn]?.recommended ?? []).map((note) => note.pin)
+  const candidates: number[] = boardHasExplicitPinPool(profile)
+    ? [...(pool ?? [])]
+    : (boardPinTable(profile, fqbn)?.recommended ?? []).map((note) => note.pin)
 
   const pins: Record<string, number> = {}
   // Analog is the stricter capability: every analog-capable pin can also drive
@@ -148,8 +149,8 @@ export function boardSparePins(
   profile: PhysicalBoardProfile | undefined,
   claimed: ReadonlySet<number>,
 ): number[] | null {
-  const pool = profile?.pinSafety?.safeGeneralPurpose
-  if (!pool || pool.length === 0) return null
+  if (!boardHasExplicitPinPool(profile)) return null
+  const pool = profile?.pinSafety?.safeGeneralPurpose ?? []
   const reserved = profile?.pinSafety?.boardReservedOrNotExposed ?? {}
   return pool.filter((pin) => !(String(pin) in reserved) && !claimed.has(pin))
 }
@@ -183,6 +184,9 @@ function noPinReason({ profile, pool, notes, reserved, uses, request, requestCou
   requestCount: number
 }): string {
   const analog = request.capability === 'analogInput'
+  if (profile?.custom && !pool?.length) {
+    return `The ${profile.label} has no enabled general-purpose GPIO. Edit the custom board to expose one.`
+  }
   if (!profile || !pool || pool.length === 0) {
     return analog ? 'No free analog-capable pin on this board' : 'No free GPIO on this board'
   }

@@ -13,7 +13,7 @@ import LEDPreview from './components/Preview/LEDPreview'
 import StatusBar from './components/StatusBar/StatusBar'
 import { useUploadStore } from './state/uploadStore'
 import { micSupportedForBoardProfile } from './state/micPinDefaults'
-import { selectedPhysicalBoardProfile } from './build/boardProfiles'
+import { selectedBoardResolution, selectedPhysicalBoardProfile } from './build/boardProfiles'
 import { usePatternLibrary } from './state/patternLibrary'
 import { useMusicStore } from './state/musicStore'
 import { isMusicLibraryRestoring, waitForMusicLibraryRestore } from './state/musicLibraryPersistence'
@@ -104,6 +104,12 @@ export default function App() {
   const audioInputProps = (audioInputNode?.data.properties as Record<string, unknown> | undefined) ?? null
   const hasAudioInputNode = audioInputProps !== null
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
+  // A custom board whose definition does not resolve is not a board change:
+  // nothing is retargeted until it is repaired.
+  const boardUnresolved = useGraphStore((s) => {
+    const resolution = selectedBoardResolution(rootGraphNodes(s))
+    return resolution.kind === 'custom' && !resolution.profile
+  })
   const showPreviewPlaying = useShowPlayback((s) => s.playing)
   const boardPopupOpen = useUploadStore((s) => s.boardPopupOpen)
   const pinoutProfileId = useUploadStore((s) => s.pinoutProfileId)
@@ -342,6 +348,7 @@ export default function App() {
   const retargetHardwarePins = useGraphStore((s) => s.retargetHardwarePins)
   const lastBoardKey = useRef<string | null>(null)
   useEffect(() => {
+    if (boardUnresolved) return
     const previous = lastBoardKey.current
     const boardFqbn = selectedBoardProfile?.compatibleFqbns[0] ?? selectedFqbn
     // Keyed on the profile: several profiles share one FQBN — `esp32:esp32:esp32`
@@ -358,7 +365,7 @@ export default function App() {
     if (moved > 0) {
       setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')
     }
-  }, [selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
+  }, [boardUnresolved, selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
 
   // Keep the browser analysis gain in sync with the selected physical input.
   useEffect(() => {

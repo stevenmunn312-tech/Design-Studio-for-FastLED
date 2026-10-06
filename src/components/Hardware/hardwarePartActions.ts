@@ -5,7 +5,7 @@ import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { assignPartPins } from '../../state/partPinAssignment'
 import { withAssignedPins } from '../../state/pinRetarget'
-import { boardI2cDefault } from '../../build/boardI2cDefaults'
+import { profileI2cDefault } from '../../build/boardI2cDefaults'
 import { micModuleFor } from '../../state/micModules'
 import { lightSensorTransport } from '../../state/lightSensor'
 import { distanceSensorTransport } from '../../state/distanceSensor'
@@ -80,7 +80,7 @@ export function inputPartActions({
       || entry.nodeType === 'EnvironmentInput' || entry.nodeType === 'MotionVectorInput' || entry.nodeType === 'TouchPadInput'
       || (entry.nodeType === 'LightInput' && lightSensorTransport(entry.properties?.partId) === 'i2c')
       || (entry.nodeType === 'DistanceInput' && distanceSensorTransport(entry.properties?.partId) === 'i2c')
-    const rtcDefaults = usesBoardI2c ? boardI2cDefault(boardProfile?.id) : undefined
+    const rtcDefaults = usesBoardI2c ? profileI2cDefault(boardProfile) : undefined
     const assignedPins = rtcDefaults
       ? { ...assigned.pins, sdaPin: rtcDefaults.sda.arduinoPin, sclPin: rtcDefaults.scl.arduinoPin }
       : assigned.pins

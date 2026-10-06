@@ -1,4 +1,4 @@
-import { boardI2cDefault, type BoardI2cPinDefault } from '../build/boardI2cDefaults'
+import { profileI2cDefault, type BoardI2cPinDefault } from '../build/boardI2cDefaults'
 import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../build/boardProfiles'
 
 export interface RtcI2cPin {
@@ -45,7 +45,7 @@ function resolvePin(profile: PhysicalBoardProfile, definition: BoardI2cPinDefaul
  * label heuristic: every supported board must have an audited entry. */
 export function rtcI2cPinsForProfile(profile: PhysicalBoardProfile | undefined): RtcI2cPins | null {
   if (!profile) return null
-  const definition = boardI2cDefault(profile.id)
+  const definition = profileI2cDefault(profile)
   if (!definition) return null
   return {
     sda: resolvePin(profile, definition.sda),

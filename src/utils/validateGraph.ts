@@ -60,7 +60,7 @@ import {
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
   busAssignmentFor,
 } from '../state/busTopology'
-import { boardPinVerdict, boardProfileById } from '../build/boardProfiles'
+import { boardPinVerdict, selectedBoardResolution, selectedPhysicalBoardProfile } from '../build/boardProfiles'
 import { integratedPinsFor } from '../state/integratedBoardHardware'
 import type { PhysicalBoardProfile } from '../build/boardProfiles'
 import { recommendedSupplyCurrentMa } from '../build/powerSupplySizing'
@@ -977,11 +977,33 @@ export interface BoardPinCompatibility {
   warnings: string[]
 }
 
-/** The exact board a Board node names, if the graph has one and it resolves. */
+/**
+ * Problems with the project's own custom board definition.
+ *
+ * A definition or GPIO-map problem blocks firmware: an unreadable or
+ * unsupported map has no trustworthy pins, and the board never falls back to
+ * another one. An unresolved default I2C pair or controller power method is a
+ * warning: generated pin numbers stay as assigned, existing parts on missing
+ * pads are reported by the exact-board check, and power belongs to the
+ * electrical plan.
+ */
+export function findCustomBoardIssues(nodes: StudioNode[]): BoardPinCompatibility {
+  const resolution = selectedBoardResolution(nodes)
+  if (resolution.kind !== 'custom') return { errors: [], warnings: [] }
+  const message = (text: string) => `Custom board: ${text}`
+  return {
+    errors: resolution.issues
+      .filter((issue) => issue.scope === 'definition' || issue.scope === 'gpio')
+      .map((issue) => message(issue.message)),
+    warnings: resolution.issues
+      .filter((issue) => issue.scope === 'i2c' || issue.scope === 'power')
+      .map((issue) => message(issue.message)),
+  }
+}
+
+/** The exact board a Board node names, stock or custom, if it resolves. */
 export function selectedBoardProfile(nodes: StudioNode[]): PhysicalBoardProfile | undefined {
-  const board = nodes.find((node) => node.data.nodeType === 'Board')
-  const id = (board?.data.properties as Record<string, unknown> | undefined)?.profileId
-  return typeof id === 'string' && id ? boardProfileById(id) : undefined
+  return selectedPhysicalBoardProfile(nodes)
 }
 
 function endSentence(text = ''): string {
@@ -1508,6 +1530,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   errors.push(...findBoardPinCompatibility(nodes, selectedFqbn).errors)
   // Board-exact checks need no FQBN — the Board node names the board directly,
   // and it catches what the chip-level table above cannot.
+  errors.push(...findCustomBoardIssues(nodes).errors)
   errors.push(...findExactBoardPinIssues(nodes).errors)
   return errors
 }
@@ -3443,6 +3466,21 @@ export function buildGraphDiagnostics(
   // Board-exact pin standing. Distinct from the FQBN checks above: the chip
   // table cannot tell a XIAO from an S3-DevKitC-1, and only one of them can
   // reach GPIO39 with a jumper wire.
+  const customBoard = findCustomBoardIssues(nodes)
+  for (const [severity, messages] of [['error', customBoard.errors], ['warning', customBoard.warnings]] as const) {
+    messages.forEach((message, index) => {
+      diagnostics.push({
+        id: `custom-board-${severity}-${index}`,
+        severity,
+        category: 'board',
+        title: severity === 'error' ? 'Custom board definition needs repair' : 'Custom board setup is incomplete',
+        message,
+        fix: 'Open Board settings, choose Edit custom board, and complete or correct the highlighted rows.',
+        nodeIds: [],
+        action: 'open-board-settings',
+      })
+    })
+  }
   const exactBoard = findExactBoardPinIssues(nodes)
   const exactPinUses = collectPinUses(nodes)
   for (const [severity, messages] of [['error', exactBoard.errors], ['warning', exactBoard.warnings]] as const) {
@@ -4188,6 +4226,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   errors.push(...findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
+  warnings.push(...findCustomBoardIssues(nodes).warnings)
   warnings.push(...findNetworkConfigWarnings(nodes))
   warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))

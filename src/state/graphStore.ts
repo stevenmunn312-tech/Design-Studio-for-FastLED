@@ -22,13 +22,17 @@ import type { SavedPattern } from './patternLibrary'
 import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patternTrust'
 import { useNetworkCredentialsStore } from './networkCredentials'
 import { retargetedMicPins } from './micPinDefaults'
-import { retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
+import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
-import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { boardProfileById, resolveBoardSelection, selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { profileI2cDefault } from '../build/boardI2cDefaults'
+import {
+  CUSTOM_BOARD_PROFILE_ID, customBoardIssueBlocksApply, type CustomBoardDefinition, type CustomBoardIssue,
+} from './customBoard'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { DEFAULT_BOARD_CONTROLLER_PROPERTIES } from './controllerSettings'
 import {
@@ -274,6 +278,11 @@ interface GraphState {
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
   /** Select an exact board and materialise hardware physically integrated into it. */
   selectBoardProfile: (id: string, profileId: string) => void
+  /**
+   * Save the project's custom board and select it, as one undo step. Refuses,
+   * changing nothing, while the definition has an issue that blocks Apply.
+   */
+  applyCustomBoard: (id: string, definition: CustomBoardDefinition) => { ok: true } | { ok: false; issues: CustomBoardIssue[] }
   setNodeMinimized: (id: string, minimized: boolean) => void
   setNodeInputExposed: (id: string, portId: string, exposed: boolean) => void
   /** Pull whatever drives one input, leaving the node's own field in charge. */
@@ -2393,6 +2402,42 @@ export const useGraphStore = create<GraphState>()(
 
         return withRootNodes(s, nodes)
       }),
+
+      /*
+       * The definition travels on the Board node, so it saves, shares and
+       * undoes with the project. Editing it keeps the board's assignment
+       * identity, so no part is retargeted for a label or position change; only
+       * app-placed I2C pins follow a changed default pair. Choosing a new build
+       * template is a new identity, which the board-following retarget in
+       * App.tsx owns exactly as it does any board change.
+       */
+      applyCustomBoard: (boardId, definition) => {
+        const resolution = resolveBoardSelection({ profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: definition })
+        const blocking = resolution.issues.filter((issue) => customBoardIssueBlocksApply(issue, definition))
+        if (blocking.length > 0 || !resolution.profile) return { ok: false, issues: blocking.length ? blocking : resolution.issues }
+        const next = resolution.profile
+        set((s) => {
+          let id = boardId
+          let rootNodes = rootGraphNodes(s)
+          if (!rootNodes.some((node) => node.data.nodeType === 'Board')) {
+            rootNodes = [...rootNodes, createRootBoardNode()]
+            id = ROOT_BOARD_NODE_ID
+          }
+          if (!rootNodes.some((node) => node.id === id && node.data.nodeType === 'Board')) return s
+          const previous = selectedPhysicalBoardProfile(rootNodes)
+          let nodes = rootNodes.map((node) => node.id === id
+            ? { ...node, data: { ...node.data, properties: { ...node.data.properties, profileId: CUSTOM_BOARD_PROFILE_ID, customBoard: definition } } }
+            : node)
+          const before = profileI2cDefault(previous)
+          const after = profileI2cDefault(next)
+          if (previous?.id === next.id && after
+            && (before?.sda.arduinoPin !== after.sda.arduinoPin || before?.scl.arduinoPin !== after.scl.arduinoPin)) {
+            nodes = retargetDefaultI2c(nodes, next).nodes
+          }
+          return withRootNodes(s, nodes)
+        })
+        return { ok: true }
+      },
 
       setNodeInputExposed: (id, portId, exposed) => set((s) => {
         const active = s.nodes.some((node) => node.id === id)

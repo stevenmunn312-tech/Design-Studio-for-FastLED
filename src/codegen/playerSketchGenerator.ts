@@ -61,7 +61,7 @@ import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
 import type { StudioNode } from '../state/graphStore'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
-import { boardProfileById } from '../build/boardProfiles'
+import { resolveBoardSelection } from '../build/boardProfiles'
 import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
 import { hexToRgb } from '../state/polinePalette'
 import { buttonBankEntryForHandle } from '../state/buttonBank'
@@ -165,8 +165,7 @@ export function playerConfigFromGraph(
   const target = resolveShowTarget(nodes as ShowTargetNode[], edges, engineId).target
   const mo = target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo
-  const profileId = typeof board.profileId === 'string' ? board.profileId : undefined
-  const sdDefaults = sdSpiPinsForBoard(profileId ? boardProfileById(profileId) : undefined, fqbn)
+  const sdDefaults = sdSpiPinsForBoard(resolveBoardSelection(board).profile, fqbn)
   const controller = controllerSettings(nodes as StudioNode[])
   const sd = nodes.find((n) => n.data.nodeType === 'SDCard')?.data.properties ?? {}
   // The I2S pins come off the stage on the board's pins; the software volume
