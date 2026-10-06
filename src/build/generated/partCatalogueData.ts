@@ -856,7 +856,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "SPI",
       "touchController": "XPT2046",
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          152.8,
+          30.4,
+          686.4,
+          513.6
+        ]
+      ]
     },
     "render": {
       "file": "parts/ili9341-xpt2046-touch-320x240.webp",
@@ -1305,7 +1313,21 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "SPI-like DIN + CLK + CS/LOAD",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          134.2,
+          19.6,
+          354.0,
+          148.8
+        ],
+        [
+          503.8,
+          19.6,
+          354.0,
+          148.8
+        ]
+      ]
     },
     "render": {
       "file": "parts/max7219-8digit-7segment.webp",
@@ -2086,7 +2108,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "4-wire SPI",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          47.0,
+          98.9,
+          306.0,
+          152.8
+        ]
+      ]
     },
     "render": {
       "file": "parts/sh1106-oled-096-128x64-spi.webp",
@@ -2127,7 +2157,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "4-wire SPI",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          40.5,
+          96.2,
+          353.0,
+          176.4
+        ]
+      ]
     },
     "render": {
       "file": "parts/sh1106-oled-128x64.webp",
@@ -2167,7 +2205,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "I2C",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          45.9,
+          101.1,
+          353.2,
+          176.5
+        ]
+      ]
     },
     "render": {
       "file": "parts/sh1106-oled-128x64-i2c.webp",
@@ -2280,7 +2326,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "I2C",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          47.0,
+          99.1,
+          306.0,
+          152.9
+        ]
+      ]
     },
     "render": {
       "file": "parts/ssd1306-oled-096-128x64-i2c.webp",
@@ -2322,7 +2376,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "I2C (SPI-capable breakout)",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          54.6,
+          69.9,
+          290.8,
+          143.9
+        ]
+      ]
     },
     "render": {
       "file": "parts/ssd1306-oled-128x64.webp",
@@ -2365,7 +2427,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "4-wire SPI",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          35.7,
+          91.8,
+          332.6,
+          332.6
+        ]
+      ]
     },
     "render": {
       "file": "parts/st7789-tft-240x240.webp",
@@ -2414,7 +2484,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "4-wire SPI shared with XPT2046 and microSD",
       "touchController": "XPT2046",
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          66.9,
+          219.2,
+          547.2,
+          730.7
+        ]
+      ]
     },
     "render": {
       "file": "parts/st7789v-xpt2046-touch-240x320.webp",
@@ -2452,7 +2530,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ],
       "interface": "CLK + DIO",
       "touchController": null,
-      "touchSurface": null
+      "touchSurface": null,
+      "screensPx": [
+        [
+          101.2,
+          57.4,
+          357.6,
+          152.4
+        ]
+      ]
     },
     "render": {
       "file": "parts/tm1637-4digit-display.webp",

@@ -673,6 +673,26 @@ def read_part(part_dir: Path) -> dict | None:
                 # this the app reads "no controller" as "no touch".
                 "touchSurface": display.get("touchSurface") or None,
             }
+            # Where the lit pixels sit on the render: the panel's active area,
+            # or one window per digit package. Projected from the model by
+            # Scripts/measure_display_screens.py, never typed in. A rectangle
+            # outside the render is a measurement against another camera, so
+            # the whole list is dropped rather than drawn in the wrong place.
+            screens = display.get("screensPx")
+            if screens is not None:
+                render_meta = data.get("render") or {}
+                width, height = render_meta.get("widthPx"), render_meta.get("heightPx")
+                if (isinstance(screens, list) and screens
+                        and isinstance(width, (int, float)) and isinstance(height, (int, float))
+                        and all(isinstance(r, list) and len(r) == 4
+                                and all(isinstance(n, (int, float)) for n in r)
+                                and r[0] >= 0 and r[1] >= 0 and r[2] > 0 and r[3] > 0
+                                and r[0] + r[2] <= width and r[1] + r[3] <= height
+                                for r in screens)):
+                    entry["display"]["screensPx"] = [[float(n) for n in r] for r in screens]
+                else:
+                    print(f"  ! {part_id}: display.screensPx is not inside the render — skipped",
+                          file=sys.stderr)
         else:
             print(f"  ! {part_id}: display block is incomplete — skipped",
                   file=sys.stderr)

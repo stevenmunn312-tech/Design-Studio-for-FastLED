@@ -67,6 +67,14 @@ export interface PartDisplaySpec {
    * touch at all and never emitted its read.
    */
   touchSurface?: 'resistive-shared' | null
+  /**
+   * Where the lit pixels sit on the part's render, as `[x, y, width, height]`
+   * in render pixels from the top-left. One rectangle for a bitmap panel (its
+   * active area), one per digit package for a segment module. Projected from
+   * the model, so the bench draws a panel's output on its glass rather than
+   * guessing at the bezel. Absent when the screen does not face the camera.
+   */
+  screensPx?: Array<[number, number, number, number]>
 }
 
 /** Electrical identity carried by an imported relay-module asset. */
