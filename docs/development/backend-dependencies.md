@@ -49,16 +49,16 @@ until signing credentials and publication policy are in place.
 2. Re-resolve the full graph from a clean interpreter:
 
 ```bash
-python -m pip install --ignore-installed --dry-run --report backend/deps-report.json -r backend/requirements.txt -r backend/requirements-dev.txt -r backend/requirements-packaging.txt
+python -m pip install --ignore-installed --dry-run --report tmp/deps-report.json -r backend/requirements.txt -r backend/requirements-dev.txt -r backend/requirements-packaging.txt
 ```
 
 3. Copy the resolved versions from that report into `backend/constraints.txt`.
 4. Verify the pinned set locally in a fresh virtual environment:
 
 ```bash
-python -m venv .venv-backend-check
-.venv-backend-check/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt -r backend/requirements-packaging.txt -c backend/constraints.txt
-.venv-backend-check/bin/pytest backend/tests
+python -m venv tmp/venv-backend-check
+tmp/venv-backend-check/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt -r backend/requirements-packaging.txt -c backend/constraints.txt
+tmp/venv-backend-check/bin/pytest backend/tests
 ```
 
 On Windows, use the matching `Scripts\\pip.exe` / `Scripts\\pytest.exe` paths.

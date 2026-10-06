@@ -10,11 +10,13 @@ dist/
 *.blend
 *.blend[0-9]*
 
-# Scratch screenshots and session captures — never commit these
+# Generated compile fixtures, bench captures and review screenshots that docs
+# point at but that are regenerable — never commit these.
 /artifacts/
-/.tmp-live-*
-/live-screen.png
-/node-crop*.png
+
+# Project-local scratch: anything that must outlive one command but is not repo
+# content (throwaway venvs, upstream clones, dependency reports, dev logs).
+/tmp/
 
 # Python upload helper (backend/) local state
 backend/.venv/
@@ -32,15 +34,8 @@ backend/.arduino-libraries/
 backend/sketches/
 # Firmware images kept for Export Binary to download (last few only)
 backend/exports/
-# Scratch output of the dependency refresh in backend/DEPENDENCIES.md — the
-# resolver report and the throwaway venv used to verify the pinned set.
-backend/deps-report.json
-/.venv-backend-check/
 __pycache__/
 *.pyc
-
-# Local dev-server log dumps (vite stdout/stderr from the upload helper wrapper)
-.codex-tmp/
 
 # Local Claude Code agent/editor state (settings.local.json, launch.json) —
 # but project skills, the shared settings.json and the hooks it runs are part
@@ -70,7 +65,3 @@ __pycache__/
 # Private long-term/exploratory roadmap — kept out of the public repo because
 # it references confidential unreleased upstream (FastLED) work.
 /roadmap-private.md
-
-# Project-local scratch: experiments that need to outlive a single command but
-# are not repo content (e.g. generated bench audio for hardware testing).
-/tmp/

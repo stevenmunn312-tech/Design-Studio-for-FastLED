@@ -95,6 +95,7 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 - Do not copy changelog entries, completed implementation phases, dated test counts, or validation narratives into project memory.
 - Update the nearest authoritative document and link to it rather than describing the same subsystem in several places.
 - Treat `docs/release/beta-support-matrix.md` as the authority for supported versus experimental hardware.
+- Put scratch work in the gitignored `tmp/`, and regenerable compile fixtures, bench captures and screenshots in the gitignored `artifacts/`.
 
 <!-- END AUTO-MANAGED -->
 
