@@ -571,6 +571,9 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       file: "boards/esp32-2432s028r.webp",
       widthPx: 608,
       heightPx: 1064,
+      screensPx: [
+        [47.2, 97.6, 513.6, 686.4],
+      ],
     },
   },
   "esp32-c3-devkitm-1": {

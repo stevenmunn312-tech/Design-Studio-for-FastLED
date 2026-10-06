@@ -62,6 +62,12 @@ export interface BoardRenderAsset {
   heightPx: number
   /** The board's indicator LEDs on this render, in its own pixels. */
   indicators?: RenderIndicator[]
+  /**
+   * Where a board's own fitted panel shows its pixels, as `[x, y, width,
+   * height]` in this render's pixels. Only a board with a display soldered to
+   * it (the CYD) has one.
+   */
+  screensPx?: Array<[number, number, number, number]>
 }
 
 /**

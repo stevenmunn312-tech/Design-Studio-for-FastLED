@@ -302,6 +302,19 @@ def convert_render(folder: Path, board: dict, profile_id: str) -> dict | None:
         )
         if indicators:
             out["indicators"] = indicators
+        # A board with its own panel (the CYD) says where the panel's pixels
+        # sit, so the bench can light the board's glass rather than draw a
+        # second module beside it.
+        screens = (board.get("display") or {}).get("screensPx")
+        scale = out["widthPx"] / source_width
+        if isinstance(screens, list) and screens and all(
+                isinstance(r, list) and len(r) == 4 and all(isinstance(n, (int, float)) for n in r)
+                and r[0] >= 0 and r[1] >= 0 and r[2] > 0 and r[3] > 0
+                and r[0] + r[2] <= source_width and r[1] + r[3] <= render.get("heightPx", 0)
+                for r in screens):
+            out["screensPx"] = [[round(float(n) * scale, 1) for n in r] for r in screens]
+        elif screens is not None:
+            print(f"  ! {profile_id}: display.screensPx is not inside the render — skipped", file=sys.stderr)
     return out
 
 
