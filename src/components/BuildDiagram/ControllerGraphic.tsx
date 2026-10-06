@@ -190,8 +190,9 @@ export function ControllerGraphic({ boardProfile, connections, selected }: { boa
         <g transform={`translate(${custom.x} ${custom.y}) scale(${custom.scale})`}>
           <CustomBoardGraphicFragment definition={boardProfile.custom.definition} defaultI2c={boardProfile.custom.defaultI2c} />
         </g>
-        <text x={custom.x + (custom.width / 2)} y={custom.y + custom.height + 24} textAnchor="middle" className={styles.physicalComponentLabel}>{shortBoardLabel(boardProfile.label)}</text>
-        <text x={custom.x + (custom.width / 2)} y={custom.y + custom.height + 38} textAnchor="middle" className={styles.physicalMetaLabel}>USER-DEFINED PINOUT — SCHEMATIC</text>
+        {/* One caption line, like a render's: the left-rail detour runs just
+            below it, and the schematic already prints its own provenance. */}
+        <text x={custom.x + (custom.width / 2)} y={custom.y + custom.height + 24} textAnchor="middle" className={styles.physicalComponentLabel}>{boardProfile.label}</text>
         <PowerTerminal point={controllerPowerPoint('3v3', boardProfile)} kind="3v3" radius={padFillRadius} title="3V3 output · user-declared" />
         <SignalTerminals boardProfile={boardProfile} connections={connections} mappedRadius={padFillRadius} unmappedRadius={padRadius} />
         <PowerTerminal point={controllerPowerPoint('ground', boardProfile)} kind="gnd" radius={padFillRadius} title="GND" />
