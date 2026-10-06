@@ -7,10 +7,10 @@
 // set for an upside-down mounting shows upside down here, exactly as the real
 // panel would on the bench.
 
-import type { BoardRenderAsset } from '../../build/boardCapabilities'
-import { partById } from '../../state/partCatalogue'
-import type { OledRotation } from '../../state/oledSurface'
-import type { TftRotation } from '../../state/tftSurface'
+import type { BoardRenderAsset } from '../../build/boards/boardCapabilities'
+import { partById } from '../../build/parts/partCatalogue'
+import type { OledRotation } from '../../state/displays/oledSurface'
+import type { TftRotation } from '../../state/displays/tftSurface'
 
 export interface ScreenRect {
   x: number

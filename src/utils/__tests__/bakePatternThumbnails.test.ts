@@ -4,7 +4,7 @@ import { resetEvaluatorState, type GroupRegistry } from '../../state/graphEvalua
 import {
   thumbnailPixel, THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_SUPERSAMPLE, THUMBNAIL_TICK_SEC,
   MAX_THUMBNAILS, type PatternThumbnail,
-} from '../../state/patternThumbnail'
+} from '../../state/patterns/patternThumbnail'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 

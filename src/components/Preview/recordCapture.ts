@@ -1,12 +1,12 @@
 import { evaluateGraphFull, type Frame, type GroupRegistry } from '../../state/graphEvaluator'
-import { masterSpeedFromOutputs, MASTER_SPEED_DEFAULT } from '../../state/masterSpeed'
+import { masterSpeedFromOutputs, MASTER_SPEED_DEFAULT } from '../../state/player/masterSpeed'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { idleFrame } from './idleFrame'
-import { outputRenderPasses, outputRenderPassFor, outputRoutes, routeFrame } from '../../state/outputRouting'
+import { outputRenderPasses, outputRenderPassFor, outputRoutes, routeFrame } from '../../state/output/outputRouting'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import type { RecordedAudioFrame } from './recordAudio'
 import type { ShowFile } from '../../types/showFile'
-import { controllerSettings } from '../../state/controllerSettings'
+import { controllerSettings } from '../../build/controllerSettings'
 
 // Offline capture engine for the preview recorder: evaluates the graph
 // deterministically from t = 0 at the chosen capture fps — independent of the
@@ -200,7 +200,7 @@ export async function captureSequence(opts: CaptureOptions): Promise<Uint8Clampe
    * `tick += step * speed`, using the speed the previous frame resolved. A
    * recording that ignored the knob would play back at a different rate from
    * the preview it was captured from, which is the kind of silent disagreement
-   * the shared helper exists to prevent. See state/masterSpeed.ts.
+   * the shared helper exists to prevent. See state/player/masterSpeed.ts.
    */
   let tick = 0
   let elapsedTick = 0

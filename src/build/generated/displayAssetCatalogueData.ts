@@ -6,7 +6,7 @@
 // import script, and `file` here is site-relative so a workspace opens the
 // same way on any machine.
 
-import type { DisplayAssetEntry, DisplayPackThemeTokens } from '../../state/displayAssets'
+import type { DisplayAssetEntry, DisplayPackThemeTokens } from '../../state/displays/displayAssets'
 
 export const DISPLAY_ASSET_PACK_VERSION = "1.0.0"
 

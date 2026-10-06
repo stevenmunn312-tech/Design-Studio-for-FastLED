@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { useUploadStore } from '../../state/uploadStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { CustomBoardGraphic } from '../Hardware/CustomBoardGraphic'
-import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../../build/boardProfiles'
+import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import styles from './BoardPinout.module.css'
 
 // "Is this the board in my hand?" — the render beside its own pin list, so the

@@ -4,8 +4,8 @@
 // they have to agree on what a lit OLED pixel looks like and how RGB565
 // unpacks. One painter each, here, rather than a copy per view.
 
-import { getPixel, type OledSurface } from '../../state/oledSurface'
-import { rgb565Components, type TftSurface } from '../../state/tftSurface'
+import { getPixel, type OledSurface } from '../../state/displays/oledSurface'
+import { rgb565Components, type TftSurface } from '../../state/displays/tftSurface'
 
 type Rgba = readonly [number, number, number, number]
 

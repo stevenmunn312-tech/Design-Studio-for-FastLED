@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import DisplayWidgetPreview from '../DisplayWidgetPreview'
-import { DEFAULT_DISPLAY_THEME, type DisplayWidget } from '../../../state/displayDocument'
-import { DISPLAY_WIDGET_LIBRARY } from '../../../state/displayRegistry'
+import { DEFAULT_DISPLAY_THEME, type DisplayWidget } from '../../../state/displays/displayDocument'
+import { DISPLAY_WIDGET_LIBRARY } from '../../../state/displays/displayRegistry'
 
 const PLAY = 'control:01-neon-orbit:play-pause'
 

@@ -40,7 +40,7 @@ holds the two together.
 ## Non-goals
 
 - **No projectM-eval dependency.** Formulas already compile ahead of time on
-  both sides (`src/state/formulaLang.ts` in the browser, `cppRewriteShims` for
+  both sides (`src/nodes/shared/formulaLang.ts` in the browser, `cppRewriteShims` for
   the sketch). A runtime interpreter would be slower per pixel on the
   controller and a new sandbox surface in the browser. The library is a grammar
   reference only, if the formula language ever grows assignments and state.
@@ -102,10 +102,10 @@ sections can say "the per-node checklist" instead of repeating it ten times.
 5. **User text never reaches C++ unparsed.** A hex pattern string or a point
    list is parsed to numbers on the TypeScript side and only the numbers are
    emitted. An invalid string renders the documented fallback on both sides.
-6. **Other registries**: `src/state/speedRange.ts` for any `speed`/`scale`-class
+6. **Other registries**: `src/nodes/shared/speedRange.ts` for any `speed`/`scale`-class
    knob that is a 0–1 slider; `STATEFUL_EXTRA_BYTES_PER_LED` in
    `src/utils/validateGraph.ts` for a node holding static per-LED arrays; the
-   type sets in `src/state/patternRating.ts` for a pattern-category node; an
+   type sets in `src/state/patterns/patternRating.ts` for a pattern-category node; an
    explicit `selectedInputs` row in `src/components/HelpModal/liveExamples.ts`
    only when the automatic example for the category wires the wrong knobs.
 7. **Docs**: the node's label on its category line in `README.md` and the three
@@ -453,7 +453,7 @@ through step 11 of the
       8×5) and upscales bilinearly, the counterpart of `supersample`. Matrix
       panels on native routes only; a chain, HUB75 and a shared canvas ignore
       it, and `supersample` wins if a node holds both. The preview's
-      `routeFrame` and the sketch share one tap rule (`state/renderScale.ts`),
+      `routeFrame` and the sketch share one tap rule (`state/output/renderScale.ts`),
       and the capacity verdict prices the render size because
       `compositionDims` reads it. Show and player sketches do not resample,
       exactly as with supersample. Compiled on classic ESP32, see the
@@ -465,7 +465,7 @@ through step 11 of the
       custom `positions` list beside it. FastLED's ScreenMap. The list is parsed
       to numbers on the TypeScript side and only numbers reach C++; a list with
       fewer than one pair per LED falls back to a straight row, which the preview
-      shows. Contract and sampling rule live in `state/stringPositions.ts`,
+      shows. Contract and sampling rule live in `state/output/stringPositions.ts`,
       shared by the preview's `routeFrame` and the sketch. Deviations from the
       plan: the LED Output node's own preview draws the string over its canvas,
       but the main LED Output pane still draws a row (as it does for a ring) and

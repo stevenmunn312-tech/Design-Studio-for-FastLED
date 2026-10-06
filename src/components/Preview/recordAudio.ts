@@ -1,9 +1,9 @@
 import type { AudioOverride } from '../../state/graphEvaluator'
-import { useAudioStore } from '../../state/audioStore'
-import { useDecoderAudioStore } from '../../state/decoderAudioStore'
-import { graphAudioCapabilityKind } from '../../state/audioCapabilities'
+import { useAudioStore } from '../../state/audio/audioStore'
+import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
+import { graphAudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { SPECTRUM_BINS } from '../../state/showAudio'
+import { SPECTRUM_BINS } from '../../state/player/showAudio'
 import type { PitchSignal, SongStructureSignal, VibeSignal } from '../../state/evaluator/types'
 
 // Live-audio capture for the preview recorder.

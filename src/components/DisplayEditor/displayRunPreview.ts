@@ -1,9 +1,9 @@
-import type { DisplayWidget } from '../../state/displayDocument'
-import { displayControlStartValue, displayWidgetIsControl } from '../../state/displayRegistry'
+import type { DisplayWidget } from '../../state/displays/displayDocument'
+import { displayControlStartValue, displayWidgetIsControl } from '../../state/displays/displayRegistry'
 import {
   resolvedDisplayControlValue,
   type DisplayWidgetRuntime,
-} from '../../state/displayRuntimeStore'
+} from '../../state/displays/displayRuntimeStore'
 
 export type DisplayControlValue = boolean | number
 

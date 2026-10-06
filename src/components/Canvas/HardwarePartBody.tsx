@@ -1,5 +1,5 @@
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { PART_FIELDS } from '../../state/partFields'
+import { PART_FIELDS } from '../../build/parts/partFields'
 import {
   isGpioPinProperty,
   isPropertyEnabled,
@@ -10,10 +10,10 @@ import {
 import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../Hardware/PartIdentity'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
-import { normalizeButtonBankEntries } from '../../state/buttonBank'
-import { partPinLabelForProperty } from '../../state/partCatalogue'
-import { i2sAudioStage } from '../../state/audioOutput'
-import { resolvePartIdentity } from '../../state/partOptions'
+import { normalizeButtonBankEntries } from '../../state/player/buttonBank'
+import { partPinLabelForProperty } from '../../build/parts/partCatalogue'
+import { i2sAudioStage } from '../../state/audio/audioOutput'
+import { resolvePartIdentity } from '../../build/parts/partOptions'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this

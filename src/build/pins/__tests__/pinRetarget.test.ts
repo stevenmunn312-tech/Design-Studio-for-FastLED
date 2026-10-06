@@ -1,0 +1,614 @@
+import { describe, expect, it } from 'vitest'
+import { isPinAppOwned, retargetHardwarePins, withAssignedPins } from '../pinRetarget'
+import type { StudioEdge, StudioNode } from '../../../state/graphStore'
+import { boardProfileById, type PhysicalBoardProfile } from '../../boards/boardProfiles'
+
+function part(id: string, nodeType: string, properties: Record<string, unknown>): StudioNode {
+  return {
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: id, nodeType, category: 'input', properties, inputs: [], outputs: [] },
+  } as unknown as StudioNode
+}
+
+function frameWire(target: string): StudioEdge {
+  return { id: `frame-${target}`, source: 'pattern', sourceHandle: 'frame', target, targetHandle: 'frame' } as unknown as StudioEdge
+}
+
+/** A board exposing a general pool and, optionally, an I2S mic trio. */
+function profile(
+  pool: number[],
+  inmp441?: { wsLrclk: number; sckBclk: number; sdDout: number },
+  id = 'test-board',
+) {
+  return {
+    id,
+    pinSafety: { safeGeneralPurpose: pool, useWithCaution: {}, boardReservedOrNotExposed: {} },
+    peripheralPins: inmp441 ? { inmp441 } : undefined,
+  } as unknown as PhysicalBoardProfile
+}
+
+const ESP32_S3 = 'esp32:esp32:esp32s3'
+
+describe('pin ownership', () => {
+  it('treats a pin still holding the assigned value as the app\'s', () => {
+    const properties = withAssignedPins({}, { pin: 4 })
+    expect(isPinAppOwned('ButtonInput', properties, 'pin')).toBe(true)
+  })
+
+  it('treats a pin the user has changed as theirs', () => {
+    // The whole rule: a board someone has wired differently is a fact about
+    // their bench, not a preference to correct.
+    const properties = { ...withAssignedPins({}, { pin: 4 }), pin: 12 }
+    expect(isPinAppOwned('ButtonInput', properties, 'pin')).toBe(false)
+  })
+
+  it('records the assignment without losing earlier ones', () => {
+    const first = withAssignedPins({}, { pinA: 4 })
+    const both = withAssignedPins(first, { pinB: 5 })
+    expect(both.assignedPins).toEqual({ pinA: 4, pinB: 5 })
+  })
+
+  it('ignores an edit made for a different board', () => {
+    // Wiring a pin by hand is a decision about the board in front of you.
+    // Holding a part to it on a board that may not even expose that pin would
+    // be worse than moving it — the same reason mic defaults are kept per FQBN.
+    const properties = { ...withAssignedPins({}, { pin: 4 }, 'esp32:esp32:esp32'), pin: 12 }
+    expect(isPinAppOwned('ButtonInput', properties, 'pin', 'esp32:esp32:esp32')).toBe(false)
+    expect(isPinAppOwned('ButtonInput', properties, 'pin', ESP32_S3)).toBe(true)
+  })
+
+  it('starts a fresh record when the board changes', () => {
+    const onFirst = withAssignedPins({}, { pinA: 4 }, 'esp32:esp32:esp32')
+    const onSecond = withAssignedPins(onFirst, { pinB: 5 }, ESP32_S3)
+    // pinA belonged to the old board and must not be carried over as though
+    // it had been chosen for this one.
+    expect(onSecond.assignedPins).toEqual({ pinB: 5 })
+    expect(onSecond.assignedPinsBoard).toBe(ESP32_S3)
+  })
+
+  it('reads a legacy microphone through the check written for it', () => {
+    // No provenance recorded. 39/40/41 is a known Studio starting point, so it
+    // was never hand-wired; 7/8/9 in that slot is not, so it was.
+    expect(isPinAppOwned('MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }, 'i2sWs')).toBe(true)
+    expect(isPinAppOwned('MicInput', { i2sWs: 1, i2sSck: 2, i2sSd: 3 }, 'i2sWs')).toBe(false)
+  })
+})
+
+describe('retargetHardwarePins', () => {
+  it('does not retarget the data pin of a connected LED output', () => {
+    /*
+     * A frame wire means this is not a loose fixture sitting on the shelf any
+     * more. The build diagram and the bench both say the data lead is on this
+     * GPIO, so a board change must not silently flash firmware for a different
+     * wire.
+     */
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    const output = part('out', 'MatrixOutput', withAssignedPins(
+      { form: 'matrix', width: 8, height: 8, chipset: 'WS2812B' },
+      { dataPin: 2 },
+      first.id,
+    ))
+
+    const result = retargetHardwarePins([output], second, ESP32_S3, first.id, {
+      edges: [frameWire('out')],
+    })
+
+    expect(result.moved).toBe(0)
+    expect(result.nodes[0].data.properties.dataPin).toBe(2)
+  })
+
+  it('claims a connected LED output data pin while assigning the rest of the board', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    const output = part('out', 'MatrixOutput', withAssignedPins(
+      { form: 'strip', ledCount: 60, chipset: 'WS2812B' },
+      { dataPin: 21 },
+      first.id,
+    ))
+    const button = part('button', 'ButtonInput', withAssignedPins({ label: 'Next' }, { pin: 4 }, first.id))
+
+    const result = retargetHardwarePins([output, button], second, ESP32_S3, first.id, {
+      edges: [frameWire('out')],
+    })
+
+    expect(result.nodes.find((node) => node.id === 'out')!.data.properties.dataPin).toBe(21)
+    expect(result.nodes.find((node) => node.id === 'button')!.data.properties.pin).toBe(33)
+  })
+
+  it('still retargets a loose LED output before it is wired into the graph', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    const output = part('out', 'MatrixOutput', withAssignedPins(
+      { form: 'matrix', width: 8, height: 8, chipset: 'WS2812B' },
+      { dataPin: 2 },
+      first.id,
+    ))
+
+    const result = retargetHardwarePins([output], second, ESP32_S3, first.id, { edges: [] })
+
+    expect(result.moved).toBe(1)
+    expect(result.nodes[0].data.properties.dataPin).toBe(21)
+  })
+
+  /*
+   * Parts on fixed pins have to be handed out first, so the pool the rest
+   * allocate from already has those pins out of it. Whether a part *is* fixed
+   * has to be asked of it as configured: an `InfoDisplay` carries a
+   * `fromProfile` for its I2C variant that returns null for its SPI one, so
+   * testing whether that function merely exists put an SPI OLED in the fixed
+   * group and let it allocate ahead of the card and the amplifier — which then
+   * took their board pins on top of it.
+   */
+  /*
+   * A part already answered for holds its new pins in `claimed`, but its node
+   * properties still hold whatever it arrived with — updates are applied at
+   * the end. Handing those stale properties to the allocator alongside the
+   * claim set made each processed part claim twice, and a small pool then ran
+   * out with pins still free.
+   */
+  it('does not let an already-placed part claim its old pins as well as its new ones', () => {
+    // The amplifier is placed first, onto the board's curated trio, leaving
+    // the three it arrived on. Those three have to come back to the pool: the
+    // five pins the remaining parts need are exactly what is left without
+    // them, and exactly two short with them.
+    const board = {
+      id: 'tight-board',
+      pinSafety: {
+        safeGeneralPurpose: [2, 4, 5, 12, 13, 14, 15, 16],
+        useWithCaution: {},
+        boardReservedOrNotExposed: {},
+      },
+      peripheralPins: { max98357: { bclk: 2, lrc: 4, din: 5 } },
+    } as unknown as PhysicalBoardProfile
+    // The encoder arrives on the very pins the amplifier is about to be given,
+    // so it has to move — and the only room for it is the three the amplifier
+    // vacates.
+    const nodes = [
+      part('amp', 'Amplifier', { i2sBclk: 12, i2sLrc: 13, i2sDout: 14 }),
+      part('enc', 'EncoderInput', { pinA: 2, pinB: 4, pinSW: 5 }),
+      part('one', 'ButtonInput', { pin: 15 }),
+      part('two', 'ButtonInput', { pin: 16 }),
+    ]
+
+    const result = retargetHardwarePins(nodes, board, ESP32_S3)
+    const pins = result.nodes.flatMap((node) => {
+      const properties = node.data.properties as Record<string, unknown>
+      return ['pin', 'pinA', 'pinB', 'pinSW', 'i2sBclk', 'i2sLrc', 'i2sDout']
+        .map((key) => properties[key])
+        .filter((value): value is number => typeof value === 'number')
+    })
+    expect(pins).toHaveLength(8)
+    expect(new Set(pins).size, `distinct pins in ${JSON.stringify(pins)}`).toBe(8)
+  })
+
+  it('allocates an SPI OLED after the parts whose pins the board fixes', () => {
+    const board = boardProfileById('esp32-generic-devkit-38pin')!
+    const nodes = [
+      part('screen', 'InfoDisplay', { partId: 'sh1106-oled-128x64', csPin: 5, dcPin: 16, resetPin: 17, sckPin: 18, mosiPin: 23, sdaPin: 21, sclPin: 22 }),
+      part('sd', 'SDCard', { sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 }),
+      part('amp', 'Amplifier', { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }),
+    ]
+
+    const result = retargetHardwarePins(nodes, board, 'esp32:esp32:esp32')
+    const pins = (id: string, keys: string[]) => {
+      const properties = result.nodes.find((node) => node.id === id)!.data.properties as Record<string, number>
+      return keys.map((key) => properties[key])
+    }
+    const card = pins('sd', ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'])
+    const amp = pins('amp', ['i2sBclk', 'i2sLrc', 'i2sDout'])
+    const screen = pins('screen', ['csPin', 'dcPin', 'resetPin', 'sckPin', 'mosiPin'])
+
+    for (const pin of screen) {
+      expect(card, `OLED pin ${pin} against the card`).not.toContain(pin)
+      expect(amp, `OLED pin ${pin} against the amplifier`).not.toContain(pin)
+    }
+    expect(new Set(screen).size).toBe(screen.length)
+  })
+
+  it('retargets every app-assigned Button Bank row without collisions', () => {
+    const first = profile([2, 4, 5], undefined, 'first-board')
+    const second = profile([21, 33, 34], undefined, 'second-board')
+    const bank = part('bank', 'ButtonBank', {
+      buttons: [
+        { id: 'play', label: 'Play', pin: 2, pullup: true, assignedPin: 2, assignedBoard: first.id },
+        { id: 'next', label: 'Next', pin: 4, pullup: true, assignedPin: 4, assignedBoard: first.id },
+      ],
+    })
+
+    const result = retargetHardwarePins([bank], second, ESP32_S3, first.id)
+    const buttons = result.nodes[0].data.properties.buttons as Array<{ pin: number; assignedBoard: string }>
+
+    expect(buttons.map((button) => button.pin)).toEqual([21, 33])
+    expect(buttons.every((button) => button.assignedBoard === second.id)).toBe(true)
+    expect(result.moved).toBe(1)
+  })
+
+  it('restores a hand-wired Button Bank row when returning to its board', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    let nodes = [part('bank', 'ButtonBank', {
+      buttons: [{
+        id: 'play', label: 'Play', pin: 13, pullup: true,
+        assignedPin: 2, assignedBoard: first.id,
+      }],
+    })]
+
+    nodes = retargetHardwarePins(nodes, second, ESP32_S3, first.id).nodes
+    expect((nodes[0].data.properties.buttons as Array<{ pin: number }>)[0].pin).toBe(21)
+    nodes = retargetHardwarePins(nodes, first, 'esp32:esp32:esp32', second.id).nodes
+    expect((nodes[0].data.properties.buttons as Array<{ pin: number }>)[0].pin).toBe(13)
+  })
+
+  it('moves board-owned RTC properties to the new board defaults', () => {
+    const xiao = boardProfileById('seeed-xiao-esp32s3')!
+    const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
+    const nodes = [part('rtc', 'RTCInput', withAssignedPins(
+      { timeSource: 'DS3231', sdaPin: 5, sclPin: 6 },
+      { sdaPin: 5, sclPin: 6 },
+      xiao.id,
+    ))]
+
+    const result = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32', xiao.id)
+    expect(result.nodes[0].data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
+  })
+
+  it('moves an I2C OLED and PWM driver with the RTC onto the board I2C bus', () => {
+    const xiao = boardProfileById('seeed-xiao-esp32s3')!
+    const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
+    const nodes = [
+      part('rtc', 'RTCInput', withAssignedPins({ timeSource: 'DS3231' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+      part('oled', 'InfoDisplay', withAssignedPins({ partId: 'ssd1306-oled-128x64' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+      part('pwm', 'PwmDriverOutput', withAssignedPins({ i2cAddress: '0x41', pwmHz: 50 }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+    ]
+
+    const result = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32', xiao.id)
+    for (const node of result.nodes) {
+      expect(node.data.properties).toMatchObject({ sdaPin: 21, sclPin: 22 })
+    }
+    expect(result.nodes.find((node) => node.id === 'pwm')?.data.properties).toMatchObject({ i2cAddress: '0x41', pwmHz: 50 })
+  })
+
+  it('retargets only the pins physically present on a MAX7219 display', () => {
+    const nodes = [part('digits', 'SegmentDisplay', withAssignedPins(
+      { partId: 'max7219-8digit-7segment', dioPin: 99 },
+      { clkPin: 4, dinPin: 5, csPin: 6 },
+      'first-board',
+    ))]
+
+    const result = retargetHardwarePins(nodes, profile([21, 33, 34], undefined, 'second-board'), ESP32_S3, 'first-board')
+    expect(result.nodes[0].data.properties).toMatchObject({
+      clkPin: 21,
+      dinPin: 33,
+      csPin: 34,
+      // A MAX7219 has no DIO header. It must not become a fourth claimed pin.
+      dioPin: 99,
+    })
+  })
+
+  it('moves an untouched SD SPI bus from the S3 defaults to ESP-32D VSPI', () => {
+    const s3 = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')!
+    const esp32d = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
+    const nodes = [part('sd', 'SDCard', withAssignedPins(
+      { sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11 },
+      { sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11 },
+      s3.id,
+    ))]
+
+    const result = retargetHardwarePins(nodes, esp32d, 'esp32:esp32:esp32', s3.id)
+    expect(result.nodes[0].data.properties).toMatchObject({
+      sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23,
+    })
+  })
+
+  it('moves a part the app placed', () => {
+    const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
+    const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
+    expect(result.moved).toBe(1)
+    expect(result.nodes[0].data.properties.pin).toBe(21)
+  })
+
+  it('leaves a part the user wired', () => {
+    const nodes = [part('b', 'ButtonInput', { ...withAssignedPins({}, { pin: 4 }), pin: 12 })]
+    const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
+    expect(result.moved).toBe(0)
+    expect(result.nodes[0].data.properties.pin).toBe(12)
+  })
+
+  it('routes around a pin the user owns rather than onto it', () => {
+    // The user's button sits on 21. The app's button must not be handed 21
+    // just because the board offers it first.
+    const nodes = [
+      part('mine', 'ButtonInput', { ...withAssignedPins({}, { pin: 4 }), pin: 21 }),
+      part('theirs', 'ButtonInput', withAssignedPins({}, { pin: 5 })),
+    ]
+    const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
+    expect(result.nodes.find((n) => n.id === 'mine')!.data.properties.pin).toBe(21)
+    expect(result.nodes.find((n) => n.id === 'theirs')!.data.properties.pin).toBe(33)
+  })
+
+  it('does not put two app-placed parts on the same pin', () => {
+    const nodes = [
+      part('a', 'ButtonInput', withAssignedPins({}, { pin: 4 })),
+      part('b', 'ButtonInput', withAssignedPins({}, { pin: 5 })),
+    ]
+    const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
+    const pins = result.nodes.map((n) => Number(n.data.properties.pin))
+    expect(new Set(pins).size).toBe(2)
+  })
+
+  it('moves only the pins of a part the user half-edited', () => {
+    const nodes = [part('e', 'EncoderInput', {
+      ...withAssignedPins({}, { pinA: 4, pinB: 5, pinSW: 6 }),
+      pinB: 19,
+    })]
+    const result = retargetHardwarePins(nodes, profile([21, 33, 34]), ESP32_S3)
+    const props = result.nodes[0].data.properties
+    expect(props.pinB).toBe(19)
+    expect(props.pinA).not.toBe(4)
+    expect(props.pinSW).not.toBe(6)
+  })
+
+  it('takes an I2S trio from the board profile, not the general pool', () => {
+    const nodes = [part('mic', 'MicInput', withAssignedPins({}, { i2sWs: 39, i2sSck: 40, i2sSd: 41 }))]
+    const result = retargetHardwarePins(nodes, profile([21, 33], { wsLrclk: 7, sckBclk: 8, sdDout: 9 }), ESP32_S3)
+    expect(result.nodes[0].data.properties).toMatchObject({ i2sWs: 7, i2sSck: 8, i2sSd: 9 })
+  })
+
+  it('keeps a light sensor on a pin that actually has an ADC', () => {
+    // An LDR is a voltage divider: on a pin with no ADC it reads garbage
+    // silently, which is the same trap the potentiometer's default fell into
+    // when the app moved from classic-ESP32 to S3 pin numbering.
+    const nodes = [part('ldr', 'LightInput', withAssignedPins({}, { pin: 34 }))]
+    const profile = {
+      id: 'adc-board',
+      pinSafety: { safeGeneralPurpose: [4, 5, 6], useWithCaution: {}, boardReservedOrNotExposed: {} },
+      pins: [
+        { gpio: 4, capabilities: ['analogInput'] },
+        { gpio: 5, capabilities: [] },
+        { gpio: 6, capabilities: [] },
+      ],
+    } as unknown as PhysicalBoardProfile
+    const result = retargetHardwarePins(nodes, profile, ESP32_S3)
+    expect(result.nodes[0].data.properties.pin).toBe(4)
+  })
+
+  it('moves an amplifier onto a board whose profile names no amp pinout', () => {
+    // Only a handful of profiles carry a curated `max98357` entry, and this
+    // part had no second answer — so on every other board the retarget found
+    // nothing and skipped it, leaving the amplifier on the previous board's
+    // pins. Reported from a real bench: switching to an ESP32 DevKit v1 left
+    // the MAX98357A exactly where the 38-pin board had put it.
+    const nodes = [part('amp', 'Amplifier', withAssignedPins({}, { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }))]
+    const result = retargetHardwarePins(nodes, profile([21, 33, 32]), ESP32_S3)
+    const props = result.nodes[0].data.properties
+    for (const key of ['i2sBclk', 'i2sLrc', 'i2sDout']) {
+      expect([21, 33, 32], `${key} came from the new board's pool`).toContain(props[key])
+    }
+    expect(new Set([props.i2sBclk, props.i2sLrc, props.i2sDout]).size).toBe(3)
+    expect(result.moved).toBeGreaterThan(0)
+  })
+
+  it('moves the classic ESP32 amplifier defaults onto the N16R8 header', () => {
+    const n16r8 = boardProfileById('generic-esp32-s3-n16r8-44pin-dual-usbc')!
+    const nodes = [part('amp', 'Amplifier', withAssignedPins(
+      { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 },
+      { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 },
+      'esp32-devkit-v1-30pin-esp32d',
+    ))]
+
+    const result = retargetHardwarePins(nodes, n16r8, ESP32_S3, 'esp32-devkit-v1-30pin-esp32d')
+    expect(result.nodes[0].data.properties).toMatchObject({
+      i2sBclk: 17,
+      i2sLrc: 18,
+      i2sDout: 16,
+    })
+  })
+
+  it('still prefers a curated amp pinout when the profile has one', () => {
+    // The fallback is for boards that say nothing, and must not override the
+    // ones that do.
+    const withAmp = {
+      ...profile([21, 33, 32]),
+      peripheralPins: { max98357: { bclk: 5, lrc: 6, din: 7 } },
+    } as unknown as PhysicalBoardProfile
+    const nodes = [part('amp', 'Amplifier', withAssignedPins({}, { i2sBclk: 26, i2sLrc: 25, i2sDout: 22 }))]
+    const result = retargetHardwarePins(nodes, withAmp, ESP32_S3)
+    expect(result.nodes[0].data.properties).toMatchObject({ i2sBclk: 5, i2sLrc: 6, i2sDout: 7 })
+  })
+
+  it('re-stamps what it moved, so the next board change still knows', () => {
+    const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
+    const once = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
+    expect(once.nodes[0].data.properties.assignedPins).toMatchObject({ pin: 21 })
+    // Still the app's, so a second board change can move it again.
+    expect(isPinAppOwned('ButtonInput', once.nodes[0].data.properties, 'pin')).toBe(true)
+  })
+
+  it('reports nothing moved when the board already agrees', () => {
+    // No-op rather than an empty undo step.
+    const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 21 }))]
+    const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
+    expect(result.moved).toBe(0)
+    expect(result.nodes).toBe(nodes)
+  })
+
+  it('brings a hand-wired pin back when you return to its board', () => {
+    /*
+     * The case this exists for. An ESP8266 LED run is soldered to a
+     * non-standard data pin; every board change put it back to the default, so
+     * each reflash meant dark LEDs, a pin edit and another flash. The choice
+     * has to survive leaving the board and coming back.
+     */
+    const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
+    const wired = part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
+      pin: 13,
+    })
+
+    const away = retargetHardwarePins([wired], s3, ESP32_S3)
+    expect(away.nodes[0].data.properties.pin).not.toBe(13)
+
+    const back = retargetHardwarePins(away.nodes, nodemcu, 'esp8266:esp8266:nodemcuv2')
+    expect(back.nodes[0].data.properties.pin).toBe(13)
+  })
+
+  it('keeps a returned pin theirs, so it survives the next trip too', () => {
+    const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
+    let nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
+      pin: 13,
+    })]
+    for (let lap = 0; lap < 3; lap++) {
+      nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
+      nodes = retargetHardwarePins(nodes, nodemcu, 'esp8266:esp8266:nodemcuv2').nodes
+    }
+    expect(nodes[0].data.properties.pin).toBe(13)
+  })
+
+  it('remembers each board separately', () => {
+    const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
+    let nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
+      pin: 13,
+    })]
+    // Move to the S3 and hand-wire it differently there.
+    nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
+    nodes = [part('b', 'ButtonInput', { ...nodes[0].data.properties, pin: 7 })]
+
+    nodes = retargetHardwarePins(nodes, nodemcu, 'esp8266:esp8266:nodemcuv2').nodes
+    expect(nodes[0].data.properties.pin).toBe(13)
+    nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
+    expect(nodes[0].data.properties.pin).toBe(7)
+  })
+
+  it('does not report a move when it only recorded a choice', () => {
+    const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
+    const nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 13 }, 'esp8266-nodemcu-v3'),
+      // Already on the pin this board remembers, so nothing shifts.
+      userPinsByBoard: { [s3.id]: { pin: 13 } },
+      pin: 13,
+    })]
+    expect(retargetHardwarePins(nodes, s3, ESP32_S3).moved).toBe(0)
+  })
+
+  it('retargets between two boards that share an FQBN', () => {
+    /*
+     * `esp32:esp32:esp32` belongs to both the 38-pin generic DevKit and the
+     * 30-pin DevKit v1 — different headers, same chip. Keying on the FQBN made
+     * switching between them look like no change at all, so the pins never
+     * moved: reported from the bench with a microphone left on another board's
+     * wiring while the board panel advertised its own.
+     */
+    const thirtyPin = profile([2, 4], undefined, 'esp32-devkit-v1-30pin-esp32d')
+    const thirtyEight = profile([21, 33], undefined, 'esp32-generic-devkit-38pin')
+    const shared = 'esp32:esp32:esp32'
+
+    let nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 2 }, thirtyPin.id))]
+    nodes = retargetHardwarePins(nodes, thirtyEight, shared).nodes
+    expect(nodes[0].data.properties.pin).toBe(21)
+  })
+
+  it('keeps each shared-FQBN board its own memory', () => {
+    const thirtyPin = profile([2, 4], undefined, 'esp32-devkit-v1-30pin-esp32d')
+    const thirtyEight = profile([21, 33], undefined, 'esp32-generic-devkit-38pin')
+    const shared = 'esp32:esp32:esp32'
+
+    // Hand-wired on the 30-pin, then away to the 38-pin and back.
+    let nodes = [part('b', 'ButtonInput', {
+      ...withAssignedPins({}, { pin: 2 }, thirtyPin.id),
+      pin: 15,
+    })]
+    nodes = retargetHardwarePins(nodes, thirtyEight, shared).nodes
+    expect(nodes[0].data.properties.pin).toBe(21)
+    nodes = retargetHardwarePins(nodes, thirtyPin, shared).nodes
+    expect(nodes[0].data.properties.pin).toBe(15)
+  })
+
+  it('does not strand an unstamped edit on every board', () => {
+    /*
+     * Reported with screenshots. An SD pin set to 18 on a 30-pin DevKit still
+     * read 18 after switching to an S3 that wants 41 — on a board where that
+     * pin was never chosen, and eventually on boards with no GPIO 18 at all.
+     * A pin with no stamp has no board attached, so treating it as the user's
+     * everywhere pins it everywhere; it belongs to the board being left.
+     */
+    const devkit = profile([1, 2], { wsLrclk: 32, sckBclk: 33, sdDout: 34 }, 'esp32-devkit-v1-30pin-esp32d')
+    const s3 = profile([3, 4], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'esp32-s3-generic-n16r8')
+
+    // No provenance: the state a node saved before stamping existed is in.
+    let nodes = [part('mic', 'MicInput', { i2sWs: 32, i2sSck: 33, i2sSd: 18 })]
+
+    nodes = retargetHardwarePins(nodes, s3, ESP32_S3, devkit.id).nodes
+    // The S3's own pins, all three of them.
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+
+    // And the edit was not lost — it belonged to the DevKit, and returns there.
+    nodes = retargetHardwarePins(nodes, devkit, 'esp32:esp32:esp32doit-devkit-v1').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 32, i2sSck: 33, i2sSd: 18 })
+  })
+
+  it('does not freeze a whole microphone because one pin was edited', () => {
+    /*
+     * Reported from the bench, with screenshots. A mic sat on the 30-pin
+     * DevKit's 32/33/34; the SD pin was changed to 18; switching to an S3 that
+     * wants 39/40/41 left the mic on 32/33/18 — the edit had frozen WS and SCK
+     * as well. The legacy ownership check asked whether all three pins matched
+     * one board's starting point, so touching any one of them made the other
+     * two look hand-wired.
+     *
+     * No provenance recorded here on purpose: that is the state the reported
+     * node was in.
+     */
+    const s3 = profile([1, 2], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'esp32-s3-generic-n16r8')
+    const nodes = [part('mic', 'MicInput', {
+      ...withAssignedPins({}, { i2sWs: 32, i2sSck: 33, i2sSd: 34 }, 'esp32-devkit-v1-30pin-esp32d'),
+      i2sSd: 18,
+    })]
+
+    const result = retargetHardwarePins(nodes, s3, ESP32_S3)
+    const props = result.nodes[0].data.properties
+    // All three follow the new board; the edit belonged to the old one.
+    expect(props.i2sWs).toBe(39)
+    expect(props.i2sSck).toBe(40)
+    expect(props.i2sSd).toBe(41)
+  })
+
+  it('follows the described microphone behaviour end to end', () => {
+    /*
+     * "I change boards, the mic should change all its pins to the defaults for
+     * that board. Later if I go back to the first board it should retain the
+     * SD as 32 instead of 33, but only for that board."
+     */
+    const boardA = profile([1, 2], { wsLrclk: 32, sckBclk: 33, sdDout: 34 }, 'board-a')
+    const boardB = profile([3, 4], { wsLrclk: 39, sckBclk: 40, sdDout: 41 }, 'board-b')
+
+    // On board A, wired as the app suggested, then the SD pin changed by hand.
+    let nodes = [part('mic', 'MicInput', {
+      ...withAssignedPins({}, { i2sWs: 32, i2sSck: 33, i2sSd: 34 }, boardA.id),
+      i2sSd: 18,
+    })]
+
+    // To board B: everything takes B's pins, the hand-edit included, because
+    // that edit was about board A.
+    nodes = retargetHardwarePins(nodes, boardB, 'b').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+
+    // Back to A: A's own pins, and the hand-edit returns with them.
+    nodes = retargetHardwarePins(nodes, boardA, 'a').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 32, i2sSck: 33, i2sSd: 18 })
+
+    // And B is still B's, unaffected by what was done on A.
+    nodes = retargetHardwarePins(nodes, boardB, 'b').nodes
+    expect(nodes[0].data.properties).toMatchObject({ i2sWs: 39, i2sSck: 40, i2sSd: 41 })
+  })
+
+  it('ignores nodes that are not hardware parts', () => {
+    const nodes = [part('p', 'Plasma', { speed: 0.5 })]
+    expect(retargetHardwarePins(nodes, profile([21]), ESP32_S3).moved).toBe(0)
+  })
+})

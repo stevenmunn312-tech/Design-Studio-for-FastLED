@@ -9,7 +9,7 @@ import {
   blankTransportArtwork, transportArtworkBudgetIssue, transportArtworkFromFrame,
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_SUPERSAMPLE, TRANSPORT_ARTWORK_TICK_SEC,
   TRANSPORT_ARTWORK_W,
-} from '../state/transportDisplay'
+} from '../state/displays/transportDisplay'
 
 export interface BakedTransportArtwork {
   groupId: string

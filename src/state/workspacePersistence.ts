@@ -1,9 +1,9 @@
 import type { StudioNode, StudioEdge, WorkspaceExtras } from './graphStore'
-import type { PerformanceDeckConfig } from './performanceDeck'
+import type { PerformanceDeckConfig } from './player/performanceDeck'
 import type { BuildProfile } from '../build/buildProfile'
-import { captureMusicLibrary } from './musicLibraryPersistence'
-import type { PersistedMusicEntry } from './musicLibraryPersistence'
-import type { DisplayDocumentRegistry } from './displayDocument'
+import { captureMusicLibrary } from './player/musicLibraryPersistence'
+import type { PersistedMusicEntry } from './player/musicLibraryPersistence'
+import type { DisplayDocumentRegistry } from './displays/displayDocument'
 
 /** The full workspace shape that needs to persist across autosave, project
  *  switches, JSON export/import, and rolling recovery snapshots. */

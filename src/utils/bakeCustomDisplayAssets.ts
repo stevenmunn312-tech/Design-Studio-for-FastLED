@@ -1,4 +1,4 @@
-import { displayAsset, displayAssetUrl } from '../state/displayAssets'
+import { displayAsset, displayAssetUrl } from '../state/displays/displayAssets'
 import {
   customDisplayAssetRequests,
   customDisplayResourceIssues,
@@ -6,8 +6,8 @@ import {
   type BakedCustomDisplayAsset,
   type CustomDisplayAssetRequest,
   type CustomDisplayResourceIssue,
-} from '../state/customDisplayResources'
-import type { DisplayDocument } from '../state/displayDocument'
+} from '../state/displays/customDisplayResources'
+import type { DisplayDocument } from '../state/displays/displayDocument'
 
 export interface BakedCustomDisplayAssets {
   assets: BakedCustomDisplayAsset[]

@@ -1,5 +1,5 @@
 import { formatDateTimeCpp } from '../../codegen/displayTextCpp'
-import { asDateTimeTextMode } from '../../state/displayText'
+import { asDateTimeTextMode } from '../../state/displays/displayText'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId } from '../../codegen/cppLiterals'
 import { toggleCpp } from '../../codegen/toggleCpp'

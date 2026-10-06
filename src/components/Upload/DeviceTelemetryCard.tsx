@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
-import { useUploadStore } from '../../state/uploadStore'
-import { useDeviceTelemetryStore } from '../../state/deviceTelemetryStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { useDeviceTelemetryStore } from '../../state/upload/deviceTelemetryStore'
 import {
   TELEMETRY_INTERVAL_MS,
   telemetryHeapSlopeBytesPerHour,
   telemetryLeaking,
   telemetryMeanFps,
-} from '../../state/deviceTelemetry'
+} from '../../state/upload/deviceTelemetry'
 import styles from './DeviceTelemetryCard.module.css'
 
 /**

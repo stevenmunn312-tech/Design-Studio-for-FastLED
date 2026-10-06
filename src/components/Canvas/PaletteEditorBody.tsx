@@ -9,8 +9,8 @@ import {
   rgbToHex,
   sampleCustomPalette,
   type RGB,
-} from '../../state/customPalette'
-import { polinePalette } from '../../state/polinePalette'
+} from '../../state/palettes/customPalette'
+import { polinePalette } from '../../state/palettes/polinePalette'
 import styles from './PaletteEditorBody.module.css'
 
 const CUSTOM_PRESETS = [

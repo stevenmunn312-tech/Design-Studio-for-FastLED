@@ -1,17 +1,17 @@
 // The Hardware workspace's parts shelf: every part it offers, grouped by
 // shelf, with whether the board can take one more and why not.
-import { assignPartPins } from '../../state/partPinAssignment'
-import { partRenderSrc } from '../../state/partCatalogue'
-import { partRenderForNodeType } from '../../state/partRenders'
-import { partOptionsFor } from '../../state/partOptions'
-import { LED_OUTPUT_FORM_LABELS } from '../../state/ledOutputForm'
+import { assignPartPins } from '../../build/parts/partPinAssignment'
+import { partRenderSrc } from '../../build/parts/partCatalogue'
+import { partRenderForNodeType } from '../../build/parts/partRenders'
+import { partOptionsFor } from '../../build/parts/partOptions'
+import { LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
 import type { HardwareShelfItem, HardwareShelfCategory } from './HardwarePartsShelf'
 import {
   type FixturePartEntry, type InputPartEntry, fixturePinRequests, FIXTURE_PARTS, INPUT_PARTS, LED_OUTPUT_ENTRIES,
   LED_OUTPUT_NODE_TYPE,
 } from './hardwarePartCatalog'
 import type { StudioNode } from '../../state/graphStore'
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
+import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
 export interface HardwareShelfInputs {
   nodes: StudioNode[]

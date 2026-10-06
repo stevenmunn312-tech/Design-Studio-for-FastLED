@@ -5,8 +5,8 @@ import {
   findOutputRuntimeIssues,
 } from '../validateGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
-import { createDisplayDocument } from '../../state/displayEditor'
-import type { DisplayDocumentRegistry } from '../../state/displayDocument'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { assertWireable } from '../../test-utils/assertWireable'
 

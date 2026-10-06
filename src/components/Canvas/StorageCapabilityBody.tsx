@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useRootNodes, useGraphStore } from '../../state/graphStore'
-import { resolveStorageCapabilitySource, storageCapabilitySources } from '../../state/storageCapabilities'
+import { resolveStorageCapabilitySource, storageCapabilitySources } from '../../build/storageCapabilities'
 import styles from './AudioCapabilityBody.module.css'
 
 interface Props { nodeId: string; sourceId: unknown }

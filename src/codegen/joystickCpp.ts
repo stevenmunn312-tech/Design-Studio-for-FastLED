@@ -1,5 +1,5 @@
 import { sanitizePin } from './hardwarePins'
-import { joystickDeadzone } from '../state/joystick'
+import { joystickDeadzone } from '../state/peripherals/joystick'
 
 /**
  * Two potentiometer axes and a push switch. Each axis is read as a 12-bit ADC

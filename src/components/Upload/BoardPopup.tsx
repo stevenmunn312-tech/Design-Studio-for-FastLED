@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
-import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
+import { allBoards, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { estimateFirmwareRam } from '../../utils/validateGraph'
 import { describePort } from '../../utils/portStatus'
 import styles from './Upload.module.css'
-import { controllerSettings } from '../../state/controllerSettings'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { controllerSettings } from '../../build/controllerSettings'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 

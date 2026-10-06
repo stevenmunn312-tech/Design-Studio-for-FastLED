@@ -3,20 +3,20 @@ import { act, render, fireEvent, within, waitFor } from '@testing-library/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import StudioNode from '../StudioNode'
 import { connectTouchControl, useGraphStore } from '../../../state/graphStore'
-import { createDisplayDocument } from '../../../state/displayEditor'
-import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
+import { createDisplayDocument } from '../../../state/displays/displayEditor'
+import { useDisplayRuntimeStore } from '../../../state/displays/displayRuntimeStore'
 import type { StudioNode as StudioNodeT, StudioNodeData } from '../../../state/graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { useMusicStore } from '../../../state/musicStore'
+import { useMusicStore } from '../../../state/player/musicStore'
 import { usePreviewStore } from '../../../state/previewStore'
-import { useAudioStore } from '../../../state/audioStore'
+import { useAudioStore } from '../../../state/audio/audioStore'
 import { useNodeDefaults } from '../../../state/nodeDefaults'
 import { useUiStore } from '../../../state/uiStore'
-import { useUploadStore } from '../../../state/uploadStore'
-import { useHardwareInputStore } from '../../../state/hardwareInputStore'
-import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
-import { BOARD_PROFILES } from '../../../build/boardProfiles'
-import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../state/micPinDefaults'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useHardwareInputStore } from '../../../state/peripherals/hardwareInputStore'
+import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displays/displayRegistry'
+import { BOARD_PROFILES } from '../../../build/boards/boardProfiles'
+import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../build/pins/micPinDefaults'
 
 // React Flow's <Handle> needs flow context; keep a lightweight DOM stand-in so
 // node-body tests can also assert the absolute port geometry.
@@ -624,7 +624,7 @@ describe('StudioNode', () => {
 
   // A drop on the trailing socket cannot name itself, so the node asks. These
   // cover the rendered half of that; the store half is in
-  // state/__tests__/playerControlAssignments.test.ts.
+  // state/player/__tests__/playerControlAssignments.test.ts.
   it('offers only the functions a button can sensibly drive', () => {
     const node = makeNode('ControlMap', {})
     act(() => {

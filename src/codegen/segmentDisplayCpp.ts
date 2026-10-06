@@ -4,7 +4,7 @@
 // its own start/stop framing and a raw segment byte per digit; a MAX7219 is a
 // shift register clocked in 16-bit register/value frames. What they share is
 // everything above the wire — the digits, the rounding, the refusal to show a
-// number that will not fit — so that lives in state/segmentDisplay.ts and only
+// number that will not fit — so that lives in state/displays/segmentDisplay.ts and only
 // the transport differs here.
 //
 // Both drivers are written inline rather than pulled from a library. The
@@ -15,7 +15,7 @@
 import {
   SEGMENT_FAULT_CODES, SEGMENT_GLYPHS, SEGMENT_CONTROLLERS, type SegmentDisplayMode,
   SEGMENT_POWER_SMOOTH_MS, SEGMENT_POWER_UPDATE_MS,
-} from '../state/segmentDisplay'
+} from '../state/displays/segmentDisplay'
 
 const MAX_DIGITS = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
 
@@ -84,7 +84,7 @@ function align(bytes: number, to: number): number {
 
 
 export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ────────────────────────────────────────────────────────
-// Mirrors src/state/segmentDisplay.ts so a module shows what the preview does.
+// Mirrors src/state/displays/segmentDisplay.ts so a module shows what the preview does.
 #define SEG_MAX_DIGITS ${MAX_DIGITS}
 #define SEG_KIND_TM1637 0
 #define SEG_KIND_MAX7219 1

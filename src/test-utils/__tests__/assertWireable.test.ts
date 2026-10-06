@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
-import { addDisplayWidget, createDisplayDocument } from '../../state/displayEditor'
+import { addDisplayWidget, createDisplayDocument } from '../../state/displays/displayEditor'
 import { libraryDefaults, NODE_LIBRARY } from '../../state/nodeLibrary'
 import { assertWireable } from '../assertWireable'
 

@@ -1,4 +1,4 @@
-// The firmware half of `src/state/ledOutputRuntime.ts`.
+// The firmware half of `src/state/output/ledOutputRuntime.ts`.
 //
 // Emitted after an output's blit and before its `show()`, which is the one
 // place every geometry branch — ring map, corkscrew map, crop, downscale,
@@ -14,7 +14,7 @@
 // Nothing is emitted when neither port is wired and neither field has been
 // moved, so an output nobody has touched generates the sketch it always did.
 
-import { ledOutputManualRuntime } from '../state/ledOutputRuntime'
+import { ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 
 /**
  * What this output's own fields contribute when nothing is wired to a port.

@@ -3,7 +3,7 @@ import { generateCpp } from '../cppGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { customDisplayPanelFromProps } from '../customDisplayPanelCpp'
 import { TFT_TOUCH_CPP_HELPERS } from '../tftTouchCpp'
-import { emittedTouchBounds } from '../../state/transportTouch'
+import { emittedTouchBounds } from '../../state/displays/transportTouch'
 import { libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 

@@ -1,4 +1,4 @@
-import { type Frame, type RGB, hsv } from '../../state/ledColor'
+import { type Frame, type RGB, hsv } from '../../state/palettes/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
   DEFAULT_W,

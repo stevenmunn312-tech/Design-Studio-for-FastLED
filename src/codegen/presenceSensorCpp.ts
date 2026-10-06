@@ -1,4 +1,4 @@
-import { presenceSensorSpec, PRESENCE_UART_PORT } from '../state/presenceSensor'
+import { presenceSensorSpec, PRESENCE_UART_PORT } from '../state/peripherals/presenceSensor'
 
 /*
  * LD2410-family radar frames, read straight off the UART.

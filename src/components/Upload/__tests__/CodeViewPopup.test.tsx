@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import CodeViewPopup from '../CodeViewPopup'
-import { useUploadStore } from '../../../state/uploadStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 
 const CODE = 'void setup() {}\nvoid loop() {}\n'
 

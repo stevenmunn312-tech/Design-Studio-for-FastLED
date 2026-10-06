@@ -1,4 +1,4 @@
-import { environmentAddress, environmentSensorSpec, formatEnvironmentAddress } from '../state/environmentSensor'
+import { environmentAddress, environmentSensorSpec, formatEnvironmentAddress } from '../state/peripherals/environmentSensor'
 
 /**
  * Ahead of the hoisted prototypes. The .ino preprocessor inserts a prototype

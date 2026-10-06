@@ -1,5 +1,5 @@
-import { makeShims, SHIM_NAMES } from '../../state/fastledShims'
-import { type Palette, type Frame, samplePalette } from '../../state/ledColor'
+import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
+import { type Palette, type Frame, samplePalette } from '../../state/palettes/ledColor'
 import { evalCodeAsync, disposeCodeSandbox } from '../../state/codeSandboxRuntime'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { compileFormula, formulaCache, centeredX, centeredY } from '../../state/evaluator/formula'

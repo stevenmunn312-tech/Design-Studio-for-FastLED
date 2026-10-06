@@ -14,9 +14,9 @@ import {
 } from '../../state/nodeLibrary'
 import { tidyLayout } from '../../utils/tidyLayout'
 import type { NodeDefinition, NodePort } from '../../types'
-import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../state/ledOutputForm'
-import { playerControlInputs } from '../../state/playerControlAssignments'
-import { irRemoteButtonHandle, irRemoteOutputs } from '../../state/irRemote'
+import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../state/output/ledOutputForm'
+import { playerControlInputs } from '../../state/player/playerControlAssignments'
+import { irRemoteButtonHandle, irRemoteOutputs } from '../../state/peripherals/irRemote'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */

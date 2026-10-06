@@ -3,10 +3,10 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import CustomBoardEditor from '../CustomBoardEditor'
 import BoardPinoutPopup from '../../Upload/BoardPinoutPopup'
 import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
-import { ROOT_BOARD_NODE_ID } from '../../../state/hardware'
-import { useUploadStore } from '../../../state/uploadStore'
-import { CUSTOM_BOARD_PROFILE_ID } from '../../../state/customBoard'
-import { selectedPhysicalBoardProfile } from '../../../build/boardProfiles'
+import { ROOT_BOARD_NODE_ID } from '../../../build/hardware'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
+import { selectedPhysicalBoardProfile } from '../../../build/boards/boardProfiles'
 
 const boardProps = () => rootGraphNodes(useGraphStore.getState())
   .find((node) => node.data.nodeType === 'Board')!.data.properties

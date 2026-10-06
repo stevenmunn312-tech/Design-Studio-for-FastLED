@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
-import { DISPLAY_WIDGET_LIBRARY } from '../../state/displayRegistry'
-import type { DisplayDocument } from '../../state/displayDocument'
-import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displayTheme'
+import { DISPLAY_WIDGET_LIBRARY } from '../../state/displays/displayRegistry'
+import type { DisplayDocument } from '../../state/displays/displayDocument'
+import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
 import {

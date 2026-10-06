@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
 import { nodeDisplayLabel } from '../../state/nodeLibrary'
-import { panelsShowingDocument } from '../../state/mountedDisplays'
+import { panelsShowingDocument } from '../../state/displays/mountedDisplays'
 import DisplayRunSurface from './DisplayRunSurface'
 import styles from './LiveTouchScreen.module.css'
 

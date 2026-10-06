@@ -1,4 +1,4 @@
-import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
+import type { BakedCustomDisplayAsset } from '../state/displays/customDisplayResources'
 import { customDisplaySampleCpp, type customDisplayControlPlan } from './customDisplayControlGraph'
 import {
   CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS,

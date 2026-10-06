@@ -10,16 +10,16 @@ import {
   tftDisplaySetupCpp,
   type TftDisplayEmit,
 } from '../tftDisplayCpp'
-import { cppStringLiteral } from '../../state/displayText'
-import { DEFAULT_FONT, FONT_H, FONT_W } from '../../state/font'
+import { cppStringLiteral } from '../../state/displays/displayText'
+import { DEFAULT_FONT, FONT_H, FONT_W } from '../../nodes/shared/font'
 import {
   TFT_CONTROLLERS, TFT_ROTATIONS, tftMadctl, tftRotatedSize, tftWindowOrigin,
   type TftRotation,
-} from '../../state/tftSurface'
+} from '../../state/displays/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
   fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry,
-} from '../../state/transportDisplay'
+} from '../../state/displays/transportDisplay'
 
 const st7789 = TFT_CONTROLLERS.ST7789
 const st7789v = TFT_CONTROLLERS.ST7789V

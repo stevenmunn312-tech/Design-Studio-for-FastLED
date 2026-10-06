@@ -17,14 +17,14 @@ import {
   asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, tftMadctl, tftRotatedSize,
   tftWindowOrigin,
   type TftController, type TftRotation,
-} from '../state/tftSurface'
-import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
+} from '../state/displays/tftSurface'
+import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/upload/deviceTelemetry'
 import {
   tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps,
 } from '../state/nodeLibrary'
-import { displayHasTouch } from '../state/partCatalogue'
-import { emittedTouchBounds } from '../state/transportTouch'
-import { MAX_PIN_NUMBER } from '../state/boardGpio'
+import { displayHasTouch } from '../build/parts/partCatalogue'
+import { emittedTouchBounds } from '../state/displays/transportTouch'
+import { MAX_PIN_NUMBER } from '../build/boards/boardGpio'
 import { customDisplayId } from './customDisplayId'
 import { tftInitSequence } from './tftInitSequence'
 import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from './deviceTelemetryCpp'

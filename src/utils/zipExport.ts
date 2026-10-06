@@ -1,4 +1,4 @@
-import type { MusicEntry } from '../state/musicStore'
+import type { MusicEntry } from '../state/player/musicStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import { generatePlayerSketch } from '../codegen/playerSketchGenerator'

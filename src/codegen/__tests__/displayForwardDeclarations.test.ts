@@ -23,9 +23,9 @@ import { buildPatternRenderers } from '../showGenerator'
 import { SEGMENT_DISPLAY_CPP_FORWARD } from '../segmentDisplayCpp'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_FORWARD } from '../customDisplayLvglCpp'
-import { createDisplayDocument } from '../../state/displayEditor'
-import { addDisplayWidget } from '../../state/displayEditor'
-import type { DisplayDocumentRegistry } from '../../state/displayDocument'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import { addDisplayWidget } from '../../state/displays/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({

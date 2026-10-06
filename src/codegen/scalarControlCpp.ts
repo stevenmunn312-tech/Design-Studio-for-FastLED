@@ -1,6 +1,6 @@
 // Pure scalar operations shared by the normal graph and template control graphs.
-import { displayString, normalizeNumberFormat } from '../state/displayText'
-import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../state/stepValue'
+import { displayString, normalizeNumberFormat } from '../state/displays/displayText'
+import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../nodes/shared/stepValue'
 import { toggleCpp } from './toggleCpp'
 import { formatNumberCpp, textValueCpp } from './displayTextCpp'
 

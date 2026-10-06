@@ -1,4 +1,4 @@
-import { MAX_PIN_NUMBER } from '../state/boardGpio'
+import { MAX_PIN_NUMBER } from '../build/boards/boardGpio'
 
 // Every hardware-facing generator routes user-entered Arduino pin values
 // through this helper so fractional, non-finite, and wildly out-of-range

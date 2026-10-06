@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildShareUrl, clearShareHash, readSharedWorkspace } from '../shareGraph'
 import { buildProjectSnapshot, parseProjectFile, serializeProject } from '../projectFileIO'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
-import { CUSTOM_BOARD_PROFILE_ID, type CustomBoardDefinition } from '../../state/customBoard'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { CUSTOM_BOARD_PROFILE_ID, type CustomBoardDefinition } from '../../build/boards/customBoard'
 import { rootGraphNodes, useGraphStore, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import type { PersistedWorkspace } from '../../state/workspacePersistence'
 

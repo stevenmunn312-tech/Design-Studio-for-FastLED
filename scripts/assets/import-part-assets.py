@@ -769,7 +769,7 @@ def main() -> int:
         "// print in the asset's own part.json. Do not replace one with a figure\n"
         "// measured off a photograph or remembered — the hardware view draws parts\n"
         "// at true relative scale, so these numbers are load-bearing.\n\n"
-        "import type { PartCatalogueEntry } from '../../state/partCatalogue'\n\n"
+        "import type { PartCatalogueEntry } from '../parts/partCatalogue'\n\n"
         "export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {\n"
         f"{body},\n"
         "}\n",

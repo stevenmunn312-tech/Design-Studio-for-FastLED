@@ -1,0 +1,565 @@
+// Which exact module a part is.
+//
+// "Every part names its exact module" is the design note's requirement, and the
+// reason given is worth repeating: naming the part is what makes its picture
+// honest rather than decorative, and it forces assumptions into the open. The
+// player generator has always assumed a MAX98357A and nothing in the UI ever
+// said so.
+//
+// A dropdown only where a choice genuinely exists. Offering a list of plausible
+// part numbers the app treats identically would be the same quiet
+// misrepresentation this model exists to remove — so a part with one supported
+// module states its name instead of pretending to offer alternatives.
+
+import { deratedCurrentMa, ENCLOSURE_AMBIENT_C, powerConverterModules } from '../../state/peripherals/powerConverter'
+import { partById, type PartCatalogueEntry } from './partCatalogue'
+import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
+import { MIC_MODULES } from '../../state/peripherals/micModules'
+import { LIGHT_SENSOR_MODULES } from '../../state/peripherals/lightSensor'
+import { ETHERNET_MODULES } from '../../state/peripherals/ethernetModule'
+
+export interface PartOption {
+  /** Catalogue part id when the part is modelled, else a plain slug. */
+  id: string
+  label: string
+  /**
+   * What picking this changes, when the app cannot show it any other way.
+   * Alternatives that wire identically still differ in what comes out of them,
+   * and that difference has to be stated somewhere.
+   */
+  note?: string
+  /**
+   * One short line for the Add Hardware menu.
+   *
+   * Separate from `note`, which is the full caveat the part panel shows while
+   * you are wiring. A menu row is for choosing between modules, and a
+   * paragraph in one stretched the panel across the window.
+   */
+  summary?: string
+  /**
+   * What comes out of an I2S audio stage, for the parts where that decides
+   * what may follow it.
+   *
+   * A DAC's line out is exactly what a power amplifier's line in expects; a
+   * MAX98357A's bridge-tied speaker output is not, and wiring one into the
+   * other drives a line input with a speaker-level signal whose negative leg
+   * is not ground. The chain is resolved from this — see state/audio/audioOutput.ts.
+   */
+  output?: 'speaker' | 'line'
+}
+
+export interface PartIdentity {
+  option: PartOption
+  /** Present once the module has been modelled — carries the verified size,
+   *  the render, the header order and the datasheet caveats. */
+  entry?: PartCatalogueEntry
+  /** Every caveat worth reading before wiring: the asset's own notes first,
+   *  then anything specific to choosing this option. */
+  notes: string[]
+  /** True when more than one module is offered. The choice is made in the Add
+   *  Hardware menu, so nothing renders a picker from this — it is for copy that
+   *  needs to know whether alternatives exist. */
+  hasChoice: boolean
+}
+
+/**
+ * The modules each hardware node can be, and the property holding the choice.
+ *
+ * The microphone's rows are derived from `micModules.ts` rather than restated
+ * here, because the rule deciding which modules may be offered is the same rule
+ * the generator needs: a module earns a row when FastLED ships a
+ * `fl::audio::Config` factory and a `MicProfile` for it. It had exactly one row
+ * for as long as `CreateInmp441` was the only factory; the vendored FastLED now
+ * also carries `CreateIcs43434` and `CreateGenericMEMS`. What still varies by
+ * board is the *capture backend*, not the microphone.
+ */
+export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
+  PowerConverter: {
+    property: 'partId',
+    options: powerConverterModules().map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: `${module.spec.role === 'controller' ? 'Controller' : 'LED rail'} · ${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
+    })),
+  },
+  PdTriggerSource: {
+    property: 'partId',
+    options: [
+      {
+        id: 'zy12pdn-usb-c-pd-trigger',
+        label: 'ZY12PDN',
+        summary: 'Asks a USB-C charger for 5, 9, 12, 15 or 20 V',
+        note: 'A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity.',
+      },
+    ],
+  },
+  EthernetModule: {
+    property: 'partId',
+    options: ETHERNET_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
+  },
+  LightInput: {
+    property: 'partId',
+    options: LIGHT_SENSOR_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
+  },
+  MicInput: {
+    property: 'partId',
+    options: MIC_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
+  },
+  IRRemoteInput: {
+    property: 'partId',
+    options: IR_RECEIVER_MODULES.map((module) => ({
+      id: module.partId,
+      label: module.label,
+      summary: module.summary,
+      note: module.note,
+    })),
+  },
+  LineInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'pcm1802-line-in-adc',
+        label: 'PCM1802 line-in ADC',
+        summary: 'Stereo RCA line in to I2S',
+        note: 'Connect a player module\'s line-level DAC output, not its bridge-tied speaker output, to the RCA inputs.',
+      },
+    ],
+  },
+  RTCInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ds3231-rtc-module',
+        label: 'DS3231 RTC module',
+        summary: 'ZS-042 breakout, six-pin header',
+      },
+      {
+        id: 'jaycar-xc9044-rtc-module',
+        label: 'DS3231 RTC Clock Module for Raspberry Pi',
+        summary: 'Pi-header DS3231, CR927 backup',
+      },
+    ],
+  },
+  SDCard: {
+    property: 'partId',
+    options: [
+      {
+        id: 'microsd-module-5v',
+        label: 'microSD module (5 V)',
+        summary: 'Regulator and level shifter on board',
+        note: 'Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI.',
+      },
+      {
+        id: 'microsd-breakout-3v3',
+        label: 'microSD breakout (3.3 V)',
+        summary: 'Bare board — 3.3 V only',
+        note: 'Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.',
+      },
+    ],
+  },
+  PresenceInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'hlk-ld2410c-presence-sensor',
+        label: 'HLK-LD2410C mmWave',
+        summary: 'Someone there, moving or still, and how far: up to 6 m',
+        note: "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin.",
+      },
+    ],
+  },
+  TouchButtonInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'seeed-grove-touch-sensor',
+        label: 'Seeed Grove Touch Sensor',
+        summary: 'One active-high capacitive touch button',
+        note: 'Power from 3.3 V. SIG is HIGH while touched; NC is not connected.',
+      },
+    ],
+  },
+  PowerMonitorInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-ina219-current-sensor',
+        label: 'Adafruit INA219',
+        summary: 'Volts, amps, watts: 26 V, 3.2 A, I2C',
+        note: 'High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board.',
+      },
+      {
+        id: 'ina226-current-sensor-module',
+        label: 'INA226 module',
+        summary: 'Volts, amps, watts: 36 V, 20 A, I2C',
+        note: 'High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed.',
+      },
+    ],
+  },
+  MotionVectorInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'gy-521-mpu6050-module',
+        label: 'GY-521 MPU-6050',
+        summary: 'Three-axis accelerometer and gyroscope over I2C',
+        note: 'Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68.',
+      },
+    ],
+  },
+  TouchPadInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-mpr121-touch-sensor',
+        label: 'Adafruit MPR121 breakout',
+        summary: 'Twelve capacitive-touch electrodes over I2C',
+        note: 'Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed.',
+      },
+    ],
+  },
+  KeypadInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'matrix-keypad-4x4',
+        label: '4x4 matrix keypad',
+        summary: 'Sixteen keys on eight GPIOs',
+        note: 'Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power.',
+      },
+    ],
+  },
+  JoystickInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ky-023-joystick-module',
+        label: 'KY-023 joystick',
+        summary: 'A thumb stick with two analog axes and a push switch',
+        note: 'Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up.',
+      },
+    ],
+  },
+  MotionInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'hc-sr501-pir-sensor',
+        label: 'HC-SR501 PIR',
+        summary: 'Infrared: sees a warm body move',
+        note: 'Power VCC from 5 V. OUT is 3.3 V logic.',
+      },
+      {
+        id: 'rcwl-0516-microwave-motion-module',
+        label: 'RCWL-0516 microwave',
+        summary: 'Radar: senses movement through plastic',
+        note: 'Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired.',
+      },
+    ],
+  },
+  DistanceInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'hc-sr04-ultrasonic-module',
+        label: 'HC-SR04 ultrasonic',
+        summary: 'Ultrasonic ranging, 2 cm to 4 m, on two GPIOs',
+        note: 'Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V.',
+      },
+      {
+        id: 'adafruit-vl53l0x-distance-sensor',
+        label: 'Adafruit VL53L0X laser',
+        summary: 'Laser time-of-flight, 3 cm to 1.2 m, over I2C',
+        note: 'Power VIN from 3.3 V. It answers on 0x29 and joins the I2C bus; leave 2v8, GPIO and SHDN unconnected. The build needs the Pololu VL53L0X library, which Studio installs the first time.',
+      },
+      {
+        id: 'adafruit-vl53l1x-distance-sensor',
+        label: 'Adafruit VL53L1X laser',
+        summary: 'Laser time-of-flight, 3 cm to 4 m, over I2C',
+        note: 'Power VIN from 3.3 V. It answers on 0x29 and joins the I2C bus; leave XSHUT and GPIO unconnected. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time.',
+      },
+    ],
+  },
+  TemperatureInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ds18b20-waterproof-probe',
+        label: 'Waterproof DS18B20 probe',
+        summary: 'A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C',
+        note: 'Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none.',
+      },
+    ],
+  },
+  EnvironmentInput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-bme280-environment-sensor',
+        label: 'Adafruit BME280',
+        summary: 'Temperature, humidity and pressure over I2C',
+        note: 'Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address.',
+      },
+    ],
+  },
+  PowerSwitchOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'lr7843-mosfet-module',
+        label: 'LR7843 MOSFET switch',
+        summary: 'One opto-isolated DC switch or dimmer, 6-28 V',
+        note: 'DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil.',
+      },
+      {
+        id: 'monkmakes-mosfetti',
+        label: 'MonkMakes Mosfetti',
+        summary: 'Four DC switches or dimmers, A to D, 3-16 V',
+        note: 'DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted.',
+      },
+    ],
+  },
+  DarlingtonDriverOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'uln2803a-dip18',
+        label: 'ULN2803A',
+        summary: 'Eight low-side switches, 50 V and 500 mA each',
+        note: 'Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat.',
+      },
+    ],
+  },
+  PwmDriverOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-pca9685-pwm-driver',
+        label: 'Adafruit PCA9685',
+        summary: 'Sixteen 12-bit PWM channels over I2C',
+        note: 'Power VCC from 3.3 V with GND, SDA and SCL to the controller. V+ is the outputs\' own supply (5 to 6 V for servos) and is not drawn here. Leave OE unconnected to keep the outputs enabled. A dimming or servo channel takes its signal from the PWM hole, with V+ and ground beside it.',
+      },
+    ],
+  },
+  BuzzerOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'ky-012-active-buzzer-module',
+        label: 'KY-012 active buzzer',
+        summary: 'Beeps at a fixed pitch while its pin is high',
+        note: 'Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V.',
+      },
+    ],
+  },
+  RelayOutput: {
+    property: 'partId',
+    options: [
+      { id: 'relay-module-1ch-5v', label: '1-channel relay', summary: 'One active-low 5 V SPDT relay' },
+      { id: 'relay-module-2ch-5v', label: '2-channel relay', summary: 'Two active-low 5 V SPDT relays' },
+      { id: 'relay-module-4ch-5v', label: '4-channel relay', summary: 'Four active-low 5 V SPDT relays' },
+      { id: 'relay-module-8ch-5v', label: '8-channel relay', summary: 'Eight active-low 5 V SPDT relays' },
+    ],
+  },
+  // The stage on the board's own pins: every option takes I2S. An analog
+  // amplifier is a different part in a different place in the chain — it
+  // takes line level, from one of these DACs or from the classic ESP32's own
+  // — so it is a PowerAmplifier, not an option here.
+  Amplifier: {
+    property: 'model',
+    options: [
+      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', output: 'speaker', summary: 'I2S in, drives a speaker directly' },
+      {
+        // One bench part rather than two Amplifier nodes: both boards sit on
+        // the same three I2S lines and the firmware already sends stereo, so
+        // which board plays which channel is set on the boards themselves.
+        id: 'max98357a-stereo-pair',
+        label: 'MAX98357A stereo pair',
+        output: 'speaker',
+        summary: 'Two I2S amps, one per channel',
+        note: 'Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right.',
+      },
+      {
+        id: 'pcm5102a-i2s-dac',
+        label: 'PCM5102A',
+        output: 'line',
+        summary: 'I2S DAC — line out, needs an amp',
+        note: 'A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier.',
+      },
+      {
+        id: 'uda1334a-i2s-dac',
+        label: 'UDA1334A',
+        output: 'line',
+        summary: 'I2S DAC — line out, needs an amp',
+        note: 'Line-level I2S DAC, wired the same as the PCM5102A.',
+      },
+    ],
+  },
+  // Analog power amplifiers: line level in, speakers out, no GPIO of their
+  // own. What feeds one is resolved from the bench, not chosen here — a DAC
+  // when there is one, otherwise the classic ESP32's internal DAC on GPIO25/26.
+  PowerAmplifier: {
+    property: 'partId',
+    options: [
+      {
+        id: 'pam8403-3w-stereo-amplifier',
+        label: 'PAM8403',
+        summary: '2 x 3 W, 5 V — line level in',
+        note: 'Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26.',
+      },
+      {
+        id: 'pam8610-stereo-amplifier',
+        label: 'PAM8610',
+        summary: '2 x 15 W, 12 V — line level in',
+        note: 'Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC.',
+      },
+      {
+        id: 'dx-0809-stereo-amplifier',
+        label: 'DX-0809',
+        summary: '2 x 15 W, 12 V — AUX line in',
+        note: 'Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board.',
+      },
+    ],
+  },
+  // One option, because one controller is implemented. MAX7219 is the planned
+  // second entry (display-todo.md slice B) and arrives with its own adapter —
+  // listing it now would be a claim the firmware cannot keep, which is the
+  // misrepresentation this whole module exists to prevent.
+  // Screen size and bus are each independent facts about a module, not one
+  // choice: the SH1106 exists on the bench as a 1.3-inch 7-pin SPI module, a
+  // 0.96-inch 7-pin SPI module, and a 1.3-inch 4-pin I2C module, and the
+  // SSD1306 is 0.96-inch 4-pin I2C. `oledTransportFor` reads each option's
+  // catalogued interface, so a module's pins, bus validation and retargeting
+  // follow from its part id alone — no case here needed a change to support
+  // another SH1106 form, only a menu entry.
+  InfoDisplay: {
+    property: 'partId',
+    options: [
+      {
+        id: 'sh1106-oled-128x64',
+        label: 'SH1106 1.3-inch',
+        summary: '128x64 white OLED over 4-wire SPI',
+        note: 'The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge.',
+      },
+      {
+        id: 'sh1106-oled-096-128x64-spi',
+        label: 'SH1106 0.96-inch',
+        summary: '128x64 white OLED over 4-wire SPI',
+        note: 'Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board.',
+      },
+      {
+        id: 'sh1106-oled-128x64-i2c',
+        label: 'SH1106 1.3-inch (I2C)',
+        summary: '128x64 white OLED over I2C',
+        note: 'Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306.',
+      },
+      {
+        id: 'ssd1306-oled-096-128x64-i2c',
+        label: 'SSD1306 0.96-inch (4-pin)',
+        summary: '128x64 white OLED over I2C',
+        note: 'The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices.',
+      },
+      {
+        id: 'ssd1306-oled-128x64',
+        label: 'SSD1306 0.96-inch (Adafruit)',
+        summary: '128x64 white OLED over I2C',
+        note: 'The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices.',
+      },
+    ],
+  },
+  TransportDisplay: {
+    property: 'partId',
+    options: [
+      {
+        id: 'st7789-tft-240x240',
+        label: 'ST7789 1.54-inch',
+        summary: '240x240 colour TFT over SPI',
+        note: 'A square 240x240 colour display with no touch controller.',
+      },
+      {
+        id: 'ili9341-xc4630-parallel-touch-320x240',
+        label: 'XC4630 2.8-inch shield + touch',
+        summary: '320x240 ILI9341 over an 8-bit parallel bus',
+        note: 'An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines, which is why they must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one.',
+      },
+      {
+        id: 'st7789v-xpt2046-touch-240x320',
+        label: 'ST7789V 2.4-inch + touch',
+        summary: '240x320 colour TFT with XPT2046 touch',
+        note: 'The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch node whose Controls output is what a finger on the glass publishes.',
+      },
+    ],
+  },
+  // Display (the document node) has no partId — it has no physical existence
+  // of its own. The touch module it's authored against is whatever
+  // TransportDisplay panel its customDisplay output is wired to.
+  SegmentDisplay: {
+    property: 'partId',
+    options: [
+      {
+        id: 'tm1637-4digit-display',
+        label: 'TM1637 4-digit',
+        summary: 'Two-wire 7-segment with a colon',
+        note: 'Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins.',
+      },
+      {
+        id: 'max7219-8digit-7segment',
+        label: 'MAX7219 8-digit',
+        summary: 'Eight digits on a shared SPI bus',
+        note: 'Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range.',
+      },
+    ],
+  },
+}
+
+export function partOptionsFor(nodeType: string): PartOption[] {
+  return PART_OPTIONS[nodeType]?.options ?? []
+}
+
+/** The node property that stores this part's chosen module, if it has one. */
+export function partOptionProperty(nodeType: string): string | null {
+  return PART_OPTIONS[nodeType]?.property ?? null
+}
+
+/**
+ * What this node currently is, resolved against the catalogue.
+ *
+ * Falls back to the first option, which is the module the app was built
+ * around — an unset or unrecognised value means "the default part", not "no
+ * part", because every one of these nodes describes something physically on
+ * the bench.
+ */
+export function resolvePartIdentity(
+  nodeType: string,
+  properties: Record<string, unknown>,
+): PartIdentity | null {
+  const config = PART_OPTIONS[nodeType]
+  if (!config || config.options.length === 0) return null
+
+  const saved = String(properties[config.property] ?? '')
+  const option = config.options.find((candidate) => candidate.id === saved)
+    ?? config.options[0]
+
+  const entry = partById(option.id)
+  return {
+    option,
+    entry,
+    notes: [...(entry?.notes ?? []), ...(option.note ? [option.note] : [])],
+    hasChoice: config.options.length > 1,
+  }
+}

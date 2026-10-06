@@ -1,5 +1,5 @@
 import { usePreviewStore } from '../../state/previewStore'
-import { powerSwitchChannels } from '../../state/powerSwitch'
+import { powerSwitchChannels } from '../../state/peripherals/powerSwitch'
 import styles from './PowerSwitchNodeBody.module.css'
 
 function percentOf(value: unknown): number {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { ElectricalPlanSummary } from '../../../build/electricalPlan'
+import type { ElectricalPlanSummary } from '../../../build/power/electricalPlan'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
-import { fuseBlockAllocations } from '../../../build/powerDistribution'
-import { PART_CATALOGUE, partById } from '../../../state/partCatalogue'
-import { partOptionsFor } from '../../../state/partOptions'
+import { fuseBlockAllocations } from '../../../build/power/powerDistribution'
+import { PART_CATALOGUE, partById } from '../../../build/parts/partCatalogue'
+import { partOptionsFor } from '../../../build/parts/partOptions'
 import {
   COMMON_NET_CALLOUT_GAP,
   COMMON_NET_CALLOUT_HEIGHT,

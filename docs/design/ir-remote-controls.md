@@ -228,7 +228,7 @@ minimum end-to-end workflow is:
 5. verify browser simulation and generated firmware produce the same steps,
    bounds, wrapping and repeat behavior in normal, show and player builds.
 
-`src/state/__tests__/irRemoteWorkflow.test.ts` holds this workflow as one graph.
+`src/state/peripherals/__tests__/irRemoteWorkflow.test.ts` holds this workflow as one graph.
 The SD/player variant routes LED Toggle and continuous Brightness through
 Control Map into Music Player, because that generator deliberately rejects
 runtime controls wired straight to the LED output. Browser-held keys emit

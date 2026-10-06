@@ -92,7 +92,7 @@ from something else. Recording it here so nobody reads the NTP support as
 
 ### Preview mirrors the configured source
 
-`rtcPreviewSnapshot` (`src/state/rtc.ts`) previews the clock the *selected
+`rtcPreviewSnapshot` (`src/state/peripherals/rtc.ts`) previews the clock the *selected
 source* will produce on-device, not simply the browser's clock:
 
 - **Manual** seeds from the entered date/time and runs forward using preview `t`
@@ -154,7 +154,7 @@ Preview and firmware must agree on:
   and all three edge rules above.
 - The date arithmetic itself: civil-days-from-date, date-from-civil-days, and
   weekday derivation are ported to C++ (`rtcHelperCpp()`) against the same
-  leap-year rule `src/state/rtc.ts` uses.
+  leap-year rule `src/state/peripherals/rtc.ts` uses.
 
 Deliberately different: **drift and hardware status**. The browser preview reads
 a clock that is correct by construction; the firmware software clock is an
@@ -171,7 +171,7 @@ Timer can drive the rest of the graph instead of only drawing itself.
 
 Unlike `Text`, whose string is known at codegen time and baked as columns, a
 clock's string is assembled at runtime — so the sketch carries a glyph lookup
-table. That table is **generated from the shared `src/state/font.ts` data**,
+table. That table is **generated from the shared `src/nodes/shared/font.ts` data**,
 along with every string extent, rather than hand-transcribed, so preview and
 firmware layout cannot drift apart.
 

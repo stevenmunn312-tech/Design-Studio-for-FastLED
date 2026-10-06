@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useGraphStore, type StudioEdge, type StudioNode } from '../../state/graphStore'
 import { evaluateScalarSeries } from '../../state/graphEvaluator'
-import { PREVIEW_POINTS, PREVIEW_SECONDS } from '../../state/wave'
+import { PREVIEW_POINTS, PREVIEW_SECONDS } from '../../nodes/signal/wave'
 import WaveScope from './WaveScope'
 
 // Serialise everything upstream of `nodeId` that can affect its sampled output:

@@ -1,4 +1,4 @@
-import { ringSampleMap } from '../ledOutputForm'
+import { ringSampleMap } from '../output/ledOutputForm'
 
 /**
  * The 1-D track a string-first node draws along. `row` is the canvas's middle

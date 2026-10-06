@@ -3,7 +3,7 @@ import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { DEFAULT_BUTTON_EDGE_SETTINGS } from '../../state/transportBridge'
+import { DEFAULT_BUTTON_EDGE_SETTINGS } from '../../state/player/transportBridge'
 import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

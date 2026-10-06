@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
-import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/uploadStore'
+import { BOARDS, boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { CHIPSET_OPTIONS, COLOR_ORDER_OPTIONS, SPI_CHIPSETS } from '../../state/nodeLibrary'
-import { validateMatrixLayout } from '../../state/xyLayout'
+import { validateMatrixLayout } from '../../state/output/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/wiringDiagnosticGenerator'
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import { describePort } from '../../utils/portStatus'
 import styles from './Upload.module.css'
-import { controllerSettings } from '../../state/controllerSettings'
+import { controllerSettings } from '../../build/controllerSettings'
 import { useUiStore } from '../../state/uiStore'
 import {
   isLinearForm,
@@ -16,7 +16,7 @@ import {
   MAX_LED_RUN,
   outputForm,
   outputGridDims,
-} from '../../state/ledOutputForm'
+} from '../../state/output/ledOutputForm'
 
 const STEPS = [
   { key: 'controller', title: 'Controller', blurb: 'Pick the board, port, and build path.' },

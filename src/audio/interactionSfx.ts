@@ -1,4 +1,4 @@
-import { usePlayerTransport } from '../state/playerTransport'
+import { usePlayerTransport } from '../state/player/playerTransport'
 
 type AudioContextCtor = typeof AudioContext
 type FilterKind = BiquadFilterType

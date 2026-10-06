@@ -4,16 +4,16 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { evaluateGraph } from '../graphEvaluator'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { useUiStore } from '../uiStore'
-import { clearPatternContentTrustForTests, reloadKnownContentForTests } from '../patternTrust'
+import { clearPatternContentTrustForTests, reloadKnownContentForTests } from '../patterns/patternTrust'
 import { useNodeDefaults } from '../nodeDefaults'
-import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displayEditor'
-import { applyDisplayTemplate } from '../displayTemplates'
+import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displays/displayEditor'
+import { applyDisplayTemplate } from '../displays/displayTemplates'
 import {
   displayDocumentPorts,
   TOUCH_CONTROL_ADD_DATA_TYPE,
   TOUCH_CONTROL_ADD_HANDLE,
   TOUCH_CONTROL_ADD_LABEL,
-} from '../displayRegistry'
+} from '../displays/displayRegistry'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -248,7 +248,7 @@ describe('graphStore — grouping', () => {
       id, name: id,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node(`inner-${id}`, 'SolidColor')], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern)
+    } as unknown as import('../patterns/patternLibrary').SavedPattern)
 
     // The library's multi-select "Add to canvas" loops instantiatePattern, so
     // every drop shares one Date.now() stamp.
@@ -274,7 +274,7 @@ describe('graphStore — grouping', () => {
       id: 'p1', name: 'MyPattern',
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
     useGraphStore.getState().instantiatePattern(saved, { x: 40, y: 300 }, true)
     const gn = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Group')!
     expect(gn.position.y).toBe(300) // unmeasured: stays at drop point
@@ -309,7 +309,7 @@ describe('graphStore — grouping', () => {
         outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
         subgraph: { nodes: [node('b', 'Noise'), node('out-b', 'GroupOutput')], edges: [] },
       },
-    ] as import('../patternLibrary').SavedPattern[]
+    ] as import('../patterns/patternLibrary').SavedPattern[]
 
     useGraphStore.getState().createCollectionFromPatterns(saved, { x: 120, y: 180 }, { patternSections: { stale: ['drop'] } }, true)
 
@@ -759,7 +759,7 @@ describe('graphStore — grouping', () => {
         nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
         edges: [edge('inner', 'sc', 'frame', 'go', 'frame')],
       },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
 
     useGraphStore.getState().instantiatePattern(saved, { x: 240, y: 120 })
     const group = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'Group')!
@@ -778,8 +778,8 @@ describe('graphStore — grouping', () => {
   })
 
   it('saveGroupToLibrary saves a Group node and returns its name', async () => {
-    const { saveGroupToLibrary } = await import('../patternLibrary')
-    const { usePatternLibrary } = await import('../patternLibrary')
+    const { saveGroupToLibrary } = await import('../patterns/patternLibrary')
+    const { usePatternLibrary } = await import('../patterns/patternLibrary')
     reset([node('sc', 'SolidColor', { r: 1, g: 2, b: 3 })], [])
     const gid = useGraphStore.getState().createGroup('MyPattern', ['sc'])
     usePatternLibrary.setState({ patterns: [] })
@@ -789,7 +789,7 @@ describe('graphStore — grouping', () => {
   })
 
   it('saveGroupToLibrary strips a bench part an older group still carries', async () => {
-    const { saveGroupToLibrary, usePatternLibrary } = await import('../patternLibrary')
+    const { saveGroupToLibrary, usePatternLibrary } = await import('../patterns/patternLibrary')
     // createGroup leaves parts behind now, but a group built before that rule
     // — or restored from an older workspace — can still hold one, and a
     // pattern is the artefact that travels to a bench with different parts.
@@ -1901,7 +1901,7 @@ describe('graphStore — trust boundary', () => {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('f', 'CustomFormula')], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
     useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
   })
@@ -1912,7 +1912,7 @@ describe('graphStore — trust boundary', () => {
       id: 'p1', name: 'Aurora', createdAt: 1,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('a', 'FieldFormula'), node('out-a', 'GroupOutput')], edges: [] },
-    }] as import('../patternLibrary').SavedPattern[]
+    }] as import('../patterns/patternLibrary').SavedPattern[]
     useGraphStore.getState().createCollectionFromPatterns(saved, { x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
   })
@@ -1923,7 +1923,7 @@ describe('graphStore — trust boundary', () => {
       id: 'p1', name: 'Aurora', createdAt: 1,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('a', 'FieldFormula'), node('out-a', 'GroupOutput')], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
     expect(useGraphStore.getState().trusted).toBe(true)
     useGraphStore.getState().addPatternToCollection('coll', saved)
     expect(useGraphStore.getState().trusted).toBe(false)
@@ -1934,7 +1934,7 @@ describe('graphStore — trust boundary', () => {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('a', 'CustomFormula')], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
 
     useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
@@ -1953,12 +1953,12 @@ describe('graphStore — trust boundary', () => {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('a', 'CustomFormula')], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
     const savedB = {
       id: 'p2', name: 'OtherPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('b', 'Code')], edges: [] },
-    } as unknown as import('../patternLibrary').SavedPattern
+    } as unknown as import('../patterns/patternLibrary').SavedPattern
 
     useGraphStore.getState().instantiatePattern(savedA, { x: 0, y: 0 })
     useGraphStore.getState().setTrusted(true)
@@ -1979,7 +1979,7 @@ describe('graphStore — trust boundary', () => {
       id: 'p1', name: 'Aurora', createdAt: 1,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
       subgraph: { nodes: [node('a', 'SolidColor'), node('out-a', 'GroupOutput')], edges: [] },
-    }] as import('../patternLibrary').SavedPattern[]
+    }] as import('../patterns/patternLibrary').SavedPattern[]
     useGraphStore.getState().instantiatePattern(ordinary[0], { x: 0, y: 0 })
     useGraphStore.getState().createCollectionFromPatterns(ordinary, { x: 0, y: 0 })
     useGraphStore.getState().addPatternToCollection('coll', ordinary[0])

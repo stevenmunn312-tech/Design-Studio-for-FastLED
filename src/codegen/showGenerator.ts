@@ -15,7 +15,7 @@
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import { customPaletteDeclarationsCpp } from '../state/paletteCatalog'
+import { customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, PHI_DEFINE_CPP } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
@@ -30,18 +30,18 @@ import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
-import { buildXYTable } from '../state/xyLayout'
+import { buildXYTable } from '../state/output/xyLayout'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
   SLIDESHOW_SILENCE_FADE_OUT_SEC,
   SLIDESHOW_SILENCE_THRESHOLD,
   slideshowSettings,
   type PatternSlideshowOrder,
-} from '../state/patternSlideshow'
-import { compositionDims, outputRoutes } from '../state/outputRouting'
-import { outputCanvasDims } from '../state/ledOutputForm'
-import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
-import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+} from '../state/patterns/patternSlideshow'
+import { compositionDims, outputRoutes } from '../state/output/outputRouting'
+import { outputCanvasDims } from '../state/output/ledOutputForm'
+import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
+import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   TELEMETRY_LOOP_BEGIN_CPP, TELEMETRY_REPORT_CPP, TELEMETRY_SERIAL_BEGIN_CPP,
   boardSupportsTelemetry, deviceTelemetryGlobalsCpp, telemetryEmitFromSource,
@@ -84,14 +84,14 @@ import {
 } from './showControlRouting'
 import { controlGraphCpp } from './controlGraph'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './environmentSensorCpp'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './playerControlsCpp'
 import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
-} from '../state/masterSpeed'
-import { resolveBuildMode } from '../state/buildMode'
+} from '../state/player/masterSpeed'
+import { resolveBuildMode } from '../state/upload/buildMode'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
 const props = (n: StudioNode) => n.data.properties as Record<string, unknown>

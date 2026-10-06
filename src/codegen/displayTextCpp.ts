@@ -1,6 +1,6 @@
 // C++ emitters for the `string` port type.
 //
-// Every constant and every rule here comes from `state/displayText.ts` rather
+// Every constant and every rule here comes from `state/displays/displayText.ts` rather
 // than being restated, because the whole point of that module is that the
 // browser and the device format text the same way. A literal copied into this
 // file would be a second definition, and second definitions drift.
@@ -18,7 +18,7 @@ import {
   cppStringLiteral,
   type NumberTextFormat,
   type DateTimeTextMode,
-} from '../state/displayText'
+} from '../state/displays/displayText'
 
 export interface DisplayTextHelperProfile {
   number: boolean
@@ -44,7 +44,7 @@ export interface DisplayTextHelperProfile {
 export function displayTextCppHelpers(profile: DisplayTextHelperProfile): string {
   if (!profile.number && !profile.dateTime && !profile.copy) return ''
   const parts = [`// ── Display text ────────────────────────────────────────────────────────────
-// Mirrors src/state/displayText.ts so preview and firmware format identically.
+// Mirrors src/state/displays/displayText.ts so preview and firmware format identically.
 #define DS_TEXT_BYTES ${DISPLAY_TEXT_BUFFER_BYTES}`]
 
   if (profile.dateTime) parts.push(`static const char *_dsWeekday(int weekday) {
@@ -103,7 +103,7 @@ static void _dsCopy(char *dst, const char *src) {
 }`)
 
   if (profile.dateTime) parts.push(`
-// mode indices match DATE_TIME_TEXT_MODES in src/state/displayText.ts.
+// mode indices match DATE_TIME_TEXT_MODES in src/state/displays/displayText.ts.
 static void _dsFormatDateTime(char *dst, int mode, bool valid, int hour, int minute,
                               int second, int weekday, int day, int month, int year) {
   if (!valid) {

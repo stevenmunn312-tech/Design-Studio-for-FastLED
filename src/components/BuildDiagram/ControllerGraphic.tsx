@@ -1,7 +1,7 @@
 // The controller board as drawn on the physical assembly diagram.
-import type { ControllerSupplyPlan } from '../../build/electricalPlan'
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
-import { partById, partRenderSrc } from '../../state/partCatalogue'
+import type { ControllerSupplyPlan } from '../../build/power/electricalPlan'
+import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
 import { CustomBoardGraphicFragment } from '../Hardware/CustomBoardGraphic'
 import styles from './BuildDiagramWorkspace.module.css'
 import { NetStub } from './netStubs'

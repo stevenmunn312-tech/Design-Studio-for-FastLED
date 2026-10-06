@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, portsCompatible } from '../../../state/nodeLibrary'
-import { playerControlInputs } from '../../../state/playerControlAssignments'
-import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/irRemote'
+import { playerControlInputs } from '../../../state/player/playerControlAssignments'
+import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,

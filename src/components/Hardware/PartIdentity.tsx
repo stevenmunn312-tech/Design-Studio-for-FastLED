@@ -1,5 +1,5 @@
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { resolvePartIdentity } from '../../state/partOptions'
+import { resolvePartIdentity } from '../../build/parts/partOptions'
 import styles from './PartIdentity.module.css'
 
 /**

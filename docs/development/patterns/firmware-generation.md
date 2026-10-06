@@ -166,8 +166,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/codegen/__tests__/screenOnlyFastLed.test.ts`.
 
 - **Resampled LED outputs share one tap rule with the preview.** Half-resolution
-  render scale (`src/state/renderScale.ts`, `src/codegen/renderScaleCpp.ts`) and
-  positioned strings (`src/state/stringPositions.ts`) take their source pixels and
+  render scale (`src/state/output/renderScale.ts`, `src/codegen/renderScaleCpp.ts`) and
+  positioned strings (`src/state/output/stringPositions.ts`) take their source pixels and
   weights from `upscaleTap` / `positionTap`, and `routeFrame` and the emitted C++
   both use them; change the tap in TypeScript and the C++ together. Render scale
   is matrix-only and mutually exclusive with supersample (supersample wins). A
@@ -177,9 +177,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Instrument sketches
 
 - Device telemetry (HW-11's bench instrument) is one line format defined once in
-  `src/state/deviceTelemetry.ts` — the `FLS_STAT` marker, the 2s interval, and
+  `src/state/upload/deviceTelemetry.ts` — the `FLS_STAT` marker, the 2s interval, and
   every key — and read from both sides: `src/codegen/deviceTelemetryCpp.ts`
-  emits it, `src/state/deviceTelemetryStore.ts` parses it, so the format cannot
+  emits it, `src/state/upload/deviceTelemetryStore.ts` parses it, so the format cannot
   drift the way a positional protocol would. Keys are short and named rather
   than positional, and an unknown or absent key is ignored rather than rejected,
   so a device built before a key existed still parses. The firmware side holds
@@ -232,7 +232,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `touchCalibrationStore.ts` passes the node's properties into
   `touchCalibrationTargetFor`/`emittedTouchBounds`), so the dot shows what the
   current calibration makes of a press: the mirror of the finger before a good
-  run, under it after one. `src/state/touchCalibrationStore.ts` owns the whole
+  run, under it after one. `src/state/displays/touchCalibrationStore.ts` owns the whole
   run — upload, open serial, capture, release the port — not just the capture;
   `transportTouch.ts` still owns capture rules and deliberately never produces
   the wizard's `prepare` phase, since nothing can be captured before a board is

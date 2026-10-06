@@ -2,17 +2,17 @@
 // module and fixture, the LED output forms, and the pins each one asks for.
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
 import { transportDisplayPinKeysForProps, gpioRequirementForProperty } from '../../state/nodeLibrary'
-import { PART_FIELDS } from '../../state/partFields'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/keypad'
-import type { PartPinRequest } from '../../state/partPinAssignment'
-import { segmentControllerFor } from '../../state/segmentDisplay'
-import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/oledSurface'
-import { partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty } from '../../state/partCatalogue'
-import { IR_RECEIVER_MODULES } from '../../state/irModules'
-import { IR_REMOTE_LEARN_HANDLE } from '../../state/irRemote'
-import { MIC_MODULES } from '../../state/micModules'
-import { LIGHT_SENSOR_MODULES } from '../../state/lightSensor'
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
+import { PART_FIELDS } from '../../build/parts/partFields'
+import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad'
+import type { PartPinRequest } from '../../build/parts/partPinAssignment'
+import { segmentControllerFor } from '../../state/displays/segmentDisplay'
+import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/displays/oledSurface'
+import { partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty } from '../../build/parts/partCatalogue'
+import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
+import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
+import { MIC_MODULES } from '../../state/peripherals/micModules'
+import { LIGHT_SENSOR_MODULES } from '../../state/peripherals/lightSensor'
+import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import {
   WS2812B_PITCH_MM,
   type PartFootprintMm,
@@ -21,16 +21,16 @@ import {
   BUTTON_MODULE_FOOTPRINT_MM,
   POT_MODULE_FOOTPRINT_MM,
   ENCODER_MODULE_FOOTPRINT_MM,
-} from '../../state/hardware'
-import type { LedOutputForm } from '../../state/ledOutputForm'
-import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/relayModule'
-import { BUZZER_PART_ID } from '../../state/buzzer'
-import { PCA9685_PART_ID } from '../../state/pwmDriver'
-import { DARLINGTON_PART_ID, darlingtonPinKeys } from '../../state/darlingtonDriver'
-import { PD_TRIGGER_PART_ID } from '../../state/pdTrigger'
-import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/powerSwitch'
-import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/powerConverter'
-import { dividedInputPinKey } from '../../state/receiveDivider'
+} from '../../build/hardware'
+import type { LedOutputForm } from '../../state/output/ledOutputForm'
+import { relayPinKeys, DEFAULT_RELAY_PART_ID } from '../../state/peripherals/relayModule'
+import { BUZZER_PART_ID } from '../../state/peripherals/buzzer'
+import { PCA9685_PART_ID } from '../../state/peripherals/pwmDriver'
+import { DARLINGTON_PART_ID, darlingtonPinKeys } from '../../state/peripherals/darlingtonDriver'
+import { PD_TRIGGER_PART_ID } from '../../state/peripherals/pdTrigger'
+import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/peripherals/powerSwitch'
+import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/peripherals/powerConverter'
+import { dividedInputPinKey } from '../../build/pins/receiveDivider'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -782,7 +782,7 @@ export function numericPinSummary(
     .join(' · ')
 }
 // One node type for every LED output; the form says what physical geometry the
-// chain or panel has (src/state/ledOutputForm.ts).
+// chain or panel has (src/state/output/ledOutputForm.ts).
 export const LED_OUTPUT_NODE_TYPE = 'MatrixOutput'
 
 /**

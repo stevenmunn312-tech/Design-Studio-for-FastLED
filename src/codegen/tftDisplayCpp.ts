@@ -1,4 +1,4 @@
-import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor'
+import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/peripherals/powerMonitor'
 // ST7789 driver and colour layout rendering, emitted into the sketch.
 //
 // Written inline for the same reason the OLED and TM1637 drivers are: the
@@ -6,9 +6,9 @@ import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor
 // slices off the optional-library staging path — nothing to fetch, nothing to
 // pin, nothing to fail without a network.
 //
-// The geometry comes from state/transportDisplay.ts, resolved for the panel's
+// The geometry comes from state/displays/transportDisplay.ts, resolved for the panel's
 // mounted size and emitted as literals, so the numbers cannot drift from the
-// preview's. The glyph table comes from state/font.ts the same way.
+// preview's. The glyph table comes from nodes/shared/font.ts the same way.
 //
 // Three things about this panel are different from the 1-bit one, and each
 // changes the shape of the driver:
@@ -31,21 +31,21 @@ import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor
 // closed around every burst so touch and an SD card can share the bus, which
 // is exactly how the 2.4-inch module is wired.
 
-import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
+import { DEFAULT_FONT, FONT_H, FONT_W } from '../nodes/shared/font'
 import { tftInitStreamCpp } from './tftInitSequence'
-import { cppStringLiteral, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
+import { cppStringLiteral, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displays/displayText'
 import {
   TFT_LETTER_SPACING, tftMadctl, tftRotatedSize, tftWindowOrigin,
   type TftController, type TftField, type TftRect, type TftRotation,
-} from '../state/tftSurface'
+} from '../state/displays/tftSurface'
 import {
   TRANSPORT_ARTWORK_H, TRANSPORT_ARTWORK_W, TRANSPORT_COLORS,
   transportPowerGeometry, diagnosticsGeometry, fixedTransportGeometry, ledStatusGeometry, nowPlayingGeometry,
   showStatusGeometry, transportClockGeometry, transportWaitingGeometry,
   type TransportDisplayLayout,
-} from '../state/transportDisplay'
-import { ledStatusCountText } from '../state/ledOutputRuntime'
-import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
+} from '../state/displays/transportDisplay'
+import { ledStatusCountText } from '../state/output/ledOutputRuntime'
+import { DISPLAY_WAITING_TEXT } from '../state/displays/displaySignal'
 
 /**
  * Forward declaration for the top of a sketch, above the includes' first
@@ -462,7 +462,7 @@ static void _tftTime(char *dst, size_t dstSize, float seconds) {
 }`
     : ''
   return `// ── Colour TFT (ST7789 / ST7789V) ───────────────────────────────────────────
-// Mirrors src/state/tftSurface.ts and src/state/transportDisplay.ts so the
+// Mirrors src/state/displays/tftSurface.ts and src/state/displays/transportDisplay.ts so the
 // panel draws what the preview drew.
 #define TFT_FONT_W    ${FONT_W}
 #define TFT_FONT_H    ${FONT_H}

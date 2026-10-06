@@ -1,24 +1,24 @@
 import { useCallback, useRef } from 'react'
-import { useHardwareInputStore } from '../../state/hardwareInputStore'
-import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from '../../state/powerMonitor'
+import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
+import { powerMonitorPreviewDefaults, powerMonitorPreviewKey, powerMonitorPreviewReading } from '../../state/peripherals/powerMonitor'
 import {
   presencePreviewDefaultDistance, presencePreviewKey, presencePreviewReading,
-} from '../../state/presenceSensor'
-import { lightSensorPreviewReading, lightSensorTransport } from '../../state/lightSensor'
+} from '../../state/peripherals/presenceSensor'
+import { lightSensorPreviewReading, lightSensorTransport } from '../../state/peripherals/lightSensor'
 import {
   environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
   type EnvironmentReading,
-} from '../../state/environmentSensor'
+} from '../../state/peripherals/environmentSensor'
 import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
-} from '../../state/temperatureSensor'
-import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
-import { KEYPAD_LEGENDS, keypadButtonKey, keypadLastKey } from '../../state/keypad'
-import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/touchPad'
+} from '../../state/peripherals/temperatureSensor'
+import { joystickAxis, joystickPreviewKey } from '../../state/peripherals/joystick'
+import { KEYPAD_LEGENDS, keypadButtonKey, keypadLastKey } from '../../state/peripherals/keypad'
+import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/peripherals/touchPad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
-} from '../../state/motionVector'
-import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
+} from '../../state/peripherals/motionVector'
+import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/peripherals/distanceSensor'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —

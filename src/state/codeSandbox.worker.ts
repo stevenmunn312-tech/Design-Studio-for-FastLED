@@ -16,8 +16,8 @@
 /// <reference lib="webworker" />
 declare const self: DedicatedWorkerGlobalScope
 
-import { hsv, palAt, CRGB_CONSTANTS, CODE_PALETTES, type RGB, type Palette } from './ledColor'
-import { makeShims } from './fastledShims'
+import { hsv, palAt, CRGB_CONSTANTS, CODE_PALETTES, type RGB, type Palette } from './palettes/ledColor'
+import { makeShims } from '../nodes/shared/fastledShims'
 
 // ── Bootstrap: close network/storage/messaging/navigation before anything
 // else runs. Capture postMessage first so this file can still reply. ────────

@@ -20,23 +20,23 @@
 // than emitting a display that quietly shows nothing.
 
 import { controlReferenceCpp } from './controlGraph'
-import { infoLayoutForKind, type InfoDisplayLayout } from '../state/infoDisplay'
+import { infoLayoutForKind, type InfoDisplayLayout } from '../state/displays/infoDisplay'
 import {
   DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind,
-} from '../state/displaySignal'
+} from '../state/displays/displaySignal'
 import {
   asOledRotation, oledRotationCommands, asOledAddress, OLED_CONTROLLERS,
   type OledTransport,
-} from '../state/oledSurface'
+} from '../state/displays/oledSurface'
 import { oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps } from '../state/nodeLibrary'
 import { shownDesignId,
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
-} from '../state/transportDisplay'
-import { asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/tftSurface'
-import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/segmentDisplay'
-import { displayHasTouch, partById } from '../state/partCatalogue'
-import { emittedTouchBounds } from '../state/transportTouch'
-import type { PlayerControlDestination } from '../state/playerControlAssignments'
+} from '../state/displays/transportDisplay'
+import { asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, type TftController, type TftRotation } from '../state/displays/tftSurface'
+import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../state/displays/segmentDisplay'
+import { displayHasTouch, partById } from '../build/parts/partCatalogue'
+import { emittedTouchBounds } from '../state/displays/transportTouch'
+import type { PlayerControlDestination } from '../state/player/playerControlAssignments'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 
 interface ConfigNode {

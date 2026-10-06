@@ -1,7 +1,7 @@
 // What a bound widget reads, in C++.
 //
 // A widget can name a field of the source wired into its panel instead of
-// drawing a cable (see `state/displaySourceFields.ts`). The browser reads that
+// drawing a cable (see `state/displays/displaySourceFields.ts`). The browser reads that
 // field straight out of the live envelope; firmware needs an expression, and
 // which expressions exist is a fact about the generator rather than about the
 // field: the SD player is holding the track, so it can answer `title`; a
@@ -14,7 +14,7 @@
 // by being deliberately empty: an unanswerable reading is said out loud rather
 // than filled with a plausible zero.
 
-import { cppStringLiteral } from '../state/displayText'
+import { cppStringLiteral } from '../state/displays/displayText'
 
 /**
  * The readings a generator can supply, named by source field.

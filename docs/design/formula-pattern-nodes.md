@@ -6,7 +6,7 @@ Owner: app · Date: 2026-08-10
 ## Problem
 
 `CustomFormula`/`FieldFormula` already let a user type an arbitrary per-pixel
-expression, and `src/state/fastledShims.ts` gives that sandbox FastLED's
+expression, and `src/nodes/shared/fastledShims.ts` gives that sandbox FastLED's
 fixed-point primitives. But a number of well-known parametric/closed-form
 formulas — golden-angle phyllotaxis, Lissajous curves, the superformula,
 iterated attractors — produce visually rich patterns that are tedious or
@@ -195,7 +195,7 @@ one can mutate the buffer.
 
 ## A `PHI` constant — implemented
 
-`src/state/formulaLang.ts`'s `MATH_CONSTANTS` now defines `PHI:
+`src/nodes/shared/formulaLang.ts`'s `MATH_CONSTANTS` now defines `PHI:
 1.618033988749895` alongside `PI`, so any *free-text* `CustomFormula`/
 `FieldFormula` expression can write `PHI` instead of the literal. Since
 preview and firmware must agree, `cppGenerator.ts` also gained a `needsPhi`

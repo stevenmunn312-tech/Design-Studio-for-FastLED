@@ -3,11 +3,11 @@ import { showControlRouting } from '../codegen/showControlRouting'
 import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { useGraphStore, type StudioNode, type StudioEdge } from '../state/graphStore'
-import type { DisplayDocument } from '../state/displayDocument'
-import { customDisplayAssetRequests, customDisplayResourceIssues, type BakedCustomDisplayAsset } from '../state/customDisplayResources'
-import { customDisplayMountPlan } from '../state/mountedDisplays'
+import type { DisplayDocument } from '../state/displays/displayDocument'
+import { customDisplayAssetRequests, customDisplayResourceIssues, type BakedCustomDisplayAsset } from '../state/displays/customDisplayResources'
+import { customDisplayMountPlan } from '../state/displays/mountedDisplays'
 import { bakeCustomDisplayAssets } from '../utils/bakeCustomDisplayAssets'
-import { resolveBuildMode } from '../state/buildMode'
+import { resolveBuildMode } from '../state/upload/buildMode'
 
 type AssetMap = Record<string, readonly BakedCustomDisplayAsset[]>
 interface Result { assets: AssetMap; errors: string[] }

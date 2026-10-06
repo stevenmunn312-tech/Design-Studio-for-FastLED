@@ -1,18 +1,18 @@
-import type { RtcPreview } from '../../state/rtc'
-import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, asFont, textAlignMode } from '../../state/font'
-import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../../state/image'
-import type { ImagePaletteSource } from '../../state/imagePalette'
-import { hexToRgb } from '../../state/polinePalette'
-import { denormRate, SPEED_MAX } from '../../state/speedRange'
-import { type Frame, type RGB, type Palette, samplePalette } from '../../state/ledColor'
-import { resolveWireframeMesh, projectWireframeVertices } from '../../state/wireframeModel'
-import { pathPoint } from '../../state/pathShapes'
-import { customPathTable, customPathPoint } from '../../state/customPath'
+import type { RtcPreview } from '../../state/peripherals/rtc'
+import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, asFont, textAlignMode } from '../shared/font'
+import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../shared/image'
+import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
+import { hexToRgb } from '../../state/palettes/polinePalette'
+import { denormRate, SPEED_MAX } from '../shared/speedRange'
+import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
+import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
+import { pathPoint } from './pathShapes'
+import { customPathTable, customPathPoint } from './customPath'
 import {
   FOURIER_RING_HALF_WIDTH, FOURIER_RING_LEVEL, FOURIER_RING_MIN_RADIUS, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP,
   FOURIER_TRAIL_STEPS_MAX, fourierPen, fourierTable,
-} from '../../state/fourierOutline'
+} from './fourierOutline'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {
   DEFAULT_W,
@@ -36,7 +36,7 @@ import {
   asSdVideoClip, parseSdvHeader, SDV_HEADER_BYTES, sdvFrameBytes, sdvFrameIndex, sdvSourceIndex, sdvSpeed,
 } from '../../state/evaluator/sdVideo'
 import { getSdVideoBytes } from '../../state/sdVideoStore'
-import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/hueMix'
+import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/palettes/hueMix'
 import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 

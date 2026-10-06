@@ -436,7 +436,7 @@ wire — so the widget and its wire say the same thing the same way.
 ## Checklist
 
 - [x] `bounds` optional on `DisplayWidget`; every walk audited and held by
-      `src/state/__tests__/unplacedWidgets.test.ts`. The schema version is
+      `src/state/displays/__tests__/unplacedWidgets.test.ts`. The schema version is
       **not** bumped, for the reason above.
 - [x] Widget type, range, step and label derived from the dropped-on property
       (`touchControlPlan` in `wireFirstControls.ts`).

@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
-import type { DisplayDocument } from '../../state/displayDocument'
-import { displayAsset, displayAssetUrl } from '../../state/displayAssets'
-import { resolveDisplayThemeTokens, type DisplayBackgroundTokens } from '../../state/displayTheme'
-import { DISPLAY_CONTROL_TRACK_PX, type DisplayWidgetState } from '../../state/displayRegistry'
+import type { DisplayDocument } from '../../state/displays/displayDocument'
+import { displayAsset, displayAssetUrl } from '../../state/displays/displayAssets'
+import { resolveDisplayThemeTokens, type DisplayBackgroundTokens } from '../../state/displays/displayTheme'
+import { DISPLAY_CONTROL_TRACK_PX, type DisplayWidgetState } from '../../state/displays/displayRegistry'
 
 export function displayBackgroundStyle(background: DisplayBackgroundTokens): CSSProperties {
   if (background.kind === 'gradient') {

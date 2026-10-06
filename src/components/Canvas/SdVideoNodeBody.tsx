@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { compositionDims } from '../../state/outputRouting'
+import { compositionDims } from '../../state/output/outputRouting'
 import {
   asSdVideoClip, sdvBandwidth, sdvPath, SDV_BANDWIDTH_WARN, SDV_MAX_FPS,
 } from '../../state/evaluator/sdVideo'

@@ -16,7 +16,7 @@ const mockAudio = vi.hoisted(() => ({
   detectorSpectrum: Array(32).fill(0),
 }))
 
-vi.mock('../../../state/audioStore', () => ({
+vi.mock('../../../state/audio/audioStore', () => ({
   useAudioStore: {
     getState: () => mockAudio,
   },

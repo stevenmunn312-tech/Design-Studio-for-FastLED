@@ -5,11 +5,11 @@
 // same evaluated values the firmware would act on, so a relay's channel LED is
 // on exactly while its coil would be energised.
 
-import type { RenderIndicator } from '../../build/boardCapabilities'
-import { partById } from '../../state/partCatalogue'
-import { powerSwitchChannels } from '../../state/powerSwitch'
-import { relayEnergisedKey } from '../../state/relayModule'
-import { IR_RECEIVING_KEY } from '../../state/irRemote'
+import type { RenderIndicator } from '../../build/boards/boardCapabilities'
+import { partById } from '../../build/parts/partCatalogue'
+import { powerSwitchChannels } from '../../state/peripherals/powerSwitch'
+import { relayEnergisedKey } from '../../state/peripherals/relayModule'
+import { IR_RECEIVING_KEY } from '../../state/peripherals/irRemote'
 
 export interface IndicatorRender {
   widthPx: number

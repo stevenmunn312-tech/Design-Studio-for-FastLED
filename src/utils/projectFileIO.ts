@@ -1,7 +1,7 @@
 import type { SavedProject } from '../state/projectStore'
 import type { PersistedWorkspace } from '../state/workspacePersistence'
 import { cloneWorkspace } from '../state/workspacePersistence'
-import { normalizeDisplayDocuments } from '../state/displayDocument'
+import { normalizeDisplayDocuments } from '../state/displays/displayDocument'
 import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
 
 interface FilePickerAcceptType {

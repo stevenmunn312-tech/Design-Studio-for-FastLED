@@ -28,7 +28,7 @@ node graph:
 
 ### One `dmx` port type carrying a whole universe
 
-`src/state/dmx.ts` defines `DmxSnapshot` — `universe`, a 512-entry `channels`
+`src/state/peripherals/dmx.ts` defines `DmxSnapshot` — `universe`, a 512-entry `channels`
 array of 0–255 bytes, plus `valid` / `live` / `packetRate` / `lastPacketAt` /
 `source`. The `dmx` `dataType` carries that object down one wire. Decoding is a
 separate node's job.
@@ -105,7 +105,7 @@ What deliberately **differs**:
 
 `wifiSsid` / `wifiPassword` began as ordinary node properties, which put them in
 project files, share links, and the helper-backed `Projects/` JSON mirror in
-plain text. `#127` moved them to `src/state/networkCredentials.ts` — a
+plain text. `#127` moved them to `src/state/peripherals/networkCredentials.ts` — a
 browser-local store keyed by node id, like a saved Wi-Fi password on a phone.
 Codegen and `validateGraph` look them up by node id; `graphStore` migrates any
 previously-saved values across on load and strips them from properties.
@@ -130,7 +130,7 @@ are asked for; see [wired Ethernet](wired-ethernet.md).
 ## The transceiver
 
 DMX512 needs a part between the XLR cable and the UART, and the app names it:
-`src/state/dmxTransceiver.ts` holds the one module, the common "C25B" MAX485
+`src/state/peripherals/dmxTransceiver.ts` holds the one module, the common "C25B" MAX485
 board (`max485-rs485-module`, a verified Blender asset), and the rule that
 only DMX512 mode has one. It is deliberately not a `PART_OPTIONS` row, which
 would put the module's picture on the node in Art-Net mode too.

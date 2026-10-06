@@ -631,7 +631,7 @@
 
 /* Panel-boundary gridlines for MatrixOutput's `panels` layout — a static,
    pointer-inert overlay that mirrors the tilesX/tilesY grid used for the
-   physical wiring remap (src/state/xyLayout.ts). Purely cosmetic: it never
+   physical wiring remap (src/state/output/xyLayout.ts). Purely cosmetic: it never
    affects what's rendered, only how the tile boundaries read on screen. */
 .tileGridOverlay {
   position: absolute;

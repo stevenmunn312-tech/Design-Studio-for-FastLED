@@ -1,7 +1,7 @@
 import type { ShowFile } from '../../types/showFile'
 import type { GraphMeta, StudioEdge, StudioNode } from '../../state/graphStore'
-import { isPatternSelect } from '../../state/patternSelection'
-import { showStateAt } from '../../state/showPreview'
+import { isPatternSelect } from '../../state/patterns/patternSelection'
+import { showStateAt } from '../../state/player/showPreview'
 
 function nodeTypeOf(node: StudioNode | undefined): string {
   return String(node?.data.nodeType ?? '')

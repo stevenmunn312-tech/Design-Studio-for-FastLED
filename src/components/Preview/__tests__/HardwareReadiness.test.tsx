@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import HardwareReadiness from '../HardwareReadiness'
 import { useGraphStore } from '../../../state/graphStore'
-import { useUploadStore } from '../../../state/uploadStore'
-import { useCapacityStore } from '../../../state/capacityStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { useUiStore } from '../../../state/uiStore'
 
 // The strip only renders once something drives LEDs, so every test needs a

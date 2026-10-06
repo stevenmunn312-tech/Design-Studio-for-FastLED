@@ -1,5 +1,5 @@
-import { usesShims, cppRewriteShims } from '../../state/fastledShims'
-import { isNodeFormulaValid } from '../../state/formulaLang'
+import { usesShims, cppRewriteShims } from '../shared/fastledShims'
+import { isNodeFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 
 export const CODE_EMITTERS: NodeEmitters = {

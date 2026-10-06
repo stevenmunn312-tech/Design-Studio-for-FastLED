@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp as generateCppImpl, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { DEFAULT_FONT, textColumns } from '../../state/font'
-import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/micModules'
-import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/ledOutputForm'
-import { resolveSlicePattern } from '../../state/sliceTiling'
+import { DEFAULT_FONT, textColumns } from '../../nodes/shared/font'
+import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/peripherals/micModules'
+import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/output/ledOutputForm'
+import { resolveSlicePattern } from '../../nodes/field/sliceTiling'
 import { worleyHash } from '../../state/evaluator/random'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
-import { fourierTable } from '../../state/fourierOutline'
+import { fourierTable } from '../../nodes/shapes/fourierOutline'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -5687,7 +5687,7 @@ describe('generated-comment escaping', () => {
 
 describe('starter templates', () => {
   it('never generate a sketch claiming a supported node is unsupported', async () => {
-    const { STARTER_TEMPLATES } = await import('../../state/starterTemplates')
+    const { STARTER_TEMPLATES } = await import('../../state/patterns/starterTemplates')
     const { generateShowSketch, isPatternShow } = await import('../showGenerator')
     for (const template of STARTER_TEMPLATES) {
       const graph = template.build()

@@ -8,7 +8,7 @@
  * https://github.com/StefanPetrick/animartrix
  */
 
-import type { Frame, RGB } from '../state/ledColor'
+import type { Frame, RGB } from '../state/palettes/ledColor'
 import { buildFrame } from '../state/evaluator/frames'
 import { asAnimartrixEffect, type AnimartrixEffect } from './catalog'
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect } from 'vitest'
 import { blankWorkspace, captureWorkspace, cloneWorkspace, type PersistedWorkspace } from '../workspacePersistence'
-import { blankDeckConfig } from '../performanceDeck'
-import { useMusicStore } from '../musicStore'
+import { blankDeckConfig } from '../player/performanceDeck'
+import { useMusicStore } from '../player/musicStore'
 
 function clearMusic() {
   useMusicStore.setState({ entries: [] })

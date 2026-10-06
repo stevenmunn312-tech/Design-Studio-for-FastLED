@@ -1,9 +1,9 @@
 // Pure display helpers for the live controller-capacity meter — kept separate
 // from the components so the text/level logic is unit-testable without
 // mounting React.
-import type { Board } from '../state/uploadStore'
+import type { Board } from '../state/upload/uploadStore'
 import type { CompileCheckResult } from './backendClient'
-import type { CapacityStatus, CapacitySubject } from '../state/capacityStore'
+import type { CapacityStatus, CapacitySubject } from '../state/upload/capacityStore'
 
 export type CapacityLevel = 'ok' | 'warn' | 'error' | 'pending'
 

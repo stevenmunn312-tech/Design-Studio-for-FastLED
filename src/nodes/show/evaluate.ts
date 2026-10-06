@@ -1,14 +1,14 @@
-import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/transportBridge'
-import { pressEdgeSettings } from '../../state/pressSource'
+import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
+import { pressEdgeSettings } from '../../state/player/pressSource'
 import { type StudioNode, useGraphStore } from '../../state/graphStore'
-import { songInfoOutputs, blankSongInfo, resolveSongInfo } from '../../state/songInfo'
+import { songInfoOutputs, blankSongInfo, resolveSongInfo } from '../../state/player/songInfo'
 import {
   type PatternSlideshowOrder,
   asSlideshowOrder,
   slideshowSettings,
   advanceSlideshowSilenceFade,
-} from '../../state/patternSlideshow'
-import { isDisplaySignal, type DisplaySignal } from '../../state/displaySignal'
+} from '../../state/patterns/patternSlideshow'
+import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import {
   type PatternSelectionState,
   type PatternCursor,
@@ -20,11 +20,11 @@ import {
   encoderSteps,
   type PatternSelectValue,
   blankPatternSelectValue,
-} from '../../state/patternSelection'
-import { hexToRgb } from '../../state/polinePalette'
-import { type Frame, type RGB, hsv } from '../../state/ledColor'
-import { usePlayerTransport } from '../../state/playerTransport'
-import { playerControlActionRepeats, playerControlActionPortsFor } from '../../state/playerControlAssignments'
+} from '../../state/patterns/patternSelection'
+import { hexToRgb } from '../../state/palettes/polinePalette'
+import { type Frame, type RGB, hsv } from '../../state/palettes/ledColor'
+import { usePlayerTransport } from '../../state/player/playerTransport'
+import { playerControlActionRepeats, playerControlActionPortsFor } from '../../state/player/playerControlAssignments'
 import { clamp01, DEFAULT_W, DEFAULT_H, buildFrame, blankFrame, cloneFrame, sampleFrameScaled } from '../../state/evaluator/frames'
 import { seededRandom, seededRngState, normalizedSeed } from '../../state/evaluator/random'
 import {
@@ -1053,7 +1053,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     let state = playerControlsState.get(key)
     if (!state || t < state.lastT) state = { lastT: t, buttons: {} }
     state.lastT = t
-    // The edge rules live in state/transportBridge.ts so Transport Control
+    // The edge rules live in state/player/transportBridge.ts so Transport Control
     // uses the identical ones — a display's Next and a panel-mounted Next
     // must not disagree about what a press is.
     const edgeSettings = normalizeButtonEdgeSettings(props)

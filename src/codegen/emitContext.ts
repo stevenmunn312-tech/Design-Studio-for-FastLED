@@ -6,9 +6,9 @@
  */
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { TransportArtworks } from '../utils/transportArtworks'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
-import type { BakedCustomDisplayAsset } from '../state/customDisplayResources'
-import type { OutputRoute } from '../state/outputRouting'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
+import type { BakedCustomDisplayAsset } from '../state/displays/customDisplayResources'
+import type { OutputRoute } from '../state/output/outputRouting'
 import type { LedHardware } from './ledHardwareCpp'
 import type { Hub75Hardware } from './hub75Cpp'
 import type { PlayerControlButtonEmit } from './playerControlsCpp'

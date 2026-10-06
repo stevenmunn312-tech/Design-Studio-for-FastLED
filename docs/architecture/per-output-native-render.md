@@ -9,7 +9,7 @@ mapping and shared validation contracts.
 
 Studio renders one shared *composition canvas* — the largest route in each axis
 — and then fits or crops that single frame into each physical output
-(`src/state/outputRouting.ts`). Firmware does the same: `cppGenerator` emits one
+(`src/state/output/outputRouting.ts`). Firmware does the same: `cppGenerator` emits one
 render at composition dimensions and routes into per-output `leds_<id>` arrays.
 
 That works when several outputs are windows onto one picture — a video wall
@@ -102,7 +102,7 @@ disagree with what gets flashed, which is worse than the visible bug.
 
 ## Implementation
 
-`src/state/outputRouting.ts` owns the pass plan. `native` is the default route
+`src/state/output/outputRouting.ts` owns the pass plan. `native` is the default route
 mode; native routes are grouped by supersampled render dimensions, while
 explicit `fit` and `crop` routes share the composition canvas. The live preview
 evaluates those passes under stable shape-keyed state namespaces, publishes

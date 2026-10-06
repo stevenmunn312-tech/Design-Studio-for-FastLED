@@ -1,10 +1,10 @@
-import type { ElectricalPlanSummary } from '../../build/electricalPlan'
+import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
-import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/powerDistribution'
-import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../state/partCatalogue'
-import { oledTransportFor, type OledTransport } from '../../state/oledSurface'
-import { irReceiverModuleFor } from '../../state/irModules'
-import { receiveDividerSource } from '../../state/receiveDivider'
+import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/power/powerDistribution'
+import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
+import { oledTransportFor, type OledTransport } from '../../state/displays/oledSurface'
+import { irReceiverModuleFor } from '../../state/peripherals/irModules'
+import { receiveDividerSource } from '../../build/pins/receiveDivider'
 
 export type ItemLayout = {
   item: HardwareManifestItem

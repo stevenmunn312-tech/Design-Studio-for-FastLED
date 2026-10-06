@@ -2,14 +2,14 @@
 // IR and fixed/custom touch panels. Each template supplies its destinations
 // and runtime sources. Validation uses this same resolver as emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { displayHasTouch } from '../state/partCatalogue'
-import { normalizeButtonEdgeSettings } from '../state/transportBridge'
+import { displayHasTouch } from '../build/parts/partCatalogue'
+import { normalizeButtonEdgeSettings } from '../state/player/transportBridge'
 import { createControlGraph, controlReferenceCpp, type ControlReference } from './controlGraph'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButtonEmit, type PlayerControlsEmit } from './playerControlsCpp'
-import { designControlBundle, toggleWidgetSource } from '../state/designControlBundle'
+import { designControlBundle, toggleWidgetSource } from '../state/displays/designControlBundle'
 import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
 import type { DisplaySourceExpressions } from './displaySourceExpressions'
 

@@ -2,8 +2,8 @@ import { useGraphStore } from '../state/graphStore'
 import { useUiStore } from '../state/uiStore'
 import { useProjectStore } from '../state/projectStore'
 import { captureWorkspace } from '../state/workspacePersistence'
-import { isPatternContentTrusted, trustPatternContent, workspaceTrustHolds } from '../state/patternTrust'
-import type { SavedPattern } from '../state/patternLibrary'
+import { isPatternContentTrusted, trustPatternContent, workspaceTrustHolds } from '../state/patterns/patternTrust'
+import type { SavedPattern } from '../state/patterns/patternLibrary'
 
 /**
  * Ask the user to trust a just-loaded graph before its CustomFormula/

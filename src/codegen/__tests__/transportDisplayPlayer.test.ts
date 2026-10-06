@@ -4,7 +4,7 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { TFT_DISPLAY_CPP_FORWARD } from '../tftDisplayCpp'
-import { fixedTransportGeometry, nowPlayingGeometry } from '../../state/transportDisplay'
+import { fixedTransportGeometry, nowPlayingGeometry } from '../../state/displays/transportDisplay'
 import { assertWireable } from '../../test-utils/assertWireable'
 
 const PLAIN = 'st7789-tft-240x240'

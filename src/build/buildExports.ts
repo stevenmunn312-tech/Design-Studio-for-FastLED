@@ -1,9 +1,9 @@
-import { boardDataProvenance, type PhysicalBoardProfile } from './boardProfiles'
+import { boardDataProvenance, type PhysicalBoardProfile } from './boards/boardProfiles'
 import type { BuildProfile } from './buildProfile'
-import type { ElectricalPlanSummary } from './electricalPlan'
+import type { ElectricalPlanSummary } from './power/electricalPlan'
 import { boardPinLabelForUse, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
-import { fuseBlockAllocations } from './powerDistribution'
-import { partById, sharedPadsAcrossBoards } from '../state/partCatalogue'
+import { fuseBlockAllocations } from './power/powerDistribution'
+import { partById, sharedPadsAcrossBoards } from './parts/partCatalogue'
 
 export interface BuildConnectionRow {
   from: string

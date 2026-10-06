@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDisplayDocument } from '../../state/displayEditor'
-import type { DisplayWidget } from '../../state/displayDocument'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import type { DisplayWidget } from '../../state/displays/displayDocument'
 import { bakeCustomDisplayAssets } from '../bakeCustomDisplayAssets'
 
 const art: DisplayWidget = {

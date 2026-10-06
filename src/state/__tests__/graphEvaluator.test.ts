@@ -32,13 +32,13 @@ const mockDecoderAudio = vi.hoisted(() => ({
   detectorSpectrum: Array(32).fill(0),
 }))
 
-vi.mock('../audioStore', () => ({
+vi.mock('../audio/audioStore', () => ({
   useAudioStore: {
     getState: () => mockAudio,
   },
 }))
 
-vi.mock('../decoderAudioStore', () => ({
+vi.mock('../audio/decoderAudioStore', () => ({
   useDecoderAudioStore: {
     getState: () => mockDecoderAudio,
   },
@@ -63,16 +63,16 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
 
 import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
-import { waveSample, combineWaves } from '../wave'
+import { waveSample, combineWaves } from '../../nodes/signal/wave'
 import { NODE_LIBRARY } from '../nodeLibrary'
-import { samplePalette } from '../ledColor'
+import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
-import { useHardwareInputStore } from '../hardwareInputStore'
-import { mixGradientColors } from '../hueMix'
+import { useHardwareInputStore } from '../peripherals/hardwareInputStore'
+import { mixGradientColors } from '../palettes/hueMix'
 import { wrapXMix } from '../evaluator/wrapX'
 import { noiseShape, shapeNoise, WORLEY_EDGE_GAIN } from '../evaluator/noiseShape'
 import { CURL_EPS, CURL_GAIN, curlFlow } from '../evaluator/curl'
-import { usePlayerTransport } from '../playerTransport'
+import { usePlayerTransport } from '../player/playerTransport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

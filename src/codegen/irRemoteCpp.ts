@@ -4,7 +4,7 @@ import {
   irRemoteButtonHandle,
   normalizeIrRemoteButtons,
   type IrRemoteProtocol,
-} from '../state/irRemote'
+} from '../state/peripherals/irRemote'
 import { IR_RMT_RECEIVER_CPP, irRmtReceiverCpp } from './irRmtReceiverCpp'
 
 /**

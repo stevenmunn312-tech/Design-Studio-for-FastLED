@@ -8,7 +8,7 @@ import {
   playerControlHint,
   sensiblePlayerControls,
   type PlayerControlFunction,
-} from '../../state/playerControlAssignments'
+} from '../../state/player/playerControlAssignments'
 import styles from './PlayerControlsBody.module.css'
 
 /**

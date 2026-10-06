@@ -1,8 +1,8 @@
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
-import { displayDocumentInputPorts, displayDocumentTouchOutputPorts } from '../state/displayRegistry'
-import { buttonBankOutputs } from '../state/buttonBank'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
+import { displayDocumentInputPorts, displayDocumentTouchOutputPorts } from '../state/displays/displayRegistry'
+import { buttonBankOutputs } from '../state/player/buttonBank'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
-import { playerControlInputs } from '../state/playerControlAssignments'
+import { playerControlInputs } from '../state/player/playerControlAssignments'
 
 interface WireableNode {
   id: string

@@ -3,11 +3,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import IRRemoteBody from '../IRRemoteBody'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioEdge, type StudioNode } from '../../../state/graphStore'
-import { useHardwareInputStore } from '../../../state/hardwareInputStore'
+import { useHardwareInputStore } from '../../../state/peripherals/hardwareInputStore'
 import { useUiStore } from '../../../state/uiStore'
-import { irRemoteButtonHandle } from '../../../state/irRemote'
-import { useIrLearnStore } from '../../../state/irLearnStore'
-import { useUploadStore } from '../../../state/uploadStore'
+import { irRemoteButtonHandle } from '../../../state/peripherals/irRemote'
+import { useIrLearnStore } from '../../../state/peripherals/irLearnStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 
 vi.mock('@xyflow/react', async () => {
   const React = await import('react')

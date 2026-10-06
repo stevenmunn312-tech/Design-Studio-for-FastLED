@@ -1,5 +1,5 @@
 import { playerControlGraph } from '../codegen/playerControlGraph'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { CustomDisplayAssets } from '../codegen/customDisplayShowCpp'
 
 export interface PlayerDisplayBuildOptions {
@@ -21,7 +21,7 @@ import type { Edge } from '@xyflow/react'
 import { useGraphStore } from '../state/graphStore'
 import type { StudioNode, StudioNodeData } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import type { MusicEntry } from '../state/musicStore'
+import type { MusicEntry } from '../state/player/musicStore'
 import { bakeBrowserThumbnails } from './browserThumbnails'
 import { collectionPatternNames } from './patternNames'
 import { bakeDisplayArtworks } from './transportArtworks'
@@ -31,14 +31,14 @@ import { buildPatternRenderers, patternRenderersUseAudio } from '../codegen/show
 import { showFileToBinary } from '../codegen/performanceGenerator'
 import type { ShowUploadFile } from './backendClient'
 import { stereoVuEmitsFromGraph } from '../codegen/stereoVuMeterCpp'
-import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { boardSupportsTelemetry } from '../codegen/deviceTelemetryCpp'
-import { wiredPatternCollection } from '../state/patternCollectionWiring'
-import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/showFreshness'
-import { resolveBuildMode } from '../state/buildMode'
-import { asSlideshowOrder } from '../state/patternSlideshow'
+import { wiredPatternCollection } from '../state/patterns/patternCollectionWiring'
+import { showFreshnessIssues, type ShowFreshnessIssue } from '../state/player/showFreshness'
+import { resolveBuildMode } from '../state/upload/buildMode'
+import { asSlideshowOrder } from '../state/patterns/patternSlideshow'
 
-export { wiredPatternCollection } from '../state/patternCollectionWiring'
+export { wiredPatternCollection } from '../state/patterns/patternCollectionWiring'
 
 const nodeType = (n: StudioNode) => (n.data as StudioNodeData).nodeType
 

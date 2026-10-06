@@ -30,8 +30,9 @@ The npm scripts intentionally suppress an upstream `punycode` warning; direct `n
 <!-- AUTO-MANAGED: architecture -->
 ## Architecture
 
-- `src/state/` — Zustand stores, graph model/evaluator, node registry, persistence, routing, and hardware state.
-- `src/nodes/` — each node's preview (`<category>/evaluate.ts`) beside its firmware (`<category>/codegen.ts`); `graphEvaluator.ts` and `cppGenerator.ts` dispatch to them.
+- `src/state/` — the graph store, evaluator, node registry and app stores, with domain folders for displays, palettes, patterns, the player (shows and controls), audio, LED output, upload and peripherals.
+- `src/build/` — the hardware home: boards, parts, pins, power and the hardware manifest.
+- `src/nodes/` — each node's preview (`<category>/evaluate.ts`) beside its firmware (`<category>/codegen.ts`) and any helper only that category uses; `shared/` holds helpers several categories use. `graphEvaluator.ts` and `cppGenerator.ts` dispatch to them.
 - `src/components/` — React UI with adjacent CSS Modules; preview rendering lives under `components/Preview/`.
 - `src/codegen/` — normal sketches, generative-show controllers, SD-show players, diagnostics, and stream receivers.
 - `src/utils/` — validation, project/share workflows, recording, layout, and upload helpers.

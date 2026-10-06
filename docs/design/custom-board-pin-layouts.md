@@ -76,7 +76,7 @@ peripheral's numerical pin assignment.
 
 | Area | What exists and what must change |
 | --- | --- |
-| Board profile | `src/build/boardProfiles.ts` separates GPIO numbers, physical pin IDs and anchors. Extend selected-board resolution to build an effective profile from project data. Stock `boardProfileById` remains a catalogue lookup. |
+| Board profile | `src/build/boards/boardProfiles.ts` separates GPIO numbers, physical pin IDs and anchors. Extend selected-board resolution to build an effective profile from project data. Stock `boardProfileById` remains a catalogue lookup. |
 | SVG preview | `src/components/Canvas/BoardPinoutPicker.tsx` already lays out pins by side. Reuse its useful layout ideas in a shared generic renderer without its board-specific decoration. |
 | Diagram geometry | `src/components/BuildDiagram/controllerGeometry.ts` uses stock render IDs and measured rail geometry. Its generic fallback places signals in a column rather than at the user's defined pads. Add a geometry path driven by custom slots. |
 | Workbench image | `src/components/Hardware/HardwarePane.tsx` currently renders a board image through `hardwarePartCatalog.boardImageSrc`. Add the generic SVG path and an explicit schematic sizing policy. |
@@ -91,7 +91,7 @@ peripheral's numerical pin assignment.
 
 ### 1. Define custom-board data and separate the three identities
 
-Add a typed module such as `src/state/customBoard.ts` with a versioned,
+Add a typed module such as `src/build/boards/customBoard.ts` with a versioned,
 declarative `CustomBoardDefinition`. Keep it on the root Board node.
 
 | Field | Purpose |

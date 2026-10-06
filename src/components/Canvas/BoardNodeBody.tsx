@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
-import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/uploadStore'
-import { controllerSettings } from '../../state/controllerSettings'
+import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
+import { controllerSettings } from '../../build/controllerSettings'
 import { propertyDescription } from '../../state/nodeLibrary'
 import { boardSupportsTelemetry } from '../../codegen/deviceTelemetryCpp'
-import { serialRouteSummary } from '../../state/serialRouting'
+import { serialRouteSummary } from '../../state/upload/serialRouting'
 import { estimatePowerLoad } from '../../utils/validateGraph'
 import BoardPinoutPicker from './BoardPinoutPicker'
 import ClampedNumberInput from './ClampedNumberInput'
@@ -15,8 +15,8 @@ import {
   boardProfileFamilyId,
   boardProfilesForFamily,
   resolveBoardSelection,
-} from '../../build/boardProfiles'
-import { CUSTOM_BOARD_PROFILE_ID } from '../../state/customBoard'
+} from '../../build/boards/boardProfiles'
+import { CUSTOM_BOARD_PROFILE_ID } from '../../build/boards/customBoard'
 import styles from './BoardNodeBody.module.css'
 
 // The Board node picks a *profile*, not an FQBN. `esp32:esp32:esp32` names the

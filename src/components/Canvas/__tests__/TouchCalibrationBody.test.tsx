@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
-import { useDeviceTelemetryStore } from '../../../state/deviceTelemetryStore'
-import { TELEMETRY_MARKER } from '../../../state/deviceTelemetry'
+import { useDeviceTelemetryStore } from '../../../state/upload/deviceTelemetryStore'
+import { TELEMETRY_MARKER } from '../../../state/upload/deviceTelemetry'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
-import { useTouchCalibrationStore } from '../../../state/touchCalibrationStore'
-import { TOUCH_CALIBRATION_SAMPLES_PER_CORNER } from '../../../state/transportTouch'
-import { useUploadStore } from '../../../state/uploadStore'
+import { useTouchCalibrationStore } from '../../../state/displays/touchCalibrationStore'
+import { TOUCH_CALIBRATION_SAMPLES_PER_CORNER } from '../../../state/displays/transportTouch'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 import TouchCalibrationBody from '../TouchCalibrationBody'
 
 function touchNode(): StudioNode {

@@ -2,7 +2,7 @@
 // line for line by the firmware emitter in src/nodes/audioReactive/codegen.ts.
 // Constants are exported so the two cannot drift on a number.
 
-import { type Frame, type Palette, samplePalette } from '../ledColor'
+import { type Frame, type Palette, samplePalette } from '../palettes/ledColor'
 import { clamp01 } from './frames'
 
 /** Samples the audio payload and the sketch's `_audioWave` both carry. */

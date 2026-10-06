@@ -1,5 +1,5 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope, EnergyPoint } from '../types/showFile'
-import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/paletteCatalog'
+import { PALETTE_IDS, STUDIO_PALETTES, isStudioPalette } from '../state/palettes/paletteCatalog'
 
 // Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
 // enough for per-frame band reactivity while staying tiny (~3 bytes/frame).

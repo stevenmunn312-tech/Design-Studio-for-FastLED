@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS } from '../tftTouchCpp'
-import { PARALLEL_TOUCH_ELECTRODES } from '../../state/tftSurface'
+import { PARALLEL_TOUCH_ELECTRODES } from '../../state/displays/tftSurface'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { buildShowPlayer } from '../../utils/showUpload'
 import { generateCpp } from '../cppGenerator'

@@ -1,6 +1,6 @@
 import { useUiStore } from '../../state/uiStore'
-import { denormalizeAudioFlowParam } from '../../state/audioFlowRange'
-import { type Frame, type Palette, samplePalette, type RGB } from '../../state/ledColor'
+import { denormalizeAudioFlowParam } from '../../state/audio/audioFlowRange'
+import { type Frame, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
 import { evalAnimartrix, disposeAnimartrixState } from '../../animartrix/preview'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {

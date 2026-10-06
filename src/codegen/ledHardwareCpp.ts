@@ -6,8 +6,8 @@ import {
   WHITE_POINT_OPTIONS,
   SPI_CHIPSETS,
 } from '../state/nodeLibrary'
-import { outputForm } from '../state/ledOutputForm'
-import { DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
+import { outputForm } from '../state/output/ledOutputForm'
+import { DEFAULT_CONTROLLER_SETTINGS } from '../build/controllerSettings'
 import { sanitizePin } from './hardwarePins'
 
 // PSRAM buffer placement (ESP32 family only). When the MatrixOutput node's

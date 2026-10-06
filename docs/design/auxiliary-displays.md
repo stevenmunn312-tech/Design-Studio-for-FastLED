@@ -39,7 +39,7 @@ while a group is being edited.
 
 Displays cannot be pulled into a group or saved into a reusable pattern. That
 falls out of hardware ownership rather than needing a second exclusion list —
-`isHardwareNodeType` in `src/state/hardware.ts` already means "root only", and
+`isHardwareNodeType` in `src/build/hardware.ts` already means "root only", and
 displays join it rather than acquiring a parallel rule that can drift.
 
 ## Two kinds of display node
@@ -225,13 +225,13 @@ number-to-string coercion would put formatting decisions somewhere no one can
 see them. `FormatNumber` exists so those decisions are a node.
 
 Generated strings are bounded UTF-8 in fixed buffers. One shared module —
-`src/state/displayText.ts` — declares the byte budget, truncates on code-point
+`src/state/displays/displayText.ts` — declares the byte budget, truncates on code-point
 boundaries, defines the ellipsis behaviour, and defines the fallback for a
 character the target cannot draw. Both the evaluator and the C++ generator
 import it, because preview/firmware parity is not something two independent
 implementations achieve by agreement.
 
-The supported glyph set derives from the bitmap font in `src/state/font.ts`.
+The supported glyph set derives from the bitmap font in `src/nodes/shared/font.ts`.
 That is the glyph data the OLED slice rasterises with, so deriving the set from
 anywhere else would let the preview promise a character the firmware cannot
 render.
@@ -248,7 +248,7 @@ says what it is playing. So `PlayerControls` sends commands — play/pause,
 previous, next, volume, brightness — through the `playercontrols` bundle, and
 `PatternMaster` (Music Player) reports back: title, artist, album, genre, year,
 status, playing, elapsed, duration, remaining, progress, volume, bitrate. One
-list, `SONG_INFO_PORTS` in `src/state/songInfo.ts`, defines the fields. The
+list, `SONG_INFO_PORTS` in `src/state/player/songInfo.ts`, defines the fields. The
 player publishes them in its Display envelope; Song Info exposes the individual
 ports for custom-widget or other scalar consumers.
 
@@ -299,7 +299,7 @@ Enabled and Brightness sit on the LED output itself, one pair per output, becaus
 two outputs are two fixtures — a stage wash and a monitor strip do not have to be
 dark together. They multiply with the Board's static brightness and with a
 player's own dimming, and every factor is a cable on the canvas rather than a
-hidden global. `src/state/ledOutputRuntime.ts` holds the rule; the evaluator
+hidden global. `src/state/output/ledOutputRuntime.ts` holds the rule; the evaluator
 applies it so the main matrix, per-output previews, offline recordings and the
 live stream cannot disagree, and `ledOutputRuntimeCpp.ts` applies it after the
 blit, where every geometry branch has converged on the physical array.
@@ -331,7 +331,7 @@ were the Music Player, which a normal sketch renders as a black fill, and
 another Control Map. A press had nowhere to land, so validation refused the
 wire. It now lands on a fixture. `codegen/playerControlsCpp.ts` emits the
 bundle from ordinary graph wires (the debounce and repeat numbers read from
-`state/transportBridge.ts`, the detent size from `state/patternSelection.ts`),
+`state/player/transportBridge.ts`, the detent size from `state/patterns/patternSelection.ts`),
 and `tftTouchServiceCpp` takes a **sink** — the player's own transport
 functions, or a bundle local — so which rectangle is which action stays
 resolved once from the shared geometry rather than copied per generator.
@@ -405,7 +405,7 @@ interactive panel in the root set even though it publishes Controls.
 There is no pinless document node to miss: the design lives on the
 panel, so a screen that publishes widget outputs is the same terminal
 as the glass it is drawn on. The control-pass order is stated once in
-`src/state/controlPhases.ts` and held over what all three generators
+`src/state/player/controlPhases.ts` and held over what all three generators
 emit; see [direct controls](direct-controls-and-output-status.md#6-preserve-feedback-and-evaluation-order).
 
 ### Scheduling
@@ -503,7 +503,7 @@ addressing, the glyphs and the column offset are identical, and the only thing
 that differs is how the bytes get to the glass: the module on the bench is a
 7-pin SPI SH1106 and the SSD1306 is a 4-pin I²C one.
 
-`src/state/oledSurface.ts` therefore splits two facts that are easy to conflate:
+`src/state/displays/oledSurface.ts` therefore splits two facts that are easy to conflate:
 
 - **Controller** is silicon. It carries the column offset — an SH1106 has 132
   columns of RAM behind a 128-column panel, so its window starts two columns in.
@@ -537,7 +537,7 @@ whatever is on it rather than by whichever part is set up first.
 
 ## The same split in colour
 
-`src/state/tftSurface.ts` is the RGB565 twin of the 1-bit surface above, and it
+`src/state/displays/tftSurface.ts` is the RGB565 twin of the 1-bit surface above, and it
 keeps that module's two rules for the same reasons. It knows nothing about the
 bus, and the controller's own geometry lives on its descriptor.
 

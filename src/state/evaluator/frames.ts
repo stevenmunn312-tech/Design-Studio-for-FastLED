@@ -1,4 +1,4 @@
-import { type Frame, type RGB, type Palette, samplePaletteClamped } from '../ledColor'
+import { type Frame, type RGB, type Palette, samplePaletteClamped } from '../palettes/ledColor'
 import { allocFrame, instanceState } from './memory'
 import type { Field } from './types'
 

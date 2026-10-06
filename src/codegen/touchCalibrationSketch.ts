@@ -27,10 +27,10 @@ import {
   tftWindowOrigin,
   type TftController,
   type TftRotation,
-} from '../state/tftSurface'
-import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
-import { FONT_W, FONT_H } from '../state/font'
-import { emittedTouchBounds } from '../state/transportTouch'
+} from '../state/displays/tftSurface'
+import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/upload/deviceTelemetry'
+import { FONT_W, FONT_H } from '../nodes/shared/font'
+import { emittedTouchBounds } from '../state/displays/transportTouch'
 import { telemetryTouchSampleCpp } from './deviceTelemetryCpp'
 import {
   TFT_DISPLAY_CPP_FORWARD,

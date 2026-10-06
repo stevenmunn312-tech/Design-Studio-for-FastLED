@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { renderSegmentPower, smoothSegmentPower, type SegmentPowerSmoothingState } from '../../state/segmentDisplay'
+import { renderSegmentPower, smoothSegmentPower, type SegmentPowerSmoothingState } from '../../state/displays/segmentDisplay'
 import { SEGMENT_DISPLAY_CPP_HELPERS } from '../segmentDisplayCpp'
 
 const nativeGpp = spawnSync('g++', ['--version']).status === 0

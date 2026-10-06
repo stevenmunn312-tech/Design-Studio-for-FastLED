@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { useDmxStore } from '../../state/dmxStore'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/networkCredentials'
-import { ETHERNET_NODE_TYPE } from '../../state/ethernetModule'
-import { clampDmxUniverse } from '../../state/dmx'
+import { useDmxStore } from '../../state/peripherals/dmxStore'
+import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/peripherals/networkCredentials'
+import { ETHERNET_NODE_TYPE } from '../../state/peripherals/ethernetModule'
+import { clampDmxUniverse } from '../../state/peripherals/dmx'
 import styles from './DmxInputBody.module.css'
 
 function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string): string {

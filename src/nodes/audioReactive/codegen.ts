@@ -1,4 +1,4 @@
-import { audioFlowExpr } from '../../state/audioFlowRange'
+import { audioFlowExpr } from '../../state/audio/audioFlowRange'
 import { animartrixCppLines } from '../../animartrix/codegen'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'

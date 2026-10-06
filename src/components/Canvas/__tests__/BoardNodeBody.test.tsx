@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import BoardNodeBody from '../BoardNodeBody'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../../state/graphStore'
-import { controllerSettings } from '../../../state/controllerSettings'
-import { useUploadStore } from '../../../state/uploadStore'
+import { controllerSettings } from '../../../build/controllerSettings'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 import {
   BOARD_PROFILES,
   BOARD_PROFILE_FAMILIES,
   boardProfileFamilyId,
   boardProfilesForFamily,
-} from '../../../build/boardProfiles'
+} from '../../../build/boards/boardProfiles'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import type { StudioNode } from '../../../state/graphStore'
 

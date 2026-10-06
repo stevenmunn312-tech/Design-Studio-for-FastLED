@@ -6,12 +6,12 @@ import BoardPinoutPopup from '../../Upload/BoardPinoutPopup'
 import { HARDWARE_SHELF_HOST_ID } from '../HardwarePartsShelf'
 import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
-import { useUploadStore } from '../../../state/uploadStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
-import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../state/hardware'
-import { CUSTOM_BOARD_PROFILE_ID } from '../../../state/customBoard'
-import { MIC_MODULES } from '../../../state/micModules'
-import { boardI2cDefault } from '../../../build/boardI2cDefaults'
+import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../build/hardware'
+import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
+import { MIC_MODULES } from '../../../state/peripherals/micModules'
+import { boardI2cDefault } from '../../../build/boards/boardI2cDefaults'
 
 class ResizeObserverStub {
   observe() {}

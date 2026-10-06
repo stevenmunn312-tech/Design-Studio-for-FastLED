@@ -16,19 +16,19 @@ import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useGraphStore, useRootNodes, useRootEdges, type StudioNode } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY, CATEGORY_COLOR } from '../../state/nodeLibrary'
-import { normalizeButtonBankEntries } from '../../state/buttonBank'
-import { partRenderForNodeType } from '../../state/partRenders'
-import { resolvePartIdentity } from '../../state/partOptions'
-import { powerAmplifierFeed } from '../../state/audioOutput'
+import { normalizeButtonBankEntries } from '../../state/player/buttonBank'
+import { partRenderForNodeType } from '../../build/parts/partRenders'
+import { resolvePartIdentity } from '../../build/parts/partOptions'
+import { powerAmplifierFeed } from '../../state/audio/audioOutput'
 import { fixtureLinkDataType, fixtureLinkLabel } from './fixtureLink'
 import PartIdentity from './PartIdentity'
-import { useUploadStore } from '../../state/uploadStore'
-import { selectedBoardResolution } from '../../build/boardProfiles'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { selectedBoardResolution } from '../../build/boards/boardProfiles'
 import {
   ROOT_BOARD_NODE_ID,
   WS2812B_PITCH_MM,
   isHardwareManagedSignalNodeType,
-} from '../../state/hardware'
+} from '../../build/hardware'
 import HardwarePartBody from '../Canvas/HardwarePartBody'
 import HardwareLedPreview from './HardwareLedPreview'
 import HardwareVuRailPreview from './HardwareVuRailPreview'
@@ -48,7 +48,7 @@ import { benchPartStyles } from './benchPartStyles'
 import { UPLOAD_CONTROLS_HOST_ID } from '../Upload/uploadControlsHost'
 import type { PlacementBox } from './floatingPlacement'
 import { useHardwareView } from './useHardwareView'
-import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
+import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
 import {
   type HardwarePartBox,
   type HardwarePartLink,

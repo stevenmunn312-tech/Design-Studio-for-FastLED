@@ -7,7 +7,7 @@ import {
   customDisplayPanelSetupCpp,
   type CustomDisplayPanelEmit,
 } from '../customDisplayPanelCpp'
-import { TFT_CONTROLLERS } from '../../state/tftSurface'
+import { TFT_CONTROLLERS } from '../../state/displays/tftSurface'
 
 function emit(overrides: Partial<CustomDisplayPanelEmit> = {}): CustomDisplayPanelEmit {
   return {

@@ -12,16 +12,16 @@ import {
   customDisplayLvglTimingSetupCpp,
   type CustomDisplayLvglEmit,
 } from '../customDisplayLvglCpp'
-import { createDisplayDocument } from '../../state/displayEditor'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
 import {
   DISPLAY_WIDGET_LIBRARY,
   defaultDisplayWidgetBounds,
   defaultDisplayWidgetProperties,
   displayWidgetCaptionLayout,
-} from '../../state/displayRegistry'
-import { displayWidgetTextTokens } from '../../state/displayTheme'
-import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displayDocument'
-import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../../state/customDisplayResources'
+} from '../../state/displays/displayRegistry'
+import { displayWidgetTextTokens } from '../../state/displays/displayTheme'
+import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displays/displayDocument'
+import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../../state/displays/customDisplayResources'
 import { customDisplayAssetsCpp } from '../customDisplayAssetsCpp'
 
 function widget(type: DisplayWidget['type'], index: number): DisplayWidget {

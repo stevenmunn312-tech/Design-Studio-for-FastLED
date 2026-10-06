@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resolveDefaultProperties, useNodeDefaults } from '../nodeDefaults'
-import { useUploadStore } from '../uploadStore'
-import { boardProfileById } from '../../build/boardProfiles'
+import { useUploadStore } from '../upload/uploadStore'
+import { boardProfileById } from '../../build/boards/boardProfiles'
 
 describe('node defaults', () => {
   beforeEach(() => {

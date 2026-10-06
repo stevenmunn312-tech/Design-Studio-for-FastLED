@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import Inspector from '../Inspector'
 import { useGraphStore } from '../../../state/graphStore'
-import { usePerformanceBakeStore } from '../../../state/performanceBakeStore'
+import { usePerformanceBakeStore } from '../../../state/player/performanceBakeStore'
 import { useUiStore } from '../../../state/uiStore'
 
 function makeTextNode(properties: Record<string, unknown> = {}) {

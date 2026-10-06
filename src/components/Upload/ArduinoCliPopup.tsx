@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useUploadStore } from '../../state/uploadStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './Upload.module.css'
 
 // Shown when the helper is running but neither build engine is usable — fbuild

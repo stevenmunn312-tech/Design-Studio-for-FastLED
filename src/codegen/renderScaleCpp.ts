@@ -1,4 +1,4 @@
-// The firmware half of `src/state/renderScale.ts`: bilinear upscale of a
+// The firmware half of `src/state/output/renderScale.ts`: bilinear upscale of a
 // half-resolution render buffer into the physical LED array. Same tap rule as
 // the preview's `routeFrame` (pixel centres aligned, edges clamped), so both
 // sample the same source pixels with the same weights.
@@ -22,7 +22,7 @@ export interface UpscaleEmit {
 /**
  * Positioned string blit: each LED reads the render buffer bilinearly at the
  * (x, y) its table row holds, in 1/256 render pixels. The same taps as
- * `positionTap` in `src/state/stringPositions.ts`.
+ * `positionTap` in `src/state/output/stringPositions.ts`.
  */
 export function positionReadCpp(e: {
   src: string

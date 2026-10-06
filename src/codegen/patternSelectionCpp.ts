@@ -1,6 +1,6 @@
 // The runtime pattern selection, on the device.
 //
-// The rules come from `state/patternSelection.ts` and the constants are read
+// The rules come from `state/patterns/patternSelection.ts` and the constants are read
 // from it rather than restated, so a browse timeout or a detent size cannot
 // drift between the preview and the panel.
 //
@@ -14,7 +14,7 @@
 
 import {
   PATTERN_BROWSE_TIMEOUT_MS, ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS,
-} from '../state/patternSelection'
+} from '../state/patterns/patternSelection'
 
 /**
  * Forward declaration for the sketch preamble.
@@ -29,7 +29,7 @@ import {
 export const PATTERN_SELECTION_CPP_FORWARD = 'struct PatternSel;'
 
 export const PATTERN_SELECTION_CPP = `// ── Pattern selection ───────────────────────────────────────────────────────
-// Mirrors state/patternSelection.ts. active is what is running; highlight is
+// Mirrors state/patterns/patternSelection.ts. active is what is running; highlight is
 // what you are looking at. They are the same until the encoder moves, and
 // converge again on a press or after the browse window closes — without that
 // split, scrolling past a pattern would play it.

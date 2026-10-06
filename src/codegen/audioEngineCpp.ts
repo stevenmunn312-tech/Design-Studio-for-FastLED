@@ -3,16 +3,16 @@
 import type { StudioNode } from '../state/graphStore'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
-import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   type MicFirmwareBackend,
   micFqbnForBoardProfile,
   micFirmwareBackendForBoard,
   micSupportedForBoard,
-} from '../state/micPinDefaults'
-import { type MicModule, DEFAULT_MIC_MODULE, micModuleFor } from '../state/micModules'
+} from '../build/pins/micPinDefaults'
+import { type MicModule, DEFAULT_MIC_MODULE, micModuleFor } from '../state/peripherals/micModules'
 import { sanitizePin } from './hardwarePins'
-import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
+import { resolveAudioCapabilitySource } from '../state/audio/audioCapabilities'
 import type { GroupRegistry } from '../state/evaluator/types'
 import { pitchGlobalsCpp, pitchHelperCpp } from './pitchHelperCpp'
 import { WAVE_SAMPLES } from '../state/evaluator/waveform'

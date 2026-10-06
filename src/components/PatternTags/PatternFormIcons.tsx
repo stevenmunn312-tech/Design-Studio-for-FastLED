@@ -1,4 +1,4 @@
-import { PATTERN_FORM_TAGS, patternFormTags } from '../../state/patternTags'
+import { PATTERN_FORM_TAGS, patternFormTags } from '../../state/patterns/patternTags'
 import styles from './PatternFormIcons.module.css'
 
 /** Display preferences, shared by both library listings. Untagged patterns

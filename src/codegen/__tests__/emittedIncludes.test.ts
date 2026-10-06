@@ -24,9 +24,9 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
-import { createDisplayDocument } from '../../state/displayEditor'
-import { addDisplayWidget } from '../../state/displayEditor'
-import type { DisplayDocumentRegistry } from '../../state/displayDocument'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import { addDisplayWidget } from '../../state/displays/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, over: Record<string, unknown> = {}): StudioNode {

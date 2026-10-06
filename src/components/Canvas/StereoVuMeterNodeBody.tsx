@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import { rootGraphNodes, useGraphStore, useRootNodes } from '../../state/graphStore'
-import { LED_OUTPUT_FORM_LABELS, outputForm } from '../../state/ledOutputForm'
+import { LED_OUTPUT_FORM_LABELS, outputForm } from '../../state/output/ledOutputForm'
 import { usePreviewStore } from '../../state/previewStore'
-import type { RGB } from '../../state/ledColor'
-import type { StereoVuFrame } from '../../state/stereoVuMeter'
+import type { RGB } from '../../state/palettes/ledColor'
+import type { StereoVuFrame } from '../../state/audio/stereoVuMeter'
 import styles from './StereoVuMeterNodeBody.module.css'
 
 const rgbCss = (color: RGB): string => `rgb(${color.r} ${color.g} ${color.b})`

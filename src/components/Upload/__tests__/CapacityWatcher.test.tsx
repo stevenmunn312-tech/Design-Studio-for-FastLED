@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, waitFor } from '@testing-library/react'
 import CapacityWatcher from '../CapacityWatcher'
 import { useGraphStore } from '../../../state/graphStore'
-import { useUploadStore } from '../../../state/uploadStore'
-import { useCapacityStore } from '../../../state/capacityStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { createDisplayDocument } from '../../../state/displayEditor'
+import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { bakeCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
 
 vi.mock('../../../utils/bakeCustomDisplayAssets', async (importOriginal) => {

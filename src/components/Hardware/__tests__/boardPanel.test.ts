@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useBenchParts } from '../useBenchParts'
 import { boardScreensFor } from '../benchScreenGeometry'
-import { boardProfileById } from '../../../build/boardProfiles'
+import { boardProfileById } from '../../../build/boards/boardProfiles'
 import type { StudioNode } from '../../../state/graphStore'
-import { CYD_TOUCH_DISPLAY, INTEGRATED_BOARD_PROFILE_KEY } from '../../../state/integratedBoardHardware'
+import { CYD_TOUCH_DISPLAY, INTEGRATED_BOARD_PROFILE_KEY } from '../../../build/boards/integratedBoardHardware'
 import { libraryDefaults, NODE_LIBRARY } from '../../../state/nodeLibrary'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

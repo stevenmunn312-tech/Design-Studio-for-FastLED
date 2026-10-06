@@ -1,4 +1,4 @@
-import { type FormulaFn, compileNodeFormula } from '../formulaLang'
+import { type FormulaFn, compileNodeFormula } from '../../nodes/shared/formulaLang'
 import { evaluatorCache } from './memory'
 
 // Per-pixel formula closure, compiled by the sandboxed parser in

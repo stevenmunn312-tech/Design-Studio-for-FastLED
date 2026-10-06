@@ -3,9 +3,9 @@ import { render } from '@testing-library/react'
 import StatusBar from '../StatusBar'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
-import { useUploadStore } from '../../../state/uploadStore'
-import { useAudioStore } from '../../../state/audioStore'
-import { useCapacityStore } from '../../../state/capacityStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useAudioStore } from '../../../state/audio/audioStore'
+import { useCapacityStore } from '../../../state/upload/capacityStore'
 
 describe('StatusBar accessibility', () => {
   beforeEach(() => {

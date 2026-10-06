@@ -3,11 +3,11 @@
  * same tokens the preview animates from. Now Playing's title uses it.
  */
 import { describe, expect, it } from 'vitest'
-import { createDisplayDocument, addDisplayWidget, updateDisplayWidget } from '../../state/displayEditor'
-import { applyDisplayTemplate } from '../../state/displayTemplates'
-import { displayWidgetTextTokens } from '../../state/displayTheme'
+import { createDisplayDocument, addDisplayWidget, updateDisplayWidget } from '../../state/displays/displayEditor'
+import { applyDisplayTemplate } from '../../state/displays/displayTemplates'
+import { displayWidgetTextTokens } from '../../state/displays/displayTheme'
 import { customDisplayLvglSetupCpp } from '../customDisplayLvglCpp'
-import type { DisplayWidgetProperty } from '../../state/displayDocument'
+import type { DisplayWidgetProperty } from '../../state/displays/displayDocument'
 
 function textDocument(properties: Record<string, DisplayWidgetProperty>) {
   const document = addDisplayWidget(createDisplayDocument('screen', 240, 320), 'Text')

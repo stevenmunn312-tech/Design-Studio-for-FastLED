@@ -1,14 +1,14 @@
 import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp } from '../../codegen/segmentDisplayCpp'
-import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/segmentDisplay'
-import { MAX_PIN_NUMBER, NO_PIN } from '../../state/boardGpio'
-import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/buzzer'
+import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/displays/segmentDisplay'
+import { MAX_PIN_NUMBER, NO_PIN } from '../../build/boards/boardGpio'
+import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/peripherals/buzzer'
 import {
   DARLINGTON_PIN_FALLBACKS, darlingtonActiveHigh, darlingtonChannelId, darlingtonPinKeys,
-} from '../../state/darlingtonDriver'
+} from '../../state/peripherals/darlingtonDriver'
 import { PWM_DRIVER_HELPER_CPP } from '../../codegen/pwmDriverCpp'
 import {
   PWM_DRIVER_FULL_COUNT, formatPwmDriverAddress, pwmDriverAddress, pwmDriverChannelId, pwmDriverPrescale, pwmDriverSpec,
-} from '../../state/pwmDriver'
+} from '../../state/peripherals/pwmDriver'
 import {
   oledControllerForProps,
   oledTransportForProps,
@@ -19,8 +19,8 @@ import {
 import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/ledOutputRuntimeCpp'
 import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/renderScaleCpp'
 import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/playerControlsCpp'
-import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
-import { displayControlEdges } from '../../state/wireFirstControls'
+import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
+import { displayControlEdges } from '../../state/player/wireFirstControls'
 import { propertyInputsFor } from '../../state/propertyInputs'
 import {
   type InfoDisplayEmit,
@@ -28,16 +28,16 @@ import {
   infoDisplaySetupCpp,
   infoDisplayLoopCpp,
 } from '../../codegen/infoDisplayCpp'
-import { infoLayoutForKind } from '../../state/infoDisplay'
-import { DISPLAY_SOURCE_NODE_TYPES, SKETCH_DISPLAY_SOURCE_KINDS } from '../../state/displaySignal'
+import { infoLayoutForKind } from '../../state/displays/infoDisplay'
+import { DISPLAY_SOURCE_NODE_TYPES, SKETCH_DISPLAY_SOURCE_KINDS } from '../../state/displays/displaySignal'
 import { type TftDisplayEmit, tftDisplaySetupCpp, tftDisplayLoopCpp } from '../../codegen/tftDisplayCpp'
 import {
   shownDesignId,
   type TransportDisplayLayout,
   asTransportDisplayLayout,
   transportLayoutForKind,
-} from '../../state/transportDisplay'
-import { TFT_CONTROLLERS, asTftRotation, PARALLEL_TOUCH_ELECTRODES } from '../../state/tftSurface'
+} from '../../state/displays/transportDisplay'
+import { TFT_CONTROLLERS, asTftRotation, PARALLEL_TOUCH_ELECTRODES } from '../../state/displays/tftSurface'
 import { type TftTouchEmit, tftTouchSetupCpp, tftTouchServiceCpp } from '../../codegen/tftTouchCpp'
 import {
   type CustomDisplayLvglBinding,
@@ -52,17 +52,17 @@ import {
   customDisplayPanelSetupCpp,
   customDisplayPanelEnableCpp,
 } from '../../codegen/customDisplayPanelCpp'
-import { displayDocumentPorts, parseDisplayWidgetPortId } from '../../state/displayRegistry'
-import { designControlBundle } from '../../state/designControlBundle'
+import { displayDocumentPorts, parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
+import { designControlBundle } from '../../state/displays/designControlBundle'
 import { resolveBoundWidgets, normalSketchSourceExpressions } from '../../codegen/displaySourceExpressions'
-import { OLED_CONTROLLERS, asOledAddress, oledRotationCommands, asOledRotation } from '../../state/oledSurface'
-import { displayHasTouch, partById } from '../../state/partCatalogue'
+import { OLED_CONTROLLERS, asOledAddress, oledRotationCommands, asOledRotation } from '../../state/displays/oledSurface'
+import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
 import { sanitizePin } from '../../codegen/hardwarePins'
-import { type TransportTouchAction, TRANSPORT_TOUCH_ACTION_TYPES, emittedTouchBounds } from '../../state/transportTouch'
-import { relayPinKeys } from '../../state/relayModule'
+import { type TransportTouchAction, TRANSPORT_TOUCH_ACTION_TYPES, emittedTouchBounds } from '../../state/displays/transportTouch'
+import { relayPinKeys } from '../../state/peripherals/relayModule'
 import {
   POWER_SWITCH_PIN_FALLBACKS, powerSwitchActiveHigh, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz,
-} from '../../state/powerSwitch'
+} from '../../state/peripherals/powerSwitch'
 import {
   type DimmedPowerSwitchChannel, powerSwitchPwmHelperCpp, powerSwitchPwmLoopCpp, powerSwitchPwmPlan, powerSwitchPwmSetupCpp,
 } from '../../codegen/powerSwitchCpp'
@@ -674,7 +674,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         brightnessExpr: null,
         patternPositionExpr: null,
         // The preview's settings: a contact is debounced, and pressButton
-        // marks a computed source to skip it (state/pressSource.ts).
+        // marks a computed source to skip it (state/player/pressSource.ts).
         settings: normalizeButtonEdgeSettings({}),
         volumeStep: 0.05,
         brightnessStep: 0.05,

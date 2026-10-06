@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
-import type { RenderIndicator } from '../../build/boardCapabilities'
+import type { RenderIndicator } from '../../build/boards/boardCapabilities'
 import {
   indicatorGlow,
   indicatorsFollowState,

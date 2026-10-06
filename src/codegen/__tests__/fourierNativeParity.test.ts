@@ -19,7 +19,7 @@ import { FOURIER_HELPER_CPP } from '../fourierHelperCpp'
 import { evalFourierEpicycles } from '../../nodes/shapes/evaluate'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
-import type { Frame } from '../../state/ledColor'
+import type { Frame } from '../../state/palettes/ledColor'
 
 const HAS_GPP = spawnSync('g++', ['--version']).status === 0
 

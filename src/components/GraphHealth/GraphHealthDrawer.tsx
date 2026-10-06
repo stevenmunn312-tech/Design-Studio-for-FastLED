@@ -12,7 +12,7 @@ import {
   useGraphStore,
   useRootNodes,
 } from '../../state/graphStore'
-import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
   buildGraphDiagnostics,

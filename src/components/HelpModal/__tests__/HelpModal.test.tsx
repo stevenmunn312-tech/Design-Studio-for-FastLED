@@ -3,7 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import HelpModal from '../HelpModal'
 import { useUiStore } from '../../../state/uiStore'
 import { useGraphStore } from '../../../state/graphStore'
-import { useAudioStore } from '../../../state/audioStore'
+import { useAudioStore } from '../../../state/audio/audioStore'
 
 const realStartAudio = useAudioStore.getState().startAudio
 const startAudio = vi.fn(async () => {})

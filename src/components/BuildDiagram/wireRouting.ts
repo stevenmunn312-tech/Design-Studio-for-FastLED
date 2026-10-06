@@ -1,6 +1,6 @@
 // Wire routes on the physical assembly diagram: controller lanes, the level
 // shifter corridors, and the control pads the modules wire to.
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
+import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import {
   type LevelShifterTerminalPoint,

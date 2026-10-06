@@ -268,7 +268,7 @@ verified; adding the UI alone is not completion.
     the browser from what needs hardware to deploy. Give music-player and SD-show
     starters especially clear prerequisites.
     Done 2026-09-26. Every starter carries a `guide` (`StarterGuide` in
-    `src/state/starterTemplates.ts`). It has three parts:
+    `src/state/patterns/starterTemplates.ts`). It has three parts:
     - A **level** chip: First patch, Easy, Intermediate or Advanced.
     - **In the browser**: what works with nothing plugged in.
     - **On a board**: the parts uploading needs, always led by the board and

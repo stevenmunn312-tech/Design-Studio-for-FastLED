@@ -1,4 +1,4 @@
-import { MAX_LED_RUN } from '../../state/ledOutputForm'
+import { MAX_LED_RUN } from '../../state/output/ledOutputForm'
 
 const DEFAULT_GRID_SIZE = 16
 

@@ -9,9 +9,9 @@ import {
   customDisplayLvglSetupCpp,
   type CustomDisplayLvglEmit,
 } from '../customDisplayLvglCpp'
-import { createDisplayDocument } from '../../state/displayEditor'
-import { defaultDisplayWidgetBounds, defaultDisplayWidgetProperties } from '../../state/displayRegistry'
-import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displayDocument'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import { defaultDisplayWidgetBounds, defaultDisplayWidgetProperties } from '../../state/displays/displayRegistry'
+import { DISPLAY_WIDGET_TYPES, type DisplayDocument, type DisplayWidget } from '../../state/displays/displayDocument'
 
 /**
  * Every Montserrat face the emitted screen references must be one the sketch

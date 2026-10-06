@@ -1,8 +1,8 @@
-import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/dmx'
-import { waveSample, combineWaves } from '../../state/wave'
+import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/peripherals/dmx'
+import { waveSample, combineWaves } from './wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
-import { denormRate, SPEED_MAX } from '../../state/speedRange'
+import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { instanceState } from '../../state/evaluator/memory'
 
 const counterVals = instanceState('counterVals', new Map<string, number>())

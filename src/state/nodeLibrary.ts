@@ -1,55 +1,55 @@
 import type { NodeDefinition } from '../types'
-import { STUDIO_PALETTES } from './paletteCatalog'
-import { evaluateScalarExpression } from './scalarExpression'
+import { STUDIO_PALETTES } from './palettes/paletteCatalog'
+import { evaluateScalarExpression } from '../nodes/shared/scalarExpression'
 import { MIC_DEFAULTS, MIC_MAX_GAIN } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
-import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from './boardGpio'
-import { EASE_TYPES } from './easing'
-import { DATE_TIME_TEXT_MODES } from './displayText'
-import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './segmentDisplay'
-import { partById } from './partCatalogue'
-import { SONG_INFO_PORTS } from './songInfo'
-import { playerControlActionPortsFor, playerControlInputs } from './playerControlAssignments'
-import { PATTERN_SLIDESHOW_ORDERS } from './patternSlideshow'
+import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
+import { EASE_TYPES } from '../nodes/math/easing'
+import { DATE_TIME_TEXT_MODES } from './displays/displayText'
+import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './displays/segmentDisplay'
+import { partById } from '../build/parts/partCatalogue'
+import { SONG_INFO_PORTS } from './player/songInfo'
+import { playerControlActionPortsFor, playerControlInputs } from './player/playerControlAssignments'
+import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
 import {
   OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, DEFAULT_OLED_I2C_ADDRESS,
   oledAddressLabel, oledControllerFor, oledTransportFor,
   type OledController, type OledTransport,
-} from './oledSurface'
+} from './displays/oledSurface'
 import {
   tftControllerFor, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_PIN_KEYS,
   type TftController,
-} from './tftSurface'
-import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from './ledOutputRuntime'
-import { IR_REMOTE_LEARN_HANDLE } from './irRemote'
-import { JUGGLE_COUNT } from './juggle'
-import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './masterSpeed'
-import { WIREFRAME_MODEL_OPTIONS } from './wireframeModel'
-import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './ledOutputForm'
-import { RENDER_SCALE_OPTIONS } from './renderScale'
-import { POSITION_PRESETS, STRIP_LAYOUTS, usesPositions } from './stringPositions'
-import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './pixelDataExtender'
-import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './powerConverter'
-import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './relayModule'
+} from './displays/tftSurface'
+import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from './output/ledOutputRuntime'
+import { IR_REMOTE_LEARN_HANDLE } from './peripherals/irRemote'
+import { JUGGLE_COUNT } from '../nodes/generative/juggle'
+import { MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
+import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
+import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
+import { RENDER_SCALE_OPTIONS } from './output/renderScale'
+import { POSITION_PRESETS, STRIP_LAYOUTS, usesPositions } from './output/stringPositions'
+import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
+import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from './peripherals/powerConverter'
+import { DEFAULT_RELAY_PART_ID, relayInputs, relayPinKeys } from './peripherals/relayModule'
 import {
   ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS,
   POWER_SWITCH_VARIANT_INPUTS, powerSwitchChannelPropertyEnabled, powerSwitchInputs, powerSwitchPropertyLabel,
-} from './powerSwitch'
-import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './presenceSensor'
-import { DEFAULT_TOUCH_BUTTON_PART_ID } from './touchButton'
-import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from './buzzer'
+} from './peripherals/powerSwitch'
+import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
+import { DEFAULT_TOUCH_BUTTON_PART_ID } from './peripherals/touchButton'
+import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from './peripherals/buzzer'
 import {
   DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys,
-} from './darlingtonDriver'
-import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './pdTrigger'
+} from './peripherals/darlingtonDriver'
+import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './peripherals/pdTrigger'
 import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddressOptions, pwmDriverInputs, pwmDriverSpec,
-} from './pwmDriver'
-import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './powerMonitor'
-import { STEP_VALUE_DEFAULTS } from './stepValue'
-import { SLICE_PRESET_NAMES } from './sliceTiling'
-import { HARMONY_KINDS } from './harmonyPalette'
-import { GRADIENT_MIX_MODES } from './hueMix'
+} from './peripherals/pwmDriver'
+import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorAddressOptions, powerMonitorSpec } from './peripherals/powerMonitor'
+import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
+import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
+import { HARMONY_KINDS } from './palettes/harmonyPalette'
+import { GRADIENT_MIX_MODES } from './palettes/hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
@@ -70,12 +70,12 @@ import {
   TURING_BASE_RADIUS_MAX, TURING_BASE_RADIUS_MIN, TURING_ITERATIONS_MAX, TURING_SCALES_MAX,
   TURING_SCALES_MIN, TURING_STEP_MAX, TURING_STEP_MIN,
 } from './evaluator/turing'
-import { REACTION_DIFFUSION_PRESETS, reactionDiffusionPreset } from './reactionDiffusionPresets'
-import { PALETTE_BANK_BLEND_DEFAULT, PALETTE_BANK_BLEND_MAX } from './paletteBank'
+import { REACTION_DIFFUSION_PRESETS, reactionDiffusionPreset } from '../nodes/simulations/reactionDiffusionPresets'
+import { PALETTE_BANK_BLEND_DEFAULT, PALETTE_BANK_BLEND_MAX } from './palettes/paletteBank'
 import {
   FOURIER_MAX_HARMONICS_MAX, FOURIER_MAX_HARMONICS_MIN, FOURIER_OUTLINES, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
-} from './fourierOutline'
+} from '../nodes/shapes/fourierOutline'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   BH1750_DEFAULT_ADDRESS,
@@ -83,21 +83,21 @@ import {
   formatLightSensorAddress,
   lightSensorAddressOptions,
   lightSensorTransport,
-} from './lightSensor'
+} from './peripherals/lightSensor'
 import {
   BME280_PART_ID,
   BME280_DEFAULT_ADDRESS,
   environmentAddressOptions,
   formatEnvironmentAddress,
-} from './environmentSensor'
-import { DS18B20_PART_ID } from './temperatureSensor'
+} from './peripherals/environmentSensor'
+import { DS18B20_PART_ID } from './peripherals/temperatureSensor'
 import {
   HCSR04_PART_ID, VL53L0X_PART_ID, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport, formatDistanceSensorAddress,
-} from './distanceSensor'
-import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './joystick'
-import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from './keypad'
-import { MPR121_PART_ID, formatTouchPadAddress, touchPadAddressOptions, touchPadSpec } from './touchPad'
-import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddressOptions, motionVectorSpec } from './motionVector'
+} from './peripherals/distanceSensor'
+import { KY023_PART_ID, JOYSTICK_DEFAULT_DEADZONE } from './peripherals/joystick'
+import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from './peripherals/keypad'
+import { MPR121_PART_ID, formatTouchPadAddress, touchPadAddressOptions, touchPadSpec } from './peripherals/touchPad'
+import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddressOptions, motionVectorSpec } from './peripherals/motionVector'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
   {
@@ -618,7 +618,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // custom mesh) drawn over an optional base frame. Vertices are normalised
     // to a unit sphere and auto-scaled to fit the matrix before projecting, so
     // any model reads at a sensible size by default. See
-    // src/state/wireframeModel.ts for the shared rotate/project math — kept
+    // src/nodes/shapes/wireframeModel.ts for the shared rotate/project math — kept
     // in lockstep with the Wireframe3D case in cppGenerator.ts.
     type: 'Wireframe3D',
     label: '3D Wireframe',
@@ -3790,7 +3790,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       { id: 'frame',  label: 'Frame',   dataType: 'frame' },
       // Blackout and dimming as wires, so a button and a knob on the bench
       // reach the fixture in a build with no Music Player in it. Unwired means
-      // whatever the two fields below say — see state/ledOutputRuntime.ts.
+      // whatever the two fields below say — see state/output/ledOutputRuntime.ts.
       ...LED_OUTPUT_RUNTIME_PORTS,
       ...LED_OUTPUT_ACTION_PORTS,
     ],
@@ -3808,7 +3808,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     outputs: [{ id: 'display', label: 'Display', dataType: 'display' }],
     defaultProperties: {
       // What this output physically is — string / matrix / ring / corkscrew /
-      // HUB75 panel (src/state/ledOutputForm.ts). The hardware view offers each
+      // HUB75 panel (src/state/output/ledOutputForm.ts). The hardware view offers each
       // as its own entry. The form is
       // what decides which of the properties below apply at all.
       form: 'matrix',
@@ -3853,7 +3853,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // grid forms: a single chain has no alternate rows to zig.
       serpentine: true,
       // Physical wiring order *within* the matrix and HUB75 forms
-      // (src/state/xyLayout.ts): 'matrix' keeps the plain row-major (or
+      // (src/state/output/xyLayout.ts): 'matrix' keeps the plain row-major (or
       // pixel-serpentine) behaviour above; 'panels' splits the grid into
       // tilesX×tilesY equal panels, each independently rotatable and chained in
       // row or serpentine panel order; 'custom' takes an explicit JSON
@@ -3873,7 +3873,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // (row-major) -> physical LED index. Only used when layout is 'custom'.
       customXYMap: '',
       // String form only. 'line' is a straight run of tape; 'positions' places
-      // each LED at its own (x, y) on a canvas (src/state/stringPositions.ts).
+      // each LED at its own (x, y) on a canvas (src/state/output/stringPositions.ts).
       stripLayout: 'line',
       // 'catenary' is the Sailboat preset; 'custom' reads `positions`.
       positionsPreset: 'catenary',
@@ -3912,7 +3912,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       // a single shared default set (no per-board defaults yet) has to actually
       // work on all three — computed as the exact intersection of each board's
       // valid, output-capable GPIOs (ESP32_GPIO/ESP32_S2_GPIO/ESP32_S3_GPIO in
-      // src/state/boardGpio.ts): exactly 14 pins exist in that intersection, one
+      // src/build/boards/boardGpio.ts): exactly 14 pins exist in that intersection, one
       // per HUB75 signal with none to spare. GPIO0 (needed to fill that count)
       // is a boot-strapping pin on all three chips — assigned to CLK, a
       // continuously-toggling line rather than a level-held control line, to
@@ -4367,7 +4367,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // DC-only: each channel switches its load's negative lead, and the
     // load-side limits come from the catalogued module. Level dims a channel
     // with PWM on a module that can be dimmed; at 1 and unwired it is a plain
-    // switch (state/powerSwitch.ts has the rule both implementations share).
+    // switch (state/peripherals/powerSwitch.ts has the rule both implementations share).
     // The selected board decides how many On/Level pairs there are, as it
     // does for a relay; `inputs` are the default one-channel board's.
     type: 'PowerSwitchOutput',
@@ -4566,7 +4566,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
      * Unlike the LED output's blackout and dimming, the property is real and
      * used: this node is visible on the canvas, so a slider set to 0.5 with
      * nothing wired is a setting the user can see, not a hidden second dimmer.
-     * See state/masterSpeed.ts.
+     * See state/player/masterSpeed.ts.
      */
     type: 'MasterSpeed',
     label: 'Master Speed',
@@ -4762,7 +4762,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
       sdMosiPin:   11,
       // Audio output is no longer asked here. Adding an Amplifier part *is* the
       // statement that this build uses I2S, and a classic ESP32 with no amp
-      // falls back to its built-in DAC — see state/audioOutput.ts. Volume moved
+      // falls back to its built-in DAC — see state/audio/audioOutput.ts. Volume moved
       // to the amplifier with it: where the music is stored and how loudly it
       // comes out are different questions about different parts.
     },
@@ -4803,7 +4803,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // separate role — a PCM5102A feeding a DX-0809 is two parts on one bench,
     // and only the first is on the board's pins. It claims no GPIO when a DAC
     // feeds it, and the classic ESP32's GPIO25/26 when nothing else does; see
-    // state/audioOutput.ts for how the feed is resolved.
+    // state/audio/audioOutput.ts for how the feed is resolved.
     //
     // Config only, like Amplifier: no ports, no evaluation.
     type: 'PowerAmplifier',
@@ -4823,7 +4823,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
     // Wired Ethernet for the sketch's network. It carries no signal: Art-Net
     // receive and NTP time sync keep their own settings and simply reach the
     // network through this module instead of Wi-Fi when it is on the bench.
-    // See state/ethernetModule.ts.
+    // See state/peripherals/ethernetModule.ts.
     //
     // Config only, like SD Card: no ports, no evaluation, found by scanning.
     type: 'EthernetModule',
@@ -4849,7 +4849,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // A DC-DC converter from a higher-voltage source to 5 V. It carries no
     // signal: the Build Diagram reads the selected part's role to power either
-    // the controller or the LED rail. See state/powerConverter.ts.
+    // the controller or the LED rail. See state/peripherals/powerConverter.ts.
     //
     // Config only, like SD Card: no ports, no evaluation, found by scanning.
     type: 'PowerConverter',
@@ -4865,7 +4865,7 @@ export const NODE_LIBRARY: NodeDefinition[] = [
   {
     // A USB-C PD trigger: the upstream DC source. It carries no signal; the
     // electrical plan reads the voltage it requests and checks it against the
-    // converter it feeds. Config only, like the converter. See state/pdTrigger.ts.
+    // converter it feeds. Config only, like the converter. See state/peripherals/pdTrigger.ts.
     type: 'PdTriggerSource',
     label: 'USB-C PD Trigger',
     category: 'input',
@@ -5311,7 +5311,7 @@ export const CHIPSET_OPTIONS = [
  * The chipsets the dropdown offers — every addressable part, and not HUB75.
  *
  * HUB75 is a `form`, not a wire protocol you might pick for a strip
- * (src/state/ledOutputForm.ts): choosing the HUB75 panel form is what makes an
+ * (src/state/output/ledOutputForm.ts): choosing the HUB75 panel form is what makes an
  * output a scan panel, and the chipset editor is disabled there. Sanitisation
  * still runs against the full `CHIPSET_OPTIONS` because generated HUB75 paths
  * persist that implied driver value alongside the explicit form.
@@ -5364,7 +5364,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   displayMode:   { control: 'select', options: ['Digital HH:MM', 'Digital HH:MM:SS', 'Digital 12H', 'Digital + Date', 'Analog', 'Analog + Date', 'Stopwatch', 'Timer'] },
   scrollAxis:    { control: 'select', options: ['horizontal', 'vertical'] },
   // Format Number / Format Date-Time authoring controls. The numeric bounds
-  // match normalizeNumberFormat in state/displayText.ts, which clamps to the
+  // match normalizeNumberFormat in state/displays/displayText.ts, which clamps to the
   // same range for values that arrive from an import rather than the editor.
   dateTimeFormat:   { control: 'select', options: DATE_TIME_TEXT_MODES },
   decimals:         { control: 'slider', min: 0, max: 4, step: 1 },

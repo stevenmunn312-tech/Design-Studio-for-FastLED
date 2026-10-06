@@ -3,7 +3,7 @@
 // generators use the same resolver for validation and emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibrary'
-import { compositionDims } from '../state/outputRouting'
+import { compositionDims } from '../state/output/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
 import { irRemoteProjectEmission, type IrRemoteProjectNode } from './irRemoteCpp'
 import { displayTextCppHelpers } from './displayTextCpp'

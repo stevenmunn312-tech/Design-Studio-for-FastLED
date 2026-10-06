@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../hardware'
+import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
-import { EASE_TYPES } from '../easing'
-import { PLAYER_CONTROL_FUNCTIONS, playerControlActionPortsFor } from '../playerControlAssignments'
+import { EASE_TYPES } from '../../nodes/math/easing'
+import { PLAYER_CONTROL_FUNCTIONS, playerControlActionPortsFor } from '../player/playerControlAssignments'
 
 describe('nodeLibrary', () => {
   it('defines dedicated semantic Music Player control and particle bundles', () => {

@@ -19,7 +19,7 @@ the [pattern node expansion](../plans/pattern-node-expansion.md).
   channel is a property input; a wired `color` wins over the channels.
 - `outline` is `circle`, `heart`, `lissajous`, `rose`, `star`, `square`,
   `infinity` or `custom`. The first four are Path's curves, from the shared
-  `src/state/pathShapes.ts`. The list is append-only.
+  `src/nodes/shapes/pathShapes.ts`. The list is append-only.
 - `customPoints` is text: x,y pairs from −1 to 1, separated by commas, spaces
   or semicolons, 3 to 128 points, joined into a closed outline. Anything else
   (a non-number, an odd count, too few or too many points, or points with no
@@ -41,7 +41,7 @@ the [pattern node expansion](../plans/pattern-node-expansion.md).
 
 ## Outlines and the transform
 
-`src/state/fourierOutline.ts` samples every outline at 128 points. Curves are
+`src/nodes/shapes/fourierOutline.ts` samples every outline at 128 points. Curves are
 sampled evenly in their parameter, polygons evenly by length. Built-in
 outlines are centred on their bounding box and scaled to fill −1..1; a custom
 outline keeps the author's coordinates.

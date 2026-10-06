@@ -6,12 +6,12 @@
 // once dialled in for a given rig.
 
 import { create } from 'zustand'
-import { micPinDefaultsForSelectedBoard } from './micPinDefaults'
-import { useUploadStore } from './uploadStore'
-import { profileI2cDefault } from '../build/boardI2cDefaults'
-import { boardOffersPins } from './boardPinPolicy'
-import { sdSpiPinsForBoard } from './sdPinDefaults'
-import type { PhysicalBoardProfile } from '../build/boardProfiles'
+import { micPinDefaultsForSelectedBoard } from '../build/pins/micPinDefaults'
+import { useUploadStore } from './upload/uploadStore'
+import { profileI2cDefault } from '../build/boards/boardI2cDefaults'
+import { boardOffersPins } from '../build/boards/boardPinPolicy'
+import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
+import type { PhysicalBoardProfile } from '../build/boards/boardProfiles'
 
 const KEY = 'design-studio-for-fastled.node-defaults.v1'
 const MIC_KEY = 'design-studio-for-fastled.mic-defaults-by-board.v1'

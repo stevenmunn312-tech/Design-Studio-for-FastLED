@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { generateCpp } from '../cppGenerator'
-import { customDisplayMountPlan } from '../../state/mountedDisplays'
-import { createDisplayDocument } from '../../state/displayEditor'
-import { addDisplayWidget, updateDisplayWidget } from '../../state/displayEditor'
-import type { DisplayDocumentRegistry } from '../../state/displayDocument'
+import { customDisplayMountPlan } from '../../state/displays/mountedDisplays'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import { addDisplayWidget, updateDisplayWidget } from '../../state/displays/displayEditor'
+import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, ports: { inputs?: unknown[]; outputs?: unknown[] } = {}): StudioNode {

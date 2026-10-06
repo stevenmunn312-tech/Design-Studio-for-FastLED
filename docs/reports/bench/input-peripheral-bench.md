@@ -78,7 +78,7 @@ the full ADC range and needs no calibration on this bench.
 ### What this settles
 
 - GPIO2 is usable as an analog input on the ESP32-S3, confirming the
-  `ESP32_S3_ANALOG` range in `src/state/boardGpio.ts` on real silicon. The
+  `ESP32_S3_ANALOG` range in `src/build/boards/boardGpio.ts` on real silicon. The
   ADC2/Wi-Fi caveat attaches to GPIO11–20 and does not apply here.
 - The KS6026 pin order recorded in the part catalogue (`S`, `VCC`, `GND`, left
   to right) matches the physical module.
@@ -109,7 +109,7 @@ the fixture will actually live in.
 **Resolve the serial route from the port, never by assumption.** An ESP32-S3
 exposes both a native USB-Serial/JTAG socket and a UART bridge, and `Serial`
 reaches exactly one. This bench is on a CH343 bridge, so `usbCdcOnBoot` is
-false. `inferSerialRoute` in `src/state/serialRouting.ts` derives this from the
+false. `inferSerialRoute` in `src/state/upload/serialRouting.ts` derives this from the
 port's USB VID; guessing it wrong yields a blank monitor with nothing actually
 broken.
 

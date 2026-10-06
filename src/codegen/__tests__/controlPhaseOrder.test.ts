@@ -8,7 +8,7 @@
  * beside one generator says nothing about the other two, and a list of
  * expected strings has to be edited every time an emitter is reworded.
  *
- * `src/state/controlPhases.ts` states the order once. This asserts it over
+ * `src/state/player/controlPhases.ts` states the order once. This asserts it over
  * what each generator actually emits, so a phase moved in any of them fails
  * here rather than on a bench, and a new generator joins the check by
  * emitting the same anchors.
@@ -23,9 +23,9 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
-import { createDisplayDocument, addDisplayWidget } from '../../state/displayEditor'
-import type { DisplayDocument } from '../../state/displayDocument'
-import { CONTROL_PHASES, controlPhaseSpans, controlPhaseViolation } from '../../state/controlPhases'
+import { createDisplayDocument, addDisplayWidget } from '../../state/displays/displayEditor'
+import type { DisplayDocument } from '../../state/displays/displayDocument'
+import { CONTROL_PHASES, controlPhaseSpans, controlPhaseViolation } from '../../state/player/controlPhases'
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { buildShowPlayer } from '../../utils/showUpload'

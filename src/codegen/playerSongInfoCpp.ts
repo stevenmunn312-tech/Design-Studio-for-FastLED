@@ -12,7 +12,7 @@
 // and a missing one stays that way rather than showing a stale value from the
 // previous track.
 
-import { SONG_TAG_FIELDS } from '../state/songInfo'
+import { SONG_TAG_FIELDS } from '../state/player/songInfo'
 
 /** Bytes each tag field is stored in. A display row holds far less than this. */
 export const SONG_FIELD_BYTES = 64

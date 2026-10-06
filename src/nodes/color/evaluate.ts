@@ -3,8 +3,8 @@ import {
   normalizeButtonEdgeSettings,
   blankButtonEdgeState,
   buttonEdge,
-} from '../../state/transportBridge'
-import { pressEdgeSettings } from '../../state/pressSource'
+} from '../../state/player/transportBridge'
+import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
   paletteBankEntries,
   clampPaletteBankIndex,
@@ -15,14 +15,14 @@ import {
   paletteBankBlendTicks,
   paletteBankTable,
   nblendPaletteBytes,
-} from '../../state/paletteBank'
-import { displayString } from '../../state/displayText'
-import { gradientMixMode, mixGradientColors } from '../../state/hueMix'
-import { harmonyKind, harmonyStops16 } from '../../state/harmonyPalette'
-import { imagePaletteStops16 } from '../../state/imagePalette'
-import { hexToRgb, polinePalette } from '../../state/polinePalette'
-import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/customPalette'
-import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/ledColor'
+} from '../../state/palettes/paletteBank'
+import { displayString } from '../../state/displays/displayText'
+import { gradientMixMode, mixGradientColors } from '../../state/palettes/hueMix'
+import { harmonyKind, harmonyStops16 } from '../../state/palettes/harmonyPalette'
+import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
+import { hexToRgb, polinePalette } from '../../state/palettes/polinePalette'
+import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/palettes/customPalette'
+import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/palettes/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'

@@ -8,18 +8,18 @@
 // get there.
 //
 // Both halves are shared rather than restated. The debounce, repeat delay and
-// repeat interval come from `state/transportBridge.ts`, the same numbers the
+// repeat interval come from `state/player/transportBridge.ts`, the same numbers the
 // evaluator runs, so a press means one thing in the preview and on the bench.
 // What an LED output then does with the bundle lives in
-// `state/ledOutputRuntime.ts` and is mirrored by `ledOutputLatchCpp` below.
+// `state/output/ledOutputRuntime.ts` and is mirrored by `ledOutputLatchCpp` below.
 //
 // Every struct here carries its state in member functions rather than in free
 // functions taking it by reference, which sidesteps the Arduino prototype
 // hoist entirely — see codegen/infoDisplayCpp.ts for what that costs when it
 // is not sidestepped.
 
-import { type ButtonEdgeSettings } from '../state/transportBridge'
-import { ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS } from '../state/patternSelection'
+import { type ButtonEdgeSettings } from '../state/player/transportBridge'
+import { ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS } from '../state/patterns/patternSelection'
 
 /** Adjustment buttons repeat; transport and blackout fire once per press. */
 export const PLAYER_CONTROL_BUTTONS: ReadonlyArray<readonly [string, boolean]> = [
@@ -38,7 +38,7 @@ export interface PlayerControlButtonEmit {
   /** Adjustment buttons repeat on a hold; one-shot actions do not. */
   repeat: boolean
   /**
-   * False for a computed source (state/pressSource.ts): it cannot bounce, and
+   * False for a computed source (state/player/pressSource.ts): it cannot bounce, and
    * its one-frame pulse is the whole press, so it takes no debounce window.
    */
   debounce?: boolean
@@ -46,7 +46,7 @@ export interface PlayerControlButtonEmit {
    * `press` (the default) is the debounced rising edge of a contact. `tap`
    * fires once each time an integer gesture count moves: a screen Toggle's
    * value also follows its Set feedback, so only the count says a finger did
-   * it. See state/designControlBundle.ts.
+   * it. See state/displays/designControlBundle.ts.
    */
   edge?: 'press' | 'tap'
 }
@@ -105,7 +105,7 @@ struct PlayerControlsValue {
   bool  hasSpeed = false;    float speed = 1.0f;
 };
 
-// Mirrors buttonEdge() in state/transportBridge.ts. A press is the debounced
+// Mirrors buttonEdge() in state/player/transportBridge.ts. A press is the debounced
 // rising edge; a hold repeats only after a deliberate delay, so a fast tap
 // cannot register twice and a held adjustment button ramps rather than crawls.
 struct CtlEdge {
@@ -141,7 +141,7 @@ struct CtlTap {
 };
 
 // Raw quadrature counts into whole detents, matching encoderSteps() in
-// state/patternSelection.ts: four counts per click, and the first reading is
+// state/patterns/patternSelection.ts: four counts per click, and the first reading is
 // never a step, because an encoder parked at 37 when the board boots has not
 // asked for anything. The numbers are read from that module rather than from
 // PATTERN_SELECTION_CPP's macros, which are emitted only when a browser or a
@@ -260,7 +260,7 @@ export function ledOutputLatchGlobalCpp(id: string): string {
 /**
  * Fold one frame's bundle into an output's latch.
  *
- * The firmware mirror of `applyLedControls` in `state/ledOutputRuntime.ts`,
+ * The firmware mirror of `applyLedControls` in `state/output/ledOutputRuntime.ts`,
  * in the same order for the same reason: absolute first so a wired knob sets
  * the level, then the delta so up/down buttons nudge it, rather than the knob
  * silently undoing every press on the next frame.

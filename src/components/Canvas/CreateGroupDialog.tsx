@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { useGraphStore } from '../../state/graphStore'
 import PatternTagChips from '../PatternTags/PatternTagChips'
-import type { PatternFormTag } from '../../state/patternTags'
+import type { PatternFormTag } from '../../state/patterns/patternTags'
 import styles from './CreateGroupDialog.module.css'
 
 interface PaletteCandidate {

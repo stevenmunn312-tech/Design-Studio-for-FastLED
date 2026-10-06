@@ -7,7 +7,7 @@
  */
 import { create } from 'zustand'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from './graphStore'
-import { useUploadStore } from './uploadStore'
+import { useUploadStore } from './upload/uploadStore'
 import {
   appearanceFingerprint,
   projectHasContent,

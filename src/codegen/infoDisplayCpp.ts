@@ -1,4 +1,4 @@
-import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor'
+import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/peripherals/powerMonitor'
 // SH1106 / SSD1306 driver and layout rendering, emitted into the sketch.
 //
 // Written inline for the same reason the TM1637 driver is: a page-addressed
@@ -7,23 +7,23 @@ import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../state/powerMonitor
 // pin, nothing to fail without a network.
 //
 // The geometry constants and the glyph table are generated from
-// state/infoDisplay.ts and state/font.ts rather than restated here. A margin
+// state/displays/infoDisplay.ts and nodes/shared/font.ts rather than restated here. A margin
 // typed twice is a margin that disagrees, and the whole point of the shared
 // layout module is that the panel matches its preview.
 
-import { DEFAULT_FONT, FONT_H, FONT_W } from '../state/font'
+import { DEFAULT_FONT, FONT_H, FONT_W } from '../nodes/shared/font'
 import {
   INFO_BOOT_STAGE_MIN_MS, INFO_BOOT_TITLE, bootStatusGeometry,
   powerMonitorGeometry, browserGeometry, clockGeometry, ledStatusGeometry, nowPlayingGeometry, waitingGeometry,
   type InfoDisplayLayout,
-} from '../state/infoDisplay'
-import { ledStatusCountText } from '../state/ledOutputRuntime'
-import { DISPLAY_WAITING_TEXT } from '../state/displaySignal'
+} from '../state/displays/infoDisplay'
+import { ledStatusCountText } from '../state/output/ledOutputRuntime'
+import { DISPLAY_WAITING_TEXT } from '../state/displays/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
   type OledController, type OledTransport,
-} from '../state/oledSurface'
-import { cppStringLiteral } from '../state/displayText'
+} from '../state/displays/oledSurface'
+import { cppStringLiteral } from '../state/displays/displayText'
 
 /**
  * The shared bitmap font as a flat column table.
@@ -113,7 +113,7 @@ export const OLED_PANEL_RAM_BYTES =
 export function infoDisplayHelpersCpp(): string {
   const font = fontTableCpp()
   return `// ── 1-bit OLED (SH1106 / SSD1306) ───────────────────────────────────────────
-// Mirrors src/state/oledSurface.ts and src/state/infoDisplay.ts so the panel
+// Mirrors src/state/displays/oledSurface.ts and src/state/displays/infoDisplay.ts so the panel
 // draws what the preview drew.
 // A ceiling for the shared buffer, not the panel: each OledPanel carries its
 // own w/h/pages, so a smaller module addresses and flushes only its own glass.
@@ -133,7 +133,7 @@ static const uint8_t _oledFont[${font.count} * OLED_FONT_W] = { ${font.table} };
 
 // Which wires carry the bytes. The layout, the page addressing and the column
 // offset above are identical either way — mirroring the split in
-// src/state/oledSurface.ts, where the surface knows nothing about the bus.
+// src/state/displays/oledSurface.ts, where the surface knows nothing about the bus.
 #define OLED_SPI 0
 #define OLED_I2C 1
 #define OLED_SH1106  0

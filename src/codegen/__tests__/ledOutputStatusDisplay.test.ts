@@ -21,7 +21,7 @@ import { generateCpp } from '../cppGenerator'
 import { evaluateGraphFull } from '../../state/graphEvaluator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { findDisplayGeneratorIssues } from '../../utils/validateGraph'
-import { isDisplaySignal } from '../../state/displaySignal'
+import { isDisplaySignal } from '../../state/displays/displaySignal'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, label?: string): StudioNode {

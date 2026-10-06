@@ -643,7 +643,7 @@ def main() -> int:
         "// Produced by scripts/assets/import-board-assets.py from the Blender board assets.\n"
         "// Merged into BOARD_PROFILES by boardProfiles.ts; hand-authored pin maps win.\n"
         "\n"
-        "import type { BoardCapabilityData, GeneratedBoardProfile } from '../boardCapabilities'\n"
+        "import type { BoardCapabilityData, GeneratedBoardProfile } from '../boards/boardCapabilities'\n"
         "\n"
         "export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {\n"
         f"{rows}\n"

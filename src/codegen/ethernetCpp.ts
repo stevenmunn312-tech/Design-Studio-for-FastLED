@@ -6,7 +6,7 @@
  * `_netConnected()` and never ask which link answers them. Arduino-ESP32 3.x
  * routes `WiFiUDP` sockets and SNTP over whichever interface is up, so those
  * two emitters need no Ethernet-specific code at all; only this bootstrap
- * changes. See state/ethernetModule.ts for which chips it builds for.
+ * changes. See state/peripherals/ethernetModule.ts for which chips it builds for.
  */
 
 export interface EthernetEmit {

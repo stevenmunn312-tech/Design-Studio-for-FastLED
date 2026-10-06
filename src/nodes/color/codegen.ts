@@ -1,15 +1,15 @@
-import { asAnimatedImage, asImage } from '../../state/image'
-import { imagePaletteStops16 } from '../../state/imagePalette'
-import { gradientMixMode } from '../../state/hueMix'
-import { HARMONY_OFFSETS, harmonyKind } from '../../state/harmonyPalette'
-import { hexToRgb, polineStops16 } from '../../state/polinePalette'
-import { normalizeButtonEdgeSettings } from '../../state/transportBridge'
-import { pressEdgeSettings } from '../../state/pressSource'
+import { asAnimatedImage, asImage } from '../shared/image'
+import { imagePaletteStops16 } from '../../state/palettes/imagePalette'
+import { gradientMixMode } from '../../state/palettes/hueMix'
+import { HARMONY_OFFSETS, harmonyKind } from '../../state/palettes/harmonyPalette'
+import { hexToRgb, polineStops16 } from '../../state/palettes/polinePalette'
+import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
+import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
   paletteBankEntries, PALETTE_BANK_FALLBACK, paletteBankLabel, paletteBankBlend,
   PALETTE_BANK_BLEND_TICK_MS, PALETTE_BANK_BLEND_MAX_TICKS,
-} from '../../state/paletteBank'
-import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/customPalette'
+} from '../../state/palettes/paletteBank'
+import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/palettes/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
 
@@ -175,7 +175,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     }
     const edge = normalizeButtonEdgeSettings(p)
     // A computed source's one-frame pulse is taken whole; only a contact is
-    // debounced (state/pressSource.ts), as in the preview.
+    // debounced (state/player/pressSource.ts), as in the preview.
     const debounce = (port: string) => {
       const wire = incoming.get(`${node.id}:${port}`)
       return pressEdgeSettings(edge, wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined).debounceMs
@@ -185,7 +185,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  static const char* const _pbName_${id}[] = {${entries.map((entry) => cppStringLiteral(paletteBankLabel(entry))).join(', ')}};`)
     ln(`  static uint8_t _pbIdx_${id} = 0;`)
     // Two buttons, one debounce rule, the numbers read from
-    // state/transportBridge.ts so a press means here what it means in the
+    // state/player/transportBridge.ts so a press means here what it means in the
     // preview. Held together they cancel, as they do there.
     ln(`  { static bool _raw[2] = {false, false}, _stable[2] = {false, false};`)
     ln(`    static uint32_t _changed[2] = {0, 0}, _repeatAt[2] = {0, 0};`)
@@ -208,7 +208,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     } else {
       // A working palette eased toward the selection by FastLED's own
       // nblendPaletteTowardPalette on a 10 ms clock, as the preview's twin
-      // in state/paletteBank.ts does; it starts settled on the first palette.
+      // in state/palettes/paletteBank.ts does; it starts settled on the first palette.
       ln(`  static CRGBPalette16 _pbCur_${id}; static uint32_t _pbT_${id} = 0; static bool _pbInit_${id} = false;`)
       ln(`  { CRGBPalette16 _target = *_pbPal_${id}[_pbIdx_${id}]; uint32_t _now = millis();`)
       ln(`    if (!_pbInit_${id}) { _pbCur_${id} = _target; _pbT_${id} = _now; _pbInit_${id} = true; }`)

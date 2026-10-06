@@ -19,8 +19,8 @@
 
 import {
   THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, type PatternThumbnail,
-} from '../state/patternThumbnail'
-import { cppStringLiteral, displayString, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
+} from '../state/patterns/patternThumbnail'
+import { cppStringLiteral, displayString, DISPLAY_TEXT_BUFFER_BYTES } from '../state/displays/displayText'
 
 /** Identifier-safe stem so several collections cannot collide in one sketch. */
 function stem(id: string): string {
@@ -110,7 +110,7 @@ export function patternThumbnailTableCpp(id: string, thumbnails: readonly Patter
 
   return `// ── Pattern thumbnails (${s}) ───────────────────────────────────────────────
 // Baked in the browser at export and blitted verbatim; see
-// state/patternThumbnail.ts for why the dither does not live on this side.
+// state/patterns/patternThumbnail.ts for why the dither does not live on this side.
 #define THUMB_W_${s}      ${THUMBNAIL_W}
 #define THUMB_H_${s}      ${THUMBNAIL_H}
 #define THUMB_BYTES_${s}  ${THUMBNAIL_BYTES}

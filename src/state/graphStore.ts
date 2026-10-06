@@ -16,25 +16,25 @@ import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
 import { controllableInputsFor, exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
 import { orderPorts } from '../utils/portOrder'
-import { templateControlPlan, type TemplateControlPlan } from './templateControlPlan'
+import { templateControlPlan, type TemplateControlPlan } from './displays/templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
-import type { SavedPattern } from './patternLibrary'
-import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patternTrust'
-import { useNetworkCredentialsStore } from './networkCredentials'
-import { retargetedMicPins } from './micPinDefaults'
-import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from './pinRetarget'
+import type { SavedPattern } from './patterns/patternLibrary'
+import { isContentKnown, rememberContent, savedPatternUntrustsWorkspace } from './patterns/patternTrust'
+import { useNetworkCredentialsStore } from './peripherals/networkCredentials'
+import { retargetedMicPins } from '../build/pins/micPinDefaults'
+import { retargetDefaultI2c, retargetHardwarePins as retargetHardwarePinsFor } from '../build/pins/pinRetarget'
 import { useNodeDefaults } from './nodeDefaults'
 import { useUiStore, visibleLiveTouchScreen } from './uiStore'
-import { validateMatrixLayout } from './xyLayout'
-import { isLinearForm, outputCanvasDims, outputForm } from './ledOutputForm'
+import { validateMatrixLayout } from './output/xyLayout'
+import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
-import { boardProfileById, resolveBoardSelection, selectedPhysicalBoardProfile } from '../build/boardProfiles'
-import { profileI2cDefault } from '../build/boardI2cDefaults'
+import { boardProfileById, resolveBoardSelection, selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
+import { profileI2cDefault } from '../build/boards/boardI2cDefaults'
 import {
   CUSTOM_BOARD_PROFILE_ID, customBoardIssueBlocksApply, type CustomBoardDefinition, type CustomBoardIssue,
-} from './customBoard'
-import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from './hardware'
-import { DEFAULT_BOARD_CONTROLLER_PROPERTIES } from './controllerSettings'
+} from '../build/boards/customBoard'
+import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from '../build/hardware'
+import { DEFAULT_BOARD_CONTROLLER_PROPERTIES } from '../build/controllerSettings'
 import {
   type PerformanceDeckConfig,
   type PinnedControl,
@@ -44,8 +44,8 @@ import {
   blankDeckConfig,
   normalizeDeckConfig,
   deriveControlShape,
-} from './performanceDeck'
-import { restoreMusicLibrary, type PersistedMusicEntry } from './musicLibraryPersistence'
+} from './player/performanceDeck'
+import { restoreMusicLibrary, type PersistedMusicEntry } from './player/musicLibraryPersistence'
 import {
   isPlacedWidget,
   normalizeDisplayDocument,
@@ -53,7 +53,7 @@ import {
   type DisplayDocument,
   type DisplayDocumentRegistry,
   type PlacedDisplayWidget,
-} from './displayDocument'
+} from './displays/displayDocument'
 import {
   displayDocumentInputPorts,
   displayDocumentPorts,
@@ -64,9 +64,9 @@ import {
   TOUCH_CONTROL_ADD_DATA_TYPE,
   TOUCH_CONTROL_ADD_HANDLE,
   TOUCH_CONTROL_ADD_LABEL,
-} from './displayRegistry'
+} from './displays/displayRegistry'
 import { gpioRequirementForProperty, libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nodeLibrary'
-import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } from './displayEditor'
+import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } from './displays/displayEditor'
 import {
   adoptedControlRange,
   displayControlIsUnconfigured,
@@ -77,18 +77,18 @@ import {
   writeTouchControlValue,
   type TouchControlRefusal,
   type TouchControlSpec,
-} from './wireFirstControls'
-import { mountedPanelGeometry } from './mountedDisplays'
-import { useDisplayRuntimeStore } from './displayRuntimeStore'
-import { useUploadStore } from './uploadStore'
-import { assignPartPins } from './partPinAssignment'
+} from './player/wireFirstControls'
+import { mountedPanelGeometry } from './displays/mountedDisplays'
+import { useDisplayRuntimeStore } from './displays/displayRuntimeStore'
+import { useUploadStore } from './upload/uploadStore'
+import { assignPartPins } from '../build/parts/partPinAssignment'
 import {
   BUTTON_BANK_ADD_HANDLE,
   buttonBankHandle,
   buttonBankOutputs,
   nextButtonBankEntryId,
   normalizeButtonBankEntries,
-} from './buttonBank'
+} from './player/buttonBank'
 import {
   addIrRemoteButton as appendIrRemoteButton,
   irRemoteButtonHandle,
@@ -99,25 +99,25 @@ import {
   normalizeIrRemoteButtons,
   updateIrRemoteButton as patchIrRemoteButton,
   type IrRemoteButton,
-} from './irRemote'
+} from './peripherals/irRemote'
 import {
   PLAYER_CONTROL_ADD_HANDLE, normalizePlayerControlIds, playerControlFunction,
   playerControlIdsFromEdges, playerControlInputs,
   withPlayerControlAssignment, withoutPlayerControlAssignment,
-} from './playerControlAssignments'
-import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './stereoVuSizing'
+} from './player/playerControlAssignments'
+import { syncAutomaticStereoVuLedCounts, VU_LED_COUNT_CUSTOM_KEY } from './audio/stereoVuSizing'
 import {
   INTEGRATED_BOARD_PROFILE_KEY,
   integratedTouchDisplayForBoard,
   matchesIntegratedTouchDisplay,
-} from './integratedBoardHardware'
-import { displayHasTouch } from './partCatalogue'
-import { DISPLAY_SOURCE_NODE_TYPES } from './displaySignal'
-import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transportLayoutForKind } from './transportDisplay'
-import { designControlBundle } from './designControlBundle'
-import { asTftRotation } from './tftSurface'
-import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './transportTouch'
-import { partDerivedInputs } from './partPorts'
+} from '../build/boards/integratedBoardHardware'
+import { displayHasTouch } from '../build/parts/partCatalogue'
+import { DISPLAY_SOURCE_NODE_TYPES } from './displays/displaySignal'
+import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transportLayoutForKind } from './displays/transportDisplay'
+import { designControlBundle } from './displays/designControlBundle'
+import { asTftRotation } from './displays/tftSurface'
+import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
+import { partDerivedInputs } from '../build/parts/partPorts'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -3550,7 +3550,7 @@ let matrixTileLayoutCache: { tilesX: number; tilesY: number } | null = null
  *  live preview can skip drawing panel-boundary gridlines otherwise. Memoised
  *  like `matrixDims`. Physical wiring order (tile rotation/chain direction,
  *  a custom XY map) has no effect on the rendered content, so it's not
- *  reflected here — see src/state/xyLayout.ts. */
+ *  reflected here — see src/state/output/xyLayout.ts. */
 export function matrixTileLayout(nodes: StudioNode[]): { tilesX: number; tilesY: number } | null {
   if (nodes !== matrixTileLayoutNodes) {
     matrixTileLayoutNodes = nodes

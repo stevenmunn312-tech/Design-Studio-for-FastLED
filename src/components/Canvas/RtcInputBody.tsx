@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   formatRtcDate, formatRtcTime, rtcPreviewSnapshot, rtcTimeSource,
   type RtcPreview,
-} from '../../state/rtc'
+} from '../../state/peripherals/rtc'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/networkCredentials'
-import { ETHERNET_NODE_TYPE } from '../../state/ethernetModule'
-import { useUploadStore } from '../../state/uploadStore'
-import { useStreamStore } from '../../state/streamStore'
+import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../state/peripherals/networkCredentials'
+import { ETHERNET_NODE_TYPE } from '../../state/peripherals/ethernetModule'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { useStreamStore } from '../../state/output/streamStore'
 import { setRtcDateTime } from '../../utils/backendClient'
 import styles from './RtcInputBody.module.css'
 

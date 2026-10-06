@@ -4,7 +4,7 @@ import {
   lightSensorMaxLux,
   lightSensorTransport,
   BH1750_DEFAULT_ADDRESS,
-} from '../state/lightSensor'
+} from '../state/peripherals/lightSensor'
 import { sanitizePin } from './hardwarePins'
 
 /**

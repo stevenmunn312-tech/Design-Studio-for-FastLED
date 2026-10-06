@@ -1,9 +1,9 @@
-import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
-import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/displayRuntimeStore'
-import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from '../../state/displayRegistry'
-import { readDisplaySourceField } from '../../state/displaySourceFields'
-import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/transportBridge'
-import { pressEdgeSettings } from '../../state/pressSource'
+import { useTransportDisplayTouchStore } from '../../state/displays/transportDisplayTouchStore'
+import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/displays/displayRuntimeStore'
+import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from '../../state/displays/displayRegistry'
+import { readDisplaySourceField } from '../../state/displays/displaySourceFields'
+import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
+import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
   segmentControllerFor,
   blankSegmentFrame,
@@ -17,7 +17,7 @@ import {
   renderSegmentIndex,
   segmentFrameText,
   clampSegmentBrightness,
-} from '../../state/segmentDisplay'
+} from '../../state/displays/segmentDisplay'
 import {
   type LedOutputLatch,
   ledOutputManualRuntime,
@@ -27,10 +27,10 @@ import {
   composeLedOutputRuntime,
   ledOutputStatus,
   applyLedOutputRuntime,
-} from '../../state/ledOutputRuntime'
-import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from '../../state/masterSpeed'
-import { infoLayoutForKind, type InfoDisplayData, blankInfoData, renderInfoDisplay } from '../../state/infoDisplay'
-import { OLED_CONTROLLERS, oledLine } from '../../state/oledSurface'
+} from '../../state/output/ledOutputRuntime'
+import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from '../../state/player/masterSpeed'
+import { infoLayoutForKind, type InfoDisplayData, blankInfoData, renderInfoDisplay } from '../../state/displays/infoDisplay'
+import { OLED_CONTROLLERS, oledLine } from '../../state/displays/oledSurface'
 import {
   type PatternThumbnail,
   THUMBNAIL_TICK_SEC,
@@ -38,7 +38,7 @@ import {
   THUMBNAIL_SUPERSAMPLE,
   THUMBNAIL_H,
   thumbnailFromFrame,
-} from '../../state/patternThumbnail'
+} from '../../state/patterns/patternThumbnail'
 import {
   asTransportDisplayLayout,
   type TransportDisplayLayout,
@@ -53,17 +53,17 @@ import {
   TRANSPORT_ARTWORK_H,
   transportArtworkFromFrame,
   renderTransportDisplay,
-} from '../../state/transportDisplay'
-import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/tftSurface'
-import { displayHasTouch, partById } from '../../state/partCatalogue'
-import { powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/powerSwitch'
-import { relayEnergisedKey, relayInputs } from '../../state/relayModule'
+} from '../../state/displays/transportDisplay'
+import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/displays/tftSurface'
+import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
+import { powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/peripherals/powerSwitch'
+import { relayEnergisedKey, relayInputs } from '../../state/peripherals/relayModule'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { isDisplaySignal, type DisplaySignal } from '../../state/displaySignal'
+import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { oledControllerForProps, tftControllerForProps, nodeDisplayLabel } from '../../state/nodeLibrary'
-import type { Frame } from '../../state/ledColor'
+import type { Frame } from '../../state/palettes/ledColor'
 import { resolveStereoLevels } from '../../audio/stereoLevels'
-import { type StereoVuState, stereoVuSettings, renderStereoVu } from '../../state/stereoVuMeter'
+import { type StereoVuState, stereoVuSettings, renderStereoVu } from '../../state/audio/stereoVuMeter'
 import type { NodeEvaluators, NodeEvaluator, PortValue } from '../../state/evaluator/types'
 import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, isPlayerControls, playerControlsState, toggleTapPress } from '../../state/evaluator/signals'
@@ -148,7 +148,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   InfoDisplay({ input, incoming, groups, groupStack, instancePrefix, trusted, capabilityNodes, evaluateGraph }, id, props) {
     const out: Record<string, PortValue> = {}
     // A terminal like the segment display: it updates whether or not
-    // anything downstream reads it. The pixels come from state/infoDisplay.ts
+    // anything downstream reads it. The pixels come from state/displays/infoDisplay.ts
     // so the node body, the workbench and the firmware all draw the same
     // 128x64 picture.
     //
@@ -261,7 +261,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   TransportDisplay({ input, incoming, groups, groupStack, instancePrefix, trusted, capabilityNodes, evaluateGraph }, id, props, node) {
     const out: Record<string, PortValue> = {}
     // A terminal like the OLED beside it, and it draws through
-    // state/transportDisplay.ts for the same reason: the node body, the
+    // state/displays/transportDisplay.ts for the same reason: the node body, the
     // workbench and the firmware all resolve one geometry, so the colour
     // panel matches the picture the editor showed.
     //
@@ -469,7 +469,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   },
   SegmentDisplay({ input, t, elapsedT, stateKey, incoming }, id, props): Record<string, PortValue> {
     // A display is a terminal: it updates whether or not anything downstream
-    // reads it. The rendered characters come from state/segmentDisplay.ts,
+    // reads it. The rendered characters come from state/displays/segmentDisplay.ts,
     // which the C++ generator also uses, so the module shows the same four
     // digits on the bench as the node body shows here.
     //
@@ -648,7 +648,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   // Published rather than applied here: the clock this would scale is the
   // one this pass is already running on, so the value is read by whatever
   // owns the clock — the preview loop, a recording — and takes effect on
-  // the next frame. See state/masterSpeed.ts on why that lag is the point.
+  // the next frame. See state/player/masterSpeed.ts on why that lag is the point.
   MasterSpeed({ input, num }, id, props) {
     // A control bundle wins over the node's own slider, and only while it
     // is actually carrying a speed: a bundle that reaches here without the

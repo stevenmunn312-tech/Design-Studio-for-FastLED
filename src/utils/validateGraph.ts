@@ -6,30 +6,30 @@ import {
   NODE_LIBRARY,
   supportsScalarExpression,
 } from '../state/nodeLibrary'
-import { isLinearForm, outputForm, outputLedTotal } from '../state/ledOutputForm'
+import { isLinearForm, outputForm, outputLedTotal } from '../state/output/ledOutputForm'
 import { PALETTE_BUILDER_NODE_TYPES, tftTransportForProps } from '../state/nodeLibrary'
-import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../state/signalRange'
-import { paletteBankBlend, paletteBankEntries } from '../state/paletteBank'
-import type { SignalRangeMismatch } from '../state/signalRange'
-import { playerControlFunction } from '../state/playerControlAssignments'
-import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed, powerAmplifierStage } from '../state/audioOutput'
-import { resolveShowTarget } from '../state/showTarget'
+import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../nodes/shared/signalRange'
+import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteBank'
+import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
+import { playerControlFunction } from '../state/player/playerControlAssignments'
+import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed, powerAmplifierStage } from '../state/audio/audioOutput'
+import { resolveShowTarget } from '../state/player/showTarget'
 import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
-} from '../state/stereoVuSizing'
-import { evaluateScalarExpression } from '../state/scalarExpression'
-import { isNodeFormulaValid } from '../state/formulaLang'
-import { isValidRtcDateTime } from '../state/rtc'
-import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/xyLayout'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/outputRouting'
-import { renderScaleHalf } from '../state/renderScale'
-import { usesPositions } from '../state/stringPositions'
+} from '../state/audio/stereoVuSizing'
+import { evaluateScalarExpression } from '../nodes/shared/scalarExpression'
+import { isNodeFormulaValid } from '../nodes/shared/formulaLang'
+import { isValidRtcDateTime } from '../state/peripherals/rtc'
+import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
+import { renderScaleHalf } from '../state/output/renderScale'
+import { usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
-import { boardGpioInfo } from '../state/uploadStore'
-import { MAX_PIN_NUMBER, pinSupports } from '../state/boardGpio'
-import { getNetworkCredentials } from '../state/networkCredentials'
+import { boardGpioInfo } from '../state/upload/uploadStore'
+import { MAX_PIN_NUMBER, pinSupports } from '../build/boards/boardGpio'
+import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
-import { boardSparePins } from '../state/partPinAssignment'
+import { boardSparePins } from '../build/parts/partPinAssignment'
 import { browserThumbnailIssues } from './browserThumbnails'
 import { transportArtworkIssues } from './transportArtworks'
 import {
@@ -40,66 +40,66 @@ import { SEGMENT_DISPLAY_RAM_BYTES } from '../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../codegen/tftDisplayCpp'
 import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES } from '../codegen/customDisplayLvglCpp'
 import { customDisplayRamBytes } from '../codegen/customDisplayRam'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
-import { displayControlEdges, displayControlInertReason } from '../state/wireFirstControls'
-import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/powerMonitor'
-import { pwmDriverAddress } from '../state/pwmDriver'
-import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport } from '../state/distanceSensor'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
+import { displayControlEdges, displayControlInertReason } from '../state/player/wireFirstControls'
+import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/peripherals/powerMonitor'
+import { pwmDriverAddress } from '../state/peripherals/pwmDriver'
+import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { showControlRouting, showControlOutputIds } from '../codegen/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
-} from '../state/mountedDisplays'
-import { transportTouchRegions } from '../state/transportTouch'
+} from '../state/displays/mountedDisplays'
+import { transportTouchRegions } from '../state/displays/transportTouch'
 import {
   normalSketchSourceExpressions, resolveBoundWidgets, unresolvedBindingIssue, PROBE_CLOCK_EXPR,
   PROBE_LED_STATUS,
 } from '../codegen/displaySourceExpressions'
-import { resolveBuildMode } from '../state/buildMode'
+import { resolveBuildMode } from '../state/upload/buildMode'
 import {
   findPinCollisions, findI2cAddressCollisions, pinCollisionMessage,
   pinCollisionTitle, pinCollisionFix, addressCollisionMessage,
   busAssignmentFor,
-} from '../state/busTopology'
-import { boardPinVerdict, selectedBoardResolution, selectedPhysicalBoardProfile } from '../build/boardProfiles'
-import { integratedPinsFor } from '../state/integratedBoardHardware'
-import type { PhysicalBoardProfile } from '../build/boardProfiles'
-import { recommendedSupplyCurrentMa } from '../build/powerSupplySizing'
-import { pinWarningForCapability } from '../state/boardGpio'
-import { micSupportedForBoard, micUnsupportedMessage } from '../state/micPinDefaults'
-import { controllerSettings } from '../state/controllerSettings'
-import { isHardwareManagedSignalNodeType } from '../state/hardware'
-import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../state/pinRetarget'
-import { partOptionsFor, resolvePartIdentity } from '../state/partOptions'
-import { displayHasTouch, partById } from '../state/partCatalogue'
-import { designControlBundle } from '../state/designControlBundle'
-import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/transportDisplay'
-import { displayWidgetIsControl, normalizeDisplayControlRole, parseDisplayWidgetPortId } from '../state/displayRegistry'
-import { templateControlPlan } from '../state/templateControlPlan'
-import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audioCapabilities'
-import { resolveStorageCapabilitySource } from '../state/storageCapabilities'
+} from '../build/pins/busTopology'
+import { boardPinVerdict, selectedBoardResolution, selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
+import { integratedPinsFor } from '../build/boards/integratedBoardHardware'
+import type { PhysicalBoardProfile } from '../build/boards/boardProfiles'
+import { recommendedSupplyCurrentMa } from '../build/power/powerSupplySizing'
+import { pinWarningForCapability } from '../build/boards/boardGpio'
+import { micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
+import { controllerSettings } from '../build/controllerSettings'
+import { isHardwareManagedSignalNodeType } from '../build/hardware'
+import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../build/pins/pinRetarget'
+import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
+import { displayHasTouch, partById } from '../build/parts/partCatalogue'
+import { designControlBundle } from '../state/displays/designControlBundle'
+import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/displays/transportDisplay'
+import { displayWidgetIsControl, normalizeDisplayControlRole, parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
+import { templateControlPlan } from '../state/displays/templateControlPlan'
+import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audio/audioCapabilities'
+import { resolveStorageCapabilitySource } from '../build/storageCapabilities'
 import {
   duplicateIrRemoteMappings,
   irRemoteButtonIdFromHandle,
   irRemoteHandlesFromEdges,
   normalizeIrRemoteButtons,
-} from '../state/irRemote'
-import { STEP_VALUE_DEFAULTS } from '../state/stepValue'
-import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/presenceSensor'
-import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHost } from '../state/ethernetModule'
+} from '../state/peripherals/irRemote'
+import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
+import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
+import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHost } from '../state/peripherals/ethernetModule'
 import { targetFamilyFromFqbn } from '../build/buildProfile'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
-} from '../state/lightSensor'
+} from '../state/peripherals/lightSensor'
 import {
   environmentAddress, environmentAddressOptions, formatEnvironmentAddress,
-} from '../state/environmentSensor'
-import { motionVectorAddress, motionVectorAddressOptions } from '../state/motionVector'
-import { touchPadAddress, touchPadAddressOptions } from '../state/touchPad'
+} from '../state/peripherals/environmentSensor'
+import { motionVectorAddress, motionVectorAddressOptions } from '../state/peripherals/motionVector'
+import { touchPadAddress, touchPadAddressOptions } from '../state/peripherals/touchPad'
 import {
   NLED_PIXEL_DATA_LINK,
   pixelDataExtenderSupports,
   usesNledPixelDataExtender,
-} from '../state/pixelDataExtender'
+} from '../state/peripherals/pixelDataExtender'
 
 export interface ValidationResult {
   errors:   string[]
@@ -919,7 +919,7 @@ function i2cDevices(nodes: StudioNode[]) {
  * Bus-aware since displays made sharing normal: two I2C clients may share SDA
  * and SCL, and two SPI clients may share SCK/MOSI/MISO, so the old "any GPIO
  * claimed twice" rule would have reported correct wiring as broken. What each
- * pin *is* lives in state/busTopology.ts; this function only formats the
+ * pin *is* lives in build/pins/busTopology.ts; this function only formats the
  * verdict.
  */
 export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
@@ -1881,7 +1881,7 @@ function networkUsers(nodes: StudioNode[]): StudioNode[] {
  * The module is only ever read by the network bootstrap, so a bench with one
  * and nothing using the network is a warning rather than an error: the build
  * is correct, it just carries a part that does nothing. See
- * state/ethernetModule.ts for the SPI-host rule behind the panel check.
+ * state/peripherals/ethernetModule.ts for the SPI-host rule behind the panel check.
  */
 function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
   const modules = nodes.filter((node) => node.data.nodeType === ETHERNET_NODE_TYPE)
@@ -3073,7 +3073,7 @@ interface SignalRangeIssue {
  * nothing errors, the pattern just sits nearly dark. That is the expensive
  * kind of mistake, and the only place it can be caught is here, by comparing
  * what the source promises against the slider the target reads. See
- * `state/signalRange.ts` for why one side is derived and the other listed.
+ * `nodes/shared/signalRange.ts` for why one side is derived and the other listed.
  */
 function signalRangeIssues(nodes: StudioNode[], edges: StudioEdge[]): SignalRangeIssue[] {
   const byId = new Map(nodes.map((node) => [node.id, node]))

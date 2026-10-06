@@ -31,7 +31,7 @@ the right. The board itself prints no pin names.
 evaluation, found by scanning the root graph. It carries no signal. What it
 changes is how the two network users reach the network, not what any node
 outputs. Art-Net `DMXInput` and NTP `RTCInput` keep their own hostname and
-addressing settings, and the module only replaces the radio. `src/state/ethernetModule.ts`
+addressing settings, and the module only replaces the radio. `src/state/peripherals/ethernetModule.ts`
 owns the part list, its pin keys, and which chips it builds for.
 
 With the module on the bench, the DMX and RTC node bodies stop asking for Wi-Fi

@@ -19,7 +19,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - The player is modelled as the appliance it is: `PatternMaster` (**Music
   Player**) holds the music and reports what it is playing, `PlayerControls`
   controls it. `PlayerControls` mints one input per job it has been given rather
-  than declaring all fourteen: `src/state/playerControlAssignments.ts` owns the
+  than declaring all fourteen: `src/state/player/playerControlAssignments.ts` owns the
   catalogue, the node carries a `controls` id list, and a drop on its trailing
   `add-control` socket is held as `pendingControlAssignment` until the picker in
   `PlayerControlsBody.tsx` names it — because nothing on the source side can (a
@@ -58,9 +58,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and a fresh node both present an empty list and only the wires tell them
   apart. A node doing both was tried and removed — see
   [auxiliary displays](../../design/auxiliary-displays.md). Button debounce and
-  rising-edge rules live once in `src/state/transportBridge.ts` so a press means
+  rising-edge rules live once in `src/state/player/transportBridge.ts` so a press means
   one thing to the evaluator and to the player sketch. Only a contact is
-  debounced: `src/state/pressSource.ts` names the sources that can bounce
+  debounced: `src/state/player/pressSource.ts` names the sources that can bounce
   (Button, Button Bank, Touch Button, and a Group Input, which may forward one)
   and gives every other wired press a 0 ms window. A computed signal is
   already clean, and Interval's or Beat Detect's pulse lasts one frame, so the
@@ -69,7 +69,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   module. A test that stands a `Compare` in for a held button now tests the
   clean path; use a `ButtonInput` driven through `useHardwareInputStore` to
   test the debounce.
-- `src/state/songInfo.ts`'s `SONG_INFO_PORTS` is the one list behind the
+- `src/state/player/songInfo.ts`'s `SONG_INFO_PORTS` is the one list behind the
   track-report outputs (title/artist/album/.../bitrate), but the node that
   spreads it is the **`SongInfo` unpacker**, not Music Player: the player
   publishes one `display` envelope (3 outputs total) and `SongInfo` opens it
@@ -104,7 +104,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `patternSelect`/`patternPrevious`/`patternNext`/`patternConfirm` inputs feed
   the evaluator's `PlayerControls` bundle, carried as `patternSteps` (whole
   detents; the encoder's raw count is converted where it's read) and
-  `patternConfirm`, not through a display. `src/state/patternSelection.ts` still
+  `patternConfirm`, not through a display. `src/state/patterns/patternSelection.ts` still
   defines **active** (running) versus **highlight** (being looked at), wrapping
   at both ends, confirm-commits, and a cursor carrying both id and index so a
   reorder keeps playing the same pattern and a deletion hands its slot to the
@@ -132,7 +132,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Controls and LED output runtime
 
 - Per-output blackout and dimming are wires, not project settings:
-  `src/state/ledOutputRuntime.ts` resolves an output's `enabled`/`brightness`
+  `src/state/output/ledOutputRuntime.ts` resolves an output's `enabled`/`brightness`
   ports, defaulting unwired to lit/undimmed so adding the ports to an existing
   project can't black it out, and `applyLedOutputRuntime` copies the pooled
   `Frame` only when there's something to do — frames are shared across every
@@ -164,7 +164,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   counts, a Music Player in a plain sketch does not, because a normal sketch
   renders one as a black fill.
 - The order a control pass runs in is stated once rather than left for each
-  generator to restate: `CONTROL_PHASES` in `src/state/controlPhases.ts` names
+  generator to restate: `CONTROL_PHASES` in `src/state/player/controlPhases.ts` names
   seven phases split into an **input** half (`sample-touch`,
   `snapshot-controls`, `sample-ir`), which must fully *close* before anything
   acts on it since every binding — including feedback crossing two screens — has
@@ -217,7 +217,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Shows, collections and transitions
 
 - Pattern Slideshow (`PatternSlideshow` node type,
-  `src/state/patternSlideshow.ts`) is the show engine for a collection with no
+  `src/state/patterns/patternSlideshow.ts`) is the show engine for a collection with no
   music: `slideshowSettings` resolves its
   order/interval/transition/audio-reactive/seed properties once, read by both
   the evaluator and `showGenerator.ts`, so a wired interval overrides the
@@ -229,7 +229,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   amplifier is a validation error (`showEngineIssues` in `validateGraph.ts`),
   not a silent stand-in for the slideshow. See
   [generative pattern show](../../design/generative-pattern-show.md#pattern-slideshow).
-- Pattern **author tags** (`src/state/patternTags.ts`, `SavedPattern.bestOn`)
+- Pattern **author tags** (`src/state/patterns/patternTags.ts`, `SavedPattern.bestOn`)
   answer "where does this look best", which is taste and therefore authored —
   not "will this render", which is mechanical and almost always yes. They
   promote, never exclude: `best` sorts first, the untagged default `works` still
@@ -312,7 +312,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   one vocabulary — a second show generated against a different collection would
   map its indices onto the first show's patterns and play the wrong thing in
   sync. Because `patternSet` already records that vocabulary, drift is a
-  comparison, not a timestamp: `src/state/showFreshness.ts`'s
+  comparison, not a timestamp: `src/state/player/showFreshness.ts`'s
   `showFreshnessIssues` compares stored shows against the wired collection and
   the live pattern-group registry, and `buildShowPayload` refuses rather than
   warns — `showPackagingIssues` is the one funnel the deploy popup calls, so the
@@ -351,7 +351,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   FastLED's own adaptive normalization and has no absolute scale to preserve,
   unlike a meter.
 - A renderer with a planned cross-language twin is frozen with golden-vector
-  tests, not eyeballed: `src/state/__tests__/stereoVuGoldenVectors.ts` holds the
+  tests, not eyeballed: `src/state/audio/__tests__/stereoVuGoldenVectors.ts` holds the
   fixed input fixture (`STEREO_VU_GOLDEN_STEPS`, `STEREO_VU_GOLDEN_PROPERTIES`)
   in its own module, separate from `stereoVuGolden.test.ts`, so a future C++
   replay harness can import the same steps instead of restating them — a parity

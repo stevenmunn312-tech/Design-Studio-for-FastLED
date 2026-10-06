@@ -1,4 +1,4 @@
-import type { Frame } from '../ledColor'
+import type { Frame } from '../palettes/ledColor'
 import type { Field } from './types'
 
 // ── Frame / field buffer pool ─────────────────────────────────────────────────

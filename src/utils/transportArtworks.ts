@@ -2,8 +2,8 @@
 
 import type { GroupRegistry } from '../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../state/graphStore'
-import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
-import { transportArtworkBudgetIssue, transportLayoutForKind } from '../state/transportDisplay'
+import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displays/displaySignal'
+import { transportArtworkBudgetIssue, transportLayoutForKind } from '../state/displays/transportDisplay'
 import { bakeTransportArtworks } from './bakeTransportArtworks'
 import { playerPatternIds } from './browserThumbnails'
 

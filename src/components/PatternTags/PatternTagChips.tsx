@@ -1,4 +1,4 @@
-import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patternTags'
+import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
 import styles from './PatternTagChips.module.css'
 
 interface Props {

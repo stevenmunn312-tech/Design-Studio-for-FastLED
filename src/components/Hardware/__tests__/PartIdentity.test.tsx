@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import PartIdentity from '../PartIdentity'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
-import { resolvePartIdentity } from '../../../state/partOptions'
+import { resolvePartIdentity } from '../../../build/parts/partOptions'
 
 function part(nodeType: string, properties: Record<string, unknown>): StudioNode {
   return {

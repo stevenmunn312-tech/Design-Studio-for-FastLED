@@ -7,7 +7,7 @@ writes directly into `leds[]` — and have it both (a) compile into the generate
 sketch verbatim and (b) approximate in the live LED preview. It is the
 imperative, frame-filling sibling of the existing `CustomFormula` node (which
 compiles a single expression per pixel via the sandboxed parser in
-`src/state/formulaLang.ts`).
+`src/nodes/shared/formulaLang.ts`).
 
 Motivating example (a standard FastLED demo idiom the node must accept as-is):
 
@@ -136,7 +136,7 @@ rewrites applied before `new Function`:
   `fadeToBlackBy`, `fill_solid`, `fill_rainbow`, `nblend`, plus the constants
   `NUM_LEDS / WIDTH / HEIGHT`. `t` (seconds) is available so timing matches the
   rest of the evaluator (wall-clock based). The fixed-point wave/scale shims
-  (`sin8`…`sqrt16`) come from the shared `src/state/fastledShims.ts`, so the
+  (`sin8`…`sqrt16`) come from the shared `src/nodes/shared/fastledShims.ts`, so the
   field-formula nodes accept the same vocabulary and the C++ generator stays in
   sync.
 - **Palettes:** `ColorFromPalette(pal, index, brightness)`, `fill_palette(...)`,
@@ -197,7 +197,7 @@ and unit tests (transpile/eval cases + codegen snapshots).
 - `src/state/codeSandbox.worker.ts` — the sandboxed worker: bootstrap that
   closes network/storage/messaging APIs, `makeCodeShim`, and `handleRunRequest`
   (compile + run + pack one tick against the persistent `leds[]`).
-- `src/state/ledColor.ts` — `RGB`/`Palette`/`hsv`/`samplePalette`/`palAt`/the
+- `src/state/palettes/ledColor.ts` — `RGB`/`Palette`/`hsv`/`samplePalette`/`palAt`/the
   FastLED preset-palette tables, shared by the worker and the main-thread
   evaluator (re-exported from `graphEvaluator.ts` for existing importers).
 - `src/codegen/cppGenerator.ts` — `Code` case + `globalLines` (file scope) and

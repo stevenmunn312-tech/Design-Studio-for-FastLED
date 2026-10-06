@@ -1,5 +1,5 @@
 import type { StudioNode } from '../../state/graphStore'
-import type { RGB } from '../../state/ledColor'
+import type { RGB } from '../../state/palettes/ledColor'
 import { renderGridFrame } from './frameCanvas'
 
 export interface CombinedStereoVuFixture {

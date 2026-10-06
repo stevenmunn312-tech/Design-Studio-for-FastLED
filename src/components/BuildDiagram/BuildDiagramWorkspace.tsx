@@ -7,20 +7,20 @@ import {
   type PhysicalBoardPinAnchor,
   type PhysicalBoardProfile,
   type PhysicalBoardPinProfile,
-} from '../../build/boardProfiles'
+} from '../../build/boards/boardProfiles'
 import {
   ensureBuildProfile,
   fingerprintValue,
   type BuildExportMode,
 } from '../../build/buildProfile'
-import { calculateElectricalPlan } from '../../build/electricalPlan'
-import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPad } from '../../build/customBoardGeometry'
+import { calculateElectricalPlan } from '../../build/power/electricalPlan'
+import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPad } from '../../build/boards/customBoardGeometry'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
-import { fuseBlockAllocations } from '../../build/powerDistribution'
+import { fuseBlockAllocations } from '../../build/power/powerDistribution'
 import { rootGraphNodes, useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
-import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import BuildPrintSheets from './BuildPrintSheets'
 import {

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { applyShowPlaybackSignal } from '../showPlaybackSignal'
 import type { ShowFile } from '../../../types/showFile'
-import { usePerformanceBakeStore } from '../../../state/performanceBakeStore'
+import { usePerformanceBakeStore } from '../../../state/player/performanceBakeStore'
 
-vi.mock('../../../state/audioStore', () => ({
+vi.mock('../../../state/audio/audioStore', () => ({
   useAudioStore: { getState: () => ({ active: false, bass: 0, mids: 0, treble: 0, beat: false, bpm: 120, spectrum: Array(16).fill(0) }) },
 }))
 

@@ -1,4 +1,4 @@
-// The firmware half of `src/state/masterSpeed.ts`.
+// The firmware half of `src/state/player/masterSpeed.ts`.
 //
 // The sketch's one shared time value is `float t`, and without a Master Speed
 // node it stays what it always was: `millis() / 1000.0f`, one line, no state.

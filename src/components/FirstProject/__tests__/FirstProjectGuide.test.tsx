@@ -10,7 +10,7 @@ import TemplatesPopup from '../../Templates/TemplatesPopup'
 import { useFirstProjectGuide } from '../../../state/firstProjectGuideStore'
 import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
-import { useUploadStore } from '../../../state/uploadStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 import { startTemplateById } from '../../../utils/startFlow'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

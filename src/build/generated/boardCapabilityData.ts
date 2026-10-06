@@ -2,7 +2,7 @@
 // Produced by scripts/assets/import-board-assets.py from the Blender board assets.
 // Merged into BOARD_PROFILES by boardProfiles.ts; hand-authored pin maps win.
 
-import type { BoardCapabilityData, GeneratedBoardProfile } from '../boardCapabilities'
+import type { BoardCapabilityData, GeneratedBoardProfile } from '../boards/boardCapabilities'
 
 export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
   "adafruit-feather-esp32-s2": {

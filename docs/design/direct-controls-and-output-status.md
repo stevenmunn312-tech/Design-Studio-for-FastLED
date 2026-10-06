@@ -174,14 +174,14 @@ its slider, used by the evaluator's `clampInputs` toggle and by
 
 #### Speed/scale denormalization
 
-`src/state/speedRange.ts` maps the 0–1 slider onto each node's internal
+`src/nodes/shared/speedRange.ts` maps the 0–1 slider onto each node's internal
 animation rate. `SPEED_MAX` and `SCALE_MAX` tables are the single source for
 both the evaluator (`denormRate`) and codegen (`rateCpp`). Bundled nodes
 (`Noise`, `FormulaPoints`, `FormulaField`) key their maps by variant.
 
 #### Integer rounding
 
-`Juggle`'s `count` is bounded then rounded once in `src/state/juggle.ts`,
+`Juggle`'s `count` is bounded then rounded once in `src/nodes/generative/juggle.ts`,
 so 3.6 means the same number of dots in preview and firmware. Other nodes
 with integer-domain inputs (e.g. `Particles.count`, `Starfield.count`,
 `Array.count`) use `Math.round` or `floor(v + 0.5)` in the evaluator and
@@ -205,7 +205,7 @@ consumption site.
 | `patternConfirm` | momentary | bool | Edge-triggered. Commits highlighted pattern. |
 | `masterSpeed` | continuous | float | Level (0–1). Accumulates, never multiplies. |
 
-Debounce and repeat parameters live in `src/state/transportBridge.ts`.
+Debounce and repeat parameters live in `src/state/player/transportBridge.ts`.
 Edge detection is shared between the evaluator's `PlayerControls` bundle
 and the firmware's `CtlEdge`/`CtlDetent` structs.
 
@@ -280,7 +280,7 @@ expose inputs together, undoable as one operation.
 - [x] Prove the first cases: Juggle Speed, Count and Fade; LED output Brightness;
   and display Enabled. Include correct ranges, integer handling, incompatible
   sources and two attempted sources for one target. Juggle's dot count is bounded
-  then rounded once, in `src/state/juggle.ts`, so 3.6 means the same number of
+  then rounded once, in `src/nodes/generative/juggle.ts`, so 3.6 means the same number of
   dots on both sides; a second source on one socket replaces the first
   (`completeConnection`), and an incompatible drop is refused by name.
 - [x] Persist exposed inputs through save/load, copy/paste, group instances and
@@ -406,7 +406,7 @@ drifts — a list beside one generator says nothing about the other two.
   apply destination state, publish status/widget feedback, then refresh screens.
   Specify the prior-sample boundary wherever feedback needs state; do not ignore
   arbitrary graph cycles to make a screen connection pass validation.
-  → `src/state/controlPhases.ts` states the seven phases once, splits them into
+  → `src/state/player/controlPhases.ts` states the seven phases once, splits them into
   an **input** half (sample touch, snapshot controls, sample IR) and an **output** half (resolve, apply,
   publish, refresh), and names the emitted anchors each phase leaves behind.
   The split is load-bearing rather than cosmetic: the input half must *close*
@@ -617,7 +617,7 @@ drifts — a list beside one generator says nothing about the other two.
 - [x] Cover group boundaries and supported player/show pattern parameters.
   Distinguish live parameters from bake-time settings, and report remaining
   exclusions explicitly. Never offer a control that only works in preview.
-  → `src/state/runtimeControlScope.ts` is the list. Live fields that already
+  → `src/state/player/runtimeControlScope.ts` is the list. Live fields that already
   have a verified property input: Music Player `volume` / `minTime` /
   `maxTime` / `transitionSec`; Slideshow `interval`; Player Particles
   `enabled` / `intensity` / `randomStyle` / `randomColor`; LED output
@@ -865,10 +865,10 @@ Covered by `templateControlPlan.test.ts` and
 
 Use current code as the authority where older display notes describe the
 removed panel/document split. Start with `src/state/nodeLibrary.ts`,
-`src/state/propertyInputs.ts`, `src/state/runtimeControlScope.ts`,
-`src/state/playerControlAssignments.ts`, `src/state/displaySignal.ts`,
-`src/state/ledOutputRuntime.ts`, `src/state/graphEvaluator.ts`,
-`src/state/templateControlPlan.ts`, `src/components/Canvas/StudioNode.tsx`,
+`src/state/propertyInputs.ts`, `src/state/player/runtimeControlScope.ts`,
+`src/state/player/playerControlAssignments.ts`, `src/state/displays/displaySignal.ts`,
+`src/state/output/ledOutputRuntime.ts`, `src/state/graphEvaluator.ts`,
+`src/state/displays/templateControlPlan.ts`, `src/components/Canvas/StudioNode.tsx`,
 `src/codegen/playerDisplays.ts`, the three sketch generators and
 `src/utils/validateGraph.ts`. Follow their shared helpers for widget
 roles, property ports, screen state and persistence rather than creating

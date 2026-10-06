@@ -115,17 +115,17 @@ the beta support matrix records end-to-end hardware support.
 ## Project custom boards
 
 A project may define one board of its own: Hardware → Family → **Custom
-board**. Its versioned definition (`src/state/customBoard.ts`) lives in the
+board**. Its versioned definition (`src/build/boards/customBoard.ts`) lives in the
 Board node's `customBoard` property beside `profileId: 'custom'`, so it saves,
 shares, imports and undoes with the project and needs no local catalogue. It
-names a reviewed build template (`src/build/customBoardTemplates.ts`), the
+names a reviewed build template (`src/build/boards/customBoardTemplates.ts`), the
 controller power method, the default I2C pair, and two ordered headers of
 slots: GPIO (Arduino number, enabled), supply (voltage, direction), ground,
 reset, reserved or unconnected, each with an optional printed label.
 
 `selectedPhysicalBoardProfile` resolves the selection through
 `resolveBoardSelection` (`boardProfiles.ts`), so every consumer sees the same
-board. `resolveCustomBoard` (`src/build/customBoardProfile.ts`) builds the
+board. `resolveCustomBoard` (`src/build/boards/customBoardProfile.ts`) builds the
 effective profile:
 
 - **From the template:** FQBNs, target family, processor, memory, PSRAM mode

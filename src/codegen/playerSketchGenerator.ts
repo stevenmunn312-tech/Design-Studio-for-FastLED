@@ -18,13 +18,13 @@ import { displayTextCppHelpers } from './displayTextCpp'
 //     SET_PATTERN index then dispatches to a `render_pN()` function.
 
 import type { PatternRenderers } from './showGenerator'
-import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patternSlideshow'
-import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/paletteCatalog'
+import { asSlideshowOrder, type PatternSlideshowOrder } from '../state/patterns/patternSlideshow'
+import { STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppRef } from '../state/palettes/paletteCatalog'
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
-import { ledSupplyVolts } from '../state/controllerSettings'
+import { ledSupplyVolts } from '../build/controllerSettings'
 import { ledOutputManualExprs, ledOutputRuntimeCpp } from './ledOutputRuntimeCpp'
-import { ledOutputManualRuntime } from '../state/ledOutputRuntime'
+import { ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './stereoLevelCpp'
 import { PLAYER_SONG_INFO_CPP } from './playerSongInfoCpp'
 import type { PlayerDisplays } from './playerDisplays'
@@ -57,14 +57,14 @@ import {
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
 } from './segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
-import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audioOutput'
-import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/showTarget'
+import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio/audioOutput'
+import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
 import type { StudioNode } from '../state/graphStore'
-import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
-import { resolveBoardSelection } from '../build/boardProfiles'
-import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
-import { hexToRgb } from '../state/polinePalette'
-import { buttonBankEntryForHandle } from '../state/buttonBank'
+import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../build/controllerSettings'
+import { resolveBoardSelection } from '../build/boards/boardProfiles'
+import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
+import { hexToRgb } from '../state/palettes/polinePalette'
+import { buttonBankEntryForHandle } from '../state/player/buttonBank'
 import {
   STEREO_VU_CPP_FORWARD, STEREO_VU_CPP_HELPERS, stereoVuGlobalCpp,
   stereoVuLoopCpp, type StereoVuEmit,
@@ -145,7 +145,7 @@ interface ConfigNode { id: string; data: { nodeType: string; properties: Record<
 /**
  * Derive the player's hardware config from the graph: LED settings come from
  * the output the show plays on, the card's own pins from SDCard, and the I2S
- * output pins from an Amplifier node (see state/audioOutput.ts for the chain).
+ * output pins from an Amplifier node (see state/audio/audioOutput.ts for the chain).
  *
  * The amplifier is found by scanning rather than by a wire — it is a config
  * node like Board. With no Amplifier on the canvas the built-in defaults still
@@ -195,7 +195,7 @@ export function playerConfigFromGraph(
     sdMisoPin:  sanitizePin(sd.sdMisoPin, sdDefaults?.miso ?? DEFAULTS.sdMisoPin),
     sdMosiPin:  sanitizePin(sd.sdMosiPin, sdDefaults?.mosi ?? DEFAULTS.sdMosiPin),
     // Derived from the parts present rather than read from a property — see
-    // state/audioOutput.ts for why asking twice invites two answers.
+    // state/audio/audioOutput.ts for why asking twice invites two answers.
     audioOutput: audioOutputMode(nodes as StudioNode[], fqbn),
     i2sBclk:    sanitizePin(amp.i2sBclk, DEFAULTS.i2sBclk),
     i2sLrc:     sanitizePin(amp.i2sLrc, DEFAULTS.i2sLrc),

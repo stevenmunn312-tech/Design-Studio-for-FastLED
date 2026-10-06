@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseProjectFile, serializeProject } from '../projectFileIO'
-import { DEFAULT_DISPLAY_THEME, type DisplayDocument } from '../../state/displayDocument'
+import { DEFAULT_DISPLAY_THEME, type DisplayDocument } from '../../state/displays/displayDocument'
 
 // todo.md's P0 trust-boundary item: a project file must never be able to
 // self-declare its way past the trust gate by setting `trusted: true` in its

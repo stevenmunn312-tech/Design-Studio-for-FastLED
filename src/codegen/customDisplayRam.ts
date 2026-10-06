@@ -1,6 +1,6 @@
-import { DISPLAY_DOCUMENT_LIMITS, type DisplayDocument } from '../state/displayDocument'
+import { DISPLAY_DOCUMENT_LIMITS, type DisplayDocument } from '../state/displays/displayDocument'
 import { tftControllerForProps } from '../state/nodeLibrary'
-import { asTftRotation, TFT_CONTROLLERS } from '../state/tftSurface'
+import { asTftRotation, TFT_CONTROLLERS } from '../state/displays/tftSurface'
 import { CUSTOM_DISPLAY_PANEL_RAM_BYTES, customDisplayPanelBufferPixels } from './customDisplayPanelCpp'
 import { CUSTOM_DISPLAY_WIDGET_RAM_BYTES } from './customDisplayLvglCpp'
 

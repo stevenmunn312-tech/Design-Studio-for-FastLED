@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { MODULE_PAD_GEOMETRY, peripheralPadLabel, peripheralSignalPadIndex } from '../physicalDiagramLayout'
-import { catalogueDisplays, partPinLabelForProperty, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../../state/partCatalogue'
-import { partOptionsFor } from '../../../state/partOptions'
-import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../../state/oledSurface'
+import { catalogueDisplays, partPinLabelForProperty, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../../build/parts/partCatalogue'
+import { partOptionsFor } from '../../../build/parts/partOptions'
+import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../../state/displays/oledSurface'
 import { segmentControllerForProps, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 

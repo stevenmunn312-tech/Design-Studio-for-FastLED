@@ -1,8 +1,8 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import { resolvePaletteId, paletteCppRef, customPaletteDeclarationsCpp } from '../state/paletteCatalog'
+import { resolvePaletteId, paletteCppRef, customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
-import { CPP_SHIM_HELPERS } from '../state/fastledShims'
+import { CPP_SHIM_HELPERS } from '../nodes/shared/fastledShims'
 import { displayTextCppHelpers } from './displayTextCpp'
 import {
   type SegmentDisplayEmit,
@@ -10,8 +10,8 @@ import {
   SEGMENT_DISPLAY_CPP_HELPERS,
   segmentDisplayGlobalCpp,
 } from './segmentDisplayCpp'
-import { MAX_PIN_NUMBER } from '../state/boardGpio'
-import { ethernetModuleIn, DEFAULT_ETHERNET_PART_ID } from '../state/ethernetModule'
+import { MAX_PIN_NUMBER } from '../build/boards/boardGpio'
+import { ethernetModuleIn, DEFAULT_ETHERNET_PART_ID } from '../state/peripherals/ethernetModule'
 import { ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp } from './ethernetCpp'
 import {
   NODE_LIBRARY,
@@ -26,11 +26,11 @@ import {
   libraryDefaults,
 } from '../state/nodeLibrary'
 import { ledOutputManualExprs } from './ledOutputRuntimeCpp'
-import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/ledOutputRuntime'
+import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
 import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobalCpp } from './playerControlsCpp'
 import { type IrRemoteProjectNode, irRemoteProjectEmission } from './irRemoteCpp'
 import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './masterSpeedCpp'
-import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/masterSpeed'
+import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
 import { transportArtworkTableCpp } from './transportArtworkCpp'
 import {
   type InfoDisplayEmit,
@@ -64,12 +64,12 @@ import {
   customDisplayPanelGlobalCpp,
   customDisplayPanelHelpersCpp,
 } from './customDisplayPanelCpp'
-import { parseDisplayWidgetPortId } from '../state/displayRegistry'
-import { customDisplayMountPlan } from '../state/mountedDisplays'
-import { toggleWidgetSource } from '../state/designControlBundle'
+import { parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
+import { customDisplayMountPlan } from '../state/displays/mountedDisplays'
+import { toggleWidgetSource } from '../state/displays/designControlBundle'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
-import { partById } from '../state/partCatalogue'
-import { buildXYTable } from '../state/xyLayout'
+import { partById } from '../build/parts/partCatalogue'
+import { buildXYTable } from '../state/output/xyLayout'
 import {
   outputMirrorLeaders,
   outputRoutes,
@@ -78,12 +78,12 @@ import {
   ringMapFor,
   corkscrewMapFor,
   leadingOutputRoutes,
-} from '../state/outputRouting'
-import { outputForm, isLinearForm, outputCanvasDims, outputLedTotal } from '../state/ledOutputForm'
-import { halfDim, renderScaleHalf } from '../state/renderScale'
-import { POSITION_FIXED_SCALE, positionsFixedFor } from '../state/stringPositions'
-import { getNetworkCredentials } from '../state/networkCredentials'
-import { selectedPhysicalBoardProfile } from '../build/boardProfiles'
+} from '../state/output/outputRouting'
+import { outputForm, isLinearForm, outputCanvasDims, outputLedTotal } from '../state/output/ledOutputForm'
+import { halfDim, renderScaleHalf } from '../state/output/renderScale'
+import { POSITION_FIXED_SCALE, positionsFixedFor } from '../state/output/stringPositions'
+import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
+import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   boardSupportsTelemetry,
   deviceTelemetryGlobalsCpp,
@@ -92,7 +92,7 @@ import {
   TELEMETRY_LOOP_BEGIN_CPP,
   TELEMETRY_REPORT_CPP,
 } from './deviceTelemetryCpp'
-import { rtcI2cPinsForProfile } from '../state/rtcPins'
+import { rtcI2cPinsForProfile } from '../build/pins/rtcPins'
 import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './powerMonitorCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './temperatureSensorCpp'
@@ -103,11 +103,11 @@ import { MOTION_VECTOR_HELPER_CPP } from './motionVectorCpp'
 import { TOUCH_PAD_HELPER_CPP } from './touchPadCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './environmentSensorCpp'
-import { lightSensorTransport } from '../state/lightSensor'
-import { distanceSensorTransport } from '../state/distanceSensor'
-import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
+import { lightSensorTransport } from '../state/peripherals/lightSensor'
+import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
+import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
 import { sanitizePin } from './hardwarePins'
-import { resolveAudioCapabilitySource } from '../state/audioCapabilities'
+import { resolveAudioCapabilitySource } from '../state/audio/audioCapabilities'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { TRANSITION_3D_HELPERS_CPP } from './transitionHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from './frameSampleHelperCpp'
@@ -118,7 +118,7 @@ import { WRAP_X_HELPER_CPP } from './wrapXHelperCpp'
 import { TRUCHET_HELPER_CPP } from './truchetHelperCpp'
 import { TURING_HELPER_CPP } from './turingHelperCpp'
 import { FLUID_HELPER_CPP } from './fluidHelperCpp'
-import { pressSourceBounces } from '../state/pressSource'
+import { pressSourceBounces } from '../state/player/pressSource'
 import { FOURIER_HELPER_CPP } from './fourierHelperCpp'
 import { SYMMETRY_HELPER_CPP } from './symmetryHelperCpp'
 import {
@@ -478,7 +478,7 @@ export function generateCpp(
   const largestRenderPass = renderPasses.reduce((largest, pass) =>
     pass.width * pass.height > largest.width * largest.height ? pass : largest,
   renderPasses[0] ?? { key: '16x16', width: 16, height: 16, routes: [] })
-  // What the single output physically is (src/state/ledOutputForm.ts). A string
+  // What the single output physically is (src/state/output/ledOutputForm.ts). A string
   // renders on its own 1 x N grid, a ring on the square its circle is inscribed
   // in, a matrix or panel on its panel — so the render canvas comes from the
   // form rather than from width/height, which the chain forms do not use.
@@ -489,7 +489,7 @@ export function generateCpp(
   const height     = multipleOutputs ? (nativeMultiRender ? largestRenderPass.height : composition.h) : singleCanvas.height
   const expressionScale = !multipleOutputs && !singleLinear && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
   // Half-resolution render: the graph runs on a canvas half the panel's size
-  // and the blit upscales it (src/state/renderScale.ts).
+  // and the blit upscales it (src/state/output/renderScale.ts).
   const rs = !multipleOutputs && !!outputNode && renderScaleHalf(rawProps(outputNode))
   const renderW = rs ? halfDim(width) : width * expressionScale
   const renderH = rs ? halfDim(height) : height * expressionScale
@@ -511,7 +511,7 @@ export function generateCpp(
   const hub75Hw = isHub75 ? hub75HardwareFromProps(ledPropsWithController(props(outputNode!), nodes), width, height) : null
   // Serpentine (zig-zag) matrices wire alternate rows in reverse; buffers stay
   // row-major and MatrixOutput remaps grid → physical index via XY(). Panel/
-  // custom layouts (src/state/xyLayout.ts) fold into the same XY() remap, so
+  // custom layouts (src/state/output/xyLayout.ts) fold into the same XY() remap, so
   // there's one physical-wiring code path regardless of which combination of
   // pixel serpentine, multi-panel tiling, or a custom map is in play.
   const xyTable = buildXYTable(width, height, outputNode ? props(outputNode) : {})
@@ -722,7 +722,7 @@ export function generateCpp(
    * A knob with nothing wired to it is a constant and needs no feedback; a
    * wired one is resolved at the foot of the loop for the next pass, because
    * its source is emitted below the clock and may itself read `t`. Same rule
-   * the browser follows — see state/masterSpeed.ts.
+   * the browser follows — see state/player/masterSpeed.ts.
    */
   const speedNode = sorted.find((n) => n.data.nodeType === 'MasterSpeed')
   // A control bundle wins over the node's own slider, and only while it is

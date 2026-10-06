@@ -9,11 +9,11 @@ import { describe, it, expect } from 'vitest'
 import { patternNameTableCpp, patternThumbnailTableCpp, THUMBNAIL_DRAW_CPP } from '../patternThumbnailCpp'
 import { PATTERN_SELECTION_CPP } from '../patternSelectionCpp'
 import { infoDisplayLoopCpp, type InfoDisplayEmit } from '../infoDisplayCpp'
-import { THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, blankThumbnail } from '../../state/patternThumbnail'
+import { THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_BYTES, blankThumbnail } from '../../state/patterns/patternThumbnail'
 import {
   PATTERN_BROWSE_TIMEOUT_MS, ENCODER_COUNTS_PER_STEP, ENCODER_RESEAT_COUNTS,
-} from '../../state/patternSelection'
-import { browserGeometry } from '../../state/infoDisplay'
+} from '../../state/patterns/patternSelection'
+import { browserGeometry } from '../../state/displays/infoDisplay'
 
 const lit = (fill: number) => {
   const data = new Uint8Array(THUMBNAIL_BYTES)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateGraphFull, type Frame } from '../../../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
-import { outputRenderPasses, routeFrame } from '../../../state/outputRouting'
+import { outputRenderPasses, routeFrame } from '../../../state/output/outputRouting'
 
 function node(id: string, nodeType: string, category: string, properties: Record<string, unknown> = {}): StudioNode {
   return {

@@ -1,11 +1,11 @@
 import { useGraphStore } from '../../state/graphStore'
-import { compositionDims } from '../../state/outputRouting'
+import { compositionDims } from '../../state/output/outputRouting'
 import { useUiStore } from '../../state/uiStore'
 import { propertyDescription, supportsScalarExpression } from '../../state/nodeLibrary'
-import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../state/scalarExpression'
-import { asFont, DEFAULT_FONT } from '../../state/font'
-import { asImage, IMAGE_MAX_DIM } from '../../state/image'
-import { usePerformanceBakeStore } from '../../state/performanceBakeStore'
+import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
+import { asFont, DEFAULT_FONT } from '../../nodes/shared/font'
+import { asImage, IMAGE_MAX_DIM } from '../../nodes/shared/image'
+import { usePerformanceBakeStore } from '../../state/player/performanceBakeStore'
 import styles from './Inspector.module.css'
 
 function toHex(r: number, g: number, b: number) {

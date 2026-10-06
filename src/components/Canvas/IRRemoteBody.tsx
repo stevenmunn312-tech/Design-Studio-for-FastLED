@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { useHardwareInputStore } from '../../state/hardwareInputStore'
-import { useIrLearnStore } from '../../state/irLearnStore'
-import { useUploadStore } from '../../state/uploadStore'
+import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
+import { useIrLearnStore } from '../../state/peripherals/irLearnStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import { useUiStore } from '../../state/uiStore'
 import {
   IR_REMOTE_LEARN_HANDLE,
@@ -14,7 +14,7 @@ import {
   irRemoteButtonHandle,
   normalizeIrRemoteButtons,
   type IrRemoteButton,
-} from '../../state/irRemote'
+} from '../../state/peripherals/irRemote'
 import { portColor } from '../../state/nodeLibrary'
 import styles from './IRRemoteBody.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'

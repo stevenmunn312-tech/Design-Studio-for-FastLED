@@ -16,7 +16,7 @@ import { findDisplayGeneratorIssues } from '../validateGraph'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { resetEvaluatorState, type GroupRegistry } from '../../state/graphEvaluator'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
-import { THUMBNAIL_BYTES, MAX_THUMBNAILS } from '../../state/patternThumbnail'
+import { THUMBNAIL_BYTES, MAX_THUMBNAILS } from '../../state/patterns/patternThumbnail'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {

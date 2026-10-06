@@ -5,7 +5,7 @@ import SegmentDisplayNodeBody from '../SegmentDisplayNodeBody'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { createOledSurface, OLED_CONTROLLERS, setPixel } from '../../../state/oledSurface'
+import { createOledSurface, OLED_CONTROLLERS, setPixel } from '../../../state/displays/oledSurface'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown>): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)!

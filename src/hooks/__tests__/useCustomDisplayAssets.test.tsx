@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearPatternContentTrustForTests } from '../../state/patternTrust'
+import { clearPatternContentTrustForTests } from '../../state/patterns/patternTrust'
 import { useCustomDisplayAssets } from '../useCustomDisplayAssets'
 import { useGraphStore, type StudioNode, type StudioEdge } from '../../state/graphStore'
-import { createDisplayDocument } from '../../state/displayEditor'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
 import { bakeCustomDisplayAssets, type BakedCustomDisplayAssets } from '../../utils/bakeCustomDisplayAssets'
-import { customDisplayAssetRequests, type BakedCustomDisplayAsset } from '../../state/customDisplayResources'
+import { customDisplayAssetRequests, type BakedCustomDisplayAsset } from '../../state/displays/customDisplayResources'
 
 vi.mock('../../utils/bakeCustomDisplayAssets', () => ({ bakeCustomDisplayAssets: vi.fn() }))
 

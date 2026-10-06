@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DisplayWidget } from '../../../state/displayDocument'
+import type { DisplayWidget } from '../../../state/displays/displayDocument'
 import {
   dialValueFromDrag,
   initialDisplayControlValue,

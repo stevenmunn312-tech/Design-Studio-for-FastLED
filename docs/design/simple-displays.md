@@ -121,7 +121,7 @@ ahead of v1.0.0 and no migration is provided.
 
 ## The signal
 
-`src/state/displaySignal.ts` owns the contract. A `DisplaySignal` is a
+`src/state/displays/displaySignal.ts` owns the contract. A `DisplaySignal` is a
 discriminated union whose `kind` *is* the layout choice:
 
 ```ts
@@ -194,7 +194,7 @@ drawn on. `waitingGeometry(w, h)`, `clockGeometry(w, h)`, `nowPlayingGeometry(w,
 and `browserGeometry(w, h)` each resolve their rows against the glass in front
 of them, and both halves read the same function — the preview draws from it and
 the generator emits the numbers it returns, against that panel's declared size.
-This is the shape [transportDisplay.ts](../../src/state/transportDisplay.ts)
+This is the shape [transportDisplay.ts](../../src/state/displays/transportDisplay.ts)
 has had from the start; the OLED counted rows down from the top at a fixed
 pitch instead, so a shorter module would have drawn its bottom rows past the
 edge and nothing would have said so.

@@ -5,8 +5,8 @@ import BenchDisplayScreen from '../BenchDisplayScreen'
 import { benchScreensFor } from '../benchScreenGeometry'
 import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
-import { createOledSurface, OLED_CONTROLLERS, setPixel } from '../../../state/oledSurface'
-import { SEGMENT_GLYPHS } from '../../../state/segmentDisplay'
+import { createOledSurface, OLED_CONTROLLERS, setPixel } from '../../../state/displays/oledSurface'
+import { SEGMENT_GLYPHS } from '../../../state/displays/segmentDisplay'
 
 /** A module's display on its own render, as the bench draws one. */
 function Bench(props: Omit<ComponentProps<typeof BenchDisplayScreen>, 'screens'>) {

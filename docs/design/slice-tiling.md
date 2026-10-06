@@ -72,7 +72,7 @@ regular-polygon fan triangle. The point is converted to barycentric
 coordinates and walks the four child transforms once per depth level,
 accumulating `leaf = leaf * 4 + child`.
 
-`src/state/sliceTiling.ts` owns pattern parsing, preset bytes, the child-matrix
+`src/nodes/field/sliceTiling.ts` owns pattern parsing, preset bytes, the child-matrix
 builder, and the TypeScript leaf walk. Generated firmware emits the numeric
 preset bytes into two fixed eight-byte arrays and uses the C++ twin in
 `src/codegen/latticeHelperCpp.ts`, emitted once behind `needsLattice`. Parity

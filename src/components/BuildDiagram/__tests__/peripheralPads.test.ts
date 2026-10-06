@@ -5,8 +5,8 @@ import {
   micChannelSelectPadIndex, MODULE_PAD_GEOMETRY, transceiverEnableBridgePads,
   receiveDivider, peripheralSignalEndPoint, peripheralPadPoint, PERIPHERAL_RENDER_H,
 } from '../physicalDiagramLayout'
-import { MIC_MODULES } from '../../../state/micModules'
-import { partById } from '../../../state/partCatalogue'
+import { MIC_MODULES } from '../../../state/peripherals/micModules'
+import { partById } from '../../../build/parts/partCatalogue'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 
 function item(kind: HardwareManifestItem['kind'], partId: string, facts: Record<string, unknown> = {}): HardwareManifestItem {

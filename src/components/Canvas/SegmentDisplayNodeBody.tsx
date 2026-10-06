@@ -1,9 +1,9 @@
 import { useGraphStore } from '../../state/graphStore'
 import { usePreviewStore } from '../../state/previewStore'
-import { partById } from '../../state/partCatalogue'
+import { partById } from '../../build/parts/partCatalogue'
 import {
   SEGMENT_GLYPHS, blankSegmentFrame, segmentControllerFor, segmentFrameText, type SegmentFrame,
-} from '../../state/segmentDisplay'
+} from '../../state/displays/segmentDisplay'
 import styles from './AuxDisplayNodeBodies.module.css'
 
 const SEGMENTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const

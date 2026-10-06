@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useUploadStore } from '../../state/uploadStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import { listRemovableDrives, type RemovableDrive } from '../../utils/backendClient'
 import styles from './Upload.module.css'
 

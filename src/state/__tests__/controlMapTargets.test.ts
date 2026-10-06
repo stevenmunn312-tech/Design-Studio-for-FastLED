@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest'
 import { evaluateGraphFull, resetEvaluatorState } from '../graphEvaluator'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
-import { PLAYER_CONTROL_FUNCTIONS, playerControlInputs, sensiblePlayerControls } from '../playerControlAssignments'
+import { PLAYER_CONTROL_FUNCTIONS, playerControlInputs, sensiblePlayerControls } from '../player/playerControlAssignments'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import { assertWireable } from '../../test-utils/assertWireable'
 

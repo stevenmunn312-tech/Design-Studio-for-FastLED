@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { clearPatternContentTrustForTests } from '../../../state/patternTrust'
+import { clearPatternContentTrustForTests } from '../../../state/patterns/patternTrust'
 import { render, screen } from '@testing-library/react'
 import DmxInputBody from '../DmxInputBody'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../../state/graphStore'
-import { useDmxStore } from '../../../state/dmxStore'
+import { useDmxStore } from '../../../state/peripherals/dmxStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import type { StudioNode } from '../../../state/graphStore'
 

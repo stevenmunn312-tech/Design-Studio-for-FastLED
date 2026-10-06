@@ -18,13 +18,13 @@ import { generatePlayerSketch } from '../playerSketchGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
-import { blankThumbnail } from '../../state/patternThumbnail'
+import { blankThumbnail } from '../../state/patterns/patternThumbnail'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import type { PatternRenderers } from '../showGenerator'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
-import { createDisplayDocument } from '../../state/displayEditor'
-import { customDisplayAssetRequests, customDisplayAssetByteLength } from '../../state/customDisplayResources'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import { customDisplayAssetRequests, customDisplayAssetByteLength } from '../../state/displays/customDisplayResources'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)

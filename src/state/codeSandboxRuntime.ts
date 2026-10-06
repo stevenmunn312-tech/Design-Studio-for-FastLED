@@ -13,7 +13,7 @@
 // worker holding it is gone; a fresh, empty-state worker takes over on the
 // next call.
 
-import type { Frame, RGB } from './ledColor'
+import type { Frame, RGB } from './palettes/ledColor'
 import type { RunRequest, RunResponse } from './codeSandbox.worker'
 
 const RUN_TIMEOUT_MS = 100

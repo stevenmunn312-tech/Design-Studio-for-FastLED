@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { trustCurrentProject } from '../../utils/trustPrompt'
-import { workspaceTrustHolds, type WorkspaceTrustHolds } from '../../state/patternTrust'
+import { workspaceTrustHolds, type WorkspaceTrustHolds } from '../../state/patterns/patternTrust'
 import styles from './TrustBanner.module.css'
 
 /**

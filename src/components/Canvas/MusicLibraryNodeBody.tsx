@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { useMusicStore } from '../../state/musicStore'
+import { useMusicStore } from '../../state/player/musicStore'
 import { useGraphStore } from '../../state/graphStore'
 import { performanceOptionsFromProperties } from '../../codegen/performanceGenerator'
 import { shouldConsumeWheel } from './wheelBehavior'

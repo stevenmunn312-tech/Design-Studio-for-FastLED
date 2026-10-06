@@ -11,7 +11,7 @@ import {
   CYD_SD_CANDIDATES,
   generateSdPinProbeSketch,
 } from '../sdPinProbeSketch'
-import { CYD_TOUCH_DISPLAY } from '../../state/integratedBoardHardware'
+import { CYD_TOUCH_DISPLAY } from '../../build/boards/integratedBoardHardware'
 
 const cyd = () => generateSdPinProbeSketch({
   candidates: CYD_SD_CANDIDATES, deselectPins: CYD_DESELECT_PINS,

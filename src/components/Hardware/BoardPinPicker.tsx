@@ -6,10 +6,10 @@ import {
   isPropertyEnabled,
   propertyLabel,
 } from '../../state/nodeLibrary'
-import { pinDisplayLabel, pinSupports, pinWarningForCapability } from '../../state/boardGpio'
-import { boardGpioInfo, useUploadStore } from '../../state/uploadStore'
-import { boardPinTable } from '../../state/boardPinPolicy'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { pinDisplayLabel, pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
+import { boardGpioInfo, useUploadStore } from '../../state/upload/uploadStore'
+import { boardPinTable } from '../../build/boards/boardPinPolicy'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import styles from './BoardPinPicker.module.css'
 
 interface Props {

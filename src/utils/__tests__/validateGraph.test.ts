@@ -4,8 +4,8 @@ import { OLED_PANEL_RAM_BYTES } from '../../codegen/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/tftDisplayCpp'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
-import { createDisplayDocument } from '../../state/displayEditor'
-import { applyDisplayTemplate } from '../../state/displayTemplates'
+import { createDisplayDocument } from '../../state/displays/displayEditor'
+import { applyDisplayTemplate } from '../../state/displays/displayTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

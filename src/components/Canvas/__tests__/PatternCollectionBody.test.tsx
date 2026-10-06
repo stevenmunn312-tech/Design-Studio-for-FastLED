@@ -3,7 +3,7 @@ import { createEvent, fireEvent, render } from '@testing-library/react'
 import PatternCollectionBody from '../PatternCollectionBody'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
+import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
 import { useUiStore } from '../../../state/uiStore'
 
 function nodeData(type: string, properties: Record<string, unknown>) {

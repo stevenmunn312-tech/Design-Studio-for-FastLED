@@ -4,7 +4,7 @@
 // gracefully when the helper isn't running — callers treat a null/throw as
 // "offline" and fall back to the copy-paste arduino-cli commands.
 
-import type { SavedPattern } from '../state/patternLibrary'
+import type { SavedPattern } from '../state/patterns/patternLibrary'
 import type { SavedProject } from '../state/projectStore'
 
 const ENV_URL = (import.meta.env as Record<string, string | undefined>).VITE_BACKEND_URL

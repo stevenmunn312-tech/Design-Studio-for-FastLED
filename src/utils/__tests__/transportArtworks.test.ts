@@ -5,7 +5,7 @@ import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import {
   MAX_TRANSPORT_ARTWORKS, TRANSPORT_ARTWORK_BYTES,
-} from '../../state/transportDisplay'
+} from '../../state/displays/transportDisplay'
 import {
   artworkDisplays, artworkPlayer, bakeDisplayArtworks, transportArtworkIssues,
 } from '../transportArtworks'

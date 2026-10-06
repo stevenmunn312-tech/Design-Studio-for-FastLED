@@ -2,19 +2,19 @@
 // input part, fixture and LED output paired with its catalogue entry and the
 // geometry the bench draws it with.
 import { useMemo } from 'react'
-import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
-import { ringDiameterMm, partPinLabelForProperty, partRenderSrc } from '../../state/partCatalogue'
-import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/buttonBank'
-import { resolvePartIdentity } from '../../state/partOptions'
-import { INTEGRATED_BOARD_PROFILE_KEY } from '../../state/integratedBoardHardware'
+import { nextFreeLedDataPin } from '../../build/pins/ledPinAssignment'
+import { ringDiameterMm, partPinLabelForProperty, partRenderSrc } from '../../build/parts/partCatalogue'
+import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
+import { resolvePartIdentity } from '../../build/parts/partOptions'
+import { INTEGRATED_BOARD_PROFILE_KEY } from '../../build/boards/integratedBoardHardware'
 import { boardScreensFor } from './benchScreenGeometry'
-import { boardProfileById, type PhysicalBoardProfile } from '../../build/boardProfiles'
-import { UNRESOLVED_CUSTOM_BOARD_PROFILE } from '../../build/customBoardProfile'
-import { ledPitchMm, DEFAULT_BOARD_PROFILE_ID, WS2812B_PITCH_MM } from '../../state/hardware'
+import { boardProfileById, type PhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { UNRESOLVED_CUSTOM_BOARD_PROFILE } from '../../build/boards/customBoardProfile'
+import { ledPitchMm, DEFAULT_BOARD_PROFILE_ID, WS2812B_PITCH_MM } from '../../build/hardware'
 import {
   outputForm, outputGridDims, LED_OUTPUT_FORM_LABELS, ringStartAngle, ringDirection, corkscrewTurns,
   corkscrewStartAngle, corkscrewDirection, corkscrewDiameterMm, corkscrewHeightMm,
-} from '../../state/ledOutputForm'
+} from '../../state/output/ledOutputForm'
 import {
   INPUT_PARTS, LED_OUTPUT_NODE_TYPE, FIXTURE_PARTS, modulePinKeys, MODULE_PIN_LABELS, numericPinSummary,
   VU_PAIR_WIDTH_MM,

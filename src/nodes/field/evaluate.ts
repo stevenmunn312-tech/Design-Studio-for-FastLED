@@ -1,6 +1,6 @@
-import { makeShims, SHIM_NAMES } from '../../state/fastledShims'
-import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
-import type { Frame } from '../../state/ledColor'
+import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
+import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
@@ -26,7 +26,7 @@ import {
   turingFieldValue, turingIterations, turingPrefixLength, turingRadii, turingSeed,
   turingStep, turingStepSize,
 } from '../../state/evaluator/turing'
-import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from '../../state/sliceTiling'
+import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from './sliceTiling'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }

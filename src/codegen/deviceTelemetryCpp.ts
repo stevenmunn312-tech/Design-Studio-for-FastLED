@@ -1,7 +1,7 @@
 // The firmware half of device telemetry: one marked line per interval.
 //
 // The marker, the interval and every key name come from
-// `src/state/deviceTelemetry.ts`, which is also what parses them back, so the
+// `src/state/upload/deviceTelemetry.ts`, which is also what parses them back, so the
 // two halves cannot drift into a format only one of them speaks. Nothing here
 // decides what a number means — that is the shared module's job — and nothing
 // there knows how to read a chip.
@@ -17,7 +17,7 @@ import {
   TELEMETRY_MARKER,
   TELEMETRY_TOUCH_X_KEY,
   TELEMETRY_TOUCH_Y_KEY,
-} from '../state/deviceTelemetry'
+} from '../state/upload/deviceTelemetry'
 
 export interface DeviceTelemetryEmit {
   /**

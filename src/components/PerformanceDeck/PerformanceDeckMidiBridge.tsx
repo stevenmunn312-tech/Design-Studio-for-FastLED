@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { MidiEngine } from '../../midi/midiEngine'
-import { usePerformanceDeckSession } from '../../state/performanceDeckSessionStore'
-import { applyMidiEventToBindings } from '../../state/performanceDeckActions'
+import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
+import { applyMidiEventToBindings } from '../../state/player/performanceDeckActions'
 
 /** Applies MIDI bindings to the live graph regardless of whether the
  *  Performance Deck panel is open — mount this unconditionally (see

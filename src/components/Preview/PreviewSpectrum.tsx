@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAudioStore } from '../../state/audioStore'
-import { useDecoderAudioStore } from '../../state/decoderAudioStore'
-import type { AudioCapabilityKind } from '../../state/audioCapabilities'
+import { useAudioStore } from '../../state/audio/audioStore'
+import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
+import type { AudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import {
   SPECTRUM_VISUALIZER_STYLES,
   resampleSpectrum,

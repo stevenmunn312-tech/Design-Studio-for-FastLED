@@ -4,7 +4,7 @@ import { useGraphStore, ROOT_GRAPH_ID } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useProjectStore } from '../../state/projectStore'
 import type { StudioNode } from '../../state/graphStore'
-import { clearPatternContentTrustForTests } from '../../state/patternTrust'
+import { clearPatternContentTrustForTests } from '../../state/patterns/patternTrust'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {

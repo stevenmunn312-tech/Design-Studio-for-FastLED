@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import OutputConsole from '../OutputConsole'
-import { useUploadStore } from '../../../state/uploadStore'
-import { useCapacityStore } from '../../../state/capacityStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useCapacityStore } from '../../../state/upload/capacityStore'
 
 describe('OutputConsole', () => {
   const writeText = vi.fn<(text: string) => Promise<void>>()

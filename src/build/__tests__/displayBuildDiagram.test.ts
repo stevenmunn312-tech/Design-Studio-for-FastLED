@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { buildHardwareManifest } from '../hardwareManifest'
 import { NODE_LIBRARY, transportDisplayPinKeysForProps } from '../../state/nodeLibrary'
-import { isHardwareNodeType } from '../../state/hardware'
+import { isHardwareNodeType } from '../hardware'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
-import { TFT_TRANSPORT_PINS } from '../../state/tftSurface'
-import { partPinLabelForProperty } from '../../state/partCatalogue'
-import { partOptionsFor } from '../../state/partOptions'
+import { TFT_TRANSPORT_PINS } from '../../state/displays/tftSurface'
+import { partPinLabelForProperty } from '../parts/partCatalogue'
+import { partOptionsFor } from '../parts/partOptions'
 import type { StudioNode } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {

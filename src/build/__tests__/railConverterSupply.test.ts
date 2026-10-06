@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { boardProfileById } from '../boardProfiles'
+import { boardProfileById } from '../boards/boardProfiles'
 import { buildBomRows, buildConnectionRows } from '../buildExports'
 import { ensureBuildProfile } from '../buildProfile'
-import { calculateElectricalPlan } from '../electricalPlan'
+import { calculateElectricalPlan } from '../power/electricalPlan'
 import { buildHardwareManifest } from '../hardwareManifest'
 import type { StudioNode } from '../../state/graphStore'
-import { partById } from '../../state/partCatalogue'
-import { defaultSourceVoltageFor, deratedCurrentMa, inputCurrentForOutputMa } from '../../state/powerConverter'
+import { partById } from '../parts/partCatalogue'
+import { defaultSourceVoltageFor, deratedCurrentMa, inputCurrentForOutputMa } from '../../state/peripherals/powerConverter'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {

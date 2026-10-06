@@ -1,4 +1,4 @@
-import { IR_REMOTE_REPEAT_HOLD_MS } from '../state/irRemote'
+import { IR_REMOTE_REPEAT_HOLD_MS } from '../state/peripherals/irRemote'
 
 /**
  * ESP32-S3 capture adapter for the pinned IRremote decoder.

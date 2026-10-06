@@ -24,7 +24,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Stateful evaluation is namespaced by graph/group instance so reused groups do
   not share runtime state.
 - Trust follows where content came from, not which file carried it:
-  `src/state/patternTrust.ts` remembers, in localStorage, each Formula/Code node
+  `src/state/patterns/patternTrust.ts` remembers, in localStorage, each Formula/Code node
   and Art-Net `DMXInput` by its type and settings (never position or id), and a
   project is untrusted only while it holds one of those this machine has never
   seen. Shipped (`BUNDLED_PATTERNS`) content is known by definition. One
@@ -51,7 +51,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Master Speed scales the one shared time value `t` that every animated node
   reads, rather than rewriting each node's own rate, so a graph's relative
   speeds hold exactly and a node added later needs no teaching.
-  `src/state/masterSpeed.ts` accumulates (`t += dt*speed`), never multiplies
+  `src/state/player/masterSpeed.ts` accumulates (`t += dt*speed`), never multiplies
   (`t*speed`) — multiplying would jump every running animation the instant the
   knob moved. `masterSpeedFromOutputs` deliberately reads the speed the
   evaluator resolved on the *previous* pass (one frame of lag) so a speed of
@@ -73,10 +73,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (an audio band, say) wired into `Fire2012.sparking` (0–255),
   `ReactionDiffusion.feed`/`kill` (~0.03–0.065), or `Starfield.count` silently
   kills the effect rather than driving it. Only `speed`/`scale`-class inputs are
-  denormalised for you, via `src/state/speedRange.ts` (mirrored by
+  denormalised for you, via `src/nodes/shared/speedRange.ts` (mirrored by
   `audioFlowRange.ts` for AudioFlow). Authoring a pattern that wires anything
   else needs an explicit Map Range into that node's own domain, and
-  `src/state/signalRange.ts` now says so rather than leaving it to be found:
+  `src/nodes/shared/signalRange.ts` now says so rather than leaving it to be found:
   Graph Health names the wire and the domain to map into. Its two halves are
   deliberately asymmetric — the target's domain is *derived* from
   `inputClampRange`, because every input the evaluator denormalises is a 0-1
@@ -162,7 +162,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   static `CRGBPalette16` and calls FastLED's `nblendPaletteTowardPalette`
   with `blend` as `maxChanges`, once per 10 ms of `millis()`, at most 32 steps
   a frame. The preview holds the same 48 bytes and runs `nblendPaletteBytes`
-  (`state/paletteBank.ts`), a copy `paletteBlendNative.test.ts` holds to
+  (`state/palettes/paletteBank.ts`), a copy `paletteBlendNative.test.ts` holds to
   FastLED's own function. While blending, the preview outputs the 16-entry
   table rather than the palette name; `blend: 0` keeps the name and the cut.
 - Floating-point frame reads share `sampleFrame` in `evaluator/frames.ts` and
@@ -347,7 +347,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   design (`displayId`) is separate from showing it (`shownDesignId` in
   `transportDisplay.ts`, which every mount/evaluate/generate/validate reader
   asks). A fixed layout sets the design aside with its widget ports and wires
-  kept; those wires read at rest. `src/state/__tests__/setAsideDesign.test.ts`
+  kept; those wires read at rest. `src/state/displays/__tests__/setAsideDesign.test.ts`
   holds this end to end (preview, normal sketch, show/player firmware, Graph
   Health's "Set Layout to Custom design to use it again" warning, and the
   design's return when Custom design is chosen again). See

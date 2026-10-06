@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import { EMITTER_GLOW, LED_CELL_FILL } from './ledPreviewGeometry'
-import type { StereoVuFrame } from '../../state/stereoVuMeter'
+import type { StereoVuFrame } from '../../state/audio/stereoVuMeter'
 
 /*
  * A rail is a one-column panel: its box is one LED pitch wide and one pitch per

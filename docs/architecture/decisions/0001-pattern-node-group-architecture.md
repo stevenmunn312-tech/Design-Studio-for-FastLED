@@ -132,7 +132,7 @@ where it is needed.
   transitions are built. Phase 3 complete.
 - **Phase 4 — Expansion.** _Done._ A `Mask` node scales a frame
   per-pixel by a mask frame's luminance (any soft frame gives feathered edges).
-  A `Text` node renders with a built-in 3×5 bitmap font (`src/state/font.ts`,
+  A `Text` node renders with a built-in 3×5 bitmap font (`src/nodes/shared/font.ts`,
   shared by evaluator + codegen) and can scroll; the font is plain data so a
   custom font drops in without other changes — and a `Text` node can now load a
   **custom font** by uploading a `{ w, h, glyphs }` JSON in the Inspector

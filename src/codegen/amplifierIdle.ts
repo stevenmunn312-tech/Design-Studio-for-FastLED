@@ -1,5 +1,5 @@
 import type { StudioNode } from '../state/graphStore'
-import { audioOutputMode, i2sAudioStage } from '../state/audioOutput'
+import { audioOutputMode, i2sAudioStage } from '../state/audio/audioOutput'
 import { sanitizePin } from './hardwarePins'
 
 export interface AmplifierIdleCpp {

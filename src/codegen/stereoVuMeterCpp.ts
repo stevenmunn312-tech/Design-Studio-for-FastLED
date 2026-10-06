@@ -1,15 +1,15 @@
-import { hexToRgb } from '../state/polinePalette'
+import { hexToRgb } from '../state/palettes/polinePalette'
 import {
   STEREO_VU_MODES,
   stereoVuSettings,
   stereoVuShuffleOrder,
-} from '../state/stereoVuMeter'
-import { paletteCppRef, resolvePaletteId } from '../state/paletteCatalog'
+} from '../state/audio/stereoVuMeter'
+import { paletteCppRef, resolvePaletteId } from '../state/palettes/paletteCatalog'
 import {
   customPaletteStops16,
   hexToRgb as customHexToRgb,
   normalizeCustomPalette,
-} from '../state/customPalette'
+} from '../state/palettes/customPalette'
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import { sanitizePin } from './hardwarePins'
 

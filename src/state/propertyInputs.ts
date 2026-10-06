@@ -1,5 +1,5 @@
 import { isPropertyEnabled, NODE_LIBRARY } from './nodeLibrary'
-import { partDerivedInputs } from './partPorts'
+import { partDerivedInputs } from '../build/parts/partPorts'
 import type { NodePort } from '../types'
 
 export interface PropertyInput extends NodePort {

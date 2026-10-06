@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
-import { partDerivedInputs } from '../../src/state/partPorts'
+import { partDerivedInputs } from '../../src/build/parts/partPorts'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

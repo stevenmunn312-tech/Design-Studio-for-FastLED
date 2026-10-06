@@ -4,7 +4,7 @@
 > family IR claims has at least one passing engine. Three fbuild legs cannot
 > run because fbuild fails on a board core before it reaches IR code: RP2040,
 > Renesas, and SAMD21. STM32 builds only on fbuild, because the app's STM32
-> FQBNs carry no stm32duino `pnum` (see `src/state/uploadStore.ts`). This file
+> FQBNs carry no stm32duino `pnum` (see `src/state/upload/uploadStore.ts`). This file
 > is the evidence for D-05a step 13 in [todo.md](../../../todo.md), closed
 > 2026-09-23 with the fbuild legs below left to upstream fixes. It is compile evidence only, so every IR
 > combination stays experimental in the

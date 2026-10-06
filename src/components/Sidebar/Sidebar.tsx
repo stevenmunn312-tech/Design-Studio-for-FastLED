@@ -3,24 +3,24 @@ import { createPortal } from 'react-dom'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore, reachableGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { useAudioStore } from '../../state/audioStore'
-import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patternLibrary'
-import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patternTags'
+import { useAudioStore } from '../../state/audio/audioStore'
+import { usePatternLibrary, importPatternFile, type SavedPattern } from '../../state/patterns/patternLibrary'
+import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
 import PatternFormIcons from '../PatternTags/PatternFormIcons'
 
 function tagNames(tags: PatternFormTag[]): string {
   return tags.map((tag) => PATTERN_FORM_TAGS.find((entry) => entry.id === tag)?.label ?? tag).join(', ')
 }
-import { AUDIO_REACTIVE_CATEGORY_ID, STANDARD_CATEGORY_ID } from '../../state/bundledPatterns'
+import { AUDIO_REACTIVE_CATEGORY_ID, STANDARD_CATEGORY_ID } from '../../state/patterns/bundledPatterns'
 import { NODE_LIBRARY, CATEGORIES, CATEGORY_ACCENT_VAR, NODE_DESCRIPTIONS, categoryNodes } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
-import { ratingTier, usePatternRatingStore } from '../../state/patternRating'
+import { ratingTier, usePatternRatingStore } from '../../state/patterns/patternRating'
 import { revealPatternsFolder } from '../../utils/backendClient'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition } from '../../types'
-import { isHardwareLibraryHiddenNodeType } from '../../state/hardware'
+import { isHardwareLibraryHiddenNodeType } from '../../build/hardware'
 import styles from './Sidebar.module.css'
 
 // Bumped to v2 so existing sessions (whose stored value predates Quick

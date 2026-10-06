@@ -142,7 +142,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   kinds. See [simple displays](../../design/simple-displays.md) and
   [large displays/control routing](../../design/large-displays-and-control-routing.md).
 - Pattern thumbnails are baked in the browser at export, never rendered
-  on-device: `src/state/patternThumbnail.ts` owns what a thumbnail *is* (32x32 =
+  on-device: `src/state/patterns/patternThumbnail.ts` owns what a thumbnail *is* (32x32 =
   exactly four OLED pages, page-major bit-0-at-top matching `OledSurface`, Rec.
   709 luminance, ordered 4x4 Bayer dither, and the
   `MAX_THUMBNAILS`/`thumbnailBudgetIssue` flash budget), and
@@ -197,8 +197,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Colour TFT
 
 - Colour TFT (ST7789/ST7789V) support exists as pure modules mirroring the OLED
-  family — `src/state/tftSurface.ts` (surface primitives),
-  `src/state/transportDisplay.ts` (Waiting/Clock/Now Playing/Fixed
+  family — `src/state/displays/tftSurface.ts` (surface primitives),
+  `src/state/displays/transportDisplay.ts` (Waiting/Clock/Now Playing/Fixed
   Transport/Show Status layouts), `src/codegen/tftDisplayCpp.ts` (driver) — and
   `TransportDisplay` is wired end to end: its preview in `src/nodes/output/evaluate.ts`,
   its firmware in both sketch generators, resolved player displays, controller
@@ -218,7 +218,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `playercontrols` bundle for XPT2046 touch; terminal discovery therefore
   derives from input-bearing output-category nodes as well as ordinary
   output-less sinks, so an interactive display remains hot and remains a codegen
-  root. `src/state/transportTouch.ts` owns calibration, rotation and hit
+  root. `src/state/displays/transportTouch.ts` owns calibration, rotation and hit
   regions; player firmware samples the separately routable touch header through
   `src/codegen/tftTouchCpp.ts`. The browser node body writes mounted pixel
   coordinates to the transient `transportDisplayTouchStore`, and the evaluator
@@ -237,7 +237,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   separately from the fixed-layout branches below. Its widgets publish from the
   document on their own Touch ports, and the template-stamped ones
   (`controlRole`) also fill the Touch node's Controls bundle through
-  `src/state/designControlBundle.ts`, the one mapping the evaluator, all three
+  `src/state/displays/designControlBundle.ts`, the one mapping the evaluator, all three
   generators and validation read. A Toggle presses on a finger's gesture count,
   never its value, because Set feedback moves the value too; see
   [large displays](../../design/large-displays-and-control-routing.md).
@@ -419,7 +419,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A fixed display layout is frozen with golden-vector tests the same way the VU
   meter's cross-language twin is (see
   [audio levels](player-shows-and-controls.md#audio-levels)), extended from one
-  renderer to the whole catalogue: `src/state/__tests__/displaySurfaceCases.ts`
+  renderer to the whole catalogue: `src/state/displays/__tests__/displaySurfaceCases.ts`
   enumerates every catalogued panel geometry x fixed layout x reading —
   including the at-rest reading a disabled panel draws — as one list derived
   from the controller/rotation tables rather than hand-listed, so a new module
@@ -440,7 +440,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and records the text/surface contrast per state alongside the values so a
   state that's technically distinct but illegible still fails.
 - Two display-generator invariants keep a panel from reporting something its
-  data doesn't support. `showStatusStateText` (`src/state/transportDisplay.ts`)
+  data doesn't support. `showStatusStateText` (`src/state/displays/transportDisplay.ts`)
   takes the pattern count, not just `browsing`, and returns empty rather than
   BROWSING/PLAYING when the count is zero — mirroring `showStatusOrdinalText`'s
   existing refusal to show "1/0" for an empty collection — and

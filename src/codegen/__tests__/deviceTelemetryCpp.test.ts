@@ -20,7 +20,7 @@ import {
   TELEMETRY_TOUCH_Y_KEY,
   parseTelemetryLine,
   parseTelemetryTouchSample,
-} from '../../state/deviceTelemetry'
+} from '../../state/upload/deviceTelemetry'
 import { boardSupportsTelemetry } from '../deviceTelemetryCpp'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'

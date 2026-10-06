@@ -24,7 +24,7 @@ opens it. Having a design and showing it are separate facts: a fixed
 layout sets the design aside with its widget ports and wires intact,
 and everything that means *showing* (the mount plan, evaluator, all
 three generators, validation) asks `shownDesignId` in
-`state/transportDisplay.ts` rather than reading `displayId`. Wires from
+`state/displays/transportDisplay.ts` rather than reading `displayId`. Wires from
 a set-aside design's controls read at rest: the evaluator publishes rest
 values and firmware declares them as constants, only where something
 reads them. Duplicating the
@@ -108,7 +108,7 @@ minting a socket and waiting for a cable. A Now Playing screen with five
 readings was otherwise five cables drawn from the Music Player already plugged
 into the panel beside them — the values were there, just not offered.
 
-The field catalogue is derived, not restated: `state/displaySourceFields.ts`
+The field catalogue is derived, not restated: `state/displays/displaySourceFields.ts`
 maps the player's fields from `SONG_INFO_PORTS`, so a field added to a track
 report is offered on a screen the same day and cannot be offered under a name
 nothing publishes. `displaySourceFieldsForWidget` narrows by data type the way
@@ -238,7 +238,7 @@ does not acquire the fixed-layout transport actions; those outputs rest.
 
 A screen design does fill the Controls bundle from the widgets a template
 gave a job (`controlRole`), so a Now Playing design drives Music Player
-through one wire. `src/state/designControlBundle.ts` is the one mapping, read
+through one wire. `src/state/displays/designControlBundle.ts` is the one mapping, read
 by the evaluator, all three generators and validation:
 
 - Previous/Next land on track steps, or on pattern steps when the panel shows a

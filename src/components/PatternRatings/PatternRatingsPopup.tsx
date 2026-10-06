@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
-import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
+import { usePatternLibrary, type SavedPattern } from '../../state/patterns/patternLibrary'
 import { getGroupRegistry, matrixDims, rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import {
   PATTERN_INTENTS,
@@ -13,10 +13,10 @@ import {
   type PatternIntent,
   type PatternRating,
   type RatingThumbnail,
-} from '../../state/patternRating'
+} from '../../state/patterns/patternRating'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import PatternTagChips from '../PatternTags/PatternTagChips'
-import { patternFormTags, type PatternFormTag } from '../../state/patternTags'
+import { patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternRatingsPopup.module.css'

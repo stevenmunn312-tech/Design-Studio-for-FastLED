@@ -1,6 +1,6 @@
-import { juggleDotCount, JUGGLE_COUNT } from '../../state/juggle'
-import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
-import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/ledColor'
+import { juggleDotCount, JUGGLE_COUNT } from './juggle'
+import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
 import {
   DEFAULT_W,
   DEFAULT_H,
@@ -15,7 +15,7 @@ import {
 } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainGeometry, rainIndex } from '../../state/evaluator/digitalRain'
-import { hexToRgb } from '../../state/customPalette'
+import { hexToRgb } from '../../state/palettes/customPalette'
 import {
   candleColor, candleMode, classicHash, heartbeatEnvelope, heartbeatPhase, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
   tvColor, tvLayout, type LightningState,

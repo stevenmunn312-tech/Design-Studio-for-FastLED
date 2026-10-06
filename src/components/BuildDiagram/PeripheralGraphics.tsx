@@ -1,7 +1,7 @@
 // Input modules and LED outputs as drawn on the physical assembly diagram.
-import type { OutputElectricalPlan } from '../../build/electricalPlan'
+import type { OutputElectricalPlan } from '../../build/power/electricalPlan'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
-import { partRenderSrc, sharedPadsAcrossBoards } from '../../state/partCatalogue'
+import { partRenderSrc, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
 import buttonModuleRender from '../../assets/components/button-module.webp'
 import potentiometerModuleRender from '../../assets/components/potentiometer-module.webp'
 import encoderModuleRender from '../../assets/components/encoder-module.webp'

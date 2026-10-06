@@ -1,8 +1,8 @@
 // Where each part sits on the Hardware bench, as CSS: its box, the LED
 // lens and spill over an output, a broken run's cut, and its caption.
 import type { CSSProperties } from 'react'
-import { ledPitchMm } from '../../state/hardware'
-import type { LedOutputForm } from '../../state/ledOutputForm'
+import { ledPitchMm } from '../../build/hardware'
+import type { LedOutputForm } from '../../state/output/ledOutputForm'
 import { hardwareCaptionWorldScale } from './hardwareLayout'
 import type { HardwareArrangement, PlacedPart } from './hardwareLayout'
 import type { useHardwareView } from './useHardwareView'

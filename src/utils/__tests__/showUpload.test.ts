@@ -3,7 +3,7 @@ import type { Edge } from '@xyflow/react'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioNode } from '../../state/graphStore'
 import { buildShowPayload, buildShowPlayer, buildShowPlayerForMeasurement, showPackagingIssues } from '../showUpload'
-import type { MusicEntry } from '../../state/musicStore'
+import type { MusicEntry } from '../../state/player/musicStore'
 import type { ShowFile } from '../../types/showFile'
 
 function node(

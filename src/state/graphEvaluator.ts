@@ -1,6 +1,6 @@
 import type { StudioNode, StudioEdge } from './graphStore'
 import { inputClampRange, resolveNodeScalarExpressions, bypassPort, NODE_LIBRARY } from './nodeLibrary'
-import { type Palette, type RGB, type Frame, samplePalette } from './ledColor'
+import { type Palette, type RGB, type Frame, samplePalette } from './palettes/ledColor'
 import { getCodeError as getCodeErrorFromSandbox } from './codeSandboxRuntime'
 import { DEFAULT_W, DEFAULT_H } from './evaluator/frames'
 import { markStateUsed, maybePruneEvaluatorState, advanceFramePool } from './evaluator/memory'

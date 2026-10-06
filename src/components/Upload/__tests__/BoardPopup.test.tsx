@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import BoardPopup from '../BoardPopup'
 import { useGraphStore } from '../../../state/graphStore'
-import { useUploadStore } from '../../../state/uploadStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 
 describe('BoardPopup build-engine guidance', () => {
   beforeEach(() => {

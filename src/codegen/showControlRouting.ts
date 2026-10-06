@@ -1,5 +1,5 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { templateControlRouting, showControlTargets } from './templateControlRouting'
 import { selectionSourceExpressions } from './displaySourceExpressions'
 export { controlBundleVariable, showControlOutputIds, showControlTargets } from './templateControlRouting'

@@ -1,5 +1,5 @@
-import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
-import { particleRadius } from '../../state/particleScale'
+import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { particleRadius } from './particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, fireSmokeDim, fireStyle,
@@ -9,7 +9,7 @@ import {
   LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack, trackIndices, trackSplat, wrapTrack, type StringTrack } from '../../state/evaluator/stringTrack'
-import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/ledColor'
+import { type Frame, type Palette, samplePalette, hsv, type RGB } from '../../state/palettes/ledColor'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 import {
   buildFrame,
@@ -23,7 +23,7 @@ import {
   byte,
 } from '../../state/evaluator/frames'
 import { allocField, allocFrame, instanceState } from '../../state/evaluator/memory'
-import { reactionDiffusionRates } from '../../state/reactionDiffusionPresets'
+import { reactionDiffusionRates } from './reactionDiffusionPresets'
 import {
   seededRngState,
   seededRandom,

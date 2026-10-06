@@ -1,5 +1,5 @@
-import { juggleDotCount, JUGGLE_COUNT } from '../../state/juggle'
-import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
+import { juggleDotCount, JUGGLE_COUNT } from './juggle'
+import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'

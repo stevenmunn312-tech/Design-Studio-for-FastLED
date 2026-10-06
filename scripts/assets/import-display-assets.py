@@ -6,7 +6,7 @@
 The sibling of `import-part-assets.py`, for the freeform `Display` editor
 rather than the hardware bench. Reads the pack's own manifests, copies the
 vector masters and theme tokens under `public/display-assets/`, and emits a
-generated TypeScript module that `src/state/displayAssets.ts` wraps.
+generated TypeScript module that `src/state/displays/displayAssets.ts` wraps.
 
 ## Why the import happens here and not at runtime
 
@@ -311,7 +311,7 @@ def main(argv: list[str]) -> None:
     OUT_TS.write_text(
         header
         + "\n\n"
-        + "import type { DisplayAssetEntry, DisplayPackThemeTokens } from '../../state/displayAssets'"
+        + "import type { DisplayAssetEntry, DisplayPackThemeTokens } from '../../state/displays/displayAssets'"
         + "\n\n"
         + f"export const DISPLAY_ASSET_PACK_VERSION = {json.dumps(pack_version)}"
         + "\n\n"

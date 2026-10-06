@@ -1,5 +1,5 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
-import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
+import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
 
 interface PortLike {
   id?: string

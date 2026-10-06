@@ -31,13 +31,13 @@ import { resolve } from 'node:path'
 import {
   TFT_CONTROLLERS, TFT_ROTATIONS, clearTftSurface, createTftSurface, drawTftRect,
   drawTftText, fillTftRect, rgb565, rgb565Components, tftRotatedSize, type TftSurface,
-} from '../../src/state/tftSurface'
+} from '../../src/state/displays/tftSurface'
 import {
   displaySurfaceCases, type DisplaySurfaceCase, type RenderedSurface,
-} from '../../src/state/__tests__/displaySurfaceCases'
-import { DISPLAY_TEMPLATES, applyDisplayTemplate } from '../../src/state/displayTemplates'
-import { createDisplayDocument } from '../../src/state/displayEditor'
-import { isDisplayTouchTarget } from '../../src/state/displayRegistry'
+} from '../../src/state/displays/__tests__/displaySurfaceCases'
+import { DISPLAY_TEMPLATES, applyDisplayTemplate } from '../../src/state/displays/displayTemplates'
+import { createDisplayDocument } from '../../src/state/displays/displayEditor'
+import { isDisplayTouchTarget } from '../../src/state/displays/displayRegistry'
 
 const OUT_DIR = resolve('artifacts/display-sheets')
 

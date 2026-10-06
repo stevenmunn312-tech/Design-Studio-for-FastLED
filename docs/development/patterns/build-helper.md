@@ -39,7 +39,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   both compile/upload generators so every run ends with one `  [time] total ...`
   line — clocked from before the fbuild build lock is acquired so queued wait
   counts, except a refused/`busy` build, which reports no time since it never
-  compiled or flashed anything. `src/state/uploadStore.ts`'s `parseStatus` is
+  compiled or flashed anything. `src/state/upload/uploadStore.ts`'s `parseStatus` is
   the one place that reads `[time] total` into the UI (last match wins, since a
   show upload can log more than one), surfacing it as `UploadStatus.elapsed`
   only on a finished `done` run — not on failure, where what went wrong matters

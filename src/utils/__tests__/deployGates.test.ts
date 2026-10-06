@@ -4,7 +4,7 @@ import {
   buildGraphDiagnostics,
   validateGraph,
 } from '../validateGraph'
-import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../../state/starterTemplates'
+import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../../state/patterns/starterTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 
 /**

@@ -2,7 +2,7 @@ import type {
   PhysicalBoardPinAnchor,
   PhysicalBoardPinProfile,
   PhysicalBoardProfile,
-} from '../../build/boardProfiles'
+} from '../../build/boards/boardProfiles'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import styles from './BoardPinoutPicker.module.css'
 

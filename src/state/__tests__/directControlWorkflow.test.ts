@@ -21,12 +21,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGraphStore } from '../graphStore'
 import { captureWorkspace } from '../workspacePersistence'
-import { useHardwareInputStore } from '../hardwareInputStore'
+import { useHardwareInputStore } from '../peripherals/hardwareInputStore'
 import { evaluateGraphFull } from '../graphEvaluator'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { buildGraphDiagnostics, findDisplayGeneratorIssues } from '../../utils/validateGraph'
-import { controlPhaseViolation } from '../controlPhases'
+import { controlPhaseViolation } from '../player/controlPhases'
 import type { StudioEdge, StudioNode } from '../graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, label?: string): StudioNode {

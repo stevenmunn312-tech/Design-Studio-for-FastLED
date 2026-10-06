@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import PatternRatingsPopup from '../PatternRatingsPopup'
 import { getGroupRegistry, useGraphStore } from '../../../state/graphStore'
-import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
-import { patternRatingKey, usePatternRatingStore, type PatternRating } from '../../../state/patternRating'
+import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
+import { patternRatingKey, usePatternRatingStore, type PatternRating } from '../../../state/patterns/patternRating'
 
 const pattern: SavedPattern = {
   id: 'pat-insight',

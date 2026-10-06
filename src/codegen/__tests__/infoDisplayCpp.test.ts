@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { infoDisplayHelpersCpp } from '../infoDisplayCpp'
-import { cppStringLiteral } from '../../state/displayText'
-import { INFO_LAYOUT, clockGeometry } from '../../state/infoDisplay'
-import { OLED_CONTROLLERS } from '../../state/oledSurface'
-import { FONT_W, FONT_H, DEFAULT_FONT } from '../../state/font'
+import { cppStringLiteral } from '../../state/displays/displayText'
+import { INFO_LAYOUT, clockGeometry } from '../../state/displays/infoDisplay'
+import { OLED_CONTROLLERS } from '../../state/displays/oledSurface'
+import { FONT_W, FONT_H, DEFAULT_FONT } from '../../nodes/shared/font'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   return {

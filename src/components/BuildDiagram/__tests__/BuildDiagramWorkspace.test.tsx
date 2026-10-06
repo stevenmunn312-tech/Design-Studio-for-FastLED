@@ -3,12 +3,12 @@ import { fireEvent, render } from '@testing-library/react'
 import BuildDiagramWorkspace from '../BuildDiagramWorkspace'
 import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
-import { useUploadStore } from '../../../state/uploadStore'
-import { micPinDefaultsForBoard } from '../../../state/micPinDefaults'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { micPinDefaultsForBoard } from '../../../build/pins/micPinDefaults'
 import { MODULE_PAD_HOLE_RADIUS, POWER_FEED_PAIR_GAP, peripheralPadRadius } from '../physicalDiagramLayout'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { TFT_TRANSPORT_PINS } from '../../../state/tftSurface'
-import { partPinLabelForProperty } from '../../../state/partCatalogue'
+import { TFT_TRANSPORT_PINS } from '../../../state/displays/tftSurface'
+import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
 
 function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
   return {

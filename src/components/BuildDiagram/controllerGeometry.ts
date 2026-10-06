@@ -1,7 +1,7 @@
 // Where the controller sits on the physical assembly diagram: its render,
 // its pads, and the points wires land on.
-import type { PhysicalBoardProfile } from '../../build/boardProfiles'
-import { customBoardGeometry, customBoardPowerPad, type CustomBoardGeometry, type CustomBoardPad } from '../../build/customBoardGeometry'
+import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { customBoardGeometry, customBoardPowerPad, type CustomBoardGeometry, type CustomBoardPad } from '../../build/boards/customBoardGeometry'
 import type { PhysicalDiagramConnection } from './signalPresentation'
 
 /**

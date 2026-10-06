@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import PatternCollectionPicker from '../PatternCollectionPicker'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
-import { usePatternLibrary, type SavedPattern } from '../../../state/patternLibrary'
-import { usePatternRatingStore } from '../../../state/patternRating'
-import type { PatternFormTag } from '../../../state/patternTags'
+import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
+import { usePatternRatingStore } from '../../../state/patterns/patternRating'
+import type { PatternFormTag } from '../../../state/patterns/patternTags'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {

@@ -25,8 +25,8 @@ import {
 } from '../../src/state/nodeLibrary'
 import { evaluateGraphFull, resetEvaluatorState } from '../../src/state/graphEvaluator'
 import { useUiStore } from '../../src/state/uiStore'
-import { setRtcClockSource } from '../../src/state/rtc'
-import { samplePalette, type RGB, type Palette, type Frame } from '../../src/state/ledColor'
+import { setRtcClockSource } from '../../src/state/peripherals/rtc'
+import { samplePalette, type RGB, type Palette, type Frame } from '../../src/state/palettes/ledColor'
 import { liveExampleForNode } from '../../src/components/HelpModal/liveExamples'
 import type { ReferenceLiveExample } from '../../src/components/HelpModal/liveExamples'
 import { LED_CELL_FILL } from '../../src/components/Hardware/ledPreviewGeometry'
@@ -37,7 +37,7 @@ import {
   ringDirection,
   ringSampleMap,
   ringStartAngle,
-} from '../../src/state/ledOutputForm'
+} from '../../src/state/output/ledOutputForm'
 import { exposedPropertyInputs, propertyInputsFor } from '../../src/state/propertyInputs'
 import { tidyLayout } from '../../src/utils/tidyLayout'
 import { nodeReferenceSlug as kebab } from '../../src/utils/nodeReferenceAssets'

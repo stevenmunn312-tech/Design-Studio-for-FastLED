@@ -14,10 +14,10 @@ import {
   type StudioNode,
 } from '../graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
-import { useUploadStore } from '../uploadStore'
+import { useUploadStore } from '../upload/uploadStore'
 import { buildGraphDiagnostics } from '../../utils/validateGraph'
-import { createDisplayDocument } from '../displayEditor'
-import { applyDisplayTemplate } from '../displayTemplates'
+import { createDisplayDocument } from '../displays/displayEditor'
+import { applyDisplayTemplate } from '../displays/displayTemplates'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)

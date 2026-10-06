@@ -16,7 +16,7 @@ shipped work. Nothing here is supported until its bench row exists in
 [`beta-support-matrix.md`](../release/beta-support-matrix.md).
 
 The governing rule for this whole document is the one already written at the
-top of [`partOptions.ts`](../../src/state/partOptions.ts): a dropdown only
+top of [`partOptions.ts`](../../src/build/parts/partOptions.ts): a dropdown only
 where a choice genuinely exists, and never a list of plausible part numbers the
 app treats identically. Every entry below has to earn its row by being
 different in a way the firmware or the wiring can see.
@@ -38,7 +38,7 @@ a line-level analog input. No I2S receiver.
 
 Added as an ordinary `Amplifier` option with `input: 'analog'`, it inherits the
 PAM8403 footnote exactly: `audioOutputMode` in
-[`audioOutput.ts`](../../src/state/audioOutput.ts) maps any analog amplifier
+[`audioOutput.ts`](../../src/state/audio/audioOutput.ts) maps any analog amplifier
 to `internalDac`, so the part works on a classic ESP32 and is silent on the
 S3, S2, C3, C6 and H2. That is a correct answer for a 5 V board-mounted
 PAM8403. It is the wrong answer for a 12 V chassis amplifier, which nobody
@@ -136,7 +136,7 @@ correct. The work is:
 - The emitted banner and the `StudioInmp441Input` class name stop naming
       INMP441.
 - Update the `partOptions.ts` header comment and
-      `src/state/__tests__/partOptions.test.ts`, both of which currently assert
+      `src/build/parts/__tests__/partOptions.test.ts`, both of which currently assert
       the one-microphone rule and its reason.
 
 ## Amplifiers
@@ -181,7 +181,7 @@ does not block it.
 - **Phase 1 — ICS-43434 and Generic I2S MEMS.** No firmware invention;
       both factories exist. Ends with a compile proof and an ESP32-S3 bench row.
 
-      *Software landed 2026-09-22.* `src/state/micModules.ts` is the one list
+      *Software landed 2026-09-22.* `src/state/peripherals/micModules.ts` is the one list
       of offered modules, carrying each one's `Config` factory and `MicProfile`
       because those are the two facts that decide whether a module may be
       offered at all: `partOptions.ts`'s rows, the Add Hardware shelf entries
@@ -231,7 +231,7 @@ does not block it.
       role. `Amplifier` is the I2S stage on the board's pins (MAX98357A,
       PCM5102A, UDA1334A), and each option now states its `output`: speaker
       or line level. `PowerAmplifier` is the analog stage (PAM8403, moved
-      out of `Amplifier`, plus PAM8610 and DX-0809). `state/audioOutput.ts`
+      out of `Amplifier`, plus PAM8610 and DX-0809). `state/audio/audioOutput.ts`
       resolves roles rather than the first `Amplifier` node:
       `powerAmplifierFeed` answers `dac`, `internalDac` or `speakerAmp`, and
       `audioOutputMode` is I2S whenever an I2S stage exists. The costs

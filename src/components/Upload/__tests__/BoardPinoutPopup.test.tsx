@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import BoardPinoutPopup from '../BoardPinoutPopup'
 import AppDialogHost from '../../AppDialog/AppDialogHost'
 import { useUiStore } from '../../../state/uiStore'
-import { useUploadStore } from '../../../state/uploadStore'
-import { boardProfileById } from '../../../build/boardProfiles'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { boardProfileById } from '../../../build/boards/boardProfiles'
 
 // "Is this the board in my hand?" — the render beside its own pin list, so the
 // answer is a glance rather than a datasheet comparison.

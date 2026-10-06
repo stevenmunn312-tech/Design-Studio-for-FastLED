@@ -17,7 +17,7 @@ import {
   DEFAULT_NUMBER_FORMAT,
   displayString,
   cppStringLiteral,
-} from '../../state/displayText'
+} from '../../state/displays/displayText'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   return {

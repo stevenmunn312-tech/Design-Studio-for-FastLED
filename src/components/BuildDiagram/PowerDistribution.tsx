@@ -1,8 +1,8 @@
 // The power section of the physical assembly diagram: supply, main fuse,
 // fuse block and the feed harness to each LED output.
-import type { SupplyRecommendation, ElectricalPlanSummary } from '../../build/electricalPlan'
-import { type FuseBlockCircuitCount, fuseBlockAllocations } from '../../build/powerDistribution'
-import { partRenderSrc } from '../../state/partCatalogue'
+import type { SupplyRecommendation, ElectricalPlanSummary } from '../../build/power/electricalPlan'
+import { type FuseBlockCircuitCount, fuseBlockAllocations } from '../../build/power/powerDistribution'
+import { partRenderSrc } from '../../build/parts/partCatalogue'
 import psuRender from '../../assets/components/5v-psu.webp'
 import capacitorRender from '../../assets/components/panasonic-eeufr0j102b-1000uf.webp'
 import fuseBlock2Render from '../../assets/components/fuse-block-2-circuit.webp'

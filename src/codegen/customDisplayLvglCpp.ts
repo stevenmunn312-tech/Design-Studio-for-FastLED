@@ -13,7 +13,7 @@ import {
   type DisplayWidget,
   type DisplayWidgetProperty,
   type PlacedDisplayWidget,
-} from '../state/displayDocument'
+} from '../state/displays/displayDocument'
 import {
   displayControlStartValue,
   displayWidgetBodyFallback,
@@ -21,15 +21,15 @@ import {
   displayWidgetContentBounds,
   displayWidgetDefinition,
   type DisplayWidgetPortRoleId,
-} from '../state/displayRegistry'
-import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../state/displayTheme'
-import { DISPLAY_TEXT_BUFFER_BYTES, cppStringLiteral, displayString, normalizeNumberFormat } from '../state/displayText'
+} from '../state/displays/displayRegistry'
+import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../state/displays/displayTheme'
+import { DISPLAY_TEXT_BUFFER_BYTES, cppStringLiteral, displayString, normalizeNumberFormat } from '../state/displays/displayText'
 import {
   customDisplayAssetRequests,
   customDisplayFontSize,
   customDisplayFontSizes,
   type BakedCustomDisplayAsset,
-} from '../state/customDisplayResources'
+} from '../state/displays/customDisplayResources'
 import { customDisplayAssetIndex, customDisplayAssetSymbol } from './customDisplayAssetsCpp'
 
 export const CUSTOM_DISPLAY_LVGL_INCLUDE = '#include <lvgl.h>'

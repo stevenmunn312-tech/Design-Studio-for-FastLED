@@ -4,7 +4,7 @@ import TemplatesPopup from '../TemplatesPopup'
 import AppDialogHost from '../../AppDialog/AppDialogHost'
 import { useUiStore } from '../../../state/uiStore'
 import { useGraphStore } from '../../../state/graphStore'
-import { STARTER_TEMPLATES } from '../../../state/starterTemplates'
+import { STARTER_TEMPLATES } from '../../../state/patterns/starterTemplates'
 
 describe('TemplatesPopup', () => {
   beforeEach(() => {

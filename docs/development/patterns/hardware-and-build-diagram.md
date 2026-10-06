@@ -10,10 +10,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Pins and boards
 
 - Pin collision checking is bus-aware, not a flat duplicate-claim check:
-  `src/state/busTopology.ts` declares each pin's kind and role and derives the
+  `src/build/pins/busTopology.ts` declares each pin's kind and role and derives the
   bus *instance* from the pins themselves, and both `validateGraph.ts` and the
   Graph Health drawer call its one `findPinCollisions`.
-- `assignPartPins`' refusal (`noPinReason` in `src/state/partPinAssignment.ts`)
+- `assignPartPins`' refusal (`noPinReason` in `src/build/parts/partPinAssignment.ts`)
   speaks in the board's own words only when the profile states a pad allowlist
   (`pinSafety.safeGeneralPurpose`): it names which spare pins are held and by
   what (`holderList`, skipping stand-in `__claimed-` nodes), or how many are
@@ -24,7 +24,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   told the board is full and to free a pad. See
   [hardware nodes](../../architecture/hardware-model.md).
 - Hardware soldered to the controller board is stated once, in
-  `src/state/integratedBoardHardware.ts`, and read twice:
+  `src/build/boards/integratedBoardHardware.ts`, and read twice:
   `graphStore.selectBoardProfile` (the one action board choice goes through —
   the Hardware tab's `BoardNodeBody` owns both the select and the side-by-side
   `BoardPinoutPicker`, Build Diagram only reports the board) materializes a
@@ -40,7 +40,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that one walk and a tied reset otherwise reads as a part on GPIO 255 and
   refuses the build. An OLED's reset is driven unconditionally and has no
   exemption. That module is now read a third time, by
-  `src/build/boardPinSafetyOverrides.ts`, which supplies `pinSafety` for a board
+  `src/build/boards/boardPinSafetyOverrides.ts`, which supplies `pinSafety` for a board
   whose asset package carries no `pinSafetySummary` (only the CYD) the way
   `boardI2cDefaults.ts` supplies a bus the manifests cannot see, and wins over
   imported data for the same reason a hand-authored profile does: the *reserved*
@@ -124,7 +124,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   left-to-right result of rotating the reference board's photographed right
   edge clockwise, not mirroring the board.
 - A hardware option the generator cannot honestly build is not offered:
-  `MIC_MODULES` in `src/state/micModules.ts` is the one list of I2S MEMS
+  `MIC_MODULES` in `src/state/peripherals/micModules.ts` is the one list of I2S MEMS
   microphones the app may present, and a module earns a row when it names
   exactly one way to be captured, either an app-owned `capture` adapter or
   FastLED's factory and profile. The one adapter today is the SPH0645LM4H:
@@ -156,7 +156,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (MAX98357A, PCM5102A, UDA1334A; each option states
   `output: 'speaker' | 'line'`). `PowerAmplifier` is the analog stage (PAM8403,
   PAM8610, DX-0809). It claims **no GPIO** when a DAC feeds it and GPIO25/26
-  only when nothing does. `src/state/audioOutput.ts` owns the answers
+  only when nothing does. `src/state/audio/audioOutput.ts` owns the answers
   (`i2sAudioStage`, `powerAmplifierFeed` → `dac`/`internalDac`/`speakerAmp`,
   `audioVolumeStage`), and `hasAudioOutputStage` lives in the import-free
   `buildMode.ts` so the build-mode resolver can ask it too. A speaker amp
@@ -191,7 +191,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   uses that fact for both its supply rail and its conservative signal divider.
   Other IR options use the logic rail and a direct signal connection. The
   KS0026's `-, +, S` header geometry comes from its own imported Blender render.
-  `state/receiveDivider.ts` owns the divider source rules shared by the diagram
+  `build/pins/receiveDivider.ts` owns the divider source rules shared by the diagram
   and the Hardware captions. `numericPinSummary` adds “See build diagram” to
   the affected assigned input pin (KS0026 S, HC-SR04 Echo, MAX485 RO/RX), rather
   than presenting it as a direct connection.
@@ -296,7 +296,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   include in the player makes fbuild insert its CRGB-typed function prototypes
   before FastLED.h; IRremote itself must still precede Audio.h. A custom board on a
   supported core is not rejected merely for having an unknown board id. The shelf fixture and verified
-  receiver renders followed: `IR_RECEIVER_MODULES` in `src/state/irModules.ts`
+  receiver renders followed: `IR_RECEIVER_MODULES` in `src/state/peripherals/irModules.ts`
   is the one list of demodulating receivers an `IRRemoteInput` can be, the same
   shape `MIC_MODULES` already has — the deciding fact here is *pin order* rather
   than existence, since a KY-022 breakout puts its supply on the centre pin and
@@ -320,11 +320,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   [IR compile checks](../../reports/compile/ir-compile-checks.md), reproduced with
   `npm run gen:compile-fixtures -- ir` and `scripts/compile-fixtures/compile-ir-smoke.py`.
 - **Power switch (experimental):** `PowerSwitchOutput`
-  (`src/state/powerSwitch.ts`) is the relay's DC counterpart: active-high
+  (`src/state/peripherals/powerSwitch.ts`) is the relay's DC counterpart: active-high
   MOSFET channels, one GPIO each, load-side limits read from the catalogue's
   `mosfet` block. The board decides the channel count (LR7843 one, Mosfetti
   four), and every view gets the ports from `partDerivedInputs`
-  (`src/state/partPorts.ts`), as for a relay; a new part-derived node joins
+  (`src/build/parts/partPorts.ts`), as for a relay; a new part-derived node joins
   that helper rather than adding its own ternary at each call site. It takes no
   supply from the controller, so `peripheralPowerPadIndex` returns `null` for
   it and `peripheralPowerNet` follows; a module with no supply pad must say so
@@ -342,7 +342,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   existing switch into PWM. See
   [hardware nodes](../../architecture/hardware-model.md).
 - **Light sensor (experimental):** `LightInput` picks its module from
-  `LIGHT_SENSOR_MODULES` (`src/state/lightSensor.ts`), the same one-list shape
+  `LIGHT_SENSOR_MODULES` (`src/state/peripherals/lightSensor.ts`), the same one-list shape
   as `MIC_MODULES`: an LDR on one ADC pin or the Adafruit BH1750 on the shared
   I2C bus. The module's transport decides the claimed pins
   (`lightSensorPinKeys`) and the shown fields (`isPropertyEnabled`). An LDR's
@@ -400,7 +400,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   address defaults once resolved differently in bus collision detection, hiding
   two devices answering on the same address. Reject partial address parses;
   `parseInt` alone accepts trailing text that the configuration did not offer.
-- **Power converters (hardware-only):** `src/state/powerConverter.ts` resolves
+- **Power converters (hardware-only):** `src/state/peripherals/powerConverter.ts` resolves
   ratings from the catalogue's `powerConverter` block (never restated);
   `sourceVoltageIssue`'s minimum is `max(inputMinV, outputSetV + minHeadroomV)`.
   For the LM2596 controller buck, `ratedInputCurrentMa` sizes the input
@@ -419,7 +419,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   ground bond; converter outputs are never paralleled. See
   [hardware nodes](../../architecture/hardware-model.md#converting-a-12-v-or-24-v-source-to-5-v).
 - **DMX transceiver (experimental):** a DMX512 `DMXInput` is drawn as the "C25B"
-  MAX485 module (`dmx-input`, `src/state/dmxTransceiver.ts`). It is not a
+  MAX485 module (`dmx-input`, `src/state/peripherals/dmxTransceiver.ts`). It is not a
   `PART_OPTIONS` row, because that would put the module's picture on an Art-Net
   node too, and an Art-Net node draws nothing. It takes **5 V**, its rated
   supply, so RO swings to 5 V: `receiveDivider` draws 1 kΩ from RO to a junction
@@ -442,7 +442,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   [Ethernet compile checks](../../reports/compile/ethernet-compile-checks.md).
 - **NLED pixel data extender (experimental):** an LED output's `dataLink`
   property (`Direct` | `NLED Pixel Data Extender`,
-  `src/state/pixelDataExtender.ts`) is a physical-route fact only — firmware
+  `src/state/peripherals/pixelDataExtender.ts`) is a physical-route fact only — firmware
   emits the identical one-wire signal either way, so the evaluator and
   generators need no teaching. Choosing the extender records
   `dataLinkPartId: NLED_PIXEL_DATA_EXTENDER_PART_ID` on the manifest item; from

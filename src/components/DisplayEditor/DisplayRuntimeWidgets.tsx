@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore, type ReactNode } from 'react'
-import { placedWidgets, type DisplayDocument, type PlacedDisplayWidget } from '../../state/displayDocument'
-import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
+import { placedWidgets, type DisplayDocument, type PlacedDisplayWidget } from '../../state/displays/displayDocument'
+import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import { displayRunValue } from './displayRunPreview'
 
 /**

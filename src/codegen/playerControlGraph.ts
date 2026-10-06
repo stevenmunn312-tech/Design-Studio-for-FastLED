@@ -1,11 +1,11 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import type { DisplayDocumentRegistry } from '../state/displayDocument'
-import { SONG_INFO_PORTS } from '../state/songInfo'
+import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
+import { SONG_INFO_PORTS } from '../state/player/songInfo'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 import { templateControlRouting } from './templateControlRouting'
 import { playerSourceExpressions } from './displaySourceExpressions'
 import { controlReferenceCpp, type ControlReference } from './controlGraph'
-import { DISPLAY_TEXT_BUFFER_BYTES } from '../state/displayText'
+import { DISPLAY_TEXT_BUFFER_BYTES } from '../state/displays/displayText'
 
 /**
  * One player, one cursor, one collection.

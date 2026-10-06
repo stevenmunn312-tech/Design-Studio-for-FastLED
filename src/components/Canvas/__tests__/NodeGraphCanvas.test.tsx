@@ -5,11 +5,11 @@ import type { ReactNode } from 'react'
 import NodeGraphCanvas from '../NodeGraphCanvas'
 import { useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
-import { useAudioStore } from '../../../state/audioStore'
+import { useAudioStore } from '../../../state/audio/audioStore'
 import { useFirstProjectGuide } from '../../../state/firstProjectGuideStore'
-import { createDisplayDocument } from '../../../state/displayEditor'
+import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { libraryDefaults } from '../../../state/nodeLibrary'
-import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displayRegistry'
+import { TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displays/displayRegistry'
 
 const fitViewMock = vi.fn().mockResolvedValue(undefined)
 const screenToFlowPositionMock = ({ x, y }: { x: number; y: number }) => ({ x, y })

@@ -1,12 +1,12 @@
 import {
   FOURIER_RING_HALF_WIDTH, FOURIER_RING_LEVEL, FOURIER_RING_MIN_RADIUS, FOURIER_TRAIL_JUMP,
   FOURIER_TRAIL_STEPS_MAX,
-} from '../state/fourierOutline'
+} from '../nodes/shapes/fourierOutline'
 import { floatLit } from './cppLiterals'
 
 /**
  * Drawing helpers for Fourier Epicycles, the twins of fourierPen in
- * state/fourierOutline.ts and of fourierDisc, fourierRing and the trail step
+ * nodes/shapes/fourierOutline.ts and of fourierDisc, fourierRing and the trail step
  * in nodes/shapes/evaluate.ts. The byte math is written out rather than left
  * to nscale8 and fadeToBlackBy, so it is FastLED's fixed scale8 whatever the
  * library is configured to do, and the preview can copy it exactly.

@@ -5,10 +5,10 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { DISPLAY_WIDGET_LIBRARY, displayControlHitBounds } from '../../state/displayRegistry'
-import type { DisplayDocument, PlacedDisplayWidget } from '../../state/displayDocument'
-import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displayTheme'
-import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
+import { DISPLAY_WIDGET_LIBRARY, displayControlHitBounds } from '../../state/displays/displayRegistry'
+import type { DisplayDocument, PlacedDisplayWidget } from '../../state/displays/displayDocument'
+import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
+import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
 import {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { graphDrivesOutput, readinessLayers, type ReadinessInput, type ReadinessKind } from '../readinessLayers'
 import { summarizeCapacity } from '../capacityFormat'
 import { describePort } from '../portStatus'
-import type { Board } from '../../state/uploadStore'
+import type { Board } from '../../state/upload/uploadStore'
 import type { BackendHealth, CompileCheckResult } from '../backendClient'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 

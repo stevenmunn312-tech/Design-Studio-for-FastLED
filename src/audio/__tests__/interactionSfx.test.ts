@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { graphInteractionSfxAllowed } from '../interactionSfx'
-import { usePlayerTransport } from '../../state/playerTransport'
+import { usePlayerTransport } from '../../state/player/playerTransport'
 
 describe('interactionSfx gating', () => {
   const originalAudioContext = window.AudioContext

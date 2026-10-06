@@ -1,7 +1,7 @@
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { ShowFile } from '../../types/showFile'
-import { renderShowFrame } from '../../state/showPreview'
-import { bakedFrameAt } from '../../state/performanceBakeStore'
+import { renderShowFrame } from '../../state/player/showPreview'
+import { bakedFrameAt } from '../../state/player/performanceBakeStore'
 
 interface ShowPlaybackPreview {
   nodeId: string | null

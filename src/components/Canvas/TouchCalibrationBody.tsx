@@ -1,13 +1,13 @@
 import { createPortal } from 'react-dom'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import { useGraphStore } from '../../state/graphStore'
-import { useTouchCalibrationStore } from '../../state/touchCalibrationStore'
+import { useTouchCalibrationStore } from '../../state/displays/touchCalibrationStore'
 import {
   TOUCH_CALIBRATION_CORNERS,
   TOUCH_CALIBRATION_SAMPLES_PER_CORNER,
   type RawTouchPoint,
-} from '../../state/transportTouch'
-import { useUploadStore } from '../../state/uploadStore'
+} from '../../state/displays/transportTouch'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './TouchCalibrationBody.module.css'
 
 function representative(points: readonly RawTouchPoint[]): RawTouchPoint | null {

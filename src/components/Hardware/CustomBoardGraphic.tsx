@@ -1,7 +1,7 @@
-import type { CustomBoardDefinition } from '../../state/customBoard'
-import type { BoardI2cDefault } from '../../build/boardI2cDefaults'
-import { customBoardGeometry } from '../../build/customBoardGeometry'
-import { customBoardSvgFragment } from '../../build/customBoardSvg'
+import type { CustomBoardDefinition } from '../../build/boards/customBoard'
+import type { BoardI2cDefault } from '../../build/boards/boardI2cDefaults'
+import { customBoardGeometry } from '../../build/boards/customBoardGeometry'
+import { customBoardSvgFragment } from '../../build/boards/customBoardSvg'
 
 interface Props {
   definition: CustomBoardDefinition

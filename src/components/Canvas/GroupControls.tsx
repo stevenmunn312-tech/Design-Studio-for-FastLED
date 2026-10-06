@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
+import { saveGroupToLibrary, usePatternLibrary } from '../../state/patterns/patternLibrary'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import styles from './GroupControls.module.css'
 

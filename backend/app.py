@@ -497,7 +497,7 @@ def _fbuild_libraries_for_sketch(ino: str):
             pass
 
 # arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
-# `src/state/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
+# `src/state/upload/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option
 # id (`opi`/`qspi`, from `PsramOption.id`) to the PlatformIO board_build/upload
 # overrides a real PSRAM module needs. The stock `board` ids below (e.g.
 # `esp32-s3-devkitc-1`) are themselves the *no-PSRAM* variant's manifest — its
@@ -621,7 +621,7 @@ _PIO_BOARDS: dict[str, dict] = {
     "arduino:sam:arduino_due_x": {"platform": "atmelsam", "board": "due"},
     # Confirmed against fbuild's board-support reference for a bare SAMD21
     # Arduino Zero, but not yet build-tested here — see the "(experimental)"
-    # note on this board in `src/state/uploadStore.ts`.
+    # note on this board in `src/state/upload/uploadStore.ts`.
     "arduino:samd:arduino_zero_native": {"platform": "atmelsam", "board": "zeroUSB"},
     "adafruit:samd:adafruit_feather_m0": {"platform": "atmelsam", "board": "adafruit_feather_m0"},
     "adafruit:samd:adafruit_qtpy_m0": {"platform": "atmelsam", "board": "adafruit_qtpy_m0"},

@@ -1,10 +1,10 @@
 import type { StudioNode } from '../state/graphStore'
-import { buildXYTable, tileRotationAt } from '../state/xyLayout'
+import { buildXYTable, tileRotationAt } from '../state/output/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
-import { controllerSettings, ledPropsWithController } from '../state/controllerSettings'
-import { outputGridDims } from '../state/ledOutputForm'
+import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
+import { outputGridDims } from '../state/output/ledOutputForm'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { standaloneDisplaysCpp } from './standaloneDisplayCpp'
 

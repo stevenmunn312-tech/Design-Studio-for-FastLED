@@ -1,13 +1,13 @@
 // GPIO controls shared by normal sketches and the fixed show controller.
 import { POWER_MONITOR_DEBUG_HELPER_CPP, powerMonitorHelperCpp, powerMonitorSetupCpp, powerMonitorLoopCpp } from './powerMonitorCpp'
 import { sanitizePin } from './hardwarePins'
-import { buttonBankHandle, normalizeButtonBankEntries } from '../state/buttonBank'
-import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/irRemote'
+import { buttonBankHandle, normalizeButtonBankEntries } from '../state/player/buttonBank'
+import { irRemoteButtonHandle, normalizeIrRemoteButtons } from '../state/peripherals/irRemote'
 import type { IrRemoteProjectNode } from './irRemoteCpp'
 import { presenceSensorLoopCpp, presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './presenceSensorCpp'
 import { LIGHT_SENSOR_HELPER_CPP, lightSensorLoopCpp, lightSensorSetupCpp } from './lightSensorCpp'
-import { lightSensorTransport } from '../state/lightSensor'
-import { touchButtonPressedLevel } from '../state/touchButton'
+import { lightSensorTransport } from '../state/peripherals/lightSensor'
+import { touchButtonPressedLevel } from '../state/peripherals/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './environmentSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './temperatureSensorCpp'
 import { MOTION_VECTOR_HELPER_CPP, motionVectorLoopCpp, motionVectorSetupCpp } from './motionVectorCpp'
@@ -15,7 +15,7 @@ import { TOUCH_PAD_HELPER_CPP, touchPadLoopCpp, touchPadSetupCpp } from './touch
 import { KEYPAD_HELPER_CPP, keypadLoopCpp, keypadSetupCpp } from './keypadCpp'
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './joystickCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorIncludes, distanceSensorLoopCpp, distanceSensorSetupCpp } from './distanceSensorCpp'
-import { distanceSensorTransport } from '../state/distanceSensor'
+import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 
 export interface ControlInputEmission {
   setup: string[]

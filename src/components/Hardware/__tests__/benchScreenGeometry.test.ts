@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { catalogueDisplays } from '../../../state/partCatalogue'
-import { segmentControllerFor } from '../../../state/segmentDisplay'
-import { TFT_ROTATIONS } from '../../../state/tftSurface'
+import { catalogueDisplays } from '../../../build/parts/partCatalogue'
+import { segmentControllerFor } from '../../../state/displays/segmentDisplay'
+import { TFT_ROTATIONS } from '../../../state/displays/tftSurface'
 import {
   benchScreensFor,
   screenContentTransform,

@@ -1,15 +1,15 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
-import type { DisplayTheme, DisplayWidget } from '../../state/displayDocument'
+import type { DisplayTheme, DisplayWidget } from '../../state/displays/displayDocument'
 import {
   displayWidgetBodyFallback,
   displayWidgetCaptionLayout,
   type DisplayPreviewRenderer,
   type DisplayWidgetState,
-} from '../../state/displayRegistry'
-import { displayAsset, displayAssetUrl } from '../../state/displayAssets'
-import { displayWidgetTextTokens } from '../../state/displayTheme'
-import { rgbToHex } from '../../state/customPalette'
-import { isPatternSelect } from '../../state/patternSelection'
+} from '../../state/displays/displayRegistry'
+import { displayAsset, displayAssetUrl } from '../../state/displays/displayAssets'
+import { displayWidgetTextTokens } from '../../state/displays/displayTheme'
+import { rgbToHex } from '../../state/palettes/customPalette'
+import { isPatternSelect } from '../../state/patterns/patternSelection'
 import styles from './DisplayWidgetPreview.module.css'
 
 /**

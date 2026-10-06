@@ -7,25 +7,25 @@ import {
   textColumns,
   DEFAULT_FONT,
   FONT_H,
-} from '../../state/font'
-import { asAnimatedImage, asImage } from '../../state/image'
-import { hexToRgb } from '../../state/polinePalette'
-import { rateCpp, SPEED_MAX } from '../../state/speedRange'
+} from '../shared/font'
+import { asAnimatedImage, asImage } from '../shared/image'
+import { hexToRgb } from '../../state/palettes/polinePalette'
+import { rateCpp, SPEED_MAX } from '../shared/speedRange'
 import {
   resolveWireframeMesh,
   meshBoundingRadius,
   WIREFRAME_CAM_FAR,
   WIREFRAME_CAM_NEAR,
   WIREFRAME_FIT_MARGIN,
-} from '../../state/wireframeModel'
-import { customPathTable } from '../../state/customPath'
-import { gradientMixMode } from '../../state/hueMix'
+} from './wireframeModel'
+import { customPathTable } from './customPath'
+import { gradientMixMode } from '../../state/palettes/hueMix'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, floatLit } from '../../codegen/cppLiterals'
 import {
   FOURIER_SCALE_MIN, FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
   fourierOutline, fourierTable,
-} from '../../state/fourierOutline'
+} from './fourierOutline'
 
 // Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
 // counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
@@ -383,7 +383,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
   // Rotating 3D wireframe. The selected preset (or validated custom
   // upload) is baked as flat vertex/edge arrays at codegen time; the
   // per-frame rotation/projection/edge-rasterization math is a hand-port
-  // of projectWireframeVertices() in state/wireframeModel.ts and the
+  // of projectWireframeVertices() in nodes/shapes/wireframeModel.ts and the
   // Wireframe3D case in graphEvaluator.ts — keep all three in lockstep.
   Wireframe3D({ id, p, ln, f, channelColor, ownBuf, seedFrom, needsT }) {
     const ob = ownBuf()
@@ -557,7 +557,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    };`)
     // The clock's text is assembled at runtime (unlike the Text node, whose
     // string is known here and baked as columns), so the sketch carries a
-    // glyph lookup — generated from the shared bitmap font in state/font.ts
+    // glyph lookup — generated from the shared bitmap font in nodes/shared/font.ts
     // rather than hand-transcribed, so preview and firmware cannot drift.
     ln(`    static const char _clkChars_${id}[] = "${CLOCK_GLYPH_CHARS}";`)
     ln(`    static const uint8_t _clkGlyphs_${id}[][${FONT_W}] = {${

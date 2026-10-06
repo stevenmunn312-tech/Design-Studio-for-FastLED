@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useUploadStore } from '../../state/uploadStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './Upload.module.css'
 
 // Read-only "show me the code" panel — the exact string the upload tab

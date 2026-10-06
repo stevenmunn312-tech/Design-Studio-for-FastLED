@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { CATEGORY_COLOR } from '../../state/nodeLibrary'
-import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/starterTemplates'
+import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/patterns/starterTemplates'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'

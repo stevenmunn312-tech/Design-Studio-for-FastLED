@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { summarizeCapacity, capacityDelta, formatCapacityDelta } from '../capacityFormat'
-import type { Board } from '../../state/uploadStore'
+import type { Board } from '../../state/upload/uploadStore'
 import type { CompileCheckResult } from '../backendClient'
 
 const board: Board = { label: 'Arduino Uno', fqbn: 'arduino:avr:uno', core: 'arduino:avr' }

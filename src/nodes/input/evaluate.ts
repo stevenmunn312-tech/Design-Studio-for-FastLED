@@ -1,33 +1,33 @@
-import { useAudioStore } from '../../state/audioStore'
-import { useDmxStore } from '../../state/dmxStore'
-import { useHardwareInputStore } from '../../state/hardwareInputStore'
+import { useAudioStore } from '../../state/audio/audioStore'
+import { useDmxStore } from '../../state/peripherals/dmxStore'
+import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
 import {
   powerMonitorLimitAmps,
   powerMonitorPreviewDefaults,
   powerMonitorPreviewReading,
   powerMonitorPreviewKey,
-} from '../../state/powerMonitor'
-import { presencePreviewReading, presencePreviewKey, presencePreviewDefaultDistance } from '../../state/presenceSensor'
-import { lightSensorPreviewReading } from '../../state/lightSensor'
+} from '../../state/peripherals/powerMonitor'
+import { presencePreviewReading, presencePreviewKey, presencePreviewDefaultDistance } from '../../state/peripherals/presenceSensor'
+import { lightSensorPreviewReading } from '../../state/peripherals/lightSensor'
 import {
   environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
-} from '../../state/environmentSensor'
+} from '../../state/peripherals/environmentSensor'
 import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
-} from '../../state/temperatureSensor'
-import { joystickAxis, joystickPreviewKey } from '../../state/joystick'
-import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadLastKey } from '../../state/keypad'
+} from '../../state/peripherals/temperatureSensor'
+import { joystickAxis, joystickPreviewKey } from '../../state/peripherals/joystick'
+import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadLastKey } from '../../state/peripherals/keypad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
-} from '../../state/motionVector'
-import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/touchPad'
-import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/distanceSensor'
-import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
-import { useDisplayRuntimeStore } from '../../state/displayRuntimeStore'
-import { designControlBundle } from '../../state/designControlBundle'
-import { parseDisplayWidgetPortId, displayControlStartValue } from '../../state/displayRegistry'
+} from '../../state/peripherals/motionVector'
+import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/peripherals/touchPad'
+import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/peripherals/distanceSensor'
+import { useTransportDisplayTouchStore } from '../../state/displays/transportDisplayTouchStore'
+import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
+import { designControlBundle } from '../../state/displays/designControlBundle'
+import { parseDisplayWidgetPortId, displayControlStartValue } from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
-import { blankDmxSnapshot } from '../../state/dmx'
+import { blankDmxSnapshot } from '../../state/peripherals/dmx'
 import {
   type IrPreviewMemory,
   normalizeIrRemoteButtons,
@@ -35,29 +35,29 @@ import {
   blankIrRepeatState,
   irRemoteButtonHandle,
   IR_RECEIVING_KEY,
-} from '../../state/irRemote'
-import { rtcPreviewSnapshot } from '../../state/rtc'
+} from '../../state/peripherals/irRemote'
+import { rtcPreviewSnapshot } from '../../state/peripherals/rtc'
 import {
   type TransportDisplayLayout,
   shownDesignId,
   asTransportDisplayLayout,
   transportLayoutForKind,
-} from '../../state/transportDisplay'
-import { type TftController, type TftRotation, TFT_CONTROLLERS, asTftRotation } from '../../state/tftSurface'
+} from '../../state/displays/transportDisplay'
+import { type TftController, type TftRotation, TFT_CONTROLLERS, asTftRotation } from '../../state/displays/tftSurface'
 import {
   touchRegionAt,
   transportTouchRegions,
   type TransportTouchAction,
   TRANSPORT_TOUCH_ACTION_TYPES,
-} from '../../state/transportTouch'
-import { displayHasTouch } from '../../state/partCatalogue'
+} from '../../state/displays/transportTouch'
+import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { useGraphStore } from '../../state/graphStore'
-import { isDisplaySignal, type DisplaySignal } from '../../state/displaySignal'
+import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { resolveAudioCapabilitySource } from '../../state/audioCapabilities'
-import { useDecoderAudioStore } from '../../state/decoderAudioStore'
-import { resolveStorageCapabilitySource } from '../../state/storageCapabilities'
-import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/buttonBank'
+import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
+import { resolveStorageCapabilitySource } from '../../build/storageCapabilities'
+import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
 import { clamp01 } from '../../state/evaluator/frames'
 import { markStateUsed, stateClock, instanceState } from '../../state/evaluator/memory'
 import { blankPlayerControls } from '../../state/evaluator/signals'

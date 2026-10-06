@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { boardProfileById, type PhysicalBoardProfile } from '../../../build/boardProfiles'
+import { boardProfileById, type PhysicalBoardProfile } from '../../../build/boards/boardProfiles'
 import { buildBomRows } from '../../../build/buildExports'
 import { ensureBuildProfile } from '../../../build/buildProfile'
-import { customBoardGeometry } from '../../../build/customBoardGeometry'
-import { resolveCustomBoard } from '../../../build/customBoardProfile'
-import { calculateElectricalPlan } from '../../../build/electricalPlan'
+import { customBoardGeometry } from '../../../build/boards/customBoardGeometry'
+import { resolveCustomBoard } from '../../../build/boards/customBoardProfile'
+import { calculateElectricalPlan } from '../../../build/power/electricalPlan'
 import { buildHardwareManifest } from '../../../build/hardwareManifest'
-import type { CustomBoardDefinition } from '../../../state/customBoard'
+import type { CustomBoardDefinition } from '../../../build/boards/customBoard'
 import type { StudioNode } from '../../../state/graphStore'
 import {
   CONTROLLER_SLOT_X,

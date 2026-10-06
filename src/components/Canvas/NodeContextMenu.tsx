@@ -9,7 +9,7 @@ import {
   useNodePresets,
   variationProperties,
 } from '../../state/nodePresets'
-import { saveGroupToLibrary, usePatternLibrary } from '../../state/patternLibrary'
+import { saveGroupToLibrary, usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useUiStore } from '../../state/uiStore'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import { runTidy } from '../../utils/tidyGraph'

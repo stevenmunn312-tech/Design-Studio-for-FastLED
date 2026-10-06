@@ -4,17 +4,17 @@ import {
   audioCapabilityOptions,
   resolveAudioCapabilitySource,
   selectedAudioCapabilityKind,
-} from '../../state/audioCapabilities'
+} from '../../state/audio/audioCapabilities'
 import { MIC_MAX_GAIN } from '../../audio/micAnalysis'
-import { partRenderForNodeType } from '../../state/partRenders'
+import { partRenderForNodeType } from '../../build/parts/partRenders'
 import { useNodeDefaults } from '../../state/nodeDefaults'
-import { useUploadStore } from '../../state/uploadStore'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import {
   micSupportedForBoardProfile,
   MIC_NO_BOARD_MESSAGE,
   micUnsupportedMessage,
-} from '../../state/micPinDefaults'
+} from '../../build/pins/micPinDefaults'
 import styles from './AudioCapabilityBody.module.css'
 
 interface Props {

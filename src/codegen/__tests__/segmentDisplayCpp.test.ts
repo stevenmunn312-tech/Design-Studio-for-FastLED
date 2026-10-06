@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { SEGMENT_DISPLAY_CPP_HELPERS } from '../segmentDisplayCpp'
-import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS } from '../../state/segmentDisplay'
+import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS } from '../../state/displays/segmentDisplay'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   return {
@@ -193,7 +193,7 @@ describe('MAX7219', () => {
 
 // The plan's Phase 3 edge-case list on the generated side. The characters
 // themselves are the shared renderer's job and are tested in
-// state/__tests__/segmentDisplay.test.ts; what matters here is that the emitted
+// state/displays/__tests__/segmentDisplay.test.ts; what matters here is that the emitted
 // C++ carries the same rules and that two modules stay independent.
 describe('segment display edge cases', () => {
   it('guards a non-finite reading before rounding it', () => {

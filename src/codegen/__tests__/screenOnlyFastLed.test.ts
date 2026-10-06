@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
-import { addDisplayWidget, createDisplayDocument } from '../../state/displayEditor'
+import { addDisplayWidget, createDisplayDocument } from '../../state/displays/displayEditor'
 import { generateCpp } from '../cppGenerator'
 import type { StudioNode } from '../../state/graphStore'
 

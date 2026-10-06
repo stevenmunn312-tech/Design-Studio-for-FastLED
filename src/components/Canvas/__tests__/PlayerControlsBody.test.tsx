@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react'
 import PlayerControlsBody from '../PlayerControlsBody'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioEdge, type StudioNode } from '../../../state/graphStore'
-import { PLAYER_CONTROL_ADD_HANDLE } from '../../../state/playerControlAssignments'
+import { PLAYER_CONTROL_ADD_HANDLE } from '../../../state/player/playerControlAssignments'
 
 vi.mock('@xyflow/react', () => ({ useUpdateNodeInternals: () => () => {} }))
 

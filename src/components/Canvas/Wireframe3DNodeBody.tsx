@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { asWireframeMesh, parseWireframeMeshFile, WIREFRAME_DECIMATE_INPUT_MAX_VERTS } from '../../state/wireframeModel'
+import { asWireframeMesh, parseWireframeMeshFile, WIREFRAME_DECIMATE_INPUT_MAX_VERTS } from '../../nodes/shapes/wireframeModel'
 import styles from './ImageNodeBody.module.css'
 
 // Only relevant when `model === 'custom'` (StudioNode gates rendering this

@@ -1,7 +1,7 @@
 import { sanitizePin } from './hardwarePins'
 import {
   formatTouchPadAddress, touchPadAddress, touchPadSpec, touchPadThreshold,
-} from '../state/touchPad'
+} from '../state/peripherals/touchPad'
 
 /*
  * MPR121 touch reads, straight off the registers over the shared `Wire` bus.

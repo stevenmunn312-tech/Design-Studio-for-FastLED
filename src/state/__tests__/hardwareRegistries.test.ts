@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { NODE_LIBRARY, isGpioPinProperty } from '../nodeLibrary'
-import { isHardwareNodeType, isHardwareManagedSignalNodeType } from '../hardware'
-import { PART_PIN_PLANS } from '../pinRetarget'
-import { PART_OPTIONS, partOptionsFor } from '../partOptions'
-import { busAssignmentFor } from '../busTopology'
-import { catalogueDisplays, partById, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../partCatalogue'
+import { isHardwareNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
+import { PART_PIN_PLANS } from '../../build/pins/pinRetarget'
+import { PART_OPTIONS, partOptionsFor } from '../../build/parts/partOptions'
+import { busAssignmentFor } from '../../build/pins/busTopology'
+import { catalogueDisplays, partById, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../build/parts/partCatalogue'
 
 /*
  * A new hardware part has to be registered in several places, and every one of

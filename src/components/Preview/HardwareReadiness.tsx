@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
-import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
-import { useCapacityStore } from '../../state/capacityStore'
+import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
+import { useCapacityStore } from '../../state/upload/capacityStore'
 import { useUiStore } from '../../state/uiStore'
 import { summarizeCapacity } from '../../utils/capacityFormat'
 import {

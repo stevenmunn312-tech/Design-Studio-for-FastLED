@@ -136,7 +136,7 @@ to pad 0, which is GND on the LR7843.
 
 The first channel keeps the names a one-channel board has always used: `on`,
 `level`, `signalPin`. The rest are numbered: `on2`, `level2`, `signal2Pin` and
-on (`powerSwitchChannels` in `src/state/powerSwitch.ts`). Port labels and
+on (`powerSwitchChannels` in `src/state/peripherals/powerSwitch.ts`). Port labels and
 channel rows come from the board's printed letters (`mosfet.channelLabels`),
 so the Mosfetti's ports read On A to Level D, its pins A to D, and the
 Build Diagram finds each wire's pad by that letter. Everything that draws,
@@ -159,7 +159,7 @@ The two boards differ in more than channel count:
 | PWM | 500 Hz, derived from the gate drive | 1 kHz, from MonkMakes' own examples |
 
 `Level` dims a channel's load with PWM. It is a property input (field default
-1), and `src/state/powerSwitch.ts` holds the one rule the evaluator and the
+1), and `src/state/peripherals/powerSwitch.ts` holds the one rule the evaluator and the
 emitter both follow, per channel:
 
 - The switch dims only when the module has a catalogued `mosfet.pwmHz` and
@@ -204,7 +204,7 @@ gates past 20 V above about 20 V of supply. See the
 publishes `volts`, `amps` and `watts`. Its electrical contract (shunt ohms,
 selectable I2C addresses, bus-voltage and current limits) is the catalogue's
 `powerMonitor` block, read by the firmware, the address picker and validation
-alike (`src/state/powerMonitor.ts`). It joins the board's one `Wire` bus beside
+alike (`src/state/peripherals/powerMonitor.ts`). It joins the board's one `Wire` bus beside
 the RTC and any I2C display: its SDA/SCL follow the board's Wire pair on a board
 change, and the one-bus check (`i2cBusValidationIssues` in `validateGraph.ts`)
 now asks whenever two I2C parts disagree rather than only when a display is
@@ -256,7 +256,7 @@ coordinates from an integrated screen controller rather than a standalone
 boolean sensor.
 
 `LightInput` is one node for two modules, chosen by `partId` from
-`LIGHT_SENSOR_MODULES` (`src/state/lightSensor.ts`). Both publish `level`
+`LIGHT_SENSOR_MODULES` (`src/state/peripherals/lightSensor.ts`). Both publish `level`
 (0-1) and `lux`. An LDR is a divider on one ADC pin: `level` is relative
 brightness and `lux` stays 0, because a bare divider has no calibration to
 illuminance. The Adafruit BH1750 is an I2C part on the shared bus, at 0x23 or
@@ -334,7 +334,7 @@ VCC comes from 3V3 because the board's I2C pull-ups follow it.
 three GPIOs. The axes publish -1 to 1 with 0 at rest (not 0-1 like `PotInput`),
 because a stick's centre means something, and a `deadzone` property removes the
 resting play and rescales the rest so full travel still reaches 1. `joystickAxis`
-in `state/joystick.ts` and the firmware's `_joyAxis` compute the same thing, from a
+in `state/peripherals/joystick.ts` and the firmware's `_joyAxis` compute the same thing, from a
 slider position and from a 12-bit ADC count. `pressed` reads LOW through
 `INPUT_PULLUP`. The module is marked +5V, but it is only two potentiometers and a
 switch, so the Build Diagram powers it from 3V3 to keep both axes inside the ADC
@@ -461,7 +461,7 @@ chose. Allocating for it is not merely unhelpful, it is wrong every time: the
 bench notes for the ESP32-2432S028R ("CYD") record every one of its twelve
 display pins being typed in by hand before the board would light up.
 
-`src/state/integratedBoardHardware.ts` states what is fitted to which board
+`src/build/boards/integratedBoardHardware.ts` states what is fitted to which board
 profile, and two things read it.
 
 - `graphStore.selectBoardProfile` — the one action board choice goes through;
@@ -496,7 +496,7 @@ The rest of such a board is a second question: what is left for everything
 else. The CYD's package carries no `pinSafetySummary`, so its imported profile
 arrived with no `pinSafety` at all and every other part's pins came from the
 chip-level table — which on a classic ESP32 starts at GPIO1, this board's
-USB-serial TX. `src/build/boardPinSafetyOverrides.ts` supplies that missing
+USB-serial TX. `src/build/boards/boardPinSafetyOverrides.ts` supplies that missing
 half by hand, the same way `boardI2cDefaults.ts` supplies a bus the manifests
 cannot see, and it wins over imported data for the same reason a hand-authored
 profile does.
@@ -570,7 +570,7 @@ firmware remains one synchronized sketch for one board.
 An LED output's **data link** property says how its one-wire pixel signal
 reaches the LEDs. **Direct** is ordinary short wiring. **NLED Pixel Data
 Extender** puts a matched transmitter/receiver pair on the route
-(`nled-pixel-data-extender-pair`, `src/state/pixelDataExtender.ts`). It is a
+(`nled-pixel-data-extender-pair`, `src/state/peripherals/pixelDataExtender.ts`). It is a
 physical fact only. The generated firmware is identical either way, so the
 evaluator and generators need nothing. The manifest records the pair on the
 output (`dataLinkPartId`). From that, the Build Diagram draws TX and RX below
@@ -587,7 +587,7 @@ invalid can be undone from the field itself.
 
 ### Converting a 12 V or 24 V source to 5 V
 
-A **Buck Converter** (`PowerConverter`, `src/state/powerConverter.ts`) is a
+A **Buck Converter** (`PowerConverter`, `src/state/peripherals/powerConverter.ts`) is a
 hardware-only bench part, like Ethernet: no ports, no pins, no evaluation. It
 names a converter module and the `sourceVoltage` feeding it. The module's role
 and ratings (input range, dropout, output, continuous current, efficiency,

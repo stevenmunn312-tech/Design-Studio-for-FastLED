@@ -10,74 +10,74 @@ import {
   transportDisplayPinKeysForProps,
   type GpioPropertyRequirement,
 } from '../state/nodeLibrary'
-import { boardByFqbn } from '../state/uploadStore'
-import { controllerSettings } from '../state/controllerSettings'
+import { boardByFqbn } from '../state/upload/uploadStore'
+import { controllerSettings } from './controllerSettings'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from './buildProfile'
 import {
   boardPinForGpio,
   selectedPhysicalBoardProfile,
   type PhysicalBoardPinProfile,
   type PhysicalBoardProfile,
-} from './boardProfiles'
-import { rtcI2cPinsForProfile } from '../state/rtcPins'
-import { segmentControllerFor } from '../state/segmentDisplay'
-import { OLED_TRANSPORT_PINS, asOledAddress, oledAddressLabel } from '../state/oledSurface'
-import { isHardwareNodeType } from '../state/hardware'
-import { partById, partPinLabelForProperty } from '../state/partCatalogue'
-import { PART_FIELDS } from '../state/partFields'
-import type { BusAssignment } from '../state/busTopology'
-import { sdSpiPinsForBoard } from '../state/sdPinDefaults'
-import { resolvePartIdentity } from '../state/partOptions'
-import { hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed } from '../state/audioOutput'
-import { micModuleFor } from '../state/micModules'
-import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/ledOutputForm'
-import { normalizeButtonBankEntries } from '../state/buttonBank'
-import { relayPinKeys } from '../state/relayModule'
-import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/powerSwitch'
-import { BUZZER_PART_ID, buzzerSpec } from '../state/buzzer'
+} from './boards/boardProfiles'
+import { rtcI2cPinsForProfile } from './pins/rtcPins'
+import { segmentControllerFor } from '../state/displays/segmentDisplay'
+import { OLED_TRANSPORT_PINS, asOledAddress, oledAddressLabel } from '../state/displays/oledSurface'
+import { isHardwareNodeType } from './hardware'
+import { partById, partPinLabelForProperty } from './parts/partCatalogue'
+import { PART_FIELDS } from './parts/partFields'
+import type { BusAssignment } from './pins/busTopology'
+import { sdSpiPinsForBoard } from './pins/sdPinDefaults'
+import { resolvePartIdentity } from './parts/partOptions'
+import { hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed } from '../state/audio/audioOutput'
+import { micModuleFor } from '../state/peripherals/micModules'
+import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
+import { normalizeButtonBankEntries } from '../state/player/buttonBank'
+import { relayPinKeys } from '../state/peripherals/relayModule'
+import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/peripherals/powerSwitch'
+import { BUZZER_PART_ID, buzzerSpec } from '../state/peripherals/buzzer'
 import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
-} from '../state/pwmDriver'
-import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/darlingtonDriver'
-import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../state/pdTrigger'
-import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/powerMonitor'
-import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/dmxTransceiver'
-import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/presenceSensor'
-import { touchButtonSpec } from '../state/touchButton'
+} from '../state/peripherals/pwmDriver'
+import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/peripherals/darlingtonDriver'
+import { PD_TRIGGER_PART_ID, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
+import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
+import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/peripherals/dmxTransceiver'
+import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/peripherals/presenceSensor'
+import { touchButtonSpec } from '../state/peripherals/touchButton'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   formatLightSensorAddress,
   lightSensorAddress,
   lightSensorPinKeys,
   lightSensorTransport,
-} from '../state/lightSensor'
+} from '../state/peripherals/lightSensor'
 import {
   BME280_PART_ID,
   environmentAddress,
   environmentSensorSpec,
   formatEnvironmentAddress,
-} from '../state/environmentSensor'
-import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/temperatureSensor'
+} from '../state/peripherals/environmentSensor'
+import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/peripherals/temperatureSensor'
 import {
   HCSR04_PART_ID, distanceSensorAddress, distanceSensorSpec, distanceSensorTransport, formatDistanceSensorAddress,
-} from '../state/distanceSensor'
-import { KY023_PART_ID } from '../state/joystick'
-import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from '../state/keypad'
+} from '../state/peripherals/distanceSensor'
+import { KY023_PART_ID } from '../state/peripherals/joystick'
+import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from '../state/peripherals/keypad'
 import {
   MPU6050_PART_ID, formatMotionVectorAddress, motionVectorAddress, motionVectorSpec,
-} from '../state/motionVector'
+} from '../state/peripherals/motionVector'
 import {
   MPR121_PART_ID, formatTouchPadAddress, touchPadAddress, touchPadElectrodeCount,
-} from '../state/touchPad'
-import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/ethernetModule'
-import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/powerConverter'
+} from '../state/peripherals/touchPad'
+import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/peripherals/ethernetModule'
+import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
 import {
   DIRECT_PIXEL_DATA_LINK,
   NLED_PIXEL_DATA_EXTENDER_PART_ID,
   NLED_PIXEL_DATA_LINK,
   nledPixelDataExtenderSpec,
   usesNledPixelDataExtender,
-} from '../state/pixelDataExtender'
+} from '../state/peripherals/pixelDataExtender'
 
 export interface HardwarePinUse {
   label: string
@@ -387,7 +387,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'PresenceInput':
         push(node, `${baseLabel} RX pin`, 'rxPin', props.rxPin)
         break
-      // Its own SPI bus plus three control lines; see state/ethernetModule.ts
+      // Its own SPI bus plus three control lines; see state/peripherals/ethernetModule.ts
       // for why the bus is not shared with a colour panel's.
       case 'EthernetModule':
         push(node, `${baseLabel} SCLK`, 'sckPin', props.sckPin)

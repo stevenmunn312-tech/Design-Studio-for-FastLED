@@ -3,10 +3,10 @@ import {
   generateTouchCalibrationSketch,
   touchCalibrationTargetFor,
 } from '../touchCalibrationSketch'
-import { CYD_TOUCH_DISPLAY } from '../../state/integratedBoardHardware'
+import { CYD_TOUCH_DISPLAY } from '../../build/boards/integratedBoardHardware'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { asTftRotation, TFT_CONTROLLERS } from '../../state/tftSurface'
-import { NO_PIN } from '../../state/boardGpio'
+import { asTftRotation, TFT_CONTROLLERS } from '../../state/displays/tftSurface'
+import { NO_PIN } from '../../build/boards/boardGpio'
 
 const CYD = CYD_TOUCH_DISPLAY.panelProperties
 

@@ -16,7 +16,7 @@ import {
   thumbnailFromFrame, blankThumbnail, thumbnailBudgetIssue,
   THUMBNAIL_W, THUMBNAIL_H, THUMBNAIL_SUPERSAMPLE, THUMBNAIL_TICK_SEC,
   type PatternThumbnail,
-} from '../state/patternThumbnail'
+} from '../state/patterns/patternThumbnail'
 
 export interface BakedThumbnail {
   /** Pattern group id, so a reorder cannot silently repoint a picture. */

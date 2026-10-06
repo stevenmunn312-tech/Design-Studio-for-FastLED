@@ -10,7 +10,7 @@ import {
   type HardwarePartBox,
   type HardwarePartLink,
 } from '../hardwareLayout'
-import { partById } from '../../../state/partCatalogue'
+import { partById } from '../../../build/parts/partCatalogue'
 
 const BOARD: HardwarePartBox = { id: 'board', widthMm: 25.6, heightMm: 55 }
 const MIC: HardwarePartBox = { id: 'mic', widthMm: 20.5, heightMm: 14.5 }

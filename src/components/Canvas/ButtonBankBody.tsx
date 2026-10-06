@@ -1,13 +1,13 @@
 import { useEffect, useMemo } from 'react'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { useHardwareInputStore } from '../../state/hardwareInputStore'
+import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
 import {
   BUTTON_BANK_ADD_HANDLE,
   MAX_BUTTON_BANK_ENTRIES,
   buttonBankHandle,
   normalizeButtonBankEntries,
-} from '../../state/buttonBank'
+} from '../../state/player/buttonBank'
 import { portColor } from '../../state/nodeLibrary'
 import styles from './ButtonBankBody.module.css'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'

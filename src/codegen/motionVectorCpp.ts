@@ -1,7 +1,7 @@
 import { sanitizePin } from './hardwarePins'
 import {
   formatMotionVectorAddress, motionVectorAccelCode, motionVectorAddress, motionVectorGyroCode, motionVectorSpec,
-} from '../state/motionVector'
+} from '../state/peripherals/motionVector'
 
 /*
  * MPU-6050 reads, straight off the registers over the shared `Wire` bus.

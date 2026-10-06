@@ -1,7 +1,7 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, seedProp, floatLit } from '../../codegen/cppLiterals'
 import { scheduleTimeOfDay } from './evaluate'
-import { rateCpp, SPEED_MAX } from '../../state/speedRange'
+import { rateCpp, SPEED_MAX } from '../shared/speedRange'
 import { seedOffset } from '../../state/evaluator/random'
 
 export const SIGNAL_EMITTERS: NodeEmitters = {

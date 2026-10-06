@@ -1,6 +1,6 @@
 import { oledTransportForProps, segmentControllerForProps, tftTransportForProps } from '../../state/nodeLibrary'
-import { powerConverterModuleFor } from '../../state/powerConverter'
-import { powerSwitchChannelCount } from '../../state/powerSwitch'
+import { powerConverterModuleFor } from '../../state/peripherals/powerConverter'
+import { powerSwitchChannelCount } from '../../state/peripherals/powerSwitch'
 
 /**
  * What a bench run from the board to a fixture carries, in words.

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import PerformanceDeck from '../PerformanceDeck'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
-import { usePerformanceDeckSession } from '../../../state/performanceDeckSessionStore'
+import { usePerformanceDeckSession } from '../../../state/player/performanceDeckSessionStore'
 import { MidiEngine, type MidiRawEvent } from '../../../midi/midiEngine'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

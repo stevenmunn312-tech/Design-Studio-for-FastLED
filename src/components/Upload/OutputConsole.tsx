@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useUploadStore } from '../../state/uploadStore'
-import { useCapacityStore } from '../../state/capacityStore'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { useCapacityStore } from '../../state/upload/capacityStore'
 import { condenseLogView } from '../../utils/logView'
 import { describePort } from '../../utils/portStatus'
 import styles from './Upload.module.css'

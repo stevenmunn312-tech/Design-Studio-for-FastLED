@@ -5,8 +5,8 @@ import {
   customDisplayResourceIssues,
   type BakedCustomDisplayAsset,
   type CustomDisplayAssetOwner,
-} from '../state/customDisplayResources'
-import type { DisplayDocument } from '../state/displayDocument'
+} from '../state/displays/customDisplayResources'
+import type { DisplayDocument } from '../state/displays/displayDocument'
 
 
 

@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { buildShowPlayer } from '../../utils/showUpload'
-import { resolveBuildMode } from '../../state/buildMode'
+import { resolveBuildMode } from '../../state/upload/buildMode'
 import { playerDisplaysFromGraph } from '../playerDisplays'
 import { playerControlGraph, PLAYER_SELECTION_STEM } from '../playerControlGraph'
 import { playerControlsFromGraph } from '../playerSketchGenerator'

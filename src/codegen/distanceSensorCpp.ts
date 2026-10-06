@@ -1,5 +1,5 @@
 import { sanitizePin } from './hardwarePins'
-import { distanceSensorDevice, distanceSensorSpec, distanceSensorTransport } from '../state/distanceSensor'
+import { distanceSensorDevice, distanceSensorSpec, distanceSensorTransport } from '../state/peripherals/distanceSensor'
 
 /**
  * HC-SR04 ranging by pulse width. No library: raise Trig for the part's trigger

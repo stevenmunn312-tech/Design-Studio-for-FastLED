@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useGraphStore } from '../../state/graphStore'
-import { PALETTE_DEFS } from '../../state/paletteCatalog'
-import { movePaletteBankEntry, paletteBankEntries, paletteBankLabel } from '../../state/paletteBank'
+import { PALETTE_DEFS } from '../../state/palettes/paletteCatalog'
+import { movePaletteBankEntry, paletteBankEntries, paletteBankLabel } from '../../state/palettes/paletteBank'
 import styles from './PaletteBankBody.module.css'
 
 const PALETTE_BANK_OPEN_KEY = 'fls.paletteBank.open'

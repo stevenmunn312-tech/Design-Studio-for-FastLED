@@ -6,10 +6,10 @@
 // lets either wiring described by the hardware model work without re-beginning
 // the SD/display host underneath another client.
 
-import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/deviceTelemetry'
-import { transportTouchRegions } from '../state/transportTouch'
-import { type TftController, type TftRotation } from '../state/tftSurface'
-import type { TransportDisplayLayout } from '../state/transportDisplay'
+import { TELEMETRY_TOUCH_INTERVAL_MS } from '../state/upload/deviceTelemetry'
+import { transportTouchRegions } from '../state/displays/transportTouch'
+import { type TftController, type TftRotation } from '../state/displays/tftSurface'
+import type { TransportDisplayLayout } from '../state/displays/transportDisplay'
 import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from './deviceTelemetryCpp'
 
 export interface TftTouchEmit {

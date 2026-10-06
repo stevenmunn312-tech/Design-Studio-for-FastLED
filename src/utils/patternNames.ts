@@ -10,7 +10,7 @@
 // collection lost its names along with its thumbnails.
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
+import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displays/displaySignal'
 import { playerPatternIds } from './browserThumbnails'
 
 /** Pattern names in collection order, per rotating-engine node id. */

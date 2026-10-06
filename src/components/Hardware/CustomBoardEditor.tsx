@@ -1,11 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
-import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
-import { boardI2cDefault, profileI2cDefault } from '../../build/boardI2cDefaults'
-import { customBoardRowsFromReference, resolveCustomBoard } from '../../build/customBoardProfile'
-import { CUSTOM_BOARD_TEMPLATES, customBoardTemplate } from '../../build/customBoardTemplates'
+import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { boardI2cDefault, profileI2cDefault } from '../../build/boards/boardI2cDefaults'
+import { customBoardRowsFromReference, resolveCustomBoard } from '../../build/boards/customBoardProfile'
+import { CUSTOM_BOARD_TEMPLATES, customBoardTemplate } from '../../build/boards/customBoardTemplates'
 import { collectPinUses } from '../../build/hardwareManifest'
-import { BOARD_GPIO_BY_FQBN, pinSupports } from '../../state/boardGpio'
+import { BOARD_GPIO_BY_FQBN, pinSupports } from '../../build/boards/boardGpio'
 import {
   CUSTOM_BOARD_MAX_LABEL_LENGTH,
   CUSTOM_BOARD_MAX_PINS_PER_SIDE,
@@ -16,10 +16,10 @@ import {
   type CustomBoardDefinition,
   type CustomBoardIssue,
   type CustomBoardSlot,
-} from '../../state/customBoard'
+} from '../../build/boards/customBoard'
 import { useGraphStore, useRootNodes } from '../../state/graphStore'
-import { retargetDefaultI2c } from '../../state/pinRetarget'
-import { useUploadStore } from '../../state/uploadStore'
+import { retargetDefaultI2c } from '../../build/pins/pinRetarget'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import ClampedNumberInput from '../Canvas/ClampedNumberInput'
 import { CustomBoardGraphic } from './CustomBoardGraphic'
 import styles from './CustomBoardEditor.module.css'

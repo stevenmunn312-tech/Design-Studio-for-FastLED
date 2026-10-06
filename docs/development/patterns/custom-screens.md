@@ -27,7 +27,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   cadence, and sampled controls are memoized once before feedback is published,
   which is what preserves a quick tap and releases cleanly to Set. A widget
   takes its reading either from a cable or from the one source wired into its
-  panel, decided by its own `source` property: `state/displaySourceFields.ts`
+  panel, decided by its own `source` property: `state/displays/displaySourceFields.ts`
   derives the field catalogue from the lists the fixed layouts already read (the
   player's from `SONG_INFO_PORTS`), a bound widget mints **no input port**
   (`displayWidgetIsBound`), and `syncDisplayNodesInContent` projects
@@ -85,7 +85,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   already fiction on device; restore the target in the emitter before reporting
   its loss. See [on-glass widget labels](../../design/on-glass-widget-labels.md).
   Physical geometry and Enabled belong to the owning TransportDisplay, and both
-  are resolved in one place: `src/state/mountedDisplays.ts` answers how large a
+  are resolved in one place: `src/state/displays/mountedDisplays.ts` answers how large a
   mounted design is (the panel's rotated size), used by the editor's orientation
   control, deploy validation for every generator, and the template plan. Enabled
   is one runtime signal with one meaning in all three generators — dark, no
@@ -96,7 +96,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   a constant folds into the latch's initialiser. A disabled panel is still
   built, so it can be turned back on, and a wire feeding Enabled is accepted
   everywhere rather than refused by the templates. A widget's `bounds` is
-  optional (`src/state/displayDocument.ts`), so a wire-first control can exist —
+  optional (`src/state/displays/displayDocument.ts`), so a wire-first control can exist —
   with a port and a real edge — before it is dragged onto a screen; this is
   deliberately not a `placed` flag, because optional bounds turn "ports or
   pixels?" into a compile error at each call site instead of a runtime guard to
@@ -120,7 +120,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   no format change. See
   [wire-first touch controls](../../design/wire-first-touch-controls.md). Creating
   a control by dropping a wire (rather than placing a widget first) goes through
-  one derivation, `src/state/wireFirstControls.ts`'s
+  one derivation, `src/state/player/wireFirstControls.ts`'s
   `touchControlPlan(nodeType, portId, properties, driven)`: it reads
   `exposableInputsFor` — covering property *and* action inputs — and returns a
   spec (Slider/Toggle/momentary Button, ranged via `propertyMeta`) or a refusal
@@ -262,7 +262,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   which are regenerable and would commit sizes/tints a screen may never bake —
   under `public/display-assets/`, emitting a generated
   `src/build/generated/displayAssetCatalogueData.ts` that
-  `src/state/displayAssets.ts` wraps with the runtime contract (id, category,
+  `src/state/displays/displayAssets.ts` wraps with the runtime contract (id, category,
   slot kinds, dimensions, tintability, format, site-relative `file`, display
   classes). `normalizeDisplayAssetId` is the one place an untrusted document's
   asset id may be kept: widget property normalization and the theme background
@@ -282,7 +282,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   back to the label whenever the resolved `assetId` is empty or names a retired
   asset: an icon-only control drawing nothing would be indistinguishable from a
   broken one, so it keeps its text instead.
-- A theme preset (`src/state/displayThemePresets.ts`) is applied, not
+- A theme preset (`src/state/displays/displayThemePresets.ts`) is applied, not
   referenced: `applyDisplayThemePreset` copies the pack theme's concrete colours
   into the document's own `DisplayTheme` at pick time rather than storing a live
   pointer to the pack, the same reasoning that keeps an asset *id* in a document
@@ -307,10 +307,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Templates
 
 - **Wiring a template's controls to the graph is a plan-then-apply pair**
-  (`state/templateControlPlan.ts` decides what should be wired; the similarly
+  (`state/displays/templateControlPlan.ts` decides what should be wired; the similarly
   named `codegen/templateControlRouting.ts` is unrelated — it resolves the
   controls a template *sketch* already has), split so the plan stays pure and
-  testable apart from its side effects. `src/state/templateControlPlan.ts`'s
+  testable apart from its side effects. `src/state/displays/templateControlPlan.ts`'s
   `templateControlPlan(panel, document, nodes, edges)` decides, for one panel's
   screen design, which widgets carrying a stamped `controlRole`
   (`TEMPLATE_CONTROL_ROLES`, written by `applyDisplayTemplate` at placement time
@@ -348,8 +348,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   field until something is wired to it), places the `Not` adapter beside the
   panel — offset per adapter so two on one screen stay separately clickable,
   never stacked on the origin — and folds the whole thing into one undo step.
-  `src/state/__tests__/templateControlPlan.test.ts` covers the plan;
-  `src/state/__tests__/connectTemplateControls.test.ts` covers the store
+  `src/state/displays/__tests__/templateControlPlan.test.ts` covers the plan;
+  `src/state/displays/__tests__/connectTemplateControls.test.ts` covers the store
   action's side effects (sockets drawn, single undo, idempotent rerun, a manual
   rewire respected). A template should just work, so three things follow from
   the one Controls wire. A `useGraphStore.subscribe` in `graphStore.ts` runs the

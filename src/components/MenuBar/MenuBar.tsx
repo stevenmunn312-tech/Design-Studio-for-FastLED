@@ -4,18 +4,18 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
 import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
-import { usePerformanceDeckSession } from '../../state/performanceDeckSessionStore'
-import { useAudioStore } from '../../state/audioStore'
-import { graphAudioCapabilityKind, graphAudioCapabilitySource } from '../../state/audioCapabilities'
-import { useShowPlayback } from '../../state/showPlayback'
+import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
+import { useAudioStore } from '../../state/audio/audioStore'
+import { graphAudioCapabilityKind, graphAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { useShowPlayback } from '../../state/player/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
-import { boardByFqbn, useUploadStore } from '../../state/uploadStore'
+import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import {
   micSupportedForBoardProfile,
   MIC_NO_BOARD_MESSAGE,
   micUnsupportedMessage,
-} from '../../state/micPinDefaults'
-import { selectedPhysicalBoardProfile } from '../../build/boardProfiles'
+} from '../../build/pins/micPinDefaults'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import type { StudioNode } from '../../state/graphStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import {

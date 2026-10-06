@@ -121,7 +121,7 @@ pixels yet.
   render passes, so there V is a static inside each pass and is copied into
   the field buffer every frame.
 - **Presets.** `rdPreset` is `custom`, `spots`, `stripes`, `worms`, `coral` or
-  `mitosis`. The pairs live in `src/state/reactionDiffusionPresets.ts`. A named
+  `mitosis`. The pairs live in `src/nodes/simulations/reactionDiffusionPresets.ts`. A named
   preset bakes its pair and ignores the Feed and Kill knobs and any wires
   into them, and `isPropertyEnabled` dims both knobs while it is selected.
   `custom` is the default, so saved graphs keep their feed and kill.

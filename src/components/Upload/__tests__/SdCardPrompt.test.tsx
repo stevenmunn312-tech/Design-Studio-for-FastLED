@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
 import SdCardPrompt from '../SdCardPrompt'
-import { useUploadStore } from '../../../state/uploadStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 
 const listRemovableDrives = vi.fn()
 vi.mock('../../../utils/backendClient', () => ({

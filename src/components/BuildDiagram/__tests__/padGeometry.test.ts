@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { DEFAULT_PAD_HOLE_RADIUS, MODULE_PAD_GEOMETRY, MODULE_PAD_HOLE_RADIUS, peripheralPadPoint, peripheralPadCount, peripheralPadRadius } from '../physicalDiagramLayout'
-import { partById } from '../../../state/partCatalogue'
+import { partById } from '../../../build/parts/partCatalogue'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 import type { ItemLayout } from '../physicalDiagramLayout'
 

@@ -6,7 +6,7 @@
 // measured off a photograph or remembered — the hardware view draws parts
 // at true relative scale, so these numbers are load-bearing.
 
-import type { PartCatalogueEntry } from '../../state/partCatalogue'
+import type { PartCatalogueEntry } from '../parts/partCatalogue'
 
 export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
   "adafruit-bh1750-light-sensor": {

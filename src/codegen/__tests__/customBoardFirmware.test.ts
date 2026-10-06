@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateCpp } from '../cppGenerator'
 import { playerConfigFromGraph } from '../playerSketchGenerator'
-import { CUSTOM_BOARD_PROFILE_ID, type CustomBoardDefinition } from '../../state/customBoard'
+import { CUSTOM_BOARD_PROFILE_ID, type CustomBoardDefinition } from '../../build/boards/customBoard'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown>): StudioNode {

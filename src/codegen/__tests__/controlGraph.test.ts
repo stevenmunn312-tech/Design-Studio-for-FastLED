@@ -5,8 +5,8 @@ import { createControlGraph, controlGraphCpp, controlReferenceCpp, MAX_CONTROL_G
 import { SCALAR_CONTROL_NODES, scalarControlInputDefaults } from '../scalarControlCpp'
 import { generateCpp } from '../cppGenerator'
 import { evaluateGraphFull } from '../../state/graphEvaluator'
-import { addDisplayWidget, createDisplayDocument } from '../../state/displayEditor'
-import { displayDocumentPorts } from '../../state/displayRegistry'
+import { addDisplayWidget, createDisplayDocument } from '../../state/displays/displayEditor'
+import { displayDocumentPorts } from '../../state/displays/displayRegistry'
 import { assertWireable } from '../../test-utils/assertWireable'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {

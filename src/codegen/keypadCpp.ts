@@ -1,5 +1,5 @@
 import { sanitizePin } from './hardwarePins'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../state/keypad'
+import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../state/peripherals/keypad'
 
 /*
  * A 4x4 membrane matrix keypad, scanned column by column.

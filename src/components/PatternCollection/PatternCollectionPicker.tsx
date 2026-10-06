@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
-import { usePatternLibrary, type SavedPattern } from '../../state/patternLibrary'
+import { usePatternLibrary, type SavedPattern } from '../../state/patterns/patternLibrary'
 import PatternFormIcons from '../PatternTags/PatternFormIcons'
-import { outputRoutes } from '../../state/outputRouting'
+import { outputRoutes } from '../../state/output/outputRouting'
 import {
   PATTERN_FORM_TAGS,
   formTagForOutputForm,
   patternFit,
   type PatternFit,
   type PatternFormTag,
-} from '../../state/patternTags'
+} from '../../state/patterns/patternTags'
 import {
   PATTERN_INTENTS,
   isAudioReactiveSubgraph,
@@ -18,7 +18,7 @@ import {
   usePatternRatingStore,
   type PatternIntent,
   type PatternRating,
-} from '../../state/patternRating'
+} from '../../state/patterns/patternRating'
 import { useUiStore } from '../../state/uiStore'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternCollectionPicker.module.css'

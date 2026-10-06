@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
-import type { OledSurface } from '../../state/oledSurface'
-import type { TftSurface } from '../../state/tftSurface'
+import type { OledSurface } from '../../state/displays/oledSurface'
+import type { TftSurface } from '../../state/displays/tftSurface'
 import { isOledSurface, isTftSurface, paintOledSurface, paintTftSurface } from './displaySurfaceRaster'
 
 /*

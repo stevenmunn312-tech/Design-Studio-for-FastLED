@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { generateCpp } from '../cppGenerator'
-import { STEREO_VU_MODES } from '../../state/stereoVuMeter'
+import { STEREO_VU_MODES } from '../../state/audio/stereoVuMeter'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, category: string, properties: Record<string, unknown> = {}): StudioNode {

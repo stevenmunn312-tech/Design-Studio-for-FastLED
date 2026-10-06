@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../../state/audioStore', () => ({
+vi.mock('../../../state/audio/audioStore', () => ({
   useAudioStore: { getState: () => ({ active: false, micActive: false }) },
 }))
 

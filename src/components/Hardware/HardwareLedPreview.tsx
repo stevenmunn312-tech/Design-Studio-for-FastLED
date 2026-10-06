@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
-import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/ledOutputForm'
+import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/output/ledOutputForm'
 import { EMITTER_GLOW } from './ledPreviewGeometry'
 
 /** Half the width of one LED on a ring, in bounding-box fractions — a 5050

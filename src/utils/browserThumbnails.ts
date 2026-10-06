@@ -11,11 +11,11 @@
 // nobody was allowed to render.
 
 import { bakePatternThumbnails } from './bakePatternThumbnails'
-import { thumbnailBudgetIssue } from '../state/patternThumbnail'
+import { thumbnailBudgetIssue } from '../state/patterns/patternThumbnail'
 import type { GroupRegistry } from '../state/graphEvaluator'
-import type { PatternThumbnail } from '../state/patternThumbnail'
+import type { PatternThumbnail } from '../state/patterns/patternThumbnail'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displaySignal'
+import { DISPLAY_SOURCE_NODE_TYPES } from '../state/displays/displaySignal'
 
 /**
  * Baked pictures per rotating-engine node id.

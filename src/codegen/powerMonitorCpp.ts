@@ -1,4 +1,4 @@
-import { formatI2cAddress, powerMonitorAddress, powerMonitorLimitAmps, powerMonitorSpec } from '../state/powerMonitor'
+import { formatI2cAddress, powerMonitorAddress, powerMonitorLimitAmps, powerMonitorSpec } from '../state/peripherals/powerMonitor'
 
 /*
  * INA219 reads, straight off the registers over the shared `Wire` bus.

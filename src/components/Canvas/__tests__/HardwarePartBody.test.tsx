@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import HardwarePartBody from '../HardwarePartBody'
-import { PART_FIELDS } from '../../../state/partFields'
+import { PART_FIELDS } from '../../../build/parts/partFields'
 import { useGraphStore } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { isHardwareOnlyNodeType } from '../../../state/hardware'
-import { partOptionProperty } from '../../../state/partOptions'
-import { useUploadStore } from '../../../state/uploadStore'
+import { isHardwareOnlyNodeType } from '../../../build/hardware'
+import { partOptionProperty } from '../../../build/parts/partOptions'
+import { useUploadStore } from '../../../state/upload/uploadStore'
 
 function setPart(nodeType: string) {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!

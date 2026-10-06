@@ -1,4 +1,4 @@
-import { rateCpp, SPEED_MAX, SCALE_MAX } from '../../state/speedRange'
+import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
@@ -8,10 +8,10 @@ import {
   LUMINOVA_TRAIL_DECAY, LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
-import { particleRadius } from '../../state/particleScale'
+import { particleRadius } from './particleScale'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
-import { reactionDiffusionRates } from '../../state/reactionDiffusionPresets'
+import { reactionDiffusionRates } from './reactionDiffusionPresets'
 
 // Fire/Fire2012 share these direction/turbulence/paletteMix/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/

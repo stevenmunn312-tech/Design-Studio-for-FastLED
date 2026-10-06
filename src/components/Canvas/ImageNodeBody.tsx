@@ -9,7 +9,7 @@ import {
   IMAGE_MAX_DIM,
   type AnimatedImageData,
   type ImageData,
-} from '../../state/image'
+} from '../../nodes/shared/image'
 import styles from './ImageNodeBody.module.css'
 
 // The Image node accepts either a still image or an animation (GIF/APNG/WebP).

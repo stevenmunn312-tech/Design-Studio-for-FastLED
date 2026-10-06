@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { boardProfileById } from '../boardProfiles'
+import { boardProfileById } from '../boards/boardProfiles'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv, rowsToCsv } from '../buildExports'
 import { ensureBuildProfile } from '../buildProfile'
-import { calculateElectricalPlan } from '../electricalPlan'
+import { calculateElectricalPlan } from '../power/electricalPlan'
 import { buildHardwareManifest } from '../hardwareManifest'
 import type { StudioNode } from '../../state/graphStore'
 

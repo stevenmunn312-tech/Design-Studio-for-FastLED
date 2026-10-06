@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { useAudioStore } from '../../state/audioStore'
+import { useAudioStore } from '../../state/audio/audioStore'
 import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
-import { useShowPlayback } from '../../state/showPlayback'
-import { localTrackTitle, usePlayerTransport } from '../../state/playerTransport'
+import { useShowPlayback } from '../../state/player/showPlayback'
+import { localTrackTitle, usePlayerTransport } from '../../state/player/playerTransport'
 import { readAudioFileTags, type AudioTags } from '../../audio/id3Tags'
-import { usePatternLibrary } from '../../state/patternLibrary'
-import { useMusicStore } from '../../state/musicStore'
-import { showAudioSpectrum } from '../../state/showAudio'
+import { usePatternLibrary } from '../../state/patterns/patternLibrary'
+import { useMusicStore } from '../../state/player/musicStore'
+import { showAudioSpectrum } from '../../state/player/showAudio'
 import { WebGLLEDRenderer } from './webglRenderer'
 import { renderPreviewFrame } from './frameCanvas'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import RecordPopup from './RecordPopup'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
 import { graphConsumesAudio } from './previewAudioUsage'
-import { graphAudioCapabilityKind } from '../../state/audioCapabilities'
-import { useDecoderAudioStore } from '../../state/decoderAudioStore'
+import { graphAudioCapabilityKind } from '../../state/audio/audioCapabilities'
+import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
 import PreviewSpectrum from './PreviewSpectrum'
 import {
   nextSpectrumVisualizerMode,
@@ -38,13 +38,13 @@ import {
 import styles from './LEDPreview.module.css'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
-import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/streamStore'
-import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/outputRouting'
-import type { LedOutputForm } from '../../state/ledOutputForm'
+import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/output/streamStore'
+import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/output/outputRouting'
+import type { LedOutputForm } from '../../state/output/ledOutputForm'
 import { enterStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
-import { controllerSettings } from '../../state/controllerSettings'
-import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/masterSpeed'
-import type { StereoVuFrame } from '../../state/stereoVuMeter'
+import { controllerSettings } from '../../build/controllerSettings'
+import { masterSpeedFromOutputs, masterSpeedOriginShift } from '../../state/player/masterSpeed'
+import type { StereoVuFrame } from '../../state/audio/stereoVuMeter'
 import { combinedStereoVuFixture, drawStereoVuRail } from './stereoVuCombinedPreview'
 import { previewGridDimensions } from './previewGrid'
 import { fullscreenMatrixDimensions, resampleFullscreenFrame } from './fullscreenMatrix'
@@ -624,7 +624,7 @@ export default function LEDPreview() {
          * makes, which slides the origin by the interval spent paused.
          *
          * Read from the pass that just ran, so it lands on the next frame. See
-         * state/masterSpeed.ts on why the control cannot run on its own output.
+         * state/player/masterSpeed.ts on why the control cannot run on its own output.
          */
         const masterSpeed = masterSpeedFromOutputs(graphNodes, outputs)
         if (masterSpeed !== 1) startTime.current += masterSpeedOriginShift(gapMs, masterSpeed)

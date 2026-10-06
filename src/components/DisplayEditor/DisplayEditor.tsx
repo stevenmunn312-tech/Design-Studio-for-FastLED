@@ -25,7 +25,7 @@ import {
   displayWidgetShowsLabel,
   type DisplayWidgetPortRole,
   type DisplayWidgetPropertyDefinition,
-} from '../../state/displayRegistry'
+} from '../../state/displays/displayRegistry'
 import {
   addDisplayWidget,
   alignDisplayWidgets,
@@ -40,7 +40,7 @@ import {
   unplaceDisplayWidgets,
   updateDisplayWidget,
   type DisplayLayoutIssue,
-} from '../../state/displayEditor'
+} from '../../state/displays/displayEditor'
 import {
   isPlacedWidget,
   placedWidgets,
@@ -49,17 +49,17 @@ import {
   type DisplayOrientation,
   type DisplayWidget,
   type DisplayWidgetType,
-} from '../../state/displayDocument'
+} from '../../state/displays/displayDocument'
 import {
   resolveDisplayThemeTokens,
-} from '../../state/displayTheme'
+} from '../../state/displays/displayTheme'
 import {
   applyDisplayTemplate,
   displayTemplatesForSource,
   type DisplayTemplate,
   displayTemplate,
   type DisplayTemplateId,
-} from '../../state/displayTemplates'
+} from '../../state/displays/displayTemplates'
 import {
   displayAssetUrl,
   displayAsset,
@@ -67,17 +67,17 @@ import {
   displayAssetsForSlot,
   displayControlsForTheme,
   type DisplayAssetEntry,
-} from '../../state/displayAssets'
+} from '../../state/displays/displayAssets'
 import {
   DISPLAY_THEME_PRESETS,
   applyDisplayThemePreset,
   displayThemeBackgroundFor,
   displayThemePreset,
-} from '../../state/displayThemePresets'
+} from '../../state/displays/displayThemePresets'
 import {
   documentDisplaySourceKind, documentDisplaySourceLabel, mountedPanelGeometry, panelsShowingDocument,
-} from '../../state/mountedDisplays'
-import { displayWidgetTargetRangeRepair } from '../../state/displayControlRangeRepair'
+} from '../../state/displays/mountedDisplays'
+import { displayWidgetTargetRangeRepair } from '../../state/displays/displayControlRangeRepair'
 import {
   controlDestination,
   controlDestinationLabel,
@@ -86,8 +86,8 @@ import {
   displayControlInertReason,
   displayWidgetWires,
   placeTouchControlIn,
-} from '../../state/wireFirstControls'
-import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displaySourceFields'
+} from '../../state/player/wireFirstControls'
+import { DISPLAY_SOURCE_FROM_GRAPH } from '../../state/displays/displaySourceFields'
 import { useUiStore } from '../../state/uiStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {

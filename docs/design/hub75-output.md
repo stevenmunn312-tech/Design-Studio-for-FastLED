@@ -100,7 +100,7 @@ Teensy-first user specifically asks for it later.
 
 ### A new route family on `MatrixOutput`, not a standalone node type
 
-`MatrixOutput` is already a multi-route architecture (`src/state/outputRouting.ts`,
+`MatrixOutput` is already a multi-route architecture (`src/state/output/outputRouting.ts`,
 `docs/architecture/multi-output-routing.md`): each instance is an independent
 physical route with its own pins, chipset, size, layout, and brightness,
 composited from a shared canvas via `fit`/crop. A HUB75 panel is still
@@ -205,7 +205,7 @@ hardware pass yet.
 - ~~**Virtual-panel chaining model.**~~ **Resolved, single row and folded 2D
   grid both implemented:** the property model reuses the existing
   `layout: 'panels'` tiling (`tilesX`/`tilesY`/`tileRotations`/
-  `tileSerpentine`, `src/state/xyLayout.ts`) rather than inventing separate
+  `tileSerpentine`, `src/state/output/xyLayout.ts`) rather than inventing separate
   panel-resolution/chain-length properties — a HUB75 chain's per-panel
   resolution falls out of `width`/`height` ÷ `tilesX`/`tilesY`, same as an
   addressable panel grid. Codegen handles a single row (`tilesY === 1`,

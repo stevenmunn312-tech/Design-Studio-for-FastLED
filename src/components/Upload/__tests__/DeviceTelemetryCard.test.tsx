@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import DeviceTelemetryCard from '../DeviceTelemetryCard'
-import { useDeviceTelemetryStore } from '../../../state/deviceTelemetryStore'
-import { TELEMETRY_MARKER } from '../../../state/deviceTelemetry'
+import { useDeviceTelemetryStore } from '../../../state/upload/deviceTelemetryStore'
+import { TELEMETRY_MARKER } from '../../../state/upload/deviceTelemetry'
 
 function feed(fields: Record<string, number>) {
   useDeviceTelemetryStore.getState().ingest(

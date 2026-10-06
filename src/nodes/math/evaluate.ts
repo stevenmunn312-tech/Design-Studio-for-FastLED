@@ -5,9 +5,9 @@ import {
   type DateTimeTextFields,
   formatDateTimeText,
   asDateTimeTextMode,
-} from '../../state/displayText'
-import { applyEase } from '../../state/easing'
-import { type StepValueState, reduceStepValue } from '../../state/stepValue'
+} from '../../state/displays/displayText'
+import { applyEase } from './easing'
+import { type StepValueState, reduceStepValue } from '../shared/stepValue'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { instanceState } from '../../state/evaluator/memory'
 
@@ -213,7 +213,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     const b = num(id, 'b', props, 'b', 0.5)
     return { result: a > b }
   },
-  // Every string these produce goes through state/displayText.ts, which
+  // Every string these produce goes through state/displays/displayText.ts, which
   // the C++ generator imports too. Formatting decided in two places is
   // formatting that disagrees, and a display disagreeing with its preview
   // is the one defect this feature cannot ship with.

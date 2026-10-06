@@ -2,14 +2,14 @@ import type { StudioNode } from '../state/graphStore'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
-import { ledPropsWithController } from '../state/controllerSettings'
-import { isLinearForm, outputForm, outputGridDims } from '../state/ledOutputForm'
+import { ledPropsWithController } from '../build/controllerSettings'
+import { isLinearForm, outputForm, outputGridDims } from '../state/output/ledOutputForm'
 import { amplifierIdleCpp } from './amplifierIdle'
 import { standaloneDisplaysCpp } from './standaloneDisplayCpp'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
-// interactive rates (see src/state/streamStore.ts + src/utils/adalight.ts),
+// interactive rates (see src/state/output/streamStore.ts + src/utils/adalight.ts),
 // skipping the usual compile+flash cycle on every tweak. Unlike the normal
 // generated sketch this has no pattern logic at all: it just waits for the
 // classic "Ada" + hi/lo + checksum header, then reads NUM_LEDS RGB triples and

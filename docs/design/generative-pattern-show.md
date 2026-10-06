@@ -56,7 +56,7 @@ Player Particles --------------------particleFx----┘          ^
 
 ### Which pattern is playing
 
-`src/state/patternSelection.ts` is the one definition of *which pattern*, and it
+`src/state/patterns/patternSelection.ts` is the one definition of *which pattern*, and it
 exists because four things need to agree about it and none of them can see each
 other: an encoder turning on a panel, the OLED Pattern Browser drawing what it
 selected, this show advancing on its own, and the SD player doing the same on a
@@ -279,7 +279,7 @@ faceted search feel broken.
 
 ### Where a pattern looks best is authored, not measured
 
-`src/state/patternTags.ts` holds one small vocabulary — `string`, `matrix`,
+`src/state/patterns/patternTags.ts` holds one small vocabulary — `string`, `matrix`,
 `ring` — and `SavedPattern.bestOn` holds the author's claim about their own
 pattern.
 

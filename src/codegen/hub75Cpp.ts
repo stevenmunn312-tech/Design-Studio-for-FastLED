@@ -1,5 +1,5 @@
-import { tileRotationAt, rotatePoint } from '../state/xyLayout'
-import { DEFAULT_CONTROLLER_SETTINGS } from '../state/controllerSettings'
+import { tileRotationAt, rotatePoint } from '../state/output/xyLayout'
+import { DEFAULT_CONTROLLER_SETTINGS } from '../build/controllerSettings'
 import { sanitizePin } from './hardwarePins'
 
 // ── HUB75 hardware setup (MatrixOutput → ESP32-HUB75-MatrixPanel-DMA) ──────

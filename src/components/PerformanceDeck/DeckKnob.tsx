@@ -1,4 +1,4 @@
-import type { PinnedControl } from '../../state/performanceDeck'
+import type { PinnedControl } from '../../state/player/performanceDeck'
 import styles from './PerformanceDeck.module.css'
 
 interface DeckKnobProps {

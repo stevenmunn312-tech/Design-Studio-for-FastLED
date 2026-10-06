@@ -3,7 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import NodeContextMenu from '../NodeContextMenu'
 import { useGraphStore } from '../../../state/graphStore'
 import { useNodePresets } from '../../../state/nodePresets'
-import { usePatternLibrary } from '../../../state/patternLibrary'
+import { usePatternLibrary } from '../../../state/patterns/patternLibrary'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 
 const runTidyMock = vi.hoisted(() => vi.fn())
