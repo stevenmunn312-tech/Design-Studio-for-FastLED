@@ -84,7 +84,7 @@ export default defineConfig(() => {
             // The shipped pattern library is data that changes on its own
             // cadence, so a code release does not re-download it.
             if (moduleId.includes('/src/assets/bundled-patterns/')
-              || /\/src\/state\/bundled(Patterns|AudioShelf\d*)\.ts$/.test(moduleId)) return 'pattern-library'
+              || /\/src\/state\/patterns\/bundled(Patterns|AudioShelf\d*)\.ts$/.test(moduleId)) return 'pattern-library'
             // The evaluator and every node's preview (src/nodes/*/evaluate.ts).
             // Each node's firmware (codegen.ts beside it) stays with the lazy
             // generator.
