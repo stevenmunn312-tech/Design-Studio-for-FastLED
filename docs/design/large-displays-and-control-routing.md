@@ -280,10 +280,10 @@ compatibility baseline only after it ships.
 
 ## Remaining decisions
 
-HW-01–08 are closed. Direct-control compilation and bench evidence is
-still open in
+HW-01–08 are closed. Direct-control compilation is done; its bench evidence
+is still open in
 [direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
-Broader structured bindings, Performance Generator as a real Display
-source, density/size thresholds and multi-screen scope stay deferred.
+Performance Generator is now a real Display source. Broader structured
+bindings, density/size thresholds and multi-screen scope stay deferred.
 Driver, bus and asset contracts remain in
 [auxiliary displays](auxiliary-displays.md).

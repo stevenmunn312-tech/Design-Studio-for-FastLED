@@ -372,8 +372,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   splitting the emitted function on every `return` rather than counting known
   branches. `_touchMap`, extracted from `_xptPoint`, is the one place raw counts
   become rotated screen pixels, shared by both readers so the reversed-axis/span
-  handling can't drift between a digitiser chip and a bare sheet. The read is
-  not yet wired into any generator's emit path or a part-menu entry — see the
+  handling can't drift between a digitiser chip and a bare sheet. The XC4630
+  is in the part menu and the generators emit this read for it — see the
   XC4630/`CATALOGUE_ONLY` note above.
 
 ## On the Hardware bench

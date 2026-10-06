@@ -224,7 +224,8 @@ rest of the glass is a visual decision, not a fitting one.
 ## Remaining work
 
 The TFT clock and the panel/document content split are implemented; they are no
-longer tier-2 proposals. Outstanding integration work is [HW-01–08](../../todo.md).
+longer tier-2 proposals. HW-01–08 are closed; the remaining bench rows are in
+the [root todo](../../todo.md).
 Optional density/size policies remain D-02. Performance Generator is now a
 real playback source; hardware support requires its own recorded evidence.
 

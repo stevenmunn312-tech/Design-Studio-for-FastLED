@@ -1,10 +1,10 @@
 # IR remote controls for graph properties
 
-Active execution is tracked by the ordered checkbox list under
-[D-05a in the root todo](../../todo.md). This document defines the feature
-contract so the checklist does not have to repeat the design.
+D-05a is complete in software and compile; its bench row is in the
+[root todo](../../todo.md). This document defines the feature contract so the
+checklist does not have to repeat the design.
 
-Status: **in progress.** Mapping primitives, the Step Value adapter, receiver
+Status: **implemented, experimental.** Mapping primitives, the Step Value adapter, receiver
 registration, the two bench parts, and browser press/hold plus key editing are
 implemented, including the diagnostic learn workflow, the pinned
 Arduino-IRremote 4.7.1 dependency, project-sketch polling in the normal,
@@ -14,7 +14,10 @@ preview and all three firmware paths. Node reference assets, Help, README,
 [Hardware workbench guidance](../user/hardware-workbench.md#add-an-ir-remote-receiver),
 dependency/export notes, Graph Health repairs, and the experimental
 [beta-matrix boundary](../release/beta-support-matrix.md#experimental-until-validated)
-are complete. Compile and hardware evidence remain.
+are complete. Compile evidence is in the
+[IR compile checks](../reports/compile/ir-compile-checks.md), apart from the
+fbuild legs blocked upstream and STM32 under arduino-cli; hardware evidence
+remains beyond a partial KS0026/ESP32-S3 pass.
 Keep the feature experimental until a generated sketch has been compiled on
 every claimed board family and the receiver, repeat handling and LED timing
 have been exercised on hardware.

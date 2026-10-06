@@ -1,13 +1,15 @@
 # Touch, LVGL and heap budgets: the bench procedure
 
-> **Numbers not yet taken.** Every table here is empty on purpose. HW-11 asks for
-> acceptance budgets set *from evidence*, so the figures go in after the runs
-> below, not before them — a budget invented at a desk is a number that gets
-> argued with rather than measured against.
+> **Budgets set from evidence.** HW-11 asked for acceptance budgets set *from
+> evidence*, so the figures went in after the runs below, not before them — a
+> budget invented at a desk is a number that gets argued with rather than
+> measured against. The runs are recorded and the budgets were set on
+> 2026-09-22 (see [Turning measurements into budgets](#turning-measurements-into-budgets)).
+> Only the shared-bus run (TFT, SD and touch on one bus with audio playing)
+> remains, and it needs a rig other than the CYD.
 
 The software half is built and reachable: a Board property makes the firmware
-report itself, and a card in the Upload tab reads those reports. What remains is
-a rig, four runs and an hour.
+report itself, and a card in the Upload tab reads those reports.
 
 ## What the device reports
 
@@ -139,7 +141,7 @@ four are constrained by this board rather than by the software under test.
   refused a build that fits with 222 KB to spare — so the gap was held open
   until this run existed, and **the budget was then raised to 96 KiB from these
   measurements** rather than the gap being closed at a wrong number. The CYD now
-  declares it too. See `src/build/ramBudgets.ts` and HW-25 in `todo.md`.
+  declares it too. See `src/build/ramBudgets.ts` and HW-25 in the [archived backlog](../../archive/hardware-todo-to-2026-09-24.md).
 
 - **Run 3 cannot be done on this board, and now for a measured reason.** The
   slot's pins were found on 2026-09-22 (CS 5 / SCK 18 / MISO 19 / MOSI 23) and

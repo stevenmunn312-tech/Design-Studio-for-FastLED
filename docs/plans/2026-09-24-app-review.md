@@ -478,10 +478,10 @@ verified; adding the UI alone is not completion.
       (`documentDisplaySourceLabel` read the unpersisted `data.label`).
     - The status bar said "1 modules".
 
-    Still open: after deleting every widget while the Controls wire remains,
-    Graph Health reports a blocking error with only **Locate node**; a
-    **Disconnect Controls** repair would fit. The firmware gate is covered by
-    generated-text tests but has not been compiled.
+    Since fixed: after every widget is deleted while the Controls wire
+    remains, Graph Health now offers **Disconnect Controls** (`d710d62c`).
+    Still open: the firmware gate is covered by generated-text tests but has
+    not been compiled; that compile is in the root todo.
 
 ## 7. Align documentation and complete the product pass
 
@@ -506,7 +506,7 @@ verified; adding the UI alone is not completion.
     chrome and was kept. Found in passing: `HorizontalResizeHandle` is no
     longer used by anything; its removal is left as a separate task.
 
-24. [ ] **Run the final acceptance walkthrough.** Repeat all baseline scenarios
+24. [x] **Run the final acceptance walkthrough.** Repeat all baseline scenarios
     after the changes, including narrow-window and keyboard checks. Confirm that
     the active task has usable space, every blocked action has a clear next step,
     and unmeasured or unverified states are labelled honestly. Run the relevant
@@ -542,15 +542,15 @@ verified; adding the UI alone is not completion.
     pass. No firmware was compiled, and no upload, serial or device behaviour
     is claimed: the helper was offline throughout.
 
-    Remaining issues:
-    - At 1366 px the Signal Overview still clips the corner of the rightmost
-      node in the music-player graph. The field there (about 590 px) is above
-      the hide threshold.
-    - On the Build Diagram at 1024 px, the Fit button touches the right panel
-      handle.
+    Remaining issues, and what became of them:
+    - At 1366 px the Signal Overview clipped the corner of the rightmost
+      node in the music-player graph. Fixed: it now hides at laptop widths
+      with both panels open (`819569d8`).
+    - On the Build Diagram at 1024 px, the Fit button touched the right panel
+      handle. Fixed (`ea575a7f`).
     - The status bar's chip rail scrolls rather than wraps below about 1366
-      px, so Port and Size are only reachable by scrolling it.
-    - From item 22: after every widget is deleted while the Controls wire
-      stays, Graph Health raises a blocking error whose only button is
-      Locate. A "Disconnect Controls" repair would fit.
-    - The screen-slider level gate added in item 22 is not yet compiled.
+      px. Kept as a scroll, now shown as one and reachable (`18a8af8d`).
+    - From item 22: the empty Controls wire's only repair was Locate. Fixed:
+      **Disconnect Controls** (`d710d62c`).
+    - The screen-slider level gate added in item 22 is not yet compiled. Open
+      in the root todo, section 1.

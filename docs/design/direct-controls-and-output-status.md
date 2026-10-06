@@ -1,9 +1,9 @@
 # Direct controls and LED output status
 
-Status: in progress — steps 1–9 and step 11 are landed; step 10's
-software verification is complete except widget feedback under playback
-(that wants the bench); representative normal/show/player compilation is
-done on both engines; bench is not run. 2026-09-15.
+Status: implemented 2026-09-24 — steps 1–11 are landed in software, and
+representative normal/show/player compilation is done on both engines. The
+step 10 bench readings, including widget feedback under playback, are
+community-testing rows in the root todo; see the foot of the checklist.
 Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 

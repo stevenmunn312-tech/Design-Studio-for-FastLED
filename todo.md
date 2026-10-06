@@ -1,14 +1,20 @@
 # Hardware → v1.0.0 implementation backlog
 
 Single active checklist for `Hardware`; `main` stays frozen. Restructured
-2026-09-24. The full history of every item up to that date, with its evidence
-narrative, is in [the archived backlog](docs/archive/hardware-todo-to-2026-09-24.md);
-item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
+2026-09-24 and reconciled against every document under `docs/` on 2026-10-07.
+The full history of every item up to 2026-09-24, with its evidence narrative,
+is in [the archived backlog](docs/archive/hardware-todo-to-2026-09-24.md); item
+ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## How this list works
 
+- **Sections run in order of progression:** close out software that already
+  exists, finish the remaining engineering, keep expanding hardware, gather
+  bench evidence alongside all of it, then run the release track. Within a
+  section, do the items in the order listed. Section 6 waits until after v1.
 - **Engineering items close on software**, plus a compile where the item
-  changes firmware. They do not wait for hardware.
+  changes firmware. They do not wait for hardware. Run fixture compiles one at
+  a time; overlapping runs corrupt the arduino-cli cache.
 - **Hardware nobody here owns is not a blocker.** A feature ships marked
   **experimental** in the [support matrix](docs/release/beta-support-matrix.md)
   and graduates when a dated bench row lands, from the maintainer or from
@@ -22,7 +28,45 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   an entry once its outcome is recorded, and route details through
   [docs/index.md](docs/index.md).
 
-## 1. Open engineering work
+## 1. Close out software that already exists
+
+Compiles owed by features that are already in the app:
+
+- [ ] **Custom-screen captions and the slider level gate.** A captioned
+  screen design and the screen-slider level gate (a level commands nothing
+  until a finger moves it; **Starts at** sets its first value) are asserted
+  only as generated text. Compile one custom-screen fixture holding both on
+  classic ESP32
+  ([on-glass labels](docs/design/on-glass-widget-labels.md#checklist);
+  [app review, item 22](docs/plans/2026-09-24-app-review.md#6-improve-the-screen-designers-starting-experience)).
+- [ ] **Custom boards.** Compile representative normal, slideshow and SD-player
+  projects for a 15/15 ESP32 and a 22/22 ESP32-S3 custom board, with custom
+  SDA/SCL shared by two I2C devices, and check the generated GPIO numbers
+  against the diagram
+  ([design, step 8](docs/design/custom-board-pin-layouts.md#8-verify-firmware-behaviour-and-complete-the-rollout)).
+- [ ] **Power Monitor in slideshow and SD-player firmware.** Its display and
+  custom-screen readouts in those two generators are checked by
+  `powerMonitorTemplateDisplays.test.ts` only; the compile fixtures cover the
+  normal sketch
+  ([INA226 compile record](docs/reports/compile/ina226-compile-checks.md)).
+- [ ] **Wired Ethernet on the remaining targets.** ESP32-S2 and S3, an ESP32-C3
+  sharing its SPI bus with a panel, and fbuild. Classic ESP32 and a C3 on its
+  own bus already pass ([design](docs/design/wired-ethernet.md#not-done)).
+- [ ] **VL53L0X and VL53L1X through fbuild.** The backend's vendoring path for
+  the pinned Pololu libraries is covered by tests only; one real fbuild build
+  of each closes it
+  ([support matrix](docs/release/beta-support-matrix.md#experimental-until-validated)).
+- [ ] **Teensy PWM branch.** The power-switch dimming shim's Teensy branch is
+  the only branch not compiled, because no Teensy core is installed
+  ([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
+
+Small fix:
+
+- [ ] Delete `src/components/Layout/HorizontalResizeHandle.tsx`. Nothing has
+  used it since the workspace tabs replaced the split layout (found in
+  [app review, item 23](docs/plans/2026-09-24-app-review.md#7-align-documentation-and-complete-the-product-pass)).
+
+## 2. Remaining engineering before v1
 
 - [ ] **HW-12 · Integrated display boards (M).** Add exact profiles, bus
   ownership and any missing drivers for proposed integrated boards. This is
@@ -31,97 +75,114 @@ item ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   no reliable documentation. The ESP32-2432S028R profile is in the app and
   bench-proven, and a full board now says so by name
   ([hardware nodes](docs/architecture/hardware-model.md#boards-with-hardware-already-on-them)).
-- [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
-  happens *after* components are in the app and appear in the Build Diagram:
-  a career electronics engineering lecturer checks that the generated wiring,
-  calculations, tables and wording are safe and recommended practice. It
-  reviews what exists, so it gates nothing in D-05. Record findings and
-  corrections against
-  [the Build Diagram contract](docs/architecture/build-diagram.md).
-  One change to review first: on 2026-09-27 the wire table moved from figures
-  of uncertain origin (10 AWG at 65 A) to NEC 310.16 at 90 C, fuse and wire
-  are now coordinated, and each supply has a main fuse and trunk
-  ([Build Diagram rules](docs/architecture/build-diagram.md)).
-  A real reference system is available to review against: a 70,000 mAh lithium pack with fuses,
-  balancer, BMS and 100 W charge/discharge control.
-- [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
-  relaunch and clean end-user-machine desktop runs; platform signing and
-  notarization before publishing. Exit: per-platform launch/install, helper
-  discovery, permissions, offline and recovery evidence.
-- [ ] **HW-18 · v1 scope and format baseline (M).** The pre-1.0 compatibility
-  sweep is done ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record));
-  new leftovers found later are removed the same way, without migrations.
-  *At release:*
-  choose the supported combinations from the evidence then on record,
-  reconcile release copy, freeze the panel/document/control save format, and
-  record limitations and deferments. Never merge `main` and `Hardware`.
+  The same driver question covers the catalogued ILI9341 + XPT2046 SPI module,
+  which is modelled but undriven (`CATALOGUE_ONLY_DISPLAY_PART_IDS` in
+  `src/build/parts/partCatalogue.ts`): most ESP32-2432S028 units ship that
+  controller.
+- [ ] **STM32 on arduino-cli.** STM32duino needs a `pnum` FQBN sub-option that
+  the app never sets (`src/state/upload/uploadStore.ts`), so those boards build
+  on fbuild only. Add it, then compile the IR fixture on STM32 under
+  arduino-cli. Decide at the same time what validation does with the
+  architectures the pinned IRremote release declares but Studio has no board
+  profile for (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nrf5`,
+  `stm32f1`): validation accepts them, and nothing compiles them
+  ([IR compile record](docs/reports/compile/ir-compile-checks.md#outstanding)).
+- [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)).
+  - Report the workarounds that have no upstream issue yet: no size summary
+    on a hard linker overflow (§5), `deploy` unimplemented for ESP8266 (§7)
+    and the Windows LVGL archive command-length failure (§12). Add the note
+    that Windows ESP32 builds need `LongPathsEnabled=1`.
+  - Move the four vendored libraries the helper never patches
+    (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) from `lib/` to
+    `lib_deps`. FastLED stays vendored until its SAMD51 patches land upstream
+    (§1).
+  - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
+    fbuild fix lands.
 
-## 2. Compile checks
+## 3. Hardware expansion (ongoing, not a release blocker)
 
-None open. The D-05 LR7843 dimming fixtures (on/off regression, Level field,
-wired Level and two gated switches) passed on classic ESP32 cores 3.3.11 and
-2.0.17, ESP8266, RP2040 and Uno under arduino-cli on 2026-09-27
-([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
-The D-05 wired-Ethernet Art-Net, NTP, static-address and Wi-Fi
-guard fixtures passed on classic ESP32, and the shared-SPI fixture on ESP32-C3,
-under arduino-cli on 2026-09-25
-([Ethernet compile record](docs/reports/compile/ethernet-compile-checks.md)).
-The D-05 light-sensor normal, slideshow, player, LDR and no-sensor
-guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-25
-([light-sensor compile record](docs/reports/compile/light-sensor-compile-checks.md)).
-The D-05 presence-sensor normal, slideshow, player and no-sensor
-guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-24–25.
-The toolchain, FQBN, source hashes, flash and RAM are in the
-[presence-sensor compile record](docs/reports/compile/presence-sensor-compile-checks.md).
-The D-05 Grove touch-sensor normal, slideshow, player and no-touch guard
-fixtures all passed on classic ESP32 under arduino-cli on 2026-09-27. The
-toolchain, hashes and resource figures are in the
-[touch-button compile record](docs/reports/compile/touch-button-compile-checks.md).
-The D-05 BME280 normal, slideshow, player and no-sensor guard fixtures all
-passed on classic ESP32 under arduino-cli on 2026-09-27. The toolchain, hashes
-and resource figures are in the
-[environment-sensor compile record](docs/reports/compile/environment-sensor-compile-checks.md).
+- [ ] **D-05 · Hardware expansion.** Candidate families, their order and the
+  shared definition of done are in the
+  [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md),
+  which records each finished part. Each part starts with its Blender model,
+  ships experimental, and gets its bench row in section 4. Switching power and
+  energy families are built like the relay slice: in the app, in the Build
+  Diagram, and marked experimental; HW-14 then checks them rather than gating
+  them. What remains, in order:
+  1. A four-channel LR7843-class board for LED rails, once one with a reliable
+     reference turns up. The listings found disagree on layout, and the
+     documented FR1205 board overdrives its gates above about 20 V.
+  2. Two time-of-flight sensors on one bus. Each VL53L0X or VL53L1X needs its
+     SHDN/XSHUT pin driven separately, and the app offers no way to do that.
+  3. A rotary encoder with an addressable feedback ring.
+  4. A passive buzzer with tones from the controller, beside the KY-012.
+  5. A fan module with a tachometer: a cooling output plus a speed input.
+  6. The DFPlayer Mini. Its verified Blender asset exists; graph control,
+     firmware ownership and audio routing remain.
+  7. A solid-state relay, only once AC/DC load type, leakage and isolation are
+     represented honestly.
+  8. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
+     ESP32-C6-DevKitC-1, ESP8266 D1 Mini, Raspberry Pi Pico W, Teensy 4.1,
+     Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a board profile,
+     not a module) and QuinLED Dig-Uno and Dig-Quad.
+  9. Families that extend the power model: battery chargers, cell balancers,
+     battery-management systems, mains SSRs, contactors and large motor
+     drivers. A real reference system is available: a 70,000 mAh lithium pack
+     with fuses, balancer, BMS and 100 W charge/discharge control.
 
-The D-05 DS18B20 temperature-probe normal, slideshow, player and no-sensor
-guard fixtures all passed on classic ESP32 under arduino-cli on 2026-09-30. The
-toolchain, hashes and resource figures are in the
-[temperature-probe compile record](docs/reports/compile/temperature-sensor-compile-checks.md).
-
-The HW-19 and HW-20 compiles all passed on 2026-09-24:
-- Generic MEMS on arduino-cli, and the microphone path on fbuild;
-- the DAC → power amplifier player sketch;
-- the SPH0645LM4H on fbuild and on esp32 core 2.0.17.
-
-Records are in [audio part expansion](docs/design/audio-hardware.md#phases).
-
-## 3. Community and bench testing (non-blocking)
+## 4. Bench and community testing (non-blocking, in parallel)
 
 Each entry is a support-matrix row waiting for evidence. The feature is already
-in the app and marked experimental; nothing here holds up development.
+in the app and marked experimental; nothing here holds up development. HW-18
+chooses the supported combinations from whatever is on record at release.
+
+### Controls, displays and boards
 
 - **Direct controls:** real touch, panel enable and re-enable, LED and status
   response, and widget feedback during playback, on hardware
   ([design, step 10](docs/design/direct-controls-and-output-status.md#10-verify-the-complete-workflows)).
+- **On-glass labels:** a captioned screen compiled and photographed on a
+  panel, after its compile in section 1.
 - **HW-11 shared bus:** TFT + SD + touch on one bus with audio playing. The CYD
   cannot host this run (its card is on the second SPI host), so it needs another
   rig. All other HW-11 measurements are recorded, and its budgets are set.
 - **HW-12 CYD:** the three generators' touch paths on the unit; onboard RGB LED
   and light-sensor pins.
+- **XC4630 parallel panel:** on an ESP32-S3 N16R8 the LEDs work but the panel
+  has never drawn, so its touch is unjudged. Next step: instrument the
+  generated `setup()` with serial markers and read the last one
+  ([bring-up](docs/reports/bench/xc4630-bring-up.md#next-step)).
+- **Custom boards:** one custom layout compared against its board's documented
+  pinout, then representative projects flashed, after the compile in section 1.
+
+### Firmware and show matrix
+
 - **HW-13 firmware/bench matrix:**
-  - classic-ESP32 SD provisioning and player;
+  - classic-ESP32 SD provisioning and player, following the
+    [SD-show run](docs/release/beta-hardware-validation.md#sd-show-validation-run);
+    it also clears the three defects left from the 2026-07-28 run;
   - S3 PSRAM variants;
   - tiled, rotated or custom-XY layouts, and native multi-output;
   - baked audio and collection modulation;
   - FormulaField and FormulaPoints;
+  - pattern nodes with compile evidence only: the Fluid solver's C++, and
+    Turing Field's pixels against the preview;
   - a real Art-Net controller, and DMX512 over RS-485;
   - long-duration RTC software-clock drift, and DS3231 recovery;
-  - Button, Pot, Encoder and PIR;
+  - Button, Pot, Encoder and PIR, including the encoder's Confirm with a Music
+    Player and its detent edge cases
+    ([input bench](docs/reports/bench/input-peripheral-bench.md));
   - a HUB75 full support row, streaming, folded/chained/rotated topology, and
     show/player (confirm chain orientation, preview fidelity and panel power
     assumptions).
+- **SD Video:** measured card read bandwidth per board, against the 400 KB/s
+  estimate ([SD Video limits](docs/design/sd-video.md#limits)).
 - **Deploy gate on accreted graphs:** anyone with a graph that uploaded before
   2026-09-11 and is refused now should report it as a gate bug, not rewire the
   graph. Shipped starters are covered by `deployGates.test.ts`.
+
+### Audio
+
 - **HW-19 microphones:** ICS-43434 and Generic MEMS live FFT and beat response,
   against an INMP441 on the same fixture and source.
 - **HW-20 audio chain:** each power amplifier (PAM8403, PAM8610, DX-0809) fed by
@@ -131,15 +192,15 @@ in the app and marked experimental; nothing here holds up development.
   a measured capture on an ESP32-S3, which is the one genuine measurement
   gap: no documented timing fix exists for its I2S block, so the S3 is
   refused until one is found.
+
+### Power and outputs
+
 - **D-05 power switch:** the LR7843 switching and dimming a real DC load,
   including the MOSFET temperature at 50% duty; the row's requirements are in
   the support matrix.
 - **D-05 Mosfetti:** the MonkMakes Mosfetti's four channels held off through
   setup, switched independently, one dimmed at 1 kHz, with the board total kept
   under 2 A; the row's requirements are in the support matrix.
-- **D-05 PD trigger:** the ZY12PDN negotiating each voltage it offers from a named
-  charger and cable, measured at its output pads before any load is connected; the
-  row's requirements are in the support matrix.
 - **D-05 Darlington driver:** the ULN2803A switching a real load from each channel,
   every input held low through reset and setup, with the load supply's ground joined
   to the controller's; the row's requirements are in the support matrix.
@@ -152,14 +213,20 @@ in the app and marked experimental; nothing here holds up development.
   in the support matrix.
 - **D-05 power monitor:** INA219 and INA226 readings against a multimeter, the
   INA226 with one load above 3 A; the rows' requirements are in the support matrix.
-- **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
-  receiving a real DMX512 line; the row's requirements are in the support
-  matrix.
+- **D-05 PD trigger:** the ZY12PDN negotiating each voltage it offers from a named
+  charger and cable, measured at its output pads before any load is connected; the
+  row's requirements are in the support matrix.
+- **D-05 controller buck:** a board powered through its 5 V pin from the
+  LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
+  and its 5 V modules running.
+- **D-05 LED rail converter:** a loaded 5 V LED rail powered from the Mean Well
+  SD-100A-5 at 12 V and the SD-100B-5 at 24 V, with source current, output
+  voltage, case temperature, FG and the isolated-output ground bond recorded.
+
+### Sensors and inputs
+
 - **D-05 light sensor:** the Adafruit BH1750's Lux against a reference meter in
   dim, room and bright light; the row's requirements are in the support matrix.
-- **D-05 wired Ethernet:** the WIZ850io on a real network: link-up, DHCP and
-  static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
-  recovery; the row's requirements are in the support matrix.
 - **D-05 presence sensor:** the HLK-LD2410C reporting moving, stationary,
   combined and absent targets at two measured distances, including UART
   reconnect recovery; the row's requirements are in the support matrix.
@@ -179,9 +246,10 @@ in the app and marked experimental; nothing here holds up development.
   read against a tape measure at two distances, with Connected dropping with
   nothing in range and recovering. The row's requirements are in the support
   matrix.
-- **D-05 laser distance sensor:** the VL53L0X and VL53L1X (the latter also past 1.2 m) on 3V3 and the I2C bus, read against a
-  tape measure at two distances, with Connected dropping when it is unplugged and
-  recovering; the row's requirements are in the support matrix.
+- **D-05 laser distance sensor:** the VL53L0X and VL53L1X (the latter also past
+  1.2 m) on 3V3 and the I2C bus, read against a tape measure at two distances,
+  with Connected dropping when it is unplugged and recovering; the row's
+  requirements are in the support matrix.
 - **D-05 joystick:** the KY-023 on 3V3 with VRx and VRy on ADC1 pins and SW on a
   pull-up pin, both axes read centred and at full travel in each direction, the
   dead zone checked, and SW pressed and released. The row's requirements are in
@@ -201,15 +269,6 @@ in the app and marked experimental; nothing here holds up development.
   each generator, the tail order confirmed against the keypad's own markings, and a
   press and release on each row and column. The row's requirements are in the support
   matrix.
-- **D-05 controller buck:** a board powered through its 5 V pin from the
-  LM2596 at 12 V and at 24 V, output set to 5.0 V first, with the controller
-  and its 5 V modules running.
-- **D-05 LED rail converter:** a loaded 5 V LED rail powered from the Mean Well
-  SD-100A-5 at 12 V and the SD-100B-5 at 24 V, with source current, output
-  voltage, case temperature, FG and the isolated-output ground bond recorded.
-- **D-05 pixel data extender:** the NLED TX/RX pair driving a WS2812B run over
-  a long twisted A/B/ground cable, with the length recorded, powered from
-  separate supplies at each end with bonded grounds.
 - **D-05a IR remote:** receiver, remote, board, FQBN and GPIO recorded;
   tap/hold/alternate/unknown/rapid keys in all three build modes; reception
   during long clockless LED `show()` calls
@@ -218,13 +277,62 @@ in the app and marked experimental; nothing here holds up development.
   confirms learning and remote LED power, including Toggle's separate On/Off
   inputs; the remaining key/repeat/long-run and build-mode checks stay open.
 
-## 4. Explicitly deferred, not release blockers
+### Network and data links
+
+- **D-05 wired Ethernet:** the WIZ850io on a real network: link-up, DHCP and
+  static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
+  recovery; the row's requirements are in the support matrix.
+- **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
+  receiving a real DMX512 line; the row's requirements are in the support
+  matrix.
+- **D-05 pixel data extender:** the NLED TX/RX pair driving a WS2812B run over
+  a long twisted A/B/ground cable, with the length recorded, powered from
+  separate supplies at each end with bonded grounds.
+
+## 5. Release track (in order)
+
+- [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
+  happens *after* components are in the app and appear in the Build Diagram:
+  a career electronics engineering lecturer checks that the generated wiring,
+  calculations, tables and wording are safe and recommended practice. It
+  reviews what exists, so it gates nothing in D-05; hold it until the power
+  families v1 will include are in the app, and give families added later a
+  follow-up pass. Record findings and corrections against
+  [the Build Diagram contract](docs/architecture/build-diagram.md).
+  One change to review first: on 2026-09-27 the wire table moved from figures
+  of uncertain origin (10 AWG at 65 A) to NEC 310.16 at 90 C, fuse and wire
+  are now coordinated, and each supply has a main fuse and trunk
+  ([Build Diagram rules](docs/architecture/build-diagram.md)).
+- [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
+  relaunch and clean end-user-machine desktop runs; platform signing and
+  notarization before publishing: Authenticode for the Windows launcher and
+  bundled executables, macOS application layout, hardened runtime and
+  notarization, and checksums with a provenance record for every archive.
+  Before a macOS package is a release candidate, reconcile the fbuild 2.5.4
+  tools it substitutes with the pinned Python dependency and repeat its smoke
+  ([desktop distribution](docs/release/desktop-distribution.md#github-package-workflow)).
+  Exit: per-platform launch/install, helper discovery, permissions, offline
+  and recovery evidence.
+- [ ] **HW-18 · v1 scope and format baseline (M).** The pre-1.0 compatibility
+  sweep is done ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record));
+  new leftovers found later are removed the same way, without migrations.
+  *At release:*
+  choose the supported combinations from the evidence then on record,
+  reconcile release copy, freeze the panel/document/control save format, and
+  record limitations and deferments. Repeat the
+  [keyboard and screen-reader smoke test](docs/release/accessibility-smoke-test.md)
+  on the candidate build, because the recorded pass (2026-07-26) predates the
+  workspace tabs and shelves. Follow the
+  [release checklist](docs/release/versioning-and-releases.md#release-checklist).
+  Never merge `main` and `Hardware`.
+
+## 6. Deferred until after v1
 
 - [ ] **D-01 · Broader control graph.** Time-dependent/nested-group evaluation
   and structured colour/pattern/status bindings in template builds. Wired
   slideshow Master Speed and the Performance Generator's real playback
   Display reading are complete. Preserve the music player's track-position
-  clock.
+  clock. Show and player templates still cannot read arbitrary RTC sources.
 - [ ] **D-02 · Larger UI scope.** Shared-document panel interaction, multiple
   screens/navigation, containers/overlap/free drawing, charts/histories/marquees,
   XY/Launch Pads, Choice/Step controls, Colour Picker/Arc Gauge, text entry,
@@ -236,112 +344,53 @@ in the app and marked experimental; nothing here holds up development.
 - [ ] **D-03 · Other architecture/authoring.** Multi-board, Raspberry Pi/Linux
   backend, richer timed sequences, pattern weighting/tags, broader library
   sharing and distinct per-input modulation. Keep Collection/engine ownership
-  separate unless user research establishes a better model.
+  separate unless user research establishes a better model. Networking beyond
+  the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi), and any
+  networking in the show and SD-player generators.
 - [ ] **D-04 · Code/field fidelity.** Code-node overflow, persistent globals,
   timing macros/includes/palette/XY support and richer inference; writable
   FieldFormula buffers. VU expansion beyond the current contract (clocked
   strings, unequal lengths, multiple pairs, stereo FFT or streamed audio) needs
-  its own protocol/resource design. Retain explicit approximation limits until
-  a concrete use case justifies the work.
-- [ ] **D-05 · Hardware expansion.** Candidate families, their order and the
-  shared definition of done are in the
-  [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md).
-  Each starts with its Blender model. Switching power (MOSFET modules) and
-  energy (batteries, charging, BMS) are built like the relay slice: in the app,
-  in the Build Diagram, and marked experimental. The HW-14 review then checks
-  them rather than gating them. D-05a (IR remote) is complete in software and
-  compile; its bench row is in section 3. The first MOSFET switch (LR7843,
-  `PowerSwitchOutput`) is in software, switches from `On` and dims from
-  `Level` with PWM at the part's 500 Hz, and its
-  [compile fixtures pass](docs/reports/compile/power-switch-compile-checks.md);
-  its bench row is still to do. The first multi-channel board, the MonkMakes
-  Mosfetti (four lettered channels, 3-16 V, 2 A for the board, 1 kHz dimming),
-  is modelled, catalogued, drawn, previewed and generated; the Power Switch's
-  ports and pins now follow its board, and all its compile fixtures pass. Its
-  bench row is in section 3. A four-channel LR7843-class board for LED rails
-  waits on a board with a reliable reference.
-  The Adafruit INA219 (`PowerMonitorInput`) is in software, experimental,
-  and compiles on arduino-cli for classic ESP32 (2026-09-24); its bench row
-  is still to do. It also has an `Overcurrent` output against an amps limit
-  (software; compiled on classic ESP32 under arduino-cli 2026-09-30, 417,791 B flash, 29,060 B RAM). The INA226 module is a second part of the same node (modelled, drawn, previewed and generated; compile record in [the INA226 checks](docs/reports/compile/ina226-compile-checks.md)) and its bench row is open. The MAX485 DMX transceiver (roadmap step 3) is modelled and
-  drawn on the Build Diagram for a DMX512 `DMXInput`, on 5 V with a 1 k / 2 k
-  divider on RO. It adds no firmware, so no compile is owed; its bench row is
-  in section 3. The HLK-LD2410C presence sensor (roadmap step 5) is modelled,
-  drawn, previewed and generated as `PresenceInput` for ESP32; all four compile
-  fixtures pass, and its bench row is in section 3. The Adafruit BH1750
-  (roadmap step 5) is a `LightInput` module option, modelled, drawn,
-  previewed and generated; all five compile fixtures pass, and its bench row is
-  in section 3. The WIZnet WIZ850io (roadmap step 6, `EthernetModule`) is
-  modelled from WIZnet's board file, drawn, and generated for the normal
-  sketch, replacing Wi-Fi for Art-Net and NTP
-  ([design](docs/design/wired-ethernet.md)); all five compile
-  fixtures pass, and its bench row is in section 3. The NLED Pixel Data
-  Extender (roadmap step 7) is an LED output's **data link** option, modelled
-  and drawn on the Build Diagram. It adds no firmware, so no compile is owed;
-  its bench row is in section 3. Roadmap step 8 is complete in software
-  ([plan](docs/plans/power-conversion-and-protection.md)): each
-  supply now has a main fuse and trunk; the LM2596 controller buck and Mean
-  Well SD-100A/B-5 LED rail converters (`PowerConverter`) are modelled, sized,
-  drawn and experimental. The SD-100 path applies the imported temperature
-  derating at a 40 °C enclosure ambient and replaces generic 5 V PSUs with a
-  shared upstream-source recommendation. The Seeed Grove Touch Sensor (roadmap
-  step 9, `TouchButtonInput`) is modelled, catalogued, drawn, previewed and
-  generated for normal/show/player paths. Its touch-face pin order is locked as
-  `SIG, NC, VCC, GND`; all four
-  [compile fixtures pass](docs/reports/compile/touch-button-compile-checks.md), and
-  its bench row is in section 3.
-  The Adafruit BME280 (the next sensor-family item, `EnvironmentInput`) is
-  modelled, catalogued, drawn, previewed and generated for normal/show/player
-  paths at 0x77 or 0x76; all four
-  [compile fixtures pass](docs/reports/compile/environment-sensor-compile-checks.md),
-  and its bench row is in section 3.
-  The waterproof DS18B20 (`TemperatureInput`) is modelled from Adafruit
-  product 381, catalogued, drawn with its 4.7 kΩ pull-up, previewed and
-  generated for normal/show/player paths with library-free 1-Wire firmware; all
-  four [compile fixtures pass](docs/reports/compile/temperature-sensor-compile-checks.md),
-  and its bench row is in section 3.
-  The HC-SR04 ultrasonic ranger (`DistanceInput`) is modelled, catalogued, drawn
-  with its 1 kΩ / 2 kΩ Echo divider, previewed and generated for
-  normal/show/player paths; its compile result is in the
-  [distance-sensor record](docs/reports/compile/distance-sensor-compile-checks.md), and its bench row is in
-  section 3.
-  The KY-023 joystick (`JoystickInput`) is modelled, catalogued, drawn,
-  previewed and generated for normal/show/player paths; its compile result is in the
-  [joystick record](docs/reports/compile/joystick-compile-checks.md), and its bench row
-  is in section 3.
-  The GY-521 MPU-6050 (`MotionVectorInput`) is modelled, catalogued, drawn,
-  previewed and generated for normal/show/player paths; its compile result is in the
-  [motion-sensor record](docs/reports/compile/motion-sensor-compile-checks.md), and its
-  bench row is in section 3.
-  The RCWL-0516 microwave radar is a second `MotionInput` module beside the PIR:
-  modelled, catalogued, drawn and previewed, with the same digital firmware, so
-  no compile is owed; its bench row is in section 3.
-  The MPR121 touch controller (`TouchPadInput`) is modelled, catalogued, drawn, previewed
-  and generated for normal/show/player paths; its compile result is in the
-  [touch-pad record](docs/reports/compile/touch-pad-compile-checks.md), and its bench row is
-  in section 3.
-  The 4x4 matrix keypad (`KeypadInput`) is modelled, catalogued, drawn, previewed and
-  generated for normal/show/player paths; its compile result is in the
-  [keypad record](docs/reports/compile/keypad-compile-checks.md), and its bench row is in
-  section 3.
+  its own protocol/resource design. So do show-side Vibe, Song Structure,
+  Pitch Detect and Waveform, which would need per-frame detector output baked
+  offline ([audio detectors](docs/design/audio-detectors.md)). Retain explicit
+  approximation limits until a concrete use case justifies the work.
+- [ ] **D-06 · Pattern and output follow-ons**, from
+  [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
+  and its design notes:
+  - Colour profile: blocked until the pinned FastLED (3.10.5) gains
+    `fl::profiles` and `ChannelOptions::setColorProfile`.
+  - Segment networks: strings as the edges of a graph with a travelling
+    `Ripple`, the Chromancer model. It needs a layout editor.
+  - Positioned strings everywhere: draw them in the main LED Output pane and
+    the Build Diagram, and generate the map in Music Player and SD-player
+    sketches, which `findShowOutputFormErrors` refuses today.
+  - A raw, pre-palette `field` output on `Noise`
+    ([ANIMartRIX note](docs/design/animartrix-float-field.md)).
+  - One `.h` per pattern in show output, only if flash size or build time
+    calls for it ([generative show](docs/design/generative-pattern-show.md)).
+- [ ] **D-07 · Workspace information shelves.** Build Diagram's own tidy-up
+  (whether its left column becomes the sidebar), then its information shelf;
+  then Upload's, if it wants one
+  ([workspace shelves](docs/plans/workspace-shelves.md#order)).
 
 ## Completed
 
-Outcomes are recorded where linked; the per-item narratives are in the
-[archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
+Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
+are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
 - **HW-01–HW-10, HW-15, HW-21–HW-31**: controls and screens, workflow, catalogue
   and helper work.
 - **Direct controls and LED output status**: software complete; bench readings
-  are in section 3
+  are in section 4
   ([design](docs/design/direct-controls-and-output-status.md)).
 - **HW-11 · Touch/LVGL budget and calibration**: instrument built, five
   runs recorded, budgets set, and guided calibration done on the CYD
   ([bench](docs/development/testing/display-budget-bench.md)). The shared-bus
-  run is in section 3.
+  run is in section 4.
 - **HW-13 · display compile half**: twelve fixtures pass on both engines
   ([compile record](docs/reports/compile/display-compile-checks.md)). The bench
-  matrix is in section 3.
+  matrix is in section 4.
 - **HW-16 · First-user journey**: a first-time user built and uploaded a
   working sketch within minutes, without guidance (reported 2026-09-24).
   The blocker classes are automated in `deployGates.test.ts`.
@@ -352,6 +401,24 @@ Outcomes are recorded where linked; the per-item narratives are in the
   ([plan](docs/design/audio-hardware.md#phases)).
 - **D-05a · IR remote**: steps 1–13
   ([IR compile checks](docs/reports/compile/ir-compile-checks.md)).
-- **D-05 · HLK-LD2410C presence sensor compile**: normal, slideshow, player
-  and no-sensor guard fixtures pass on classic ESP32
-  ([compile record](docs/reports/compile/presence-sensor-compile-checks.md)).
+- **D-05 parts, roadmap steps 1–10 and the sensor, control, output and power
+  families after them**: LR7843 and Mosfetti power switches, INA219 and
+  INA226, MAX485, HLK-LD2410C, BH1750, Grove Touch, WIZ850io, NLED data
+  extender, LM2596 and SD-100A/B-5 with main fuses and trunks, BME280,
+  DS18B20, HC-SR04, VL53L0X and VL53L1X, KY-023, GY-521, RCWL-0516, MPR121,
+  4x4 keypad, PCA9685, ULN2803A, KY-012 and ZY12PDN, each in software and
+  compiled where it has firmware
+  ([roadmap](docs/plans/hardware-expansion-roadmap.md);
+  [compile records](docs/index.md#compile-checks)).
+- **Pattern node expansion**: Phases 0–10, and Phase 11's render scale,
+  positioned strings, white point and SD Video, all compiled
+  ([plan](docs/plans/pattern-node-expansion.md)).
+- **App review, 24 September 2026**: all 24 items and the walkthrough's
+  layout and repair findings
+  ([plan](docs/plans/2026-09-24-app-review.md)); its one owed compile is in
+  section 1.
+- **Workspace shelves**: the preview in all four workspaces and the Hardware
+  shelf ([plan](docs/plans/workspace-shelves.md)).
+- **Custom boards**: steps 1–8 in software and tests, 2026-10-06
+  ([design](docs/design/custom-board-pin-layouts.md)); compile and bench are
+  in sections 1 and 4.

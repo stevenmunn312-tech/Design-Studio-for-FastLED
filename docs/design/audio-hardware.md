@@ -11,9 +11,9 @@ microphone modules beyond the INMP441, and three amplifier shapes beyond the
 MAX98357A / PCM5102A / UDA1334A / PAM8403 lineup. Every candidate must be
 orderable from AliExpress, because that is where the bench parts come from.
 
-Status: **not started.** This is a proposal and a work ledger, not a record of
-shipped work. Nothing here is supported until its bench row exists in
-[`beta-support-matrix.md`](../release/beta-support-matrix.md).
+Status: **software landed for every phase below; bench rows open.** Each
+part is experimental, and nothing here is supported until its bench row exists
+in [`beta-support-matrix.md`](../release/beta-support-matrix.md).
 
 The governing rule for this whole document is the one already written at the
 top of [`partOptions.ts`](../../src/build/parts/partOptions.ts): a dropdown only
@@ -217,10 +217,10 @@ does not block it.
 
       *Outstanding:* the bench row for each module described under
       **Bench evidence** below. Both are recorded as
-      experimental in the support matrix until then. The Build Diagram draws
-      each module's own photograph but still places its pad dots from a stale
-      hand-written column — a pre-existing fault, equally wrong for the
-      INMP441, tracked separately.
+      experimental in the support matrix until then. The Build Diagram once
+      placed every microphone's pad dots in a hand-written column down the
+      left margin; each microphone's pads are now measured from its render
+      (`MODULE_PAD_GEOMETRY` in `physicalDiagramLayout.ts`).
 - **Phase 2 — the Option A/B decision.** *Decided 2026-09-24: Option B*,
       for the reasons given under the forcing question above. The maintainer
       chose it over the footnote, since the footnote is wrong about the wiring

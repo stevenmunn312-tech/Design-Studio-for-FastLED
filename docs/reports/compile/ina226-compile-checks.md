@@ -59,3 +59,10 @@ Source hashes: `ina226` `ced516ca`, `both` `4665bcc8`.
 bytes (8%). This compiles setup configuration readback, I2C error reporting,
 raw readings and per-node diagnostic timers. It does not verify physical
 readings or wiring on a bench.
+
+## INA219 Overcurrent compile check, 30 September 2026
+
+The INA219's `Overcurrent` output and amps limit compiled for
+`esp32:esp32:esp32` under arduino-cli: 417,791 bytes flash and 29,060 bytes
+RAM. This result was first recorded only in the root todo; it moved here on
+7 October 2026. The fixture name and source hash were not recorded.

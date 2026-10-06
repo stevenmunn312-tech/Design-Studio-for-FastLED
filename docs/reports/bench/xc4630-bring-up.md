@@ -50,13 +50,14 @@ Note the helper compiles every upload from one reused directory, so flashing a
 diagnostic overwrites the generated sketch on disk; regenerate it with one
 Upload from the app before instrumenting.
 
-## One bug found here, not yet fixed
+## One bug found here, since fixed
 
-- **A wired fixture can be silently retargeted.** `MatrixOutput` is in
-  `PART_PIN_PLANS` with `dataPin` retargetable, so adding a part can move a
-  strip's data pin with nothing to say the physical wire is now wrong.
-  Integrated board hardware is protected from this by `ownedNow`; hand-wired
-  fixtures are not.
+- **A wired fixture could be silently retargeted.** `MatrixOutput` is in
+  `PART_PIN_PLANS` with `dataPin` retargetable, so adding a part could move a
+  strip's data pin with nothing to say the physical wire was now wrong.
+  Integrated board hardware was already protected by `ownedNow`. Fixed in
+  `4ae45dff`: `ownedNow` now also keeps the data pin of an addressable LED
+  output the graph feeds.
 
 ## Hardware facts worth keeping
 

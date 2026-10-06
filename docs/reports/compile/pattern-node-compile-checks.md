@@ -267,10 +267,9 @@ Phase 8 generated source, Vibe (identical for both boards; the engine differs
 only by target): 8,203 bytes, SHA-256
 `624ed24d0a13703e5f251a4083567b212a2d45ddb552a9f1342bbae9621ca90c`.
 Built on Windows 11 on 29 September 2026. Each compile took about 11 minutes.
-The ESP32-S3 was compiled without a board-specific PSRAM setting. The plan's
-phase-level compile check on classic ESP32 and ESP32-S3 still waits for
-Song Structure, Pitch and Waveform, so the RAM and flash delta per detector
-is not yet separated from the shared audio engine.
+The ESP32-S3 was compiled without a board-specific PSRAM setting. The
+phase-level check below, built once the other three detectors had shipped,
+separates the detectors' combined cost from the shared audio engine.
 
 Phase 8 generated source, Song Structure (identical for both boards): 10,519
 bytes, SHA-256 `3ecb153c5d8eab141ca10c7415853290152a6ca1feb0601c79f4f978c9338954`.

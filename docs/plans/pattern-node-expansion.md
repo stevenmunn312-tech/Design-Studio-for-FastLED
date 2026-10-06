@@ -315,7 +315,7 @@ Checklist:
       cross-fade of the field with itself shifted a canvas width rather than the
       plan's 3-D cylinder sample, so it works for all seven Noise variants and
       both sides share one rule. The seam is tested as no larger than the
-      neighbouring-pixel gap. Corkscrew starter not yet switched to it.
+      neighbouring-pixel gap. No corkscrew starter ships for it to switch.
 - [x] Wave Sim `halfDuplex` and `wrapX`, plus the 1-row test. `wrapX` defaults on
       because the simulation always wrapped; off reflects the left and right
       edges, and Y still wraps.
@@ -324,7 +324,8 @@ Checklist:
 - [x] Polar Gradient node.
 - [x] Gradient `mixMode` on both gradient nodes with a golden test that `rgb`
       is byte-identical to today.
-- [x] Noise LFO node, with `speedRange.ts` entry (compile check still open).
+- [x] Noise LFO node, with `speedRange.ts` entry (compiled in the Phase 9
+      string graph).
 - [x] Noise shaping, Worley modes and curl flow, each with a variation test
       and the emitted block per mode. Curl is on Flow Field only: Boids has no
       noise to take the curl of (it steers by flocking rules), so the plan's
@@ -431,7 +432,8 @@ Checklist:
 - [x] Candle, Lightning, Heartbeat, Sunrise, TV Simulator: stateless or
       near-stateless on one shared integer hash (`classics.ts`), so the preview
       and the sketch agree on every random draw. Lightning keeps a strike
-      schedule; the rest are pure functions of `t`. Compile check still open.
+      schedule; the rest are pure functions of `t`. Compiled in the Phase 10
+      string graph.
 - [x] Pride palette port, Fire smoke style, Particles luminova variant, each
       with a golden test that the default is unchanged (hashes taken from the
       frames before the variants existed).
