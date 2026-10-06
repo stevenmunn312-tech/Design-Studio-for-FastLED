@@ -15,6 +15,8 @@ versioning (`0.y.z`) until the first stable release.
   colon and points the firmware would. A rotation set for an upside-down or
   sideways mounting shows that way on the bench, as it would on a real panel.
   The XC4630 shield is pictured from behind, so its screen is not shown.
+  The ESP32-2432S028R shows its output on the board's own screen, which is
+  also where the display is configured, instead of beside a second module.
 - Indicator LEDs on the Hardware tab now light as they would on the real
   parts. Power LEDs on modules and ESP32 boards glow. Relay channel LEDs light
   while their channel is on, and Mosfetti channel LEDs dim with their

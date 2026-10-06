@@ -9,7 +9,6 @@ import { shownDesignId } from '../../state/transportDisplay'
 import DisplayDesignSurface from '../DisplayEditor/DisplayDesignSurface'
 import { isOledSurface, isTftSurface, paintOledSurface, paintTftSurface } from '../Preview/displaySurfaceRaster'
 import {
-  benchScreensFor,
   COLON_DOTS,
   COLON_RADIUS,
   DECIMAL_POINT,
@@ -20,6 +19,7 @@ import {
   SEGMENT_POLYGONS,
   segmentDigitPlacements,
   tftScreenTurn,
+  type BenchScreens,
   type ScreenRect,
 } from './benchScreenGeometry'
 
@@ -276,26 +276,30 @@ function SegmentDigits({ nodeId, partId, screens }: { nodeId: string; partId: st
 }
 
 /**
- * What a display node is showing, drawn on the glass of its part render.
+ * What a display node is showing, drawn on the glass of the render it sits on.
  *
- * Laid over the part's `<img>` and sized the same way: the viewBox is the
+ * Laid over that render's `<img>` and sized the same way: the viewBox is the
  * render's own pixels and `meet` matches the image's `object-fit: contain`,
- * so a screen rectangle measured on the render lands on the render.
+ * so a screen rectangle measured on the render lands on the render. The
+ * render is usually the module's own (`benchScreensFor`), and for a panel
+ * soldered to its controller it is the board's (`boardScreensFor`).
  */
 export default function BenchDisplayScreen({
   nodeId,
   nodeType,
   partId,
+  screens: bench,
   properties,
   className,
 }: {
   nodeId: string
   nodeType: string
+  /** The catalogued module, which decides a segment display's digit count. */
   partId: string | null | undefined
+  screens: BenchScreens | null
   properties: Record<string, unknown>
   className?: string
 }) {
-  const bench = useMemo(() => benchScreensFor(partId), [partId])
   if (!bench || !partId || !BENCH_DISPLAY_NODE_TYPES.has(nodeType)) return null
   const glass = bench.screens[0]
   return (

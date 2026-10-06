@@ -1,10 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import BenchDisplayScreen from '../BenchDisplayScreen'
+import { benchScreensFor } from '../benchScreenGeometry'
 import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { createOledSurface, OLED_CONTROLLERS, setPixel } from '../../../state/oledSurface'
 import { SEGMENT_GLYPHS } from '../../../state/segmentDisplay'
+
+/** A module's display on its own render, as the bench draws one. */
+function Bench(props: Omit<ComponentProps<typeof BenchDisplayScreen>, 'screens'>) {
+  return <BenchDisplayScreen {...props} screens={benchScreensFor(props.partId)} />
+}
 
 function litCount(container: HTMLElement) {
   return container.querySelectorAll('[data-segment-lit]').length
@@ -32,7 +39,7 @@ describe('a display drawn on its part render', () => {
       segment: { digits: '1234', colon: true, decimalAt: -1, lit: true },
     }]]))
     const { container } = render(
-      <BenchDisplayScreen nodeId="seg" nodeType="SegmentDisplay" partId="tm1637-4digit-display" properties={{}} />,
+      <Bench nodeId="seg" nodeType="SegmentDisplay" partId="tm1637-4digit-display" properties={{}} />,
     )
     const segments = ['1', '2', '3', '4'].reduce((sum, digit) => sum + bitCount(SEGMENT_GLYPHS[digit]), 0)
     // Two colon dots, and no decimal points: this module has none.
@@ -44,7 +51,7 @@ describe('a display drawn on its part render', () => {
       segment: { digits: '8888', colon: true, decimalAt: -1, lit: false },
     }]]))
     const { container } = render(
-      <BenchDisplayScreen nodeId="seg" nodeType="SegmentDisplay" partId="tm1637-4digit-display" properties={{}} />,
+      <Bench nodeId="seg" nodeType="SegmentDisplay" partId="tm1637-4digit-display" properties={{}} />,
     )
     expect(litCount(container)).toBe(0)
     expect(container.querySelectorAll('polygon')).toHaveLength(4 * 7)
@@ -55,7 +62,7 @@ describe('a display drawn on its part render', () => {
       segment: { digits: '       1', colon: false, decimalAt: 7, lit: true },
     }]]))
     const { container } = render(
-      <BenchDisplayScreen nodeId="seg" nodeType="SegmentDisplay" partId="max7219-8digit-7segment" properties={{}} />,
+      <Bench nodeId="seg" nodeType="SegmentDisplay" partId="max7219-8digit-7segment" properties={{}} />,
     )
     expect(container.querySelectorAll('polygon')).toHaveLength(8 * 7)
     expect(container.querySelectorAll('circle[data-segment-lit]')).toHaveLength(1)
@@ -74,7 +81,7 @@ describe('a display drawn on its part render', () => {
     usePreviewStore.getState().setOutputs(new Map([['oled', { lit: true, surface }]]))
 
     const { container, rerender } = render(
-      <BenchDisplayScreen nodeId="oled" nodeType="InfoDisplay" partId="sh1106-oled-128x64" properties={{}} />,
+      <Bench nodeId="oled" nodeType="InfoDisplay" partId="sh1106-oled-128x64" properties={{}} />,
     )
     const picture = container.querySelector('image')!
     expect(picture.getAttribute('href')).toBe('data:image/png;base64,AAAA')
@@ -83,7 +90,7 @@ describe('a display drawn on its part render', () => {
     expect(Array.from(image.data.slice(0, 8))).toEqual([205, 238, 255, 255, 0, 0, 0, 0])
 
     rerender(
-      <BenchDisplayScreen
+      <Bench
         nodeId="oled"
         nodeType="InfoDisplay"
         partId="sh1106-oled-128x64"
@@ -104,7 +111,7 @@ describe('a display drawn on its part render', () => {
       lit: true, surface: createOledSurface(OLED_CONTROLLERS.SH1106),
     }]]))
     const { container } = render(
-      <BenchDisplayScreen nodeId="oled" nodeType="InfoDisplay" partId="sh1106-oled-128x64" properties={{}} />,
+      <Bench nodeId="oled" nodeType="InfoDisplay" partId="sh1106-oled-128x64" properties={{}} />,
     )
     expect(container.querySelector('image')).not.toBeNull()
 
@@ -117,7 +124,7 @@ describe('a display drawn on its part render', () => {
 
   it('draws nothing for a part whose screen faces away from the render', () => {
     const { container } = render(
-      <BenchDisplayScreen
+      <Bench
         nodeId="tft"
         nodeType="TransportDisplay"
         partId="ili9341-xc4630-parallel-touch-320x240"

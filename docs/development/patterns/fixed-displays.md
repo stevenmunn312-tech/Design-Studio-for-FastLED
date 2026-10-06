@@ -401,6 +401,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Segment digits are drawn from `segmentBytes`, the bytes the firmware writes,
   so the bench cannot light a segment the module would not. On the colon form,
   digit 1's high bit is the colon and there are no points.
+- A panel soldered to its controller (the CYD's, marked by
+  `INTEGRATED_BOARD_PROFILE_KEY`) is drawn on the board's own glass. The board
+  importer carries that package's `display.screensPx` onto the board render as
+  `render.screensPx`, scaled with it. `useBenchParts` then returns the panel in
+  `boardPanels` rather than `fixtureParts`, so no second module is pictured,
+  and the board's glass is the panel's click target. A panel whose board render
+  has no screens stays a module.
 - No live `<canvas>` on the bench: panels rasterise on one off-DOM canvas into
   an SVG `<image>`. Rasterising happens only when the pixels change, at most
   every 100 ms. A mounted screen design draws through the shared

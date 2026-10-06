@@ -242,6 +242,26 @@
   pointer-events: none;
 }
 
+/* A board's fitted panel, clickable on the board's own glass. Only the glass
+   takes the pointer; the rest of the board still opens the board menu. */
+.screenTarget {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.screenTarget rect {
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.screenTarget rect:focus-visible {
+  outline: none;
+  stroke: var(--accent-output);
+  stroke-width: 6;
+}
+
 /* Light from a part's indicator LEDs. Added to what is beneath, as light is,
    and allowed past the part's edge for an LED that sits near one. */
 .indicatorGlow {

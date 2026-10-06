@@ -6,6 +6,8 @@ import { nextFreeLedDataPin } from '../../state/ledPinAssignment'
 import { ringDiameterMm, partPinLabelForProperty, partRenderSrc } from '../../state/partCatalogue'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/buttonBank'
 import { resolvePartIdentity } from '../../state/partOptions'
+import { INTEGRATED_BOARD_PROFILE_KEY } from '../../state/integratedBoardHardware'
+import { boardScreensFor } from './benchScreenGeometry'
 import { boardProfileById, type PhysicalBoardProfile } from '../../build/boardProfiles'
 import { ledPitchMm, DEFAULT_BOARD_PROFILE_ID, WS2812B_PITCH_MM } from '../../state/hardware'
 import {
@@ -162,14 +164,31 @@ export function useBenchParts({ nodes, edges, selectedBoard }: BenchPartsInputs)
    * module, so the part looks itself up rather than inheriting the default's
    * picture.
    */
+  /*
+   * A panel soldered to the controller (the CYD's) is part of the board, not a
+   * module beside it. When the board's render shows that glass, the panel is
+   * drawn there and is left out of the fixtures, which would otherwise picture
+   * a second, separate display that is not on the bench.
+   */
+  const boardPanels = useMemo(() => {
+    if (!boardProfile || !boardScreensFor(boardProfile.render)) return []
+    return nodes
+      .filter((node) => (node.data.properties as Record<string, unknown>)[INTEGRATED_BOARD_PROFILE_KEY] === boardProfile.id)
+      .map((node) => ({
+        node,
+        modulePartId: resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
+          ?.entry?.partId ?? null,
+      }))
+  }, [boardProfile, nodes])
   const fixtureParts = useMemo(() => {
+    const onBoard = new Set(boardPanels.map((panel) => panel.node.id))
     // Layout ids must be unique per part, not per type: SD Card and Amplifier
     // are singletons, but a bench can carry several displays and they would
     // otherwise stack on one another's coordinates.
     const seen = new Map<string, number>()
     return nodes.flatMap((node) => {
     const entry = FIXTURE_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
-    if (!entry) return []
+    if (!entry || onBoard.has(node.id)) return []
     const ordinal = seen.get(entry.nodeType) ?? 0
     seen.set(entry.nodeType, ordinal + 1)
     const identity = resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
@@ -208,9 +227,9 @@ export function useBenchParts({ nodes, edges, selectedBoard }: BenchPartsInputs)
         : null,
     }]
     })
-  }, [nodes])
+  }, [boardPanels, nodes])
 
-  return { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts }
+  return { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts, boardPanels }
 }
 
 /** The bench as useBenchParts reads it; handlers that act on parts take its lists. */

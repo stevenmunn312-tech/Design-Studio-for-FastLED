@@ -7,6 +7,7 @@
 // set for an upside-down mounting shows upside down here, exactly as the real
 // panel would on the bench.
 
+import type { BoardRenderAsset } from '../../build/boardCapabilities'
 import { partById } from '../../state/partCatalogue'
 import type { OledRotation } from '../../state/oledSurface'
 import type { TftRotation } from '../../state/tftSurface'
@@ -25,17 +26,31 @@ export interface BenchScreens {
   screens: ScreenRect[]
 }
 
+function screensOn(
+  render: { widthPx: number; heightPx: number } | undefined,
+  rects: ReadonlyArray<readonly [number, number, number, number]> | undefined,
+): BenchScreens | null {
+  if (!render || !rects?.length) return null
+  return {
+    renderWidth: render.widthPx,
+    renderHeight: render.heightPx,
+    screens: rects.map(([x, y, width, height]) => ({ x, y, width, height })),
+  }
+}
+
 /** The measured screens of a catalogued part, or null when it has none facing the camera. */
 export function benchScreensFor(partId: string | null | undefined): BenchScreens | null {
   if (!partId) return null
   const entry = partById(partId)
-  const rects = entry?.display?.screensPx
-  if (!entry?.render || !rects?.length) return null
-  return {
-    renderWidth: entry.render.widthPx,
-    renderHeight: entry.render.heightPx,
-    screens: rects.map(([x, y, width, height]) => ({ x, y, width, height })),
-  }
+  return screensOn(entry?.render, entry?.display?.screensPx)
+}
+
+/**
+ * The glass of a board's own fitted panel on the board's render (the CYD's),
+ * or null for a board with no panel or no imported render.
+ */
+export function boardScreensFor(render: BoardRenderAsset | undefined): BenchScreens | null {
+  return screensOn(render, render?.screensPx)
 }
 
 /**

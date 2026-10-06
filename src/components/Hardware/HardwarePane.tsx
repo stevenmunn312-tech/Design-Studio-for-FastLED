@@ -33,6 +33,7 @@ import HardwareLedPreview from './HardwareLedPreview'
 import HardwareVuRailPreview from './HardwareVuRailPreview'
 import BenchDisplayScreen from './BenchDisplayScreen'
 import BenchIndicators from './BenchIndicators'
+import { benchScreensFor, boardScreensFor } from './benchScreenGeometry'
 import { indicatorRenderFor } from './benchIndicatorGlow'
 import { LED_CELL_FILL } from './ledPreviewGeometry'
 import HardwareLedSpill from './HardwareLedSpill'
@@ -153,9 +154,10 @@ export default function HardwarePane() {
     [nodes],
   )
   const selectedFqbn = useUploadStore((state) => state.selectedFqbn)
-  const { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts } = useBenchParts({
+  const { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts, boardPanels } = useBenchParts({
     nodes, edges, selectedBoard,
   })
+  const boardScreens = useMemo(() => boardScreensFor(boardProfile?.render), [boardProfile])
 
   /*
    * Show me the node for this part.
@@ -342,6 +344,7 @@ export default function HardwarePane() {
    */
   const benchIsEmpty = inputParts.length === 0
     && ledOutputs.length === 0
+    && boardPanels.length === 0
     && fixtureParts.every((part) => !part.entry.footprint)
 
   /*
@@ -724,6 +727,17 @@ export default function HardwarePane() {
             title="Click for board options"
           >
             <img src={boardImageSrc(boardProfile)} alt={boardProfile.label} draggable={false} />
+            {boardPanels.map((panel) => (
+              <BenchDisplayScreen
+                key={panel.node.id}
+                nodeId={panel.node.id}
+                nodeType={panel.node.data.nodeType}
+                partId={panel.modulePartId}
+                screens={boardScreens}
+                properties={panel.node.data.properties as Record<string, unknown>}
+                className={styles.displayScreen}
+              />
+            ))}
             <BenchIndicators
               nodeId={null}
               nodeType="Board"
@@ -732,6 +746,48 @@ export default function HardwarePane() {
               className={styles.indicatorGlow}
             />
           </button>
+          {/*
+            The fitted panel is configured where it is: its glass is a target of
+            its own on top of the board, which otherwise opens the board menu.
+          */}
+          {boardScreens && boardPanels.map((panel) => (
+            <svg
+              key={panel.node.id}
+              className={styles.screenTarget}
+              style={partStyle(BOARD_PART_ID)}
+              viewBox={`0 0 ${boardScreens.renderWidth} ${boardScreens.renderHeight}`}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {boardScreens.screens.map((glass, index) => (
+                <rect
+                  key={index}
+                  x={glass.x}
+                  y={glass.y}
+                  width={glass.width}
+                  height={glass.height}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${boardProfile.label} built-in display: configure`}
+                  data-hardware-node-id={panel.node.id}
+                  onClick={(event) => {
+                    if (view.consumedByPan()) return
+                    inspectPart(panel.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    event.preventDefault()
+                    inspectPart(panel.node.id, anchorBox(event.currentTarget.getBoundingClientRect()))
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    openItemMenu(panel.node.id, event.currentTarget.getBoundingClientRect())
+                  }}
+                >
+                  <title>Click to configure the built-in display · right-click for hardware actions</title>
+                </rect>
+              ))}
+            </svg>
+          ))}
           {renderCaption(BOARD_PART_ID, boardProfile.label, 'Click for board options')}
 
           {fixtureParts.filter((part) => part.entry.footprint).map((part) => (
@@ -818,6 +874,7 @@ export default function HardwarePane() {
                         nodeId={part.node.id}
                         nodeType={part.node.data.nodeType}
                         partId={part.modulePartId}
+                        screens={benchScreensFor(part.modulePartId)}
                         properties={part.node.data.properties as Record<string, unknown>}
                         className={styles.displayScreen}
                       />
