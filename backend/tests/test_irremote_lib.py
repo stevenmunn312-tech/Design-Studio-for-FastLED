@@ -11,7 +11,7 @@ import app as app_module
 
 
 def test_irremote_pin_matches_the_codegen_constant():
-    source = Path(__file__).resolve().parents[2] / "src" / "codegen" / "irRemoteCpp.ts"
+    source = Path(__file__).resolve().parents[2] / "src" / "codegen" / "peripherals" / "irRemoteCpp.ts"
     text = source.read_text(encoding="utf-8")
     assert f"'{app_module._IRREMOTE_VERSION}'" in text
 

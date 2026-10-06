@@ -6,7 +6,7 @@ import app as app_module
 
 
 def test_vl53l0x_pin_matches_the_codegen_constant():
-    source = Path(__file__).resolve().parents[2] / "src" / "codegen" / "distanceSensorCpp.ts"
+    source = Path(__file__).resolve().parents[2] / "src" / "codegen" / "peripherals" / "distanceSensorCpp.ts"
     text = source.read_text(encoding="utf-8")
     assert f"'{app_module._VL53L0X_VERSION}'" in text
     assert app_module._VL53L0X_INCLUDE in text
