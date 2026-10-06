@@ -493,7 +493,7 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
                 <div key={cat.id}>
                   <div className={styles.catLabel}>{cat.label}</div>
                   {nodes.map((n) => (
-                    <button key={n.type} className={styles.nodeItem} onClick={() => placeNode(n)}>
+                    <button key={n.type} className={styles.nodeItem} title={nodeDescription(n)} onClick={() => placeNode(n)}>
                       {n.label}
                     </button>
                   ))}

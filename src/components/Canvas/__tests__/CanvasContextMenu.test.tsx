@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import CanvasContextMenu from '../CanvasContextMenu'
 import { useGraphStore } from '../../../state/graphStore'
-import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { NODE_DESCRIPTIONS, NODE_LIBRARY } from '../../../state/nodeLibrary'
 
 // A SolidColor output node already on the canvas, whose `color` output we
 // "drag" from. Its output dataType is what the picker filters against.
@@ -276,6 +276,22 @@ describe('CanvasContextMenu — drag-to-empty picker', () => {
 
     expect(useGraphStore.getState().nodes.some((node) => node.data.nodeType === 'Group')).toBe(true)
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('describes each node in the Add Node list on hover', () => {
+    seedEmptyGraphWithClipboard()
+    const { getByRole } = render(
+      <CanvasContextMenu
+        x={0} y={0} flowPosition={{ x: 100, y: 100 }}
+        startInPicker
+        onClose={() => {}}
+      />
+    )
+
+    for (const type of ['SolidColor', 'Juggle']) {
+      const def = NODE_LIBRARY.find((n) => n.type === type)!
+      expect(getByRole('button', { name: def.label }).getAttribute('title')).toBe(NODE_DESCRIPTIONS[type])
+    }
   })
 
   it('keeps Paste enabled on an empty graph when the clipboard has nodes', () => {
