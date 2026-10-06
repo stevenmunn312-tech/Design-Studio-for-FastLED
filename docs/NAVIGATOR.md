@@ -247,6 +247,10 @@ build/architecture overview aimed at contributors.
     tab, and the four runs plus one-hour soak whose numbers become the
     acceptance budgets. Tables deliberately empty until measured.
 - [Plans](development/plans/)
+  - [Generic custom board](development/plans/custom-board-pin-layouts.md)
+    — implementation plan for user-defined left/right headers, inherited build
+      settings, a shared SVG board and wire geometry, GPIO validation and
+      portable project definitions.
   - [Hardware expansion roadmap](development/plans/hardware-expansion-roadmap.md)
     — prioritised candidate modules for switching, monitoring, sensing,
       networking, power conversion and additional controller profiles, plus
