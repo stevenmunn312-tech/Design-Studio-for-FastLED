@@ -30,9 +30,9 @@ describe('fixed auxiliary display node previews', () => {
 
   it('keeps the OLED physical 2:1 aspect before its first evaluated frame', () => {
     render(<InfoDisplayNodeBody nodeId="oled" />)
-    const canvas = screen.getByRole('img', { name: 'Info display preview, 128 by 64 pixels' })
-    expect(canvas.getAttribute('width')).toBe('128')
-    expect(canvas.getAttribute('height')).toBe('64')
+    const panel = screen.getByRole('img', { name: 'Info display preview, 128 by 64 pixels' })
+    expect(panel.getAttribute('width')).toBe('128')
+    expect(panel.getAttribute('height')).toBe('64')
   })
 
   it('paints the evaluated page-major OLED pixels without reformatting them', () => {
@@ -46,6 +46,7 @@ describe('fixed auxiliary display node previews', () => {
       createImageData: () => image,
       putImageData,
     } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,LIT')
     const surface = createOledSurface(OLED_CONTROLLERS.SH1106)
     setPixel(surface, 0, 0)
     usePreviewStore.getState().setOutputs(new Map([['oled', { surface }]]))
@@ -53,7 +54,11 @@ describe('fixed auxiliary display node previews', () => {
     render(<InfoDisplayNodeBody nodeId="oled" />)
 
     expect(putImageData).toHaveBeenCalledWith(image, 0, 0)
-    expect(Array.from(image.data.slice(0, 8))).toEqual([205, 238, 255, 255, 0, 5, 12, 255])
+    // Lit is the panel's white; unlit is transparent over the panel's own black.
+    expect(Array.from(image.data.slice(0, 8))).toEqual([205, 238, 255, 255, 0, 0, 0, 0])
+    const panel = screen.getByRole('img', { name: 'Info display preview, 128 by 64 pixels' })
+    expect(panel.tagName).toBe('IMG')
+    expect(panel.getAttribute('src')).toBe('data:image/png;base64,LIT')
   })
 
   it('shows the evaluated four-digit frame and colon accessibly', () => {

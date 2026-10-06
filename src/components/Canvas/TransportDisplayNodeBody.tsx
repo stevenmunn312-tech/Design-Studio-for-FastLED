@@ -8,12 +8,19 @@ import { displayHasTouch } from '../../state/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../state/transportDisplayTouchStore'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../../state/transportDisplay'
 import DisplayDesignSurface from '../DisplayEditor/DisplayDesignSurface'
-import { isTftSurface, paintTftSurface } from '../Preview/displaySurfaceRaster'
+import { blankSurfaceUrl, useSurfacePicture } from '../Preview/useSurfacePicture'
 import styles from './TransportDisplayNodeBody.module.css'
 
-/** Compact physical-screen preview; canvas pixels keep the panel's true ratio. */
+/**
+ * Compact physical-screen preview at the panel's true ratio.
+ *
+ * An `<img>` fed by `useSurfacePicture`, not a live `<canvas>`: a visible
+ * canvas in the graph is its own compositor layer and leaks renderer memory
+ * every frame. A dark panel shows the black behind a transparent picture, so
+ * a panel switched off never keeps its last lit frame.
+ */
 export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const screenRef = useRef<HTMLImageElement>(null)
   const props = useGraphStore((state) => state.nodes.find((node) => node.id === nodeId)?.data.properties)
   // The screen drawn on this panel, which the panel owns. Resolved here so the
   // compact panel and the editor Run surface share the same live widget
@@ -31,12 +38,11 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const createScreenDesignForPanel = useGraphStore((state) => state.createScreenDesignForPanel)
   const openDisplayWorkspace = useUiStore((state) => state.openDisplayWorkspace)
   const setStatus = useUiStore((state) => state.setStatus)
-  const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
   const lit = usePreviewStore((state) => state.outputs.get(nodeId)?.lit)
   // Enabled is resolved by the evaluator, including a wire overriding the
   // property. Before the first published frame, use the panel's saved setting.
   const panelEnabled = typeof lit === 'boolean' ? lit : props?.enabled !== false
-  const surface = customDisplayWired ? null : (isTftSurface(live) ? live : null)
+  const picture = useSurfacePicture(nodeId, 'tft', !customDisplayWired)
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
   const releaseTouch = useTransportDisplayTouchStore((state) => state.releaseTouch)
   const touchCapable = displayHasTouch(String((props as Record<string, unknown> | undefined)?.partId ?? ''))
@@ -44,8 +50,8 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     tftControllerForProps((props ?? {}) as Record<string, unknown>) ?? TFT_CONTROLLERS.ST7789,
     asTftRotation((props as Record<string, unknown> | undefined)?.tftRotation),
   ), [props])
-  const width = surface?.width ?? fallbackSize.width
-  const height = surface?.height ?? fallbackSize.height
+  const width = picture?.width ?? fallbackSize.width
+  const height = picture?.height ?? fallbackSize.height
 
   /*
    * Authoring a screen starts at the panel, and stays there.
@@ -94,9 +100,9 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
         )
 
   const updateTouch = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current
-    if (!canvas || !touchCapable || !panelEnabled) return
-    const rect = canvas.getBoundingClientRect()
+    const screen = screenRef.current
+    if (!screen || !touchCapable || !panelEnabled) return
+    const rect = screen.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
     setTouch(nodeId, {
       pressed: true,
@@ -108,23 +114,6 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   useEffect(() => {
     if (!panelEnabled) releaseTouch(nodeId)
   }, [nodeId, panelEnabled, releaseTouch])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const context = canvas.getContext('2d')
-    if (!context) return
-    // Off is painted, not skipped — see the matching clear in
-    // InfoDisplayNodeBody. A backlit panel showing nothing is black.
-    if (!surface) {
-      context.fillStyle = '#000'
-      context.fillRect(0, 0, canvas.width, canvas.height)
-      return
-    }
-    const image = context.createImageData(surface.width, surface.height)
-    paintTftSurface(image, surface)
-    context.putImageData(image, 0, 0)
-  }, [surface])
 
   if (customDisplayWired) {
     if (customDocument) {
@@ -165,13 +154,14 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
 
   return (
     <div className={styles.wrap}>
-      <canvas
-        ref={canvasRef}
+      <img
+        ref={screenRef}
         className={`nodrag ${styles.screen} ${touchCapable ? styles.touchScreen : ''}`}
+        src={picture?.url ?? blankSurfaceUrl(width, height)}
         width={width}
         height={height}
-        role="img"
-        aria-label={`Transport display preview, ${width} by ${height} pixels`}
+        alt={`Transport display preview, ${width} by ${height} pixels`}
+        draggable={false}
         onPointerDown={(event) => {
           if (!touchCapable || !panelEnabled) return
           event.currentTarget.setPointerCapture(event.pointerId)

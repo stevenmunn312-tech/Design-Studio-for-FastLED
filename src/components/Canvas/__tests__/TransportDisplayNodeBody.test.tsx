@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import TransportDisplayNodeBody from '../TransportDisplayNodeBody'
-import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { NODE_LIBRARY, tftControllerForProps } from '../../../state/nodeLibrary'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useTransportDisplayTouchStore } from '../../../state/transportDisplayTouchStore'
 import { addDisplayWidget, createDisplayDocument } from '../../../state/displayEditor'
 import { useDisplayRuntimeStore } from '../../../state/displayRuntimeStore'
 import { useUiStore } from '../../../state/uiStore'
+import { createTftSurfaceFor } from '../../../state/tftSurface'
+import { blankSurfaceUrl } from '../../Preview/useSurfacePicture'
 
 if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {}
 
@@ -35,9 +37,9 @@ describe('TransportDisplayNodeBody', () => {
       edges: [], activeGraphId: ROOT_GRAPH_ID,
     } as never)
     render(<TransportDisplayNodeBody nodeId="tft" />)
-    const canvas = screen.getByRole('img', { name: 'Transport display preview, 320 by 240 pixels' })
-    expect(canvas.getAttribute('width')).toBe('320')
-    expect(canvas.getAttribute('height')).toBe('240')
+    const panel = screen.getByRole('img', { name: 'Transport display preview, 320 by 240 pixels' })
+    expect(panel.getAttribute('width')).toBe('320')
+    expect(panel.getAttribute('height')).toBe('240')
   })
 
   it('uses the square module native ratio at rotation zero', () => {
@@ -49,31 +51,36 @@ describe('TransportDisplayNodeBody', () => {
     expect(screen.getByRole('img', { name: 'Transport display preview, 240 by 240 pixels' })).toBeTruthy()
   })
 
-  it('paints the panel dark once its surface goes away', () => {
-    // A panel switched off by Enabled evaluates to no surface. Skipping the
-    // draw left the last lit frame on the canvas, so the preview kept showing a
-    // clock while the glass was dark — the preview contradicting the firmware on
-    // the one signal whose entire meaning is whether the panel is lit.
-    const fills: string[] = []
-    const rects: number[][] = []
-    const context = {
-      fillStyle: '',
-      fillRect: (...args: number[]) => { fills.push(context.fillStyle); rects.push(args) },
-      createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+  it('shows the panel dark once its surface goes away', () => {
+    // A panel switched off by Enabled evaluates to no surface. The preview once
+    // kept its last lit frame, showing a clock while the glass was dark — the
+    // preview contradicting the firmware on the one signal whose entire
+    // meaning is whether the panel is lit.
+    vi.useFakeTimers()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
       putImageData: () => {},
-    }
-    const original = HTMLCanvasElement.prototype.getContext
-    HTMLCanvasElement.prototype.getContext = (() => context) as never
+    } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,LIT')
     try {
-      useGraphStore.setState({
-        nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],
-        edges: [], activeGraphId: ROOT_GRAPH_ID,
-      } as never)
+      const properties = { partId: 'st7789-tft-240x240', tftRotation: '0' }
+      useGraphStore.setState({ nodes: [display(properties)], edges: [], activeGraphId: ROOT_GRAPH_ID } as never)
+      const surface = createTftSurfaceFor(tftControllerForProps(properties)!, '0')
+      usePreviewStore.getState().setOutputs(new Map([['tft', { lit: true, surface }]]))
       render(<TransportDisplayNodeBody nodeId="tft" />)
-      expect(fills).toEqual(['#000'])
-      expect(rects).toEqual([[0, 0, 240, 240]])
+      const panel = screen.getByRole('img', { name: 'Transport display preview, 240 by 240 pixels' })
+      expect(panel.getAttribute('src')).toBe('data:image/png;base64,LIT')
+      // Not a live canvas: a visible one leaks renderer memory every frame.
+      expect(panel.tagName).toBe('IMG')
+
+      act(() => {
+        usePreviewStore.getState().setOutputs(new Map([['tft', { lit: false, surface: null }]]))
+        vi.advanceTimersByTime(200)
+      })
+      expect(panel.getAttribute('src')).toBe(blankSurfaceUrl(240, 240))
     } finally {
-      HTMLCanvasElement.prototype.getContext = original
+      vi.restoreAllMocks()
+      vi.useRealTimers()
     }
   })
 
@@ -83,28 +90,28 @@ describe('TransportDisplayNodeBody', () => {
       edges: [], activeGraphId: ROOT_GRAPH_ID,
     } as never)
     render(<TransportDisplayNodeBody nodeId="tft" />)
-    const canvas = screen.getByRole('img', { name: 'Transport display preview, 240 by 320 pixels' })
-    canvas.getBoundingClientRect = () => ({
+    const panel = screen.getByRole('img', { name: 'Transport display preview, 240 by 320 pixels' })
+    panel.getBoundingClientRect = () => ({
       x: 10, y: 20, left: 10, top: 20, right: 130, bottom: 180,
       width: 120, height: 160, toJSON: () => ({}),
     })
 
-    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 70, clientY: 100 })
+    fireEvent.pointerDown(panel, { pointerId: 1, clientX: 70, clientY: 100 })
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')).toEqual({
       pressed: true, x: 120, y: 160,
     })
     act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: false }]])))
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
-    fireEvent.pointerDown(canvas, { pointerId: 2, clientX: 70, clientY: 100 })
+    fireEvent.pointerDown(panel, { pointerId: 2, clientX: 70, clientY: 100 })
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
     act(() => usePreviewStore.getState().setOutputs(new Map([['tft', { lit: true }]])))
-    fireEvent.pointerDown(canvas, { pointerId: 3, clientX: 70, clientY: 100 })
+    fireEvent.pointerDown(panel, { pointerId: 3, clientX: 70, clientY: 100 })
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(true)
-    fireEvent.pointerUp(canvas, { pointerId: 1 })
+    fireEvent.pointerUp(panel, { pointerId: 1 })
     expect(useTransportDisplayTouchStore.getState().touches.get('tft')?.pressed).toBe(false)
   })
 
-  it('shows the missing-document notice instead of the canvas when a design is wired', () => {
+  it('shows the missing-document notice instead of the panel picture when a design is wired', () => {
     useGraphStore.setState({
       nodes: [display({ partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'missing' })],
       edges: [],
@@ -262,8 +269,8 @@ describe('TransportDisplayNodeBody', () => {
       edges: [], activeGraphId: ROOT_GRAPH_ID,
     } as never)
     render(<TransportDisplayNodeBody nodeId="tft" />)
-    const canvas = screen.getByRole('img', { name: 'Transport display preview, 240 by 240 pixels' })
-    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 20, clientY: 20 })
+    const panel = screen.getByRole('img', { name: 'Transport display preview, 240 by 240 pixels' })
+    fireEvent.pointerDown(panel, { pointerId: 1, clientX: 20, clientY: 20 })
     expect(useTransportDisplayTouchStore.getState().touches.has('tft')).toBe(false)
   })
 })

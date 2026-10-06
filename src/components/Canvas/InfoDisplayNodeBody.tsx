@@ -1,48 +1,33 @@
-import { useEffect, useRef } from 'react'
-import { usePreviewStore } from '../../state/previewStore'
-import { isOledSurface, paintOledSurface } from '../Preview/displaySurfaceRaster'
+import { blankSurfaceUrl, useSurfacePicture } from '../Preview/useSurfacePicture'
 import styles from './AuxDisplayNodeBodies.module.css'
 
-/** What an unlit pixel looks like on the node's own drawing of the glass. */
-const OLED_OFF_RGBA = [0, 5, 12, 255] as const
-
+/**
+ * The OLED as the evaluator draws it.
+ *
+ * An `<img>`, not a live `<canvas>`: a visible canvas in the graph is its own
+ * compositor layer and leaks renderer memory every frame (see
+ * `useSurfacePicture`). Unlit pixels are transparent and the panel's own black
+ * shows behind them.
+ *
+ * A panel with no surface is off, and off has to show as off: the panel used
+ * to keep its last lit frame when a display was switched off by its Enabled
+ * property or a wire, contradicting the firmware on the one signal whose whole
+ * meaning is whether the panel is dark.
+ */
 export default function InfoDisplayNodeBody({ nodeId }: { nodeId: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const live = usePreviewStore((state) => state.outputs.get(nodeId)?.surface)
-  const surface = isOledSurface(live) ? live : null
-  const width = surface?.width ?? 128
-  const height = surface?.height ?? 64
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const context = canvas.getContext('2d')
-    if (!context) return
-    // A panel with no surface is off, and off has to be *painted*. Returning
-    // early left the last lit frame on the canvas, so a display switched off by
-    // its Enabled property or a wire went dark on the glass while the node
-    // preview kept showing the clock it had drawn before — the preview
-    // contradicting the firmware, on the one signal whose whole meaning is
-    // whether the panel is dark. Unlit is the same colour an unlit pixel is.
-    if (!surface) {
-      context.fillStyle = 'rgb(0, 5, 12)'
-      context.fillRect(0, 0, canvas.width, canvas.height)
-      return
-    }
-    const image = context.createImageData(surface.width, surface.height)
-    paintOledSurface(image, surface, OLED_OFF_RGBA)
-    context.putImageData(image, 0, 0)
-  }, [surface])
+  const picture = useSurfacePicture(nodeId, 'oled')
+  const width = picture?.width ?? 128
+  const height = picture?.height ?? 64
 
   return (
     <div className={styles.wrap}>
-      <canvas
-        ref={canvasRef}
+      <img
         className={`${styles.screen} ${styles.oled}`}
+        src={picture?.url ?? blankSurfaceUrl(width, height)}
         width={width}
         height={height}
-        role="img"
-        aria-label={`Info display preview, ${width} by ${height} pixels`}
+        alt={`Info display preview, ${width} by ${height} pixels`}
+        draggable={false}
       />
     </div>
   )

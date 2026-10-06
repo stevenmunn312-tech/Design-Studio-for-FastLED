@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import { useGraphStore } from '../../state/graphStore'
 import { partById } from '../../state/partCatalogue'
-import { asOledRotation, type OledSurface } from '../../state/oledSurface'
-import { asTftRotation, type TftSurface } from '../../state/tftSurface'
+import { asOledRotation } from '../../state/oledSurface'
+import { asTftRotation } from '../../state/tftSurface'
 import { segmentBytes, segmentControllerFor, type SegmentFrame } from '../../state/segmentDisplay'
 import { shownDesignId } from '../../state/transportDisplay'
 import DisplayDesignSurface from '../DisplayEditor/DisplayDesignSurface'
-import { isOledSurface, isTftSurface, paintOledSurface, paintTftSurface } from '../Preview/displaySurfaceRaster'
+import { useSurfacePicture, type SurfacePicture } from '../Preview/useSurfacePicture'
 import {
   COLON_DOTS,
   COLON_RADIUS,
@@ -30,114 +30,13 @@ export const BENCH_DISPLAY_NODE_TYPES: ReadonlySet<string> = new Set([
   'SegmentDisplay',
 ])
 
-/*
- * A panel's picture is rasterised at most this often. The evaluator publishes a
- * fresh surface every tick, but what a panel shows changes at clock or progress
- * speed; re-encoding it sixty times a second would cost more than it shows.
- */
-const RASTER_INTERVAL_MS = 100
-const TRANSPARENT = [0, 0, 0, 0] as const
 const SEGMENT_LIT = '#ff3a22'
 /** An unlit segment behind the smoked window: there, but only just. */
 const SEGMENT_GHOST = 'rgba(255, 70, 50, 0.07)'
 /** Leans a glyph about its own centre, as the package is moulded. */
 const DIGIT_LEAN = `translate(${DIGIT_WIDTH / 2} 0.5) skewX(${DIGIT_SLANT_DEG}) translate(${-DIGIT_WIDTH / 2} -0.5)`
 
-/*
- * One off-DOM canvas for every panel on the bench. A visible, repainted
- * <canvas> becomes its own compositor layer, and Chromium leaks raster memory
- * for each one every compositor frame; an <image> fed from here is ordinary
- * painted content. See `HardwareLedPreview` for the history.
- */
-let scratch: HTMLCanvasElement | null = null
-
-function rasterise(surface: OledSurface | TftSurface, kind: 'oled' | 'tft'): string | null {
-  if (typeof document === 'undefined') return null
-  scratch ??= document.createElement('canvas')
-  scratch.width = surface.width
-  scratch.height = surface.height
-  const context = scratch.getContext('2d')
-  if (!context) return null
-  const image = context.createImageData(surface.width, surface.height)
-  if (kind === 'oled') paintOledSurface(image, surface as OledSurface, TRANSPARENT)
-  else paintTftSurface(image, surface as TftSurface)
-  context.putImageData(image, 0, 0)
-  return scratch.toDataURL('image/png')
-}
-
-interface Picture {
-  url: string
-  width: number
-  height: number
-}
-
-/**
- * The panel's evaluated surface as an image URL, re-rasterised only when its
- * pixels change and no more often than `RASTER_INTERVAL_MS`. Null while the
- * panel is dark, so the rendered, powered-off glass shows.
- */
-function useSurfacePicture(nodeId: string, kind: 'oled' | 'tft', active = true): Picture | null {
-  const [picture, setPicture] = useState<Picture | null>(null)
-
-  useEffect(() => {
-    if (!active) return
-    let latest: OledSurface | TftSurface | null = null
-    let latestValue: unknown = undefined
-    let shown: Uint8Array | Uint16Array | null = null
-    let shownWidth = 0
-    let painted = false
-    let lastAt = -Infinity
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    const draw = () => {
-      timer = null
-      lastAt = Date.now()
-      painted = true
-      const surface = latest
-      if (!surface) {
-        shown = null
-        setPicture(null)
-        return
-      }
-      shown = surface.data.slice()
-      shownWidth = surface.width
-      const url = rasterise(surface, kind)
-      setPicture(url ? { url, width: surface.width, height: surface.height } : null)
-    }
-
-    const unchanged = (surface: OledSurface | TftSurface | null) => {
-      if (!painted) return false
-      if (!surface || !shown) return !surface && !shown
-      if (surface.width !== shownWidth || surface.data.length !== shown.length) return false
-      for (let i = 0; i < shown.length; i++) if (shown[i] !== surface.data[i]) return false
-      return true
-    }
-
-    const read = (state: ReturnType<typeof usePreviewStore.getState>) => {
-      const value = state.outputs.get(nodeId)?.surface
-      if (painted && value === latestValue) return
-      latestValue = value
-      latest = kind === 'oled'
-        ? (isOledSurface(value) ? value : null)
-        : (isTftSurface(value) ? value : null)
-      if (timer || unchanged(latest)) return
-      const wait = RASTER_INTERVAL_MS - (Date.now() - lastAt)
-      if (wait <= 0) draw()
-      else timer = setTimeout(draw, wait)
-    }
-
-    read(usePreviewStore.getState())
-    const unsubscribe = usePreviewStore.subscribe(read)
-    return () => {
-      unsubscribe()
-      if (timer) clearTimeout(timer)
-    }
-  }, [active, kind, nodeId])
-
-  return active ? picture : null
-}
-
-function SurfaceImage({ picture, glass, turn }: { picture: Picture; glass: ScreenRect; turn: number }) {
+function SurfaceImage({ picture, glass, turn }: { picture: SurfacePicture; glass: ScreenRect; turn: number }) {
   return (
     <image
       href={picture.url}
