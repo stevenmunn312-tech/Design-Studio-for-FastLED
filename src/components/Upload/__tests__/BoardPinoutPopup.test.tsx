@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import BoardPinoutPopup from '../BoardPinoutPopup'
+import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/uploadStore'
 import { boardProfileById } from '../../../build/boardProfiles'
 
@@ -61,5 +62,27 @@ describe('BoardPinoutPopup', () => {
     render(<BoardPinoutPopup />)
     screen.getByLabelText('Close pinout').click()
     expect(useUploadStore.getState().pinoutProfileId).toBeNull()
+  })
+
+  it('closes on Escape', () => {
+    open('seeed-xiao-esp32s3')
+    render(<BoardPinoutPopup />)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(useUploadStore.getState().pinoutProfileId).toBeNull()
+  })
+
+  it('leaves Escape to the shared dialog above it', () => {
+    open('seeed-xiao-esp32s3')
+    render(<BoardPinoutPopup />)
+    void useUiStore.getState().requestConfirm({ title: 'Replace?', message: 'Continue?' })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(useUploadStore.getState().pinoutProfileId).toBe('seeed-xiao-esp32s3')
+    useUiStore.setState({ appDialog: null })
+    // The dialog clears itself before window listeners run, so its mark is
+    // what stops the same keystroke from closing the pinout too.
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    event.preventDefault()
+    window.dispatchEvent(event)
+    expect(useUploadStore.getState().pinoutProfileId).toBe('seeed-xiao-esp32s3')
   })
 })

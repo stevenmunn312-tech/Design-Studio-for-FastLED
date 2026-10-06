@@ -101,7 +101,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `HardwarePane` closes the board menu on any `pointerdown` outside the menu's
   own DOM, so a portalled `CustomBoardEditor` lost its first click and
   unmounted with the menu. It renders in place with a fixed backdrop, as
-  `BoardPinoutPicker` does.
+  `BoardPinoutPicker` does. The board pinout (`BoardPinoutPopup`) is the one
+  App-level exception: its overlay sits at z-index 1050, above the floating
+  menus (1000), and `HardwarePane` ignores outside clicks and Escape while
+  `pinoutProfileId` is set, so the menu stays open beneath it. `AppDialogHost`
+  sits at 1200, above both, because every popup yields Escape to it.
 
 ## Peripherals
 

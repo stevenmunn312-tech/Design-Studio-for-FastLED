@@ -5,7 +5,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 160;
+  /* Every popup yields Escape to this dialog, so it must also be the one on
+     top: above the floating menus (1000-1100) and the board pinout (1050). */
+  z-index: 1200;
   animation: fadeIn 0.15s ease-out;
 }
 

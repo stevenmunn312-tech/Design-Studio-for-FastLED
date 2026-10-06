@@ -502,15 +502,19 @@ export default function HardwarePane() {
     )
   }
 
+  // The board pinout opens from the board menu and sits above it; while it is
+  // open, its clicks and Escape belong to it and the menus stay put beneath.
   useEffect(() => {
+    const pinoutOpen = () => useUploadStore.getState().pinoutProfileId !== null
     const onPointerDown = (event: PointerEvent) => {
+      if (pinoutOpen()) return
       const target = event.target as Node
       if (boardMenuRef.current && !boardMenuRef.current.contains(target)) setBoardMenu(null)
       if (itemMenuRef.current && !itemMenuRef.current.contains(target)) setItemMenu(null)
       if (inspectorMenuRef.current && !inspectorMenuRef.current.contains(target)) closeInspector()
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !pinoutOpen()) {
         setBoardMenu(null)
         setItemMenu(null)
         closeInspector()

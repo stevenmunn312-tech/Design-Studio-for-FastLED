@@ -7,7 +7,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 120;
+  /* Opens from the Hardware board menu, a floating menu at z-index 1000, so it
+     sits above that layer. The shared app dialog stays above both. */
+  z-index: 1050;
 }
 
 .popup {

@@ -648,6 +648,25 @@ describe('HardwarePane', () => {
     expect(within(document.body).queryByLabelText('Board family')).toBeNull()
   })
 
+  it('keeps the board menu open beneath its pinout', async () => {
+    render(<HardwarePane />)
+    fireEvent.click(screen.getByTitle('Click for board options'))
+    expect(await within(document.body).findByLabelText('Board family', undefined, { timeout: 5000 })).toBeTruthy()
+
+    // The pinout sits above the menu; its clicks and Escape are its own.
+    useUploadStore.setState({ pinoutProfileId: DEFAULT_BOARD_PROFILE_ID })
+    try {
+      fireEvent.pointerDown(document.body)
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(within(document.body).queryByLabelText('Board family')).toBeTruthy()
+    } finally {
+      useUploadStore.setState({ pinoutProfileId: null })
+    }
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(within(document.body).queryByLabelText('Board family')).toBeNull()
+  })
+
   it('opens the board menu beside the board so the full panel can fit', async () => {
     const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(360)
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(520)

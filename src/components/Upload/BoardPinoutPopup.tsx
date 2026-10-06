@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boardProfiles'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { useUiStore } from '../../state/uiStore'
 import { useUploadStore } from '../../state/uploadStore'
 import { CustomBoardGraphic } from '../Hardware/CustomBoardGraphic'
 import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../../build/boardProfiles'
@@ -59,6 +60,20 @@ export default function BoardPinoutPopup() {
       }),
     }
   }, [profile])
+
+  // Escape closes the pinout, not the board menu it opened from: that menu
+  // listens on document and yields while the pinout is open. The shared dialog
+  // answers first and marks the event, since it clears itself before this runs.
+  const open = Boolean(profile)
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || useUiStore.getState().appDialog) return
+      closePinout()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open, closePinout])
 
   if (!profile) return null
 
