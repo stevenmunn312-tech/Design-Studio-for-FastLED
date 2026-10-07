@@ -32,16 +32,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 Compiles owed by features that are already in the app:
 
-- [ ] **Custom boards.** Compile representative normal, slideshow and SD-player
-  projects for a 15/15 ESP32 and a 22/22 ESP32-S3 custom board, with custom
-  SDA/SCL shared by two I2C devices, and check the generated GPIO numbers
-  against the diagram
-  ([design, step 8](docs/design/custom-board-pin-layouts.md#8-verify-firmware-behaviour-and-complete-the-rollout)).
-- [ ] **Power Monitor in slideshow and SD-player firmware.** Its display and
-  custom-screen readouts in those two generators are checked by
-  `powerMonitorTemplateDisplays.test.ts` only; the compile fixtures cover the
-  normal sketch
-  ([INA226 compile record](docs/reports/compile/ina226-compile-checks.md)).
 - [ ] **Wired Ethernet on the remaining targets.** ESP32-S2 and S3, an ESP32-C3
   sharing its SPI bus with a panel, and fbuild. Classic ESP32 and a C3 on its
   own bus already pass ([design](docs/design/wired-ethernet.md#not-done)).
@@ -85,6 +75,17 @@ Compiles owed by features that are already in the app:
     (§1).
   - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
     fbuild fix lands.
+- [ ] **Classic-ESP32 SD player with a custom screen overflows static RAM.**
+  The custom-board `esp32-player` fixture fails to link, 136 bytes over
+  `dram0_0_seg` (124,580 bytes). LVGL's fixed 64 KiB pool sits in `.bss`
+  beside the panel draw buffer, the provisioning block and the Wi-Fi stack the
+  audio library links. Proposed fix: allocate the pool from the heap at
+  `lv_init` (`LV_MEM_POOL_ALLOC`), which moves it out of the static segment
+  without changing total free heap. Check where an ESP32-S3 with PSRAM places
+  it, recompile the CYD and classic fixtures, and re-measure free heap on the
+  CYD. Separately, the **Too big** advice in `backend/firmware.py` suggests a
+  smaller LVGL heap, which the app has no setting for
+  ([compile record](docs/reports/compile/custom-board-compile-checks.md#classic-esp32-sd-player-does-not-fit)).
 
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
@@ -408,5 +409,7 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 - **Workspace shelves**: the preview in all four workspaces and the Hardware
   shelf ([plan](docs/plans/workspace-shelves.md)).
 - **Custom boards**: steps 1–8 in software and tests, 2026-10-06
-  ([design](docs/design/custom-board-pin-layouts.md)); compile and bench are
-  in sections 1 and 4.
+  ([design](docs/design/custom-board-pin-layouts.md)); compiled 2026-10-07
+  except the classic-ESP32 SD player, which is in section 2
+  ([compile record](docs/reports/compile/custom-board-compile-checks.md));
+  bench is in section 4.

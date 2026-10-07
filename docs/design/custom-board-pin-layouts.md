@@ -405,4 +405,7 @@ The implementation is covered by focused suites beside each layer:
 `customBoardDiagram.test.ts` (diagram endpoints, power rails, electrical plan,
 parts list) and `CustomBoardEditor.test.tsx` (Apply, Cancel, pinout). The
 editor, workbench, pinout and Build Diagram were also exercised in the browser
-preview. No physical-board verification has been performed.
+preview. Normal, show and SD-player projects for both boards were compiled on
+7 October 2026; all but the classic-ESP32 SD player passed
+([compile record](../reports/compile/custom-board-compile-checks.md)). No
+physical-board verification has been performed.

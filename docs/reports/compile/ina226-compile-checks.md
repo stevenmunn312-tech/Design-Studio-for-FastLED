@@ -17,10 +17,12 @@ include: both chips are driven through their registers over `Wire`.
 | `both` | an INA219 at 0x40 and an INA226 at 0x41 on one bus | **Pass** |
 | `both-debug` | both monitors with Debug enabled, shared serial startup and diagnostic helper | **Pass** (6 October 2026) |
 
-These compile fixtures cover the normal sketch generator. Slideshow and player
-display support is also implemented and checked by
-`src/codegen/__tests__/powerMonitorTemplateDisplays.test.ts`; those template
-paths have no recorded Arduino compile results in this report.
+These compile fixtures cover the normal sketch generator. The slideshow and
+SD-player paths, with an INA219 and an INA226 driving an OLED and the Power
+Monitor custom screen, compiled on 7 October 2026 in the
+[custom-board compile checks](custom-board-compile-checks.md): the slideshow on
+classic ESP32 and ESP32-S3, the SD player on ESP32-S3 only. The classic-ESP32
+SD player overflowed static RAM there.
 
 ## Reproduce
 

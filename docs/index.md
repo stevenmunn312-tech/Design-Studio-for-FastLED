@@ -137,6 +137,7 @@ compile does not establish physical validation or change a support promise.
 ### Compile checks
 
 - [Buzzer compile checks](reports/compile/buzzer-compile-checks.md)
+- [Custom-board compile checks](reports/compile/custom-board-compile-checks.md)
 - [Darlington-driver compile checks](reports/compile/darlington-compile-checks.md)
 - [Display firmware compile checks](reports/compile/display-compile-checks.md)
 - [Distance-sensor compile checks](reports/compile/distance-sensor-compile-checks.md)
