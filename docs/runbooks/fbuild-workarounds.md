@@ -51,7 +51,7 @@ an internal record.
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **Fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); remove the workaround once the 2.5.37 matrix passes |
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
-| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — `archive_objects` on upstream `main` is unchanged as of 2.5.37; report drafted, not yet filed |
+| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — [#1656](https://github.com/FastLED/fbuild/issues/1656), filed 2026-10-07; `archive_objects` on upstream `main` is unchanged as of 2.5.37 |
 
 ---
 
@@ -741,7 +741,7 @@ workaround.
 | §10 every `lib/` directory compiled | Only libraries the sketch's include walk reaches are compiled ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Remove `_FBUILD_OPTIONAL_LIBRARIES` hiding if every leg passes |
 | §11 oversize build reports success | Oversize flash fails, checked against the ESP32 app partition; RAM overflow fails only on AVR ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Keep our refusal for ESP32 RAM |
 | Ignored version pins ([#1407](https://github.com/FastLED/fbuild/issues/1407)) | Ignored pins now warn in the build output; registry pins are honoured across ESP32, ARM, AVR and ESP8266 | 2.5.28–2.5.30 | A pinned newer Renesas core may unblock the IR Renesas leg; untested |
-| §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; file the drafted report |
+| §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; reported as [#1656](https://github.com/FastLED/fbuild/issues/1656) |
 | §5 no size summary on linker overflow, §7 ESP8266 `deploy` | None found | — | Keep both |
 | IR RP2040, Renesas, SAMD21 legs | None found; none of the three was reported upstream | — | Report them if they still fail |
 
@@ -902,7 +902,9 @@ private-cache read and the linker-message parsing in §5.
 
 ## 12. Archiving LVGL on Windows exceeds the command-length limit
 
-**Not yet reported upstream.** Confirmed through 2.5.26, most recently 2026-09-22.
+**Reported upstream 2026-10-07 as [#1656](https://github.com/FastLED/fbuild/issues/1656).**
+Confirmed through 2.5.26, most recently 2026-09-22; the archive code is unchanged on
+upstream `main` as of 2.5.37.
 
 **Symptom.** fbuild passes every object file on the archiver's command line
 (`library_compiler.rs`, `archive_objects`). LVGL 9.5.0 has enough of them that the line
