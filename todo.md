@@ -31,11 +31,8 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 1. Close out software that already exists
 
-Compiles owed by features that are already in the app:
-
-- [ ] **Teensy PWM branch.** The power-switch dimming shim's Teensy branch is
-  the only branch not compiled, because no Teensy core is installed
-  ([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
+Compiles owed by features that are already in the app: none open. Every
+feature's fixtures compile on Arduino CLI as of 8 October 2026.
 
 ## 2. Remaining engineering before v1
 
