@@ -91,8 +91,8 @@ since a top-row stub would sit under the module.
 - A bench row: link up, DHCP and static addressing, Art-Net received over the
   cable, NTP sync, and cable pull/replug recovery. See the
   [support matrix](../release/beta-support-matrix.md). The sketches compile
-  on classic ESP32 and ESP32-C3 ([compile record](../reports/compile/ethernet-compile-checks.md));
-  fbuild, S2/S3 and a C3 sharing its bus with a panel are not yet compiled.
+  on classic ESP32, ESP32-S2, ESP32-S3, and ESP32-C3 alone or sharing its bus
+  with a panel ([compile record](../reports/compile/ethernet-compile-checks.md)).
 - Other W5500 boards, and LAN8720/RMII boards such as the WT32-ETH01, which
   would be a board profile rather than a module.
 - Networking in the show and SD-player generators, which have none today.

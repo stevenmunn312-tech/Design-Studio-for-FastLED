@@ -801,8 +801,9 @@ Unless a future row says otherwise, treat the following as experimental:
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,
   where it replaces Wi-Fi for Art-Net receive and NTP time sync through the
   ESP32 core's W5500 driver. Its sketches
-  [compile on classic ESP32 and ESP32-C3](../reports/compile/ethernet-compile-checks.md)
-  (2026-09-25, arduino-cli), but nothing has run on hardware yet. Graduation
+  [compile on classic ESP32, S2, S3 and C3](../reports/compile/ethernet-compile-checks.md),
+  including a C3 sharing its SPI bus with a panel (2026-10-08, arduino-cli),
+  but nothing has run on hardware yet. Graduation
   needs a dated row naming the board/FQBN and the six pins, with link-up, DHCP and static addressing, Art-Net received over the
   cable, an NTP sync, and recovery after pulling and replugging the cable.
 - **IR remote receive on every board, receiver and remote combination.** The

@@ -33,9 +33,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 Compiles owed by features that are already in the app:
 
-- [ ] **Wired Ethernet on the remaining targets.** ESP32-S2 and S3, an ESP32-C3
-  sharing its SPI bus with a panel, and fbuild. Classic ESP32 and a C3 on its
-  own bus already pass ([design](docs/design/wired-ethernet.md#not-done)).
 - [ ] **Teensy PWM branch.** The power-switch dimming shim's Teensy branch is
   the only branch not compiled, because no Teensy core is installed
   ([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
