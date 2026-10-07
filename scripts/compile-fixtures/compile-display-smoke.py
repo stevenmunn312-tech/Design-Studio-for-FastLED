@@ -64,7 +64,7 @@ with log_path.open("w", encoding="utf-8") as log:
         with firmware._sketch_workspace(f"display_smoke_{board or 'board'}", ino) as workspace:
             result = drain(firmware._compile_upload("Display smoke", workspace, args.fqbn, ""), log)
         sizes = firmware._size_bytes_report(lines)
-toolchain = {
+toolchain_report = {
     "engine_version": command_text(
         [toolchain._FBUILD_BIN, "--version"] if args.engine == "fbuild"
         else [toolchain._ARDUINO_CLI, "version"]
@@ -73,18 +73,18 @@ toolchain = {
     "player_audio_pin": toolchain._PLAYER_AUDIO_VERSION,
 }
 if args.engine == "arduino-cli":
-    toolchain["installed_cores"] = command_text([toolchain._ARDUINO_CLI, "core", "list"])
-    toolchain["installed_display_libraries"] = command_text([toolchain._ARDUINO_CLI, "lib", "list"])
+    toolchain_report["installed_cores"] = command_text([toolchain._ARDUINO_CLI, "core", "list"])
+    toolchain_report["installed_display_libraries"] = command_text([toolchain._ARDUINO_CLI, "lib", "list"])
 else:
-    toolchain["vendored_fastled_sha"] = git_revision(toolchain._FBUILD_LIB_DIR)
-    toolchain["vendored_lvgl_sha"] = git_revision(toolchain._FBUILD_LVGL_LIB_DIR)
-    toolchain["vendored_player_audio_sha"] = git_revision(toolchain._FBUILD_AUDIO_LIB_DIR)
+    toolchain_report["vendored_fastled_sha"] = git_revision(toolchain._FBUILD_LIB_DIR)
+    toolchain_report["vendored_lvgl_sha"] = git_revision(toolchain._FBUILD_LVGL_LIB_DIR)
+    toolchain_report["vendored_player_audio_sha"] = git_revision(toolchain._FBUILD_AUDIO_LIB_DIR)
 
 report = {
     "engine": args.engine, "sketch": args.sketch.name, "fqbn": args.fqbn,
     "source_sha256": hashlib.sha256(ino.encode("utf-8")).hexdigest(),
     "completed_utc": datetime.now(timezone.utc).isoformat(), "result": result,
-    "toolchain": toolchain, **sizes,
+    "toolchain": toolchain_report, **sizes,
 }
 args.sketch.with_suffix(f"{report_stem}.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
 print(json.dumps(report, indent=2))

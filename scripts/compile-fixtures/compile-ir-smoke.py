@@ -63,7 +63,7 @@ with log_path.open("w", encoding="utf-8") as log:
             result = drain(firmware._compile_upload("IR smoke", workspace, args.fqbn, ""), log)
         sizes = firmware._size_bytes_report(lines)
 
-toolchain = {
+toolchain_report = {
     "engine_version": command_text(
         [toolchain._FBUILD_BIN, "--version"] if args.engine == "fbuild"
         else [toolchain._ARDUINO_CLI, "version"]
@@ -78,7 +78,7 @@ report = {
     "source_sha256": hashlib.sha256(ino.encode("utf-8")).hexdigest(),
     "completed_utc": datetime.now(timezone.utc).isoformat(),
     "result": result,
-    "toolchain": toolchain,
+    "toolchain": toolchain_report,
     **sizes,
 }
 args.sketch.with_suffix(f"{report_stem}.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
