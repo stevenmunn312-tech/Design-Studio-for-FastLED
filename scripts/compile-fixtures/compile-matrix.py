@@ -121,15 +121,26 @@ def time_of_flight_legs(engine: str) -> list[Leg]:
                 CLASSIC, "esp32", "touchpad") for chip in ("vl53l0x", "vl53l1x")]
 
 
+def ethernet_legs(engine: str) -> list[Leg]:
+    folder = ROOT / "backend" / "sketches" / "ethernet-fixtures"
+    targets = {"artnet": CLASSIC, "ntp": CLASSIC, "static": CLASSIC, "wifi": CLASSIC,
+               "c3": "esp32:esp32:esp32c3", "c3-panel": "esp32:esp32:esp32c3",
+               "s2": "esp32:esp32:esp32s2", "s3": "esp32:esp32:esp32s3"}
+    return [Leg("ethernet", "compile-presence-smoke.py", engine, folder / f"{name}.ino", fqbn, fqbn.split(":")[2], "ethernet")
+            for name, fqbn in targets.items()]
+
+
 def plan() -> list[Leg]:
     """fbuild first (the toolchain-upgrade check), then the arduino-cli refresh."""
     return [
         *custom_board_legs("fbuild"), *display_legs("fbuild"), *ir_legs("fbuild"), *time_of_flight_legs("fbuild"),
-        *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"),
+        *ethernet_legs("fbuild"),
+        *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
     ]
 
 
-GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x"}
+GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
+              "ethernet": "ethernet"}
 
 
 def read_report(path: Path) -> dict | None:
