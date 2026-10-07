@@ -136,10 +136,11 @@ compile does not establish physical validation or change a support promise.
 
 ### Compile checks
 
-`scripts/compile-fixtures/compile-matrix.py` runs the fbuild legs on record and
-the display and custom-board legs on Arduino CLI, one at a time, and writes a
-log and summary to `artifacts/compile-matrix/`. Run it with `--list` to see
-the plan.
+`scripts/compile-fixtures/compile-matrix.py` runs the fixture families on
+record on Arduino CLI, one at a time, and writes a log and summary to
+`artifacts/compile-matrix/`. Run it with `--list` to see the plan. Development
+compiles on Arduino CLI alone for now; the fbuild legs stay in the plan and run
+with `--engine fbuild` or `--engine all`.
 
 - [Buzzer compile checks](reports/compile/buzzer-compile-checks.md)
 - [Custom-board compile checks](reports/compile/custom-board-compile-checks.md)

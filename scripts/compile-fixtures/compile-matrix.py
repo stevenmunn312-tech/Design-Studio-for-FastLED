@@ -5,10 +5,13 @@ overlapping arduino-cli run leaves a truncated cached object that fails the
 next link. On Windows it asks the system to stay awake while it runs. It writes
 the summary after every leg, so a partial run can still be read.
 
-    python scripts/compile-fixtures/compile-matrix.py              # every leg
+    python scripts/compile-fixtures/compile-matrix.py              # every arduino-cli leg
     python scripts/compile-fixtures/compile-matrix.py --list       # show the plan
-    python scripts/compile-fixtures/compile-matrix.py --engine fbuild
-    python scripts/compile-fixtures/compile-matrix.py --only ir/ --dry-run
+    python scripts/compile-fixtures/compile-matrix.py --engine all # fbuild legs too
+    python scripts/compile-fixtures/compile-matrix.py --only ir/ --only ethernet/ --dry-run
+
+Development runs on arduino-cli alone, so that is the default engine. The
+fbuild legs stay in the plan for when that engine is tested again.
 
 To stop early, create a file named STOP in the run's output folder. The run
 finishes the current compile and stops before the next one.
@@ -269,15 +272,17 @@ def write_summary(out: Path, header: dict, rows: list[dict]) -> None:
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--engine", choices=("fbuild", "arduino-cli"), help="run only this engine's legs")
-    parser.add_argument("--only", help="run only legs whose name contains this text, e.g. ir/ or custom-board/")
+    parser.add_argument("--engine", choices=("arduino-cli", "fbuild", "all"), default="arduino-cli",
+                        help="run only this engine's legs (default arduino-cli)")
+    parser.add_argument("--only", action="append",
+                        help="run only legs whose name contains this text, e.g. ir/ or custom-board/; repeatable")
     parser.add_argument("--list", action="store_true", help="print the plan and exit")
     parser.add_argument("--dry-run", action="store_true", help="print each command without generating or compiling")
     parser.add_argument("--no-generate", action="store_true", help="compile the fixtures already on disk")
     args = parser.parse_args()
 
     legs = [leg for leg in plan()
-            if (not args.engine or leg.engine == args.engine) and (not args.only or args.only in leg.name)]
+            if args.engine in ("all", leg.engine) and (not args.only or any(text in leg.name for text in args.only))]
     if args.list or args.dry_run:
         for index, leg in enumerate(legs, 1):
             expected = f"   (expected to fail: {leg.expected_failure})" if leg.expected_failure else ""

@@ -52,7 +52,7 @@ To regenerate and compile every fixture below on both engines, one at a time,
 with a summary:
 
 ```powershell
-python scripts/compile-fixtures/compile-matrix.py --only display/
+python scripts/compile-fixtures/compile-matrix.py --engine all --only display/
 ```
 
 The three generator paths, on both engines:
