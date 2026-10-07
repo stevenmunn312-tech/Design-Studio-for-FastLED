@@ -157,6 +157,9 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   'mixed-esp8266': { source: mixed(14, 17, 5, [12, 13, 15, 16], 4), pwm: 3 },
   // Pico: the Mosfetti on GP18-21, as in MonkMakes' own Pico example.
   'mixed-rp2040': { source: mixed(14, 26, 15, [18, 19, 20, 21], 2), pwm: 3 },
+  // Teensy 4.1: button 11, pot A0 (14), LR7843 on 9, Mosfetti on 2-5, LEDs 6.
+  // Every dimmed pin runs at the shared 500 Hz, because Teensy tunes per timer.
+  'mixed-teensy': { source: mixed(11, 14, 9, [2, 3, 4, 5], 6), pwm: 3 },
   // Uno: the Mosfetti on D3, D5, D6 and D10, the PWM pins MonkMakes' Uno
   // example uses; LEDs move to D7. A switched, B dimmed.
   'mosfetti-avr': {
@@ -174,10 +177,10 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
 
 // The frequency plan, checked in the source rather than trusted: the 1 kHz
 // pair starts on an even LEDC channel, and single-timer cores run at 500 Hz.
-for (const name of ['mixed', 'mixed-esp8266', 'mixed-rp2040']) {
+for (const name of ['mixed', 'mixed-esp8266', 'mixed-rp2040', 'mixed-teensy']) {
   const source = fixtures[name].source
   if (!/flsPwmBegin\(\d+, 0, 500\);/.test(source) || (source.match(/flsPwmBegin\(\d+, [23], 1000\);/g)?.length ?? 0) !== 2
-    || !source.includes('analogWriteFreq(500);')) {
+    || !source.includes('analogWriteFreq(500);') || !source.includes('analogWriteFrequency(pin, 500);')) {
     throw new Error(`${name}: the LEDC channels or the shared frequency are not the planned ones`)
   }
 }

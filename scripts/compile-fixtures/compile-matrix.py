@@ -130,17 +130,31 @@ def ethernet_legs(engine: str) -> list[Leg]:
             for name, fqbn in targets.items()]
 
 
+def power_switch_legs(engine: str) -> list[Leg]:
+    folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
+    targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed")}
+    targets |= {"gated-esp8266": "esp8266:esp8266:nodemcuv2", "mixed-esp8266": "esp8266:esp8266:nodemcuv2",
+                "gated-rp2040": "rp2040:rp2040:rpipico", "mixed-rp2040": "rp2040:rp2040:rpipico",
+                "gated-avr": "arduino:avr:uno", "mosfetti-avr": "arduino:avr:uno",
+                "mixed-teensy": "teensy:avr:teensy41"}
+    tags = {CLASSIC: "esp32", "esp8266:esp8266:nodemcuv2": "esp8266", "rp2040:rp2040:rpipico": "rp2040",
+            "arduino:avr:uno": "avr", "teensy:avr:teensy41": "teensy"}
+    return [Leg("power-switch", "compile-presence-smoke.py", engine, folder / f"{name}.ino", fqbn, tags[fqbn], "power-switch")
+            for name, fqbn in targets.items()]
+
+
 def plan() -> list[Leg]:
     """fbuild first (the toolchain-upgrade check), then the arduino-cli refresh."""
     return [
         *custom_board_legs("fbuild"), *display_legs("fbuild"), *ir_legs("fbuild"), *time_of_flight_legs("fbuild"),
         *ethernet_legs("fbuild"),
         *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
+        *power_switch_legs("arduino-cli"),
     ]
 
 
 GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
-              "ethernet": "ethernet"}
+              "ethernet": "ethernet", "power-switch": "power-switch"}
 
 
 def read_report(path: Path) -> dict | None:
