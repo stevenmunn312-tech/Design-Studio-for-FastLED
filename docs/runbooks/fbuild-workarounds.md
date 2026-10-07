@@ -44,7 +44,7 @@ an internal record.
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | Architecture, rechecked with 2.5.26 | External process-wide lock | Yes — the helper writes one shared source before invoking fbuild |
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
-| 5 | No size summary on hard linker overflow | **2.5.26** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-22 |
+| 5 | No size summary on hard linker overflow | **2.5.26** | Parse `ld` + `Memory:` lines | Yes — [#1658](https://github.com/FastLED/fbuild/issues/1658), filed 2026-10-07 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — [#1657](https://github.com/FastLED/fbuild/issues/1657), filed 2026-10-07; ESP8266 still has no deployer on upstream `main` as of 2.5.37 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
@@ -208,6 +208,10 @@ query is still worth having, but nothing depends on it now.
 ---
 
 ## 5. A hard linker overflow produces no size summary at all
+
+**Reported upstream 2026-10-07 as [#1658](https://github.com/FastLED/fbuild/issues/1658).**
+The #1409 fix in 2.5.28 covers images that link but exceed the board limits; a
+hard link failure still prints no summary.
 
 **Symptom.** A genuine overflow is a hard `ld` failure — no `.elf` is produced, so fbuild
 never reaches the step that prints its size summary. Confirmed with a deliberately forced
@@ -747,7 +751,7 @@ workaround.
 | §11 oversize build reports success | Oversize flash fails, checked against the ESP32 app partition; RAM overflow fails only on AVR ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Keep our refusal for ESP32 RAM |
 | Ignored version pins ([#1407](https://github.com/FastLED/fbuild/issues/1407)) | Ignored pins now warn in the build output; registry pins are honoured across ESP32, ARM, AVR and ESP8266 | 2.5.28–2.5.30 | A pinned newer Renesas core may unblock the IR Renesas leg; untested |
 | §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; reported as [#1656](https://github.com/FastLED/fbuild/issues/1656) |
-| §5 no size summary on linker overflow | None found | — | Keep the `ld` parsing; not yet reported |
+| §5 no size summary on linker overflow | None found | — | Keep the `ld` parsing; reported as [#1658](https://github.com/FastLED/fbuild/issues/1658) |
 | §7 ESP8266 `deploy` | None: the deploy dispatch has no `Espressif8266` arm | — | Keep the arduino-cli fallback; reported as [#1657](https://github.com/FastLED/fbuild/issues/1657) |
 | IR RP2040, Renesas, SAMD21 legs | None found; none of the three was reported upstream | — | Report them if they still fail |
 
