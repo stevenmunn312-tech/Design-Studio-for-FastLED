@@ -4,11 +4,13 @@ Every accommodation `backend/toolchain.py` and `backend/firmware.py` make for th
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
-- **Current repository pin:** 2.5.26 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.22 on 2026-09-22 after the four
-  version-dependent probes passed. The complete twelve-fixture fbuild matrix
-  was then regenerated and passed on 2.5.26 at the same source hashes as the
-  Arduino CLI half.
+- **Current repository pin:** 2.5.37 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.26 on 2026-10-07. Every fbuild leg
+  on record is re-validated by `scripts/compile-fixtures/compile-matrix.py
+  --engine fbuild`; until that run's results are recorded in the
+  [2.5.37 upgrade record](#upgrade-record-to-2537), treat 2.5.37 as unvalidated
+  and keep every workaround below. 2.5.26 passed the complete twelve-fixture
+  display matrix on 2026-09-22.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
@@ -17,7 +19,7 @@ an internal record.
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
   than assuming the pin, and say which version a result is about. Both the active
-  Espressif Python and `backend/.venv` now hold 2.5.26.
+  Espressif Python and `backend/.venv` now hold 2.5.37.
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
@@ -47,9 +49,9 @@ an internal record.
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-22 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
-| 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | Yes — [#1410](https://github.com/FastLED/fbuild/issues/1410), re-confirmed 2026-09-22 |
-| 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | Yes — [#1409](https://github.com/FastLED/fbuild/issues/1409), re-confirmed 2026-09-22 |
-| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — not yet reported |
+| 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **Fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); remove the workaround once the 2.5.37 matrix passes |
+| 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
+| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — `archive_objects` on upstream `main` is unchanged as of 2.5.37; report drafted, not yet filed |
 
 ---
 
@@ -718,9 +720,40 @@ registry. Worth a documentation note upstream, since the failure looks random.
 
 ---
 
+## Upgrade record to 2.5.37
+
+The pin moved from 2.5.26 to 2.5.37 on 2026-10-07, from a review of the
+2.5.27–2.5.37 release notes and the upstream source. No build has run on 2.5.37
+yet. The validation run is
+
+```powershell
+python scripts/compile-fixtures/compile-matrix.py --engine fbuild
+```
+
+which compiles every fbuild leg on record: the twelve display fixtures, the six
+custom-board fixtures, the seventeen IR legs (three of them expected to fail
+upstream) and the VL53L0X and VL53L1X fixtures. Its summary compares each leg
+with its previous 2.5.26 report. Record the outcome here before removing any
+workaround.
+
+| Our issue | Upstream change | Version | What to do after validation |
+|---|---|---|---|
+| §10 every `lib/` directory compiled | Only libraries the sketch's include walk reaches are compiled ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Remove `_FBUILD_OPTIONAL_LIBRARIES` hiding if every leg passes |
+| §11 oversize build reports success | Oversize flash fails, checked against the ESP32 app partition; RAM overflow fails only on AVR ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Keep our refusal for ESP32 RAM |
+| Ignored version pins ([#1407](https://github.com/FastLED/fbuild/issues/1407)) | Ignored pins now warn in the build output; registry pins are honoured across ESP32, ARM, AVR and ESP8266 | 2.5.28–2.5.30 | A pinned newer Renesas core may unblock the IR Renesas leg; untested |
+| §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; file the drafted report |
+| §5 no size summary on linker overflow, §7 ESP8266 `deploy` | None found | — | Keep both |
+| IR RP2040, Renesas, SAMD21 legs | None found; none of the three was reported upstream | — | Report them if they still fail |
+
+Also in this range: ESP32 builds read headers through one generated include
+directory instead of ~200 SDK include paths, and compile in one shared job pool
+(2.5.30); ESP-IDF 4.4 and 3.3 frameworks build again (2.5.34–2.5.36), which may
+let fbuild build Arduino-ESP32 core 2.0.17; and serial and deploy no longer
+reset ESP chips on open or hold ports after deploy (2.5.29–2.5.31).
+
 ## Upgrade record from 2.5.4
 
-This repository now pins **`fbuild==2.5.26`**. The original audit was written
+This repository pinned **`fbuild==2.5.26`** until 2026-10-07. The original audit was written
 against 2.5.4 and compared the 2.5.5–2.5.14 release notes; subsequent upgrades
 continued through 2.5.16, 2.5.18, 2.5.21, 2.5.22 and 2.5.26. Keep the historical confirmations in
 the issue sections, but test every surviving workaround against 2.5.26 before

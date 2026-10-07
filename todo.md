@@ -65,6 +65,9 @@ Compiles owed by features that are already in the app:
   `stm32f1`): validation accepts them, and nothing compiles them
   ([IR compile record](docs/reports/compile/ir-compile-checks.md#outstanding)).
 - [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)).
+  - Validate the 2.5.37 pin with `compile-matrix.py --engine fbuild`, record
+    the result in the runbook's upgrade record, then remove the §10
+    library-hiding workaround if every leg passes.
   - Report the workarounds that have no upstream issue yet: no size summary
     on a hard linker overflow (§5), `deploy` unimplemented for ESP8266 (§7)
     and the Windows LVGL archive command-length failure (§12). Add the note
