@@ -124,6 +124,9 @@ def test_lvgl_sketch_workspace_gets_the_minimal_config(tmp_path, monkeypatch):
     assert config == toolchain._LV_CONF_TEXT
     assert "#define LV_COLOR_DEPTH 16" in config
     assert "#define LV_MEM_SIZE (64 * 1024U)" in config
+    # ESP32 takes the pool from internal heap, keeping it out of static RAM.
+    assert "#if defined(ESP32)\n#define FLS_LVGL_POOL_FROM_HEAP 1\n" in config
+    assert "MALLOC_CAP_INTERNAL" in config
     assert "#define LV_USE_LABEL 1" in config
     assert "#define LV_USE_SLIDER 1" in config
     assert "#define LV_USE_CHART 0" in config

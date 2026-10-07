@@ -98,6 +98,11 @@ describe('normal-sketch codegen for the custom Display node', () => {
     expect(src).toContain('_cdScreen_screen = lv_obj_create(nullptr);')
     // lv_init must precede any object/display creation.
     expect(src.indexOf('lv_init();')).toBeLessThan(src.indexOf('_cdDisp_tft = lv_display_create'))
+    // Where lv_conf.h takes LVGL's pool from heap, a missing block stops the
+    // sketch before lv_init() rather than faulting inside LVGL.
+    expect(src).toContain('#include <esp_heap_caps.h>')
+    expect(src.indexOf('heap_caps_get_largest_free_block')).toBeGreaterThan(src.indexOf('void setup() {'))
+    expect(src.indexOf('heap_caps_get_largest_free_block')).toBeLessThan(src.indexOf('lv_init();'))
     expect(src.indexOf('lv_init();')).toBeLessThan(src.indexOf('_cdScreen_screen = lv_obj_create'))
     // The panel is selected as LVGL's default display before its document's
     // widgets are created against it — the call-order the panel/document

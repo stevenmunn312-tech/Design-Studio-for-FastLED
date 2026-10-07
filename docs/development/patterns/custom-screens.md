@@ -246,6 +246,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   teaches people to stop reading the drawer. Not auto-repaired: waking the panel
   on the next press, or turning the toggle momentary, would each make Enabled
   mean something different on this panel than on every other one.
+- **LVGL pool:** the helper's `lv_conf.h` (`_LV_CONF_TEXT` in
+  `backend/toolchain.py`) has ESP32 take LVGL's 64 KiB pool from internal heap
+  in `lv_init()` and defines `FLS_LVGL_POOL_FROM_HEAP`. A static pool filled
+  more than half of classic ESP32's ~122 KiB static segment, and an SD player
+  with a custom screen could not link. Generated sketches start LVGL only
+  through `customDisplayLvglInitCpp`, which checks for a free block under that
+  marker, because a null pool faults inside LVGL's allocator. It reports through
+  `esp_rom_printf`, not `Serial`, which would link ~10 KB of UART driver into
+  sketches with no other serial use. Keep the marker,
+  the `MALLOC_CAP_INTERNAL` placement (the RAM estimate prices the pool as
+  internal) and `CUSTOM_DISPLAY_LVGL_HEAP_BYTES` in step; the contract tests in
+  `customDisplayRam.test.ts` read all three.
 
 ## Assets and themes
 

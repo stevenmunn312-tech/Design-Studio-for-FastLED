@@ -60,6 +60,8 @@ describe('custom displays in generative shows', () => {
     const setup = cpp.slice(cpp.indexOf('void setup() {'), cpp.indexOf('void loop() {'))
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
     expect(setup.indexOf('lv_init();')).toBeLessThan(setup.indexOf('lv_display_create'))
+    expect(setup.indexOf('heap_caps_get_largest_free_block')).toBeGreaterThan(-1)
+    expect(setup.indexOf('heap_caps_get_largest_free_block')).toBeLessThan(setup.indexOf('lv_init();'))
     expect(setup.indexOf('lv_display_set_default(_cdDisp_tft)')).toBeLessThan(setup.indexOf('_cdScreen_screen = lv_obj_create'))
     expect(setup).toContain('lv_indev_set_mode(_cdIndev_tft, LV_INDEV_MODE_EVENT);')
     const ordered = ['lv_indev_read(_cdIndev_tft);', 'float n_tft_touch_widget_slider_out = _cdFloatOutput',

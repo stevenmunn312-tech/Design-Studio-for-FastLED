@@ -2,7 +2,7 @@ import type { BakedCustomDisplayAsset } from '../../state/displays/customDisplay
 import { customDisplaySampleCpp, type customDisplayControlPlan } from './customDisplayControlGraph'
 import {
   CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS,
-  CUSTOM_DISPLAY_LVGL_TIMING_CPP, customDisplayLvglTimingSetupCpp,
+  CUSTOM_DISPLAY_LVGL_TIMING_CPP, customDisplayLvglInitCpp, customDisplayLvglTimingSetupCpp,
   customDisplayLvglGlobalCpp, customDisplayLvglSetupCpp, customDisplayLvglLoopCpp,
 } from './customDisplayLvglCpp'
 import {
@@ -37,7 +37,7 @@ export function customDisplayShowCpp(
     }
     helpers.push(CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (displays.some((display) => display.panel.touch)) helpers.push(TFT_TOUCH_CPP_HELPERS)
-    setup.push('  lv_init();', customDisplayLvglTimingSetupCpp())
+    setup.push(...customDisplayLvglInitCpp(), customDisplayLvglTimingSetupCpp())
   }
   for (const display of displays) {
     const emit = { ...display.emit, assets: assets[display.documentId] ?? [] }

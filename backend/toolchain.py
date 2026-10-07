@@ -269,6 +269,16 @@ _LV_CONF_TEXT = """\
 #define LV_USE_STDLIB_MALLOC LV_STDLIB_BUILTIN
 #define LV_MEM_SIZE (64 * 1024U)
 #define LV_MEM_POOL_EXPAND_SIZE 0
+/* ESP32: lv_init() takes the pool from internal heap, not a static array.
+ * Classic ESP32 caps all static data at about 122 KiB, and a 64 KiB array
+ * there left an SD player with a custom screen unable to link. The pool stays
+ * in internal RAM, so free heap after lv_init() is unchanged. Generated
+ * sketches read FLS_LVGL_POOL_FROM_HEAP and check for a free block first. */
+#if defined(ESP32)
+#define FLS_LVGL_POOL_FROM_HEAP 1
+#define LV_MEM_POOL_INCLUDE <esp_heap_caps.h>
+#define LV_MEM_POOL_ALLOC(size) heap_caps_malloc((size), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+#endif
 #define LV_USE_OS LV_OS_NONE
 #define LV_USE_LOG 0
 #define LV_USE_ASSERT_NULL 1

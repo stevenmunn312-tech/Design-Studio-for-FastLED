@@ -32,7 +32,14 @@ import {
 } from '../../state/displays/customDisplayResources'
 import { customDisplayAssetIndex, customDisplayAssetSymbol } from './customDisplayAssetsCpp'
 
-export const CUSTOM_DISPLAY_LVGL_INCLUDE = '#include <lvgl.h>'
+/** `FLS_LVGL_POOL_FROM_HEAP` comes from the helper's lv_conf.h, through lvgl.h. */
+export const CUSTOM_DISPLAY_LVGL_INCLUDE = [
+  '#include <lvgl.h>',
+  '#if defined(FLS_LVGL_POOL_FROM_HEAP)',
+  '#include <esp_heap_caps.h>',
+  '#include <esp_rom_sys.h>',
+  '#endif',
+].join('\n')
 
 /** Required above Arduino's auto-generated function prototypes because the
  * shared helpers take this runtime by reference. */
@@ -48,8 +55,10 @@ export const CUSTOM_DISPLAY_LVGL_VALUE_SCALE = 10000
 export const CUSTOM_DISPLAY_LVGL_HANDLER_MIN_MS = 5
 
 /** The pinned helper lv_conf.h reserves this once per sketch, shared by every
- * screen, widget, style and dynamically allocated label. Keep in step with
- * backend/toolchain.py's LV_MEM_SIZE (checked by the RAM contract test). */
+ * screen, widget, style and dynamically allocated label. On ESP32 lv_init()
+ * takes it from internal heap; elsewhere it is a static array. Either way it
+ * is internal RAM. Keep in step with backend/toolchain.py's LV_MEM_SIZE
+ * (checked by the RAM contract test). */
 export const CUSTOM_DISPLAY_LVGL_HEAP_BYTES = 64 * 1024
 
 /** CustomDisplayWidgetRuntime on the supported 32-bit targets: pointer,
@@ -584,6 +593,23 @@ static void _cdServiceLvgl() {
   lv_timer_handler();
 }
 `
+
+/** Starts LVGL, before any LVGL object is created. Where lv_conf.h takes the
+ * pool from heap, a missing block would fault inside LVGL's allocator, so the
+ * sketch stops first with a reason on the console. It prints through the ROM
+ * because `Serial` would link the UART driver (~10 KB of flash) into every
+ * sketch that has no other use for it. */
+export function customDisplayLvglInitCpp(): string[] {
+  return [
+    '#if defined(FLS_LVGL_POOL_FROM_HEAP)',
+    '  if (heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < LV_MEM_SIZE) {',
+    '    esp_rom_printf("Custom screen: no free block of internal RAM for LVGL; stopped.\\n");',
+    '    for (;;) delay(1000);',
+    '  }',
+    '#endif',
+    '  lv_init();',
+  ]
+}
 
 export function customDisplayLvglTimingSetupCpp(): string {
   return '  _cdBeginTiming();'

@@ -7,7 +7,9 @@ import { TFT_CONTROLLERS } from '../../../state/displays/tftSurface'
 import { buildGraphDiagnostics, estimateFirmwareRam, findFirmwareRamBudgetIssue, validateGraph } from '../../../utils/validateGraph'
 import { customDisplayPanelGlobalCpp } from '../customDisplayPanelCpp'
 import { TFT_PANEL_RAM_BYTES } from '../tftDisplayCpp'
-import { CUSTOM_DISPLAY_LVGL_HEAP_BYTES, CUSTOM_DISPLAY_WIDGET_RAM_BYTES } from '../customDisplayLvglCpp'
+import {
+  CUSTOM_DISPLAY_LVGL_HEAP_BYTES, CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_WIDGET_RAM_BYTES, customDisplayLvglInitCpp,
+} from '../customDisplayLvglCpp'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -197,5 +199,16 @@ describe('custom display firmware RAM', () => {
     const backend = readFileSync('backend/toolchain.py', 'utf8')
     const kib = Number(backend.match(/#define LV_MEM_SIZE \((\d+) \* 1024U\)/)?.[1])
     expect(kib * 1024).toBe(CUSTOM_DISPLAY_LVGL_HEAP_BYTES)
+  })
+
+  it('reads the pool-from-heap marker the build-helper configuration defines', () => {
+    const backend = readFileSync('backend/toolchain.py', 'utf8')
+    // The estimate prices LVGL's pool as internal RAM, so the heap pool must be too.
+    expect(backend).toContain(
+      '#define LV_MEM_POOL_ALLOC(size) heap_caps_malloc((size), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)')
+    const marker = backend.match(/#define (FLS_\w+) 1\r?\n#define LV_MEM_POOL_INCLUDE/)?.[1]
+    expect(marker).toBe('FLS_LVGL_POOL_FROM_HEAP')
+    expect(CUSTOM_DISPLAY_LVGL_INCLUDE).toContain(`#if defined(${marker})`)
+    expect(customDisplayLvglInitCpp()[0]).toBe(`#if defined(${marker})`)
   })
 })

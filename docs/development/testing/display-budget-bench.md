@@ -124,6 +124,13 @@ four are constrained by this board rather than by the software under test.
   settles something the estimate rested on: LVGL's 64 KiB heap is a *static*
   allocation and is counted by the linker, not taken from free heap at runtime.
 
+  *Since 7 October 2026 this is no longer how ESP32 builds work.* `lv_init()`
+  now takes the pool from internal heap, so a custom screen's static RAM is
+  about 64 KiB lower than the figures here. Free heap after `lv_init()` should
+  be unchanged, and the estimate still prices the pool. A CYD re-measure is
+  owed before these runs describe current firmware
+  ([custom-board compile record](../../reports/compile/custom-board-compile-checks.md)).
+
   **The 22,496-byte overflow could not be reproduced, and no record of it
   exists.** It appears only in HW-25's own prose, referring to "the overflow
   above"; there is no build log, fixture or report behind it in this repository.

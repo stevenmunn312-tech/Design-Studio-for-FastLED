@@ -56,6 +56,7 @@ import {
   CUSTOM_DISPLAY_LVGL_HELPERS,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP,
   customDisplayLvglGlobalCpp,
+  customDisplayLvglInitCpp,
   customDisplayLvglTimingSetupCpp,
   customDisplayLvglTimingLoopCpp,
 } from './displays/customDisplayLvglCpp'
@@ -1729,7 +1730,7 @@ export function generateCpp(
   }
   // Must run before any other LVGL call — every custom Display's screen and
   // panel setup below (in setupLines) creates LVGL objects.
-  if (customDisplays.length > 0) lines.push(`  lv_init();`)
+  if (customDisplays.length > 0) lines.push(...customDisplayLvglInitCpp())
   // The wired interface has to exist before an Art-Net socket is opened on it
   // in setupLines below. Starting it does not wait for a cable or an address.
   if (needsNetwork && ethernetNode) lines.push(`  _netEnsureConnected();`)

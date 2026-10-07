@@ -698,7 +698,11 @@ the emitted struct; buffer sizing is shared with the panel emitter.
 
 The pinned LVGL configuration reserves one shared 64 KiB internal heap per
 sketch for objects, styles, labels and other LVGL allocations, plus a shared
-handler timestamp. This allocation is counted once, regardless of screen count;
+handler timestamp. On ESP32, `lv_init()` takes that pool from internal heap
+(`LV_MEM_POOL_ALLOC`) rather than a static array, because classic ESP32 caps
+all static data at about 122 KiB. The sketch checks for a free block first and
+stops with a console message if there is none. This allocation is counted
+once, regardless of screen count;
 widget heap allocations must not be added a second time. These costs remain
 internal when LED render buffers move to PSRAM. RAM readouts subscribe to
 document edits as well as graph changes. Fonts and baked image/thumbnail bytes
