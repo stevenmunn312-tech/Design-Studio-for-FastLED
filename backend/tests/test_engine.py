@@ -1,6 +1,5 @@
 """Build-engine selection and FQBN <-> fbuild-environment translation — pure
 logic, no subprocess/hardware involved."""
-import contextlib
 import stat
 import threading
 import time
@@ -607,7 +606,6 @@ def test_compile_upload_fbuild_vendors_lvgl_only_when_sketch_needs_it(monkeypatc
 def test_compile_only_player_vendors_audio_before_writing_source(monkeypatch):
     calls = []
     monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(toolchain, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
     monkeypatch.setattr(toolchain, "_ensure_fbuild_audio_lib", lambda: calls.append("audio") or iter(()))
     monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: calls.append("source"))
     monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args: "esp32_esp32_esp32s3_opi")
@@ -735,84 +733,6 @@ def test_arduino_cli_compile_activates_lv_conf_only_for_lvgl(tmp_path, monkeypat
         "compiler.c.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
         "compiler.cpp.extra_flags=-DLV_CONF_INCLUDE_SIMPLE",
     ]
-
-
-def test_fbuild_libraries_for_sketch_hides_only_unrequested_optional_libs(tmp_path, monkeypatch):
-    lib_root = tmp_path / "lib"
-    stash = tmp_path / ".optional-libs"
-    audio = lib_root / "ESP32-audioI2S"
-    dmx = lib_root / "esp_dmx"
-    zero_i2s = lib_root / "Adafruit_ZeroI2S"
-    zero_dma = lib_root / "Adafruit_ZeroDMA"
-    lvgl = lib_root / "lvgl"
-    irremote = lib_root / "IRremote"
-    for path in (audio, dmx, zero_i2s, zero_dma, lvgl, irremote):
-        path.mkdir(parents=True)
-        (path / "sentinel.txt").write_text(path.name, encoding="utf-8")
-
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_root / "FastLED")
-    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
-    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIBRARIES", (
-        (audio, ("#include <Audio.h>",)),
-        (dmx, ("#include <esp_dmx.h>",)),
-        (zero_i2s, ("#include <Adafruit_ZeroI2S.h>",)),
-        (zero_dma, ("#include <Adafruit_ZeroI2S.h>",)),
-        (lvgl, ("#include <lvgl.h>",)),
-        (irremote, ("#include <IRremote.hpp>",)),
-    ))
-
-    with toolchain._fbuild_libraries_for_sketch("#include <Adafruit_ZeroI2S.h>"):
-        assert not audio.exists()
-        assert not dmx.exists()
-        assert zero_i2s.exists()
-        assert zero_dma.exists()
-        assert not lvgl.exists()
-        assert not irremote.exists()
-        assert (stash / audio.name).exists()
-
-    assert all(path.exists() for path in (audio, dmx, zero_i2s, zero_dma, lvgl, irremote))
-    assert not stash.exists()
-
-
-def test_fbuild_libraries_for_sketch_restores_hidden_libs_after_failure(tmp_path, monkeypatch):
-    lib_root = tmp_path / "lib"
-    stash = tmp_path / ".optional-libs"
-    audio = lib_root / "ESP32-audioI2S"
-    audio.mkdir(parents=True)
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_root / "FastLED")
-    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
-    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIBRARIES", (
-        (audio, ("#include <Audio.h>",)),
-    ))
-
-    try:
-        with toolchain._fbuild_libraries_for_sketch("void setup(){}"):
-            assert not audio.exists()
-            raise RuntimeError("build failed")
-    except RuntimeError:
-        pass
-
-    assert audio.exists()
-    assert not stash.exists()
-
-
-def test_restore_stranded_fbuild_optional_libraries_recovers_interrupted_move(tmp_path, monkeypatch):
-    lib_root = tmp_path / "lib"
-    stash = tmp_path / ".optional-libs"
-    audio = lib_root / "ESP32-audioI2S"
-    staged = stash / audio.name
-    staged.mkdir(parents=True)
-    (staged / "sentinel.txt").write_text("cached", encoding="utf-8")
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_root / "FastLED")
-    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIB_STASH_DIR", stash)
-    monkeypatch.setattr(toolchain, "_FBUILD_OPTIONAL_LIBRARIES", (
-        (audio, ("#include <Audio.h>",)),
-    ))
-
-    toolchain._restore_stranded_fbuild_optional_libraries()
-
-    assert (audio / "sentinel.txt").read_text(encoding="utf-8") == "cached"
-    assert not stash.exists()
 
 
 def test_compile_upload_fbuild_points_at_arduino_cli_when_deployer_is_missing(monkeypatch):

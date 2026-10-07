@@ -7,7 +7,6 @@ Also owns the engine choice (`/api/engine`) and arduino-cli setup endpoints
 from __future__ import annotations
 
 import codecs
-import contextlib
 import functools
 import io
 import json
@@ -245,7 +244,6 @@ _FBUILD_VL53L1X_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "VL53L1X"
 _VL53L1X_VERSION = "1.3.1"
 _VL53L1X_INCLUDE = "#include <VL53L1X.h>"
 _FBUILD_LV_CONF_PATH = _FBUILD_LVGL_LIB_DIR.parent / "lv_conf.h"
-_FBUILD_OPTIONAL_LIB_STASH_DIR = _FBUILD_PROJECT_DIR / ".optional-libs"
 
 # The custom Display emitter targets this API exactly. Do not float to a branch:
 # LVGL minor releases can change both the public API and the configuration
@@ -381,26 +379,6 @@ def _lv_conf_for_sketch(ino: str) -> str:
     )
     return config
 
-# fbuild currently compiles every library directory under the project's local
-# `lib/`, even when the sketch does not include that library. That makes lazy
-# hardware dependencies contaminate unrelated targets: for example, a SAMD51
-# microphone sketch used to fail inside the previously cached ESP32-audioI2S
-# library. Keep the cache, but expose only the optional libraries named by the
-# current sketch while the (project-wide locked) build runs.
-_FBUILD_OPTIONAL_LIBRARIES = (
-    (_FBUILD_AUDIO_LIB_DIR, ("#include <Audio.h>",)),
-    (_FBUILD_ESP_DMX_LIB_DIR, ("#include <esp_dmx.h>",)),
-    (_FBUILD_HUB75_LIB_DIR, ("#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>",)),
-    (_FBUILD_ZERO_I2S_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
-    # ZeroI2S includes ZeroDMA, so both must enter and leave the local library
-    # search path together.
-    (_FBUILD_ZERO_DMA_LIB_DIR, ("#include <Adafruit_ZeroI2S.h>",)),
-    (_FBUILD_LVGL_LIB_DIR, (_LVGL_INCLUDE_MARKER,)),
-    (_FBUILD_IRREMOTE_LIB_DIR, (_IRREMOTE_INCLUDE,)),
-    (_FBUILD_VL53L0X_LIB_DIR, (_VL53L0X_INCLUDE,)),
-    (_FBUILD_VL53L1X_LIB_DIR, (_VL53L1X_INCLUDE,)),
-)
-
 
 def _remove_build_cache_tree(path: Path) -> None:
     """Remove an exact vendored cache directory, including read-only git packs."""
@@ -410,66 +388,6 @@ def _remove_build_cache_tree(path: Path) -> None:
 
     shutil.rmtree(path, onerror=make_writable_and_retry)
 
-
-def _restore_stranded_fbuild_optional_libraries() -> None:
-    """Recover libraries left staged by a process interrupted mid-build."""
-    if not _FBUILD_OPTIONAL_LIB_STASH_DIR.exists():
-        return
-    local_lib_root = _FBUILD_LIB_DIR.parent
-    local_lib_root.mkdir(parents=True, exist_ok=True)
-    for staged in _FBUILD_OPTIONAL_LIB_STASH_DIR.iterdir():
-        library_dir = local_lib_root / staged.name
-        if staged.is_dir() and not library_dir.exists():
-            staged.rename(library_dir)
-    try:
-        _FBUILD_OPTIONAL_LIB_STASH_DIR.rmdir()
-    except OSError:
-        # A duplicate/stale entry is safer left alone than deleted. It can only
-        # exist after an interrupted/manual cache edit and is outside `lib/`,
-        # so it cannot affect compilation.
-        pass
-
-
-@contextlib.contextmanager
-def _fbuild_libraries_for_sketch(ino: str):
-    """Temporarily hide cached optional libraries unused by this sketch."""
-    _restore_stranded_fbuild_optional_libraries()
-    moved: list[tuple[Path, Path]] = []
-    try:
-        required = {
-            library_dir.resolve()
-            for library_dir, include_markers in _FBUILD_OPTIONAL_LIBRARIES
-            if any(marker in ino for marker in include_markers)
-        }
-        # FastLED is the one universal local dependency. Everything else is a
-        # hardware-specific cache entry and must opt in via a header marker
-        # above. Scanning the directory also quarantines old/transitive entries
-        # from earlier fbuild runs (for example ESP8266Audio), not just the
-        # dependencies this version of the helper knows how to vendor.
-        local_lib_root = _FBUILD_LIB_DIR.parent
-        if not local_lib_root.exists():
-            yield
-            return
-        for library_dir in local_lib_root.iterdir():
-            if (
-                not library_dir.is_dir()
-                or library_dir.resolve() == _FBUILD_LIB_DIR.resolve()
-                or library_dir.resolve() in required
-            ):
-                continue
-            _FBUILD_OPTIONAL_LIB_STASH_DIR.mkdir(parents=True, exist_ok=True)
-            staged = _FBUILD_OPTIONAL_LIB_STASH_DIR / library_dir.name
-            library_dir.rename(staged)
-            moved.append((library_dir, staged))
-        yield
-    finally:
-        for library_dir, staged in reversed(moved):
-            if staged.exists() and not library_dir.exists():
-                staged.rename(library_dir)
-        try:
-            _FBUILD_OPTIONAL_LIB_STASH_DIR.rmdir()
-        except OSError:
-            pass
 
 # arduino-cli FQBN -> PlatformIO platform/board, mirroring `BOARDS` in
 # `src/state/upload/uploadStore.ts`. `psram_memory_type` maps this repo's PSRAM option

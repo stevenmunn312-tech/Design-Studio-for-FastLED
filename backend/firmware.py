@@ -672,18 +672,17 @@ def _compile_upload_fbuild(
             if toolchain._VL53L1X_INCLUDE in ino:
                 yield from toolchain._ensure_fbuild_vl53l1x_lib()
             compile_lines = []
-            with toolchain._fbuild_libraries_for_sketch(ino):
-                toolchain._write_fbuild_main(ino)
-                rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
-                if rc != 0 and not toolchain._build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
-                    # fbuild reuses the now-current archive and completes its own
-                    # link, capacity report and binary generation. Retry once only.
-                    rc = yield from toolchain._run_phase(
-                        f"{label} · compile", [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-                        sink=compile_lines, cwd=toolchain._FBUILD_PROJECT_DIR,
-                    )
-                else:
-                    yield from deferred
+            toolchain._write_fbuild_main(ino)
+            rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
+            if rc != 0 and not toolchain._build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
+                # fbuild reuses the now-current archive and completes its own
+                # link, capacity report and binary generation. Retry once only.
+                rc = yield from toolchain._run_phase(
+                    f"{label} · compile", [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+                    sink=compile_lines, cwd=toolchain._FBUILD_PROJECT_DIR,
+                )
+            else:
+                yield from deferred
             if rc != 0:
                 if _looks_like_overflow(compile_lines):
                     yield _overflow_message(fqbn, compile_lines)

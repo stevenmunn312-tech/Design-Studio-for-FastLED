@@ -1,5 +1,4 @@
 """Bounded Windows response-file recovery for fbuild's LVGL archive command."""
-import contextlib
 import json
 
 import firmware
@@ -70,7 +69,6 @@ def test_response_file_quotes_paths_and_executes_only_fixed_archive_flags(tmp_pa
 
 def test_compile_retries_once_after_archive_recovery(monkeypatch):
     monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
-    monkeypatch.setattr(toolchain, "_fbuild_libraries_for_sketch", lambda ino: contextlib.nullcontext())
     monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args: "test")
     monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
     monkeypatch.setattr(toolchain, "_build_was_cancelled", lambda: False)

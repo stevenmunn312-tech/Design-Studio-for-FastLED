@@ -1,6 +1,5 @@
 """Arduino-IRremote is pinned and stays out of sketches that do not decode IR."""
 
-from contextlib import nullcontext
 from pathlib import Path
 import json
 import subprocess
@@ -113,7 +112,6 @@ def test_compile_upload_fbuild_vendors_irremote_only_when_sketch_includes_it(mon
     monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda fqbn, flash_mb=None, usb_cdc=False: "esp32_esp32_esp32s3")
     monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
     # This orchestration test must not move the developer's real cached libs.
-    monkeypatch.setattr(toolchain, "_fbuild_libraries_for_sketch", lambda ino: nullcontext())
     calls = []
     monkeypatch.setattr(toolchain, "_ensure_fbuild_irremote_lib", lambda: calls.append(1) or iter(()))
 
