@@ -192,9 +192,9 @@ def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) 
 
     if "ram" in kinds:
         body.extend((
-            "  To reduce RAM, use fewer or smaller screens, choose a smaller LVGL\n",
-            "  heap where the screen permits it, or move LED buffers to PSRAM on\n",
-            "  a PSRAM-equipped board. Flash partition schemes do not increase RAM.\n",
+            "  To reduce RAM, use fewer or smaller screens and displays, or move\n",
+            "  LED buffers to PSRAM on a PSRAM-equipped board.\n",
+            "  Flash partition schemes do not increase RAM.\n",
         ))
     if "flash" in kinds:
         body.extend((

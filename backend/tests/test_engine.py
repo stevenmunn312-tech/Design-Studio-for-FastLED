@@ -349,7 +349,7 @@ def test_overflow_message_names_ram_region_bytes_and_ram_remedies():
 
     assert "RAM region `dram0_0_seg` overflowed by 22,496 bytes" in message
     assert "fewer or smaller screens" in message
-    assert "smaller LVGL" in message
+    assert "LVGL" not in message  # its heap size is fixed; there is no setting to suggest
     assert "LED buffers to PSRAM" in message
     assert "Flash partition schemes do not increase RAM" in message
     assert "fewer patterns" not in message
@@ -363,7 +363,7 @@ def test_overflow_message_names_flash_region_bytes_and_flash_remedies():
     assert "FLASH region `text` overflowed by 7,052 bytes" in message
     assert "fewer patterns" in message
     assert "partition scheme with more flash" in message
-    assert "smaller LVGL" not in message
+    assert "fewer or smaller screens" not in message
 
 
 def test_overflow_message_keeps_only_largest_repeat_for_each_region():
