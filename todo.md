@@ -13,8 +13,9 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   bench evidence alongside all of it, then run the release track. Within a
   section, do the items in the order listed. Section 6 waits until after v1.
 - **Engineering items close on software**, plus a compile where the item
-  changes firmware. They do not wait for hardware. Run fixture compiles one at
-  a time; overlapping runs corrupt the arduino-cli cache.
+  changes firmware. They do not wait for hardware. Compiles run on Arduino CLI
+  alone; fbuild is on hold (section 6). Run fixture compiles one at a time;
+  overlapping runs corrupt the arduino-cli cache.
 - **Hardware nobody here owns is not a blocker.** A feature ships marked
   **experimental** in the [support matrix](docs/release/beta-support-matrix.md)
   and graduates when a dated bench row lands, from the maintainer or from
@@ -60,24 +61,6 @@ Compiles owed by features that are already in the app:
   profile for (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nrf5`,
   `stm32f1`): validation accepts them, and nothing compiles them
   ([IR compile record](docs/reports/compile/ir-compile-checks.md#outstanding)).
-- [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)).
-  - Report the RP2040, Renesas and SAMD21 IR failures upstream; all three
-    still fail on 2.5.37.
-  - Add the upstream note that Windows ESP32 builds need
-    `LongPathsEnabled=1`. Every surviving workaround now has an upstream
-    issue: §12 LVGL archive length
-    ([FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656)),
-    §7 ESP8266 `deploy`
-    ([FastLED/fbuild#1657](https://github.com/FastLED/fbuild/issues/1657)) and
-    §5 no size summary on a link overflow
-    ([FastLED/fbuild#1658](https://github.com/FastLED/fbuild/issues/1658)).
-  - Move the four vendored libraries the helper never patches
-    (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) from `lib/` to
-    `lib_deps`. FastLED stays vendored until its SAMD51 patches land upstream
-    (§1).
-  - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
-    fbuild fix lands.
-
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
 - [ ] **D-05 · Hardware expansion.** Candidate families, their order and the
@@ -358,6 +341,27 @@ chooses the supported combinations from whatever is on record at release.
   (whether its left column becomes the sidebar), then its information shelf;
   then Upload's, if it wants one
   ([workspace shelves](docs/plans/workspace-shelves.md#order)).
+
+- [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)). On hold
+  since 2026-10-08: development compiles on Arduino CLI alone, and fbuild stays
+  in the helper untested until the repository matures, which may come before
+  v1. Then rerun every fbuild leg and pick these up:
+  - Report the RP2040, Renesas and SAMD21 IR failures upstream; all three
+    still fail on 2.5.37.
+  - Add the upstream note that Windows ESP32 builds need
+    `LongPathsEnabled=1`. Every surviving workaround now has an upstream
+    issue: §12 LVGL archive length
+    ([FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656)),
+    §7 ESP8266 `deploy`
+    ([FastLED/fbuild#1657](https://github.com/FastLED/fbuild/issues/1657)) and
+    §5 no size summary on a link overflow
+    ([FastLED/fbuild#1658](https://github.com/FastLED/fbuild/issues/1658)).
+  - Move the four vendored libraries the helper never patches
+    (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) from `lib/` to
+    `lib_deps`. FastLED stays vendored until its SAMD51 patches land upstream
+    (§1).
+  - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
+    fbuild fix lands.
 
 ## Completed
 

@@ -4,6 +4,10 @@ Every accommodation `backend/toolchain.py` and `backend/firmware.py` make for th
 exists, and what it costs. Written to be usable as an upstream bug report as well as
 an internal record.
 
+- **On hold since 2026-10-08.** Development and compile evidence use Arduino CLI
+  alone. fbuild stays in the helper with every workaround below, and is tested
+  again once the repository matures; until then nothing here is rerun or filed
+  upstream.
 - **Current repository pin:** 2.5.37 (`backend/requirements.txt` and
   `backend/constraints.txt`), moved from 2.5.26 on 2026-10-07 and validated on
   2026-10-08: every fbuild leg on record built as it did on 2.5.26
