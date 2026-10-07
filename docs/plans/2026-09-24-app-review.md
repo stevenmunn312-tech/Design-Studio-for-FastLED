@@ -480,8 +480,8 @@ verified; adding the UI alone is not completion.
 
     Since fixed: after every widget is deleted while the Controls wire
     remains, Graph Health now offers **Disconnect Controls** (`d710d62c`).
-    Still open: the firmware gate is covered by generated-text tests but has
-    not been compiled; that compile is in the root todo.
+    The firmware gate compiled on a classic ESP32 on 7 October 2026
+    ([compile record](../reports/compile/display-compile-checks.md#captions-and-starts-at-7-october-2026)).
 
 ## 7. Align documentation and complete the product pass
 

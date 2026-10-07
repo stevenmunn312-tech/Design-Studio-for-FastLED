@@ -120,9 +120,11 @@ its loss.
 The LVGL half is covered by `customDisplayLvglCpp.test.ts`, which asserts the
 caption's position and size and that the widget object is offset and shortened
 by the same layout the preview uses. That is a text-level check of generated
-C++. It has not been compiled or seen on a panel, and the fixed-layout
-displays beside it are unaffected, so a captioned screen is the only thing at
-risk. A compile and one photograph would close it.
+C++. A captioned screen compiled on a classic ESP32 on 7 October 2026
+([compile record](../reports/compile/display-compile-checks.md#captions-and-starts-at-7-october-2026)).
+It has not been seen on a panel. The fixed-layout displays beside it are
+unaffected, so a captioned screen is the only thing at risk, and one photograph
+would close it.
 
 ## Checklist
 
@@ -133,4 +135,5 @@ risk. A compile and one photograph would close it.
 - [x] Caption pins its own font size in `customDisplayFontSizes`.
 - [x] A box too short for both reports a layout issue.
 - [x] Show Label checkbox in the designer's inspector.
-- [ ] Bench: a captioned screen compiled and photographed on a panel.
+- [x] Compile: a captioned screen on a classic ESP32, 7 October 2026.
+- [ ] Bench: a captioned screen photographed on a panel.

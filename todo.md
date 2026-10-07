@@ -32,13 +32,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 Compiles owed by features that are already in the app:
 
-- [ ] **Custom-screen captions and the slider level gate.** A captioned
-  screen design and the screen-slider level gate (a level commands nothing
-  until a finger moves it; **Starts at** sets its first value) are asserted
-  only as generated text. Compile one custom-screen fixture holding both on
-  classic ESP32
-  ([on-glass labels](docs/design/on-glass-widget-labels.md#checklist);
-  [app review, item 22](docs/plans/2026-09-24-app-review.md#6-improve-the-screen-designers-starting-experience)).
 - [ ] **Custom boards.** Compile representative normal, slideshow and SD-player
   projects for a 15/15 ESP32 and a 22/22 ESP32-S3 custom board, with custom
   SDA/SCL shared by two I2C devices, and check the generated GPIO numbers
@@ -135,8 +128,9 @@ chooses the supported combinations from whatever is on record at release.
 - **Direct controls:** real touch, panel enable and re-enable, LED and status
   response, and widget feedback during playback, on hardware
   ([design, step 10](docs/design/direct-controls-and-output-status.md#10-verify-the-complete-workflows)).
-- **On-glass labels:** a captioned screen compiled and photographed on a
-  panel, after its compile in section 1.
+- **On-glass labels:** a captioned screen photographed on a panel; it
+  compiled on 7 October 2026
+  ([compile record](docs/reports/compile/display-compile-checks.md#captions-and-starts-at-7-october-2026)).
 - **HW-11 shared bus:** TFT + SD + touch on one bus with audio playing. The CYD
   cannot host this run (its card is on the second SPI host), so it needs another
   rig. All other HW-11 measurements are recorded, and its budgets are set.
@@ -409,8 +403,8 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   ([plan](docs/plans/pattern-node-expansion.md)).
 - **App review, 24 September 2026**: all 24 items and the walkthrough's
   layout and repair findings
-  ([plan](docs/plans/2026-09-24-app-review.md)); its one owed compile is in
-  section 1.
+  ([plan](docs/plans/2026-09-24-app-review.md)), including its level-gate
+  compile on 7 October 2026.
 - **Workspace shelves**: the preview in all four workspaces and the Hardware
   shelf ([plan](docs/plans/workspace-shelves.md)).
 - **Custom boards**: steps 1–8 in software and tests, 2026-10-06

@@ -6,6 +6,9 @@
 > row there uses the same source hash. Two template-control fixtures were added
 > and compiled on Arduino CLI on 26 September; see
 > [Template level-control gates](#template-level-control-gates-26-september-2026).
+> A captioned design with a **Starts at** slider was compiled on a classic ESP32
+> on 7 October; see
+> [Captions and Starts at](#captions-and-starts-at-7-october-2026).
 > See also the
 > [Current-model matrix](#current-model-matrix-21-22-september-2026).
 >
@@ -67,6 +70,12 @@ python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/d
 python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/template-player.ino
 ```
 
+The captioned classic-ESP32 fixture, which needs the classic FQBN and tag:
+
+```powershell
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/classic-caption-level.ino --fqbn esp32:esp32:esp32 --tag classic
+```
+
 The shapes that have no generator of their own but fail in their own ways —
 a TFT with no LED output beside it, a control build with no display half, a
 panel switched off, two panels each showing their own design, and every
@@ -97,10 +106,11 @@ python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/displa
 ```
 
 The other advertised board. A classic ESP32 is a different chip family with no
-PSRAM and a much smaller internal RAM ceiling, so its fixture carries the fixed
-display layouts only — no custom screen, because a 64 KiB LVGL heap does not
-fit beside FastLED there (HW-25). Pass its FQBN and a `--tag`, which keeps the
-report beside the S3 one instead of overwriting it:
+PSRAM and a much smaller internal RAM ceiling. This fixture carries the fixed
+display layouts only; classic-ESP32 custom screens are covered by the CYD and
+`classic-caption-level` fixtures, since HW-25 showed the LVGL heap fits there.
+Pass its FQBN and a `--tag`, which keeps the report beside the S3 one instead
+of overwriting it:
 
 ```powershell
 python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/classic-esp32-fixed.ino --fqbn esp32:esp32:esp32 --tag classic
@@ -176,6 +186,32 @@ The initial runs exposed these gaps, now covered by regression tests:
   ports moved to the paired Touch node. `scripts/compile-fixtures/display.ts` then
   refused the show sketch. The fixtures mint a `TouchInput` per touch
   panel; `assertWireable` holds the cables to what the editor can draw.
+
+## Captions and Starts at, 7 October 2026
+
+`classic-caption-level` compiles on-glass captions and the slider level gate in
+one sketch. It puts **LED Performance** on the ESP32-2432S028R's 240×320 panel,
+a classic ESP32, with **Show Label** turned on for every slider and numeric
+readout. A single Touch Controls wire drives the LED output. Before writing the
+sketch, the generator checks four things in it: the Brightness and Frame rate
+captions, Brightness's **Starts at** of full as both its initial value and its
+slider position, and that Brightness is applied only inside its `taps > 0`
+gate. The sketch also captions Speed.
+
+It passed on Arduino CLI 1.5.1 with ESP32 core 3.3.11, FastLED 3.10.5 and
+LVGL 9.5.0, targeting `esp32:esp32:esp32` with the helper's `huge_app`
+partition setting. The build took 1 h 29 min, about 80 minutes of it in
+library detection. The runner process ended before it wrote its JSON report. The result here comes
+from the build log, whose compiled sketch matches the regenerated fixture
+byte for byte, except for line endings.
+
+| Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| Captioned LED Performance → LED output | `d0e8f059fe36` | Passed | 599,531 (19%) | 104,236 (31%) |
+
+This closes the compile half of the on-glass label checklist. Whether the
+captions fit and read well on the panel still needs a photograph from a bench
+run.
 
 ## Template level-control gates, 26 September 2026
 

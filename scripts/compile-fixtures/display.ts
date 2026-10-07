@@ -514,9 +514,26 @@ const templatePlayerEdges = [
   edge('player', 'display', 'custom-tft', 'display'),
   edge('custom-tft-touch', 'controls', 'player', 'controls'),
 ]
+// Compile captions, Starts at and the untouched-level gate together on the
+// classic ESP32. Keep the existing template fixtures unchanged for their hashes.
+const captionLevelDocument = applyDisplayTemplate(createDisplayDocument('caption-level', 240, 320), 'led-performance')
+for (const widget of captionLevelDocument.widgets) {
+  if (widget.type === 'Slider' || widget.type === 'Numeric Readout') widget.properties.showLabel = true
+}
+const captionLevelNodes = [
+  cydBoard(), cydStrip(), cydPanel({
+    displayId: captionLevelDocument.displayId, widgetSources: displayWidgetSources(captionLevelDocument),
+  }), touch('panel'), node('fill', 'SolidColor'),
+]
+const captionLevelEdges = [
+  edge('fill', 'frame', 'out', 'frame'),
+  edge('out', 'display', 'panel', 'display'),
+  edge('panel-touch', 'controls', 'out', 'controls'),
+]
 for (const [name, graph, documents] of [
   ['template-led', { nodes: templateLedNodes, edges: templateLedEdges }, { 'led-screen': ledPerformanceDocument }],
   ['template-player', { nodes: templatePlayerNodes, edges: templatePlayerEdges }, { 'player-screen': minimalTransportDocument }],
+  ['classic-caption-level', { nodes: captionLevelNodes, edges: captionLevelEdges }, { 'caption-level': captionLevelDocument }],
 ] as const) {
   try {
     assertWireable(graph.nodes, graph.edges, documents)
@@ -585,6 +602,7 @@ const sketches: Record<string, string> = {
   'template-player': buildShowPlayer(templatePlayerNodes, templatePlayerEdges, groups, {
     ...displayOptions({ 'player-screen': minimalTransportDocument }), patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
   } as never),
+  'classic-caption-level': generateCpp(captionLevelNodes, captionLevelEdges, {}, displayOptions({ 'caption-level': captionLevelDocument })),
 }
 
 /*
@@ -608,6 +626,7 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   'cyd-run2': { nodes: cydShowNodes, edges: cydShowEdges },
   'template-led': { nodes: templateLedNodes, edges: templateLedEdges },
   'template-player': { nodes: templatePlayerNodes, edges: templatePlayerEdges },
+  'classic-caption-level': { nodes: captionLevelNodes, edges: captionLevelEdges },
 }
 for (const [name, graph] of Object.entries(fixtureGraphs)) {
   const conflicts = findPinConflicts(graph.nodes)
@@ -665,6 +684,12 @@ const requiredSymbols: Record<string, readonly string[]> = {
   telemetry: ['void _telReport() {', 'FLS_STAT uptime=', '_telTouchPress();', 'drawbuf=',
     'Serial.begin(115200)'],
   'classic-esp32-fixed': ['_tftClockValid_classic_tft', '_oledBeginI2c', 'SEG_KIND_TM1637'],
+  'classic-caption-level': [
+    'lv_label_set_text(_cdCaption_caption_level_1, "Brightness")',
+    'lv_label_set_text(_cdCaption_caption_level_5, "Frame rate")',
+    '_cd_caption_level[1].floatValue = 1.0f;',
+    'lv_slider_set_value(_cd_caption_level[1].object, 10000, LV_ANIM_OFF)',
+  ],
 }
 
 for (const [name, symbols] of Object.entries(requiredSymbols)) {
@@ -674,7 +699,7 @@ for (const [name, symbols] of Object.entries(requiredSymbols)) {
   }
 }
 if (sketches.headless.includes('#include <lvgl.h>')) throw new Error('headless.ino unexpectedly includes LVGL')
-for (const [name, field] of [['template-led', 'Brightness'], ['template-player', 'Volume']] as const) {
+for (const [name, field] of [['template-led', 'Brightness'], ['template-player', 'Volume'], ['classic-caption-level', 'Brightness']] as const) {
   // The field is set only inside `if (<taps> > 0) {`, never at rest.
   const gated = new RegExp(String.raw`if \(([^
 ]*) > 0\) \{
