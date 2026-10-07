@@ -200,10 +200,10 @@ gate. The sketch also captions Speed.
 
 It passed on Arduino CLI 1.5.1 with ESP32 core 3.3.11, FastLED 3.10.5 and
 LVGL 9.5.0, targeting `esp32:esp32:esp32` with the helper's `huge_app`
-partition setting. The build took 1 h 29 min, about 80 minutes of it in
-library detection. The runner process ended before it wrote its JSON report. The result here comes
-from the build log, whose compiled sketch matches the regenerated fixture
-byte for byte, except for line endings.
+partition setting. The runner then failed before writing its JSON report,
+because of a defect since fixed in `003be694`. The result here comes from the
+build log, whose compiled sketch matches the regenerated fixture byte for byte,
+except for line endings.
 
 | Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | ---: | ---: |
