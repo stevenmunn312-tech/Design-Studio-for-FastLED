@@ -69,7 +69,7 @@ export interface Board {
 // fbuild/PlatformIO board id couldn't be verified against a real toolchain in
 // this environment; fbuild is expected to work for all of them via
 // `_PIO_BOARDS` in `backend/toolchain.py` — arduino-cli may not
-// for the STM32/Zero entries flagged below.
+// for the Zero entry flagged below.
 export const BOARDS: Board[] = [
   { label: 'ESP32-S3',      fqbn: 'esp32:esp32:esp32s3',   core: 'esp32:esp32',   thirdParty: true,
     psram: [
@@ -173,11 +173,10 @@ export const BOARDS: Board[] = [
   { label: 'Adafruit Feather M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_feather_m4', core: 'adafruit:samd', thirdParty: true },
   { label: 'Adafruit Grand Central M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_grandcentral_m4', core: 'adafruit:samd', thirdParty: true },
   { label: 'Adafruit Matrix Portal M4 (SAMD51)', fqbn: 'adafruit:samd:adafruit_matrixportal_m4', core: 'adafruit:samd', thirdParty: true },
-  // STM32duino's Arduino core needs a `pnum` FQBN sub-option to pick the exact
-  // chip variant (e.g. `:pnum=BLUEPILL_F103C8`), which this app doesn't set —
-  // so the arduino-cli engine likely can't build these as-is. fbuild (the
-  // preferred engine) builds them directly via `_PIO_BOARDS` in
-  // `backend/toolchain.py`, which is the reliable path for this group.
+  // These ids are PlatformIO's, which fbuild builds directly. STM32duino's
+  // Arduino core has no board by these names: it takes a series board and the
+  // chip as a `pnum` menu value (`GenF4:pnum=BLACKPILL_F411CE`), which
+  // `_arduino_fqbn` in `backend/toolchain.py` substitutes for arduino-cli.
   { label: 'STM32F103C8 (Blue Pill, experimental)', fqbn: 'STMicroelectronics:stm32:bluepill_f103c8', core: 'STMicroelectronics:stm32', thirdParty: true },
   { label: 'STM32F411CE (Black Pill, experimental)', fqbn: 'STMicroelectronics:stm32:blackpill_f411ce', core: 'STMicroelectronics:stm32', thirdParty: true },
   { label: 'Nucleo F429ZI (experimental)', fqbn: 'STMicroelectronics:stm32:nucleo_f429zi', core: 'STMicroelectronics:stm32', thirdParty: true },

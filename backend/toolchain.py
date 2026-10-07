@@ -534,10 +534,25 @@ _PIO_BOARDS: dict[str, dict] = {
         "platform": "atmelsam", "board": "adafruit_matrixportal_m4",
         "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51J19A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
     },
-    "STMicroelectronics:stm32:bluepill_f103c8": {"platform": "ststm32", "board": "bluepill_f103c8"},
-    "STMicroelectronics:stm32:blackpill_f411ce": {"platform": "ststm32", "board": "blackpill_f411ce"},
-    "STMicroelectronics:stm32:nucleo_f429zi": {"platform": "ststm32", "board": "nucleo_f429zi"},
-    "STMicroelectronics:stm32:nucleo_f439zi": {"platform": "ststm32", "board": "nucleo_f439zi"},
+    # STM32duino names no board by these ids: arduino-cli picks a series board
+    # (GenF1, GenF4, Nucleo_144) and the chip by its `pnum` menu value.
+    # `_arduino_fqbn` swaps them in; the app and fbuild keep the short ids.
+    "STMicroelectronics:stm32:bluepill_f103c8": {
+        "platform": "ststm32", "board": "bluepill_f103c8",
+        "arduino_board": "STMicroelectronics:stm32:GenF1", "arduino_options": {"pnum": "BLUEPILL_F103C8"},
+    },
+    "STMicroelectronics:stm32:blackpill_f411ce": {
+        "platform": "ststm32", "board": "blackpill_f411ce",
+        "arduino_board": "STMicroelectronics:stm32:GenF4", "arduino_options": {"pnum": "BLACKPILL_F411CE"},
+    },
+    "STMicroelectronics:stm32:nucleo_f429zi": {
+        "platform": "ststm32", "board": "nucleo_f429zi",
+        "arduino_board": "STMicroelectronics:stm32:Nucleo_144", "arduino_options": {"pnum": "NUCLEO_F429ZI"},
+    },
+    "STMicroelectronics:stm32:nucleo_f439zi": {
+        "platform": "ststm32", "board": "nucleo_f439zi",
+        "arduino_board": "STMicroelectronics:stm32:Nucleo_144", "arduino_options": {"pnum": "NUCLEO_F439ZI"},
+    },
     "arduino:renesas_uno:unor4wifi": {"platform": "renesas-ra", "board": "uno_r4_wifi"},
     "adafruit:nrf52:pca10056": {"platform": "nordicnrf52", "board": "nrf52840_dk"},
 }
@@ -717,6 +732,10 @@ def _arduino_fqbn(
     ``FlashSize``, ``PartitionScheme`` and ``CDCOnBoot`` menu values appended to
     the FQBN. Only combinations declared in ``_PIO_BOARDS`` are applied, so an
     unknown module is never guessed to have more flash than its board manifest.
+
+    A board whose arduino-cli id differs from the app's (``arduino_board``)
+    is renamed here, with the menu values that select it (``arduino_options``),
+    such as the ``pnum`` STM32duino needs to know the chip.
     """
     base, psram_id = _parse_fqbn(fqbn)
     meta = _PIO_BOARDS.get(base)
@@ -730,7 +749,7 @@ def _arduino_fqbn(
     # huge_app.csv default so audio-heavy ESP32 sketches are not constrained by
     # Arduino's 1.31 MB dual-OTA slot. A physical flash/PSRAM variant below may
     # replace this with the board core's size-specific menu choice.
-    resolved: dict[str, str] = {}
+    resolved: dict[str, str] = dict(meta.get("arduino_options", {}))
     psram_meta = meta.get("psram_memory_type", {}).get(psram_id)
     if psram_meta:
         resolved.update(psram_meta.get("arduino_options", {}))
@@ -752,6 +771,7 @@ def _arduino_fqbn(
         else:
             option_indexes[key] = len(options)
             options.append(encoded)
+    base = meta.get("arduino_board", base)
     return f"{base}:{','.join(options)}" if options else base
 
 

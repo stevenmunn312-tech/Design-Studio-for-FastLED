@@ -125,6 +125,18 @@ def test_arduino_fqbn_replaces_stale_physical_options_without_duplicates():
     )
 
 
+def test_arduino_fqbn_names_the_stm32duino_board_and_chip():
+    assert toolchain._arduino_fqbn("STMicroelectronics:stm32:blackpill_f411ce") == (
+        "STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F411CE"
+    )
+    # A menu value the caller already set is kept beside the chip.
+    assert toolchain._arduino_fqbn("STMicroelectronics:stm32:bluepill_f103c8:usb=CDCgen") == (
+        "STMicroelectronics:stm32:GenF1:usb=CDCgen,pnum=BLUEPILL_F103C8"
+    )
+    # fbuild keeps the app's id, which is a PlatformIO board.
+    assert toolchain._fbuild_env_for_fqbn("STMicroelectronics:stm32:nucleo_f429zi") is not None
+
+
 def test_arduino_fqbn_does_not_invent_flash_for_an_unknown_board():
     fqbn = "someone:elses:board:PSRAM=opi"
     assert toolchain._arduino_fqbn(fqbn, 16, True) == fqbn
