@@ -6,7 +6,9 @@
 > Renesas, and SAMD21. STM32 builds only on fbuild, because the app's STM32
 > FQBNs carry no stm32duino `pnum` (see `src/state/upload/uploadStore.ts`). This file
 > is the evidence for D-05a step 13 in [todo.md](../../../todo.md), closed
-> 2026-09-23 with the fbuild legs below left to upstream fixes. It is compile evidence only, so every IR
+> 2026-09-23 with the fbuild legs below left to upstream fixes. Every fbuild leg
+> was rechecked on fbuild 2.5.37 on 8 October 2026; the same three still fail
+> ([fbuild 2.5.37 recheck](#fbuild-2537-recheck-8-october-2026)). It is compile evidence only, so every IR
 > combination stays experimental in the
 > [beta support matrix](../../release/beta-support-matrix.md) until a bench row
 > exists.
@@ -41,6 +43,41 @@ The runner compiles through the helper's own `_compile_upload` or
 report holds the source SHA-256, the toolchain, the pinned IRremote version and
 the flash/RAM figures. `backend/sketches/` is gitignored, so the tables below
 are the durable record.
+
+## fbuild 2.5.37 recheck, 8 October 2026
+
+All seventeen fbuild legs ran in one `compile-matrix.py` run on fbuild 2.5.37,
+after the pin moved from 2.5.26. Every leg that passed on 2.5.26 passes. RP2040,
+Renesas and SAMD21 fail as before, for the reasons in [Findings](#findings).
+The sources changed since the tables below for every fixture except `no-ir`
+(the noise-tolerant repeat handling of 4 October), so most size differences
+are not fbuild's.
+
+| Fixture | Target (FQBN) | Source SHA-256 | Result | Flash | RAM | Δ flash | Δ RAM |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| normal | `esp32:esp32:esp32s3` | `a59d39f138aa` | pass | 726,231 | 80,681 | +1,024 | +297 |
+| slideshow | `esp32:esp32:esp32s3` | `6510b10fb7e7` | pass | 732,119 | 81,009 | +1,055 | +297 |
+| player | `esp32:esp32:esp32s3` | `e7b9ff4658d6` | pass | 1,363,149 | 95,498 | +0 | +41 |
+| learn | `esp32:esp32:esp32s3` | `a2c93b554e87` | pass | 383,416 | 74,312 | −229,694 | −962 |
+| normal | `esp32:esp32:esp32` | `a59d39f138aa` | pass | 623,350 | 28,652 | +195 | +21 |
+| slideshow | `esp32:esp32:esp32` | `6510b10fb7e7` | pass | 630,149 | 28,846 | +225 | +20 |
+| player | `esp32:esp32:esp32` | `e7b9ff4658d6` | pass | 1,289,748 | 43,018 | +0 | +123 |
+| no-ir | `esp32:esp32:esp32` | `401d7057dea5` | pass | 603,791 | 27,576 | +0 | +0 |
+| normal | `arduino:avr:uno` | `a59d39f138aa` | pass | 9,001 | 999 | +236 | +14 |
+| normal | `arduino:megaavr:nona4809` | `a59d39f138aa` | pass | 10,117 | 1,475 | +235 | +11 |
+| normal | `esp8266:esp8266:nodemcuv2` | `a59d39f138aa` | pass | 271,155 | 29,133 | +194 | +21 |
+| normal | `teensy:avr:teensy41` | `a59d39f138aa` | pass | 74,752 | 83,292 | +0 | +0 |
+| normal | `STMicroelectronics:stm32:blackpill_f411ce` | `a59d39f138aa` | pass | 35,717 | 5,222 | +133 | +20 |
+| normal | `rp2040:rp2040:rpipico` | `a59d39f138aa` | **fail** (as before) | — | — | | |
+| normal | `arduino:renesas_uno:unor4wifi` | `a59d39f138aa` | **fail** (as before) | — | — | | |
+| normal | `adafruit:samd:adafruit_feather_m0` | `a59d39f138aa` | **fail** (as before) | — | — | | |
+| no-ir | `adafruit:samd:adafruit_feather_m0` | `401d7057dea5` | **fail** (as before) | — | — | | |
+
+Deltas are against each leg's previous fbuild 2.5.26 report. `no-ir`, with an
+unchanged source, is byte-identical. The `learn` sketch is 229,694 bytes
+smaller. The display record's `isolated-tft`, whose Arduino CLI build did not
+change, shrank by a similar 230,041 bytes on fbuild 2.5.37, so the drop is
+almost certainly fbuild's.
 
 ## ESP32-S3 capture, 3 October 2026
 

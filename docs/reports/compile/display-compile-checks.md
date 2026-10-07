@@ -1,16 +1,13 @@
 # Display firmware compile checks
 
-> **Evidence for the current model.** The twelve-fixture base matrix was
-> regenerated and compiled on both engines on 21–22 September 2026, including
-> the newer parallel-interface catalogue fixture. Every Arduino CLI and fbuild
-> row there uses the same source hash. Two template-control fixtures were added
-> and compiled on Arduino CLI on 26 September; see
-> [Template level-control gates](#template-level-control-gates-26-september-2026).
-> A captioned design with a **Starts at** slider was compiled on a classic ESP32
-> on 7 October; see
-> [Captions and Starts at](#captions-and-starts-at-7-october-2026).
-> See also the
-> [Current-model matrix](#current-model-matrix-21-22-september-2026).
+> **Evidence for the current model.** All nineteen fixtures passed on Arduino
+> CLI on 8 October 2026, and the twelve-fixture fbuild half passed on fbuild
+> 2.5.37, at matching source hashes and with LVGL's pool taken from the heap; see
+> [Current-model matrix, 8 October 2026](#current-model-matrix-8-october-2026).
+> The sections after it are earlier, dated runs: the
+> [21–22 September matrix](#current-model-matrix-21-22-september-2026), the
+> [template level-control gates](#template-level-control-gates-26-september-2026)
+> and [captions and Starts at](#captions-and-starts-at-7-october-2026).
 >
 > Earlier runs are not reproduced here. They were built from sketches that no
 > longer regenerate, so their sizes cannot be tied to anything in the tree and
@@ -49,6 +46,13 @@ installed:
 
 ```powershell
 npm run gen:compile-fixtures -- display
+```
+
+To regenerate and compile every fixture below on both engines, one at a time,
+with a summary:
+
+```powershell
+python scripts/compile-fixtures/compile-matrix.py --only display/
 ```
 
 The three generator paths, on both engines:
@@ -187,6 +191,57 @@ The initial runs exposed these gaps, now covered by regression tests:
   refused the show sketch. The fixtures mint a `TouchInput` per touch
   panel; `assertWireable` holds the cables to what the editor can draw.
 
+## Current-model matrix, 8 October 2026
+
+Every fixture passed: all nineteen on Arduino CLI, and the twelve-fixture fbuild
+half on fbuild 2.5.37, each pair at the same source hash. The run used
+`scripts/compile-fixtures/compile-matrix.py`, which regenerates the fixtures and
+compiles them one at a time. Toolchains: Arduino CLI 1.5.1 with ESP32 core
+3.3.11, FastLED 3.10.5, LVGL 9.5.0 and player audio 3.0.12; fbuild 2.5.37 with
+its vendored FastLED, LVGL and player audio. Classic-ESP32 rows target
+`esp32:esp32:esp32` (`@classic`, `@cyd`); the rest target the ESP32-S3 N16R8
+FQBN above. Byte counts are comparable across engines; percentages are not.
+
+| Fixture | Source SHA-256 | Arduino flash | Arduino RAM | fbuild flash | fbuild RAM |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `normal` | `fb96e5ca5822` | 647,283 | 40,236 | 934,871 | 95,662 |
+| `show` | `62462eeeb3c6` | 649,383 | 40,444 | 938,158 | 96,123 |
+| `player` | `2bc21cf1713c` | 1,327,083 | 56,180 | 1,604,321 | 110,899 |
+| `isolated-tft` | `e70f5afca18c` | 300,932 | 22,904 | 365,220 | 74,435 |
+| `headless` | `88aa1b09ef70` | 427,151 | 27,636 | 710,922 | 80,691 |
+| `disabled` | `1ce0d4108ea9` | 640,611 | 39,964 | 928,205 | 95,386 |
+| `multi-panel` | `1ee69b337cd5` | 642,999 | 49,780 | 930,570 | 105,206 |
+| `part-families` | `781dc1fef25a` | 472,403 | 37,660 | 761,129 | 94,106 |
+| `part-families-i2c` | `ad3768ea7483` | 460,311 | 31,012 | 746,322 | 87,398 |
+| `part-parallel` | `b1b57bdf89c0` | 440,071 | 27,860 | 726,333 | 83,456 |
+| `telemetry` | `b159f465471a` | 651,731 | 40,284 | 939,059 | 95,703 |
+| `classic-esp32-fixed@classic` | `58f09c6b0749` | 428,039 | 31,396 | 643,430 | 31,375 |
+| `template-led` | `140bb3b04cb5` | 618,783 | 38,844 | not run | not run |
+| `template-player` | `0e4d34530851` | 1,325,555 | 54,532 | not run | not run |
+| `classic-caption-level@classic` | `5600eff0f1ab` | 599,655 | 38,700 | not run | not run |
+| `cyd-run1@cyd` | `d6762d2f2acb` | 417,215 | 27,700 | not run | not run |
+| `cyd-custom@cyd` | `42696f510807` | 615,931 | 39,868 | not run | not run |
+| `cyd-custom-telemetry@cyd` | `13b4b9e5de37` | 631,099 | 39,940 | not run | not run |
+| `cyd-run2@cyd` | `a5fdb9784a46` | 637,655 | 40,600 | not run | not run |
+
+Against the previous report for each fixture:
+
+- **Every custom-screen fixture with a previous report is about 64 KiB lower in
+  static RAM** on both engines (65,474–65,888 bytes), because ESP32 builds now
+  take LVGL's pool from the heap. Free heap after `lv_init()` should be
+  unchanged; the CYD re-measure is owed (root todo, section 4).
+- **Fixtures without a custom screen did not change:** `headless`,
+  `part-families-i2c`, `part-parallel` and `classic-esp32-fixed` are
+  byte-identical on both engines, `isolated-tft` on Arduino CLI, and
+  `part-families` is 8 bytes smaller on Arduino CLI only.
+- **fbuild 2.5.37 builds `isolated-tft` 230,041 bytes smaller** than 2.5.26 did
+  (365,220 against 595,261), with RAM 983 bytes lower. The Arduino CLI build is
+  byte-identical to September's, so the change is fbuild's. The cause was not
+  isolated; 2.5.28 changed which framework libraries a build selects.
+- fbuild still needed the helper's response-file recovery to archive LVGL on
+  `normal`, `player` and `disabled`
+  ([FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656)).
+
 ## Captions and Starts at, 7 October 2026
 
 `classic-caption-level` compiles on-glass captions and the slider level gate in
@@ -241,7 +296,7 @@ was not run for these two fixtures in this check.
 
 <a id="current-model-matrix-21-22-september-2026"></a>
 
-## Current-model matrix, 21–22 September 2026
+## Matrix, 21–22 September 2026
 
 All twelve fixtures passed on both engines at the matching source hashes shown
 below. The Arduino CLI half was recorded first with Arduino CLI 1.5.1, ESP32

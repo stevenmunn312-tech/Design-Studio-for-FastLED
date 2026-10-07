@@ -35,10 +35,6 @@ Compiles owed by features that are already in the app:
 - [ ] **Wired Ethernet on the remaining targets.** ESP32-S2 and S3, an ESP32-C3
   sharing its SPI bus with a panel, and fbuild. Classic ESP32 and a C3 on its
   own bus already pass ([design](docs/design/wired-ethernet.md#not-done)).
-- [ ] **VL53L0X and VL53L1X through fbuild.** The backend's vendoring path for
-  the pinned Pololu libraries is covered by tests only; one real fbuild build
-  of each closes it
-  ([support matrix](docs/release/beta-support-matrix.md#experimental-until-validated)).
 - [ ] **Teensy PWM branch.** The power-switch dimming shim's Teensy branch is
   the only branch not compiled, because no Teensy core is installed
   ([power-switch compile record](docs/reports/compile/power-switch-compile-checks.md)).
@@ -65,9 +61,12 @@ Compiles owed by features that are already in the app:
   `stm32f1`): validation accepts them, and nothing compiles them
   ([IR compile record](docs/reports/compile/ir-compile-checks.md#outstanding)).
 - [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)).
-  - Validate the 2.5.37 pin with `compile-matrix.py --engine fbuild`, record
-    the result in the runbook's upgrade record, then remove the §10
-    library-hiding workaround if every leg passes.
+  - Test removing the §10 library-hiding workaround: rerun
+    `compile-matrix.py --engine fbuild` with the hiding off. The 2.5.37
+    validation run on 2026-10-08 kept it on, so it says nothing about §10
+    ([runbook](docs/runbooks/fbuild-workarounds.md#upgrade-record-to-2537)).
+  - Report the RP2040, Renesas and SAMD21 IR failures upstream; all three
+    still fail on 2.5.37.
   - Add the upstream note that Windows ESP32 builds need
     `LongPathsEnabled=1`. Every surviving workaround now has an upstream
     issue: §12 LVGL archive length

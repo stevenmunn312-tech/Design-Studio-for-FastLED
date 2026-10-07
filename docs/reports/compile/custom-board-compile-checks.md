@@ -1,8 +1,10 @@
 # Custom-board compile checks
 
-> **Status: all six pass, 7 October 2026.** The classic-ESP32 SD player first
-> overflowed static RAM. It links since LVGL's pool moved to the heap; see
-> [After the LVGL pool fix](#after-the-lvgl-pool-fix-7-october-2026).
+> **Status: all six pass on both engines, 8 October 2026**; see
+> [Both engines, 8 October 2026](#both-engines-8-october-2026). The
+> classic-ESP32 SD player first overflowed static RAM and links since LVGL's
+> pool moved to the heap
+> ([After the LVGL pool fix](#after-the-lvgl-pool-fix-7-october-2026)).
 > This is compile evidence only. No custom layout
 > has been compared against a real board's documented pinout, so the custom
 > board stays experimental in the
@@ -174,6 +176,28 @@ Compile evidence does not show that the pool can be allocated at boot.
 At `lv_init()` on a classic ESP32 the largest free internal block should be
 well over 64 KiB, but that is owed a bench check: the CYD's free heap and a
 custom screen starting there.
+
+## Both engines, 8 October 2026
+
+All twelve legs passed in one `compile-matrix.py` run, each fixture at the
+same source hash on both engines: Arduino CLI 1.5.1 as above, and fbuild
+2.5.37. This is the first fbuild build of five of the six fixtures. The fbuild
+half needed the helper's response-file recovery for the LVGL archive on
+`esp32-normal`, `esp32-player`, `esp32s3-normal` and `esp32s3-player`
+([FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656)).
+
+| Fixture | Source SHA-256 | Arduino flash | Arduino RAM | fbuild flash | fbuild RAM |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `esp32-normal` | `30c2380d1412` | 609,943 | 41,756 | 820,183 | 41,759 |
+| `esp32-show` | `81d74b4a5fd4` | 615,891 | 41,960 | 826,849 | 41,953 |
+| `esp32-player` | `8684082642a5` | 1,299,347 | 59,172 | 1,488,978 | 56,340 |
+| `esp32s3-normal` | `49e78656c00d` | 639,143 | 41,620 | 927,754 | 98,068 |
+| `esp32s3-show` | `cca684d1931d` | 643,763 | 41,700 | 933,530 | 98,417 |
+| `esp32s3-player` | `dbd68d2fc4f9` | 1,317,839 | 57,044 | 1,604,321 | 112,783 |
+
+Three Arduino CLI rows ran with the LVGL pool fix for the first time:
+`esp32-show`, `esp32s3-normal` and `esp32s3-show`. Each is exactly 65,536
+bytes lower in static RAM than in the first results table above.
 
 ## What this establishes
 

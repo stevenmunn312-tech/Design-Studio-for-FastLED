@@ -1,7 +1,8 @@
 # VL53L0X compile checks
 
 > **Status: complete.** The normal, slideshow, player and no-laser guard sketches
-> passed on classic ESP32 on 1 October 2026. This is compile evidence only; the
+> passed on classic ESP32 on 1 October 2026, and the normal sketch on fbuild on
+> 8 October. This is compile evidence only; the
 > VL53L0X remains experimental in the
 > [support matrix](../../release/beta-support-matrix.md) until its recorded bench run
 > exists.
@@ -45,9 +46,9 @@ runs at once, or a run killed part-way, leave a truncated cached object that
 fails the next link with `ld: final link failed: file truncated`. The player
 build takes several minutes.
 
-The compiles used arduino-cli, which installs the library. The backend's fbuild
-path, which vendors the library from GitHub, is covered by tests of its calls and
-was not run against a real build.
+The 1 October compiles used arduino-cli, which installs the library. On 8 October
+the normal sketch also passed on fbuild, which vendors the pinned library from
+GitHub; see [fbuild, 8 October 2026](#fbuild-8-october-2026).
 
 ## Results, 1 October 2026
 
@@ -66,3 +67,12 @@ and `no-laser` `7285b779`.
 
 The normal laser graph uses 30,796 bytes more flash and 1,440 bytes more static
 RAM than the no-laser guard.
+
+## fbuild, 8 October 2026
+
+`normal` (`8c1c6b940422`, the same source as the table above) passed on fbuild 2.5.37
+for `esp32:esp32:esp32` in a `compile-matrix.py` run. The helper vendored
+Pololu VL53L0X 1.3.1 into fbuild's `lib/` and the build compiled it: 634,696 /
+3,145,728 bytes flash (20%) and 29,010 / 327,680 bytes static RAM (9%). This
+closes the fbuild vendoring path, which was covered only by tests before. The
+slideshow and player sketches were not built on fbuild.

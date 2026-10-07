@@ -773,8 +773,8 @@ Unless a future row says otherwise, treat the following as experimental:
   8190 mm or more is the library's "nothing in range" and Distance holds its last
   good value. The normal, slideshow and player sketches
   [compile on classic ESP32](../reports/compile/vl53l0x-compile-checks.md), but no
-  reading has been compared with a tape measure on any board, and the backend's
-  fbuild vendoring path is covered by tests only, not by a real build. The 3 to 12%
+  reading has been compared with a tape measure on any board. The normal sketch
+  also builds on fbuild 2.5.37 through its vendoring path. The 3 to 12%
   accuracy depends on the target and the light. Two sensors on one bus would need
   their SHDN pins driven separately; the app offers no way to do that. Graduation
   needs a dated row naming the board/FQBN, the I2C pins and the build engine, with
@@ -790,7 +790,8 @@ Unless a future row says otherwise, treat the following as experimental:
   status, and otherwise holds the last good distance. An absent sensor fails its start-up
   at once, with no stall, and one that stops answering for a second is set up again. The
   normal, slideshow and player sketches
-  [compile on classic ESP32](../reports/compile/vl53l1x-compile-checks.md), but no reading
+  [compile on classic ESP32](../reports/compile/vl53l1x-compile-checks.md), the normal
+  one on fbuild 2.5.37 too, but no reading
   has been compared with a tape measure on any board, and the render is modelled from the
   listing, not a board file, so its header position and component placement are
   approximate. Two sensors on one bus would need their XSHUT pins driven separately; the
