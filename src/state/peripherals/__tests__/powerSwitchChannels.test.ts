@@ -158,6 +158,8 @@ describe('Mosfetti firmware', () => {
     expect(cpp).toContain('flsPwmBegin(16, 2, 1000);')
     expect(cpp).toContain('flsPwmBegin(18, 3, 1000);')
     expect(cpp).toContain('analogWriteFreq(500);')
+    // Teensy tunes per timer, so it takes the slower frequency on every pin too.
+    expect(cpp).toContain('analogWriteFrequency(pin, 500);')
     expect(cpp.match(/static void flsPwmBegin/g)).toHaveLength(1)
   })
 })

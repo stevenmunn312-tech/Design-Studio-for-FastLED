@@ -13,7 +13,9 @@
  * built with the lowest any dimmed part in the sketch asks for. Slower is the
  * safe direction: the LR7843's gate drive loses more to switching as the
  * frequency rises, while the Mosfetti's GPIO-driven gate is as happy at
- * 500 Hz as at 1 kHz.
+ * 500 Hz as at 1 kHz. Teensy takes the same frequency: it sets one per timer,
+ * and pins on a shared timer would otherwise run at whichever part started
+ * last, which could be the LR7843 at 1 kHz.
  *
  * On ESP32 core 2 each channel is chosen by the caller (`powerSwitchPwmPlan`).
  * Core 3 assigns its own and ignores the argument.
@@ -35,8 +37,10 @@ static void flsPwmBegin(uint8_t pin, uint8_t channel, uint32_t hz) {
   analogWriteFreq(${Math.round(sharedHz)});
   analogWriteRange(255);
 #elif defined(TEENSYDUINO)
-  (void)channel;
-  analogWriteFrequency(pin, hz);
+  // One frequency per timer here, and the generator does not know which pins
+  // share one: the slowest part's, as above.
+  (void)channel; (void)hz;
+  analogWriteFrequency(pin, ${Math.round(sharedHz)});
 #else
   (void)pin; (void)channel; (void)hz;
 #endif
