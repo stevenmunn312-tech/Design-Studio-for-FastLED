@@ -754,6 +754,18 @@ the hiding turned off, so every vendored library under `lib/` is present for
 every leg. The upstream walk is textual and can over-select: a header named in
 an inactive `#if` arm of FastLED can still pull a library in.
 
+**One §10 probe, 2026-10-08.** The IR `normal` fixture for `arduino:avr:uno` was
+built once on 2.5.37 with the hiding replaced by a no-op (tag `avr-nohide`),
+so `lib/` held ESP32-audioI2S, ESP32-HUB75-MatrixPanel-DMA, Adafruit_ZeroDMA,
+Adafruit_ZeroI2S, ESP8266Audio, LVGL, VL53L0X, VL53L1X and IRremote beside
+FastLED. It passed, byte-identical to the hidden run (9,001 bytes flash, 999
+RAM, same source hash). The only library fbuild compiled was FastLED (IRremote
+is header-only). The Uno build tree still held an `Adafruit_ZeroDMA` directory
+from 2026-09-03, compiled for an Uno under the old behaviour. This is the
+riskiest shape, a non-ESP32 target beside ESP32-only and SAMD-only libraries,
+but it is one target. Before removing the hiding, run the other fbuild legs
+without it.
+
 | Our issue | Upstream change | Version | What to do after validation |
 |---|---|---|---|
 | §10 every `lib/` directory compiled | Only libraries the sketch's include walk reaches are compiled ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Not yet testable: the 2026-10-08 run kept the hiding on. Remove it after a run with hiding off passes |
