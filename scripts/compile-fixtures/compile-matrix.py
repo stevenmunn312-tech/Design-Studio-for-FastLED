@@ -150,6 +150,8 @@ def plan() -> list[Leg]:
         *ethernet_legs("fbuild"),
         *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
         *power_switch_legs("arduino-cli"),
+        # The STM32 leg checks the series board and pnum _arduino_fqbn substitutes.
+        *(leg for leg in ir_legs("arduino-cli") if leg.tag == "stm32"),
     ]
 
 
