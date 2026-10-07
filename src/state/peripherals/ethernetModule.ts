@@ -1,4 +1,4 @@
-import type { BuildTargetFamily } from '../../build/buildProfile'
+import { targetFamilyFromFqbn, type BuildTargetFamily } from '../../build/buildProfile'
 import type { StudioNode } from '../graphStore'
 import { partById, type PartEthernetSpec } from '../../build/parts/partCatalogue'
 
@@ -76,4 +76,13 @@ const ETHERNET_SPI_HOST: Partial<Record<BuildTargetFamily, EthernetSpiHost>> = {
 
 export function ethernetSpiHost(family: BuildTargetFamily): EthernetSpiHost | null {
   return ETHERNET_SPI_HOST[family] ?? null
+}
+
+/**
+ * The host for the selected board. With no board chosen yet the module is
+ * assumed to have a host of its own, so pin checks and Ethernet validation
+ * agree before and after a board is picked.
+ */
+export function ethernetSpiHostForFqbn(selectedFqbn: string): EthernetSpiHost | null {
+  return selectedFqbn ? ethernetSpiHost(targetFamilyFromFqbn(selectedFqbn)) : 'dedicated'
 }

@@ -13,6 +13,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/build/pins/busTopology.ts` declares each pin's kind and role and derives the
   bus *instance* from the pins themselves, and both `validateGraph.ts` and the
   Graph Health drawer call its one `findPinCollisions`.
+- A role that depends on the board is resolved in `collectPinUses` from the
+  selected FQBN (the wired-Ethernet module's bus lines are shareable SPI lines
+  only on a one-host chip), so any collision check has to pass the FQBN
+  through. One that omits it judges the board as unchosen, and on a C3 that
+  once refused the very bus sharing Ethernet validation required.
 - `assignPartPins`' refusal (`noPinReason` in `src/build/parts/partPinAssignment.ts`)
   speaks in the board's own words only when the profile states a pad allowlist
   (`pinSafety.safeGeneralPurpose`): it names which spare pins are held and by

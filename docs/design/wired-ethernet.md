@@ -54,8 +54,12 @@ Two rules are load-bearing:
   exists (classic ESP32, S2, S3) the module gets `SPIClass(HSPI)` and its pins
   are its own. The C3 and C6 have one general-purpose host, so the module shares
   `SPI`, and validation requires its SCLK and MOSI to match any SPI panel's.
-  It is also why `busTopology.ts` gives the bus lines no shared SPI role:
-  they default to exclusive pins. ESP8266 and non-Espressif targets are refused.
+  The pin-collision walk follows the same rule: `collectPinUses` gives the
+  module's SCLK, MOSI, MISO and SCNn SPI roles only on a one-host chip, so a
+  panel may share the bus lines there but needs its own chip select, and on a
+  chip with a second host every module pin stays exclusive. Both read
+  `ethernetSpiHostForFqbn`, which treats an unchosen board as one with a
+  second host. ESP8266 and non-Espressif targets are refused.
 - **The interface starts in `setup()`, before the Art-Net socket opens.**
   `ETH.begin` creates the network interface the socket binds to. Starting it
   does not wait for a cable or an address.

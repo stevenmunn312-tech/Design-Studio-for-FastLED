@@ -69,7 +69,7 @@ import {
 import {
   MPR121_PART_ID, formatTouchPadAddress, touchPadAddress, touchPadElectrodeCount,
 } from '../state/peripherals/touchPad'
-import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec } from '../state/peripherals/ethernetModule'
+import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
 import {
   DIRECT_PIXEL_DATA_LINK,
@@ -387,16 +387,23 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'PresenceInput':
         push(node, `${baseLabel} RX pin`, 'rxPin', props.rxPin)
         break
-      // Its own SPI bus plus three control lines; see state/peripherals/ethernetModule.ts
-      // for why the bus is not shared with a colour panel's.
-      case 'EthernetModule':
-        push(node, `${baseLabel} SCLK`, 'sckPin', props.sckPin)
-        push(node, `${baseLabel} MOSI`, 'mosiPin', props.mosiPin)
-        push(node, `${baseLabel} MISO`, 'misoPin', props.misoPin)
-        push(node, `${baseLabel} SCNn`, 'csPin', props.csPin)
+      // An SPI bus plus two control lines. Where the chip gives the module an
+      // SPI host of its own, the bus lines are its alone; on a one-host chip it
+      // shares `SPI` with any colour panel, so they are SPI lines the panel
+      // also drives (see state/peripherals/ethernetModule.ts).
+      case 'EthernetModule': {
+        const shared = ethernetSpiHostForFqbn(selectedFqbn) === 'shared'
+        const line = (label: string, key: string, role: BusAssignment['role']) => shared
+          ? pushBus(node, `${baseLabel} ${label}`, key, props[key], { kind: 'spi', role })
+          : push(node, `${baseLabel} ${label}`, key, props[key])
+        line('SCLK', 'sckPin', 'sck')
+        line('MOSI', 'mosiPin', 'mosi')
+        line('MISO', 'misoPin', 'miso')
+        line('SCNn', 'csPin', 'cs')
         push(node, `${baseLabel} INTn`, 'intPin', props.intPin)
         push(node, `${baseLabel} RSTn`, 'resetPin', props.resetPin)
         break
+      }
       // One pin whatever the remote has: the receiver demodulates every key
       // onto the same line, so the learned buttons cost no GPIO of their own.
       case 'IRRemoteInput':

@@ -85,8 +85,7 @@ import {
 } from '../state/peripherals/irRemote'
 import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
-import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHost } from '../state/peripherals/ethernetModule'
-import { targetFamilyFromFqbn } from '../build/buildProfile'
+import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -922,9 +921,9 @@ function i2cDevices(nodes: StudioNode[]) {
  * pin *is* lives in build/pins/busTopology.ts; this function only formats the
  * verdict.
  */
-export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = []): string[] {
+export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = [], selectedFqbn = ''): string[] {
   const shared = deliberatelySharedPinUses(nodes, edges)
-  const uses = collectPinUses(nodes)
+  const uses = collectPinUses(nodes, selectedFqbn)
   const conflicts = findPinCollisions(uses, shared).map(pinCollisionMessage)
   const addresses = findI2cAddressCollisions(i2cDevices(nodes)).map(addressCollisionMessage)
   return [...conflicts, ...addresses].sort()
@@ -1624,7 +1623,7 @@ export function findDeployBlockingErrors(
     .filter((message) => !displayIssues.errors.includes(message))
 
   return [
-    ...findPinConflicts(nodes, edges),
+    ...findPinConflicts(nodes, edges, selectedFqbn),
     ...findOutputResourceErrors(nodes),
     ...findMatrixLayoutErrors(nodes),
     ...findPixelDataExtenderErrors(nodes),
@@ -1907,7 +1906,7 @@ function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
     })
     return issues
   }
-  const host = selectedFqbn ? ethernetSpiHost(targetFamilyFromFqbn(selectedFqbn)) : 'dedicated'
+  const host = ethernetSpiHostForFqbn(selectedFqbn)
   if (host === null) {
     issues.push({
       id: `${module.id}-board-ethernet`, severity: 'error', category: 'board',
@@ -3357,7 +3356,7 @@ export function buildGraphDiagnostics(
   // same data once and drifted apart, leaving this drawer calling a
   // deliberately shared pin an error after findPinConflicts had stopped.
   const sharedPinUses = deliberatelySharedPinUses(nodes, edges)
-  for (const collision of findPinCollisions(collectPinUses(nodes), sharedPinUses)) {
+  for (const collision of findPinCollisions(collectPinUses(nodes, options.selectedFqbn ?? ''), sharedPinUses)) {
     const uses = collision.uses
     diagnostics.push({
       id: `pin-${collision.pin}`, severity: 'error', category: 'pins',

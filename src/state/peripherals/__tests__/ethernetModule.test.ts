@@ -182,6 +182,34 @@ describe('Ethernet validation', () => {
     // A chip with a second host gives the module its own bus.
     expect(spiIssue(findDeployBlockingErrors(apart.nodes, apart.edges, 'esp32:esp32:esp32'))).toBe(false)
   })
+
+  it('on a one-host chip, accepts the shared bus lines the panel check asks for', () => {
+    // The panel check and the pin-collision walk once disagreed: sharing SCLK
+    // and MOSI satisfied one and was a collision to the other, so no C3 with
+    // a panel and a module could ever deploy.
+    const panel = node('tft', 'TransportDisplay', { sckPin: 4, mosiPin: 6, csPin: 1, dcPin: 0, resetPin: 9, backlightPin: 8 })
+    const shared = artNetGraph([ethernet({ sckPin: 4, mosiPin: 6, misoPin: 5, csPin: 7, intPin: 10, resetPin: 3 }), panel])
+    shared.nodes.find((entry) => entry.id === 'out')!.data.properties.dataPin = 2
+    const fqbn = 'esp32:esp32:esp32c3'
+    expect(findDeployBlockingErrors(shared.nodes, shared.edges, fqbn)).toEqual([])
+    const pinErrors = buildGraphDiagnostics(shared.nodes, shared.edges, { selectedFqbn: fqbn })
+      .filter((issue) => issue.category === 'pins' && issue.severity === 'error')
+    expect(pinErrors).toEqual([])
+    // Each device still needs its own chip select on the shared bus.
+    const sameSelect = artNetGraph([ethernet({ sckPin: 4, mosiPin: 6, misoPin: 5, csPin: 1, intPin: 10, resetPin: 3 }), panel])
+    expect(findDeployBlockingErrors(sameSelect.nodes, sameSelect.edges, fqbn)
+      .some((message) => message.includes('chip select for more than one device'))).toBe(true)
+  })
+
+  it('with a host of its own, refuses the module sharing a panel bus line', () => {
+    // The module is on HSPI and the panel on SPI, so one GPIO would carry two
+    // peripherals' clocks.
+    const panel = node('tft', 'TransportDisplay', { sckPin: 18, mosiPin: 23 })
+    const { nodes, edges } = artNetGraph([ethernet({ sckPin: 18, mosiPin: 23 }), panel])
+    const errors = findDeployBlockingErrors(nodes, edges, 'esp32:esp32:esp32')
+    expect(errors.some((message) => message.startsWith('GPIO 18 ') && message.includes(' SCLK'))).toBe(true)
+    expect(errors.some((message) => message.startsWith('GPIO 23 ') && message.includes(' MOSI'))).toBe(true)
+  })
 })
 
 describe('Ethernet on the Build Diagram', () => {

@@ -65,10 +65,10 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const ram = useMemo(() => estimateFirmwareRam(nodes, edges, displayDocuments), [nodes, edges, displayDocuments])
   const refresh = useMemo(() => estimateLedRefreshTime(nodes, edges), [nodes, edges])
   const pinTrouble = useMemo(() => {
-    const conflicts = findPinConflicts(nodes, edges)
+    const conflicts = findPinConflicts(nodes, edges, selectedFqbn)
     const exact = findExactBoardPinIssues(nodes)
     return { errors: conflicts.length + exact.errors.length, warnings: exact.warnings.length }
-  }, [nodes, edges])
+  }, [nodes, edges, selectedFqbn])
 
   const board = boardByFqbn(selectedFqbn)
   const capacity = summarizeCapacity(board, capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError)
