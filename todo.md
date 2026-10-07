@@ -47,14 +47,12 @@ feature's fixtures compile on Arduino CLI as of 8 October 2026.
   which is modelled but undriven (`CATALOGUE_ONLY_DISPLAY_PART_IDS` in
   `src/build/parts/partCatalogue.ts`): most ESP32-2432S028 units ship that
   controller.
-- [ ] **STM32 on arduino-cli.** STM32duino needs a `pnum` FQBN sub-option that
-  the app never sets (`src/state/upload/uploadStore.ts`), so those boards build
-  on fbuild only. Add it, then compile the IR fixture on STM32 under
-  arduino-cli. Decide at the same time what validation does with the
-  architectures the pinned IRremote release declares but Studio has no board
-  profile for (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nrf5`,
-  `stm32f1`): validation accepts them, and nothing compiles them
-  ([IR compile record](docs/reports/compile/ir-compile-checks.md#outstanding)).
+- [ ] **IR architectures nobody compiles.** STM32 now builds on Arduino CLI
+  ([IR compile record](docs/reports/compile/ir-compile-checks.md#stm32-on-arduino-cli-8-october-2026)).
+  Decide what validation does with the architectures the pinned IRremote
+  release declares but Studio has never compiled (`mbed`, `mbed_nano`,
+  `mbed_rp2040`, `riscv`, `nrf5`, `stm32f1`): validation accepts them today.
+
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
 - [ ] **D-05 · Hardware expansion.** Candidate families, their order and the

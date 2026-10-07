@@ -3,8 +3,9 @@
 > **Status: complete, except where fbuild itself is blocked.** Every board
 > family IR claims has at least one passing engine. Three fbuild legs cannot
 > run because fbuild fails on a board core before it reaches IR code: RP2040,
-> Renesas, and SAMD21. STM32 builds only on fbuild, because the app's STM32
-> FQBNs carry no stm32duino `pnum` (see `src/state/upload/uploadStore.ts`). This file
+> Renesas, and SAMD21. STM32 builds on both engines since 8 October 2026,
+> when the helper began giving arduino-cli the STM32duino board and `pnum`
+> ([STM32 on Arduino CLI](#stm32-on-arduino-cli-8-october-2026)). This file
 > is the evidence for D-05a step 13 in [todo.md](../../../todo.md), closed
 > 2026-09-23 with the fbuild legs below left to upstream fixes. Every fbuild leg
 > was rechecked on fbuild 2.5.37 on 8 October 2026; the same three still fail
@@ -78,6 +79,22 @@ unchanged source, is byte-identical. The `learn` sketch is 229,694 bytes
 smaller. The display record's `isolated-tft`, whose Arduino CLI build did not
 change, shrank by a similar 230,041 bytes on fbuild 2.5.37, so the drop is
 almost certainly fbuild's.
+
+## STM32 on Arduino CLI, 8 October 2026
+
+The app names STM32 boards by their PlatformIO ids, which STM32duino does not
+have. `_arduino_fqbn` in `backend/toolchain.py` now hands arduino-cli the
+series board and chip instead, from `_PIO_BOARDS`, so
+`STMicroelectronics:stm32:blackpill_f411ce` builds as
+`STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F411CE`. The leg runs in
+`compile-matrix.py` (`--only @stm32`).
+
+| Fixture | Target (FQBN) | Core | Source SHA-256 | Result | Flash | RAM |
+| --- | --- | --- | --- | --- | ---: | ---: |
+| normal | `STMicroelectronics:stm32:blackpill_f411ce` | 2.12.0 | `a59d39f138aa` | pass | 25,428 / 524,288 (4%) | 3,716 / 131,072 (2%) |
+
+Toolchain: arduino-cli 1.5.1. The same source is 35,717 bytes of flash on
+fbuild 2.5.37, which builds a different core release.
 
 ## ESP32-S3 capture, 3 October 2026
 
@@ -177,7 +194,7 @@ Source hashes: `normal` `aaf9974c`, `slideshow` `1cc80143`, `player`
 | normal | `teensy:avr:teensy41` (1.62.0) | arduino-cli | pass | not reported | not reported |
 | normal | `teensy:avr:teensy41` | fbuild | pass | 74,752 | 83,292 |
 | normal | `STMicroelectronics:stm32:blackpill_f411ce` | fbuild | pass | 35,584 | 5,202 |
-| normal | `STMicroelectronics:stm32:blackpill_f411ce` | arduino-cli | not buildable (no `pnum`, see above) | — | — |
+| normal | `STMicroelectronics:stm32:blackpill_f411ce` | arduino-cli | not buildable then (no `pnum`; passes since 8 October, see below) | — | — |
 | normal | `arduino:renesas_uno:unor4wifi` | fbuild | **fail** (fbuild's Renesas core, see below) | — | — |
 | normal | `adafruit:samd:adafruit_feather_m0` | fbuild | **fail** (SAMD21 unsupported under fbuild, see below) | — | — |
 | no-ir | `adafruit:samd:adafruit_feather_m0` | fbuild | **fail** (same, without IR) | — | — |
@@ -225,7 +242,6 @@ Trigger and Step Value the IR graph also carries.
 ## Outstanding
 
 - The fbuild legs for RP2040, Renesas and SAMD21, each after its fbuild fix.
-- STM32 on Arduino CLI, once the app gives STM32 boards a `pnum`.
 - Architectures the pinned release declares that Studio has no board profile
   for (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nrf5`, `stm32f1`) are
   accepted by validation but not compiled here.
