@@ -61,10 +61,6 @@ Compiles owed by features that are already in the app:
   `stm32f1`): validation accepts them, and nothing compiles them
   ([IR compile record](docs/reports/compile/ir-compile-checks.md#outstanding)).
 - [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)).
-  - Test removing the §10 library-hiding workaround: rerun
-    `compile-matrix.py --engine fbuild` with the hiding off. The 2.5.37
-    validation run on 2026-10-08 kept it on, so it says nothing about §10
-    ([runbook](docs/runbooks/fbuild-workarounds.md#upgrade-record-to-2537)).
   - Report the RP2040, Renesas and SAMD21 IR failures upstream; all three
     still fail on 2.5.37.
   - Add the upstream note that Windows ESP32 builds need

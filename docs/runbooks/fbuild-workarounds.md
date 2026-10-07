@@ -48,7 +48,7 @@ an internal record.
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — [#1657](https://github.com/FastLED/fbuild/issues/1657), filed 2026-10-07; ESP8266 still has no deployer on upstream `main` as of 2.5.37 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
-| 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **Fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); remove the workaround after a 2.5.37 run with the hiding off passes |
+| 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **No — fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); workaround removed 2026-10-08 |
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | Yes — [#1656](https://github.com/FastLED/fbuild/issues/1656), filed 2026-10-07; `archive_objects` on upstream `main` is unchanged as of 2.5.37 |
 
@@ -610,7 +610,10 @@ self-contained: fbuild states both the no-op match and its own elapsed time.
 
 ## 10. Every directory under `lib/` is compiled, whether the sketch uses it or not
 
-**Reported upstream 2026-09-03 as [#1410](https://github.com/FastLED/fbuild/issues/1410).**
+**Fixed upstream in 2.5.28 ([#1473](https://github.com/FastLED/fbuild/pull/1473)); workaround
+removed 2026-10-08.** Reported 2026-09-03 as [#1410](https://github.com/FastLED/fbuild/issues/1410).
+The removal rests on the 2.5.37 validation run and one Uno build with every vendored
+library left in `lib/`; see the [2.5.37 upgrade record](#upgrade-record-to-2537).
 
 **Symptom.** fbuild compiles every local library directory in the project, not the ones
 the sketch's include graph reaches. Re-confirmed on 2.5.21 (2026-09-03) with an AVR build
@@ -638,9 +641,10 @@ not project-local directories under `lib/`.
 **Impact.** Hardware-specific libraries contaminate unrelated targets: one cached ESP32
 or SAMD library makes every other board's build fail.
 
-**Workaround.** `_fbuild_libraries_for_sketch` renames every optional library out of
-`lib/` for the duration of a build and back afterwards, keyed on the include markers the
-sketch actually contains. FastLED is the one permanent resident.
+**Workaround (removed 2026-10-08).** `_fbuild_libraries_for_sketch` renamed every
+optional library out of `lib/` for the duration of a build and back afterwards, keyed on
+the include markers the sketch contained. FastLED was the one permanent resident. The
+code is in Git history.
 
 **Upstream ask.** Compile the libraries the include graph reaches. Issue #205's
 "eager compilation of all framework libraries" describes this for *framework* libraries
@@ -747,12 +751,10 @@ results are in the
 [IR](../reports/compile/ir-compile-checks.md#fbuild-2537-recheck-8-october-2026) and
 VL53L0X/VL53L1X compile records.
 
-**§10 is not validated by that run.** The helper's library hiding was active
-throughout, so fbuild's own library selection never saw an unused library. To
-test removing the workaround, rerun `compile-matrix.py --engine fbuild` with
-the hiding turned off, so every vendored library under `lib/` is present for
-every leg. The upstream walk is textual and can over-select: a header named in
-an inactive `#if` arm of FastLED can still pull a library in.
+**§10 was not validated by that run.** The helper's library hiding was active
+throughout, so fbuild's own library selection never saw an unused library.
+The upstream walk is textual and can over-select: a header named in an
+inactive `#if` arm of FastLED can still pull a library in.
 
 **One §10 probe, 2026-10-08.** The IR `normal` fixture for `arduino:avr:uno` was
 built once on 2.5.37 with the hiding replaced by a no-op (tag `avr-nohide`),
@@ -763,12 +765,12 @@ RAM, same source hash). The only library fbuild compiled was FastLED (IRremote
 is header-only). The Uno build tree still held an `Adafruit_ZeroDMA` directory
 from 2026-09-03, compiled for an Uno under the old behaviour. This is the
 riskiest shape, a non-ESP32 target beside ESP32-only and SAMD-only libraries,
-but it is one target. Before removing the hiding, run the other fbuild legs
-without it.
+but it is one target. The hiding was removed on 2026-10-08 on that evidence; the
+next `compile-matrix.py --engine fbuild` run is the first full run without it.
 
 | Our issue | Upstream change | Version | What to do after validation |
 |---|---|---|---|
-| §10 every `lib/` directory compiled | Only libraries the sketch's include walk reaches are compiled ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Not yet testable: the 2026-10-08 run kept the hiding on. Remove it after a run with hiding off passes |
+| §10 every `lib/` directory compiled | Only libraries the sketch's include walk reaches are compiled ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Removed 2026-10-08, after the probe below |
 | §11 oversize build reports success | Oversize flash fails, checked against the ESP32 app partition; RAM overflow fails only on AVR ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Keep our refusal for ESP32 RAM |
 | Ignored version pins ([#1407](https://github.com/FastLED/fbuild/issues/1407)) | Ignored pins now warn in the build output; registry pins are honoured across ESP32, ARM, AVR and ESP8266 | 2.5.28–2.5.30 | A pinned newer Renesas core may unblock the IR Renesas leg; untested |
 | §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; reported as [#1656](https://github.com/FastLED/fbuild/issues/1656) |
