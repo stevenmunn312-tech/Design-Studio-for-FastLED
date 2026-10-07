@@ -19,10 +19,9 @@ include: both chips are driven through their registers over `Wire`.
 
 These compile fixtures cover the normal sketch generator. The slideshow and
 SD-player paths, with an INA219 and an INA226 driving an OLED and the Power
-Monitor custom screen, compiled on 7 October 2026 in the
-[custom-board compile checks](custom-board-compile-checks.md): the slideshow on
-classic ESP32 and ESP32-S3, the SD player on ESP32-S3 only. The classic-ESP32
-SD player overflowed static RAM there.
+Monitor custom screen, compiled on 7 October 2026 on classic ESP32 and
+ESP32-S3 in the [custom-board compile checks](custom-board-compile-checks.md).
+The classic-ESP32 SD player needed the LVGL pool fix recorded there.
 
 ## Reproduce
 

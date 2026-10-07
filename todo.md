@@ -75,17 +75,6 @@ Compiles owed by features that are already in the app:
     (§1).
   - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
     fbuild fix lands.
-- [ ] **Classic-ESP32 SD player with a custom screen overflows static RAM.**
-  The custom-board `esp32-player` fixture fails to link, 136 bytes over
-  `dram0_0_seg` (124,580 bytes). LVGL's fixed 64 KiB pool sits in `.bss`
-  beside the panel draw buffer, the provisioning block and the Wi-Fi stack the
-  audio library links. Proposed fix: allocate the pool from the heap at
-  `lv_init` (`LV_MEM_POOL_ALLOC`), which moves it out of the static segment
-  without changing total free heap. Check where an ESP32-S3 with PSRAM places
-  it, recompile the CYD and classic fixtures, and re-measure free heap on the
-  CYD. Separately, the **Too big** advice in `backend/firmware.py` suggests a
-  smaller LVGL heap, which the app has no setting for
-  ([compile record](docs/reports/compile/custom-board-compile-checks.md#classic-esp32-sd-player-does-not-fit)).
 
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
@@ -137,6 +126,11 @@ chooses the supported combinations from whatever is on record at release.
   rig. All other HW-11 measurements are recorded, and its budgets are set.
 - **HW-12 CYD:** the three generators' touch paths on the unit; onboard RGB LED
   and light-sensor pins.
+- **LVGL pool from heap:** on the CYD, a custom screen still starts and free
+  heap after `lv_init()` matches the earlier runs, now that ESP32 takes LVGL's
+  64 KiB pool from internal heap
+  ([compile record](docs/reports/compile/custom-board-compile-checks.md#after-the-lvgl-pool-fix-7-october-2026);
+  [bench runs](docs/development/testing/display-budget-bench.md)).
 - **XC4630 parallel panel:** on an ESP32-S3 N16R8 the LEDs work but the panel
   has never drawn, so its touch is unjudged. Next step: instrument the
   generated `setup()` with serial markers and read the last one
@@ -409,7 +403,7 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 - **Workspace shelves**: the preview in all four workspaces and the Hardware
   shelf ([plan](docs/plans/workspace-shelves.md)).
 - **Custom boards**: steps 1–8 in software and tests, 2026-10-06
-  ([design](docs/design/custom-board-pin-layouts.md)); compiled 2026-10-07
-  except the classic-ESP32 SD player, which is in section 2
+  ([design](docs/design/custom-board-pin-layouts.md)); compiled 2026-10-07,
+  the classic-ESP32 SD player after LVGL's pool moved to the heap
   ([compile record](docs/reports/compile/custom-board-compile-checks.md));
   bench is in section 4.

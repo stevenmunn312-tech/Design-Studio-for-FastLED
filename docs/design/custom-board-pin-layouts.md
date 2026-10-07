@@ -406,6 +406,7 @@ The implementation is covered by focused suites beside each layer:
 parts list) and `CustomBoardEditor.test.tsx` (Apply, Cancel, pinout). The
 editor, workbench, pinout and Build Diagram were also exercised in the browser
 preview. Normal, show and SD-player projects for both boards were compiled on
-7 October 2026; all but the classic-ESP32 SD player passed
+7 October 2026; all passed, the classic-ESP32 SD player after LVGL's pool
+moved to the heap
 ([compile record](../reports/compile/custom-board-compile-checks.md)). No
 physical-board verification has been performed.

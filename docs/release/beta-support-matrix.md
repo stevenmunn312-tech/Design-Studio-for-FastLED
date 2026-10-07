@@ -418,8 +418,8 @@ Unless a future row says otherwise, treat the following as experimental:
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom
   layout has yet been compared against a real board or flashed on the bench.
-  Representative ESP32 and ESP32-S3 projects compile, except a classic-ESP32
-  SD player with a custom screen, which overflows static RAM
+  Representative normal, slideshow and SD-player projects compile on ESP32
+  and ESP32-S3
   ([compile record](../reports/compile/custom-board-compile-checks.md)). Its
   build settings are those of the chosen template's module.
 - All LED chipsets except the recorded WS2812B row above.

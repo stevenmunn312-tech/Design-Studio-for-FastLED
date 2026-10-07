@@ -1,8 +1,8 @@
 # Custom-board compile checks
 
-> **Status: five of six pass, 7 October 2026.** The classic-ESP32 SD player
-> overflows static RAM; see
-> [Classic ESP32 SD player does not fit](#classic-esp32-sd-player-does-not-fit).
+> **Status: all six pass, 7 October 2026.** The classic-ESP32 SD player first
+> overflowed static RAM. It links since LVGL's pool moved to the heap; see
+> [After the LVGL pool fix](#after-the-lvgl-pool-fix-7-october-2026).
 > This is compile evidence only. No custom layout
 > has been compared against a real board's documented pinout, so the custom
 > board stays experimental in the
@@ -94,6 +94,8 @@ or two at once, leaves a truncated cached object that fails the next link.
 Toolchain: arduino-cli 1.5.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0
 and the pinned player audio library 3.0.12. The classic ESP32 builds use the
 helper's `huge_app` partition setting. The fixtures ran serially, ESP32 first.
+This first run predates the LVGL pool fix, so LVGL's pool is static RAM in
+every row.
 
 | Fixture | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
 | --- | --- | --- | ---: | ---: |
@@ -108,7 +110,7 @@ The ESP32 normal and show builds compiled before the runner fix in `003be694`,
 so they have no JSON report; their rows come from the build logs. The later
 rows match their JSON reports.
 
-### Classic ESP32 SD player does not fit
+### The classic ESP32 SD player did not fit
 
 `esp32-player` compiled every object and failed at link:
 `region 'dram0_0_seg' overflowed by 136 bytes`. On classic ESP32 that region
@@ -128,19 +130,57 @@ DevKit with the same graph should overflow the same way; that was not compiled.
 This is the first classic-ESP32 SD player with a custom screen in any compile
 record. The fixed LVGL pool takes more than half of the static segment, which
 leaves a player with a custom screen little room: this graph, with an OLED
-beside the panel, is 136 bytes over. The helper catches the overflow and reports it as **Too big** with advice. One line
-of that advice, "choose a smaller LVGL heap where the screen permits it", names
-a setting the app does not have: `LV_MEM_SIZE` is fixed at 64 KiB in
-`backend/toolchain.py`.
+beside the panel, is 136 bytes over. The helper caught the overflow and
+reported it as **Too big**, but one line of its advice, "choose a smaller LVGL
+heap where the screen permits it", named a setting the app does not have.
 
 The same graph on the ESP32-S3, which has more internal RAM, linked with
 122,580 bytes of static RAM.
+
+## After the LVGL pool fix, 7 October 2026
+
+On ESP32, the helper's `lv_conf.h` now has `lv_init()` take LVGL's 64 KiB pool
+from internal heap (`LV_MEM_POOL_ALLOC` with `MALLOC_CAP_INTERNAL`) instead of
+a static array. The pool is still in internal RAM, so free heap after
+`lv_init()` should be unchanged. Generated sketches check for a free block
+before `lv_init()` and stop with a console message if there is none. The
+message goes through the ROM's `esp_rom_printf`: a first build that used
+`Serial` added 10,300 bytes of UART driver to the normal sketch, which had no
+other serial use. The **Too big** advice no longer mentions an LVGL heap
+setting.
+
+The fixtures were regenerated, so their source hashes changed. The normal
+sketch covers the normal generator's init path; the SD player covers the path
+the generative show shares. Same toolchain as above; fbuild 2.5.26 for the
+fbuild row. Its LVGL archive came from an earlier fbuild build of this change,
+which needed the helper's response-file workaround for archiving LVGL on
+Windows ([runbook §12](../../runbooks/fbuild-workarounds.md)).
+
+| Fixture | Engine | Source SHA-256 | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | --- | ---: | ---: |
+| `esp32-normal` | arduino-cli | `30c2380d1412` | Passed | 609,943 (19%) | 41,756 (12%) |
+| `esp32-player` | arduino-cli | `8684082642a5` | Passed | 1,299,347 (41%) | 59,172 (18%) |
+| `esp32-player` | fbuild | `8684082642a5` | Passed | 1,488,978 (36% of 4 MB) | 56,340 (17%) |
+| `esp32s3-player` | arduino-cli | `dbd68d2fc4f9` | Passed | 1,317,839 (41%) | 57,044 (17%) |
+
+The linker maps confirm the move. `work_mem_int` is gone from both player
+builds, and the classic player's `.dram0.bss` is exactly 65,536 bytes smaller.
+Static RAM fell by exactly 65,536 bytes for the classic normal sketch (from
+107,292) and the S3 player (from 122,580). The free-block check costs 120 bytes
+of flash in the normal sketch and 152 in the S3 player. The fbuild row compiles
+the same `lv_conf.h` on the second engine.
+
+Compile evidence does not show that the pool can be allocated at boot.
+At `lv_init()` on a classic ESP32 the largest free internal block should be
+well over 64 KiB, but that is owed a bench check: the CYD's free heap and a
+custom screen starting there.
 
 ## What this establishes
 
 On both targets, custom SDA/SCL reach a single `Wire.begin` shared by three
 I2C devices, and the generated GPIOs are the Arduino numbers the Build Diagram
-draws. The normal sketch and the generative show compile on both boards, and
-the SD player compiles on the ESP32-S3. The Power Monitor's readouts compile in
-the generative show on both targets and in the SD player on the ESP32-S3. The
-custom layouts have not been compared against a physical board.
+draws. The normal sketch, the generative show and the SD player compile on
+both boards, the classic-ESP32 SD player only with the LVGL pool fix. The
+Power Monitor's readouts compile in the generative show and the SD player on
+both targets. The custom layouts have not been compared against a physical
+board.
