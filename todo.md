@@ -68,11 +68,12 @@ Compiles owed by features that are already in the app:
   - Validate the 2.5.37 pin with `compile-matrix.py --engine fbuild`, record
     the result in the runbook's upgrade record, then remove the §10
     library-hiding workaround if every leg passes.
-  - Report the workarounds that have no upstream issue yet: no size summary
-    on a hard linker overflow (§5) and `deploy` unimplemented for ESP8266
-    (§7). Add the note that Windows ESP32 builds need `LongPathsEnabled=1`.
-    The LVGL archive command-length failure (§12) is
-    [FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656).
+  - Report the one workaround with no upstream issue yet: no size summary on
+    a hard linker overflow (§5). Add the note that Windows ESP32 builds need
+    `LongPathsEnabled=1`. The LVGL archive command-length failure (§12) is
+    [FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656) and
+    ESP8266 `deploy` (§7) is
+    [FastLED/fbuild#1657](https://github.com/FastLED/fbuild/issues/1657).
   - Move the four vendored libraries the helper never patches
     (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) from `lib/` to
     `lib_deps`. FastLED stays vendored until its SAMD51 patches land upstream

@@ -46,7 +46,7 @@ an internal record.
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
 | 5 | No size summary on hard linker overflow | **2.5.26** | Parse `ld` + `Memory:` lines | Yes — re-confirmed 2026-09-22 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
-| 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — re-confirmed 2026-09-22 |
+| 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — [#1657](https://github.com/FastLED/fbuild/issues/1657), filed 2026-10-07; ESP8266 still has no deployer on upstream `main` as of 2.5.37 |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **Fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); remove the workaround once the 2.5.37 matrix passes |
@@ -304,6 +304,11 @@ problem is fixed* when RAM had merely stopped being measurable.
 ---
 
 ## 7. `deploy` is unimplemented for platforms fbuild can compile
+
+**Reported upstream 2026-10-07 as [#1657](https://github.com/FastLED/fbuild/issues/1657).**
+On upstream `main` as of 2.5.37, the daemon's deploy dispatch
+(`crates/fbuild-daemon/src/handlers/operations/deploy.rs`) has no `Espressif8266`
+arm, though fbuild's CI builds ESP8266 successfully.
 
 **Re-confirmed on 2.5.26 (2026-09-22).** A non-destructive deploy against
 `COM255` reached the platform dispatcher and failed with exactly `deployer for
@@ -742,7 +747,8 @@ workaround.
 | §11 oversize build reports success | Oversize flash fails, checked against the ESP32 app partition; RAM overflow fails only on AVR ([#1473](https://github.com/FastLED/fbuild/pull/1473)) | 2.5.28 | Keep our refusal for ESP32 RAM |
 | Ignored version pins ([#1407](https://github.com/FastLED/fbuild/issues/1407)) | Ignored pins now warn in the build output; registry pins are honoured across ESP32, ARM, AVR and ESP8266 | 2.5.28–2.5.30 | A pinned newer Renesas core may unblock the IR Renesas leg; untested |
 | §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; reported as [#1656](https://github.com/FastLED/fbuild/issues/1656) |
-| §5 no size summary on linker overflow, §7 ESP8266 `deploy` | None found | — | Keep both |
+| §5 no size summary on linker overflow | None found | — | Keep the `ld` parsing; not yet reported |
+| §7 ESP8266 `deploy` | None: the deploy dispatch has no `Espressif8266` arm | — | Keep the arduino-cli fallback; reported as [#1657](https://github.com/FastLED/fbuild/issues/1657) |
 | IR RP2040, Renesas, SAMD21 legs | None found; none of the three was reported upstream | — | Report them if they still fail |
 
 Also in this range: ESP32 builds read headers through one generated include
