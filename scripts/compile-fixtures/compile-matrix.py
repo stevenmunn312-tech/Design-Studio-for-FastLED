@@ -119,18 +119,10 @@ def ir_legs(engine: str) -> list[Leg]:
 
 
 def ir_arduino_cli_legs() -> list[Leg]:
-    """IR targets checked on Arduino CLI beyond the fbuild list's ESP32 set.
-
-    STM32 checks the series board and pnum `_arduino_fqbn` substitutes; the
-    Mbed boards have no fbuild board at all.
-    """
+    """The STM32 IR leg, which checks the series board and pnum `_arduino_fqbn` substitutes."""
     folder = ROOT / "backend" / "sketches" / "ir-remote-fixtures"
-    mbed = "FastLED 3.10.5 does not build on Arduino's Mbed core, IR or not (IR record)"
-    targets = {"stm32": ("STMicroelectronics:stm32:blackpill_f411ce", None),
-               "nano33ble": ("arduino:mbed_nano:nano33ble", mbed),
-               "nanorp2040connect": ("arduino:mbed_nano:nanorp2040connect", mbed)}
-    return [Leg("ir", "compile-ir-smoke.py", "arduino-cli", folder / "normal.ino", fqbn, tag, None, why)
-            for tag, (fqbn, why) in targets.items()]
+    return [Leg("ir", "compile-ir-smoke.py", "arduino-cli", folder / "normal.ino",
+                "STMicroelectronics:stm32:blackpill_f411ce", "stm32")]
 
 
 def time_of_flight_legs(engine: str) -> list[Leg]:

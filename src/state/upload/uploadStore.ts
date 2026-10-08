@@ -160,8 +160,6 @@ export const BOARDS: Board[] = [
   // packages above). Not yet hardware-validated by this project; see
   // beta-support-matrix.md.
   { label: 'Arduino Nano 33 IoT (experimental)', fqbn: 'arduino:samd:nano_33_iot', core: 'arduino:samd' },
-  { label: 'Arduino Nano 33 BLE', fqbn: 'arduino:mbed_nano:nano33ble', core: 'arduino:mbed_nano' },
-  { label: 'Arduino Nano RP2040 Connect', fqbn: 'arduino:mbed_nano:nanorp2040connect', core: 'arduino:mbed_nano' },
   { label: 'Arduino Due',   fqbn: 'arduino:sam:arduino_due_x', core: 'arduino:sam' },
   // The exact fbuild/PlatformIO board id for a bare Arduino Zero (vs. the
   // Adafruit Feather M0 below, which shares the same SAMD21 chip) could not be

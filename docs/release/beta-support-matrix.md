@@ -414,10 +414,11 @@ Unless a future row says otherwise, treat the following as experimental:
 - All boards except ESP32-S3, ESP8266, and the classic ESP32 (see the rows
   above). The classic-ESP32 row covers a normal live-graph upload only — its
   SD-show path is still experimental, per the 2026-07-28 note.
-- **The Arduino Nano 33 BLE and Nano RP2040 Connect build no LED sketch.** On
-  Arduino's Mbed core, the pinned FastLED 3.10.5 fails in its own nRF52 and
-  RP2040 output drivers before any Studio code
+- **The Arduino Nano 33 BLE and Nano RP2040 Connect were withdrawn** on
+  2026-10-08. On Arduino's Mbed core the pinned FastLED 3.10.5 fails in its own
+  nRF52 and RP2040 output drivers, so no LED sketch built on either
   ([IR compile record](../reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
+  They return when FastLED builds there.
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom
@@ -818,8 +819,9 @@ Unless a future row says otherwise, treat the following as experimental:
   now confirms learning and remote LED power control, including separate On/Off
   keys through Toggle. The full qualification suite is still open. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's
-  advertised architectures, except the five Studio offers no board on
-  (`mbed`, `mbed_rp2040`, `riscv`, `nRF5`, `STM32F1`), which it refuses;
+  advertised architectures, except the six Studio offers no board on
+  (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nRF5`, `STM32F1`), which it
+  refuses;
   ESP32-S3 uses Studio's RMT capture adapter with
   the same protocol decoders and requires Arduino-ESP32 3.x or newer. Passing
   the gate is not a hardware result. Graduation requires a dated row naming the receiver

@@ -116,8 +116,9 @@ priority in the sketch only moves the failure to the next missing names
 reach FastLED's own compilation units anyway. The RP2040 driver likewise
 expects the Pico SDK's GPIO API, which the Mbed core does not expose to it.
 Neither is something a generated sketch can work around; both need FastLED
-to support the Mbed core. The two legs run in `compile-matrix.py` as expected
-failures so a FastLED that fixes them shows up as `NOW PASSES`.
+to support the Mbed core. Both boards were withdrawn from Studio the same day:
+the board importer skips their assets (`WITHDRAWN_PROFILES` in
+`scripts/assets/import-board-assets.py`) and IR validation refuses `mbed_nano`.
 
 ## ESP32-S3 capture, 3 October 2026
 
@@ -265,11 +266,10 @@ Trigger and Step Value the IR graph also carries.
 ## Outstanding
 
 - The fbuild legs for RP2040, Renesas and SAMD21, each after its fbuild fix.
-- The Mbed Nano boards, once FastLED builds on Arduino's Mbed core.
 
 The architectures the pinned release declares that Studio offers no board on
-(`mbed`, `mbed_rp2040`, `riscv`, `nRF5`, `STM32F1`) are refused by validation
-since 8 October 2026, so nothing is owed for them. On the evidence above,
-`mbed` and `mbed_rp2040` would meet the same FastLED drivers as the Mbed Nano
-boards, and FastLED 3.10.5 has no platform for the VEGA ARIES boards that are
-IRremote's only `riscv` target.
+(`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nRF5`, `STM32F1`) are refused by
+validation since 8 October 2026, so nothing is owed for them. On the evidence
+above, `mbed` and `mbed_rp2040` would meet the same FastLED drivers as the Mbed
+Nano boards, and FastLED 3.10.5 has no platform for the VEGA ARIES boards that
+are IRremote's only `riscv` target.

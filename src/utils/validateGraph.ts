@@ -135,12 +135,12 @@ const HUB75_SUPPORTED_FQBNS = new Set([...CLASSIC_ESP32_FQBNS, 'esp32:esp32:esp3
  * capture adapter with the pinned library's protocol decoders, bypassing its
  * unsupported timer receiver.
  *
- * The release also declares mbed, mbed_rp2040, riscv, nRF5 and STM32F1. Studio
- * offers no board on any of them and FastLED builds on none it can reach
- * (docs/reports/compile/ir-compile-checks.md), so they are refused.
+ * The release also declares mbed, mbed_nano, mbed_rp2040, riscv, nRF5 and
+ * STM32F1. Studio offers no board on any of them and FastLED builds on none it
+ * can reach (docs/reports/compile/ir-compile-checks.md), so they are refused.
  */
 const IR_REMOTE_SUPPORTED_ARCHITECTURES: ReadonlySet<string> = new Set([
-  'avr', 'megaavr', 'samd', 'esp8266', 'esp32', 'stm32', 'mbed_nano', 'rp2040', 'renesas_uno',
+  'avr', 'megaavr', 'samd', 'esp8266', 'esp32', 'stm32', 'rp2040', 'renesas_uno',
 ])
 
 export function irRemoteSupportedForFqbn(fqbn: string): boolean {

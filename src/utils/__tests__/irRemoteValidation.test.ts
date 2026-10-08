@@ -47,11 +47,10 @@ describe('IR remote deploy validation', () => {
 
   it('refuses the architectures the library declares but Studio offers no board on', () => {
     for (const fqbn of [
-      'arduino:mbed:envie_m7', 'arduino:mbed_rp2040:pico', 'vega:riscv:ARIES_v3',
-      'sandeepmistry:nRF5:BBCmicrobit', 'stm32duino:STM32F1:genericSTM32F103C',
+      'arduino:mbed:envie_m7', 'arduino:mbed_nano:nano33ble', 'arduino:mbed_rp2040:pico',
+      'vega:riscv:ARIES_v3', 'sandeepmistry:nRF5:BBCmicrobit', 'stm32duino:STM32F1:genericSTM32F103C',
     ]) expect(irRemoteSupportedForFqbn(fqbn), fqbn).toBe(false)
     // Boards Studio does offer on a declared core stay accepted.
-    expect(irRemoteSupportedForFqbn('arduino:mbed_nano:nano33ble')).toBe(true)
     expect(irRemoteSupportedForFqbn('STMicroelectronics:stm32:blackpill_f411ce')).toBe(true)
   })
 
