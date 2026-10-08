@@ -354,11 +354,11 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
   'adafruit-ina219-current-sensor': padPoints(400, 324,
     [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
-  // VIN, GND, SDA, SCL, XSHUT, GPIO along the bottom, from the drilled holes. XSHUT and GPIO are not
-  // needed, so only VIN, GND, SDA and SCL carry a wire.
+  // VIN, GND, SDA, SCL, XSHUT, GPIO along the bottom, from the drilled holes. GPIO is the interrupt
+  // and stays unwired. XSHUT carries a wire only when this sensor is assigned a shutdown GPIO.
   'adafruit-vl53l1x-distance-sensor': padRow([104.8, 142.7, 180.6, 218.4, 256.3, 294.2], 400, 232.5, 281),
   // VIN, 2v8, GND, GPIO, SHDN, SCL, SDA along the bottom, from the drilled holes. 2v8 is the regulator
-  // output and GPIO and SHDN are not needed, so only VIN, GND, SCL and SDA carry a wire.
+  // output and GPIO stays unwired. SHDN carries a wire only when this sensor is assigned a shutdown GPIO.
   'adafruit-vl53l0x-distance-sensor': padRow([57, 104.5, 152, 199.5, 247, 294.5, 342], 400, 294.8, 353),
   // DIP-18 lead tips in pin-number order: pins 1 to 9 down the left edge, 10 to 18 up the right.
   // Inputs 1B to 8B are the controller side; COM and the 1C to 8C outputs carry the load, not a controller wire.
@@ -770,7 +770,11 @@ function signalPadNames(item: HardwareManifestItem): string[][] | undefined {
   // A light sensor is either an LDR's one analog line or a BH1750's I2C pair,
   // and the manifest records which.
   if (item.kind === 'light-input' && item.facts.transport === 'i2c') return [['SDA'], ['SCL']]
-  if (item.kind === 'distance-input' && item.facts.transport === 'i2c') return [['SDA'], ['SCL']]
+  if (item.kind === 'distance-input' && item.facts.transport === 'i2c') {
+    const pads: string[][] = [['SDA'], ['SCL']]
+    if (item.pins.some((pin) => pin.propertyKey === 'xshutPin')) pads.push(['SHDN', 'XSHUT'])
+    return pads
+  }
   return SIGNAL_PAD_NAMES[item.kind]
 }
 

@@ -4,7 +4,7 @@ import { presenceSensorLoopCpp } from '../../codegen/peripherals/presenceSensorC
 import { lightSensorLoopCpp } from '../../codegen/peripherals/lightSensorCpp'
 import { environmentSensorLoopCpp } from '../../codegen/peripherals/environmentSensorCpp'
 import { temperatureSensorLoopCpp } from '../../codegen/peripherals/temperatureSensorCpp'
-import { distanceSensorLoopCpp } from '../../codegen/peripherals/distanceSensorCpp'
+import { distanceSensorLoopCpp, distanceSensorXshutSetupCpp } from '../../codegen/peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
 import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/peripherals/joystickCpp'
 import { keypadLoopCpp, keypadSetupCpp } from '../../codegen/peripherals/keypadCpp'
@@ -66,9 +66,13 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   DistanceInput({ id, p, ln, v, pinSetupLines }) {
     // Trig is driven and Echo read; setup holds Trig low so a reset never fires a stray pulse.
+    // An I2C sensor does not start Wire here: the sketch does that once. A wired
+    // shutdown pin is held low until this sensor's own boot releases it.
     if (distanceSensorTransport(p.partId) === 'pulse') {
       pinSetupLines.add(`  pinMode(${sanitizePin(p.trigPin, 27)}, OUTPUT); digitalWrite(${sanitizePin(p.trigPin, 27)}, LOW);`)
       pinSetupLines.add(`  pinMode(${sanitizePin(p.echoPin, 26)}, INPUT);`)
+    } else {
+      for (const line of distanceSensorXshutSetupCpp(p)) pinSetupLines.add(line)
     }
     for (const line of distanceSensorLoopCpp(p, id, v)) ln(line)
   },

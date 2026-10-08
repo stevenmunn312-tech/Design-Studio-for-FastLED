@@ -1,5 +1,13 @@
 import { sanitizePin } from '../hardwarePins'
-import { distanceSensorDevice, distanceSensorSpec, distanceSensorTransport } from '../../state/peripherals/distanceSensor'
+import {
+  VL53_BOOT_ADDRESS,
+  distanceSensorAddress,
+  distanceSensorDevice,
+  distanceSensorSpec,
+  distanceSensorTransport,
+  distanceSensorXshutPin,
+  formatDistanceSensorAddress,
+} from '../../state/peripherals/distanceSensor'
 
 /**
  * HC-SR04 ranging by pulse width. No library: raise Trig for the part's trigger
@@ -25,10 +33,26 @@ export const DISTANCE_SENSOR_HELPER_CPP: readonly string[] = [
   '}',
 ]
 
+/**
+ * Hold a wired shutdown pin low until this sensor's own boot runs.
+ *
+ * The normal sketch must not call `distanceSensorSetupCpp` for an I2C sensor:
+ * that helper also emits `Wire.begin`, and the sketch starts the bus once.
+ * Both paths call this helper.
+ */
+export function distanceSensorXshutSetupCpp(props: Record<string, unknown>): string[] {
+  const pin = distanceSensorXshutPin(props)
+  if (pin === null) return []
+  return [`  pinMode(${pin}, OUTPUT); digitalWrite(${pin}, LOW);  // hold XSHUT in reset until this sensor is brought up`]
+}
+
 /** Trig is an output held low and Echo an input, set once in setup. */
 export function distanceSensorSetupCpp(props: Record<string, unknown>): string[] {
   if (distanceSensorTransport(props.partId) === 'i2c') {
-    return [`  Wire.begin(${sanitizePin(props.sdaPin, 21)}, ${sanitizePin(props.sclPin, 22)});  // VL53L0X / VL53L1X I2C bus`]
+    return [
+      `  Wire.begin(${sanitizePin(props.sdaPin, 21)}, ${sanitizePin(props.sclPin, 22)});  // VL53L0X / VL53L1X I2C bus`,
+      ...distanceSensorXshutSetupCpp(props),
+    ]
   }
   const trig = sanitizePin(props.trigPin, 27)
   const echo = sanitizePin(props.echoPin, 26)
@@ -46,7 +70,7 @@ export function distanceSensorLoopCpp(
   local: (port: 'distance' | 'connected') => string,
 ): string[] {
   if (distanceSensorTransport(props.partId) === 'i2c') {
-    return distanceSensorDevice(props.partId) === 'VL53L1X' ? vl53l1xLoopCpp(id, local) : vl53l0xLoopCpp(id, local)
+    return distanceSensorDevice(props.partId) === 'VL53L1X' ? vl53l1xLoopCpp(props, id, local) : vl53l0xLoopCpp(props, id, local)
   }
   const trig = sanitizePin(props.trigPin, 27)
   const echo = sanitizePin(props.echoPin, 26)
@@ -94,16 +118,46 @@ export function distanceSensorIncludes(partId: unknown): string[] {
   return ['#include <Wire.h>', distanceSensorLibraryInclude(partId)]
 }
 
-function vl53l0xLoopCpp(id: string, local: (port: 'distance' | 'connected') => string): string[] {
-  return [
+/**
+ * Lines that bring one chip up at 0x29 and then move it, or `null` when this
+ * sensor is the original single-sensor case (unwired shutdown, address 0x29).
+ * That case keeps the historical line array so existing sketches stay the same.
+ *
+ * `setAddress` writes the new address and stores it on the object. The object's
+ * address field is private, so a retry after the chip falls back to 0x29 assigns
+ * a fresh object rather than trying to point the old one at 0x29. Register
+ * writes such as `startContinuous` run only after the move. A failed `init`
+ * drives shutdown low again so the chip does not sit on 0x29 while the next
+ * sensor boots.
+ */
+function vl53Boot(
+  props: Record<string, unknown>,
+  id: string,
+  device: 'VL53L0X' | 'VL53L1X',
+): { release: string[]; assign: string; addressLine: string | null; park: string | null } | null {
+  const xshut = distanceSensorXshutPin(props)
+  const address = distanceSensorAddress(props) ?? VL53_BOOT_ADDRESS
+  if (xshut === null && address === VL53_BOOT_ADDRESS) return null
+  return {
+    release: xshut === null ? [] : [
+      `    digitalWrite(${xshut}, LOW); delay(10);`,
+      `    digitalWrite(${xshut}, HIGH); delay(10);`,
+    ],
+    assign: `    _vl_${id} = ${device}();`,
+    addressLine: address === VL53_BOOT_ADDRESS ? null : `      _vl_${id}.setAddress(${formatDistanceSensorAddress(address)});`,
+    park: xshut === null ? null : ` else digitalWrite(${xshut}, LOW);`,
+  }
+}
+
+function vl53l0xLoopCpp(props: Record<string, unknown>, id: string, local: (port: 'distance' | 'connected') => string): string[] {
+  const boot = vl53Boot(props, id, 'VL53L0X')
+  const head = [
     `  static VL53L0X _vl_${id}; static bool _vlReady_${id} = false, _vlTried_${id} = false, _vlOk_${id} = false;`,
     `  static uint32_t _vlInit_${id} = 0, _vlRead_${id} = 0; static float _vlMm_${id} = 0.0f;`,
     `  if (!_vlReady_${id} && (!_vlTried_${id} || millis() - _vlInit_${id} >= 1000)) {`,
     `    _vlTried_${id} = true; _vlInit_${id} = millis();`,
-    `    _vl_${id}.setTimeout(50);`,
-    `    _vlReady_${id} = _vl_${id}.init();`,
-    `    if (_vlReady_${id}) _vl_${id}.startContinuous();`,
-    '  }',
+  ]
+  const tail = [
     `  if (_vlReady_${id} && millis() - _vlRead_${id} >= 60) {`,
     `    _vlRead_${id} = millis();`,
     `    uint16_t _vlRaw_${id} = _vl_${id}.readRangeContinuousMillimeters();`,
@@ -113,6 +167,34 @@ function vl53l0xLoopCpp(id: string, local: (port: 'distance' | 'connected') => s
     `  if (!_vlReady_${id}) _vlOk_${id} = false;`,
     `  float ${local('distance')} = _vlMm_${id};`,
     `  bool ${local('connected')} = _vlOk_${id};`,
+  ]
+  if (!boot) {
+    return [
+      ...head,
+      `    _vl_${id}.setTimeout(50);`,
+      `    _vlReady_${id} = _vl_${id}.init();`,
+      `    if (_vlReady_${id}) _vl_${id}.startContinuous();`,
+      '  }',
+      ...tail,
+    ]
+  }
+  const started = boot.addressLine === null
+    ? [`    if (_vlReady_${id}) _vl_${id}.startContinuous();${boot.park ?? ''}`]
+    : [
+      `    if (_vlReady_${id}) {`,
+      boot.addressLine,
+      `      _vl_${id}.startContinuous();`,
+      `    }${boot.park ?? ''}`,
+    ]
+  return [
+    ...head,
+    ...boot.release,
+    boot.assign,
+    `    _vl_${id}.setTimeout(50);`,
+    `    _vlReady_${id} = _vl_${id}.init();`,
+    ...started,
+    '  }',
+    ...tail,
   ]
 }
 
@@ -126,18 +208,15 @@ function vl53l0xLoopCpp(id: string, local: (port: 'distance' | 'connected') => s
  * id, so an absent sensor fails at once with no stall; one that stops answering
  * for a second is set up again. `connected` is false until the first measurement.
  */
-function vl53l1xLoopCpp(id: string, local: (port: 'distance' | 'connected') => string): string[] {
-  return [
+function vl53l1xLoopCpp(props: Record<string, unknown>, id: string, local: (port: 'distance' | 'connected') => string): string[] {
+  const boot = vl53Boot(props, id, 'VL53L1X')
+  const head = [
     `  static VL53L1X _vl_${id}; static bool _vlReady_${id} = false, _vlTried_${id} = false, _vlOk_${id} = false;`,
     `  static uint32_t _vlInit_${id} = 0, _vlSeen_${id} = 0; static float _vlMm_${id} = 0.0f;`,
     `  if (!_vlReady_${id} && (!_vlTried_${id} || millis() - _vlInit_${id} >= 1000)) {`,
     `    _vlTried_${id} = true; _vlInit_${id} = millis();`,
-    `    _vlReady_${id} = _vl_${id}.init();`,
-    `    if (_vlReady_${id}) {`,
-    `      _vl_${id}.setDistanceMode(VL53L1X::Long); _vl_${id}.setMeasurementTimingBudget(50000);`,
-    `      _vl_${id}.startContinuous(50); _vlSeen_${id} = millis();`,
-    '    }',
-    '  }',
+  ]
+  const tail = [
     `  if (_vlReady_${id} && _vl_${id}.dataReady()) {`,
     `    uint16_t _vlRaw_${id} = _vl_${id}.read(false);`,
     `    _vlSeen_${id} = millis(); _vlOk_${id} = true;`,
@@ -147,5 +226,30 @@ function vl53l1xLoopCpp(id: string, local: (port: 'distance' | 'connected') => s
     `  if (!_vlReady_${id}) _vlOk_${id} = false;`,
     `  float ${local('distance')} = _vlMm_${id};`,
     `  bool ${local('connected')} = _vlOk_${id};`,
+  ]
+  if (!boot) {
+    return [
+      ...head,
+      `    _vlReady_${id} = _vl_${id}.init();`,
+      `    if (_vlReady_${id}) {`,
+      `      _vl_${id}.setDistanceMode(VL53L1X::Long); _vl_${id}.setMeasurementTimingBudget(50000);`,
+      `      _vl_${id}.startContinuous(50); _vlSeen_${id} = millis();`,
+      '    }',
+      '  }',
+      ...tail,
+    ]
+  }
+  return [
+    ...head,
+    ...boot.release,
+    boot.assign,
+    `    _vlReady_${id} = _vl_${id}.init();`,
+    `    if (_vlReady_${id}) {`,
+    ...(boot.addressLine === null ? [] : [boot.addressLine]),
+    `      _vl_${id}.setDistanceMode(VL53L1X::Long); _vl_${id}.setMeasurementTimingBudget(50000);`,
+    `      _vl_${id}.startContinuous(50); _vlSeen_${id} = millis();`,
+    `    }${boot.park ?? ''}`,
+    '  }',
+    ...tail,
   ]
 }

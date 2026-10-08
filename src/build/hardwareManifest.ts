@@ -59,7 +59,7 @@ import {
 } from '../state/peripherals/environmentSensor'
 import { DS18B20_PART_ID, formatPullUp, temperatureSensorSpec } from '../state/peripherals/temperatureSensor'
 import {
-  HCSR04_PART_ID, distanceSensorAddress, distanceSensorSpec, distanceSensorTransport, formatDistanceSensorAddress,
+  HCSR04_PART_ID, distanceSensorAddress, distanceSensorSpec, distanceSensorTransport, distanceSensorXshutPin, formatDistanceSensorAddress,
 } from '../state/peripherals/distanceSensor'
 import { KY023_PART_ID } from '../state/peripherals/joystick'
 import { KEYPAD_COL_KEYS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS } from '../state/peripherals/keypad'
@@ -436,6 +436,8 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'DistanceInput':
         if (distanceSensorTransport(props.partId) === 'i2c') {
           pushI2c(node, baseLabel, props)
+          const xshut = distanceSensorXshutPin(props)
+          if (xshut !== null) push(node, `${baseLabel} SHDN`, 'xshutPin', xshut)
           break
         }
         push(node, `${baseLabel} Trig pin`, 'trigPin', props.trigPin)

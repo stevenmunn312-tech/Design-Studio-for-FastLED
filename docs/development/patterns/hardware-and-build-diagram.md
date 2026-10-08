@@ -116,6 +116,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Peripherals
 
+- **Two VL53 sensors on one I2C bus leave 0x29 free.** Every VL53L0X and VL53L1X
+  wakes at 0x29, and the catalogue address list stays that power-on address.
+  Assignable addresses 0x30 to 0x33 live in `distanceSensor.ts`. `distanceSensorBusIssues`
+  refuses a shared SDA/SCL pair where any sensor stays on 0x29, repeats an assigned
+  address, or lacks its own SHDN/XSHUT GPIO. `NO_PIN` on `xshutPin` means the line is
+  not driven and is not a pin claim. The sketch holds every wired shutdown pin low,
+  releases one sensor, calls `init` at 0x29, then `setAddress` before any further
+  register write, and drives that pin low again if `init` fails. A fresh object
+  assignment points the driver back at 0x29, because the library stores the address
+  privately. `i2cDistanceBusPeers` pulls an unwired peer into the normal sketch and
+  the show/player control graph when another sensor on the same pins is emitted.
+  A single sensor may stay at 0x29 with SHDN unwired, and that sketch keeps the
+  original Pololu sequence.
 - **An actively driven touch module is not a mechanical button.**
   `TouchButtonInput` represents the exact Seeed Grove Touch Sensor
   (TTP223-BA6): one exclusive digital-input GPIO, no pull-up, active-high

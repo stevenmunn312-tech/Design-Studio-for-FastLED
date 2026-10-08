@@ -5,6 +5,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibrary'
 import { compositionDims } from '../state/output/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
+import { i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
 import { irRemoteProjectEmission, type IrRemoteProjectNode } from './peripherals/irRemoteCpp'
 import { displayTextCppHelpers } from './displays/displayTextCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
@@ -86,6 +87,18 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     }
     visiting.delete(nodeId)
     done.add(nodeId)
+    // A laser sensor's peer has to be emitted with it. `done` is filled by this
+    // walk, which callers run after createControlGraph returns, so the peer
+    // cannot be chosen before the walk.
+    if (node.data.nodeType === 'DistanceInput') {
+      for (const peer of i2cDistanceBusPeers(nodes, nodes.filter((entry) => done.has(entry.id)))) {
+        if (done.has(peer.id) || visiting.has(peer.id)) continue
+        const peerEmission = controlInputCpp(peer.data.nodeType, safeId(peer.id), peer.data.properties)
+        if (!peerEmission) continue
+        instructions.push({ kind: 'gpio', nodeId: peer.id, emission: peerEmission })
+        done.add(peer.id)
+      }
+    }
     return reference
   }
 

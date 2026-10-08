@@ -57,20 +57,18 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   1. A four-channel LR7843-class board for LED rails, once one with a reliable
      reference turns up. The listings found disagree on layout, and the
      documented FR1205 board overdrives its gates above about 20 V.
-  2. Two time-of-flight sensors on one bus. Each VL53L0X or VL53L1X needs its
-     SHDN/XSHUT pin driven separately, and the app offers no way to do that.
-  3. A rotary encoder with an addressable feedback ring.
-  4. A passive buzzer with tones from the controller, beside the KY-012.
-  5. A fan module with a tachometer: a cooling output plus a speed input.
-  6. The DFPlayer Mini. Its verified Blender asset exists; graph control,
+  2. A rotary encoder with an addressable feedback ring.
+  3. A passive buzzer with tones from the controller, beside the KY-012.
+  4. A fan module with a tachometer: a cooling output plus a speed input.
+  5. The DFPlayer Mini. Its verified Blender asset exists; graph control,
      firmware ownership and audio routing remain.
-  7. A solid-state relay, only once AC/DC load type, leakage and isolation are
+  6. A solid-state relay, only once AC/DC load type, leakage and isolation are
      represented honestly.
-  8. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
+  7. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
      ESP32-C6-DevKitC-1, ESP8266 D1 Mini, Raspberry Pi Pico W, Teensy 4.1,
      Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a board profile,
      not a module) and QuinLED Dig-Uno and Dig-Quad.
-  9. Families that extend the power model: battery chargers, cell balancers,
+  8. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
      with fuses, balancer, BMS and 100 W charge/discharge control.
@@ -379,7 +377,8 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   families after them**: LR7843 and Mosfetti power switches, INA219 and
   INA226, MAX485, HLK-LD2410C, BH1750, Grove Touch, WIZ850io, NLED data
   extender, LM2596 and SD-100A/B-5 with main fuses and trunks, BME280,
-  DS18B20, HC-SR04, VL53L0X and VL53L1X, KY-023, GY-521, RCWL-0516, MPR121,
+  DS18B20, HC-SR04, VL53L0X and VL53L1X (including two on one bus, each with its
+  own SHDN or XSHUT pin and an address from 0x30 to 0x33), KY-023, GY-521, RCWL-0516, MPR121,
   4x4 keypad, PCA9685, ULN2803A, KY-012 and ZY12PDN, each in software and
   compiled where it has firmware
   ([roadmap](docs/plans/hardware-expansion-roadmap.md);

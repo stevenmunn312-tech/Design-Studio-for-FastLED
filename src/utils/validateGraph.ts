@@ -45,7 +45,7 @@ import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { displayControlEdges, displayControlInertReason } from '../state/player/wireFirstControls'
 import { powerMonitorAddress, powerMonitorAddressOptions } from '../state/peripherals/powerMonitor'
 import { pwmDriverAddress } from '../state/peripherals/pwmDriver'
-import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorSpec, distanceSensorTransport } from '../state/peripherals/distanceSensor'
+import { distanceSensorAddress, distanceSensorAddressOptions, distanceSensorBusIssues, distanceSensorSpec, distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { showControlRouting, showControlOutputIds } from '../codegen/player/showControlRouting'
 import {
   customDisplayMountPlan, mountedCustomDisplays, mountedSizeIssue, panelDisplaySourceKind,
@@ -930,7 +930,9 @@ export function findPinConflicts(nodes: StudioNode[], edges: StudioEdge[] = [], 
   const shared = deliberatelySharedPinUses(nodes, edges)
   const uses = collectPinUses(nodes, selectedFqbn)
   const conflicts = findPinCollisions(uses, shared).map(pinCollisionMessage)
-  const addresses = findI2cAddressCollisions(i2cDevices(nodes)).map(addressCollisionMessage)
+  const addresses = findI2cAddressCollisions(i2cDevices(nodes))
+    .filter((collision) => collision.uses.some((use) => use.nodeType !== 'DistanceInput'))
+    .map(addressCollisionMessage)
   return [...conflicts, ...addresses].sort()
 }
 
@@ -2371,8 +2373,26 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
       title: 'Distance sensor address is not one this sensor answers on',
       message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this ${distanceSensorSpec(props.partId).device} answers only on ${distanceSensorAddressOptions(props.partId).join(', ')}.`,
-      fix: 'Choose 0x29. The sensor has no address jumper.',
+      fix: 'Choose 0x29 for one sensor. To put more than one on the bus, give each a different address from 0x30 to 0x33 and wire its SHDN or XSHUT pin.',
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
+    })
+  }
+
+  for (const issue of distanceSensorBusIssues(nodes.map((node) => ({
+    id: node.id,
+    label: nodeLabel(node),
+    properties: node.data.properties as Record<string, unknown>,
+  })))) {
+    issues.push({
+      id: `distance-bus-${issue.propertyKey}-${issue.nodeIds.join('-')}`,
+      severity: 'error',
+      category: 'pins',
+      title: issue.title,
+      message: issue.message,
+      fix: issue.fix,
+      nodeIds: issue.nodeIds,
+      nodeLabel: 'Distance Sensor',
+      propertyKey: issue.propertyKey,
     })
   }
 
@@ -3384,6 +3404,7 @@ export function buildGraphDiagnostics(
     })
   }
   for (const collision of findI2cAddressCollisions(i2cDevices(nodes))) {
+    if (collision.uses.every((use) => use.nodeType === 'DistanceInput')) continue
     diagnostics.push({
       id: `i2c-address-${collision.address}`, severity: 'error', category: 'pins',
       title: `Two I2C devices answer to the same address`,

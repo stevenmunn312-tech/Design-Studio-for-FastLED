@@ -357,7 +357,9 @@ pinned in `VL53L0X_VERSION` and mirrored by `_VL53L0X_VERSION` in the backend, w
 installs it through arduino-cli, vendors it for fbuild, and puts the version in the sketch
 hash so a bump rebuilds. A test fails if the two constants drift. The Build Diagram powers
 VIN from the logic rail, since the board level-shifts its bus to VIN, and draws no Echo
-divider.
+divider. Two sensors on one bus each take a shutdown pin and an address from 0x30 to
+0x33, leaving 0x29 free. A peer on that bus that does not feed an output is still
+emitted, so its shutdown pin is held while the other one boots.
 
 The VL53L1X is a third part on the same path. The catalogue's `device` names the chip and
 `distanceSensorLibraryInclude` picks `VL53L1X.h` or `VL53L0X.h` from it, so a sketch includes

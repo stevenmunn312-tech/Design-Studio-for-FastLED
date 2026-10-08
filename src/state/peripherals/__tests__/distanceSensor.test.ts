@@ -6,7 +6,7 @@ import {
   peripheralGroundPadIndex, peripheralPadPoint, peripheralPowerNet, peripheralPowerPadIndex,
   peripheralSignalEndPoint, peripheralSignalPadIndex, receiveDivider, PERIPHERAL_RENDER_H,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
-import { findDeployBlockingErrors, findPinConflicts } from '../../../utils/validateGraph'
+import { findDeployBlockingErrors, findI2cBusErrors, findPinConflicts } from '../../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { libraryDefaults, NODE_LIBRARY, gpioRequirementForProperty } from '../../nodeLibrary'
 import { partById } from '../../../build/parts/partCatalogue'
@@ -146,10 +146,14 @@ describe('the catalogued VL53L0X', () => {
     expect(distanceSensorTransport(VL53L0X_PART_ID)).toBe('i2c')
     expect(distanceSensorTransport(HCSR04_PART_ID)).toBe('pulse')
     expect(distanceSensorPinKeys(props)).toEqual(['sdaPin', 'sclPin'])
+    expect(distanceSensorPinKeys({ ...props, xshutPin: 255 })).toEqual(['sdaPin', 'sclPin'])
+    expect(distanceSensorPinKeys({ ...props, xshutPin: 4 })).toEqual(['sdaPin', 'sclPin', 'xshutPin'])
     expect(distanceSensorPinKeys({})).toEqual(['trigPin', 'echoPin'])
-    expect(distanceSensorAddressOptions(VL53L0X_PART_ID)).toEqual(['0x29'])
+    expect(distanceSensorAddressOptions(VL53L0X_PART_ID)).toEqual(['0x29', '0x30', '0x31', '0x32', '0x33'])
     expect(distanceSensorAddress({ ...props, i2cAddress: '0x29' })).toBe(0x29)
-    expect(distanceSensorAddress({ ...props, i2cAddress: '0x30' })).toBeNull()
+    expect(distanceSensorAddress({ ...props, i2cAddress: '0x30' })).toBe(0x30)
+    expect(distanceSensorAddress({ ...props, i2cAddress: 0x30 })).toBe(0x30)
+    expect(distanceSensorAddress({ ...props, i2cAddress: '0x10' })).toBeNull()
     expect(distanceSensorAddress({})).toBeNull()
     expect(PART_OPTIONS.DistanceInput.options.map((option) => option.id)).toEqual([HCSR04_PART_ID, VL53L0X_PART_ID, VL53L1X_PART_ID])
     expect(partById(VL53L0X_PART_ID)?.pinLabelsLeftToRight).toEqual(['VIN', '2v8', 'GND', 'GPIO', 'SHDN', 'SCL', 'SDA'])
@@ -160,6 +164,7 @@ describe('the catalogued VL53L0X', () => {
     expect(distancePreviewReading(VL53L0X_PART_ID, 0)).toBe(30)
     expect(distancePreviewDefault(VL53L0X_PART_ID)).toBeGreaterThan(0)
     expect(gpioRequirementForProperty('DistanceInput', 'sdaPin', props)).toBeNull()
+    expect(gpioRequirementForProperty('DistanceInput', 'xshutPin', props)).toEqual({ capability: 'digitalOutput', pullup: false })
     expect(gpioRequirementForProperty('DistanceInput', 'trigPin', {})).toMatchObject({ capability: 'digitalOutput' })
   })
 
@@ -181,6 +186,8 @@ describe('the catalogued VL53L0X', () => {
     // No ultrasonic helper and no Trig/Echo pins for an I2C module.
     expect(sketch).not.toContain('_sr04Measure')
     expect(sketch).not.toContain('pinMode(27, OUTPUT)')
+    expect(sketch).not.toContain('setAddress')
+    expect(sketch).not.toContain('= VL53L0X()')
   })
 
   it('keeps the ultrasonic sketch free of the laser library', () => {
@@ -203,7 +210,7 @@ describe('the catalogued VL53L0X', () => {
   it('shares SDA/SCL, rejects an address it cannot take, and draws VIN from 3.3 V with no echo divider', () => {
     const ranger = node('ranger', 'DistanceInput', props)
     expect(collectPinUses([ranger]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])
-    expect(findDeployBlockingErrors([node('bad', 'DistanceInput', { ...props, i2cAddress: '0x30' })], [], 'esp32:esp32:esp32').join('\n'))
+    expect(findDeployBlockingErrors([node('bad', 'DistanceInput', { ...props, i2cAddress: '0x10' })], [], 'esp32:esp32:esp32').join('\n'))
       .toContain('0x29')
 
     const [item] = buildHardwareManifest([ranger], [], 'esp32:esp32:esp32').primaryItems
@@ -251,6 +258,8 @@ describe('the catalogued VL53L1X', () => {
     expect(sketch).toContain('float n_ranger_distance = _vlMm_ranger;')
     expect(sketch).toContain('bool n_ranger_connected = _vlOk_ranger;')
     expect(sketch).not.toContain('_sr04Measure')
+    expect(sketch).not.toContain('setAddress')
+    expect(sketch).not.toContain('= VL53L1X()')
   })
 
   it('keeps each laser library out of the other sensor\'s sketch', () => {
@@ -272,7 +281,7 @@ describe('the catalogued VL53L1X', () => {
 
   it('draws VIN from 3.3 V, GND, SDA and SCL, with no echo divider, and names its chip in a bad-address error', () => {
     const ranger = node('ranger', 'DistanceInput', props)
-    expect(findDeployBlockingErrors([node('bad', 'DistanceInput', { ...props, i2cAddress: '0x30' })], [], 'esp32:esp32:esp32').join('\n'))
+    expect(findDeployBlockingErrors([node('bad', 'DistanceInput', { ...props, i2cAddress: '0x10' })], [], 'esp32:esp32:esp32').join('\n'))
       .toContain('VL53L1X')
     const [item] = buildHardwareManifest([ranger], [], 'esp32:esp32:esp32').primaryItems
     const pads = partById(VL53L1X_PART_ID)!.pinLabelsLeftToRight!
@@ -285,5 +294,108 @@ describe('the catalogued VL53L1X', () => {
     expect(pads[peripheralSignalPadIndex(item, 0)]).toBe('SDA')
     expect(pads[peripheralSignalPadIndex(item, 1)]).toBe('SCL')
     expect(receiveDivider({ x: 0, y: 0, item } as unknown as Parameters<typeof receiveDivider>[0])).toBeNull()
+  })
+})
+
+describe('two time-of-flight sensors on one bus', () => {
+  const bus = { sdaPin: 21, sclPin: 22 }
+
+  function laser(id: string, partId: string, address: string, xshutPin: number) {
+    return node(id, 'DistanceInput', { partId, ...bus, i2cAddress: address, xshutPin })
+  }
+
+  it('refuses a shared bus that leaves a sensor at 0x29 or without its own shutdown pin', () => {
+    const unwired = [
+      laser('near', VL53L0X_PART_ID, '0x29', 255),
+      laser('far', VL53L1X_PART_ID, '0x30', 255),
+    ]
+    const text = findI2cBusErrors(unwired).join('\n')
+    expect(text).toContain('SHDN')
+    expect(text).toContain('0x29')
+    expect(findDeployBlockingErrors(unwired, [], 'esp32:esp32:esp32').join('\n')).toContain('0x29')
+
+    const sharedPin = [
+      laser('near', VL53L0X_PART_ID, '0x30', 4),
+      laser('far', VL53L1X_PART_ID, '0x31', 4),
+    ]
+    expect(findI2cBusErrors(sharedPin).join('\n')).toContain('GPIO 4')
+
+    const sameAddress = [
+      laser('near', VL53L0X_PART_ID, '0x30', 4),
+      laser('far', VL53L1X_PART_ID, '0x30', 5),
+    ]
+    expect(findI2cBusErrors(sameAddress).join('\n')).toContain('0x30')
+    expect(findPinConflicts(sameAddress)).toEqual([])
+  })
+
+  it('accepts two sensors with distinct shutdown pins and addresses from 0x30', () => {
+    const sensors = [
+      laser('near', VL53L0X_PART_ID, '0x30', 4),
+      laser('far', VL53L1X_PART_ID, '0x31', 5),
+    ]
+    expect(findI2cBusErrors(sensors)).toEqual([])
+    expect(findPinConflicts(sensors)).toEqual([])
+    expect(collectPinUses([sensors[0]]).map((use) => [use.propertyKey, use.pin])).toEqual([
+      ['sdaPin', 21], ['sclPin', 22], ['xshutPin', 4],
+    ])
+    const [l0] = buildHardwareManifest([sensors[0]], [], 'esp32:esp32:esp32').primaryItems
+    const l0Pads = partById(VL53L0X_PART_ID)!.pinLabelsLeftToRight!
+    expect(l0Pads[peripheralSignalPadIndex(l0, 2)]).toBe('SHDN')
+    const [l1] = buildHardwareManifest([sensors[1]], [], 'esp32:esp32:esp32').primaryItems
+    const l1Pads = partById(VL53L1X_PART_ID)!.pinLabelsLeftToRight!
+    expect(l1Pads[peripheralSignalPadIndex(l1, 2)]).toBe('XSHUT')
+  })
+
+  it('still holds an unwired peer in reset and moves both sensors off 0x29', () => {
+    const near = laser('near', VL53L0X_PART_ID, '0x30', 4)
+    const far = laser('far', VL53L1X_PART_ID, '0x31', 5)
+    const map = node('map', 'MapRange', { inMin: 30, inMax: 1200, outMin: 1, outMax: 0 })
+    const out = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 16 })
+    const nodes = [near, far, map, node('fill', 'SolidColor'), out]
+    const edges = [
+      edge('distance', 'near', 'distance', 'map', 'value'),
+      edge('amount', 'map', 'result', 'out', 'brightness'),
+      edge('frame', 'fill', 'frame', 'out', 'frame'),
+    ]
+    const sketch = generateCpp(nodes, edges)
+    expect(sketch).toContain('pinMode(4, OUTPUT); digitalWrite(4, LOW);')
+    expect(sketch).toContain('pinMode(5, OUTPUT); digitalWrite(5, LOW);')
+    expect(sketch).toContain('_vl_near = VL53L0X();')
+    expect(sketch).toContain('_vl_far = VL53L1X();')
+    expect(sketch).toContain('_vl_near.setAddress(0x30);')
+    expect(sketch).toContain('_vl_far.setAddress(0x31);')
+    expect(sketch).toContain('setDistanceMode(VL53L1X::Long)')
+    expect(sketch.match(/Wire\.begin\(/g)).toHaveLength(1)
+    const nearAt = sketch.indexOf('_vl_near.setAddress(0x30);')
+    const nearStart = sketch.indexOf('_vl_near.startContinuous();')
+    expect(nearAt).toBeGreaterThan(0)
+    expect(nearStart).toBeGreaterThan(nearAt)
+
+    const graph = createControlGraph(
+      [near, far, map],
+      [edge('distance', 'near', 'distance', 'map', 'value')],
+    )
+    expect(graph.resolve('map', 'result', 'float')).not.toBeNull()
+    const emitted = controlGraphCpp(graph)
+    const loop = emitted.loop.join('\n')
+    expect(loop).toContain('_vl_near.setAddress(0x30);')
+    expect(loop).toContain('_vl_far.setAddress(0x31);')
+    expect(emitted.setup.join('\n')).toContain('pinMode(5, OUTPUT); digitalWrite(5, LOW);')
+    expect(emitted.setup.join('\n').match(/Wire\.begin\(/g)).toHaveLength(1)
+  })
+
+  it('moves one sensor off 0x29 without a shutdown pin, and can wire shutdown while staying at 0x29', () => {
+    const moved = rangerGraph({ partId: VL53L0X_PART_ID, ...bus, i2cAddress: '0x30' })
+    const movedSketch = generateCpp(moved.nodes, moved.edges)
+    expect(movedSketch).toContain('_vl_ranger = VL53L0X();')
+    expect(movedSketch).toContain('_vl_ranger.setAddress(0x30);')
+    expect(movedSketch).not.toContain('digitalWrite(')
+
+    const held = rangerGraph({ partId: VL53L0X_PART_ID, ...bus, xshutPin: 4 })
+    const heldSketch = generateCpp(held.nodes, held.edges)
+    expect(heldSketch).toContain('pinMode(4, OUTPUT); digitalWrite(4, LOW);')
+    expect(heldSketch).toContain('_vl_ranger = VL53L0X();')
+    expect(heldSketch).toContain('digitalWrite(4, LOW); delay(10);')
+    expect(heldSketch).not.toContain('setAddress')
   })
 })

@@ -420,6 +420,7 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   // prints the SPI names DATA and CLK on the same two lines it answers I2C on.
   sdaPin: ['SDA', 'SDI', 'DATA', 'DIN', 'D1'],
   sclPin: ['SCL', 'CLK', 'SCK', 'D0'],
+  xshutPin: ['SHDN', 'XSHUT'],
   // The three I2S MEMS microphones print the same three signals under three
   // sets of names: an INMP441 says WS/SCK/SD, an Adafruit-form ICS-43434 says
   // LRCL/BCLK/DOUT, and the generic MSM261 boards follow the INMP441.

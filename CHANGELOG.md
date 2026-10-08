@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Two VL53L0X or VL53L1X sensors can share one I2C bus. Give each its own SHDN or
+  XSHUT pin and an address from 0x30 to 0x33. One sensor on its own still uses 0x29
+  and leaves the shutdown pin unconnected. This stays experimental until a
+  tape-measure check is recorded.
 - Displays on the Hardware tab now show their live output on the module's own
   screen. OLED and colour TFT panels show the picture the evaluator draws,
   including a mounted screen design. Segment modules light the segments,

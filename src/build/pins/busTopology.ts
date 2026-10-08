@@ -70,6 +70,7 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
   DistanceInput: {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
+    xshutPin: { kind: 'none', role: 'exclusive' },
   },
   PwmDriverOutput: {
     sdaPin: { kind: 'i2c', role: 'sda' },

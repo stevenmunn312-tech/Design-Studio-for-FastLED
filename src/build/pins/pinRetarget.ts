@@ -221,6 +221,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'echoPin', capability: 'digitalInput' },
       { key: 'sdaPin' },
       { key: 'sclPin' },
+      { key: 'xshutPin', capability: 'digitalOutput' },
     ],
   },
   // One UART receive line: the sensor streams unprompted, so its RX is unwired.

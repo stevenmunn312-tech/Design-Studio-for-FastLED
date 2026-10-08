@@ -1065,6 +1065,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     echoPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    xshutPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2cAddress: { control: 'select', options: distanceSensorAddressOptions(VL53L0X_PART_ID) },
   },
   EnvironmentInput: {
@@ -1676,7 +1677,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     echoPin: 'The GPIO wired to Echo through the 1 kΩ and 2 kΩ divider the Build Diagram shows. Echo swings to 5 V, above what a 3.3 V controller pin tolerates.',
     sdaPin: 'Laser sensor I2C data pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
     sclPin: 'Laser sensor I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
-    i2cAddress: 'The VL53L0X and VL53L1X answer on 0x29, and no jumper changes it, so two of them on one bus need their SHDN or XSHUT pins driven separately.',
+    xshutPin: 'The GPIO wired to SHDN or XSHUT. Leave it on No GPIO for one sensor. With two sensors on the same bus, wire a separate pin for each and give each an address from 0x30 to 0x33. The sketch holds the others in reset while it moves one off 0x29.',
+    i2cAddress: 'One sensor stays on 0x29. Each extra sensor on the same bus needs its own address from 0x30 to 0x33 and its own SHDN or XSHUT pin. Every chip wakes on 0x29, so that address stays free for the next start-up.',
   },
   TemperatureInput: {
     pin: 'The GPIO wired to the probe’s yellow DATA wire. It needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram shows. Use one probe per pin.',
@@ -1939,6 +1941,9 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   PresenceInput: {
     rxPin: 'RX (sensor TX)',
+  },
+  DistanceInput: {
+    xshutPin: 'SHDN',
   },
   MatrixOutput: {
     outputBrightness: 'brightness',
@@ -2381,7 +2386,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
   TemperatureInput: new Set(['pin']),
-  DistanceInput: new Set(['trigPin', 'echoPin', 'sdaPin', 'sclPin']),
+  DistanceInput: new Set(['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'xshutPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
   KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
@@ -2430,6 +2435,9 @@ export function gpioRequirementForProperty(
   props: Record<string, unknown>,
 ): GpioPropertyRequirement | null {
   if (!isGpioPinProperty(nodeType, key)) return null
+  // SHDN/XSHUT is a plain output. It has to be decided before the I2C pair
+  // below, which returns no GPIO capability for every other distance pin.
+  if (nodeType === 'DistanceInput' && key === 'xshutPin') return { capability: 'digitalOutput', pullup: false }
   // An I2C bus pair is not an ordinary digital-output assignment.
   if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
@@ -2763,12 +2771,18 @@ const TRANSPORT_DISPLAY_TOUCH_PINS = [
  *
  * Derived from the sketch, not from taste: `tftDisplayCpp`/`customDisplayPanelCpp`
  * skip reset and backlight when they are 255, and `tftTouchCpp` skips the touch
- * IRQ, so those three lines — and only those — can honestly be described as not
- * wired. An OLED's reset is driven unconditionally, which is why `InfoDisplay`
- * has no entry here.
+ * IRQ. A VL53 shutdown pin is the same value when one sensor leaves SHDN
+ * unconnected: the sketch emits no `pinMode` for it. An OLED's reset is driven
+ * unconditionally, which is why `InfoDisplay` has no entry here.
  */
 const UNWIRABLE_PIN_PROPERTIES: Record<string, readonly string[]> = {
   TransportDisplay: ['resetPin', 'backlightPin', 'touchIrqPin'],
+  DistanceInput: ['xshutPin'],
+}
+
+/** Whether this property may be `NO_PIN` because the sketch guards that value. */
+export function pinPropertyMayBeUnwired(nodeType: string, key: string): boolean {
+  return UNWIRABLE_PIN_PROPERTIES[nodeType]?.includes(key) ?? false
 }
 
 /**
@@ -2780,7 +2794,7 @@ const UNWIRABLE_PIN_PROPERTIES: Record<string, readonly string[]> = {
  * GPIO 255 and the build is refused for wiring that does not exist.
  */
 export function pinPropertyIsUnwired(nodeType: string, key: string, value: unknown): boolean {
-  return value === NO_PIN && (UNWIRABLE_PIN_PROPERTIES[nodeType]?.includes(key) ?? false)
+  return value === NO_PIN && pinPropertyMayBeUnwired(nodeType, key)
 }
 
 /** Pins physically present for the selected catalogued colour-display module. */
@@ -2904,9 +2918,9 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   // A channel the selected board does not have has no pin to wire and no load to dim.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
-  if (nodeType === 'DistanceInput' && ['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'i2cAddress'].includes(key)) {
+  if (nodeType === 'DistanceInput' && ['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'i2cAddress', 'xshutPin'].includes(key)) {
     return distanceSensorTransport(properties.partId) === 'i2c'
-      ? ['sdaPin', 'sclPin', 'i2cAddress'].includes(key)
+      ? ['sdaPin', 'sclPin', 'i2cAddress', 'xshutPin'].includes(key)
       : ['trigPin', 'echoPin'].includes(key)
   }
   if (nodeType === 'LightInput' && ['pin', 'sdaPin', 'sclPin', 'i2cAddress', 'maxLux'].includes(key)) {

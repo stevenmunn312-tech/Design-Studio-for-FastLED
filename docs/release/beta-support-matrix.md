@@ -787,8 +787,10 @@ Unless a future row says otherwise, treat the following as experimental:
   [compile on classic ESP32](../reports/compile/vl53l0x-compile-checks.md), but no
   reading has been compared with a tape measure on any board. The normal sketch
   also builds on fbuild 2.5.37 through its vendoring path. The 3 to 12%
-  accuracy depends on the target and the light. Two sensors on one bus would need
-  their SHDN pins driven separately; the app offers no way to do that. Graduation
+  accuracy depends on the target and the light. Two VL53L0X or VL53L1X sensors can
+  share one bus: each takes its own SHDN or XSHUT GPIO and an address from 0x30 to
+  0x33, and 0x29 stays free because every chip wakes there. A single sensor still
+  uses 0x29 and leaves the shutdown pin unwired. Graduation
   needs a dated row naming the board/FQBN, the I2C pins and the build engine, with
   readings against a tape measure at two distances and Connected going false when
   the sensor is unplugged and recovering when it is replugged.
@@ -806,8 +808,8 @@ Unless a future row says otherwise, treat the following as experimental:
   one on fbuild 2.5.37 too, but no reading
   has been compared with a tape measure on any board, and the render is modelled from the
   listing, not a board file, so its header position and component placement are
-  approximate. Two sensors on one bus would need their XSHUT pins driven separately; the
-  app offers no way to do that. Graduation needs the same dated row as the VL53L0X, with
+  approximate. Sharing a bus with a second VL53 uses the same shutdown pin and
+  address rule as the VL53L0X. Graduation needs the same dated row as the VL53L0X, with
   one reading beyond 1.2 m.
 - **WIZnet WIZ850io wired Ethernet.** `EthernetModule` has software,
   generated-firmware, manifest and Build Diagram coverage in the normal sketch,

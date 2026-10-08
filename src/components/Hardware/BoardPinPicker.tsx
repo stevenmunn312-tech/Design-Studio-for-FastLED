@@ -4,9 +4,11 @@ import {
   gpioRequirementForProperty,
   isGpioPinProperty,
   isPropertyEnabled,
+  pinPropertyIsUnwired,
+  pinPropertyMayBeUnwired,
   propertyLabel,
 } from '../../state/nodeLibrary'
-import { pinDisplayLabel, pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
+import { NO_PIN, pinDisplayLabel, pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { boardGpioInfo, useUploadStore } from '../../state/upload/uploadStore'
 import { boardPinTable } from '../../build/boards/boardPinPolicy'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -62,31 +64,36 @@ export default function BoardPinPicker({
     )
   }, [gpio, requirement])
 
+  const mayUnwire = pinPropertyMayBeUnwired(nodeType, propertyKey)
+  const unwired = mayUnwire && value === NO_PIN
   const selected = gpio?.recommended.find((pin) => pin.pin === value)
     ?? gpio?.caution.find((pin) => pin.pin === value)
-  const isRecommended = compatible.some((pin) => pin.pin === value)
+  const isRecommended = unwired || compatible.some((pin) => pin.pin === value)
   const knownPins = [...(gpio?.recommended ?? []), ...(gpio?.caution ?? [])]
   const boardMax = Math.min(max, Math.max(min, gpio?.maxPin ?? 0, ...knownPins.map((pin) => pin.pin)))
 
-  const conflicts = [...new Set(nodes.flatMap((node) => {
+  const conflicts = unwired ? [] : [...new Set(nodes.flatMap((node) => {
     if (node.id === nodeId) return []
     const otherProps = node.data.properties as Record<string, unknown>
     return Object.entries(otherProps)
       .filter(([key, otherValue]) =>
         isGpioPinProperty(node.data.nodeType, key)
         && isPropertyEnabled(node.data.nodeType, key, otherProps)
+        && !pinPropertyIsUnwired(node.data.nodeType, key, otherValue)
         && Number(otherValue) === value,
       )
       .map(() => node.data.label)
   }))]
 
-  const note = !gpio
-    ? 'Custom board: enter the GPIO number from its pinout.'
-    : !selected
-      ? `GPIO ${value} is not listed for this board.`
-      : pinWarningForCapability(selected, requirement?.capability) ?? selected.note
+  const note = mayUnwire && value === NO_PIN
+    ? (gpio ? 'This line is not driven.' : 'This line is not driven until a pin number is entered.')
+    : !gpio
+      ? 'Custom board: enter the GPIO number from its pinout.'
+      : !selected
+        ? `GPIO ${value} is not listed for this board.`
+        : pinWarningForCapability(selected, requirement?.capability) ?? selected.note
 
-  if (!gpio || compatible.length === 0 || customOpen || !isRecommended) {
+  if (!gpio || customOpen || (!unwired && (compatible.length === 0 || !isRecommended))) {
     return (
       <div className={styles.field}>
         <div className={styles.customRow}>
@@ -139,6 +146,7 @@ export default function BoardPinPicker({
           onChange(Number(event.target.value))
         }}
       >
+        {mayUnwire && <option value={NO_PIN}>No GPIO</option>}
         {compatible.map((pin) => (
           <option key={pin.pin} value={pin.pin}>
             {`${pinDisplayLabel(pin)}${pinWarningForCapability(pin, requirement?.capability) || pin.note ? ` — ${pinWarningForCapability(pin, requirement?.capability) ?? pin.note}` : ''}`}
@@ -146,6 +154,9 @@ export default function BoardPinPicker({
         ))}
         <option value="__custom__">Other GPIO…</option>
       </select>
+      {unwired && conflicts.length === 0 && (
+        <span className={styles.note}>This line is not driven.</span>
+      )}
       {conflicts.length > 0 && (
         <span className={styles.warning}>
           {`Also assigned to ${conflicts.join(', ')}.`}

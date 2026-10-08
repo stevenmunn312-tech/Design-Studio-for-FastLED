@@ -3,6 +3,7 @@
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
 import { MIC_DEFAULTS } from '../../audio/micAnalysis'
+import { NO_PIN } from '../../build/boards/boardGpio'
 import { HCSR04_PART_ID, VL53L0X_PART_ID, distanceSensorSpec, formatDistanceSensorAddress } from '../../state/peripherals/distanceSensor'
 import { BME280_DEFAULT_ADDRESS, BME280_PART_ID, formatEnvironmentAddress } from '../../state/peripherals/environmentSensor'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
@@ -365,6 +366,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       sdaPin: 21,
       sclPin: 22,
       i2cAddress: formatDistanceSensorAddress(distanceSensorSpec(VL53L0X_PART_ID).defaultI2cAddress ?? 0x29),
+      xshutPin: NO_PIN,
     },
   },
   {

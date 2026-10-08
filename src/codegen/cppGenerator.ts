@@ -105,7 +105,7 @@ import { TOUCH_PAD_HELPER_CPP } from './peripherals/touchPadCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './peripherals/lightSensorCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './peripherals/environmentSensorCpp'
 import { lightSensorTransport } from '../state/peripherals/lightSensor'
-import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
+import { distanceSensorTransport, i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
 import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
 import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audio/audioCapabilities'
@@ -593,6 +593,9 @@ export function generateCpp(
     if (['IRRemoteInput', 'PowerMonitorInput'].includes(node.data.nodeType) && node.data.properties.debug === true
         && !live.some((entry) => entry.id === node.id)) live.push(node)
   }
+  // A second laser sensor that does not feed an output still has to hold its
+  // shutdown pin, or the one that does feed an output boots into a peer awake at 0x29.
+  for (const peer of i2cDistanceBusPeers(nodes, live)) live.push(peer)
   const audio = audioEngineForGraph(live, capabilityNodes, groups)
   const emitEngine = !!audio
   const useAudioGlobals = emitEngine || !!opts.externalAudio

@@ -389,7 +389,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "Time-of-flight laser distance sensor over I2C: about 30 mm to 1.2 m in the default mode, with 3-12% accuracy depending on light and target.",
       "Power VIN from 3.3 V for an ESP controller so the I2C pull-ups stay in the controller domain. The board has a 2.8 V regulator and level shifting.",
-      "The address is 0x29 and no jumper changes it. Two sensors on one bus need their SHDN (XSHUT) pins driven separately at start-up.",
+      "The address is 0x29 at power-up and no jumper changes it. Studio can drive each SHDN pin and assign 0x30 to 0x33 so more than one sensor can share the bus.",
       "2v8 is the regulator output (up to 100 mA); GPIO is the sensor's interrupt output and has no level shifting. SHDN holds the sensor in reset when pulled low. None of the three is needed for basic readings.",
       "The seven-pin row ships loose and is rendered as unpopulated plated holes."
     ],
@@ -431,7 +431,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "Time-of-flight laser distance sensor over I2C: about 30 mm to 4 m in long distance mode, with a 27 degree field of view and up to 50 Hz ranging.",
       "Power VIN with the same level as the controller's logic: 3.3 V for an ESP controller. The board has 10 kilohm pull-ups on SDA and SCL, and XSHUT is level-shifted.",
-      "The address is 0x29 at power-up and software can change it, but two sensors on one bus need their XSHUT pins driven separately at start-up.",
+      "The address is 0x29 at power-up and no jumper changes it. Studio can drive each XSHUT pin and assign 0x30 to 0x33 so more than one sensor can share the bus.",
       "GPIO is the sensor's interrupt output at 2.8 V logic and XSHUT holds the sensor in reset when pulled low; neither is needed for basic readings.",
       "The six-hole row ships loose and is rendered as unpopulated plated holes; the two STEMMA QT connectors are shown fitted. Hole and component positions are representative, not measured from a board file."
     ],

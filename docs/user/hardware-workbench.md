@@ -418,9 +418,11 @@ the support matrix.
 
 Choose **Add Hardware → Inputs → VL53L0X laser distance sensor** for a reading from
 about 3 cm to 1.2 m over I2C. Wire **VIN** to **3V3**, **GND** to **GND**, and **SDA**
-and **SCL** to the board's I2C pins, which it can share with other I2C parts. Leave
-**2v8**, **GPIO** and **SHDN** unconnected. It answers on 0x29 and no jumper changes
-that, so two of them cannot share a bus.
+and **SCL** to the board's I2C pins, which it can share with other I2C parts. One sensor
+answers on 0x29; leave **2v8**, **GPIO** and **SHDN** unconnected. No jumper changes the
+address. To put two on the same bus, wire a separate GPIO to each **SHDN** pin and give
+each sensor its own address from 0x30 to 0x33. Every chip wakes on 0x29, so that address
+stays free and the sketch holds the other sensor in reset while it moves one.
 
 It uses the same **Distance Sensor** node as the ultrasonic part, with the same **Distance**
 (millimetres) and **Connected** outputs. Unlike the other I2C parts it needs a library, the
@@ -436,13 +438,14 @@ until a physical comparison is recorded in the support matrix.
 Choose **Add Hardware → Inputs → VL53L1X laser distance sensor** for the same kind of
 reading as the VL53L0X but out to about 4 m. Its six header holes are **VIN**, **GND**,
 **SDA**, **SCL**, **XSHUT** and **GPIO**: wire VIN to **3V3**, GND to **GND**, and SDA and
-SCL to the board's I2C pins, and leave XSHUT and GPIO unconnected. Two fitted STEMMA QT
+SCL to the board's I2C pins. One sensor leaves **XSHUT** and **GPIO** unconnected and
+answers on 0x29. To share the bus with another VL53L0X or VL53L1X, wire a separate GPIO
+to each **XSHUT** pin and give each sensor an address from 0x30 to 0x33. Two fitted STEMMA QT
 connectors offer a plug-in alternative. It uses the same **Distance Sensor** node and
 outputs, and needs Pololu's VL53L1X library, which Studio installs the first time you
 compile a sketch that uses it. It runs in long distance mode, reading about every 50 ms;
-a reading with a poor return holds the last good distance. It answers on 0x29 like the
-VL53L0X, so two cannot share a bus. It is experimental until a physical comparison is
-recorded in the support matrix.
+a reading with a poor return holds the last good distance. It is experimental until a
+physical comparison is recorded in the support matrix.
 
 ### Connect by Ethernet
 
