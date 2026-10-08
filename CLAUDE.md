@@ -77,7 +77,7 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 <!-- AUTO-MANAGED: git-insights -->
 ## Git Workflow
 
-- Use plain `git`; do not use `cortex git`.
+- Use plain `git`.
 - `main` is the frozen public-beta line. Do not change it unless the user explicitly requests a beta hotfix.
 - `Hardware` is the active breaking-development line and is authoritative. Never merge `main` and `Hardware` in either direction.
 - Work directly on `Hardware` by default. Use a focused `codex/` branch only when the user explicitly requests one.
