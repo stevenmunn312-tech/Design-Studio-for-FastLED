@@ -1332,6 +1332,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Buzzer example graph](../../public/node-cards/graphs/buzzer-output.svg)
 
+### Cooling Fan
+
+![Cooling Fan node](../../public/node-cards/cooling-fan-output.svg)
+
+![Cooling Fan example graph](../../public/node-cards/graphs/cooling-fan-output.svg)
+
 ### Info Display
 
 ![Info Display node](../../public/node-cards/info-display.svg)

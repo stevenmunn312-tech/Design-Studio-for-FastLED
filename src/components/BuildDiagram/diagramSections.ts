@@ -65,7 +65,7 @@ export const BUILD_SECTIONS: BuildSection[] = [
     id: 'controls',
     label: 'Controls',
     summary: 'Controller buses and GPIO to the RTC, buttons, potentiometers, encoders, sensors, and network modules.',
-    kinds: ['rtc-input', 'button-input', 'touch-button-input', 'pot-input', 'encoder-input', 'motion-input', 'light-input', 'environment-input', 'temperature-input', 'distance-input', 'joystick-input', 'keypad-input', 'motion-vector-input', 'touch-pad-input', 'relay-output', 'power-switch-output', 'buzzer-output', 'pwm-driver-output', 'darlington-driver-output', 'power-monitor-input', 'presence-input', 'dmx-input', 'ethernet'],
+    kinds: ['rtc-input', 'button-input', 'touch-button-input', 'pot-input', 'encoder-input', 'motion-input', 'light-input', 'environment-input', 'temperature-input', 'distance-input', 'joystick-input', 'keypad-input', 'motion-vector-input', 'touch-pad-input', 'relay-output', 'power-switch-output', 'buzzer-output', 'cooling-fan-output', 'pwm-driver-output', 'darlington-driver-output', 'power-monitor-input', 'presence-input', 'dmx-input', 'ethernet'],
     layers: { signalWires: true, levelShifter: false, powerDistribution: false },
   },
   {

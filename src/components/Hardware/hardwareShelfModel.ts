@@ -78,6 +78,7 @@ export function hardwareShelfCategories({
   const relayFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'RelayOutput')
   const powerSwitchFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSwitchOutput')
   const buzzerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BuzzerOutput')
+  const coolingFanFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'CoolingFanOutput')
   const pwmDriverFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PwmDriverOutput')
   const darlingtonFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'DarlingtonDriverOutput')
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
@@ -181,6 +182,12 @@ export function hardwareShelfCategories({
         ...moduleItems('PwmDriverOutput', pwmDriverFixture),
         ...moduleItems('DarlingtonDriverOutput', darlingtonFixture),
       ],
+    },
+    {
+      id: 'cooling',
+      label: 'Cooling',
+      hint: 'Fans that cool an enclosure and report speed',
+      items: moduleItems('CoolingFanOutput', coolingFanFixture),
     },
     {
       id: 'led-outputs',

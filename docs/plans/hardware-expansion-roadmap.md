@@ -64,7 +64,7 @@ build have passed the normal evidence gates.
 | Solid-state relay module | `RelayOutput` option or separate switch type | Only after AC/DC load type, leakage and isolation are represented honestly. |
 | PCA9685 16-channel PWM module | `PwmDriverOutput`, in and experimental: sixteen 0 to 1 channels at one shared frequency, 0x40 to 0x6F, V+ not drawn, bench open. Multi-channel PWM output | Useful for analog dimming, indicators and servos; not an addressable-pixel output. |
 | ULN2803A driver board | `DarlingtonDriverOutput`, in and experimental: eight active-high channels on eight GPIOs, sink only, bench open. Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
-| Fan module with tachometer | Cooling output plus speed input | Enables enclosure cooling tied to temperature or power measurements. |
+| Noctua NF-A4x10 5V PWM fan | `CoolingFanOutput`, in and experimental: a 0 to 1 speed input plus measured RPM and Running outputs, 25 kHz active-high PWM, ESP32-family normal sketch, bench open. | Enables enclosure cooling tied to temperature or power measurements. |
 | Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch. The KY-006 passive buzzer is in and experimental too: it adds a Pitch input in hertz, played with `tone()`, one per board. Bench open for both. |
 | DFPlayer Mini | Player hardware integration | The verified Blender asset already exists; graph control, firmware ownership and audio routing remain to be integrated. |
 | USB-C PD trigger module | `PdTriggerSource`, in and experimental as a config-only fixture; the plan checks its requested voltage against the converters; bench open. Power-negotiation fixture | Records the requested source voltage before a downstream converter or load. |
@@ -167,6 +167,12 @@ compile families:
     output, SD video through the codec module, and segment-network layouts.
     Ordered and checkboxed as Phase 11 of the
     [pattern node expansion plan](pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons).
+12. Enclosure cooling. The exact Noctua NF-A4x10 5V PWM
+    (`CoolingFanOutput`) is modelled, catalogued, drawn, previewed and generated
+    for the normal ESP32 sketch. Speed drives active-high PWM at 25 kHz. The
+    open-collector tachometer reports measured RPM from two pulses per
+    revolution. Its [compile fixture](../reports/compile/cooling-fan-compile-checks.md)
+    passes on classic ESP32; the bench run remains open, so it stays experimental.
 
 ## Definition of done for each addition
 

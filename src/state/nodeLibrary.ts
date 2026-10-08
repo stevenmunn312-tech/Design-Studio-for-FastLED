@@ -1087,6 +1087,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pitchHz: { control: 'slider', min: BUZZER_PITCH_MIN_HZ, max: BUZZER_PITCH_MAX_HZ, step: 10 },
   },
+  CoolingFanOutput: {
+    pwmPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    tachPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
+  },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key) => [key, {
     control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
   }])),
@@ -1640,6 +1645,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sigPin: 'The GPIO wired to the buzzer\'s signal pin, SIG on the KY-012 and S on the KY-006. An active buzzer sounds while the pin is high; a passive one sounds while the pin carries a tone.',
     pitchHz: `The tone a passive buzzer plays while Sound is true, ${BUZZER_PITCH_MIN_HZ} to ${BUZZER_PITCH_MAX_HZ} Hz. The KY-006 is loudest near 2000 Hz and quieter away from it. An active buzzer has no pitch to set.`,
   },
+  CoolingFanOutput: {
+    pwmPin: 'The GPIO that sends active-high 25 kHz PWM to the fan blue wire.',
+    tachPin: 'The GPIO that reads the fan green open-collector RPM wire with the controller pull-up enabled.',
+    speed: 'Requested fan speed from 0 to 1. This exact fan stops at 0 and reaches about 5000 rpm at 1.',
+  },
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 pads or jumpers: four choices on the INA219, sixteen on the INA226. Give each monitor on the bus a different one.',
     overcurrentAmps: 'Overcurrent goes true while the measured amps are above this. It clears as soon as they fall back to it or below.',
@@ -1906,6 +1916,11 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   BuzzerOutput: {
     sigPin: 'SIG',
     pitchHz: 'Pitch (Hz)',
+  },
+  CoolingFanOutput: {
+    pwmPin: 'PWM',
+    tachPin: 'RPM',
+    speed: 'Speed',
   },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key, index) => [key, `${index + 1}B`])),
   FieldLevels: {
@@ -2405,6 +2420,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   BuzzerOutput: new Set(['sigPin']),
+  CoolingFanOutput: new Set(['pwmPin', 'tachPin']),
   PwmDriverOutput: new Set(['sdaPin', 'sclPin']),
   DarlingtonDriverOutput: new Set(darlingtonPinKeys()),
   RTCInput: new Set(['sdaPin', 'sclPin']),
@@ -2461,6 +2477,11 @@ export function gpioRequirementForProperty(
     return { capability: 'digitalInput', pullup: false }
   }
   // The 1-Wire bus is driven low and released, so the pin must be able to output; an input-only GPIO cannot.
+  if (nodeType === 'CoolingFanOutput') {
+    return key === 'tachPin'
+      ? { capability: 'digitalInput', pullup: true }
+      : { capability: 'digitalOutput', pullup: false }
+  }
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'BuzzerOutput' || nodeType === 'DarlingtonDriverOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
   // Rows read through the controller's pull-up; columns are driven low one at a time.
   if (nodeType === 'KeypadInput') return KEYPAD_ROW_KEYS.includes(key as never) ? { capability: 'digitalInput', pullup: true } : { capability: 'digitalOutput', pullup: false }

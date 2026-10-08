@@ -68,6 +68,7 @@ import type { NodeEvaluators, NodeEvaluator, PortValue } from '../../state/evalu
 import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, isPlayerControls, playerControlsState, toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
+import { coolingFanPreviewRpm } from '../../state/peripherals/coolingFan'
 
 /**
  * Whether a finger is on the glass, without touching the edge state.
@@ -567,6 +568,10 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   },
   // A physical sink like the relay: the browser has no sound, but the boolean is still evaluated.
   BuzzerOutput: physicalSink,
+  CoolingFanOutput({ num }, id, props) {
+    const rpm = coolingFanPreviewRpm(props.partId, num(id, 'speed', props, 'speed', 1))
+    return { rpm, running: rpm > 0 }
+  },
   // A physical sink too: the browser has no PWM output, but wired levels are still evaluated.
   PwmDriverOutput: physicalSink,
   // A physical sink too: the browser switches no load, but the booleans are still evaluated.

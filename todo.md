@@ -41,16 +41,15 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  2. A fan module with a tachometer: a cooling output plus a speed input.
-  3. The DFPlayer Mini. Its verified Blender asset exists; graph control,
+  2. The DFPlayer Mini. Its verified Blender asset exists; graph control,
      firmware ownership and audio routing remain.
-  4. A solid-state relay, only once AC/DC load type, leakage and isolation are
+  3. A solid-state relay, only once AC/DC load type, leakage and isolation are
      represented honestly.
-  5. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
+  4. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
      ESP32-C6-DevKitC-1, ESP8266 D1 Mini, Raspberry Pi Pico W, Teensy 4.1,
      Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a board profile,
      not a module) and QuinLED Dig-Uno and Dig-Quad.
-  6. Families that extend the power model: battery chargers, cell balancers,
+  5. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
      with fuses, balancer, BMS and 100 W charge/discharge control.
@@ -148,6 +147,11 @@ chooses the supported combinations from whatever is on record at release.
   sounding while Sound is true and silent when it falls; and the KY-006 the same
   way, plus a pitch sweep following a wired Pitch and its transducer's measured
   DC resistance. The rows' requirements are in the support matrix.
+- **D-05 cooling fan:** the Noctua NF-A4x10 5V PWM driven through 0%, 20%, 50%
+  and 100% commands, with PWM frequency checked at 25 kHz and reported RPM
+  compared with an optical tachometer. Confirm it stops at 0%, starts reliably,
+  stays off through reset and setup, and reports a stall when the rotor is held.
+  The row's requirements are in the support matrix.
 - **D-05 power monitor:** INA219 and INA226 readings against a multimeter, the
   INA226 with one load above 3 A; the rows' requirements are in the support matrix.
 - **D-05 PD trigger:** the ZY12PDN negotiating each voltage it offers from a named
@@ -365,8 +369,9 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   extender, LM2596 and SD-100A/B-5 with main fuses and trunks, BME280,
   DS18B20, HC-SR04, VL53L0X and VL53L1X (including two on one bus, each with its
   own SHDN or XSHUT pin and an address from 0x30 to 0x33), KY-023, GY-521, RCWL-0516, MPR121,
-  4x4 keypad, PCA9685, ULN2803A, KY-012, KY-006, ZY12PDN and the YYNMOS-4
-  (LR7843 revision), each in software and compiled where it has firmware
+  4x4 keypad, PCA9685, ULN2803A, KY-012, KY-006, ZY12PDN, the YYNMOS-4
+  (LR7843 revision) and the Noctua NF-A4x10 5V PWM cooling fan, each in software
+  and compiled where it has firmware
   ([roadmap](docs/plans/hardware-expansion-roadmap.md);
   [compile records](docs/index.md#compile-checks)).
 - **Pattern node expansion**: Phases 0–10, and Phase 11's render scale,

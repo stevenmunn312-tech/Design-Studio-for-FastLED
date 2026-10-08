@@ -13,6 +13,12 @@ import { ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_L
 import { PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverInputs, pwmDriverSpec } from '../../state/peripherals/pwmDriver'
 import { DEFAULT_RELAY_PART_ID, relayInputs } from '../../state/peripherals/relayModule'
 import { MASTER_SPEED_DEFAULT } from '../../state/player/masterSpeed'
+import {
+  COOLING_FAN_PART_ID,
+  COOLING_FAN_PWM_PIN_FALLBACK,
+  COOLING_FAN_SPEED_DEFAULT,
+  COOLING_FAN_TACH_PIN_FALLBACK,
+} from '../../state/peripherals/coolingFan'
 
 export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
 
@@ -349,6 +355,26 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { partId: BUZZER_PART_ID, sigPin: BUZZER_PIN_FALLBACK, pitchHz: BUZZER_PITCH_DEFAULT_HZ },
   },
   {
+    // One exact four-wire fan: a 25 kHz PWM cooling output and an actual RPM
+    // input from its open-collector tachometer. The browser estimates RPM from
+    // the requested speed; generated firmware publishes measured pulses.
+    type: 'CoolingFanOutput',
+    label: 'Cooling Fan',
+    category: 'output',
+    inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }],
+    propertyInputs: { speed: 'speed' },
+    outputs: [
+      { id: 'rpm', label: 'RPM', dataType: 'float' },
+      { id: 'running', label: 'Running', dataType: 'bool' },
+    ],
+    defaultProperties: {
+      partId: COOLING_FAN_PART_ID,
+      pwmPin: COOLING_FAN_PWM_PIN_FALLBACK,
+      tachPin: COOLING_FAN_TACH_PIN_FALLBACK,
+      speed: COOLING_FAN_SPEED_DEFAULT,
+    },
+  },
+  {
     // A 1-bit OLED with one content input and no layout property: what is
     // plugged into `Display` decides what it shows, one layout per source. The
     // port set is therefore stable by construction rather than by discipline,
@@ -571,6 +597,7 @@ export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
   DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',
   BuzzerOutput: 'Sounds a buzzer while its input is true; a passive one plays your Pitch.',
+  CoolingFanOutput: 'Controls a four-wire cooling fan and reports its measured RPM.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
   TransportDisplay: 'A colour TFT panel: a fixed transport or status layout, or a Screen Design.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',

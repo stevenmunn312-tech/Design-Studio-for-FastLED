@@ -281,6 +281,23 @@ wired, dims that channel with PWM at 500 Hz, the LR7843's rate. The listing
 rates the inputs from 3 V; a 3.3 V pin is at the bottom of that range, so if a
 channel does not switch, drive it from 5 V through a transistor or buffer.
 
+### Cool an enclosure and read fan speed
+
+Choose **Add Hardware → Cooling → Noctua NF-A4x10 5V PWM**. Connect the black
+wire to **GND**, yellow to **5V**, green to the selected **RPM** GPIO and blue
+to the selected **PWM** GPIO. The controller and fan must share ground. The RPM
+wire is an open-collector output; generated firmware enables the controller's
+pull-up, so do not add a pull-up to 5 V.
+
+The **Cooling Fan** node accepts **Speed** from 0 to 1. It outputs active-high
+PWM at 25 kHz and reads two tachometer pulses per revolution. **RPM** reports
+the measured speed every 500 ms, and **Running** becomes true after pulses are
+seen. With no Speed wire, use the node's Speed property. The preview estimates
+1050 rpm at 20% and 5000 rpm at full speed; uploaded firmware uses the actual
+tachometer instead. This first firmware path supports ESP32-family boards and
+the normal sketch only. The fan remains experimental until a physical run is
+recorded in the support matrix.
+
 ### Detect stationary presence
 
 The **HLK-LD2410C Presence Sensor** detects a person who is moving or sitting

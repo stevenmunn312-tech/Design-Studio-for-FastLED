@@ -74,6 +74,12 @@ import { stereoVuLoopCpp } from '../../codegen/audio/stereoVuMeterCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { safeId, cppComment } from '../../codegen/cppLiterals'
 import { hub75BlitRowsCpp } from '../../codegen/output/hub75Cpp'
+import { coolingFanGlobalCpp, coolingFanLoopCpp, coolingFanSetupCpp } from '../../codegen/peripherals/coolingFanCpp'
+import {
+  COOLING_FAN_PWM_PIN_FALLBACK,
+  COOLING_FAN_TACH_PIN_FALLBACK,
+  coolingFanSpec,
+} from '../../state/peripherals/coolingFan'
 
 /**
  * Every dimmed Power Switch channel in the sketch, in node then channel
@@ -93,6 +99,21 @@ function dimmedPowerSwitchChannels(
       .filter((channel) => powerSwitchDims(q.partId, q[channel.level], incoming.has(`${candidate.id}:${channel.level}`)))
       .map((channel) => ({ key: `${candidate.id}:${channel.index}`, hz }))
   })
+}
+
+/** Every ESP32 core-2 LEDC user, allocated together to avoid channel clashes. */
+function esp32PwmChannels(
+  nodes: StudioNode[],
+  incoming: ReadonlyMap<string, unknown>,
+  props: (node: StudioNode) => Record<string, unknown>,
+): DimmedPowerSwitchChannel[] {
+  return [
+    ...dimmedPowerSwitchChannels(nodes, incoming, props),
+    ...nodes.filter((candidate) => candidate.data.nodeType === 'CoolingFanOutput').map((candidate) => ({
+      key: `${candidate.id}:fan`,
+      hz: coolingFanSpec(props(candidate).partId).pwmHz,
+    })),
+  ]
 }
 
 function powerMonitorExpressions(sourceId: string | undefined) {
@@ -166,6 +187,22 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     ln('#endif')
     ln('    } }')
   },
+  CoolingFanOutput({ id, p, ln, f, v, setupLines, globalLines, nodes, incoming, props }) {
+    const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
+    const emit = {
+      id,
+      pwmPin: sanitizePin(p.pwmPin, COOLING_FAN_PWM_PIN_FALLBACK),
+      tachPin: sanitizePin(p.tachPin, COOLING_FAN_TACH_PIN_FALLBACK),
+      channel: plan.ledcChannels.get(`${id}:fan`) ?? 0,
+      speedExpr: f('speed', 'speed', 1),
+      rpmVar: v('rpm'),
+      runningVar: v('running'),
+      spec: coolingFanSpec(p.partId),
+    }
+    globalLines.push(...coolingFanGlobalCpp(emit))
+    setupLines.push(...coolingFanSetupCpp(emit))
+    for (const line of coolingFanLoopCpp(emit)) ln(line)
+  },
   RelayOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // These modules are active-low. Drive the inactive level into the
     // output latch before switching the pin to OUTPUT so reset/setup does
@@ -196,7 +233,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       }
       // Dimmed: the same gate and level rule as the preview (powerSwitchGate,
       // powerSwitchLoad), carried by PWM at the part's frequency.
-      const plan = powerSwitchPwmPlan(dimmedPowerSwitchChannels(nodes, incoming, props))
+      const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
       const helper = powerSwitchPwmHelperCpp(plan.sharedHz)
       if (!globalLines.includes(helper)) globalLines.push(helper)
       const emit = {

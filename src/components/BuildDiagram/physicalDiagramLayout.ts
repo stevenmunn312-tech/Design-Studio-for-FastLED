@@ -770,6 +770,7 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   // matched by those through the catalogue before this list is read.
   'power-switch-output': [['PWM', 'IN', 'SIG']],
   'buzzer-output': [['SIG', 'S', 'SIGNAL']],
+  'cooling-fan-output': [['PWM'], ['RPM', 'TACH', 'TACHO']],
   'pwm-driver-output': [['SDA'], ['SCL']],
   'darlington-driver-output': ['1B', '2B', '3B', '4B', '5B', '6B', '7B', '8B'].map((name) => [name]),
   'power-monitor-input': [['SDA'], ['SCL']],

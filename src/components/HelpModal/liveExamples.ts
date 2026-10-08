@@ -1785,6 +1785,24 @@ const BUZZER_OUTPUT_LIVE_EXAMPLE = namedExample(
   'Hold the Button node to sound the buzzer. The browser preview is silent, and the solid colour keeps the LED preview visible because the buzzer produces sound rather than pixels.',
 )
 
+const COOLING_FAN_OUTPUT_LIVE_EXAMPLE = namedExample(
+  'CoolingFanOutput',
+  'Cool an enclosure and watch its RPM',
+  [
+    { key: 'pot', type: 'PotInput' },
+    { key: 'fan', type: 'CoolingFanOutput', properties: { partId: 'noctua-nf-a4x10-5v-pwm', pwmPin: 25, tachPin: 26 } },
+    { key: 'normalize', type: 'MapRange', properties: { inMin: 0, inMax: 5000, outMin: 0, outMax: 1, clamp: true } },
+    { key: 'gauge', type: 'Gauge', properties: { gaugeStyle: 'bar', direction: 'right', palette: 'heat' } },
+  ],
+  [
+    { source: 'pot', sourceHandle: 'value', target: 'fan', targetHandle: 'speed' },
+    { source: 'fan', sourceHandle: 'rpm', target: 'normalize', targetHandle: 'value' },
+    { source: 'normalize', sourceHandle: 'result', target: 'gauge', targetHandle: 'value' },
+  ],
+  'Cooling Fan combines one output and one sensor. Speed sends active-high 25 kHz PWM to the blue wire. RPM reads the green open-collector tachometer at two pulses per revolution. Power comes from 5 V, and the controller enables its pull-up on the RPM pin. The first firmware path supports ESP32-family boards.',
+  'Turn the Potentiometer to change requested speed. The browser estimates the fan RPM for the Gauge; uploaded firmware replaces that estimate with measured tachometer pulses.',
+)
+
 const POWER_SWITCH_OUTPUT_LIVE_EXAMPLE = namedExample(
   'PowerSwitchOutput',
   'Switch and dim a DC load',
@@ -1997,6 +2015,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   RelayOutput: RELAY_OUTPUT_LIVE_EXAMPLE,
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   BuzzerOutput: BUZZER_OUTPUT_LIVE_EXAMPLE,
+  CoolingFanOutput: COOLING_FAN_OUTPUT_LIVE_EXAMPLE,
   PwmDriverOutput: PWM_DRIVER_LIVE_EXAMPLE,
   DarlingtonDriverOutput: DARLINGTON_DRIVER_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,

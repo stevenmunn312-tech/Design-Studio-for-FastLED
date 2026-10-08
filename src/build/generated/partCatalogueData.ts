@@ -1972,6 +1972,45 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 16.522
     }
   },
+  "noctua-nf-a4x10-5v-pwm": {
+    "partId": "noctua-nf-a4x10-5v-pwm",
+    "label": "Noctua NF-A4x10 5V PWM fan",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 40.0,
+      "height": 40.0
+    },
+    "manufacturer": "Noctua",
+    "logicVoltage": "5 V fan supply; 3.3/5 V PWM input; open-collector tachometer pulled up to controller logic voltage",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "RPM",
+      "PWM"
+    ],
+    "notes": [
+      "A 40 x 40 x 11 mm four-wire 5 V fan. Noctua rates it at 5000 rpm maximum, 0.07 A maximum and 1050 rpm at 20% PWM.",
+      "PWM is active-high at 25 kHz. The fan provides its own 3.3/5 V pull-up on PWM, so drive PWM directly from a GPIO and never connect the fan supply to that pin.",
+      "RPM is an open-collector tachometer with two pulses per revolution. Pull it up to the controller's logic voltage; the Build Diagram uses the controller's internal pull-up.",
+      "At 0% PWM this exact model stops. With no PWM signal it runs at full rated speed.",
+      "The render models the 40 mm frame, 32 mm mounting-hole spacing and front rotor from Noctua's published dimensions and CAD envelope. The loose cable and connector are omitted so the image keeps the physical fan footprint."
+    ],
+    "fan": {
+      "supplyVoltageV": 5,
+      "maxCurrentA": 0.07,
+      "maxRpm": 5000,
+      "minRpmAt20Percent": 1050,
+      "pwmHz": 25000,
+      "tachPulsesPerRevolution": 2,
+      "tachOutput": "open-collector, 5 mA maximum"
+    },
+    "render": {
+      "file": "parts/noctua-nf-a4x10-5v-pwm.webp",
+      "widthPx": 500,
+      "heightPx": 500,
+      "pxPerMm": 12.0
+    }
+  },
   "pam8403-3w-stereo-amplifier": {
     "partId": "pam8403-3w-stereo-amplifier",
     "label": "PAM8403 2 x 3 W stereo amplifier module",

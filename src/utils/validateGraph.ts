@@ -1500,6 +1500,9 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'LineInput') && !selectedFqbn.startsWith('esp32:esp32:esp32s3')) {
     errors.push('PCM1802 line-in firmware currently requires an ESP32-S3 board so Studio can generate its synchronized MCLK/BCLK/LRCLK receive path')
   }
+  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'CoolingFanOutput') && !selectedFqbn.startsWith('esp32:')) {
+    errors.push('Cooling Fan firmware currently requires an ESP32-family board for its 25 kHz PWM output')
+  }
   if (selectedFqbn && nodes.some((node) =>
     node.data.nodeType === 'DMXInput' && String((node.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
   ) && !selectedFqbn.startsWith('esp32:')) {
@@ -3816,6 +3819,18 @@ export function buildGraphDiagnostics(
         title: 'Line in is incompatible with the selected board',
         message: 'PCM1802 line-in firmware currently requires an ESP32-S3 board for its synchronized four-wire I2S receive path.',
         fix: 'Choose an ESP32-S3 board in Board & Port, or remove the Line In hardware.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+  }
+
+  if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
+    for (const node of nodes.filter((entry) => entry.data.nodeType === 'CoolingFanOutput')) {
+      diagnostics.push({
+        id: `${node.id}-board-cooling-fan`, severity: 'error', category: 'board',
+        title: 'Cooling fan is incompatible with the selected board',
+        message: 'The generated 25 kHz PWM fan driver currently uses the ESP32 LEDC peripheral.',
+        fix: 'Choose an ESP32-family board in Board & Port, or remove the Cooling Fan hardware.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }

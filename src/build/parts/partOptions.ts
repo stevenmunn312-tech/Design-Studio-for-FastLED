@@ -74,6 +74,17 @@ export interface PartIdentity {
  * board is the *capture backend*, not the microphone.
  */
 export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
+  CoolingFanOutput: {
+    property: 'partId',
+    options: [
+      {
+        id: 'noctua-nf-a4x10-5v-pwm',
+        label: 'Noctua NF-A4x10 5V PWM',
+        summary: '40 mm 5 V fan, 25 kHz PWM control and tachometer feedback',
+        note: 'Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards.',
+      },
+    ],
+  },
   PowerConverter: {
     property: 'partId',
     options: powerConverterModules().map((module) => ({

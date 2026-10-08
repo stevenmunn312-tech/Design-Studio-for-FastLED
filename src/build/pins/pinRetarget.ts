@@ -166,6 +166,13 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     requests: darlingtonPinKeys().map((key) => ({ key, capability: 'digitalOutput' as const })),
   },
   BuzzerOutput: { keys: ['sigPin'], requests: [{ key: 'sigPin', capability: 'digitalOutput' }] },
+  CoolingFanOutput: {
+    keys: ['pwmPin', 'tachPin'],
+    requests: [
+      { key: 'pwmPin', capability: 'digitalOutput' },
+      { key: 'tachPin', capability: 'digitalInput' },
+    ],
+  },
   RelayOutput: {
     keys: relayPinKeys('relay-module-8ch-5v'),
     keysFor: (properties) => relayPinKeys(properties.partId),

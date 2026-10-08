@@ -31,6 +31,7 @@ import { PD_TRIGGER_PART_ID } from '../../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/peripherals/powerSwitch'
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/peripherals/powerConverter'
 import { dividedInputPinKey } from '../../build/pins/receiveDivider'
+import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -208,6 +209,22 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     render: partRenderSrc(BUZZER_PART_ID) ?? undefined,
     pinFields: [{ key: 'sigPin', label: 'SIG' }],
     pinRequests: [{ key: 'sigPin', capability: 'digitalOutput' }],
+  },
+  {
+    nodeType: 'CoolingFanOutput',
+    partId: 'cooling-fan-output',
+    label: 'Cooling fan',
+    hint: 'Controls fan speed and reports measured RPM',
+    footprint: partDimensionsMm(COOLING_FAN_PART_ID, { width: 40, height: 40 }),
+    render: partRenderSrc(COOLING_FAN_PART_ID) ?? undefined,
+    pinFields: [
+      { key: 'pwmPin', label: 'PWM' },
+      { key: 'tachPin', label: 'RPM' },
+    ],
+    pinRequests: [
+      { key: 'pwmPin', capability: 'digitalOutput' },
+      { key: 'tachPin', capability: 'digitalInput' },
+    ],
   },
   {
     nodeType: 'PowerSwitchOutput',

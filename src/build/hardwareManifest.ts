@@ -78,6 +78,10 @@ import {
   nledPixelDataExtenderSpec,
   usesNledPixelDataExtender,
 } from '../state/peripherals/pixelDataExtender'
+import {
+  COOLING_FAN_PART_ID,
+  coolingFanSpec,
+} from '../state/peripherals/coolingFan'
 
 export interface HardwarePinUse {
   label: string
@@ -118,7 +122,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -167,6 +171,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'RelayOutput',
   'PowerSwitchOutput',
   'BuzzerOutput',
+  'CoolingFanOutput',
   'PwmDriverOutput',
   'DarlingtonDriverOutput',
   'DMXInput',
@@ -458,6 +463,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'BuzzerOutput':
         push(node, `${baseLabel} ${pinPropertyLabel(String(props.partId ?? BUZZER_PART_ID), 'BuzzerOutput', 'sigPin')}`, 'sigPin', props.sigPin)
+        break
+      case 'CoolingFanOutput':
+        push(node, `${baseLabel} PWM`, 'pwmPin', props.pwmPin)
+        push(node, `${baseLabel} RPM`, 'tachPin', props.tachPin)
         break
       case 'PowerSwitchOutput':
         // Named as the board prints each input: PWM on the LR7843, A to D on
@@ -969,6 +978,33 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             maxCurrent: `${spec.maxCurrentMa} mA`,
           },
           reasons: wired ? undefined : ['This buzzer does not have its signal pin configured.'],
+        }
+      }
+      case 'CoolingFanOutput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? COOLING_FAN_PART_ID)
+        const entry = partById(partId)
+        const spec = coolingFanSpec(partId)
+        const wired = pins.some((pin) => pin.propertyKey === 'pwmPin')
+          && pins.some((pin) => pin.propertyKey === 'tachPin')
+        const boardSupported = !selectedFqbn || selectedFqbn.startsWith('esp32:')
+        const reasons = [
+          ...(wired ? [] : ['This fan needs both PWM and RPM pins configured.']),
+          ...(boardSupported ? [] : ['The 25 kHz fan driver currently requires an ESP32-family board.']),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'cooling-fan-output', entry?.label ?? 'Cooling fan', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && boardSupported,
+          facts: {
+            partId,
+            supply: `${spec.supplyVoltageV} V`,
+            maxCurrent: `${Math.round(spec.maxCurrentA * 1000)} mA`,
+            pwm: `${spec.pwmHz / 1000} kHz active-high`,
+            maxRpm: `${spec.maxRpm} rpm`,
+            tachometer: `${spec.tachPulsesPerRevolution} pulses/revolution; ${spec.tachOutput}`,
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
         }
       }
       case 'PowerSwitchOutput': {

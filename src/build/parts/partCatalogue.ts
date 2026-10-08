@@ -172,6 +172,17 @@ export interface PartBuzzerSpec {
   maxCurrentMa: number
 }
 
+/** Drive and feedback contract carried by a four-wire PWM fan. */
+export interface PartFanSpec {
+  supplyVoltageV: number
+  maxCurrentA: number
+  maxRpm: number
+  minRpmAt20Percent: number
+  pwmHz: number
+  tachPulsesPerRevolution: number
+  tachOutput: string
+}
+
 /** Measuring contract carried by an imported current/voltage monitor. */
 export interface PartPowerMonitorSpec {
   device: string
@@ -360,6 +371,8 @@ export interface PartCatalogueEntry {
   pwmDriver?: PartPwmDriverSpec
   /** Present exactly on buzzer modules. */
   buzzer?: PartBuzzerSpec
+  /** Present exactly on four-wire PWM fans. */
+  fan?: PartFanSpec
   /** Present exactly on current/voltage monitor modules. */
   powerMonitor?: PartPowerMonitorSpec
   /** Present exactly on radar presence sensors. */
@@ -431,6 +444,8 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   sclPin: ['SCL', 'CLK', 'SCK', 'D0'],
   xshutPin: ['SHDN', 'XSHUT'],
   sigPin: ['SIG', 'S', 'SIGNAL'],
+  pwmPin: ['PWM'],
+  tachPin: ['RPM', 'TACH', 'TACHO'],
   // The three I2S MEMS microphones print the same three signals under three
   // sets of names: an INMP441 says WS/SCK/SD, an Adafruit-form ICS-43434 says
   // LRCL/BCLK/DOUT, and the generic MSM261 boards follow the INMP441.

@@ -628,6 +628,20 @@ Unless a future row says otherwise, treat the following as experimental:
   board/FQBN, GPIO and build engine, with silence through reset and setup, a tone
   while Sound is true, silence when it falls, a pitch sweep heard following a wired
   Pitch, and the transducer's measured DC resistance.
+- **Noctua NF-A4x10 5V PWM cooling fan.** `CoolingFanOutput` has an exact 40 ×
+  40 × 11 mm asset, a 0 to 1 Speed input, measured RPM and Running outputs,
+  manifest and Build Diagram coverage. Generated ESP32 firmware holds PWM low
+  through setup, then drives the blue wire with 8-bit active-high PWM at 25 kHz.
+  It reads the green open-collector tachometer with an internal pull-up and
+  converts two falling edges per revolution into RPM over a 500 ms window. The
+  normal-sketch fixture
+  [compiles on classic ESP32](../reports/compile/cooling-fan-compile-checks.md),
+  but no fan has been run. The browser estimate uses the specified 1050 rpm at
+  20% and 5000 rpm at full speed; it is not a fan-curve measurement. Graduation
+  needs a dated row naming the fan, board/FQBN, PWM and RPM GPIOs and build
+  engine. Record commanded 0%, 20%, 50% and 100%, measured PWM frequency,
+  reported RPM against an optical tachometer, reliable start, stop at 0%,
+  reset/setup behavior and a deliberate stall.
 - **Switching outputs: relay modules and the power switches.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no

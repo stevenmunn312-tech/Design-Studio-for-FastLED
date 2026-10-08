@@ -330,6 +330,26 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: buzzer block needs type, activeLevel and maxCurrentMa — skipped",
                   file=sys.stderr)
+    # A four-wire PWM fan's drive and tachometer contract. Firmware needs the
+    # PWM frequency and pulses per revolution; the Build Diagram needs the
+    # supply and current limits. Keep all of them with the exact fan asset.
+    fan = data.get("fan")
+    if fan:
+        required = ("supplyVoltageV", "maxCurrentA", "maxRpm", "minRpmAt20Percent",
+                    "pwmHz", "tachPulsesPerRevolution")
+        if all(isinstance(fan.get(key), (int, float)) and fan[key] > 0 for key in required):
+            entry["fan"] = {
+                "supplyVoltageV": fan["supplyVoltageV"],
+                "maxCurrentA": fan["maxCurrentA"],
+                "maxRpm": fan["maxRpm"],
+                "minRpmAt20Percent": fan["minRpmAt20Percent"],
+                "pwmHz": fan["pwmHz"],
+                "tachPulsesPerRevolution": fan["tachPulsesPerRevolution"],
+                "tachOutput": fan.get("tachOutput") or "",
+            }
+        else:
+            print(f"  ! {part_id}: fan block needs positive supply, current, RPM, PWM and tachometer values — skipped",
+                  file=sys.stderr)
     # A current/voltage monitor's measuring contract. The firmware divides the
     # shunt voltage by shuntOhms and the address list bounds the address
     # picker, so both have to come from the board rather than be retyped.

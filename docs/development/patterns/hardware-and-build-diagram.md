@@ -9,6 +9,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Pins and boards
 
+- A four-wire PWM fan is one bidirectional graph device, not separate output
+  and sensor fixtures. `CoolingFanOutput` owns an active-high PWM GPIO and an
+  open-collector tachometer GPIO with pull-up. Its exact part metadata carries
+  PWM frequency and pulses per revolution so preview, firmware, manifest and
+  Build Diagram do not restate those values. Generated ESP32 firmware latches
+  PWM low before output mode, counts falling tach edges in an ISR and publishes
+  RPM from a timed pulse window. Keep board gating beside both deploy validation
+  and Graph Health, and keep the browser RPM explicitly an estimate.
+
 - Pin collision checking is bus-aware, not a flat duplicate-claim check:
   `src/build/pins/busTopology.ts` declares each pin's kind and role and derives the
   bus *instance* from the pins themselves, and both `validateGraph.ts` and the
