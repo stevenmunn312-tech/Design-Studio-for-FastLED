@@ -1338,6 +1338,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Cooling Fan example graph](../../public/node-cards/graphs/cooling-fan-output.svg)
 
+### DFPlayer Mini
+
+![DFPlayer Mini node](../../public/node-cards/df-player-output.svg)
+
+![DFPlayer Mini example graph](../../public/node-cards/graphs/df-player-output.svg)
+
 ### Info Display
 
 ![Info Display node](../../public/node-cards/info-display.svg)

@@ -409,7 +409,7 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       {
         id: 'seeed-grove-2ch-ssr',
         label: 'Seeed Grove 2-channel SSR',
-        summary: 'Two AC phototriacs, 0.1 to 2 A, leaks 1.5 mA when off',
+        summary: 'Two AC phototriacs, 0.1-2 A, leak 1.5 mA off',
         note: 'Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins.',
       },
     ],
