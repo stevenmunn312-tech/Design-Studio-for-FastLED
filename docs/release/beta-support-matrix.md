@@ -606,6 +606,22 @@ Unless a future row says otherwise, treat the following as experimental:
   board/FQBN, GPIO and build engine, with silence through reset and setup, a
   sound while Sound is true, and silence when it falls, and a note of which
   supply level the module was run at.
+- **KY-006 passive buzzer.** A second `BuzzerOutput` part: the node gains a float
+  Pitch input, and the firmware plays it with `tone()` while Sound is true and
+  rests the pin low with `noTone()` otherwise, clamped to 100 to 10,000 Hz. One
+  passive buzzer per board, because the tone generator drives one pin at a time;
+  Graph Health refuses a second. It is read by the normal sketch generator only.
+  The generated sketch
+  [compiles on classic ESP32 and the Arduino UNO](../reports/compile/buzzer-compile-checks.md),
+  including beside an IR receiver on the UNO, where `tone()` borrows IRremote's
+  timer and the sketch hands it back after each tone. No passive buzzer has been
+  sounded on any board, and the browser preview is silent.
+  The render follows Joy-IT's pin drawing, not a board file. Listings disagree on
+  the transducer: most describe a piezo drawing 25 mA or less, but some clones fit
+  a coil type that needs a transistor. Graduation needs a dated row naming the
+  board/FQBN, GPIO and build engine, with silence through reset and setup, a tone
+  while Sound is true, silence when it falls, a pitch sweep heard following a wired
+  Pitch, and the transducer's measured DC resistance.
 - **Switching outputs: relay modules and the power switches.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no
