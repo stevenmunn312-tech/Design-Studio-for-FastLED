@@ -41,15 +41,13 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  2. The DFPlayer Mini. Its verified Blender asset exists; graph control,
-     firmware ownership and audio routing remain.
-  3. A solid-state relay, only once AC/DC load type, leakage and isolation are
+  2. A solid-state relay, only once AC/DC load type, leakage and isolation are
      represented honestly.
-  4. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
+  3. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
      ESP32-C6-DevKitC-1, ESP8266 D1 Mini, Raspberry Pi Pico W, Teensy 4.1,
      Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a board profile,
      not a module) and QuinLED Dig-Uno and Dig-Quad.
-  5. Families that extend the power model: battery chargers, cell balancers,
+  4. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
      with fuses, balancer, BMS and 100 W charge/discharge control.
@@ -113,6 +111,11 @@ chooses the supported combinations from whatever is on record at release.
 
 ### Audio
 
+- **D-05 DFPlayer Mini:** a numbered file in `/mp3` starts when Play rises and
+  pauses when it falls, Next and Previous step the card, volume follows the
+  0 to 1 input across the 30 hardware steps, and BUSY reads low while a file
+  is playing. Line Out feeds a power amplifier from DAC_L and DAC_R. The
+  row's requirements are in the support matrix.
 - **HW-19 microphones:** ICS-43434 and Generic MEMS live FFT and beat response,
   against an INMP441 on the same fixture and source.
 - **HW-20 audio chain:** each power amplifier (PAM8403, PAM8610, DX-0809) fed by

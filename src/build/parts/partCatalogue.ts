@@ -446,6 +446,10 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   sigPin: ['SIG', 'S', 'SIGNAL'],
   pwmPin: ['PWM'],
   tachPin: ['RPM', 'TACH', 'TACHO'],
+  // UART names cross: the controller's RX lands on the module's TX and vice versa.
+  uartRxPin: ['TX'],
+  uartTxPin: ['RX'],
+  busyPin: ['BUSY'],
   // The three I2S MEMS microphones print the same three signals under three
   // sets of names: an INMP441 says WS/SCK/SD, an Adafruit-form ICS-43434 says
   // LRCL/BCLK/DOUT, and the generic MSM261 boards follow the INMP441.

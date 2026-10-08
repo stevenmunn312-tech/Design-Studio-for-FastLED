@@ -32,6 +32,7 @@ import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchPinKeys } from '../../state/pe
 import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/peripherals/powerConverter'
 import { dividedInputPinKey } from '../../build/pins/receiveDivider'
 import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
+import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -225,6 +226,25 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
       { key: 'pwmPin', capability: 'digitalOutput' },
       { key: 'tachPin', capability: 'digitalInput' },
     ],
+  },
+  {
+    nodeType: 'DFPlayerOutput',
+    partId: 'dfplayer-output',
+    label: 'DFPlayer Mini',
+    hint: 'Plays numbered audio files from its own microSD card over UART',
+    footprint: partDimensionsMm(DFPLAYER_PART_ID, { width: 20, height: 20 }),
+    render: partRenderSrc(DFPLAYER_PART_ID) ?? undefined,
+    pinFields: [
+      { key: 'uartRxPin', label: 'TX' },
+      { key: 'uartTxPin', label: 'RX' },
+      { key: 'busyPin', label: 'BUSY' },
+    ],
+    pinRequests: [
+      { key: 'uartRxPin', capability: 'digitalInput' },
+      { key: 'uartTxPin', capability: 'digitalOutput' },
+      { key: 'busyPin', capability: 'digitalInput' },
+    ],
+    singleton: true,
   },
   {
     nodeType: 'PowerSwitchOutput',

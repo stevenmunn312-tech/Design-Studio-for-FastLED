@@ -28,7 +28,7 @@ import { PART_FIELDS } from './parts/partFields'
 import type { BusAssignment } from './pins/busTopology'
 import { sdSpiPinsForBoard } from './pins/sdPinDefaults'
 import { resolvePartIdentity } from './parts/partOptions'
-import { hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed } from '../state/audio/audioOutput'
+import { hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
@@ -82,6 +82,13 @@ import {
   COOLING_FAN_PART_ID,
   coolingFanSpec,
 } from '../state/peripherals/coolingFan'
+import {
+  DFPLAYER_MAX_CURRENT_LABEL,
+  DFPLAYER_PART_ID,
+  DFPLAYER_SUPPLY_LABEL,
+  dfPlayerAudioOutput,
+  dfPlayerUartPort,
+} from '../state/peripherals/dfPlayer'
 
 export interface HardwarePinUse {
   label: string
@@ -156,6 +163,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'SDCard',
   'Amplifier',
   'PowerAmplifier',
+  'DFPlayerOutput',
   'MotionInput',
   'PresenceInput',
   'LightInput',
@@ -467,6 +475,11 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       case 'CoolingFanOutput':
         push(node, `${baseLabel} PWM`, 'pwmPin', props.pwmPin)
         push(node, `${baseLabel} RPM`, 'tachPin', props.tachPin)
+        break
+      case 'DFPlayerOutput':
+        push(node, `${baseLabel} TX`, 'uartRxPin', props.uartRxPin)
+        push(node, `${baseLabel} RX`, 'uartTxPin', props.uartTxPin)
+        push(node, `${baseLabel} BUSY`, 'busyPin', props.busyPin)
         break
       case 'PowerSwitchOutput':
         // Named as the board prints each input: PWM on the LR7843, A to D on
@@ -1007,6 +1020,37 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: reasons.length > 0 ? reasons : undefined,
         }
       }
+      case 'DFPlayerOutput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? DFPLAYER_PART_ID)
+        const entry = partById(partId)
+        const wired = ['uartRxPin', 'uartTxPin', 'busyPin']
+          .every((key) => pins.some((pin) => pin.propertyKey === key))
+        const boardSupported = !selectedFqbn || selectedFqbn.startsWith('esp32:')
+        const uartPort = selectedFqbn ? dfPlayerUartPort(selectedFqbn) : null
+        const reasons = [
+          ...(wired ? [] : ['This player needs controller RX, controller TX, and BUSY pins configured.']),
+          ...(boardSupported ? [] : ['The DFPlayer UART firmware currently requires an ESP32-family board.']),
+        ]
+        return {
+          ...buildPeripheralItem(node, 'amplifier', entry?.label ?? 'DFPlayer Mini', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: wired && boardSupported,
+          facts: {
+            partId,
+            stage: 'player',
+            output: dfPlayerAudioOutput(props.audioOutput) === 'Line Out' ? 'line' : 'speaker',
+            supply: DFPLAYER_SUPPLY_LABEL,
+            maxCurrent: DFPLAYER_MAX_CURRENT_LABEL,
+            storage: 'on-module microSD, FAT16/FAT32, up to 32 GB',
+            uart: uartPort === null
+              ? 'UART2 on classic ESP32 and S3, UART1 on S2/C3/C6/H2; 9600 baud, 8N1'
+              : `UART${uartPort} at 9600 baud, 8N1`,
+            volume: '30 steps',
+          },
+          reasons: reasons.length > 0 ? reasons : undefined,
+        }
+      }
       case 'PowerSwitchOutput': {
         // The GPIO side is ordinary wiring; the load side is not, so its
         // limits travel as facts from the catalogued module rather than as
@@ -1379,9 +1423,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const identity = resolvePartIdentity('PowerAmplifier', node.data.properties as Record<string, unknown>)
         const partId = identity?.option.id ?? 'pam8403-3w-stereo-amplifier'
         const feed = powerAmplifierFeed(nodes) ?? 'internalDac'
-        const source = i2sAudioStage(nodes)
+        const source = powerAmplifierSource(nodes)
         const sourceIdentity = source
-          ? resolvePartIdentity('Amplifier', source.data.properties as Record<string, unknown>)
+          ? resolvePartIdentity(source.data.nodeType, source.data.properties as Record<string, unknown>)
           : null
         // The full title matches the DAC's own row on the sheet and in the
         // connection table; the short module name fits a caption.

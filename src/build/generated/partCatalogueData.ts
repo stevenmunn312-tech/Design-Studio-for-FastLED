@@ -468,9 +468,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "TX",
       "DAC_R",
       "DAC_L",
-      "SPK1",
-      "GND",
       "SPK2",
+      "GND",
+      "SPK1",
       "IO1",
       "GND",
       "IO2",
@@ -481,7 +481,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "BUSY"
     ],
     "notes": [
-      "Self-contained UART-controlled MP3 player with onboard microSD socket and mono speaker driver."
+      "Self-contained UART-controlled MP3 player with onboard microSD socket and mono speaker driver.",
+      "Power from 5 V. The onboard speaker amplifier can draw about 200 mA. Put numbered files in the card's /mp3 folder. Add a 1 kΩ resistor between the controller TX and the module RX."
     ],
     "render": {
       "file": "parts/dfplayer-mini.webp",

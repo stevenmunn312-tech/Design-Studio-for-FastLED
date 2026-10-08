@@ -173,6 +173,14 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'tachPin', capability: 'digitalInput' },
     ],
   },
+  DFPlayerOutput: {
+    keys: ['uartRxPin', 'uartTxPin', 'busyPin'],
+    requests: [
+      { key: 'uartRxPin', capability: 'digitalInput' },
+      { key: 'uartTxPin', capability: 'digitalOutput' },
+      { key: 'busyPin', capability: 'digitalInput' },
+    ],
+  },
   RelayOutput: {
     keys: relayPinKeys('relay-module-8ch-5v'),
     keysFor: (properties) => relayPinKeys(properties.partId),

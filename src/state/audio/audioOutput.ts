@@ -11,6 +11,7 @@
 
 import type { StudioNode } from '../graphStore'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
+import { dfPlayerAudioOutput } from '../peripherals/dfPlayer'
 
 export type AudioOutputMode = 'i2s' | 'internalDac'
 
@@ -44,6 +45,16 @@ export function powerAmplifierStage(nodes: readonly StudioNode[]): StudioNode | 
   return nodes.find((node) => node.data.nodeType === 'PowerAmplifier')
 }
 
+/** A self-contained UART player whose analog output can feed the power stage. */
+export function dfPlayerStage(nodes: readonly StudioNode[]): StudioNode | undefined {
+  return nodes.find((node) => node.data.nodeType === 'DFPlayerOutput')
+}
+
+/** Source physically wired into a power amplifier, before compatibility is judged. */
+export function powerAmplifierSource(nodes: readonly StudioNode[]): StudioNode | undefined {
+  return i2sAudioStage(nodes) ?? dfPlayerStage(nodes)
+}
+
 // "Is there anything that makes a sound" is asked by the build-mode resolver
 // too, which is kept free of imports, so the answer lives there.
 export { hasAudioOutputStage } from '../upload/buildMode'
@@ -68,12 +79,17 @@ export function audioVolumeStage(nodes: readonly StudioNode[]): StudioNode | und
  *   is not line level and neither leg is ground, so this is a bench that
  *   cannot be wired, not a third way to feed one.
  */
-export type PowerAmplifierFeed = 'dac' | 'internalDac' | 'speakerAmp'
+export type PowerAmplifierFeed = 'dac' | 'dfPlayer' | 'internalDac' | 'speakerAmp'
 
 export function powerAmplifierFeed(nodes: readonly StudioNode[]): PowerAmplifierFeed | null {
   if (!powerAmplifierStage(nodes)) return null
-  const stage = i2sAudioStage(nodes)
+  const stage = powerAmplifierSource(nodes)
   if (!stage) return 'internalDac'
+  if (stage.data.nodeType === 'DFPlayerOutput') {
+    return dfPlayerAudioOutput((stage.data.properties as Record<string, unknown>).audioOutput) === 'Line Out'
+      ? 'dfPlayer'
+      : 'speakerAmp'
+  }
   const identity = resolvePartIdentity('Amplifier', stage.data.properties as Record<string, unknown>)
   return identity?.option.output === 'line' ? 'dac' : 'speakerAmp'
 }

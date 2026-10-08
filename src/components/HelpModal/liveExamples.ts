@@ -1785,6 +1785,19 @@ const BUZZER_OUTPUT_LIVE_EXAMPLE = namedExample(
   'Hold the Button node to sound the buzzer. The browser preview is silent, and the solid colour keeps the LED preview visible because the buzzer produces sound rather than pixels.',
 )
 
+const DFPLAYER_OUTPUT_LIVE_EXAMPLE = namedExample(
+  'DFPlayerOutput',
+  'Play a numbered file from a button',
+  [
+    { key: 'button', type: 'ButtonInput' },
+    { key: 'player', type: 'DFPlayerOutput', properties: { partId: 'dfplayer-mini', uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.7, audioOutput: 'Speaker' } },
+    { key: 'color', type: 'SolidColor', properties: { r: 20, g: 40, b: 90 } },
+  ],
+  [{ source: 'button', sourceHandle: 'pressed', target: 'player', targetHandle: 'play' }],
+  'DFPlayer Mini plays numbered files from the microSD card on the module. Add it from Hardware, put 0001.mp3 upward in the card’s /mp3 folder, and wire Play, Next, Previous, Track and Volume. Playing follows the module’s active-low BUSY pin on the board; the browser follows the Play request because it cannot hear the module. Speaker mode uses SPK1 and SPK2. Line Out uses DAC_L and DAC_R into a power amplifier. Power it from 5 V, and add a 1 kΩ resistor between the controller TX and the module RX. The first firmware path supports ESP32-family boards and the normal sketch only.',
+  'Hold the Button node to request playback. The browser preview is silent, and the solid colour keeps the LED preview visible because the module produces sound rather than pixels.',
+)
+
 const COOLING_FAN_OUTPUT_LIVE_EXAMPLE = namedExample(
   'CoolingFanOutput',
   'Cool an enclosure and watch its RPM',
@@ -2016,6 +2029,7 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   PowerSwitchOutput: POWER_SWITCH_OUTPUT_LIVE_EXAMPLE,
   BuzzerOutput: BUZZER_OUTPUT_LIVE_EXAMPLE,
   CoolingFanOutput: COOLING_FAN_OUTPUT_LIVE_EXAMPLE,
+  DFPlayerOutput: DFPLAYER_OUTPUT_LIVE_EXAMPLE,
   PwmDriverOutput: PWM_DRIVER_LIVE_EXAMPLE,
   DarlingtonDriverOutput: DARLINGTON_DRIVER_LIVE_EXAMPLE,
   PowerMonitorInput: POWER_MONITOR_LIVE_EXAMPLE,

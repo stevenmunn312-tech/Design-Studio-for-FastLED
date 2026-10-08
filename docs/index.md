@@ -146,6 +146,7 @@ with `--engine fbuild` or `--engine all`.
 - [Custom-board compile checks](reports/compile/custom-board-compile-checks.md)
 - [Cooling-fan compile checks](reports/compile/cooling-fan-compile-checks.md)
 - [Darlington-driver compile checks](reports/compile/darlington-compile-checks.md)
+- [DFPlayer Mini compile checks](reports/compile/dfplayer-compile-checks.md)
 - [Display firmware compile checks](reports/compile/display-compile-checks.md)
 - [Distance-sensor compile checks](reports/compile/distance-sensor-compile-checks.md)
 - [BME280 environment-sensor compile checks](reports/compile/environment-sensor-compile-checks.md)

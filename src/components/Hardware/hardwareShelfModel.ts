@@ -54,6 +54,9 @@ export function hardwareShelfCategories({
         ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
         : { ok: true as const }
       const pinBlocked = assigned.ok ? null : assigned.reason
+      const boardBlocked = nodeType === 'DFPlayerOutput' && selectedFqbn && !selectedFqbn.startsWith('esp32:')
+        ? 'DFPlayer Mini firmware currently requires an ESP32-family board'
+        : null
       return {
         key: `${nodeType}:${option.id}`,
         nodeType,
@@ -61,8 +64,8 @@ export function hardwareShelfCategories({
         hint: option.summary ?? fixture.hint,
         renderSrc: partRenderSrc(option.id),
         visual: option.id,
-        disabled: blocked || pinBlocked !== null,
-        disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : pinBlocked,
+        disabled: blocked || pinBlocked !== null || boardBlocked !== null,
+        disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : boardBlocked ?? pinBlocked,
         onSelect: () => addFixturePart(fixture, option.id),
       }
     })
@@ -79,6 +82,7 @@ export function hardwareShelfCategories({
   const powerSwitchFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSwitchOutput')
   const buzzerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BuzzerOutput')
   const coolingFanFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'CoolingFanOutput')
+  const dfPlayerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'DFPlayerOutput')
   const pwmDriverFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PwmDriverOutput')
   const darlingtonFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'DarlingtonDriverOutput')
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
@@ -147,6 +151,7 @@ export function hardwareShelfCategories({
       items: [
         ...moduleItems('Amplifier', amplifierFixture),
         ...moduleItems('PowerAmplifier', powerAmplifierFixture),
+        ...moduleItems('DFPlayerOutput', dfPlayerFixture),
         ...moduleItems('BuzzerOutput', buzzerFixture),
       ],
     },

@@ -13,7 +13,8 @@ import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../no
 import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteBank'
 import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
 import { playerControlFunction } from '../state/player/playerControlAssignments'
-import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, powerAmplifierFeed, powerAmplifierStage } from '../state/audio/audioOutput'
+import { audioOutputMissing, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
+import { dfPlayerUartPort } from '../state/peripherals/dfPlayer'
 import { resolveShowTarget } from '../state/player/showTarget'
 import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
@@ -1503,6 +1504,9 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'CoolingFanOutput') && !selectedFqbn.startsWith('esp32:')) {
     errors.push('Cooling Fan firmware currently requires an ESP32-family board for its 25 kHz PWM output')
   }
+  if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'DFPlayerOutput') && !selectedFqbn.startsWith('esp32:')) {
+    errors.push('DFPlayer Mini firmware currently requires an ESP32-family board for its assignable UART')
+  }
   if (selectedFqbn && nodes.some((node) =>
     node.data.nodeType === 'DMXInput' && String((node.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
   ) && !selectedFqbn.startsWith('esp32:')) {
@@ -1646,6 +1650,7 @@ export function findDeployBlockingErrors(
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
+    ...findDfPlayerErrors(nodes, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
     ...findEthernetErrors(nodes, selectedFqbn),
     ...findI2cBusErrors(nodes),
@@ -2113,7 +2118,7 @@ function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
 function audioChainValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   if (powerAmplifierFeed(nodes) !== 'speakerAmp') return []
   const power = powerAmplifierStage(nodes)!
-  const stage = i2sAudioStage(nodes)!
+  const stage = powerAmplifierSource(nodes)!
   // Named by module: both nodes are titled by their role on a hidden bench,
   // and "Amplifier cannot feed Power Amplifier" says nothing about the parts.
   const moduleName = (node: StudioNode) =>
@@ -2122,7 +2127,9 @@ function audioChainValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
     id: `${power.id}-speaker-feed`, severity: 'error', category: 'pins',
     title: 'A speaker amplifier cannot feed a power amplifier',
     message: `The ${moduleName(stage)} drives a speaker from a bridge-tied output, not line level, so the ${moduleName(power)} has nothing it can take as an input.`,
-    fix: 'Swap the MAX98357A for a PCM5102A or UDA1334A DAC, whose line out feeds the power amplifier — or remove the power amplifier and let the MAX98357A drive the speaker.',
+    fix: stage.data.nodeType === 'DFPlayerOutput'
+      ? 'Set DFPlayer Mini Audio out to Line Out and wire DAC_L/DAC_R into the power amplifier, or remove the power amplifier and use SPK1/SPK2 directly.'
+      : 'Swap the MAX98357A for a PCM5102A or UDA1334A DAC, whose line out feeds the power amplifier — or remove the power amplifier and let the MAX98357A drive the speaker.',
     nodeIds: [power.id, stage.id], nodeLabel: moduleName(power),
   }]
 }
@@ -2141,6 +2148,55 @@ export function findIrRemoteErrors(
 
 export function findPresenceSensorErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
   return presenceSensorValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
+}
+
+/**
+ * One DFPlayer owns one hardware UART. Classic ESP32 and S3 open UART2.
+ * Chips with only UART1 share that port with a presence sensor and with
+ * DMX512 left on UART1.
+ */
+function dfPlayerValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const players = nodes.filter((node) => node.data.nodeType === 'DFPlayerOutput')
+  if (players.length === 0) return []
+  const issues: GraphDiagnostic[] = []
+  if (players.length > 1) {
+    issues.push({
+      id: 'dfplayer-count', severity: 'error', category: 'connection',
+      title: 'Only one DFPlayer Mini can be active',
+      message: `${players.map(nodeLabel).join(', ')} add ${players.length} players, but the generated driver owns one UART.`,
+      fix: 'Keep one DFPlayer Mini in the root Hardware workbench and remove the others.',
+      nodeIds: players.map((node) => node.id), nodeLabel: 'DFPlayer Mini',
+    })
+  }
+  const port = dfPlayerUartPort(selectedFqbn)
+  if (port === null) return issues
+  const presence = port === 1 ? nodes.filter((node) => node.data.nodeType === 'PresenceInput') : []
+  const dmx = nodes.filter((node) => {
+    if (node.data.nodeType !== 'DMXInput') return false
+    const props = node.data.properties as Record<string, unknown>
+    return String(props.inputMode ?? 'Art-Net') === 'DMX512'
+      && Math.round(Number(props.dmxPort ?? 1)) === port
+  })
+  const rivals = [...presence, ...dmx]
+  if (rivals.length === 0) return issues
+  const detail = presence.length > 0
+    ? 'The presence sensor already owns UART1 on this board, and the DFPlayer uses that same port because this chip has no UART2.'
+    : `DMX512 is set to UART${port}, which is the port the DFPlayer driver opens on this board.`
+  issues.push({
+    id: 'dfplayer-uart', severity: 'error', category: 'pins',
+    title: `DFPlayer Mini and another device both use UART${port}`,
+    message: `${players.map(nodeLabel).join(', ')} cannot share UART${port}. ${detail}`,
+    fix: port === 2
+      ? 'Set the DMX input to UART1, or remove the DFPlayer Mini.'
+      : 'Choose a classic ESP32 or ESP32-S3, whose DFPlayer driver takes UART2, or remove one of the two devices.',
+    nodeIds: [...players, ...rivals].map((node) => node.id),
+    nodeLabel: `UART${port}`,
+  })
+  return issues
+}
+
+export function findDfPlayerErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return dfPlayerValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
 }
 
 export function findStepValueErrors(nodes: StudioNode[]): string[] {
@@ -3388,6 +3444,7 @@ export function buildGraphDiagnostics(
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
@@ -3831,6 +3888,15 @@ export function buildGraphDiagnostics(
         title: 'Cooling fan is incompatible with the selected board',
         message: 'The generated 25 kHz PWM fan driver currently uses the ESP32 LEDC peripheral.',
         fix: 'Choose an ESP32-family board in Board & Port, or remove the Cooling Fan hardware.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+    for (const node of nodes.filter((entry) => entry.data.nodeType === 'DFPlayerOutput')) {
+      diagnostics.push({
+        id: `${node.id}-board-dfplayer`, severity: 'error', category: 'board',
+        title: 'DFPlayer Mini is incompatible with the selected board',
+        message: 'The generated DFPlayer driver currently uses an ESP32 hardware UART with assignable RX and TX pins.',
+        fix: 'Choose an ESP32-family board in Board & Port, or remove the DFPlayer Mini hardware.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }

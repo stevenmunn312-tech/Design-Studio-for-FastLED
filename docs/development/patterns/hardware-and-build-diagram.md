@@ -9,6 +9,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Pins and boards
 
+- A DFPlayer Mini is one UART-controlled player, not a second music-sync
+  decoder. `DFPlayerOutput` owns controller RX, controller TX and an
+  active-low BUSY input. Preview Playing follows the requested Play level;
+  firmware replaces it with the BUSY pin. Commands go out one at a time,
+  100 ms apart, after a 1 s card start. Classic ESP32 and S3 open UART2 so
+  a presence sensor can keep UART1; S2, C3, C6 and H2 have only UART1, and
+  Graph Health refuses a presence sensor or a DMX512 input on that same
+  port. Speaker mode uses SPK1/SPK2. Line Out is the wiring choice that
+  lets DAC_L/DAC_R feed a power amplifier. The normal sketch is the only
+  generator that emits it.
 - A four-wire PWM fan is one bidirectional graph device, not separate output
   and sensor fixtures. `CoolingFanOutput` owns an active-high PWM GPIO and an
   open-collector tachometer GPIO with pull-up. Its exact part metadata carries

@@ -69,6 +69,7 @@ import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, isPlayerControls, playerControlsState, toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
 import { coolingFanPreviewRpm } from '../../state/peripherals/coolingFan'
+import { dfPlayerPreviewPlaying } from '../../state/peripherals/dfPlayer'
 
 /**
  * Whether a finger is on the glass, without touching the edge state.
@@ -571,6 +572,11 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   CoolingFanOutput({ num }, id, props) {
     const rpm = coolingFanPreviewRpm(props.partId, num(id, 'speed', props, 'speed', 1))
     return { rpm, running: rpm > 0 }
+  },
+  DFPlayerOutput({ input }, id, props) {
+    // The browser cannot hear the module or read BUSY. Playing follows the
+    // requested Play level; uploaded firmware replaces it with the pin.
+    return { playing: dfPlayerPreviewPlaying(input(id, 'play', props.play)) }
   },
   // A physical sink too: the browser has no PWM output, but wired levels are still evaluated.
   PwmDriverOutput: physicalSink,

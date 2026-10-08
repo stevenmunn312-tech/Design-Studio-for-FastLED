@@ -1092,6 +1092,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tachPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     speed: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
+  DFPlayerOutput: {
+    uartRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    uartTxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    busyPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    track: { control: 'slider', min: 1, max: 3000, step: 1 },
+    volume: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    audioOutput: { control: 'select', options: ['Speaker', 'Line Out'] },
+  },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key) => [key, {
     control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
   }])),
@@ -1650,6 +1658,15 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     tachPin: 'The GPIO that reads the fan green open-collector RPM wire with the controller pull-up enabled.',
     speed: 'Requested fan speed from 0 to 1. This exact fan stops at 0 and reaches about 5000 rpm at 1.',
   },
+  DFPlayerOutput: {
+    play: 'Plays the chosen /mp3 file while true and pauses when it falls. With nothing wired, the Play setting is used.',
+    uartRxPin: 'Controller RX wired to the module TX pad.',
+    uartTxPin: 'Controller TX wired to the module RX pad. Add a 1 kΩ series resistor if UART noise reaches the audio output.',
+    busyPin: 'Reads the active-low BUSY pad. Playing is true while BUSY is low.',
+    track: 'Numbered file in the microSD card’s /mp3 folder, from 0001 through 3000.',
+    volume: 'Module volume from 0 to 1, mapped onto its 30 hardware steps.',
+    audioOutput: 'Speaker uses the onboard mono amplifier on SPK1/SPK2. Line Out uses DAC_L/DAC_R for a power amplifier or powered speakers.',
+  },
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 pads or jumpers: four choices on the INA219, sixteen on the INA226. Give each monitor on the bus a different one.',
     overcurrentAmps: 'Overcurrent goes true while the measured amps are above this. It clears as soon as they fall back to it or below.',
@@ -1921,6 +1938,12 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     pwmPin: 'PWM',
     tachPin: 'RPM',
     speed: 'Speed',
+  },
+  DFPlayerOutput: {
+    uartRxPin: 'Module TX',
+    uartTxPin: 'Module RX',
+    busyPin: 'BUSY',
+    audioOutput: 'Audio out',
   },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key, index) => [key, `${index + 1}B`])),
   FieldLevels: {
@@ -2421,6 +2444,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   BuzzerOutput: new Set(['sigPin']),
   CoolingFanOutput: new Set(['pwmPin', 'tachPin']),
+  DFPlayerOutput: new Set(['uartRxPin', 'uartTxPin', 'busyPin']),
   PwmDriverOutput: new Set(['sdaPin', 'sclPin']),
   DarlingtonDriverOutput: new Set(darlingtonPinKeys()),
   RTCInput: new Set(['sdaPin', 'sclPin']),
@@ -2481,6 +2505,11 @@ export function gpioRequirementForProperty(
     return key === 'tachPin'
       ? { capability: 'digitalInput', pullup: true }
       : { capability: 'digitalOutput', pullup: false }
+  }
+  if (nodeType === 'DFPlayerOutput') {
+    return key === 'uartTxPin'
+      ? { capability: 'digitalOutput', pullup: false }
+      : { capability: 'digitalInput', pullup: key === 'busyPin' }
   }
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'BuzzerOutput' || nodeType === 'DarlingtonDriverOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
   // Rows read through the controller's pull-up; columns are driven low one at a time.

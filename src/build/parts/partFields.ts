@@ -14,6 +14,12 @@ type PartField =
   | { key: string; label: string; kind: 'number'; min: number; max: number }
 
 export const PART_FIELDS: Record<string, readonly PartField[]> = {
+  DFPlayerOutput: [
+    { key: 'uartRxPin', label: 'TX', kind: 'pin' },
+    { key: 'uartTxPin', label: 'RX', kind: 'pin' },
+    { key: 'busyPin', label: 'BUSY', kind: 'pin' },
+    { key: 'audioOutput', label: 'Audio out', kind: 'select', options: ['Speaker', 'Line Out'] },
+  ],
   CoolingFanOutput: [
     { key: 'pwmPin', label: 'PWM', kind: 'pin' },
     { key: 'tachPin', label: 'RPM', kind: 'pin' },

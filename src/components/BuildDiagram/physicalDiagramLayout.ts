@@ -325,6 +325,12 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
     24.2, 54.8, 85.3, 115.9, 146.4, 177, 207.5,
     274.1, 304.7, 335.2, 365.8, 396.3, 426.9, 457.4,
   ], 483, 299.7, 325),
+  // Sixteen perimeter holes in catalogue order: eight down the left edge,
+  // then eight up the right edge.
+  'dfplayer-mini': padPoints(400, 400, [
+    [29, 27], [29, 76], [29, 125], [29, 174], [29, 224], [29, 273], [29, 322], [29, 371],
+    [370, 371], [370, 322], [370, 273], [370, 224], [370, 174], [370, 125], [370, 76], [370, 27],
+  ]),
   'pam8403-3w-stereo-amplifier':
     padRow([36.6, 69.4, 102, 134.6, 167.4, 200.1, 232.6, 265.4, 298.1, 330.7, 363.4], 400, 254.3, 287),
   // The logic pair along the bottom edge, measured at each pad's edge-side
@@ -714,7 +720,9 @@ export function peripheralSignalPadIndex(item: HardwareManifestItem, signalIndex
     const pads = audioModulePads(item).map(padName)
     const wanted = item.facts.stage === 'power'
       ? [['LIN', 'INL', 'AUX-L'], ['RIN', 'INR', 'AUX-R']]
-      : [['BCLK', 'BCK', 'SCK'], ['LRC', 'LCK', 'WSEL'], ['DIN']]
+      : item.facts.stage === 'player'
+        ? [['TX'], ['RX'], ['BUSY']]
+        : [['BCLK', 'BCK', 'SCK'], ['LRC', 'LCK', 'WSEL'], ['DIN']]
     const names = wanted[Math.min(Math.max(signalIndex, 0), wanted.length - 1)]
     const index = pads.findIndex((label) => names.includes(label))
     return index >= 0 ? index : Math.min(signalIndex + 1, pads.length - 1)
@@ -916,6 +924,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'sph0645lm4h-i2s-microphone': 9.6,
   'max98357a-i2s-amplifier': 10.5,
   'max98357a-stereo-pair': 5.1,
+  'dfplayer-mini': 10,
   'pam8403-3w-stereo-amplifier': 5.6,
   'lr7843-mosfet-module': 12.3,
   'monkmakes-mosfetti': 5.6,
@@ -1326,7 +1335,7 @@ export function peripheralTitleBoxes(layout: ItemLayout): PartTitleBox[] {
 
 function peripheralHasCaption(item: HardwareManifestItem): boolean {
   if (item.kind === 'dmx-input') return true
-  if (item.facts.stage === 'power' && item.facts.feed === 'dac') return true
+  if (item.facts.stage === 'power' && (item.facts.feed === 'dac' || item.facts.feed === 'dfPlayer')) return true
   const partId = item.facts.partId
   return typeof partId === 'string' && sharedPadsAcrossBoards(partId).length > 0
 }

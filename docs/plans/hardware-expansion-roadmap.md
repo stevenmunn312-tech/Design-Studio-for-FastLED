@@ -66,7 +66,7 @@ build have passed the normal evidence gates.
 | ULN2803A driver board | `DarlingtonDriverOutput`, in and experimental: eight active-high channels on eight GPIOs, sink only, bench open. Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
 | Noctua NF-A4x10 5V PWM fan | `CoolingFanOutput`, in and experimental: a 0 to 1 speed input plus measured RPM and Running outputs, 25 kHz active-high PWM, ESP32-family normal sketch, bench open. | Enables enclosure cooling tied to temperature or power measurements. |
 | Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch. The KY-006 passive buzzer is in and experimental too: it adds a Pitch input in hertz, played with `tone()`, one per board. Bench open for both. |
-| DFPlayer Mini | Player hardware integration | The verified Blender asset already exists; graph control, firmware ownership and audio routing remain to be integrated. |
+| DFPlayer Mini | `DFPlayerOutput`, in and experimental: Play, Next, Previous, Track and Volume over UART, a BUSY Playing output, speaker or line out, ESP32-family normal sketch, bench open. | Plays numbered files from the module's own microSD card. Line Out can feed a power amplifier. |
 | USB-C PD trigger module | `PdTriggerSource`, in and experimental as a config-only fixture; the plan checks its requested voltage against the converters; bench open. Power-negotiation fixture | Records the requested source voltage before a downstream converter or load. |
 
 ## Additional controller profiles
@@ -173,6 +173,14 @@ compile families:
     open-collector tachometer reports measured RPM from two pulses per
     revolution. Its [compile fixture](../reports/compile/cooling-fan-compile-checks.md)
     passes on classic ESP32; the bench run remains open, so it stays experimental.
+13. A self-contained MP3 player. The DFPlayer Mini (`DFPlayerOutput`) is
+    modelled, catalogued, drawn, previewed and generated for the normal ESP32
+    sketch. The graph plays a numbered file in the module's `/mp3` folder,
+    steps to the next or previous file, and sets the 30 volume steps. Playing
+    on the board is the active-low BUSY pin. Speaker mode uses SPK1/SPK2;
+    Line Out feeds a power amplifier from DAC_L/DAC_R. Its
+    [compile fixture](../reports/compile/dfplayer-compile-checks.md) passes on
+    classic ESP32; the bench run remains open, so it stays experimental.
 
 ## Definition of done for each addition
 

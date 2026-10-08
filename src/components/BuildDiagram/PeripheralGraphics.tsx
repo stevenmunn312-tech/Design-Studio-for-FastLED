@@ -107,7 +107,7 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
       {/* A DAC-fed power amplifier has no GPIO, so no wire says where its
           signal comes from. Its line in is the DAC's line out: say so, or the
           part reads as unconnected. */}
-      {item.facts.stage === 'power' && item.facts.feed === 'dac' && (
+      {item.facts.stage === 'power' && (item.facts.feed === 'dac' || item.facts.feed === 'dfPlayer') && (
         <text data-line-in-from={String(item.facts.fedBy)} x={x + (PERIPHERAL_RENDER_W / 2)} y={captionY} textAnchor="middle" className={styles.physicalMetaLabel}>
           {`LINE IN ← ${String(item.facts.fedByModule ?? item.facts.fedBy)} LINE OUT`}
         </text>

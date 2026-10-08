@@ -199,6 +199,32 @@ at a time, so Graph Health refuses a second. It draws 25 mA or less from the pin
 if yours reads a few tens of ohms on a meter rather than open, it is a coil type
 and needs a transistor. It is experimental too.
 
+### Play files from a DFPlayer Mini
+
+Choose **Add Hardware → Amplifiers & DACs → DFPlayer Mini**. Power **VCC** from
+5 V and one **GND** from the board. Wire the module **TX** pad to the GPIO
+shown as TX (the controller's RX), the module **RX** pad to the GPIO shown as
+RX (the controller's TX), and **BUSY** to its GPIO. Add a 1 kΩ resistor between
+the controller TX and the module RX. Put files on the module's own microSD card
+as `/mp3/0001.mp3`, `/mp3/0002.mp3` and so on, up to 3000. This card is not the
+show's SD card, and the module does not play a music-sync show.
+
+The **DFPlayer Mini** node accepts **Play**, **Next**, **Previous**, **Track**
+and **Volume**. Play starts the chosen track while it is true and pauses when
+it falls. Next and Previous step when a boolean rises. Track is the file number.
+Volume runs from 0 to 1 across the module's 30 steps. **Playing** is true while
+the module's BUSY pin is low. The browser follows the Play request and stays
+silent; uploaded firmware reads BUSY. **Audio out** chooses the wiring: Speaker
+uses SPK1 and SPK2, and Line Out uses DAC_L and DAC_R into a power amplifier.
+The module drives both pairs while it plays, so leave the pair you are not
+using unwired. The onboard speaker amplifier can draw about 200 mA.
+
+One player per board. Classic ESP32 and ESP32-S3 use UART2, so a presence
+sensor can keep UART1. Boards with only UART1, such as the ESP32-C3, cannot
+host this player and a presence sensor or a DMX512 input on UART1 together.
+The player is in the normal sketch only, and it stays experimental until a
+module has been played on a board.
+
 ### Switch or dim a DC load
 
 Choose **Switching power → LR7843 MOSFET switch** to turn a 6-28 V DC load on

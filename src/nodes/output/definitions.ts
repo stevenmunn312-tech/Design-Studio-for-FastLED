@@ -19,6 +19,14 @@ import {
   COOLING_FAN_SPEED_DEFAULT,
   COOLING_FAN_TACH_PIN_FALLBACK,
 } from '../../state/peripherals/coolingFan'
+import {
+  DFPLAYER_BUSY_PIN_FALLBACK,
+  DFPLAYER_PART_ID,
+  DFPLAYER_RX_PIN_FALLBACK,
+  DFPLAYER_TRACK_DEFAULT,
+  DFPLAYER_TX_PIN_FALLBACK,
+  DFPLAYER_VOLUME_DEFAULT,
+} from '../../state/peripherals/dfPlayer'
 
 export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
 
@@ -375,6 +383,32 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
+    // Self-contained SD audio player. The graph asks it to play a numbered
+    // file over UART; BUSY reports what the physical module is doing.
+    type: 'DFPlayerOutput',
+    label: 'DFPlayer Mini',
+    category: 'output',
+    inputs: [
+      { id: 'play', label: 'Play', dataType: 'bool' },
+      { id: 'next', label: 'Next', dataType: 'bool' },
+      { id: 'previous', label: 'Previous', dataType: 'bool' },
+      { id: 'track', label: 'Track', dataType: 'float' },
+      { id: 'volume', label: 'Volume', dataType: 'float' },
+    ],
+    propertyInputs: { play: 'play', track: 'track', volume: 'volume' },
+    outputs: [{ id: 'playing', label: 'Playing', dataType: 'bool' }],
+    defaultProperties: {
+      partId: DFPLAYER_PART_ID,
+      uartRxPin: DFPLAYER_RX_PIN_FALLBACK,
+      uartTxPin: DFPLAYER_TX_PIN_FALLBACK,
+      busyPin: DFPLAYER_BUSY_PIN_FALLBACK,
+      play: false,
+      track: DFPLAYER_TRACK_DEFAULT,
+      volume: DFPLAYER_VOLUME_DEFAULT,
+      audioOutput: 'Speaker',
+    },
+  },
+  {
     // A 1-bit OLED with one content input and no layout property: what is
     // plugged into `Display` decides what it shows, one layout per source. The
     // port set is therefore stable by construction rather than by discipline,
@@ -598,6 +632,7 @@ export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
   DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',
   BuzzerOutput: 'Sounds a buzzer while its input is true; a passive one plays your Pitch.',
   CoolingFanOutput: 'Controls a four-wire cooling fan and reports its measured RPM.',
+  DFPlayerOutput: 'Plays numbered files from a DFPlayer Mini microSD card and reports its BUSY state.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
   TransportDisplay: 'A colour TFT panel: a fixed transport or status layout, or a Screen Design.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',

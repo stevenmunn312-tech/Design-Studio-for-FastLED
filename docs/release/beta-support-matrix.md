@@ -642,6 +642,27 @@ Unless a future row says otherwise, treat the following as experimental:
   engine. Record commanded 0%, 20%, 50% and 100%, measured PWM frequency,
   reported RPM against an optical tachometer, reliable start, stop at 0%,
   reset/setup behavior and a deliberate stall.
+- **DFPlayer Mini.** `DFPlayerOutput` has a modelled 20 × 20 mm asset, Play,
+  Next, Previous, Track and Volume inputs, a Playing output, manifest and
+  Build Diagram coverage. Generated ESP32 firmware speaks the module's 10-byte
+  UART frame with no library. It waits 1 s for the card, then sends one command
+  every 100 ms: select the microSD socket, set volume, and play `/mp3/NNNN.mp3`
+  while Play is true. Play falling sends pause. Next and Previous are edges.
+  Playing is the active-low BUSY pin with the controller pull-up enabled.
+  Classic ESP32 and ESP32-S3 open UART2, leaving UART1 for a presence sensor.
+  S2, C3, C6 and H2 have only UART1, so Graph Health refuses a presence sensor
+  or a DMX512 input on that same port. Speaker mode uses SPK1/SPK2. Line Out
+  records that DAC_L/DAC_R feed a power amplifier; the module still drives both
+  electrically, so leave the unused pair unwired. Add a 1 kΩ resistor between
+  the controller TX and the module RX. Supply is 3.2–5 V, 5 V recommended, and
+  the onboard speaker amplifier can draw about 200 mA. The normal-sketch fixture
+  [compiles on classic ESP32](../reports/compile/dfplayer-compile-checks.md),
+  but no module has been played. The browser follows the Play request and stays
+  silent. Graduation needs a dated row naming the module, board/FQBN, RX, TX
+  and BUSY GPIOs and build engine. Record a file in `/mp3` starting when Play
+  rises and pausing when it falls, Next and Previous, volume across the range,
+  BUSY low while playing and high when paused, and Line Out heard through a
+  power amplifier.
 - **Switching outputs: relay modules and the power switches.** The 1, 2,
   4 and 8-channel relay modules and the opto-isolated LR7843 MOSFET module
   (`PowerSwitchOutput`) are software and generated-firmware coverage only; no

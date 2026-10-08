@@ -100,9 +100,18 @@ export function buildConnectionRows(
         : { from: controller, fromTerminal: '5V / VIN', to: item.title, toTerminal: '+5V', purpose: 'Module power' })
       // Fed by a DAC, the amplifier's only signal is the DAC's line out. It
       // has no GPIO row, so without this the table would show it unconnected.
-      if (item.facts.feed === 'dac' && item.facts.fedBy) {
+      if ((item.facts.feed === 'dac' || item.facts.feed === 'dfPlayer') && item.facts.fedBy) {
         rows.push({ from: String(item.facts.fedBy), fromTerminal: 'Line out (L/R)', to: item.title, toTerminal: 'Line in (L/R)', purpose: 'Line-level audio' })
       }
+    } else if (item.kind === 'amplifier' && item.facts.stage === 'player') {
+      // The module prints VCC, not VIN. 5 V is the recommended supply.
+      rows.push({
+        from: controller,
+        fromTerminal: '5V / VIN',
+        to: item.title,
+        toTerminal: 'VCC',
+        purpose: 'Module power, 3.2–5 V; 5 V recommended',
+      })
     } else if (item.kind === 'amplifier' || item.kind === 'line-input') {
       // A class-D amp's output power is its supply power, so 3.3 V here reads
       // as a weak speaker rather than as a wiring mistake.

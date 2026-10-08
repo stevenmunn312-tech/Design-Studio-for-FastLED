@@ -80,6 +80,12 @@ import {
   COOLING_FAN_TACH_PIN_FALLBACK,
   coolingFanSpec,
 } from '../../state/peripherals/coolingFan'
+import { dfPlayerGlobalCpp, dfPlayerLoopCpp, dfPlayerSetupCpp, DFPLAYER_HELPER_CPP } from '../../codegen/peripherals/dfPlayerCpp'
+import {
+  DFPLAYER_BUSY_PIN_FALLBACK,
+  DFPLAYER_RX_PIN_FALLBACK,
+  DFPLAYER_TX_PIN_FALLBACK,
+} from '../../state/peripherals/dfPlayer'
 
 /**
  * Every dimmed Power Switch channel in the sketch, in node then channel
@@ -202,6 +208,24 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     globalLines.push(...coolingFanGlobalCpp(emit))
     setupLines.push(...coolingFanSetupCpp(emit))
     for (const line of coolingFanLoopCpp(emit)) ln(line)
+  },
+  DFPlayerOutput({ node, id, p, ln, f, v, boolExpr, setupLines, globalLines }) {
+    if (!globalLines.includes(DFPLAYER_HELPER_CPP[0])) globalLines.push(...DFPLAYER_HELPER_CPP)
+    const emit = {
+      id,
+      rxPin: sanitizePin(p.uartRxPin, DFPLAYER_RX_PIN_FALLBACK),
+      txPin: sanitizePin(p.uartTxPin, DFPLAYER_TX_PIN_FALLBACK),
+      busyPin: sanitizePin(p.busyPin, DFPLAYER_BUSY_PIN_FALLBACK),
+      playExpr: boolExpr(node.id, 'play'),
+      nextExpr: boolExpr(node.id, 'next'),
+      previousExpr: boolExpr(node.id, 'previous'),
+      trackExpr: f('track', 'track', 1),
+      volumeExpr: f('volume', 'volume', 0.7),
+      playingVar: v('playing'),
+    }
+    globalLines.push(...dfPlayerGlobalCpp(emit))
+    setupLines.push(...dfPlayerSetupCpp(emit))
+    for (const line of dfPlayerLoopCpp(emit)) ln(line)
   },
   RelayOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // These modules are active-low. Drive the inactive level into the

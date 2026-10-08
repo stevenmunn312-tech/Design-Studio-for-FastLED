@@ -74,6 +74,15 @@ export interface PartIdentity {
  * board is the *capture backend*, not the microphone.
  */
 export const PART_OPTIONS: Record<string, { property: string; options: PartOption[] }> = {
+  DFPlayerOutput: {
+    property: 'partId',
+    options: [{
+      id: 'dfplayer-mini',
+      label: 'DFPlayer Mini',
+      summary: 'UART-controlled microSD audio player with speaker and line outputs',
+      note: 'Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing.',
+    }],
+  },
   CoolingFanOutput: {
     property: 'partId',
     options: [
