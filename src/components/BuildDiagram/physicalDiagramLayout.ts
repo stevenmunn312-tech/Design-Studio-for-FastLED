@@ -369,6 +369,9 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   'adafruit-pca9685-pwm-driver': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 904.8, 955),
   // GND, NC, SIG along the bottom, measured from the drilled holes. NC is unconnected.
   'ky-012-active-buzzer-module': padRow([137.2, 199.5, 261.8], 400, 413.1, 486),
+  // S, middle, - along the bottom, measured from the drilled holes. The middle pin is
+  // unconnected on most boards (Joy-IT prints +V there), so it carries no wire.
+  'ky-006-passive-buzzer-module': padRow([135.2, 199.5, 263.8], 400, 437.8, 489),
   // VCC, GND, SCL, SDA, ALE, VBS along the bottom, from the drilled holes. ALE is
   // the open-drain alert and VBS the bus sense, so neither carries a controller wire.
   'ina226-current-sensor-module': padRow([106.7, 143.9, 181, 218, 255.1, 292.3], 400, 294.1, 342),
@@ -634,7 +637,8 @@ export function peripheralHasGround(item: HardwareManifestItem): boolean {
 
 export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
   if (item.kind === 'power-switch-output' || item.kind === 'keypad-input') return null
-  // The KY-012 has no supply pad: the buzzer runs from its signal pin.
+  // Neither buzzer module takes a supply: the KY-012 has no supply pad, and the
+  // KY-006's middle pin is unconnected. Each runs from its signal pin.
   if (item.kind === 'buzzer-output') return null
   // The ULN2803A has no controller supply: its COM pin is the load supply's clamp return.
   if (item.kind === 'darlington-driver-output') return null
@@ -890,6 +894,7 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'adafruit-ina219-current-sensor': 7,
   'ina226-current-sensor-module': 7,
   'ky-012-active-buzzer-module': 11.5,
+  'ky-006-passive-buzzer-module': 11.9,
   'adafruit-pca9685-pwm-driver': 7,
   'uln2803a-dip18': 10,
   'adafruit-vl53l0x-distance-sensor': 9,

@@ -34,7 +34,7 @@ import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } fr
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
 import { relayPinKeys } from '../state/peripherals/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/peripherals/powerSwitch'
-import { BUZZER_PART_ID, buzzerSpec } from '../state/peripherals/buzzer'
+import { BUZZER_PART_ID, BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerPitchHz, buzzerSpec } from '../state/peripherals/buzzer'
 import {
   PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverAddress, pwmDriverHz, pwmDriverSpec,
 } from '../state/peripherals/pwmDriver'
@@ -457,7 +457,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         darlingtonPinKeys().forEach((key, index) => push(node, `${baseLabel} ${index + 1}B`, key, props[key]))
         break
       case 'BuzzerOutput':
-        push(node, `${baseLabel} SIG`, 'sigPin', props.sigPin)
+        push(node, `${baseLabel} ${pinPropertyLabel(String(props.partId ?? BUZZER_PART_ID), 'BuzzerOutput', 'sigPin')}`, 'sigPin', props.sigPin)
         break
       case 'PowerSwitchOutput':
         // Named as the board prints each input: PWM on the LR7843, A to D on the Mosfetti.
@@ -951,14 +951,20 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const spec = buzzerSpec(partId)
         const wired = pins.some((pin) => pin.propertyKey === 'sigPin')
         return {
-          ...buildPeripheralItem(node, 'buzzer-output', entry?.label ?? 'Active buzzer', pins),
+          ...buildPeripheralItem(node, 'buzzer-output', entry?.label ?? 'Buzzer', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {
             partId,
             type: spec.type,
-            activeLevel: spec.activeLevel,
-            pitch: spec.resonanceKHz === null ? 'set by the controller' : `${spec.resonanceKHz} kHz`,
+            // A passive part has no sounding level: it sounds while its pin carries a tone.
+            ...(spec.type === 'active' ? { activeLevel: spec.activeLevel } : {}),
+            // An active part's pitch is its own; a passive part plays what the graph asks.
+            pitch: spec.type === 'active'
+              ? (spec.resonanceKHz === null ? 'fixed by the part' : `${spec.resonanceKHz} kHz`)
+              : edges.some((edge) => edge.target === node.id && edge.targetHandle === 'pitch')
+                ? `from the graph, ${BUZZER_PITCH_MIN_HZ}-${BUZZER_PITCH_MAX_HZ} Hz`
+                : `${buzzerPitchHz(props.pitchHz)} Hz`,
             maxCurrent: `${spec.maxCurrentMa} mA`,
           },
           reasons: wired ? undefined : ['This buzzer does not have its signal pin configured.'],

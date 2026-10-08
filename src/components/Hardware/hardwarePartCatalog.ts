@@ -202,8 +202,8 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   {
     nodeType: 'BuzzerOutput',
     partId: 'buzzer-output',
-    label: 'Active buzzer',
-    hint: 'Beeps while a boolean signal is true',
+    label: 'Buzzer',
+    hint: 'Beeps while a boolean signal is true, or plays a tone at a pitch you set',
     footprint: partDimensionsMm(BUZZER_PART_ID, { width: 15.5, height: 19 }),
     render: partRenderSrc(BUZZER_PART_ID) ?? undefined,
     pinFields: [{ key: 'sigPin', label: 'SIG' }],

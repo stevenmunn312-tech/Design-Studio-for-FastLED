@@ -86,6 +86,7 @@ import {
 } from '../state/peripherals/irRemote'
 import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
+import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
@@ -1642,6 +1643,7 @@ export function findDeployBlockingErrors(
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
+    ...findBuzzerErrors(nodes, selectedFqbn),
     ...findEthernetErrors(nodes, selectedFqbn),
     ...findI2cBusErrors(nodes),
     ...findStepValueErrors(nodes),
@@ -1992,6 +1994,53 @@ function presenceSensorValidationIssues(nodes: StudioNode[], selectedFqbn: strin
     })
   }
   return issues
+}
+
+/**
+ * A passive buzzer is played by the core's tone(), which drives one pin at a
+ * time: on ESP32 a second tone() is refused while the first plays, and AVR has
+ * one tone timer. Two would leave one silent with nothing to say why.
+ *
+ * On AVR that timer is also IRremote's receive timer. The firmware hands it
+ * back when each tone stops, so the remote recovers, but it hears nothing
+ * while a tone plays.
+ */
+function buzzerValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const passive = nodes.filter((node) => node.data.nodeType === 'BuzzerOutput'
+    && buzzerIsPassive((node.data.properties as Record<string, unknown>).partId))
+  const issues: GraphDiagnostic[] = []
+  if (passive.length > 1) {
+    issues.push({
+      id: 'passive-buzzer-count', severity: 'error', category: 'connection',
+      title: 'Only one passive buzzer can play',
+      message: `${passive.map(nodeLabel).join(', ')} are ${passive.length} passive buzzers, but the board's tone generator drives one pin at a time.`,
+      fix: 'Keep one passive buzzer and remove the others, or use an active buzzer such as the KY-012 for the extra beeps.',
+      nodeIds: passive.map((node) => node.id), nodeLabel: 'Passive buzzers',
+    })
+  }
+  const receivers = nodes.filter((node) => node.data.nodeType === 'IRRemoteInput')
+  if (passive.length > 0 && receivers.length > 0 && selectedFqbn.startsWith('arduino:avr:')) {
+    issues.push({
+      id: 'passive-buzzer-ir-timer', severity: 'warning', category: 'board',
+      title: 'The IR remote cannot hear while the passive buzzer plays',
+      message: 'On AVR boards tone() borrows the IR receiver\'s timer, so a key pressed during a tone is missed. Reception resumes as soon as the tone stops.',
+      fix: 'Keep tones short, or use an active buzzer such as the KY-012, which needs no timer.',
+      nodeIds: [...passive, ...receivers].map((node) => node.id), nodeLabel: 'Buzzer and IR remote',
+    })
+  }
+  return issues
+}
+
+export function findBuzzerErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return buzzerValidationIssues(nodes, selectedFqbn)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
+}
+
+function findBuzzerWarnings(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return buzzerValidationIssues(nodes, selectedFqbn)
+    .filter((issue) => issue.severity === 'warning')
+    .map(validationIssueMessage)
 }
 
 function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
@@ -3336,6 +3385,7 @@ export function buildGraphDiagnostics(
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
@@ -4265,6 +4315,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findCustomBoardIssues(nodes).warnings)
   warnings.push(...findNetworkConfigWarnings(nodes))
   warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
+  warnings.push(...findBuzzerWarnings(nodes, selectedFqbn))
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)

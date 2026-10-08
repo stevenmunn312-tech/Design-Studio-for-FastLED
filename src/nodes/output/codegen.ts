@@ -1,7 +1,9 @@
 import { type SegmentDisplayEmit, segmentDisplaySetupCpp, segmentDisplayLoopCpp } from '../../codegen/displays/segmentDisplayCpp'
 import { segmentControllerFor, clampSegmentBrightness, segmentModeForKind } from '../../state/displays/segmentDisplay'
 import { MAX_PIN_NUMBER, NO_PIN } from '../../build/boards/boardGpio'
-import { BUZZER_PIN_FALLBACK, buzzerActiveHigh } from '../../state/peripherals/buzzer'
+import {
+  BUZZER_PIN_FALLBACK, BUZZER_PITCH_DEFAULT_HZ, BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerActiveHigh, buzzerIsPassive,
+} from '../../state/peripherals/buzzer'
 import {
   DARLINGTON_PIN_FALLBACKS, darlingtonActiveHigh, darlingtonChannelId, darlingtonPinKeys,
 } from '../../state/peripherals/darlingtonDriver'
@@ -134,14 +136,35 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       ln('  }')
     }
   },
-  BuzzerOutput({ node, p, ln, boolExpr, pinSetupLines }) {
+  BuzzerOutput({ node, id, p, ln, f, boolExpr, pinSetupLines }) {
     // Latch the silent level before the pin becomes an output so reset and
     // setup do not chirp.
     const [on, off] = buzzerActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
     const pin = sanitizePin(p.sigPin, BUZZER_PIN_FALLBACK)
     pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
     pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
-    ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
+    if (!buzzerIsPassive(p.partId)) {
+      ln(`  digitalWrite(${pin}, ${boolExpr(node.id, 'on')} ? ${on} : ${off});`)
+      return
+    }
+    // A passive buzzer: tone() plays the square wave, noTone() rests the pin
+    // low. Both are called only when the sound starts, stops or changes pitch,
+    // because restarting the generator every frame would click. The pitch is
+    // rounded and clamped as buzzerPitchHz does, and a NaN lands on the minimum.
+    // On AVR, tone() takes over IRremote's receive timer, so a sketch with an
+    // IR receiver hands the timer back when the tone stops (IRremote's own
+    // remedy); FLS_IR_RECEIVER is defined exactly when the sketch has one.
+    ln(`  { static bool _bzOn_${id} = false; static uint16_t _bzHz_${id} = 0;`)
+    ln(`    float _bzP = ${f('pitch', 'pitchHz', BUZZER_PITCH_DEFAULT_HZ)};`)
+    ln(`    uint16_t _bzWant = _bzP > ${BUZZER_PITCH_MAX_HZ}.0f ? ${BUZZER_PITCH_MAX_HZ} : (_bzP >= ${BUZZER_PITCH_MIN_HZ}.0f ? (uint16_t)(_bzP + 0.5f) : ${BUZZER_PITCH_MIN_HZ});`)
+    ln(`    if (${boolExpr(node.id, 'on')}) {`)
+    ln(`      if (!_bzOn_${id} || _bzWant != _bzHz_${id}) { tone(${pin}, _bzWant); _bzOn_${id} = true; _bzHz_${id} = _bzWant; }`)
+    ln(`    } else if (_bzOn_${id}) {`)
+    ln(`      noTone(${pin}); _bzOn_${id} = false;`)
+    ln('#if defined(ARDUINO_ARCH_AVR) && defined(FLS_IR_RECEIVER)')
+    ln('      FLS_IR_RECEIVER.restartTimer();')
+    ln('#endif')
+    ln('    } }')
   },
   RelayOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // These modules are active-low. Drive the inactive level into the

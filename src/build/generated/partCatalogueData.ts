@@ -1166,6 +1166,42 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       ]
     }
   },
+  "ky-006-passive-buzzer-module": {
+    "partId": "ky-006-passive-buzzer-module",
+    "label": "KY-006 passive buzzer module",
+    "category": "support",
+    "dimensionsMm": {
+      "width": 15.0,
+      "height": 18.5
+    },
+    "manufacturer": "Keyes / Joy-IT KY-006 and compatible modules",
+    "logicVoltage": "3.3-5 V; one GPIO drives the transducer with a square wave, up to about 25 mA",
+    "pinLabelsLeftToRight": [
+      "S",
+      "NC",
+      "-"
+    ],
+    "notes": [
+      "A passive buzzer has no oscillator: it sounds only while the controller drives its S pin with a square wave, and the pitch is the wave's frequency. A steady level, high or low, is silent.",
+      "Joy-IT specifies tones from 1.5 to 2.5 kHz, and it is loudest near 2 kHz. Lower and higher tones sound too, more quietly; Joy-IT's own examples play 250 to 500 Hz.",
+      "The buzzer sits between S and - with no transistor or resistor, so the GPIO drives it directly; listings give 25 mA or less at 3.3-5 V. Some clones fit a coil transducer instead of a piezo one: if the buzzer reads a few tens of ohms on a meter rather than open, drive it through a transistor.",
+      "The middle pin is not connected on most boards. Joy-IT labels it +V; the module sounds without it, so it is left unwired.",
+      "The header ships soldered on some kits and loose on others, so the holes are shown unpopulated. An active buzzer such as the KY-012 looks alike but sounds at its own fixed pitch."
+    ],
+    "buzzer": {
+      "type": "passive",
+      "activeLevel": "high",
+      "resonanceKHz": 2.0,
+      "soundLevel": "",
+      "maxCurrentMa": 25
+    },
+    "render": {
+      "file": "parts/ky-006-passive-buzzer-module.webp",
+      "widthPx": 400,
+      "heightPx": 489,
+      "pxPerMm": 25.333
+    }
+  },
   "ky-012-active-buzzer-module": {
     "partId": "ky-012-active-buzzer-module",
     "label": "KY-012 active buzzer module",

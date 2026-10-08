@@ -156,7 +156,10 @@ export interface PartBuzzerSpec {
   type: 'active' | 'passive'
   /** The pin level that sounds it. */
   activeLevel: 'high' | 'low'
-  /** An active buzzer's fixed pitch; absent for a passive one. */
+  /**
+   * The pitch the transducer is loudest at: an active buzzer's only pitch, a
+   * passive one's best. Null when the source gives none.
+   */
   resonanceKHz: number | null
   soundLevel: string
   /** What it draws from its pin or supply while sounding. */
@@ -421,6 +424,7 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   sdaPin: ['SDA', 'SDI', 'DATA', 'DIN', 'D1'],
   sclPin: ['SCL', 'CLK', 'SCK', 'D0'],
   xshutPin: ['SHDN', 'XSHUT'],
+  sigPin: ['SIG', 'S', 'SIGNAL'],
   // The three I2S MEMS microphones print the same three signals under three
   // sets of names: an INMP441 says WS/SCK/SD, an Adafruit-form ICS-43434 says
   // LRCL/BCLK/DOUT, and the generic MSM261 boards follow the INMP441.

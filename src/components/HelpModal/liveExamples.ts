@@ -1781,7 +1781,7 @@ const BUZZER_OUTPUT_LIVE_EXAMPLE = namedExample(
     { key: 'color', type: 'SolidColor', properties: { r: 92, g: 58, b: 22 } },
   ],
   [{ source: 'button', sourceHandle: 'pressed', target: 'target', targetHandle: 'on' }],
-  'Buzzer is a hardware-owned terminal. Add the KY-012 active buzzer from Hardware, then feed Sound a boolean signal. The buzzer has its own oscillator, so it sounds at one fixed pitch while Sound is true and stops when it is false; the pitch cannot be changed from the graph.',
+  'Buzzer is a hardware-owned terminal. Add the KY-012 active buzzer from Hardware, then feed Sound a boolean signal. The buzzer has its own oscillator, so it sounds at one fixed pitch while Sound is true and stops when it is false; the pitch cannot be changed from the graph. For tones, pick the KY-006 passive buzzer instead: the node gains a Pitch input in hertz, which the controller plays while Sound is true.',
   'Hold the Button node to sound the buzzer. The browser preview is silent, and the solid colour keeps the LED preview visible because the buzzer produces sound rather than pixels.',
 )
 

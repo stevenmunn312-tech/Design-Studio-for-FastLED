@@ -4,7 +4,9 @@
 import type { NodeDefinition } from '../../types'
 import { DEFAULT_OLED_I2C_ADDRESS, oledAddressLabel } from '../../state/displays/oledSurface'
 import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from '../../state/output/ledOutputRuntime'
-import { BUZZER_PART_ID, BUZZER_PIN_FALLBACK } from '../../state/peripherals/buzzer'
+import {
+  BUZZER_PART_ID, BUZZER_PIN_FALLBACK, BUZZER_PITCH_DEFAULT_HZ, BUZZER_VARIANT_INPUTS, buzzerInputs,
+} from '../../state/peripherals/buzzer'
 import { DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys } from '../../state/peripherals/darlingtonDriver'
 import { DIRECT_PIXEL_DATA_LINK } from '../../state/peripherals/pixelDataExtender'
 import { ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS, POWER_SWITCH_VARIANT_INPUTS, powerSwitchInputs } from '../../state/peripherals/powerSwitch'
@@ -334,14 +336,17 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // An active buzzer on one GPIO: a terminal sink like the relay. It only
-    // sounds or does not; the pitch belongs to the part.
+    // A buzzer on one GPIO: a terminal sink like the relay. An active part only
+    // sounds or does not, at its own pitch; a passive part adds Pitch, which the
+    // controller plays as a square wave. `inputs` are the default active part's.
     type: 'BuzzerOutput',
     label: 'Buzzer',
     category: 'output',
-    inputs: [{ id: 'on', label: 'Sound', dataType: 'bool' }],
+    inputs: buzzerInputs(BUZZER_PART_ID),
+    variantInputs: BUZZER_VARIANT_INPUTS,
+    propertyInputs: { pitchHz: 'pitch' },
     outputs: [],
-    defaultProperties: { partId: BUZZER_PART_ID, sigPin: BUZZER_PIN_FALLBACK },
+    defaultProperties: { partId: BUZZER_PART_ID, sigPin: BUZZER_PIN_FALLBACK, pitchHz: BUZZER_PITCH_DEFAULT_HZ },
   },
   {
     // A 1-bit OLED with one content input and no layout property: what is
@@ -565,7 +570,7 @@ export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
   DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',
-  BuzzerOutput: 'Sounds an active buzzer while its input is true.',
+  BuzzerOutput: 'Sounds a buzzer while its input is true; a passive one plays your Pitch.',
   InfoDisplay: 'A 128x64 OLED showing a now-playing, clock, status, or pattern-browser screen.',
   TransportDisplay: 'A colour TFT panel: a fixed transport or status layout, or a Screen Design.',
   MasterSpeed: 'Scales animation time for the whole graph. 1 is normal, 0 freezes it.',

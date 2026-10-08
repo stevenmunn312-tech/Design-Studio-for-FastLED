@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 668 764" width="668" height="764" role="img" aria-label="Beep while a button is held">
-<rect width="668" height="764" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 668 784" width="668" height="784" role="img" aria-label="Beep while a button is held">
+<rect width="668" height="784" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -1254,15 +1254,48 @@
 <circle cx="610" cy="750" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="630" cy="750" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="650" cy="750" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="310" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="330" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="350" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="370" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="390" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="410" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="430" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="450" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="470" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="490" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="510" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="530" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="550" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="570" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="590" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="610" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="630" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="650" cy="770" r="1" fill="rgba(255,255,255,0.04)"/>
 <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
-<path d="M286,128 C329.2,128 338.8,116 382,116" fill="none" stroke="#d6ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M286,128 C329.2,128 338.8,116 382,116" fill="none" stroke="#d6ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M286,128 C329.2,128 338.8,116 382,116" fill="none" stroke="#d6ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="382" cy="116" r="3" fill="#d6ff33"/>
-<path d="M286,584 C329.2,584 338.8,296 382,296" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M286,584 C329.2,584 338.8,296 382,296" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M286,584 C329.2,584 338.8,296 382,296" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="382" cy="296" r="3" fill="#33d6ff"/>
+<path d="M286,128 C329.2,128 338.8,96 382,96" fill="none" stroke="#d6ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M286,128 C329.2,128 338.8,96 382,96" fill="none" stroke="#d6ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M286,128 C329.2,128 338.8,96 382,96" fill="none" stroke="#d6ff33" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="382" cy="96" r="3" fill="#d6ff33"/>
+<path d="M286,604 C329.2,604 338.8,316 382,316" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M286,604 C329.2,604 338.8,316 382,316" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M286,604 C329.2,604 338.8,316 382,316" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="382" cy="316" r="3" fill="#33d6ff"/>
 <g transform="translate(44,44)">
 <rect x="0" y="0" width="240" height="158" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="158" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
@@ -1291,9 +1324,9 @@
 <path d="M222.5,141 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
 </g>
-<g transform="translate(384,64)">
-<rect x="0" y="0" width="240" height="126" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="126" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<g transform="translate(384,44)">
+<rect x="0" y="0" width="240" height="147" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="147" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Buzzer</text>
 <rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -1316,8 +1349,15 @@
 <circle cx="127.3" cy="109" r="5" fill="#d633ff"/>
 <text x="232" y="113" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">26</text>
 </g>
+<text x="8" y="134" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">Pitch (Hz)</text>
+<g opacity="0.45">
+<rect x="120" y="128" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="120" y="128" width="13.8" height="4" rx="2" fill="#d633ff"/>
+<circle cx="133.8" cy="130" r="5" fill="#d633ff"/>
+<text x="232" y="134" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">2000</text>
 </g>
-<g transform="translate(44,304)">
+</g>
+<g transform="translate(44,324)">
 <rect x="0" y="0" width="240" height="354" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="354" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33d6ff"/>
@@ -1597,7 +1637,7 @@
 <rect x="220" y="331" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
 </g>
 </g>
-<g transform="translate(384,244)">
+<g transform="translate(384,264)">
 <rect x="0" y="0" width="240" height="476" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="476" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>

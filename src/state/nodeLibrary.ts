@@ -39,6 +39,7 @@ import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/p
 import { relayPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchChannelPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
 import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
+import { BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerIsPassive } from './peripherals/buzzer'
 import { darlingtonPinKeys } from './peripherals/darlingtonDriver'
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './peripherals/pdTrigger'
 import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverSpec } from './peripherals/pwmDriver'
@@ -1084,6 +1085,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ])),
   BuzzerOutput: {
     sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+    pitchHz: { control: 'slider', min: BUZZER_PITCH_MIN_HZ, max: BUZZER_PITCH_MAX_HZ, step: 10 },
   },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key) => [key, {
     control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
@@ -1635,7 +1637,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sclPin: 'I2C clock pin, shared with every other I2C part. Studio fills this from the selected board\'s Wire default.',
   },
   BuzzerOutput: {
-    sigPin: 'The GPIO wired to the buzzer\'s SIG pin. The buzzer sounds while the pin is high.',
+    sigPin: 'The GPIO wired to the buzzer\'s signal pin, SIG on the KY-012 and S on the KY-006. An active buzzer sounds while the pin is high; a passive one sounds while the pin carries a tone.',
+    pitchHz: `The tone a passive buzzer plays while Sound is true, ${BUZZER_PITCH_MIN_HZ} to ${BUZZER_PITCH_MAX_HZ} Hz. The KY-006 is loudest near 2000 Hz and quieter away from it. An active buzzer has no pitch to set.`,
   },
   PowerMonitorInput: {
     i2cAddress: 'The address set by the board\'s A0/A1 pads or jumpers: four choices on the INA219, sixteen on the INA226. Give each monitor on the bus a different one.',
@@ -1902,6 +1905,7 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   BuzzerOutput: {
     sigPin: 'SIG',
+    pitchHz: 'Pitch (Hz)',
   },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key, index) => [key, `${index + 1}B`])),
   FieldLevels: {
@@ -2085,6 +2089,11 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
   if (nodeType === 'PowerSwitchOutput' && properties) {
     const channelLabel = powerSwitchPropertyLabel(key, properties.partId)
     if (channelLabel) return channelLabel
+  }
+  // The KY-012 prints SIG beside its signal pin, the KY-006 only S.
+  if (nodeType === 'BuzzerOutput' && key === 'sigPin' && properties) {
+    const printed = partPinLabelForProperty(String(properties.partId ?? ''), key)
+    if (printed) return printed
   }
   return PROPERTY_LABELS[nodeType]?.[key] ?? key
 }
@@ -2918,6 +2927,8 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   // A channel the selected board does not have has no pin to wire and no load to dim.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
+  // Only a passive buzzer has a pitch to set; an active one's is its own.
+  if (nodeType === 'BuzzerOutput' && key === 'pitchHz') return buzzerIsPassive(properties.partId)
   if (nodeType === 'DistanceInput' && ['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'i2cAddress', 'xshutPin'].includes(key)) {
     return distanceSensorTransport(properties.partId) === 'i2c'
       ? ['sdaPin', 'sclPin', 'i2cAddress', 'xshutPin'].includes(key)

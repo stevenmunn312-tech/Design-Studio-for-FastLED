@@ -204,7 +204,11 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         key,
         label: partPinLabelForProperty(identity?.option.id ?? '', key) ?? MODULE_PIN_LABELS[key] ?? key,
       }))
-      : entry.pinFields ?? []
+      // Silkscreen first here too: the KY-012 prints SIG, the KY-006 only S.
+      : (entry.pinFields ?? []).map((field) => ({
+        ...field,
+        label: partPinLabelForProperty(identity?.option.id ?? '', field.key) ?? field.label,
+      }))
     const props = node.data.properties as Record<string, unknown>
     const pinSummary = numericPinSummary(props, pinFields, entry.nodeType)
     const vuLedCount = entry.nodeType === 'StereoVuMeter'

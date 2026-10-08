@@ -303,8 +303,9 @@ def read_part(part_dir: Path) -> dict | None:
                   "resolutionBits, oscillatorMHz and a frequency range around defaultPwmHz — skipped",
                   file=sys.stderr)
     # A buzzer's drive contract. An active buzzer sounds at its own fixed pitch
-    # while its pin sits at the active level, so the firmware needs that level
-    # and the pin current the Build Diagram has to warn about.
+    # while its pin sits at the active level; a passive one sounds only while
+    # the controller plays a tone, loudest at its resonance. The firmware needs
+    # the type and level, and the Build Diagram the pin current to warn about.
     buzzer = data.get("buzzer")
     if buzzer:
         if (buzzer.get("type") in ("active", "passive") and buzzer.get("activeLevel") in ("high", "low")

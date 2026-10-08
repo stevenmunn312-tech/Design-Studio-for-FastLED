@@ -365,6 +365,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         summary: 'Beeps at a fixed pitch while its pin is high',
         note: 'Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V.',
       },
+      {
+        id: 'ky-006-passive-buzzer-module',
+        label: 'KY-006 passive buzzer',
+        summary: 'Plays a tone at the pitch you set',
+        note: 'Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time.',
+      },
     ],
   },
   RelayOutput: {

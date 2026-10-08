@@ -187,6 +187,18 @@ for long or frequent sounds, so switch it through a transistor for those. It is
 quieter from 3.3 V than from 5 V. The browser preview is silent, and the buzzer is
 experimental until it has been sounded on a board.
 
+For tones, choose **KY-006 passive buzzer** from the same menu. Wire **S** to the
+GPIO and **-** to ground, and leave the middle pin unconnected; Joy-IT prints +V
+there, but the buzzer sounds without it. A passive buzzer has no oscillator, so
+the node gains a **Pitch** input: while **Sound** is true the controller plays a
+square wave at that many hertz, from 100 to 10,000, and the pin rests low
+otherwise. With nothing wired to Pitch it plays the **Pitch (Hz)** setting,
+2000 Hz to start, which is where the KY-006 is loudest. Wire a Map Range in front
+of Pitch to turn a knob or sensor into a pitch. A board plays one passive buzzer
+at a time, so Graph Health refuses a second. It draws 25 mA or less from the pin;
+if yours reads a few tens of ohms on a meter rather than open, it is a coil type
+and needs a transistor. It is experimental too.
+
 ### Switch or dim a DC load
 
 Choose **Switching power → LR7843 MOSFET switch** to turn a 6-28 V DC load on
