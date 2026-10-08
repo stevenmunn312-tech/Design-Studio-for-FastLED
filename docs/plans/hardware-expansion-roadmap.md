@@ -1,7 +1,7 @@
 # Hardware expansion roadmap
 
 Status: **candidate roadmap, not an implementation promise** · Owner: app ·
-Updated: 2026-09-27
+Updated: 2026-10-08
 
 This document records the next physical hardware families that would make
 Design Studio more useful for complete LED installations. It deliberately
@@ -54,7 +54,7 @@ build have passed the normal evidence gates.
 | KY-023 joystick module | `JoystickInput` | Two signed float axes and one boolean. In the app and experimental: powered from 3V3, dead zone property; bench open. |
 | 4×4 matrix keypad | `KeypadInput` | Direct scene, preset and show selection. In the app and experimental as one Key index (0 to 15) plus Pressed rather than sixteen ports; passive, no supply or ground drawn; bench open. |
 | RCWL-0516 microwave-motion module | `MotionInput` option | A second inexpensive presence technology beside PIR and mmWave. In the app and experimental as a second `MotionInput` module: VIN from 5 V, OUT 3.3 V; no new firmware; bench open. |
-| Rotary encoder with an addressable feedback ring | Encoder plus LED fixture | Combines an existing input idiom with visible state feedback. |
+| Rotary encoder with an addressable feedback ring | Encoder plus LED fixture | Combines an existing input idiom with visible state feedback. Waiting for an integrated module: on 2026-10-08 no shop sold one board with both (Adafruit, DFRobot, M5Stack, Seeed and Waveshare sell them separately). Until then, an encoder, a Gauge and an LED Ring output already show a position. |
 
 ## Outputs, switching and power infrastructure
 
@@ -65,7 +65,7 @@ build have passed the normal evidence gates.
 | PCA9685 16-channel PWM module | `PwmDriverOutput`, in and experimental: sixteen 0 to 1 channels at one shared frequency, 0x40 to 0x6F, V+ not drawn, bench open. Multi-channel PWM output | Useful for analog dimming, indicators and servos; not an addressable-pixel output. |
 | ULN2803A driver board | `DarlingtonDriverOutput`, in and experimental: eight active-high channels on eight GPIOs, sink only, bench open. Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
 | Fan module with tachometer | Cooling output plus speed input | Enables enclosure cooling tied to temperature or power measurements. |
-| Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch; a passive buzzer with tones from the controller is still open; bench open. |
+| Piezo buzzer module | `BuzzerOutput` | The KY-012 active buzzer is in and experimental as a boolean Sound sink at a fixed pitch. The KY-006 passive buzzer is in and experimental too: it adds a Pitch input in hertz, played with `tone()`, one per board. Bench open for both. |
 | DFPlayer Mini | Player hardware integration | The verified Blender asset already exists; graph control, firmware ownership and audio routing remain to be integrated. |
 | USB-C PD trigger module | `PdTriggerSource`, in and experimental as a config-only fixture; the plan checks its requested voltage against the converters; bench open. Power-negotiation fixture | Records the requested source voltage before a downstream converter or load. |
 
