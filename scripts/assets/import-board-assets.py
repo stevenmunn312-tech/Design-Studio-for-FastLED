@@ -53,13 +53,6 @@ REPO = Path(__file__).resolve().parents[2]
 OUT_TS = REPO / "src" / "build" / "generated" / "boardCapabilityData.ts"
 OUT_RENDERS = REPO / "public" / "boards"
 
-# Boards whose asset exists but that Studio does not offer, with why. Their
-# profiles and renders are not imported. Lift an entry once the reason is gone.
-WITHDRAWN_PROFILES = {
-    "arduino-nano-33-ble": "Arduino's Mbed core: FastLED 3.10.5 builds no LED sketch there",
-    "arduino-nano-rp2040-connect": "Arduino's Mbed core: FastLED 3.10.5 builds no LED sketch there",
-}
-
 # Widest the render is ever displayed, doubled for high-DPI. The raw Cycles
 # output is ~800x1600 and 1 MB; this keeps it sharp at a fraction of the bytes.
 RENDER_MAX_W = 700
@@ -607,9 +600,6 @@ def main() -> int:
                 board = {**board, "rails": {"bottom": labels}}
 
         profile_id = board.get("boardProfileId") or board.get("profileId") or folder.name
-        if profile_id in WITHDRAWN_PROFILES:
-            skipped.append(f"{folder.name}: withdrawn ({WITHDRAWN_PROFILES[profile_id]})")
-            continue
         entry: dict = {}
 
         safety, notes = build_safety(board)

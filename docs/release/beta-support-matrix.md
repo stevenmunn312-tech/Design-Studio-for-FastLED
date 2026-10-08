@@ -418,7 +418,8 @@ Unless a future row says otherwise, treat the following as experimental:
   2026-10-08. On Arduino's Mbed core the pinned FastLED 3.10.5 fails in its own
   nRF52 and RP2040 output drivers, so no LED sketch built on either
   ([IR compile record](../reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
-  They return when FastLED builds there.
+  Their Blender assets were deleted, so bringing either back means modelling
+  it again.
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom
