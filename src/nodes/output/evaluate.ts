@@ -576,7 +576,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   DFPlayerOutput({ input }, id, props) {
     // The browser cannot hear the module or read BUSY. Playing follows the
     // requested Play level; uploaded firmware replaces it with the pin.
-    return { playing: dfPlayerPreviewPlaying(input(id, 'play', props.play)) }
+    return { playing: dfPlayerPreviewPlaying(input(id, 'play', props.play === true)) }
   },
   // A physical sink too: the browser has no PWM output, but wired levels are still evaluated.
   PwmDriverOutput: physicalSink,
