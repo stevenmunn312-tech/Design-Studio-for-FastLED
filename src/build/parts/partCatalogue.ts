@@ -103,6 +103,12 @@ export interface PartMosfetSpec {
   flybackDiode: boolean
   /** What the board prints beside each channel, one per channel (A to D on the Mosfetti). */
   channelLabels?: string[]
+  /**
+   * What each channel's input terminal prints, when that is not the channel's
+   * own name: the YYNMOS-4's channel 1 is wired at PWM1. Absent when the
+   * channel label is also the input's (the Mosfetti's A).
+   */
+  channelInputLabels?: string[]
   /** Load-side terminals as printed, left to right in the render. */
   loadTerminals?: string[]
   /** PWM frequency to dim the load at; absent on a module that only switches. */
@@ -458,8 +464,9 @@ export function mosfetChannelPinKey(index: number): string {
 /** The exact label printed on a catalogued part for one graph pin property. */
 export function partPinLabelForProperty(partId: string, propertyKey: string): string | null {
   const entry = partById(partId)
-  const channel = entry?.mosfet?.channelLabels?.findIndex((_, index) => mosfetChannelPinKey(index) === propertyKey) ?? -1
-  if (channel >= 0) return entry!.mosfet!.channelLabels![channel]
+  const inputs = entry?.mosfet?.channelInputLabels ?? entry?.mosfet?.channelLabels
+  const channel = inputs?.findIndex((_, index) => mosfetChannelPinKey(index) === propertyKey) ?? -1
+  if (channel >= 0) return inputs![channel]
   const labels = entry?.pinLabelsLeftToRight ?? []
   const aliases = PART_PIN_PROPERTY_ALIASES[propertyKey]
   if (!aliases) return null

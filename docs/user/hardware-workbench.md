@@ -247,7 +247,39 @@ shows a Load bar per channel.
 Keep the loads small. One resettable fuse protects the whole board, so 2 A is
 the limit for all four channels together, not for each one. Every channel has
 its own flyback diode, so a pump or motor needs nothing extra. For a load
-above 2 A, such as a long LED strip, use an LR7843 per load instead.
+above 2 A, such as a long LED strip, use an LR7843 per load or the YYNMOS-4
+below instead.
+
+### Switch four LED rails
+
+Choose **Switching power → YYNMOS-4 (LR7843)** to switch or dim four 12 V or
+24 V LED rails, or other DC loads up to 5 A each, from one opto-isolated
+board. Three different boards are sold under the YYNMOS-4 name; this is the
+one with four LR7843 MOSFETs, four PC817 optocouplers and a small 78L12
+regulator beside the supply terminals. Its screw terminals come fitted.
+
+- The bottom row is the input side, a **PWM** and a **GND** for each channel.
+  Wire each **PWM** to its GPIO and every **GND1** to **GND4** to the
+  controller's ground: each input is its own optocoupler, so a channel whose
+  GND is left off never switches. The Build Diagram draws a ground on all four.
+- The top row is the load side. The load supply goes to **DC+** and **DC-**.
+  Each load's positive lead goes to its channel's **OUT+** and its negative
+  lead to **OUT-**.
+- The board is not printed with its terminal names on top. Check the order on
+  the board in hand before applying power.
+
+Use a 7-28 V DC load supply. The gates are driven from the onboard 12 V
+regulator, which cannot drive them properly from less than about 7 V, so this
+board cannot switch a 5 V LED rail. Keep each channel to 5 A, or fit a
+heatsink above that, and the whole board to 10 A, because every channel
+returns through the one **DC-** terminal. Each channel has a small 1 A flyback
+diode: enough for a relay coil or a solenoid, not for a large motor dimmed with
+PWM.
+
+The node has an **On** and a **Level** for channels 1 to 4. A Level below 1, or
+wired, dims that channel with PWM at 500 Hz, the LR7843's rate. The listing
+rates the inputs from 3 V; a 3.3 V pin is at the bottom of that range, so if a
+channel does not switch, drive it from 5 V through a transistor or buffer.
 
 ### Detect stationary presence
 

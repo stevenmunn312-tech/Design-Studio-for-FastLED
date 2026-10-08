@@ -332,6 +332,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         summary: 'Four DC switches or dimmers, A to D, 3-16 V',
         note: 'DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted.',
       },
+      {
+        id: 'yynmos-4-lr7843-mosfet-module',
+        label: 'YYNMOS-4 (LR7843)',
+        summary: 'Four isolated DC switches or dimmers, 7-28 V',
+        note: 'DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V.',
+      },
     ],
   },
   DarlingtonDriverOutput: {

@@ -341,7 +341,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (`src/state/peripherals/powerSwitch.ts`) is the relay's DC counterpart: active-high
   MOSFET channels, one GPIO each, load-side limits read from the catalogue's
   `mosfet` block. The board decides the channel count (LR7843 one, Mosfetti
-  four), and every view gets the ports from `partDerivedInputs`
+  and YYNMOS-4 four), and every view gets the ports from `partDerivedInputs`
   (`src/build/parts/partPorts.ts`), as for a relay; a new part-derived node joins
   that helper rather than adding its own ternary at each call site. It takes no
   supply from the controller, so `peripheralPowerPadIndex` returns `null` for
@@ -349,7 +349,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rather than fall back to pad 0, which on the LR7843 is GND and drew a VCC
   wire onto it. Channel pins are found on the sheet by the board's printed
   letters (`mosfet.channelLabels` through `partPinLabelForProperty`), not by
-  position. A PWM choice made per node can collide across nodes: channels share
+  position; a board whose inputs print something else names them in
+  `mosfet.channelInputLabels` (the YYNMOS-4's PWM1 to PWM4), which wins for
+  pins and pads while ports keep the channel label. A pad printed `GND1`,
+  `GND2` and so on is one channel's own return: the diagram draws a ground on
+  each (`peripheralChannelGroundPadIndexes`), where a repeated plain `GND` is
+  one net the board joins and gets one stub. A PWM choice made per node can collide across nodes: channels share
   LEDC timers on ESP32 core 2 and one frequency on ESP8266 and RP2040, so
   `powerSwitchPwmPlan` plans every dimmed channel in the sketch together. Dimming reads
   its PWM frequency from the part (`mosfet.pwmHz`), because a module's gate

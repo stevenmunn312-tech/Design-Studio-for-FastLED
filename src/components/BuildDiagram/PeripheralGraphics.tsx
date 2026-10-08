@@ -14,6 +14,7 @@ import {
   type ItemLayout,
   peripheralPadLabel,
   peripheralPowerPadIndex,
+  peripheralChannelGroundPadIndexes,
   peripheralGroundPadIndex,
   peripheralHasGround,
   micChannelSelectPadIndex,
@@ -200,6 +201,18 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
           <title>GND</title>
         </g>
       )}
+      {/* Each numbered GND returns its own channel, so each is drawn as ground. */}
+      {peripheralChannelGroundPadIndexes(item).map((padIndex) => (
+        <g key={padIndex} data-terminal={`${item.id}-gnd-${padLabel(padIndex)}`}>
+          <circle
+            cx={peripheralPadPoint(layout, padIndex).x}
+            cy={peripheralPadPoint(layout, padIndex).y}
+            r={padRadius}
+            className={`${styles.peripheralGroundTerminal} ${styles.photoTerminalFill}`}
+          />
+          <title>{padLabel(padIndex)} · GND</title>
+        </g>
+      ))}
       {/* A microphone's channel-select pad carries no GPIO, so it is not one of
           the item's connections and needs drawing beside them. */}
       {channelSelectPadIndex !== null && (

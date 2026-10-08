@@ -9,6 +9,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The YYNMOS-4 four-channel MOSFET board (the LR7843 revision) joins the
+  Hardware shelf as a Power Switch for LED rails and heavier DC loads: four
+  opto-isolated channels, 1 to 4, each switched from its own On and dimmed
+  from its own Level at 500 Hz, 7-28 V, 5 A a channel and 10 A for the board.
+  Its pins read PWM1 to PWM4, and the Build Diagram draws a ground on each of
+  its GND1 to GND4, since every input is its own optocoupler. Its gate drive
+  cannot work from a 5 V rail. It is modelled from a seller listing, and its
+  terminal order follows the family's earlier boards, so it stays experimental
+  until a bench run confirms both.
 - Two VL53L0X or VL53L1X sensors can share one I2C bus. Give each its own SHDN or
   XSHUT pin and an address from 0x30 to 0x33. One sensor on its own still uses 0x29
   and leaves the shutdown pin unconnected. This stays experimental until a

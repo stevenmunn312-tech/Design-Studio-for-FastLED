@@ -30,7 +30,7 @@ build have passed the normal evidence gates.
 
 | Priority | Hardware family | Proposed app role | Primary value |
 | --- | --- | --- | --- |
-| P0 | 1/4/8-channel logic-level N-channel MOSFET modules | `PowerSwitchOutput` | Silent, fast DC LED-power or auxiliary-load switching without mechanical relay wear. The LR7843 (one channel) and MonkMakes Mosfetti (four) are in; software and compile complete, bench open. |
+| P0 | 1/4/8-channel logic-level N-channel MOSFET modules | `PowerSwitchOutput` | Silent, fast DC LED-power or auxiliary-load switching without mechanical relay wear. The LR7843 (one channel), MonkMakes Mosfetti (four) and YYNMOS-4 LR7843 revision (four, for LED rails) are in; software and compile complete, bench open. |
 | P0 | INA219 / INA226 current and voltage monitors | `PowerMonitorInput` | Both are in and experimental: publish volts, amps and watts to the graph and support measured overcurrent warnings; the INA226 reads to 36 V and 20 A. Bench rows open. |
 | P0 | MAX485 / SN75176 DMX transceiver module | Exact physical option for `DMXInput` | Completes the existing ESP32 DMX512 firmware path with a real transceiver, pinout and Build Diagram part. |
 | P0 | VS1838B / TSOP38238 demodulating IR receiver | `IRRemoteInput` | Remote control of brightness, patterns, transport, relay channels and other graph properties. |
@@ -96,10 +96,18 @@ compile families:
    MonkMakes' 1:1 mechanical drawing, the Power Switch's ports and pins now
    follow the selected board as a relay's do, and its
    [compile fixtures](../reports/compile/power-switch-compile-checks.md) pass; the bench run is
-   open. A four-channel LR7843-class board for LED rails is still wanted, once
-   one with a reliable reference turns up: the listings found disagree on
-   layout, and the documented FR1205 board overdrives its gates above about
-   20 V.
+   open. The four-channel board for LED rails is the YYNMOS-4's LR7843
+   revision (`yynmos-4-lr7843-mosfet-module`, 2026-10-08), modelled from a
+   seller listing Steve supplied. Three boards share the YYNMOS-4 name, which
+   is why earlier listings disagreed on layout; this one has four IRLR7843s,
+   four PC817s and a 78L12 that caps the gate drive near 12 V, avoiding the
+   FR1205 board's gate overdrive above about 20 V. The same regulator needs
+   about 7 V, so the board takes 7-28 V and cannot switch a 5 V rail. Its
+   inputs are separate PWM and GND pairs, so the Build Diagram draws a ground
+   on each numbered GND. Its terminal order is inferred from the earlier
+   revisions' printed undersides, and its
+   [compile fixture](../reports/compile/power-switch-compile-checks.md) passes;
+   the bench run, which checks the order first, is open.
 2. INA219/INA226 monitoring and a minimal volts/amps/watts signal contract.
    The Adafruit INA219 (`PowerMonitorInput`) is in, experimental, on the
    normal sketch. It also publishes an `Overcurrent` bool, true while the

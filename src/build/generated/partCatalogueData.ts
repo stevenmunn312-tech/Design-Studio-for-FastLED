@@ -3526,6 +3526,76 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 11.896
     }
   },
+  "yynmos-4-lr7843-mosfet-module": {
+    "partId": "yynmos-4-lr7843-mosfet-module",
+    "label": "YYNMOS-4 four-channel LR7843 MOSFET module",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 55.0,
+      "height": 50.0
+    },
+    "manufacturer": "generic YYNMOS-4, LR7843 revision (Infineon IRLR7843, Sharp PC817, 78L12 gate regulator)",
+    "logicVoltage": "3-20 V active-high per channel (listing), about 5 mA, into a PC817 optocoupler. Each channel's input is its own PWM and GND pair, isolated from the load supply.",
+    "pinLabelsLeftToRight": [
+      "PWM1",
+      "GND1",
+      "PWM2",
+      "GND2",
+      "PWM3",
+      "GND3",
+      "PWM4",
+      "GND4"
+    ],
+    "notes": [
+      "Four opto-isolated low-side DC switches. The load supply goes to DC+ and DC-; each load connects across its channel's OUT+ and OUT- (positive lead to OUT+, negative lead to OUT-). OUT+ is the supply's positive brought out beside each channel; OUT- is the switched negative lead.",
+      "Each channel's input is its own PWM and GND pair on the optocoupler side. Wire PWMn to the controller pin and every GNDn to the controller's GND. The inputs are isolated from the load supply, so the controller and the load supply share no ground.",
+      "Active-high, 3-20 V and about 5 mA per input according to the listing. A 3.3 V pin is at the bottom of that range: if a channel does not switch on the bench, drive it from 5 V through a transistor or buffer.",
+      "The gates are driven from an onboard 78L12 regulator, so they see at most about 12 V whatever the supply. Below about 7 V the regulator cannot hold the gates high enough, so a 5 V rail leaves the MOSFETs half on and hot. Use a 7-28 V DC load supply: the listing says 5-36 V, but the IRLR7843 is rated 30 V.",
+      "5 A per channel on the bare board, per the listing; above that, fit a heatsink. Every channel returns through the one DC- terminal, so keep the board total to 10 A.",
+      "Each channel has an M7 (1N4007-class, 1 A) diode in the flyback position beside its MOSFET. That covers relay coils and solenoids switched on and off; a motor dimmed with PWM above about 1 A needs its own fast diode rated for its current.",
+      "The screw terminals are fitted at 5.08 mm pitch. This revision prints no terminal names on its top face; the order shown follows the names the YYNMOS-4 family prints on its underside, so check it against the board in hand before applying power."
+    ],
+    "mosfet": {
+      "channels": 4,
+      "device": "Infineon IRLR7843 N-channel (30 V, D-PAK) per channel, low-side",
+      "trigger": "active-high",
+      "loadSupply": "7-28 V DC",
+      "continuousCurrent": "5 A per channel on the bare board (listing), 10 A in total through the shared DC- terminal",
+      "optoIsolated": true,
+      "flybackDiode": true,
+      "channelLabels": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "channelInputLabels": [
+        "PWM1",
+        "PWM2",
+        "PWM3",
+        "PWM4"
+      ],
+      "loadTerminals": [
+        "DC+",
+        "DC-",
+        "OUT1+",
+        "OUT1-",
+        "OUT2+",
+        "OUT2-",
+        "OUT3+",
+        "OUT3-",
+        "OUT4+",
+        "OUT4-"
+      ],
+      "pwmHz": 500
+    },
+    "render": {
+      "file": "parts/yynmos-4-lr7843-mosfet-module.webp",
+      "widthPx": 680,
+      "heightPx": 620,
+      "pxPerMm": 12.0
+    }
+  },
   "zy12pdn-usb-c-pd-trigger": {
     "partId": "zy12pdn-usb-c-pd-trigger",
     "label": "ZY12PDN USB-C PD trigger module",

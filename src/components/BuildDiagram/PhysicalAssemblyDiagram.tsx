@@ -17,6 +17,7 @@ import {
   levelShifterTerminalPoint,
   peripheralPowerPadIndex,
   peripheralPadPoint,
+  peripheralChannelGroundPadIndexes,
   peripheralGroundPadIndex,
   peripheralHasGround,
   micChannelSelectPadIndex,
@@ -264,6 +265,11 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             {peripheralHasGround(layout.item) && (
               <NetStub x={groundPad.x} y={groundPad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground`} />
             )}
+            {peripheralChannelGroundPadIndexes(layout.item).map((padIndex) => {
+              const pad = peripheralPadPoint(layout, padIndex)
+              const name = peripheralPadLabel(layout.item, padIndex)
+              return <NetStub key={padIndex} x={pad.x} y={pad.y} kind="gnd" direction="down" lead={PERIPHERAL_STUB_LEAD} wireId={`${layout.item.id}-ground-${name}`} />
+            })}
             {/*
               A microphone's channel-select pad picks its I2S slot by being tied
               to ground, so it carries the same ground symbol as the GND pad

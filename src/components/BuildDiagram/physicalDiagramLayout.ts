@@ -338,6 +338,11 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
   // Computed from the model's coordinates (12.01 px/mm, 10 px margin) and
   // checked against the render: each is an open hole, centred within 0.1 px.
   'monkmakes-mosfetti': padRow([368.2, 398.7, 429.2, 459.7, 490.2], 808, 536.5, 624),
+  // The input terminals PWM1, GND1 ... PWM4, GND4 along the bottom, at each
+  // screw: 5.08 mm pitch from x 15.81 mm, row y 46.2 mm, at the model's
+  // 12 px/mm with a 10 px margin. The blocks are fitted, so there is no hole.
+  'yynmos-4-lr7843-mosfet-module':
+    padRow([199.7, 260.7, 321.6, 382.6, 443.6, 504.5, 565.5, 626.4], 680, 564.4, 620),
   // Both RTCs measured from their drilled holes. They had a table of their own
   // with four x-ratios, left from before the catalogue listed six (ZS-042) and
   // five (XC9044) pads, so SDA, VCC and GND clamped onto one point.
@@ -658,14 +663,38 @@ export function peripheralPowerPadIndex(item: HardwareManifestItem): number | nu
  * would sit under the module's own picture.
  */
 export function peripheralGroundPadIndex(item: HardwareManifestItem) {
-  const first = padIndexByLabel(item, GROUND_PAD_LABELS, peripheralPadCount(item) - 1)
+  const pads = peripheralPads(item)
+  const firstGround = pads.findIndex(isGroundPad)
+  const first = firstGround >= 0 ? firstGround : peripheralPadCount(item) - 1
   const measured = MODULE_PAD_GEOMETRY[String(item.facts.partId ?? '')]
   if (!measured) return first
-  const grounds = peripheralPads(item)
-    .map((label, index) => ({ index, ground: GROUND_PAD_LABELS.includes(padName(label)) }))
+  const grounds = pads
+    .map((label, index) => ({ index, ground: isGroundPad(label) }))
     .filter((pad) => pad.ground && measured[pad.index])
   return grounds.reduce((lowest, pad) =>
     measured[pad.index][1] > measured[lowest][1] ? pad.index : lowest, first)
+}
+
+/** A numbered ground (GND1) is one channel's own return, not the board's shared ground. */
+const CHANNEL_GROUND = /^GND\d+$/
+
+function isGroundPad(label: string) {
+  const name = padName(label)
+  return GROUND_PAD_LABELS.includes(name) || CHANNEL_GROUND.test(name)
+}
+
+/**
+ * Ground pads that need a wire of their own beside the one the ground stub
+ * hangs from. A board printing GND1 to GND4 returns each channel separately
+ * (each YYNMOS-4 input is one optocoupler's LED), so a channel whose GND is
+ * left off never switches. A board repeating a plain GND joins them itself,
+ * and its one stub is enough.
+ */
+export function peripheralChannelGroundPadIndexes(item: HardwareManifestItem): number[] {
+  if (!peripheralHasGround(item)) return []
+  const primary = peripheralGroundPadIndex(item)
+  return peripheralPads(item).flatMap((label, index) =>
+    index !== primary && CHANNEL_GROUND.test(padName(label)) ? [index] : [])
 }
 
 /** Manifest order for SD is CS, SCK, MOSI, MISO; the two module variants put
@@ -889,6 +918,8 @@ export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
   'pam8403-3w-stereo-amplifier': 5.6,
   'lr7843-mosfet-module': 12.3,
   'monkmakes-mosfetti': 5.6,
+  // The screw head (1.55 mm), so its dark well still rings the colour.
+  'yynmos-4-lr7843-mosfet-module': 18.6,
   'ds3231-rtc-module': 5.9,
   'jaycar-xc9044-rtc-module': 12.3,
   'adafruit-ina219-current-sensor': 7,

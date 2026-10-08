@@ -35,8 +35,9 @@ workbench's **Add Hardware** menu is the creation path for:
   potentiometer, encoder, PIR motion, HLK-LD2410C radar presence, ambient light,
   INA219 power monitor, and RTC modules;
 - switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, the
-  opto-isolated LR7843 MOSFET module for DC loads, and the four-channel
-  MonkMakes Mosfetti for small DC loads;
+  opto-isolated LR7843 MOSFET module for DC loads, the four-channel
+  MonkMakes Mosfetti for small DC loads, and the four-channel opto-isolated
+  YYNMOS-4 (LR7843 revision) for LED rails and heavier DC loads;
 - workbench-only fixtures: SD Card and amplifier/DAC modules; and
 - LED String, LED Matrix, LED Ring, LED Corkscrew, and HUB75 Panel outputs.
 
@@ -132,7 +133,7 @@ browser makes no sound.
 `PowerSwitchOutput` is the DC counterpart: MOSFET channels, each with a
 boolean `On` input, a 0-1 `Level`, and one GPIO. The selected board decides how
 many channels there are, as a relay module's does: the LR7843 has one, the
-MonkMakes Mosfetti four. Every channel is active-high, so generated firmware
+MonkMakes Mosfetti and the YYNMOS-4 four. Every channel is active-high, so generated firmware
 latches each pin LOW before making it an output, and a HIGH turns that load on.
 The load side is described rather than wired: the catalogue's `mosfet` block
 (load supply range, continuous current, active level, isolation, flyback
@@ -147,24 +148,29 @@ The first channel keeps the names a one-channel board has always used: `on`,
 on (`powerSwitchChannels` in `src/state/peripherals/powerSwitch.ts`). Port labels and
 channel rows come from the board's printed letters (`mosfet.channelLabels`),
 so the Mosfetti's ports read On A to Level D, its pins A to D, and the
-Build Diagram finds each wire's pad by that letter. Everything that draws,
+Build Diagram finds each wire's pad by that letter. A board whose input
+terminals print something else names them in `mosfet.channelInputLabels`:
+the YYNMOS-4's ports read On 1 to Level 4 while its pins, and the pads the
+diagram wires, read PWM1 to PWM4. Each YYNMOS-4 input is a PWM and GND pair,
+one optocoupler's LED, so the diagram draws a ground on every numbered GND
+(`peripheralChannelGroundPadIndexes`); a board repeating a plain GND gets one. Everything that draws,
 normalises or creates the node asks `partDerivedInputs` for its ports, the
 same helper the relay uses. The library declares the other channels'
 `Level` ports as `variantInputs`, which lets each Level be a property input
 without the library drawing sixteen ports; the node hides the rows of channels
 its board does not have, as the LED output does.
 
-The two boards differ in more than channel count:
+The boards differ in more than channel count:
 
-| | LR7843 | MonkMakes Mosfetti |
-| --- | --- | --- |
-| Channels | 1, printed PWM | 4, printed A to D |
-| Gate drive | optocoupler, from the load supply | the GPIO, directly; 100 k pull-down |
-| Isolation | opto-isolated | none: header GND is the load supply's negative |
-| Load supply | 6-28 V DC | 3-16 V DC |
-| Current | 15 A (module guidance) | 2 A per channel and 2 A in total (one resettable fuse) |
-| Flyback diode | none | one per channel |
-| PWM | 500 Hz, derived from the gate drive | 1 kHz, from MonkMakes' own examples |
+| | LR7843 | MonkMakes Mosfetti | YYNMOS-4 (LR7843 revision) |
+| --- | --- | --- | --- |
+| Channels | 1, printed PWM | 4, printed A to D | 4, inputs PWM1 to PWM4, each with its own GND |
+| Gate drive | optocoupler, from the load supply | the GPIO, directly; 100 k pull-down | optocoupler, from an onboard 78L12, so never above about 12 V |
+| Isolation | opto-isolated | none: header GND is the load supply's negative | opto-isolated, every input separately |
+| Load supply | 6-28 V DC | 3-16 V DC | 7-28 V DC: the regulator needs 7 V, so not a 5 V rail |
+| Current | 15 A (module guidance) | 2 A per channel and 2 A in total (one resettable fuse) | 5 A per channel, 10 A in total through the one DC- terminal |
+| Flyback diode | none | one per channel | an M7 (1 A) per channel |
+| PWM | 500 Hz, derived from the gate drive | 1 kHz, from MonkMakes' own examples | 500 Hz, the same optocoupler drive as the LR7843 |
 
 `Level` dims a channel's load with PWM. It is a property input (field default
 1), and `src/state/peripherals/powerSwitch.ts` holds the one rule the evaluator and the

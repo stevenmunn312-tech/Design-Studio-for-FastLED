@@ -3,8 +3,8 @@ import { buildHardwareManifest } from '../../../build/hardwareManifest'
 import { powerSwitchPwmPlan } from '../../../codegen/peripherals/powerSwitchCpp'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import {
-  MODULE_PAD_GEOMETRY, peripheralGroundPadIndex, peripheralPadLabel, peripheralPowerPadIndex,
-  peripheralSignalPadIndex,
+  MODULE_PAD_GEOMETRY, peripheralChannelGroundPadIndexes, peripheralGroundPadIndex, peripheralPadLabel,
+  peripheralPowerPadIndex, peripheralSignalPadIndex,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
 import { fixtureLinkLabel } from '../../../components/Hardware/fixtureLink'
 import { modulePinKeys } from '../../../components/Hardware/hardwarePartCatalog'
@@ -22,6 +22,7 @@ import {
 
 const LR7843 = 'lr7843-mosfet-module'
 const MOSFETTI = 'monkmakes-mosfetti'
+const YYNMOS4 = 'yynmos-4-lr7843-mosfet-module'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -229,5 +230,81 @@ describe('Mosfetti wiring', () => {
       expect(y).toBeCloseTo(pads[0][1])
       if (index > 0) expect(x).toBeGreaterThan(pads[index - 1][0])
     }
+  })
+})
+
+describe('the YYNMOS-4 (LR7843 revision)', () => {
+  it('carries four numbered, opto-isolated channels whose inputs print PWM1 to PWM4', () => {
+    const entry = partById(YYNMOS4)
+    const spec = entry?.mosfet
+    expect(spec?.channels).toBe(4)
+    expect(spec?.channelLabels).toEqual(['1', '2', '3', '4'])
+    expect(spec?.channelInputLabels).toEqual(['PWM1', 'PWM2', 'PWM3', 'PWM4'])
+    expect(spec?.optoIsolated).toBe(true)
+    expect(spec?.loadSupply).toBe('7-28 V DC')
+    expect(powerSwitchActiveHigh(YYNMOS4)).toBe(true)
+    expect(powerSwitchPwmHz(YYNMOS4)).toBe(500)
+    expect(entry?.pinLabelsLeftToRight).toEqual(['PWM1', 'GND1', 'PWM2', 'GND2', 'PWM3', 'GND3', 'PWM4', 'GND4'])
+    expect(spec?.loadTerminals?.slice(0, 4)).toEqual(['DC+', 'DC-', 'OUT1+', 'OUT1-'])
+  })
+
+  it('names ports by channel and pins by the input terminal they wire to', () => {
+    expect(powerSwitchInputs(YYNMOS4).map((port) => port.label)).toEqual([
+      'On 1', 'Level 1', 'On 2', 'Level 2', 'On 3', 'Level 3', 'On 4', 'Level 4',
+    ])
+    expect(powerSwitchChannels(YYNMOS4).map((channel) => channel.input)).toEqual(['PWM1', 'PWM2', 'PWM3', 'PWM4'])
+    expect(partPinLabelForProperty(YYNMOS4, 'signal3Pin')).toBe('PWM3')
+    expect(propertyLabel('PowerSwitchOutput', 'signal2Pin', { partId: YYNMOS4 })).toBe('PWM2')
+    expect(propertyLabel('PowerSwitchOutput', 'level2', { partId: YYNMOS4 })).toBe('level 2')
+    // The boards that print one name per channel keep it for both.
+    expect(powerSwitchChannels(MOSFETTI).map((channel) => channel.input)).toEqual(['A', 'B', 'C', 'D'])
+    expect(powerSwitchChannels(LR7843)[0].input).toBe('PWM')
+  })
+
+  it('wires each PWM to its pin and puts a ground on every numbered GND', () => {
+    const item = buildHardwareManifest([node('yy', 'PowerSwitchOutput', { partId: YYNMOS4, ...FOUR_PINS })], [], 'esp32:esp32:esp32')
+      .primaryItems.find((candidate) => candidate.kind === 'power-switch-output')!
+    expect(item.pins.map((pin) => pin.label.split(' ').at(-1))).toEqual(['PWM1', 'PWM2', 'PWM3', 'PWM4'])
+    expect(item.facts.isolation).toBe('opto-isolated')
+    expect([0, 1, 2, 3].map((index) => peripheralPadLabel(item, peripheralSignalPadIndex(item, index))))
+      .toEqual(['PWM1', 'PWM2', 'PWM3', 'PWM4'])
+    const grounds = [peripheralGroundPadIndex(item), ...peripheralChannelGroundPadIndexes(item)]
+    expect(grounds.map((index) => peripheralPadLabel(item, index)).sort()).toEqual(['GND1', 'GND2', 'GND3', 'GND4'])
+    expect(peripheralPowerPadIndex(item)).toBeNull()
+    expect(MODULE_PAD_GEOMETRY[YYNMOS4]).toHaveLength(8)
+  })
+
+  it('keeps one ground stub on boards that print a single GND', () => {
+    const item = buildHardwareManifest([node('sw', 'PowerSwitchOutput', { partId: MOSFETTI, ...FOUR_PINS })], [], 'esp32:esp32:esp32')
+      .primaryItems.find((candidate) => candidate.kind === 'power-switch-output')!
+    expect(peripheralChannelGroundPadIndexes(item)).toEqual([])
+  })
+
+  it('dims at its own 500 Hz and holds every channel off through setup', () => {
+    const pot = node('pot', 'PotInput', { pin: 34 })
+    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const yy = node('yy', 'PowerSwitchOutput', { partId: YYNMOS4, ...FOUR_PINS })
+    const cpp = generateCpp([pot, button, yy], [
+      edge('on', 'btn', 'pressed', 'yy', 'on'),
+      edge('level', 'pot', 'value', 'yy', 'level2'),
+    ])
+    expect(cpp).toContain('flsPwmBegin(17, 0, 500);')
+    expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? HIGH : LOW);')
+    for (const pin of [16, 18, 19]) {
+      const latch = cpp.indexOf(`digitalWrite(${pin}, LOW);`)
+      expect(latch).toBeGreaterThanOrEqual(0)
+      expect(cpp.indexOf(`pinMode(${pin}, OUTPUT);`)).toBeGreaterThan(latch)
+    }
+  })
+
+  it('previews each channel\'s load under its own key', () => {
+    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const yy = node('yy', 'PowerSwitchOutput', { partId: YYNMOS4, level4: 0.5 })
+    useHardwareInputStore.getState().setButton('btn', true)
+    const outputs = evaluateGraphFull([button, yy], [
+      edge('a', 'btn', 'pressed', 'yy', 'on'), edge('d', 'btn', 'pressed', 'yy', 'on4'),
+    ], 0).outputs.get('yy')
+    useHardwareInputStore.getState().setButton('btn', false)
+    expect([outputs?.load, outputs?.load2, outputs?.load3, outputs?.load4]).toEqual([1, 0, 0, 0.5])
   })
 })

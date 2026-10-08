@@ -663,6 +663,24 @@ Unless a future row says otherwise, treat the following as experimental:
   reset and setup, each channel switching independently from its own signal,
   one channel dimmed smoothly from Level with no flicker visible to the eye,
   and the board's total current kept under 2 A.
+- **YYNMOS-4 four-channel power switch (LR7843 revision).** The YYNMOS-4
+  (`PowerSwitchOutput`, `yynmos-4-lr7843-mosfet-module`) is software and
+  generated-firmware coverage only; no load has been run on it. Its four
+  channels are opto-isolated inputs, each a PWM and GND pair, switched from
+  their own `On` and dimmed from their own `Level` at 500 Hz. It switches the
+  negative lead of 7-28 V DC loads, 5 A per channel and 10 A for the board,
+  with an M7 diode per channel. Its model is from a seller listing's
+  photographs, and its terminal order is inferred from the names the
+  family's earlier revisions print on their underside, because this revision
+  prints none on top. Its fixture [compiles](../reports/compile/power-switch-compile-checks.md)
+  on classic ESP32. Graduating it needs a dated row naming the board/FQBN,
+  the four GPIOs, each load with its supply voltage and current, and the
+  build engine. It must first confirm the terminal order on the board,
+  then show all four loads held off through reset and setup, each channel
+  switching independently from a 3.3 V GPIO (or record that a buffer was
+  needed), one channel dimmed smoothly from Level, the MOSFET temperature
+  after ten minutes at 50% duty and the recorded current, and the gate
+  voltage at the lowest supply used.
 - **INA219 power monitoring.** The Adafruit INA219 (`PowerMonitorInput`) is
   software coverage only; no reading has been compared with a meter on any
   board. Its generated sketch compiles for `esp32:esp32:esp32` on arduino-cli

@@ -212,6 +212,16 @@ def read_part(part_dir: Path) -> dict | None:
             elif labels is not None:
                 print(f"  ! {part_id}: mosfet channelLabels needs one name per channel — ignored",
                       file=sys.stderr)
+            # What each channel's input terminal prints, when that is not the
+            # channel's own name (the YYNMOS-4's channel 1 takes PWM1). The
+            # diagram finds the input pads by it.
+            inputs = mosfet.get("channelInputLabels")
+            if isinstance(inputs, list) and len(inputs) == channels and all(
+                    isinstance(label, str) and label for label in inputs):
+                entry["mosfet"]["channelInputLabels"] = inputs
+            elif inputs is not None:
+                print(f"  ! {part_id}: mosfet channelInputLabels needs one name per channel — ignored",
+                      file=sys.stderr)
             if mosfet.get("powerTerminalsLeftToRight") or data.get("powerTerminalsLeftToRight"):
                 entry["mosfet"]["loadTerminals"] = (mosfet.get("powerTerminalsLeftToRight")
                                                     or data.get("powerTerminalsLeftToRight"))

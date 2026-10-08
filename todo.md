@@ -38,22 +38,19 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   energy families are built like the relay slice: in the app, in the Build
   Diagram, and marked experimental; HW-14 then checks them rather than gating
   them. What remains, in order:
-  1. A four-channel LR7843-class board for LED rails, once one with a reliable
-     reference turns up. The listings found disagree on layout, and the
-     documented FR1205 board overdrives its gates above about 20 V.
-  2. A rotary encoder with an addressable feedback ring, once a shop sells one
+  1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  3. A fan module with a tachometer: a cooling output plus a speed input.
-  4. The DFPlayer Mini. Its verified Blender asset exists; graph control,
+  2. A fan module with a tachometer: a cooling output plus a speed input.
+  3. The DFPlayer Mini. Its verified Blender asset exists; graph control,
      firmware ownership and audio routing remain.
-  5. A solid-state relay, only once AC/DC load type, leakage and isolation are
+  4. A solid-state relay, only once AC/DC load type, leakage and isolation are
      represented honestly.
-  6. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
+  5. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
      ESP32-C6-DevKitC-1, ESP8266 D1 Mini, Raspberry Pi Pico W, Teensy 4.1,
      Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a board profile,
      not a module) and QuinLED Dig-Uno and Dig-Quad.
-  7. Families that extend the power model: battery chargers, cell balancers,
+  6. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
      with fuses, balancer, BMS and 100 W charge/discharge control.
@@ -135,6 +132,11 @@ chooses the supported combinations from whatever is on record at release.
 - **D-05 Mosfetti:** the MonkMakes Mosfetti's four channels held off through
   setup, switched independently, one dimmed at 1 kHz, with the board total kept
   under 2 A; the row's requirements are in the support matrix.
+- **D-05 YYNMOS-4:** the LR7843 revision's terminal order checked on the board
+  first (it is inferred from the family's earlier boards), then four channels
+  held off through setup, switched independently from 3.3 V GPIOs, one dimmed
+  at 500 Hz with the MOSFET temperature at 50% duty, and the gate voltage at the
+  lowest supply used; the row's requirements are in the support matrix.
 - **D-05 Darlington driver:** the ULN2803A switching a real load from each channel,
   every input held low through reset and setup, with the load supply's ground joined
   to the controller's; the row's requirements are in the support matrix.
@@ -363,8 +365,8 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   extender, LM2596 and SD-100A/B-5 with main fuses and trunks, BME280,
   DS18B20, HC-SR04, VL53L0X and VL53L1X (including two on one bus, each with its
   own SHDN or XSHUT pin and an address from 0x30 to 0x33), KY-023, GY-521, RCWL-0516, MPR121,
-  4x4 keypad, PCA9685, ULN2803A, KY-012, KY-006 and ZY12PDN, each in software and
-  compiled where it has firmware
+  4x4 keypad, PCA9685, ULN2803A, KY-012, KY-006, ZY12PDN and the YYNMOS-4
+  (LR7843 revision), each in software and compiled where it has firmware
   ([roadmap](docs/plans/hardware-expansion-roadmap.md);
   [compile records](docs/index.md#compile-checks)).
 - **Pattern node expansion**: Phases 0–10, and Phase 11's render scale,

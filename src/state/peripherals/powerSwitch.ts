@@ -34,6 +34,11 @@ export interface PowerSwitchChannel {
   index: number
   /** What the board prints beside it (A to D on the Mosfetti), or null on a one-channel board. */
   label: string | null
+  /**
+   * The input terminal the controller pin wires to, as printed: PWM on the
+   * LR7843, A on the Mosfetti, PWM1 on the YYNMOS-4.
+   */
+  input: string
   on: string
   level: string
   pinKey: string
@@ -41,11 +46,12 @@ export interface PowerSwitchChannel {
   load: string
 }
 
-function channelAt(index: number, label: string | null): PowerSwitchChannel {
+function channelAt(index: number, label: string | null, input = label ?? 'PWM'): PowerSwitchChannel {
   const n = index === 0 ? '' : String(index + 1)
   return {
     index,
     label,
+    input,
     on: `on${n}`,
     level: `level${n}`,
     pinKey: mosfetChannelPinKey(index),
@@ -60,11 +66,11 @@ export function powerSwitchChannelCount(partId: unknown): number {
 
 export function powerSwitchChannels(partId: unknown): PowerSwitchChannel[] {
   const count = powerSwitchChannelCount(partId)
-  const printed = powerSwitchSpec(partId)?.channelLabels
-  return Array.from({ length: count }, (_, index) => channelAt(
-    index,
-    count === 1 ? null : printed?.[index] ?? String(index + 1),
-  ))
+  const spec = powerSwitchSpec(partId)
+  return Array.from({ length: count }, (_, index) => {
+    const label = count === 1 ? null : spec?.channelLabels?.[index] ?? String(index + 1)
+    return channelAt(index, label, spec?.channelInputLabels?.[index] ?? label ?? 'PWM')
+  })
 }
 
 /** Every channel a board could have, for registries that must know them all up front. */
@@ -104,12 +110,16 @@ export function powerSwitchChannelPropertyEnabled(key: string, partId: unknown):
   return channel === undefined || channel.index < powerSwitchChannelCount(partId)
 }
 
-/** A channel property's label on this board: "Level B" on the Mosfetti, "Level" on the LR7843. */
+/**
+ * A channel property's label on this board: the pin is named by its input
+ * terminal (PWM1 on the YYNMOS-4), the level by its channel ("level B" on the
+ * Mosfetti, "level" on the LR7843).
+ */
 export function powerSwitchPropertyLabel(key: string, partId: unknown): string | null {
   const channel = powerSwitchChannels(partId).find((candidate) =>
     candidate.pinKey === key || candidate.level === key)
   if (!channel) return null
-  if (channel.pinKey === key) return channel.label ?? 'PWM'
+  if (channel.pinKey === key) return channel.input
   return channel.label === null ? 'level' : `level ${channel.label}`
 }
 

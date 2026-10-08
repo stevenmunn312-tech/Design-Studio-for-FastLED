@@ -460,9 +460,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} ${pinPropertyLabel(String(props.partId ?? BUZZER_PART_ID), 'BuzzerOutput', 'sigPin')}`, 'sigPin', props.sigPin)
         break
       case 'PowerSwitchOutput':
-        // Named as the board prints each input: PWM on the LR7843, A to D on the Mosfetti.
+        // Named as the board prints each input: PWM on the LR7843, A to D on
+        // the Mosfetti, PWM1 to PWM4 on the YYNMOS-4.
         for (const channel of powerSwitchChannels(props.partId)) {
-          push(node, `${baseLabel} ${channel.label ?? 'PWM'}`, channel.pinKey, props[channel.pinKey])
+          push(node, `${baseLabel} ${channel.input}`, channel.pinKey, props[channel.pinKey])
         }
         break
       // Both join the board's one I2C bus, on the board's own Wire pair
