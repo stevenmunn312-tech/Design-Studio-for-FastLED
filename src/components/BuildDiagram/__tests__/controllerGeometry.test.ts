@@ -16,6 +16,7 @@ describe('measured controller renders', () => {
       'esp8266-lolin-d1-mini',
       'raspberry-pi-pico-w',
       'teensy-4-1',
+      'arduino-nano-esp32',
     ]))
   })
 

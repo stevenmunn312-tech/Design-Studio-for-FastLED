@@ -22,6 +22,13 @@
 The local FastAPI helper in `backend/` (`app.py` wires up `toolchain.py`, `firmware.py`, `streaming.py`, `sd_card.py` and `storage.py`): build timing, binary export, and
 keeping both toolchains' caches warm.
 
+- A board whose Arduino core numbers pins by their printed names needs its
+  GPIO numbering chosen in the FQBN, because every generated sketch writes GPIO
+  numbers. The Arduino Nano ESP32 (`esp32:esp32:nano_nora`) defaults to D and A
+  numbers, so its `_PIO_BOARDS` entry sets `PinNumbers=byGPIONumber` through
+  `arduino_options` (and `-DBOARD_USES_HW_GPIO_NUMBERS` for fbuild). The same
+  entry sets `PartitionScheme=default`: `_arduino_fqbn` otherwise adds
+  `huge_app`, which that board's menu does not have.
 - Arduino IR builds query `config dump --format json` and check the configured
   sketchbook's `libraries/IRremote` header and pinned version before installing.
   An existing 4.7.1 checkout skips `lib install` and its index/network overhead.

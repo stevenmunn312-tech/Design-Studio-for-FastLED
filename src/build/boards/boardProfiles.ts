@@ -38,6 +38,9 @@ export interface PhysicalBoardPinProfile {
   availability?: BoardPinAvailability
   gpio?: number
   note?: string
+  /** A power input's rated range, where it is not a 5 V pin. The power plan
+   *  feeds a controller converter only into an input whose range admits it. */
+  inputVoltage?: { min: number; max: number }
 }
 
 export interface PhysicalBoardProfile {
@@ -691,6 +694,60 @@ const TEENSY_41_PINS: PhysicalBoardPinProfile[] = [
   ...teensyRail('right', TEENSY_41_RIGHT_LABELS),
 ]
 
+// Arduino's JP2 and JP1 turned USB-down: JP2 (D1/TX to D12) down the left and
+// JP1 (VIN to D13) down the right. Pins are GPIO numbers, which is why the
+// helper builds this board with the core's GPIO numbering.
+const NANO_ESP32_LEFT_LABELS = [
+  'TX', 'RX', 'RST', 'GND', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11', 'D12',
+] as const
+
+const NANO_ESP32_RIGHT_LABELS = [
+  'VIN', 'GND', 'B1', 'VBUS', 'A7', 'A6', 'A5', 'A4', 'A3', 'A2', 'A1', 'A0', 'B0', '3V3', 'D13',
+] as const
+
+const NANO_ESP32_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', NANO_ESP32_LEFT_LABELS, 30, 88, 18),
+  ...verticalAnchors('right', 'right', NANO_ESP32_RIGHT_LABELS, 330, 88, 18),
+]
+
+const NANO_ESP32_ADC2 = 'ADC2: analog reads conflict with Wi-Fi'
+
+const NANO_ESP32_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', 'D1 / TX / GPIO43', 'gpio', 'left-1', undefined, 43, 'UART0 TX; Serial is the USB port'),
+  pin('left-2', 'D0 / RX / GPIO44', 'gpio', 'left-2', undefined, 44, 'UART0 RX; Serial is the USB port'),
+  pin('left-3', 'RST', 'reserved', 'left-3', undefined, undefined, 'Board reset'),
+  pin('left-4', 'GND', 'ground', 'left-4'),
+  pin('left-5', 'D2 / GPIO5', 'gpio', 'left-5', undefined, 5),
+  pin('left-6', 'D3 / GPIO6', 'gpio', 'left-6', undefined, 6),
+  pin('left-7', 'D4 / GPIO7', 'gpio', 'left-7', undefined, 7),
+  pin('left-8', 'D5 / GPIO8', 'gpio', 'left-8', undefined, 8),
+  pin('left-9', 'D6 / GPIO9', 'gpio', 'left-9', undefined, 9),
+  pin('left-10', 'D7 / GPIO10', 'gpio', 'left-10', undefined, 10),
+  pin('left-11', 'D8 / GPIO17', 'gpio', 'left-11', undefined, 17),
+  pin('left-12', 'D9 / GPIO18', 'gpio', 'left-12', undefined, 18),
+  pin('left-13', 'D10 / GPIO21', 'gpio', 'left-13', undefined, 21),
+  pin('left-14', 'D11 / GPIO38', 'gpio', 'left-14', undefined, 38),
+  pin('left-15', 'D12 / GPIO47', 'gpio', 'left-15', undefined, 47),
+  {
+    ...pin('right-1', 'VIN', 'power-in', 'right-1', undefined, undefined, '6 to 21 V into the on-board buck; there is no 5 V input'),
+    inputVoltage: { min: 6, max: 21 },
+  },
+  pin('right-2', 'GND', 'ground', 'right-2'),
+  pin('right-3', 'B1 / GPIO0', 'gpio', 'right-3', undefined, 0, 'BOOT strapping pin and the RGB LED green; outputs only'),
+  pin('right-4', 'VBUS', 'power-out', 'right-4', undefined, undefined, 'USB 5 V, present only while USB is connected'),
+  pin('right-5', 'A7 / GPIO14', 'gpio', 'right-5', undefined, 14, NANO_ESP32_ADC2),
+  pin('right-6', 'A6 / GPIO13', 'gpio', 'right-6', undefined, 13, NANO_ESP32_ADC2),
+  pin('right-7', 'A5 / GPIO12', 'gpio', 'right-7', undefined, 12, `Default I2C SCL; ${NANO_ESP32_ADC2}`),
+  pin('right-8', 'A4 / GPIO11', 'gpio', 'right-8', undefined, 11, `Default I2C SDA; ${NANO_ESP32_ADC2}`),
+  pin('right-9', 'A3 / GPIO4', 'gpio', 'right-9', undefined, 4),
+  pin('right-10', 'A2 / GPIO3', 'gpio', 'right-10', undefined, 3),
+  pin('right-11', 'A1 / GPIO2', 'gpio', 'right-11', undefined, 2),
+  pin('right-12', 'A0 / GPIO1', 'gpio', 'right-12', undefined, 1),
+  pin('right-13', 'B0 / GPIO46', 'gpio', 'right-13', undefined, 46, 'Strapping pin and the RGB LED red; outputs only'),
+  pin('right-14', '3V3', 'power-out', 'right-14'),
+  pin('right-15', 'D13 / GPIO48', 'gpio', 'right-15', undefined, 48, 'SCK; drives the amber LED_BUILTIN'),
+]
+
 const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -992,6 +1049,33 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: "PJRC's Teensy 4.1 pinout card and product page.",
     pinAnchors: TEENSY_41_PIN_ANCHORS,
     pins: TEENSY_41_PINS,
+  },
+  {
+    id: 'arduino-nano-esp32',
+    label: 'Arduino Nano ESP32',
+    manufacturer: 'Arduino',
+    model: 'Nano ESP32 (ABX00083)',
+    revision: 'u-blox NORA-W106-10B, USB-C',
+    targetFamilies: ['esp32-s3'],
+    compatibleFqbns: ['esp32:esp32:nano_nora'],
+    dimensionsMm: { width: 18, height: 45 },
+    confidence: 'manufacturer-verified',
+    // NORA-W106-10B: 8 MB octal PSRAM in the module, 16 MB GD25B128 flash on
+    // the board. The board definition enables the PSRAM without a menu.
+    memory: { flashMb: 16, psramMb: 8 },
+    internalRamBudgetBytes: ESP32_S3_RAM_BUDGET_BYTES,
+    psramMode: 'opi',
+    moduleSilk: 'NORA-W106',
+    previewSvg: boardSvg('Arduino Nano ESP32', '#4fc3c8', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'Printed D and A numbers are aliases: Studio builds with GPIO numbering, so D6 is GPIO9.',
+      'Serial is the USB port; D0 and D1 are a free UART.',
+      'VIN takes 6 to 21 V into the on-board buck. There is no 5 V input, and VBUS carries USB 5 V only while USB is connected.',
+    ],
+    caveats: [],
+    sourceSummary: "Arduino's ABX00083 datasheet, top-view pinout and the core's pins_arduino.h.",
+    pinAnchors: NANO_ESP32_PIN_ANCHORS,
+    pins: NANO_ESP32_PINS,
   },
 ]
 

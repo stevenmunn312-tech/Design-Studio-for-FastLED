@@ -541,6 +541,15 @@ function planControllerSupply(
       detail: `${exactBoard.label} has no 5 V input pin in its profile, so there is nowhere safe to land the converter's output. Power the controller over USB instead.`,
     })
   }
+  const inputRange = powerIn?.inputVoltage
+  if (exactBoard && powerIn && inputRange && (spec.outputSetV < inputRange.min || spec.outputSetV > inputRange.max)) {
+    blockers.push({
+      id: `${item.id}:power-input-voltage`,
+      severity: 'blocking',
+      title: module.label,
+      detail: `${exactBoard.label}'s ${powerIn.label} takes ${inputRange.min} to ${inputRange.max} V, so the ${module.label}'s ${spec.outputSetV} V output cannot feed it. Power the controller over USB instead.`,
+    })
+  }
   if (exactBoard?.custom) {
     blockers.push({
       id: `${item.id}:custom-board-power-path`,

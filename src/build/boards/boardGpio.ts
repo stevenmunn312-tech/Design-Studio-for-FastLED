@@ -509,6 +509,7 @@ export const BOARD_GPIO_BY_FQBN: Readonly<Record<string, BoardGpio>> = {
   'esp32:esp32:esp32wrover': ESP32_WROVER_GPIO,
   'esp32:esp32:lolin_s2_mini': ESP32_S2_GPIO,
   'esp32:esp32:lolin_s3': ESP32_S3_GPIO,
+  'esp32:esp32:nano_nora': ESP32_S3_GPIO,
   'esp32:esp32:adafruit_feather_esp32s2': ESP32_S2_GPIO,
   'esp32:esp32:adafruit_feather_esp32s3': ESP32_S3_GPIO,
   'esp32:esp32:adafruit_qtpy_esp32s2': ESP32_S2_GPIO,

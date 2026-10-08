@@ -426,6 +426,16 @@ Unless a future row says otherwise, treat the following as experimental:
   plain LED sketch, but nothing has run on a board
   ([IR compile record](../reports/compile/ir-compile-checks.md#arduino-due-on-arduino-cli-8-october-2026)).
   The board importer skips its asset until that asset is deleted.
+- **Arduino Nano ESP32** (`arduino-nano-esp32`, `esp32:esp32:nano_nora`). Its
+  profile follows Arduino's datasheet and pinout, and its normal-sketch
+  fixture [compiles](../reports/compile/controller-board-compile-checks.md)
+  with the core's GPIO pin numbering, which Studio selects because its
+  sketches use GPIO numbers. Nothing has been flashed: the board uploads
+  through Arduino's DFU bootloader rather than esptool. Graduating it needs a
+  dated row that flashes it from Studio and shows an LED output on D6 driven as
+  GPIO9, a part on the A4/A5 I2C default, and Serial on the USB port. VIN takes
+  6 to 21 V and there is no 5 V input, so the Build Diagram plans no 5 V
+  converter for it.
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom

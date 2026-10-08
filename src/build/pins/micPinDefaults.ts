@@ -73,6 +73,8 @@ export const MIC_PIN_DEFAULTS_BY_FQBN: Readonly<Record<string, MicI2sPins>> = {
   'esp32:esp32:esp32wrover': ESP32_CLASSIC_PINS,
   'esp32:esp32:lolin_s2_mini': ESP32_S2_PINS,
   'esp32:esp32:lolin_s3': ESP32_S3_PINS,
+  // Nano ESP32 D3, D2 and D4: its header does not bring out GPIO39-41.
+  'esp32:esp32:nano_nora': { i2sWs: 6, i2sSck: 5, i2sSd: 7 },
   'esp32:esp32:adafruit_feather_esp32s2': { i2sWs: 10, i2sSck: 11, i2sSd: 12 },
   'esp32:esp32:adafruit_feather_esp32s3': { i2sWs: 10, i2sSck: 11, i2sSd: 12 },
   'esp32:esp32:adafruit_qtpy_esp32s2': { i2sWs: 35, i2sSck: 36, i2sSd: 37 },

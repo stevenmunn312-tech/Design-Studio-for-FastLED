@@ -187,7 +187,10 @@ schematics; the ESP32-C3 Super Mini, a multi-vendor clone, is pinout
 verified against a photographed board. All five draw their own render on the
 sheet, with each wire on its measured pad. The Pico W's power input is VSYS,
 which its Schottky diode isolates from USB; the D1 Mini's 5V pin is USB VBUS
-itself, with no diode.
+itself, with no diode. The Arduino Nano ESP32 is manufacturer verified from
+Arduino's datasheet and pinout. It has no 5 V input: its VIN takes 6 to 21 V,
+which the pin's `inputVoltage` records, so the power plan refuses to feed it
+from a 5 V controller converter and keeps it on USB power.
 
 The `ESP32 DevKit v1, 30-pin (ESP-32D)` profile is pinout verified from a
 user-supplied pinout image with the 15 + 15 rail count confirmed against the

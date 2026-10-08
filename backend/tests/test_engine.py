@@ -137,6 +137,14 @@ def test_arduino_fqbn_names_the_stm32duino_board_and_chip():
     assert toolchain._fbuild_env_for_fqbn("STMicroelectronics:stm32:nucleo_f429zi") is not None
 
 
+def test_arduino_fqbn_builds_the_nano_esp32_with_gpio_numbers():
+    # Its core defaults to D/A numbering; every generated sketch uses GPIO
+    # numbers, and its partition menu has no huge_app.
+    assert toolchain._arduino_fqbn("esp32:esp32:nano_nora") == (
+        "esp32:esp32:nano_nora:PinNumbers=byGPIONumber,PartitionScheme=default"
+    )
+
+
 def test_arduino_fqbn_does_not_invent_flash_for_an_unknown_board():
     fqbn = "someone:elses:board:PSRAM=opi"
     assert toolchain._arduino_fqbn(fqbn, 16, True) == fqbn

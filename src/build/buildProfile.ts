@@ -304,7 +304,8 @@ export function targetFamilyFromFqbn(fqbn: string): BuildTargetFamily {
   const text = fqbn.toLowerCase()
   if (text.startsWith('esp32:') || text.includes('esp32')) {
     const boardId = text.split(':').at(-1) ?? text
-    if (/esp32s3|(?:^|[_-])s3(?:[_-]|$)/.test(boardId)) return 'esp32-s3'
+    // The Arduino Nano ESP32's id names its u-blox NORA module, not the chip.
+    if (/esp32s3|(?:^|[_-])s3(?:[_-]|$)/.test(boardId) || boardId === 'nano_nora') return 'esp32-s3'
     if (/esp32s2|(?:^|[_-])s2(?:[_-]|$)/.test(boardId)) return 'esp32-s2'
     if (/esp32c3|(?:^|[_-])c3(?:[_-]|$)/.test(boardId)) return 'esp32-c3'
     if (/esp32c6|(?:^|[_-])c6(?:[_-]|$)/.test(boardId)) return 'esp32-c6'

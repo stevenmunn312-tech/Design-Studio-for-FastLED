@@ -229,6 +229,19 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     usbPoint: { x: 400, y: 2758.913 },
     shortLabel: 'Teensy 4.1',
   },
+  // 15 + 15 on a 111.195px pitch, the Nano footprint: JP2 down the left from
+  // D1/TX, JP1 down the right from VIN.
+  'arduino-nano-esp32': {
+    href: boardRenderSrc('arduino-nano-esp32'),
+    sourceWidth: 800, sourceHeight: 2061, imageWidthMm: 18.2741,
+    leftPinX: 66.4134, rightPinX: 733.5866, firstPinY: 217.4788, lastPinY: 1774.2166,
+    pinsPerRail: 15, holeRadiusPx: 21.3, leftPrefix: 'left', rightPrefix: 'right',
+    // 3V3 is next to last on the right; the ground comes from the left rail
+    // so the two stubs leave opposite edges.
+    powerAnchors: { v3v3: 'right-14', ground: 'left-4' },
+    usbPoint: { x: 400, y: 2054.526 },
+    shortLabel: 'Nano ESP32',
+  },
 }
 
 /**

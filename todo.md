@@ -42,8 +42,8 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
   2. Exact controller profiles with measured pin maps, each starting with its
-     Blender model: Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a
-     board profile, not a module) and QuinLED Dig-Uno and Dig-Quad.
+     Blender model: WT32-ETH01 (its LAN8720 Ethernet is a board profile, not a
+     module) and QuinLED Dig-Uno and Dig-Quad.
   3. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
@@ -79,6 +79,11 @@ chooses the supported combinations from whatever is on record at release.
   pinout, then representative projects flashed. The software compile is
   recorded
   ([compile record](docs/reports/compile/custom-board-compile-checks.md)).
+
+- **D-05 Arduino Nano ESP32:** flashed from Studio through its DFU bootloader,
+  an LED output on D6 lighting from GPIO9 (proof that the GPIO numbering
+  reaches the board), the I2C default on A4/A5, and Serial on the USB port.
+  The row's requirements are in the support matrix.
 
 ### Firmware and show matrix
 
@@ -379,10 +384,12 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   and compiled where it has firmware
   ([roadmap](docs/plans/hardware-expansion-roadmap.md);
   [compile records](docs/index.md#compile-checks)).
-- **Controller profiles, first five**: the ESP32-C3 Super Mini, ESP32-C6-DevKitC-1,
-  D1 Mini, Pico W and Teensy 4.1 are authored and drawn on their measured pads,
-  2026-10-08; the Super Mini's reversed rails and the D1 Mini's rail spacing
-  were corrected in their models
+- **Controller profiles**: the ESP32-C3 Super Mini, ESP32-C6-DevKitC-1, D1 Mini,
+  Pico W, Teensy 4.1 and Arduino Nano ESP32 are authored and drawn on their
+  measured pads, 2026-10-08; the Super Mini's reversed rails and the D1 Mini's
+  rail spacing were corrected in their models, and the Nano ESP32 is modelled
+  and compiled
+  ([compile record](docs/reports/compile/controller-board-compile-checks.md))
   ([roadmap](docs/plans/hardware-expansion-roadmap.md#additional-controller-profiles)).
 - **Pattern node expansion**: Phases 0–10, and Phase 11's render scale,
   positioned strings, white point and SD Video, all compiled

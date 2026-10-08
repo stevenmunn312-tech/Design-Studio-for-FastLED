@@ -124,7 +124,7 @@ describe('boardProfiles', () => {
 })
 
 describe('reviewed controller profiles', () => {
-  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1']
+  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1', 'arduino-nano-esp32']
 
   it.each(reviewed)('authors %s rather than taking the generated map', (id) => {
     const profile = boardProfileById(id)!
@@ -161,6 +161,20 @@ describe('reviewed controller profiles', () => {
     expect(pico?.pins?.find((pin) => pin.role === 'power-in')?.label).toBe('VSYS')
     expect(pico?.pins?.find((pin) => pin.label === 'VBUS')?.role).toBe('power-out')
     expect(boardPinForGpio(pico, 0)?.anchorId).toBe('right-20')
+  })
+
+  /*
+   * The Nano ESP32's core numbers pins by their D and A names unless told
+   * otherwise; Studio's sketches use GPIO numbers, so the map must too.
+   */
+  it('maps the Nano ESP32 header by GPIO number, D6 being GPIO9', () => {
+    const nano = boardProfileById('arduino-nano-esp32')
+    expect(nano?.pins).toHaveLength(30)
+    expect(boardPinForGpio(nano, 9)?.label).toBe('D6 / GPIO9')
+    expect(boardPinForGpio(nano, 48)?.anchorId).toBe('right-15')
+    expect(boardPinForGpio(nano, 43)?.anchorId).toBe('left-1')
+    expect(nano?.targetFamilies).toEqual(['esp32-s3'])
+    expect(nano?.pins?.find((pin) => pin.role === 'power-in')).toMatchObject({ label: 'VIN', inputVoltage: { min: 6, max: 21 } })
   })
 
   it('keeps the Teensy 4.1 rails in PJRC order, USB at the bottom', () => {

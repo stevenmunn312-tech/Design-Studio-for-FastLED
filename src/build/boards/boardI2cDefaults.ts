@@ -61,6 +61,8 @@ export const BOARD_I2C_DEFAULTS: Readonly<Record<string, BoardI2cDefault>> = {
   'arduino-micro': pins(2, 3),
   'arduino-nano-33-iot': pins(18, 19),
   'arduino-nano-classic': pins(18, 19),
+  // A4 and A5, as GPIO numbers: Studio builds this board with GPIO numbering.
+  'arduino-nano-esp32': pins(11, 12),
   'arduino-nano-every': pins(22, 23, { sdaLabels: ['A4/SDA', 'A4 / SDA'], sclLabels: ['A5/SCL', 'A5 / SCL'] }),
   'arduino-uno-r3-dip': pins(18, 19),
   'arduino-uno-r3-smd': pins(18, 19),

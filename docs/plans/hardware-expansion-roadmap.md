@@ -83,7 +83,10 @@ measured pad.
   and re-rendered. The D1 Mini's outline still omits its rounded corners,
   mounting holes and reset notch, and the Pico W and Teensy 4.1 renders put
   their rails about 0.2 mm off true on each side, which the sheet cannot show.
-- Arduino Nano ESP32;
+- Arduino Nano ESP32: done 2026-10-08. Modelled from Arduino's datasheet and
+  top-view pinout, and built with the core's GPIO pin numbering; its
+  [compile fixture](../reports/compile/controller-board-compile-checks.md)
+  passes and the bench run is open.
 - WT32-ETH01; and
 - QuinLED Dig-Uno and Dig-Quad.
 

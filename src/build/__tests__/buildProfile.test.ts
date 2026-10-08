@@ -7,6 +7,8 @@ describe('buildProfile', () => {
     expect(targetFamilyFromFqbn('esp32:esp32:lolin_s2_mini')).toBe('esp32-s2')
     expect(targetFamilyFromFqbn('esp32:esp32:lolin_c3_mini')).toBe('esp32-c3')
     expect(targetFamilyFromFqbn('esp32:esp32:esp32')).toBe('esp32')
+    // Named after its u-blox module rather than the chip.
+    expect(targetFamilyFromFqbn('esp32:esp32:nano_nora')).toBe('esp32-s3')
   })
 
   it('keeps a valid export mode when normalizing build profile data', () => {

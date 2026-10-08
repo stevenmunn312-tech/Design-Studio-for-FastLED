@@ -83,6 +83,14 @@ describe('controller supply from a buck converter', () => {
     ]))
   })
 
+  it('refuses a 5 V converter into an input rated above 5 V', () => {
+    // The Nano ESP32 has no 5 V input: VIN feeds its own buck, 6 to 21 V.
+    const { plan } = planFor([output(), buck()], 'arduino-nano-esp32')
+    expect(plan.blockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'power-converter:buck:power-input-voltage', detail: expect.stringMatching(/VIN takes 6 to 21 V/) }),
+    ]))
+  })
+
   it('blocks a second controller converter', () => {
     const second = buck()
     second.id = 'buck-2'

@@ -497,6 +497,15 @@ _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s2": {"usb_cdc": True, "platform": "espressif32", "board": "esp32-s2-saola-1"},
     "esp32:esp32:esp32c3": {"usb_cdc": True, "platform": "espressif32", "board": "esp32-c3-devkitm-1"},
     "esp32:esp32:esp32c6": {"platform": "espressif32", "board": "esp32-c6-devkitc-1"},
+    # Arduino Nano ESP32. Its core numbers pins D0-D13 and A0-A7 by default;
+    # every generated sketch uses GPIO numbers, so select the core's GPIO
+    # numbering (and its PlatformIO equivalent). Its partition menu has no
+    # huge_app, so keep the board's own 16MB table.
+    "esp32:esp32:nano_nora": {
+        "platform": "espressif32", "board": "arduino_nano_esp32",
+        "build_flags": ["-DBOARD_USES_HW_GPIO_NUMBERS"],
+        "arduino_options": {"PinNumbers": "byGPIONumber", "PartitionScheme": "default"},
+    },
     "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitc-1"},
     "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
