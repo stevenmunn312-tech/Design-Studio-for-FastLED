@@ -123,6 +123,55 @@ describe('boardProfiles', () => {
   })
 })
 
+describe('reviewed controller profiles', () => {
+  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1']
+
+  it.each(reviewed)('authors %s rather than taking the generated map', (id) => {
+    const profile = boardProfileById(id)!
+    expect(profile.confidence).not.toBe('visual-match-only')
+    expect(profile.caveats.join(' ')).not.toMatch(/not hand-checked/)
+    expect(profile.render?.file).toBe(`boards/${id}.webp`)
+    expect(profile.pinSafety?.safeGeneralPurpose.length).toBeGreaterThan(0)
+    expect(profile.pins?.filter((pin) => pin.role === 'power-in')).toHaveLength(1)
+  })
+
+  /*
+   * The common Super Mini pinout image is the underside with USB at the top.
+   * Copied without turning it over, it put 5V at the antenna end of the board
+   * and GPIO0 beside the USB-C; the photographed board has them the other way.
+   */
+  it('puts the C3 Super Mini supply pads beside its USB-C connector', () => {
+    const c3 = boardProfileById('esp32-c3-super-mini')
+    expect(c3?.pins?.map((pin) => pin.label.split(' ')[0])).toEqual([
+      'GPIO0', 'GPIO1', 'GPIO2', 'GPIO3', 'GPIO4', '3V3', 'GND', '5V',
+      'GPIO21', 'GPIO20', 'GPIO10', 'GPIO9', 'GPIO8', 'GPIO7', 'GPIO6', 'GPIO5',
+    ])
+    // A clone's power path is unverified, so no converter is planned into it.
+    expect(c3?.confidence).toBe('pinout-verified')
+  })
+
+  it('maps the D1 Mini A0 pad to the analog-only pin the core calls 17', () => {
+    const d1 = boardProfileById('esp8266-lolin-d1-mini')
+    expect(boardPinForGpio(d1, 17)).toMatchObject({ label: 'A0', role: 'analog', anchorId: 'left-2' })
+    expect(boardPinForGpio(d1, 2)?.label).toBe('D4 / GPIO2')
+  })
+
+  it('feeds the Pico W through VSYS, not VBUS', () => {
+    const pico = boardProfileById('raspberry-pi-pico-w')
+    expect(pico?.pins?.find((pin) => pin.role === 'power-in')?.label).toBe('VSYS')
+    expect(pico?.pins?.find((pin) => pin.label === 'VBUS')?.role).toBe('power-out')
+    expect(boardPinForGpio(pico, 0)?.anchorId).toBe('right-20')
+  })
+
+  it('keeps the Teensy 4.1 rails in PJRC order, USB at the bottom', () => {
+    const teensy = boardProfileById('teensy-4-1')
+    expect(teensy?.pins).toHaveLength(48)
+    expect(boardPinForGpio(teensy, 33)?.anchorId).toBe('left-1')
+    expect(boardPinForGpio(teensy, 0)?.anchorId).toBe('right-23')
+    expect(teensy?.pins?.find((pin) => pin.role === 'power-in')?.anchorId).toBe('left-24')
+  })
+})
+
 describe('imported board profiles', () => {
   it('includes the complete 15-board import batch with renders and pin maps', () => {
     const importedBoardIds = [

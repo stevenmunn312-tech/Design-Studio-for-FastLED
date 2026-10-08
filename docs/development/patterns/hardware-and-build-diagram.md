@@ -9,6 +9,24 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Pins and boards
 
+- A board drawn on the Build Diagram as its render, with wires on its pads,
+  needs an authored profile in `boardProfiles.ts` and a measured entry in
+  `CONTROLLER_SPECS` (`controllerGeometry.ts`); an imported profile alone gets
+  the generic schematic. Take the rail X, first and last pad Y and USB mouth
+  from the package's `measuredPixelGeometry`, the scale from the camera's
+  orthographic span, and check each pad centre against its see-through hole
+  in the render before trusting them. `controllerGeometry.test.ts` holds pad
+  counts, power anchors and aspect to the shipped render. Check the
+  manifest's mouth row against the render's alpha: the full rebuild moved
+  USB-C receptacles without updating every manifest.
+- Check a clone board's rail order against a photo of the component side.
+  Pinout images are often of the underside with USB at the top, and copying
+  one without turning it over reverses both rails; the ESP32-C3 Super Mini
+  shipped that way until 2026-10-08. Supply pads sit beside the USB connector
+  on every board in the catalogue, which makes the mistake easy to spot. Read
+  a mechanical drawing's dimensions against what they point at, too: the D1
+  Mini's 20.4 mm is its mounting holes, and its rails are 22.86 mm apart.
+
 - A DFPlayer Mini is one UART-controlled player, not a second music-sync
   decoder. `DFPlayerOutput` owns controller RX, controller TX and an
   active-low BUSY input. Preview Playing follows the requested Play level;

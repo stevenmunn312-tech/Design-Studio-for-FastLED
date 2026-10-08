@@ -72,13 +72,17 @@ build have passed the normal evidence gates.
 ## Additional controller profiles
 
 These should arrive as exact measured boards with pin maps, not only as broad
-compile families:
+compile families. Each one is done when its profile is authored from the
+maker's documents and the Build Diagram draws its render with every wire on a
+measured pad.
 
-- ESP32-C3 SuperMini;
-- Espressif ESP32-C6-DevKitC-1;
-- ESP8266 D1 Mini;
-- Raspberry Pi Pico W / RP2040;
-- Teensy 4.1;
+- ESP32-C3 SuperMini, Espressif ESP32-C6-DevKitC-1, ESP8266 D1 Mini,
+  Raspberry Pi Pico W and Teensy 4.1: done 2026-10-08. The review found the
+  Super Mini's rails reversed (copied from an underside pinout) and the D1
+  Mini's rails 20.4 mm apart instead of 22.86 mm; both models were corrected
+  and re-rendered. The D1 Mini's outline still omits its rounded corners,
+  mounting holes and reset notch, and the Pico W and Teensy 4.1 renders put
+  their rails about 0.2 mm off true on each side, which the sheet cannot show.
 - Arduino Nano ESP32;
 - WT32-ETH01; and
 - QuinLED Dig-Uno and Dig-Quad.

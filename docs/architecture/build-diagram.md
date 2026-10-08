@@ -181,6 +181,14 @@ Its power-entry label is `5VIN`, GPIO35-GPIO37 are unavailable on N16R8 modules
 because octal PSRAM consumes them, and its unverified USB/backfeed behaviour is
 shown as a note rather than turned into a beginner planning questionnaire.
 
+The ESP32-C6-DevKitC-1, LOLIN D1 Mini, Raspberry Pi Pico W and Teensy 4.1
+are manufacturer verified from their makers' pinouts, drawings and
+schematics; the ESP32-C3 Super Mini, a multi-vendor clone, is pinout
+verified against a photographed board. All five draw their own render on the
+sheet, with each wire on its measured pad. The Pico W's power input is VSYS,
+which its Schottky diode isolates from USB; the D1 Mini's 5V pin is USB VBUS
+itself, with no diode.
+
 The `ESP32 DevKit v1, 30-pin (ESP-32D)` profile is pinout verified from a
 user-supplied pinout image with the 15 + 15 rail count confirmed against the
 physical board. It is the only classic-ESP32 profile, so it is offered for both

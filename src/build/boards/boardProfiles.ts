@@ -484,6 +484,213 @@ const LOLIN_S3_PINS: PhysicalBoardPinProfile[] = [
   pin('right-20', 'GND', 'ground', 'right-20'),
 ]
 
+// Component side, USB at the bottom: 5V, GND and 3V3 sit beside the USB-C
+// connector, GPIO0 and GPIO21 at the antenna end. The widely shared pinout
+// image shows the underside with USB at the top, and the first import copied
+// it without turning it over, so both rails ran backwards.
+const C3_SUPER_MINI_LEFT_LABELS = ['0', '1', '2', '3', '4', '3V3', 'GND', '5V'] as const
+const C3_SUPER_MINI_RIGHT_LABELS = ['21', '20', '10', '9', '8', '7', '6', '5'] as const
+
+const C3_SUPER_MINI_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', C3_SUPER_MINI_LEFT_LABELS, 24, 92, 30),
+  ...verticalAnchors('right', 'right', C3_SUPER_MINI_RIGHT_LABELS, 276, 92, 30),
+]
+
+const C3_SUPER_MINI_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', 'GPIO0 / A0', 'gpio', 'left-1', undefined, 0),
+  pin('left-2', 'GPIO1 / A1', 'gpio', 'left-2', undefined, 1),
+  pin('left-3', 'GPIO2 / A2', 'gpio', 'left-3', undefined, 2, 'Strapping pin'),
+  pin('left-4', 'GPIO3 / A3', 'gpio', 'left-4', undefined, 3),
+  pin('left-5', 'GPIO4 / A4 / SCK', 'gpio', 'left-5', undefined, 4),
+  pin('left-6', '3V3', 'power-out', 'left-6'),
+  pin('left-7', 'GND', 'ground', 'left-7'),
+  pin('left-8', '5V', 'power-in', 'left-8'),
+  pin('right-1', 'GPIO21 / TX', 'gpio', 'right-1', undefined, 21, 'UART0 TX'),
+  pin('right-2', 'GPIO20 / RX', 'gpio', 'right-2', undefined, 20, 'UART0 RX'),
+  pin('right-3', 'GPIO10', 'gpio', 'right-3', undefined, 10),
+  pin('right-4', 'GPIO9 / SCL / BOOT', 'gpio', 'right-4', undefined, 9, 'Strapping pin, wired to the BOOT button'),
+  pin('right-5', 'GPIO8 / SDA', 'gpio', 'right-5', undefined, 8, 'Strapping pin; drives the on-board blue LED'),
+  pin('right-6', 'GPIO7 / SS', 'gpio', 'right-6', undefined, 7),
+  pin('right-7', 'GPIO6 / MOSI', 'gpio', 'right-7', undefined, 6),
+  pin('right-8', 'GPIO5 / A5 / MISO', 'gpio', 'right-8', undefined, 5),
+]
+
+// Espressif's J1 and J3, module end at the top. Checked against the user guide's
+// header tables and the v1.4 schematic.
+const C6_DEVKITC_J1_LABELS = [
+  '3V3', 'RST', '4', '5', '6', '7', '0', '1', '8', '10', '11', '2', '3', '5V', 'G', 'NC',
+] as const
+
+const C6_DEVKITC_J3_LABELS = [
+  'G', 'TX', 'RX', '15', '23', '22', '21', '20', '19', '18', '9', 'G', '13', '12', 'G', 'NC',
+] as const
+
+const C6_DEVKITC_PIN_ANCHORS = [
+  ...verticalAnchors('j1', 'left', C6_DEVKITC_J1_LABELS, 30, 88, 18),
+  ...verticalAnchors('j3', 'right', C6_DEVKITC_J3_LABELS, 330, 88, 18),
+]
+
+const C6_DEVKITC_PINS: PhysicalBoardPinProfile[] = [
+  pin('j1-1', '3V3', 'power-out', 'j1-1'),
+  pin('j1-2', 'RST', 'reserved', 'j1-2', undefined, undefined, 'Board reset / EN'),
+  pin('j1-3', 'GPIO4', 'gpio', 'j1-3', undefined, 4, 'Strapping pin (MTMS)'),
+  pin('j1-4', 'GPIO5', 'gpio', 'j1-4', undefined, 5, 'Strapping pin (MTDI)'),
+  pin('j1-5', 'GPIO6', 'gpio', 'j1-5', undefined, 6),
+  pin('j1-6', 'GPIO7', 'gpio', 'j1-6', undefined, 7),
+  pin('j1-7', 'GPIO0', 'gpio', 'j1-7', undefined, 0),
+  pin('j1-8', 'GPIO1', 'gpio', 'j1-8', undefined, 1),
+  pin('j1-9', 'GPIO8', 'gpio', 'j1-9', undefined, 8, 'Strapping pin; drives the on-board RGB LED'),
+  pin('j1-10', 'GPIO10', 'gpio', 'j1-10', undefined, 10),
+  pin('j1-11', 'GPIO11', 'gpio', 'j1-11', undefined, 11),
+  pin('j1-12', 'GPIO2', 'gpio', 'j1-12', undefined, 2),
+  pin('j1-13', 'GPIO3', 'gpio', 'j1-13', undefined, 3),
+  pin('j1-14', '5V', 'power-in', 'j1-14'),
+  pin('j1-15', 'GND', 'ground', 'j1-15'),
+  pin('j1-16', 'NC', 'reserved', 'j1-16', undefined, undefined, 'Not connected'),
+  pin('j3-1', 'GND', 'ground', 'j3-1'),
+  pin('j3-2', 'TX / GPIO16', 'gpio', 'j3-2', undefined, 16, 'UART0 TX to the USB-to-UART bridge'),
+  pin('j3-3', 'RX / GPIO17', 'gpio', 'j3-3', undefined, 17, 'UART0 RX from the USB-to-UART bridge'),
+  pin('j3-4', 'GPIO15', 'gpio', 'j3-4', undefined, 15, 'Strapping pin'),
+  pin('j3-5', 'GPIO23 / SDA', 'gpio', 'j3-5', undefined, 23),
+  pin('j3-6', 'GPIO22 / SCL', 'gpio', 'j3-6', undefined, 22),
+  pin('j3-7', 'GPIO21', 'gpio', 'j3-7', undefined, 21),
+  pin('j3-8', 'GPIO20', 'gpio', 'j3-8', undefined, 20),
+  pin('j3-9', 'GPIO19', 'gpio', 'j3-9', undefined, 19),
+  pin('j3-10', 'GPIO18', 'gpio', 'j3-10', undefined, 18),
+  pin('j3-11', 'GPIO9 / BOOT', 'gpio', 'j3-11', undefined, 9, 'Boot-strapping pin, wired to the BOOT button'),
+  pin('j3-12', 'GND', 'ground', 'j3-12'),
+  pin('j3-13', 'USB_D+ / GPIO13', 'gpio', 'j3-13', undefined, 13, 'Native USB D+'),
+  pin('j3-14', 'USB_D- / GPIO12', 'gpio', 'j3-14', undefined, 12, 'Native USB D-'),
+  pin('j3-15', 'GND', 'ground', 'j3-15'),
+  pin('j3-16', 'NC', 'reserved', 'j3-16', undefined, undefined, 'Not connected'),
+]
+
+// LOLIN's J2 and J3, antenna at the top. Checked against the V4.0.0 schematic:
+// A0 is the ESP8266's ADC behind a 220k/100k divider, and 5V is USB VBUS with
+// no diode between them.
+const D1_MINI_LEFT_LABELS = ['RST', 'A0', 'D0', 'D5', 'D6', 'D7', 'D8', '3V3'] as const
+const D1_MINI_RIGHT_LABELS = ['TX', 'RX', 'D1', 'D2', 'D3', 'D4', 'G', '5V'] as const
+
+const D1_MINI_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', D1_MINI_LEFT_LABELS, 24, 92, 30),
+  ...verticalAnchors('right', 'right', D1_MINI_RIGHT_LABELS, 276, 92, 30),
+]
+
+const D1_MINI_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', 'RST', 'reserved', 'left-1', undefined, undefined, 'Board reset'),
+  pin('left-2', 'A0', 'analog', 'left-2', undefined, 17, 'Analog input only, 0 to 3.2 V through the on-board divider'),
+  pin('left-3', 'D0 / GPIO16', 'gpio', 'left-3', undefined, 16, 'No interrupt or PWM'),
+  pin('left-4', 'D5 / GPIO14 / SCK', 'gpio', 'left-4', undefined, 14),
+  pin('left-5', 'D6 / GPIO12 / MISO', 'gpio', 'left-5', undefined, 12),
+  pin('left-6', 'D7 / GPIO13 / MOSI', 'gpio', 'left-6', undefined, 13),
+  pin('left-7', 'D8 / GPIO15', 'gpio', 'left-7', undefined, 15, 'Boot-strapping pin, pulled low'),
+  pin('left-8', '3V3', 'power-out', 'left-8'),
+  pin('right-1', 'TX / GPIO1', 'gpio', 'right-1', undefined, 1, 'UART0 TX'),
+  pin('right-2', 'RX / GPIO3', 'gpio', 'right-2', undefined, 3, 'UART0 RX'),
+  pin('right-3', 'D1 / GPIO5 / SCL', 'gpio', 'right-3', undefined, 5),
+  pin('right-4', 'D2 / GPIO4 / SDA', 'gpio', 'right-4', undefined, 4),
+  pin('right-5', 'D3 / GPIO0', 'gpio', 'right-5', undefined, 0, 'Boot-strapping pin, pulled high'),
+  pin('right-6', 'D4 / GPIO2', 'gpio', 'right-6', undefined, 2, 'Boot-strapping pin, pulled high; drives the on-board LED'),
+  pin('right-7', 'GND', 'ground', 'right-7'),
+  pin('right-8', '5V', 'power-in', 'right-8', undefined, undefined, 'USB VBUS, joined to the connector with no diode'),
+]
+
+// Raspberry Pi's pins 21-40 down the left and 20-1 down the right: the
+// datasheet's USB-up drawing turned round so USB is at the bottom.
+const PICO_W_LEFT_LABELS = [
+  'GP16', 'GP17', 'GND', 'GP18', 'GP19', 'GP20', 'GND', 'GP21', 'GP22', 'RUN',
+  'GP26', 'GP27', 'AGND', 'GP28', 'ADC_VREF', '3V3', '3V3_EN', 'GND', 'VSYS', 'VBUS',
+] as const
+
+const PICO_W_RIGHT_LABELS = [
+  'GP15', 'GP14', 'GND', 'GP13', 'GP12', 'GP11', 'GND', 'GP10', 'GP9', 'GP8',
+  'GP7', 'GP6', 'GND', 'GP5', 'GP4', 'GP3', 'GND', 'GP2', 'GP1', 'GP0',
+] as const
+
+const PICO_W_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', PICO_W_LEFT_LABELS, 30, 88, 18),
+  ...verticalAnchors('right', 'right', PICO_W_RIGHT_LABELS, 330, 88, 18),
+]
+
+const PICO_W_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', 'GP16', 'gpio', 'left-1', undefined, 16),
+  pin('left-2', 'GP17', 'gpio', 'left-2', undefined, 17),
+  pin('left-3', 'GND', 'ground', 'left-3'),
+  pin('left-4', 'GP18', 'gpio', 'left-4', undefined, 18),
+  pin('left-5', 'GP19', 'gpio', 'left-5', undefined, 19),
+  pin('left-6', 'GP20', 'gpio', 'left-6', undefined, 20),
+  pin('left-7', 'GND', 'ground', 'left-7'),
+  pin('left-8', 'GP21', 'gpio', 'left-8', undefined, 21),
+  pin('left-9', 'GP22', 'gpio', 'left-9', undefined, 22),
+  pin('left-10', 'RUN', 'reserved', 'left-10', undefined, undefined, 'Board reset; pull low to reset'),
+  pin('left-11', 'GP26 / A0', 'gpio', 'left-11', undefined, 26),
+  pin('left-12', 'GP27 / A1', 'gpio', 'left-12', undefined, 27),
+  pin('left-13', 'AGND', 'ground', 'left-13', undefined, undefined, 'Analog ground for the ADC'),
+  pin('left-14', 'GP28 / A2', 'gpio', 'left-14', undefined, 28),
+  pin('left-15', 'ADC_VREF', 'reserved', 'left-15', undefined, undefined, 'ADC reference voltage'),
+  pin('left-16', '3V3', 'power-out', 'left-16'),
+  pin('left-17', '3V3_EN', 'reserved', 'left-17', undefined, undefined, 'Pull low to switch the 3V3 regulator off'),
+  pin('left-18', 'GND', 'ground', 'left-18'),
+  pin('left-19', 'VSYS', 'power-in', 'left-19', undefined, undefined, 'System input, 1.8 to 5.5 V; VBUS feeds it through an on-board Schottky diode'),
+  pin('left-20', 'VBUS', 'power-out', 'left-20', undefined, undefined, 'USB 5 V, present only while USB is connected'),
+  pin('right-1', 'GP15', 'gpio', 'right-1', undefined, 15),
+  pin('right-2', 'GP14', 'gpio', 'right-2', undefined, 14),
+  pin('right-3', 'GND', 'ground', 'right-3'),
+  pin('right-4', 'GP13', 'gpio', 'right-4', undefined, 13),
+  pin('right-5', 'GP12', 'gpio', 'right-5', undefined, 12),
+  pin('right-6', 'GP11', 'gpio', 'right-6', undefined, 11),
+  pin('right-7', 'GND', 'ground', 'right-7'),
+  pin('right-8', 'GP10', 'gpio', 'right-8', undefined, 10),
+  pin('right-9', 'GP9', 'gpio', 'right-9', undefined, 9),
+  pin('right-10', 'GP8', 'gpio', 'right-10', undefined, 8),
+  pin('right-11', 'GP7', 'gpio', 'right-11', undefined, 7),
+  pin('right-12', 'GP6', 'gpio', 'right-12', undefined, 6),
+  pin('right-13', 'GND', 'ground', 'right-13'),
+  pin('right-14', 'GP5', 'gpio', 'right-14', undefined, 5),
+  pin('right-15', 'GP4', 'gpio', 'right-15', undefined, 4),
+  pin('right-16', 'GP3', 'gpio', 'right-16', undefined, 3),
+  pin('right-17', 'GND', 'ground', 'right-17'),
+  pin('right-18', 'GP2', 'gpio', 'right-18', undefined, 2),
+  pin('right-19', 'GP1', 'gpio', 'right-19', undefined, 1),
+  pin('right-20', 'GP0', 'gpio', 'right-20', undefined, 0),
+]
+
+// PJRC's card turned round so USB is at the bottom: 33-41 and 13-23 down the
+// left, 32-24 and 12-0 down the right. The underside pads are not drawn.
+const TEENSY_41_LEFT_LABELS = [
+  '33', '34', '35', '36', '37', '38', '39', '40', '41', 'GND', '13', '14',
+  '15', '16', '17', '18', '19', '20', '21', '22', '23', '3V3', 'GND', 'VIN',
+] as const
+
+const TEENSY_41_RIGHT_LABELS = [
+  '32', '31', '30', '29', '28', '27', '26', '25', '24', '3V3', '12', '11',
+  '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '0', 'GND',
+] as const
+
+const TEENSY_41_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', TEENSY_41_LEFT_LABELS, 30, 78, 16),
+  ...verticalAnchors('right', 'right', TEENSY_41_RIGHT_LABELS, 330, 78, 16),
+]
+
+/** One Teensy rail: its numbered pins keep their own Arduino numbers. */
+function teensyRail(side: 'left' | 'right', labels: readonly string[]): PhysicalBoardPinProfile[] {
+  return labels.map((label, index) => {
+    const id = `${side}-${index + 1}`
+    if (label === 'GND') return pin(id, 'GND', 'ground', id)
+    if (label === '3V3') return pin(id, '3V3', 'power-out', id)
+    if (label === 'VIN') {
+      return pin(id, 'VIN', 'power-in', id, undefined, undefined, '3.6 to 5.5 V; joined to USB 5 V unless the VIN-VUSB pads are cut')
+    }
+    const gpio = Number(label)
+    return pin(id, `Pin ${label}`, 'gpio', id, undefined, gpio, gpio === 13 ? 'Drives the on-board LED' : undefined)
+  })
+}
+
+const TEENSY_41_PINS: PhysicalBoardPinProfile[] = [
+  ...teensyRail('left', TEENSY_41_LEFT_LABELS),
+  ...teensyRail('right', TEENSY_41_RIGHT_LABELS),
+]
+
 const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -676,6 +883,115 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: 'Official board family documentation reviewed for the compact pinout and power entry.',
     pinAnchors: XIAO_PIN_ANCHORS,
     pins: XIAO_PINS,
+  },
+  {
+    id: 'esp32-c3-super-mini',
+    label: 'ESP32-C3 Super Mini',
+    manufacturer: 'Generic multi-vendor clone family',
+    model: 'ESP32-C3 Super Mini',
+    revision: 'Common 18 x 22.52 mm ceramic-antenna layout',
+    targetFamilies: ['esp32-c3'],
+    compatibleFqbns: ['esp32:esp32:esp32c3'],
+    dimensionsMm: { width: 18, height: 22.52 },
+    confidence: 'pinout-verified',
+    moduleSilk: 'ESP32-C3FN4',
+    previewSvg: boardSvg('ESP32-C3 Super Mini', '#7ee2cf', 'USB-C', 'Pinout verified'),
+    notes: [
+      '5V, GND and 3V3 are the three left pads beside the USB-C connector.',
+      'GPIO18 and GPIO19 carry native USB and are not on either rail.',
+    ],
+    caveats: [
+      'Not hardware-validated by this project. Sellers change the regulator, antenna, LED polarity and silkscreen under this name.',
+    ],
+    sourceSummary: 'Rail order checked against a photographed board and the common underside pinout turned over; dimensions from the Super Mini manual.',
+    pinAnchors: C3_SUPER_MINI_PIN_ANCHORS,
+    pins: C3_SUPER_MINI_PINS,
+  },
+  {
+    id: 'esp32-c6-devkitc-1',
+    label: 'Espressif ESP32-C6-DevKitC-1',
+    manufacturer: 'Espressif',
+    model: 'ESP32-C6-DevKitC-1',
+    revision: 'v1.2 carrier, ESP32-C6-WROOM-1 module',
+    targetFamilies: ['esp32-c6'],
+    compatibleFqbns: ['esp32:esp32:esp32c6'],
+    dimensionsMm: { width: 25.4, height: 51.8 },
+    confidence: 'manufacturer-verified',
+    moduleSilk: 'ESP32-C6-WROOM-1',
+    previewSvg: boardSvg('ESP32-C6-DevKitC-1', '#58d68d', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'Two USB-C ports: UART through the USB-to-UART bridge on the left, native USB on GPIO12 and GPIO13 on the right.',
+      'Power it from one source only: a USB port, the 5V and GND pins, or the 3V3 and GND pins.',
+    ],
+    caveats: [],
+    sourceSummary: "Espressif's user guide header tables, v1.2 mechanical drawing and v1.4 schematic.",
+    pinAnchors: C6_DEVKITC_PIN_ANCHORS,
+    pins: C6_DEVKITC_PINS,
+  },
+  {
+    id: 'esp8266-lolin-d1-mini',
+    label: 'ESP8266 LOLIN D1 Mini',
+    manufacturer: 'LOLIN / WEMOS',
+    model: 'D1 Mini',
+    revision: 'V4.0.0',
+    targetFamilies: ['esp8266'],
+    compatibleFqbns: ['esp8266:esp8266:d1_mini'],
+    // LOLIN's V4.0.0 drawing.
+    dimensionsMm: { width: 25.4, height: 34.3 },
+    confidence: 'manufacturer-verified',
+    moduleSilk: 'ESP8266EX',
+    previewSvg: boardSvg('LOLIN D1 Mini', '#8ad0ff', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'Arduino pin numbers are GPIO numbers, so D4 is pin 2; the printed D labels are aliases.',
+      'The 5V pin is USB VBUS. Do not feed it while USB is plugged in.',
+    ],
+    caveats: [],
+    sourceSummary: "LOLIN's V4.0.0 product page, schematic and dimension drawing.",
+    pinAnchors: D1_MINI_PIN_ANCHORS,
+    pins: D1_MINI_PINS,
+  },
+  {
+    id: 'raspberry-pi-pico-w',
+    label: 'Raspberry Pi Pico W / WH',
+    manufacturer: 'Raspberry Pi',
+    model: 'Pico W / WH',
+    revision: 'RP2040 with CYW43439 wireless',
+    targetFamilies: ['rp2040'],
+    compatibleFqbns: ['rp2040:rp2040:rpipicow'],
+    dimensionsMm: { width: 21, height: 51 },
+    confidence: 'manufacturer-verified',
+    moduleSilk: 'RP2040',
+    previewSvg: boardSvg('Raspberry Pi Pico W', '#70cf63', 'USB', 'Manufacturer verified'),
+    notes: [
+      'Feed an external 5 V supply into VSYS, not VBUS: the on-board diode keeps it off the USB host.',
+      'GP23, GP24, GP25 and GP29 drive the wireless chip and are not on the header.',
+    ],
+    caveats: [],
+    sourceSummary: "Raspberry Pi's Pico W datasheet and pinout.",
+    pinAnchors: PICO_W_PIN_ANCHORS,
+    pins: PICO_W_PINS,
+  },
+  {
+    id: 'teensy-4-1',
+    label: 'Teensy 4.1',
+    manufacturer: 'PJRC',
+    model: 'Teensy 4.1',
+    revision: 'IMXRT1062',
+    targetFamilies: ['teensy'],
+    compatibleFqbns: ['teensy:avr:teensy41'],
+    dimensionsMm: { width: 17.78, height: 60.96 },
+    confidence: 'manufacturer-verified',
+    moduleSilk: 'IMXRT1062',
+    previewSvg: boardSvg('Teensy 4.1', '#7aa2ff', 'USB', 'Manufacturer verified'),
+    notes: [
+      'Signals are 3.3 V and are not 5 V tolerant.',
+      'VIN and USB 5 V are joined until the pads between them on the underside are cut.',
+      'The underside pads, the Ethernet header and the USB host header are not drawn.',
+    ],
+    caveats: [],
+    sourceSummary: "PJRC's Teensy 4.1 pinout card and product page.",
+    pinAnchors: TEENSY_41_PIN_ANCHORS,
+    pins: TEENSY_41_PINS,
   },
 ]
 

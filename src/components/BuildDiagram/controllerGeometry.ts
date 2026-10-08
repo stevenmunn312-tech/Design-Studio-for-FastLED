@@ -166,6 +166,69 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     usbPoint: { x: 400, y: 1488.817 },
     shortLabel: 'ESP32 DevKit v1',
   },
+  // The boards below are projected from their models' pad geometry through the
+  // render camera, and each pad centre was checked against the centroid of its
+  // see-through hole (within 1.4 px). imageWidthMm is the camera's
+  // orthographic span over the render's aspect, which also reproduces the
+  // 2.54 mm pitch.
+  //
+  // 8 + 8 castellated rails on a 111.134px pitch. 5V, GND and 3V3 are the
+  // three left pads beside the USB-C, so the two stubs are adjacent, as on
+  // the XIAO.
+  'esp32-c3-super-mini': {
+    href: boardRenderSrc('esp32-c3-super-mini'),
+    sourceWidth: 800, sourceHeight: 1183, imageWidthMm: 18.2843,
+    leftPinX: 66.5985, rightPinX: 733.4015, firstPinY: 109.8837, lastPinY: 887.8204,
+    pinsPerRail: 8, holeRadiusPx: 21.0, leftPrefix: 'left', rightPrefix: 'right',
+    powerAnchors: { v3v3: 'left-6', ground: 'left-7' },
+    usbPoint: { x: 400, y: 1084.93 },
+    shortLabel: 'ESP32-C3 Super Mini',
+  },
+  // Espressif's J1 and J3, 16 + 16 on a 78.8px pitch sharing rows.
+  'esp32-c6-devkitc-1': {
+    href: boardRenderSrc('esp32-c6-devkitc-1'),
+    sourceWidth: 800, sourceHeight: 2027, imageWidthMm: 25.7867,
+    leftPinX: 45.4, rightPinX: 754.6, firstPinY: 242.7958, lastPinY: 1424.7957,
+    pinsPerRail: 16, holeRadiusPx: 15.5, leftPrefix: 'j1', rightPrefix: 'j3',
+    // Row 1 of each header: the stubs leave opposite edges at the same height.
+    powerAnchors: { v3v3: 'j1-1', ground: 'j3-1' },
+    // The UART port, as on the S3 DevKitC-1: the one the upload path drives.
+    usbPoint: { x: 224.717, y: 1868 },
+    shortLabel: 'ESP32-C6 DevKitC-1',
+  },
+  // 8 + 8 rails 22.86 mm apart on a 78.184px pitch.
+  'esp8266-lolin-d1-mini': {
+    href: boardRenderSrc('esp8266-lolin-d1-mini'),
+    sourceWidth: 800, sourceHeight: 1249, imageWidthMm: 25.9898,
+    leftPinX: 48.1703, rightPinX: 751.8297, firstPinY: 244.6517, lastPinY: 791.9423,
+    pinsPerRail: 8, holeRadiusPx: 15.3, leftPrefix: 'left', rightPrefix: 'right',
+    // 3V3 ends the left rail and GND is next to last on the right.
+    powerAnchors: { v3v3: 'left-8', ground: 'right-7' },
+    usbPoint: { x: 400, y: 1095.138 },
+    shortLabel: 'LOLIN D1 Mini',
+  },
+  // 20 + 20 on a 95.310px pitch: pins 21-40 down the left, 20-1 down the right.
+  'raspberry-pi-pico-w': {
+    href: boardRenderSrc('raspberry-pi-pico-w'),
+    sourceWidth: 800, sourceHeight: 2126, imageWidthMm: 21.3198,
+    leftPinX: 57.7829, rightPinX: 742.2171, firstPinY: 57.8122, lastPinY: 1868.7112,
+    pinsPerRail: 20, holeRadiusPx: 18.6, leftPrefix: 'left', rightPrefix: 'right',
+    // 3V3(OUT) is on the left; the ground comes from the right rail so the
+    // two stubs leave opposite edges.
+    powerAnchors: { v3v3: 'left-16', ground: 'right-17' },
+    usbPoint: { x: 400, y: 1961.995 },
+    shortLabel: 'Pico W',
+  },
+  // 24 + 24 on a 112.571px pitch.
+  'teensy-4-1': {
+    href: boardRenderSrc('teensy-4-1'),
+    sourceWidth: 800, sourceHeight: 2938, imageWidthMm: 18.0508,
+    leftPinX: 67.1609, rightPinX: 732.8392, firstPinY: 62.5176, lastPinY: 2651.6602,
+    pinsPerRail: 24, holeRadiusPx: 22.0, leftPrefix: 'left', rightPrefix: 'right',
+    powerAnchors: { v3v3: 'left-22', ground: 'right-24' },
+    usbPoint: { x: 400, y: 2758.913 },
+    shortLabel: 'Teensy 4.1',
+  },
 }
 
 /**
