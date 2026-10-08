@@ -414,6 +414,10 @@ Unless a future row says otherwise, treat the following as experimental:
 - All boards except ESP32-S3, ESP8266, and the classic ESP32 (see the rows
   above). The classic-ESP32 row covers a normal live-graph upload only — its
   SD-show path is still experimental, per the 2026-07-28 note.
+- **The Arduino Nano 33 BLE and Nano RP2040 Connect build no LED sketch.** On
+  Arduino's Mbed core, the pinned FastLED 3.10.5 fails in its own nRF52 and
+  RP2040 output drivers before any Studio code
+  ([IR compile record](../reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom

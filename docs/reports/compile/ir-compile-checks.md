@@ -96,6 +96,29 @@ series board and chip instead, from `_PIO_BOARDS`, so
 Toolchain: arduino-cli 1.5.1. The same source is 35,717 bytes of flash on
 fbuild 2.5.37, which builds a different core release.
 
+## Mbed Nano boards on Arduino CLI, 8 October 2026
+
+Studio offers two boards on Arduino's Mbed core, the Nano 33 BLE and the Nano
+RP2040 Connect. With `arduino:mbed_nano` 4.6.0 installed, neither builds the
+IR fixture, and neither builds `no-ir` either: both stop inside FastLED 3.10.5
+before reaching any IR code.
+
+| Fixture | Target (FQBN) | Result | First error |
+| --- | --- | --- | --- |
+| normal, no-ir | `arduino:mbed_nano:nano33ble` | **fail** | `clockless_arm_nrf52.h:119`: `'configMAX_SYSCALL_INTERRUPT_PRIORITY' was not declared` |
+| normal, no-ir | `arduino:mbed_nano:nanorp2040connect` | **fail** | `clockless_rp_pio_parallel.h:182`: no declaration of `gpio_init` |
+
+FastLED's nRF52 driver is written against the Adafruit nRF52 core: it takes
+an interrupt priority from that core's FreeRTOS configuration and uses nrfx
+calls newer than the SDK 15 copy the Mbed core ships. Defining the missing
+priority in the sketch only moves the failure to the next missing names
+(`nrf_gpiote_event_t`, `nrf_timer_cc_set`), and the sketch's defines do not
+reach FastLED's own compilation units anyway. The RP2040 driver likewise
+expects the Pico SDK's GPIO API, which the Mbed core does not expose to it.
+Neither is something a generated sketch can work around; both need FastLED
+to support the Mbed core. The two legs run in `compile-matrix.py` as expected
+failures so a FastLED that fixes them shows up as `NOW PASSES`.
+
 ## ESP32-S3 capture, 3 October 2026
 
 Noise/repeat regression (4 October 2026): a live trace of the user's S3 show
@@ -242,6 +265,7 @@ Trigger and Step Value the IR graph also carries.
 ## Outstanding
 
 - The fbuild legs for RP2040, Renesas and SAMD21, each after its fbuild fix.
-- Architectures the pinned release declares that Studio has no board profile
-  for (`mbed`, `mbed_nano`, `mbed_rp2040`, `riscv`, `nrf5`, `stm32f1`) are
-  accepted by validation but not compiled here.
+- The Mbed Nano boards, once FastLED builds on Arduino's Mbed core.
+- Architectures the pinned release declares that Studio offers no board on
+  (`mbed`, `mbed_rp2040`, `riscv`, `nrf5`, `stm32f1`) are accepted by
+  validation but not compiled here.
