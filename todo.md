@@ -47,14 +47,11 @@ feature's fixtures compile on Arduino CLI as of 8 October 2026.
   which is modelled but undriven (`CATALOGUE_ONLY_DISPLAY_PART_IDS` in
   `src/build/parts/partCatalogue.ts`): most ESP32-2432S028 units ship that
   controller.
-- [ ] **IR architectures nobody compiles.** STM32 now builds on Arduino CLI
-  ([IR compile record](docs/reports/compile/ir-compile-checks.md#stm32-on-arduino-cli-8-october-2026)).
-  The two Mbed Nano boards Studio offers build no LED sketch at all: FastLED
-  3.10.5 fails in its nRF52 and RP2040 drivers on Arduino's Mbed core
-  ([record](docs/reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
-  Still to decide: what Studio does with those two boards, and with the five
-  architectures IRremote declares that Studio offers no board on (`mbed`,
-  `mbed_rp2040`, `riscv`, `nrf5`, `stm32f1`), which validation accepts today.
+- [ ] **Mbed Nano boards.** The Nano 33 BLE and Nano RP2040 Connect that
+  Studio offers build no LED sketch at all: FastLED 3.10.5 fails in its nRF52
+  and RP2040 drivers on Arduino's Mbed core
+  ([IR compile record](docs/reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
+  Decide whether to withdraw them from the board list or wait for FastLED.
 
 ## 3. Hardware expansion (ongoing, not a release blocker)
 

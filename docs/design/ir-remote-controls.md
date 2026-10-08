@@ -206,7 +206,9 @@ Graph Health and the deploy gate must share these failures:
 
 Implemented by one structured issue walk projected into both
 `findDeployBlockingErrors` and `buildGraphDiagnostics`. Selected-board support
-follows Arduino-IRremote 4.7.1's declared architecture list. ESP32-S3 replaces
+follows Arduino-IRremote 4.7.1's declared architecture list, narrowed to the
+cores Studio offers boards on: `mbed`, `mbed_rp2040`, `riscv`, `nRF5` and
+`STM32F1` are refused (8 October 2026). ESP32-S3 replaces
 the library's unsupported timer receiver with Studio's native RMT capture
 adapter while retaining its protocol decoders (Arduino-ESP32 3.x or newer). Pin
 collisions and signal-range mismatches continue through their existing shared

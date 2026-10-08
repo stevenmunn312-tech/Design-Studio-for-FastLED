@@ -818,7 +818,9 @@ Unless a future row says otherwise, treat the following as experimental:
   now confirms learning and remote LED power control, including separate On/Off
   keys through Toggle. The full qualification suite is still open. The
   Arduino-IRremote 4.7.1 compatibility gate follows that pinned release's
-  advertised architectures; ESP32-S3 uses Studio's RMT capture adapter with
+  advertised architectures, except the five Studio offers no board on
+  (`mbed`, `mbed_rp2040`, `riscv`, `nRF5`, `STM32F1`), which it refuses;
+  ESP32-S3 uses Studio's RMT capture adapter with
   the same protocol decoders and requires Arduino-ESP32 3.x or newer. Passing
   the gate is not a hardware result. Graduation requires a dated row naming the receiver
   part, remote model/protocol, board/FQBN, signal GPIO and build engine. It must

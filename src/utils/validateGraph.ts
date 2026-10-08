@@ -126,17 +126,21 @@ export function isClassicEsp32(fqbn: string): boolean {
 
 const HUB75_SUPPORTED_FQBNS = new Set([...CLASSIC_ESP32_FQBNS, 'esp32:esp32:esp32s2', 'esp32:esp32:esp32s3'])
 
-/** Architectures advertised by the pinned Arduino-IRremote 4.7.1 release.
+/** Architectures the pinned Arduino-IRremote 4.7.1 release supports and
+ * Studio offers boards on.
  *
  * Match the architecture segment of the FQBN rather than maintaining a second
  * board list: custom boards using a supported core should not be refused just
  * because Studio has never seen their board id. ESP32-S3 uses our native RMT
  * capture adapter with the pinned library's protocol decoders, bypassing its
  * unsupported timer receiver.
+ *
+ * The release also declares mbed, mbed_rp2040, riscv, nRF5 and STM32F1. Studio
+ * offers no board on any of them and FastLED builds on none it can reach
+ * (docs/reports/compile/ir-compile-checks.md), so they are refused.
  */
 const IR_REMOTE_SUPPORTED_ARCHITECTURES: ReadonlySet<string> = new Set([
-  'avr', 'megaavr', 'samd', 'esp8266', 'esp32', 'stm32', 'stm32f1',
-  'mbed', 'mbed_nano', 'rp2040', 'mbed_rp2040', 'renesas_uno', 'riscv', 'nrf5',
+  'avr', 'megaavr', 'samd', 'esp8266', 'esp32', 'stm32', 'mbed_nano', 'rp2040', 'renesas_uno',
 ])
 
 export function irRemoteSupportedForFqbn(fqbn: string): boolean {
@@ -1789,7 +1793,7 @@ function irRemoteValidationIssues(
       issues.push({
         id: `${receiver.id}-board-ir`, severity: 'error', category: 'board',
         title: 'IR receive is incompatible with the selected board',
-        message: `${label} cannot use Arduino-IRremote 4.7.1 on ${selectedFqbn}; that target is outside the pinned release's supported receiver architectures.`,
+        message: `${label} cannot use Arduino-IRremote 4.7.1 on ${selectedFqbn}; Studio builds IR receive only on the architectures it offers boards for.`,
         fix: 'Choose a supported target such as AVR, ESP8266, ESP32 / ESP32-C3 / ESP32-S3, SAMD, STM32, RP2040, or remove the IR Receiver.',
         nodeIds: [receiver.id], nodeLabel: label, action: 'choose-board',
       })
