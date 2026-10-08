@@ -4,7 +4,7 @@ Baseline board and part renders are imported. Generated catalogues in
 `src/build/generated/boardCapabilityData.ts` and `partCatalogueData.ts`, plus
 `src/build/boards/boardProfiles.ts` and `src/build/parts/partOptions.ts`, own the live inventory.
 Do not maintain a second list of completed boards or guessed dimensions here.
-New product work is [HW-12, HW-19 and HW-20](../../todo.md).
+New product work is [HW-19 and HW-20](../../todo.md).
 
 The verified source workspace is `C:\Users\User\Desktop\Blender Assets\`.
 Its board modelling checklist and per-part manifests own source-art progress.

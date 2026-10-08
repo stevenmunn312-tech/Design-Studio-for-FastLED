@@ -159,7 +159,7 @@ describe('soldered pins survive the pin walk', () => {
       .toMatch(/has no spare pin to move it to, so remove a part to free one\./)
   })
 
-  // The symptom in HW-12: with no board-level advice the allocator fell
+  // With no board-level advice the allocator fell
   // through to the chip table, whose first entry on a classic ESP32 is GPIO1.
   it('offers a new part a pad, never the USB-serial pins', () => {
     const profile = boardProfileById(CYD)

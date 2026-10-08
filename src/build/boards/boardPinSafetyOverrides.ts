@@ -76,7 +76,7 @@ function fittedHardwarePins(boardProfileId: string): Record<number, string> {
  * light sensor and speaker amplifier. Their pins are well documented for the
  * family but have not been measured on the bench unit, and the allowlist
  * already keeps them out of the allocator's reach — an unmeasured pin is
- * better left `unknown` than described wrongly. See HW-12 in `todo.md`.
+ * better left `unknown` than described wrongly.
  */
 const CYD_PROFILE_ID = 'esp32-2432s028r'
 

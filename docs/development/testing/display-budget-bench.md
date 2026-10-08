@@ -66,7 +66,7 @@ One exact launch board and one exact panel, both named in full — "an ESP32" is
 not a rig. Record the FQBN, the PSRAM mode and the panel's part id.
 
 The rig is the repository's ESP32-2432S028R bring-up unit, the same physical
-board HW-12's pin map and touch calibration were measured on. Everything below
+board whose pin map and touch calibration were measured. Everything below
 except the LED output is already bench-measured and recorded in
 [the support matrix](../../release/beta-support-matrix.md); it is restated here
 so a reader of this page does not have to reconstruct the rig from another one.
@@ -160,7 +160,7 @@ four are constrained by this board rather than by the software under test.
 
 - **Run 3 cannot be done on this board at all.** It wants TFT, SD and touch
   sharing one bus with audio playing. This board's onboard microSD and speaker
-  amplifier are exactly the pins HW-12 left unrecorded rather than taken from
+  amplifier are exactly the pins left unrecorded rather than taken from
   family documentation, and the two-pin pool cannot reach external ones. Run 3
   needs either those pins measured first or a different rig. Leave its table
   empty rather than filling it from a different board — a figure from one

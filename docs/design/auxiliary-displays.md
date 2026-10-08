@@ -668,7 +668,7 @@ SPI breakout shares SCK, MOSI and MISO between its ILI9341 and XPT2046;
 touch uses its own 2 MHz SPI transaction. The XC4630 uses the parallel driver
 and bare resistive-sheet sampler. Both remain experimental until bench-tested.
 Exact integrated-board controller identity must still be established before
-adding a board profile (HW-12). Generated firmware never follows a floating library
+adding a board profile. Generated firmware never follows a floating library
 branch. See the [compile record](../reports/compile/display-compile-checks.md) for the toolchain
 contract and the current fixture limitation.
 

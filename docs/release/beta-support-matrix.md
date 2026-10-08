@@ -305,10 +305,10 @@ they name.
   (not proof) this unit's panel is ST7789-compatible despite most
   ESP32-2432S028 units shipping ILI9341, a controller Studio then had no driver
   for. Not promoted to a support row: the imported board profile did not yet
-  model this board's fixed internal wiring (tracked in root `todo.md`, HW-12),
-  the controller identity is not confirmed, and Now Playing / Fixed Transport /
-  Show Status plus Studio-generated touch are untested — they need a real Music
-  Player (SD + audio) graph, a materially larger test than this bring-up pass.
+  model this board's fixed internal wiring, the controller identity is not
+  confirmed, and Now Playing / Fixed Transport / Show Status plus
+  Studio-generated touch are untested — they need a real Music Player (SD +
+  audio) graph, a materially larger test than this bring-up pass.
 
   **2026-09-10 follow-up — screen and raw touch characteristics, still not a
   support row.** The board is marked `ESP32-2432S028` with no printed revision;

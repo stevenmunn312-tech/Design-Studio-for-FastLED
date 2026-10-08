@@ -55,7 +55,7 @@ export const CYD_TOUCH_DISPLAY: IntegratedTouchDisplay = {
 /**
  * The ESP32-2432S028R's onboard microSD slot, measured on the bench unit.
  *
- * HW-12 deliberately left these unrecorded rather than copy them from family
+ * These pins were measured on the board rather than copied from family
  * documentation, because a pin map from a forum post and one measured on the
  * board look identical in the source and only one of them is evidence. The
  * probe in `codegen/sketches/sdPinProbeSketch.ts` was flashed to this unit on

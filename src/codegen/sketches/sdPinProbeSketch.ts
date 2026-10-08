@@ -3,11 +3,10 @@
  *
  * Some boards carry a microSD slot wired to pins nobody chose and nobody can
  * change. The family documentation usually names them, and it is usually
- * right — but "usually right" is exactly what HW-12 refused to record for the
- * ESP32-2432S028R, because a pin map copied from a forum post and a pin map
- * measured on the board in hand look identical in the source and only one of
- * them is evidence. So: try the candidates on the actual unit and report which
- * one mounts a card.
+ * right — but "usually right" was refused for the ESP32-2432S028R, because a
+ * pin map copied from a forum post and a pin map measured on the board in hand
+ * look identical in the source and only one of them is evidence. So: try the
+ * candidates on the actual unit and report which one mounts a card.
  *
  * Generated from a candidate list alone — no graph, no validation, no FastLED,
  * and nothing to wire. Like the touch calibration sketch it is *temporary*: the

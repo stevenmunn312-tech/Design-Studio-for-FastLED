@@ -8,9 +8,8 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## How this list works
 
-- **Sections run in order of progression:** finish the remaining engineering,
-  keep expanding hardware, gather
-  bench evidence alongside all of it, then run the release track. Within a
+- **Sections run in order of progression:** keep expanding hardware, gather
+  bench evidence alongside it, then run the release track. Within a
   section, do the items in the order listed. Section 6 waits until after v1.
 - **Engineering items close on software**, plus a compile where the item
   changes firmware. They do not wait for hardware. Compiles run on Arduino CLI
@@ -28,21 +27,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 - Contracts live in design notes, evidence in reports and support rows. Remove
   an entry once its outcome is recorded, and route details through
   [docs/index.md](docs/index.md).
-
-## 2. Remaining engineering before v1
-
-- [ ] **HW-12 · Integrated display boards (M).** Add exact profiles, bus
-  ownership and any missing drivers for proposed integrated boards. This is
-  the one item with a genuine measurement gate: an unbranded board's display
-  controller and fixed pins have to be identified on the board, because there is
-  no reliable documentation. The ESP32-2432S028R profile is in the app and
-  bench-proven, and a full board now says so by name
-  ([hardware nodes](docs/architecture/hardware-model.md#boards-with-hardware-already-on-them)).
-  The catalogued DFRobot ILI9341 + XPT2046 SPI module now has a driver,
-  shared-bus touch and calibration. Its compile evidence is in the
-  [display compile record](docs/reports/compile/display-compile-checks.md#ili9341-and-shared-spi-8-october-2026);
-  controller identification and fixed pin maps for other integrated
-  boards remain separate work.
 
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
@@ -90,8 +74,6 @@ chooses the supported combinations from whatever is on record at release.
 - **HW-11 shared bus:** TFT + SD + touch on one bus with audio playing. The CYD
   cannot host this run (its card is on the second SPI host), so it needs another
   rig. All other HW-11 measurements are recorded, and its budgets are set.
-- **HW-12 CYD:** the three generators' touch paths on the unit; onboard RGB LED
-  and light-sensor pins.
 - **LVGL pool from heap:** on the CYD, a custom screen still starts and free
   heap after `lv_init()` matches the earlier runs, now that ESP32 takes LVGL's
   64 KiB pool from internal heap
