@@ -118,6 +118,21 @@ def ir_legs(engine: str) -> list[Leg]:
     ]
 
 
+def ir_arduino_cli_legs() -> list[Leg]:
+    """IR targets checked on Arduino CLI beyond the fbuild list's ESP32 set.
+
+    STM32 checks the series board and pnum `_arduino_fqbn` substitutes; the
+    Mbed boards have no fbuild board at all.
+    """
+    folder = ROOT / "backend" / "sketches" / "ir-remote-fixtures"
+    mbed = "FastLED 3.10.5 does not build on Arduino's Mbed core, IR or not (IR record)"
+    targets = {"stm32": ("STMicroelectronics:stm32:blackpill_f411ce", None),
+               "nano33ble": ("arduino:mbed_nano:nano33ble", mbed),
+               "nanorp2040connect": ("arduino:mbed_nano:nanorp2040connect", mbed)}
+    return [Leg("ir", "compile-ir-smoke.py", "arduino-cli", folder / "normal.ino", fqbn, tag, None, why)
+            for tag, (fqbn, why) in targets.items()]
+
+
 def time_of_flight_legs(engine: str) -> list[Leg]:
     # One real fbuild build of each closes the root-todo item for the pinned Pololu libraries.
     return [Leg(chip, "compile-presence-smoke.py", engine, ROOT / "backend" / "sketches" / f"{chip}-fixtures" / "normal.ino",
@@ -153,8 +168,7 @@ def plan() -> list[Leg]:
         *ethernet_legs("fbuild"),
         *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
         *power_switch_legs("arduino-cli"),
-        # The STM32 leg checks the series board and pnum _arduino_fqbn substitutes.
-        *(leg for leg in ir_legs("arduino-cli") if leg.tag == "stm32"),
+        *ir_arduino_cli_legs(),
     ]
 
 
