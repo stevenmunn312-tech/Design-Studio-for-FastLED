@@ -420,6 +420,12 @@ Unless a future row says otherwise, treat the following as experimental:
   ([IR compile record](../reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
   Their Blender assets were deleted, so bringing either back means modelling
   it again.
+- **The Arduino Due was withdrawn** on 2026-10-08. Arduino's SAM core compiles
+  with GCC 4.8.3, which the pinned FastLED 3.10.5 does not build on, so no LED
+  sketch built there. A newer compiler borrowed from another core builds a
+  plain LED sketch, but nothing has run on a board
+  ([IR compile record](../reports/compile/ir-compile-checks.md#arduino-due-on-arduino-cli-8-october-2026)).
+  The board importer skips its asset until that asset is deleted.
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom

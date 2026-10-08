@@ -511,7 +511,6 @@ _PIO_BOARDS: dict[str, dict] = {
     "rp2040:rp2040:rpipico2": {"platform": "raspberrypi", "board": "rpipico2"},
     "rp2040:rp2040:adafruit_kb2040": {"platform": "raspberrypi", "board": "adafruit_kb2040"},
     "arduino:samd:nano_33_iot": {"platform": "atmelsam", "board": "nano_33_iot"},
-    "arduino:sam:arduino_due_x": {"platform": "atmelsam", "board": "due"},
     # Confirmed against fbuild's board-support reference for a bare SAMD21
     # Arduino Zero, but not yet build-tested here — see the "(experimental)"
     # note on this board in `src/state/upload/uploadStore.ts`.

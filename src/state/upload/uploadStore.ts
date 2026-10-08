@@ -155,12 +155,10 @@ export const BOARDS: Board[] = [
   { label: 'Raspberry Pi Pico W', fqbn: 'rp2040:rp2040:rpipicow', core: 'rp2040:rp2040', thirdParty: true },
   { label: 'Raspberry Pi Pico 2 W', fqbn: 'rp2040:rp2040:rpipico2w', core: 'rp2040:rp2040', thirdParty: true },
   { label: 'Adafruit KB2040', fqbn: 'rp2040:rp2040:adafruit_kb2040', core: 'rp2040:rp2040', thirdParty: true },
-  // arduino:samd and arduino:sam are also part of arduino-cli's built-in board
-  // index (Arduino's own cores, unlike the ESP32/RP2040/Teensy third-party
-  // packages above). Not yet hardware-validated by this project; see
-  // beta-support-matrix.md.
+  // arduino:samd is also part of arduino-cli's built-in board index (Arduino's
+  // own core, unlike the ESP32/RP2040/Teensy third-party packages above). Not
+  // yet hardware-validated by this project; see beta-support-matrix.md.
   { label: 'Arduino Nano 33 IoT (experimental)', fqbn: 'arduino:samd:nano_33_iot', core: 'arduino:samd' },
-  { label: 'Arduino Due',   fqbn: 'arduino:sam:arduino_due_x', core: 'arduino:sam' },
   // The exact fbuild/PlatformIO board id for a bare Arduino Zero (vs. the
   // Adafruit Feather M0 below, which shares the same SAMD21 chip) could not be
   // confirmed against a real toolchain here — flagged experimental until

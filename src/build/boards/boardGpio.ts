@@ -374,12 +374,6 @@ const NANO_33_IOT_GPIO = boardPins({
   labels: analogLabels(range(14, 21)),
   unavailable: Object.fromEntries(range(22, 30).map((pin) => [pin, 'Wired internally to the NINA Wi-Fi module'])),
 })
-const DUE_GPIO = boardPins({
-  digital: range(0, 65),
-  analog: range(54, 65),
-  labels: analogLabels(range(54, 65)),
-  unavailable: { 66: 'DAC0 analog output — not a general digital pin', 67: 'DAC1 analog output — not a general digital pin' },
-})
 const ZERO_GPIO = boardPins({
   digital: range(0, 24),
   analog: range(14, 19),
@@ -553,7 +547,6 @@ export const BOARD_GPIO_BY_FQBN: Readonly<Record<string, BoardGpio>> = {
   'rp2040:rp2040:rpipico2w': PICO_GPIO,
   'rp2040:rp2040:adafruit_kb2040': KB2040_GPIO,
   'arduino:samd:nano_33_iot': NANO_33_IOT_GPIO,
-  'arduino:sam:arduino_due_x': DUE_GPIO,
   'arduino:samd:arduino_zero_native': ZERO_GPIO,
   'adafruit:samd:adafruit_feather_m0': FEATHER_M0_GPIO,
   'adafruit:samd:adafruit_qtpy_m0': QTPY_M0_GPIO,

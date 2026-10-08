@@ -73,5 +73,6 @@ A probe of the UNO sketch on the Arduino Due (`arduino:sam:arduino_due_x`, SAM
 core 1.6.12) failed. The SAM core has no `tone()`, but the build also failed
 inside FastLED 3.10.5's own headers (`'__is_trivially_copyable' was not declared
 in this scope` in `fl/stl/type_traits.h`), so it says nothing particular about
-the buzzer. Whether any LED sketch builds on the Due is a separate open
-question.
+the buzzer. No LED sketch builds on the Due's own compiler, and the Due was
+withdrawn the same day
+([IR compile record](ir-compile-checks.md#arduino-due-on-arduino-cli-8-october-2026)).

@@ -119,6 +119,31 @@ Neither is something a generated sketch can work around; both need FastLED
 to support the Mbed core. Both boards were withdrawn from Studio the same day,
 their Blender assets deleted, and IR validation now refuses `mbed_nano`.
 
+## Arduino Due on Arduino CLI, 8 October 2026
+
+Studio offered the Arduino Due on Arduino's SAM core. With `arduino:sam` 1.6.12
+installed, the `no-ir` fixture fails inside FastLED 3.10.5 before reaching any
+Studio code. IR itself was never in question: Arduino-IRremote 4.7.1 does not
+declare `sam`, so validation already refused IR there.
+
+| Fixture | Target (FQBN) | Compiler | Source SHA-256 | Result | Flash |
+| --- | --- | --- | --- | --- | ---: |
+| no-ir | `arduino:sam:arduino_due_x` | GCC 4.8.3-2014q1 (the core's own) | `401d7057dea5` | **fail** | — |
+| no-ir | `arduino:sam:arduino_due_x` | GCC 7-2017q4, by `--build-property compiler.path=` | `401d7057dea5` | pass | 34,616 / 524,288 (6%) |
+
+Toolchain: arduino-cli 1.5.1. The core's compiler stops with eight errors, the
+first in `fl/stl/type_traits.h:967`: FastLED calls the `__is_trivially_copyable`
+builtin, which GCC 4.8 lacks, and `fl/stl/align.h` asks it to align to a
+dependent type, which it cannot evaluate. FastLED's own source files go through
+the same compiler, so a generated sketch cannot work around it. Pointing the
+core at the GCC 7-2017q4 that ships with the UNO R4 core
+(`arduino:renesas_uno` 1.6.0) built the same source with no errors or warnings,
+twice from an empty build folder. That compiler is not part of the SAM core,
+the core's own prebuilt library was compiled with GCC 4.8.3, and the result was
+never run on a board. The Due was withdrawn from Studio the same day: the board
+importer skips its asset (`WITHDRAWN_PROFILES` in
+`scripts/assets/import-board-assets.py`).
+
 ## ESP32-S3 capture, 3 October 2026
 
 Noise/repeat regression (4 October 2026): a live trace of the user's S3 show

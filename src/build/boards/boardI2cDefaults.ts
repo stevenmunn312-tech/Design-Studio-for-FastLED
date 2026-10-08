@@ -56,7 +56,6 @@ export const BOARD_I2C_DEFAULTS: Readonly<Record<string, BoardI2cDefault>> = {
   'adafruit-matrixportal-m4': pins(5, 6, { sdaDisplay: 'SDA / STEMMA QT', sclDisplay: 'SCL / STEMMA QT' }),
   'adafruit-qt-py-esp32-s2': pins(7, 6),
   'adafruit-qt-py-m0': pins(4, 5, { sdaLabels: ['SDA'], sclLabels: ['SCL'] }),
-  'arduino-due': pins(20, 21),
   'arduino-leonardo': pins(2, 3),
   'arduino-mega-2560-rev3': pins(20, 21),
   'arduino-micro': pins(2, 3),
