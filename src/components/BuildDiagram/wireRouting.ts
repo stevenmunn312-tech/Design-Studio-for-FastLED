@@ -28,13 +28,13 @@ import {
 import type { PhysicalDiagramConnection } from './signalPresentation'
 
 /**
- * Two descent bands share the gap between the controller and the resistors, and
+ * Two descent bands share the gap between the controller and the level shifter, and
  * they must not overlap.
  *
  * Bus wires (mic, output data) all terminate above y~520, so they can hug the
  * board in 266..290 where the USB connector block is no obstacle. Control wires run all
  * the way down to the module lanes, so they need 296..328 — clear of that block
- * (ends x=291) and of the series resistors (start x=350).
+ * (ends x=291) and of the level-shifter input approach (starts x=390).
  */
 const RIGHT_CONTROLLER_LANE_X = 266
 // Keep the whole left fan outside the controller slot. Starting this at x=90
@@ -134,7 +134,7 @@ export function levelShifterPinLeadPath(point: LevelShifterTerminalPoint, chipY:
   return `M${x} ${y}H${outsideImageX}`
 }
 
-/** Between the series resistors (end x=390) and the chip body (starts x=453). */
+/** Between the controller-side input approach and the chip body (starts x=453). */
 function levelShifterEntryX(outputIndex: number) {
   return 402 + ((outputIndex % 4) * LS_CORRIDOR_SPACING)
 }
@@ -156,7 +156,7 @@ function levelShifterDetourY(outputIndex: number) {
 
 export function routeToLevelShifterInput(outputIndex: number, point: LevelShifterTerminalPoint) {
   if (point.side === 'left') return `M390 ${point.y}H${point.x}`
-  // Leave the resistor vertically before wrapping under the chip. Travelling
+  // Leave the input approach vertically before wrapping under the chip. Travelling
   // right first can reuse the exact Y channel of a previous channel's output
   // (Y2 and A3 are level on this DIP), drawing two different wires on top of
   // each other between the entry corridors.

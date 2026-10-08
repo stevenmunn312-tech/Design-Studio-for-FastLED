@@ -89,6 +89,13 @@ interface PhysicalAssemblyDiagramProps {
 const ALL_LAYERS: BuildSectionLayers = { signalWires: true, levelShifter: true, powerDistribution: true }
 
 const CANVAS_WIDTH = 1120
+const DATA_RESISTOR_WIDTH = 52
+const DATA_RESISTOR_HEIGHT = 36
+const DATA_RESISTOR_LEAD = 10
+
+function dataResistorX(outputX: number) {
+  return outputX - DATA_RESISTOR_WIDTH - DATA_RESISTOR_LEAD
+}
 
 export default function PhysicalAssemblyDiagram({ boardProfile, items, connections, plan, selectedItemId, onSelectItem, exportScope = 'current-view', layers = ALL_LAYERS, crop }: PhysicalAssemblyDiagramProps) {
   const boardLabel = boardProfile.label
@@ -200,10 +207,13 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           }
           const inputPoint = levelShifterTerminalPoint(index, 'a')
           const outputPoint = levelShifterTerminalPoint(index, 'y')
+          const resistorX = dataResistorX(layout.x)
+          const terminalY = outputDataTerminalY(layout)
           return <g key={layout.item.id}>
-            <HoverWire tip={`${signalTip} · to 330Ω resistor`} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 350, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
-            <HoverWire tip={`${signalTip} · 330Ω to ${shifterName} A${(index % 4) + 1}`} data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
-            <HoverWire tip={`${shifterName} Y${(index % 4) + 1} · 5 V data to ${layout.item.title}`} data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, layout.x, outputDataTerminalY(layout))} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${signalTip} · to ${shifterName} A${(index % 4) + 1}`} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 390, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${signalTip} · ${shifterName} A${(index % 4) + 1}`} data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${shifterName} Y${(index % 4) + 1} · 5 V data to 330Ω resistor`} data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, resistorX, terminalY)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`330Ω resistor · ${layout.item.title} DIN`} data-wire={`${layout.item.id}-led-data`} data-signal-role={presentation.role} d={`M${resistorX + DATA_RESISTOR_WIDTH} ${terminalY}H${layout.x}`} className={wireClass} style={wireStyle} />
           </g>
         })}
         {peripheralLayouts.map((layout) => {
@@ -383,17 +393,16 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       </g>
 
       {layers.levelShifter && outputLayouts.length > 0 && <g filter="url(#component-shadow)">
-        {outputLayouts.map((layout, index) => (
-          <g key={`${layout.item.id}-resistor`} transform={`translate(350 ${levelShifterTerminalPoint(index, 'a').y - 14})`}>
-            {/* A3/A4 are one leg below A2/A1, so a label above would sit on that resistor. */}
-            <text x="20" y={index % 4 >= 2 ? 42 : -8} textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
+        {outputLayouts.map((layout) => (
+          <g key={`${layout.item.id}-resistor`} data-data-resistor-for={layout.item.id} transform={`translate(${dataResistorX(layout.x)} ${outputDataTerminalY(layout) - (DATA_RESISTOR_HEIGHT / 2)})`}>
+            <text x={DATA_RESISTOR_WIDTH / 2} y="12" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
             <image
               data-component-render="330ohm-blue-axial-resistor"
               href={resistorRender}
               x="0"
               y="0"
-              width="40"
-              height="28"
+              width={DATA_RESISTOR_WIDTH}
+              height={DATA_RESISTOR_HEIGHT}
               preserveAspectRatio="xMidYMid meet"
               className={styles.physicalBoardRender}
             />

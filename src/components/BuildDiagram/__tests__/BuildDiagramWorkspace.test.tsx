@@ -428,6 +428,9 @@ describe('BuildDiagramWorkspace', () => {
       'output:out-data-in',
       'output:out-level-shifter-input',
       'output:out-conditioned-data',
+      'output:out-led-data',
+      'output:out-led-ground-net',
+      'output:out-led-5v-net',
       'level-shifter-1-vcc',
       'level-shifter-1-ground',
       'level-shifter-1-oe-1',
@@ -459,6 +462,12 @@ describe('BuildDiagramWorkspace', () => {
       expect(netStub(groundWire)?.getAttribute('data-net-stub'), groundWire).toBe('gnd')
     }
     expect(netStub('mic-input:mic-3v3')?.getAttribute('data-net-stub')).toBe('v3v3')
+    expect(netStub('output:out-led-ground-net')?.getAttribute('data-net-stub')).toBe('gnd')
+    expect(netStub('output:out-led-ground-net')?.getAttribute('data-net-stub-direction')).toBe('left')
+    expect(netStub('output:out-led-ground-net')?.getAttribute('data-net-stub-y')).toBe('126')
+    expect(netStub('output:out-led-5v-net')?.getAttribute('data-net-stub')).toBe('v5')
+    expect(netStub('output:out-led-5v-net')?.getAttribute('data-net-stub-direction')).toBe('left')
+    expect(netStub('output:out-led-5v-net')?.getAttribute('data-net-stub-y')).toBe('190')
     expect(diagram?.querySelector('[data-common-net-callout]')).toBeTruthy()
     const outputTerminal = diagram?.querySelector('[data-terminal="controller-output:out:dataPin"]')
     const outputTerminalCircle = outputTerminal?.querySelector('circle')
@@ -466,10 +475,10 @@ describe('BuildDiagramWorkspace', () => {
     expect(outputTerminal?.getAttribute('data-board-anchor')).toBe('j1-20')
     expect(outputWirePath?.startsWith(`M${outputTerminalCircle?.getAttribute('cx')} ${outputTerminalCircle?.getAttribute('cy')}`)).toBe(true)
     // Exits left of the board, drops, then rejoins the bus band (266..290) and
-    // runs in to the series resistor at x=350. The drop clears the board's own
+    // runs in to the level-shifter approach at x=390. The drop clears the board's own
     // bottom edge (104 + 426) plus its caption — it used to be a fixed 542,
     // which is mid-caption on this board and far too deep for a shorter one.
-    expect(outputWirePath).toMatch(/H66V570H266V342H350$/)
+    expect(outputWirePath).toMatch(/H66V570H266V342H390$/)
     expect(diagram?.querySelector('[data-component-render="330ohm-blue-axial-resistor"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="sn74ahct125n-dip14"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-component-render="inmp441-i2s-microphone"]')).toBeTruthy()
@@ -481,6 +490,9 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-terminal="level-shifter-1-y1"]')?.textContent).toContain('P3 Y1')
     expect(diagram?.querySelector('[data-wire="output:out-level-shifter-input"]')?.getAttribute('d')).toMatch(/H465$/)
     expect(diagram?.querySelector('[data-wire="output:out-conditioned-data"]')?.getAttribute('d')).toMatch(/^M465 367/)
+    expect(diagram?.querySelector('[data-wire="output:out-conditioned-data"]')?.getAttribute('d')).toMatch(/H758$/)
+    expect(diagram?.querySelector('[data-wire="output:out-led-data"]')?.getAttribute('d')).toBe('M810 158H820')
+    expect(diagram?.querySelector('[data-data-resistor-for="output:out"]')?.getAttribute('transform')).toBe('translate(758 140)')
     // The component photograph is above the harness, so each route gets a
     // short foreground lead from its exact terminal centre to just beyond the
     // image edge. Without it, the photo hid the last 12 units and made the

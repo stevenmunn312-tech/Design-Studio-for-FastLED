@@ -665,6 +665,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `LEVEL_SHIFTER_RENDER_SCALE`/`_WIDTH`/`_HEIGHT`/`_X`/`_Y`, keeping the fixed
   `LEVEL_SHIFTER_PIN_PITCH` terminal rows authoritative, the same discipline
   `MODULE_PAD_GEOMETRY` already applies to module pads.
+- Put each LED data resistor after the 74AHCT125 output and next to the LED
+  DIN terminal. The short resistor-to-DIN lead represents required physical
+  placement; putting the resistor beside the controller or shifter can leave
+  the long cable unterminated and reduce its damping effect.
+- Show local GND and +5V net symbols on every LED output card. These identify
+  the panel power terminals while the detailed fused feed routes remain in the
+  power section.
 - Build Diagram wire hover (`src/components/BuildDiagram/wireHover.tsx`) blooms
   a wire's visible stroke and names its connection without a React re-render on
   every pointer move. A drawn wire is 3-10 units wide and usually viewed zoomed

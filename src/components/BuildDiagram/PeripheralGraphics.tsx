@@ -9,6 +9,7 @@ import resistor1kRender from '../../assets/components/1kohm-blue-axial-resistor.
 import resistor2kRender from '../../assets/components/2kohm-blue-axial-resistor.webp'
 import resistor4k7Render from '../../assets/components/4k7ohm-blue-axial-resistor.webp'
 import styles from './BuildDiagramWorkspace.module.css'
+import { NetStub } from './netStubs'
 import { HoverWire } from './wireHover'
 import {
   type ItemLayout,
@@ -260,6 +261,8 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
   const presentation = connection ? signalPresentation(connection) : { role: 'data', color: '#24963e' }
   const singleRow = item.facts.form === 'strip'
   const dataOffset = singleRow ? 34 : 66
+  const groundOffset = singleRow ? 18 : 34
+  const powerOffset = singleRow ? 50 : 98
   const extender = outputHasDataExtender(item)
   const baseHeight = singleRow ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT
   const extenderY = y + baseHeight + 8
@@ -281,6 +284,16 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
       {singleRow
         ? <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={32} singleRow />
         : <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />}
+      <NetStub x={x} y={y + groundOffset} kind="gnd" direction="left" wireId={`${item.id}-led-ground-net`} />
+      <NetStub x={x} y={y + powerOffset} kind="v5" direction="left" wireId={`${item.id}-led-5v-net`} />
+      <g data-terminal={`${item.id}-gnd`}>
+        <circle cx={x} cy={y + groundOffset} r="5" fill="#202425" stroke="#f2c766" strokeWidth="2" />
+        <title>LED GND · common ground</title>
+      </g>
+      <g data-terminal={`${item.id}-5v`}>
+        <circle cx={x} cy={y + powerOffset} r="5" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
+        <title>LED +5V · fused supply</title>
+      </g>
       {[['DIN', dataOffset]].map(([label, offset]) => (
         <g key={label} data-terminal={`${item.id}-${String(label).toLowerCase()}`} data-signal-role={presentation.role}>
           <circle cx={x} cy={y + Number(offset)} r="6" fill="#d9a14a" />
