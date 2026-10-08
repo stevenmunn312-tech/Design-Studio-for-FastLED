@@ -9,6 +9,8 @@
  * changes. See state/peripherals/ethernetModule.ts for which chips it builds for.
  */
 
+import { SPI_BUS_CPP } from '../helpers/spiBusCpp'
+
 export interface EthernetEmit {
   label: string
   sckPin: number
@@ -44,8 +46,10 @@ export function ethernetBootstrapCpp(eth: EthernetEmit): string[] {
     `// The module has this SPI host to itself, so a colour panel on SPI is undisturbed.`,
     `static SPIClass _ethSpi(HSPI);`,
     `#else`,
-    `// One general-purpose SPI host on this chip: the module shares SPI.`,
+    `// One general-purpose SPI host on this chip: the module shares SPI, and starts`,
+    `// it through the shared helper so the MISO it reads on is routed.`,
     `#define _ethSpi SPI`,
+    SPI_BUS_CPP,
     `#endif`,
     `#endif`,
     `static bool _netInit = false;`,
@@ -53,7 +57,11 @@ export function ethernetBootstrapCpp(eth: EthernetEmit): string[] {
     `#if FLS_NET_SUPPORTED`,
     `  if (_netInit) return;`,
     `  _netInit = true;`,
+    `#if defined(HSPI)`,
     `  _ethSpi.begin(${eth.sckPin}, ${eth.misoPin}, ${eth.mosiPin});`,
+    `#else`,
+    `  _spiBusBegin(${eth.sckPin}, ${eth.misoPin}, ${eth.mosiPin});`,
+    `#endif`,
     `  if (!ETH.begin(ETH_PHY_W5500, 1, ${eth.csPin}, ${eth.intPin}, ${eth.resetPin}, _ethSpi)) return;`,
     `  ETH.setHostname(${eth.hostname});`,
   ]

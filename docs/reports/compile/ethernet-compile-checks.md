@@ -33,9 +33,9 @@ fall on there. Every fixture except the classic ones names its board profile
 Fixture generation refuses a set where any graph fails the deploy gate or its
 board's pin checks for its target, where an Ethernet sketch lacks exactly one
 `ETH.begin(ETH_PHY_W5500, ...)` or still calls `WiFi.begin` (or the guard does
-the reverse), or where a panel fixture's `setup()` does not start the network
-before the panel's `SPI.begin`. That order matters on the C3: `SPI.begin` takes
-pins only the first time, and the panel's call names no MISO.
+the reverse), or where a panel fixture does not start the network from `setup()` or begin
+the panel through `_spiBusBegin`. On a one-host chip both clients use that
+helper, so a write-only panel cannot drop the module's MISO.
 
 ## Reproduce
 
@@ -62,7 +62,7 @@ Toolchain: arduino-cli 1.5.1 and ESP32 core 3.3.11, with the helper's
 | static | `esp32:esp32:esp32` | `0785b376` | pass | 657,071 / 3,145,728 (20%) | 36,480 / 327,680 (11%) |
 | wifi | `esp32:esp32:esp32` | `ea5c6f2b` | pass | 1,013,099 / 3,145,728 (32%) | 51,776 / 327,680 (15%) |
 | c3 | `esp32:esp32:esp32c3` | `25120aae` | pass | 720,234 / 3,145,728 (22%) | 26,644 / 327,680 (8%) |
-| c3-panel | `esp32:esp32:esp32c3` | `c1eb4bed` | pass | 722,680 / 3,145,728 (22%) | 26,756 / 327,680 (8%) |
+| c3-panel | `esp32:esp32:esp32c3` | `7fd27a8e` | pass | 722,694 / 3,145,728 (22%) | 26,756 / 327,680 (8%) |
 | s2 | `esp32:esp32:esp32s2` | `f359437f` | pass | 626,766 / 3,145,728 (19%) | 30,768 / 327,680 (9%) |
 | s3 | `esp32:esp32:esp32s3` | `5f1fbbff` | pass | 675,067 / 3,145,728 (21%) | 34,808 / 327,680 (10%) |
 
@@ -74,7 +74,12 @@ What the numbers show:
 - The same Art-Net graph is about 360 KB of flash and 15 KB of RAM smaller over
   Ethernet than over Wi-Fi: with a module on the bench the sketch never starts
   the radio, so the Wi-Fi driver is not linked.
-- On the C3 the shared panel costs 2,446 bytes of flash and 112 bytes of RAM.
+- On the C3 the shared panel costs 2,460 bytes of flash and 112 bytes of RAM
+  against the morning `c3` build. `c3-panel` was compiled again after the
+  shared SPI host helper: 14 bytes more flash than its morning result, RAM
+  unchanged. The other seven rows are that morning's builds. Regenerating
+  them now includes the helper on the one-host branch, so those six changed
+  source prefixes will not match a fresh generation. `wifi` is unchanged.
 
 Writing the `c3-panel` fixture found a validation defect: on a one-host chip
 the Ethernet check required the panel to share the module's SCLK and MOSI,

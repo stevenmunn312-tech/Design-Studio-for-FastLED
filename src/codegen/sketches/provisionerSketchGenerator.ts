@@ -27,6 +27,7 @@
 // The Python helper (backend/) implements the host side; keep the two in sync.
 
 import { sanitizePin } from '../hardwarePins'
+import { SPI_BUS_CPP } from '../helpers/spiBusCpp'
 
 export interface ProvisionerConfig {
   /** SD SPI pins from the SDCard hardware part. */
@@ -76,6 +77,7 @@ export function generateProvisionerSketch(cfg: Partial<ProvisionerConfig> = {}):
 #define SD_SCK  ${c.sdSckPin}
 #define SD_MISO  ${c.sdMisoPin}
 #define SD_MOSI  ${c.sdMosiPin}
+${SPI_BUS_CPP}
 #define CHUNK      ${PROVISION_CHUNK}
 #define LINE_TIMEOUT_MS      2000
 #define BLOCK_TIMEOUT_MS     3000
@@ -118,7 +120,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { /* wait for USB CDC */ }
   delay(200);
-  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  _spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);
   if (!SD.begin(SD_CS)) { Serial.println("ERR sd-mount-failed"); for (;;) {} }
   Serial.println("READY");
 }

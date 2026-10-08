@@ -37,7 +37,8 @@ import {
   TFT_DISPLAY_CPP_INCLUDES,
   tftDisplayHelpersCpp,
 } from '../displays/tftDisplayCpp'
-import { TFT_TOUCH_CPP_HELPERS, tftTouchIrqSetupCpp } from '../displays/tftTouchCpp'
+import { TFT_TOUCH_CPP_HELPERS, xptPointPinArgs, xptTouchSetupCpp } from '../displays/tftTouchCpp'
+import { xptTouchPinsForProps, type XptTouchPins } from '../../state/nodeLibrary'
 
 /** Everything the sketch needs, resolved from the panel. */
 export interface TouchCalibrationSketchTarget {
@@ -49,11 +50,8 @@ export interface TouchCalibrationSketchTarget {
   sckPin: number
   mosiPin: number
   backlightPin: number
-  touchCsPin: number
-  touchIrqPin: number
-  touchSckPin: number
-  touchMosiPin: number
-  touchMisoPin: number
+  /** The digitiser's pins, resolved the way every generator resolves them. */
+  touch: XptTouchPins
   /**
    * The calibration the mark is drawn through — the Touch node's saved bounds
    * and direction, oriented by `emittedTouchBounds`.
@@ -170,17 +168,14 @@ export function generateTouchCalibrationSketch(target: TouchCalibrationSketchTar
     'void setup() {',
     '  Serial.begin(115200);',
     '  _calBegin();',
-    `  pinMode(${target.touchCsPin}, OUTPUT); digitalWrite(${target.touchCsPin}, HIGH);`,
-    `  pinMode(${target.touchSckPin}, OUTPUT); digitalWrite(${target.touchSckPin}, LOW);`,
-    `  pinMode(${target.touchMosiPin}, OUTPUT); pinMode(${target.touchMisoPin}, INPUT);`,
-    ...tftTouchIrqSetupCpp(target.touchIrqPin),
+    ...xptTouchSetupCpp(target.touch),
     '}',
     '',
     'void loop() {',
     '  int16_t x = 0, y = 0;',
     '  uint16_t rawX = 0, rawY = 0;',
-    `  bool pressed = _xptPoint(${target.touchCsPin}, ${target.touchIrqPin}, ${target.touchSckPin}, `
-      + `${target.touchMosiPin}, ${target.touchMisoPin}, ${target.xFrom}, ${target.xTo}, ${target.yFrom}, ${target.yTo}, `
+    `  bool pressed = _xptPoint(${xptPointPinArgs(target.touch)}, `
+      + `${target.xFrom}, ${target.xTo}, ${target.yFrom}, ${target.yTo}, `
       + `${target.controller.width}, ${target.controller.height}, ${ROTATION_CODE[target.rotation]}, `
       + 'x, y, rawX, rawY);',
     '  if (pressed) {',
@@ -240,11 +235,7 @@ export function touchCalibrationTargetFor(
     sckPin: pin('sckPin', 18),
     mosiPin: pin('mosiPin', 23),
     backlightPin: pin('backlightPin', 4),
-    touchCsPin: pin('touchCsPin', 15),
-    touchIrqPin: pin('touchIrqPin', 2),
-    touchSckPin: pin('touchSckPin', 18),
-    touchMosiPin: pin('touchMosiPin', 23),
-    touchMisoPin: pin('touchMisoPin', 19),
+    touch: xptTouchPinsForProps(panelProperties),
     ...emittedTouchBounds(touchProperties),
   }
 }

@@ -93,8 +93,8 @@ const graphs: Record<string, Fixture> = {
   c3: artNet(C3, [board('esp32-c3-devkitm-1'), c3Module()], {}, 2),
   // The same module sharing SPI with a colour panel: the panel names the
   // module's SCK and MOSI, as validation requires on a one-host chip, and keeps
-  // its own select. The network starts first in setup(), so its SPI.begin,
-  // the one that attaches MISO, is the one that takes.
+  // its own select. Both start the host through the shared helper, so a
+  // write-only panel cannot drop the module's MISO.
   'c3-panel': artNet(C3, [
     board('esp32-c3-devkitm-1'),
     c3Module(),
@@ -139,12 +139,12 @@ for (const [name, source] of Object.entries(fixtures)) {
 }
 if (!fixtures.static.includes('ETH.config(IPAddress(192, 168, 1, 60)')) throw new Error('static: missing ETH.config')
 if (!fixtures.ntp.includes('configTime(')) throw new Error('ntp: missing the NTP sync')
-// With a panel, the network has to start in setup() before the panel's own
-// SPI.begin, or the bus comes up without the module's MISO.
+// The network starts in setup. Both clients use the shared host helper, so
+// the panel cannot remove Ethernet's MISO regardless of initialization order.
 for (const name of ['c3-panel', 's3']) {
   const setup = fixtures[name].slice(fixtures[name].indexOf('void setup() {'))
   const network = setup.indexOf('_netEnsureConnected();')
-  if (!fixtures[name].includes('SPI.begin(sck, -1, mosi, -1)')) throw new Error(`${name}: missing the panel's SPI bus`)
+  if (!fixtures[name].includes('_spiBusBegin(sck, -1, mosi);')) throw new Error(`${name}: missing the panel's SPI bus`)
   if (network < 0 || network > setup.indexOf('\n}\n')) throw new Error(`${name}: setup() does not start the network`)
 }
 

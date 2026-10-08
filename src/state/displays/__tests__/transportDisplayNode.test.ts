@@ -14,6 +14,7 @@ import { DISPLAY_SIGNAL_KINDS } from '../displaySignal'
 const PLAIN = 'st7789-tft-240x240'
 const PARALLEL = 'ili9341-xc4630-parallel-touch-320x240'
 const TOUCH = 'st7789v-xpt2046-touch-240x320'
+const ILI_TOUCH = 'ili9341-xpt2046-touch-320x240'
 
 function display(id: string, over: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
@@ -102,7 +103,7 @@ describe('TransportDisplay registration', () => {
 
   it('offers only the module profiles in scope', () => {
     expect(partOptionsFor('TransportDisplay').map((option) => option.id))
-      .toEqual([PLAIN, PARALLEL, TOUCH])
+      .toEqual([PLAIN, PARALLEL, TOUCH, ILI_TOUCH])
   })
 
   it('makes the source-independent Diagnostics screen selectable', () => {

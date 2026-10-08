@@ -21,7 +21,7 @@ function emit(overrides: Partial<CustomDisplayPanelEmit> = {}): CustomDisplayPan
 
 function touchEmit(overrides: Partial<CustomDisplayPanelEmit> = {}): CustomDisplayPanelEmit {
   return emit({
-    touch: { csPin: 15, irqPin: 2, sckPin: 18, mosiPin: 23, misoPin: 19, xFrom: 200, xTo: 3900, yFrom: 200, yTo: 3900 },
+    touch: { csPin: 15, irqPin: 2, sckPin: 18, mosiPin: 23, misoPin: 19, sharesPanelBus: false, xFrom: 200, xTo: 3900, yFrom: 200, yTo: 3900 },
     ...overrides,
   })
 }
@@ -45,8 +45,7 @@ describe('custom display panel driver', () => {
 
   it('drives the panel through the same ST7789 register sequence tftDisplayCpp.ts verified', () => {
     const setup = customDisplayPanelSetupCpp(emit()).join('\n')
-    expect(setup).toContain('#if defined(ESP32)\n  SPI.begin(_cdPanel_screen.sck, -1, _cdPanel_screen.mosi, -1);')
-    expect(setup).toContain('#elif defined(ESP8266)\n  SPI.pins(_cdPanel_screen.sck, MISO, _cdPanel_screen.mosi, -1);\n  SPI.begin();')
+    expect(setup).toContain('_spiBusBegin(_cdPanel_screen.sck, -1, _cdPanel_screen.mosi);')
     expect(setup).toContain('_cdPanelCmd_screen(0x01); delay(150);') // SWRESET
     expect(setup).toContain('_cdPanelCmd_screen(0x11); delay(120);') // SLPOUT
     expect(setup).toContain('uint8_t colmod = 0x55')
@@ -77,7 +76,7 @@ describe('custom display panel driver', () => {
 
   it('uses plain input for a CYD touch IRQ on classic ESP32', () => {
     const setup = customDisplayPanelSetupCpp(touchEmit({
-      touch: { csPin: 33, irqPin: 36, sckPin: 25, mosiPin: 32, misoPin: 39,
+      touch: { csPin: 33, irqPin: 36, sckPin: 25, mosiPin: 32, misoPin: 39, sharesPanelBus: false,
         xFrom: 200, xTo: 3900, yFrom: 200, yTo: 3900 },
     })).join('\n')
     expect(setup).toContain('#if defined(CONFIG_IDF_TARGET_ESP32)\n  pinMode(36, INPUT);')

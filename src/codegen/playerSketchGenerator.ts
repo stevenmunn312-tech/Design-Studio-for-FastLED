@@ -70,6 +70,7 @@ import {
   stereoVuLoopCpp, type StereoVuEmit,
 } from './audio/stereoVuMeterCpp'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
+import { SPI_BUS_CPP } from './helpers/spiBusCpp'
 
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */
@@ -1149,6 +1150,10 @@ bool audioEnded = false;
 // pause/EOF so the OLED can distinguish a quiet player from a broken one.
 bool playbackReady = false;
 
+// The shared SPI helper is a function. Arduino inserts every prototype above
+// the first function body, so it has to follow ShowEvent: beside the pin
+// defines it produced "ShowEvent does not name a type" on applyEvent.
+${SPI_BUS_CPP}
 // ESP32-audioI2S reports pin, decoder, allocation, and sync failures only
 // through weak callbacks. Without these, a failed decoder merely leaves
 // getAudioCurrentTime() at zero while its large PSRAM read-ahead buffer makes
@@ -1958,7 +1963,8 @@ ${hasPatternSelection ? `  _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_
   // greeting and turns it into a real explanation (card seated? FAT32? CS pin?).
   // Said once here rather than on every retry, so it stays a greeting the host
   // can read instead of a stream it has to filter.
-  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  // The card reads, so it brings its MISO even if a panel began the bus first.
+  _spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);
   sdMounted = sdMountBestEffort();
   if (!sdMounted) Serial.println("ERR sd-mount-failed");
 

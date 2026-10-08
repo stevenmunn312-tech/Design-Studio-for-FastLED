@@ -28,7 +28,10 @@ import {
   asOledRotation, oledRotationCommands, asOledAddress, OLED_CONTROLLERS,
   type OledTransport,
 } from '../../state/displays/oledSurface'
-import { oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps } from '../../state/nodeLibrary'
+import {
+  oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps, xptTouchPinsForProps,
+  type XptTouchPins,
+} from '../../state/nodeLibrary'
 import { shownDesignId,
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
 } from '../../state/displays/transportDisplay'
@@ -120,17 +123,12 @@ export interface PlayerTransportDisplay {
   sckPin: number
   mosiPin: number
   backlightPin: number
-  touch: null | {
-    csPin: number
-    irqPin: number
-    sckPin: number
-    mosiPin: number
-    misoPin: number
+  touch: null | (XptTouchPins & {
     xFrom: number
     xTo: number
     yFrom: number
     yTo: number
-  }
+  })
   /**
    * A bare resistive sheet's four electrodes, when the panel has no digitiser.
    *
@@ -470,11 +468,7 @@ export function playerDisplaysFromGraph(
             || (transportTouch && touchNode !== undefined
               && displayControlsPlayer(touchNode.id, edges, byId)))
           ? {
-            csPin: intProp(props.touchCsPin, 15),
-            irqPin: intProp(props.touchIrqPin, 2),
-            sckPin: intProp(props.touchSckPin, 18),
-            mosiPin: intProp(props.touchMosiPin, 23),
-            misoPin: intProp(props.touchMisoPin, 19),
+            ...xptTouchPinsForProps(props),
             // See emittedTouchBounds: a reversed axis leaves here as a
             // descending span rather than a flag the firmware branches on.
             ...emittedTouchBounds(touchProps),

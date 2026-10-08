@@ -156,11 +156,11 @@ describe('the colour driver speaks through one bus abstraction', () => {
     expect(parallelSetup).toContain('_cdPanel_panel.bl = 255;')
   })
 
-  it('keeps an SPI screen design exactly as it was', () => {
+  it('starts the shared SPI host for an SPI screen design', () => {
     const spi = customDisplayPanelSetupCpp(customDisplayPanelFromProps('panel', {
       partId: 'st7789v-xpt2046-touch-240x320',
     })).join('\n')
-    expect(spi).toContain('SPI.begin(')
+    expect(spi).toContain('_spiBusBegin(')
     expect(spi).toContain('_cdPanel_panel.parallel = false;')
   })
 
@@ -174,7 +174,7 @@ describe('the colour driver speaks through one bus abstraction', () => {
   it('starts the SPI peripheral only for a panel that has one', () => {
     // A parallel panel owns its pins outright and has no peripheral to start;
     // calling SPI.begin for one would claim SCK and MOSI it never uses.
-    expect(cpp).toMatch(/if \(p\.parallel\) \{[\s\S]*?\} else if \(!_tftSpiStarted\) \{/)
+    expect(cpp).toMatch(/if \(p\.parallel\) \{[\s\S]*?\} else \{\s+_spiBusBegin\(sck, -1, mosi\);/)
   })
 
   it('defaults to SPI when a caller says nothing about data lines', () => {

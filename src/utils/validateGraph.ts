@@ -5,6 +5,7 @@ import {
   isPortlessNodeType,
   NODE_LIBRARY,
   supportsScalarExpression,
+  xptTouchPinsForProps,
 } from '../state/nodeLibrary'
 import { isLinearForm, outputForm, outputLedTotal } from '../state/output/ledOutputForm'
 import { PALETTE_BUILDER_NODE_TYPES, tftTransportForProps } from '../state/nodeLibrary'
@@ -2740,6 +2741,17 @@ export function findDisplayGeneratorIssues(
       }
     }
     if (!displayHasTouch(String(props.partId ?? ''))) continue
+    if (tftTransportForProps(props) === 'spi') {
+      const touch = xptTouchPinsForProps(props)
+      const sharesClock = touch.sckPin === Number(props.sckPin ?? 18)
+      const sharesData = touch.mosiPin === Number(props.mosiPin ?? 23)
+      // A hardware transaction uses both host outputs; software SPI must not
+      // reclaim either output from the panel's peripheral.
+      if (sharesClock !== sharesData) {
+        errors.push(`${nodeLabel(display)}: touch shares only part of the panel's SPI bus. `
+          + 'Share both SCK and MOSI, or give touch its own SCK and MOSI pins.')
+      }
+    }
     /*
      * Touch leaves through the Touch node, not the panel.
      *

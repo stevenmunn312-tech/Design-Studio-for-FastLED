@@ -208,11 +208,11 @@ describe('XPT2046 player controls', () => {
     expect(resolve([node('plain', 'TransportDisplay', { partId: PLAIN })]).tft[0].touch).toBeNull()
   })
 
-  it('emits the software-SPI sampler, calibrated rotation, and visible hit regions', () => {
+  it('emits the shared-SPI sampler, calibrated rotation, and visible hit regions', () => {
     const src = sketch(graph, wires)
     const g = nowPlayingGeometry(320, 240)
     expect(src).toContain('static uint16_t _xptRead12(')
-    expect(src).toContain('_xptPoint(15, 2, 18, 23, 19, 321, 3789, 245, 3821, 240, 320, 1,')
+    expect(src).toContain('_xptPoint(15, 2, 255, 255, 255, 321, 3789, 245, 3821, 240, 320, 1,')
     expect(src).toContain(`_touchX_tft >= ${g.state.x} && _touchX_tft < ${g.state.x + g.state.w}`)
     expect(src).toContain('if (audio.pauseResume()) playerPaused = !playerPaused;')
     expect(src).toContain(`(_touchX_tft - ${g.volume.x}) / ${g.volume.w - 1}.0f`)

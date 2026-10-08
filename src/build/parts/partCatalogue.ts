@@ -428,8 +428,9 @@ const PART_PIN_PROPERTY_ALIASES: Record<string, readonly string[]> = {
   i2sSd: ['SD', 'DOUT', 'DATA', 'DO'],
   // Grove digital sensors print SIG for their one controller line.
   pin: ['SIG', 'S', 'OUT', 'DAT'],
-  touchCsPin: ['T_CS'],
-  touchIrqPin: ['T_IRQ'],
+  // DFRobot prints the digitiser's select and pen interrupt as TOUCH_CS and INT.
+  touchCsPin: ['T_CS', 'TOUCH_CS'],
+  touchIrqPin: ['T_IRQ', 'INT'],
   touchSckPin: ['T_CLK'],
   touchMosiPin: ['T_DIN'],
   touchMisoPin: ['T_DO'],
@@ -543,13 +544,11 @@ export function catalogueDisplays(): PartCatalogueEntry[] {
  * that silently omits a part). Naming an id here rather than skipping
  * unoffered parts is what keeps a *newly* unoffered part a failure.
  *
- * - `ili9341-xpt2046-touch-320x240`: modelled but undriven.
- *
- * Remove an id the moment a build of that part can light up, not before.
+ * Empty since the ILI9341 SPI breakout gained its fixture on 8 October 2026.
+ * Name an id with its reason, and remove it the moment a build of that part
+ * can light up, not before.
  */
-export const CATALOGUE_ONLY_DISPLAY_PART_IDS: readonly string[] = [
-  'ili9341-xpt2046-touch-320x240',
-]
+export const CATALOGUE_ONLY_DISPLAY_PART_IDS: readonly string[] = []
 
 /** The panel geometry a fixed layout is computed against. */
 export function displayResolution(partId: string): { width: number; height: number } | null {

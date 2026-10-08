@@ -80,6 +80,8 @@ def display_legs(engine: str) -> list[Leg]:
     legs = [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino") for name in s3]
     legs.append(Leg("display", "compile-display-smoke.py", engine, folder / "classic-esp32-fixed.ino", CLASSIC, "classic"))
     if engine == "arduino-cli":
+        legs += [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino")
+                 for name in ("ili9341-fixed", "ili9341-custom", "ili9341-show", "ili9341-player", "ili9341-calibration", "ili9341-sd-video")]
         # The fbuild half of the display record is the twelve fixtures above.
         legs += [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino") for name in ("template-led", "template-player")]
         legs.append(Leg("display", "compile-display-smoke.py", engine, folder / "classic-caption-level.ino", CLASSIC, "classic"))

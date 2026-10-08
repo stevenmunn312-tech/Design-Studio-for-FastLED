@@ -1,15 +1,17 @@
 // XPT2046 sampling and fixed-layout player actions.
 //
-// The controller is sampled with a tiny software SPI transaction. That is
-// intentional: the module exposes a separately routable touch bus, while the
-// display and SD player already share the Arduino SPI singleton. Bit-banging
-// lets either wiring described by the hardware model work without re-beginning
-// the SD/display host underneath another client.
+// Two ways to reach the controller, chosen by its wiring. A digitiser on lines
+// of its own, as on the CYD, is bit-banged: a tiny software transaction on
+// pins no peripheral holds. A digitiser on the panel's own clock and data lines
+// is read through the SPI host instead, because bit-banging pins the host owns
+// does not share them. See `XptTouchPins.sharesPanelBus`.
 
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../../state/upload/deviceTelemetry'
 import { transportTouchRegions } from '../../state/displays/transportTouch'
 import { type TftController, type TftRotation } from '../../state/displays/tftSurface'
 import type { TransportDisplayLayout } from '../../state/displays/transportDisplay'
+import type { XptTouchPins } from '../../state/nodeLibrary'
+import { NO_PIN } from '../../build/boards/boardGpio'
 import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from '../deviceTelemetryCpp'
 
 export interface TftTouchEmit {
@@ -26,8 +28,7 @@ export interface TftTouchEmit {
   layout: TransportDisplayLayout
   /** Runtime gate: a disabled panel reads no touch, as it draws nothing. */
   enabledExpr: string
-  touch: {
-    csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
+  touch: XptTouchPins & {
     xFrom: number; xTo: number; yFrom: number; yTo: number
   }
   /**
@@ -48,6 +49,22 @@ export function tftTouchGlobalCpp(display: TftTouchEmit): string {
 
 export const TFT_TOUCH_CPP_HELPERS = `// ── XPT2046 touch ────────────────────────────────────────────────────────────
 static uint16_t _xptRead12(uint8_t cs, uint8_t sck, uint8_t mosi, uint8_t miso, uint8_t command) {
+  // 255 for the clock: the digitiser is on the panel's own SPI lines, which the
+  // host owns, so it is read in a transaction of its own at its own 2 MHz.
+  if (sck == 255) {
+#ifdef SPI_HAS_TRANSACTION
+    static SPISettings xpt(2000000, MSBFIRST, SPI_MODE0);
+    SPI.beginTransaction(xpt);
+    digitalWrite(cs, LOW);
+    SPI.transfer(command);
+    uint16_t word = SPI.transfer16(0);
+    digitalWrite(cs, HIGH);
+    SPI.endTransaction();
+    return (word >> 3) & 0x0FFF;
+#else
+    return 0;
+#endif
+  }
   digitalWrite(cs, LOW);
   for (int bit = 7; bit >= 0; bit--) {
     digitalWrite(sck, LOW); digitalWrite(mosi, (command >> bit) & 1); digitalWrite(sck, HIGH);
@@ -177,12 +194,38 @@ export function tftTouchSetupCpp(display: TftTouchEmit): string[] {
   // panel's, already configured as outputs by `_tftBegin`, and each read
   // borrows and returns them. Claiming them again here would fight that.
   if (display.resistive) return []
+  return xptTouchSetupCpp(t)
+}
+
+/**
+ * An XPT2046's setup, for whichever way it is wired.
+ *
+ * On the panel's lines it claims only its select: the host is started with the
+ * MISO it reads on, and `pinMode` on a line the host holds would stop the bus
+ * the panel draws through. On lines of its own it bit-bangs, so it owns them.
+ * A pen interrupt nobody wired is left alone rather than given `pinMode(255)`.
+ */
+export function xptTouchSetupCpp(t: XptTouchPins): string[] {
   return [
     `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
-    `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
-    `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
-    ...tftTouchIrqSetupCpp(t.irqPin),
+    ...(t.sharesPanelBus
+      ? [`  _spiBusBegin(${t.sckPin}, ${t.misoPin}, ${t.mosiPin});`]
+      : [
+        `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
+        `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
+      ]),
+    ...(t.irqPin === NO_PIN ? [] : tftTouchIrqSetupCpp(t.irqPin)),
   ]
+}
+
+/**
+ * The pin arguments of an `_xptPoint` call: 255 for the bus lines of a
+ * digitiser that is read through the panel's SPI host.
+ */
+export function xptPointPinArgs(t: XptTouchPins): string {
+  return t.sharesPanelBus
+    ? `${t.csPin}, ${t.irqPin}, 255, 255, 255`
+    : `${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}`
 }
 
 /**
@@ -310,7 +353,7 @@ export function tftTouchServiceCpp(
       ? [`    ${down} = (${display.enabledExpr}) && _resPoint(${display.resistive.xpPin}, ${display.resistive.xmPin}, `
         + `${display.resistive.ypPin}, ${display.resistive.ymPin}, `
         + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`]
-      : [`    ${down} = (${display.enabledExpr}) && _xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `
+      : [`    ${down} = (${display.enabledExpr}) && _xptPoint(${xptPointPinArgs(t)}, `
         + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, ${display.controller.width}, ${display.controller.height}, ${rotation}, ${pointX}, ${pointY}, ${rawX}, ${rawY});`]),
     `    static bool _touchPrev_${id} = false;`,
   ]

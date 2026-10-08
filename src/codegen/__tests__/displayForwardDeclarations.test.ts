@@ -280,6 +280,14 @@ describe('the SD player sketch', () => {
     expect(src).toContain('_tftBegin(')
   })
 
+  it('defines ShowEvent before the first function', () => {
+    const src = generatePlayerSketch()
+    const defined = src.indexOf('struct ShowEvent {')
+    expect(defined, 'struct ShowEvent is missing').toBeGreaterThan(-1)
+    expect(defined, 'ShowEvent must precede the first function, or Arduino hoists applyEvent above it')
+      .toBeLessThan(firstFunctionAt(src))
+  })
+
   it('declares nothing for a player with no display', () => {
     const src = generatePlayerSketch({}, undefined, {})
     expect(src).not.toContain(INFO_DISPLAY_CPP_FORWARD)

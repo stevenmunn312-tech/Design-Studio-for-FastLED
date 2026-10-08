@@ -46,6 +46,7 @@ import {
 } from '../../state/displays/transportDisplay'
 import { ledStatusCountText } from '../../state/output/ledOutputRuntime'
 import { DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
+import { SPI_BUS_CPP } from '../helpers/spiBusCpp'
 
 /**
  * Forward declaration for the top of a sketch, above the includes' first
@@ -305,7 +306,7 @@ export function tftDisplayHelpersCpp(
   const c = TRANSPORT_COLORS
   const mixedTransport = profile.spi && profile.parallel
   const spiGlobals = profile.spi
-    ? `static SPISettings _tftSpi(40000000, MSBFIRST, SPI_MODE0);\nstatic bool _tftSpiStarted = false;`
+    ? `${SPI_BUS_CPP}\nstatic SPISettings _tftSpi(40000000, MSBFIRST, SPI_MODE0);`
     : ''
   const transportFields = mixedTransport
     ? `  bool parallel;\n  uint8_t d[8];\n  uint8_t wr;`
@@ -356,19 +357,11 @@ static inline void _tftWrite8(TftPanel &, uint8_t value) { SPI.transfer(value); 
       ? `  p.wr = wr;
   for (uint8_t b = 0; b < 8; b++) p.d[b] = dataPins[b];`
       : ''
-  const spiBegin = `if (!_tftSpiStarted) {
-#if defined(ESP32)
-    // The GPIO matrix routes the peripheral to whichever pins the build chose,
-    // so an arbitrary pinout still gets hardware SPI.
-    SPI.begin(sck, -1, mosi, -1);
-#elif defined(ESP8266)
-    // ESP8266 exposes pin selection separately from begin().
-    SPI.pins(sck, MISO, mosi, -1);
-    SPI.begin();
-#else
-    SPI.begin();
-#endif
-    _tftSpiStarted = true;
+  // Hardware SPI on whichever pins the build chose: the ESP32's GPIO matrix
+  // routes the peripheral anywhere. A write-only panel asks for no MISO; a
+  // reader sharing the bus adds its own through the same call.
+  const spiBegin = `{
+    _spiBusBegin(sck, -1, mosi);
   }`
   const parallelBegin = `for (uint8_t b = 0; b < 8; b++) { pinMode(p.d[b], OUTPUT); digitalWrite(p.d[b], LOW); }
   pinMode(p.wr, OUTPUT); digitalWrite(p.wr, HIGH);

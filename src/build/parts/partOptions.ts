@@ -503,6 +503,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
         summary: '240x320 colour TFT with XPT2046 touch',
         note: 'The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch node whose Controls output is what a finger on the glass publishes.',
       },
+      {
+        id: 'ili9341-xpt2046-touch-320x240',
+        label: 'ILI9341 2.8-inch + touch',
+        summary: '320x240 colour TFT with XPT2046 touch',
+        note: 'The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch node.',
+      },
     ],
   },
   // Display (the document node) has no partId — it has no physical existence

@@ -303,8 +303,8 @@ they name.
   TFT Clock treatment. This run verified clean, correctly-oriented, uninverted
   Waiting text, not the later Clock screen; that is evidence
   (not proof) this unit's panel is ST7789-compatible despite most
-  ESP32-2432S028 units shipping ILI9341, a controller Studio has no driver
-  for. Not promoted to a support row: the imported board profile does not yet
+  ESP32-2432S028 units shipping ILI9341, a controller Studio then had no driver
+  for. Not promoted to a support row: the imported board profile did not yet
   model this board's fixed internal wiring (tracked in root `todo.md`, HW-12),
   the controller identity is not confirmed, and Now Playing / Fixed Transport /
   Show Status plus Studio-generated touch are untested — they need a real Music
@@ -453,6 +453,12 @@ Unless a future row says otherwise, treat the following as experimental:
   on the colour TFT, any touch interaction, the custom `Display` (LVGL) node,
   and every display module/board combination not listed in the table above
   remain unvalidated on real hardware.
+- **DFRobot DFR0665 ILI9341 + XPT2046 breakout.** The catalogue entry
+  `ili9341-xpt2046-touch-320x240` is offered for fixed and custom screens.
+  Display, touch and card share the module's SPI header, with separate chip
+  selects. Geometry, colours, touch accuracy and concurrent card/audio use
+  still need physical validation; see the
+  [display compile record](../reports/compile/display-compile-checks.md).
 - **Powering the controller from a buck converter.** The LM2596 module
   (`PowerConverter`) changes only the Build Diagram, connection list and BOM;
   the firmware is unchanged. No bench run of a board powered through its 5 V

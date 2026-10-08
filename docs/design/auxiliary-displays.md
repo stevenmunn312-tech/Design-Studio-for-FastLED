@@ -659,12 +659,16 @@ board with an SD slot on it.
 | TM1637 / MAX7219 | Inline controller-specific segment drivers |
 | SSD1306 / SH1106 | Inline OLED driver, both catalogue-derived transports |
 | ST7789 / ST7789V | Inline SPI TFT renderer; custom screens use the LVGL panel adapter |
+| ILI9341 | Inline SPI or 8-bit parallel renderer and LVGL adapter; native 240x320 geometry |
 | XPT2046 | Shared `tftTouchCpp.ts` sampling and LVGL indev wrapper |
 | Custom UI | LVGL 9.5.0, pinned by the helper; selected font-size configuration |
 
-U8g2/LovyanGFX were candidates, not current dependencies. ILI9341 is not a
-current driver. Exact integrated-board controller identity must be established
-before adding it (HW-12). Generated firmware never follows a floating library
+U8g2/LovyanGFX were candidates, not current dependencies. The DFRobot DFR0665
+SPI breakout shares SCK, MOSI and MISO between its ILI9341 and XPT2046;
+touch uses its own 2 MHz SPI transaction. The XC4630 uses the parallel driver
+and bare resistive-sheet sampler. Both remain experimental until bench-tested.
+Exact integrated-board controller identity must still be established before
+adding a board profile (HW-12). Generated firmware never follows a floating library
 branch. See the [compile record](../reports/compile/display-compile-checks.md) for the toolchain
 contract and the current fixture limitation.
 

@@ -15,6 +15,7 @@ import {
   tftControllerForProps,
   transportDisplayPinKeysForProps,
   tftTransportForProps,
+  xptTouchPinsForProps,
 } from '../../state/nodeLibrary'
 import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/output/ledOutputRuntimeCpp'
 import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/output/renderScaleCpp'
@@ -551,11 +552,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         id, controller, rotation, layout, enabledExpr: `_tftOn_${id}`,
         telemetry: emitTelemetry,
         touch: {
-          csPin: intProp(p.touchCsPin, 15, 0, MAX_PIN_NUMBER),
-          irqPin: intProp(p.touchIrqPin, 2, 0, MAX_PIN_NUMBER),
-          sckPin: intProp(p.touchSckPin, 18, 0, MAX_PIN_NUMBER),
-          mosiPin: intProp(p.touchMosiPin, 23, 0, MAX_PIN_NUMBER),
-          misoPin: intProp(p.touchMisoPin, 19, 0, MAX_PIN_NUMBER),
+          ...xptTouchPinsForProps(p),
           // Calibration belongs to the glass, so it is read from the Touch
           // node when there is one. A panel showing its own Diagnostics
           // screen with no Touch node beside it still needs bounds, and

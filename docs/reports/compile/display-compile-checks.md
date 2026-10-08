@@ -1,6 +1,7 @@
 # Display firmware compile checks
 
-> **Evidence for the current model.** All nineteen fixtures passed on Arduino
+> **Latest work:** see [ILI9341 and shared SPI, 8 October 2026](#ili9341-and-shared-spi-8-october-2026).
+> The earlier nineteen-fixture baseline passed on Arduino
 > CLI on 8 October 2026, and the twelve-fixture fbuild half passed on fbuild
 > 2.5.37, at matching source hashes and with LVGL's pool taken from the heap; see
 > [Current-model matrix, 8 October 2026](#current-model-matrix-8-october-2026).
@@ -190,6 +191,62 @@ The initial runs exposed these gaps, now covered by regression tests:
   ports moved to the paired Touch node. `scripts/compile-fixtures/display.ts` then
   refused the show sketch. The fixtures mint a `TouchInput` per touch
   panel; `assertWireable` holds the cables to what the editor can draw.
+
+## ILI9341 and shared SPI, 8 October 2026
+
+The DFRobot DFR0665 SPI breakout is now offered as
+`ili9341-xpt2046-touch-320x240`. Its descriptor uses native 240x320 geometry;
+Landscape produces 320x240. The ILI9341 MADCTL table matches the
+[Adafruit driver](https://github.com/adafruit/Adafruit_ILI9341/blob/master/Adafruit_ILI9341.cpp).
+The [module reference](https://wiki.dfrobot.com/dfr0665/) identifies its
+shared SPI header and XPT2046 touch controller.
+
+The new fixtures use SCK 12, MOSI 11, MISO 13, panel CS 14, touch CS 6 and
+IRQ 5. The player and SD Video add card CS 10 on that same bus. Hidden
+separate-touch properties deliberately name different pins; generated firmware
+must use the module's actual shared header. A 320x240 LED Performance screen
+covers normal and slideshow LVGL paths, and Minimal Transport covers the player.
+
+`spiBusCpp.ts` lets a reader add MISO after a write-only panel without changing
+SCK/MOSI. Shared touch samples in a separate 2 MHz transaction and does not
+reclaim the panel's SPI pins with `pinMode`. CYD touch stays on its separate
+software bus. Native C++ execution tests cover reader-first and panel-first
+initialization, helper deduplication and transaction boundaries.
+
+Arduino CLI only; fbuild remains on hold. These builds use ESP32-S3 with
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`.
+Logs and full source hashes are under `artifacts/ili9341-compile/`.
+
+| Fixture | Source SHA-256 prefix | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| `ili9341-fixed` | `f20ea88b8459` | Passed | 437,883 | 27,756 |
+| `ili9341-custom` | `20a2f959992f` | Passed | 619,763 | 42,060 |
+| `ili9341-show` | `dd2291ec0f22` | Passed | 624,443 | 42,148 |
+| `ili9341-player` | `c5fe1672c41e` | Passed | 1,327,015 | 57,748 |
+| `ili9341-calibration` | `33a4996e30ab` | Passed | 314,788 | 22,840 |
+| `ili9341-sd-video` | `98b09e08db39` | Passed | 488,263 | 28,004 |
+
+The player hash is the sketch that emits the shared SPI helper after
+`ShowEvent`. An earlier sketch put the helper above that struct, and Arduino
+then compiled `applyEvent` before the type existed.
+
+The C3 Ethernet and panel regression passed the same day on
+`esp32:esp32:esp32c3`: source `7fd27a8e`, 722,694 flash bytes (22%) and
+26,756 static RAM bytes (8%). Its report is under
+`artifacts/ili9341-ethernet/`. See the
+[Ethernet compile record](ethernet-compile-checks.md).
+
+Reproduce the six new cases serially:
+
+```powershell
+python scripts/compile-fixtures/compile-matrix.py --only display/ili9341
+```
+
+These checks do not establish physical display orientation, colour order,
+touch accuracy, SD coexistence or audio continuity. Both ILI9341 modules remain
+experimental; unidentified integrated boards still need their controller and
+fixed pins measured. Earlier matrix rows below describe their dated source hashes,
+not a rerun of every display combination after this change.
 
 ## Current-model matrix, 8 October 2026
 

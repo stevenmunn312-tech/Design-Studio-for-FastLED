@@ -8,8 +8,8 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## How this list works
 
-- **Sections run in order of progression:** close out software that already
-  exists, finish the remaining engineering, keep expanding hardware, gather
+- **Sections run in order of progression:** finish the remaining engineering,
+  keep expanding hardware, gather
   bench evidence alongside all of it, then run the release track. Within a
   section, do the items in the order listed. Section 6 waits until after v1.
 - **Engineering items close on software**, plus a compile where the item
@@ -29,11 +29,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   an entry once its outcome is recorded, and route details through
   [docs/index.md](docs/index.md).
 
-## 1. Close out software that already exists
-
-Compiles owed by features that are already in the app: none open. Every
-feature's fixtures compile on Arduino CLI as of 8 October 2026.
-
 ## 2. Remaining engineering before v1
 
 - [ ] **HW-12 · Integrated display boards (M).** Add exact profiles, bus
@@ -43,10 +38,11 @@ feature's fixtures compile on Arduino CLI as of 8 October 2026.
   no reliable documentation. The ESP32-2432S028R profile is in the app and
   bench-proven, and a full board now says so by name
   ([hardware nodes](docs/architecture/hardware-model.md#boards-with-hardware-already-on-them)).
-  The same driver question covers the catalogued ILI9341 + XPT2046 SPI module,
-  which is modelled but undriven (`CATALOGUE_ONLY_DISPLAY_PART_IDS` in
-  `src/build/parts/partCatalogue.ts`): most ESP32-2432S028 units ship that
-  controller.
+  The catalogued DFRobot ILI9341 + XPT2046 SPI module now has a driver,
+  shared-bus touch and calibration. Its compile evidence is in the
+  [display compile record](docs/reports/compile/display-compile-checks.md#ili9341-and-shared-spi-8-october-2026);
+  controller identification and fixed pin maps for other integrated
+  boards remain separate work.
 
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
@@ -108,7 +104,9 @@ chooses the supported combinations from whatever is on record at release.
   generated `setup()` with serial markers and read the last one
   ([bring-up](docs/reports/bench/xc4630-bring-up.md#next-step)).
 - **Custom boards:** one custom layout compared against its board's documented
-  pinout, then representative projects flashed, after the compile in section 1.
+  pinout, then representative projects flashed. The software compile is
+  recorded
+  ([compile record](docs/reports/compile/custom-board-compile-checks.md)).
 
 ### Firmware and show matrix
 

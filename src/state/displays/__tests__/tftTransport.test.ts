@@ -11,8 +11,10 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  TFT_CONTROLLERS, TFT_TRANSPORTS, tftControllerFor, tftTransportFor,
+  TFT_CONTROLLERS, TFT_TRANSPORTS, TFT_ROTATIONS, tftControllerFor, tftTransportFor,
+  tftMadctl, tftRotatedSize, tftWindowOrigin,
 } from '../tftSurface'
+import { tftControllerForProps } from '../../nodeLibrary'
 import { catalogueDisplays, partById } from '../../../build/parts/partCatalogue'
 
 const XC4630 = 'ili9341-xc4630-parallel-touch-320x240'
@@ -64,6 +66,21 @@ describe('tftTransportFor', () => {
 })
 
 describe('the ILI9341 descriptor', () => {
+  it.each([DFROBOT, XC4630])('keeps %s inside controller RAM at every rotation', (partId) => {
+    const controller = tftControllerForProps({ partId })!
+    expect([controller.width, controller.height]).toEqual([240, 320])
+    // Adafruit ILI9341 and TFT_eSPI agree on these MADCTL bytes.
+    expect(TFT_ROTATIONS.map((rotation) => tftMadctl(controller, rotation)))
+      .toEqual([0x48, 0x28, 0x88, 0xe8])
+    for (const rotation of TFT_ROTATIONS) {
+      expect(tftWindowOrigin(controller, rotation)).toEqual({ col: 0, row: 0 })
+      const landscape = rotation === '90' || rotation === '270'
+      expect(tftRotatedSize(controller, rotation)).toEqual({
+        width: landscape ? 320 : 240, height: landscape ? 240 : 320,
+      })
+    }
+  })
+
   it('resolves by name without colliding with the ST7789s', () => {
     expect(tftControllerFor('ILI9341')?.id).toBe('ILI9341')
     expect(tftControllerFor('ST7789')?.id).toBe('ST7789')

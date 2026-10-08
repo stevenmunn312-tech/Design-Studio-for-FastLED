@@ -3,10 +3,10 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { StudioNode, StudioEdge } from '../../src/state/graphStore'
-import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
+import { NODE_LIBRARY, libraryDefaults, tftControllerForProps } from '../../src/state/nodeLibrary'
 import { catalogueDisplays, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../src/build/parts/partCatalogue'
 import { partOptionsFor } from '../../src/build/parts/partOptions'
-import { findPinConflicts } from '../../src/utils/validateGraph'
+import { findDisplayGeneratorIssues, findPinConflicts } from '../../src/utils/validateGraph'
 import { assertWireable } from '../../src/test-utils/assertWireable'
 import { createDisplayDocument, addDisplayWidget } from '../../src/state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../src/state/displays/displayTemplates'
@@ -18,6 +18,7 @@ import { CUSTOM_DESIGN_LAYOUT } from '../../src/state/displays/transportDisplay'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { generateShowSketch } from '../../src/codegen/showGenerator'
 import { buildShowPlayer } from '../../src/utils/showUpload'
+import { generateTouchCalibrationSketch, touchCalibrationTargetFor } from '../../src/codegen/sketches/touchCalibrationSketch'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -542,7 +543,67 @@ for (const [name, graph, documents] of [
   }
 }
 
+// DFR0665: one physical SPI header serves the panel, XPT2046 and card.
+// Hidden separate-touch defaults deliberately differ from the real shared pins.
+const iliPanel = (properties: Record<string, unknown> = {}) => panel('ili-panel', {
+  partId: 'ili9341-xpt2046-touch-320x240', tftRotation: '90',
+  touchSckPin: 18, touchMosiPin: 23, touchMisoPin: 19, ...properties,
+})
+const iliFixedNodes = [board(), output(), node('fill', 'SolidColor'), iliPanel({ tftLayout: 'Diagnostics' }), touch('ili-panel')]
+const iliFixedEdges = [edge('fill', 'frame', 'out', 'frame')]
+const iliVideoNodes = [
+  ...iliFixedNodes.filter((entry) => entry.id !== 'fill'), node('sd', 'SDCard'),
+  node('video', 'SDVideo', { clip: { id: 'spi-test', name: 'shared-spi', w: 8, h: 8, fps: 30, frames: 60 } }),
+]
+const iliVideoEdges = [edge('video', 'frame', 'out', 'frame')]
+const iliLedDocument = applyDisplayTemplate(createDisplayDocument('ili-led', 320, 240), 'led-performance')
+const iliPlayerDocument = applyDisplayTemplate(createDisplayDocument('ili-player', 320, 240), 'minimal-transport')
+const iliDesignPanel = (design: DisplayDocument) => iliPanel({
+  displayId: design.displayId, tftLayout: CUSTOM_DESIGN_LAYOUT, widgetSources: displayWidgetSources(design),
+})
+const iliCustomNodes = [board(), output(), node('fill', 'SolidColor'), iliDesignPanel(iliLedDocument), touch('ili-panel')]
+const iliCustomEdges = [
+  ...iliFixedEdges, edge('out', 'display', 'ili-panel', 'display'), edge('ili-panel-touch', 'controls', 'out', 'controls'),
+]
+const iliShowNodes = [
+  board(), output(), iliDesignPanel(iliLedDocument), touch('ili-panel'),
+  node('collection', 'PatternCollection', { patternIds: ['pattern'] }), node('show', 'PatternSlideshow'),
+]
+const iliShowEdges = [
+  edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame'),
+  edge('out', 'display', 'ili-panel', 'display'), edge('ili-panel-touch', 'controls', 'out', 'controls'),
+]
+const iliPlayerNodes = [
+  board(), output(), iliDesignPanel(iliPlayerDocument), touch('ili-panel'),
+  node('player', 'PatternMaster'), node('sd', 'SDCard'), node('amp', 'Amplifier'),
+]
+const iliPlayerEdges = [
+  edge('player', 'frame', 'out', 'frame'), edge('player', 'display', 'ili-panel', 'display'),
+  edge('ili-panel-touch', 'controls', 'player', 'controls'),
+]
+for (const [nodes, edges, design] of [
+  [iliCustomNodes, iliCustomEdges, iliLedDocument],
+  [iliShowNodes, iliShowEdges, iliLedDocument],
+  [iliPlayerNodes, iliPlayerEdges, iliPlayerDocument],
+] as const) {
+  const documents = { [design.displayId]: design }
+  assertWireable(nodes, edges, documents)
+  const { errors } = findDisplayGeneratorIssues(nodes, edges, documents)
+  if (errors.length) throw new Error(`ILI9341 fixture has invalid display wiring: ${errors.join('; ')}`)
+}
+
 const sketches: Record<string, string> = {
+  'ili9341-fixed': generateCpp(iliFixedNodes, iliFixedEdges),
+  'ili9341-sd-video': generateCpp(iliVideoNodes, iliVideoEdges),
+  'ili9341-custom': generateCpp(iliCustomNodes, iliCustomEdges, {}, displayOptions({ 'ili-led': iliLedDocument })),
+  'ili9341-show': generateShowSketch(iliShowNodes, iliShowEdges, groups, displayOptions({ 'ili-led': iliLedDocument })),
+  'ili9341-player': buildShowPlayer(iliPlayerNodes, iliPlayerEdges, groups, {
+    ...displayOptions({ 'ili-player': iliPlayerDocument }), patternSet: ['pattern'],
+    bakedAudio: false, genericPlayer: true, preferredTrack: '',
+  }),
+  'ili9341-calibration': generateTouchCalibrationSketch(touchCalibrationTargetFor(
+    iliPanel().data.properties, tftControllerForProps(iliPanel().data.properties), '90',
+  )),
   normal: generateCpp(normalNodes, normalEdges, {}, clockOptions),
   show: generateShowSketch(showNodes, showEdges, groups, {
     ...showOptions,
@@ -612,6 +673,11 @@ const sketches: Record<string, string> = {
  * — so check them the way the app checks a user's graph.
  */
 const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }> = {
+  'ili9341-fixed': { nodes: iliFixedNodes, edges: iliFixedEdges },
+  'ili9341-sd-video': { nodes: iliVideoNodes, edges: iliVideoEdges },
+  'ili9341-custom': { nodes: iliCustomNodes, edges: iliCustomEdges },
+  'ili9341-show': { nodes: iliShowNodes, edges: iliShowEdges },
+  'ili9341-player': { nodes: iliPlayerNodes, edges: iliPlayerEdges },
   normal: { nodes: normalNodes, edges: normalEdges },
   show: { nodes: showNodes, edges: showEdges },
   player: { nodes: playerNodes, edges: playerEdges },
@@ -644,7 +710,7 @@ for (const [name, graph] of Object.entries(fixtureGraphs)) {
  * *newly* unoffered part is still a failure rather than a silent skip.
  */
 const CATALOGUE_ONLY = CATALOGUE_ONLY_DISPLAY_PART_IDS
-const fixtureNodes = [...partNodes, ...altPartNodes, ...parallelNodes, ...common, fixedPanel(), ...playerNodes]
+const fixtureNodes = [...partNodes, ...altPartNodes, ...parallelNodes, ...common, fixedPanel(), ...playerNodes, ...iliFixedNodes]
 const compiledParts = new Set(fixtureNodes.map((entry) => String(entry.data.properties.partId ?? '')))
 const offeredParts = new Set(['InfoDisplay', 'TransportDisplay', 'SegmentDisplay']
   .flatMap((nodeType) => partOptionsFor(nodeType).map((option) => option.id)))
@@ -664,6 +730,12 @@ for (const entry of catalogueDisplays()) {
 }
 
 const requiredSymbols: Record<string, readonly string[]> = {
+  'ili9341-fixed': ['_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);', '_tftBegin(_tft_ili_panel'],
+  'ili9341-sd-video': ['_spiBusBegin(SDV_SCK, SDV_MISO, SDV_MOSI);', '_xptPoint(6, 5, 255, 255, 255,'],
+  'ili9341-custom': ['lv_display_create(320, 240)', '_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);'],
+  'ili9341-show': ['lv_display_create(320, 240)', '_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);'],
+  'ili9341-player': ['lv_display_create(320, 240)', '_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);'],
+  'ili9341-calibration': ['_xptPoint(6, 5, 255, 255, 255,', '_spiBusBegin(12, 13, 11);'],
   // The last four of each generator's list are the binding path: a string read
   // through that build's own table, a `set` role, a float, and — where the build
   // has one — the flash table the reading needs. They are named per generator

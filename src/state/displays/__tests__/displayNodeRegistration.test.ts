@@ -99,7 +99,12 @@ describe('display node registration contracts', () => {
     expect(driver, partId).not.toBeNull()
     expect(spec.controller.toUpperCase()).toContain(driver!.id.toUpperCase())
     if (driver && 'width' in driver) {
-      expect({ width: driver.width, height: driver.height }).toEqual(displayResolution(partId))
+      const resolution = displayResolution(partId)!
+      // TFT descriptors use native portrait; catalogue renders may face landscape.
+      const expected = nodeType === 'TransportDisplay'
+        ? { width: Math.min(resolution.width, resolution.height), height: Math.max(resolution.width, resolution.height) }
+        : resolution
+      expect({ width: driver.width, height: driver.height }).toEqual(expected)
     }
   })
 

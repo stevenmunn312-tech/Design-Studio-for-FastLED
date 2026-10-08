@@ -57,8 +57,9 @@ export function ethernetModuleIn(nodes: readonly StudioNode[]): StudioNode | nul
  * Where the chip has a second general-purpose SPI host (`HSPI`), the module
  * gets that host to itself, so it cannot disturb the colour panel on the
  * default `SPI` object and its pins are its own. The C3 and C6 have only one,
- * so there the module shares `SPI` with any panel — and since `SPI.begin`
- * takes pins only the first time, both must name the same three bus lines.
+ * so there the module shares `SPI` with any panel. The shared host keeps the
+ * clock and MOSI it was first given, and a later reader can add MISO, so both
+ * must name the same clock and data pins.
  *
  * ESP8266 and every non-Espressif target are refused: the sketch's `ETH`
  * driver is Arduino-ESP32's, and nothing else here has been built against a

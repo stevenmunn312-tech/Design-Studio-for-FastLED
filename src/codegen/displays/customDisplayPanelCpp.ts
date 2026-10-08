@@ -20,7 +20,8 @@ import {
 } from '../../state/displays/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../../state/upload/deviceTelemetry'
 import {
-  tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps,
+  tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps, xptTouchPinsForProps,
+  type XptTouchPins,
 } from '../../state/nodeLibrary'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { emittedTouchBounds } from '../../state/displays/transportTouch'
@@ -28,7 +29,8 @@ import { MAX_PIN_NUMBER } from '../../build/boards/boardGpio'
 import { customDisplayId } from './customDisplayId'
 import { tftInitSequence } from './tftInitSequence'
 import { TELEMETRY_TOUCH_PRESS_CPP, telemetryTouchSampleCpp } from '../deviceTelemetryCpp'
-import { tftTouchIrqSetupCpp } from './tftTouchCpp'
+import { xptPointPinArgs, xptTouchSetupCpp } from './tftTouchCpp'
+import { SPI_BUS_CPP } from '../helpers/spiBusCpp'
 
 export const CUSTOM_DISPLAY_PANEL_CPP_INCLUDES = '#include <SPI.h>'
 
@@ -53,8 +55,7 @@ export function customDisplayPanelBufferPixels(controller: TftController, rotati
   return tftRotatedSize(controller, rotation).width * CUSTOM_DISPLAY_PANEL_BUFFER_LINES
 }
 
-export interface CustomDisplayPanelTouch {
-  csPin: number; irqPin: number; sckPin: number; mosiPin: number; misoPin: number
+export interface CustomDisplayPanelTouch extends XptTouchPins {
   xFrom: number; xTo: number; yFrom: number; yTo: number
 }
 
@@ -141,8 +142,7 @@ export function customDisplayPanelFromProps(
       }
       : {}),
     touch: displayHasTouch(String(p.partId ?? '')) ? {
-      csPin: integer('touchCsPin', 15), irqPin: integer('touchIrqPin', 2),
-      sckPin: integer('touchSckPin', 18), mosiPin: integer('touchMosiPin', 23), misoPin: integer('touchMisoPin', 19),
+      ...xptTouchPinsForProps(p),
       // See emittedTouchBounds: a reversed axis leaves here as a descending
       // span rather than a flag the LVGL read callback branches on.
       ...emittedTouchBounds(calibration),
@@ -165,6 +165,8 @@ export function customDisplayPanelGlobalCpp(emit: CustomDisplayPanelEmit): strin
   const id = emit.id
   const bufPixels = customDisplayPanelBufferPixels(emit.controller, emit.rotation)
   const lines = [
+    // Guarded, so one copy survives however many panels and SPI clients carry it.
+    ...(emit.parallel ? [] : [SPI_BUS_CPP]),
     `struct CustomDisplayPanel_${id} {`,
     `  uint8_t cs, dc, rst, sck, mosi, bl;`,
     `  uint16_t colStart, rowStart;`,
@@ -295,7 +297,7 @@ function panelIndevCpp(emit: CustomDisplayPanelEmit): string {
   bool pressed = ${emit.resistive
     ? `_resPoint(${emit.resistive.xpPin}, ${emit.resistive.xmPin}, `
       + `${emit.resistive.ypPin}, ${emit.resistive.ymPin}, `
-    : `_xptPoint(${t.csPin}, ${t.irqPin}, ${t.sckPin}, ${t.mosiPin}, ${t.misoPin}, `}`
+    : `_xptPoint(${xptPointPinArgs(t)}, `}`
     + `${t.xFrom}, ${t.xTo}, ${t.yFrom}, ${t.yTo}, `
     + `${emit.controller.width}, ${emit.controller.height}, ${rotationCode(emit.rotation)}, x, y, rawX, rawY);
   data->point.x = x;
@@ -384,16 +386,8 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
     // A parallel panel starts no SPI bus: it would claim an SCK and MOSI this
     // module does not have, on pins that are either in use here or absent from
     // the board entirely.
-    ...(emit.parallel ? [] : [
-      `#if defined(ESP32)`,
-      `  SPI.begin(_cdPanel_${id}.sck, -1, _cdPanel_${id}.mosi, -1);`,
-      `#elif defined(ESP8266)`,
-      `  SPI.pins(_cdPanel_${id}.sck, MISO, _cdPanel_${id}.mosi, -1);`,
-      `  SPI.begin();`,
-      `#else`,
-      `  SPI.begin();`,
-      `#endif`,
-    ]),
+    // Write-only, so no MISO; a reader sharing the bus adds its own.
+    ...(emit.parallel ? [] : [`  _spiBusBegin(_cdPanel_${id}.sck, -1, _cdPanel_${id}.mosi);`]),
     `  if (_cdPanel_${id}.rst != 255) {`,
     `    digitalWrite(_cdPanel_${id}.rst, HIGH); delay(10);`,
     `    digitalWrite(_cdPanel_${id}.rst, LOW);  delay(10);`,
@@ -443,12 +437,7 @@ export function customDisplayPanelSetupCpp(emit: CustomDisplayPanelEmit): string
        * `FastLED.addLeds` — and came back with no screen, no LEDs, and a USB
        * CDC port that enumerates but will not open.
        */
-      ...(emit.resistive ? [] : [
-        `  pinMode(${t.csPin}, OUTPUT); digitalWrite(${t.csPin}, HIGH);`,
-        `  pinMode(${t.sckPin}, OUTPUT); digitalWrite(${t.sckPin}, LOW);`,
-        `  pinMode(${t.mosiPin}, OUTPUT); pinMode(${t.misoPin}, INPUT);`,
-        ...tftTouchIrqSetupCpp(t.irqPin),
-      ]),
+      ...(emit.resistive ? [] : xptTouchSetupCpp(t)),
       `  _cdIndev_${id} = lv_indev_create();`,
       `  lv_indev_set_type(_cdIndev_${id}, LV_INDEV_TYPE_POINTER);`,
       `  lv_indev_set_read_cb(_cdIndev_${id}, _cdIndevRead_${id});`,

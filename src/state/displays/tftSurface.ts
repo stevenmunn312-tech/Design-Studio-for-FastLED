@@ -63,6 +63,20 @@ export interface TftController {
    */
   colorOrder: 'RGB' | 'BGR'
   /**
+   * Whether the glass scans its columns the other way from the ST7789s, so
+   * MADCTL's column-mirror bit is inverted at every rotation.
+   *
+   * Another fault that draws a plausible picture rather than a dark one: text
+   * comes up mirrored left to right. `ROTATION_BITS` below is the ST7789
+   * table. An ILI9341 with its usual display-function setting (0xB6 = 08 82
+   * 27, which `tftInitSequence.ts` sends) needs MX set to read upright at
+   * rotation 0, and every working driver for it - TFT_eSPI's ILI9341 rotation
+   * table and Adafruit's alike - is that table with MX flipped in all four
+   * rows. Only MADCTL changes. Offsets are defined relative to rotation 0, so
+   * `tftWindowOrigin` reads the shared table either way.
+   */
+  mirroredColumns: boolean
+  /**
    * Whether the panel needs INVON.
    *
    * The required polarity is a property of the fitted panel, not merely the
@@ -92,26 +106,28 @@ export interface TftController {
 export const TFT_CONTROLLERS: Record<string, TftController> = {
   ST7789: {
     id: 'ST7789', width: 240, height: 240, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', invert: true,
+    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', mirroredColumns: false, invert: true,
   },
   ST7789V: {
     id: 'ST7789V', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', invert: false,
+    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', mirroredColumns: false, invert: false,
   },
   /*
-   * Native portrait 240x320, as the descriptor contract requires; the two
-   * catalogued ILI9341 modules both declare a landscape 320x240 resolution and
-   * `tftControllerForProps` overrides these figures from the catalogue.
+   * Native portrait 240x320, as the descriptor contract requires. The two
+   * catalogued ILI9341 modules both state a landscape 320x240 resolution;
+   * that is the same glass on its side, which `tftControllerForProps` reads
+   * as these figures rather than as a different panel.
    *
-   * BGR and no inversion are where it parts company with the ST7789s above.
-   * The ILI9341 wires its subpixels the other way round, so MADCTL bit 3 has to
-   * be set or every panel shows a plausible picture with red and blue swapped,
-   * and unlike the ST7789 it powers up already the right way round, so driving
-   * INVON would produce a photographic negative.
+   * BGR, mirrored columns and no inversion are where it parts company with the
+   * ST7789s above. The ILI9341 wires its subpixels the other way round, so
+   * MADCTL bit 3 has to be set or every panel shows a plausible picture with
+   * red and blue swapped; it scans columns the other way, so the picture is
+   * mirrored without MX; and unlike the ST7789 it powers up already the right
+   * way round, so driving INVON would produce a photographic negative.
    */
   ILI9341: {
     id: 'ILI9341', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'BGR', invert: false,
+    columnOffset: 0, rowOffset: 0, colorOrder: 'BGR', mirroredColumns: true, invert: false,
   },
 }
 
@@ -241,7 +257,7 @@ export function tftMadctl(controller: TftController, rotation: TftRotation): num
   const bits = ROTATION_BITS[rotation]
   let value = 0
   if (bits.my) value |= MADCTL_MY
-  if (bits.mx) value |= MADCTL_MX
+  if (bits.mx !== controller.mirroredColumns) value |= MADCTL_MX
   if (bits.mv) value |= MADCTL_MV
   if (controller.colorOrder === 'BGR') value |= MADCTL_BGR
   return value

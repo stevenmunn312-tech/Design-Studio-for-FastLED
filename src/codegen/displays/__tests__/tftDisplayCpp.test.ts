@@ -103,7 +103,7 @@ describe('the sketch preamble', () => {
     expect(TFT_DISPLAY_CPP_INCLUDES).toContain('#include <SPI.h>')
     expect(helpers).toContain('SPI.beginTransaction')
     expect(helpers).toContain('SPI.endTransaction')
-    expect(helpers).toContain('#if defined(ESP32)\n    // The GPIO matrix')
+    expect(helpers).toContain('SPI.begin(sck, miso, mosi, -1);')
     expect(helpers).toContain('#elif defined(ESP8266)')
     expect(helpers).toContain('SPI.pins(sck, MISO, mosi, -1);')
   })

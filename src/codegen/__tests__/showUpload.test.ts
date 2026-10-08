@@ -12,7 +12,7 @@ describe('generateProvisionerSketch', () => {
     expect(ino).toContain('#define SD_SCK  18')
     expect(ino).toContain('#define SD_MISO  19')
     expect(ino).toContain('#define SD_MOSI  23')
-    expect(ino).toContain('SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS)')
+    expect(ino).toContain('_spiBusBegin(SD_SCK, SD_MISO, SD_MOSI)')
     expect(ino).toContain(`#define CHUNK      ${PROVISION_CHUNK}`)
   })
 
@@ -268,7 +268,7 @@ describe('generatePlayerSketch audio output', () => {
     expect(ino).toContain('#define SD_SCK        19')
     expect(ino).toContain('#define SD_MISO       255')
     expect(ino).toContain('#define SD_MOSI       11')
-    expect(ino).toContain('SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);')
+    expect(ino).toContain('_spiBusBegin(SD_SCK, SD_MISO, SD_MOSI);')
     expect(ino).toContain('#define I2S_BCLK      255')
     expect(ino).toContain('#define I2S_LRC       25')
     expect(ino).toContain('#define I2S_DOUT      22')

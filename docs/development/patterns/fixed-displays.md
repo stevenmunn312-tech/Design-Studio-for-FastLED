@@ -247,7 +247,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   offset. Which silicon drives a panel and how large the glass itself is are two
   different facts: `tftControllerForProps` in `nodeLibrary.ts` resolves the base
   descriptor by controller name, then overrides its width/height from the part
-  catalogue's own `resolutionPx` whenever that disagrees with the chip-name
+  catalogue's own `resolutionPx`, normalized to native portrait, whenever that disagrees with the chip-name
   default, rather than baking one panel size per chip and forcing every module
   on that chip to share it — the same relationship the OLED's `columnOffset`
   expresses for narrower glass windowed into wider RAM (e.g. a 240x240 module
@@ -259,7 +259,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   catalogue and firmware sides are fixed. `displayPartCoverage.test.ts` derives
   its cases from `catalogueDisplays()` rather than a part-id list, so a display
   imported later fails until it has geometry, a part-menu entry (or a named
-  `CATALOGUE_ONLY` exemption, as both catalogued ILI9341 modules still have) and
+  `CATALOGUE_ONLY` exemption for a module without a driver) and
   pads found by its own silkscreen. A catalogue part id names the *module
   design*, not what arrived in the post: `st7789v-xpt2046-touch-240x320` is both
   the CYD's integrated panel, which has a working digitiser, and a standalone
@@ -277,11 +277,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   parallel" leads with the bus width and a leading-token match would aim
   four-wire SPI writes at eight data lines, and anything else defaults to SPI as
   the safer wrong answer. The ILI9341 descriptor is the first that doesn't share
-  the ST7789 shape: `colorOrder: 'BGR'` and `invert: false` are exactly the two
-  fields that yield a plausible-but-wrong picture rather than a dark one, and
-  `invert`'s value came from the datasheet power-on state, not a bench run. The
-  XC4630 is out of `CATALOGUE_ONLY` (only `ili9341-xpt2046-touch-320x240`
-  remains there): its touch panel has no controller and reads four of the
+  the ST7789 shape: `colorOrder: 'BGR'`, `mirroredColumns: true` and
+  `invert: false` prevent swapped colours, mirrored text and inversion.
+  MADCTL is `48/28/88/E8` at `0/90/180/270`, matching the
+  [Adafruit driver](https://github.com/adafruit/Adafruit_ILI9341/blob/master/Adafruit_ILI9341.cpp).
+  These are driver references, not bench evidence. Both ILI9341 modules are
+  offered and covered by fixtures. The XC4630's touch panel has no controller and reads four of the
   panel's own LCD lines as electrodes, and `tftTouchCpp.ts`'s `_resPoint` does
   that read without a second pin claim (see the parallel-transport bullet
   below). **A panel's touch is resolved per generator, and every generator that
@@ -375,6 +376,29 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   handling can't drift between a digitiser chip and a bare sheet. The XC4630
   is in the part menu and the generators emit this read for it — see the
   XC4630/`CATALOGUE_ONLY` note above.
+
+## Shared SPI touch
+
+`xptTouchPinsForProps` resolves every generator's digitiser wiring, including
+the calibration sketch. A module with no separate touch clock pad
+([DFR0665](https://wiki.dfrobot.com/dfr0665/))
+uses the panel's SCK/MOSI/MISO properties and hides separate touch bus fields.
+An ST7789V header can use separate pins, as the CYD does, or share SCK and MOSI.
+Partial sharing of those outputs is refused by display validation.
+
+Shared touch uses a 2 MHz hardware transaction. Calling `pinMode` on ESP32
+SPI outputs detaches the host, so only the chip select and IRQ are configured
+by touch setup. Separate touch remains software SPI. An absent IRQ is never
+passed to `pinMode`.
+
+`spiBusCpp.ts` starts the default host for fixed/LVGL panels, touch, SD,
+SD Video and single-host Ethernet. ESP32 `SPI.begin` ignores later pin changes;
+when a reader follows a write-only panel, the helper restarts the host once
+to add MISO, preserving SCK/MOSI. Later panels never remove MISO. Calls belong
+outside transactions. The player emits the helper after `ShowEvent`: Arduino
+inserts prototypes above the first function body, and a helper above that
+struct makes `applyEvent` fail to compile. Native execution tests check both initialization orders
+and touch transaction boundaries; physical coexistence still needs a bench run.
 
 ## On the Hardware bench
 

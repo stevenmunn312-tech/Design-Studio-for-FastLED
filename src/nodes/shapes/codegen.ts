@@ -71,6 +71,7 @@ import { ringTrackLeds } from '../../state/evaluator/stringTrack'
 
 import { asSdVideoClip, SDV_HEADER_BYTES, SDV_MAX_SPEED, sdvFrameBytes, sdvPath } from '../../state/evaluator/sdVideo'
 import { sanitizePin } from '../../codegen/hardwarePins'
+import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -96,9 +97,11 @@ export const SHAPES_EMITTERS: NodeEmitters = {
         `#define SDV_SCK  ${sanitizePin(bus.sdSckPin, 12)}`,
         `#define SDV_MISO ${sanitizePin(bus.sdMisoPin, 13)}`,
         `#define SDV_MOSI ${sanitizePin(bus.sdMosiPin, 11)}`,
+        SPI_BUS_CPP,
         `static bool _sdvReady = false;`,
         `static bool _sdvMount() {`,
-        `  SPI.begin(SDV_SCK, SDV_MISO, SDV_MOSI, SDV_CS);`,
+        // The card reads, so it brings its MISO even if a panel began the bus first.
+        `  _spiBusBegin(SDV_SCK, SDV_MISO, SDV_MOSI);`,
         `  if (SD.begin(SDV_CS, SPI, 20000000)) return true;`,
         `  return SD.begin(SDV_CS, SPI, 4000000);`,
         `}`,

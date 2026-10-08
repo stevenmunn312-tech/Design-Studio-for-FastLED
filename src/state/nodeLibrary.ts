@@ -22,7 +22,7 @@ import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boa
 import { EASE_TYPES } from '../nodes/math/easing'
 import { DATE_TIME_TEXT_MODES } from './displays/displayText'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './displays/segmentDisplay'
-import { partById } from '../build/parts/partCatalogue'
+import { partById, partPinLabelForProperty } from '../build/parts/partCatalogue'
 import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
 import { OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, oledControllerFor, oledTransportFor, type OledController, type OledTransport } from './displays/oledSurface'
 import {
@@ -2733,9 +2733,19 @@ export function tftControllerForProps(properties: Record<string, unknown>): TftC
   // size comes from the catalogue's own resolutionPx when it disagrees with
   // the controller-name default, rather than baking one panel size per chip
   // name and forcing every module on that chip to share it.
+  //
+  // The catalogue states a resolution the way its render faces, and both
+  // ILI9341 modules are rendered landscape, while a descriptor is native
+  // portrait. Copied across as stated, 320x240 became the controller's
+  // native size: rotation 0 then addressed 320 columns of a controller with
+  // 240 in that scan, and every rotation's window origin went eighty pixels
+  // negative. The short side is the native width whichever way it is stated.
   const resolution = entry?.display?.resolutionPx
-  if (!resolution || (resolution[0] === base.width && resolution[1] === base.height)) return base
-  return { ...base, width: resolution[0], height: resolution[1] }
+  if (!resolution) return base
+  const width = Math.min(resolution[0], resolution[1])
+  const height = Math.max(resolution[0], resolution[1])
+  if (width === base.width && height === base.height) return base
+  return { ...base, width, height }
 }
 
 /** Every pin property either colour transport wires, for the gate below. */
@@ -2803,9 +2813,87 @@ export function transportDisplayPinKeysForProps(properties: Record<string, unkno
     return [...TFT_TRANSPORT_PINS.parallel]
   }
   // An SPI panel without a digitiser has no touch header to wire.
-  return display.touchController
-    ? [...TRANSPORT_DISPLAY_BASE_PINS, ...TRANSPORT_DISPLAY_TOUCH_PINS]
-    : [...TRANSPORT_DISPLAY_BASE_PINS]
+  if (!display.touchController) return [...TRANSPORT_DISPLAY_BASE_PINS]
+  // A digitiser on the panel's own SCLK/MOSI/MISO pads has only its select and
+  // interrupt to wire; the bus lines are already the panel's.
+  const ownBus = touchBusPinKeysForProps(properties).sck === 'touchSckPin'
+  return [
+    ...TRANSPORT_DISPLAY_BASE_PINS,
+    ...TRANSPORT_DISPLAY_TOUCH_PINS.filter((key) => ownBus || !TOUCH_BUS_PIN_KEYS.has(key)),
+  ]
+}
+
+const TOUCH_BUS_PIN_KEYS = new Set(['touchSckPin', 'touchMosiPin', 'touchMisoPin'])
+
+/**
+ * Which panel properties carry the XPT2046's clock, data-in and data-out.
+ *
+ * Two module shapes exist. The 2.4-inch ST7789V module breaks the digitiser's
+ * bus out on its own T_CLK/T_DIN/T_DO pads, which can be jumpered to the
+ * panel's bus or wired somewhere else entirely, as the CYD does. The DFRobot
+ * ILI9341 breakout has one SCLK, one MOSI and one MISO pad, shared on the
+ * board by panel, digitiser and card, so there is no separate touch line to
+ * describe and offering one would invite wiring a pad that does not exist.
+ *
+ * Read from the printed pads: a module that prints no touch clock has none. A
+ * part the catalogue cannot resolve keeps the separate keys, which is what the
+ * generators' fallback panel has always emitted.
+ */
+export function touchBusPinKeysForProps(
+  properties: Record<string, unknown>,
+): { sck: string; mosi: string; miso: string } {
+  const partId = String(properties.partId ?? '')
+  const shared = partById(partId)?.display?.touchController
+    && partPinLabelForProperty(partId, 'touchSckPin') === null
+  return shared
+    ? { sck: 'sckPin', mosi: 'mosiPin', miso: 'misoPin' }
+    : { sck: 'touchSckPin', mosi: 'touchMosiPin', miso: 'touchMisoPin' }
+}
+
+/** The XPT2046's pins as a generator emits them. */
+export interface XptTouchPins {
+  csPin: number
+  irqPin: number
+  sckPin: number
+  mosiPin: number
+  misoPin: number
+  /**
+   * Whether the digitiser shares the panel's clock and MOSI, so it has to be
+   * read through the panel's SPI host rather than bit-banged.
+   *
+   * Bit-banging pins the SPI peripheral owns does not share them. On the ESP32
+   * core, `pinMode` on a pin the SPI bus holds runs the bus's detach callback,
+   * which unroutes SCK and stops the bus, so the panel goes dark the moment
+   * touch setup runs. And once the bus holds a pin, `digitalWrite` on it is
+   * refused. A shared bus therefore means a shared host, read in its own
+   * slower transaction.
+   */
+  sharesPanelBus: boolean
+}
+
+/**
+ * Every generator's XPT2046 pins, with the defaults they have always used.
+ *
+ * Four generators used to restate this list, and a module whose digitiser
+ * has no bus pads of its own would have had to be taught four times.
+ */
+export function xptTouchPinsForProps(properties: Record<string, unknown>): XptTouchPins {
+  const pin = (key: string, fallback: number) => {
+    const value = Math.round(Number(properties[key] ?? fallback))
+    return Number.isFinite(value) ? Math.max(0, Math.min(MAX_PIN_NUMBER, value)) : fallback
+  }
+  const bus = touchBusPinKeysForProps(properties)
+  const sckPin = pin(bus.sck, 18)
+  const mosiPin = pin(bus.mosi, 23)
+  return {
+    csPin: pin('touchCsPin', 15),
+    irqPin: pin('touchIrqPin', 2),
+    sckPin,
+    mosiPin,
+    misoPin: pin(bus.miso, 19),
+    sharesPanelBus: tftTransportForProps(properties) === 'spi'
+      && sckPin === pin('sckPin', 18) && mosiPin === pin('mosiPin', 23),
+  }
 }
 
 /** Whether this panel's module drives an 8-bit parallel bus. */
