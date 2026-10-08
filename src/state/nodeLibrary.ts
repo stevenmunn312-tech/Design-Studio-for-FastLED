@@ -36,7 +36,7 @@ import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MA
 import { RENDER_SCALE_OPTIONS } from './output/renderScale'
 import { POSITION_PRESETS, STRIP_LAYOUTS, usesPositions } from './output/stringPositions'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
-import { relayPinKeys } from './peripherals/relayModule'
+import { relayChannelPropertyEnabled, relayPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchChannelPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
 import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
 import { BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerIsPassive } from './peripherals/buzzer'
@@ -2977,6 +2977,7 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
 export function isPropertyEnabled(nodeType: string, key: string, properties: Record<string, unknown>): boolean {
   // A channel the selected board does not have has no pin to wire and no load to dim.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
+  if (nodeType === 'RelayOutput') return relayChannelPropertyEnabled(key, properties.partId)
   // Only a passive buzzer has a pitch to set; an active one's is its own.
   if (nodeType === 'BuzzerOutput' && key === 'pitchHz') return buzzerIsPassive(properties.partId)
   if (nodeType === 'DistanceInput' && ['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'i2cAddress', 'xshutPin'].includes(key)) {

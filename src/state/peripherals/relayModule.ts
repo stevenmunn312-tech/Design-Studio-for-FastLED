@@ -33,3 +33,27 @@ export function relayPinKeys(partId: unknown): string[] {
     (_, index) => `in${index + 1}Pin`,
   )
 }
+
+/** True when a HIGH pin energises the channel. Mechanical modules stay active-low. */
+export function relayActiveHigh(partId: unknown): boolean {
+  return partById(String(partId ?? ''))?.relay?.trigger === 'active-high'
+}
+
+/** The catalogue load kind, as a sentence the Build Diagram and the inspector can show. */
+export function relayLoadLabel(kind: string | undefined): string {
+  if (kind === 'ac') return 'AC only'
+  if (kind === 'dc') return 'DC only'
+  if (kind === 'ac-dc') return 'AC or DC'
+  return kind ?? ''
+}
+
+/**
+ * Whether a channel-numbered pin belongs to a channel this module has.
+ * Properties that are not channel pins stay enabled.
+ */
+export function relayChannelPropertyEnabled(key: string, partId: unknown): boolean {
+  const match = /^in(\d+)Pin$/.exec(key)
+  if (!match) return true
+  const index = Number(match[1])
+  return index >= 1 && index <= relayChannelCountForPart(partId)
+}

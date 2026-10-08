@@ -62,7 +62,7 @@ import { OLED_CONTROLLERS, asOledAddress, oledRotationCommands, asOledRotation }
 import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import { type TransportTouchAction, TRANSPORT_TOUCH_ACTION_TYPES, emittedTouchBounds } from '../../state/displays/transportTouch'
-import { relayPinKeys } from '../../state/peripherals/relayModule'
+import { relayActiveHigh, relayPinKeys } from '../../state/peripherals/relayModule'
 import {
   POWER_SWITCH_PIN_FALLBACKS, powerSwitchActiveHigh, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz,
 } from '../../state/peripherals/powerSwitch'
@@ -228,15 +228,18 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of dfPlayerLoopCpp(emit)) ln(line)
   },
   RelayOutput({ node, p, ln, boolExpr, pinSetupLines }) {
-    // These modules are active-low. Drive the inactive level into the
-    // output latch before switching the pin to OUTPUT so reset/setup does
-    // not produce a brief relay click.
+    // Idle level comes from the part. A mechanical module is active-low, so
+    // the latch is HIGH before the pin becomes an output and reset does not
+    // click the relay. An active-high phototriac board must sit LOW instead:
+    // its transistor turns the load on at HIGH, including during reset.
+    const activeHigh = relayActiveHigh(p.partId)
+    const [energised, idle] = activeHigh ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
     const fallbacks = [5, 16, 17, 18, 19, 21, 22, 23]
     for (const [index, key] of relayPinKeys(p.partId).entries()) {
       const pin = sanitizePin(p[key], fallbacks[index])
-      pinSetupLines.add(`  digitalWrite(${pin}, HIGH);`)
+      pinSetupLines.add(`  digitalWrite(${pin}, ${idle});`)
       pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
-      ln(`  digitalWrite(${pin}, ${boolExpr(node.id, `channel${index + 1}`)} ? LOW : HIGH);`)
+      ln(`  digitalWrite(${pin}, ${boolExpr(node.id, `channel${index + 1}`)} ? ${energised} : ${idle});`)
     }
   },
   PowerSwitchOutput({ node, id, p, ln, f, boolExpr, pinSetupLines, incoming, nodes, props, globalLines }) {

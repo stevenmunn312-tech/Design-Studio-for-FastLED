@@ -161,6 +161,7 @@ with `--engine fbuild` or `--engine all`.
 - [Power-switch compile checks](reports/compile/power-switch-compile-checks.md)
 - [HLK-LD2410C firmware compile checks](reports/compile/presence-sensor-compile-checks.md)
 - [PWM-driver compile checks](reports/compile/pwm-driver-compile-checks.md)
+- [Solid-state relay compile checks](reports/compile/ssr-compile-checks.md)
 - [Temperature-probe compile checks](reports/compile/temperature-sensor-compile-checks.md)
 - [Grove Touch Sensor firmware compile checks](reports/compile/touch-button-compile-checks.md)
 - [Touch-pad compile checks](reports/compile/touch-pad-compile-checks.md)

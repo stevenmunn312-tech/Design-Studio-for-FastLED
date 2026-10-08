@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import PartIdentity from '../PartIdentity'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
@@ -43,5 +43,29 @@ describe('PartIdentity', () => {
     } as never)
     render(<PartIdentity nodeId="part" nodeType="MatrixOutput" />)
     expect(screen.queryByText(/more about this module/)).toBeNull()
+  })
+
+  it('states a relay load, its leakage and its isolation', () => {
+    useGraphStore.setState({
+      nodes: [part('RelayOutput', { partId: 'relay-module-1ch-5v' })],
+      edges: [],
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+    render(<PartIdentity nodeId="part" nodeType="RelayOutput" />)
+    expect(screen.getByText('AC or DC')).toBeTruthy()
+    expect(screen.getByText('none: open metal contact')).toBeTruthy()
+    expect(screen.getByText('opto-isolated coil; dry contacts are galvanically open when off')).toBeTruthy()
+    cleanup()
+
+    useGraphStore.setState({
+      nodes: [part('RelayOutput', { partId: 'seeed-grove-2ch-ssr' })],
+      edges: [],
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+    render(<PartIdentity nodeId="part" nodeType="RelayOutput" />)
+    expect(screen.getByText('AC only')).toBeTruthy()
+    expect(screen.getByText('1.5 mA max at 200 VAC')).toBeTruthy()
+    expect(screen.getByText(/2,500 VAC for 1 minute/)).toBeTruthy()
+    expect(screen.getByText(/A DC load latches on/)).toBeTruthy()
   })
 })

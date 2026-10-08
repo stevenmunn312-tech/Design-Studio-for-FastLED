@@ -568,6 +568,30 @@ describe('generateCpp', () => {
     expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? LOW : HIGH);')
   })
 
+  it('holds an active-high solid-state relay off before enabling its two GPIOs', () => {
+    const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
+    const relay = node('relay', 'RelayOutput', 'output', {
+      partId: 'seeed-grove-2ch-ssr',
+      in1Pin: 5,
+      in2Pin: 16,
+      in3Pin: 17,
+    })
+    const cpp = generateCpp(
+      [button, relay],
+      [edge('relay-trigger', 'btn', 'relay', 'pressed', 'channel1')],
+    )
+
+    for (const pin of [5, 16]) {
+      const idle = cpp.indexOf(`digitalWrite(${pin}, LOW);`)
+      const output = cpp.indexOf(`pinMode(${pin}, OUTPUT);`)
+      expect(idle).toBeGreaterThanOrEqual(0)
+      expect(output).toBeGreaterThan(idle)
+    }
+    expect(cpp).not.toContain('pinMode(17, OUTPUT);')
+    expect(cpp).toContain('digitalWrite(5, n_btn_pressed ? HIGH : LOW);')
+    expect(cpp).toContain('digitalWrite(16, false ? HIGH : LOW);')
+  })
+
   it('holds an active-high power switch off before enabling its GPIO, then drives it from the wire', () => {
     const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
     const sw = node('sw', 'PowerSwitchOutput', 'output', { partId: 'lr7843-mosfet-module', signalPin: 25 })
@@ -577,7 +601,7 @@ describe('generateCpp', () => {
     const output = cpp.indexOf('pinMode(25, OUTPUT);')
     expect(off).toBeGreaterThanOrEqual(0)
     expect(output).toBeGreaterThan(off)
-    // Active-high, unlike the relay modules: pressed means HIGH means load on.
+    // Active-high, unlike the mechanical relay modules: pressed means HIGH means load on.
     expect(cpp).toContain('digitalWrite(25, n_btn_pressed ? HIGH : LOW);')
   })
 

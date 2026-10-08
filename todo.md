@@ -41,13 +41,11 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  2. A solid-state relay, only once AC/DC load type, leakage and isolation are
-     represented honestly.
-  3. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
+  2. Exact controller profiles with measured pin maps: ESP32-C3 SuperMini,
      ESP32-C6-DevKitC-1, ESP8266 D1 Mini, Raspberry Pi Pico W, Teensy 4.1,
      Arduino Nano ESP32, WT32-ETH01 (its LAN8720 Ethernet is a board profile,
      not a module) and QuinLED Dig-Uno and Dig-Quad.
-  4. Families that extend the power model: battery chargers, cell balancers,
+  3. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
      with fuses, balancer, BMS and 100 W charge/discharge control.
@@ -128,6 +126,11 @@ chooses the supported combinations from whatever is on record at release.
 
 ### Power and outputs
 
+- **D-05 solid-state relay:** the Seeed Grove 2-channel board switching a real
+  AC load within 0.1 to 2 A, both channels held off through reset and setup,
+  each channel independent, the 1.5 mA off-state leakage observable or measured,
+  VCC at 5 V, and a DC load confirmed not to turn off. The row's requirements
+  are in the support matrix.
 - **D-05 power switch:** the LR7843 switching and dimming a real DC load,
   including the MOSFET temperature at 50% duty; the row's requirements are in
   the support matrix.

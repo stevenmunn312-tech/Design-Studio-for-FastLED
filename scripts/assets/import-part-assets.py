@@ -173,18 +173,38 @@ def read_part(part_dir: Path) -> dict | None:
     relay = data.get("relay")
     if relay:
         channels = relay.get("channels")
-        if isinstance(channels, int) and 1 <= channels <= 8:
-            entry["relay"] = {
-                "channels": channels,
-                "coilVoltage": relay.get("coilVoltage") or "5 V DC",
-                "trigger": relay.get("trigger") or "active-low",
-                "contacts": relay.get("contacts") or "SPDT (NO/COM/NC)",
-                "contactRating": relay.get("contactRating") or "",
-                "optoIsolated": bool(relay.get("optoIsolated")),
-            }
-        else:
-            print(f"  ! {part_id}: relay block has no channel count from 1 to 8 — skipped",
-                  file=sys.stderr)
+        load_kind = relay.get("loadKind")
+        leakage = relay.get("leakage")
+        isolation = relay.get("isolation")
+        # No default for the load. A missing field used to be read as a dry
+        # contact, which is exactly what a phototriac is not.
+        if not (isinstance(channels, int) and 1 <= channels <= 8):
+            sys.exit(f"{part_id}: relay block has no channel count from 1 to 8")
+        if load_kind not in ("ac", "dc", "ac-dc") or not leakage or not isolation:
+            sys.exit(f"{part_id}: relay block needs loadKind (ac, dc or ac-dc), leakage and isolation")
+        block = {
+            "channels": channels,
+            "coilVoltage": relay.get("coilVoltage") or "5 V DC",
+            "trigger": relay.get("trigger") or "active-low",
+            "contacts": relay.get("contacts") or "SPDT (NO/COM/NC)",
+            "contactRating": relay.get("contactRating") or "",
+            "optoIsolated": bool(relay.get("optoIsolated")),
+            "loadKind": load_kind,
+            "leakage": leakage,
+            "isolation": isolation,
+        }
+        if isinstance(relay.get("zeroCross"), bool):
+            block["zeroCross"] = relay["zeroCross"]
+        minimum = relay.get("minimumLoad")
+        if isinstance(minimum, str) and minimum:
+            block["minimumLoad"] = minimum
+        labels = relay.get("channelInputLabels")
+        if labels is not None:
+            if not (isinstance(labels, list) and len(labels) == channels
+                    and all(isinstance(label, str) and label for label in labels)):
+                sys.exit(f"{part_id}: relay channelInputLabels must be one name per channel")
+            block["channelInputLabels"] = labels
+        entry["relay"] = block
     # A DC MOSFET switch's electrical identity. Carried through because the
     # app states these limits (load supply, continuous current, the missing
     # flyback diode) wherever the part is wired, and a number retyped in the

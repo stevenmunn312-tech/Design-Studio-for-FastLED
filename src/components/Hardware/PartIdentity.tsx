@@ -1,5 +1,6 @@
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
+import { relayLoadLabel } from '../../state/peripherals/relayModule'
 import styles from './PartIdentity.module.css'
 
 /**
@@ -52,6 +53,23 @@ export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nod
           <span className={styles.key}>Logic</span>
           <span className={styles.value}>{identity.entry.logicVoltage}</span>
         </div>
+      )}
+
+      {identity.entry?.relay && (
+        <>
+          <div className={styles.row}>
+            <span className={styles.key}>Load</span>
+            <span className={styles.value}>{relayLoadLabel(identity.entry.relay.loadKind)}</span>
+          </div>
+          <div className={styles.row}>
+            <span className={styles.key}>Leakage</span>
+            <span className={styles.value}>{identity.entry.relay.leakage}</span>
+          </div>
+          <div className={styles.row}>
+            <span className={styles.key}>Isolation</span>
+            <span className={styles.value}>{identity.entry.relay.isolation}</span>
+          </div>
+        </>
       )}
 
       {identity.entry?.pinLabelsLeftToRight?.length ? (

@@ -851,8 +851,10 @@ when the window or side panels change size, so the part being inspected does
 not jump away.
 
 Parts on the workbench light up as the real ones would while your project
-runs. Power LEDs glow. A relay's channel LED lights while that channel is on,
-and a Mosfetti channel LED dims with its channel. An IR receiver's indicator
+runs. Power LEDs glow. A relay's channel LED lights while that channel is on.
+On a solid-state relay that on-state is the phototriac conducting: the part
+panel states whether the load is AC only, what it leaks while off, and how the
+input is isolated. A Mosfetti channel LED dims with its channel. An IR receiver's indicator
 lights while you hold one of its keys on the node, and a ZY12PDN shows the
 colour of the voltage it asks for. A board shows only its power LED lit,
 because an idle board's TX, RX and user LEDs are dark until a sketch drives

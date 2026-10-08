@@ -19,6 +19,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   port. Speaker mode uses SPK1/SPK2. Line Out is the wiring choice that
   lets DAC_L/DAC_R feed a power amplifier. The normal sketch is the only
   generator that emits it.
+- A relay module's load kind, off-state leakage and isolation live on the
+  catalogue `relay` block and are shown as Build Diagram facts and as Load,
+  Leakage and Isolation rows in the part inspector. They are not a graph-health
+  error: the switched load is not a node. Mechanical Songle-class modules are
+  `ac-dc` dry contacts with no leakage. The Seeed Grove 2-channel board
+  (`seeed-grove-2ch-ssr`) is two Omron G3MC-202P phototriacs: AC only, 1.5 mA
+  leakage at 200 VAC, 2,500 VAC input-to-output, active-high, zero-cross.
+  Firmware takes the idle level from `relay.trigger`: HIGH before `pinMode` for
+  active-low, LOW before `pinMode` for active-high. Signal pads use
+  `channelInputLabels` (CTR1, CTR2), not the left-to-right header order and not
+  IN1/IN2. Channel pins the module does not have are hidden by
+  `relayChannelPropertyEnabled`.
 - A four-wire PWM fan is one bidirectional graph device, not separate output
   and sensor fixtures. `CoolingFanOutput` owns an active-high PWM GPIO and an
   open-collector tachometer GPIO with pull-up. Its exact part metadata carries

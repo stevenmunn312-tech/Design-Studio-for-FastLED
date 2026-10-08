@@ -626,7 +626,7 @@ export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',
   StereoVuMeter: 'A paired left/right addressable-string VU meter driven by one Audio connection.',
-  RelayOutput: 'Switches one to eight active-low 5 V relay channels from boolean signals.',
+  RelayOutput: 'Switches one to eight relay channels from boolean signals. Polarity, load type and ratings come from the selected module.',
   PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
   DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',

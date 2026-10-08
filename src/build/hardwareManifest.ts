@@ -32,7 +32,7 @@ import { hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '.
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
-import { relayPinKeys } from '../state/peripherals/relayModule'
+import { relayLoadLabel, relayPinKeys } from '../state/peripherals/relayModule'
 import { DEFAULT_POWER_SWITCH_PART_ID, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz } from '../state/peripherals/powerSwitch'
 import { BUZZER_PART_ID, BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerPitchHz, buzzerSpec } from '../state/peripherals/buzzer'
 import {
@@ -461,11 +461,13 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} pin B`, 'pinB', props.pinB)
         push(node, `${baseLabel} switch pin`, 'pinSW', props.pinSW)
         break
-      case 'RelayOutput':
+      case 'RelayOutput': {
+        const inputLabels = partById(String(props.partId ?? ''))?.relay?.channelInputLabels
         for (const [index, key] of relayPinKeys(props.partId).entries()) {
-          push(node, `${baseLabel} IN${index + 1}`, key, props[key])
+          push(node, `${baseLabel} ${inputLabels?.[index] ?? `IN${index + 1}`}`, key, props[key])
         }
         break
+      }
       case 'DarlingtonDriverOutput':
         darlingtonPinKeys().forEach((key, index) => push(node, `${baseLabel} ${index + 1}B`, key, props[key]))
         break
@@ -903,6 +905,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'relay-module-1ch-5v')
         const entry = partById(partId)
+        const relay = entry?.relay
         const keys = relayPinKeys(partId)
         const complete = keys.every((key) => pins.some((pin) => pin.propertyKey === key))
         return {
@@ -911,10 +914,15 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: complete,
           facts: {
             partId,
-            channels: entry?.relay?.channels ?? keys.length,
-            trigger: entry?.relay?.trigger ?? 'active-low',
-            contacts: entry?.relay?.contacts ?? 'SPDT (NO/COM/NC)',
-            contactRating: entry?.relay?.contactRating ?? '',
+            channels: relay?.channels ?? keys.length,
+            trigger: relay?.trigger ?? 'active-low',
+            contacts: relay?.contacts ?? 'SPDT (NO/COM/NC)',
+            contactRating: relay?.contactRating ?? '',
+            load: relayLoadLabel(relay?.loadKind),
+            leakage: relay?.leakage ?? '',
+            isolation: relay?.isolation ?? '',
+            ...(relay?.zeroCross !== undefined ? { zeroCross: relay.zeroCross } : {}),
+            ...(relay?.minimumLoad ? { minimumLoad: relay.minimumLoad } : {}),
           },
           reasons: complete ? undefined : ['This relay module does not have every active channel input pin configured.'],
         }

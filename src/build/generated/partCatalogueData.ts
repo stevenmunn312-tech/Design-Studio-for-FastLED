@@ -2230,7 +2230,10 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "trigger": "active-low",
       "contacts": "SPDT (NO/COM/NC)",
       "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
-      "optoIsolated": true
+      "optoIsolated": true,
+      "loadKind": "ac-dc",
+      "leakage": "none: open metal contact",
+      "isolation": "opto-isolated coil; dry contacts are galvanically open when off"
     },
     "render": {
       "file": "parts/relay-module-1ch-5v.webp",
@@ -2289,7 +2292,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "2-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
       "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
-      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. Remove the jumper when using a separately powered relay-coil supply and follow the markings on the owned board.",
+      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. The fitted JD-VCC jumper joins the coil supply to VCC; pull it to power the coils from a separate supply, and follow the markings on the owned board.",
       "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
       "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
       "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
@@ -2300,7 +2303,10 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "trigger": "active-low",
       "contacts": "SPDT (NO/COM/NC)",
       "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
-      "optoIsolated": true
+      "optoIsolated": true,
+      "loadKind": "ac-dc",
+      "leakage": "none: open metal contact",
+      "isolation": "opto-isolated coil; dry contacts are galvanically open when off"
     },
     "render": {
       "file": "parts/relay-module-2ch-5v.webp",
@@ -2376,7 +2382,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "4-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
       "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
-      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. Remove the jumper when using a separately powered relay-coil supply and follow the markings on the owned board.",
+      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. The fitted JD-VCC jumper joins the coil supply to VCC; pull it to power the coils from a separate supply, and follow the markings on the owned board.",
       "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
       "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
       "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
@@ -2387,7 +2393,10 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "trigger": "active-low",
       "contacts": "SPDT (NO/COM/NC)",
       "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
-      "optoIsolated": true
+      "optoIsolated": true,
+      "loadKind": "ac-dc",
+      "leakage": "none: open metal contact",
+      "isolation": "opto-isolated coil; dry contacts are galvanically open when off"
     },
     "render": {
       "file": "parts/relay-module-4ch-5v.webp",
@@ -2497,7 +2506,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "notes": [
       "8-channel generic 5 V opto-isolated relay board with active-low inputs and one SPDT NO/COM/NC terminal group per channel.",
       "The external logic connection footprint is shown as unpopulated plated through-holes; solder only the connector style required by the installation.",
-      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. Remove the jumper when using a separately powered relay-coil supply and follow the markings on the owned board.",
+      "The onboard JD-VCC configuration block retains its fitted three-pin header and jumper cap. The fitted JD-VCC jumper joins the coil supply to VCC; pull it to power the coils from a separate supply, and follow the markings on the owned board.",
       "Relay contact ratings are for resistive loads. Motors, transformers and LED power supplies need derating and suitable suppression.",
       "Mains voltage can kill. Keep hazardous wiring enclosed, fused, strain-relieved and physically separated from the controller-side wiring; use a qualified electrician where required.",
       "Low-cost supplier revisions can change pin order, trigger polarity, terminal order and isolation details. Follow the silkscreen and schematic of the exact board in hand."
@@ -2508,7 +2517,10 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "trigger": "active-low",
       "contacts": "SPDT (NO/COM/NC)",
       "contactRating": "10 A at 250 VAC or 30 V DC per relay (resistive load)",
-      "optoIsolated": true
+      "optoIsolated": true,
+      "loadKind": "ac-dc",
+      "leakage": "none: open metal contact",
+      "isolation": "opto-isolated coil; dry contacts are galvanically open when off"
     },
     "render": {
       "file": "parts/relay-module-8ch-5v.webp",
@@ -2649,6 +2661,85 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           ],
           "drive": "channel",
           "channel": 8
+        }
+      ]
+    }
+  },
+  "seeed-grove-2ch-ssr": {
+    "partId": "seeed-grove-2ch-ssr",
+    "label": "Seeed Grove 2-Channel Solid State Relay",
+    "category": "switching-power",
+    "dimensionsMm": {
+      "width": 40.0,
+      "height": 40.0
+    },
+    "manufacturer": "Seeed Studio Grove - 2-Channel Solid State Relay / Omron G3MC-202P",
+    "logicVoltage": "5 V module supply (4 to 6 V); 3.3 V or 5 V active-high GPIO",
+    "pinLabelsLeftToRight": [
+      "GND",
+      "VCC",
+      "CTR2",
+      "CTR1"
+    ],
+    "notes": [
+      "AC-only phototriac, not a dry contact. Each channel switches 0.1 to 2 A at 75 to 264 VAC and turns on at the next voltage zero. A DC load latches on and will not turn off.",
+      "The output leaks up to 1.5 mA at 200 VAC, enough to glow a small lamp while off. Isolation is 2,500 VAC for one minute between input and output, and the output is still a phototriac, not an open contact. Supply VCC with 5 V (4 to 6 V). A 3.3 V GPIO can drive CTR because a transistor switches that 5 V input. Do not dim it: it turns on at the next voltage zero and off at the next current zero.",
+      "On-state voltage drop is 1.6 V RMS max. Derate above 25 C: 2 A at 25 C, toward 0.5 A at 80 C.",
+      "Mains voltage can kill. Keep the load wiring enclosed, fused and separated from the Grove cable. This module does not switch DC.",
+      "Seeed Grove 2-Channel Solid State Relay wiki (product p-3129) and the Omron G3MC datasheet, device G3MC-202P."
+    ],
+    "relay": {
+      "channels": 2,
+      "coilVoltage": "5 V DC input (4 to 6 V); not a coil",
+      "trigger": "active-high",
+      "contacts": "phototriac, AC only, not a dry contact",
+      "contactRating": "0.1 to 2 A at 75 to 264 VAC; a DC load latches on",
+      "optoIsolated": true,
+      "loadKind": "ac",
+      "leakage": "1.5 mA max at 200 VAC",
+      "isolation": "2,500 VAC for 1 minute between input and output; the output is a phototriac, not a dry contact",
+      "zeroCross": true,
+      "minimumLoad": "0.1 A",
+      "channelInputLabels": [
+        "CTR1",
+        "CTR2"
+      ]
+    },
+    "render": {
+      "file": "parts/seeed-grove-2ch-ssr.webp",
+      "widthPx": 592,
+      "heightPx": 592,
+      "pxPerMm": 12.0,
+      "indicators": [
+        {
+          "rectPx": [
+            458.6,
+            471.0,
+            16.2,
+            9.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 1
+        },
+        {
+          "rectPx": [
+            200.3,
+            471.0,
+            16.2,
+            9.6
+          ],
+          "color": [
+            255,
+            32,
+            24
+          ],
+          "drive": "channel",
+          "channel": 2
         }
       ]
     }

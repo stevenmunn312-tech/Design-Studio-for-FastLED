@@ -716,6 +716,22 @@ Unless a future row says otherwise, treat the following as experimental:
   needed), one channel dimmed smoothly from Level, the MOSFET temperature
   after ten minutes at 50% duty and the recorded current, and the gate
   voltage at the lowest supply used.
+- **Seeed Grove 2-channel solid-state relay.** The Grove 2-Channel Solid
+  State Relay (`RelayOutput`, `seeed-grove-2ch-ssr`) is software and
+  generated-firmware coverage only; no AC load has been switched. It is two
+  Omron G3MC-202P phototriacs, not dry contacts. Each channel switches 0.1 to
+  2 A at 75 to 264 VAC, turns on at the next voltage zero and cannot be dimmed.
+  A DC load latches on and will not turn off. Off-state leakage is 1.5 mA max
+  at 200 VAC, enough to glow a small lamp. Isolation is 2,500 VAC for one
+  minute between input and output; the output still leaks. VCC must be 5 V
+  (4 to 6 V). CTR1 and CTR2 are active-high, and a 3.3 V GPIO can drive them
+  because a transistor switches that 5 V input. The normal-sketch fixture
+  [compiles](../reports/compile/ssr-compile-checks.md) on classic ESP32.
+  Graduating it needs a dated row naming the board/FQBN, the two GPIOs, VCC
+  measured at 5 V, and a real AC load within 0.1 to 2 A. It must show both
+  channels held off through reset and setup, each channel switching on its
+  own, the off-state leakage observable or measured, and a DC load confirmed
+  not to turn off.
 - **INA219 power monitoring.** The Adafruit INA219 (`PowerMonitorInput`) is
   software coverage only; no reading has been compared with a meter on any
   board. Its generated sketch compiles for `esp32:esp32:esp32` on arduino-cli

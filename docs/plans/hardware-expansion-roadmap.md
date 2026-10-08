@@ -61,7 +61,7 @@ build have passed the normal evidence gates.
 | Hardware family | Proposed app role | Notes |
 | --- | --- | --- |
 | Protected high-side load switch / eFuse module | Protected `PowerSwitchOutput` | Soft start, current limiting and a fault signal are a better LED-rail primitive than a bare relay. |
-| Solid-state relay module | `RelayOutput` option or separate switch type | Only after AC/DC load type, leakage and isolation are represented honestly. |
+| Solid-state relay module | `RelayOutput` option, in and experimental: the Seeed Grove 2-channel board, two Omron G3MC-202P phototriacs. Load kind, leakage and isolation are catalogue facts. AC only, active-high, zero-cross, bench open. | Reuses `RelayOutput`. A DC load latches on. VCC is 5 V. |
 | PCA9685 16-channel PWM module | `PwmDriverOutput`, in and experimental: sixteen 0 to 1 channels at one shared frequency, 0x40 to 0x6F, V+ not drawn, bench open. Multi-channel PWM output | Useful for analog dimming, indicators and servos; not an addressable-pixel output. |
 | ULN2803A driver board | `DarlingtonDriverOutput`, in and experimental: eight active-high channels on eight GPIOs, sink only, bench open. Eight-channel load driver | Low-side driver for relay coils, lamps and small inductive loads with explicit limits. |
 | Noctua NF-A4x10 5V PWM fan | `CoolingFanOutput`, in and experimental: a 0 to 1 speed input plus measured RPM and Running outputs, 25 kHz active-high PWM, ESP32-family normal sketch, bench open. | Enables enclosure cooling tied to temperature or power measurements. |
@@ -180,6 +180,14 @@ compile families:
     on the board is the active-low BUSY pin. Speaker mode uses SPK1/SPK2;
     Line Out feeds a power amplifier from DAC_L/DAC_R. Its
     [compile fixture](../reports/compile/dfplayer-compile-checks.md) passes on
+    classic ESP32; the bench run remains open, so it stays experimental.
+14. An AC solid-state relay. The Seeed Grove 2-Channel Solid State Relay
+    (`seeed-grove-2ch-ssr`, a `RelayOutput` option) is modelled, catalogued,
+    drawn and generated for the normal ESP32 sketch. Two Omron G3MC-202P
+    phototriacs, active-high on CTR1 and CTR2, AC only. The relay catalogue now
+    states load kind, leakage and isolation for this board and for the
+    mechanical modules. Its
+    [compile fixture](../reports/compile/ssr-compile-checks.md) passes on
     classic ESP32; the bench run remains open, so it stays experimental.
 
 ## Definition of done for each addition

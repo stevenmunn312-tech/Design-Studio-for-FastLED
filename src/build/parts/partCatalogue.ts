@@ -88,6 +88,18 @@ export interface PartRelaySpec {
   contacts: string
   contactRating: string
   optoIsolated: boolean
+  /** What the output can switch. A phototriac is AC only; a dry contact is both. */
+  loadKind: 'ac' | 'dc' | 'ac-dc'
+  /** Current the load still sees while the channel is off. */
+  leakage: string
+  /** How the logic side is separated from the load, in the datasheet's terms. */
+  isolation: string
+  /** True when the device switches only at a mains zero, so it cannot be dimmed. */
+  zeroCross?: boolean
+  /** Smallest load current the device is specified to hold. */
+  minimumLoad?: string
+  /** Silkscreen name of each channel input, in channel order. */
+  channelInputLabels?: string[]
 }
 
 /** Electrical identity carried by an imported DC MOSFET switch module. */
@@ -486,6 +498,10 @@ export function partPinLabelForProperty(partId: string, propertyKey: string): st
   const inputs = entry?.mosfet?.channelInputLabels ?? entry?.mosfet?.channelLabels
   const channel = inputs?.findIndex((_, index) => mosfetChannelPinKey(index) === propertyKey) ?? -1
   if (channel >= 0) return inputs![channel]
+  // A relay's silkscreen (CTR1, CTR2) is not the left-to-right header order.
+  const relayInputs = entry?.relay?.channelInputLabels
+  const relayChannel = relayInputs?.findIndex((_, index) => `in${index + 1}Pin` === propertyKey) ?? -1
+  if (relayChannel >= 0) return relayInputs![relayChannel]
   const labels = entry?.pinLabelsLeftToRight ?? []
   const aliases = PART_PIN_PROPERTY_ALIASES[propertyKey]
   if (!aliases) return null

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { StudioNode } from '../../state/graphStore'
+import {
+  peripheralPowerNet,
+  peripheralPowerPadIndex,
+  peripheralSignalPadIndex,
+} from '../../components/BuildDiagram/physicalDiagramLayout'
 import { buildHardwareManifest, collectPinUses } from '../hardwareManifest'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -95,8 +100,46 @@ describe('hardwareManifest', () => {
         channels: 4,
         trigger: 'active-low',
         contacts: 'SPDT (NO/COM/NC)',
+        load: 'AC or DC',
+        leakage: 'none: open metal contact',
+        isolation: 'opto-isolated coil; dry contacts are galvanically open when off',
       },
     })
+    expect(manifest.primaryItems[0].facts.zeroCross).toBeUndefined()
+  })
+
+  it('states the Grove SSR as an AC-only phototriac and lands its signals on CTR1 and CTR2', () => {
+    const relay = node('relay', 'RelayOutput', {
+      partId: 'seeed-grove-2ch-ssr',
+      in1Pin: 5,
+      in2Pin: 16,
+      in3Pin: 17,
+    })
+    const manifest = buildHardwareManifest([relay], [], 'esp32:esp32:esp32')
+    const item = manifest.primaryItems[0]
+
+    expect(collectPinUses([relay]).map((use) => [use.propertyKey, use.pin, use.label])).toEqual([
+      ['in1Pin', 5, 'RelayOutput CTR1'],
+      ['in2Pin', 16, 'RelayOutput CTR2'],
+    ])
+    expect(item).toMatchObject({
+      kind: 'relay-output',
+      supported: true,
+      facts: {
+        partId: 'seeed-grove-2ch-ssr',
+        channels: 2,
+        trigger: 'active-high',
+        load: 'AC only',
+        leakage: '1.5 mA max at 200 VAC',
+        isolation: '2,500 VAC for 1 minute between input and output; the output is a phototriac, not a dry contact',
+        zeroCross: true,
+        minimumLoad: '0.1 A',
+      },
+    })
+    expect(peripheralPowerNet(item)).toBe('v5')
+    expect(peripheralPowerPadIndex(item)).toBe(1)
+    expect(peripheralSignalPadIndex(item, 0)).toBe(3)
+    expect(peripheralSignalPadIndex(item, 1)).toBe(2)
   })
 
   it('describes a power switch by its one GPIO and its catalogued load-side limits', () => {

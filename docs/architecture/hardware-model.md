@@ -2,7 +2,7 @@
 
 Status: implemented on `Hardware`; microphone, PCM1802 line-in, player-decoder
 Audio sources, self-growing button banks, capacitive touch, and 1/2/4/8-channel
-relay modules shipped · Owner: app · Updated: 2026-09-27
+relay modules and the Grove 2-channel solid-state relay shipped · Owner: app · Updated: 2026-10-08
 
 The current branch models each physical component once and presents it in the
 views where it has meaning. The user-facing workflow is in the
@@ -35,6 +35,7 @@ workbench's **Add Hardware** menu is the creation path for:
   potentiometer, encoder, PIR motion, HLK-LD2410C radar presence, ambient light,
   INA219 power monitor, and RTC modules;
 - switching outputs: 1, 2, 4, and 8-channel active-low 5 V relay modules, the
+  Seeed Grove 2-channel AC solid-state relay, the
   opto-isolated LR7843 MOSFET module for DC loads, the four-channel
   MonkMakes Mosfetti for small DC loads, and the four-channel opto-isolated
   YYNMOS-4 (LR7843 revision) for LED rails and heavier DC loads;
@@ -70,10 +71,16 @@ not graph data.
 
 `RelayOutput` is a terminal sink whose selected physical module determines its
 one to eight boolean channel inputs and matching GPIO assignments. Generated
-firmware writes the inactive HIGH level before changing each GPIO to OUTPUT,
-preventing an active-low relay click during setup. Relay contact ratings and
-mains-voltage warnings remain attached to the exact catalogue part; the app
-does not treat switched-load terminals as low-voltage GPIO wiring.
+firmware writes the idle level before changing each GPIO to OUTPUT. A mechanical
+module is active-low, so that level is HIGH and reset does not click the relay.
+An active-high module, the Grove phototriac board, sits LOW so reset does not
+turn the load on. The catalogue's `relay` block carries the load kind, the
+off-state leakage and the isolation, and the Build Diagram and the part
+inspector show those three. A phototriac is AC only and still leaks when off; a
+dry contact is AC or DC and open when off. Contact ratings and mains-voltage
+warnings stay on the exact catalogue part. The app does not treat switched-load
+terminals as low-voltage GPIO wiring, and an AC-only load is not a graph error
+because the load itself is not in the graph.
 
 `PdTriggerSource` is the ZY12PDN, a config-only fixture like `PowerConverter`: no
 ports, no pins and no firmware. Its `pdTrigger` catalogue block carries the selectable

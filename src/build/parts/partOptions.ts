@@ -406,6 +406,12 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       { id: 'relay-module-2ch-5v', label: '2-channel relay', summary: 'Two active-low 5 V SPDT relays' },
       { id: 'relay-module-4ch-5v', label: '4-channel relay', summary: 'Four active-low 5 V SPDT relays' },
       { id: 'relay-module-8ch-5v', label: '8-channel relay', summary: 'Eight active-low 5 V SPDT relays' },
+      {
+        id: 'seeed-grove-2ch-ssr',
+        label: 'Seeed Grove 2-channel SSR',
+        summary: 'Two AC phototriacs, 0.1 to 2 A, leaks 1.5 mA when off',
+        note: 'Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins.',
+      },
     ],
   },
   // The stage on the board's own pins: every option takes I2S. An analog
