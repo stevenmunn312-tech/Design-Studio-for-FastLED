@@ -1,4 +1,4 @@
-/** Generate real normal sketches used by the Power Switch compile gate: LR7843 dimming and the four-channel Mosfetti. */
+/** Generate real normal sketches used by the Power Switch compile gate: LR7843 dimming, the four-channel Mosfetti and the YYNMOS-4. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -31,6 +31,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 
 const PART = { partId: 'lr7843-mosfet-module' }
 const MOSFETTI = { partId: 'monkmakes-mosfetti' }
+const YYNMOS4 = { partId: 'yynmos-4-lr7843-mosfet-module' }
 
 /** One LED output so every fixture is a whole, ordinary sketch. */
 function leds(dataPin: number): [StudioNode, StudioNode, StudioEdge] {
@@ -160,6 +161,19 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // Teensy 4.1: button 11, pot A0 (14), LR7843 on 9, Mosfetti on 2-5, LEDs 6.
   // Every dimmed pin runs at the shared 500 Hz, because Teensy tunes per timer.
   'mixed-teensy': { source: mixed(11, 14, 9, [2, 3, 4, 5], 6), pwm: 3 },
+  // The YYNMOS-4 on classic ESP32 pins 16-19, the Mosfetti fixture's graph at
+  // the board's own 500 Hz: 1 switched by On, 2 dimmed by a wired Level alone,
+  // 3 dimmed from its Level field and gated by On, 4 left unwired and held off.
+  yynmos4: {
+    source: sketch([button(), pot(), node('yy', 'PowerSwitchOutput', {
+      ...YYNMOS4, signalPin: 16, signal2Pin: 17, signal3Pin: 18, signal4Pin: 19, level3: 0.4,
+    })], [
+      edge('a', 'btn', 'pressed', 'yy', 'on'),
+      edge('b', 'pot', 'value', 'yy', 'level2'),
+      edge('c', 'btn', 'pressed', 'yy', 'on3'),
+    ]),
+    pwm: 2,
+  },
   // Uno: the Mosfetti on D3, D5, D6 and D10, the PWM pins MonkMakes' Uno
   // example uses; LEDs move to D7. A switched, B dimmed.
   'mosfetti-avr': {

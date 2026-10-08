@@ -144,7 +144,7 @@ def ethernet_legs(engine: str) -> list[Leg]:
 
 def power_switch_legs(engine: str) -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
-    targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed")}
+    targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4")}
     targets |= {"gated-esp8266": "esp8266:esp8266:nodemcuv2", "mixed-esp8266": "esp8266:esp8266:nodemcuv2",
                 "gated-rp2040": "rp2040:rp2040:rpipico", "mixed-rp2040": "rp2040:rp2040:rpipico",
                 "gated-avr": "arduino:avr:uno", "mosfetti-avr": "arduino:avr:uno",

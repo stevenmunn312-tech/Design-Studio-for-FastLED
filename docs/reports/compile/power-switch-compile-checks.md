@@ -1,17 +1,17 @@
 # Power-switch compile checks
 
-> **Status: complete.** All 13 fixtures passed on their listed targets on
+> **Status: complete.** All 14 fixtures passed on their listed targets on
 > 8 October 2026, and the mixed-frequency fixture also passed on classic
 > ESP32 core 2.0.17 on 27 September. Coverage spans classic ESP32 cores 3.3.11
 > and 2.0.17, ESP8266, RP2040, AVR and Teensy 4.1, so every branch of the PWM
-> shim has compiled. This is compile evidence only; both power-switch
-> boards remain experimental in the
+> shim has compiled. This is compile evidence only; every power-switch
+> board remains experimental in the
 > [support matrix](../../release/beta-support-matrix.md) until recorded bench runs
 > exist.
 
 The fixtures come from real Studio graphs rather than hand-written sketches.
-Each drives an LR7843, a four-channel MonkMakes Mosfetti, or both
-(`PowerSwitchOutput`) beside one LED output, so every fixture is an ordinary
+Each drives an LR7843, a four-channel MonkMakes Mosfetti, both, or the
+four-channel YYNMOS-4 (LR7843 revision) (`PowerSwitchOutput`) beside one LED output, so every fixture is an ordinary
 normal sketch.
 
 | Fixture | Graph | Dimmed switches |
@@ -29,6 +29,7 @@ normal sketch.
 | `mixed-rp2040` | the mixed graph on Raspberry Pi Pico pins | 3, all at the safe shared 500 Hz |
 | `mixed-teensy` | the mixed graph on Teensy 4.1 pins | 3, all at the safe shared 500 Hz |
 | `mosfetti-avr` | Mosfetti A switched and B dimmed on Arduino Uno PWM pins | 1 |
+| `yynmos4` | YYNMOS-4 channel 1 switched; 2 wired Level; 3 field Level gated by On; 4 held off, at the board's 500 Hz | 2 |
 
 The generator refuses a fixture whose count of `flsPwmBegin` calls or PWM
 shims differs from the table, so `plain` also proves Level 1 emits no PWM. It
@@ -78,6 +79,7 @@ Toolchain: arduino-cli 1.5.1 and FastLED 3.10.5.
 | mixed-rp2040 | `rp2040:rp2040:rpipico` | 6.1.0 | pass | 70,468 / 2,093,056 (3%) | 11,524 / 262,144 (4%) |
 | mosfetti-avr | `arduino:avr:uno` | 1.8.8 | pass | 7,252 / 32,256 (22%) | 1,878 / 2,048 (91%) |
 | mixed-teensy | `teensy:avr:teensy41` | 1.62.0 | pass | 59,388 (code 40,840, data 9,672, headers 8,876) | RAM1 13,504 variables; RAM2 17,568 |
+| yynmos4 | `esp32:esp32:esp32` | 3.3.11 | pass | 406,639 / 3,145,728 (12%) | 29,116 / 327,680 (8%) |
 | mixed (27 September) | `esp32:esp32:esp32` | 2.0.17 | pass | 744,557 / 1,310,720 (56%) | 31,624 / 327,680 (9%) |
 
 The Teensy core prints its own size format, which the runner does not parse;
