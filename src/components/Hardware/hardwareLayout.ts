@@ -370,19 +370,18 @@ export function hardwareCaptionDetail(screenWidth: number): CaptionDetail {
 }
 
 /**
- * World-space scale for a caption, so it draws at one readable size on screen
- * however far the view is zoomed.
+ * World-space scale for a caption. It holds one readable size through overview
+ * zooms, then follows the part once the view passes its 1:1 scale.
  *
- * Captions live inside the panned and zoomed world, so without this they are
- * multiplied by the zoom twice over: dust at a fit-everything view and a
- * billboard when you close in on a pin. Dividing the design scale back out
- * leaves the label the size it was drawn at, wherever the camera is. It stops
- * shrinking at `CAPTION_MIN_SCREEN_SCALE`, below which `hardwareCaptionDetail`
- * removes lines rather than making type no one can read.
+ * Captions live inside the panned and zoomed world. Dividing overview zoom out
+ * keeps labels readable while `hardwareCaptionDetail` removes lines when parts
+ * get crowded. Past 1:1, text grows with the electronics so a closer look also
+ * enlarges its caption through the full zoom range.
  */
 export function hardwareCaptionWorldScale(uiScale: number, zoom: number): number {
-  const onScreen = Math.min(1, Math.max(CAPTION_MIN_SCREEN_SCALE, uiScale))
-  return onScreen / Math.max(0.0001, zoom)
+  const baseScreenScale = Math.min(1, Math.max(CAPTION_MIN_SCREEN_SCALE, uiScale))
+  const closeZoomScale = Math.max(1, zoom)
+  return (baseScreenScale * closeZoomScale) / Math.max(0.0001, zoom)
 }
 
 /**

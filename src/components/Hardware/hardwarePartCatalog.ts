@@ -804,17 +804,37 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
   },
 ]
 
-/** Format a part's assigned pins in ascending GPIO order, retaining each role. */
+/** Format assigned pins in the same left-to-right order as the physical header. */
 export function numericPinSummary(
   properties: Record<string, unknown>,
   fields: readonly { key: string; label: string }[],
   nodeType?: string,
+  partId?: string | null,
 ): string {
   const dividedPin = nodeType ? dividedInputPinKey(nodeType, properties) : null
+  const pads = partId ? (partById(partId)?.pinLabelsLeftToRight ?? []) : []
+  const padIndex = (key: string, fallbackLabel: string): number => {
+    const label = partId ? (partPinLabelForProperty(partId, key) ?? fallbackLabel) : fallbackLabel
+    const wanted = label.toUpperCase()
+    return pads.findIndex((pad) => {
+      const printed = pad.toUpperCase()
+      return printed === wanted || printed.replace(/^[LR]:/, '') === wanted
+    })
+  }
   return fields
-    .map(({ key, label }) => ({ key, label, pin: Number(properties[key]) }))
+    .map(({ key, label }, fieldIndex) => ({
+      key,
+      label,
+      pin: Number(properties[key]),
+      fieldIndex,
+      padIndex: padIndex(key, label),
+    }))
     .filter(({ pin }) => Number.isFinite(pin))
-    .sort((left, right) => left.pin - right.pin || left.label.localeCompare(right.label))
+    .sort((left, right) => {
+      const leftOrder = left.padIndex >= 0 ? left.padIndex : Number.POSITIVE_INFINITY
+      const rightOrder = right.padIndex >= 0 ? right.padIndex : Number.POSITIVE_INFINITY
+      return leftOrder - rightOrder || left.fieldIndex - right.fieldIndex
+    })
     .map(({ key, label, pin }) => `${label} ${pin}${key === dividedPin ? ' (See build diagram)' : ''}`)
     .join(' · ')
 }

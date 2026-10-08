@@ -540,6 +540,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   experimental (unvalidated long-run distance) in
   `docs/release/beta-support-matrix.md`.
 
+## Hardware workbench
+
+- Hardware captions counter-scale through overview zooms so labels stay
+  readable. Above 1:1 zoom they grow with their parts through the full zoom
+  range.
+- Pin captions follow each catalogue part's `pinLabelsLeftToRight` order. GPIO
+  numbers never reorder physical header labels.
+
 ## Indicator LEDs on the bench
 
 - A part's or board's indicator LEDs are measured from its model by

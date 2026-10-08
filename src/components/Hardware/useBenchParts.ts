@@ -210,7 +210,7 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         label: partPinLabelForProperty(identity?.option.id ?? '', field.key) ?? field.label,
       }))
     const props = node.data.properties as Record<string, unknown>
-    const pinSummary = numericPinSummary(props, pinFields, entry.nodeType)
+    const pinSummary = numericPinSummary(props, pinFields, entry.nodeType, chosen?.partId)
     const vuLedCount = entry.nodeType === 'StereoVuMeter'
       ? Math.max(1, Math.round(Number(props.ledCount ?? 16)))
       : null

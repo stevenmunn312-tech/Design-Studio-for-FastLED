@@ -599,11 +599,13 @@ describe('hardware arrangement', () => {
     ])
   })
 
-  it('keeps a caption the same size on screen however far the view is zoomed', () => {
+  it('holds caption size through overview zoom, then enlarges it for close inspection', () => {
     const onScreen = (zoom: number) => hardwareCaptionWorldScale(1, zoom) * zoom
 
     expect(onScreen(0.35)).toBeCloseTo(onScreen(1))
-    expect(onScreen(40)).toBeCloseTo(onScreen(1))
+    expect(onScreen(1.5)).toBeCloseTo(onScreen(1) * 1.5)
+    expect(onScreen(3)).toBeCloseTo(onScreen(1) * 3)
+    expect(onScreen(40)).toBeCloseTo(onScreen(1) * 40)
   })
 
   it('stops shrinking caption type and drops caption detail instead', () => {

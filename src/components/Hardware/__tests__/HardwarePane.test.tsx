@@ -213,7 +213,7 @@ describe('HardwarePane', () => {
       timeSource: 'DS3231',
       partId: 'ds3231-rtc-module',
     })
-    expect(within(document.body).getByText('SDA 21 · SCL 22')).toBeTruthy()
+    expect(within(document.body).getByText('SCL 22 · SDA 21')).toBeTruthy()
   })
 
   /*
@@ -251,7 +251,7 @@ describe('HardwarePane', () => {
     // The ICS-43434 breakout prints LRCL/BCLK/DOUT where the INMP441 prints
     // WS/SCK/SD. Same three signals, same three properties, different board.
     addPart('Inputs', 'ICS-43434 microphone')
-    expect(within(document.body).getByText(/LRCL \d+ · BCLK \d+ · DOUT \d+/)).toBeTruthy()
+    expect(within(document.body).getByText(/LRCL \d+ · DOUT \d+ · BCLK \d+/)).toBeTruthy()
   })
 
   it('adds the XC4630 with every parallel line assigned so the Build Diagram can draw it', () => {
@@ -516,7 +516,7 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
 
     expect(screen.getByText('MAX98357A')).toBeTruthy()
-    expect(screen.getByText('DIN 16 · BCLK 17 · LRC 18')).toBeTruthy()
+    expect(screen.getByText('LRC 18 · BCLK 17 · DIN 16')).toBeTruthy()
     expect(screen.queryByText(/Hardware only/)).toBeNull()
   })
 
@@ -537,12 +537,27 @@ describe('HardwarePane', () => {
     render(<HardwarePane />)
 
     expect(screen.getByText('microSD module (5 V)')).toBeTruthy()
-    expect(screen.getByText('MOSI 5 · SCK 18 · MISO 19 · CS 23')).toBeTruthy()
+    expect(screen.getByText('MISO 19 · MOSI 5 · SCK 18 · CS 23')).toBeTruthy()
+  })
+
+  it('orders the TM1637 caption like its left-to-right header', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('SegmentDisplay', 'segment', {
+          partId: 'tm1637-4digit-display', clkPin: 4, dioPin: 5,
+        }) as never,
+      ],
+    })
+
+    render(<HardwarePane />)
+
+    expect(screen.getByText('DIO 5 · CLK 4')).toBeTruthy()
   })
 
   it.each([
     ['IRRemoteInput', { partId: 'keyestudio-ks0026-ir-receiver-module', pin: 2 }, 'S 2 (See build diagram)'],
-    ['DistanceInput', { partId: 'hc-sr04-ultrasonic-module', trigPin: 3, echoPin: 2 }, 'GPIO (Echo) 2 (See build diagram) · GPIO (Trig) 3'],
+    ['DistanceInput', { partId: 'hc-sr04-ultrasonic-module', trigPin: 3, echoPin: 2 }, 'GPIO (Trig) 3 · GPIO (Echo) 2 (See build diagram)'],
   ] as const)('directs the %s divided input to the Build Diagram', (type, properties, caption) => {
     useGraphStore.setState({
       nodes: [...useGraphStore.getState().nodes, node(type, 'input', properties) as never],
@@ -569,7 +584,7 @@ describe('HardwarePane', () => {
 
     render(<HardwarePane />)
 
-    expect(screen.getByText('SCL 2 · SDA 4 · CS 5 · DC 6 · RST 7 · BL 8')).toBeTruthy()
+    expect(screen.getByText('SCL 2 · SDA 4 · RST 7 · DC 6 · CS 5 · BL 8')).toBeTruthy()
     expect(screen.queryByText('CLK 2 · MOSI 4 · CS 5 · DC 6 · RES 7 · LITE 8')).toBeNull()
   })
 
@@ -583,7 +598,7 @@ describe('HardwarePane', () => {
 
     render(<HardwarePane />)
 
-    expect(screen.getByText('B 4 · SW 6 · A 8')).toBeTruthy()
+    expect(screen.getByText('A 8 · B 4 · SW 6')).toBeTruthy()
   })
 
   it('lifts the hardware inspector to use room above without scrolling', () => {

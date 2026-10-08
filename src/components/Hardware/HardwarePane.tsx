@@ -239,7 +239,7 @@ export default function HardwarePane() {
    * sourcing it here — the pins came from this board rather than from a guess.
    * The microphone names its I2S trio; the rest name whatever they were given.
    */
-  const partPinSummary = (node: StudioNode, entry: InputPartEntry): string => {
+  const partPinSummary = (node: StudioNode, entry: InputPartEntry, modulePartId: string | null): string => {
     const props = node.data.properties as Record<string, unknown>
     if (entry.nodeType === 'ButtonBank') {
       const buttons = normalizeButtonBankEntries(props.buttons)
@@ -247,7 +247,7 @@ export default function HardwarePane() {
       const pins = buttons.map((button) => button.pin).sort((left, right) => left - right)
       return `${buttons.length} button${buttons.length === 1 ? '' : 's'} · GPIO ${pins.join(', ')}`
     }
-    const summary = numericPinSummary(props, entry.pinFields, entry.nodeType)
+    const summary = numericPinSummary(props, entry.pinFields, entry.nodeType, modulePartId)
     if (!summary && entry.connectionSummary) return entry.connectionSummary
     if (!summary) return 'Mirrored in the graph'
     return summary
@@ -690,7 +690,7 @@ export default function HardwarePane() {
                     className={styles.indicatorGlow}
                   />
                 </button>
-                {renderCaption(part.partId, part.entry.label, partPinSummary(part.node, part.entry))}
+                {renderCaption(part.partId, part.entry.label, partPinSummary(part.node, part.entry, part.modulePartId))}
               </Fragment>
             )
           })}
