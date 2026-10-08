@@ -815,6 +815,72 @@ const WT32_ETH01_PINS: PhysicalBoardPinProfile[] = [
   pin('right-13', 'GND', 'ground', 'right-13'),
 ]
 
+const QUINLED_DIG_UNO_LABELS = {
+  left: ['VIN', 'GND', 'BUTTON', 'Q2', 'Q1', '3V3', 'A0', '1WIRE'],
+  right: ['Q4', 'Q3', 'LED2', 'LED1', 'GND', 'V+', 'SDA', 'SCL'],
+} as const
+
+const QUINLED_DIG_UNO_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', QUINLED_DIG_UNO_LABELS.left, 30, 88, 18),
+  ...verticalAnchors('right', 'right', QUINLED_DIG_UNO_LABELS.right, 330, 88, 18),
+]
+
+const QUINLED_DIG_UNO_PINS: PhysicalBoardPinProfile[] = [
+  {
+    ...pin('left-1', 'VIN 5-24V', 'power-in', 'left-1', undefined, undefined, 'Main fused LED and controller supply'),
+    inputVoltage: { min: 5, max: 24 },
+  },
+  pin('left-2', 'GND', 'ground', 'left-2'),
+  pin('left-3', 'Button / GPIO0', 'gpio', 'left-3', undefined, 0, 'Dedicated active-low button input with onboard pull-up; boot-strapping pin'),
+  pin('left-4', 'Q2 / GPIO12', 'gpio', 'left-4', undefined, 12, 'External GPIO; may be pulled low'),
+  pin('left-5', 'Q1 / GPIO15', 'gpio', 'left-5', undefined, 15, 'External GPIO; may be pulled low'),
+  pin('left-6', '3V3', 'power-out', 'left-6'),
+  pin('left-7', 'A0 / GPIO36', 'analog', 'left-7', undefined, 36, 'Analog input only; no internal pull resistor'),
+  pin('left-8', '1-wire / GPIO13', 'gpio', 'left-8', undefined, 13, 'Optional onboard DS18B20 connection'),
+  pin('right-1', 'Q4 / GPIO32', 'gpio', 'right-1', undefined, 32, 'External GPIO; may be pulled high'),
+  pin('right-2', 'Q3 / GPIO2', 'gpio', 'right-2', undefined, 2, 'External GPIO; may be pulled high'),
+  pin('right-3', 'LED2 / GPIO3', 'gpio', 'right-3', undefined, 3, 'Unidirectional level-shifted output; also UART0 RX'),
+  pin('right-4', 'LED1 / GPIO16', 'gpio', 'right-4', undefined, 16, 'Unidirectional level-shifted output'),
+  pin('right-5', 'LED GND', 'ground', 'right-5'),
+  pin('right-6', 'LED V+', 'power-out', 'right-6', undefined, undefined, 'Fused pass-through of the 5-24 V main input'),
+  pin('right-7', 'SDA / GPIO21', 'gpio', 'right-7', undefined, 21, 'Default I2C SDA'),
+  pin('right-8', 'SCL / GPIO22', 'gpio', 'right-8', undefined, 22, 'Default I2C SCL'),
+]
+
+const QUINLED_DIG_QUAD_LABELS = {
+  left: ['VIN', 'BUTTON', 'Q2', 'Q1', '3V3', 'A0', '1WIRE', 'SDA', 'SCL'],
+  right: ['GND', 'Q4', 'Q3', 'LED4', 'LED3', 'LED2', 'LED1', 'LED GND', 'LED V+'],
+} as const
+
+const QUINLED_DIG_QUAD_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', QUINLED_DIG_QUAD_LABELS.left, 30, 78, 16),
+  ...verticalAnchors('right', 'right', QUINLED_DIG_QUAD_LABELS.right, 330, 78, 16),
+]
+
+const QUINLED_DIG_QUAD_PINS: PhysicalBoardPinProfile[] = [
+  {
+    ...pin('left-1', 'VIN 5-24V', 'power-in', 'left-1', undefined, undefined, 'Dual high-current controller and LED supply'),
+    inputVoltage: { min: 5, max: 24 },
+  },
+  pin('left-2', 'Button / GPIO0', 'gpio', 'left-2', undefined, 0, 'Dedicated active-low button input with onboard pull-up; boot-strapping pin'),
+  pin('left-3', 'Q2 / GPIO12', 'gpio', 'left-3', undefined, 12, 'External GPIO; may be pulled low'),
+  pin('left-4', 'Q1 / GPIO15', 'gpio', 'left-4', undefined, 15, 'External GPIO; shared with the level-shifted Q1R relay output'),
+  pin('left-5', '3V3', 'power-out', 'left-5'),
+  pin('left-6', 'A0 / GPIO36', 'analog', 'left-6', undefined, 36, 'Analog input only; no internal pull resistor'),
+  pin('left-7', '1-wire / GPIO13', 'gpio', 'left-7', undefined, 13, 'Onboard DS18B20 temperature sensor connection'),
+  pin('left-8', 'SDA / GPIO21', 'gpio', 'left-8', undefined, 21, 'Default I2C SDA'),
+  pin('left-9', 'SCL / GPIO22', 'gpio', 'left-9', undefined, 22, 'Default I2C SCL'),
+  pin('right-1', 'GND', 'ground', 'right-1'),
+  pin('right-2', 'Q4 / GPIO32', 'gpio', 'right-2', undefined, 32, 'External GPIO; may be pulled high'),
+  pin('right-3', 'Q3 / GPIO2', 'gpio', 'right-3', undefined, 2, 'External GPIO; may be pulled high'),
+  pin('right-4', 'LED4 / GPIO4', 'gpio', 'right-4', undefined, 4, 'Unidirectional level-shifted output'),
+  pin('right-5', 'LED3 / GPIO1', 'gpio', 'right-5', undefined, 1, 'Unidirectional level-shifted output; also UART0 TX'),
+  pin('right-6', 'LED2 / GPIO3', 'gpio', 'right-6', undefined, 3, 'Unidirectional level-shifted output; also UART0 RX'),
+  pin('right-7', 'LED1 / GPIO16', 'gpio', 'right-7', undefined, 16, 'Unidirectional level-shifted output'),
+  pin('right-8', 'LED GND', 'ground', 'right-8'),
+  pin('right-9', 'LED V+', 'power-out', 'right-9', undefined, undefined, 'Fused pass-through of the 5-24 V main input'),
+]
+
 const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -1173,6 +1239,58 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: "Wireless-Tag's WT32-ETH01 datasheet V1.1 and pinout drawing, and the core's wt32-eth01 variant.",
     pinAnchors: WT32_ETH01_PIN_ANCHORS,
     pins: WT32_ETH01_PINS,
+  },
+  {
+    id: 'quinled-dig-uno',
+    label: 'QuinLED Dig-Uno v3.1',
+    manufacturer: 'Intermittent Technology',
+    model: 'QuinLED Dig-Uno',
+    revision: 'Pre-assembled v3.1 with socketed QuinLED-ESP32',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:esp32'],
+    dimensionsMm: { width: 48.523, height: 39.37 },
+    confidence: 'manufacturer-verified',
+    memory: { flashMb: 4, psramMb: 0 },
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
+    moduleSilk: 'QuinLED-ESP32',
+    previewSvg: boardSvg('QuinLED Dig-Uno', '#8c72d6', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'LED1 is GPIO16 and LED2 is GPIO3. Both terminal outputs are level-shifted to about 5.12 V and cannot be inputs.',
+      'Feed 5-24 V through VIN. LED V+ passes that input voltage through the onboard fuse; match it to the LEDs.',
+      'Q1-Q4, Button, A0, 1-wire and the GPIO21/GPIO22 I2C bus remain exposed on headers.',
+    ],
+    caveats: [
+      'This profile covers the base pre-assembled v3.1 board with a standard QuinLED-ESP32, not the AE+ expansion or Ethernet variant.',
+    ],
+    sourceSummary: "QuinLED's v3/v3.1 pinout, dimension drawing, pre-assembled specifications and firmware profile.",
+    pinAnchors: QUINLED_DIG_UNO_PIN_ANCHORS,
+    pins: QUINLED_DIG_UNO_PINS,
+  },
+  {
+    id: 'quinled-dig-quad',
+    label: 'QuinLED Dig-Quad v3.1',
+    manufacturer: 'Intermittent Technology',
+    model: 'QuinLED Dig-Quad',
+    revision: 'Pre-assembled v3.1 with socketed QuinLED-ESP32',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:esp32'],
+    dimensionsMm: { width: 100.394, height: 48.209 },
+    confidence: 'manufacturer-verified',
+    memory: { flashMb: 4, psramMb: 0 },
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
+    moduleSilk: 'QuinLED-ESP32',
+    previewSvg: boardSvg('QuinLED Dig-Quad', '#8c72d6', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'LED1-LED4 are GPIO16, GPIO3, GPIO1 and GPIO4. All four terminal outputs are level-shifted to about 5.12 V and cannot be inputs.',
+      'Feed 5-24 V through the dual high-current input. Seven V+ and seven GND outputs distribute power through five ATO fuses; match input voltage to the LEDs.',
+      'Q1-Q4, Button, A0, 1-wire and the GPIO21/GPIO22 I2C bus remain exposed. Q1 also drives the separate level-shifted Q1R relay output.',
+    ],
+    caveats: [
+      'This profile covers the base pre-assembled v3.1 board with a standard QuinLED-ESP32, not an Ethernet or antenna expansion variant.',
+    ],
+    sourceSummary: "QuinLED's v3/v3.1 pinout, dimension drawing, pre-assembled specifications and front render.",
+    pinAnchors: QUINLED_DIG_QUAD_PIN_ANCHORS,
+    pins: QUINLED_DIG_QUAD_PINS,
   },
 ]
 

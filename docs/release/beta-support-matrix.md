@@ -446,6 +446,27 @@ Unless a future row says otherwise, treat the following as experimental:
   with an Ethernet link up, an address by DHCP and by static configuration,
   Art-Net received over the cable driving an LED output, NTP sync, recovery
   after the cable is pulled and replugged, and an upload through the adapter.
+- **QuinLED Dig-Uno v3.1** (`quinled-dig-uno`, `esp32:esp32:esp32`). Its
+  profile follows QuinLED's dimension drawing, pinout and firmware profile.
+  The Build Diagram lands wires on its scattered screw terminals and headers:
+  LED1 is the level-shifted GPIO16 output, LED2 is GPIO3, and VIN accepts
+  5-24 V through the onboard fuse. It shares the already-covered generic
+  ESP32 build and has not run on a board here. Graduating it needs a dated row
+  that uploads from Studio, drives separate LED runs from LED1 and LED2,
+  reads Button, Q1-Q4 and A0, exercises GPIO21/GPIO22 I2C, and checks the
+  Build Diagram against a v3.1 board before applying 5 V and one higher LED
+  supply voltage.
+- **QuinLED Dig-Quad v3.1** (`quinled-dig-quad`, `esp32:esp32:esp32`). Its
+  profile follows QuinLED's dimension drawing, v2/v3 pinout and pre-assembled
+  specifications. The Build Diagram lands wires on the dual high-current
+  input, GPIO headers and four level-shifted outputs: LED1-LED4 are GPIO16,
+  GPIO3, GPIO1 and GPIO4. It shares the generic ESP32 build and has not run on
+  a board here. Graduating it needs a dated row that uploads from Studio,
+  drives four independent LED runs, reads Button, Q1-Q4 and A0, exercises
+  GPIO21/GPIO22 I2C and Q1R, checks all five fuse groups, and compares the
+  Build Diagram against a v3.1 board before applying 5 V and one higher LED
+  supply voltage. High-current validation must record wiring, cooling, load
+  current and fuse values.
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom

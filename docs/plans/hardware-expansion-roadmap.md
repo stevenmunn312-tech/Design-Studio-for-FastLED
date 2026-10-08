@@ -92,7 +92,19 @@ measured pad.
   use in place of Wi-Fi, and the board has no USB, so it is powered through
   its 5V pin. Its [compile fixture](../reports/compile/controller-board-compile-checks.md)
   passes and the bench run is open.
-- QuinLED Dig-Uno and Dig-Quad.
+- QuinLED Dig-Uno: done 2026-10-09. The pre-assembled v3.1 profile draws its
+  exact 48.523 x 39.370 mm board and scattered terminal/header pads, fixes
+  LED1 and LED2 to the level-shifted GPIO16/GPIO3 outputs, exposes the six
+  general inputs plus I2C, and accepts 5-24 V through its fused main terminal.
+  It shares the already-covered generic ESP32 build, so it needs no separate
+  compile fixture. Its bench run is open.
+- QuinLED Dig-Quad: done 2026-10-09. The pre-assembled v3.1 profile draws its
+  exact 100.394 x 48.209 mm board, dual high-current input, seven positive and
+  seven ground outputs, four level-shifted LED outputs and scattered headers.
+  LED1-LED4 are fixed to GPIO16/GPIO3/GPIO1/GPIO4. The board accepts 5-24 V,
+  distributes up to 30 A through five ATO fuses with suitable wiring and
+  cooling, and shares the already-covered generic ESP32 build. Its bench run
+  is open.
 
 ## Suggested implementation order
 

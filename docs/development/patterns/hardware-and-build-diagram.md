@@ -19,6 +19,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   counts, power anchors and aspect to the shipped render. Check the
   manifest's mouth row against the render's alpha: the full rebuild moved
   USB-C receptacles without updating every manifest.
+- A controller whose connections are scattered terminals, not two straight
+  headers, uses `anchorPoints` in `controllerGeometry.ts`. Measure each anchor
+  from the Blender scene and map its own left/right wire-routing side. Do not
+  force screw terminals into the legacy equal-pitch rail interpolation; the
+  Dig-Uno and Dig-Quad are the reference profiles. Large controller assemblies
+  set `establishesScale: false`; fit only that render into the fixed slot so a
+  100 mm power board does not shrink every compact development board.
 - Check a clone board's rail order against a photo of the component side.
   Pinout images are often of the underside with USB at the top, and copying
   one without turning it over reverses both rails; the ESP32-C3 Super Mini

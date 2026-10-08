@@ -124,7 +124,7 @@ describe('boardProfiles', () => {
 })
 
 describe('reviewed controller profiles', () => {
-  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1', 'arduino-nano-esp32', 'wt32-eth01']
+  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1', 'arduino-nano-esp32', 'wt32-eth01', 'quinled-dig-uno', 'quinled-dig-quad']
 
   it.each(reviewed)('authors %s rather than taking the generated map', (id) => {
     const profile = boardProfileById(id)!
@@ -202,6 +202,31 @@ describe('reviewed controller profiles', () => {
       phy: 'ETH_PHY_LAN8720', phyAddress: 1, mdcPin: 23, mdioPin: 18, powerPin: 16, clockMode: 'ETH_CLOCK_GPIO0_IN',
     })
     for (const gpio of [16, 18, 19, 21, 22, 23, 25, 26, 27]) expect(boardPinForGpio(wt32, gpio), `GPIO${gpio}`).toBeUndefined()
+  })
+
+  it('maps the Dig-Uno output terminals and exposed headers', () => {
+    const uno = boardProfileById('quinled-dig-uno')
+    expect(uno?.pins).toHaveLength(16)
+    expect(uno?.pins?.find((pin) => pin.role === 'power-in')).toMatchObject({
+      label: 'VIN 5-24V', inputVoltage: { min: 5, max: 24 },
+    })
+    expect(boardPinForGpio(uno, 16)).toMatchObject({ anchorId: 'right-4', label: 'LED1 / GPIO16' })
+    expect(boardPinForGpio(uno, 3)).toMatchObject({ anchorId: 'right-3', label: 'LED2 / GPIO3' })
+    expect(boardPinForGpio(uno, 21)?.label).toBe('SDA / GPIO21')
+    expect(boardPinForGpio(uno, 36)?.role).toBe('analog')
+  })
+
+  it('maps the Dig-Quad four output terminals and exposed headers', () => {
+    const quad = boardProfileById('quinled-dig-quad')
+    expect(quad?.pins).toHaveLength(18)
+    expect(quad?.pins?.find((pin) => pin.role === 'power-in')).toMatchObject({
+      label: 'VIN 5-24V', inputVoltage: { min: 5, max: 24 },
+    })
+    expect([16, 3, 1, 4].map((gpio) => boardPinForGpio(quad, gpio)?.label)).toEqual([
+      'LED1 / GPIO16', 'LED2 / GPIO3', 'LED3 / GPIO1', 'LED4 / GPIO4',
+    ])
+    expect(boardPinForGpio(quad, 21)?.label).toBe('SDA / GPIO21')
+    expect(boardPinForGpio(quad, 36)?.role).toBe('analog')
   })
 })
 

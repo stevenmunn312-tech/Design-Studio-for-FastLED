@@ -41,9 +41,7 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  2. Exact controller profiles with measured pin maps, each starting with its
-     Blender model: QuinLED Dig-Uno and Dig-Quad.
-  3. Families that extend the power model: battery chargers, cell balancers,
+  2. Families that extend the power model: battery chargers, cell balancers,
      battery-management systems, mains SSRs, contactors and large motor
      drivers. A real reference system is available: a 70,000 mAh lithium pack
      with fuses, balancer, BMS and 100 W charge/discharge control.
@@ -392,9 +390,16 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   measured pads, 2026-10-08; the Super Mini's reversed rails and the D1 Mini's
   rail spacing were corrected in their models, and the Nano ESP32 is modelled
   and compiled. The WT32-ETH01 followed on 2026-10-09 with its LAN8720A
-  Ethernet as a board profile fact and power through its 5V pin
+  Ethernet as a board profile fact and power through its 5V pin. The QuinLED
+  Dig-Uno v3.1 followed that day with its exact terminal and header map, fixed
+  level-shifted GPIO16/GPIO3 LED outputs, and 5-24 V fused input; it shares the
+  existing generic ESP32 compile target
   ([compile record](docs/reports/compile/controller-board-compile-checks.md))
   ([roadmap](docs/plans/hardware-expansion-roadmap.md#additional-controller-profiles)).
+  The QuinLED Dig-Quad v3.1 completed the exact-controller batch on 2026-10-09
+  with its 100.394 x 48.209 mm model, dual high-current input, five fused power
+  groups, seven positive and seven ground outputs, and level-shifted LED1-LED4
+  on GPIO16/GPIO3/GPIO1/GPIO4.
 - **Pattern node expansion**: Phases 0–10, and Phase 11's render scale,
   positioned strings, white point and SD Video, all compiled
   ([plan](docs/plans/pattern-node-expansion.md)).

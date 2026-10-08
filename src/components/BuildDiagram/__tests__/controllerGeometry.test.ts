@@ -18,6 +18,8 @@ describe('measured controller renders', () => {
       'teensy-4-1',
       'arduino-nano-esp32',
       'wt32-eth01',
+      'quinled-dig-uno',
+      'quinled-dig-quad',
     ]))
   })
 
@@ -31,6 +33,18 @@ describe('measured controller renders', () => {
    * neighbour, one long and a pad nobody has gets a wire.
    */
   it.each(measured)('gives %s one measured pad per header pin', (_id, profile, render) => {
+    if (render.anchorPoints) {
+      expect(Object.keys(render.anchorPoints).sort()).toEqual((profile.pins ?? []).map((pin) => pin.anchorId).sort())
+      for (const pin of profile.pins ?? []) {
+        const point = renderTerminalPoint(render, pin.anchorId)
+        expect(point, pin.anchorId).toBeDefined()
+        expect(point!.x).toBeGreaterThan(render.x)
+        expect(point!.x).toBeLessThan(render.x + render.width)
+        expect(point!.y).toBeGreaterThan(render.y)
+        expect(point!.y).toBeLessThan(render.y + render.height)
+      }
+      return
+    }
     const onRail = (prefix: string) => (profile.pins ?? []).filter((pin) => pin.anchorId.startsWith(`${prefix}-`))
     expect(onRail(render.leftPrefix)).toHaveLength(render.pinsPerRail)
     expect(onRail(render.rightPrefix)).toHaveLength(render.pinsPerRail)

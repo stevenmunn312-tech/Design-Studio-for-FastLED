@@ -89,6 +89,8 @@ export const BOARD_I2C_DEFAULTS: Readonly<Record<string, BoardI2cDefault>> = {
   'raspberry-pi-pico-2': pins(4, 5),
   'raspberry-pi-pico-2-w': pins(4, 5),
   'raspberry-pi-pico-w': pins(4, 5),
+  'quinled-dig-uno': pins(21, 22, { sdaLabels: ['SDA'], sclLabels: ['SCL'] }),
+  'quinled-dig-quad': pins(21, 22, { sdaLabels: ['SDA'], sclLabels: ['SCL'] }),
   'seeed-xiao-esp32c3': pins(6, 7),
   'seeed-xiao-esp32c6': pins(22, 23),
   'seeed-xiao-nrf52840': pins(4, 5),

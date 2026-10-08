@@ -48,6 +48,12 @@ interface ControllerRenderSpec {
   holeRadiusPx: number
   leftPrefix: string
   rightPrefix: string
+  /** Exact points for boards whose external connections do not form two
+   *  straight, evenly spaced header rails. These win over rail interpolation. */
+  anchorPoints?: Record<string, { x: number; y: number; side: 'left' | 'right' }>
+  /** False for a large controller assembly that must fit this fixed sheet slot
+   *  without shrinking every compact development board in the catalogue. */
+  establishesScale?: boolean
   /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels,
    *  absent on a board with no USB. */
   powerAnchors: { v3v3: string; ground: string }
@@ -253,12 +259,76 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     powerAnchors: { v3v3: 'left-10', ground: 'right-13' },
     shortLabel: 'WT32-ETH01',
   },
+  // Dig-Uno connections are terminal screws and scattered headers, not two
+  // rails. Every point is projected from its Blender connection geometry.
+  'quinled-dig-uno': {
+    href: boardRenderSrc('quinled-dig-uno'),
+    sourceWidth: 800, sourceHeight: 644, imageWidthMm: 49.9492,
+    leftPinX: 0, rightPinX: 0, firstPinY: 0, lastPinY: 1,
+    pinsPerRail: 2, holeRadiusPx: 8, leftPrefix: 'left', rightPrefix: 'right',
+    anchorPoints: {
+      'left-1': { x: 63.6585, y: 241.6785, side: 'left' },
+      'left-2': { x: 63.6585, y: 369.8085, side: 'left' },
+      'left-3': { x: 303.9024, y: 565.2069, side: 'left' },
+      'left-4': { x: 480.0813, y: 594.0362, side: 'left' },
+      'left-5': { x: 528.1301, y: 594.0362, side: 'left' },
+      'left-6': { x: 400, y: 84.7191, side: 'left' },
+      'left-7': { x: 464.065, y: 84.7191, side: 'left' },
+      'left-8': { x: 576.1789, y: 49.4833, side: 'left' },
+      'right-1': { x: 480.0813, y: 49.4833, side: 'right' },
+      'right-2': { x: 528.1301, y: 49.4833, side: 'right' },
+      'right-3': { x: 736.3415, y: 273.711, side: 'right' },
+      'right-4': { x: 736.3415, y: 385.8248, side: 'right' },
+      'right-5': { x: 736.3415, y: 497.9386, side: 'right' },
+      'right-6': { x: 736.3415, y: 161.5972, side: 'right' },
+      'right-7': { x: 576.1789, y: 517.1581, side: 'right' },
+      'right-8': { x: 624.2277, y: 517.1581, side: 'right' },
+    },
+    establishesScale: false,
+    powerAnchors: { v3v3: 'left-6', ground: 'left-2' },
+    usbPoint: { x: 138.935, y: 329.7679 },
+    shortLabel: 'QuinLED Dig-Uno',
+  },
+  // Dig-Quad uses the same scattered-anchor path as Dig-Uno. The 100 mm
+  // assembly is independently fitted so compact development boards keep their
+  // existing readable scale.
+  'quinled-dig-quad': {
+    href: boardRenderSrc('quinled-dig-quad'),
+    sourceWidth: 800, sourceHeight: 386, imageWidthMm: 103.4416,
+    leftPinX: 0, rightPinX: 0, firstPinY: 0, lastPinY: 1,
+    pinsPerRail: 2, holeRadiusPx: 7, leftPrefix: 'left', rightPrefix: 'right',
+    anchorPoints: {
+      'left-1': { x: 57.3526, y: 332.0929, side: 'left' },
+      'left-2': { x: 287.4341, y: 270.2223, side: 'left' },
+      'left-3': { x: 267.7902, y: 270.2223, side: 'left' },
+      'left-4': { x: 248.1462, y: 270.2223, side: 'left' },
+      'left-5': { x: 169.5705, y: 270.2223, side: 'left' },
+      'left-6': { x: 189.2144, y: 270.2223, side: 'left' },
+      'left-7': { x: 228.5023, y: 270.2223, side: 'left' },
+      'left-8': { x: 558.1182, y: 270.2223, side: 'right' },
+      'left-9': { x: 577.7621, y: 270.2223, side: 'right' },
+      'right-1': { x: 734.0628, y: 332.0929, side: 'right' },
+      'right-2': { x: 636.6939, y: 270.2223, side: 'right' },
+      'right-3': { x: 617.0499, y: 270.2223, side: 'right' },
+      'right-4': { x: 336.7759, y: 38.2074, side: 'left' },
+      'right-5': { x: 376.0638, y: 38.2074, side: 'left' },
+      'right-6': { x: 415.3516, y: 38.2074, side: 'right' },
+      'right-7': { x: 454.6395, y: 38.2074, side: 'right' },
+      'right-8': { x: 764.9208, y: 38.2074, side: 'right' },
+      'right-9': { x: 26.4946, y: 38.2074, side: 'left' },
+    },
+    establishesScale: false,
+    powerAnchors: { v3v3: 'left-5', ground: 'right-1' },
+    usbPoint: { x: 426.643, y: 321.2656 },
+    shortLabel: 'QuinLED Dig-Quad',
+  },
 }
 
 /**
- * Boards are drawn at true relative scale: the widest one fills the controller
- * slot and every other is sized from its own real width, so the sheet doesn't
- * imply a 21 mm XIAO and a 101 mm Mega are the same size.
+ * Boards use one physical scale until a large controller would overflow this
+ * fixed sheet slot. That board alone is reduced to fit; otherwise adding a
+ * 49 mm Dig-Uno would shrink every existing header until adjacent wire exits
+ * become indistinguishable.
  *
  * Each board is centred in the slot and bottom-aligned to a shared baseline, so
  * every render's USB end sits at the same height. Bottom-aligning is also what
@@ -281,14 +351,19 @@ const CONTROLLER_SLOT_HEIGHT = CONTROLLER_BASELINE_Y - CONTROLLER_SLOT_TOP_Y
  * have run straight through the callout.
  */
 const CONTROLLER_UNITS_PER_MM = Math.min(
-  CONTROLLER_SLOT_WIDTH / Math.max(...Object.values(CONTROLLER_SPECS).map((spec) => spec.imageWidthMm)),
-  CONTROLLER_SLOT_HEIGHT / Math.max(...Object.values(CONTROLLER_SPECS)
-    .map((spec) => spec.imageWidthMm * (spec.sourceHeight / spec.sourceWidth))),
+  CONTROLLER_SLOT_WIDTH / Math.max(...Object.entries(CONTROLLER_SPECS)
+    .filter(([, spec]) => spec.establishesScale !== false).map(([, spec]) => spec.imageWidthMm)),
+  CONTROLLER_SLOT_HEIGHT / Math.max(...Object.entries(CONTROLLER_SPECS)
+    .filter(([, spec]) => spec.establishesScale !== false)
+    .map(([, spec]) => spec.imageWidthMm * (spec.sourceHeight / spec.sourceWidth))),
 )
 
 const CONTROLLER_RENDERS: Record<string, ControllerRender> = Object.fromEntries(
   Object.entries(CONTROLLER_SPECS).map(([id, spec]) => {
-    const width = spec.imageWidthMm * CONTROLLER_UNITS_PER_MM
+    const naturalWidth = spec.imageWidthMm * CONTROLLER_UNITS_PER_MM
+    const naturalHeight = naturalWidth * (spec.sourceHeight / spec.sourceWidth)
+    const fit = Math.min(1, CONTROLLER_SLOT_WIDTH / naturalWidth, CONTROLLER_SLOT_HEIGHT / naturalHeight)
+    const width = naturalWidth * fit
     const height = width * (spec.sourceHeight / spec.sourceWidth)
     return [id, {
       ...spec,
@@ -360,6 +435,16 @@ export function customPadPoint(layout: CustomControllerLayout, pad: CustomBoardP
 
 /** Diagram units between adjacent pads on a render's header. */
 function controllerPadPitch(render: ControllerRender) {
+  if (render.anchorPoints) {
+    const points = Object.values(render.anchorPoints)
+    let nearest = Number.POSITIVE_INFINITY
+    for (let a = 0; a < points.length; a += 1) {
+      for (let b = a + 1; b < points.length; b += 1) {
+        nearest = Math.min(nearest, Math.hypot(points[a].x - points[b].x, points[a].y - points[b].y))
+      }
+    }
+    if (Number.isFinite(nearest)) return (nearest / render.sourceWidth) * render.width
+  }
   const sourcePitch = (render.lastPinY - render.firstPinY) / (render.pinsPerRail - 1)
   return (sourcePitch / render.sourceHeight) * render.height
 }
@@ -403,6 +488,8 @@ export function renderTerminalPoint(
   render: ControllerRender,
   anchorId: string | undefined,
 ): ControllerTerminalPoint | undefined {
+  const exact = anchorId ? render.anchorPoints?.[anchorId] : undefined
+  if (exact) return { ...renderSourcePoint(render, exact.x, exact.y), side: exact.side, mapped: true }
   const match = new RegExp(`^(${render.leftPrefix}|${render.rightPrefix})-(\\d+)$`).exec(anchorId ?? '')
   if (!match) return undefined
   const pinIndex = Number(match[2]) - 1
