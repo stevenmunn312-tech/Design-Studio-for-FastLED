@@ -48,9 +48,10 @@ interface ControllerRenderSpec {
   holeRadiusPx: number
   leftPrefix: string
   rightPrefix: string
-  /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels. */
+  /** Anchor ids carrying the shared rails, plus the USB inlet in source pixels,
+   *  absent on a board with no USB. */
   powerAnchors: { v3v3: string; ground: string }
-  usbPoint: { x: number; y: number }
+  usbPoint?: { x: number; y: number }
   /** Caption drawn under the render. */
   shortLabel: string
 }
@@ -242,6 +243,16 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     usbPoint: { x: 400, y: 2054.526 },
     shortLabel: 'Nano ESP32',
   },
+  // 13 + 13 on an 80.061px pitch, rails 22.86 mm apart. No USB: the RJ45
+  // overhangs the bottom edge, and the board is powered through its 5V pad.
+  'wt32-eth01': {
+    href: boardRenderSrc('wt32-eth01'),
+    sourceWidth: 800, sourceHeight: 1896, imageWidthMm: 25.3807,
+    leftPinX: 39.7264, rightPinX: 760.2736, firstPinY: 280.564, lastPinY: 1241.2936,
+    pinsPerRail: 13, holeRadiusPx: 15.4, leftPrefix: 'left', rightPrefix: 'right',
+    powerAnchors: { v3v3: 'left-10', ground: 'right-13' },
+    shortLabel: 'WT32-ETH01',
+  },
 }
 
 /**
@@ -423,6 +434,7 @@ export function controllerConnectionPoint(
  * Where a controller rail meets the sheet. A custom board answers only with
  * pads it declares — 3V3 is a 3.3 V output, USB only when USB power was
  * chosen — and a rail it lacks is undefined rather than a stock coordinate.
+ * A measured board with no USB, such as the WT32-ETH01, has no USB point.
  */
 export function controllerPowerPoint(
   kind: '3v3' | 'ground' | 'usb',
@@ -449,7 +461,9 @@ export function controllerPowerPoint(
   if (render) {
     if (kind === '3v3') return renderTerminalPoint(render, render.powerAnchors.v3v3)!
     if (kind === 'ground') return renderTerminalPoint(render, render.powerAnchors.ground)!
-    return { ...renderSourcePoint(render, render.usbPoint.x, render.usbPoint.y), side: 'right', mapped: true }
+    return render.usbPoint
+      ? { ...renderSourcePoint(render, render.usbPoint.x, render.usbPoint.y), side: 'right', mapped: true }
+      : undefined
   }
   if (kind === '3v3') return { x: 280, y: 220, side: 'right', mapped: true }
   if (kind === 'ground') return { x: 280, y: 476, side: 'right', mapped: true }

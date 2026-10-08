@@ -145,6 +145,13 @@ def test_arduino_fqbn_builds_the_nano_esp32_with_gpio_numbers():
     )
 
 
+def test_arduino_fqbn_gives_the_wt32_eth01_the_huge_app_partition():
+    # Its board menu carries huge_app, like every classic ESP32 the helper knows.
+    assert toolchain._arduino_fqbn("esp32:esp32:wt32-eth01") == (
+        "esp32:esp32:wt32-eth01:PartitionScheme=huge_app"
+    )
+
+
 def test_arduino_fqbn_does_not_invent_flash_for_an_unknown_board():
     fqbn = "someone:elses:board:PSRAM=opi"
     assert toolchain._arduino_fqbn(fqbn, 16, True) == fqbn

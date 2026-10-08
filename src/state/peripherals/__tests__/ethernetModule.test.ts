@@ -12,7 +12,7 @@ import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS } from '../../../build/parts/partOptions'
 import { isHardwareOnlyNodeType } from '../../../build/hardware'
 import {
-  DEFAULT_ETHERNET_PART_ID, ETHERNET_MODULES, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHost,
+  DEFAULT_ETHERNET_PART_ID, ETHERNET_MODULES, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHost, wiredNetworkIn, wiredNetworkPhrase,
 } from '../ethernetModule'
 import { useNetworkCredentialsStore } from '../networkCredentials'
 
@@ -209,6 +209,54 @@ describe('Ethernet validation', () => {
     const errors = findDeployBlockingErrors(nodes, edges, 'esp32:esp32:esp32')
     expect(errors.some((message) => message.startsWith('GPIO 18 ') && message.includes(' SCLK'))).toBe(true)
     expect(errors.some((message) => message.startsWith('GPIO 23 ') && message.includes(' MOSI'))).toBe(true)
+  })
+})
+
+describe('Ethernet built into the board', () => {
+  const wt32 = () => node('board', 'Board', { profileId: 'wt32-eth01' })
+  const WT32_FQBN = 'esp32:esp32:wt32-eth01'
+
+  it('carries the network on the WT32-ETH01 with no module on the bench', () => {
+    const wired = wiredNetworkIn(artNetGraph([wt32()]).nodes)
+    expect(wired).toMatchObject({ kind: 'onboard', boardLabel: 'WT32-ETH01' })
+    expect(wiredNetworkPhrase(wired!)).toBe("the WT32-ETH01's own Ethernet port")
+    expect(wiredNetworkIn(artNetGraph().nodes)).toBeNull()
+  })
+
+  it("starts the LAN8720 on the board's fixed pins instead of Wi-Fi or an SPI module", () => {
+    const { nodes, edges } = artNetGraph([wt32()], {
+      useDhcp: false, staticIp: '10.0.0.40', staticGateway: '10.0.0.1', staticSubnet: '255.255.255.0', staticDns: '10.0.0.1',
+    })
+    const cpp = generateCpp(nodes, edges)
+    expect(cpp).toContain('#include <ETH.h>')
+    expect(cpp).not.toContain('#include <SPI.h>')
+    expect(cpp).toContain('ETH.begin(ETH_PHY_LAN8720, 1, 23, 18, 16, ETH_CLOCK_GPIO0_IN)')
+    expect(cpp).toContain('ETH.config(IPAddress(10, 0, 0, 40), IPAddress(10, 0, 0, 1), IPAddress(255, 255, 255, 0), IPAddress(10, 0, 0, 1));')
+    expect(cpp).toContain('return ETH.connected() && ETH.hasIP();')
+    expect(cpp).not.toContain('W5500')
+    expect(cpp).not.toContain('WiFi.begin(')
+    const setup = cpp.slice(cpp.indexOf('void setup() {'))
+    expect(setup.indexOf('_netEnsureConnected();')).toBeGreaterThan(-1)
+    expect(setup.indexOf('_artnetUdp_dmx.begin(')).toBeGreaterThan(setup.indexOf('_netEnsureConnected();'))
+  })
+
+  it('uses its own port over a module on the bench, and warns that the module never starts', () => {
+    const { nodes, edges } = artNetGraph([wt32(), ethernet()])
+    const cpp = generateCpp(nodes, edges)
+    expect(cpp).toContain('ETH_PHY_LAN8720')
+    expect(cpp).not.toContain('ETH_PHY_W5500')
+    const issues = buildGraphDiagnostics(nodes, edges, { selectedFqbn: WT32_FQBN })
+      // Its default pins land on the WT32's RMII lines too; the pin checks say so separately.
+      .filter((issue) => issue.id.startsWith('eth-'))
+    expect(issues.map((issue) => [issue.id, issue.severity])).toEqual([['eth-ethernet-onboard', 'warning']])
+  })
+
+  it('needs no Wi-Fi SSID for Art-Net or NTP', () => {
+    useNetworkCredentialsStore.getState().setCredentials('dmx', { ssid: '', password: '' })
+    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: '', password: '' })
+    const { nodes, edges } = artNetGraph([wt32(), node('rtc', 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org' })])
+    const result = validateGraph(nodes, edges, WT32_FQBN)
+    expect([...result.errors, ...result.warnings].filter((message) => message.includes('SSID'))).toEqual([])
   })
 })
 

@@ -51,7 +51,7 @@ import {
   controllerConnectionPoint,
   type ControllerTerminalPoint,
 } from './controllerGeometry'
-import { ControllerConverterGraphic, ControllerGraphic, CustomControllerPowerNote } from './ControllerGraphic'
+import { ControllerConverterGraphic, ControllerGraphic, CustomControllerPowerNote, PowerPinControllerNote } from './ControllerGraphic'
 import { OutputGraphic, InputGraphic } from './PeripheralGraphics'
 import { PowerDistributionSections, WireLabel } from './PowerDistribution'
 import { type PhysicalDiagramConnection, signalPresentation } from './signalPresentation'
@@ -490,6 +490,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
 
       {controllerSupply ? (
         <ControllerConverterGraphic supply={controllerSupply} boardProfile={boardProfile} x={(controllerUsb?.x ?? CONTROLLER_SLOT_CENTER_X) - 92} y={592} />
+      ) : !controllerUsb && boardProfile.hasUsb === false ? (
+        <PowerPinControllerNote boardProfile={boardProfile} x={CONTROLLER_SLOT_CENTER_X - 92} y={592} />
       ) : !controllerUsb ? (
         <CustomControllerPowerNote boardProfile={boardProfile} x={CONTROLLER_SLOT_CENTER_X - 92} y={592} />
       ) : <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>

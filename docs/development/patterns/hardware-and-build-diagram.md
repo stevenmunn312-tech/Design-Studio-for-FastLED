@@ -26,6 +26,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   on every board in the catalogue, which makes the mistake easy to spot. Read
   a mechanical drawing's dimensions against what they point at, too: the D1
   Mini's 20.4 mm is its mounting holes, and its rails are 22.86 mm apart.
+- Ethernet built into a board is a profile fact (`onboardEthernet`), never an
+  `EthernetModule`. Ask `wiredNetworkIn`, not `ethernetModuleIn`, whether a
+  cable carries the network: the board's port wins, and a module beside it is
+  idle. A board with no USB sets `hasUsb: false` and omits `usbPoint`; the
+  power plan, sheet and connection export then name its power-in pin.
 
 - A DFPlayer Mini is one UART-controlled player, not a second music-sync
   decoder. `DFPlayerOutput` owns controller RX, controller TX and an

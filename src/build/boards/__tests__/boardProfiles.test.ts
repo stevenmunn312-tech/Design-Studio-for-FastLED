@@ -124,7 +124,7 @@ describe('boardProfiles', () => {
 })
 
 describe('reviewed controller profiles', () => {
-  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1', 'arduino-nano-esp32']
+  const reviewed = ['esp32-c3-super-mini', 'esp32-c6-devkitc-1', 'esp8266-lolin-d1-mini', 'raspberry-pi-pico-w', 'teensy-4-1', 'arduino-nano-esp32', 'wt32-eth01']
 
   it.each(reviewed)('authors %s rather than taking the generated map', (id) => {
     const profile = boardProfileById(id)!
@@ -183,6 +183,25 @@ describe('reviewed controller profiles', () => {
     expect(boardPinForGpio(teensy, 33)?.anchorId).toBe('left-1')
     expect(boardPinForGpio(teensy, 0)?.anchorId).toBe('right-23')
     expect(teensy?.pins?.find((pin) => pin.role === 'power-in')?.anchorId).toBe('left-24')
+  })
+
+  /*
+   * Wireless-Tag's drawing: the flashing header's EN, GND, 3V3 and TXD0, RXD0,
+   * IO0 head the two rails. The LAN8720A owns ten pins over RMII, and GPIO0 is
+   * on the header only because the ROM bootloader needs it.
+   */
+  it('maps the WT32-ETH01 header and its built-in Ethernet', () => {
+    const wt32 = boardProfileById('wt32-eth01')
+    expect(wt32?.pins).toHaveLength(26)
+    expect(boardPinForGpio(wt32, 4)?.anchorId).toBe('right-11')
+    expect(boardPinForGpio(wt32, 32)?.label).toBe('IO32 / CFG')
+    expect(boardPinForGpio(wt32, 0)).toMatchObject({ role: 'reserved', availability: 'unavailable' })
+    expect(wt32?.pins?.filter((pin) => pin.role === 'power-in').map((pin) => pin.label)).toEqual(['5V'])
+    expect(wt32?.hasUsb).toBe(false)
+    expect(wt32?.onboardEthernet).toEqual({
+      phy: 'ETH_PHY_LAN8720', phyAddress: 1, mdcPin: 23, mdioPin: 18, powerPin: 16, clockMode: 'ETH_CLOCK_GPIO0_IN',
+    })
+    for (const gpio of [16, 18, 19, 21, 22, 23, 25, 26, 27]) expect(boardPinForGpio(wt32, gpio), `GPIO${gpio}`).toBeUndefined()
   })
 })
 

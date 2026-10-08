@@ -616,14 +616,28 @@ function customControllerPower(board: PhysicalBoardProfile): { path: string; rec
   }
 }
 
-function controllerSupplyRecommendations(supply: ControllerSupplyPlan): string[] {
+/**
+ * A stock board with no USB connector is powered through its power-in pin or
+ * not at all, so the plan names that pin rather than a USB lead.
+ */
+function powerPinControllerPower(board: PhysicalBoardProfile): { path: string; recommendation: string } {
+  const input = board.pins?.find((pin) => pin.role === 'power-in')?.label ?? '5 V input'
+  return {
+    path: `Regulated 5 V supply into the board's ${input} pin (the board has no USB)`,
+    recommendation: `Power the controller from a regulated 5 V supply into its ${input} pin, since it has no USB; do not route LED load through the controller board.`,
+  }
+}
+
+function controllerSupplyRecommendations(supply: ControllerSupplyPlan, boardHasUsb: boolean): string[] {
   return [
     ...(supply.adjustable
       ? [`Set the ${supply.label} to ${supply.outputVoltage} V with a meter before it is connected to the controller: it ships at an arbitrary output.`]
       : []),
     `Keep the controller and every 5 V module on its pin under the converter's ${formatRuleCurrent(supply.continuousCurrentMa)} continuous rating.`,
     `Fuse the converter's input at the ${supply.sourceVoltage} V source${supply.inputFuse.ratingMa ? ` (${formatRuleCurrent(supply.inputFuse.ratingMa)})` : ''}; its negative joins the common ground.`,
-    "Do not plug in USB while the converter powers the board unless the board's documentation says its 5 V pin is diode-isolated from USB; two supplies on one rail can back-feed the computer.",
+    ...(boardHasUsb
+      ? ["Do not plug in USB while the converter powers the board unless the board's documentation says its 5 V pin is diode-isolated from USB; two supplies on one rail can back-feed the computer."]
+      : []),
   ]
 }
 
@@ -791,6 +805,7 @@ export function calculateElectricalPlan(
   }
   const customPower = exactBoard?.custom ? customControllerPower(exactBoard) : undefined
   if (customPower?.unresolved) unresolved.push(customPower.unresolved)
+  const boardPower = customPower ?? (exactBoard?.hasUsb === false ? powerPinControllerPower(exactBoard) : undefined)
   const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const powerReadyPasses = blockers.length === 0 && unresolved.length === 0
   const requirementsCalculatedText = blockers.length > 0
@@ -805,8 +820,8 @@ export function calculateElectricalPlan(
   const recommendations = [
     controllerSupply
       ? `Power the controller from the ${controllerSupply.label} into its ${controllerSupply.powerInPinLabel ?? '5 V input'} pin; do not route LED load through the controller board.`
-      : customPower?.recommendation ?? 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
-    ...(controllerSupply ? controllerSupplyRecommendations(controllerSupply) : []),
+      : boardPower?.recommendation ?? 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
+    ...(controllerSupply ? controllerSupplyRecommendations(controllerSupply, exactBoard?.hasUsb !== false) : []),
     ...(railConverter ? [
       `Use one ${railConverter.module.label} per 5 V distribution zone; never parallel converter outputs.`,
       `At ${ENCLOSURE_AMBIENT_C} °C, plan each ${railConverter.module.label} for no more than ${formatRuleCurrent(railConverter.deratedCurrentMa)} continuous output.`,
@@ -877,7 +892,7 @@ export function calculateElectricalPlan(
       ? undefined
       : controllerSupply
         ? `${controllerSupply.label}, ${controllerSupply.sourceVoltage} V to ${controllerSupply.outputVoltage} V, into the board's ${controllerSupply.powerInPinLabel ?? '5 V input'} pin`
-        : customPower?.path ?? 'USB-C power (controller only)',
+        : boardPower?.path ?? 'USB-C power (controller only)',
     controllerSupply,
     branchChecks: [],
     recommendations,

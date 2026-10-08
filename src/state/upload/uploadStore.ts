@@ -111,6 +111,8 @@ export const BOARDS: Board[] = [
   // Its NORA-W106 module carries octal PSRAM, which this board definition
   // enables without a menu. The helper builds it with GPIO pin numbering.
   { label: 'Arduino Nano ESP32', fqbn: 'esp32:esp32:nano_nora', core: 'esp32:esp32', thirdParty: true },
+  // No USB on the board: it uploads through a USB-to-serial adapter's port.
+  { label: 'WT32-ETH01', fqbn: 'esp32:esp32:wt32-eth01', core: 'esp32:esp32', thirdParty: true },
   { label: 'Adafruit Feather ESP32-S2', fqbn: 'esp32:esp32:adafruit_feather_esp32s2', core: 'esp32:esp32', thirdParty: true,
     psram: [{ id: 'qspi', label: 'QSPI (2 MB)', opt: 'PSRAM=enabled' }],
   },

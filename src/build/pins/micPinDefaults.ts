@@ -65,6 +65,8 @@ export const MIC_PIN_DEFAULTS_BY_FQBN: Readonly<Record<string, MicI2sPins>> = {
   'esp32:esp32:esp32s3': ESP32_S3_PINS,
   'esp32:esp32:esp32': ESP32_CLASSIC_PINS,
   'esp32:esp32:esp32doit-devkit-v1': ESP32_CLASSIC_PINS,
+  // WT32-ETH01: IO34 is not on its header, and IO32/33 are its default I2C pair.
+  'esp32:esp32:wt32-eth01': { i2sWs: 17, i2sSck: 14, i2sSd: 35 },
   'esp32:esp32:esp32s2': ESP32_S2_PINS,
   'esp32:esp32:esp32c3': ESP32_C3_PINS,
   'esp32:esp32:esp32c6': ESP32_C6_PINS,

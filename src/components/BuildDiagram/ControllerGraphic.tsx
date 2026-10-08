@@ -115,6 +115,33 @@ export function LedPixels({ x, y, width, height, singleRow = false }: { x: numbe
 }
 
 /**
+ * A stock board with no USB, such as the WT32-ETH01, drawn in the USB block's
+ * place. Its power-in pad joins the 5 V net by symbol, the way the
+ * converter's output meets the board.
+ */
+export function PowerPinControllerNote({ boardProfile, x, y }: { boardProfile: PhysicalBoardProfile; x: number; y: number }) {
+  const input = boardProfile.pins?.find((pin) => pin.role === 'power-in')
+  const render = controllerRender(boardProfile)
+  const pad = render && input ? renderTerminalPoint(render, input.anchorId) : undefined
+  return (
+    <g data-controller-power="power-pin">
+      <g transform={`translate(${x} ${y})`}>
+        <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
+        <text x="18" y="27" className={styles.physicalComponentLabel}>5 V supply</text>
+        <text x="18" y="46" className={styles.physicalMetaLabel}>{`into ${input?.label ?? '5 V input'} · no USB`}</text>
+      </g>
+      {pad && input && (
+        <g data-terminal="controller-power-in">
+          <circle cx={pad.x} cy={pad.y} r="5" fill="#d84938" stroke="#f0a093" strokeWidth="2" />
+          <title>{`${input.label} · the board's only power input`}</title>
+          <NetStub x={pad.x} y={pad.y} kind="v5" direction={pad.side === 'left' ? 'left' : 'right'} lead={18} wireId="controller-power-in" />
+        </g>
+      )}
+    </g>
+  )
+}
+
+/**
  * Where a custom board's controller power stands when it is not USB: an
  * external supply is the user's own declaration, and an unchosen method is
  * shown as unresolved. Neither is drawn as a connector the board may not have.
@@ -202,10 +229,11 @@ export function ControllerGraphic({ boardProfile, connections, selected }: { boa
   }
   const render = controllerRender(boardProfile)
   if (render) {
-    // A measured render always carries its 3V3, GND and USB points.
+    // A measured render always carries its 3V3 and GND points, and its USB
+    // point unless the board has no USB.
     const power3v3 = controllerPowerPoint('3v3', boardProfile)!
     const ground = controllerPowerPoint('ground', boardProfile)!
-    const usb = controllerPowerPoint('usb', boardProfile)!
+    const usb = controllerPowerPoint('usb', boardProfile)
     const padRadius = controllerTerminalRadius(render)
     const padFillRadius = controllerTerminalFillRadius(render)
     return (
@@ -229,10 +257,12 @@ export function ControllerGraphic({ boardProfile, connections, selected }: { boa
           <circle cx={ground.x} cy={ground.y} r={padFillRadius} className={styles.controllerGroundTerminal} />
           <title>GND</title>
         </g>
-        <g data-terminal="controller-usb">
-          <circle cx={usb.x} cy={usb.y} r={padRadius} className={styles.controllerUsbTerminal} />
-          <title>USB power</title>
-        </g>
+        {usb && (
+          <g data-terminal="controller-usb">
+            <circle cx={usb.x} cy={usb.y} r={padRadius} className={styles.controllerUsbTerminal} />
+            <title>USB power</title>
+          </g>
+        )}
       </g>
     )
   }

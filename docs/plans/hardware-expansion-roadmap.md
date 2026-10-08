@@ -87,7 +87,11 @@ measured pad.
   top-view pinout, and built with the core's GPIO pin numbering; its
   [compile fixture](../reports/compile/controller-board-compile-checks.md)
   passes and the bench run is open.
-- WT32-ETH01; and
+- WT32-ETH01: done 2026-10-09. Modelled from Wireless-Tag's datasheet and
+  pinout drawing. Its LAN8720A is a board profile fact that Art-Net and NTP
+  use in place of Wi-Fi, and the board has no USB, so it is powered through
+  its 5V pin. Its [compile fixture](../reports/compile/controller-board-compile-checks.md)
+  passes and the bench run is open.
 - QuinLED Dig-Uno and Dig-Quad.
 
 ## Suggested implementation order

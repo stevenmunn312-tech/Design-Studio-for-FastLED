@@ -215,6 +215,48 @@ const ESP32_DEVKIT_V1_GPIO = boardPins({
   ]),
 })
 
+// Wireless-Tag WT32-ETH01. The LAN8720A takes ten of the classic ESP32's pins
+// over RMII; GPIO0 is on the header but carries the PHY's 50 MHz clock.
+const WT32_ETH01_ETHERNET: Readonly<Record<number, string>> = {
+  0: 'Carries the Ethernet PHY\'s 50 MHz clock — the header pad is for flashing only',
+  16: 'Enables the Ethernet clock oscillator — not on the header',
+  18: 'Ethernet PHY MDIO — not on the header',
+  19: 'Ethernet RMII TXD0 — not on the header',
+  21: 'Ethernet RMII TX_EN — not on the header',
+  22: 'Ethernet RMII TXD1 — not on the header',
+  23: 'Ethernet PHY MDC — not on the header',
+  25: 'Ethernet RMII RXD0 — not on the header',
+  26: 'Ethernet RMII RXD1 — not on the header',
+  27: 'Ethernet RMII CRS_DV — not on the header',
+}
+
+const WT32_ETH01_GPIO = boardPins({
+  ...ESP32_PINS,
+  digital: [1, 2, 3, 4, 5, 12, 14, 15, 17, 32, 33, 35, 36, 39],
+  analog: [2, 4, 12, 14, 15, 32, 33, 35, 36, 39],
+  inputOnly: [35, 36, 39],
+  noPullup: [35, 36, 39],
+  notes: {
+    ...ESP32_PINS.notes,
+    5: 'UART2 RX; drives the RXD LED',
+    17: 'UART2 TX; drives the TXD LED',
+    32: 'Default I2C SCL; CFG in Wireless-Tag\'s AT firmware',
+    33: 'Default I2C SDA; 485_EN in Wireless-Tag\'s AT firmware',
+  },
+  warnings: {
+    2: 'Strapping pin; must not be held high at reset',
+    5: 'Strapping pin',
+    12: 'Strapping pin sets flash voltage — must be low at reset',
+    15: 'Strapping pin — check the required boot level',
+  },
+  analogWarnings: Object.fromEntries([2, 4, 12, 14, 15].map((pin) => [pin, ADC2_WIFI])),
+  unavailable: {
+    ...ESP32_PINS.unavailable,
+    ...WT32_ETH01_ETHERNET,
+    ...Object.fromEntries([13, 34].map((pin) => [pin, 'Not on the WT32-ETH01 header'])),
+  },
+})
+
 const ESP32_S2_GPIO = boardPins({
   digital: [...range(0, 21), ...range(33, 46)],
   analog: range(1, 20),
@@ -518,6 +560,7 @@ export const BOARD_GPIO_BY_FQBN: Readonly<Record<string, BoardGpio>> = {
   'esp32:esp32:XIAO_ESP32C3': ESP32_C3_GPIO,
   'esp32:esp32:XIAO_ESP32C6': ESP32_C6_GPIO,
   'esp32:esp32:esp32doit-devkit-v1': ESP32_DEVKIT_V1_GPIO,
+  'esp32:esp32:wt32-eth01': WT32_ETH01_GPIO,
   'esp32:esp32:esp32s2': ESP32_S2_GPIO,
   'esp32:esp32:esp32c3': ESP32_C3_GPIO,
   'esp32:esp32:esp32c6': ESP32_C6_GPIO,

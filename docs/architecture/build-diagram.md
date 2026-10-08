@@ -192,6 +192,13 @@ Arduino's datasheet and pinout. It has no 5 V input: its VIN takes 6 to 21 V,
 which the pin's `inputVoltage` records, so the power plan refuses to feed it
 from a 5 V controller converter and keeps it on USB power.
 
+The WT32-ETH01 is manufacturer verified from Wireless-Tag's datasheet and
+pinout drawing. It has no USB (`hasUsb: false`), so its render spec carries no
+USB point. The sheet draws a "5 V supply · into 5V · no USB" block in the USB
+block's place, and the 5V pad joins the +5V net by symbol. The power plan and
+the connection export name that pad instead of a USB lead. A controller
+converter lands on the same pad, without the USB back-feed warning.
+
 The `ESP32 DevKit v1, 30-pin (ESP-32D)` profile is pinout verified from a
 user-supplied pinout image with the 15 + 15 rail count confirmed against the
 physical board. It is the only classic-ESP32 profile, so it is offered for both

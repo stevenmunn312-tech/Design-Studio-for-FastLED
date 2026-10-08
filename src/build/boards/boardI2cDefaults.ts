@@ -102,6 +102,8 @@ export const BOARD_I2C_DEFAULTS: Readonly<Record<string, BoardI2cDefault>> = {
   'teensy-4-1': pins(18, 19),
   'teensy-lc': pins(18, 19),
   'weact-black-pill-f411ce': pins(23, 22, { sdaLabels: ['B7', 'PB7'], sclLabels: ['B6', 'PB6'], sdaDisplay: 'PB7', sclDisplay: 'PB6' }),
+  // The core's wt32-eth01 variant: GPIO21/22 carry the Ethernet PHY's RMII here.
+  'wt32-eth01': pins(33, 32),
 }
 
 /** Stock catalogue lookup by profile ID. */

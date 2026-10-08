@@ -1,6 +1,7 @@
 import { targetFamilyFromFqbn, type BuildTargetFamily } from '../../build/buildProfile'
 import type { StudioNode } from '../graphStore'
 import { partById, type PartEthernetSpec } from '../../build/parts/partCatalogue'
+import { selectedPhysicalBoardProfile, type BoardOnboardEthernet } from '../../build/boards/boardProfiles'
 
 /**
  * Wired Ethernet: a W5500 module that carries the sketch's network instead of
@@ -47,6 +48,31 @@ export function ethernetSpec(partId: unknown): PartEthernetSpec {
 /** The bench's Ethernet module, if it has one. */
 export function ethernetModuleIn(nodes: readonly StudioNode[]): StudioNode | null {
   return nodes.find((node) => node.data.nodeType === ETHERNET_NODE_TYPE) ?? null
+}
+
+/**
+ * What carries the sketch's network over a cable: Ethernet built into the
+ * selected board, or the bench's Ethernet module.
+ */
+export type WiredNetwork =
+  | { kind: 'onboard'; boardLabel: string; ethernet: BoardOnboardEthernet }
+  | { kind: 'module'; node: StudioNode }
+
+/**
+ * The cable the network uses, if any. A board with Ethernet built in uses its
+ * own port even with a module on the bench; validation warns that the module
+ * is then never started.
+ */
+export function wiredNetworkIn(nodes: readonly StudioNode[]): WiredNetwork | null {
+  const board = selectedPhysicalBoardProfile(nodes)
+  if (board?.onboardEthernet) return { kind: 'onboard', boardLabel: board.label, ethernet: board.onboardEthernet }
+  const node = ethernetModuleIn(nodes)
+  return node ? { kind: 'module', node } : null
+}
+
+/** Where the wired network comes from, as a node body says it. */
+export function wiredNetworkPhrase(wired: WiredNetwork): string {
+  return wired.kind === 'onboard' ? `the ${wired.boardLabel}'s own Ethernet port` : 'the Ethernet module on the bench'
 }
 
 /**

@@ -487,6 +487,9 @@ _PIO_BOARDS: dict[str, dict] = {
     # definition for it, so use that rather than aliasing to the generic one.
     # No PSRAM: WROOM-32D modules carry none.
     "esp32:esp32:esp32doit-devkit-v1": {"platform": "espressif32", "board": "esp32doit-devkit-v1"},
+    # Wireless-Tag WT32-ETH01: classic ESP32 with a LAN8720A on its EMAC.
+    # The core's board definition and PlatformIO's both carry the 4 MB flash.
+    "esp32:esp32:wt32-eth01": {"platform": "espressif32", "board": "wt32-eth01"},
     "arduino:avr:uno": {"platform": "atmelavr", "board": "uno"},
     "arduino:avr:nano": {"platform": "atmelavr", "board": "nanoatmega328new"},
     "arduino:avr:leonardo": {"platform": "atmelavr", "board": "leonardo"},

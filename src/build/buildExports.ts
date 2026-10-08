@@ -74,6 +74,9 @@ export function buildConnectionRows(
     rows.push({ from: source, fromTerminal: '-', to: supply.label, toTerminal: 'IN-', purpose: `Converter input negative; ${wire}` })
     rows.push({ from: supply.label, fromTerminal: 'OUT+', to: controller, toTerminal: supply.powerInPinLabel ?? '5 V input', purpose: `Controller power at ${supply.outputVoltage} V; set the converter's output before connecting` })
     rows.push({ from: supply.label, fromTerminal: 'OUT-', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Converter negative; joins the controller and LED grounds' })
+  } else if (exactBoard?.hasUsb === false) {
+    const input = exactBoard.pins?.find((pin) => pin.role === 'power-in')?.label ?? '5 V input'
+    rows.push({ from: 'Regulated 5 V supply', fromTerminal: '+5V', to: controller, toTerminal: input, purpose: 'Controller power only; the board has no USB' })
   } else {
     rows.push({ from: 'USB-C power source', fromTerminal: 'USB-C', to: controller, toTerminal: 'USB-C power', purpose: 'Controller power only' })
   }

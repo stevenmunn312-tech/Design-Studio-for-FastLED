@@ -436,6 +436,16 @@ Unless a future row says otherwise, treat the following as experimental:
   GPIO9, a part on the A4/A5 I2C default, and Serial on the USB port. VIN takes
   6 to 21 V and there is no 5 V input, so the Build Diagram plans no 5 V
   converter for it.
+- **WT32-ETH01** (`wt32-eth01`, `esp32:esp32:wt32-eth01`). Its profile follows
+  Wireless-Tag's datasheet and pinout drawing, and its Ethernet is part of the
+  board: Art-Net and NTP reach the network through its LAN8720A with no Wi-Fi
+  credentials. Its normal-sketch fixture
+  [compiles](../reports/compile/controller-board-compile-checks.md). Nothing
+  has run on a board. It has no USB, so it is powered through its 5V pin and
+  flashed through a USB-to-serial adapter. Graduating it needs a dated row
+  with an Ethernet link up, an address by DHCP and by static configuration,
+  Art-Net received over the cable driving an LED output, NTP sync, recovery
+  after the cable is pulled and replugged, and an upload through the adapter.
 - **Custom boards** (Hardware → Custom board). A user-defined header map on
   a reviewed ESP32 or ESP32-S3 build template is a schematic: its labels,
   pad positions and supply pads are the user's declarations, and no custom

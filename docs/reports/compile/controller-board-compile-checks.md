@@ -1,9 +1,9 @@
 # Controller-board compile checks
 
-> **Status: Arduino Nano ESP32 complete.** Its fixture passed on 8 October
-> 2026. This is compile evidence only; the board stays experimental in the
-> [support matrix](../../release/beta-support-matrix.md) until a recorded
-> bench run exists. The WT32-ETH01 and QuinLED boards are added here as they
+> **Status: Arduino Nano ESP32 and WT32-ETH01 complete.** Their fixtures
+> passed on 8 and 9 October 2026. This is compile evidence only; both boards
+> stay experimental in the [support matrix](../../release/beta-support-matrix.md)
+> until a recorded bench run exists. The QuinLED boards are added here as they
 > land.
 
 A new controller board needs a compile only where its build differs from a
@@ -52,3 +52,43 @@ Source hash: `nano-esp32` `5af01433`.
 Not established: uploading. The board flashes through Arduino's DFU
 bootloader, which `arduino-cli upload` drives for this FQBN, but no board has
 been flashed from Studio yet.
+
+## WT32-ETH01
+
+The board's Ethernet is a LAN8720A on the ESP32's internal EMAC, which no other
+record builds: the W5500 fixtures in the
+[Ethernet record](ethernet-compile-checks.md) reach their module over SPI. The
+helper builds `esp32:esp32:wt32-eth01` with the `huge_app` partition scheme,
+like every classic ESP32 it knows.
+
+The fixture comes from a real Studio graph on the `wt32-eth01` profile, with no
+Ethernet module on the bench: Art-Net channel 1 dims an LED output on IO4, an
+NTP clock's seconds fill a meter on IO14, and a BH1750 on IO33/IO32, the core's
+default I2C pair, sets the meter's brightness. Fixture generation refuses a
+sketch that does not start the PHY with
+`ETH.begin(ETH_PHY_LAN8720, 1, 23, 18, 16, ETH_CLOCK_GPIO0_IN)`, or that calls
+`WiFi.begin`, names the W5500 or includes `SPI.h`.
+
+### Reproduce
+
+From the repository root:
+
+```powershell
+npm run gen:compile-fixtures -- wt32-eth01
+python scripts/compile-fixtures/compile-presence-smoke.py arduino-cli backend/sketches/wt32-eth01-fixtures/wt32-eth01.ino --fqbn esp32:esp32:wt32-eth01 --tag wt32-eth01 --label wt32-eth01
+```
+
+### Result, 9 October 2026
+
+Toolchain: arduino-cli 1.5.1, ESP32 core 3.3.11 and FastLED 3.10.5.
+
+Source hash: `wt32-eth01` `b12de715`.
+
+| Fixture | Engine | Result | Flash | RAM |
+| --- | --- | --- | --- | --- |
+| wt32-eth01 | arduino-cli | pass | 662,003 / 3,145,728 (21%) | 38,944 / 327,680 (11%) |
+
+Not established: uploading and running. The board has no USB; it flashes
+through a USB-to-serial adapter on TXD0 and RXD0 with IO0 held to GND at
+reset, which `arduino-cli upload` drives like any esptool board, but no board
+has been flashed from Studio yet.

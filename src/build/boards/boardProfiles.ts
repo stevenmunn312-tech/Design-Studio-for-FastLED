@@ -43,6 +43,22 @@ export interface PhysicalBoardPinProfile {
   inputVoltage?: { min: number; max: number }
 }
 
+/**
+ * Wired Ethernet built into the board. Art-Net and NTP time sync use it in
+ * place of Wi-Fi, as they would an Ethernet module on the bench.
+ */
+export interface BoardOnboardEthernet {
+  /** The PHY, as Arduino-ESP32's `eth_phy_type_t` names it. */
+  phy: 'ETH_PHY_LAN8720'
+  phyAddress: number
+  mdcPin: number
+  mdioPin: number
+  /** Powers the PHY or its clock oscillator. */
+  powerPin: number
+  /** Arduino-ESP32's `eth_clock_mode_t`: where the 50 MHz RMII clock comes from. */
+  clockMode: 'ETH_CLOCK_GPIO0_IN'
+}
+
 export interface PhysicalBoardProfile {
   id: string
   label: string
@@ -62,6 +78,10 @@ export interface PhysicalBoardProfile {
   sourceSummary: string
   pinAnchors?: PhysicalBoardPinAnchor[]
   pins?: PhysicalBoardPinProfile[]
+  /** False for a board with no USB connector: its power-in pin is the only
+   *  way to power it, and it is flashed through a USB-to-serial adapter. */
+  hasUsb?: boolean
+  onboardEthernet?: BoardOnboardEthernet
   processor?: string
   memory?: { flashMb: number; psramMb: number }
   /** Graph-owned internal-RAM allowance after board/core runtime overhead. */
@@ -748,6 +768,53 @@ const NANO_ESP32_PINS: PhysicalBoardPinProfile[] = [
   pin('right-15', 'D13 / GPIO48', 'gpio', 'right-15', undefined, 48, 'SCK; drives the amber LED_BUILTIN'),
 ]
 
+// Wireless-Tag's pinout drawing, RJ45 at the bottom. Each rail starts with
+// three pins of the flashing header: EN, GND, 3V3 on the left and TXD0, RXD0,
+// IO0 on the right.
+const WT32_ETH01_LEFT_LABELS = [
+  'EN', 'GND', '3V3', 'EN', 'IO32', 'IO33', 'IO5', 'IO17', 'GND', '3V3', 'GND', '5V', 'LINK',
+] as const
+
+const WT32_ETH01_RIGHT_LABELS = [
+  'TXD0', 'RXD0', 'IO0', 'GND', 'IO39', 'IO36', 'IO15', 'IO14', 'IO12', 'IO35', 'IO4', 'IO2', 'GND',
+] as const
+
+const WT32_ETH01_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', WT32_ETH01_LEFT_LABELS, 30, 88, 18),
+  ...verticalAnchors('right', 'right', WT32_ETH01_RIGHT_LABELS, 330, 88, 18),
+]
+
+const WT32_ETH01_3V3 = 'Regulator output when 5V is fed, or a 3.3 V input in its place; never both'
+
+const WT32_ETH01_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', 'EN', 'reserved', 'left-1', undefined, undefined, 'Enable; pull low to reset'),
+  pin('left-2', 'GND', 'ground', 'left-2'),
+  pin('left-3', '3V3', 'power-out', 'left-3', undefined, undefined, WT32_ETH01_3V3),
+  pin('left-4', 'EN', 'reserved', 'left-4', undefined, undefined, 'Enable; pull low to reset'),
+  pin('left-5', 'IO32 / CFG', 'gpio', 'left-5', undefined, 32, 'Default I2C SCL'),
+  pin('left-6', 'IO33 / 485_EN', 'gpio', 'left-6', undefined, 33, 'Default I2C SDA'),
+  pin('left-7', 'IO5 / RXD', 'gpio', 'left-7', undefined, 5, 'Strapping pin; UART2 RX, drives the RXD LED'),
+  pin('left-8', 'IO17 / TXD', 'gpio', 'left-8', undefined, 17, 'UART2 TX, drives the TXD LED'),
+  pin('left-9', 'GND', 'ground', 'left-9'),
+  pin('left-10', '3V3', 'power-out', 'left-10', undefined, undefined, WT32_ETH01_3V3),
+  pin('left-11', 'GND', 'ground', 'left-11'),
+  pin('left-12', '5V', 'power-in', 'left-12', undefined, undefined, '5 V into the AMS1117 regulator; the board has no USB'),
+  pin('left-13', 'LINK', 'reserved', 'left-13', undefined, undefined, 'Ethernet link LED output'),
+  pin('right-1', 'TXD0 / IO1', 'gpio', 'right-1', undefined, 1, 'UART0 TX: the flashing and Serial port'),
+  pin('right-2', 'RXD0 / IO3', 'gpio', 'right-2', undefined, 3, 'UART0 RX: the flashing and Serial port'),
+  pin('right-3', 'IO0', 'reserved', 'right-3', 'unavailable', 0, 'Ethernet clock input; hold it to GND at reset to flash'),
+  pin('right-4', 'GND', 'ground', 'right-4'),
+  pin('right-5', 'IO39', 'gpio', 'right-5', undefined, 39, 'Input only'),
+  pin('right-6', 'IO36', 'gpio', 'right-6', undefined, 36, 'Input only'),
+  pin('right-7', 'IO15', 'gpio', 'right-7', undefined, 15, 'Strapping pin'),
+  pin('right-8', 'IO14', 'gpio', 'right-8', undefined, 14),
+  pin('right-9', 'IO12', 'gpio', 'right-9', undefined, 12, 'Strapping pin; must be low at reset'),
+  pin('right-10', 'IO35', 'gpio', 'right-10', undefined, 35, 'Input only'),
+  pin('right-11', 'IO4', 'gpio', 'right-11', undefined, 4),
+  pin('right-12', 'IO2', 'gpio', 'right-12', undefined, 2, 'Strapping pin'),
+  pin('right-13', 'GND', 'ground', 'right-13'),
+]
+
 const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -1076,6 +1143,36 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: "Arduino's ABX00083 datasheet, top-view pinout and the core's pins_arduino.h.",
     pinAnchors: NANO_ESP32_PIN_ANCHORS,
     pins: NANO_ESP32_PINS,
+  },
+  {
+    id: 'wt32-eth01',
+    label: 'WT32-ETH01',
+    manufacturer: 'Wireless-Tag',
+    model: 'WT32-ETH01',
+    revision: 'WT32-S1 module, LAN8720A PHY, RJ45',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:wt32-eth01'],
+    dimensionsMm: { width: 25, height: 55 },
+    confidence: 'manufacturer-verified',
+    memory: { flashMb: 4, psramMb: 0 },
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
+    moduleSilk: 'WT32-S1',
+    hasUsb: false,
+    // The core's wt32-eth01 variant: PHY address 1, MDC 23, MDIO 18, and
+    // GPIO16 enabling the oscillator whose clock enters on GPIO0.
+    onboardEthernet: {
+      phy: 'ETH_PHY_LAN8720', phyAddress: 1, mdcPin: 23, mdioPin: 18, powerPin: 16, clockMode: 'ETH_CLOCK_GPIO0_IN',
+    },
+    previewSvg: boardSvg('WT32-ETH01', '#4fc3c8', 'RJ45', 'Manufacturer verified'),
+    notes: [
+      'Ethernet is built in: Art-Net and NTP time sync use its RJ45 port and need no Wi-Fi credentials.',
+      'There is no USB. Power it through 5V, or 3V3 instead, never both. Flash it through a USB-to-serial adapter on TXD0, RXD0 and GND, holding IO0 to GND at reset.',
+      'IO35, IO36 and IO39 are input-only. IO0 carries the Ethernet clock and is for flashing only.',
+    ],
+    caveats: [],
+    sourceSummary: "Wireless-Tag's WT32-ETH01 datasheet V1.1 and pinout drawing, and the core's wt32-eth01 variant.",
+    pinAnchors: WT32_ETH01_PIN_ANCHORS,
+    pins: WT32_ETH01_PINS,
   },
 ]
 

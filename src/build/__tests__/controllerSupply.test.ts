@@ -91,6 +91,24 @@ describe('controller supply from a buck converter', () => {
     ]))
   })
 
+  // The WT32-ETH01 has no USB, so its 5V pin is the only way in.
+  it('powers a board with no USB through its 5V pin, never a USB lead', () => {
+    const { manifest, plan, board } = planFor([output()], 'wt32-eth01')
+    expect(plan.blockers).toEqual([])
+    expect(plan.controllerPowerPath).toBe("Regulated 5 V supply into the board's 5V pin (the board has no USB)")
+    expect(plan.recommendations[0]).toMatch(/regulated 5 V supply into its 5V pin, since it has no USB/)
+    const rows = buildConnectionRows(manifest.primaryItems, plan, board)
+    expect(rows.some((row) => row.fromTerminal === 'USB-C')).toBe(false)
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'Regulated 5 V supply', fromTerminal: '+5V', to: 'WT32-ETH01', toTerminal: '5V' }),
+    ]))
+
+    const fed = planFor([output(), buck()], 'wt32-eth01').plan
+    expect(fed.blockers).toEqual([])
+    expect(fed.controllerSupply?.powerInPinLabel).toBe('5V')
+    expect(fed.recommendations.some((line) => line.includes('plug in USB'))).toBe(false)
+  })
+
   it('blocks a second controller converter', () => {
     const second = buck()
     second.id = 'buck-2'

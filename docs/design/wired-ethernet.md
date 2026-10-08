@@ -66,12 +66,34 @@ Two rules are load-bearing:
 
 Only the normal sketch has a network, so only `cppGenerator.ts` emits this.
 
+## Ethernet built into the board
+
+The WT32-ETH01 carries a LAN8720A on the ESP32's own EMAC, so its Ethernet is a
+fact of the board profile (`onboardEthernet` in `boardProfiles.ts`), not a part
+on the bench. `wiredNetworkIn` in `ethernetModule.ts` answers which cable the
+network uses: the selected board's own port first, otherwise an Ethernet module.
+The generator, the SSID checks and the DMX and RTC node bodies all ask it, so a
+WT32 needs no Wi-Fi credentials and no module.
+
+`onboardEthernetBootstrapCpp` emits `ETH.begin(ETH_PHY_LAN8720, 1, 23, 18, 16,
+ETH_CLOCK_GPIO0_IN)`, the wiring in the core's `wt32-eth01` variant, and shares
+the hostname, static address and `_netConnected()` tail with the W5500 path.
+There is no `SPIClass` and no user pin. The ten RMII and PHY pins are reserved
+in the board's pin safety and GPIO table, and GPIO0, which carries the PHY's
+50 MHz clock, is on the header for flashing only.
+
+A W5500 module on a WT32 is never started, so validation warns that it is idle
+and the module's pins, which land on RMII lines by default, are refused by the
+ordinary pin checks.
+
 ## Validation
 
 `ethernetValidationIssues` in `validateGraph.ts` is one walk projected into
 the deploy gate and Graph Health:
 
 - an unsupported board, when something uses the network (error);
+- a module on a board with Ethernet built in (warning — the board's own port
+  carries the network);
 - on a one-host chip, an SPI panel on different SCLK/MOSI pins (error);
 - more than one module (error);
 - a module nothing uses (warning — the build is correct, the part idle).
@@ -93,6 +115,5 @@ since a top-row stub would sit under the module.
   [support matrix](../release/beta-support-matrix.md). The sketches compile
   on classic ESP32, ESP32-S2, ESP32-S3, and ESP32-C3 alone or sharing its bus
   with a panel ([compile record](../reports/compile/ethernet-compile-checks.md)).
-- Other W5500 boards, and LAN8720/RMII boards such as the WT32-ETH01, which
-  would be a board profile rather than a module.
+- Other W5500 boards, and LAN8720/RMII boards other than the WT32-ETH01.
 - Networking in the show and SD-player generators, which have none today.

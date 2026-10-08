@@ -6,7 +6,7 @@ import {
 import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { ETHERNET_NODE_TYPE } from '../../../state/peripherals/ethernetModule'
+import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useStreamStore } from '../../../state/output/streamStore'
 import { setRtcDateTime } from '../../../utils/backendClient'
@@ -56,8 +56,12 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const snapshot = live ?? fallback
   const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  // An Ethernet module on the bench carries the network instead of Wi-Fi.
-  const wired = useGraphStore((s) => rootGraphNodes(s).some((node) => node.data.nodeType === ETHERNET_NODE_TYPE))
+  // A cable carries the network instead of Wi-Fi: the board's own Ethernet
+  // port, or an Ethernet module on the bench.
+  const wired = useGraphStore((s) => {
+    const network = wiredNetworkIn(rootGraphNodes(s))
+    return network ? wiredNetworkPhrase(network) : null
+  })
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const helperReady = useUploadStore((s) => s.helper?.ok === true)
   const uploadBusy = useUploadStore((s) => s.busy)
@@ -141,7 +145,7 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
         </>
       )}
       {String(timeSource ?? 'Compile Time') === 'NTP' && wired && (
-        <div className={styles.note}>Firmware reaches the network through the Ethernet module on the bench, so no Wi-Fi credentials are needed.</div>
+        <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
       )}
       {String(timeSource ?? 'Compile Time') === 'NTP' && !wired && (
         <>

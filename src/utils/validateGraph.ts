@@ -88,7 +88,7 @@ import {
 import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
-import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
+import { ETHERNET_NODE_TYPE, ethernetModuleIn, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -245,7 +245,7 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
     }
     if (source === 'NTP') {
       if (!String(props.ntpServer ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
-      if (!ethernetModuleIn(nodes) && !getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
+      if (!wiredNetworkIn(nodes) && !getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
     }
     return []
   })
@@ -269,7 +269,7 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
   if (users.length === 0) return warnings
   // With a cable there are no Wi-Fi credentials to supply or to disagree on;
   // the addressing settings still apply to the wired interface.
-  const wired = ethernetModuleIn(nodes) !== null
+  const wired = wiredNetworkIn(nodes) !== null
 
   const signatures = new Set(users.map((node) => {
     const props = node.data.properties as Record<string, unknown>
@@ -1912,6 +1912,17 @@ function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
       fix: 'Keep one Ethernet module in the Hardware workbench and remove the others.',
       nodeIds: modules.map((node) => node.id), nodeLabel: 'Ethernet modules',
     })
+  }
+  const board = selectedPhysicalBoardProfile(nodes)
+  if (board?.onboardEthernet) {
+    issues.push({
+      id: `${module.id}-ethernet-onboard`, severity: 'warning', category: 'board',
+      title: 'The board has Ethernet built in',
+      message: `The ${board.label} carries the network on its own Ethernet port, so the generated sketch never starts the Ethernet module.`,
+      fix: 'Remove the Ethernet module from the Hardware workbench.',
+      nodeIds: [module.id], nodeLabel: nodeLabel(module),
+    })
+    return issues
   }
   if (networkUsers(nodes).length === 0) {
     issues.push({

@@ -711,6 +711,20 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelectorAll('[data-component-render="lm2596-buck-module"]')).toHaveLength(1)
   })
 
+  it('powers a board with no USB through its 5V pad on the 5 V net', () => {
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:wt32-eth01' })
+    selectBoard('wt32-eth01')
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    expect(diagram?.querySelector('[data-controller-render="wt32-eth01"] image')).toBeTruthy()
+    expect(diagram?.querySelector('[data-terminal="controller-usb"]')).toBeNull()
+    expect(diagram?.querySelector('[data-wire="controller-usb-power"]')).toBeNull()
+    const note = diagram?.querySelector('[data-controller-power="power-pin"]')
+    expect(note?.textContent).toContain('into 5V · no USB')
+    expect(note?.querySelector('[data-terminal="controller-power-in"] [data-net-stub="v5"]')?.textContent).toBe('+5V')
+  })
+
   it('draws one isolated SD-100 rail converter and source-side fuse per power zone', () => {
     useGraphStore.setState({
       nodes: [

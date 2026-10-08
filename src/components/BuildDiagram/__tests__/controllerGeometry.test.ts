@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD_PROFILES } from '../../../build/boards/boardProfiles'
-import { controllerRender, renderTerminalPoint } from '../controllerGeometry'
+import { BOARD_PROFILES, boardProfileById } from '../../../build/boards/boardProfiles'
+import { controllerPowerPoint, controllerRender, renderTerminalPoint } from '../controllerGeometry'
 
 const measured = BOARD_PROFILES.flatMap((profile) => {
   const render = controllerRender(profile)
@@ -17,7 +17,13 @@ describe('measured controller renders', () => {
       'raspberry-pi-pico-w',
       'teensy-4-1',
       'arduino-nano-esp32',
+      'wt32-eth01',
     ]))
+  })
+
+  it('gives a board with no USB no USB point', () => {
+    expect(controllerPowerPoint('usb', boardProfileById('wt32-eth01')!)).toBeUndefined()
+    expect(controllerPowerPoint('usb', boardProfileById('arduino-nano-esp32')!)).toBeDefined()
   })
 
   /*

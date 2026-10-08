@@ -11,8 +11,8 @@ import {
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
 import { MAX_PIN_NUMBER } from '../build/boards/boardGpio'
-import { ethernetModuleIn, DEFAULT_ETHERNET_PART_ID } from '../state/peripherals/ethernetModule'
-import { ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp } from './peripherals/ethernetCpp'
+import { wiredNetworkIn, DEFAULT_ETHERNET_PART_ID } from '../state/peripherals/ethernetModule'
+import { ETHERNET_INCLUDES_CPP, ONBOARD_ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp, onboardEthernetBootstrapCpp } from './peripherals/ethernetCpp'
 import {
   NODE_LIBRARY,
   resolveNodeScalarExpressions,
@@ -754,9 +754,10 @@ export function generateCpp(
   const ntpNodes = sorted.filter((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'NTP')
   const needsNtp = ntpNodes.length > 0
   const needsNetwork = needsArtNet || needsNtp
-  // A W5500 on the bench carries the network instead of Wi-Fi. Found in the
-  // whole graph, not `sorted`: a hardware-only part has no ports to sort by.
-  const ethernetNode = needsNetwork ? ethernetModuleIn(nodes) : null
+  // A cable carries the network instead of Wi-Fi: the board's own Ethernet
+  // port, or a W5500 on the bench. Found in the whole graph, not `sorted`: a
+  // hardware-only part has no ports to sort by.
+  const wiredNetwork = needsNetwork ? wiredNetworkIn(nodes) : null
   const networkSource = sorted.find((n) => {
     const p = props(n)
     return (n.data.nodeType === 'DMXInput' && String(p.inputMode ?? 'Art-Net') === 'Art-Net')
@@ -1254,7 +1255,7 @@ export function generateCpp(
     lines.push(`#include <WiFi.h>`)
     lines.push(`#include <WiFiUdp.h>`)
     lines.push(`#include <time.h>`)
-    if (ethernetNode) lines.push(...ETHERNET_INCLUDES_CPP)
+    if (wiredNetwork) lines.push(...(wiredNetwork.kind === 'onboard' ? ONBOARD_ETHERNET_INCLUDES_CPP : ETHERNET_INCLUDES_CPP))
     lines.push(`#define FLS_NET_SUPPORTED 1`)
     lines.push(`#elif defined(ESP8266)`)
     lines.push(`#include <ESP8266WiFi.h>`)
@@ -1612,18 +1613,25 @@ export function generateCpp(
   if (motionVectors.length > 0) lines.push(...MOTION_VECTOR_HELPER_CPP)
   if (touchPads.length > 0) lines.push(...TOUCH_PAD_HELPER_CPP)
 
-  if (needsNetwork && ethernetNode) {
-    const p = props(ethernetNode)
+  const wiredStaticConfig = !networkCfg.useDhcp && networkCfg.staticIp && networkCfg.staticGateway && networkCfg.staticSubnet
+    ? {
+        ip: ipAddressExpr(networkCfg.staticIp),
+        gateway: ipAddressExpr(networkCfg.staticGateway),
+        subnet: ipAddressExpr(networkCfg.staticSubnet),
+        dns: ipAddressExpr(networkCfg.staticDns),
+      }
+    : null
+  if (wiredNetwork?.kind === 'onboard') {
+    lines.push(...onboardEthernetBootstrapCpp({
+      boardLabel: wiredNetwork.boardLabel,
+      ethernet: wiredNetwork.ethernet,
+      hostname: networkCfg.hostname,
+      staticConfig: wiredStaticConfig,
+    }))
+  } else if (wiredNetwork) {
+    const p = props(wiredNetwork.node)
     const d = libraryDefaults('EthernetModule')
     const pin = (key: string) => intProp(p[key] ?? d[key], Number(d[key]), 0, MAX_PIN_NUMBER)
-    const staticConfig = !networkCfg.useDhcp && networkCfg.staticIp && networkCfg.staticGateway && networkCfg.staticSubnet
-      ? {
-          ip: ipAddressExpr(networkCfg.staticIp),
-          gateway: ipAddressExpr(networkCfg.staticGateway),
-          subnet: ipAddressExpr(networkCfg.staticSubnet),
-          dns: ipAddressExpr(networkCfg.staticDns),
-        }
-      : null
     lines.push(...ethernetBootstrapCpp({
       label: partById(String(p.partId ?? DEFAULT_ETHERNET_PART_ID))?.label ?? 'W5500 Ethernet',
       sckPin: pin('sckPin'),
@@ -1633,7 +1641,7 @@ export function generateCpp(
       intPin: pin('intPin'),
       resetPin: pin('resetPin'),
       hostname: networkCfg.hostname,
-      staticConfig,
+      staticConfig: wiredStaticConfig,
     }))
   } else if (needsNetwork) {
     lines.push(`// Shared Wi-Fi bootstrap for Art-Net receive / NTP clock sync.`)
@@ -1736,7 +1744,7 @@ export function generateCpp(
   if (customDisplays.length > 0) lines.push(...customDisplayLvglInitCpp())
   // The wired interface has to exist before an Art-Net socket is opened on it
   // in setupLines below. Starting it does not wait for a cable or an address.
-  if (needsNetwork && ethernetNode) lines.push(`  _netEnsureConnected();`)
+  if (wiredNetwork) lines.push(`  _netEnsureConnected();`)
   lines.push(...setupLines)
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingSetupCpp())
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 1))
