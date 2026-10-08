@@ -6,8 +6,11 @@ this hook the session keeps working on the old commit until someone runs
 `git pull`.
 
 `.claude/settings.json` runs `git-sync.cjs` at `SessionStart` and on every
-`UserPromptSubmit`, before the caveman hooks, passing the event name as its
-only argument. Each run:
+`UserPromptSubmit`, passing the event name as its only argument. The command
+is a `node -e` launcher so PowerShell and Git Bash both accept it: PowerShell
+rejects the bash `HOOK_ROOT=$(...)` assignment, and a Git Bash
+`CLAUDE_PROJECT_DIR` of `/c/dev/...` is rewritten to `c:/dev/...` before node
+opens the script. Each run:
 
 1. Skips a detached `HEAD`, a branch without an upstream, or a failed fetch
    (offline, no credentials). Git is never allowed to prompt.

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "HOOK_ROOT=$(printf %s \"$CLAUDE_PROJECT_DIR\" | sed 's|^/\\([a-zA-Z]\\)/|\\1:/|'); node \"$HOOK_ROOT/.claude/hooks/git-sync/git-sync.cjs\" SessionStart",
+            "command": "node -e \"const path=require('path');let root=process.env.CLAUDE_PROJECT_DIR||process.env.GROK_WORKSPACE_ROOT||process.cwd();root=root.replace(/^\\/([A-Za-z])\\//,(_m,drive)=>drive+':/');process.argv=[process.argv[0],'git-sync.cjs',process.argv[1]||'UserPromptSubmit'];require(path.join(root,'.claude','hooks','git-sync','git-sync.cjs'))\" SessionStart",
             "timeout": 30,
             "statusMessage": "Syncing with the upstream branch..."
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "HOOK_ROOT=$(printf %s \"$CLAUDE_PROJECT_DIR\" | sed 's|^/\\([a-zA-Z]\\)/|\\1:/|'); node \"$HOOK_ROOT/.claude/hooks/git-sync/git-sync.cjs\" UserPromptSubmit",
+            "command": "node -e \"const path=require('path');let root=process.env.CLAUDE_PROJECT_DIR||process.env.GROK_WORKSPACE_ROOT||process.cwd();root=root.replace(/^\\/([A-Za-z])\\//,(_m,drive)=>drive+':/');process.argv=[process.argv[0],'git-sync.cjs',process.argv[1]||'UserPromptSubmit'];require(path.join(root,'.claude','hooks','git-sync','git-sync.cjs'))\" UserPromptSubmit",
             "timeout": 30,
             "statusMessage": "Checking the upstream branch..."
           }

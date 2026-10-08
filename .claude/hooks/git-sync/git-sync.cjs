@@ -3,6 +3,11 @@
 //
 // Usage: node git-sync.cjs <SessionStart|UserPromptSubmit>
 //
+// settings.json starts that through a node -e command. PowerShell cannot run
+// the old bash assignment, and Git Bash may pass CLAUDE_PROJECT_DIR as
+// /c/dev/... which Windows node cannot open. The launcher rewrites a
+// single-letter MSYS prefix to c:/... and then loads this file.
+//
 // Fetches the checked-out branch's upstream. When the branch is only behind
 // and no tracked file is modified, fast-forwards it. Otherwise tells Claude
 // how far behind it is. Never merges, rebases, resets or stashes.
