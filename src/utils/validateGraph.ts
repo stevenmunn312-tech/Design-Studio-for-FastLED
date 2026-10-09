@@ -28,6 +28,7 @@ import { renderScaleHalf } from '../state/output/renderScale'
 import { usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
 import { boardGpioInfo } from '../state/upload/uploadStore'
+import { boardPinTable } from '../build/boards/boardPinPolicy'
 import { MAX_PIN_NUMBER, pinSupports } from '../build/boards/boardGpio'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
 import { collectPinUses } from '../build/hardwareManifest'
@@ -1077,7 +1078,10 @@ export function findExactBoardPinIssues(nodes: StudioNode[]): BoardPinCompatibil
 /** Checks every generated pin role against the selected board's Arduino pin
  * table. Custom boards without a table keep the numeric-only fallback. */
 export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: string): BoardPinCompatibility {
-  const gpio = selectedFqbn ? boardGpioInfo(selectedFqbn) : undefined
+  const profile = selectedBoardProfile(nodes)
+  const gpio = profile
+    ? boardPinTable(profile, selectedFqbn)
+    : (selectedFqbn ? boardGpioInfo(selectedFqbn) : undefined)
   if (!gpio) return { errors: [], warnings: [] }
   const errors: string[] = []
   const warnings: string[] = []

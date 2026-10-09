@@ -98,6 +98,14 @@ measured pad.
   general inputs plus I2C, and accepts 5-24 V through its fused main terminal.
   It shares the already-covered generic ESP32 build, so it needs no separate
   compile fixture. Its bench run is open.
+- Adafruit Sparkle Motion (PID 6100) and Sparkle Motion Mini (PID 6160):
+  profiles authored 2026-10-09 from Adafruit's schematics, learn-guide pinouts
+  and Eagle outlines. Both are ESP32-MINI-1 boards on the generic ESP32 build.
+  The full board's LED outputs are GPIO21, GPIO22, GPIO19 and GPIO23, its
+  STEMMA bus is GPIO14/GPIO13, and VIN is 5-24 V. The Mini's LED pads are
+  GPIO32 and GPIO33 and it is powered from USB-C only. Neither has a Blender
+  render, so the Build Diagram still uses the generic schematic and the wires
+  do not land on measured pads. Bench runs are open.
 - QuinLED Dig-Quad: done 2026-10-09. The pre-assembled v3.1 profile draws its
   exact 100.394 x 48.209 mm board, dual high-current input, seven positive and
   seven ground outputs, four level-shifted LED outputs and scattered headers.

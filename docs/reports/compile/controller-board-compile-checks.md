@@ -4,8 +4,9 @@
 > passed on 8 and 9 October 2026. This is compile evidence only; both boards
 > stay experimental in the [support matrix](../../release/beta-support-matrix.md)
 > until a recorded bench run exists. The QuinLED Dig-Uno and Dig-Quad v3.1
-> profiles share the already-covered `esp32:esp32:esp32` target and change only
-> physical wiring, so neither needs a separate fixture.
+> profiles, and the Adafruit Sparkle Motion and Sparkle Motion Mini, share the
+> already-covered `esp32:esp32:esp32` target and change only physical wiring,
+> so none of them needs a separate fixture.
 
 A new controller board needs a compile only where its build differs from a
 target that already passes. The ESP32-C3 Super Mini, ESP32-C6-DevKitC-1, LOLIN

@@ -430,7 +430,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
   // picker here until they gain a physical part in the hardware workbench.
   const selectedFqbn = useUploadStore((s) => s.selectedFqbn)
   const pinBoard = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
-  const boardGpio = pinBoard?.custom ? boardPinTable(pinBoard, selectedFqbn) : boardGpioInfo(selectedFqbn)
+  const boardGpio = pinBoard ? boardPinTable(pinBoard, selectedFqbn) : boardGpioInfo(selectedFqbn)
 
   // "Set Default" is meant to keep tracking this node's settings, not just
   // snapshot them once — otherwise a pin edited after the checkbox was

@@ -1292,6 +1292,23 @@ describe('validateGraph', () => {
       expect(result).toEqual({ errors: [], warnings: [] })
     })
 
+    it('accepts GPIO9 on a Sparkle Motion, where the MINI-1 breaks that pad out', () => {
+      const onBoard = findBoardPinCompatibility([
+        node('board', 'Board', { profileId: 'adafruit-sparkle-motion' }),
+        node('out', 'MatrixOutput', { dataPin: 9 }),
+      ], 'esp32:esp32:esp32')
+      expect(onBoard.errors).toEqual([])
+      const generic = findBoardPinCompatibility([
+        node('out', 'MatrixOutput', { dataPin: 9 }),
+      ], 'esp32:esp32:esp32')
+      expect(generic.errors).toEqual([expect.stringMatching(/integrated SPI flash/)])
+      const flashPad = findBoardPinCompatibility([
+        node('board', 'Board', { profileId: 'adafruit-sparkle-motion' }),
+        node('out', 'MatrixOutput', { dataPin: 6 }),
+      ], 'esp32:esp32:esp32')
+      expect(flashPad.errors).toEqual([expect.stringMatching(/integrated SPI flash/)])
+    })
+
     it('retains non-analog caveats for digital uses of a dual-caveat pin', () => {
       const result = findBoardPinCompatibility(
         [node('out', 'MatrixOutput', { dataPin: 2 })],

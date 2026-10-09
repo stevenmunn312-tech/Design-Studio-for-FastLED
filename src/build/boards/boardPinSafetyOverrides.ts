@@ -119,8 +119,116 @@ const CYD_PIN_SAFETY: AuthoredBoardPinSafety = {
   ],
 }
 
+const MINI1_FLASH = 'Connected to flash inside the ESP32-MINI-1.'
+const NOT_BROUGHT_OUT = 'Not brought out on this board.'
+const TIED_TO_GROUND = 'Tied to ground on this board.'
+const shifted = (name: string) =>
+  `${name} is a unidirectional 5 V output through a 74LVC2G34. It cannot be an input.`
+
+/**
+ * Adafruit Sparkle Motion, PID 6100.
+ *
+ * The schematic is the pin authority. SIG1-SIG4 are buffered outputs, STEMMA
+ * QT is GPIO14/GPIO13, and GPIO9/GPIO10 are real pads on the ESP32-MINI-1
+ * even though a WROOM module uses those numbers for flash. The microphone,
+ * IR receiver, NeoPixel, red LED and boot button are soldered down.
+ */
+const SPARKLE_MOTION_PIN_SAFETY: AuthoredBoardPinSafety = {
+  pinSafety: {
+    safeGeneralPurpose: [18, 27, 13, 14, 9, 10],
+    useWithCaution: {
+      21: shifted('SIG1'),
+      22: shifted('SIG2'),
+      19: shifted('SIG3'),
+      23: shifted('SIG4'),
+    },
+    boardReservedOrNotExposed: {
+      0: 'Onboard BOOT button and the auto-reset circuit. Not a header pad.',
+      1: 'UART0 TX to the CH343 USB-serial bridge. The back pad is a debug console.',
+      2: 'Onboard NeoPixel. Not a header pad.',
+      3: 'UART0 RX to the CH343 USB-serial bridge. The back pad is a debug console.',
+      4: 'Onboard red LED. Not a header pad.',
+      5: NOT_BROUGHT_OUT,
+      6: MINI1_FLASH,
+      7: MINI1_FLASH,
+      8: MINI1_FLASH,
+      11: MINI1_FLASH,
+      12: NOT_BROUGHT_OUT,
+      15: NOT_BROUGHT_OUT,
+      16: 'Not brought out of the ESP32-MINI-1.',
+      17: 'Not brought out of the ESP32-MINI-1.',
+      25: 'Onboard ICS-43434 microphone DATA. Not a header pad.',
+      26: 'Onboard ICS-43434 microphone BCLK. Not a header pad.',
+      32: 'Onboard IR receiver. Not a header pad.',
+      33: 'Onboard ICS-43434 microphone WS. Not a header pad.',
+      34: TIED_TO_GROUND,
+      35: TIED_TO_GROUND,
+      36: TIED_TO_GROUND,
+      37: TIED_TO_GROUND,
+      38: TIED_TO_GROUND,
+      39: TIED_TO_GROUND,
+    },
+  },
+  safetyNotes: [
+    'SIG1 to SIG4 (GPIO21, GPIO22, GPIO19, GPIO23) are 5 V outputs only. The + terminals pass the 5-24 V input through the fuse; they are not a regulated 5 V rail.',
+    'STEMMA QT is SDA GPIO14 and SCL GPIO13. The HUSB238 USB-PD chip uses address 0x08 on that bus.',
+    'GPIO9 and GPIO10 are Serial1 on this ESP32-MINI-1. A generic ESP32 table calls them flash pins because that is true of a WROOM module.',
+    'The ICS-43434 microphone is DATA GPIO25, BCLK GPIO26 and WS GPIO33. The IR receiver is GPIO32, the NeoPixel is GPIO2, the red LED is GPIO4, and the boot button is GPIO0. WLED\'s audio usermod calls this microphone SPH0654.',
+  ],
+}
+
+/**
+ * Adafruit Sparkle Motion Mini, PID 6160.
+ *
+ * USB-C is the only supply. GPIO32 and GPIO33 are the buffered LED pads.
+ * GPIO9, GPIO10 and GPIO23 belong to the onboard microphone and are not pads.
+ */
+const SPARKLE_MOTION_MINI_PIN_SAFETY: AuthoredBoardPinSafety = {
+  pinSafety: {
+    safeGeneralPurpose: [25, 26, 27, 14, 13, 19, 22],
+    useWithCaution: {
+      32: shifted('SIG1'),
+      33: shifted('SIG2'),
+    },
+    boardReservedOrNotExposed: {
+      0: 'Onboard BOOT button and the auto-reset circuit. Not a header pad.',
+      1: 'UART0 TX to the CH343 USB-serial bridge.',
+      2: NOT_BROUGHT_OUT,
+      3: 'UART0 RX to the CH343 USB-serial bridge.',
+      4: NOT_BROUGHT_OUT,
+      5: 'Tied to 3.3 V on this board.',
+      6: MINI1_FLASH,
+      7: MINI1_FLASH,
+      8: MINI1_FLASH,
+      9: 'Onboard ICS-43434 microphone DATA. Not a header pad.',
+      10: 'Onboard ICS-43434 microphone WS. Not a header pad.',
+      11: MINI1_FLASH,
+      12: 'Onboard red LED, active high. GPIO12 is also a boot strap, so it is not a header pad.',
+      15: NOT_BROUGHT_OUT,
+      16: 'Not brought out of the ESP32-MINI-1.',
+      17: 'Not brought out of the ESP32-MINI-1.',
+      18: 'Onboard NeoPixel. Not a header pad.',
+      21: NOT_BROUGHT_OUT,
+      23: 'Onboard ICS-43434 microphone BCLK. Not a header pad.',
+      34: TIED_TO_GROUND,
+      35: TIED_TO_GROUND,
+      36: TIED_TO_GROUND,
+      37: TIED_TO_GROUND,
+      38: TIED_TO_GROUND,
+      39: TIED_TO_GROUND,
+    },
+  },
+  safetyNotes: [
+    'GPIO32 and GPIO33 are the 5 V LED pads. The 5 V pad is fused USB power for those LEDs; the board itself is powered from USB-C.',
+    'STEMMA QT is SDA GPIO19 and SCL GPIO22.',
+    'The ICS-43434 microphone is DATA GPIO9, WS GPIO10 and BCLK GPIO23. The NeoPixel is GPIO18, the red LED is GPIO12, and the boot button is GPIO0. WLED\'s audio usermod calls this microphone SPH0654.',
+  ],
+}
+
 export const BOARD_PIN_SAFETY_OVERRIDES: Readonly<Record<string, AuthoredBoardPinSafety>> = {
   [CYD_PROFILE_ID]: CYD_PIN_SAFETY,
+  'adafruit-sparkle-motion': SPARKLE_MOTION_PIN_SAFETY,
+  'adafruit-sparkle-motion-mini': SPARKLE_MOTION_MINI_PIN_SAFETY,
 }
 
 export function boardPinSafetyOverride(

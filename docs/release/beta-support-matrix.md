@@ -456,6 +456,29 @@ Unless a future row says otherwise, treat the following as experimental:
   reads Button, Q1-Q4 and A0, exercises GPIO21/GPIO22 I2C, and checks the
   Build Diagram against a v3.1 board before applying 5 V and one higher LED
   supply voltage.
+- **Adafruit Sparkle Motion** (`adafruit-sparkle-motion`, PID 6100,
+  `esp32:esp32:esp32`). Its profile follows Adafruit's published schematic,
+  learn-guide pinout and Eagle outline (50.8 mm by 33.147 mm). SIG1-SIG4 are
+  the 5 V level-shifted outputs GPIO21, GPIO22, GPIO19 and GPIO23. STEMMA QT
+  is GPIO14/GPIO13, and the HUSB238 USB-PD chip sits on that bus at 0x08. VIN
+  accepts 5-24 V from the barrel jack or from USB-C PD (5, 12 or 20 V). The
+  Build Diagram uses the generic schematic: there is no measured render, so
+  wires do not land on the real terminals. It shares the generic ESP32 build
+  and has not run on a board here. Graduating it needs a dated row that
+  uploads from Studio, drives separate LED runs from SIG1 and SIG2 at 5 V and
+  at one higher supply voltage, reads the GPIO27 JST pad, exercises the
+  STEMMA QT bus, and checks the Build Diagram against a PID 6100 board once
+  a render exists.
+- **Adafruit Sparkle Motion Mini** (`adafruit-sparkle-motion-mini`, PID 6160,
+  `esp32:esp32:esp32`). Its profile follows Adafruit's published schematic,
+  learn-guide pinout and Eagle outline (30.48 mm by 19.749 mm). The LED pads
+  are GPIO32 and GPIO33, level-shifted to 5 V. STEMMA QT is GPIO19/GPIO22.
+  Power is USB-C only, rated 5 V at 4 A; the 5 V pad feeds the LEDs and is
+  not a second input. The Build Diagram uses the generic schematic. It shares
+  the generic ESP32 build and has not run on a board here. Graduating it
+  needs a dated row that uploads from Studio, drives separate LED runs from
+  GPIO32 and GPIO33, reads the GPIO13 JST pad, exercises STEMMA QT, and
+  checks the Build Diagram against a PID 6160 board once a render exists.
 - **QuinLED Dig-Quad v3.1** (`quinled-dig-quad`, `esp32:esp32:esp32`). Its
   profile follows QuinLED's dimension drawing, v2/v3 pinout and pre-assembled
   specifications. The Build Diagram lands wires on the dual high-current

@@ -881,6 +881,70 @@ const QUINLED_DIG_QUAD_PINS: PhysicalBoardPinProfile[] = [
   pin('right-9', 'LED V+', 'power-out', 'right-9', undefined, undefined, 'Fused pass-through of the 5-24 V main input'),
 ]
 
+// Adafruit's Eagle schematic for PID 6100. The 2x3 pad and the three screw
+// terminals are the user connections; the microphone, IR receiver, NeoPixel
+// and boot button are soldered on and are not pads.
+const SPARKLE_MOTION_LABELS = {
+  left: ['VIN', 'GND', '3V3', 'SDA', 'SCL', 'GPIO27', 'TX', 'RX', 'GPIO18'],
+  right: ['SIG1', 'SIG2', 'SIG3', 'SIG4', 'V+', 'GND'],
+} as const
+
+const SPARKLE_MOTION_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', SPARKLE_MOTION_LABELS.left, 30, 72, 16),
+  ...verticalAnchors('right', 'right', SPARKLE_MOTION_LABELS.right, 330, 88, 18),
+]
+
+const SPARKLE_MOTION_SHIFTED = 'Unidirectional 5 V output through a 74LVC2G34. It cannot be an input.'
+
+const SPARKLE_MOTION_PINS: PhysicalBoardPinProfile[] = [
+  {
+    ...pin('left-1', 'VIN 5-24V', 'power-in', 'left-1', undefined, undefined, 'Barrel jack or USB-C PD, diode-OR\'d into the 5 A fuse'),
+    inputVoltage: { min: 5, max: 24 },
+  },
+  pin('left-2', 'GND', 'ground', 'left-2'),
+  pin('left-3', '3V3', 'power-out', 'left-3', undefined, undefined, 'Regulator output, 500 mA peak'),
+  pin('left-4', 'SDA / GPIO14', 'gpio', 'left-4', undefined, 14, 'STEMMA QT SDA. The HUSB238 power-delivery chip is on this bus at 0x08'),
+  pin('left-5', 'SCL / GPIO13', 'gpio', 'left-5', undefined, 13, 'STEMMA QT SCL'),
+  pin('left-6', 'GPIO27 / JST', 'gpio', 'left-6', undefined, 27, 'JST analog or digital input. ADC2, so analog reads stop once Wi-Fi starts'),
+  pin('left-7', 'TX / GPIO9', 'gpio', 'left-7', undefined, 9, 'Serial1 TX on the ESP32-MINI-1'),
+  pin('left-8', 'RX / GPIO10', 'gpio', 'left-8', undefined, 10, 'Serial1 RX on the ESP32-MINI-1'),
+  pin('left-9', 'GPIO18', 'gpio', 'left-9', undefined, 18),
+  pin('right-1', 'SIG1 / GPIO21', 'gpio', 'right-1', undefined, 21, SPARKLE_MOTION_SHIFTED),
+  pin('right-2', 'SIG2 / GPIO22', 'gpio', 'right-2', undefined, 22, SPARKLE_MOTION_SHIFTED),
+  pin('right-3', 'SIG3 / GPIO19', 'gpio', 'right-3', undefined, 19, SPARKLE_MOTION_SHIFTED),
+  pin('right-4', 'SIG4 / GPIO23', 'gpio', 'right-4', undefined, 23, SPARKLE_MOTION_SHIFTED),
+  pin('right-5', 'V+', 'power-out', 'right-5', undefined, undefined, 'Fused pass-through of the 5-24 V input. All three + terminals are this rail'),
+  pin('right-6', 'LED GND', 'ground', 'right-6', undefined, undefined, 'The three terminal grounds are this rail'),
+]
+
+// PID 6160. USB-C is the only supply. GPIO32 and GPIO33 are the level-shifted
+// LED pads; the microphone uses GPIO9, GPIO10 and GPIO23 on the board itself.
+const SPARKLE_MOTION_MINI_LABELS = {
+  left: ['3V3', 'GND', 'TX', 'RX', 'GPIO27', 'GPIO14', 'SDA', 'SCL', 'GPIO13'],
+  right: ['5V', 'SIG1', 'SIG2', 'GND'],
+} as const
+
+const SPARKLE_MOTION_MINI_PIN_ANCHORS = [
+  ...verticalAnchors('left', 'left', SPARKLE_MOTION_MINI_LABELS.left, 30, 72, 16),
+  ...verticalAnchors('right', 'right', SPARKLE_MOTION_MINI_LABELS.right, 330, 96, 20),
+]
+
+const SPARKLE_MOTION_MINI_PINS: PhysicalBoardPinProfile[] = [
+  pin('left-1', '3V3', 'power-out', 'left-1', undefined, undefined, 'Regulator output from USB 5 V, 500 mA peak'),
+  pin('left-2', 'GND', 'ground', 'left-2'),
+  pin('left-3', 'TX / GPIO25', 'gpio', 'left-3', undefined, 25, 'Serial1 TX'),
+  pin('left-4', 'RX / GPIO26', 'gpio', 'left-4', undefined, 26, 'Serial1 RX'),
+  pin('left-5', 'GPIO27', 'gpio', 'left-5', undefined, 27, 'ADC2, so analog reads stop once Wi-Fi starts'),
+  pin('left-6', 'GPIO14', 'gpio', 'left-6', undefined, 14, 'ADC2, so analog reads stop once Wi-Fi starts'),
+  pin('left-7', 'SDA / GPIO19', 'gpio', 'left-7', undefined, 19, 'STEMMA QT SDA'),
+  pin('left-8', 'SCL / GPIO22', 'gpio', 'left-8', undefined, 22, 'STEMMA QT SCL'),
+  pin('left-9', 'GPIO13 / JST', 'gpio', 'left-9', undefined, 13, 'JST analog or digital input. ADC2, so analog reads stop once Wi-Fi starts'),
+  pin('right-1', '5V', 'power-out', 'right-1', undefined, undefined, 'Fused USB 5 V for the LED pads. Power the board from USB-C'),
+  pin('right-2', 'SIG1 / GPIO32', 'gpio', 'right-2', undefined, 32, SPARKLE_MOTION_SHIFTED),
+  pin('right-3', 'SIG2 / GPIO33', 'gpio', 'right-3', undefined, 33, SPARKLE_MOTION_SHIFTED),
+  pin('right-4', 'LED GND', 'ground', 'right-4'),
+]
+
 const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
   {
     id: 'generic-esp32-s3-n16r8-44pin-dual-usbc',
@@ -1291,6 +1355,85 @@ const AUTHORED_PROFILES: PhysicalBoardProfile[] = [
     sourceSummary: "QuinLED's v3/v3.1 pinout, dimension drawing, pre-assembled specifications and front render.",
     pinAnchors: QUINLED_DIG_QUAD_PIN_ANCHORS,
     pins: QUINLED_DIG_QUAD_PINS,
+  },
+  {
+    id: 'adafruit-sparkle-motion',
+    label: 'Adafruit Sparkle Motion',
+    manufacturer: 'Adafruit',
+    model: 'Sparkle Motion',
+    revision: 'PID 6100, ESP32-MINI-1, PCB antenna',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:esp32'],
+    // Eagle dimension layer of Adafruit's published board file. The shop page's
+    // 33 by 45 mm is the short marketing figure.
+    dimensionsMm: { width: 50.8, height: 33.147 },
+    confidence: 'manufacturer-verified',
+    memory: { flashMb: 4, psramMb: 0 },
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
+    processor: 'ESP32-MINI-1',
+    moduleSilk: 'ESP32-MINI-1',
+    previewSvg: boardSvg('Sparkle Motion', '#e85d4c', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'SIG1 to SIG4 are GPIO21, GPIO22, GPIO19 and GPIO23. All four are 5 V outputs through a 74LVC2G34 and cannot be inputs.',
+      'Feed 5-24 V from the barrel jack or from USB-C PD. The slide switch selects 5, 12 or 20 V. The + terminals pass that voltage through a 5 A fuse.',
+      'STEMMA QT is SDA GPIO14 and SCL GPIO13. The HUSB238 power-delivery chip sits on that bus at 0x08.',
+      'The onboard ICS-43434 microphone, IR receiver, NeoPixel and boot button are soldered to the board and are not header pads.',
+    ],
+    caveats: [
+      'This profile is the PCB-antenna board, product 6100. The external-antenna board 6167 uses the same pinout.',
+      'On macOS, plug in through a hub and a USB-A to USB-C cable. A direct USB-C port treats the board as a power-delivery device and the serial port does not appear.',
+      'The Build Diagram uses the generic schematic until a measured render exists, so wires do not land on the real terminals.',
+    ],
+    sourceSummary: "Adafruit's PID 6100 schematic, learn-guide pinout and Eagle board outline.",
+    peripheralPins: {
+      inmp441: { wsLrclk: 27, sckBclk: 18, sdDout: 9 },
+      fastLedData: {
+        recommendedDefault: 21,
+        commonAlternatives: [22, 19, 23],
+        selectionNote: 'SIG1 to SIG4 are the four 5 V level-shifted LED outputs: GPIO21, GPIO22, GPIO19 and GPIO23.',
+      },
+    },
+    pinAnchors: SPARKLE_MOTION_PIN_ANCHORS,
+    pins: SPARKLE_MOTION_PINS,
+  },
+  {
+    id: 'adafruit-sparkle-motion-mini',
+    label: 'Adafruit Sparkle Motion Mini',
+    manufacturer: 'Adafruit',
+    model: 'Sparkle Motion Mini',
+    revision: 'PID 6160, ESP32-MINI-1',
+    targetFamilies: ['esp32'],
+    compatibleFqbns: ['esp32:esp32:esp32'],
+    // Eagle dimension layer. The shop page's 31.6 by 19.8 by 7.3 mm includes
+    // the USB-C shell; the PCB outline is 30.48 by 19.749 mm.
+    dimensionsMm: { width: 30.48, height: 19.749 },
+    confidence: 'manufacturer-verified',
+    memory: { flashMb: 4, psramMb: 0 },
+    internalRamBudgetBytes: CLASSIC_ESP32_RAM_BUDGET_BYTES,
+    processor: 'ESP32-MINI-1',
+    moduleSilk: 'ESP32-MINI-1',
+    previewSvg: boardSvg('Sparkle Motion Mini', '#e85d4c', 'USB-C', 'Manufacturer verified'),
+    notes: [
+      'The two LED pads are GPIO32 and GPIO33, level-shifted to 5 V. They cannot be inputs.',
+      'Power comes from USB-C only, rated 5 V at 4 A through a resetting fuse. The 5 V pad feeds the LEDs from that rail.',
+      'STEMMA QT is SDA GPIO19 and SCL GPIO22.',
+      'The onboard ICS-43434 microphone, NeoPixel and boot button are soldered to the board and are not header pads.',
+    ],
+    caveats: [
+      'This profile is product 6160, without a terminal block fitted. Product 6314 is the same board with the 4-pin block soldered on.',
+      'The Build Diagram uses the generic schematic until a measured render exists, so wires do not land on the real terminals.',
+    ],
+    sourceSummary: "Adafruit's PID 6160 schematic, learn-guide pinout and Eagle board outline.",
+    peripheralPins: {
+      inmp441: { wsLrclk: 14, sckBclk: 27, sdDout: 25 },
+      fastLedData: {
+        recommendedDefault: 32,
+        commonAlternatives: [33],
+        selectionNote: 'GPIO32 and GPIO33 are the two 5 V level-shifted LED pads.',
+      },
+    },
+    pinAnchors: SPARKLE_MOTION_MINI_PIN_ANCHORS,
+    pins: SPARKLE_MOTION_MINI_PINS,
   },
 ]
 

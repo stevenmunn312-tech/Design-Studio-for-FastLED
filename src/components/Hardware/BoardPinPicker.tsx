@@ -50,7 +50,7 @@ export default function BoardPinPicker({
   const nodes = useGraphStore(rootGraphNodes)
   // A custom board's own exposed pins replace the chip table outright.
   const board = useMemo(() => selectedPhysicalBoardProfile(nodes), [nodes])
-  const gpio = board?.custom ? boardPinTable(board, selectedFqbn) : boardGpioInfo(selectedFqbn)
+  const gpio = board ? boardPinTable(board, selectedFqbn) : boardGpioInfo(selectedFqbn)
   const [customOpen, setCustomOpen] = useState(false)
   const label = propertyLabel(nodeType, propertyKey, properties)
   const requirement = gpioRequirementForProperty(nodeType, propertyKey, properties)

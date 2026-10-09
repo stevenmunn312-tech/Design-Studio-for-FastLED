@@ -216,6 +216,47 @@ describe('reviewed controller profiles', () => {
     expect(boardPinForGpio(uno, 36)?.role).toBe('analog')
   })
 
+  it('maps the Sparkle Motion terminals, STEMMA bus and MINI-1 UART pads', () => {
+    const board = boardProfileById('adafruit-sparkle-motion')
+    expect(board?.pins).toHaveLength(15)
+    expect(board?.render).toBeUndefined()
+    expect(board?.dimensionsMm).toEqual({ width: 50.8, height: 33.147 })
+    expect(board?.pins?.find((pin) => pin.role === 'power-in')).toMatchObject({
+      label: 'VIN 5-24V', inputVoltage: { min: 5, max: 24 },
+    })
+    expect([21, 22, 19, 23].map((gpio) => boardPinForGpio(board, gpio)?.label)).toEqual([
+      'SIG1 / GPIO21', 'SIG2 / GPIO22', 'SIG3 / GPIO19', 'SIG4 / GPIO23',
+    ])
+    expect(boardPinForGpio(board, 14)?.label).toBe('SDA / GPIO14')
+    expect(boardPinForGpio(board, 13)?.label).toBe('SCL / GPIO13')
+    expect(boardPinForGpio(board, 9)?.label).toBe('TX / GPIO9')
+    expect(boardPinForGpio(board, 10)?.label).toBe('RX / GPIO10')
+    expect(board?.pinSafety?.safeGeneralPurpose).toEqual(expect.arrayContaining([9, 10, 18]))
+    expect(board?.pinSafety?.boardReservedOrNotExposed[25]).toMatch(/microphone/)
+    expect(board?.pinSafety?.boardReservedOrNotExposed[32]).toMatch(/IR/)
+    expect(board?.peripheralPins?.fastLedData?.recommendedDefault).toBe(21)
+    expect(board?.peripheralPins?.inmp441).toEqual({ wsLrclk: 27, sckBclk: 18, sdDout: 9 })
+  })
+
+  it('maps the Sparkle Motion Mini as a USB-powered two-output board', () => {
+    const board = boardProfileById('adafruit-sparkle-motion-mini')
+    expect(board?.pins).toHaveLength(13)
+    expect(board?.render).toBeUndefined()
+    expect(board?.pins?.filter((pin) => pin.role === 'power-in')).toEqual([])
+    expect(board?.pins?.find((pin) => pin.label === '5V')?.role).toBe('power-out')
+    expect([32, 33].map((gpio) => boardPinForGpio(board, gpio)?.label)).toEqual([
+      'SIG1 / GPIO32', 'SIG2 / GPIO33',
+    ])
+    expect(boardPinForGpio(board, 19)?.label).toBe('SDA / GPIO19')
+    expect(boardPinForGpio(board, 22)?.label).toBe('SCL / GPIO22')
+    expect(boardPinForGpio(board, 9)).toBeUndefined()
+    expect(board?.pinSafety?.boardReservedOrNotExposed[9]).toMatch(/microphone/)
+    expect(board?.pinSafety?.boardReservedOrNotExposed[5]).toMatch(/3\.3 V/)
+    expect(board?.peripheralPins?.fastLedData).toMatchObject({
+      recommendedDefault: 32, commonAlternatives: [33],
+    })
+  })
+
   it('maps the Dig-Quad four output terminals and exposed headers', () => {
     const quad = boardProfileById('quinled-dig-quad')
     expect(quad?.pins).toHaveLength(18)

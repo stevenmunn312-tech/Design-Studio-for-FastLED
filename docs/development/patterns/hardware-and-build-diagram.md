@@ -38,6 +38,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   cable carries the network: the board's port wins, and a module beside it is
   idle. A board with no USB sets `hasUsb: false` and omits `usbPoint`; the
   power plan, sheet and connection export then name its power-in pin.
+- Adafruit Sparkle Motion (`adafruit-sparkle-motion`, PID 6100) and Sparkle
+  Motion Mini (`adafruit-sparkle-motion-mini`, PID 6160) are ESP32-MINI-1
+  boards on `esp32:esp32:esp32`. The full board's STEMMA QT bus is SDA GPIO14
+  and SCL GPIO13, because GPIO21 and GPIO22 are its level-shifted LED outputs;
+  the Mini's bus is SDA GPIO19 and SCL GPIO22. SIG pads are 74LVC2G34 outputs
+  at 5 V. The full board's GPIO9 and GPIO10 are Serial1 pads: the generic
+  ESP32 table calls GPIO6-11 flash pins, which is true of a WROOM module, so
+  `boardPinTable` keeps a pin the profile exposes and does not reserve.
+  Neither board has a Blender render, so the Build Diagram stays on the
+  generic schematic. The onboard ICS-43434, and the full board's IR receiver,
+  are soldered down and reserved.
 
 - A DFPlayer Mini is one UART-controlled player, not a second music-sync
   decoder. `DFPlayerOutput` owns controller RX, controller TX and an
