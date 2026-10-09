@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boardProfileById } from '../../boards/boardProfiles'
 import { ensureBuildProfile } from '../../buildProfile'
-import { calculateElectricalPlan } from '../electricalPlan'
+import { calculateElectricalPlan, planProblems } from '../electricalPlan'
 import { buildHardwareManifest } from '../../hardwareManifest'
 import type { StudioNode } from '../../../state/graphStore'
 
@@ -60,6 +60,43 @@ describe('electricalPlan', () => {
       }),
     ])
     expect(plan.unresolved).toEqual([])
+  })
+
+  it('names a power-plan problem in readiness instead of blaming the board', () => {
+    const converter = {
+      id: 'rail',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Rail converter', nodeType: 'PowerConverter', category: 'input',
+        properties: { partId: 'mean-well-sd-100b-5', sourceVoltage: 12 }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    const manifest = buildHardwareManifest([outputNode(), converter], [], 'esp32:esp32:esp32s3')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), boardProfileById('espressif-esp32-s3-devkitc-1'))
+
+    expect(planProblems(plan).map((entry) => entry.id)).toEqual(['power-converter:rail:source-voltage'])
+    expect(plan.requirementsCalculatedText).toContain('generated from graph with build-rules-')
+    expect(plan.powerReadyText).toBe('blocked by 1 power-plan problem listed under Fix before building')
+    expect(plan.powerReadyPasses).toBe(false)
+  })
+
+  it('gives an unsupported part its own reason rather than the LED chipset advice', () => {
+    const trigger = {
+      id: 'pd',
+      type: 'studioNode',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'PD trigger', nodeType: 'PdTriggerSource', category: 'input',
+        properties: { partId: 'zy12pdn-usb-c-pd-trigger', requestedVoltage: '7' }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    const manifest = buildHardwareManifest([outputNode(), trigger], [], 'esp32:esp32:esp32s3')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), boardProfileById('espressif-esp32-s3-devkitc-1'))
+    const [problem] = planProblems(plan)
+
+    expect(problem.detail).toBe('7 V is not a voltage this trigger can request.')
+    expect(problem.detail).not.toContain('chipset')
   })
 
   it('becomes ready immediately after exact-board confirmation', () => {

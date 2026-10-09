@@ -1,5 +1,5 @@
 import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
-import type { HardwareManifestItem } from '../../build/hardwareManifest'
+import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/power/powerDistribution'
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
 import { oledTransportFor, type OledTransport } from '../../state/displays/oledSurface'
@@ -1362,7 +1362,7 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
    * lanes, corridors and descending net stubs that scheme already solves.
    */
   // A controller converter sits in the controller's power slot, not a row.
-  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && item.kind !== 'power-converter' && item.kind !== 'pd-trigger')
+  const peripherals = items.filter((item) => item.kind !== 'matrix-output' && !POWER_PATH_KINDS.has(item.kind))
   let outputY = 92
   const layouts: ItemLayout[] = outputs.map((item) => {
     const baseHeight = item.facts?.form === 'strip' ? OUTPUT_STRIP_CARD_HEIGHT : OUTPUT_CARD_HEIGHT

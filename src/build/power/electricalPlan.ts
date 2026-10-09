@@ -48,6 +48,17 @@ export interface ElectricalPlanIssue {
   detail: string
 }
 
+/** The one blocker the Readiness card reports itself, as "Exact board". */
+export const EXACT_BOARD_ISSUE_ID = 'exact-board'
+
+/**
+ * Blockers the user has to fix in the build itself, listed under "Fix before
+ * building". The missing exact board is left out: Readiness already names it.
+ */
+export function planProblems(plan: Pick<ElectricalPlanSummary, 'blockers'>): ElectricalPlanIssue[] {
+  return plan.blockers.filter((issue) => issue.id !== EXACT_BOARD_ISSUE_ID)
+}
+
 export interface OutputElectricalPlan {
   itemId: string
   title: string
@@ -651,7 +662,7 @@ export function calculateElectricalPlan(
 
   if (!exactBoard) {
     blockers.push({
-      id: 'exact-board',
+      id: EXACT_BOARD_ISSUE_ID,
       severity: 'blocking',
       title: 'Exact board profile',
       detail: 'Confirm the exact physical controller board so GPIO labels and connector positions are trustworthy.',
@@ -663,7 +674,12 @@ export function calculateElectricalPlan(
       id: `unsupported:${item.id}`,
       severity: 'blocking',
       title: item.title,
-      detail: `${item.subtitle}. Select a supported 5 V one-wire chipset or add a reviewed physical profile before exporting a build reference.`,
+      // Only an LED output is refused for its chipset; every other item says
+      // why in its own reasons (a missing pin, an unknown part, a voltage the
+      // part cannot take).
+      detail: item.kind === 'matrix-output'
+        ? `${item.subtitle}. Select a supported 5 V one-wire chipset or add a reviewed physical profile before exporting a build reference.`
+        : item.reasons?.join(' ') || `${item.subtitle}.`,
     })
   }
 
@@ -808,14 +824,18 @@ export function calculateElectricalPlan(
   const boardPower = customPower ?? (exactBoard?.hasUsb === false ? powerPinControllerPower(exactBoard) : undefined)
   const status: ElectricalPlanSummary['status'] = blockers.length > 0 ? 'blocked' : 'calculated'
   const powerReadyPasses = blockers.length === 0 && unresolved.length === 0
-  const requirementsCalculatedText = blockers.length > 0
+  const exactBoardMissing = blockers.some((issue) => issue.id === EXACT_BOARD_ISSUE_ID)
+  const problemCount = planProblems({ blockers }).length
+  const requirementsCalculatedText = exactBoardMissing
     ? 'waiting for exact-board confirmation'
     : `generated from graph with ${ELECTRICAL_RULESET_VERSION}`
-  const powerReadyText = powerReadyPasses
-    ? 'recommended supply, protection, distribution, and branch wiring generated'
-    : blockers.length > 0
-      ? 'waiting for exact-board confirmation'
-      : 'generated plan contains an unsupported electrical route'
+  const powerReadyText = exactBoardMissing
+    ? 'waiting for exact-board confirmation'
+    : problemCount > 0
+      ? `blocked by ${problemCount} power-plan problem${problemCount === 1 ? '' : 's'} listed under Fix before building`
+      : powerReadyPasses
+        ? 'recommended supply, protection, distribution, and branch wiring generated'
+        : 'generated plan contains an unsupported electrical route'
 
   const recommendations = [
     controllerSupply

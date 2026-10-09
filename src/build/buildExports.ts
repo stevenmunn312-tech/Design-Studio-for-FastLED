@@ -1,7 +1,7 @@
 import { boardDataProvenance, type PhysicalBoardProfile } from './boards/boardProfiles'
 import type { BuildProfile } from './buildProfile'
 import type { ElectricalPlanSummary } from './power/electricalPlan'
-import { boardPinLabelForUse, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
+import { boardPinLabelForUse, POWER_PATH_KINDS, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
 import { fuseBlockAllocations } from './power/powerDistribution'
 import { partById, sharedPadsAcrossBoards } from './parts/partCatalogue'
 
@@ -82,6 +82,10 @@ export function buildConnectionRows(
   }
 
   for (const item of nonOutputs) {
+    // Power-path parts are wired by the power rows below. A controller ground
+    // row to one would put the controller's GND on a converter's or BMS's
+    // terminal by name, which is not where it joins.
+    if (POWER_PATH_KINDS.has(item.kind)) continue
     for (const pin of item.pins) {
       rows.push({
         from: controller,

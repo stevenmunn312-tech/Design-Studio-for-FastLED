@@ -13,7 +13,7 @@ import {
   fingerprintValue,
   type BuildExportMode,
 } from '../../build/buildProfile'
-import { calculateElectricalPlan } from '../../build/power/electricalPlan'
+import { calculateElectricalPlan, planProblems } from '../../build/power/electricalPlan'
 import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPad } from '../../build/boards/customBoardGeometry'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
@@ -618,19 +618,24 @@ export default function BuildDiagramWorkspace() {
         ? `needs review: ${unresolvedSignalMappingCount} controller pin mapping${unresolvedSignalMappingCount === 1 ? '' : 's'} unresolved`
         : 'all graph hardware maps cleanly; required signal conditioning is included automatically'
   const requirementsCalculatedText = electricalPlan.requirementsCalculatedText
+  const powerProblems = planProblems(electricalPlan)
   const buildReadyText = signalReady && electricalPlan.powerReadyPasses
     ? 'ready'
     : !signalReady
       ? 'blocked by Signal ready'
-      : 'blocked by generated power-plan support'
+      : powerProblems.length > 0
+        ? 'blocked by power-plan problems'
+        : 'blocked by generated power-plan support'
   const exportDraftStatus = !signalReady || !electricalPlan.powerReadyPasses
     ? 'Draft — unresolved build requirements'
     : 'Build reference — Signal and Power ready'
   const exportDraftReason = !signalReady
       ? 'Exports stay draft because controller-side signal mapping still needs review before the build reference is trustworthy.'
-      : !electricalPlan.powerReadyPasses
-        ? 'Exports stay draft only when the graph contains an electrical route the generated planner does not support.'
-        : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
+      : powerProblems.length > 0
+        ? 'Exports stay draft until the problems under Fix before building are resolved.'
+        : !electricalPlan.powerReadyPasses
+          ? 'Exports stay draft only when the graph contains an electrical route the generated planner does not support.'
+          : 'The exported reference includes the selected board confidence, calculation ruleset, connections, and parts plan.'
 
   const canvasWidth = 1120
   const updateViewport = (
@@ -893,12 +898,17 @@ export default function BuildDiagramWorkspace() {
               )}
             </section>
 
-            {manifest.unsupportedItems.length > 0 && (
-              <section className={styles.card}>
-                <h3 className={styles.cardTitle}>Not yet supported</h3>
+            {/* Every blocker except the exact board, which Readiness names:
+                unsupported parts with their own reasons, and the power plan's
+                safety rules. Always visible, since any one keeps exports draft. */}
+            {powerProblems.length > 0 && (
+              <section className={styles.card} data-power-problems={powerProblems.length}>
+                <h3 className={`${styles.cardTitle} ${styles.problemTitle}`}>Fix before building</h3>
                 <ul className={styles.flatList}>
-                  {manifest.unsupportedItems.map((item) => (
-                    <li key={item.id}>{item.title}: {item.subtitle}</li>
+                  {powerProblems.map((entry) => (
+                    <li key={entry.id}>
+                      <strong>{entry.title}</strong>: {entry.detail}
+                    </li>
                   ))}
                 </ul>
               </section>

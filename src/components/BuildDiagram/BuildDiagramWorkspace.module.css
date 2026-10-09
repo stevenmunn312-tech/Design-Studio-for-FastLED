@@ -686,6 +686,11 @@
   color: var(--text-primary);
 }
 
+/* Red only for what actually blocks the build. */
+.problemTitle {
+  color: var(--error);
+}
+
 .connectionList {
   display: flex;
   flex-direction: column;

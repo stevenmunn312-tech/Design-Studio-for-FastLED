@@ -219,6 +219,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The Build Diagram now lists power-plan problems under **Fix before
+  building**, where they are always visible, and Readiness names them. A
+  converter fed outside its input range used to show only "waiting for
+  exact-board confirmation", even with the board chosen. An unsupported part
+  gives its own reason instead of LED chipset advice, and power-path parts
+  (converters, the PD trigger) no longer get a controller ground row in the
+  connection list.
 - An Interval, Beat Detect or other computed signal wired into a Palette
   Bank's Next or Previous, a Control Map, Music Player or LED output action now
   presses it. Its one-frame pulse was dropped by the 30 ms button debounce, so

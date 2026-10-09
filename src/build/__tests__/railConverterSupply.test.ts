@@ -113,6 +113,9 @@ describe('Mean Well LED rail converters', () => {
       expect.objectContaining({ fromTerminal: '4-5 -V', purpose: expect.stringMatching(/bond to common ground/) }),
       expect.objectContaining({ fromTerminal: '6-7 +V', to: expect.stringMatching(/main fuse$/) }),
     ]))
+    // The converter is wired by its power rows; the controller's ground joins
+    // through the distribution bond, not a row to a converter terminal.
+    expect(rows.some((row) => row.from === board!.label && row.to === label)).toBe(false)
 
     const bom = buildBomRows(manifest, plan, ensureBuildProfile({ version: 1 }), board)
     expect(bom).toEqual(expect.arrayContaining([

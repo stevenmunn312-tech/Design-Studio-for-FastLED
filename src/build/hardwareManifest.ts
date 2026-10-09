@@ -140,6 +140,16 @@ export interface HardwareManifestItem {
   reasons?: string[]
 }
 
+/**
+ * Parts on the power path, not the signal path: no GPIO, and wired by the
+ * electrical plan rather than as peripherals. Every filter that keeps power
+ * parts out of signal rows, ground rows and peripheral cards reads this set.
+ */
+export const POWER_PATH_KINDS: ReadonlySet<HardwareManifestItem['kind']> = new Set([
+  'power-converter',
+  'pd-trigger',
+])
+
 export interface HardwareManifest {
   targetFamily: BuildTargetFamily
   targetLabel: string

@@ -760,6 +760,24 @@ describe('BuildDiagramWorkspace', () => {
     expect(getByText((_, node) => node?.tagName === 'LI' && (node.textContent?.startsWith('Upstream source: 12 V') ?? false))).toBeTruthy()
   })
 
+  it('lists a power-plan problem where it is always visible, and names it in readiness', () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(),
+        { id: 'rail', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Rail converter', nodeType: 'PowerConverter', category: 'input', properties: { partId: 'mean-well-sd-100b-5', sourceVoltage: 12 }, inputs: [], outputs: [] } },
+      ] as never[],
+    })
+    selectDevKit()
+    const { container, getByText, queryByText } = render(<BuildDiagramWorkspace />)
+
+    expect(getByText('Fix before building')).toBeTruthy()
+    expect(container.querySelector('[data-power-problems="1"]')?.textContent).toContain('12 V is too low')
+    expect(queryByText('Power-planning blockers')).toBeNull()
+    expect(getByText('Power plan: blocked by 1 power-plan problem listed under Fix before building', { selector: 'li' })).toBeTruthy()
+    expect(getByText('Build reference: blocked by power-plan problems', { selector: 'li' })).toBeTruthy()
+    expect(queryByText((_, node) => node?.tagName === 'LI' && (node.textContent?.includes('waiting for exact-board') ?? false))).toBeNull()
+  })
+
   it('generates complete recommended wiring for supported controls from the graph', () => {
     useGraphStore.setState({
       nodes: [
