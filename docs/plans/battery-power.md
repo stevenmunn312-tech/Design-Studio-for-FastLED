@@ -23,7 +23,7 @@ These are Steve's own builds, and each becomes a bench row in the root todo.
 | --- | --- | --- |
 | About ten LEDs | 1S Li-ion (3.7 V nominal, 4.2 V full) | [Boost, charge and protection module](https://www.aliexpress.com/item/1005012069464300.html) |
 | 16×16 matrix | 4S Li-ion | [BMS with balancing](https://www.aliexpress.com/item/1005010035028251.html), [buck converter to 5 V](https://www.aliexpress.com/item/33044155995.html), [IP2368 bidirectional 100 W charger](https://www.aliexpress.com/item/1005008741292460.html) |
-| 32×32 matrix, 30 A software limit | 4S Li-ion | [BMS with balance charging and protection](https://www.amazon.com.au/dp/B0DPWLSGZ5), [60 A buck converter](https://www.aliexpress.com/item/4000302403286.html), and the IP2368 charger unless the BMS listing shows its own |
+| 32×32 matrix, 30 A software limit | 4S Li-ion | [60 A BMS with active balancing](https://www.aliexpress.com/item/1005010418508436.html) (BM3451; 4.25 V over-charge, 2.8 V over-discharge), [60 A buck converter](https://www.aliexpress.com/item/4000302403286.html), and the IP2368 charger |
 
 Alternatives Steve also uses, modelled alongside:
 
