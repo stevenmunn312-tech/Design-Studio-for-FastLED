@@ -120,6 +120,7 @@ and known traps; [CLAUDE.md](../CLAUDE.md) routes agents to the same files.
 rollout steps or explicitly proposed work, not a second copy of the root checklist.
 
 - [App review — 24 September 2026](plans/2026-09-24-app-review.md)
+- [Battery power](plans/battery-power.md)
 - [Hardware expansion roadmap](plans/hardware-expansion-roadmap.md)
 - [Pattern node expansion — tiling, warp, Turing and Fourier nodes](plans/pattern-node-expansion.md)
 - [Power conversion and supply protection](plans/power-conversion-and-protection.md)

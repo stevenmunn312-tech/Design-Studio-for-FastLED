@@ -23,8 +23,9 @@ build have passed the normal evidence gates.
   can appear in both because it is a physical switch controlled by a signal.
 - Do not claim a board or module as supported from code generation alone.
   Compile evidence and a recorded bench run remain separate requirements.
-- Treat mains switching, batteries and high-current distribution as gated work,
-  not ordinary catalogue expansion.
+- Treat mains switching, batteries and high-current distribution as power-model
+  work, not ordinary catalogue expansion: each extends the electrical plan and
+  the Build Diagram, ships experimental, and gets the HW-14 review afterwards.
 
 ## Highest-priority additions
 
@@ -248,13 +249,21 @@ addition must cover the parts of the product its role actually uses:
 
 ## Families that extend the power model
 
-Battery chargers, cell balancers, battery-management systems, mains SSRs,
-contactors and large motor drivers need the power model to represent source
-voltage, state of charge, continuous and peak current, protection behavior,
-isolation, fusing and enclosure requirements. A render and a pin picker are not
-enough to offer installation guidance for them, so extending the power model is
-part of implementing each one, not a precondition someone else must meet
-first. They ship experimental like any other family. The
-[independent electrical review (HW-14)](../../todo.md) then checks the
-generated wiring and guidance once they are in the app and the Build Diagram;
-it reviews what exists rather than gating development.
+Batteries, mains switching and high-current switching need the power model to
+represent source voltage, state of charge, continuous and peak current,
+protection behavior, isolation, fusing and enclosure requirements. A render
+and a pin picker are not enough to offer installation guidance for them, so
+extending the power model is part of implementing each one, not a
+precondition someone else must meet first. They ship experimental like any
+other family. The [independent electrical review (HW-14)](../../todo.md) then
+checks the generated wiring and guidance once they are in the app and the
+Build Diagram; it reviews what exists rather than gating development.
+
+- **Batteries** come first: a lithium pack as the DC source, with the boards
+  that protect, balance and charge it and the converters that make 5 V from
+  it. See the [battery power plan](battery-power.md).
+- **Mains SSRs and contactors** for switching supply banks follow the battery
+  work. They need an AC side in the power model (supply inrush, the upstream
+  breaker) and a decision on how far the Build Diagram draws mains wiring.
+- **Large motor drivers** were dropped on 2026-10-09: LED installations do
+  not need them.

@@ -41,10 +41,16 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  2. Families that extend the power model: battery chargers, cell balancers,
-     battery-management systems, mains SSRs, contactors and large motor
-     drivers. A real reference system is available: a 70,000 mAh lithium pack
-     with fuses, balancer, BMS and 100 W charge/discharge control.
+  2. Battery power: a lithium pack as the DC source, with the boards that
+     protect, balance and charge it and the converters that make 5 V from it,
+     following the [battery power plan](docs/plans/battery-power.md). Its
+     three reference builds are Steve's own: 1S for about ten LEDs, and 4S
+     for a 16×16 and a 32×32 matrix.
+  3. Mains switching for supply banks (mains SSRs and contactors), after the
+     battery work. It needs an AC side in the power model (supply inrush,
+     upstream breaker) and a decision on how far the Build Diagram draws
+     mains wiring. Large motor drivers were dropped on 2026-10-09: LED
+     installations do not need them.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
