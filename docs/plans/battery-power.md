@@ -25,6 +25,21 @@ These are Steve's own builds, and each becomes a bench row in the root todo.
 | 16×16 matrix | 4S Li-ion | [BMS with balancing](https://www.aliexpress.com/item/1005010035028251.html), [buck converter to 5 V](https://www.aliexpress.com/item/33044155995.html), [IP2368 bidirectional 100 W charger](https://www.aliexpress.com/item/1005008741292460.html) |
 | 32×32 matrix, 30 A software limit | 4S Li-ion | [BMS with balance charging and protection](https://www.amazon.com.au/dp/B0DPWLSGZ5), [60 A buck converter](https://www.aliexpress.com/item/4000302403286.html), and the IP2368 charger unless the BMS listing shows its own |
 
+Alternatives Steve also uses, modelled alongside:
+
+| Build | Pack | Boards |
+| --- | --- | --- |
+| About ten LEDs, separate boards | 1S Li-ion | [Boost to 5 V](https://www.aliexpress.com/item/1005008387293839.html), [charge and protection](https://www.aliexpress.com/item/1005007089641829.html) |
+| 16×16 matrix | 4S Li-ion | [20 A buck](https://www.aliexpress.com/item/1005003512778149.html), [BMS with balancing](https://www.aliexpress.com/item/1005004317506330.html), [4S charger](https://www.aliexpress.com/i/1005005354324584.html) |
+
+A standalone 4S balancer Steve uses,
+[this one](https://www.aliexpress.com/item/1005005050176741.html), is
+modelled too, so the `balance` function gets a board of its own.
+
+Every build keeps the usual LED front end: a 74AHCT125 level shifter, a
+330 Ω data resistor and a 1000 µF capacitor per feed. The 1S boost build needs
+the level shifter because its pixels run at 5 V.
+
 The LED load runs from the pack terminals through a battery main fuse to the
 converter. In the 1S build the module's own 5 V output feeds the LEDs and the
 controller. The IP2368 board only charges the pack; its USB-C port can also
@@ -161,7 +176,6 @@ and a professional with high-power, low-voltage experience should check them.
 - A state-of-charge signal in the graph, from a Power Monitor on the pack or
   a BMS with a serial port.
 - Separate-port and positive-switched protection boards.
-- A standalone balancer part: the catalogue block already allows one.
 - Commercial packs with a built-in BMS, modelled as one part.
 - Mains SSRs and contactors (D-05 item 3).
 
