@@ -9,6 +9,151 @@
 import type { PartCatalogueEntry } from '../parts/partCatalogue'
 
 export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
+  "16v8-2a-4s-liion-charger": {
+    "partId": "16v8-2a-4s-liion-charger",
+    "label": "16.8 V 2 A 4S Li-ion mains charger",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 95.0,
+      "height": 50.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "DC+",
+      "DC-"
+    ],
+    "notes": [
+      "Selected seller option is 16.8 V 2 A with centre-positive 5.5 x 2.1 mm plug."
+    ],
+    "batteryModule": {
+      "series": 4,
+      "chemistries": [
+        "li-ion"
+      ],
+      "charger": {
+        "device": "CC/CV mains charger",
+        "chargeVPerCell": 4.2,
+        "maxChargeMa": 2000,
+        "inputMaxW": 35,
+        "inputProtocols": "100-240 V AC input; 5.5 x 2.1 mm DC output",
+        "bidirectional": false,
+        "batteryTerminals": [
+          "DC+",
+          "DC-"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/16v8-2a-4s-liion-charger.webp",
+      "widthPx": 1160,
+      "heightPx": 620,
+      "pxPerMm": 12.0
+    }
+  },
+  "4s-15a-enhanced-bms": {
+    "partId": "4s-15a-enhanced-bms",
+    "label": "4S 15 A enhanced Li-ion BMS",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 45.0,
+      "height": 45.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "B-",
+      "B1",
+      "B2",
+      "B3",
+      "B+",
+      "P-",
+      "P+"
+    ],
+    "notes": [
+      "The selected 15 A Enhanced variant provides protection and temperature sensing. Listing does not substantiate balancing, so pair it with the standalone balancer."
+    ],
+    "batteryModule": {
+      "series": 4,
+      "chemistries": [
+        "li-ion"
+      ],
+      "protection": {
+        "continuousDischargeMa": 15000,
+        "continuousChargeMa": 15000,
+        "overchargeV": 4.25,
+        "overDischargeV": 2.5,
+        "port": "common",
+        "switchedLine": "negative",
+        "temperatureSensor": true,
+        "powerTerminals": [
+          "B-",
+          "B+",
+          "P-",
+          "P+"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/4s-15a-enhanced-bms.webp",
+      "widthPx": 560,
+      "heightPx": 560,
+      "pxPerMm": 12.0
+    }
+  },
+  "4s-5a-active-balancer": {
+    "partId": "4s-5a-active-balancer",
+    "label": "4S 5 A active cell balancer",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 45.0,
+      "height": 35.0
+    },
+    "manufacturer": "Hankzor",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "B-",
+      "B1",
+      "B2",
+      "B3",
+      "B+"
+    ],
+    "notes": [
+      "5 A is the listing's maximum transfer current, not a continuous guaranteed balance current. Connect sense leads in cell order and plug the harness in last."
+    ],
+    "batteryModule": {
+      "series": 4,
+      "chemistries": [
+        "li-ion",
+        "lifepo4"
+      ],
+      "balance": {
+        "type": "active",
+        "balanceMa": 5000,
+        "balanceTerminals": [
+          "B-",
+          "B1",
+          "B2",
+          "B3",
+          "B+"
+        ],
+        "standbyMa": 5,
+        "connectionOrder": [
+          "B-",
+          "B1",
+          "B2",
+          "B3",
+          "B+"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/4s-5a-active-balancer.webp",
+      "widthPx": 560,
+      "heightPx": 440,
+      "pxPerMm": 12.0
+    }
+  },
   "adafruit-bh1750-light-sensor": {
     "partId": "adafruit-bh1750-light-sensor",
     "label": "Adafruit BH1750 ambient light sensor",
@@ -452,6 +597,74 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 14.902
     }
   },
+  "bm3451-4s-60a-active-balance-bms": {
+    "partId": "bm3451-4s-60a-active-balance-bms",
+    "label": "BM3451 4S 60 A BMS with active balancing",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 55.0,
+      "height": 45.0
+    },
+    "manufacturer": "generic (BM3451)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "B-",
+      "B1",
+      "B2",
+      "B3",
+      "B+",
+      "P-",
+      "P+"
+    ],
+    "notes": [
+      "60 A and 1 A active-balance figures come from the listing and remain HW-14 verification items."
+    ],
+    "batteryModule": {
+      "series": 4,
+      "chemistries": [
+        "li-ion"
+      ],
+      "protection": {
+        "continuousDischargeMa": 60000,
+        "continuousChargeMa": 60000,
+        "overchargeV": 4.25,
+        "overDischargeV": 2.8,
+        "port": "common",
+        "switchedLine": "negative",
+        "temperatureSensor": false,
+        "powerTerminals": [
+          "B-",
+          "B+",
+          "P-",
+          "P+"
+        ]
+      },
+      "balance": {
+        "type": "active",
+        "balanceMa": 1000,
+        "balanceTerminals": [
+          "B-",
+          "B1",
+          "B2",
+          "B3",
+          "B+"
+        ],
+        "connectionOrder": [
+          "B-",
+          "B1",
+          "B2",
+          "B3",
+          "B+"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/bm3451-4s-60a-active-balance-bms.webp",
+      "widthPx": 680,
+      "heightPx": 560,
+      "pxPerMm": 12.0
+    }
+  },
   "dfplayer-mini": {
     "partId": "dfplayer-mini",
     "label": "DFPlayer Mini MP3 module",
@@ -489,6 +702,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 400,
       "pxPerMm": 19.6
+    }
+  },
+  "dgxby-20a-5v-buck-converter": {
+    "partId": "dgxby-20a-5v-buck-converter",
+    "label": "DGXBY 12/24 V to 5 V 20 A buck converter",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 74.0,
+      "height": 74.0
+    },
+    "manufacturer": "DGXBY",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "IN+",
+      "IN-",
+      "OUT+",
+      "OUT-"
+    ],
+    "notes": [
+      "20 A is the selected seller variant and remains an HW-14 continuous-load verification item."
+    ],
+    "powerConverter": {
+      "role": "led-rail",
+      "topology": "buck (non-isolated, common negative)",
+      "inputMinV": 9,
+      "inputMaxV": 36,
+      "minHeadroomV": 1.5,
+      "outputSetV": 5,
+      "continuousCurrentMa": 20000,
+      "peakCurrentMa": 20000,
+      "typicalEfficiency": 0.92,
+      "isolated": false,
+      "adjustable": false,
+      "terminals": [
+        "IN+",
+        "IN-",
+        "OUT+",
+        "OUT-"
+      ]
+    },
+    "render": {
+      "file": "parts/dgxby-20a-5v-buck-converter.webp",
+      "widthPx": 908,
+      "heightPx": 908,
+      "pxPerMm": 12.0
     }
   },
   "ds18b20-waterproof-probe": {
@@ -605,6 +863,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 973,
       "pxPerMm": 9.077
+    }
+  },
+  "generic-300w-9a-buck-module": {
+    "partId": "generic-300w-9a-buck-module",
+    "label": "300 W adjustable buck module (9 A)",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 65.0,
+      "height": 48.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "IN+",
+      "IN-",
+      "OUT+",
+      "OUT-"
+    ],
+    "notes": [
+      "Seller states 9 A output and requires forced cooling above 65 C. The 300 W headline is not available at 5 V."
+    ],
+    "powerConverter": {
+      "role": "led-rail",
+      "topology": "buck (non-isolated, common negative)",
+      "inputMinV": 5,
+      "inputMaxV": 40,
+      "minHeadroomV": 1.5,
+      "outputSetV": 5,
+      "continuousCurrentMa": 9000,
+      "peakCurrentMa": 9000,
+      "typicalEfficiency": 0.9,
+      "isolated": false,
+      "adjustable": true,
+      "terminals": [
+        "IN+",
+        "IN-",
+        "OUT+",
+        "OUT-"
+      ]
+    },
+    "render": {
+      "file": "parts/generic-300w-9a-buck-module.webp",
+      "widthPx": 800,
+      "heightPx": 596,
+      "pxPerMm": 12.0
     }
   },
   "generic-i2s-mems-microphone": {
@@ -843,6 +1146,74 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 1200,
       "pxPerMm": 4.656
+    }
+  },
+  "hx-4s-f30a-bms-balance": {
+    "partId": "hx-4s-f30a-bms-balance",
+    "label": "HX-4S-F30A 4S 30 A BMS with balancing",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 56.0,
+      "height": 48.0
+    },
+    "manufacturer": "generic",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "B-",
+      "B1",
+      "B2",
+      "B3",
+      "B+",
+      "P-",
+      "P+"
+    ],
+    "notes": [
+      "30 A is recorded as the seller's continuous figure and remains an HW-14 review item. T1/T2 accept an external temperature sensor."
+    ],
+    "batteryModule": {
+      "series": 4,
+      "chemistries": [
+        "li-ion"
+      ],
+      "protection": {
+        "continuousDischargeMa": 30000,
+        "continuousChargeMa": 30000,
+        "overchargeV": 4.25,
+        "overDischargeV": 2.55,
+        "port": "common",
+        "switchedLine": "negative",
+        "temperatureSensor": true,
+        "powerTerminals": [
+          "B-",
+          "B+",
+          "P-",
+          "P+"
+        ]
+      },
+      "balance": {
+        "type": "passive",
+        "balanceMa": 60,
+        "balanceTerminals": [
+          "B-",
+          "B1",
+          "B2",
+          "B3",
+          "B+"
+        ],
+        "connectionOrder": [
+          "B-",
+          "B1",
+          "B2",
+          "B3",
+          "B+"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/hx-4s-f30a-bms-balance.webp",
+      "widthPx": 692,
+      "heightPx": 596,
+      "pxPerMm": 12.0
     }
   },
   "ics-43434-i2s-microphone": {
@@ -1090,6 +1461,119 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 282,
       "pxPerMm": 26.133
+    }
+  },
+  "ip2368-100w-bidirectional-charger": {
+    "partId": "ip2368-100w-bidirectional-charger",
+    "label": "IP2368 100 W bidirectional 4S charger",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 80.0,
+      "height": 40.0
+    },
+    "manufacturer": "generic (Injoinic IP2368-COUT)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "BAT+",
+      "BAT-",
+      "USB-C"
+    ],
+    "notes": [
+      "Modelled as the listing's 4S Li-ion, 4.2 V/cell, 100 W resistor configuration. USB-C can also discharge the pack; the LED load does not use that path."
+    ],
+    "batteryModule": {
+      "series": 4,
+      "chemistries": [
+        "li-ion"
+      ],
+      "charger": {
+        "device": "IP2368-COUT",
+        "chargeVPerCell": 4.2,
+        "maxChargeMa": 5950,
+        "inputMaxW": 100,
+        "inputProtocols": "USB-C PD 2.0/3.0, AFC and FCP",
+        "bidirectional": true,
+        "batteryTerminals": [
+          "BAT+",
+          "BAT-"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/ip2368-100w-bidirectional-charger.webp",
+      "widthPx": 980,
+      "heightPx": 500,
+      "pxPerMm": 12.0
+    }
+  },
+  "ip5305t-1s-power-module": {
+    "partId": "ip5305t-1s-power-module",
+    "label": "IP5305T 1S boost, charge and protection module",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 38.1,
+      "height": 15.2
+    },
+    "manufacturer": "generic (Injoinic IP5305T)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "+BAT",
+      "-BAT",
+      "5V+",
+      "5V-"
+    ],
+    "notes": [
+      "Four LEDs show approximate state of charge. USB-C is charge input; the green screw terminal is the 5 V output."
+    ],
+    "batteryModule": {
+      "series": 1,
+      "chemistries": [
+        "li-ion"
+      ],
+      "protection": {
+        "continuousDischargeMa": 1000,
+        "continuousChargeMa": 1200,
+        "overchargeV": 4.3,
+        "overDischargeV": 2.4,
+        "port": "common",
+        "switchedLine": "negative",
+        "temperatureSensor": false,
+        "powerTerminals": [
+          "+BAT",
+          "-BAT",
+          "5V+",
+          "5V-"
+        ]
+      },
+      "charger": {
+        "device": "IP5305T",
+        "chargeVPerCell": 4.2,
+        "maxChargeMa": 1200,
+        "inputMaxW": 6,
+        "inputProtocols": "USB-C 5 V",
+        "bidirectional": false,
+        "batteryTerminals": [
+          "+BAT",
+          "-BAT"
+        ]
+      },
+      "output": {
+        "topology": "boost",
+        "outputV": 5,
+        "continuousMa": 1000,
+        "typicalEfficiency": 0.82,
+        "terminals": [
+          "5V+",
+          "5V-"
+        ],
+        "usbOutput": false
+      }
+    },
+    "render": {
+      "file": "parts/ip5305t-1s-power-module.webp",
+      "widthPx": 478,
+      "heightPx": 203,
+      "pxPerMm": 12.021
     }
   },
   "jaycar-xc9044-rtc-module": {
@@ -1354,7 +1838,13 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "peakCurrentMa": 3000,
       "typicalEfficiency": 0.8,
       "isolated": false,
-      "adjustable": true
+      "adjustable": true,
+      "terminals": [
+        "IN+",
+        "IN-",
+        "OUT+",
+        "OUT-"
+      ]
     },
     "render": {
       "file": "parts/lm2596-buck-module.webp",
@@ -1657,6 +2147,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.78,
       "isolated": true,
       "adjustable": true,
+      "terminals": [
+        "+",
+        "-",
+        "FG",
+        "-V",
+        "-V",
+        "+V",
+        "+V"
+      ],
       "deratingCurve": [
         [
           40,
@@ -1714,6 +2213,15 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.74,
       "isolated": true,
       "adjustable": true,
+      "terminals": [
+        "+",
+        "-",
+        "FG",
+        "-V",
+        "-V",
+        "+V",
+        "+V"
+      ],
       "deratingCurve": [
         [
           30,
@@ -2168,6 +2676,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 408,
       "heightPx": 310,
       "pxPerMm": 12.0
+    }
+  },
+  "rcnun-60a-5v-buck-converter": {
+    "partId": "rcnun-60a-5v-buck-converter",
+    "label": "RCNUN 12/24 V to 5 V 60 A buck converter",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 100.0,
+      "height": 80.0
+    },
+    "manufacturer": "RCNUN",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "IN+",
+      "IN-",
+      "OUT+",
+      "OUT-"
+    ],
+    "notes": [
+      "60 A is the selected seller variant and remains an HW-14 continuous-load verification item."
+    ],
+    "powerConverter": {
+      "role": "led-rail",
+      "topology": "buck (non-isolated, common negative)",
+      "inputMinV": 9,
+      "inputMaxV": 36,
+      "minHeadroomV": 1.5,
+      "outputSetV": 5,
+      "continuousCurrentMa": 60000,
+      "peakCurrentMa": 60000,
+      "typicalEfficiency": 0.95,
+      "isolated": false,
+      "adjustable": false,
+      "terminals": [
+        "IN+",
+        "IN-",
+        "OUT+",
+        "OUT-"
+      ]
+    },
+    "render": {
+      "file": "parts/rcnun-60a-5v-buck-converter.webp",
+      "widthPx": 1200,
+      "heightPx": 964,
+      "pxPerMm": 11.8
     }
   },
   "rcwl-0516-microwave-motion-module": {
@@ -2663,6 +3216,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 8
         }
       ]
+    }
+  },
+  "samsung-inr18650-35e": {
+    "partId": "samsung-inr18650-35e",
+    "label": "Samsung INR18650-35E Li-ion cell",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 65.3,
+      "height": 18.5
+    },
+    "manufacturer": "Samsung SDI",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "negative can",
+      "positive cap"
+    ],
+    "notes": [
+      "Use only genuine, matched cells from one batch. Do not mix age, capacity or state of charge.",
+      "The 8 A discharge rating and 2 A charge ceiling are cell limits, not recommended normal operating currents."
+    ],
+    "batteryCell": {
+      "chemistry": "li-ion",
+      "formFactor": "18650",
+      "nominalV": 3.6,
+      "chargeV": 4.2,
+      "dischargeCutoffV": 2.65,
+      "capacityMah": 3350,
+      "maxContinuousDischargeMa": 8000,
+      "maxChargeMa": 2000,
+      "internalResistanceMohm": 35,
+      "internalResistanceBasis": "ac-1khz",
+      "chargeTempC": [
+        0,
+        45
+      ],
+      "dischargeTempC": [
+        -20,
+        60
+      ]
+    },
+    "render": {
+      "file": "parts/samsung-inr18650-35e.webp",
+      "widthPx": 804,
+      "heightPx": 242,
+      "pxPerMm": 12.006
     }
   },
   "seeed-grove-2ch-ssr": {
@@ -3253,6 +3851,110 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 512,
       "heightPx": 296,
       "pxPerMm": 12.0
+    }
+  },
+  "tp4056-usbc-charge-protect-module": {
+    "partId": "tp4056-usbc-charge-protect-module",
+    "label": "TP4056 USB-C 1S charge and protection module",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 28.0,
+      "height": 17.0
+    },
+    "manufacturer": "generic (TP4056, DW01A and FS8205A)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "B+",
+      "B-",
+      "OUT+",
+      "OUT-"
+    ],
+    "notes": [
+      "The listing combines TP4056 charging with DW01A/FS8205A protection. OUT- is the protected negative."
+    ],
+    "batteryModule": {
+      "series": 1,
+      "chemistries": [
+        "li-ion"
+      ],
+      "protection": {
+        "continuousDischargeMa": 3000,
+        "continuousChargeMa": 1000,
+        "overchargeV": 4.28,
+        "overDischargeV": 2.5,
+        "port": "common",
+        "switchedLine": "negative",
+        "temperatureSensor": false,
+        "powerTerminals": [
+          "B+",
+          "B-",
+          "OUT+",
+          "OUT-"
+        ]
+      },
+      "charger": {
+        "device": "TP4056",
+        "chargeVPerCell": 4.2,
+        "maxChargeMa": 1000,
+        "inputMaxW": 5,
+        "inputProtocols": "USB-C 5 V",
+        "bidirectional": false,
+        "batteryTerminals": [
+          "B+",
+          "B-"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/tp4056-usbc-charge-protect-module.webp",
+      "widthPx": 400,
+      "heightPx": 251,
+      "pxPerMm": 13.571
+    }
+  },
+  "tps61023-1s-5v-boost-module": {
+    "partId": "tps61023-1s-5v-boost-module",
+    "label": "TPS61023 1S 5 V boost module",
+    "category": "power-conversion",
+    "dimensionsMm": {
+      "width": 17.8,
+      "height": 13.5
+    },
+    "manufacturer": "generic (Texas Instruments TPS61023)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "VIN+",
+      "VIN-",
+      "VOUT+",
+      "VOUT-"
+    ],
+    "notes": [
+      "Seller rates 1 A output; higher figures describe peak switch current, not continuous 5 V load current."
+    ],
+    "powerConverter": {
+      "role": "led-rail",
+      "topology": "boost (non-isolated, common negative)",
+      "inputMinV": 2.3,
+      "inputMaxV": 5.5,
+      "minHeadroomV": 0,
+      "outputSetV": 5,
+      "continuousCurrentMa": 1000,
+      "peakCurrentMa": 1500,
+      "typicalEfficiency": 0.9,
+      "isolated": false,
+      "adjustable": false,
+      "terminals": [
+        "VIN+",
+        "VIN-",
+        "VOUT+",
+        "VOUT-"
+      ]
+    },
+    "render": {
+      "file": "parts/tps61023-1s-5v-boost-module.webp",
+      "widthPx": 400,
+      "heightPx": 308,
+      "pxPerMm": 21.348
     }
   },
   "tsop38238-ir-receiver": {

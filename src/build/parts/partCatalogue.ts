@@ -19,6 +19,7 @@ export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
   | 'input-control' | 'audio-source' | 'support' | 'display' | 'switching-power' | 'power-monitor' | 'power-conversion'
   | 'communication'
+  | 'battery'
 
 export interface PartRenderAsset {
   /** Path relative to the site root, e.g. `parts/max98357a-i2s-amplifier.webp`. */
@@ -355,8 +356,66 @@ export interface PartPowerConverterSpec {
   isolated: boolean
   /** Adjustable output: it ships at an arbitrary voltage and must be set before use. */
   adjustable: boolean
+  /** Printed terminal names in physical order. */
+  terminals: string[]
   /** Output current against ambient, as [C, percent] in rising order; absent means none. */
   deratingCurve?: Array<[number, number]>
+}
+
+export type CellChemistry = 'li-ion' | 'lifepo4'
+
+export interface PartBatteryCellSpec {
+  chemistry: CellChemistry
+  formFactor: string
+  nominalV: number
+  chargeV: number
+  dischargeCutoffV: number
+  capacityMah: number
+  maxContinuousDischargeMa: number
+  maxChargeMa: number
+  internalResistanceMohm: number
+  internalResistanceBasis: 'ac-1khz' | 'dc'
+  chargeTempC: [number, number]
+  dischargeTempC: [number, number]
+}
+
+export interface PartBatteryModuleSpec {
+  series: number
+  chemistries: CellChemistry[]
+  protection?: {
+    continuousDischargeMa: number
+    continuousChargeMa: number
+    overchargeV: number
+    overDischargeV: number
+    port: 'common' | 'separate'
+    switchedLine: 'negative' | 'positive'
+    temperatureSensor: boolean
+    powerTerminals: string[]
+  }
+  balance?: {
+    type: 'active' | 'passive'
+    balanceMa: number
+    standbyMa?: number
+    balanceTerminals: string[]
+    connectionOrder?: string[]
+  }
+  charger?: {
+    device: string
+    chargeVPerCell: number
+    maxChargeMa: number
+    inputMaxW: number
+    inputProtocols: string
+    bidirectional: boolean
+    batteryTerminals: [string, string]
+  }
+  output?: {
+    topology: 'boost' | 'buck'
+    outputV: number
+    continuousMa: number
+    typicalEfficiency: number
+    terminals: string[]
+    usbOutput: boolean
+  }
 }
 
 export interface PartCatalogueEntry {
@@ -411,6 +470,10 @@ export interface PartCatalogueEntry {
   pixelDataExtender?: PartPixelDataExtenderSpec
   /** Present exactly on DC-DC converter modules. */
   powerConverter?: PartPowerConverterSpec
+  /** Present exactly on individual battery cells. */
+  batteryCell?: PartBatteryCellSpec
+  /** Present exactly on protection, balance, charger and pack-output boards. */
+  batteryModule?: PartBatteryModuleSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

@@ -75,6 +75,7 @@ CATEGORIES = {
     "input-control", "audio-source", "support", "display", "switching-power", "power-monitor",
     "power-conversion",
     "communication",
+    "battery",
 }
 
 # Spellings the modelling pipeline emits that mean an existing category. The
@@ -494,12 +495,15 @@ def read_part(part_dir: Path) -> dict | None:
     if converter:
         number = lambda key: isinstance(converter.get(key), (int, float))
         role = converter.get("role")
+        terminals = converter.get("terminals")
         if (role in ("controller", "led-rail")
                 and all(number(key) for key in ("inputMinV", "inputMaxV", "outputSetV", "continuousCurrentMa", "typicalEfficiency"))
                 and converter["inputMaxV"] > converter["inputMinV"] > 0
                 and converter["continuousCurrentMa"] > 0
                 and 0 < converter["typicalEfficiency"] <= 1
-                and isinstance(converter.get("isolated"), bool)):
+                and isinstance(converter.get("isolated"), bool)
+                and isinstance(terminals, list) and len(terminals) >= 2
+                and all(isinstance(name, str) and name for name in terminals)):
             entry["powerConverter"] = {
                 "role": role,
                 "topology": converter.get("topology") or "buck",
@@ -512,6 +516,7 @@ def read_part(part_dir: Path) -> dict | None:
                 "typicalEfficiency": converter["typicalEfficiency"],
                 "isolated": converter["isolated"],
                 "adjustable": bool(converter.get("adjustable", False)),
+                "terminals": terminals,
             }
             # Output current against ambient temperature, as (C, percent)
             # points in rising temperature order; absent means no derating.
@@ -524,8 +529,111 @@ def read_part(part_dir: Path) -> dict | None:
             elif curve is not None:
                 print(f"  ! {part_id}: powerConverter deratingCurve must be rising (C, 0-100 percent) pairs — dropped", file=sys.stderr)
         else:
-            print(f"  ! {part_id}: powerConverter block needs a role, input range, output, current, efficiency and isolation — skipped",
+            print(f"  ! {part_id}: powerConverter block needs a role, input range, output, current, efficiency, isolation and terminals — skipped",
                   file=sys.stderr)
+    cell = data.get("batteryCell")
+    if cell:
+        required_numbers = (
+            "nominalV", "chargeV", "dischargeCutoffV", "capacityMah",
+            "maxContinuousDischargeMa", "maxChargeMa", "internalResistanceMohm",
+        )
+        charge_temp = cell.get("chargeTempC")
+        discharge_temp = cell.get("dischargeTempC")
+        if not (
+            cell.get("chemistry") in ("li-ion", "lifepo4")
+            and isinstance(cell.get("formFactor"), str) and cell["formFactor"]
+            and all(isinstance(cell.get(key), (int, float)) and cell[key] > 0 for key in required_numbers)
+            and cell.get("internalResistanceBasis") in ("ac-1khz", "dc")
+            and isinstance(charge_temp, list) and len(charge_temp) == 2
+            and isinstance(discharge_temp, list) and len(discharge_temp) == 2
+            and all(isinstance(value, (int, float)) for value in charge_temp + discharge_temp)
+            and charge_temp[0] < charge_temp[1] and discharge_temp[0] < discharge_temp[1]
+        ):
+            sys.exit(f"{part_id}: invalid batteryCell block")
+        entry["batteryCell"] = {key: cell[key] for key in (
+            "chemistry", "formFactor", *required_numbers, "internalResistanceBasis",
+            "chargeTempC", "dischargeTempC",
+        )}
+    module = data.get("batteryModule")
+    if module:
+        chemistries = module.get("chemistries")
+        if not (
+            isinstance(module.get("series"), int) and module["series"] > 0
+            and isinstance(chemistries, list) and chemistries
+            and all(value in ("li-ion", "lifepo4") for value in chemistries)
+            and any(module.get(key) for key in ("protection", "balance", "charger", "output"))
+        ):
+            sys.exit(f"{part_id}: invalid batteryModule header")
+        block = {"series": module["series"], "chemistries": chemistries}
+        protection = module.get("protection")
+        if protection:
+            terminals = protection.get("powerTerminals")
+            numbers = ("continuousDischargeMa", "continuousChargeMa", "overchargeV", "overDischargeV")
+            if not (
+                all(isinstance(protection.get(key), (int, float)) and protection[key] > 0 for key in numbers)
+                and protection.get("port") in ("common", "separate")
+                and protection.get("switchedLine") in ("negative", "positive")
+                and isinstance(protection.get("temperatureSensor"), bool)
+                and isinstance(terminals, list) and len(terminals) >= 2
+                and all(isinstance(value, str) and value for value in terminals)
+            ):
+                sys.exit(f"{part_id}: invalid batteryModule.protection block")
+            block["protection"] = {key: protection[key] for key in (
+                *numbers, "port", "switchedLine", "temperatureSensor", "powerTerminals",
+            )}
+        balance = module.get("balance")
+        if balance:
+            terminals = balance.get("balanceTerminals")
+            if not (
+                balance.get("type") in ("active", "passive")
+                and isinstance(balance.get("balanceMa"), (int, float)) and balance["balanceMa"] > 0
+                and isinstance(terminals, list) and len(terminals) >= 2
+                and all(isinstance(value, str) and value for value in terminals)
+            ):
+                sys.exit(f"{part_id}: invalid batteryModule.balance block")
+            block["balance"] = {"type": balance["type"], "balanceMa": balance["balanceMa"], "balanceTerminals": terminals}
+            if isinstance(balance.get("standbyMa"), (int, float)) and balance["standbyMa"] >= 0:
+                block["balance"]["standbyMa"] = balance["standbyMa"]
+            if balance.get("connectionOrder") is not None:
+                order = balance["connectionOrder"]
+                if not (isinstance(order, list) and all(isinstance(value, str) and value for value in order)):
+                    sys.exit(f"{part_id}: invalid batteryModule.balance connectionOrder")
+                block["balance"]["connectionOrder"] = order
+        charger = module.get("charger")
+        if charger:
+            terminals = charger.get("batteryTerminals")
+            if not (
+                isinstance(charger.get("device"), str) and charger["device"]
+                and all(isinstance(charger.get(key), (int, float)) and charger[key] > 0
+                        for key in ("chargeVPerCell", "maxChargeMa", "inputMaxW"))
+                and isinstance(charger.get("inputProtocols"), str) and charger["inputProtocols"]
+                and isinstance(charger.get("bidirectional"), bool)
+                and isinstance(terminals, list) and len(terminals) == 2
+                and all(isinstance(value, str) and value for value in terminals)
+            ):
+                sys.exit(f"{part_id}: invalid batteryModule.charger block")
+            block["charger"] = {key: charger[key] for key in (
+                "device", "chargeVPerCell", "maxChargeMa", "inputMaxW",
+                "inputProtocols", "bidirectional", "batteryTerminals",
+            )}
+        output = module.get("output")
+        if output:
+            terminals = output.get("terminals")
+            if not (
+                output.get("topology") in ("boost", "buck")
+                and all(isinstance(output.get(key), (int, float)) and output[key] > 0
+                        for key in ("outputV", "continuousMa", "typicalEfficiency"))
+                and output["typicalEfficiency"] <= 1
+                and isinstance(terminals, list) and len(terminals) >= 2
+                and all(isinstance(value, str) and value for value in terminals)
+                and isinstance(output.get("usbOutput"), bool)
+            ):
+                sys.exit(f"{part_id}: invalid batteryModule.output block")
+            block["output"] = {key: output[key] for key in (
+                "topology", "outputV", "continuousMa", "typicalEfficiency",
+                "terminals", "usbOutput",
+            )}
+        entry["batteryModule"] = block
     # A calibrated digital ambient-light sensor. Its address straps and
     # measurement range are part facts used by the picker, validation and
     # generated Wire transaction, so carry them through from the asset.
