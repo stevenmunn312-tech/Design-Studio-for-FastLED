@@ -43,7 +43,13 @@ function symbolDepth(kind: NetStubKind) {
   return kind === 'gnd' ? 8 : 0
 }
 
-function labelPlacement(direction: NetStubDirection, end: number) {
+function labelPlacement(direction: NetStubDirection, end: number, inside: boolean) {
+  if (inside) {
+    if (direction === 'left') return { x: 6, y: -12, anchor: 'start' as const }
+    if (direction === 'right') return { x: -6, y: -12, anchor: 'end' as const }
+    if (direction === 'up') return { x: 10, y: -6, anchor: 'start' as const }
+    return { x: 10, y: 3, anchor: 'start' as const }
+  }
   if (direction === 'down') return { x: 0, y: end + 13, anchor: 'middle' as const }
   if (direction === 'up') return { x: 0, y: -(end + 7), anchor: 'middle' as const }
   if (direction === 'left') return { x: -(end + 6), y: 3, anchor: 'end' as const }
@@ -62,6 +68,8 @@ export interface NetStubProps {
   wireId: string
   wireRole?: string
   label?: string
+  /** Put the caption back over the component side when an outward caption would leave the sheet. */
+  labelInside?: boolean
 }
 
 export function NetStub({
@@ -73,9 +81,10 @@ export function NetStub({
   wireId,
   wireRole,
   label,
+  labelInside = false,
 }: NetStubProps) {
   const depth = symbolDepth(kind)
-  const place = labelPlacement(direction, lead + depth)
+  const place = labelPlacement(direction, lead + depth, labelInside)
   return (
     <g
       data-net-stub={kind}

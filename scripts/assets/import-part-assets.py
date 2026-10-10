@@ -518,6 +518,16 @@ def read_part(part_dir: Path) -> dict | None:
                 "adjustable": bool(converter.get("adjustable", False)),
                 "terminals": terminals,
             }
+            terminal_positions = converter.get("terminalPositions")
+            if (isinstance(terminal_positions, list)
+                    and len(terminal_positions) == len(terminals)
+                    and all(isinstance(point, list) and len(point) == 2
+                            and all(isinstance(value, (int, float)) and 0 <= value <= 1 for value in point)
+                            for point in terminal_positions)):
+                entry["powerConverter"]["terminalPositions"] = terminal_positions
+            elif terminal_positions is not None:
+                print(f"  ! {part_id}: powerConverter terminalPositions must match terminals and contain [0-1, 0-1] points — dropped",
+                      file=sys.stderr)
             # Output current against ambient temperature, as (C, percent)
             # points in rising temperature order; absent means no derating.
             curve = converter.get("deratingCurve")

@@ -227,6 +227,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Battery buck-converter wires now land on catalogue-defined terminal centres
+  instead of positions inherited from the tall Mean Well converter. Output
+  positive routes around output negative, P− is shown as the system ground
+  net, and the left-edge `+BATT` and `P− / GND` captions stay inside the sheet.
 - The Build Diagram now lists power-plan problems under **Fix before
   building**, where they are always visible, and Readiness names them. A
   converter fed outside its input range used to show only "waiting for

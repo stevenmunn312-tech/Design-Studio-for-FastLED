@@ -740,6 +740,24 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         "IN-",
         "OUT+",
         "OUT-"
+      ],
+      "terminalPositions": [
+        [
+          0.253,
+          0.985
+        ],
+        [
+          0.418,
+          0.985
+        ],
+        [
+          0.584,
+          0.985
+        ],
+        [
+          0.749,
+          0.985
+        ]
       ]
     },
     "render": {
@@ -901,6 +919,24 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         "IN-",
         "OUT+",
         "OUT-"
+      ],
+      "terminalPositions": [
+        [
+          0.275,
+          0.747
+        ],
+        [
+          0.425,
+          0.747
+        ],
+        [
+          0.575,
+          0.747
+        ],
+        [
+          0.725,
+          0.747
+        ]
       ]
     },
     "render": {
@@ -2714,6 +2750,24 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         "IN-",
         "OUT+",
         "OUT-"
+      ],
+      "terminalPositions": [
+        [
+          0.325,
+          0.985
+        ],
+        [
+          0.442,
+          0.985
+        ],
+        [
+          0.563,
+          0.985
+        ],
+        [
+          0.679,
+          0.985
+        ]
       ]
     },
     "render": {
@@ -3948,6 +4002,24 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         "VIN-",
         "VOUT+",
         "VOUT-"
+      ],
+      "terminalPositions": [
+        [
+          0.204,
+          0.851
+        ],
+        [
+          0.396,
+          0.851
+        ],
+        [
+          0.604,
+          0.851
+        ],
+        [
+          0.798,
+          0.851
+        ]
       ]
     },
     "render": {

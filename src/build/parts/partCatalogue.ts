@@ -358,6 +358,8 @@ export interface PartPowerConverterSpec {
   adjustable: boolean
   /** Printed terminal names in physical order. */
   terminals: string[]
+  /** Terminal centres as [x, y] ratios within the uncropped render, aligned with `terminals`. */
+  terminalPositions?: Array<[number, number]>
   /** Output current against ambient, as [C, percent] in rising order; absent means none. */
   deratingCurve?: Array<[number, number]>
 }
