@@ -30,8 +30,8 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 
 ## 3. Hardware expansion (ongoing, not a release blocker)
 
-- [ ] **D-05 · Hardware expansion.** Candidate families, their order and the
-  shared definition of done are in the
+- [x] **D-05 · Hardware expansion.** Candidate families and their shared
+  definition of done are in the
   [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md),
   which records each finished part. Each part starts with its Blender model,
   ships experimental, and gets its bench row in section 4. Switching power and
@@ -39,15 +39,7 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   Diagram, and marked experimental; HW-14 then checks them rather than gating
   them. Battery power is implemented as experimental Build Diagram guidance.
   Its three reference builds remain open bench rows below, and HW-14 still
-  owns independent electrical review. What remains, in order:
-  1. A rotary encoder with an addressable feedback ring, once a shop sells one
-     board with both. None did on 2026-10-08; until then an encoder, a Gauge
-     and an LED Ring output already show a position.
-  2. Mains switching for supply banks (mains SSRs and contactors). It needs an
-     AC side in the power model (supply inrush,
-     upstream breaker) and a decision on how far the Build Diagram draws
-     mains wiring. Large motor drivers were dropped on 2026-10-09: LED
-     installations do not need them.
+  owns independent electrical review. No implementation work remains in D-05.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
