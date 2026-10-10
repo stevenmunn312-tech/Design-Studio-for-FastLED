@@ -1,7 +1,7 @@
 # Hardware expansion roadmap
 
 Status: **candidate roadmap, not an implementation promise** · Owner: app ·
-Updated: 2026-10-08
+Updated: 2026-10-10
 
 This document records the next physical hardware families that would make
 Design Studio more useful for complete LED installations. It deliberately
@@ -259,11 +259,13 @@ other family. The [independent electrical review (HW-14)](../../todo.md) then
 checks the generated wiring and guidance once they are in the app and the
 Build Diagram; it reviews what exists rather than gating development.
 
-- **Batteries** come first: a lithium pack as the DC source, with the boards
-  that protect, balance and charge it and the converters that make 5 V from
-  it. See the [battery power plan](battery-power.md).
-- **Mains SSRs and contactors** for switching supply banks follow the battery
-  work. They need an AC side in the power model (supply inrush, the upstream
+- **Batteries** are implemented as experimental Build Diagram guidance: a
+  lithium pack is the DC source, catalogue boards protect, balance and charge
+  it, and converters make the 5 V LED rail. Three physical bench rows and the
+  HW-14 electrical review remain open. See the
+  [battery power plan](battery-power.md).
+- **Mains SSRs and contactors** for switching supply banks come next. They need
+  an AC side in the power model (supply inrush, the upstream
   breaker) and a decision on how far the Build Diagram draws mains wiring.
 - **Large motor drivers** were dropped on 2026-10-09: LED installations do
   not need them.

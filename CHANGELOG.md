@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Lithium battery power planning now supports exact-cell series/parallel packs,
+  combined or separate protection, balancing and charging boards, and
+  catalogue-defined non-isolated 5 V converters. Build Diagram derives the
+  protected source window, sizes uncapped full-white current, wire and fuse,
+  checks fuse-class interrupt rating and converter limits, reports runtime,
+  and draws a dedicated Battery Assembly sheet with B-/P- separation and a
+  fused `+BATT` output. The feature adds no firmware and remains experimental
+  pending three physical reference builds and independent electrical review.
 - The YYNMOS-4 four-channel MOSFET board (the LR7843 revision) joins the
   Hardware shelf as a Power Switch for LED rails and heavier DC loads: four
   opto-isolated channels, 1 to 4, each switched from its own On and dimmed

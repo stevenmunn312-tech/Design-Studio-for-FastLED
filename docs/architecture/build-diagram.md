@@ -24,6 +24,9 @@ distribution, and wiring.
 - The app recommends the supplies, distribution, fuses, conductors, connectors,
   power-injection feeds, logic conditioning, resistors, and capacitors needed by
   the graph-derived hardware.
+- A configured battery pack replaces the fixed DC source. Exact catalogue
+  parts declare cell chemistry, pack-electronics functions, converter terminals
+  and isolation; the diagram does not infer these properties from part names.
 - The app does not ask what power supply or wiring the user already owns before
   producing a complete recommendation.
 - A supported graph with a valid exact-board pin map produces a complete wiring
@@ -82,6 +85,9 @@ pin to make the drawing pass.
 - Every generated LED feed has positive and ground conductors, branch
   protection, and a stated conductor/connector minimum.
 - Every external supply feeds both positive distribution and common ground.
+- In a battery build, the protection board's P- is common ground. Only the
+  protection board touches cell-stack B-, and the fused B+ output becomes
+  the `+BATT` source for converters and charging hardware.
 - Every LED data route includes a 74AHCT125-class 3.3 V to 5 V conditioning
   stage and a 330 ohm series resistor for the current ESP32-S3/WS2812 scope.
 - The level shifter has connected VCC, ground, and active-low enable terminals.
@@ -165,6 +171,14 @@ The current bounded WS2812-class rules use:
   is unresolved rather than drawn.
 - Reviewed conductor, connector, voltage-drop, derating, and fuse tables for
   each feed and trunk.
+- A battery source window from protected minimum voltage through full and
+  ceiling voltage. Converter input current, main fuse and trunk wire use the
+  minimum; converter overvoltage checks use the ceiling. The selected fuse
+  class must cover both voltage and prospective fault-current interrupt rating.
+- Battery runtime is reported at uncapped full white and, separately, at any
+  configured FastLED running limit. Hardware sizing never uses that limit.
+  Full-white runtime below two hours warns, and pack current above 30 A asks
+  for review by a professional experienced with high-power, low-voltage work.
 
 These values produce conservative protection and a full-white supply
 recommendation from the information the graph can know. They are stated in
@@ -263,6 +277,10 @@ tables and wording before authoritative-guidance claims are made.
   in groups of four.
 - Automatic supply count, feed count, conductor, connector, fuse, distribution,
   level-shifter, resistor, capacitor, and controller-power recommendations.
+- Experimental lithium battery sources with series/parallel cell packs,
+  combined or separate protection, balancing and charging boards, regulated
+  5 V output, catalogue-defined converter terminals, battery runtime and fuse
+  interrupt-rating checks.
 - Unsupported graph hardware is reported and omitted rather than wired
   speculatively.
 

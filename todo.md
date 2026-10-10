@@ -37,17 +37,14 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   ships experimental, and gets its bench row in section 4. Switching power and
   energy families are built like the relay slice: in the app, in the Build
   Diagram, and marked experimental; HW-14 then checks them rather than gating
-  them. What remains, in order:
+  them. Battery power is implemented as experimental Build Diagram guidance.
+  Its three reference builds remain open bench rows below, and HW-14 still
+  owns independent electrical review. What remains, in order:
   1. A rotary encoder with an addressable feedback ring, once a shop sells one
      board with both. None did on 2026-10-08; until then an encoder, a Gauge
      and an LED Ring output already show a position.
-  2. Battery power: a lithium pack as the DC source, with the boards that
-     protect, balance and charge it and the converters that make 5 V from it,
-     following the [battery power plan](docs/plans/battery-power.md). Its
-     three reference builds are Steve's own: 1S for about ten LEDs, and 4S
-     for a 16×16 and a 32×32 matrix.
-  3. Mains switching for supply banks (mains SSRs and contactors), after the
-     battery work. It needs an AC side in the power model (supply inrush,
+  2. Mains switching for supply banks (mains SSRs and contactors). It needs an
+     AC side in the power model (supply inrush,
      upstream breaker) and a decision on how far the Build Diagram draws
      mains wiring. Large motor drivers were dropped on 2026-10-09: LED
      installations do not need them.
@@ -180,6 +177,20 @@ chooses the supported combinations from whatever is on record at release.
 - **D-05 LED rail converter:** a loaded 5 V LED rail powered from the Mean Well
   SD-100A-5 at 12 V and the SD-100B-5 at 24 V, with source current, output
   voltage, case temperature, FG and the isolated-output ground bond recorded.
+- **D-05 1S battery build:** a Samsung INR18650-35E cell with the IP5305T
+  boost, charge and protection module powering about ten LEDs. Measure pack
+  minimum and full voltage, charge current, 5 V full-white output, protection
+  disconnect, fuse operation, temperatures and runtime.
+- **D-05 4S 16×16 battery build:** Samsung INR18650-35E cells with the
+  HX-4S-F30A BMS, IP2368 charger and DGXBY 20 A buck powering a 16×16 matrix.
+  Verify B0 through B4 sense order and the P- return; record charge ceiling,
+  low-end dropout, pack current, fuse operation, wire and board temperatures,
+  and full-white runtime.
+- **D-05 4S 32×32 battery build:** Samsung INR18650-35E cells with the BM3451
+  60 A BMS, IP2368 charger and two RCNUN 60 A bucks powering a 32×32 matrix.
+  Run uncapped full-white hardware checks and the 30 A FastLED running limit;
+  record the same voltages, currents, protection, temperatures and runtime as
+  the 16×16 build, with a high-power low-voltage professional reviewing it.
 
 ### Sensors and inputs
 

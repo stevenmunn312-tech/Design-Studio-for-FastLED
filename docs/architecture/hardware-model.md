@@ -651,6 +651,43 @@ point, and 6-7 +V through the zone's main fuse. Converter outputs are never
 paralleled. A controller buck in the same build joins the upstream source
 budget; giving it a different source voltage blocks the electrical plan.
 
+## Lithium battery source
+
+`BatteryPack` and `BatteryModule` are hardware-only, portless nodes. They add
+no graph signal and generate no firmware. A pack names an exact catalogued
+cell and its series and parallel counts. A module names one physical board;
+its single `batteryModule` catalogue block declares whichever protection,
+balancing, charging and regulated-output functions that board provides.
+
+The electrical plan derives a pack voltage window instead of treating nominal
+voltage as a fixed source. Minimum voltage is the series count multiplied by
+the cell or protection board's over-discharge threshold. Full voltage uses the
+charger's volts per cell. Ceiling voltage uses the greater of charger voltage
+and the protection board's over-charge threshold. Converter input current,
+the main fuse and the battery trunk are sized at minimum voltage. Exceeding a
+converter's maximum input at ceiling is blocking; low-end dropout is a warning.
+
+Battery hardware is sized for uncapped full-white load. A configured FastLED
+current limit changes only the reported running current and runtime. Runtime
+uses rated cell energy and catalogue efficiencies. The plan warns below two
+hours at full white and recommends review by a professional experienced with
+high-power, low-voltage systems above 30 A of pack current.
+
+The protection board's `P-` is the one system 0 V net. Every controller,
+converter, charger and LED return joins `P-`. Nothing except the protection
+board and cell stack touches `B-`; intermediate `B1` through `BS` leads are
+sense connections only. The Build Diagram draws this topology in a battery
+assembly band, with a fused `+BATT` stub feeding the rest of the power plan.
+
+The main fuse carries planned current at no more than 75% of its rating. Its
+catalogued fuse class must also cover pack ceiling voltage and prospective
+fault current, calculated from pack voltage and cell internal resistance.
+ATO/ATC, MIDI, ANL, MRBF and Class T classes cover the supported current and
+interrupt-rating ranges. A missing safe class blocks the plan.
+
+See the [battery power plan](../plans/battery-power.md) for supported parts,
+rules and source evidence.
+
 ## Hardware part identity and rendering
 
 Exact part options drive the label, pin roles, notes, thumbnail, and workbench

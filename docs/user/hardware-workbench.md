@@ -139,6 +139,35 @@ charger will not negotiate. Read the silkscreen on your own board for the output
 polarity. The trigger appears in the parts list and the plan but is not drawn on the
 wiring diagram, and it is experimental until a charger has been measured.
 
+### Plan a lithium battery build
+
+Choose **Add Hardware → Battery power → Battery Pack** and select the exact
+cell, series count and parallel count. Add **Pack Electronics** once for each
+physical protection, balancing, charging or regulated-output board. A combined
+board needs only one entry; Studio reads its functions from the catalogue.
+Add the required 5 V LED-rail buck converters under **Power conversion**.
+
+Build Diagram calculates the protected minimum, full-charge and worst-case
+ceiling voltages. It sizes pack current, the main fuse and battery wire for
+uncapped full white at minimum voltage, then checks every converter at the
+ceiling. A FastLED current limit appears separately as a running limit and
+runtime; it never permits smaller power hardware. Runtime below two hours at
+full white warns. Pack current above 30 A recommends review by a professional
+experienced with high-power, low-voltage systems.
+
+Follow the Battery Assembly sheet exactly. The protection board's **P-** is the
+only 0 V connection for the controller, chargers, converters and LEDs. Do not
+connect those parts to **B-**. Only the cell stack and protection board touch
+B-, while B1 through BS are thin voltage-sense leads in the shown order. Fit
+the named fuse class at B+ before the `+BATT` trunk. Verify every terminal name
+against the physical board and its listing before connecting cells. Lithium
+packs can supply destructive fault current; use cell holders, insulation,
+strain relief and an enclosure suited to the planned current.
+
+Battery power is experimental until the reference builds have physical bench
+evidence and the independent HW-14 electrical review is complete. These nodes
+change only the diagram, parts list and exports. They add no firmware.
+
 ### Switch loads to ground with a ULN2803A
 
 Choose **Add Hardware → Switching power → ULN2803A** for eight switches that pull a

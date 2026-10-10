@@ -539,6 +539,13 @@ Unless a future row says otherwise, treat the following as experimental:
   and conductors, FG, the isolated-output ground bond, output main fuses and
   trunks; firmware is unchanged. No bench run from a 12 V or 24 V source
   through one of these converters into a loaded LED rail has been recorded.
+- **Lithium battery power.** `BatteryPack`, `BatteryModule` and the supported
+  non-isolated 5 V buck converters add catalogue-backed pack planning, source
+  voltage windows, protection/balance/charge checks, runtime, fuse class and
+  interrupt-rating checks, and a Battery Assembly sheet. They add no graph
+  signal or firmware, so no compile is owed. No 1S, 4S 16×16 or 4S 32×32
+  reference build has completed its physical bench row, and HW-14 has not yet
+  completed independent electrical review.
 - **The NLED Pixel Data Extender data link.** Choosing it on an LED output
   only changes the Build Diagram, parts list and exports (TX/RX pair, twisted
   A/B/ground run). The firmware sends the same one-wire signal either way. No

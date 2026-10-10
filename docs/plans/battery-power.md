@@ -1,6 +1,7 @@
 # Battery power
 
-Status: **in progress** · Owner: app · Updated: 2026-10-09
+Status: **implemented, experimental pending bench evidence and HW-14 review** ·
+Owner: app · Updated: 2026-10-10
 
 D-05 item 2 in the [root todo](../../todo.md): a lithium pack as the DC source
 for an LED build, with the boards that protect, balance and charge it and the

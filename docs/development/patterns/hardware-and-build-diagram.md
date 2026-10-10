@@ -513,6 +513,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   terminals 1 V+, 2 V-, 3 FG, 4-5 -V and 6-7 +V, including the isolated-output
   ground bond; converter outputs are never paralleled. See
   [hardware nodes](../../architecture/hardware-model.md#converting-a-12-v-or-24-v-source-to-5-v).
+- **Lithium battery source (hardware-only):** `BatteryPack` selects the exact
+  cell plus series/parallel counts, while each `BatteryModule` selects one board
+  whose catalogue `batteryModule` block declares its protection, balance,
+  charger and output functions. Keep converters in `POWER_PATH_KINDS`: they
+  belong in the battery-to-rail path, not controller-ground or peripheral rows.
+  Derive minimum, full and ceiling pack voltages from cell and module data.
+  Size input current, fuses and wire at minimum voltage; block converter
+  overvoltage at ceiling and warn for low-end dropout. Read converter terminal
+  names and isolation from `powerConverter.terminals`, never from model-specific
+  branches. Size hardware for uncapped full white; a FastLED limit affects only
+  running current and runtime. P- is the sole 0 V net, B- is internal to the
+  protected pack, and intermediate balance taps are sense leads. One board can
+  provide several functions, so validate required functions across selected
+  boards without requiring one node per function. See
+  [battery power](../../plans/battery-power.md).
 - **DMX transceiver (experimental):** a DMX512 `DMXInput` is drawn as the "C25B"
   MAX485 module (`dmx-input`, `src/state/peripherals/dmxTransceiver.ts`). It is not a
   `PART_OPTIONS` row, because that would put the module's picture on an Art-Net
