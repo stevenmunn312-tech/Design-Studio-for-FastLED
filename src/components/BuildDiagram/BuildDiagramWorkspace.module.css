@@ -1157,6 +1157,19 @@
   stroke-linecap: round;
 }
 
+.batteryStubLead {
+  fill: none;
+  stroke: #b73a2f;
+  stroke-width: 5;
+}
+
+.batteryStubSymbol {
+  fill: none;
+  stroke: #b73a2f;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
 /* Control-module pads: matched to the gold pad rings in the renders. */
 .peripheralPowerTerminal {
   fill: #d84938;

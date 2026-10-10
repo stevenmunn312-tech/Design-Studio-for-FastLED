@@ -33,6 +33,7 @@ import { DEFAULT_POWER_CONVERTER_PART_ID } from '../../state/peripherals/powerCo
 import { dividedInputPinKey } from '../../build/pins/receiveDivider'
 import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
 import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
+import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -148,6 +149,23 @@ export function fixturePinRequests(nodeType: string, moduleId: string | undefine
 }
 
 export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
+  {
+    nodeType: 'BatteryPack',
+    partId: 'battery-pack',
+    label: 'Battery pack',
+    hint: 'Lithium DC source built from one exact cell type in series and parallel',
+    footprint: partDimensionsMm(DEFAULT_BATTERY_CELL_PART_ID, { width: 65.3, height: 18.5 }),
+    render: partRenderSrc(DEFAULT_BATTERY_CELL_PART_ID) ?? undefined,
+    singleton: true,
+  },
+  {
+    nodeType: 'BatteryModule',
+    partId: 'battery-module',
+    label: 'Pack electronics',
+    hint: 'Protection, balancing, charging, or an integrated 5 V output',
+    footprint: partDimensionsMm('hx-4s-f30a-bms-balance', { width: 56, height: 48 }),
+    render: partRenderSrc('hx-4s-f30a-bms-balance') ?? undefined,
+  },
   {
     // Converts a DC source to 5 V for either the controller or the LED rail.
     // No pins: it sits on the power path, which the Build Diagram draws.

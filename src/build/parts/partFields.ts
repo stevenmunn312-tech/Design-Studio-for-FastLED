@@ -71,6 +71,10 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   PowerConverter: [
     { key: 'sourceVoltage', label: 'Source V', kind: 'number', min: 5, max: 48 },
   ],
+  BatteryPack: [
+    { key: 'series', label: 'Series', kind: 'number', min: 1, max: 8 },
+    { key: 'parallel', label: 'Parallel', kind: 'number', min: 1, max: 20 },
+  ],
   PdTriggerSource: [
     { key: 'requestedVoltage', label: 'Requested V', kind: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
   ],

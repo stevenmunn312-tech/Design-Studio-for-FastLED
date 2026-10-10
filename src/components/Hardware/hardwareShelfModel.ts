@@ -1,7 +1,7 @@
 // The Hardware workspace's parts shelf: every part it offers, grouped by
 // shelf, with whether the board can take one more and why not.
 import { assignPartPins } from '../../build/parts/partPinAssignment'
-import { partRenderSrc } from '../../build/parts/partCatalogue'
+import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
 import { partOptionsFor } from '../../build/parts/partOptions'
 import { LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
@@ -49,6 +49,15 @@ export function hardwareShelfCategories({
     if (!fixture) return []
     const blocked = Boolean(fixture.singleton && hasPartOfType(fixture.nodeType))
     return partOptionsFor(nodeType).map((option) => {
+      const candidateFunctions = nodeType === 'BatteryModule'
+        ? Object.keys(partById(option.id)?.batteryModule ?? {}).filter((key) => ['protection', 'balance', 'charger', 'output'].includes(key))
+        : []
+      const usedFunctions = nodeType === 'BatteryModule'
+        ? new Set(nodes.filter((node) => node.data.nodeType === 'BatteryModule').flatMap((node) =>
+            Object.keys(partById(String(node.data.properties.partId ?? ''))?.batteryModule ?? {})
+              .filter((key) => ['protection', 'balance', 'charger', 'output'].includes(key))))
+        : new Set<string>()
+      const functionBlocked = candidateFunctions.find((name) => usedFunctions.has(name))
       const pinRequests = fixturePinRequests(nodeType, option.id) ?? fixture.pinRequests
       const assigned = !blocked && pinRequests?.length
         ? assignPartPins(boardProfile, selectedFqbn, nodes, pinRequests)
@@ -64,8 +73,10 @@ export function hardwareShelfCategories({
         hint: option.summary ?? fixture.hint,
         renderSrc: partRenderSrc(option.id),
         visual: option.id,
-        disabled: blocked || pinBlocked !== null || boardBlocked !== null,
-        disabledReason: blocked ? `One ${fixture.label.toLowerCase()} per board` : boardBlocked ?? pinBlocked,
+        disabled: blocked || pinBlocked !== null || boardBlocked !== null || Boolean(functionBlocked),
+        disabledReason: blocked
+          ? `One ${fixture.label.toLowerCase()} per board`
+          : functionBlocked ? `Bench already has ${functionBlocked}` : boardBlocked ?? pinBlocked,
         onSelect: () => addFixturePart(fixture, option.id),
       }
     })
@@ -88,6 +99,8 @@ export function hardwareShelfCategories({
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
   const powerConverterFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerConverter')
   const pdTriggerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PdTriggerSource')
+  const batteryPackFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BatteryPack')
+  const batteryModuleFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BatteryModule')
   const stereoVuBlocker = stereoVuFixture
     ? stereoVuFixture.singleton && hasPartOfType(stereoVuFixture.nodeType)
       ? 'One stereo VU meter per board'
@@ -166,6 +179,15 @@ export function hardwareShelfCategories({
         // No "Screen design" entry: a screen is drawn on a panel, so it is
         // added from the panel rather than taken off a shelf of physical
         // parts it was never one of.
+      ],
+    },
+    {
+      id: 'battery',
+      label: 'Battery',
+      hint: 'Lithium cells, protection, balancing and charging',
+      items: [
+        ...moduleItems('BatteryPack', batteryPackFixture),
+        ...moduleItems('BatteryModule', batteryModuleFixture),
       ],
     },
     {

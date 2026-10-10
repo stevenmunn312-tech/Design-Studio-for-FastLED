@@ -316,7 +316,7 @@ export default function HardwarePane() {
       // does not exist.
       if (part.node.data.nodeType === 'PowerAmplifier' && powerAmplifierFeed(nodes) !== 'internalDac') continue
       // A PD trigger is an upstream power source: nothing on it reaches the board, so it draws no run.
-      if (part.node.data.nodeType === 'PdTriggerSource') continue
+      if (['PdTriggerSource', 'BatteryPack', 'BatteryModule'].includes(part.node.data.nodeType)) continue
       links.push({ source: BOARD_PART_ID, target: part.partId })
     }
     const usableWidth = Math.max(120, stageBox.width - leftInset - rightInset - 48)
@@ -809,7 +809,22 @@ export default function HardwarePane() {
                 }}
                 title="Click for options · right-click for hardware actions"
               >
-                {part.entry.nodeType === 'StereoVuMeter' ? (
+                {part.entry.nodeType === 'BatteryPack' && part.entry.render ? (
+                  <span
+                    data-battery-pack-grid="true"
+                    style={{
+                      display: 'grid',
+                      width: '100%',
+                      height: '100%',
+                      gridTemplateColumns: `repeat(${Math.max(1, Math.round(Number(part.node.data.properties.series ?? 1)))}, 1fr)`,
+                      gridTemplateRows: `repeat(${Math.max(1, Math.round(Number(part.node.data.properties.parallel ?? 1)))}, 1fr)`,
+                    }}
+                  >
+                    {Array.from({ length: Math.max(1, Math.round(Number(part.node.data.properties.series ?? 1))) * Math.max(1, Math.round(Number(part.node.data.properties.parallel ?? 1))) }, (_, index) => (
+                      <img key={index} src={part.entry.render} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ))}
+                  </span>
+                ) : part.entry.nodeType === 'StereoVuMeter' ? (
                   <span className={styles.vuPair} aria-label="Stereo VU Meter paired LED strings">
                     {(['Left', 'Right'] as const).map((side) => {
                       const direction = String(

@@ -168,6 +168,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Buck Converter example graph](../../public/node-cards/graphs/power-converter.svg)
 
+### Battery Pack
+
+![Battery Pack node](../../public/node-cards/battery-pack.svg)
+
+![Battery Pack example graph](../../public/node-cards/graphs/battery-pack.svg)
+
+### Pack Electronics
+
+![Pack Electronics node](../../public/node-cards/battery-module.svg)
+
+![Pack Electronics example graph](../../public/node-cards/graphs/battery-module.svg)
+
 ### USB-C PD Trigger
 
 ![USB-C PD Trigger node](../../public/node-cards/pd-trigger-source.svg)

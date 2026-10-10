@@ -183,6 +183,24 @@ function boardNode(profileId = '', extra: Record<string, unknown> = {}) {
   }
 }
 
+function batteryNode(id: string, nodeType: 'BatteryPack' | 'BatteryModule' | 'PowerConverter', properties: Record<string, unknown>) {
+  const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
+  return {
+    id,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    hidden: true,
+    data: {
+      label: definition.label,
+      nodeType,
+      category: definition.category,
+      properties: { ...definition.defaultProperties, ...properties },
+      inputs: [],
+      outputs: [],
+    },
+  }
+}
+
 function selectBoard(profileId: string, extra: Record<string, unknown> = {}) {
   useGraphStore.setState((state) => {
     const nodes = state.nodes as never[]
@@ -1562,6 +1580,25 @@ describe('BuildDiagramWorkspace', () => {
     fireEvent.click(getByText('Current view'))
     expect(useGraphStore.getState().buildProfile?.exportMode).toBe('current-view')
     expect(getByText('Current view is selected. Exports will follow the hardware currently visible under the eye/filter/isolation state and the All section.')).toBeTruthy()
+  })
+
+  it('shows battery window, energy, fuse and converter zones in the sidebar', () => {
+    useGraphStore.setState({ nodes: [
+      boardNode('espressif-esp32-s3-devkitc-1'),
+      batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 4, parallel: 5 }),
+      batteryNode('bms', 'BatteryModule', { partId: 'hx-4s-f30a-bms-balance' }),
+      batteryNode('charger', 'BatteryModule', { partId: 'ip2368-100w-bidirectional-charger' }),
+      batteryNode('buck', 'PowerConverter', { partId: 'dgxby-20a-5v-buck-converter' }),
+      matrixNode(14, 16, 16),
+    ] as never[] })
+    selectDevKit()
+    const view = render(<BuildDiagramWorkspace />)
+
+    expect(view.getByText(/20 × Samsung INR18650-35E Li-ion cell/)).toBeTruthy()
+    expect(view.getByText(/Source window: 10.2 V minimum, 16.8 V full, 17 V ceiling/)).toBeTruthy()
+    expect(view.getByText(/Rated pack: 14.4 V · 16.75 Ah · 241.2 Wh/)).toBeTruthy()
+    expect(view.getByText(/Main fuse:/)).toBeTruthy()
+    expect(view.getByText(/Converter 1: DGXBY/)).toBeTruthy()
   })
 
   it('builds a paginated print document only while printing, with power on its own pages', () => {

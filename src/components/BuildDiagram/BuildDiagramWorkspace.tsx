@@ -346,6 +346,10 @@ export default function BuildDiagramWorkspace() {
     if (exactBoard) lines.push({ id: 'board', quantity: '1', label: exactBoard.label })
     for (const item of primaryItems) {
       if (item.kind === 'power-converter' && item.facts.role === 'led-rail') continue
+      if (item.kind === 'battery-pack' && electricalPlan.battery?.packItemId === item.id) {
+        lines.push({ id: item.id, quantity: String(electricalPlan.battery.pack.cellCount), label: `${electricalPlan.battery.pack.label} (${electricalPlan.battery.pack.series}S${electricalPlan.battery.pack.parallel}P)` })
+        continue
+      }
       lines.push({ id: item.id, quantity: '1', label: item.title })
     }
     if (outputItems.length > 0) {
@@ -385,10 +389,13 @@ export default function BuildDiagramWorkspace() {
         })
       }
     }
+    if (electricalPlan.battery) {
+      lines.push({ id: 'battery-main-fuse', quantity: '1', label: `${electricalPlan.battery.mainFuse.ratingMa ? formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa) : 'Rated'} battery main fuse and holder`, pending: !electricalPlan.battery.mainFuse.ratingMa })
+    }
     const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
     if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })
     return lines
-  }, [electricalPlan.outputs, electricalPlan.totals, exactBoard, extenderOutputCount, outputItems.length, primaryItems])
+  }, [electricalPlan.battery, electricalPlan.outputs, electricalPlan.totals, exactBoard, extenderOutputCount, outputItems.length, primaryItems])
   const exportItems = exportMode === 'complete-build' ? primaryItems : visiblePrimaryItems
   const exportItemIds = useMemo(() => new Set(exportItems.map((item) => item.id)), [exportItems])
   const exportConnectionRows = useMemo(
@@ -1047,6 +1054,20 @@ export default function BuildDiagramWorkspace() {
 
             <section className={styles.card}>
               <h3 className={styles.cardTitle}>Calculated requirements</h3>
+              {electricalPlan.battery && (
+                <div data-battery-requirements="true">
+                  <h4 className={styles.subTitle}>Battery pack</h4>
+                  <ul className={styles.flatList}>
+                    <li>{electricalPlan.battery.pack.series}S{electricalPlan.battery.pack.parallel}P · {electricalPlan.battery.pack.cellCount} × {electricalPlan.battery.pack.label}</li>
+                    <li>Source window: {electricalPlan.battery.window.minV} V minimum, {electricalPlan.battery.window.fullV} V full, {electricalPlan.battery.window.ceilingV} V ceiling</li>
+                    <li>Rated pack: {electricalPlan.battery.pack.nominalV} V · {electricalPlan.battery.pack.capacityAh} Ah · {electricalPlan.battery.pack.energyWh} Wh</li>
+                    <li>Full-white pack current: about {formatCurrentMa(electricalPlan.battery.dischargeDesignCurrentMa)}</li>
+                    <li>Main fuse: {electricalPlan.battery.mainFuse.ratingMa ? formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa) : 'unresolved'} · limited by {electricalPlan.battery.limitedBy}</li>
+                    {electricalPlan.battery.runtimeHours != null && <li>Full-white runtime: at most about {electricalPlan.battery.runtimeHours} h</li>}
+                    {electricalPlan.battery.limitedRuntimeHours != null && <li>Configured running-limit runtime: about {electricalPlan.battery.limitedRuntimeHours} h</li>}
+                  </ul>
+                </div>
+              )}
               {electricalPlan.outputs.length === 0 ? (
                 <p className={styles.copyMuted}>
                   The graph has no supported 5 V LED output requiring an external power plan.
@@ -1068,7 +1089,7 @@ export default function BuildDiagramWorkspace() {
                           {' '}for {supply.outputTitles.join(', ')} ({electricalPlan.totals?.headroomPercent}% headroom)
                         </li>
                       ))}
-                      {electricalPlan.totals.supplies.length > 1 && <li>Keep separate {electricalPlan.totals.source ? 'converter' : 'PSU'} +5 V zones isolated; join grounds for the shared controller data reference.</li>}
+                      {electricalPlan.totals.supplies.length > 1 && <li>Keep separate {electricalPlan.totals.supplies.some((supply) => supply.converter) ? 'converter' : 'PSU'} +5 V zones isolated; join grounds for the shared controller data reference.</li>}
                       {electricalPlan.controllerPowerPath && <li>Controller branch: {electricalPlan.controllerPowerPath}</li>}
                     </ul>
                   )}
@@ -1084,13 +1105,13 @@ export default function BuildDiagramWorkspace() {
                         </div>
                         <ul className={styles.flatList}>
                           {output.operatingCurrentCapMa != null && <li>Configured FastLED running limit: {formatCurrentMa(output.operatingCurrentCapMa)} (does not reduce the hardware)</li>}
-                          <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned {electricalPlan.totals?.source ? 'converter distribution zone' : 'PSU distribution zone'}</li>
+                          <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned {electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'converter distribution zone' : 'PSU distribution zone'}</li>
                           {output.injections.map((injection) => (
                             <li key={injection.id}>
                               {injection.role} @ {injection.positionMm} mm: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
                               {' '}{injection.conductor ? `AWG ${injection.conductor.awg}` : 'wire unresolved'},
                               {' '}{injection.fuse.ratingMa ? `${formatCurrentMa(injection.fuse.ratingMa)} fuse` : 'fuse unresolved'},
-                              {' '}{injection.supplyId?.replace('supply-', electricalPlan.totals?.source ? 'Converter ' : 'PSU ') ?? `${electricalPlan.totals?.source ? 'Converter' : 'PSU'} unresolved`}
+                              {' '}{injection.supplyId?.replace('supply-', electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter ' : 'PSU ') ?? `${electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter' : 'PSU'} unresolved`}
                             </li>
                           ))}
                           <li>Output supply budget: {formatCurrentMa(output.recommendedSupplyCurrentMa)} @ {output.nominalVoltage} V ({formatWattage(output.recommendedSupplyWattage)})</li>
@@ -1345,7 +1366,12 @@ export default function BuildDiagramWorkspace() {
             { label: 'Power plan', value: electricalPlan.powerReadyText },
             { label: 'Build reference', value: buildReadyText },
           ]}
-          powerSummary={electricalPlan.totals ? [
+          powerSummary={electricalPlan.totals || electricalPlan.battery ? [
+            ...(electricalPlan.battery ? [{
+              label: 'Battery source',
+              value: `${electricalPlan.battery.window.minV}-${electricalPlan.battery.window.ceilingV} V · ${electricalPlan.battery.pack.energyWh} Wh${electricalPlan.battery.runtimeHours != null ? ` · ${electricalPlan.battery.runtimeHours} h full white` : ''}`,
+            }] : []),
+            ...(electricalPlan.totals ? [
             {
               label: 'Full-white design load',
               value: `${formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ ${formatVoltage(electricalPlan.totals.nominalVoltage)}`,
@@ -1362,6 +1388,7 @@ export default function BuildDiagramWorkspace() {
                 ? `${supply.converter.label} · ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C · ${supply.outputTitles.join(', ')}`
                 : `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
             })),
+            ] : []),
           ] : []}
         />,
         document.body,

@@ -23,6 +23,15 @@ import {
   DEFAULT_SUPPLY_HEADROOM_PERCENT,
   recommendedSupplyCurrentMa,
 } from './powerSupplySizing'
+import { batteryOutputConverterSpec, batteryModuleSpec } from '../../state/peripherals/battery'
+import { batterySourceFor, planBattery, type BatteryPlan } from './batteryPlan'
+import {
+  planSourceLabel,
+  planSourceSizingVoltage,
+  sourceWindowIssues,
+  type PlanSource,
+} from './planSource'
+import { partById } from '../parts/partCatalogue'
 
 const WS2812_WORST_CASE_MA_PER_PIXEL = 60
 const DEFAULT_LED_DENSITY_PER_METER = 60
@@ -164,6 +173,9 @@ export interface RailConverterSupplyPlan {
   inputFuse: FuseRecommendation
   isolated: boolean
   adjustable: boolean
+  source: PlanSource
+  terminals: string[]
+  integrated: boolean
 }
 
 export interface ElectricalPlanSummary {
@@ -175,6 +187,7 @@ export interface ElectricalPlanSummary {
   warnings: ElectricalPlanIssue[]
   outputs: OutputElectricalPlan[]
   totals?: ElectricalPlanTotals
+  battery?: BatteryPlan
   controllerPowerPath?: string
   controllerSupply?: ControllerSupplyPlan
   branchChecks: OwnedBranchCheck[]
@@ -204,6 +217,8 @@ export interface ControllerSupplyPlan {
   inputCurrentMa: number
   inputConductor?: ConductorRecommendation
   inputFuse: FuseRecommendation
+  source: PlanSource
+  terminals: string[]
 }
 
 export interface OwnedBranchCheck {
@@ -300,6 +315,8 @@ interface RailConverterContext {
   module: PowerConverterModule
   sourceVoltage: number
   deratedCurrentMa: number
+  source: PlanSource
+  integrated: boolean
 }
 
 function inputProtection(inputCurrentMa: number, sourceVoltage: number) {
@@ -376,9 +393,16 @@ function pdTriggerWarnings(
 function planRailConverter(
   manifest: HardwareManifest,
   blockers: ElectricalPlanIssue[],
+  warnings: ElectricalPlanIssue[],
+  batterySource?: Extract<PlanSource, { kind: 'battery' }>,
 ): RailConverterContext | undefined {
-  const items = manifest.primaryItems.filter((item) =>
+  const explicitItems = manifest.primaryItems.filter((item) =>
     item.kind === 'power-converter' && item.facts.role === 'led-rail')
+  const batteryOutput = manifest.primaryItems.find((item) => {
+    if (item.kind !== 'battery-module') return false
+    return Boolean(batteryModuleSpec(item.facts.partId)?.output)
+  })
+  const items = explicitItems.length > 0 ? explicitItems : batteryOutput ? [batteryOutput] : []
   if (items.length === 0) return undefined
 
   const partIds = [...new Set(items.map((item) => String(item.facts.partId ?? '')))]
@@ -391,10 +415,17 @@ function planRailConverter(
     })
   }
   const item = items[0]
-  const module = powerConverterModuleFor(item.facts.partId)
+  const module = item.kind === 'battery-module'
+    ? (() => {
+        const partId = String(item.facts.partId ?? '')
+        const spec = batteryModuleSpec(partId)
+        const converter = spec ? batteryOutputConverterSpec(spec) : undefined
+        return converter ? { partId, label: partById(partId)?.label ?? item.title, spec: converter } : undefined
+      })()
+    : powerConverterModuleFor(item.facts.partId)
   if (!module || module.spec.role !== 'led-rail') return undefined
   const sourceVoltages = [...new Set(items.map((candidate) => Number(candidate.facts.sourceVoltage)))]
-  if (sourceVoltages.length > 1) {
+  if (!batterySource && sourceVoltages.length > 1) {
     blockers.push({
       id: 'rail-converter-source-voltages',
       severity: 'blocking',
@@ -403,11 +434,16 @@ function planRailConverter(
     })
   }
   for (const candidate of items) {
-    const candidateModule = powerConverterModuleFor(candidate.facts.partId)
+    const candidateModule = candidate.kind === 'battery-module' ? module : powerConverterModuleFor(candidate.facts.partId)
     if (!candidateModule) continue
-    const sourceVoltage = Number(candidate.facts.sourceVoltage)
-    const issue = sourceVoltageIssue(candidateModule.spec, sourceVoltage)
-    if (issue) {
+    if (batterySource) {
+      for (const issue of sourceWindowIssues(candidate.id, candidateModule.label, candidateModule.spec, batterySource)) {
+        ;(issue.severity === 'blocking' ? blockers : warnings).push(issue)
+      }
+    } else {
+      const sourceVoltage = Number(candidate.facts.sourceVoltage)
+      const issue = sourceVoltageIssue(candidateModule.spec, sourceVoltage)
+      if (!issue) continue
       blockers.push({
         id: `${candidate.id}:source-voltage`,
         severity: 'blocking',
@@ -416,11 +452,14 @@ function planRailConverter(
       })
     }
   }
+  const source: PlanSource = batterySource ?? { kind: 'fixed', voltage: Number(item.facts.sourceVoltage) }
   return {
     itemId: item.id,
     module,
-    sourceVoltage: Number(item.facts.sourceVoltage),
+    sourceVoltage: planSourceSizingVoltage(source),
     deratedCurrentMa: deratedCurrentMa(module.spec),
+    source,
+    integrated: item.kind === 'battery-module',
   }
 }
 
@@ -486,6 +525,9 @@ function groupSupplies(
         inputFuse: input.fuse,
         isolated: railConverter.module.spec.isolated,
         adjustable: railConverter.module.spec.adjustable,
+        source: railConverter.source,
+        terminals: railConverter.module.spec.terminals,
+        integrated: railConverter.integrated,
       }
     }
   }
@@ -522,6 +564,8 @@ function planControllerSupply(
   manifest: HardwareManifest,
   exactBoard: PhysicalBoardProfile | undefined,
   blockers: ElectricalPlanIssue[],
+  warnings: ElectricalPlanIssue[],
+  batterySource?: Extract<PlanSource, { kind: 'battery' }>,
 ): ControllerSupplyPlan | undefined {
   const converters = manifest.primaryItems.filter((item) =>
     item.kind === 'power-converter' && item.facts.role === 'controller')
@@ -538,10 +582,15 @@ function planControllerSupply(
   const module = powerConverterModuleFor(item.facts.partId)
   if (!module) return undefined
   const { spec } = module
-  const sourceVoltage = Number(item.facts.sourceVoltage)
-  const sourceIssue = sourceVoltageIssue(spec, sourceVoltage)
-  if (sourceIssue) {
-    blockers.push({ id: `${item.id}:source-voltage`, severity: 'blocking', title: module.label, detail: sourceIssue })
+  const source: PlanSource = batterySource ?? { kind: 'fixed', voltage: Number(item.facts.sourceVoltage) }
+  const sourceVoltage = planSourceSizingVoltage(source)
+  if (batterySource) {
+    for (const issue of sourceWindowIssues(item.id, module.label, spec, batterySource)) {
+      ;(issue.severity === 'blocking' ? blockers : warnings).push(issue)
+    }
+  } else {
+    const sourceIssue = sourceVoltageIssue(spec, sourceVoltage)
+    if (sourceIssue) blockers.push({ id: `${item.id}:source-voltage`, severity: 'blocking', title: module.label, detail: sourceIssue })
   }
   const powerIn = exactBoard?.pins?.find((pin) => pin.role === 'power-in')
   if (exactBoard && !powerIn) {
@@ -594,6 +643,8 @@ function planControllerSupply(
     inputCurrentMa,
     inputConductor: input.conductor,
     inputFuse: input.fuse,
+    source,
+    terminals: spec.terminals,
   }
 }
 
@@ -659,6 +710,7 @@ export function calculateElectricalPlan(
 ): ElectricalPlanSummary {
   const blockers: ElectricalPlanIssue[] = []
   const warnings: ElectricalPlanIssue[] = []
+  const batterySource = batterySourceFor(manifest)
 
   if (!exactBoard) {
     blockers.push({
@@ -747,9 +799,9 @@ export function calculateElectricalPlan(
     })
   }
 
-  const controllerSupply = planControllerSupply(manifest, exactBoard, blockers)
-  const railConverter = planRailConverter(manifest, blockers)
-  if (controllerSupply && railConverter && controllerSupply.sourceVoltage !== railConverter.sourceVoltage) {
+  const controllerSupply = planControllerSupply(manifest, exactBoard, blockers, warnings, batterySource)
+  const railConverter = planRailConverter(manifest, blockers, warnings, batterySource)
+  if (!batterySource && controllerSupply && railConverter && controllerSupply.sourceVoltage !== railConverter.sourceVoltage) {
     blockers.push({
       id: 'converter-source-voltage-mismatch',
       severity: 'blocking',
@@ -773,7 +825,7 @@ export function calculateElectricalPlan(
         + (railConverter && controllerSupply && controllerSupply.sourceVoltage === railConverter.sourceVoltage
           ? controllerSupply.inputCurrentMa
           : 0)
-      const source = railConverter
+      const source = railConverter && !batterySource
         ? {
             voltage: railConverter.sourceVoltage,
             designCurrentMa: sourceInputCurrentMa,
@@ -796,12 +848,18 @@ export function calculateElectricalPlan(
     })()
     : undefined
 
-  warnings.push(...pdTriggerWarnings(
-    manifest,
-    controllerSupply?.sourceVoltage,
-    railConverter?.sourceVoltage,
-    (totals?.source?.designCurrentMa ?? 0) || (controllerSupply?.inputCurrentMa ?? 0),
-  ))
+  if (!batterySource) {
+    warnings.push(...pdTriggerWarnings(
+      manifest,
+      controllerSupply?.sourceVoltage,
+      railConverter?.sourceVoltage,
+      (totals?.source?.designCurrentMa ?? 0) || (controllerSupply?.inputCurrentMa ?? 0),
+    ))
+  }
+
+  const batteryResult = planBattery(manifest, totals, controllerSupply)
+  blockers.push(...batteryResult.blockers)
+  warnings.push(...batteryResult.warnings)
 
   const unresolved = outputPlans.flatMap((output) => [
     ...output.injections.flatMap((injection) => [
@@ -840,12 +898,18 @@ export function calculateElectricalPlan(
   const recommendations = [
     controllerSupply
       ? `Power the controller from the ${controllerSupply.label} into its ${controllerSupply.powerInPinLabel ?? '5 V input'} pin; do not route LED load through the controller board.`
+      : batteryResult.battery?.output
+        ? `Power the controller from the ${batteryResult.battery.output.label}'s 5 V output; do not route LED load through the controller board.`
       : boardPower?.recommendation ?? 'Power the controller through its USB-C connector; do not route LED load through the controller board.',
     ...(controllerSupply ? controllerSupplyRecommendations(controllerSupply, exactBoard?.hasUsb !== false) : []),
     ...(railConverter ? [
       `Use one ${railConverter.module.label} per 5 V distribution zone; never parallel converter outputs.`,
       `At ${ENCLOSURE_AMBIENT_C} °C, plan each ${railConverter.module.label} for no more than ${formatRuleCurrent(railConverter.deratedCurrentMa)} continuous output.`,
-      'Bond every isolated converter output -V to the common ground at its fuse-block distribution point; connect FG to protective earth or the metal enclosure.',
+      ...(railConverter.module.spec.isolated
+        ? [batterySource
+            ? 'Bond each isolated converter output -V to common ground at its fuse block. Bond FG to a metal enclosure; battery power has no protective earth.'
+            : 'Bond every isolated converter output -V to the common ground at its fuse-block distribution point; connect FG to protective earth or the metal enclosure.']
+        : ['Connect every converter input and output negative to the protected P- common-negative net.']),
       `Set each converter to ${railConverter.module.spec.outputSetV} V with a meter before connecting LEDs, and keep its perforated case uncovered with airflow.`,
     ] : []),
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',
@@ -854,6 +918,7 @@ export function calculateElectricalPlan(
     "Fit each supply's main fuse on its positive lead, as close to the supply terminal as the fuse holder allows, before the trunk reaches the fuse block.",
     'Reducing global brightness lowers operating power without changing the worst-case wiring recommendation.',
     'Supplies, trunks, fuses and branch wiring are all sized for the uncapped full-white load. A FastLED current limit lowers running power and heat; it does not make smaller hardware safe.',
+    ...batteryResult.recommendations,
   ]
   for (const output of outputPlans) {
     recommendations.push(
@@ -908,10 +973,13 @@ export function calculateElectricalPlan(
     warnings,
     outputs: outputPlans,
     totals,
+    battery: batteryResult.battery,
     controllerPowerPath: !exactBoard
       ? undefined
       : controllerSupply
-        ? `${controllerSupply.label}, ${controllerSupply.sourceVoltage} V to ${controllerSupply.outputVoltage} V, into the board's ${controllerSupply.powerInPinLabel ?? '5 V input'} pin`
+        ? `${controllerSupply.label}, ${planSourceLabel(controllerSupply.source)} to ${controllerSupply.outputVoltage} V, into the board's ${controllerSupply.powerInPinLabel ?? '5 V input'} pin`
+        : batteryResult.battery?.output
+          ? `${batteryResult.battery.output.label} 5 V output from the battery pack`
         : boardPower?.path ?? 'USB-C power (controller only)',
     controllerSupply,
     branchChecks: [],

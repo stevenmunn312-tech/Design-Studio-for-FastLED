@@ -24,6 +24,18 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 }
 
 describe('hardwareManifest', () => {
+  it('keeps battery parts on the power path and marks converter source from the pack', () => {
+    const manifest = buildHardwareManifest([
+      node('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 4, parallel: 5 }),
+      node('bms', 'BatteryModule', { partId: 'hx-4s-f30a-bms-balance' }),
+      node('buck', 'PowerConverter', { partId: 'dgxby-20a-5v-buck-converter', sourceVoltage: 24 }),
+    ], [], 'esp32:esp32:esp32s3')
+
+    expect(manifest.primaryItems.map((item) => item.kind)).toEqual(['battery-pack', 'battery-module', 'power-converter'])
+    expect(manifest.primaryItems[0].facts).toMatchObject({ series: 4, parallel: 5, cellCount: 20, energyWh: 241.2 })
+    expect(manifest.primaryItems[2].facts).toMatchObject({ source: 'battery pack', isolated: false, terminals: ['IN+', 'IN-', 'OUT+', 'OUT-'] })
+  })
+
   it('collects hardware-facing pin uses from the current graph', () => {
     const uses = collectPinUses([
       node('out', 'MatrixOutput', { chipset: 'WS2812B', dataPin: 14 }),

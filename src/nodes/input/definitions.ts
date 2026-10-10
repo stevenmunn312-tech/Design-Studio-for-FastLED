@@ -13,6 +13,7 @@ import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFA
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorSpec } from '../../state/peripherals/motionVector'
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from '../../state/peripherals/powerConverter'
+import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, formatI2cAddress, powerMonitorSpec } from '../../state/peripherals/powerMonitor'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from '../../state/peripherals/presenceSensor'
 import { DS18B20_PART_ID } from '../../state/peripherals/temperatureSensor'
@@ -550,6 +551,31 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
+    // Physical DC source. Cell count and exact cell are the only authored
+    // facts; voltage, capacity, energy and current are derived from catalogue data.
+    type: 'BatteryPack',
+    label: 'Battery Pack',
+    category: 'input',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: DEFAULT_BATTERY_CELL_PART_ID,
+      series: 4,
+      parallel: 1,
+    },
+  },
+  {
+    // One real pack board. Its catalogue block declares every function it has.
+    type: 'BatteryModule',
+    label: 'Pack Electronics',
+    category: 'input',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: 'hx-4s-f30a-bms-balance',
+    },
+  },
+  {
     // A USB-C PD trigger: the upstream DC source. It carries no signal; the
     // electrical plan reads the voltage it requests and checks it against the
     // converter it feeds. Config only, like the converter. See state/peripherals/pdTrigger.ts.
@@ -594,5 +620,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   MidiInput: 'Web MIDI note velocity/gate + CC value from a controller. Preview-only.',
   EthernetModule: 'Wired Ethernet for Art-Net and NTP, in place of Wi-Fi; a bench part, not wired.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
+  BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',
+  BatteryModule: 'Adds pack protection, balancing, charging, or an integrated 5 V output.',
   PdTriggerSource: 'Asks a USB-C charger for a fixed voltage to feed a converter or load.',
 }

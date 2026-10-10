@@ -1126,6 +1126,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PowerConverter: {
     sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
   },
+  BatteryPack: {
+    series: { control: 'slider', min: 1, max: 8, step: 1 },
+    parallel: { control: 'slider', min: 1, max: 20, step: 1 },
+  },
   PdTriggerSource: {
     requestedVoltage: { control: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
   },
@@ -1539,6 +1543,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PdTriggerSource: {
     requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',
+  },
+  BatteryPack: {
+    series: 'Cells in series set pack voltage. Every protection, balance and charger board must match this count.',
+    parallel: 'Parallel strings add capacity and cell current capability without changing pack voltage.',
   },
   PowerSwitchOutput: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [
     channel.level,
@@ -2057,6 +2065,10 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PowerConverter: {
     sourceVoltage: 'source volts',
   },
+  BatteryPack: {
+    series: 'cells in series',
+    parallel: 'parallel strings',
+  },
   PdTriggerSource: {
     requestedVoltage: 'requested volts',
   },
@@ -2144,7 +2156,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput',
-  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource',
+  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 /**

@@ -17,6 +17,7 @@ import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
 import { LIGHT_SENSOR_MODULES } from '../../state/peripherals/lightSensor'
 import { ETHERNET_MODULES } from '../../state/peripherals/ethernetModule'
+import { batteryCellPartIds, batteryModulePartIds, batteryModuleSummary } from '../../state/peripherals/battery'
 
 export interface PartOption {
   /** Catalogue part id when the part is modelled, else a plain slug. */
@@ -101,6 +102,26 @@ export const PART_OPTIONS: Record<string, { property: string; options: PartOptio
       label: module.label,
       summary: `${module.spec.role === 'controller' ? 'Controller' : 'LED rail'} · ${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
     })),
+  },
+  BatteryPack: {
+    property: 'partId',
+    options: batteryCellPartIds().flatMap((partId) => {
+      const entry = partById(partId)
+      const cell = entry?.batteryCell
+      return entry && cell ? [{
+        id: partId,
+        label: entry.label,
+        summary: `${cell.formFactor} ${cell.chemistry} · ${cell.nominalV} V, ${cell.capacityMah} mAh, ${cell.maxContinuousDischargeMa / 1000} A continuous`,
+      }] : []
+    }),
+  },
+  BatteryModule: {
+    property: 'partId',
+    options: batteryModulePartIds().flatMap((partId) => {
+      const entry = partById(partId)
+      const summary = batteryModuleSummary(partId)
+      return entry && summary ? [{ id: partId, label: entry.label, summary }] : []
+    }),
   },
   PdTriggerSource: {
     property: 'partId',

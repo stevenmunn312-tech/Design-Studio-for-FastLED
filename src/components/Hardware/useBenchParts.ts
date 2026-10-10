@@ -20,6 +20,7 @@ import {
   VU_PAIR_WIDTH_MM,
 } from './hardwarePartCatalog'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { batteryPackFootprint } from '../../state/peripherals/battery'
 
 export interface BenchPartsInputs {
   nodes: StudioNode[]
@@ -214,9 +215,12 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
     const vuLedCount = entry.nodeType === 'StereoVuMeter'
       ? Math.max(1, Math.round(Number(props.ledCount ?? 16)))
       : null
+    const batteryFootprint = entry.nodeType === 'BatteryPack'
+      ? batteryPackFootprint(chosen?.partId, props.series, props.parallel)
+      : undefined
     const footprint = vuLedCount
       ? { width: VU_PAIR_WIDTH_MM, height: vuLedCount * WS2812B_PITCH_MM }
-      : chosen?.dimensionsMm ?? entry.footprint
+      : batteryFootprint ?? chosen?.dimensionsMm ?? entry.footprint
     return [{
       entry: {
         ...entry,

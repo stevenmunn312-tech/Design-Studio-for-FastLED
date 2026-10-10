@@ -1,4 +1,4 @@
-import { partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
+import { PART_CATALOGUE, partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
 
 /**
  * A DC-DC converter between a 12/24 V source and a 5 V load. It carries no
@@ -12,7 +12,13 @@ export const DEFAULT_POWER_CONVERTER_PART_ID = 'lm2596-buck-module'
 export const DEFAULT_SOURCE_VOLTAGE = 12
 
 /** Converter modules the app may present, in shelf order. */
-export const POWER_CONVERTER_PART_IDS = ['lm2596-buck-module', 'mean-well-sd-100a-5', 'mean-well-sd-100b-5'] as const
+const LEGACY_POWER_CONVERTER_ORDER = ['lm2596-buck-module', 'mean-well-sd-100a-5', 'mean-well-sd-100b-5']
+export const POWER_CONVERTER_PART_IDS = [
+  ...LEGACY_POWER_CONVERTER_ORDER,
+  ...Object.values(PART_CATALOGUE)
+    .filter((entry) => entry.powerConverter && !LEGACY_POWER_CONVERTER_ORDER.includes(entry.partId))
+    .map((entry) => entry.partId),
+]
 
 /**
  * The ambient the plan sizes converters for. An LED installation's supply
@@ -55,7 +61,9 @@ export function defaultSourceVoltageFor(partId: unknown): number {
  */
 export function sourceVoltageIssue(spec: PartPowerConverterSpec, sourceVoltage: number): string | null {
   if (!Number.isFinite(sourceVoltage) || sourceVoltage <= 0) return 'Set the source voltage feeding it.'
-  const minimum = Math.max(spec.inputMinV, spec.outputSetV + spec.minHeadroomV)
+  const minimum = spec.topology.toLowerCase().includes('boost')
+    ? spec.inputMinV
+    : Math.max(spec.inputMinV, spec.outputSetV + spec.minHeadroomV)
   if (sourceVoltage < minimum) {
     return `${sourceVoltage} V is too low: it needs at least ${minimum} V in to hold ${spec.outputSetV} V out.`
   }

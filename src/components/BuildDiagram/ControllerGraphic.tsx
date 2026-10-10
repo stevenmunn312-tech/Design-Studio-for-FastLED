@@ -68,7 +68,7 @@ export function ControllerConverterGraphic({ supply, boardProfile, x, y }: {
         filter="url(#component-shadow)"
       />
       <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 44} textAnchor="middle" className={styles.physicalComponentLabel}>
-        {`${supply.sourceVoltage} V → ${supply.outputVoltage} V BUCK`}
+        {`${supply.source.kind === 'battery' ? 'BATT' : `${supply.sourceVoltage} V`} → ${supply.outputVoltage} V BUCK`}
       </text>
       {supply.adjustable && (
         <text data-converter-set-output x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 59} textAnchor="middle" className={styles.physicalMetaLabel}>
@@ -78,7 +78,7 @@ export function ControllerConverterGraphic({ supply, boardProfile, x, y }: {
       <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 73} textAnchor="middle" className={styles.physicalMetaLabel}>
         {`${fuse} INPUT FUSE AT THE SOURCE`}
       </text>
-      <NetStub x={pad('IN+').x} y={pad('IN+').y} kind="v12" direction="up" lead={14} wireId="controller-converter-input-positive" label={`+${supply.sourceVoltage}V SRC`} />
+      <NetStub x={pad('IN+').x} y={pad('IN+').y} kind={supply.source.kind === 'battery' ? 'vbat' : 'v12'} direction="up" lead={14} wireId="controller-converter-input-positive" label={supply.source.kind === 'battery' ? '+BATT' : `+${supply.sourceVoltage}V SRC`} />
       <NetStub x={pad('IN-').x} y={pad('IN-').y} kind="gnd" direction="down" lead={12} wireId="controller-converter-input-ground" />
       <NetStub x={pad('OUT+').x} y={pad('OUT+').y} kind="v5" direction="up" lead={14} wireId="controller-converter-output" label="CTRL 5V" />
       <NetStub x={pad('OUT-').x} y={pad('OUT-').y} kind="gnd" direction="down" lead={12} wireId="controller-converter-output-ground" />

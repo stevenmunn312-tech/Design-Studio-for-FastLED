@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 227 modules · 73 included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 229 modules · 73 included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 227 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 229 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Live Focus, the Control Deck, Stage View, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -114,7 +114,7 @@ Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it a
 
 The workspace is four tabs, in the order the work is done — **Hardware**, **Graph**, **Upload**, and **Build Diagram** — and it deliberately separates the physical rig from its signal flow:
 
-- The **Hardware** tab owns the exact board and the parts attached to it. Use its **Hardware shelf** for microphones, controls, IR receivers, sensors, power monitors, cooling fans, RTC modules, wired Ethernet, DC-DC converters, SD cards, amplifiers/DACs, power amplifiers, the DFPlayer Mini, and LED strings, matrices, rings, corkscrew installations, or HUB75 panels.
+- The **Hardware** tab owns the exact board and the parts attached to it. Use its **Hardware shelf** for microphones, controls, sensors, battery packs and pack electronics, power converters, storage, audio hardware, and LED outputs.
 - Click a physical part to inspect its module identity and wiring. Pin pickers filter for suitable free GPIOs, call out conflicts and caution pins, and still allow an intentional custom GPIO.
 - The **Graph** tab owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay on the Hardware tab only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
@@ -154,9 +154,9 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 227 modules by category</strong></summary>
+<summary><strong>Show all 229 modules by category</strong></summary>
 
-- **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch Button, Touch, IR Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Environment Sensor, Temperature Probe, Distance Sensor, Joystick, Keypad, Touch Pad, Accel & Gyro, Power Monitor, DMX / Art-Net, Ethernet, Buck Converter, USB-C PD Trigger, RTC Clock, MIDI, Storage
+- **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch Button, Touch, IR Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Environment Sensor, Temperature Probe, Distance Sensor, Joystick, Keypad, Touch Pad, Accel & Gyro, Power Monitor, DMX / Art-Net, Ethernet, Buck Converter, Battery Pack, Pack Electronics, USB-C PD Trigger, RTC Clock, MIDI, Storage
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Vibe, Song Structure, Pitch Detect, Audio → Hue
 - **Signals:** Time, Interval, Counter, Random, Noise LFO, Envelope, Sin, Cos, Wave, Complex Wave, BeatSin, Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Math, Clamp, Map Range, Step Value, Lerp, Ease, Abs, Mod, Gate, Smooth, Sample & Hold, Switch, Not, Compare, Trigger, Text Value, Format Number, Format Date/Time, XY → Index

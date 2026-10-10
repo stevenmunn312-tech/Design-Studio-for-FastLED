@@ -13,20 +13,21 @@ import { COMMON_NET_CALLOUT_HEIGHT } from './physicalDiagramLayout'
  */
 
 export type NetStubDirection = 'up' | 'down' | 'left' | 'right'
-export type NetStubKind = 'gnd' | 'v5' | 'v3v3' | 'v12'
+export type NetStubKind = 'gnd' | 'v5' | 'v3v3' | 'v12' | 'vbat'
 
 /** Clockwise rotation that turns the canonical downward symbol toward `direction`. */
 const ROTATION: Record<NetStubDirection, number> = { down: 0, left: 90, up: 180, right: 270 }
 
 export const DEFAULT_STUB_LEAD = 9
 
-const NET_LABEL: Record<NetStubKind, string> = { gnd: 'GND', v5: '+5V', v3v3: '3V3', v12: '+12V' }
+const NET_LABEL: Record<NetStubKind, string> = { gnd: 'GND', v5: '+5V', v3v3: '3V3', v12: '+12V', vbat: '+BATT' }
 
 const NET_LEAD_CLASS: Record<NetStubKind, string> = {
   gnd: styles.groundStubLead,
   v5: styles.railStubLead5v,
   v3v3: styles.railStubLead3v3,
   v12: styles.railStubLead12v,
+  vbat: styles.batteryStubLead,
 }
 
 const NET_SYMBOL_CLASS: Record<NetStubKind, string> = {
@@ -34,6 +35,7 @@ const NET_SYMBOL_CLASS: Record<NetStubKind, string> = {
   v5: styles.railStubSymbol5v,
   v3v3: styles.railStubSymbol3v3,
   v12: styles.railStubSymbol12v,
+  vbat: styles.batteryStubSymbol,
 }
 
 /** How far the symbol itself extends past the end of the lead. */
@@ -106,7 +108,7 @@ export function NetStub({
  * imply the grounds are independent, which is the one misreading that damages
  * hardware.
  */
-export function CommonNetCallout({ x, y, width, powerBelow = true, twelveVolt = false }: {
+export function CommonNetCallout({ x, y, width, powerBelow = true, twelveVolt = false, battery = false }: {
   x: number
   y: number
   width: number
@@ -115,6 +117,7 @@ export function CommonNetCallout({ x, y, width, powerBelow = true, twelveVolt = 
    *  controller cannot provide, and reading it as a controller rail is how an
    *  ESP32 meets twelve volts. */
   twelveVolt?: boolean
+  battery?: boolean
 }) {
   return (
     <g data-common-net-callout="true" transform={`translate(${x} ${y})`}>
@@ -125,7 +128,8 @@ export function CommonNetCallout({ x, y, width, powerBelow = true, twelveVolt = 
         <tspan x="16" y="58">zone grounds together. +5V feeds low-current modules from the controller 5V rail; LED loads</tspan>
         <tspan x="16" y="74">
           use the fused bus {powerBelow ? 'below' : 'on the power sheet'}. 3V3 draws from the controller regulator
-          {twelveVolt ? '; +12V is a separate supply for the amplifier.' : '.'}
+          {twelveVolt ? '; +12V is a separate supply for the amplifier' : ''}
+          {battery ? '; +BATT is the fused battery bus.' : '.'}
         </tspan>
       </text>
     </g>

@@ -493,6 +493,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           width={776}
           powerBelow={showPowerDistribution}
           twelveVolt={usesTwelveVolt}
+          battery={Boolean(plan.battery)}
         />
       )}
       {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}

@@ -49,6 +49,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     const node = rootGraphNodes(s).find((n) => n.id === nodeId)
     return (node?.data.properties ?? {}) as Record<string, unknown>
   })
+  const hasBatteryPack = useGraphStore((s) => rootGraphNodes(s).some((n) => n.data.nodeType === 'BatteryPack'))
   const props = { ...libraryDefaults(nodeType), ...savedProps }
   const nodeLabel = useGraphStore((s) => rootGraphNodes(s).find((n) => n.id === nodeId)?.data.label ?? nodeType)
   const declaredFields = PART_FIELDS[nodeType] ?? []
@@ -68,6 +69,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
   const otherFields = declaredFields
     .filter((field) => field.kind !== 'pin')
     .filter((field) => !(volumeStageLabel && field.key === 'maxVolume'))
+    .filter((field) => !(nodeType === 'PowerConverter' && hasBatteryPack && field.key === 'sourceVoltage'))
   const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []
   const updateButton = (entryId: string, patch: Record<string, unknown>) => {
     updateNodeProperty(nodeId, 'buttons', buttonEntries.map((entry) =>
@@ -164,6 +166,9 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
 
       {volumeStageLabel && (
         <p className={styles.bankEmpty}>Volume is set on the {volumeStageLabel}, the part the board drives.</p>
+      )}
+      {nodeType === 'PowerConverter' && hasBatteryPack && (
+        <p className={styles.bankEmpty}>Source: battery pack</p>
       )}
       {otherFields.length > 0 && (
         <div className={styles.detail}>

@@ -71,6 +71,7 @@ import {
 } from '../state/peripherals/touchPad'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
 import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
+import { batteryCellSpec, batteryModuleSpec, packFacts } from '../state/peripherals/battery'
 import {
   DIRECT_PIXEL_DATA_LINK,
   NLED_PIXEL_DATA_EXTENDER_PART_ID,
@@ -129,7 +130,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'ethernet' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -148,6 +149,8 @@ export interface HardwareManifestItem {
 export const POWER_PATH_KINDS: ReadonlySet<HardwareManifestItem['kind']> = new Set([
   'power-converter',
   'pd-trigger',
+  'battery-pack',
+  'battery-module',
 ])
 
 export interface HardwareManifest {
@@ -196,6 +199,8 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'EthernetModule',
   'PowerConverter',
   'PdTriggerSource',
+  'BatteryPack',
+  'BatteryModule',
   'SegmentDisplay',
   'InfoDisplay',
   'TransportDisplay',
@@ -703,6 +708,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   }
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const settings = controllerSettings(nodes)
+  const hasBatteryPack = nodes.some((node) => node.data.nodeType === 'BatteryPack')
   const totalPixels = matrixOutputs.reduce((sum, node) => {
     const props = node.data.properties as Record<string, unknown>
     return sum + outputLedTotal(props)
@@ -811,15 +817,48 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const module = powerConverterModuleFor(props.partId)
         const sourceVoltage = Number(props.sourceVoltage ?? DEFAULT_SOURCE_VOLTAGE)
         return {
-          ...buildPeripheralItem(node, 'power-converter', `${sourceVoltage} V to ${module?.spec.outputSetV ?? 5} V buck converter`, pins),
+          ...buildPeripheralItem(node, 'power-converter', `${hasBatteryPack ? 'Battery pack' : `${sourceVoltage} V`} to ${module?.spec.outputSetV ?? 5} V ${module?.spec.topology ?? 'converter'}`, pins),
           title: module?.label ?? nodeLabel(node),
           supported: Boolean(module),
           facts: {
             partId: module?.partId ?? String(props.partId ?? ''),
             role: module?.spec.role ?? 'controller',
             sourceVoltage,
+            source: hasBatteryPack ? 'battery pack' : `${sourceVoltage} V DC source`,
+            terminals: module?.spec.terminals ?? [],
+            isolated: module?.spec.isolated ?? false,
           },
           reasons: module ? undefined : ['This converter part is not in the catalogue.'],
+        }
+      }
+      case 'BatteryPack': {
+        const props = node.data.properties as Record<string, unknown>
+        const facts = packFacts(props.partId, props.series, props.parallel)
+        const cell = batteryCellSpec(props.partId)
+        return {
+          ...buildPeripheralItem(node, 'battery-pack', facts
+            ? `${facts.series}S${facts.parallel}P ${facts.chemistry} pack · ${facts.nominalV} V, ${facts.capacityAh} Ah`
+            : 'Unknown battery cell', pins),
+          title: facts ? `${facts.series}S${facts.parallel}P ${facts.label}` : nodeLabel(node),
+          supported: Boolean(facts && cell),
+          facts: facts ? { ...facts } : { partId: String(props.partId ?? '') },
+          reasons: facts ? undefined : ['This battery cell is not in the catalogue.'],
+        }
+      }
+      case 'BatteryModule': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? '')
+        const entry = partById(partId)
+        const spec = batteryModuleSpec(partId)
+        const functions = spec ? ['protection', 'balance', 'charger', 'output'].filter((key) => Boolean(spec[key as keyof typeof spec])) : []
+        return {
+          ...buildPeripheralItem(node, 'battery-module', spec
+            ? `${spec.series}S ${spec.chemistries.join('/')} · ${functions.join(', ')}`
+            : 'Unknown pack electronics', pins),
+          title: entry?.label ?? nodeLabel(node),
+          supported: Boolean(spec),
+          facts: { partId, series: spec?.series, chemistries: spec?.chemistries ?? [], functions },
+          reasons: spec ? undefined : ['This battery module is not in the catalogue.'],
         }
       }
       // An upstream source, not a signal device: no pins, and the plan reads the

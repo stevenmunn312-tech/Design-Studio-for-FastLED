@@ -102,10 +102,20 @@ function supplyTerminalPoints(supply: SupplyRecommendation, psuY: number) {
     }
   }
   const screwY = psuY + 207
+  const terminals = supply.converter.terminals
+  const frameIndex = terminals.findIndex((terminal) => terminal === 'FG' || terminal === 'PE')
+  if (terminals.length <= 4) {
+    return {
+      inputPositive: supply.converter.integrated ? undefined : { x: 62, y: screwY },
+      inputGround: supply.converter.integrated ? undefined : { x: 82, y: screwY },
+      outputGround: { x: 108, y: screwY },
+      outputPositive: { x: 132, y: screwY },
+    }
+  }
   return {
     inputPositive: { x: 62, y: screwY },
     inputGround: { x: 73, y: screwY },
-    frameGround: { x: 83, y: screwY },
+    frameGround: frameIndex >= 0 ? { x: 83, y: screwY } : undefined,
     outputGround: { x: 105, y: screwY },
     outputPositive: { x: 127, y: screwY },
   }
@@ -194,7 +204,7 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
         <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : 'RECOMMENDED POWER SUPPLY'}</text>
         <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>
           {supply.converter
-            ? `${supply.converter.sourceVoltage} V IN · 5 V OUT · ${formatAmps(supply.converter.deratedCurrentMa)} AT 40 °C`
+            ? `${supply.converter.source.kind === 'battery' ? `${supply.converter.source.minV}-${supply.converter.source.ceilingV} V BATT` : `${supply.converter.sourceVoltage} V IN`} · 5 V OUT · ${formatAmps(supply.converter.deratedCurrentMa)} AT 40 °C`
             : `5 V · ${formatAmps(supply.recommendedCurrentMa)} · ${supply.recommendedWattage} W`}
         </text>
         {/* Beside the rating rather than on the trunk, where the branch rails climb past. */}
@@ -212,34 +222,36 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
           filter="url(#component-shadow)"
         />
         <circle cx={psuPositive.x} cy={psuPositive.y} r="6" fill="#d84938" stroke="#f0a093" strokeWidth="2" data-terminal={`${supply.id}-positive`}>
-          <title>{supply.converter ? 'Converter terminals 6-7 +V output' : 'PSU +5 V output terminal'}</title>
+          <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('+')).slice(-1)[0] ?? 'positive'} output` : 'PSU +5 V output terminal'}</title>
         </circle>
         <circle cx={psuGround.x} cy={psuGround.y} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" data-terminal={`${supply.id}-ground`}>
-          <title>{supply.converter ? 'Converter terminals 4-5 -V output / common-ground bond' : 'PSU negative output terminal / common ground'}</title>
+          <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('-')).slice(-1)[0] ?? 'negative'} output / common-ground bond` : 'PSU negative output terminal / common ground'}</title>
         </circle>
 
-        {supply.converter && terminals.inputPositive && terminals.inputGround && terminals.frameGround && <g data-rail-converter-input={supply.id}>
+        {supply.converter && terminals.inputPositive && terminals.inputGround && <g data-rail-converter-input={supply.id}>
           <HoverWire
-            tip={`${supply.converter.sourceVoltage} V source positive · ${supply.converter.inputFuse.ratingMa ? formatAmps(supply.converter.inputFuse.ratingMa) : 'rated'} fuse · ${supply.converter.inputConductor ? `AWG ${supply.converter.inputConductor.awg}` : 'wire TBD'}`}
+            tip={`${supply.converter.source.kind === 'battery' ? '+BATT' : `${supply.converter.sourceVoltage} V source positive`} · ${supply.converter.inputFuse.ratingMa ? formatAmps(supply.converter.inputFuse.ratingMa) : 'rated'} fuse · ${supply.converter.inputConductor ? `AWG ${supply.converter.inputConductor.awg}` : 'wire TBD'}`}
             data-wire={`${supply.id}-converter-input-positive`}
             d={`M26 ${sectionLayout.psuY + 180}H46V${terminals.inputPositive.y}H${terminals.inputPositive.x}`}
             className={styles.mainPowerWire}
           />
           <HoverWire
-            tip={`${supply.converter.sourceVoltage} V source negative · converter terminal 2 V-`}
+            tip={`${supply.converter.source.kind === 'battery' ? 'P- common negative' : `${supply.converter.sourceVoltage} V source negative`} · converter ${supply.converter.terminals[1] ?? 'input negative'}`}
             data-wire={`${supply.id}-converter-input-negative`}
             d={`M26 ${sectionLayout.psuY + 232}H${terminals.inputGround.x}V${terminals.inputGround.y}`}
             className={styles.mainGroundWire}
           />
-          <HoverWire
+          {supply.converter.isolated && terminals.frameGround && <HoverWire
             tip="Protective earth / metal enclosure · converter terminal 3 FG"
             data-wire={`${supply.id}-converter-frame-ground`}
             d={`M26 ${sectionLayout.psuY + 244}H${terminals.frameGround.x}V${terminals.frameGround.y}`}
             className={styles.groundWire}
-          />
-          <circle cx="26" cy={sectionLayout.psuY + 180} r="5" fill="#d84938"><title>{supply.converter.sourceVoltage} V source positive</title></circle>
-          <circle cx="26" cy={sectionLayout.psuY + 232} r="5" fill="#202425"><title>{supply.converter.sourceVoltage} V source negative</title></circle>
-          <circle cx="26" cy={sectionLayout.psuY + 244} r="5" fill="#6f8b73"><title>Protective earth / metal enclosure</title></circle>
+          />}
+          {supply.converter.source.kind === 'battery'
+            ? <NetStub x={26} y={sectionLayout.psuY + 180} kind="vbat" direction="left" wireId={`${supply.id}-battery-input`} />
+            : <circle cx="26" cy={sectionLayout.psuY + 180} r="5" fill="#d84938"><title>{supply.converter.sourceVoltage} V source positive</title></circle>}
+          <circle cx="26" cy={sectionLayout.psuY + 232} r="5" fill="#202425"><title>{supply.converter.source.kind === 'battery' ? 'P- common negative' : `${supply.converter.sourceVoltage} V source negative`}</title></circle>
+          {supply.converter.isolated && terminals.frameGround && <circle cx="26" cy={sectionLayout.psuY + 244} r="5" fill="#6f8b73"><title>{supply.converter.source.kind === 'battery' ? 'Metal enclosure bond' : 'Protective earth / metal enclosure'}</title></circle>}
           <g data-converter-input-fuse={supply.converter.inputFuse.ratingMa ?? 'unresolved'}>
             <rect x="34" y={sectionLayout.psuY + 172} width="24" height="16" rx="3" fill="#f4f2ea" stroke="#1f2426" strokeWidth="2" />
             <line x1="34" y1={sectionLayout.psuY + 180} x2="58" y2={sectionLayout.psuY + 180} stroke="#1f2426" strokeWidth="1.5" />

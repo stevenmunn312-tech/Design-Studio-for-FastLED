@@ -1333,6 +1333,34 @@ export const POWER_CONVERTER_LIVE_EXAMPLE = namedExample(
   'The preview is unchanged, because the converter changes where the board gets its power, not what it draws. Open the Build Diagram to see the converter under the board.',
 )
 
+export const BATTERY_PACK_LIVE_EXAMPLE = namedExample(
+  'BatteryPack',
+  'Plan a protected 4S LED supply',
+  [
+    { key: 'pack', type: 'BatteryPack', properties: { partId: 'samsung-inr18650-35e', series: 4, parallel: 2 } },
+    { key: 'bms', type: 'BatteryModule', properties: { partId: 'hx-4s-f30a-bms-balance' } },
+    { key: 'charger', type: 'BatteryModule', properties: { partId: 'ip2368-100w-bidirectional-charger' } },
+    { key: 'converter', type: 'PowerConverter', properties: { partId: 'dgxby-20a-5v-buck-converter' } },
+    { key: 'pattern', type: 'Juggle' },
+  ],
+  [],
+  'Battery Pack carries no signal. Series and parallel counts combine the exact cell into one source window. Pack Electronics boards declare protection, balancing, charging, or 5 V output functions. Build Diagram sizes every converter at the protected minimum pack voltage.',
+  'Preview stays unchanged because battery parts add no firmware. Open Build Diagram to inspect voltage window, pack current, fuse, runtime, and battery rules.',
+)
+
+export const BATTERY_MODULE_LIVE_EXAMPLE = namedExample(
+  'BatteryModule',
+  'Use one board for several pack functions',
+  [
+    { key: 'pack', type: 'BatteryPack', properties: { partId: 'samsung-inr18650-35e', series: 1, parallel: 1 } },
+    { key: 'module', type: 'BatteryModule', properties: { partId: 'ip5305t-1s-power-module' } },
+    { key: 'pattern', type: 'Juggle' },
+  ],
+  [],
+  'Pack Electronics is one physical board. This IP5305T module protects and charges a 1S pack and makes the 5 V rail, so those functions must not be duplicated by separate boards.',
+  'Preview stays unchanged. Build Diagram reads every function and terminal from the selected board instead of asking for a role.',
+)
+
 export const ETHERNET_LIVE_EXAMPLE = namedExample(
   'EthernetModule',
   'Receive Art-Net over a cable',
@@ -2009,6 +2037,8 @@ const NAMED_LIVE_EXAMPLES: Record<string, ReferenceLiveExample> = {
   EthernetModule: ETHERNET_LIVE_EXAMPLE,
   PowerConverter: POWER_CONVERTER_LIVE_EXAMPLE,
   PdTriggerSource: PD_TRIGGER_LIVE_EXAMPLE,
+  BatteryPack: BATTERY_PACK_LIVE_EXAMPLE,
+  BatteryModule: BATTERY_MODULE_LIVE_EXAMPLE,
   FFTAnalyzer: FFT_ANALYZER_LIVE_EXAMPLE,
   BeatDetect: BEAT_DETECT_LIVE_EXAMPLE,
   PercussionDetect: PERCUSSION_DETECT_LIVE_EXAMPLE,

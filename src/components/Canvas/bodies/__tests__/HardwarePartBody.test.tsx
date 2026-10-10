@@ -75,6 +75,24 @@ describe('HardwarePartBody', () => {
     expect(fed.getByText(/Volume is set on the PCM5102A/)).toBeTruthy()
   })
 
+  it('takes converter source voltage from the battery pack when one is present', () => {
+    setPart('PowerConverter')
+    const pack = NODE_LIBRARY.find((entry) => entry.type === 'BatteryPack')!
+    useGraphStore.setState((state) => ({
+      nodes: [...state.nodes, {
+        id: 'pack', type: 'studioNode', position: { x: 0, y: 0 }, hidden: true,
+        data: {
+          label: pack.label, nodeType: pack.type, category: pack.category,
+          properties: { ...pack.defaultProperties }, inputs: [], outputs: [],
+        },
+      }] as never[],
+    }))
+
+    const view = render(<HardwarePartBody nodeId="part" nodeType="PowerConverter" />)
+    expect(view.queryByLabelText('Source V')).toBeNull()
+    expect(view.getByText('Source: battery pack')).toBeTruthy()
+  })
+
   it('renders all four SD SPI assignments and no audio settings', () => {
     // Audio output is derived from the parts present, and volume belongs with
     // the output — so the card is left with the one thing it owns.
