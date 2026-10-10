@@ -43,6 +43,7 @@ import {
   COMMON_NET_CALLOUT_GAP,
   diagramContentBottom,
   powerZoneBands,
+  batteryBand,
 } from './physicalDiagramLayout'
 import {
   CONTROLLER_SLOT_CENTER_X,
@@ -54,6 +55,7 @@ import {
 import { ControllerConverterGraphic, ControllerGraphic, CustomControllerPowerNote, PowerPinControllerNote } from './ControllerGraphic'
 import { OutputGraphic, InputGraphic } from './PeripheralGraphics'
 import { PowerDistributionSections, WireLabel } from './PowerDistribution'
+import { BatteryAssembly } from './BatteryAssembly'
 import { type PhysicalDiagramConnection, signalPresentation } from './signalPresentation'
 import {
   assignControlLanes,
@@ -112,7 +114,8 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
     ? plan.controllerSupply
     : undefined
   const powerSectionY = powerSectionStartY(items, layers)
-  const showPowerDistribution = layers.powerDistribution && outputLayouts.length > 0
+  const batteryLayout = batteryBand(items, plan, layers)
+  const showPowerDistribution = layers.powerDistribution && (outputLayouts.length > 0 || Boolean(batteryLayout))
   const usesThreeVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')
   const usesTwelveVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v12')
   const controlLanes = assignControlLanes(peripheralLayouts, connections)
@@ -484,7 +487,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
 
       {/* The callout follows the stubs, not the PSU zones — a section sheet that
           drops power still draws net symbols and must still explain them. */}
-      {layouts.length > 0 && (
+      {(layouts.length > 0 || batteryLayout) && (
         <CommonNetCallout
           x={320}
           y={showPowerDistribution
@@ -496,6 +499,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           battery={Boolean(plan.battery)}
         />
       )}
+      {batteryLayout && <BatteryAssembly items={items} plan={plan} band={batteryLayout} />}
       {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}
 
       {controllerSupply ? (

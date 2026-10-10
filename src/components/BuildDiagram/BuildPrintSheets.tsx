@@ -2,10 +2,10 @@ import type { ReactNode } from 'react'
 import { boardDataProvenance, type PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import type { BuildBomRow, BuildConnectionRow } from '../../build/buildExports'
 import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
-import type { HardwareManifestItem } from '../../build/hardwareManifest'
+import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
 import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import { SIGNAL_ROLE_COLORS, type PhysicalDiagramConnection } from './signalPresentation'
-import { powerZoneBands } from './physicalDiagramLayout'
+import { batteryBand, powerZoneBands } from './physicalDiagramLayout'
 import type { BuildSectionLayers } from './diagramSections'
 import styles from './BuildDiagramWorkspace.module.css'
 
@@ -114,9 +114,11 @@ export default function BuildPrintSheets({
   printedAt,
 }: BuildPrintSheetsProps) {
   const outputs = items.filter((item) => item.kind === 'matrix-output')
+  const powerItems = items.filter((item) => item.kind === 'matrix-output' || POWER_PATH_KINDS.has(item.kind))
   const hasMicrophone = items.some((item) => item.kind === 'mic-input')
   const hasControls = items.some((item) => item.kind === 'line-input' || item.kind === 'rtc-input' || item.kind === 'sd-card' || item.kind === 'button-input' || item.kind === 'touch-button-input' || item.kind === 'pot-input' || item.kind === 'encoder-input')
-  const bands = outputs.length > 0 ? powerZoneBands(outputs, plan, POWER_LAYERS) : []
+  const battery = batteryBand(powerItems, plan, POWER_LAYERS)
+  const bands = outputs.length > 0 ? powerZoneBands(powerItems, plan, POWER_LAYERS) : []
   const footer = [
     projectName ? `Project ${projectName}` : 'Design Studio for FastLED',
     boardProfile.label,
@@ -158,6 +160,7 @@ export default function BuildPrintSheets({
             <h2 className={styles.printHeading}>Sheets</h2>
             <ol className={styles.printContents}>
               <li>Signal wiring — controller, level shifting and every data / control run</li>
+              {battery && <li>Power — battery pack, protection, balancing, charging and fused +BATT bus</li>}
               {bands.map((band, index) => (
                 <li key={band.supplyId}>Power — PSU zone {index + 1} of {bands.length}, {band.feedCount} fused feed{band.feedCount === 1 ? '' : 's'}</li>
               ))}
@@ -215,6 +218,36 @@ export default function BuildPrintSheets({
         />
       </PrintPage>
 
+      {battery && (
+        <PrintPage
+          title="Power — battery"
+          subtitle={`${plan.battery?.pack.series}S${plan.battery?.pack.parallel}P · ${plan.battery?.window.minV}-${plan.battery?.window.ceilingV} V source window`}
+          footer={footer}
+        >
+          <div className={styles.printDiagram}>
+            <PhysicalAssemblyDiagram
+              boardProfile={boardProfile}
+              items={powerItems}
+              plan={plan}
+              connections={[]}
+              layers={POWER_LAYERS}
+              crop={battery}
+              exportScope={exportScope}
+              selectedItemId=""
+              onSelectItem={() => undefined}
+            />
+          </div>
+          <PrintLegend
+            entries={[
+              { className: styles.mainPowerWire, label: 'Battery positive / +BATT' },
+              { className: styles.mainGroundWire, label: 'B− or protected P−' },
+              { className: styles.batterySenseWire, label: 'Cell sense / balance lead' },
+            ]}
+            note="Nothing except the protection board and B0 sense lead connects to B−. P− is the one system 0 V net."
+          />
+        </PrintPage>
+      )}
+
       {bands.map((band, index) => (
         <PrintPage
           key={band.supplyId}
@@ -225,7 +258,7 @@ export default function BuildPrintSheets({
           <div className={styles.printDiagram}>
             <PhysicalAssemblyDiagram
               boardProfile={boardProfile}
-              items={outputs}
+              items={powerItems}
               plan={plan}
               connections={[]}
               layers={POWER_LAYERS}

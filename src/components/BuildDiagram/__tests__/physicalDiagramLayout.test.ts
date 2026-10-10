@@ -7,6 +7,7 @@ import { partOptionsFor } from '../../../build/parts/partOptions'
 import {
   COMMON_NET_CALLOUT_GAP,
   COMMON_NET_CALLOUT_HEIGHT,
+  batteryBand,
   diagramContentBottom,
   feedCombLaneY,
   feedIndexForFuseSlot,
@@ -361,6 +362,24 @@ describe('powerZoneBands', () => {
       expect(physicalAssemblyDiagramHeight([OUTPUT_ITEM], plan))
         .toBe(last.y + last.height + POWER_SECTION_SPACING)
     }
+  })
+
+  it('puts converter zones below the battery band and reserves it without LED outputs', () => {
+    const batteryItem = {
+      id: 'battery-pack:pack', kind: 'battery-pack', title: '4S5P pack', subtitle: '',
+      supported: true, pins: [], facts: {},
+    } as HardwareManifestItem
+    const plan = {
+      ...planWithSupplies([3]),
+      battery: { packItemId: batteryItem.id },
+    } as unknown as ElectricalPlanSummary
+    const battery = batteryBand([batteryItem, OUTPUT_ITEM], plan)!
+    const [zone] = powerZoneBands([batteryItem, OUTPUT_ITEM], plan)
+    expect(zone.y).toBe(battery.y + battery.height)
+
+    const batteryOnlyPlan = { ...plan, outputs: [], totals: undefined } as unknown as ElectricalPlanSummary
+    expect(physicalAssemblyDiagramHeight([batteryItem], batteryOnlyPlan))
+      .toBe(batteryBand([batteryItem], batteryOnlyPlan)!.y + battery.height + POWER_SECTION_SPACING)
   })
 })
 

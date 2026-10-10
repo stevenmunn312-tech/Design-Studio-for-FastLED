@@ -1455,6 +1455,24 @@ export interface PowerZoneBand {
   height: number
 }
 
+export interface BatteryBand {
+  y: number
+  height: number
+}
+
+export const BATTERY_BAND_HEIGHT = 410
+
+/** Battery assembly sits ahead of converter/PSU zones on every power sheet. */
+export function batteryBand(
+  items: HardwareManifestItem[],
+  plan: ElectricalPlanSummary,
+  layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS,
+): BatteryBand | undefined {
+  if (!layers.powerDistribution || !plan.battery) return undefined
+  if (!items.some((item) => item.id === plan.battery?.packItemId && item.kind === 'battery-pack')) return undefined
+  return { y: powerSectionStartY(items, layers), height: BATTERY_BAND_HEIGHT }
+}
+
 /**
  * Where each PSU zone sits on the full sheet.
  *
@@ -1469,7 +1487,8 @@ export function powerZoneBands(
   layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS,
 ): PowerZoneBand[] {
   const injections = plan.outputs.flatMap((output) => output.injections)
-  let y = powerSectionStartY(items, layers)
+  const battery = batteryBand(items, plan, layers)
+  let y = battery ? battery.y + battery.height : powerSectionStartY(items, layers)
   return (plan.totals?.supplies ?? []).map((supply) => {
     const feedCount = injections.filter((injection) => injection.supplyId === supply.id).length
     const height = powerDistributionSectionLayout(feedCount).sectionHeight + POWER_SECTION_SPACING
@@ -1491,13 +1510,14 @@ export function physicalAssemblyDiagramHeight(
   // room holds the shared-net callout, which renders on every sheet, plus the
   // legend strip below it — at the old +80 the legend was drawn on top of the
   // callout's own text.
-  if (outputCount === 0 || !layers.powerDistribution) {
+  const battery = batteryBand(items, plan, layers)
+  if ((outputCount === 0 && !battery) || !layers.powerDistribution) {
     return Math.max(400, diagramContentBottom(items, layers)
       + COMMON_NET_CALLOUT_GAP + COMMON_NET_CALLOUT_HEIGHT + DIAGRAM_LEGEND_BAND)
   }
   const bands = powerZoneBands(items, plan, layers)
   const bottom = bands.length > 0
     ? bands[bands.length - 1].y + bands[bands.length - 1].height
-    : powerSectionStartY(items, layers)
+    : battery ? battery.y + battery.height : powerSectionStartY(items, layers)
   return bottom + POWER_SECTION_SPACING
 }

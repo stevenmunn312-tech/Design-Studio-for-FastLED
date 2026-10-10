@@ -1599,6 +1599,70 @@ describe('BuildDiagramWorkspace', () => {
     expect(view.getByText(/Rated pack: 14.4 V · 16.75 Ah · 241.2 Wh/)).toBeTruthy()
     expect(view.getByText(/Main fuse:/)).toBeTruthy()
     expect(view.getByText(/Converter 1: DGXBY/)).toBeTruthy()
+    const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
+    expect(diagram?.querySelector('[data-battery-assembly="true"]')).toBeTruthy()
+    expect(diagram?.querySelectorAll('[data-battery-tap]')).toHaveLength(5)
+    expect(diagram?.querySelector('[data-battery-main-fuse]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-battery-terminal="hx-4s-f30a-bms-balance:B-"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-battery-terminal="hx-4s-f30a-bms-balance:P-"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-net-stub="vbat"]')).toBeTruthy()
+  })
+
+  it('draws battery-only power and keeps it off the Controls sheet', () => {
+    useGraphStore.setState({ nodes: [
+      boardNode('espressif-esp32-s3-devkitc-1'),
+      inputNode('button', 'ButtonInput', { pin: 4 }),
+      batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 4, parallel: 2 }),
+      batteryNode('bms', 'BatteryModule', { partId: 'hx-4s-f30a-bms-balance' }),
+    ] as never[] })
+    selectDevKit()
+    const view = render(<BuildDiagramWorkspace />)
+    const diagram = () => view.container.querySelector('svg[data-build-export="current-view"]')
+    expect(diagram()?.querySelector('[data-battery-assembly="true"]')).toBeTruthy()
+    expect(diagram()?.querySelector('[data-net-stub="vbat"]')).toBeTruthy()
+
+    fireEvent.click(view.getByRole('tab', { name: 'Controls' }))
+    expect(diagram()?.querySelector('[data-battery-assembly="true"]')).toBeNull()
+    fireEvent.click(view.getByRole('tab', { name: 'Power' }))
+    expect(diagram()?.querySelector('[data-battery-assembly="true"]')).toBeTruthy()
+  })
+
+  it('draws reference battery board terminals and a battery print page', () => {
+    useGraphStore.setState({ nodes: [
+      boardNode('espressif-esp32-s3-devkitc-1'),
+      batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 1, parallel: 1 }),
+      batteryNode('power-bank', 'BatteryModule', { partId: 'ip5305t-1s-power-module' }),
+      matrixNode(14, 10, 1),
+    ] as never[] })
+    selectDevKit()
+    const view = render(<BuildDiagramWorkspace />)
+    const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
+    expect(diagram?.querySelectorAll('[data-battery-tap]')).toHaveLength(2)
+    expect(diagram?.querySelector('[data-battery-terminal="ip5305t-1s-power-module:+BAT"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-net-stub-for^="battery-output-positive"]')).toBeTruthy()
+
+    fireEvent(window, new Event('beforeprint'))
+    const printDocument = document.body.querySelector('[data-build-print-document]')
+    expect(Array.from(printDocument?.querySelectorAll('header strong') ?? []).map((node) => node.textContent)).toContain('Power — battery')
+    expect(printDocument?.querySelector('[data-battery-assembly="true"]')).toBeTruthy()
+    fireEvent(window, new Event('afterprint'))
+  })
+
+  it('draws the 32x32 active-balance BMS and two converter zones', () => {
+    useGraphStore.setState({ nodes: [
+      boardNode('espressif-esp32-s3-devkitc-1'),
+      batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 4, parallel: 10 }),
+      batteryNode('bms', 'BatteryModule', { partId: 'bm3451-4s-60a-active-balance-bms' }),
+      batteryNode('charger', 'BatteryModule', { partId: 'ip2368-100w-bidirectional-charger' }),
+      batteryNode('buck', 'PowerConverter', { partId: 'rcnun-60a-5v-buck-converter' }),
+      matrixNode(14, 32, 32),
+    ] as never[] })
+    selectDevKit()
+    const view = render(<BuildDiagramWorkspace />)
+    const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
+    expect(diagram?.querySelectorAll('[data-battery-tap]')).toHaveLength(5)
+    expect(diagram?.querySelector('[data-battery-terminal="bm3451-4s-60a-active-balance-bms:P-"]')).toBeTruthy()
+    expect(diagram?.querySelectorAll('[data-power-zone]')).toHaveLength(2)
   })
 
   it('builds a paginated print document only while printing, with power on its own pages', () => {
