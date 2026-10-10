@@ -621,19 +621,19 @@ describe('BuildDiagramWorkspace', () => {
     const psuRender = diagram?.querySelector('[data-component-render="5v-psu"]')
     expect(psuRender?.getAttribute('width')).toBe('123')
     expect(psuRender?.getAttribute('height')).toBe('220')
-    expect(psuRender?.getAttribute('y')).toBe('137')
-    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('201')
-    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('224')
+    expect(psuRender?.getAttribute('y')).toBe('165')
+    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('229')
+    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('252')
     const fuseBlockRender = diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')
     // Supply and distribution sit in one header band, and the PSU hangs off the
     // height its +5 V trunk enters the block at so that run stays straight.
-    expect(fuseBlockRender?.getAttribute('y')).toBe('136')
+    expect(fuseBlockRender?.getAttribute('y')).toBe('164')
     const mainPositive = diagram?.querySelector('[data-wire="supply-1-positive-bus"]')
     const mainGround = diagram?.querySelector('[data-wire="supply-1-ground-bus"]')
     expect(mainPositive?.getAttribute('data-wire-role')).toBe('main-psu-positive')
     expect(mainGround?.getAttribute('data-wire-role')).toBe('main-psu-ground')
-    expect(mainPositive?.getAttribute('d')).toMatch(/^M153 201H212V201H362V/)
-    expect(mainGround?.getAttribute('d')).toMatch(/^M153 224H196V/)
+    expect(mainPositive?.getAttribute('d')).toMatch(/^M153 229H212V229H362V/)
+    expect(mainGround?.getAttribute('d')).toMatch(/^M153 252H196V/)
     expect(mainPositive?.getAttribute('class')).not.toBe(diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('class'))
     expect(diagram?.querySelectorAll('[data-component-render="panasonic-eeufr0j102b-1000uf"]')).toHaveLength(3)
     // The capacitor picks up from the panel terminals on its own leads, so it
@@ -657,7 +657,7 @@ describe('BuildDiagramWorkspace', () => {
       .toContain('BLOCK 1 · 1: 7.5A  ·  2: 7.5A  ·  3: SPARE  ·  4: 15A')
     const ledPositives = Array.from(diagram?.querySelectorAll('[data-terminal$="-led-positive"]') ?? [])
       .map((terminal) => Number(terminal.getAttribute('cy')))
-    expect(ledPositives).toEqual([229, 315, 401])
+    expect(ledPositives).toEqual([257, 343, 429])
     // The shallowest feed sits level with the fuse it leaves, so its run out to
     // the panel is a straight line.
     expect(ledPositives[0]).toBe(Math.round(Number(diagram?.querySelector('[data-terminal="output:out:feed-1-fuse"] circle')?.getAttribute('cy'))))
@@ -1606,6 +1606,10 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-battery-terminal="hx-4s-f30a-bms-balance:B-"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-battery-terminal="hx-4s-f30a-bms-balance:P-"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-net-stub="vbat"]')).toBeTruthy()
+    const cells = Array.from(diagram?.querySelectorAll('[data-battery-cell]') ?? [])
+    expect(cells).toHaveLength(20)
+    expect(cells.every((cell) => cell.getAttribute('data-battery-cell-polarity') === 'negative-left-positive-right')).toBe(true)
+    expect(cells.every((cell) => cell.getAttribute('transform')?.includes('scale(-1 1)'))).toBe(true)
   })
 
   it('draws battery-only power and keeps it off the Controls sheet', () => {
@@ -1661,8 +1665,25 @@ describe('BuildDiagramWorkspace', () => {
     const view = render(<BuildDiagramWorkspace />)
     const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
     expect(diagram?.querySelectorAll('[data-battery-tap]')).toHaveLength(5)
+    expect(diagram?.querySelectorAll('[data-battery-junction]')).toHaveLength(5)
     expect(diagram?.querySelector('[data-battery-terminal="bm3451-4s-60a-active-balance-bms:P-"]')).toBeTruthy()
-    expect(diagram?.querySelectorAll('[data-power-zone]')).toHaveLength(2)
+    const bPlus = diagram?.querySelector('[data-battery-terminal="bm3451-4s-60a-active-balance-bms:B+"] circle')
+    const pPlus = diagram?.querySelector('[data-battery-terminal="bm3451-4s-60a-active-balance-bms:P+"] circle')
+    expect(diagram?.querySelector('[data-battery-wire="cell-positive"]')?.getAttribute('d'))
+      .toContain(`H${bPlus?.getAttribute('cx')}V${bPlus?.getAttribute('cy')}`)
+    expect(diagram?.querySelector('[data-battery-wire="main-positive"]')?.getAttribute('d'))
+      .toMatch(new RegExp(`^M${pPlus?.getAttribute('cx')} `))
+    expect(diagram?.querySelector('[data-battery-sense="B+"]')).toBeNull()
+    expect(diagram?.querySelector('[data-battery-sense="B-"]')).toBeNull()
+    const zones = Array.from(diagram?.querySelectorAll('[data-power-zone]') ?? [])
+    expect(zones).toHaveLength(2)
+    for (const zone of zones) {
+      const positiveX = Number(zone.querySelector('[data-terminal$="-positive"]')?.getAttribute('cx'))
+      const groundX = Number(zone.querySelector('[data-terminal$="-ground"]')?.getAttribute('cx'))
+      expect(positiveX).toBeLessThan(groundX)
+      expect(Number(zone.querySelector('[data-main-fuse-label]')?.getAttribute('y'))).toBe(82)
+      expect(zone.querySelector('[data-converter-terminal-labels]')?.textContent).toBe('IN+IN-OUT+OUT-')
+    }
   })
 
   it('builds a paginated print document only while printing, with power on its own pages', () => {

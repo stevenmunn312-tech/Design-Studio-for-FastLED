@@ -129,7 +129,8 @@ export function powerDistributionSectionLayout(feedCount: number) {
   // Blocks stack vertically at one x, which keeps the whole width right of the
   // block clear for the feed lanes no matter how many blocks a zone needs.
   const blockTops: number[] = []
-  let cursor = 96
+  // Reserve three clean header rows before any block, comb, or part artwork.
+  let cursor = 124
   let leftColumnFeeds = 0
   for (const block of blocks) {
     cursor += (block.assignedFeedCount * GROUND_COMB_STEP) + GROUND_COMB_CLEARANCE
@@ -137,7 +138,7 @@ export function powerDistributionSectionLayout(feedCount: number) {
     cursor += FUSE_BLOCK_CELL_HEIGHT
     leftColumnFeeds += fuseColumnSplit(block.assignedFeedCount).leftCount
   }
-  const fuseBlockY = blockTops[0] ?? 96
+  const fuseBlockY = blockTops[0] ?? 124
   const blocksBottom = cursor
   const feedCombY = blocksBottom + FEED_COMB_CLEARANCE
   const feedCombBottom = feedCombY + (Math.max(0, leftColumnFeeds - 1) * FEED_COMB_STEP)
@@ -150,7 +151,7 @@ export function powerDistributionSectionLayout(feedCount: number) {
   const trunkEntryY = firstPoints
     ? Math.round((firstPoints.groundCircuit(0).y + firstPoints.circuit(0).y) / 2)
     : fuseBlockY + 54
-  const psuY = Math.max(76, trunkEntryY - PSU_POSITIVE_TERMINAL_OFFSET)
+  const psuY = Math.max(112, trunkEntryY - PSU_POSITIVE_TERMINAL_OFFSET)
   const componentBottom = Math.max(psuY + PSU_RENDER_HEIGHT, blocksBottom)
 
   // Rows start level with the first branch leaving the block, so the shallowest

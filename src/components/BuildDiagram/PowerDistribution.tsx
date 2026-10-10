@@ -66,6 +66,9 @@ const PSU_POSITIVE_TRUNK_X = 212
 /** Main fuse on the short run between the PSU terminal and the positive riser. */
 const MAIN_FUSE_X = 180
 const PSU_GROUND_TRUNK_X = 196
+const RAIL_STUB_POSITIVE_X = 760
+const RAIL_STUB_GROUND_X = 780
+const RAIL_STUB_Y = 96
 
 /**
  * Panasonic EEUFR0J102B render, cropped to its own alpha bounds. The part is
@@ -108,8 +111,10 @@ function supplyTerminalPoints(supply: SupplyRecommendation, psuY: number) {
     return {
       inputPositive: supply.converter.integrated ? undefined : { x: 62, y: screwY },
       inputGround: supply.converter.integrated ? undefined : { x: 82, y: screwY },
-      outputGround: { x: 108, y: screwY },
-      outputPositive: { x: 132, y: screwY },
+      // Four-terminal converters declare physical left-to-right order as
+      // IN+, IN-, OUT+, OUT-. Keep output polarity on those exact pads.
+      outputPositive: { x: 108, y: screwY },
+      outputGround: { x: 132, y: screwY },
     }
   }
   return {
@@ -207,8 +212,7 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
             ? `${supply.converter.source.kind === 'battery' ? `${supply.converter.source.minV}-${supply.converter.source.ceilingV} V BATT` : `${supply.converter.sourceVoltage} V IN`} · 5 V OUT · ${formatAmps(supply.converter.deratedCurrentMa)} AT 40 °C`
             : `5 V · ${formatAmps(supply.recommendedCurrentMa)} · ${supply.recommendedWattage} W`}
         </text>
-        {/* Beside the rating rather than on the trunk, where the branch rails climb past. */}
-        <text data-main-fuse-label={supply.id} x="290" y="58" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
+        <text data-main-fuse-label={supply.id} x="42" y="82" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
 
         <image
           data-component-render={supply.converter?.partId ?? '5v-psu'}
@@ -227,6 +231,17 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
         <circle cx={psuGround.x} cy={psuGround.y} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" data-terminal={`${supply.id}-ground`}>
           <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('-')).slice(-1)[0] ?? 'negative'} output / common-ground bond` : 'PSU negative output terminal / common ground'}</title>
         </circle>
+
+        {supply.converter && terminals.inputPositive && terminals.inputGround && <g data-converter-terminal-labels={supply.id}>
+          {[
+            { label: supply.converter.terminals[0] ?? 'IN+', point: terminals.inputPositive },
+            { label: supply.converter.terminals[1] ?? 'IN-', point: terminals.inputGround },
+            { label: supply.converter.terminals.filter((terminal) => terminal.includes('+')).slice(-1)[0] ?? 'OUT+', point: terminals.outputPositive },
+            { label: supply.converter.terminals.filter((terminal) => terminal.includes('-')).slice(-1)[0] ?? 'OUT-', point: terminals.outputGround },
+          ].map(({ label, point }) => (
+            <text key={label} x={point.x} y={point.y + 18} textAnchor="middle" className={styles.physicalPinLabel}>{label}</text>
+          ))}
+        </g>}
 
         {supply.converter && terminals.inputPositive && terminals.inputGround && <g data-rail-converter-input={supply.id}>
           <HoverWire
@@ -259,8 +274,8 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
         </g>}
 
         {/* Origin of the rails the level shifter and controller reach by shared-net symbol. */}
-        <NetStub x={244} y={82} kind="v5" direction="up" wireId={`${supply.id}-rail-positive`} />
-        <NetStub x={264} y={82} kind="gnd" direction="up" wireId={`${supply.id}-rail-ground`} />
+        <NetStub x={RAIL_STUB_POSITIVE_X} y={RAIL_STUB_Y} kind="v5" direction="up" wireId={`${supply.id}-rail-positive`} />
+        <NetStub x={RAIL_STUB_GROUND_X} y={RAIL_STUB_Y} kind="gnd" direction="up" wireId={`${supply.id}-rail-ground`} />
 
         <g data-fuse-value-schedule={`${supply.id}`}>
           <text x="42" y={sectionLayout.scheduleY} className={styles.physicalLegendTitle}>FUSE BLOCK VALUES</text>

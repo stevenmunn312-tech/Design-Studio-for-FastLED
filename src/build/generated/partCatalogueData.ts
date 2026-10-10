@@ -3229,8 +3229,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
     "manufacturer": "Samsung SDI",
     "logicVoltage": "none; power only",
     "pinLabelsLeftToRight": [
-      "negative can",
-      "positive cap"
+      "positive cap",
+      "negative can"
     ],
     "notes": [
       "Use only genuine, matched cells from one batch. Do not mix age, capacity or state of charge.",

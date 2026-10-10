@@ -55,16 +55,18 @@ export function BatteryAssembly({ items, plan, band }: {
   const x = 34
   const y = band.y + 22
   const packX = x + 18
-  const packY = y + 66
+  const packY = y + 126
   const packWidth = 300
-  const packHeight = 250
+  const packHeight = 210
   const cellWidth = packWidth / battery.pack.series
   const cellHeight = packHeight / battery.pack.parallel
   const cellRender = partRenderSrc(battery.pack.partId)
   const tapY = packY - 14
   const tapPoint = (index: number) => ({ x: packX + ((packWidth * index) / battery.pack.series), y: tapY })
-  const fuseX = packX + packWidth + 42
-  const fuseY = tapY - 12
+  const packTerminalPoint = (index: number) => ({ x: tapPoint(index).x, y: packY + packHeight })
+  const wireChannelY = (index: number) => packY + packHeight + 4 + (index * 4)
+  const fuseX = 858
+  const fuseY = y + 58
   const busX = fuseX + 118
   const moduleItems = battery.modules.flatMap((module) => {
     const item = items.find((candidate) => candidate.id === module.itemId)
@@ -76,7 +78,7 @@ export function BatteryAssembly({ items, plan, band }: {
     partId: entry.partId,
     terminals: entry.pinLabelsLeftToRight ?? [],
     x: 570 + ((index % 2) * 260),
-    y: y + 38 + (Math.floor(index / 2) * 154),
+    y: y + 126 + (Math.floor(index / 2) * 154),
     width: 220,
     height: 120,
   }))
@@ -84,6 +86,12 @@ export function BatteryAssembly({ items, plan, band }: {
   const protectionBox = boxFor(battery.protection?.itemId)
   const protectionNegative = protectionBox
     ? firstTerminal(protectionBox, ['B-', '-BAT'])
+    : undefined
+  const protectionPositive = protectionBox
+    ? firstTerminal(protectionBox, ['B+', '+BAT'])
+    : undefined
+  const protectedPositive = protectionBox
+    ? firstTerminal(protectionBox, ['P+']) ?? protectionPositive
     : undefined
   const protectedNegative = protectionBox
     ? firstTerminal(protectionBox, ['P-'])
@@ -102,19 +110,37 @@ export function BatteryAssembly({ items, plan, band }: {
         {Array.from({ length: battery.pack.cellCount }, (_, index) => {
           const column = index % battery.pack.series
           const row = Math.floor(index / battery.pack.series)
+          const cellX = packX + (column * cellWidth) + 3
+          const cellY = packY + (row * cellHeight) + 3
+          const renderWidth = cellWidth - 6
+          const renderHeight = cellHeight - 6
           return cellRender ? (
-            <image
+            <g
               key={index}
               data-battery-cell={index + 1}
-              href={cellRender}
-              x={packX + (column * cellWidth) + 3}
-              y={packY + (row * cellHeight) + 3}
-              width={cellWidth - 6}
-              height={cellHeight - 6}
-              preserveAspectRatio="xMidYMid meet"
-              className={styles.physicalBoardRender}
-            />
+              data-battery-cell-polarity="negative-left-positive-right"
+              transform={`translate(${cellX + renderWidth} ${cellY}) scale(-1 1)`}
+            >
+              <image
+                href={cellRender}
+                x="0"
+                y="0"
+                width={renderWidth}
+                height={renderHeight}
+                preserveAspectRatio="xMidYMid meet"
+                className={styles.physicalBoardRender}
+              />
+            </g>
           ) : <rect key={index} data-battery-cell={index + 1} x={packX + (column * cellWidth) + 3} y={packY + (row * cellHeight) + 3} width={cellWidth - 6} height={cellHeight - 6} rx="5" fill="#70836e" />
+        })}
+        {Array.from({ length: battery.pack.series + 1 }, (_, index) => {
+          const junction = tapPoint(index)
+          return <path
+            key={`junction-${index}`}
+            data-battery-junction={`B${index}`}
+            d={`M${junction.x} ${tapY}V${packY + packHeight}`}
+            className={index === battery.pack.series ? styles.mainPowerWire : index === 0 ? styles.mainGroundWire : styles.batterySenseWire}
+          />
         })}
         {Array.from({ length: battery.pack.series + 1 }, (_, index) => {
           const tap = tapPoint(index)
@@ -125,16 +151,23 @@ export function BatteryAssembly({ items, plan, band }: {
         })}
       </g>
 
-      <path data-battery-wire="main-positive" d={`M${tapPoint(battery.pack.series).x} ${tapY}H${fuseX}`} className={styles.mainPowerWire} />
+      {protectionPositive && <path data-battery-wire="cell-positive" d={`M${packTerminalPoint(battery.pack.series).x} ${packTerminalPoint(battery.pack.series).y}V${wireChannelY(battery.pack.series)}H${protectionPositive.x}V${protectionPositive.y}`} className={styles.mainPowerWire} />}
+      <path
+        data-battery-wire="main-positive"
+        d={protectedPositive
+          ? `M${protectedPositive.x} ${protectedPositive.y}V${wireChannelY(battery.pack.series + 1)}H${fuseX}V${fuseY + 12}`
+          : `M${packTerminalPoint(battery.pack.series).x} ${packTerminalPoint(battery.pack.series).y}V${wireChannelY(battery.pack.series + 1)}H${fuseX}V${fuseY + 12}`}
+        className={styles.mainPowerWire}
+      />
       <g data-battery-main-fuse={battery.mainFuse.ratingMa ?? 'unresolved'} transform={`translate(${fuseX} ${fuseY})`}>
         <rect width="82" height="24" rx="5" fill="#f4f2ea" stroke="#252b28" strokeWidth="2" />
         <line x1="8" y1="12" x2="74" y2="12" stroke="#252b28" strokeWidth="2" />
         <text x="41" y="-7" textAnchor="middle" className={styles.physicalPinLabel}>{battery.mainFuse.ratingMa ? `${battery.mainFuse.ratingMa / 1000} A` : 'RATED'} {battery.mainFuseClass?.label ?? 'FUSE'}</text>
       </g>
-      <path data-battery-wire="fused-positive" d={`M${fuseX + 82} ${tapY}H${busX}`} className={styles.mainPowerWire} />
-      <NetStub x={busX} y={tapY} kind="vbat" direction="right" lead={28} wireId="battery-positive-bus" />
+      <path data-battery-wire="fused-positive" d={`M${fuseX + 82} ${fuseY + 12}H${busX}`} className={styles.mainPowerWire} />
+      <NetStub x={busX} y={fuseY + 12} kind="vbat" direction="right" lead={28} wireId="battery-positive-bus" />
 
-      {protectionNegative && <path data-battery-wire="cell-negative" d={`M${tapPoint(0).x} ${tapY}V${packY - 2}H${protectionNegative.x}V${protectionNegative.y}`} className={styles.mainGroundWire} />}
+      {protectionNegative && <path data-battery-wire="cell-negative" d={`M${packTerminalPoint(0).x} ${packTerminalPoint(0).y}V${wireChannelY(0)}H${protectionNegative.x}V${protectionNegative.y}`} className={styles.mainGroundWire} />}
       {protectedNegative && <NetStub x={protectedNegative.x} y={protectedNegative.y} kind="gnd" direction="down" lead={20} wireId="battery-protected-negative" label="P− / GND" />}
 
       {moduleBoxes.map((box) => {
@@ -162,11 +195,13 @@ export function BatteryAssembly({ items, plan, band }: {
             const index = tapIndex(terminal, battery.pack.series)
             const terminalAt = terminalPoint(box, terminal)
             if (index === undefined || !terminalAt) return null
-            const tap = tapPoint(index)
-            return <path key={terminal} data-battery-sense={terminal} d={`M${tap.x} ${tap.y}V${packY - 4 - (index * 3)}H${terminalAt.x}V${terminalAt.y}`} className={styles.batterySenseWire} />
+            if ((index === 0 && terminal === protectionNegative?.label)
+              || (index === battery.pack.series && terminal === protectionPositive?.label)) return null
+            const packTerminal = packTerminalPoint(index)
+            return <path key={terminal} data-battery-sense={terminal} d={`M${packTerminal.x} ${packTerminal.y}V${wireChannelY(index)}H${terminalAt.x}V${terminalAt.y}`} className={styles.batterySenseWire} />
           })}
           {module.spec.charger && chargerPositive && <>
-            <path data-battery-wire={`charger-positive:${box.partId}`} d={`M${busX} ${tapY}V${branchFuseY + 8}H${branchFuseX}`} className={styles.mainPowerWire} />
+            <path data-battery-wire={`charger-positive:${box.partId}`} d={`M${busX} ${fuseY + 12}V${branchFuseY + 8}H${branchFuseX}`} className={styles.mainPowerWire} />
             <g data-battery-charger-fuse={box.partId} transform={`translate(${branchFuseX} ${branchFuseY})`}>
               <rect width="42" height="16" rx="3" fill="#f4f2ea" stroke="#252b28" />
               <line x1="5" y1="8" x2="37" y2="8" stroke="#252b28" />

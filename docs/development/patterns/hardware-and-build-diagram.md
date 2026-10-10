@@ -188,6 +188,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Peripherals
 
+- Battery protection wiring distinguishes cell terminals from protected output
+  terminals. Pack B+ lands on B+; protected positive leaves P+ when the board
+  exposes it, then reaches the main fuse and +BATT bus. Pack B- lands only on
+  B-, while P- is system ground. A combined power-and-balance B+ or B- pad gets
+  one drawn conductor, not overlapping power and sense wires. The battery pack
+  graphic draws each series junction through every parallel row, and routes
+  board conductors below the pack so labels never obscure connection paths.
+  The Samsung cell reference render faces positive-left; `BatteryAssembly`
+  mirrors each copy so the schematic reads B- on the left and B+ on the right.
+
 - **Two VL53 sensors on one I2C bus leave 0x29 free.** Every VL53L0X and VL53L1X
   wakes at 0x29, and the catalogue address list stays that power-on address.
   Assignable addresses 0x30 to 0x33 live in `distanceSensor.ts`. `distanceSensorBusIssues`
@@ -628,6 +638,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   LED is at increasing x, and Mosfetti A to D run left to right.
 
 ## Build Diagram
+
+- Power-zone headers own three rows: zone name, electrical rating, then main
+  fuse and trunk. Part artwork, fuse-block captions and shared-net symbols
+  start below those rows. Four-terminal converters keep catalogue order
+  `IN+`, `IN-`, `OUT+`, `OUT-`; the output positive must remain left of output
+  negative, and each terminal gets a visible pad label when the render does not
+  show usable screw-terminal markings.
 
 - A peripheral title is centred on its picture and has to stay inside the
   column slot (`PERIPHERAL_RENDER_W` + `PERIPHERAL_GAP`). Catalogue labels run
