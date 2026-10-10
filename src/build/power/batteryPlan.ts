@@ -5,10 +5,11 @@ import {
   batteryModuleSpec,
   packFacts,
   packWindow,
+  prospectiveShortCircuitA,
   type BatteryPackFacts,
   type BatterySourceWindow,
 } from '../../state/peripherals/battery'
-import { recommendConductor, recommendFuse, standardFuseRatingFor, type ConductorRecommendation, type FuseRecommendation } from './electricalRules'
+import { recommendConductor, recommendFuse, recommendFuseClass, standardFuseRatingFor, type ConductorRecommendation, type FuseClassRule, type FuseRecommendation } from './electricalRules'
 import type { ElectricalPlanIssue, ElectricalPlanTotals, ControllerSupplyPlan } from './electricalPlan'
 import type { PlanSource } from './planSource'
 
@@ -26,6 +27,8 @@ export interface BatteryPlan {
   window: BatterySourceWindow
   dischargeDesignCurrentMa: number
   mainFuse: FuseRecommendation
+  mainFuseClass?: FuseClassRule
+  prospectiveShortCircuitA?: number
   trunkConductor?: ConductorRecommendation
   limitedBy: string
   runtimeHours?: number
@@ -132,7 +135,6 @@ export function planBattery(
 
   const window = packWindow(pack, protection?.spec.protection, charger?.spec.charger)!
   const source: Extract<PlanSource, { kind: 'battery' }> = { kind: 'battery', packItemId: packItem.id, ...window }
-  if (window.ceilingV > 32) blockers.push(issue('battery-pack-voltage', 'blocking', 'Battery voltage', `${window.ceilingV} V pack ceiling exceeds the 32 V temporary limit. Fuse interrupt-rating selection lands in the next step.`))
   if (protection?.spec.protection && protection.spec.protection.overDischargeV < cell.dischargeCutoffV) {
     warnings.push(issue('battery-cutoff-below-cell', 'warning', protection.label, `${protection.spec.protection.overDischargeV} V protection cutoff is below the cell's ${cell.dischargeCutoffV} V rated cutoff.`))
   }
@@ -178,6 +180,13 @@ export function planBattery(
   if (dischargeDesignCurrentMa > 0 && !mainFuse.ratingMa) {
     blockers.push(issue('battery-main-fuse', 'blocking', 'Battery main fuse', mainFuse.unresolvedReason ?? 'No standard fuse fits the protected pack path.'))
   }
+  const prospectiveCurrentA = prospectiveShortCircuitA(pack)
+  const mainFuseClass = mainFuse.ratingMa && prospectiveCurrentA
+    ? recommendFuseClass(mainFuse.ratingMa, window.ceilingV, prospectiveCurrentA)
+    : undefined
+  if (mainFuse.ratingMa && prospectiveCurrentA && !mainFuseClass) {
+    blockers.push(issue('battery-fuse-interrupt', 'blocking', 'Battery main fuse', `No reviewed fuse class covers a ${formatCurrent(mainFuse.ratingMa)} fuse at ${window.ceilingV} V DC with at least ${prospectiveCurrentA} A interrupting capacity.`))
+  }
 
   const converterEfficiencies = (totals?.supplies ?? []).map((supply) => {
     const partId = supply.converter?.partId
@@ -217,6 +226,8 @@ export function planBattery(
       window,
       dischargeDesignCurrentMa,
       mainFuse,
+      mainFuseClass,
+      prospectiveShortCircuitA: prospectiveCurrentA,
       trunkConductor: conductor,
       limitedBy: protectionLimit <= cellLimit && protection ? protection.label : `${pack.parallel} parallel cell${pack.parallel === 1 ? '' : 's'}`,
       runtimeHours,

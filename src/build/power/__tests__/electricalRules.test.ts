@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { conductorVoltageDrop, recommendConductor, recommendFuse, WIRE_RULES } from '../electricalRules'
+import { conductorVoltageDrop, FUSE_CLASSES, recommendConductor, recommendFuse, recommendFuseClass, WIRE_RULES } from '../electricalRules'
 
 describe('electricalRules', () => {
   it('sizes a copper feed for both ampacity and round-trip voltage drop', () => {
@@ -72,5 +72,13 @@ describe('electricalRules', () => {
     const result = recommendFuse(9000, 10000, 10000)
     expect(result.ratingMa).toBeUndefined()
     expect(result.unresolvedReason).toContain('No standard fuse rating')
+  })
+
+  it('selects fuse classes by rating, DC voltage and interrupting capacity', () => {
+    expect(FUSE_CLASSES.map((rule) => rule.id)).toEqual(['ato-atc', 'midi', 'anl', 'mrbf', 'class-t'])
+    expect(recommendFuseClass(15000, 17, 600)?.id).toBe('ato-atc')
+    expect(recommendFuseClass(50000, 17, 1200)?.id).toBe('midi')
+    expect(recommendFuseClass(50000, 48, 3000)?.id).toBe('class-t')
+    expect(recommendFuseClass(50000, 170, 1200)).toBeUndefined()
   })
 })

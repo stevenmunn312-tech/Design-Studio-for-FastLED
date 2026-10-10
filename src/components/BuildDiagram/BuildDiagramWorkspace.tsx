@@ -390,7 +390,7 @@ export default function BuildDiagramWorkspace() {
       }
     }
     if (electricalPlan.battery) {
-      lines.push({ id: 'battery-main-fuse', quantity: '1', label: `${electricalPlan.battery.mainFuse.ratingMa ? formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa) : 'Rated'} battery main fuse and holder`, pending: !electricalPlan.battery.mainFuse.ratingMa })
+      lines.push({ id: 'battery-main-fuse', quantity: '1', label: `${electricalPlan.battery.mainFuse.ratingMa ? formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa) : 'Rated'} ${electricalPlan.battery.mainFuseClass?.label ?? ''} battery main fuse and holder`.replace('  ', ' '), pending: !electricalPlan.battery.mainFuse.ratingMa || !electricalPlan.battery.mainFuseClass })
     }
     const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
     if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })
@@ -1062,7 +1062,8 @@ export default function BuildDiagramWorkspace() {
                     <li>Source window: {electricalPlan.battery.window.minV} V minimum, {electricalPlan.battery.window.fullV} V full, {electricalPlan.battery.window.ceilingV} V ceiling</li>
                     <li>Rated pack: {electricalPlan.battery.pack.nominalV} V · {electricalPlan.battery.pack.capacityAh} Ah · {electricalPlan.battery.pack.energyWh} Wh</li>
                     <li>Full-white pack current: about {formatCurrentMa(electricalPlan.battery.dischargeDesignCurrentMa)}</li>
-                    <li>Main fuse: {electricalPlan.battery.mainFuse.ratingMa ? formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa) : 'unresolved'} · limited by {electricalPlan.battery.limitedBy}</li>
+                    <li>Main fuse: {electricalPlan.battery.mainFuse.ratingMa && electricalPlan.battery.mainFuseClass ? `${formatCurrentMa(electricalPlan.battery.mainFuse.ratingMa)} ${electricalPlan.battery.mainFuseClass.label} · ${electricalPlan.battery.mainFuseClass.interruptRatingA} A interrupting at ${electricalPlan.battery.mainFuseClass.maximumVoltageV} V DC` : 'unresolved'} · limited by {electricalPlan.battery.limitedBy}</li>
+                    {electricalPlan.battery.prospectiveShortCircuitA != null && <li>Conservative prospective short-circuit current: {electricalPlan.battery.prospectiveShortCircuitA} A</li>}
                     {electricalPlan.battery.runtimeHours != null && <li>Full-white runtime: at most about {electricalPlan.battery.runtimeHours} h</li>}
                     {electricalPlan.battery.limitedRuntimeHours != null && <li>Configured running-limit runtime: about {electricalPlan.battery.limitedRuntimeHours} h</li>}
                   </ul>

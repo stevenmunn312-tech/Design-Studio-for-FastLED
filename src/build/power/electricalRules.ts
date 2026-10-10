@@ -1,6 +1,6 @@
 import type { BuildConductorMaterial } from '../buildProfile'
 
-export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.09.27-v6'
+export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.09.27-v7'
 export const DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT = 5
 
 export interface WireRule {
@@ -36,6 +36,47 @@ export interface FuseRecommendation {
   minimumLoadRatingMa: number
   maximumProtectiveRatingMa: number
   unresolvedReason?: string
+}
+
+export interface FuseClassRule {
+  id: 'ato-atc' | 'midi' | 'anl' | 'mrbf' | 'class-t'
+  label: string
+  minimumRatingMa: number
+  maximumRatingMa: number
+  maximumVoltageV: number
+  interruptRatingA: number
+  sourceUrl: string
+}
+
+// Manufacturer figures, using the lower value when product revisions differ:
+// Littelfuse ATO 287: 1-40 A, 32 V DC, 1 kA interrupting rating.
+// https://www.littelfuse.com/products/fuses-overcurrent-protection/fuses/automotive-aftermarket-products-fuses/blade-fuses-shunts-automotive-aftermarket/ato
+// Littelfuse MIDI 498 (2024): 30-200 A, 32 V DC, 2 kA.
+// https://www.littelfuse.com/assetdocs/midi-32v-bolt-down-series-data-sheet?assetguid=b55e8034-180d-40f6-a0a7-bebc2d4a94f5
+// Blue Sea ANL: 35-750 A, 32 V DC, 6 kA.
+// https://catalog2015.bluesea.com/files/common/downloads/page0043.pdf
+// Eaton MRBF: 30-300 A, 58 V DC, 2 kA at 58 V DC.
+// https://www.eaton.com/sg/en-us/catalog/emobility/marine-rated-battery-fuse.html
+// Littelfuse JLLN Class T: 1-1200 A, at least 125 V DC, at least 20 kA.
+// https://www.littelfuse.com/assetdocs/jlln-datasheet?assetguid=3a7bc9bf-d932-4401-bdc7-b39f302195cf
+export const FUSE_CLASSES: readonly FuseClassRule[] = [
+  { id: 'ato-atc', label: 'ATO/ATC blade', minimumRatingMa: 1000, maximumRatingMa: 40000, maximumVoltageV: 32, interruptRatingA: 1000, sourceUrl: 'https://www.littelfuse.com/products/fuses-overcurrent-protection/fuses/automotive-aftermarket-products-fuses/blade-fuses-shunts-automotive-aftermarket/ato' },
+  { id: 'midi', label: 'MIDI', minimumRatingMa: 30000, maximumRatingMa: 200000, maximumVoltageV: 32, interruptRatingA: 2000, sourceUrl: 'https://www.littelfuse.com/assetdocs/midi-32v-bolt-down-series-data-sheet?assetguid=b55e8034-180d-40f6-a0a7-bebc2d4a94f5' },
+  { id: 'anl', label: 'ANL', minimumRatingMa: 35000, maximumRatingMa: 750000, maximumVoltageV: 32, interruptRatingA: 6000, sourceUrl: 'https://catalog2015.bluesea.com/files/common/downloads/page0043.pdf' },
+  { id: 'mrbf', label: 'MRBF', minimumRatingMa: 30000, maximumRatingMa: 300000, maximumVoltageV: 58, interruptRatingA: 2000, sourceUrl: 'https://www.eaton.com/sg/en-us/catalog/emobility/marine-rated-battery-fuse.html' },
+  { id: 'class-t', label: 'Class T', minimumRatingMa: 1000, maximumRatingMa: 1200000, maximumVoltageV: 125, interruptRatingA: 20000, sourceUrl: 'https://www.littelfuse.com/assetdocs/jlln-datasheet?assetguid=3a7bc9bf-d932-4401-bdc7-b39f302195cf' },
+] as const
+
+export function recommendFuseClass(
+  ratingMa: number,
+  maximumVoltageV: number,
+  prospectiveCurrentA: number,
+): FuseClassRule | undefined {
+  return FUSE_CLASSES.find((rule) =>
+    ratingMa >= rule.minimumRatingMa
+    && ratingMa <= rule.maximumRatingMa
+    && maximumVoltageV <= rule.maximumVoltageV
+    && prospectiveCurrentA <= rule.interruptRatingA)
 }
 
 // NFPA 70 (NEC) 2023 Table 310.16, 90 C copper: not more than three

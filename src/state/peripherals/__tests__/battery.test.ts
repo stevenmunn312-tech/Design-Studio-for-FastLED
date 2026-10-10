@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { partById } from '../../../build/parts/partCatalogue'
+import { packFacts, prospectiveShortCircuitA } from '../battery'
 
 describe('catalogued battery parts', () => {
   it('carries the Samsung 35E cell limits', () => {
@@ -61,5 +62,10 @@ describe('catalogued battery parts', () => {
       .toMatchObject({ continuousCurrentMa: 20000, isolated: false })
     expect(partById('rcnun-60a-5v-buck-converter')?.powerConverter)
       .toMatchObject({ continuousCurrentMa: 60000, isolated: false })
+  })
+
+  it('estimates prospective short-circuit current from parallel cells', () => {
+    const pack = packFacts('samsung-inr18650-35e', 4, 5)
+    expect(pack && prospectiveShortCircuitA(pack)).toBe(600)
   })
 })

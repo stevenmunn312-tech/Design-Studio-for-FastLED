@@ -88,6 +88,8 @@ describe('battery power planning', () => {
     expect(plan.totals?.supplies.every((supply) => supply.converter?.partId === 'rcnun-60a-5v-buck-converter')).toBe(true)
     expect(plan.battery?.dischargeDesignCurrentMa).toBeGreaterThan(30000)
     expect(plan.battery?.mainFuse.ratingMa).toBe(50000)
+    expect(plan.battery?.mainFuseClass?.id).toBe('midi')
+    expect(plan.battery?.prospectiveShortCircuitA).toBe(1200)
     expect(plan.battery?.limitedRuntimeHours).toBeGreaterThan(plan.battery?.runtimeHours ?? 0)
     expect(plan.warnings).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'battery-discharge-rate' })]))
     expect(plan.recommendations.some((entry) => entry.includes('professional with high-power, low-voltage experience'))).toBe(true)
@@ -120,7 +122,10 @@ describe('battery power planning', () => {
       module('bms-2', 'bm3451-4s-60a-active-balance-bms'),
     ])).toContain('battery-function-count')
     expect(issueIds([module('bms', 'hx-4s-f30a-bms-balance')])).toContain('battery-module-orphan')
-    expect(issueIds([pack(8, 1), module('bms', 'hx-4s-f30a-bms-balance')])).toContain('battery-pack-voltage')
+    expect(issueIds([
+      pack(40, 1), module('bms', 'hx-4s-f30a-bms-balance'),
+      converter('generic-300w-9a-buck-module'), output(8, 8),
+    ])).toContain('battery-fuse-interrupt')
 
     const noLoad = issueIds([pack(1, 1), module('power-bank', 'ip5305t-1s-power-module')])
     expect(noLoad).toContain('battery-no-load')
@@ -203,5 +208,6 @@ describe('battery power planning', () => {
       expect.objectContaining({ item: 'Battery main fuse and insulated holder' }),
     ]))
     expect(bom.some((row) => row.item.startsWith('Recommended ') && row.item.endsWith(' DC source'))).toBe(false)
+    expect(bom.find((row) => row.item === 'Battery main fuse and insulated holder')?.specification).toContain('ATO/ATC blade')
   })
 })

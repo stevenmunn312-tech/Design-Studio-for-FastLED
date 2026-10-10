@@ -334,7 +334,7 @@ export function buildBomRows(
   if (plan.battery && items.some((item) => item.id === plan.battery!.packItemId)) {
     const battery = plan.battery
     rows.push({ quantity: String(battery.pack.cellCount), item: battery.pack.label, specification: `${battery.pack.series}S${battery.pack.parallel}P matched pack; ${battery.pack.nominalV} V nominal, ${battery.pack.capacityAh} Ah, ${battery.pack.energyWh} Wh`, status: 'configured' })
-    rows.push({ quantity: '1', item: 'Battery main fuse and insulated holder', specification: battery.mainFuse.ratingMa ? `${formatAmps(battery.mainFuse.ratingMa)} DC-rated; limited by ${battery.limitedBy}` : battery.mainFuse.unresolvedReason ?? 'Unresolved battery main fuse', status: battery.mainFuse.ratingMa ? 'calculated' : 'unresolved' })
+    rows.push({ quantity: '1', item: 'Battery main fuse and insulated holder', specification: battery.mainFuse.ratingMa && battery.mainFuseClass ? `${formatAmps(battery.mainFuse.ratingMa)} ${battery.mainFuseClass.label}, ${battery.mainFuseClass.maximumVoltageV} V DC / ${battery.mainFuseClass.interruptRatingA} A interrupting minimum; limited by ${battery.limitedBy}` : battery.mainFuse.unresolvedReason ?? 'Unresolved battery fuse class or rating', status: battery.mainFuse.ratingMa && battery.mainFuseClass ? 'calculated' : 'unresolved' })
     rows.push({ quantity: '3 runs', item: 'Battery pack conductors', specification: battery.trunkConductor ? `AWG ${battery.trunkConductor.awg} copper minimum for B+, +BATT and P-` : 'Unresolved battery conductor size', status: battery.trunkConductor ? 'calculated' : 'unresolved' })
     if (battery.charger) {
       const chargeCurrentMa = battery.charger.spec.charger!.maxChargeMa

@@ -96,6 +96,12 @@ export function packWindow(
   }
 }
 
+export function prospectiveShortCircuitA(pack: BatteryPackFacts): number | undefined {
+  const cell = batteryCellSpec(pack.partId)
+  if (!cell || cell.internalResistanceMohm <= 0) return undefined
+  return Math.ceil((pack.parallel * cell.chargeV) / (cell.internalResistanceMohm / 1000))
+}
+
 /** Adapt a board's integrated 5 V output to the normal rail-converter contract. */
 export function batteryOutputConverterSpec(
   module: PartBatteryModuleSpec,
