@@ -1097,7 +1097,9 @@
 .wireTooltip {
   position: fixed;
   z-index: 10000;
-  max-width: 360px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
   padding: 6px 10px;
   border: 1px solid var(--border-glow);
   border-radius: 6px;
@@ -1107,7 +1109,8 @@
   font-family: var(--font-code);
   font-size: var(--fs-caption);
   pointer-events: none;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Shared-rail net stubs: short lead + net symbol in place of a drawn run. */

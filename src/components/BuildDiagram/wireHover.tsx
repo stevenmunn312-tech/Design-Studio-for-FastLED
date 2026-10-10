@@ -1,4 +1,4 @@
-import { useImperativeHandle, useState, type Ref, type SVGProps } from 'react'
+import { useImperativeHandle, useState, type CSSProperties, type Ref, type SVGProps } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './BuildDiagramWorkspace.module.css'
 
@@ -51,6 +51,21 @@ export interface WireTooltipHandle {
   hide: () => void
 }
 
+const TOOLTIP_POINTER_GAP_X = 14
+const TOOLTIP_POINTER_GAP_Y = 16
+const TOOLTIP_VIEWPORT_MARGIN = 12
+
+/** Anchor away from the pointer and toward viewport interior. */
+function wireTooltipPosition(x: number, y: number, width: number, height: number): CSSProperties {
+  const horizontal = x > width / 2
+    ? { right: Math.max(TOOLTIP_VIEWPORT_MARGIN, width - x + TOOLTIP_POINTER_GAP_X) }
+    : { left: Math.max(TOOLTIP_VIEWPORT_MARGIN, x + TOOLTIP_POINTER_GAP_X) }
+  const vertical = y > height / 2
+    ? { bottom: Math.max(TOOLTIP_VIEWPORT_MARGIN, height - y + TOOLTIP_POINTER_GAP_Y) }
+    : { top: Math.max(TOOLTIP_VIEWPORT_MARGIN, y + TOOLTIP_POINTER_GAP_Y) }
+  return { ...horizontal, ...vertical }
+}
+
 /**
  * Screen-space tooltip, portalled to the body: the diagram sits inside a
  * transformed pan/zoom surface, so anything drawn in its own coordinates would
@@ -65,8 +80,9 @@ export function WireTooltip({ ref }: { ref: Ref<WireTooltipHandle> }) {
     hide: () => setState(null),
   }), [])
   if (!state || typeof document === 'undefined') return null
+  const position = wireTooltipPosition(state.x, state.y, window.innerWidth, window.innerHeight)
   return createPortal(
-    <div role="tooltip" className={styles.wireTooltip} style={{ left: state.x + 14, top: state.y + 16 }}>
+    <div role="tooltip" className={styles.wireTooltip} style={position}>
       {state.tip}
     </div>,
     document.body,

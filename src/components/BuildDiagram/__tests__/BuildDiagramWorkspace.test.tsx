@@ -839,10 +839,30 @@ describe('BuildDiagramWorkspace', () => {
     const hitArea = group.querySelector('path[aria-hidden="true"]')!
     expect(hitArea.getAttribute('d')).toBe(wire.getAttribute('d'))
     fireEvent.pointerOver(hitArea, { clientX: 40, clientY: 50 })
-    expect(queryByRole('tooltip')?.textContent).toBe(tip)
+    const tooltip = queryByRole('tooltip')
+    expect(tooltip?.textContent).toBe(tip)
+    expect(tooltip?.style.left).toBe('54px')
+    expect(tooltip?.style.top).toBe('66px')
 
     fireEvent.pointerLeave(diagram)
     expect(queryByRole('tooltip')).toBeNull()
+  })
+
+  it('anchors long wire tooltips inside the lower-right viewport', () => {
+    useGraphStore.setState({ nodes: [matrixNode()] as never[] })
+    selectDevKit()
+    const { container, queryByRole } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')!
+    const hitArea = diagram.querySelector('[data-wire-role="main-psu-positive"]')
+      ?.closest('[data-wire-tip]')?.querySelector('path[aria-hidden="true"]')
+    expect(hitArea).toBeTruthy()
+
+    fireEvent.pointerOver(hitArea!, { clientX: window.innerWidth - 8, clientY: window.innerHeight - 8 })
+    const tooltip = queryByRole('tooltip')
+    expect(tooltip?.style.left).toBe('')
+    expect(tooltip?.style.top).toBe('')
+    expect(tooltip?.style.right).toBe('22px')
+    expect(tooltip?.style.bottom).toBe('24px')
   })
 
   // The controller drives I2S data *out*; the amplifier takes it on a pad

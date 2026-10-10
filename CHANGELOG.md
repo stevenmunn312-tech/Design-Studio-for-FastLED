@@ -227,6 +227,8 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Wire tooltips now wrap long descriptions and anchor toward the inside of the
+  browser viewport, so hovering near any edge does not cut off their text.
 - Battery buck-converter wires now land on catalogue-defined terminal centres
   instead of positions inherited from the tall Mean Well converter. Output
   positive routes around output negative, P− is shown as the system ground
