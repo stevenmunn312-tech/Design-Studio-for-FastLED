@@ -183,6 +183,68 @@ describe('battery power planning', () => {
     }
   })
 
+  it('keeps the P- sentence off a converter fed by a fixed supply', () => {
+    const { plan } = planFor([
+      converter('dgxby-20a-5v-buck-converter'),
+      output(8, 8),
+    ])
+    const text = plan.recommendations.join(' ')
+    expect(text).toContain('Join each converter IN- and OUT- to the supply negative and the common LED ground.')
+    expect(text).not.toContain('protected P-')
+  })
+
+  it('sizes the main fuse for charge current when the charger shares that fuse', () => {
+    const { plan } = planFor([
+      pack(4, 3),
+      module('bms', 'hx-4s-f30a-bms-balance'),
+      module('charger', 'ip2368-100w-bidirectional-charger'),
+      converter('dgxby-20a-5v-buck-converter'),
+      output(8, 8),
+    ])
+    expect(plan.battery?.dischargeDesignCurrentMa).toBeLessThan(5950)
+    expect(plan.battery?.mainFuse.ratingMa).toBe(10000)
+    expect(plan.blockers.map((entry) => entry.id)).not.toContain('battery-main-fuse')
+  })
+
+  it('exports the protected port, and does not bond a combined charger back to the cell pads', () => {
+    const { manifest, plan } = planFor([
+      pack(1, 1),
+      module('protect', 'tp4056-usbc-charge-protect-module'),
+    ])
+    const connections = buildConnectionRows(manifest.primaryItems, plan, board)
+    expect(connections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fromTerminal: 'B+', toTerminal: 'B+' }),
+      expect.objectContaining({ fromTerminal: 'OUT+', to: expect.stringContaining('main fuse') }),
+      expect.objectContaining({ fromTerminal: 'B-', toTerminal: 'B-' }),
+      expect.objectContaining({ fromTerminal: 'OUT-', to: 'Common ground bus' }),
+    ]))
+    expect(connections.filter((row) => row.toTerminal === 'B-')).toEqual([
+      expect.objectContaining({ fromTerminal: 'B-' }),
+    ])
+    expect(connections.some((row) => row.fromTerminal === 'P-' || row.toTerminal === 'P-')).toBe(false)
+    expect(connections.some((row) => row.from === '+BATT bus')).toBe(false)
+    const bom = buildBomRows(manifest, plan, ensureBuildProfile({ version: 1 }), board)
+    expect(bom.some((row) => row.item === 'Charger branch fuse and holder')).toBe(false)
+    expect(bom.some((row) => row.item === 'USB-C PD charger and cable')).toBe(true)
+
+    const integrated = planFor([
+      pack(1, 1),
+      module('power-bank', 'ip5305t-1s-power-module'),
+    ])
+    const integratedRows = buildConnectionRows(integrated.manifest.primaryItems, integrated.plan, board)
+    expect(integratedRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ toTerminal: '+BAT' }),
+      expect.objectContaining({ fromTerminal: '5V-', to: 'Common ground bus' }),
+    ]))
+    expect(integratedRows.some((row) => row.fromTerminal === 'P-' || row.toTerminal === 'P-')).toBe(false)
+    expect(integratedRows.filter((row) => row.toTerminal === '-BAT')).toEqual([
+      expect.objectContaining({ fromTerminal: 'B-' }),
+    ])
+    expect(integratedRows.some((row) => row.from === '+BATT bus')).toBe(false)
+    expect(integrated.plan.recommendations.join(' ')).not.toContain('P-')
+    expect(integrated.plan.recommendations.join(' ')).toContain('5V-')
+  })
+
   it('exports B+, B-, P- and battery parts without a recommended DC source', () => {
     const { manifest, plan } = planFor([
       pack(4, 5),
@@ -195,12 +257,18 @@ describe('battery power planning', () => {
     const bom = buildBomRows(manifest, plan, ensureBuildProfile({ version: 1 }), board)
 
     expect(connections).toEqual(expect.arrayContaining([
-      expect.objectContaining({ fromTerminal: 'B+', to: expect.stringContaining('main fuse') }),
+      expect.objectContaining({ fromTerminal: 'B+', toTerminal: 'B+', purpose: 'Cell positive onto the protection board' }),
+      expect.objectContaining({ fromTerminal: 'P+', to: expect.stringContaining('main fuse') }),
       expect.objectContaining({ fromTerminal: 'B-', toTerminal: 'B-' }),
       expect.objectContaining({ fromTerminal: 'P-', to: 'Common ground bus' }),
       expect.objectContaining({ from: 'battery pack', fromTerminal: '+BATT', to: expect.stringContaining('input fuse') }),
       expect.objectContaining({ from: '+BATT bus', to: expect.stringContaining('charger branch fuse') }),
       expect.objectContaining({ from: expect.stringContaining('charger branch fuse'), toTerminal: 'BAT+' }),
+      expect.objectContaining({ fromTerminal: 'P-', toTerminal: 'BAT-', purpose: expect.stringContaining('never connect the charger negative to B-') }),
+    ]))
+    expect(connections.some((row) => row.toTerminal === 'B-' && row.from === 'Common ground bus')).toBe(false)
+    expect(plan.recommendations).toEqual(expect.arrayContaining([
+      expect.stringContaining('Put the battery main fuse on P+'),
     ]))
     expect(connections.some((row) => row.from === board?.label && row.to.includes('BMS'))).toBe(false)
     expect(bom).toEqual(expect.arrayContaining([

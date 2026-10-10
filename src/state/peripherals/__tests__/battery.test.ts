@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { partById } from '../../../build/parts/partCatalogue'
-import { packFacts, prospectiveShortCircuitA } from '../battery'
+import { chargerUsesCellPads, packFacts, prospectiveShortCircuitA, protectionPads } from '../battery'
 
 describe('catalogued battery parts', () => {
   it('carries the Samsung 35E cell limits', () => {
@@ -62,6 +62,30 @@ describe('catalogued battery parts', () => {
       .toMatchObject({ continuousCurrentMa: 20000, isolated: false })
     expect(partById('rcnun-60a-5v-buck-converter')?.powerConverter)
       .toMatchObject({ continuousCurrentMa: 60000, isolated: false })
+  })
+
+  it('resolves protected pads by role, including boards that do not print P+ and P-', () => {
+    expect(protectionPads(['B-', 'B+', 'P-', 'P+'])).toEqual({
+      cellPositive: 'B+',
+      cellNegative: 'B-',
+      protectedPositive: 'P+',
+      protectedNegative: 'P-',
+    })
+    expect(protectionPads(['B+', 'B-', 'OUT+', 'OUT-'])).toEqual({
+      cellPositive: 'B+',
+      cellNegative: 'B-',
+      protectedPositive: 'OUT+',
+      protectedNegative: 'OUT-',
+    })
+    expect(protectionPads(['+BAT', '-BAT', '5V+', '5V-'], ['5V+', '5V-'])).toEqual({
+      cellPositive: '+BAT',
+      cellNegative: '-BAT',
+      protectedPositive: '+BAT',
+      protectedNegative: '5V-',
+    })
+    const tp4056 = protectionPads(['B+', 'B-', 'OUT+', 'OUT-'])
+    expect(chargerUsesCellPads('board', 'board', ['B+', 'B-'], tp4056)).toBe(true)
+    expect(chargerUsesCellPads('charger', 'bms', ['BAT+', 'BAT-'], protectionPads(['B-', 'B+', 'P-', 'P+']))).toBe(false)
   })
 
   it('estimates prospective short-circuit current from parallel cells', () => {

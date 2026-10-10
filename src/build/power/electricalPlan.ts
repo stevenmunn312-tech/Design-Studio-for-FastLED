@@ -23,7 +23,7 @@ import {
   DEFAULT_SUPPLY_HEADROOM_PERCENT,
   recommendedSupplyCurrentMa,
 } from './powerSupplySizing'
-import { batteryOutputConverterSpec, batteryModuleSpec } from '../../state/peripherals/battery'
+import { batteryOutputConverterSpec, batteryModuleSpec, protectionPads } from '../../state/peripherals/battery'
 import { batterySourceFor, planBattery, type BatteryPlan } from './batteryPlan'
 import {
   planSourceLabel,
@@ -895,6 +895,14 @@ export function calculateElectricalPlan(
         ? 'recommended supply, protection, distribution, and branch wiring generated'
         : 'generated plan contains an unsupported electrical route'
 
+  const batteryProtection = batteryResult.battery?.protection
+  const batteryOutput = batteryResult.battery?.output
+  const batteryProtectedNegative = batteryProtection?.spec.protection
+    ? protectionPads(
+      batteryProtection.spec.protection.powerTerminals,
+      batteryOutput && batteryOutput.itemId === batteryProtection.itemId ? batteryOutput.spec.output?.terminals ?? [] : [],
+    ).protectedNegative ?? 'P-'
+    : 'P-'
   const recommendations = [
     controllerSupply
       ? `Power the controller from the ${controllerSupply.label} into its ${controllerSupply.powerInPinLabel ?? '5 V input'} pin; do not route LED load through the controller board.`
@@ -909,7 +917,9 @@ export function calculateElectricalPlan(
         ? [batterySource
             ? 'Bond each isolated converter output -V to common ground at its fuse block. Bond FG to a metal enclosure; battery power has no protective earth.'
             : 'Bond every isolated converter output -V to the common ground at its fuse-block distribution point; connect FG to protective earth or the metal enclosure.']
-        : ['Connect every converter input and output negative to the protected P- common-negative net.']),
+        : [batterySource
+            ? `Connect every converter input and output negative to the protected ${batteryProtectedNegative} common-negative net.`
+            : 'Join each converter IN- and OUT- to the supply negative and the common LED ground.']),
       `Set each converter to ${railConverter.module.spec.outputSetV} V with a meter before connecting LEDs, and keep its perforated case uncovered with airflow.`,
     ] : []),
     'Join controller, microphone, level shifter, supply, and LED grounds at the common distribution ground.',

@@ -85,8 +85,9 @@ pin to make the drawing pass.
 - Every generated LED feed has positive and ground conductors, branch
   protection, and a stated conductor/connector minimum.
 - Every external supply feeds both positive distribution and common ground.
-- In a battery build, the protection board's P- is common ground. Only the
-  protection board touches cell-stack B-, and the fused B+ output becomes
+- In a battery build, the protection board's protected negative is common
+  ground. Only the protection board touches the cell negative. Pack positive
+  lands on the cell-positive pad, and the fused protected positive becomes
   the `+BATT` source for converters and charging hardware.
 - Every LED data route includes a 74AHCT125-class 3.3 V to 5 V conditioning
   stage and a 330 ohm series resistor for the current ESP32-S3/WS2812 scope.

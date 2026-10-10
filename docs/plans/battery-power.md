@@ -41,8 +41,8 @@ Every build keeps the usual LED front end: a 74AHCT125 level shifter, a
 330 Ω data resistor and a 1000 µF capacitor per feed. The 1S boost build needs
 the level shifter because its pixels run at 5 V.
 
-The LED load runs from the pack terminals through a battery main fuse to the
-converter. In the 1S build the module's own 5 V output feeds the LEDs and the
+The LED load runs from the protection board's protected positive through a
+battery main fuse to the converter. In the 1S build the module's own 5 V output feeds the LEDs and the
 controller. The IP2368 board only charges the pack; its USB-C port can also
 discharge it, which the plan never uses for the LED load.
 
@@ -84,7 +84,8 @@ before. A converter fed by a pack hides its own source-voltage setting.
 
 ### Ground
 
-The protection board's P− is the system's one 0 V net. Converter input
+The protection board's protected negative (P−, or OUT− when the board prints
+that) is the system's one 0 V net. Converter input
 negatives and the charger join it, and isolated converter outputs still bond
 to it at their distribution point. Only the protection board's B− and the B0
 sense lead touch the cells' B−: anything else on B− bypasses the protection.
@@ -93,8 +94,12 @@ to a metal enclosure if there is one.
 
 ### Fuses
 
-The battery main fuse sits on B+, as close to the cells as its holder allows.
-It follows the same 75% loading rule as every other fuse, and the protection
+The battery main fuse leaves the protected positive (`P+` or `OUT+`) when the
+board has that pad, as close to the pad as its holder allows. A board with no
+separate protected positive carries the fuse on the cell-positive lead. The
+fuse is sized for the greater of full-white discharge and charge current,
+because the charger sits on the load side of the fuse. It follows the same
+75% loading rule as every other fuse, and the protection
 board's continuous rating and the parallel cells' continuous rating cap it
 the way a connector caps a branch fuse. Every fuse on the battery side must
 also interrupt the pack's prospective short-circuit current at the pack's

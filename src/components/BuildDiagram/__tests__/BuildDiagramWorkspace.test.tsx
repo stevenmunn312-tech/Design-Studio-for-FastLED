@@ -1664,6 +1664,9 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelectorAll('[data-battery-tap]')).toHaveLength(2)
     expect(diagram?.querySelector('[data-battery-terminal="ip5305t-1s-power-module:+BAT"]')).toBeTruthy()
     expect(diagram?.querySelector('[data-net-stub-for^="battery-output-positive"]')).toBeTruthy()
+    expect(diagram?.querySelectorAll('[data-component-render="ip5305t-1s-power-module"]')).toHaveLength(1)
+    expect(diagram?.querySelector('[data-integrated-pack-output="ip5305t-1s-power-module"] [data-net-stub="v5"]')?.textContent).toBe('5V+')
+    expect(diagram?.querySelector('[data-battery-wire^="charger-positive"]')).toBeNull()
 
     fireEvent(window, new Event('beforeprint'))
     const printDocument = document.body.querySelector('[data-build-print-document]')
@@ -1695,6 +1698,7 @@ describe('BuildDiagramWorkspace', () => {
       .toMatch(new RegExp(`^M${pPlus?.getAttribute('cx')} `))
     expect(diagram?.querySelector('[data-battery-sense="B+"]')).toBeNull()
     expect(diagram?.querySelector('[data-battery-sense="B-"]')).toBeNull()
+    expect(diagram?.querySelector('[data-battery-charger-fuse="ip2368-100w-bidirectional-charger"] text')?.textContent).toBe('10A')
     const zones = Array.from(diagram?.querySelectorAll('[data-power-zone]') ?? [])
     expect(zones).toHaveLength(2)
     for (const zone of zones) {
@@ -1717,6 +1721,49 @@ describe('BuildDiagramWorkspace', () => {
       expect(Number(batteryPositive?.querySelector('text')?.getAttribute('x'))).toBeGreaterThanOrEqual(24)
       expect(Number(batteryNegative?.querySelector('text')?.getAttribute('x'))).toBeGreaterThanOrEqual(24)
     }
+  })
+
+  it('draws a separate balancer end taps and keeps a third board inside the assembly frame', () => {
+    useGraphStore.setState({ nodes: [
+      boardNode('espressif-esp32-s3-devkitc-1'),
+      batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 4, parallel: 5 }),
+      batteryNode('bms', 'BatteryModule', { partId: '4s-15a-enhanced-bms' }),
+      batteryNode('balance', 'BatteryModule', { partId: '4s-5a-active-balancer' }),
+      batteryNode('charger', 'BatteryModule', { partId: 'ip2368-100w-bidirectional-charger' }),
+    ] as never[] })
+    selectDevKit()
+    const view = render(<BuildDiagramWorkspace />)
+    const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
+    const balancer = diagram?.querySelector('[data-battery-module="4s-5a-active-balancer"]')
+    expect(balancer?.querySelector('[data-battery-sense="B-"]')).toBeTruthy()
+    expect(balancer?.querySelector('[data-battery-sense="B+"]')).toBeTruthy()
+    expect(diagram?.querySelector('[data-battery-module="4s-15a-enhanced-bms"] [data-battery-sense="B-"]')).toBeNull()
+    expect(diagram?.querySelector('[data-battery-module="4s-15a-enhanced-bms"] [data-battery-sense="B+"]')).toBeNull()
+    const frame = diagram?.querySelector('[data-battery-assembly="true"] > rect')
+    const frameBottom = Number(frame?.getAttribute('y')) + Number(frame?.getAttribute('height'))
+    const captions = Array.from(diagram?.querySelectorAll('[data-battery-terminal] text') ?? [])
+    expect(captions.length).toBeGreaterThan(0)
+    for (const caption of captions) {
+      expect(Number(caption.getAttribute('y'))).toBeLessThanOrEqual(frameBottom)
+    }
+  })
+
+  it('lands the TP4056 fuse on OUT+ and leaves the cell pads off the charge bus', () => {
+    useGraphStore.setState({ nodes: [
+      boardNode('espressif-esp32-s3-devkitc-1'),
+      batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 1, parallel: 1 }),
+      batteryNode('protect', 'BatteryModule', { partId: 'tp4056-usbc-charge-protect-module' }),
+    ] as never[] })
+    selectDevKit()
+    const view = render(<BuildDiagramWorkspace />)
+    const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
+    const outPlus = diagram?.querySelector('[data-battery-terminal="tp4056-usbc-charge-protect-module:OUT+"] circle')
+    const outMinus = diagram?.querySelector('[data-battery-terminal="tp4056-usbc-charge-protect-module:OUT-"] circle')
+    expect(diagram?.querySelector('[data-battery-wire="main-positive"]')?.getAttribute('d'))
+      .toMatch(new RegExp(`^M${outPlus?.getAttribute('cx')} `))
+    expect(diagram?.querySelector('[data-net-stub-for="battery-protected-negative"]')?.getAttribute('data-net-stub-x'))
+      .toBe(outMinus?.getAttribute('cx'))
+    expect(diagram?.querySelector('[data-battery-wire^="charger-positive"]')).toBeNull()
   })
 
   it('builds a paginated print document only while printing, with power on its own pages', () => {

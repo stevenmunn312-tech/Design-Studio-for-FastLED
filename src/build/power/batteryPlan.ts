@@ -5,6 +5,7 @@ import {
   batteryModuleSpec,
   packFacts,
   packWindow,
+  protectionPads,
   prospectiveShortCircuitA,
   type BatteryPackFacts,
   type BatterySourceWindow,
@@ -161,10 +162,12 @@ export function planBattery(
 
   const dischargeDesignCurrentMa = (totals?.supplies ?? []).reduce((sum, supply) => sum + (supply.converter?.inputCurrentMa ?? 0), 0)
     + (controllerSupply?.inputCurrentMa ?? 0)
+  // The charger taps +BATT, on the load side of the main fuse, so charge current flows back through it.
+  const fuseDesignCurrentMa = Math.max(dischargeDesignCurrentMa, charger?.spec.charger?.maxChargeMa ?? 0)
   const protectionLimit = protection?.spec.protection?.continuousDischargeMa ?? 0
   const cellLimit = pack.maxContinuousDischargeMa
   const pathLimit = Math.min(protectionLimit || Number.POSITIVE_INFINITY, cellLimit)
-  const mainFuseRating = standardFuseRatingFor(dischargeDesignCurrentMa)
+  const mainFuseRating = standardFuseRatingFor(fuseDesignCurrentMa)
   const conductor = mainFuseRating ? recommendConductor({
     designCurrentMa: mainFuseRating,
     oneWayLengthMm: 500,
@@ -175,9 +178,9 @@ export function planBattery(
     bundledCircuits: 1,
   }) : undefined
   const mainFuse = conductor
-    ? recommendFuse(dischargeDesignCurrentMa, conductor.deratedAmpacityMa, pathLimit)
-    : { minimumLoadRatingMa: Math.ceil(dischargeDesignCurrentMa / 0.75), maximumProtectiveRatingMa: pathLimit, unresolvedReason: 'No reviewed conductor carries the battery main fuse.' }
-  if (dischargeDesignCurrentMa > 0 && !mainFuse.ratingMa) {
+    ? recommendFuse(fuseDesignCurrentMa, conductor.deratedAmpacityMa, pathLimit)
+    : { minimumLoadRatingMa: Math.ceil(fuseDesignCurrentMa / 0.75), maximumProtectiveRatingMa: pathLimit, unresolvedReason: 'No reviewed conductor carries the battery main fuse.' }
+  if (fuseDesignCurrentMa > 0 && !mainFuse.ratingMa) {
     blockers.push(issue('battery-main-fuse', 'blocking', 'Battery main fuse', mainFuse.unresolvedReason ?? 'No standard fuse fits the protected pack path.'))
   }
   const prospectiveCurrentA = prospectiveShortCircuitA(pack)
@@ -205,9 +208,21 @@ export function planBattery(
     warnings.push(issue('battery-discharge-rate', 'warning', 'Battery runtime', `Full white empties the rated pack in at most about ${runtimeHours} h. Use enough capacity for at least 2 h.`))
   }
 
+  const outputTerminals = output && protection && output.itemId === protection.itemId
+    ? output.spec.output?.terminals ?? []
+    : []
+  const pads = protection?.spec.protection
+    ? protectionPads(protection.spec.protection.powerTerminals, outputTerminals)
+    : undefined
+  const cellPositive = pads?.cellPositive ?? 'B+'
+  const cellNegative = pads?.cellNegative ?? 'B-'
+  const protectedPositive = pads?.protectedPositive ?? cellPositive
+  const protectedNegative = pads?.protectedNegative ?? 'P-'
   recommendations.push(
-    'Put the battery main fuse on B+ as close to the cells as the holder allows.',
-    'Use protection P- as the one 0 V net. Nothing except the protection board and its B0 sense lead may touch B-.',
+    protectedPositive === cellPositive
+      ? `Put the battery main fuse on ${cellPositive} as close to the cells as the holder allows.`
+      : `Land pack B+ on ${cellPositive}. Put the battery main fuse on ${protectedPositive}, then run it to the +BATT bus.`,
+    `Use protection ${protectedNegative} as the one 0 V net. Nothing except the protection board and its B0 sense lead may touch ${cellNegative}.`,
   )
   if (pack.series > 1) recommendations.push('Connect balance leads in the board\'s printed B0-to-BS order, verify each step with a meter, then plug in the harness last.')
   const chargerSpec = charger?.spec.charger

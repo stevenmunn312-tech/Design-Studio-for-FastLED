@@ -7,7 +7,14 @@ import { partOptionsFor } from '../../../build/parts/partOptions'
 import {
   COMMON_NET_CALLOUT_GAP,
   COMMON_NET_CALLOUT_HEIGHT,
+  batteryAssemblyHeight,
   batteryBand,
+  BATTERY_CONTENT_TOP,
+  BATTERY_FRAME_TRIM,
+  BATTERY_MODULE_HEIGHT,
+  BATTERY_MODULE_LABEL_DROP,
+  BATTERY_MODULE_ROW_PITCH,
+  BATTERY_MODULE_TOP,
   diagramContentBottom,
   feedCombLaneY,
   feedIndexForFuseSlot,
@@ -380,6 +387,27 @@ describe('powerZoneBands', () => {
     const batteryOnlyPlan = { ...plan, outputs: [], totals: undefined } as unknown as ElectricalPlanSummary
     expect(physicalAssemblyDiagramHeight([batteryItem], batteryOnlyPlan))
       .toBe(batteryBand([batteryItem], batteryOnlyPlan)!.y + battery.height + POWER_SECTION_SPACING)
+  })
+
+  it('grows the battery band so a third pack board stays inside the frame', () => {
+    expect(batteryAssemblyHeight(2, 4)).toBe(410)
+    expect(batteryAssemblyHeight(3, 4)).toBeGreaterThan(410)
+    const batteryItem = {
+      id: 'battery-pack:pack', kind: 'battery-pack', title: '4S pack', subtitle: '',
+      supported: true, pins: [], facts: {},
+    } as HardwareManifestItem
+    const plan = {
+      battery: {
+        packItemId: batteryItem.id,
+        pack: { series: 4 },
+        modules: [{ itemId: 'a' }, { itemId: 'b' }, { itemId: 'c' }],
+      },
+    } as unknown as ElectricalPlanSummary
+    const band = batteryBand([batteryItem], plan)!
+    const thirdTop = BATTERY_CONTENT_TOP + BATTERY_MODULE_TOP + BATTERY_MODULE_ROW_PITCH
+    const thirdLabelBottom = thirdTop + BATTERY_MODULE_HEIGHT + BATTERY_MODULE_LABEL_DROP
+    const frameBottom = BATTERY_CONTENT_TOP + (band.height - BATTERY_FRAME_TRIM)
+    expect(thirdLabelBottom).toBeLessThanOrEqual(frameBottom)
   })
 })
 

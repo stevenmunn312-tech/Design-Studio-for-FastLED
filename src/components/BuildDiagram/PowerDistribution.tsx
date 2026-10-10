@@ -121,6 +121,14 @@ function supplyTerminalPoints(supply: SupplyRecommendation, psuY: number) {
       outputGround: { x: 153, y: psuY + 87 },
     }
   }
+  // The pack board is already drawn on the battery assembly. This zone only
+  // picks up its regulated output, so the dots stay clear of the empty cell.
+  if (supply.converter.integrated) {
+    return {
+      outputPositive: { x: 96, y: psuY + 48 },
+      outputGround: { x: 148, y: psuY + 48 },
+    }
+  }
   const screwY = psuY + 207
   const terminals = supply.converter.terminals
   const lastPositiveIndex = terminals.map((terminal) => terminal.includes('+')).lastIndexOf(true)
@@ -248,7 +256,7 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
 
       return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
         <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
-        <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : 'RECOMMENDED POWER SUPPLY'}</text>
+        <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter?.integrated ? 'PACK OUTPUT' : supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : 'RECOMMENDED POWER SUPPLY'}</text>
         <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>
           {supply.converter
             ? `${supply.converter.source.kind === 'battery' ? `${supply.converter.source.minV}-${supply.converter.source.ceilingV} V BATT` : `${supply.converter.sourceVoltage} V IN`} · 5 V OUT · ${formatAmps(supply.converter.deratedCurrentMa)} AT 40 °C`
@@ -256,23 +264,48 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
         </text>
         <text data-main-fuse-label={supply.id} x="42" y="82" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
 
-        <image
-          data-component-render={supply.converter?.partId ?? '5v-psu'}
-          href={supply.converter ? partRenderSrc(supply.converter.partId) ?? psuRender : psuRender}
-          x={SUPPLY_RENDER_X}
-          y={sectionLayout.psuY}
-          width={SUPPLY_RENDER_WIDTH}
-          height={SUPPLY_RENDER_HEIGHT}
-          preserveAspectRatio="xMidYMid meet"
-          className={styles.physicalBoardRender}
-          filter="url(#component-shadow)"
-        />
-        <circle cx={psuPositive.x} cy={psuPositive.y} r="6" fill="#d84938" stroke="#f0a093" strokeWidth="2" data-terminal={`${supply.id}-positive`}>
-          <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('+')).slice(-1)[0] ?? 'positive'} output` : 'PSU +5 V output terminal'}</title>
-        </circle>
-        <circle cx={psuGround.x} cy={psuGround.y} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" data-terminal={`${supply.id}-ground`}>
-          <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('-')).slice(-1)[0] ?? 'negative'} output / common-ground bond` : 'PSU negative output terminal / common ground'}</title>
-        </circle>
+        {supply.converter?.integrated ? (
+          <g data-integrated-pack-output={supply.converter.partId}>
+            <NetStub
+              x={psuPositive.x}
+              y={psuPositive.y}
+              kind="v5"
+              direction="left"
+              lead={28}
+              wireId={`${supply.id}-pack-output-positive`}
+              label={supply.converter.terminals.find((terminal) => terminal.includes('+')) ?? '5V+'}
+              labelInside
+            />
+            <NetStub
+              x={psuGround.x}
+              y={psuGround.y}
+              kind="gnd"
+              direction="left"
+              lead={18}
+              wireId={`${supply.id}-pack-output-negative`}
+              label={supply.converter.terminals.find((terminal) => terminal.includes('-')) ?? '5V-'}
+              labelInside
+            />
+          </g>
+        ) : <>
+          <image
+            data-component-render={supply.converter?.partId ?? '5v-psu'}
+            href={supply.converter ? partRenderSrc(supply.converter.partId) ?? psuRender : psuRender}
+            x={SUPPLY_RENDER_X}
+            y={sectionLayout.psuY}
+            width={SUPPLY_RENDER_WIDTH}
+            height={SUPPLY_RENDER_HEIGHT}
+            preserveAspectRatio="xMidYMid meet"
+            className={styles.physicalBoardRender}
+            filter="url(#component-shadow)"
+          />
+          <circle cx={psuPositive.x} cy={psuPositive.y} r="6" fill="#d84938" stroke="#f0a093" strokeWidth="2" data-terminal={`${supply.id}-positive`}>
+            <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('+')).slice(-1)[0] ?? 'positive'} output` : 'PSU +5 V output terminal'}</title>
+          </circle>
+          <circle cx={psuGround.x} cy={psuGround.y} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" data-terminal={`${supply.id}-ground`}>
+            <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('-')).slice(-1)[0] ?? 'negative'} output / common-ground bond` : 'PSU negative output terminal / common ground'}</title>
+          </circle>
+        </>}
 
         {supply.converter && terminals.inputPositive && terminals.inputGround && <g data-converter-terminal-labels={supply.id}>
           {[

@@ -227,6 +227,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Battery Assembly, the connection list and the fuse recommendation now follow
+  one path: pack positive lands on the cell pad, the main fuse leaves the
+  protected positive, and a charger return joins that protected negative.
+  Combined charge-and-protection boards are not wired back onto the cell pads.
+  A separate balancer keeps its own end taps. The main fuse is sized for charge
+  current as well as discharge. A third pack board fits on the sheet, and an
+  integrated 5 V output is not drawn a second time in the converter zone.
 - Wire tooltips now wrap long descriptions and anchor toward the inside of the
   browser viewport, so hovering near any edge does not cut off their text.
 - Battery buck-converter wires now land on catalogue-defined terminal centres

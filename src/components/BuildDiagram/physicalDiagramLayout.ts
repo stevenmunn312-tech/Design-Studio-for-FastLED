@@ -1461,7 +1461,34 @@ export interface BatteryBand {
   height: number
 }
 
-export const BATTERY_BAND_HEIGHT = 410
+/** Two pack boards fit in this band. A third row, or a long sense harness, grows it. */
+export const BATTERY_BAND_MIN_HEIGHT = 410
+export const BATTERY_CONTENT_TOP = 22
+/** The assembly frame is this much shorter than the band, and starts at BATTERY_CONTENT_TOP. */
+export const BATTERY_FRAME_TRIM = 34
+export const BATTERY_PACK_TOP = 126
+export const BATTERY_PACK_HEIGHT = 210
+export const BATTERY_WIRE_CHANNEL_GAP = 4
+export const BATTERY_WIRE_CHANNEL_PITCH = 4
+export const BATTERY_MODULE_TOP = 126
+export const BATTERY_MODULE_ROW_PITCH = 154
+export const BATTERY_MODULE_HEIGHT = 120
+/** Pin caption below a module box. The terminal sits 12px up; the caption baseline is 14px under that. */
+export const BATTERY_MODULE_LABEL_DROP = 16
+export const BATTERY_CONTENT_PAD = 16
+
+/** Band height that keeps every module caption and pack wire channel inside the assembly frame. */
+export function batteryAssemblyHeight(moduleCount: number, series: number): number {
+  const rows = Math.ceil(Math.max(0, moduleCount) / 2)
+  const moduleBottom = rows === 0
+    ? 0
+    : BATTERY_CONTENT_TOP + BATTERY_MODULE_TOP + ((rows - 1) * BATTERY_MODULE_ROW_PITCH) + BATTERY_MODULE_HEIGHT + BATTERY_MODULE_LABEL_DROP
+  const channelBottom = BATTERY_CONTENT_TOP + BATTERY_PACK_TOP + BATTERY_PACK_HEIGHT
+    + BATTERY_WIRE_CHANNEL_GAP + ((Math.max(0, series) + 1) * BATTERY_WIRE_CHANNEL_PITCH)
+  const contentBottom = Math.max(moduleBottom, channelBottom) + BATTERY_CONTENT_PAD
+  // The frame ends 12px before the next zone: it starts 22px in and is 34px shorter than the band.
+  return Math.max(BATTERY_BAND_MIN_HEIGHT, contentBottom + (BATTERY_FRAME_TRIM - BATTERY_CONTENT_TOP))
+}
 
 /** Battery assembly sits ahead of converter/PSU zones on every power sheet. */
 export function batteryBand(
@@ -1471,7 +1498,10 @@ export function batteryBand(
 ): BatteryBand | undefined {
   if (!layers.powerDistribution || !plan.battery) return undefined
   if (!items.some((item) => item.id === plan.battery?.packItemId && item.kind === 'battery-pack')) return undefined
-  return { y: powerSectionStartY(items, layers), height: BATTERY_BAND_HEIGHT }
+  return {
+    y: powerSectionStartY(items, layers),
+    height: batteryAssemblyHeight(plan.battery.modules?.length ?? 0, plan.battery.pack?.series ?? 1),
+  }
 }
 
 /**

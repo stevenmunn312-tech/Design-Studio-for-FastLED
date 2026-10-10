@@ -155,12 +155,16 @@ runtime; it never permits smaller power hardware. Runtime below two hours at
 full white warns. Pack current above 30 A recommends review by a professional
 experienced with high-power, low-voltage systems.
 
-Follow the Battery Assembly sheet exactly. The protection board's **P-** is the
-only 0 V connection for the controller, chargers, converters and LEDs. Do not
-connect those parts to **B-**. Only the cell stack and protection board touch
-B-, while B1 through BS are thin voltage-sense leads in the shown order. Fit
-the named fuse class at B+ before the `+BATT` trunk. Verify every terminal name
-against the physical board and its listing before connecting cells. Lithium
+Follow the Battery Assembly sheet exactly. The protection board's protected
+negative (**P-**, or **OUT-** when the board prints that) is the only 0 V
+connection for the controller, chargers, converters and LEDs. Do not connect
+those parts to the cell negative. Only the cell stack and protection board
+touch that pad, while B1 through BS are thin voltage-sense leads in the shown
+order. A separate balancer still needs its own end leads. Fit the named fuse
+on the protected positive before the `+BATT` trunk. When the board has no
+separate protected positive, fit it on the cell-positive lead. The fuse is
+sized for whichever is larger, full-white discharge or charge current. Verify
+every terminal name against the physical board and its listing before connecting cells. Lithium
 packs can supply destructive fault current; use cell holders, insulation,
 strain relief and an enclosure suited to the planned current.
 

@@ -1,8 +1,22 @@
 import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
+import { standardFuseRatingFor } from '../../build/power/electricalRules'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
-import type { BatteryBand } from './physicalDiagramLayout'
+import { chargerUsesCellPads, protectionPads } from '../../state/peripherals/battery'
+import {
+  type BatteryBand,
+  BATTERY_CONTENT_TOP,
+  BATTERY_FRAME_TRIM,
+  BATTERY_MODULE_HEIGHT,
+  BATTERY_MODULE_ROW_PITCH,
+  BATTERY_MODULE_TOP,
+  BATTERY_PACK_HEIGHT,
+  BATTERY_PACK_TOP,
+  BATTERY_WIRE_CHANNEL_GAP,
+  BATTERY_WIRE_CHANNEL_PITCH,
+} from './physicalDiagramLayout'
 import { NetStub } from './netStubs'
+import { formatAmps } from './signalPresentation'
 import styles from './BuildDiagramWorkspace.module.css'
 
 export const BATTERY_PAD_MM = 12
@@ -53,18 +67,18 @@ export function BatteryAssembly({ items, plan, band }: {
   if (!packItem) return null
 
   const x = 34
-  const y = band.y + 22
+  const y = band.y + BATTERY_CONTENT_TOP
   const packX = x + 18
-  const packY = y + 126
+  const packY = y + BATTERY_PACK_TOP
   const packWidth = 300
-  const packHeight = 210
+  const packHeight = BATTERY_PACK_HEIGHT
   const cellWidth = packWidth / battery.pack.series
   const cellHeight = packHeight / battery.pack.parallel
   const cellRender = partRenderSrc(battery.pack.partId)
   const tapY = packY - 14
   const tapPoint = (index: number) => ({ x: packX + ((packWidth * index) / battery.pack.series), y: tapY })
   const packTerminalPoint = (index: number) => ({ x: tapPoint(index).x, y: packY + packHeight })
-  const wireChannelY = (index: number) => packY + packHeight + 4 + (index * 4)
+  const wireChannelY = (index: number) => packY + packHeight + BATTERY_WIRE_CHANNEL_GAP + (index * BATTERY_WIRE_CHANNEL_PITCH)
   const fuseX = 858
   const fuseY = y + 58
   const busX = fuseX + 118
@@ -78,31 +92,39 @@ export function BatteryAssembly({ items, plan, band }: {
     partId: entry.partId,
     terminals: entry.pinLabelsLeftToRight ?? [],
     x: 570 + ((index % 2) * 260),
-    y: y + 126 + (Math.floor(index / 2) * 154),
+    y: y + BATTERY_MODULE_TOP + (Math.floor(index / 2) * BATTERY_MODULE_ROW_PITCH),
     width: 220,
-    height: 120,
+    height: BATTERY_MODULE_HEIGHT,
   }))
   const boxFor = (itemId: string | undefined) => moduleBoxes.find((box) => box.item.id === itemId)
   const protectionBox = boxFor(battery.protection?.itemId)
-  const protectionNegative = protectionBox
-    ? firstTerminal(protectionBox, ['B-', '-BAT'])
+  const pads = battery.protection?.spec.protection
+    ? protectionPads(
+      battery.protection.spec.protection.powerTerminals,
+      battery.output?.itemId === battery.protection.itemId ? battery.output.spec.output?.terminals ?? [] : [],
+    )
     : undefined
-  const protectionPositive = protectionBox
-    ? firstTerminal(protectionBox, ['B+', '+BAT'])
+  const protectionNegative = protectionBox && pads?.cellNegative
+    ? firstTerminal(protectionBox, [pads.cellNegative])
     : undefined
-  const protectedPositive = protectionBox
-    ? firstTerminal(protectionBox, ['P+']) ?? protectionPositive
+  const protectionPositive = protectionBox && pads?.cellPositive
+    ? firstTerminal(protectionBox, [pads.cellPositive])
     : undefined
-  const protectedNegative = protectionBox
-    ? firstTerminal(protectionBox, ['P-'])
-      ?? firstTerminal(protectionBox, battery.output?.itemId === battery.protection?.itemId ? battery.output?.spec.output?.terminals.filter((terminal) => terminal.includes('-')) ?? [] : [])
+  const protectedPositive = protectionBox && pads?.protectedPositive
+    ? firstTerminal(protectionBox, [pads.protectedPositive])
     : undefined
+  const protectedNegative = protectionBox && pads?.protectedNegative
+    ? firstTerminal(protectionBox, [pads.protectedNegative])
+    : undefined
+  const groundLabel = !pads?.protectedNegative || pads.protectedNegative === 'P-' ? 'P− / GND' : `${pads.protectedNegative} / GND`
+  const zeroNet = !pads?.protectedNegative || pads.protectedNegative === 'P-' ? 'P−' : pads.protectedNegative
+  const cellNegName = !pads?.cellNegative || pads.cellNegative === 'B-' ? 'B−' : pads.cellNegative
 
   return (
     <g data-battery-assembly="true" data-pack-series={battery.pack.series} data-pack-parallel={battery.pack.parallel}>
-      <rect x={x} y={y} width="1052" height={band.height - 34} rx="14" fill="#eef0e9" stroke="#65716a" strokeWidth="2" />
+      <rect x={x} y={y} width="1052" height={band.height - BATTERY_FRAME_TRIM} rx="14" fill="#eef0e9" stroke="#65716a" strokeWidth="2" />
       <text x={x + 18} y={y + 27} className={styles.physicalPowerLabel}>BATTERY ASSEMBLY · {battery.pack.series}S{battery.pack.parallel}P · {battery.window.minV}-{battery.window.ceilingV} V</text>
-      <text x={x + 18} y={y + 47} className={styles.physicalMetaLabel}>P− IS SYSTEM 0 V · ONLY PROTECTION BOARD AND B0 SENSE MAY TOUCH B−</text>
+      <text x={x + 18} y={y + 47} className={styles.physicalMetaLabel}>{zeroNet} IS SYSTEM 0 V · ONLY PROTECTION BOARD AND B0 SENSE MAY TOUCH {cellNegName}</text>
 
       <g data-battery-pack={packItem.id}>
         <text x={packX + (packWidth / 2)} y={packY - 34} textAnchor="middle" className={styles.physicalComponentLabel}>{packItem.title}</text>
@@ -168,7 +190,7 @@ export function BatteryAssembly({ items, plan, band }: {
       <NetStub x={busX} y={fuseY + 12} kind="vbat" direction="right" lead={28} wireId="battery-positive-bus" />
 
       {protectionNegative && <path data-battery-wire="cell-negative" d={`M${packTerminalPoint(0).x} ${packTerminalPoint(0).y}V${wireChannelY(0)}H${protectionNegative.x}V${protectionNegative.y}`} className={styles.mainGroundWire} />}
-      {protectedNegative && <NetStub x={protectedNegative.x} y={protectedNegative.y} kind="gnd" direction="down" lead={20} wireId="battery-protected-negative" label="P− / GND" />}
+      {protectedNegative && <NetStub x={protectedNegative.x} y={protectedNegative.y} kind="gnd" direction="down" lead={20} wireId="battery-protected-negative" label={groundLabel} />}
 
       {moduleBoxes.map((box) => {
         const module = battery.modules.find((candidate) => candidate.itemId === box.item.id)!
@@ -178,6 +200,10 @@ export function BatteryAssembly({ items, plan, band }: {
         const outputPositive = module.spec.output ? firstTerminal(box, module.spec.output.terminals.filter((terminal) => terminal.includes('+') || terminal === '5V')) : undefined
         const outputNegative = module.spec.output ? firstTerminal(box, module.spec.output.terminals.filter((terminal) => terminal.includes('-') || terminal === 'GND')) : undefined
         const isProtection = module.itemId === battery.protection?.itemId
+        const chargerOnCellPads = module.spec.charger
+          ? chargerUsesCellPads(module.itemId, battery.protection?.itemId, module.spec.charger.batteryTerminals, pads)
+          : false
+        const chargerFuseRatingMa = module.spec.charger ? standardFuseRatingFor(module.spec.charger.maxChargeMa) : undefined
         const branchFuseX = box.x - 28
         const branchFuseY = box.y + 34
         return <g key={box.item.id} data-battery-module={box.partId}>
@@ -195,22 +221,23 @@ export function BatteryAssembly({ items, plan, band }: {
             const index = tapIndex(terminal, battery.pack.series)
             const terminalAt = terminalPoint(box, terminal)
             if (index === undefined || !terminalAt) return null
-            if ((index === 0 && terminal === protectionNegative?.label)
-              || (index === battery.pack.series && terminal === protectionPositive?.label)) return null
+            if (isProtection && ((index === 0 && terminal === protectionNegative?.label)
+              || (index === battery.pack.series && terminal === protectionPositive?.label))) return null
             const packTerminal = packTerminalPoint(index)
             return <path key={terminal} data-battery-sense={terminal} d={`M${packTerminal.x} ${packTerminal.y}V${wireChannelY(index)}H${terminalAt.x}V${terminalAt.y}`} className={styles.batterySenseWire} />
           })}
-          {module.spec.charger && chargerPositive && <>
+          {module.spec.charger && chargerPositive && !chargerOnCellPads && <>
             <path data-battery-wire={`charger-positive:${box.partId}`} d={`M${busX} ${fuseY + 12}V${branchFuseY + 8}H${branchFuseX}`} className={styles.mainPowerWire} />
             <g data-battery-charger-fuse={box.partId} transform={`translate(${branchFuseX} ${branchFuseY})`}>
               <rect width="42" height="16" rx="3" fill="#f4f2ea" stroke="#252b28" />
               <line x1="5" y1="8" x2="37" y2="8" stroke="#252b28" />
+              <text x="21" y="-4" textAnchor="middle" className={styles.physicalPinLabel}>{chargerFuseRatingMa ? formatAmps(chargerFuseRatingMa) : 'FUSE'}</text>
             </g>
             <path data-battery-wire={`charger-fused:${box.partId}`} d={`M${branchFuseX + 42} ${branchFuseY + 8}H${chargerPositive.x}V${chargerPositive.y}`} className={styles.mainPowerWire} />
           </>}
-          {module.spec.charger && chargerNegative && !isProtection && <NetStub x={chargerNegative.x} y={chargerNegative.y} kind="gnd" direction="down" lead={20} wireId={`charger-negative:${box.partId}`} label="P− / GND" />}
+          {module.spec.charger && chargerNegative && !chargerOnCellPads && <NetStub x={chargerNegative.x} y={chargerNegative.y} kind="gnd" direction="down" lead={20} wireId={`charger-negative:${box.partId}`} label={groundLabel} />}
           {module.spec.output && outputPositive && <NetStub x={outputPositive.x} y={outputPositive.y} kind="v5" direction="down" lead={20} wireId={`battery-output-positive:${box.partId}`} />}
-          {module.spec.output && outputNegative && <NetStub x={outputNegative.x} y={outputNegative.y} kind="gnd" direction="down" lead={20} wireId={`battery-output-negative:${box.partId}`} label="P− / GND" />}
+          {module.spec.output && outputNegative && outputNegative.label !== protectedNegative?.label && <NetStub x={outputNegative.x} y={outputNegative.y} kind="gnd" direction="down" lead={20} wireId={`battery-output-negative:${box.partId}`} label={groundLabel} />}
         </g>
       })}
     </g>

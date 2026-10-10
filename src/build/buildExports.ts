@@ -6,6 +6,7 @@ import { fuseBlockAllocations } from './power/powerDistribution'
 import { partById, sharedPadsAcrossBoards } from './parts/partCatalogue'
 import { planSourceLabel, planSourceVoltageLabel } from './power/planSource'
 import { standardFuseRatingFor } from './power/electricalRules'
+import { chargerUsesCellPads, protectionPads } from '../state/peripherals/battery'
 
 export interface BuildConnectionRow {
   from: string
@@ -106,24 +107,39 @@ export function buildConnectionRows(
     const packLabel = items.find((item) => item.id === battery.packItemId)?.title ?? 'Battery pack'
     const mainFuse = `Battery ${battery.mainFuse.ratingMa ? formatAmps(battery.mainFuse.ratingMa) : 'rated'} main fuse`
     const protection = battery.protection
-    rows.push({ from: packLabel, fromTerminal: 'B+', to: mainFuse, toTerminal: 'Input', purpose: 'Battery positive; fuse as close to cells as holder allows' })
-    rows.push({ from: mainFuse, fromTerminal: 'Output', to: '+BATT bus', toTerminal: '+BATT', purpose: 'Protected battery trunk' })
-    if (protection) {
-      const terminals = protection.spec.protection!.powerTerminals
-      rows.push({ from: packLabel, fromTerminal: 'B-', to: protection.label, toTerminal: terminals.find((terminal) => terminal === 'B-') ?? 'B-', purpose: 'Only protection board and B0 sense lead touch cell negative' })
-      rows.push({ from: protection.label, fromTerminal: terminals.find((terminal) => terminal === 'P-') ?? 'P-', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Protected negative; one system 0 V net' })
+    const outputTerminals = battery.output && protection && battery.output.itemId === protection.itemId
+      ? battery.output.spec.output?.terminals ?? []
+      : []
+    const pads = protection?.spec.protection
+      ? protectionPads(protection.spec.protection.powerTerminals, outputTerminals)
+      : undefined
+    if (protection && pads?.cellPositive) {
+      rows.push({ from: packLabel, fromTerminal: 'B+', to: protection.label, toTerminal: pads.cellPositive, purpose: 'Cell positive onto the protection board' })
+      rows.push({ from: protection.label, fromTerminal: pads.protectedPositive ?? pads.cellPositive, to: mainFuse, toTerminal: 'Input', purpose: 'Protected positive into the battery main fuse' })
+    } else {
+      rows.push({ from: packLabel, fromTerminal: 'B+', to: mainFuse, toTerminal: 'Input', purpose: 'Battery positive; fuse as close to the cells as the holder allows' })
+    }
+    rows.push({ from: mainFuse, fromTerminal: 'Output', to: '+BATT bus', toTerminal: '+BATT', purpose: 'Fused battery trunk' })
+    if (protection && pads?.cellNegative) {
+      rows.push({ from: packLabel, fromTerminal: 'B-', to: protection.label, toTerminal: pads.cellNegative, purpose: 'Only the protection board and its B0 sense lead touch the cell negative' })
+    }
+    if (protection && pads?.protectedNegative) {
+      rows.push({ from: protection.label, fromTerminal: pads.protectedNegative, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Protected negative; one system 0 V net' })
     }
     for (const module of battery.modules) {
       const spec = module.spec
       if (spec.balance) {
         rows.push({ from: packLabel, fromTerminal: `B0-B${battery.pack.series}`, to: module.label, toTerminal: spec.balance.balanceTerminals.join(', '), purpose: 'Balance taps in printed order; meter-check before plugging in harness' })
       }
-      if (spec.charger) {
+      if (spec.charger && !chargerUsesCellPads(module.itemId, protection?.itemId, spec.charger.batteryTerminals, pads)) {
         const chargerFuseRatingMa = standardFuseRatingFor(spec.charger.maxChargeMa)
         const chargerFuse = `${module.label} ${chargerFuseRatingMa ? formatAmps(chargerFuseRatingMa) : 'rated'} charger branch fuse`
+        const cellNegative = pads?.cellNegative ?? 'B-'
         rows.push({ from: '+BATT bus', fromTerminal: '+BATT', to: chargerFuse, toTerminal: 'Input', purpose: 'DC-rated charger branch protection' })
         rows.push({ from: chargerFuse, fromTerminal: 'Output', to: module.label, toTerminal: spec.charger.batteryTerminals[0], purpose: 'Protected charge positive' })
-        rows.push({ from: 'Common ground bus', fromTerminal: 'GND / P-', to: module.label, toTerminal: spec.charger.batteryTerminals[1], purpose: 'Protected charge return; never connect charger negative to B-' })
+        rows.push(pads?.protectedNegative && protection
+          ? { from: protection.label, fromTerminal: pads.protectedNegative, to: module.label, toTerminal: spec.charger.batteryTerminals[1], purpose: `Protected charge return; never connect the charger negative to ${cellNegative}` }
+          : { from: 'Common ground bus', fromTerminal: 'GND', to: module.label, toTerminal: spec.charger.batteryTerminals[1], purpose: `Charge return joins system ground only after protection; never land it on ${cellNegative}` })
       }
     }
   }
@@ -335,13 +351,25 @@ export function buildBomRows(
     const battery = plan.battery
     rows.push({ quantity: String(battery.pack.cellCount), item: battery.pack.label, specification: `${battery.pack.series}S${battery.pack.parallel}P matched pack; ${battery.pack.nominalV} V nominal, ${battery.pack.capacityAh} Ah, ${battery.pack.energyWh} Wh`, status: 'configured' })
     rows.push({ quantity: '1', item: 'Battery main fuse and insulated holder', specification: battery.mainFuse.ratingMa && battery.mainFuseClass ? `${formatAmps(battery.mainFuse.ratingMa)} ${battery.mainFuseClass.label}, ${battery.mainFuseClass.maximumVoltageV} V DC / ${battery.mainFuseClass.interruptRatingA} A interrupting minimum; limited by ${battery.limitedBy}` : battery.mainFuse.unresolvedReason ?? 'Unresolved battery fuse class or rating', status: battery.mainFuse.ratingMa && battery.mainFuseClass ? 'calculated' : 'unresolved' })
-    rows.push({ quantity: '3 runs', item: 'Battery pack conductors', specification: battery.trunkConductor ? `AWG ${battery.trunkConductor.awg} copper minimum for B+, +BATT and P-` : 'Unresolved battery conductor size', status: battery.trunkConductor ? 'calculated' : 'unresolved' })
+    const bomPads = battery.protection?.spec.protection
+      ? protectionPads(
+        battery.protection.spec.protection.powerTerminals,
+        battery.output?.itemId === battery.protection.itemId ? battery.output.spec.output?.terminals ?? [] : [],
+      )
+      : undefined
+    const cellPositiveName = bomPads?.cellPositive ?? 'B+'
+    const cellNegativeName = bomPads?.cellNegative ?? 'B-'
+    const protectedNegativeName = bomPads?.protectedNegative ?? 'P-'
+    rows.push({ quantity: '3 runs', item: 'Battery pack conductors', specification: battery.trunkConductor ? `AWG ${battery.trunkConductor.awg} copper minimum for ${cellPositiveName}, +BATT and ${protectedNegativeName}` : 'Unresolved battery conductor size', status: battery.trunkConductor ? 'calculated' : 'unresolved' })
     if (battery.charger) {
-      const chargeCurrentMa = battery.charger.spec.charger!.maxChargeMa
-      const chargerFuseRatingMa = standardFuseRatingFor(chargeCurrentMa)
-      rows.push({ quantity: '1', item: 'Charger branch fuse and holder', specification: chargerFuseRatingMa ? `${formatAmps(chargerFuseRatingMa)} DC-rated for ${formatAmps(chargeCurrentMa)} maximum charge current at 75% loading` : `Unresolved for ${formatAmps(chargeCurrentMa)} maximum charge current`, status: chargerFuseRatingMa ? 'calculated' : 'unresolved' })
-      rows.push({ quantity: '2 runs', item: 'Charger branch conductors', specification: 'From +BATT and P-; never from B-', status: 'calculated' })
-      if (battery.charger.spec.charger!.inputProtocols.includes('USB-C')) rows.push({ quantity: '1', item: 'USB-C PD charger and cable', specification: `${battery.charger.spec.charger!.inputMaxW} W minimum${battery.charger.spec.charger!.inputMaxW >= 100 ? '; 5 A e-marked cable' : ''}`, status: 'configured' })
+      const chargeSpec = battery.charger.spec.charger!
+      const onCellPads = chargerUsesCellPads(battery.charger.itemId, battery.protection?.itemId, chargeSpec.batteryTerminals, bomPads)
+      if (!onCellPads) {
+        const chargerFuseRatingMa = standardFuseRatingFor(chargeSpec.maxChargeMa)
+        rows.push({ quantity: '1', item: 'Charger branch fuse and holder', specification: chargerFuseRatingMa ? `${formatAmps(chargerFuseRatingMa)} DC-rated for ${formatAmps(chargeSpec.maxChargeMa)} maximum charge current at 75% loading` : `Unresolved for ${formatAmps(chargeSpec.maxChargeMa)} maximum charge current`, status: chargerFuseRatingMa ? 'calculated' : 'unresolved' })
+        rows.push({ quantity: '2 runs', item: 'Charger branch conductors', specification: `From +BATT and ${protectedNegativeName}; never from ${cellNegativeName}`, status: 'calculated' })
+      }
+      if (chargeSpec.inputProtocols.includes('USB-C')) rows.push({ quantity: '1', item: 'USB-C PD charger and cable', specification: `${chargeSpec.inputMaxW} W minimum${chargeSpec.inputMaxW >= 100 ? '; 5 A e-marked cable' : ''}`, status: 'configured' })
     }
     if (battery.balance) rows.push({ quantity: '1', item: "Board's own balance harness", specification: `Connect ${battery.balance.spec.balance!.balanceTerminals.join(', ')} in the board's printed order`, status: 'configured' })
   }

@@ -189,10 +189,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Peripherals
 
 - Battery protection wiring distinguishes cell terminals from protected output
-  terminals. Pack B+ lands on B+; protected positive leaves P+ when the board
-  exposes it, then reaches the main fuse and +BATT bus. Pack B- lands only on
-  B-, while P- is system ground. A combined power-and-balance B+ or B- pad gets
-  one drawn conductor, not overlapping power and sense wires. The battery pack
+  terminals. Resolve those pads from `powerTerminals` by role. Cell positive is
+  `B+`, `+BAT` or `BAT+`. Protected positive is `P+` or `OUT+` when the board
+  prints one, otherwise the cell positive. A regulated `5V+` output is not that
+  pad. Pack positive lands on the cell positive. The main fuse leaves the
+  protected positive and feeds the +BATT bus, and it is sized for the greater
+  of full-white discharge and charge current, because the charger sits on the
+  load side of the fuse. Cell negative is `B-`, `-BAT`, `BAT-` or `B0`. System
+  ground is `P-` or `OUT-`, or the regulated output negative when that is the
+  board's only protected return. A combined power-and-balance pad on the
+  protection board gets one drawn conductor. A separate balancer still draws
+  its own `B-` and `B+`. A charger whose battery terminals are those cell pads
+  is not wired again from +BATT. An integrated 5 V output is drawn on the
+  assembly; its converter zone joins that output by net stub. The battery pack
   graphic draws each series junction through every parallel row, and routes
   board conductors below the pack so labels never obscure connection paths.
   The Samsung cell reference render faces positive-left; `BatteryAssembly`
@@ -533,7 +542,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   overvoltage at ceiling and warn for low-end dropout. Read converter terminal
   names and isolation from `powerConverter.terminals`, never from model-specific
   branches. Size hardware for uncapped full white; a FastLED limit affects only
-  running current and runtime. P- is the sole 0 V net, B- is internal to the
+  running current and runtime. The board's protected-negative pad is the sole 0 V net, B- is internal to the
   protected pack, and intermediate balance taps are sense leads. One board can
   provide several functions, so validate required functions across selected
   boards without requiring one node per function. See

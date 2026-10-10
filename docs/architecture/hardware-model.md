@@ -673,13 +673,17 @@ uses rated cell energy and catalogue efficiencies. The plan warns below two
 hours at full white and recommends review by a professional experienced with
 high-power, low-voltage systems above 30 A of pack current.
 
-The protection board's `P-` is the one system 0 V net. Every controller,
-converter, charger and LED return joins `P-`. Nothing except the protection
-board and cell stack touches `B-`; intermediate `B1` through `BS` leads are
-sense connections only. The Build Diagram draws this topology in a battery
-assembly band, with a fused `+BATT` stub feeding the rest of the power plan.
+The protection board's protected negative (`P-`, `OUT-`, or the module's
+output negative when that is the only protected return) is the one system 0 V
+net. Every controller, converter, charger and LED return joins it. Nothing
+except the protection board and cell stack touches the cell negative;
+intermediate `B1` through `BS` leads are sense connections only. A separate
+balancer still gets its own end taps. The Build Diagram draws this topology
+in a battery assembly band. Pack positive lands on the cell-positive pad, and
+the main fuse leaves the protected positive into a fused `+BATT` stub.
 
-The main fuse carries planned current at no more than 75% of its rating. Its
+The main fuse carries the greater of full-white discharge and charge current,
+at no more than 75% of its rating. Its
 catalogued fuse class must also cover pack ceiling voltage and prospective
 fault current, calculated from pack voltage and cell internal resistance.
 ATO/ATC, MIDI, ANL, MRBF and Class T classes cover the supported current and

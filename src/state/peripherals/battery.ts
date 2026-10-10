@@ -102,6 +102,56 @@ export function prospectiveShortCircuitA(pack: BatteryPackFacts): number | undef
   return Math.ceil((pack.parallel * cell.chargeV) / (cell.internalResistanceMohm / 1000))
 }
 
+const CELL_POSITIVE_NAMES = ['B+', '+BAT', 'BAT+']
+const CELL_NEGATIVE_NAMES = ['B-', '-BAT', 'BAT-', 'B0']
+const PROTECTED_POSITIVE_NAMES = ['P+', 'OUT+']
+const PROTECTED_NEGATIVE_NAMES = ['P-', 'OUT-']
+
+export interface ProtectionPads {
+  cellPositive?: string
+  cellNegative?: string
+  /** Pad the battery main fuse leaves. Equals the cell positive when the board has no separate protected positive. */
+  protectedPositive?: string
+  protectedNegative?: string
+}
+
+function firstNamed(terminals: readonly string[], names: readonly string[]): string | undefined {
+  return names.find((name) => terminals.includes(name))
+}
+
+/**
+ * Cell pads and the protected port, by role rather than one spelling.
+ * `5V+` stays out of the protected-positive list: that name is a regulated
+ * output, and the pack fuse must not land on it.
+ */
+export function protectionPads(
+  powerTerminals: readonly string[],
+  outputTerminals: readonly string[] = [],
+): ProtectionPads {
+  const cellPositive = firstNamed(powerTerminals, CELL_POSITIVE_NAMES)
+  const cellNegative = firstNamed(powerTerminals, CELL_NEGATIVE_NAMES)
+  const outputNegative = outputTerminals.find((terminal) => terminal.includes('-') || terminal === 'GND')
+  return {
+    cellPositive,
+    cellNegative,
+    protectedPositive: firstNamed(powerTerminals, PROTECTED_POSITIVE_NAMES) ?? cellPositive,
+    protectedNegative: firstNamed(powerTerminals, PROTECTED_NEGATIVE_NAMES)
+      ?? (outputNegative && powerTerminals.includes(outputNegative) ? outputNegative : undefined),
+  }
+}
+
+/** A combined protection/charger board already joins these pads to the cells. */
+export function chargerUsesCellPads(
+  chargerItemId: string,
+  protectionItemId: string | undefined,
+  batteryTerminals: readonly [string, string],
+  pads: ProtectionPads | undefined,
+): boolean {
+  if (!protectionItemId || chargerItemId !== protectionItemId) return false
+  if (!pads?.cellPositive || !pads.cellNegative) return false
+  return batteryTerminals[0] === pads.cellPositive && batteryTerminals[1] === pads.cellNegative
+}
+
 /** Adapt a board's integrated 5 V output to the normal rail-converter contract. */
 export function batteryOutputConverterSpec(
   module: PartBatteryModuleSpec,
