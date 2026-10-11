@@ -133,6 +133,11 @@ export default function MatrixOutputDeployPopup({
     if (customAssets.documents !== useGraphStore.getState().displayDocuments
       || customAssets.trusted !== useGraphStore.getState().trusted) return ''
     const groups = getGroupRegistry()
+    // A group can change while a confirmation is open, just like a document.
+    const preparedGroups = customAssets.groups
+    if (Object.keys(groups).length !== Object.keys(preparedGroups).length
+      || Object.entries(groups).some(([id, group]) => group.nodes !== preparedGroups[id]?.nodes
+        || group.edges !== preparedGroups[id]?.edges)) return ''
     if (codegenBuild.mode === 'player') return buildShowPlayerForMeasurement(codegenGraph.nodes, codegenGraph.edges, groups,
       selectedFqbn, psramSupported, projectName,
       { displayDocuments: customAssets.documents, customDisplayAssets: customAssets.assets }) ?? ''
@@ -164,7 +169,7 @@ export default function MatrixOutputDeployPopup({
       : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
   }
   const code = useMemo(generateCurrentCode, [codegenGraph, codegenBuild, psramSupported, projectName, selectedFqbn,
-    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted])
+    customAssets.pending, customAssets.errors, customAssets.documents, customAssets.assets, customAssets.trusted, customAssets.groups])
 
   const port = useMemo(
     () => describePort({ helper, selectedPort, ports, portsScanned }),
@@ -182,8 +187,8 @@ export default function MatrixOutputDeployPopup({
   // findDeployBlockingErrors. The prepared documents are passed because a custom
   // screen's bindings cannot be resolved without them.
   const graphBlockers = useMemo(
-    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, customAssets.documents),
-    [nodes, edges, selectedFqbn, customAssets.documents],
+    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups),
+    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups],
   )
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
@@ -375,9 +380,9 @@ export default function MatrixOutputDeployPopup({
   // validateGraph and Graph Health agree with exactly (deployGates.test.ts).
   const graphWarnings = useMemo(
     () => buildGraphDiagnostics(nodes, edges, {
-      selectedFqbn, target: 'matrix', capabilityNodes: nodes, displayDocuments: customAssets.documents,
+      selectedFqbn, target: 'matrix', capabilityNodes: nodes, displayDocuments: customAssets.documents, groups: customAssets.groups,
     }).filter((issue) => issue.severity === 'warning').length,
-    [nodes, edges, selectedFqbn, customAssets.documents],
+    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups],
   )
   const layers = useMemo(() => readinessLayers({
     previewLive: graphDrivesOutput(nodes, edges),

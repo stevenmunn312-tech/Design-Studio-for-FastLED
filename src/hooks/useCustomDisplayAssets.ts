@@ -1,3 +1,5 @@
+import { expandGroups } from '../state/expandGroups'
+import { useGroupRegistry } from './useGroupRegistry'
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import { showControlRouting } from '../codegen/player/showControlRouting'
 import { useEffect, useMemo, useState } from 'react'
@@ -42,6 +44,7 @@ function bake(document: DisplayDocument) {
  * now, not about which nodes exist, so there is no honest answer without them.
  */
 export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, edges: StudioEdge[]) {
+  const groups = useGroupRegistry()
   const documents = useGraphStore((state) => state.displayDocuments)
   const trusted = useGraphStore((state) => state.trusted)
   const { revision, retry } = useBakeRetry()
@@ -76,10 +79,10 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
      */
     const routingErrors = !enabled ? []
       : build.mode === 'player'
-        ? playerControlGraph(nodes, edges, documents, build.engine?.id).errors
+        ? playerControlGraph(nodes, edges, documents, build.engine?.id, groups).errors
         : build.mode === 'show'
-          ? showControlRouting(nodes, edges, documents, build.engine?.id).errors
-          : []
+          ? showControlRouting(nodes, edges, documents, build.engine?.id, groups).errors
+          : expandGroups(nodes, edges, groups).errors
     if (targets.length > 0 && !trusted) {
       errors.push('Display images are waiting until you trust this project.')
     }
@@ -92,7 +95,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
       errors: [...new Set([...errors, ...routingErrors])],
       routingErrors: [...new Set(routingErrors)],
     }
-  }, [nodes, edges, documents, trusted, enabled])
+  }, [nodes, edges, documents, trusted, enabled, groups])
   const [finished, setFinished] = useState<{ plan: typeof plan; revision: number; result: Result } | null>(null)
 
   useEffect(() => {
@@ -125,7 +128,7 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
     return finished?.plan === plan && finished.revision === revision ? finished.result : null
   }, [plan, revision, finished])
   return {
-    documents, trusted, retry,
+    documents, groups, trusted, retry,
     assets: result?.assets,
     errors: result?.errors ?? [],
     // Kept out of `errors` so a caller can tell "these images would not bake"

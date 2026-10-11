@@ -1,6 +1,8 @@
 // Shared control routing for template generators: Control Map, the scalar
 // IR and fixed/custom touch panels. Each template supplies its destinations
 // and runtime sources. Validation uses this same resolver as emission.
+import { expandGroups } from '../../state/expandGroups'
+import type { GroupRegistry } from '../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
@@ -68,7 +70,10 @@ export interface TemplateControlContext {
   sourceExpressions?: DisplaySourceExpressions
 }
 
-export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry | undefined, context: TemplateControlContext) {
+export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry | undefined, context: TemplateControlContext, groups: GroupRegistry = {}) {
+  const expanded = expandGroups(nodes, edges, groups)
+  nodes = expanded.nodes
+  edges = expanded.edges
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const incoming = new Map(edges.map((e) => [`${e.target}:${e.targetHandle}`, e]))
   const touchIds = new Set<string>()
@@ -93,7 +98,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const bundles = new Map<string, string>()
   const scalarOutputs = new Map<string, { enabledExpr: string | null; brightnessExpr: string | null }>()
   const scalarInputs = new Map<string, string>()
-  const errors = new Set<string>(custom.errors)
+  const errors = new Set<string>([...custom.errors, ...expanded.errors])
   const done = new Set<string>(), visiting = new Set<string>()
   const label = (id: string) => byId.get(id)?.data.label || id
   const unsupported = (id: string, port: string) => errors.add(

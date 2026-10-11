@@ -1,3 +1,4 @@
+import { groupSourceType } from './groupSourceType'
 import type { StudioNode, StudioEdge } from './graphStore'
 import { inputClampRange, resolveNodeScalarExpressions, bypassPort, NODE_LIBRARY } from './nodeLibrary'
 import { type Palette, type RGB, type Frame, samplePalette } from './palettes/ledColor'
@@ -114,6 +115,7 @@ function createEvalNode(
   // clock above; Pattern Slideshow alone uses this for dwell and transitions
   // so Master Speed changes motion without changing elapsed durations.
   elapsedTick = tick,
+  groupInputTypes: Record<string, string | undefined> = {},
 ) {
   const t = tick / 60   // seconds at assumed 60 fps
   const elapsedT = elapsedTick / 60
@@ -160,7 +162,8 @@ function createEvalNode(
   const ctx: EvalContext = {
     nodes, edges, tick, t, elapsedTick, elapsedT, W, H,
     groups, instancePrefix, groupStack, groupInputs, audioOverride, trusted, capabilityNodes,
-    nodeMap, incoming, input, num, pal, stateKey, evaluateGraph,
+    nodeMap, incoming, input, num, pal, stateKey, evaluateGraph, evaluateGroup,
+    inputSourceType: groupSourceType(nodes, edges, groups, groupInputTypes),
   }
 
   function evalNode(id: string): Record<string, PortValue> {
@@ -212,6 +215,19 @@ function createEvalNode(
 
 // ── Public entry points ───────────────────────────────────────────────────────
 
+/** Group outputs share one evaluator so a timer feeding multiple ports runs once. */
+const evaluateGroup: EvalContext['evaluateGroup'] = (
+  nodes, edges, tick, gridW = DEFAULT_W, gridH = DEFAULT_H, groups = {},
+  instancePrefix = '', groupStack = new Set(), groupInputs = {}, audioOverride = null,
+  trusted = true, capabilityNodes = nodes, elapsedTick = tick, groupInputTypes = {},
+) => {
+  const terminal = nodes.find((node) => node.data.nodeType === 'GroupOutput')
+  if (!terminal) return {}
+  const evaluate = createEvalNode(nodes, edges, tick, gridW, gridH, groups,
+    instancePrefix, groupStack, groupInputs, audioOverride, null, trusted, capabilityNodes, elapsedTick, groupInputTypes)
+  return evaluate(terminal.id)
+}
+
 export function evaluateGraph(
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -233,10 +249,11 @@ export function evaluateGraph(
   // Real elapsed time can differ from animation time when Master Speed is
   // active. Appended so existing callers keep the one-clock behaviour.
   elapsedTick = tick,
+  groupInputTypes: Record<string, string | undefined> = {},
 ): Frame | null {
   maybePruneEvaluatorState()
   if (nodes.length === 0) return null
-  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted, capabilityNodes, elapsedTick)
+  const evalNode = createEvalNode(nodes, edges, tick, gridW, gridH, groups, instancePrefix, groupStack, groupInputs, audioOverride, null, trusted, capabilityNodes, elapsedTick, groupInputTypes)
   // Render only what reaches an explicit terminal: a GroupOutput inside a group
   // subgraph, or a MatrixOutput at the root, each passing through its `frame`
   // input. A graph with no terminal previews nothing — the canvas falls back to
@@ -351,7 +368,9 @@ function hotNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
     // case to what HOT_NODE_TYPES covers.
     const liveCustomDisplay = nodeType === 'TransportDisplay'
       && edges.some((edge) => edge.target === n.id && edge.targetHandle?.startsWith('widget:'))
-    if (HOT_NODE_TYPES.has(nodeType) || liveCustomDisplay) {
+    // Authored group terminals are not NODE_LIBRARY definitions. Their typed
+    // outputs still need every frame while the group itself is open for editing.
+    if (HOT_NODE_TYPES.has(nodeType) || liveCustomDisplay || nodeType === 'GroupOutput') {
       hot.add(n.id)
       pending.push(n.id)
     }

@@ -1,3 +1,4 @@
+import type { EvalContext } from '../../state/evaluator/types'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import { type StudioNode, useGraphStore } from '../../state/graphStore'
@@ -131,6 +132,7 @@ function directPlayerActionControls(
   incoming: ReadonlyMap<string, { srcId: string; srcPort: string }>,
   input: (nodeId: string, port: string, fallback: PortValue) => PortValue,
   nodeMap: ReadonlyMap<string, StudioNode>,
+  inputSourceType: EvalContext['inputSourceType'],
 ): PlayerControls | null {
   const active = ports.filter((port) => incoming.has(`${ownerId}:${port.id}`)).map((port) => port.id)
   if (active.length === 0) return null
@@ -154,7 +156,7 @@ function directPlayerActionControls(
       bs = blankButtonEdgeState(nowMs)
       state!.buttons[port] = bs
     }
-    return buttonEdge(bs, raw, nowMs, playerControlActionRepeats(port), pressEdgeSettings(edgeSettings, source?.data.nodeType))
+    return buttonEdge(bs, raw, nowMs, playerControlActionRepeats(port), pressEdgeSettings(edgeSettings, inputSourceType(ownerId, port)))
   }
   if (active.includes('playPause')) controls.playPause = pressed('playPause')
   if (active.includes('previous')) controls.previous = pressed('previous')
@@ -1047,7 +1049,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       }),
     }
   },
-  ControlMap({ input, t, stateKey, incoming, nodeMap }, id, props) {
+  ControlMap({ inputSourceType, input, t, stateKey, incoming, nodeMap }, id, props) {
     const key = stateKey(id)
     const nowMs = t * 1000
     let state = playerControlsState.get(key)
@@ -1065,8 +1067,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         bs = blankButtonEdgeState(nowMs)
         state!.buttons[port] = bs
       }
-      const wire = incoming.get(`${id}:${port}`)
-      const settings = pressEdgeSettings(edgeSettings, wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined)
+      const settings = pressEdgeSettings(edgeSettings, inputSourceType(id, port))
       return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, repeat, settings)
     }
 
@@ -1139,7 +1140,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       } satisfies PlayerParticles,
     }
   },
-  PatternMaster({ input, num, t, tick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
+  PatternMaster({ inputSourceType, input, num, t, tick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
     let out: Record<string, PortValue> = {}
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const audioSignal = input(id, 'audio', null)
@@ -1180,7 +1181,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       bundleControls,
       directPlayerActionControls(
         id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('player'),
-        t, incoming, input, nodeMap,
+        t, incoming, input, nodeMap, inputSourceType,
       ),
     )
     if (incoming.has(`${id}:volume`)) {
@@ -1268,7 +1269,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     } else out = { ...song, patternSelect, frame }
     return out
   },
-  PatternSlideshow({ input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
+  PatternSlideshow({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
     // The same show as the Music Player with the music taken out. What is
     // shared is shared outright: one collected-pattern renderer, one
     // `evalPatternShow`, one selection contract. What differs is only what
@@ -1306,7 +1307,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
       directPlayerActionControls(
         id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('engine'),
-        elapsedT, incoming, input, nodeMap,
+        elapsedT, incoming, input, nodeMap, inputSourceType,
       ),
     )
     const steps = controls ? Math.trunc(controls.patternSteps) : 0
@@ -1406,7 +1407,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   MusicLibrary() {
     return { music: true }
   },
-  PerformanceGenerator({ input, t, W, H, stateKey, incoming, nodeMap }, id) {
+  PerformanceGenerator({ inputSourceType, input, t, W, H, stateKey, incoming, nodeMap }, id) {
     // The `frame` edge names the show's destination; it does not carry it.
     // Playback lives in the node body (PerformanceGeneratorBody) and, opt-in
     // via `showInMainPreview`, reaches the main LED preview through
@@ -1429,7 +1430,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       isPlayerControls(controlsValue) ? controlsValue : IDLE_PLAYER_CONTROLS,
       directPlayerActionControls(
         id, stateKey(`${id}/direct-actions`), playerControlActionPortsFor('performance'),
-        t, incoming, input, nodeMap,
+        t, incoming, input, nodeMap, inputSourceType,
       ),
     )
     const runtime = applyPlayerTransportControls(

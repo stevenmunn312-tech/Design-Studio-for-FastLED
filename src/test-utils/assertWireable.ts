@@ -8,6 +8,8 @@ interface WireableNode {
   id: string
   data: {
     nodeType: string
+    inputs?: unknown
+    outputs?: unknown
     properties: Record<string, unknown>
   }
 }
@@ -32,6 +34,10 @@ function effectivePorts(
   let inputs = definition?.inputs ?? []
   let outputs = definition?.outputs ?? []
 
+  if (['Group', 'GroupInput', 'GroupOutput'].includes(node.data.nodeType)) {
+    inputs = (node.data.inputs ?? inputs) as typeof inputs
+    outputs = (node.data.outputs ?? outputs) as typeof outputs
+  }
   if (node.data.nodeType === 'ControlMap') {
     inputs = playerControlInputs(properties.controls)
   }
@@ -66,8 +72,8 @@ function describePorts(ports: readonly { id: string }[]): string {
  * Static sockets come from NODE_LIBRARY. Runtime-minted sockets are resolved
  * through the same helpers as production: a panel's display document, a
  * Control Map's assigned controls, and a Button Bank's button rows. Stored
- * `data.inputs`/`data.outputs` are deliberately ignored so stale fixture
- * metadata cannot make an impossible cable look valid.
+ * `data.inputs`/`data.outputs` are ignored except for authored group boundaries,
+ * whose ports are their contract rather than a static library definition.
  */
 export function assertWireable(
   nodes: readonly WireableNode[],

@@ -295,8 +295,9 @@ The implementation sequence and current boundary are in
 
 - [ ] **D-01 · Broader control graph.** Interval, Time and Wave template controls
   are implemented, including wired periods/oscillator inputs, shared clock
-  snapshots and computed-pulse debounce handling.
-  Remaining: other time-dependent sources, nested-group evaluation, structured
+  snapshots and computed-pulse debounce handling. Nested typed groups now share
+  preview, normal/template expansion, validation and asset preparation.
+  Remaining: other time-dependent sources, structured
   colour/pattern/status bindings, and arbitrary RTC sources in show/player
   builds. Wired slideshow Master Speed and the Performance Generator's real
   playback Display reading are complete. Preserve the music player's

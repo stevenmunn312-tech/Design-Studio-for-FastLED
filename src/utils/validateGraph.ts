@@ -1,3 +1,5 @@
+import { expandGroups } from '../state/expandGroups'
+import type { GroupRegistry } from '../state/evaluator/types'
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import {
@@ -1633,12 +1635,13 @@ export function findDeployBlockingErrors(
   edges: StudioEdge[],
   selectedFqbn = '',
   displayDocuments?: DisplayDocumentRegistry,
+  groups: GroupRegistry = {},
 ): string[] {
   // Both walks can name the same problem; the display half is the more specific
   // sentence, so it wins and the runtime half is deduped against it (the same
   // order validateGraph and the drawer already use).
-  const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments)
-  const runtimeIssues = findOutputRuntimeIssues(nodes, edges, displayDocuments).errors
+  const displayIssues = findDisplayGeneratorIssues(nodes, edges, displayDocuments, groups)
+  const runtimeIssues = findOutputRuntimeIssues(nodes, edges, displayDocuments, groups).errors
     .filter((message) => !displayIssues.errors.includes(message))
 
   return [
@@ -1761,6 +1764,7 @@ export interface GraphDiagnostic {
 }
 
 export interface GraphDiagnosticOptions {
+  groups?: GroupRegistry
   displayDocuments?: DisplayDocumentRegistry
   selectedFqbn?: string
   /** Group subgraphs terminate at GroupOutput rather than MatrixOutput. */
@@ -2681,16 +2685,17 @@ export function findOutputRuntimeIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
   displayDocuments?: DisplayDocumentRegistry,
+  groups: GroupRegistry = {},
 ): { errors: string[] } {
   const build = resolveBuildMode(nodes, edges)
   const generator = build.mode
-  if (generator === 'sketch') return { errors: [] }
+  if (generator === 'sketch') return { errors: expandGroups(nodes, edges, groups).errors }
 
   const speedErrors = masterSpeedGeneratorErrors(nodes, generator)
   const templateControls = generator === 'show'
-    ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
+    ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id, groups)
     : generator === 'player'
-      ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id) : null
+      ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id, groups) : null
   // An output's own Enabled and Brightness fields are fixed values, which the
   // player sketch applies to that output's frame (playerConfigFromGraph's
   // outputEnabled/outputBrightness), so they need no rule here.
@@ -2742,6 +2747,7 @@ export function findDisplayGeneratorIssues(
   nodes: StudioNode[],
   edges: StudioEdge[],
   displayDocuments?: DisplayDocumentRegistry,
+  groups: GroupRegistry = {},
 ): { errors: string[]; warnings: string[] } {
   const displays = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType))
   if (displays.length === 0) return { errors: [], warnings: [] }
@@ -2779,9 +2785,9 @@ export function findDisplayGeneratorIssues(
   const generator = build.mode
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
   const templateControls = generator === 'show'
-    ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id)
+    ? showControlRouting(nodes, edges, displayDocuments, build.engine?.id, groups)
     : generator === 'player'
-      ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id) : null
+      ? playerControlGraph(nodes, edges, displayDocuments, build.engine?.id, groups) : null
   const templateSourceIds = build.templateDisplaySourceIds ?? undefined
   const resolvedTft = new Map(playerDisplaysFromGraph(nodes as never, edges as never, {
     expressions: generator === 'show' ? SHOW_DISPLAY_EXPRESSIONS : undefined,
@@ -3401,17 +3407,19 @@ export function buildGraphDiagnostics(
     const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
     for (const candidate of terminals) {
       const connected = target === 'group'
-        ? incoming.has(`${candidate.id}:frame`)
+        ? ((candidate.data.inputs as { id: string }[] | undefined)?.length
+          ? (candidate.data.inputs as { id: string }[]).some((port) => incoming.has(`${candidate.id}:${port.id}`))
+          : incoming.has(`${candidate.id}:frame`))
         : incoming.has(`${candidate.id}:frame`) || incoming.has(`${candidate.id}:sdcard`)
       if (connected) continue
       diagnostics.push({
         id: `${candidate.id}-input`, severity: 'error', category: 'connection',
         title: `${terminalName} has no input`,
         message: target === 'group'
-          ? 'Nothing is connected to the group frame terminal.'
+          ? 'Nothing is connected to the group output ports.'
           : hasCard ? 'Neither a Frame nor an SD Card signal reaches the output.' : 'No Frame signal reaches the output.',
         fix: target === 'group'
-          ? 'Connect the pattern’s final Frame output to Group Output.'
+          ? 'Connect a signal to a matching Group Output port.'
           : hasCard ? 'Connect a Frame output, or wire an SD Card node to the SD Card input.' : 'Connect a pattern’s Frame output to the LED output.',
         nodeIds: [candidate.id], nodeLabel: nodeLabel(candidate),
       })
@@ -4191,7 +4199,7 @@ export function buildGraphDiagnostics(
     const split = text.match(/^(.+?[.!?])\s+(\S[\s\S]*)$/)
     return split ? { message: split[1], fix: split[2] } : { message: text, fix: fallback }
   }
-  const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges, options.displayDocuments)
+  const liveDisplayIssues = findDisplayGeneratorIssues(nodes, edges, options.displayDocuments, options.groups)
   const displayNodeIds = nodes.filter((node) => DISPLAY_NODE_TYPES.has(node.data.nodeType)).map((node) => node.id)
   /*
    * Where a firmware message is actually pointing.
@@ -4290,7 +4298,7 @@ export function buildGraphDiagnostics(
 
   // Output-control failures must be visible before deploy too, including a
   // supported touch chain with an unsupported local Control Map override.
-  findOutputRuntimeIssues(nodes, edges, options.displayDocuments).errors.filter((message) => !liveDisplayIssues.errors.includes(message)).forEach((message, index) => diagnostics.push({
+  findOutputRuntimeIssues(nodes, edges, options.displayDocuments, options.groups).errors.filter((message) => !liveDisplayIssues.errors.includes(message)).forEach((message, index) => diagnostics.push({
     id: `output-runtime-error-${index}`,
     severity: 'error', category: 'connection',
     title: 'Output firmware cannot honour these controls',
@@ -4369,7 +4377,7 @@ export function buildGraphDiagnostics(
   return diagnostics
 }
 
-export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '', displayDocuments?: DisplayDocumentRegistry): ValidationResult {
+export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '', displayDocuments?: DisplayDocumentRegistry, groups: GroupRegistry = {}): ValidationResult {
   const errors: string[] = [], warnings: string[] = []
   if (nodes.length === 0) { errors.push('No nodes in graph'); return { errors, warnings } }
 
@@ -4405,7 +4413,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   // list the deploy UI gates on, so a rule cannot be an error here and a no-op
   // at the Upload button. Only the warning halves are collected separately
   // below.
-  errors.push(...findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments))
+  errors.push(...findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments, groups))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
   warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findCustomBoardIssues(nodes).warnings)
@@ -4420,7 +4428,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findSharedControlSourceWarnings(nodes, edges))
   warnings.push(...findSignalRangeWarnings(nodes, edges))
   // Errors from this walk are already in the deploy gate above.
-  warnings.push(...findDisplayGeneratorIssues(nodes, edges, displayDocuments).warnings)
+  warnings.push(...findDisplayGeneratorIssues(nodes, edges, displayDocuments, groups).warnings)
 
   warnings.push(...findMirroredOutputMismatches(nodes, edges))
 

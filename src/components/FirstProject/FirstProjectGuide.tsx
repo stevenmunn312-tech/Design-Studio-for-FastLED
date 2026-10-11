@@ -1,3 +1,4 @@
+import { useGroupRegistry } from '../../hooks/useGroupRegistry'
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { useFirstProjectGuide } from '../../state/firstProjectGuideStore'
@@ -59,6 +60,7 @@ const MARK: Record<FirstProjectStep['state'], string> = { done: '✓', current: 
 function GuideStrip() {
   const nodes = useRootNodes()
   const edges = useRootEdges()
+  const groups = useGroupRegistry()
   const displayDocuments = useGraphStore((s) => s.displayDocuments)
   const { listOpen, skipped, baseline, uploaded, hide, setListOpen, skip, unskip, restart, setStripHeight } = useFirstProjectGuide()
   const { helper, ports, portsScanned, selectedPort, selectedFqbn } = useUploadStore()
@@ -96,8 +98,8 @@ function GuideStrip() {
   }, [setStripHeight])
 
   const graphBlockerCount = useMemo(
-    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments).length,
-    [nodes, edges, selectedFqbn, displayDocuments],
+    () => findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments, groups).length,
+    [nodes, edges, selectedFqbn, displayDocuments, groups],
   )
   const capacityVerdict = summarizeCapacity(
     boardByFqbn(selectedFqbn), capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError,

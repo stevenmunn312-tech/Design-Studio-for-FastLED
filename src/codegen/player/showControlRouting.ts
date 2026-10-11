@@ -1,3 +1,4 @@
+import type { GroupRegistry } from '../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { templateControlRouting, showControlTargets } from '../displays/templateControlRouting'
@@ -51,7 +52,7 @@ export const SHOW_SOURCE_EXPRESSIONS = selectionSourceExpressions({
  * the generator has to know whether it needs a cursor at all.
  */
 export function showControlRouting(
-  nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string,
+  nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string, groups: GroupRegistry = {},
 ) {
   const targets = showControlTargets(nodes, edges, engineId)
   const speedNode = nodes.find((node) => node.data.nodeType === 'MasterSpeed')
@@ -65,7 +66,7 @@ export function showControlRouting(
     scalarOutputIds: targets.outputIds,
     scalarInputs: speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' }] : [],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
-  })
+  }, groups)
   return {
     ...routing,
     /** LED outputs with a bundle, keyed by output id. */

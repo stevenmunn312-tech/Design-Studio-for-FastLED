@@ -1,3 +1,4 @@
+import { expandGroups } from '../state/expandGroups'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { resolvePaletteId, paletteCppRef, customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
@@ -163,101 +164,6 @@ export { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75Display
 export type { Hub75VirtualGrid, Hub75Hardware } from './output/hub75Cpp'
 export { audioEngineForGraph } from './audio/audioEngineCpp'
 export { cppComment } from './cppLiterals'
-
-/**
- * Expand every `Group` node into the graph in place: the group's subgraph nodes
- * are inlined (their ids prefixed with the group-instance path so repeated or
- * nested groups stay unique), the `GroupOutput` terminal is dropped, and the
- * group's external consumers are rewired to whatever fed that terminal. The
- * result is a flat graph the rest of the generator already understands.
- *
- * Edges into a Group are dropped (groups expose no inputs yet — ADR Phase 3),
- * and unknown or self-referential groups are skipped.
- */
-function flattenGroups(
-  nodes: StudioNode[],
-  edges: StudioEdge[],
-  groups: GroupRegistry,
-  prefix = '',
-  groupStack: ReadonlySet<string> = new Set(),
-): { nodes: StudioNode[]; edges: StudioEdge[] } {
-  const pid = (id: string) => prefix + id
-  const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
-  const outNodes: StudioNode[] = []
-  const outEdges: StudioEdge[] = []
-  // Prefixed Group-node id → the flattened source that fed its GroupOutput.
-  const terminalFor = new Map<string, { id: string; port: string }>()
-  // Prefixed Group-node id → (paramId → internal consumers of that GroupInput).
-  const paramConsumers = new Map<string, Map<string, { id: string; port: string }[]>>()
-
-  for (const n of nodes) {
-    if (nodeType(n) === 'Group') {
-      const groupId = (n.data.properties as { groupId?: string })?.groupId
-      if (!groupId || !groups[groupId] || groupStack.has(groupId)) continue
-      const sub = groups[groupId]
-      const flat = flattenGroups(sub.nodes, sub.edges, groups, `${pid(n.id)}__`, new Set([...groupStack, groupId]))
-
-      const out = flat.nodes.find((x) => nodeType(x) === 'GroupOutput')
-      if (out) {
-        const fed = flat.edges.find((e) => e.target === out.id && e.targetHandle === 'frame')
-        if (fed?.source && fed.sourceHandle) terminalFor.set(pid(n.id), { id: fed.source, port: fed.sourceHandle })
-      }
-
-      // Record each GroupInput's downstream consumers so the boundary edge that
-      // feeds this group's param can be wired straight to them.
-      const giNodes = flat.nodes.filter((x) => nodeType(x) === 'GroupInput')
-      const giIds = new Set(giNodes.map((x) => x.id))
-      const consumers = new Map<string, { id: string; port: string }[]>()
-      for (const gi of giNodes) {
-        const paramId = (gi.data.properties as { paramId?: string })?.paramId ?? ''
-        consumers.set(paramId, flat.edges
-          .filter((e) => e.source === gi.id && e.target && e.targetHandle)
-          .map((e) => ({ id: e.target!, port: e.targetHandle! })))
-      }
-      paramConsumers.set(pid(n.id), consumers)
-
-      for (const x of flat.nodes) if (nodeType(x) !== 'GroupOutput' && nodeType(x) !== 'GroupInput') outNodes.push(x)
-      for (const e of flat.edges) if (!(out && e.target === out.id) && !giIds.has(e.source!)) outEdges.push(e)
-    } else {
-      outNodes.push({ ...n, id: pid(n.id) })
-    }
-  }
-
-  const isGroup = (id?: string | null) =>
-    nodes.some((n) => n.id === id && nodeType(n) === 'Group')
-
-  for (const e of edges) {
-    if (!e.source || !e.target) continue
-    // Resolve the source through a group's GroupOutput terminal if needed.
-    const term = terminalFor.get(pid(e.source))
-    const srcId = term ? term.id : pid(e.source)
-    const srcPort = term ? term.port : e.sourceHandle
-
-    if (isGroup(e.target)) {
-      // Boundary edge into a group param → wire the source to each consumer of
-      // the matching GroupInput inside the (now-inlined) subgraph.
-      const cons = paramConsumers.get(pid(e.target))?.get(e.targetHandle ?? '') ?? []
-      for (const c of cons) {
-        outEdges.push({
-          id: pid(`${e.id ?? `${e.source}-${e.target}`}-${c.id}`),
-          source: srcId, sourceHandle: srcPort, target: c.id, targetHandle: c.port,
-        } as StudioEdge)
-      }
-      continue
-    }
-
-    outEdges.push({
-      ...e,
-      id: pid(e.id ?? `${e.source}-${e.target}`),
-      source: srcId,
-      sourceHandle: srcPort,
-      target: pid(e.target),
-      targetHandle: e.targetHandle,
-    } as StudioEdge)
-  }
-
-  return { nodes: outNodes, edges: outEdges }
-}
 
 /** Topological sort: dependencies before dependents */
 function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
@@ -430,7 +336,8 @@ export function generateCpp(
   const amplifierIdle = amplifierIdleCpp(capabilityNodes)
 
   // Inline any Group nodes so the rest of the generator works on a flat graph.
-  const flat = flattenGroups(nodes, edges, groups)
+  const flat = expandGroups(nodes, edges, groups)
+  if (flat.errors.length) throw new Error(flat.errors.join('\n'))
   nodes = flat.nodes
   edges = flat.edges
 

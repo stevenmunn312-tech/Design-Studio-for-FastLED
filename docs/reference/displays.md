@@ -284,9 +284,10 @@ transitions keep elapsed time. In an SD player, root Time/Wave controls use
 elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
 
-This does not enable every node in a template build. Other time-dependent sources,
-nested groups, and wired colour or pattern-selection widget inputs are
-unsupported by these show/player control paths. Graph Health and build
+Supported scalar nodes keep that behaviour inside groups, including a contact
+forwarded through a group input. This does not enable every node in a template
+build. Other time-dependent sources and wired colour or pattern-selection
+widget inputs remain unsupported by these show/player control paths. Graph Health and build
 validation identify unresolved bindings rather than silently supplying a value.
 A widget appearing in the editor is not a promise that every generator can
 evaluate every wire connected to it.

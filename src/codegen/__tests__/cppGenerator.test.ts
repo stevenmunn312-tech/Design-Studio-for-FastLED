@@ -2640,10 +2640,10 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _r=_av*_bv;')        // multiply expression
   })
 
-  it('skips an unknown group reference and still emits a valid sketch', () => {
+  it('rejects an unknown group reference before emitting a sketch', () => {
     const grp = node('g1', 'Group', 'composite', { groupId: 'missing' })
-    const cpp = generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], {})
-    expect(cpp).toContain('void loop()')
+    expect(() => generateCpp([grp, outputNode], [edge('e1', 'g1', 'out', 'frame', 'frame')], {}))
+      .toThrow('missing group definition')
   })
 
   // The 13 transition variants ported from the touchscreen branch shipped with

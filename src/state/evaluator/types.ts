@@ -166,6 +166,7 @@ export type EvaluateGraph = (
   trusted?: boolean,
   capabilityNodes?: readonly StudioNode[],
   elapsedTick?: number,
+  groupInputTypes?: Record<string, string | undefined>,
 ) => Frame | null
 
 /**
@@ -207,7 +208,10 @@ export interface EvalContext {
   pal: (nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def: string) => Palette
   /** A node's persistent-state key, marked live for the idle sweep. */
   stateKey: (id: string) => string
+  inputSourceType: (nodeId: string, port: string) => string | undefined
   evaluateGraph: EvaluateGraph
+  /** Evaluate all group terminal ports in one memoized pass. */
+  evaluateGroup: (...args: Parameters<EvaluateGraph>) => Record<string, PortValue>
 }
 
 /** One node type's preview: its output ports for this pass. */

@@ -145,6 +145,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and disappears inside a 30 ms debounce window. Interval's firmware timer is
   shared through `intervalCpp.ts`; template support does not change the music
   player's track-position clock or the normal sketch's timer behavior.
+- Normal sketches and template routing share `expandGroups`
+  (`src/state/expandGroups.ts`). Grouping keeps each outgoing port, and a
+  physical contact forwarded through a group input still debounces. Do not add
+  a second flattener in a generator. The boundary rules are in
+  [graph and nodes](graph-and-nodes.md).
 - Per-output blackout and dimming are wires, not project settings:
   `src/state/output/ledOutputRuntime.ts` resolves an output's `enabled`/`brightness`
   ports, defaulting unwired to lit/undimmed so adding the ports to an existing

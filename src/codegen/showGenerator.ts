@@ -794,7 +794,7 @@ export function generateShowSketch(
   const transitions = renderers.count > 1
   // Root displays and their control chains live outside collected patterns.
   // Resolve them against the controller template rather than the pattern walk.
-  const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId)
+  const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId, groups)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
   const controlGraph = controlGraphCpp(controls.graph, `${speedNode ? 'animNow' : 'now'} / 1000.0f`)

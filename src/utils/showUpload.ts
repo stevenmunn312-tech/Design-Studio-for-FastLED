@@ -125,7 +125,7 @@ export function buildShowPlayer(
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
-  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id)
+  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id, groups)
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn, selectedEngine?.id), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,

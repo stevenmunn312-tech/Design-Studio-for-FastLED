@@ -166,7 +166,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { color: samplePalette(palette, position) }
   },
-  PaletteBank({ input, t, stateKey, incoming, nodeMap }, id, props) {
+  PaletteBank({ inputSourceType, input, t, stateKey, incoming, nodeMap }, id, props) {
     const entries = paletteBankEntries(props)
     const key = stateKey(id)
     const nowMs = t * 1000
@@ -188,8 +188,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
         bs = blankButtonEdgeState(nowMs)
         state!.buttons[port] = bs
       }
-      const wire = incoming.get(`${id}:${port}`)
-      const settings = pressEdgeSettings(edgeSettings, wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined)
+      const settings = pressEdgeSettings(edgeSettings, inputSourceType(id, port))
       return buttonEdge(bs, Boolean(input(id, port, false)), nowMs, true, settings)
     }
     // Pressed together they cancel, the way +step and -step in one frame net

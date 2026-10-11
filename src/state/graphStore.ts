@@ -2845,8 +2845,7 @@ export const useGraphStore = create<GraphState>()(
 
           // Edges fully inside the selection move into the group.
           const internal = s.edges.filter((e) => idSet.has(e.source!) && idSet.has(e.target!))
-          // Edges leaving the selection — their external targets will instead
-          // consume the new Group node's frame output.
+          // Edges leaving the selection retain their source port and type.
           const outgoing = s.edges.filter((e) => idSet.has(e.source!) && !idSet.has(e.target!))
           // Edges entering the selection become exposed parameters: an external
           // source feeds a new Group input port, surfaced inside via GroupInput.
@@ -2875,6 +2874,34 @@ export const useGraphStore = create<GraphState>()(
             ?? [...selected].reverse().find(hasFrameOut)
             ?? selected[selected.length - 1]
 
+          const outputs: { id: string; label: string; dataType: string; source: string; sourceHandle: string }[] = []
+          const exposeOutput = (source: StudioNode, handle: string) => {
+            const existing = outputs.find((port) => port.source === source.id && port.sourceHandle === handle)
+            if (existing) return existing
+            const port = (source.data.outputs as { id: string; label?: string; dataType: string }[])
+              .find((entry) => entry.id === handle)
+            if (!port) return undefined
+            const output = {
+              id: port.dataType === 'frame' && !outputs.some((entry) => entry.id === 'frame') ? 'frame' : `out${outputs.length}`,
+              label: port.label ?? port.id, dataType: port.dataType, source: source.id, sourceHandle: handle,
+            }
+            outputs.push(output)
+            return output
+          }
+          for (const edge of outgoing) {
+            const source = selected.find((node) => node.id === edge.source)!
+            exposeOutput(source, edge.sourceHandle ?? '')
+          }
+          // A disconnected selection still exposes a useful terminal. Preserve
+          // the conventional frame output for reusable patterns.
+          if (!outputs.some((port) => port.dataType === 'frame') && hasFrameOut(terminal)) {
+            const framePort = (terminal.data.outputs as { id: string; dataType: string }[]).find((port) => port.dataType === 'frame')!
+            exposeOutput(terminal, framePort.id)
+          } else if (!outputs.length) {
+            for (const port of terminal.data.outputs as { id: string }[]) exposeOutput(terminal, port.id)
+          }
+          const outputPorts = outputs.map(({ id, label, dataType }) => ({ id, label, dataType }))
+
           const cx = selected.reduce((a, n) => a + n.position.x, 0) / selected.length
           const cy = selected.reduce((a, n) => a + n.position.y, 0) / selected.length
 
@@ -2884,7 +2911,7 @@ export const useGraphStore = create<GraphState>()(
             position: { x: 360, y: 160 },
             data: {
               label: 'Group Output', nodeType: 'GroupOutput', category: 'output',
-              properties: {}, inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }], outputs: [],
+              properties: {}, inputs: outputPorts, outputs: [],
             },
           } as StudioNode
 
@@ -2989,7 +3016,8 @@ export const useGraphStore = create<GraphState>()(
               ...internal,
               ...inputEdges,
               ...roleEdges,
-              { id: `e-${groupId}-out`, source: terminal.id, sourceHandle: 'frame', target: groupOutput.id, targetHandle: 'frame' } as StudioEdge,
+              ...outputs.map((port) => ({ id: `e-${groupId}-${port.id}`, source: port.source, sourceHandle: port.sourceHandle,
+                target: groupOutput.id, targetHandle: port.id } as StudioEdge)),
             ],
           }
 
@@ -3001,14 +3029,15 @@ export const useGraphStore = create<GraphState>()(
               label: name, nodeType: 'Group', category: 'composite',
               properties: { groupId },
               inputs: params.map((pm) => ({ id: pm.paramId, label: pm.label, dataType: pm.dataType })),
-              outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+              outputs: outputPorts,
             },
           } as StudioNode
 
           // Rewire external consumers of the selection to the Group node, and
           // external sources of exposed params to the Group's input ports.
           const rewiredOutgoing = outgoing.map((e) => ({
-            ...e, source: groupNode.id, sourceHandle: 'frame',
+            ...e, source: groupNode.id,
+            sourceHandle: outputs.find((port) => port.source === e.source && port.sourceHandle === e.sourceHandle)?.id,
           }))
           const rewiredIncoming = params.map((pm) => ({
             ...pm.edge, target: groupNode.id, targetHandle: pm.paramId,
@@ -3098,24 +3127,26 @@ export const useGraphStore = create<GraphState>()(
             }
           }
 
-          // The group's frame output becomes the source that used to feed the
-          // primary GroupOutput terminal inside the subgraph.
+          // Resolve each output independently, including direct input forwarding.
           const groupOutput = sub.nodes.find((node) => studioNodeType(node) === 'GroupOutput')
-          const feeder = groupOutput
-            ? sub.edges.find((edge) => edge.target === groupOutput.id && edge.targetHandle === 'frame')
-            : undefined
-          const feederSource = feeder ? nodeIdMap.get(feeder.source ?? '') : undefined
-          const feederNode = feederSource ? restoredNodes.find((node) => node.id === feederSource) : undefined
-          const feederColor = feeder ? edgeStrokeForPort(feederNode, feeder.sourceHandle ?? undefined) : '#00bfff'
-          if (feeder && feederSource) {
-            for (const outer of s.edges.filter((edge) => edge.source === id)) {
-              pushEdge({
-                ...outer,
-                source: feederSource,
-                sourceHandle: feeder.sourceHandle,
-                style: { ...outer.style, stroke: feederColor },
-              } as StudioEdge)
+          for (const outer of s.edges.filter((edge) => edge.source === id)) {
+            const feeder = groupOutput && sub.edges.find((edge) => edge.target === groupOutput.id
+              && edge.targetHandle === outer.sourceHandle)
+            if (!feeder) continue
+            let source = nodeIdMap.get(feeder.source)
+            let sourceHandle = feeder.sourceHandle
+            if (!source) {
+              const input = sub.nodes.find((node) => node.id === feeder.source && studioNodeType(node) === 'GroupInput')
+              const paramId = input?.data.properties.paramId
+              const inbound = s.edges.find((edge) => edge.target === id && edge.targetHandle === paramId)
+              source = inbound?.source
+              sourceHandle = inbound?.sourceHandle
             }
+            if (!source) continue
+            const sourceNode = restoredNodes.find((node) => node.id === source) ?? s.nodes.find((node) => node.id === source)
+            pushEdge({ ...outer, source, sourceHandle,
+              style: { ...outer.style, stroke: edgeStrokeForPort(sourceNode, sourceHandle ?? undefined) },
+            } as StudioEdge)
           }
 
           const graphData = { ...s.graphData }
@@ -4160,8 +4191,7 @@ function editNodePropertyAndSyncVu(
  * Assemble the group registry the evaluator needs: every non-root graph keyed
  * by id. The active graph lives in `nodes`/`edges`, the rest in `graphData`.
  */
-export function getGroupRegistry(): GroupRegistry {
-  const s = useGraphStore.getState()
+export function getGroupRegistry(s = useGraphStore.getState()): GroupRegistry {
   const reg: GroupRegistry = {}
   for (const [id, data] of Object.entries(s.graphData)) {
     if (id !== ROOT_GRAPH_ID) reg[id] = { nodes: data.nodes, edges: data.edges }

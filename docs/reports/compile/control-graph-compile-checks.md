@@ -84,3 +84,39 @@ The complete Vitest run passes 7,174 tests across 418 files, with 20 tests and
 five files skipped. ESLint and the production build pass. The existing circular
 chunk warning between `graph-runtime` and `node-catalog` remains. The full test
 log is in the gitignored `tmp/d01-vitest.log`.
+
+## Nested typed groups, 11 October 2026
+
+The current fixtures wrap the timed scalar path in two groups. A root Math
+value supplies Interval's period through both input boundaries. Pulse, level
+and Enabled leave through distinct typed outputs; the pulse is shared by
+Control Map and Trigger. A root button passes directly from a group input to
+its output and retains the Control Map's 30 ms contact debounce. Master Speed
+and the player's track-position rendering clock retain the preceding slice's
+contracts.
+
+Normal firmware and show/player control routing use the same boundary
+expansion. Missing definitions, recursive definitions, boundary cycles,
+identifier collisions and nested physical hardware are explicit errors.
+Expanded dependencies retain the 256-node scalar limit. Unwired group inputs
+leave each consumer's property fallback intact.
+
+The same reproduce command and toolchain apply. The run is recorded under
+`artifacts/compile-matrix/2026-10-11_1711/`. The generator replaces the prior
+Time/Wave sources and reports; earlier matrix summaries retain their evidence.
+
+| Fixture | Source SHA-256 prefix | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| Normal | `756176c2a874` | Passed | 462,479 | 31,044 |
+| Slideshow | `91dafa0efb66` | Passed | 467,175 | 31,124 |
+| SD player | `724950573b51` | Passed | 1,131,515 | 47,012 |
+
+Each report's full source hash matches the nested fixture manifest. All three
+builds pass on Arduino CLI; fbuild remains on hold. No hardware was flashed.
+
+The full Vitest run passes 7,189 tests across 419 files, with 20 tests and five
+files skipped (`tmp/d01-nested-tests-final.log`). A subsequent cadence fix
+explicitly includes authored Group Output terminals in hot evaluation: its
+15 focused tests pass, as do all 36 deploy-popup tests after adding the stale
+group guard. ESLint and the production build pass; the existing circular chunk
+warning remains.

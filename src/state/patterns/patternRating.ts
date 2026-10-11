@@ -946,7 +946,7 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     const frames = Object.values(scenarios).flat()
     const elapsed = performance.now() - startedAt
     if (elapsed > 3000) console.warn(`[patternRating] "${saved.name}" took ${Math.round(elapsed)}ms to render — consider simplifying it`)
-    const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group' })
+    const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group', groups: opts.groups })
     // Judge the whole run. Strong moments inform the thumbnail, but weak ones
     // remain in every criterion instead of disappearing behind a best-window pick.
     const scored = scorePattern(frames, diagnostics, saved.subgraph.nodes, saved.subgraph.edges, intent, scenarios)

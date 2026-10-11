@@ -1,3 +1,4 @@
+import { buildGraphDiagnostics } from '../../utils/validateGraph'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useGraphStore, getGroupRegistry, matrixTileLayout, ROOT_GRAPH_ID, clearStashedGraphHistory, enterDisplayHistoryScope, leaveDisplayHistoryScope, reachableGroupRegistry, rootGraphNodes } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -2652,5 +2653,57 @@ describe('focusNode', () => {
     useGraphStore.getState().loadGraph([node('a', true), node('b', true)], [])
     useGraphStore.getState().selectNode('b')
     expect(useGraphStore.getState().nodes.find((n) => n.id === 'a')!.selected).toBe(true)
+  })
+})
+
+
+describe('typed group boundaries', () => {
+  beforeEach(() => reset())
+
+  it('retains distinct frame, float and bool outputs and their fanout when ungrouped', () => {
+    const edges = [edge('redOut', 'red', 'frame', 'outA', 'frame'), edge('blueOut', 'blue', 'frame', 'outB', 'frame'),
+      edge('numberOut', 'value', 'result', 'outA', 'brightness'), edge('numberFanout', 'value', 'result', 'outB', 'brightness'),
+      edge('boolOut', 'pulse', 'pulse', 'outA', 'enabled')]
+    reset([node('red', 'SolidColor'), node('blue', 'SolidColor'), node('value', 'Math'), node('pulse', 'Interval'),
+      node('outA', 'MatrixOutput'), node('outB', 'MatrixOutput')], edges)
+    useGraphStore.getState().createGroup('Mixed', ['red', 'blue', 'value', 'pulse'])
+    const grouped = useGraphStore.getState()
+    const instance = grouped.nodes.find((entry) => entry.data.nodeType === 'Group')!
+    expect(instance.data.outputs).toHaveLength(4)
+    const outputs = instance.data.outputs as { id: string; dataType: string }[]
+    expect(outputs.map((port) => port.dataType).sort()).toEqual(['bool', 'float', 'frame', 'frame'])
+    const numbers = grouped.edges.filter((entry) => entry.targetHandle === 'brightness')
+    expect(numbers).toHaveLength(2)
+    expect(numbers[0].sourceHandle).toBe(numbers[1].sourceHandle)
+    expect(useGraphStore.getState().ungroupNode(instance.id)).toBe(true)
+    const signature = (entry: StudioEdge) => [entry.source, entry.sourceHandle, entry.target, entry.targetHandle].join(':')
+    expect(useGraphStore.getState().edges.map(signature).sort()).toEqual(edges.map(signature).sort())
+  })
+
+  it('exposes a disconnected scalar selection without inventing a frame', () => {
+    reset([node('value', 'Math')])
+    useGraphStore.getState().createGroup('Number', ['value'])
+    const instance = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'Group')!
+    expect(instance.data.outputs).toEqual([{ id: 'out0', label: 'Result', dataType: 'float' }])
+    const definition = getGroupRegistry()[String(instance.data.properties.groupId)]
+    expect(buildGraphDiagnostics(definition.nodes, definition.edges, { target: 'group' })
+      .filter((issue) => issue.title === 'Group Output has no input')).toEqual([])
+  })
+
+  it('keeps computed input provenance inside a nested Control Map', async () => {
+    const { evaluateGraphFull, resetEvaluatorState } = await import('../graphEvaluator')
+    resetEvaluatorState()
+    reset([node('timer', 'Interval', { interval: 0.5 }), node('map', 'ControlMap', { controls: ['ledToggle'], debounceMs: 50 }),
+      node('out', 'MatrixOutput')], [edge('pulse', 'timer', 'pulse', 'map', 'ledToggle'), edge('bundle', 'map', 'controls', 'out', 'controls')])
+    useGraphStore.getState().createGroup('Actions', ['map'])
+    const first = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'Group')!
+    useGraphStore.getState().createGroup('Nested actions', [first.id])
+    const { nodes, edges } = useGraphStore.getState()
+    const groups = getGroupRegistry()
+    const instance = nodes.find((entry) => entry.data.nodeType === 'Group')!
+    evaluateGraphFull(nodes, edges, 0, 1, 1, groups)
+    const outputs = evaluateGraphFull(nodes, edges, 30, 1, 1, groups).outputs.get(instance.id)!
+    expect(Object.values(outputs)).toContainEqual(expect.objectContaining({ ledToggle: true }))
+    resetEvaluatorState()
   })
 })

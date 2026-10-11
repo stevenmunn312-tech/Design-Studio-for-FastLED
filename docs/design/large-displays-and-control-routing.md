@@ -298,33 +298,36 @@ in independently compiled slices:
    read elapsed time independently of playback; patterns retain track position.
    Time's `dt` remains the existing nominal 1/60 second. Other time-dependent
    sources still need their clock, reset and state contracts defined.
-3. Nested groups: preserve instance state, dependency limits, cycle detection
-   and trust while resolving typed group inputs and outputs. The current group
-   authoring and evaluator contract exposes typed inputs but only one `frame`
-   output. Normal firmware flattening also rewires every group consumer through
-   that frame terminal. Accepting scalar group outputs in the template resolver
-   alone would therefore create a firmware-only path that cannot be authored
-   or previewed correctly.
+3. Nested groups: grouping preserves each outgoing port's type and identity,
+   including fanout and distinct frame outputs. The evaluator reads all terminal
+   ports once per instance, propagates trust and the root hardware catalogue,
+   and retains independent timer state. Ungrouping restores each boundary wire,
+   including a directly forwarded input. Existing frame patterns retain their
+   conventional `frame` port.
 
-   Implement the output contract first: preserve each outgoing boundary port's
-   type and identity when grouping, evaluate those outputs once per instance,
-   and restore the same wires when ungrouping. Keep existing frame patterns
-   working. Then share group expansion with template control routing, passing
-   the group registry through validation, asset preparation and generation.
-   Expansion must reject recursive definitions and identifier collisions, count
-   expanded dependencies against the control limit, and retain root hardware
-   authority. Tests must cover nested input forwarding, repeated instances with
-   independent timer state, unwired input fallbacks, recursive definitions and
-   trust propagation before a compiled nested-group fixture can establish
-   support. Nested control outputs remain unsupported until that sequence is
-   complete.
+   Normal firmware and template routing share `expandGroups`. It resolves
+   nested input/output boundaries, removes unwired inputs so consumers retain
+   their property fallbacks, and rejects recursive or missing definitions,
+   ambiguous identifiers and hardware placed inside groups. Expanded scalar
+   dependencies count against the existing 256-node control limit. Boundary
+   cycles fail explicitly; expansion also bounds nesting and total node count.
+   Physical contacts retain debounce through group boundaries; computed pulses
+   bypass it in both preview and firmware. Validation, Graph Health, asset
+   preparation and generation receive the same current group registry.
+
+   Regression coverage includes mixed outputs, nested input forwarding,
+   repeated timer instances, fallbacks, recursive definitions, identifier
+   collisions, dependency limits and trust propagation. The compiled fixture
+   wraps Interval, Time and Wave in two groups and forwards a root button
+   through a group input directly to its output. Structured bindings outside
+   the template resolver's supported set remain the next slice.
 4. Structured colour, pattern-selection and status bindings, followed by RTC
    sources: resolve the actual wired source through the same validation and
    emission plan. Unsupported paths must continue to fail explicitly.
 
 `scripts/compile-fixtures/control-graph.ts` generates normal, show and SD-player
-fixtures with Interval, both Time outputs, wired Wave inputs and wired Master
-Speed where supported. The regression fixture also checks a timer shared
+fixtures with nested Interval, both Time outputs, wired Wave inputs and wired
+Master Speed where supported. The regression fixture also checks a timer shared
 between a Control Map and a panel's Enabled path, plus a physical button that
 still requires debounce. Results are recorded in
 [control graph compile checks](../reports/compile/control-graph-compile-checks.md).

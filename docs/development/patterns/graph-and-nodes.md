@@ -352,3 +352,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Health's "Set Layout to Custom design to use it again" warning, and the
   design's return when Custom design is chosen again). See
   [large displays](../../design/large-displays-and-control-routing.md).
+
+- Group boundaries carry typed ports in both directions. `createGroup` creates
+  one output per distinct outgoing source port, retaining fanout; the first
+  frame remains named `frame`. `GroupOutput.inputs` uses those same ids.
+  `evaluateGroup` evaluates all terminal ports with one memo, preserving a
+  shared timer pulse across consumers. Authored `GroupOutput` terminals are not
+  library definitions, so the hot-node walk includes them explicitly to keep
+  the open subgraph running at frame cadence. Keep trust, root capabilities, elapsed
+  time and the instance namespace on recursive calls. `groupSourceType` follows
+  transparent input/output boundaries for contact debounce; a computed pulse
+  must not acquire debounce merely because it passed through Group Input.
+  `expandGroups` is the shared firmware boundary resolver. An unwired input
+  removes its expanded wire, leaving the downstream property's fallback intact.
+  Do not add separate flattening rules in a template generator. Pass the current
+  registry through routing, validation and asset preparation; `useGroupRegistry`
+  includes edits to an open subgraph rather than relying on its saved snapshot.

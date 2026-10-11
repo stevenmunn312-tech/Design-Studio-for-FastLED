@@ -1,3 +1,4 @@
+import type { GroupRegistry } from '../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { SONG_INFO_PORTS } from '../../state/player/songInfo'
@@ -47,7 +48,7 @@ const PLAYER_ENGINE_NODE_TYPES = ['PatternMaster', 'PerformanceGenerator']
 
 /** Only the engine this template runs owns runtime song sources. */
 export function playerControlGraph(
-  nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string,
+  nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string, groups: GroupRegistry = {},
 ) {
   const master = nodes.find((node) => PLAYER_ENGINE_NODE_TYPES.includes(node.data.nodeType)
     && (!engineId || node.id === engineId))
@@ -68,7 +69,7 @@ export function playerControlGraph(
     label: 'an SD player', widgetLabel: 'the SD player',
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
-  })
+  }, groups)
   const outputRuntimePorts = ['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown']
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
     if (edges.some((edge) => edge.target === output.id && outputRuntimePorts.includes(edge.targetHandle ?? ''))) {
