@@ -92,6 +92,7 @@ export function nestedControlFixture(mode: 'normal' | 'show' | 'player') {
       ...outward.map((wire) => ({ ...wire, source: 'nested', sourceHandle: outputFor(wire.source) })),
       edge('period', 'result', 'nested', 'period'), edge('button', 'pressed', 'nested', 'contact'),
       edge('nested', 'contact', 'controls', 'brightnessDown'),
+      edge('out', 'display', 'status', 'display'),
     ],
     groups: { ...fixture.groups,
       timed: { nodes: [...innerNodes, input('periodIn', 'period', 'float'), terminal()],

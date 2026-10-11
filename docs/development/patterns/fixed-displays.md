@@ -139,7 +139,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the glass it reads), created and deleted together with its panel. Music Player
   reports one envelope; Song Info unpacks its fields. Normal firmware supports
   fixed RTC Clock (including TFT); player/show templates honor their own source
-  kinds. See [simple displays](../../design/simple-displays.md) and
+  kinds. `ledOutput` is accepted before the kind list and before `sourceIds`
+  when `ledStatusFor` returns a reading for that output. The provider is what
+  makes the reading real: adding the kind with no expressions must not paint
+  an empty LED Status, and a caller that omits the provider keeps the
+  unresolved warning. See [simple displays](../../design/simple-displays.md) and
   [large displays/control routing](../../design/large-displays-and-control-routing.md).
 - Pattern thumbnails are baked in the browser at export, never rendered
   on-device: `src/state/patterns/patternThumbnail.ts` owns what a thumbnail *is* (32x32 =

@@ -3,6 +3,7 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { templateControlRouting, showControlTargets } from '../displays/templateControlRouting'
 import { selectionSourceExpressions } from '../displays/displaySourceExpressions'
+import { browsingPatternNameExpr } from '../displays/patternThumbnailCpp'
 export { controlBundleVariable, showControlOutputIds, showControlTargets } from '../displays/templateControlRouting'
 
 /**
@@ -66,6 +67,12 @@ export function showControlRouting(
     scalarOutputIds: targets.outputIds,
     scalarInputs: speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' }] : [],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
+    patternSelection: {
+      sourceIds: new Set(targets.engineId ? [targets.engineId] : []),
+      nameExpr: browsingPatternNameExpr(SHOW_SELECTION_STEM),
+      refusal: 'Wire the Pattern Slideshow this show runs.',
+    },
+    ledStatus: { drivenIds: targets.outputIds, latch: true },
   }, groups)
   return {
     ...routing,

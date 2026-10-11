@@ -28,6 +28,8 @@ describe('nested typed controls', () => {
     expect(source).toContain('_pcE_controls_ledToggle.update(n_nested__timed__timer_pulse, _pcNow_controls, false, 0u,')
     expect(source).toContain('_pcE_controls_brightnessDown.update(n_button_pressed, _pcNow_controls, true, 30u,')
     expect(source).toContain('n_controls_controls.brightness = constrain(n_nested__timed__level_result, 0.0f, 1.0f);')
+    expect(source).toContain('LED Matrix')
+    expect(source).toContain('64 LEDS')
     expect(findOutputRuntimeIssues(nodes, edges, undefined, groups).errors).toEqual([])
     expect(findDisplayGeneratorIssues(nodes, edges, undefined, groups).errors).toEqual([])
     if (mode === 'player') expect(source).toContain('float t = posMs / 1000.0f;')

@@ -2795,6 +2795,7 @@ export function findDisplayGeneratorIssues(
       ? ['player'] : ['clock', 'player', 'slideshow'],
     controlSources: templateControls?.displaySources,
     sourceIds: templateSourceIds,
+    ledStatusFor: templateControls?.ledStatusFor,
   }).tft.map((display) => [display.id, display]))
 
   // All three generators draw a configured display now:
@@ -3045,6 +3046,7 @@ export function findDisplayGeneratorIssues(
         kinds: template.kinds,
         controlSources: templateControls?.displaySources,
         sourceIds: templateSourceIds,
+        ledStatusFor: templateControls?.ledStatusFor,
       },
     ).unresolved) {
       const display = nodes.find((node) => node.id === issue.display)

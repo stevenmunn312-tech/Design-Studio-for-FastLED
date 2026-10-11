@@ -285,10 +285,15 @@ elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
 
 Supported scalar nodes keep that behaviour inside groups, including a contact
-forwarded through a group input. This does not enable every node in a template
-build. Other time-dependent sources and wired colour or pattern-selection
-widget inputs remain unsupported by these show/player control paths. Graph Health and build
-validation identify unresolved bindings rather than silently supplying a value.
+forwarded through a group input. A Colour Swatch accepts a self-contained
+colour node, and the device stores that colour packed at the swatch. A Pattern
+Browser names the pattern the running slideshow or player is browsing. An LED
+output wired to a panel reports that output's own name, count, blackout and
+level when the template drives it. Palette sources, a pattern selection from
+any other node, an output the template does not drive, and other
+time-dependent sources including an arbitrary RTC still fail explicitly.
+Graph Health and build validation identify unresolved bindings rather than
+silently supplying a value.
 A widget appearing in the editor is not a promise that every generator can
 evaluate every wire connected to it.
 

@@ -5,6 +5,7 @@ import { customDisplayResourceIssues } from '../../state/displays/customDisplayR
 import { customDisplayMountPlan, mountedPanelGeometry, mountedSizeIssue } from '../../state/displays/mountedDisplays'
 import { parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
 import { controlReferenceCpp, type ControlReference, type createControlGraph } from '../controlGraph'
+import { packedColorCpp } from '../colorControlCpp'
 import { customDisplayId } from './customDisplayId'
 import { shownDesignId } from '../../state/displays/transportDisplay'
 import { customDisplayPanelFromProps } from './customDisplayPanelCpp'
@@ -142,10 +143,26 @@ export function customDisplayControlPlan(
       resting.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: port.dataType === 'bool' ? 'false' : '0.0f' })
     }
   }
-  return { displays, errors, sources, unresolvedSources, resting }
+  const patternNameBindings: boolean = false
+  return { displays, errors, sources, unresolvedSources, resting, patternNameBindings }
 }
 
-export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayControlPlan>, graph: ReturnType<typeof createControlGraph>, edges: StudioEdge[], generatorLabel = 'the show'): void {
+export interface PatternSelectionBinding {
+  /** Engine nodes whose `patternSelect` output this template is actually running. */
+  sourceIds: ReadonlySet<string>
+  /** Browsing-aware pattern name. Preview shows the highlight while browsing. */
+  nameExpr: string
+  /** Said when the wire is any other pattern selection. */
+  refusal: string
+}
+
+export function bindCustomDisplayControls(
+  plan: ReturnType<typeof customDisplayControlPlan>,
+  graph: ReturnType<typeof createControlGraph>,
+  edges: StudioEdge[],
+  generatorLabel = 'the show',
+  patternSelection?: PatternSelectionBinding,
+): void {
   for (const display of plan.displays) {
     for (const edge of edges.filter((edge) => edge.target === display.nodeId)) {
       // The panel's own inputs are not widget bindings. Now that the screen
@@ -154,6 +171,29 @@ export function bindCustomDisplayControls(plan: ReturnType<typeof customDisplayC
       // as a widget binding the show cannot evaluate.
       if (!parseDisplayWidgetPortId(String(edge.targetHandle ?? ''))) continue
       const port = display.ports.find((port) => port.direction === 'input' && port.id === edge.targetHandle)
+      if (port?.dataType === 'color') {
+        const reference = graph.input(display.nodeId, port.id, 'color')
+        if (!reference) {
+          plan.errors.push(`${display.label}.${port.label}: ${generatorLabel} cannot evaluate this colour. Use a colour node the control graph can resolve, or build a normal sketch.`)
+          continue
+        }
+        const bindings = display.bindings[port.widgetId] ?? (display.bindings[port.widgetId] = [])
+        bindings.push({ role: port.role, expression: packedColorCpp(controlReferenceCpp(reference)) })
+        continue
+      }
+      if (port?.dataType === 'patternselect') {
+        const accepted = patternSelection
+          && patternSelection.sourceIds.has(edge.source)
+          && (edge.sourceHandle ?? '') === 'patternSelect'
+        if (!accepted || !patternSelection) {
+          plan.errors.push(`${display.label}: ${generatorLabel} cannot evaluate this pattern selection. ${patternSelection?.refusal ?? 'Wire the pattern cursor this template runs.'}`)
+          continue
+        }
+        plan.patternNameBindings = true
+        const bindings = display.bindings[port.widgetId] ?? (display.bindings[port.widgetId] = [])
+        bindings.push({ role: port.role, expression: patternSelection.nameExpr })
+        continue
+      }
       if (!port || (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string')) {
         plan.errors.push(`${display.label}: ${generatorLabel} cannot evaluate ${port?.label ?? edge.targetHandle}. Use a float, boolean or text widget binding supported by the control graph.`)
         continue

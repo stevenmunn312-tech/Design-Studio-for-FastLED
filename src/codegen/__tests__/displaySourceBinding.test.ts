@@ -150,6 +150,25 @@ describe('widgets bound to the panel source', () => {
       expect(src).toContain('static PatternSel _sel_player;')
       expect(src).toContain('_cdSetText(_cd_screen[0], _patNameStr_player(_sel_player.active));')
     })
+
+    it('names the pattern a wired Pattern Browser is browsing', () => {
+      const doc = addDisplayWidget(createDisplayDocument('browser', 240, 320), 'Pattern Browser')
+      const browser = doc.widgets[0].id
+      const tft = node('browser-tft', 'TransportDisplay', {
+        partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'browser',
+        sckPin: 18, mosiPin: 23, misoPin: 19, csPin: 5, dcPin: 16, resetPin: 17, backlightPin: 4,
+      })
+      const documents: DisplayDocumentRegistry = { browser: doc }
+      const nodes = [...players, tft]
+      const wired = [...edges, edge('master', 'patternSelect', 'browser-tft', `widget:${browser}:value`)]
+      const routing = playerControlGraph(nodes, wired, documents, 'master')
+      expect(routing.errors).toEqual([])
+      const src = generatePlayerSketch({}, undefined, {
+        controlGraph: routing, patternNames: { master: ['Aurora'] },
+      })
+      expect(src).toContain('static PatternSel _sel_player;')
+      expect(src).toContain('_patNameStr_player(_selBrowsing(_sel_player) ? _sel_player.highlight : _sel_player.active)')
+    })
   })
 
   describe('a generative show', () => {
@@ -192,6 +211,20 @@ describe('widgets bound to the panel source', () => {
       expect(src).toContain('_cdSetText(_cd_screen[0], "Text");')
       const loop = src.slice(src.indexOf('void loop() {'))
       expect(loop).not.toContain('_cdSetText(_cd_screen[0]')
+    })
+
+    it('answers the fixture the show drives', () => {
+      const documents: DisplayDocumentRegistry = { screen: document(240, 320, 'outputName') }
+      const nodes = [...shows, panel('outputName')]
+      const edges = [
+        edge('collection', 'patternset', 'show', 'patternset'),
+        edge('show', 'frame', 'out', 'frame'),
+        edge('out', 'display', 'tft', 'display'),
+      ]
+      const issues = findDisplayGeneratorIssues(nodes, edges, documents)
+      expect(issues.warnings.filter((issue) => issue.includes('outputName'))).toEqual([])
+      const src = generateShowSketch(nodes, edges, patternGroups, { displayDocuments: documents })
+      expect(src).toContain('_cdSetText(_cd_screen[0], "LED Matrix");')
     })
   })
 })

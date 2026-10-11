@@ -87,7 +87,7 @@ import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorC
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './player/playerControlsCpp'
-import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
+import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs, ledOutputRuntimeExpressions } from './output/ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/player/masterSpeed'
@@ -408,11 +408,12 @@ function showSelectionPlan(
   hasArtwork: boolean,
   patternCommands: string | null,
   boundFields: ReadonlySet<string> = new Set(),
+  patternNameBindings = false,
 ): ShowSelectionPlan {
   // Naming a pattern and picturing one are different needs: a Show Status
   // panel names without picturing, so the name table follows this rather than
-  // the browser's thumbnail table.
-  const nameStrings = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
+  // the browser's thumbnail table. A wired Pattern Browser is the same cost.
+  const nameStrings = patternNameBindings || bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const names = nameStrings
     || displays.info.some((display) => display.layout === 'Pattern Browser')
     || displays.tft.some((display) => display.layout === 'Show Status')
@@ -560,6 +561,7 @@ function showDisplaysCpp(
     dateTimeExpr: null,
     boot: { project: bootTitle, device: bootDevice },
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
+    ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
     ...(display.layout === 'Pattern Browser'
       ? { browser: { tableStem: SHOW_SELECTION_STEM, selVar } }
       : {}),
@@ -579,6 +581,7 @@ function showDisplaysCpp(
     dateTimeExpr: null,
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
+    ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
   }))
 
   const tftEmits: TftDisplayEmit[] = displays.tft.map((display) => ({
@@ -594,6 +597,7 @@ function showDisplaysCpp(
     backlightPin: display.backlightPin,
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
+    ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
     // A show has no RTC-in-template path yet, so a Clock-kind wire stays
     // unresolved here the same way it already is for the OLED beside it — see
     // playerDisplays.ts's `kinds`.
@@ -821,6 +825,7 @@ export function generateShowSketch(
       expressions: SHOW_DISPLAY_EXPRESSIONS, transportTouch: false, kinds: ['slideshow'],
       controlTouchIds: controls.touchIds, controlSources: controls.displaySources,
       sourceIds: build.templateDisplaySourceIds ?? undefined,
+      ledStatusFor: controls.ledStatusFor,
     },
   )
   const selection = showSelectionPlan(
@@ -829,6 +834,7 @@ export function generateShowSketch(
       && (Object.values(opts.artworks ?? {})[0] ?? []).length > 0,
     controls.patternCommands,
     boundDisplaySourceFields(controls.custom),
+    controls.patternNameBindings,
   )
   const selectionCpp = showSelectionCpp(
     selection, renderers.count,
@@ -844,24 +850,20 @@ export function generateShowSketch(
   const customDisplays = customDisplayShowCpp(controls.custom, opts.customDisplayAssets, emitTelemetry)
   const outputRuntimeExpressions = (outputId: string) => {
     const id = safeId(outputId)
-    const scalar = controls.scalarOutputs.get(outputId)
-    const latched = controls.outputs.has(outputId)
     // An unwired port means the field beside it, exactly as it does in the
-    // normal sketch and the preview.
+    // normal sketch and the preview. Status panels read this same helper.
     const manual = ledOutputManualExprs(
       nodes.find((node) => node.id === outputId)?.data.properties)
-    const enabled = scalar?.enabledExpr ?? manual.enabledExpr
-    const brightness = scalar?.brightnessExpr ?? manual.brightnessExpr
-    return { id,
-      enabledExpr: latched ? enabled ? `(${enabled}) && _ledOn_${id}` : `_ledOn_${id}` : enabled ?? null,
-      brightnessExpr: latched ? brightness ? `constrain(${brightness}, 0.0f, 1.0f) * _ledLevel_${id}` : `_ledLevel_${id}` : brightness ?? null,
+    return {
+      id,
+      ...ledOutputRuntimeExpressions(id, manual, controls.scalarOutputs.get(outputId), controls.outputs.has(outputId)),
     }
   }
   const outputRuntime = (outputId: string, array: string, count: string): string[] =>
     ledOutputRuntimeCpp({ ...outputRuntimeExpressions(outputId), array, count })
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
-  for (const block of [...renderers.helpers, ...renderers.functions]) {
+  for (const block of [...renderers.helpers, ...renderers.functions, ...controlGraph.helpers]) {
     const proto = cppPrototype(block)
     if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
   }

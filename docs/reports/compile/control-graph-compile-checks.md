@@ -120,3 +120,47 @@ explicitly includes authored Group Output terminals in hot evaluation: its
 15 focused tests pass, as do all 36 deploy-popup tests after adding the stale
 group guard. ESLint and the production build pass; the existing circular chunk
 warning remains.
+
+## Colour, pattern selection and LED status, 11 October 2026
+
+Show and player control graphs now resolve a wired Colour Swatch from a
+self-contained colour node, a Pattern Browser from the running engine's
+pattern selection, and LED status from an output that template drives. The
+colour stays a `CRGB` until the swatch binding packs it. Palette, image and
+harmony colours, a pattern selection from any other node, and an output the
+template does not drive still fail explicitly. A show latches status with the
+pixels. A player reports the driven output's manual settings and does not fold
+in master brightness. `CRGB` helpers used only by the control graph are
+prototyped after `#include <FastLED.h>`.
+
+The fixtures add the LED output's Display wire to the shared OLED. Show and
+player also mount a write-only ST7789 on GPIO 17, 18, 6, 7, 21 and 1. Its
+Colour Swatch is a Color Temperature sampled through an hsv-long gradient, so
+the sketch compiles both `kelvinToRGB` and `_hueMix`, and its Pattern Browser
+reads the running engine. Those pins stay off the LED data, button, OLED, SD
+bus and amplifier.
+
+The same reproduce command and toolchain apply. The run is recorded under
+`artifacts/compile-matrix/2026-10-11_1837/`. The generator replaces the prior
+nested-group sources and reports; earlier matrix summaries retain their
+evidence. The sources are the working tree on top of `afed897b`.
+
+Windows, Arduino CLI 1.5.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0.
+The helper pins player audio to 3.0.12. All three use
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`.
+
+| Fixture | Source SHA-256 prefix | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| Normal | `bc0e0ff42953` | Passed | 462,799 | 31,044 |
+| Slideshow | `2caff19dc519` | Passed | 637,439 | 41,676 |
+| SD player | `1ecee7dc95a9` | Passed | 1,301,995 | 57,572 |
+
+Each report's full source hash matches the fixture manifest. All three builds
+pass on Arduino CLI; fbuild remains on hold. No hardware was flashed. The
+slideshow and player growth is the added ST7789 and LVGL screen.
+
+The full Vitest run passes 7,197 tests across 419 files, with 20 tests and five
+files skipped. ESLint and the production build pass. The existing circular
+chunk warning between `graph-runtime` and `node-catalog` remains. Arbitrary
+RTC sources remain open in
+[D-01's implementation sequence](../../design/large-displays-and-control-routing.md#d-01-implementation).

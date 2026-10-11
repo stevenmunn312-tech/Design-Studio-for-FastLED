@@ -6,7 +6,7 @@ import { intervalCpp } from './intervalCpp'
 import { waveCpp } from './signalTimeCpp'
 import { formatNumberCpp, textValueCpp } from './displays/displayTextCpp'
 
-export type ControlDataType = 'float' | 'bool' | 'string'
+export type ControlDataType = 'float' | 'bool' | 'string' | 'color'
 
 export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlDataType }> = {
   Math: { port: 'result', type: 'float' },

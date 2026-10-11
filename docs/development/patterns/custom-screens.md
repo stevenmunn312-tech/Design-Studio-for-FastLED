@@ -44,7 +44,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   bound pattern *name* is the one reading that costs flash and turns the name
   table and cursor on exactly as a Pattern Browser does
   (`DISPLAY_NAME_SOURCE_FIELDS`/`DISPLAY_SELECTION_SOURCE_FIELDS`,
-  `patternNameStringCpp`). An unanswerable binding is a **warning** and the
+  `patternNameStringCpp`). A wired Colour Swatch packs its colour at the
+  binding and refuses a palette or image source. A wired Pattern Browser
+  accepts only the running engine's `patternSelect`; its thumbnail stays with
+  the asset-baking slice. An unanswerable binding is a **warning** and the
   widget draws its own text — deliberately weaker than the refusal a *cable*
   into the same field earns, because a binding is usually a template's default;
   templates bind through `TEMPLATE_WIDGET_SOURCES`, keyed by label so a portrait

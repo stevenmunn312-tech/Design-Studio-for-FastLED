@@ -13,8 +13,9 @@ import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButt
 import { designControlBundle, toggleWidgetSource } from '../../state/displays/designControlBundle'
 import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
-import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
-import type { DisplaySourceExpressions } from './displaySourceExpressions'
+import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources, type PatternSelectionBinding } from './customDisplayControlGraph'
+import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedStatusExpressions } from './displaySourceExpressions'
+import { drivenOutputLedStatus, ledOutputManualExprs, ledOutputRuntimeExpressions } from '../output/ledOutputRuntimeCpp'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
 
@@ -68,6 +69,19 @@ export interface TemplateControlContext {
    * template has no reading for is refused on both.
    */
   sourceExpressions?: DisplaySourceExpressions
+  /**
+   * Pattern Browser cables. Only the engine this template runs, and only its
+   * `patternSelect` port, resolves. Every other pattern selection stays an error.
+   */
+  patternSelection?: PatternSelectionBinding
+  /**
+   * LED outputs whose status this template can publish.
+   *
+   * `latch` is true when a Controls bundle on that output is the same latch
+   * the pixels read. A player keeps it false: direct output wires are refused
+   * and the sketch applies only the output's own fields.
+   */
+  ledStatus?: { drivenIds: ReadonlySet<string>; latch: boolean }
 }
 
 export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[], documents: DisplayDocumentRegistry | undefined, context: TemplateControlContext, groups: GroupRegistry = {}) {
@@ -79,7 +93,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const touchIds = new Set<string>()
   const custom = customDisplayControlPlan(nodes, documents, context.widgetLabel, edges)
   const graph = createControlGraph(nodes, edges, [...custom.sources, ...(context.sampledSources ?? [])])
-  bindCustomDisplayControls(custom, graph, edges, context.widgetLabel)
+  bindCustomDisplayControls(custom, graph, edges, context.widgetLabel, context.patternSelection)
   const powerSources = new Map<string, DisplaySourceExpressions>()
   for (const edge of edges) {
     if (edge.targetHandle !== 'display' || !DISPLAY_NODE_TYPES.has(byId.get(edge.target)?.data.nodeType ?? '')) continue
@@ -92,7 +106,6 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     }
     powerSources.set(edge.target, readings)
   }
-  bindCustomDisplaySources(custom, (panelId) => powerSources.get(panelId) ?? context.sourceExpressions ?? {})
   const displaySources = new Map<string, string>()
   const controls: PlayerControlsEmit[] = []
   const bundles = new Map<string, string>()
@@ -276,6 +289,29 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     const expression = sourceExpr(byId.get(target.nodeId)!, target.port, target.type)
     if (expression) scalarInputs.set(`${target.nodeId}:${target.port}`, expression)
   }
+  // After the destination walk: an LED-status table reads the same enabled and
+  // brightness expressions the pixels will, including a latch this loop just
+  // recorded. Binding earlier would report those fields unresolved.
+  const ledStatusFor = (outputId: string): LedStatusExpressions | null => {
+    if (!context.ledStatus?.drivenIds.has(outputId)) return null
+    const output = byId.get(outputId)
+    if (!output || output.data.nodeType !== 'MatrixOutput') return null
+    const manual = ledOutputManualExprs(output.data.properties)
+    const runtime = ledOutputRuntimeExpressions(
+      safeId(outputId), manual, scalarOutputs.get(outputId),
+      context.ledStatus.latch && bundles.has(outputId),
+    )
+    return drivenOutputLedStatus(output, runtime)
+  }
+  const ledTables = new Map<string, DisplaySourceExpressions>()
+  for (const edge of edges) {
+    if (edge.targetHandle !== 'display' || !DISPLAY_NODE_TYPES.has(byId.get(edge.target)?.data.nodeType ?? '')) continue
+    const source = byId.get(edge.source)
+    if (source?.data.nodeType !== 'MatrixOutput' || edge.sourceHandle !== 'display') continue
+    const status = ledStatusFor(source.id)
+    if (status) ledTables.set(edge.target, normalSketchSourceExpressions(null, status))
+  }
+  bindCustomDisplaySources(custom, (panelId) => powerSources.get(panelId) ?? ledTables.get(panelId) ?? context.sourceExpressions ?? {})
   // Enabled is a control wire like any other now: the panel keeps one latch,
   // written where its expression is evaluable and read by the drawing, touch
   // and output-rest that a disabled panel has to skip. Refusing the wire here
@@ -307,7 +343,10 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     if (issues.length) issues[0] += ` ${detail}`
     else issues.push(detail)
   }
-  return { touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, scalarInputs, errors: issues }
+  return {
+    touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, scalarInputs,
+    patternNameBindings: custom.patternNameBindings, ledStatusFor, errors: issues,
+  }
 }
 
 export type TemplateControlRouting = ReturnType<typeof templateControlRouting>

@@ -150,6 +150,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   physical contact forwarded through a group input still debounces. Do not add
   a second flattener in a generator. The boundary rules are in
   [graph and nodes](graph-and-nodes.md).
+- A Colour Swatch packs its `CRGB` at the binding. Palette, image and harmony
+  colours stay explicit failures. A Pattern Browser wire is accepted only from
+  the template engine's `patternSelect` and publishes the browsing-aware name;
+  a source-field pattern name stays on the active index. That wire sets
+  `patternNameBindings`, which turns the name table and cursor on. LED status
+  uses the output's own runtime for an output the template drives. Show status
+  shares `ledOutputRuntimeExpressions` with the pixel latch. Player status is
+  the driven output's manual settings with the latch off, and must not include
+  `playerBrightness`. Bind the panel's source table after scalar outputs exist:
+  binding earlier records LED fields as unresolved before the real table is
+  built. A power-monitor table still wins when one matches the panel.
 - Per-output blackout and dimming are wires, not project settings:
   `src/state/output/ledOutputRuntime.ts` resolves an output's `enabled`/`brightness`
   ports, defaulting unwired to lit/undimmed so adding the ports to an existing

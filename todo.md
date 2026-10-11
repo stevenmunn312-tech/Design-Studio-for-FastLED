@@ -297,11 +297,11 @@ The implementation sequence and current boundary are in
   are implemented, including wired periods/oscillator inputs, shared clock
   snapshots and computed-pulse debounce handling. Nested typed groups now share
   preview, normal/template expansion, validation and asset preparation.
-  Remaining: other time-dependent sources, structured
-  colour/pattern/status bindings, and arbitrary RTC sources in show/player
-  builds. Wired slideshow Master Speed and the Performance Generator's real
-  playback Display reading are complete. Preserve the music player's
-  track-position clock.
+  Remaining: other time-dependent sources and arbitrary RTC sources in
+  show/player builds. Structured colour, pattern-selection and LED-status
+  bindings are implemented. Wired slideshow Master Speed and the Performance
+  Generator's real playback Display reading are complete. Preserve the music
+  player's track-position clock.
 
 ## 6. Deferred until after v1
 

@@ -618,6 +618,13 @@ export function generatePlayerSketch(
       if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
     }
   }
+  // A colour node that only the control graph uses still returns CRGB. Its
+  // prototype has to sit after FastLED.h, or the preprocessor hoists one above
+  // the include and the name CRGB does not exist yet.
+  for (const block of compiledGraph?.helpers ?? []) {
+    const proto = cppPrototype(block)
+    if (proto && /CRGB(?:Palette16)?/.test(proto)) fastLedDecls.add(proto)
+  }
 
   // renderPattern() either dispatches to a render_pN() (collection) or runs the
   // built-in pattern switch (enum). The render_pN() bodies expect ms.
@@ -817,8 +824,10 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // counted here beside the fixed layouts rather than left to reference a
   // variable no line declares.
   const boundFields = graphRouting ? boundDisplaySourceFields(graphRouting.custom) : new Set<string>()
-  const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
+  const wiredPatternNames = graphRouting?.patternNameBindings === true
+  const boundNames = wiredPatternNames || bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
+    || wiredPatternNames
     || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),
@@ -856,6 +865,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       faultHintExpr: '!sdMounted ? "CHECK CARD/WIRING" : "CHECK /MUSIC FILES"',
     },
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
+    ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
     // infoDisplayLoopCpp is shared with the normal generator and emits browser
     // calls for this layout, so the definitions behind them have to be emitted
     // here too. Teaching one generator and not the other is what broke a build.
@@ -886,6 +896,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     dateTimeExpr: null,
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
+    ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
     faultCodeExpr: '!sdMounted ? SEG_FAULT_SD_CARD : (!playbackReady ? SEG_FAULT_NO_TRACK : SEG_FAULT_NONE)',
   }))
 
@@ -906,6 +917,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     backlightPin: display.backlightPin,
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
+    ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
     // The player has no RTC-in-template path yet, so a Clock-kind wire stays
     // unresolved here the same way it already is for the OLED beside it — see
     // playerDisplays.ts's `kinds`.

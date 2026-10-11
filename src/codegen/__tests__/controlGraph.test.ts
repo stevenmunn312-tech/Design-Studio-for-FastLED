@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { createControlGraph, controlGraphCpp, controlReferenceCpp, MAX_CONTROL_GRAPH_NODES } from '../controlGraph'
+import { KELVIN_TO_RGB_CPP } from '../helpers/kelvinCpp'
 import { SCALAR_CONTROL_NODES, scalarControlInputDefaults } from '../scalarControlCpp'
 import { generateCpp } from '../cppGenerator'
 import { evaluateGraphFull } from '../../state/graphEvaluator'
@@ -175,5 +176,44 @@ describe('typed control graph', () => {
     const cpp = controlGraphCpp(graph).loop.join('\n')
     expect(cpp).toContain('\\"; evil();')
     expect(cpp).not.toContain('x'.repeat(100))
+  })
+
+  it('emits self-contained colour nodes with the normal sketch formulas', () => {
+    const nodes = [
+      node('hsv', 'HSVToRGB'), node('blend', 'BlendColors'), node('rgb', 'RGBToHSV'),
+      node('heat', 'HeatColor'), node('temp', 'Temperature'),
+      node('grad', 'GradientSampler', { mixMode: 'hsvLong' }),
+    ]
+    const edges = [edge('hsv', 'color', 'blend', 'a'), edge('blend', 'color', 'rgb', 'rgb')]
+    const graph = createControlGraph(nodes, edges)
+    expect(graph.resolve('rgb', 'h', 'float')).toEqual({ nodeId: 'rgb', port: 'h', type: 'float' })
+    expect(graph.resolve('temp', 'color', 'color')?.type).toBe('color')
+    expect(graph.resolve('heat', 'color', 'color')).not.toBeNull()
+    expect(graph.resolve('grad', 'color', 'color')).not.toBeNull()
+    expect([...graph.errors]).toEqual([])
+    const emitted = controlGraphCpp(graph)
+    // No LED output: every colour node stays in the sketch, including ones
+    // nothing renders. A matrix would prune the ones that do not feed it.
+    const normal = generateCpp(nodes, edges)
+    for (const line of emitted.loop) expect(normal, line).toContain(line)
+    expect(emitted.helpers).toContain(KELVIN_TO_RGB_CPP)
+    expect(emitted.helpers.filter((helper) => helper === KELVIN_TO_RGB_CPP)).toHaveLength(1)
+    expect(emitted.loop.join('\n')).toContain('_hueMix(_gsA_grad, _gsB_grad, (0), true)')
+    const kelvinLines = normal.split('\n')
+    const start = kelvinLines.findIndex((line) => line.startsWith('CRGB kelvinToRGB('))
+    let end = start
+    while (kelvinLines[end] !== '}') end++
+    expect(kelvinLines.slice(start, end + 1).join('\n')).toBe(KELVIN_TO_RGB_CPP)
+  })
+
+  it('refuses a palette colour and keeps Hue Cycle on the control clock', () => {
+    const palette = createControlGraph([node('sample', 'PaletteSampler')], [])
+    expect(palette.resolve('sample', 'color', 'color')).toBeNull()
+    expect([...palette.errors].join(' ')).toContain('unsupported')
+    const hue = createControlGraph([node('cycle', 'HueCycle')], [])
+    hue.resolve('cycle', 'color', 'color')
+    const loop = controlGraphCpp(hue).loop.join('\n')
+    expect(loop).toContain('float _controlTime = millis() / 1000.0f;')
+    expect(loop).toContain('fmodf(_controlTime * (0.1), 1.0f)')
   })
 })

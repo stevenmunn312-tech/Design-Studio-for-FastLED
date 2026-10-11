@@ -3,6 +3,7 @@ import type { StudioNode, StudioEdge } from '../state/graphStore'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { resolvePaletteId, paletteCppRef, customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
+import { KELVIN_TO_RGB_CPP } from './helpers/kelvinCpp'
 import { CPP_SHIM_HELPERS } from '../nodes/shared/fastledShims'
 import { displayTextCppHelpers } from './displays/displayTextCpp'
 import {
@@ -1418,13 +1419,7 @@ export function generateCpp(
 
   if (needsKelvin.v) {
     lines.push(`// Approximate black-body white point for a colour temperature (Kelvin).`)
-    lines.push(`CRGB kelvinToRGB(float kelvin) {`)
-    lines.push(`  float t = constrain(kelvin, 1000.0f, 40000.0f) / 100.0f, r, g, b;`)
-    lines.push(`  if (t <= 66) { r = 255; g = 99.4708025861f * log(t) - 161.1195681661f; }`)
-    lines.push(`  else { r = 329.698727446f * pow(t - 60, -0.1332047592f); g = 288.1221695283f * pow(t - 60, -0.0755148492f); }`)
-    lines.push(`  if (t >= 66) b = 255; else if (t <= 19) b = 0; else b = 138.5177312231f * log(t - 10) - 305.0447927307f;`)
-    lines.push(`  return CRGB(constrain((int)r, 0, 255), constrain((int)g, 0, 255), constrain((int)b, 0, 255));`)
-    lines.push(`}`)
+    lines.push(KELVIN_TO_RGB_CPP)
     lines.push(``)
   }
 

@@ -18,6 +18,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { generateCpp } from '../cppGenerator'
+import { generateShowSketch } from '../showGenerator'
+import { buildShowPlayer } from '../../utils/showUpload'
 import { evaluateGraphFull } from '../../state/graphEvaluator'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { findDisplayGeneratorIssues } from '../../utils/validateGraph'
@@ -185,19 +187,50 @@ describe('an LED output reporting itself', () => {
 })
 
 /*
- * The other two generators cannot answer for a fixture.
- *
- * A show controller and an SD player are fixed templates: they resolve a
- * panel's readings from the engine they are built around, and an LED output is
- * not one. That has to be said rather than left to produce a blank panel, and
- * it is said by the same walk that already reports a Wave wired into a player
- * panel — `MatrixOutput` joining `DISPLAY_SOURCE_NODE_TYPES` is what puts it
- * in scope, so no second rule was written for it.
+ * A template answers for the fixture it actually drives, with the same
+ * expressions that scale that fixture's pixels. An output the engine does not
+ * reach stays unresolved, the same warning a song wire gets on a show.
  */
 describe('a fixture status panel in a template build', () => {
-  it('is reported as unreadable by the show controller', () => {
+  const groups = {
+    pattern: {
+      nodes: [node('paint', 'SolidColor'), node('end', 'GroupOutput')],
+      edges: [edge('paint', 'frame', 'end', 'frame')],
+    },
+  }
+
+  it('reports the show output with the latch the pixels already use', () => {
     const nodes = [
       output(), fill,
+      node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
+      node('show', 'PatternSlideshow'),
+      node('knob', 'PotInput', { pin: 33 }),
+      node('controls', 'ControlMap'),
+      oled,
+    ]
+    const edges = [
+      edge('collection', 'patternset', 'show', 'patternset'),
+      edge('show', 'frame', 'out', 'frame'),
+      edge('knob', 'value', 'out', 'brightness'),
+      edge('controls', 'controls', 'out', 'controls'),
+      edge('out', 'display', 'oled', 'display'),
+    ]
+    expect(findDisplayGeneratorIssues(nodes, edges).warnings).toEqual([])
+    const loop = loopOf(generateShowSketch(nodes, edges, groups))
+    const level = 'constrain((float)(constrain(n_knob_value, 0.0f, 1.0f) * _ledLevel_out), 0.0f, 1.0f)'
+    expect(loop).toContain(`float _oledLvl_oled = ${level};`)
+    expect(loop).toContain('"ON" : "BLACKOUT"')
+    expect(loop).toContain('"LED String"')
+    expect(loop).toContain('"144 LEDS"')
+    expect(loop.indexOf('_ledOn_out = !_ledOn_out')).toBeGreaterThan(-1)
+    expect(loop.indexOf('_ledOn_out = !_ledOn_out')).toBeLessThan(loop.indexOf('_oledLvl_oled'))
+    expect(loop.indexOf('constrain(n_knob_value, 0.0f, 1.0f) * _ledLevel_out'))
+      .toBeLessThan(loop.indexOf('_oledLvl_oled'))
+  })
+
+  it('leaves an output the show does not render unresolved', () => {
+    const nodes = [
+      output(), output('deck', { dataPin: 26 }), fill,
       node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
       node('show', 'PatternSlideshow'),
       oled,
@@ -205,11 +238,34 @@ describe('a fixture status panel in a template build', () => {
     const edges = [
       edge('collection', 'patternset', 'show', 'patternset'),
       edge('show', 'frame', 'out', 'frame'),
+      edge('deck', 'display', 'oled', 'display'),
+    ]
+    const warnings = findDisplayGeneratorIssues(nodes, edges).warnings.join('\n')
+    expect(warnings).toContain('cannot read')
+    expect(warnings).toContain('stays blank')
+  })
+
+  it('reports the player output from its own fields, not the player brightness', () => {
+    const nodes = [
+      output('out', { outputBrightness: 0.5, dataPin: 4 }),
+      node('master', 'PatternMaster'),
+      node('card', 'SDCard'),
+      node('amp', 'Amplifier', { i2sBclk: 14, i2sLrc: 15, i2sDout: 16 }),
+      node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
+      oled,
+    ]
+    const edges = [
+      edge('collection', 'patternset', 'master', 'patternset'),
+      edge('master', 'frame', 'out', 'frame'),
+      edge('card', 'storage', 'master', 'storage'),
+      edge('master', 'audio', 'amp', 'audio'),
       edge('out', 'display', 'oled', 'display'),
     ]
-    const { warnings } = findDisplayGeneratorIssues(nodes, edges)
-    expect(warnings.join('\n')).toContain('cannot read')
-    expect(warnings.join('\n')).toContain('stays blank')
+    expect(findDisplayGeneratorIssues(nodes, edges).warnings).toEqual([])
+    const loop = loopOf(buildShowPlayer(nodes, edges, groups, { bakedAudio: false, preferredTrack: '' }))
+    const level = loop.split('\n').find((line) => line.includes('_oledLvl_oled'))
+    expect(level).toContain('constrain((float)(0.500f), 0.0f, 1.0f)')
+    expect(level).not.toContain('playerBrightness')
   })
 })
 

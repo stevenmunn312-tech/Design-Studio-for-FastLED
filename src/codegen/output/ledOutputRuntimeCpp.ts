@@ -14,7 +14,9 @@
 // Nothing is emitted when neither port is wired and neither field has been
 // moved, so an output nobody has touched generates the sketch it always did.
 
-import { ledOutputManualRuntime } from '../../state/output/ledOutputRuntime'
+import { LED_OUTPUT_RUNTIME_DEFAULT, ledOutputManualRuntime, ledOutputStatus } from '../../state/output/ledOutputRuntime'
+import { nodeDisplayLabel } from '../../state/nodeLibrary'
+import type { LedStatusExpressions } from '../displays/displaySourceExpressions'
 
 /**
  * What this output's own fields contribute when nothing is wired to a port.
@@ -23,6 +25,61 @@ import { ledOutputManualRuntime } from '../../state/output/ledOutputRuntime'
  * the difference between "the user dialled full" and "the user never touched
  * this", and only the second may leave the sketch unchanged.
  */
+export interface LedOutputRuntimeExpressions {
+  enabledExpr: string | null
+  brightnessExpr: string | null
+}
+
+/**
+ * The expressions that scale one output's pixels.
+ *
+ * A wire wins over the field beside it. A latched Controls bundle ANDs
+ * blackout and multiplies level, and an unwired factor contributes its
+ * identity and disappears. Show status panels read this same pair, so the
+ * glass and the fixture cannot drift.
+ */
+export function ledOutputRuntimeExpressions(
+  latchId: string,
+  manual: LedOutputRuntimeExpressions,
+  scalar: LedOutputRuntimeExpressions | undefined,
+  latched: boolean,
+): LedOutputRuntimeExpressions {
+  const enabled = scalar?.enabledExpr ?? manual.enabledExpr
+  const brightness = scalar?.brightnessExpr ?? manual.brightnessExpr
+  return {
+    enabledExpr: latched ? (enabled ? `(${enabled}) && _ledOn_${latchId}` : `_ledOn_${latchId}`) : enabled,
+    brightnessExpr: latched
+      ? (brightness ? `constrain(${brightness}, 0.0f, 1.0f) * _ledLevel_${latchId}` : `_ledLevel_${latchId}`)
+      : brightness,
+  }
+}
+
+/**
+ * Compile-time name, form and count, plus the two live expressions.
+ *
+ * Identity (lit, undimmed, no latch) becomes the constants the status layouts
+ * already draw. The pixel emitter keeps the nulls so an untouched output
+ * still emits nothing.
+ */
+export function drivenOutputLedStatus(
+  output: { data: { nodeType: string; label?: string; properties: Record<string, unknown> } },
+  runtime: LedOutputRuntimeExpressions,
+): LedStatusExpressions {
+  const props = output.data.properties
+  const status = ledOutputStatus(
+    nodeDisplayLabel(output.data.nodeType, props, String(output.data.label ?? 'LED output')),
+    props,
+    LED_OUTPUT_RUNTIME_DEFAULT,
+  )
+  return {
+    name: status.name,
+    formLabel: status.formLabel,
+    ledCount: status.ledCount,
+    enabledExpr: runtime.enabledExpr ?? 'true',
+    brightnessExpr: runtime.brightnessExpr ?? '1.0f',
+  }
+}
+
 export function ledOutputManualExprs(props: Record<string, unknown> | undefined): {
   enabledExpr: string | null
   brightnessExpr: string | null

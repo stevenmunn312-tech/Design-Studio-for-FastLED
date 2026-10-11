@@ -41,6 +41,7 @@ import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
 import { emittedTouchBounds } from '../../state/displays/transportTouch'
 import type { PlayerControlDestination } from '../../state/player/playerControlAssignments'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
+import type { LedStatusExpressions } from '../displays/displaySourceExpressions'
 
 interface ConfigNode {
   id: string
@@ -82,6 +83,8 @@ export interface PlayerInfoDisplay {
   enabledExpr: string
   /** Port id -> C++ expression, for the ports this sketch can honour. */
   powerMonitor?: { volts: string; amps: string; watts: string }
+  /** Set when this panel's Display wire is an LED output the template drives. */
+  ledStatus?: LedStatusExpressions
   sources: Record<string, string>
 }
 
@@ -100,6 +103,8 @@ export interface PlayerSegmentDisplay {
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
   enabledExpr: string
   powerMonitor?: { volts: string; amps: string; watts: string }
+  /** Set when this module's Display wire is an LED output the template drives. */
+  ledStatus?: LedStatusExpressions
   sources: Record<string, string>
 }
 
@@ -143,6 +148,8 @@ export interface PlayerTransportDisplay {
   /** Runtime gate: the wire feeding Enabled, or the property as a constant. */
   enabledExpr: string
   powerMonitor?: { volts: string; amps: string; watts: string }
+  /** Set when this panel's Display wire is an LED output the template drives. */
+  ledStatus?: LedStatusExpressions
   sources: Record<string, string>
 }
 
@@ -297,6 +304,16 @@ export interface TemplateDisplayOptions {
   /** Source nodes this template actually runs. A matching node type elsewhere
    * in a mixed graph is not a runtime value this firmware can publish. */
   sourceIds?: ReadonlySet<string>
+  /**
+   * LED-output status for a fixture this template drives.
+   *
+   * Absent, or null for an output the template does not run, and the panel
+   * stays unresolved — the same warning an unsupported source already gets.
+   * A reading accepts `ledOutput` even when that kind is not in `kinds`,
+   * because the show and the player publish status without listing it as a
+   * content source.
+   */
+  ledStatusFor?: (outputId: string) => LedStatusExpressions | null
 }
 
 /**
@@ -313,6 +330,7 @@ function resolveDisplayKind(
   unresolved: PlayerDisplays['unresolved'],
   kinds: readonly DisplaySignalKind[],
   sourceIds?: ReadonlySet<string>,
+  ledStatusFor?: (outputId: string) => LedStatusExpressions | null,
 ): DisplaySignalKind | null {
   const edge = edges.find((e) => e.target === displayId && e.targetHandle === 'display')
   if (!edge) return null
@@ -322,6 +340,16 @@ function resolveDisplayKind(
   if (!kind) {
     unresolved.push({ display: displayId, port: 'display', source: source.data.nodeType })
     return null
+  }
+  // Before the kind list: a template answers for the fixture it drives even
+  // though LED status is not one of its content kinds. No reading, and the
+  // panel stays unresolved rather than drawing an empty LED Status.
+  if (kind === 'ledOutput') {
+    if (!ledStatusFor?.(source.id)) {
+      unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
+      return null
+    }
+    return kind
   }
   if (kind !== 'powerMonitor' && !kinds.includes(kind)) {
     unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
@@ -347,6 +375,11 @@ export function playerDisplaysFromGraph(
     options.controlSources?.get(`${id}:enabled`) ?? (props.enabled !== false ? 'true' : 'false')
   const kinds = options.kinds ?? ['player']
   const sourceIds = options.sourceIds
+  const ledStatusFor = options.ledStatusFor
+  const ledStatusOf = (displayId: string): LedStatusExpressions | undefined => {
+    const edge = edges.find((candidate) => candidate.target === displayId && candidate.targetHandle === 'display')
+    return edge ? ledStatusFor?.(edge.source) ?? undefined : undefined
+  }
   const powerMonitorFor = (displayId: string) => {
     const edge = edges.find((candidate) => candidate.target === displayId && candidate.targetHandle === 'display')
     if (!edge || nodes.find((node) => node.id === edge.source)?.data.nodeType !== 'PowerMonitorInput') return undefined
@@ -371,7 +404,7 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'sh1106-oled-128x64')
       const controller = oledControllerForProps(node.data.properties)
       const rotation = oledRotationCommands(asOledRotation(props.oledRotation))
-      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds)
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor)
       // One envelope in, so the fields come from the generator's own table
       // rather than one wire at a time. Nothing to forget, and nothing that
       // resolves in preview and not here.
@@ -407,6 +440,7 @@ export function playerDisplaysFromGraph(
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
         powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
+        ledStatus: kind === 'ledOutput' ? ledStatusOf(node.id) : undefined,
         sources,
       })
       continue
@@ -429,7 +463,7 @@ export function playerDisplaysFromGraph(
       // the property and never asks what is plugged in. Everything else is the
       // one envelope, resolved exactly as the OLED above resolves its own.
       const diagnostics = asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
-      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds)
+      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor)
       // A source this generator honours can still have no colour layout — an
       // RTC does not, today — and that is reported too, rather than falling
       // back to a screen built for something else.
@@ -491,6 +525,7 @@ export function playerDisplaysFromGraph(
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
         powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
+        ledStatus: kind === 'ledOutput' ? ledStatusOf(node.id) : undefined,
         sources,
       })
       continue
@@ -500,7 +535,7 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'tm1637-4digit-display')
       const controller = segmentControllerFor(partById(partId)?.display?.controller)
       const isMax = controller.id === 'MAX7219'
-      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds)
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor)
       // A segment module reads one number, and which number is the kind:
       // elapsed seconds from a player, an ordinal from a show.
       const sources: Record<string, string> = kind === 'player'
@@ -520,6 +555,7 @@ export function playerDisplaysFromGraph(
         enabled: props.enabled !== false,
         enabledExpr: enabledExprFor(node.id, props),
         powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
+        ledStatus: kind === 'ledOutput' ? ledStatusOf(node.id) : undefined,
         sources,
       })
     }

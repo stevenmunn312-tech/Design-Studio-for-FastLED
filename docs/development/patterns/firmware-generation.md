@@ -147,6 +147,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   there the state must be a static inside the templated pass (as Reaction
   Diffusion's `_v_<id>` and Trails' `_passState_<id>` are), copied out each
   frame.
+- The Arduino preprocessor hoists a prototype of every function that returns
+  `CRGB` to a point above `#include <FastLED.h>` unless an explicit prototype
+  already exists after that include. Show `fastLedDecls` scans pattern helpers
+  and the control graph's helpers. The player scans collection renderers inside
+  `if (collection)` and `compiledGraph.helpers` outside that block, because a
+  colour node used only by the control graph never appears in a pattern
+  renderer. `kelvinToRGB` is one shared string, `KELVIN_TO_RGB_CPP`, so the
+  show helper set emits it once; keep its comment outside the function or the
+  two copies stop matching. `_hueMix` is the same kind of prototype.
 - A screen-only sketch (a panel plus a screen design, no LED output) is trimmed
   of FastLED entirely, not just left minimal: `cppGenerator.ts`'s
   `withoutUnusedFastLed(lines)`, applied at the generator's single

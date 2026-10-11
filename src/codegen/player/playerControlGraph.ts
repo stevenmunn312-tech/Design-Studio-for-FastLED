@@ -4,6 +4,8 @@ import type { DisplayDocumentRegistry } from '../../state/displays/displayDocume
 import { SONG_INFO_PORTS } from '../../state/player/songInfo'
 import { PLAYER_SONG_EXPRESSIONS } from './playerSongInfoCpp'
 import { templateControlRouting } from '../displays/templateControlRouting'
+import { browsingPatternNameExpr } from '../displays/patternThumbnailCpp'
+import { resolveShowTarget } from '../../state/player/showTarget'
 import { playerSourceExpressions } from '../displays/displaySourceExpressions'
 import { controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { DISPLAY_TEXT_BUFFER_BYTES } from '../../state/displays/displayText'
@@ -65,10 +67,19 @@ export function playerControlGraph(
   const sources: ControlReference[] = songNodes.flatMap((node) => (
     SONG_INFO_PORTS.map((port) => ({ nodeId: node.id, port: port.id, type: port.dataType }))
   ))
+  const drivenOutput = master ? resolveShowTarget(nodes, edges, master.id).target : null
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'an SD player', widgetLabel: 'the SD player',
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
+    patternSelection: {
+      sourceIds: new Set(master ? [master.id] : []),
+      nameExpr: browsingPatternNameExpr(PLAYER_SELECTION_STEM),
+      refusal: 'Wire the Music Player or Performance Generator this player runs.',
+    },
+    // The player applies the output's own fields and refuses direct wires, so
+    // status does not latch and does not fold in the player's master brightness.
+    ledStatus: { drivenIds: new Set(drivenOutput ? [drivenOutput.id] : []), latch: false },
   }, groups)
   const outputRuntimePorts = ['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown']
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {

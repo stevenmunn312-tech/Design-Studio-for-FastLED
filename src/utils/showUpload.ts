@@ -144,6 +144,7 @@ export function buildShowPlayer(
     displays: playerDisplaysFromGraph(nodes, edges, {
       controlSources: controlGraph.displaySources,
       sourceIds: build.templateDisplaySourceIds ?? undefined,
+      ledStatusFor: controlGraph.ledStatusFor,
     }),
     // Baked here rather than in the generator: baking evaluates patterns, and
     // only this side knows whether the workspace has been trusted. Without it

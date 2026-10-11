@@ -431,10 +431,11 @@ typed sources, dependency ordering, cycle/type/id checks and a 256-node limit.
 Trigger, StepValue, Interval, Wave, TextValue and FormatNumber to both the IR
 and normal sketches. Time's two outputs share `signalTimeCpp.ts`. Custom controls
 provide float/bool pre-pass samples; template widget inputs accept supported
-float/bool/string paths. Interval shares the normal firmware's elapsed-millisecond
-timer and computed presses bypass contact debounce. Other time-dependent sources,
-groups, arbitrary scripts and
-structured colour/pattern bindings remain outside that template scope.
+float/bool/string paths, a self-contained colour, and the running engine's
+pattern selection. Interval shares the normal firmware's elapsed-millisecond
+timer and computed presses bypass contact debounce. Other time-dependent
+sources, arbitrary scripts and palette or image colours remain outside that
+template scope.
 
 Time/Wave controls share the slideshow's animation clock, including Master
 Speed's previous-pass update. SD-player root controls instead sample elapsed
@@ -485,7 +486,9 @@ perform no touch or LVGL work. Normal firmware does not yet honor this rule
 after the panel/document split (HW-02).
 
 Custom float/bool/string inputs support the same scalar nodes as the control
-mapper; wired colour and pattern-selection roles remain refused. Asset
+mapper. A Colour Swatch accepts a self-contained colour node, packed only at
+the binding, and a Pattern Browser accepts the running engine's pattern
+selection. Palette colours and any other pattern selection stay refused. Asset
 preparation and capacity measurement include actual baked image data. The
 SD player uses this same resolver and ordering. Only referenced Song Info
 ports from an unpacker wired to its player are sampled; strings are copied into bounded buffers before a

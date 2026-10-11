@@ -183,6 +183,41 @@ describe('custom displays in generative shows', () => {
     )).toThrow('identifiers collide')
   })
 
+  it('packs a wired colour and names the running pattern while it is being browsed', () => {
+    const doc = addDisplayWidget(addDisplayWidget(document(), 'Colour Swatch'), 'Pattern Browser')
+    const swatch = doc.widgets.find((widget) => widget.type === 'Colour Swatch')!.id
+    const browser = doc.widgets.find((widget) => widget.type === 'Pattern Browser')!.id
+    const nodes = [panel('tft'), node('temp', 'Temperature'), node('other', 'PatternSlideshow')]
+    const edges = [
+      edge('temp', 'color', 'tft', `widget:${swatch}:value`),
+      edge('show', 'patternSelect', 'tft', `widget:${browser}:value`),
+    ]
+    const cpp = generate(nodes, edges, { screen: doc })
+    expect(cpp).toContain('CRGB n_temp_color = kelvinToRGB(mapFloat(constrain(0.27, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));')
+    expect(cpp).toContain('_cdSetColor(')
+    expect(cpp).toContain('((uint32_t)(n_temp_color).r << 16)')
+    expect(cpp).toContain('_cdSetText(')
+    expect(cpp).toContain('_patNameStr_show(_selBrowsing(_sel_show) ? _sel_show.highlight : _sel_show.active)')
+    expect(cpp).toContain('static const char *_patNameStr_show(')
+    const fastLed = cpp.indexOf('#include <FastLED.h>')
+    const prototype = cpp.indexOf('CRGB kelvinToRGB(float kelvin);')
+    const definition = cpp.indexOf('CRGB kelvinToRGB(float kelvin) {')
+    expect(fastLed).toBeGreaterThan(-1)
+    expect(prototype).toBeGreaterThan(fastLed)
+    expect(definition).toBeGreaterThan(prototype)
+    expect(cpp.match(/CRGB kelvinToRGB\(float kelvin\) \{/g)).toHaveLength(1)
+    expect(() => generateUnchecked(
+      [panel('tft'), node('sample', 'PaletteSampler')],
+      [edge('sample', 'color', 'tft', `widget:${swatch}:value`)],
+      { screen: doc },
+    )).toThrow('cannot evaluate this colour')
+    expect(() => generateUnchecked(
+      [...nodes],
+      [edge('other', 'patternSelect', 'tft', `widget:${browser}:value`)],
+      { screen: doc },
+    )).toThrow('cannot evaluate this pattern selection')
+  })
+
 
   // A widget is a control source like a button on a pin: the same bundle, the
   // same destination. What was missing was the destination — a Control Map

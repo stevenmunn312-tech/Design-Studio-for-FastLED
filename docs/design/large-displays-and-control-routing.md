@@ -319,17 +319,27 @@ in independently compiled slices:
    repeated timer instances, fallbacks, recursive definitions, identifier
    collisions, dependency limits and trust propagation. The compiled fixture
    wraps Interval, Time and Wave in two groups and forwards a root button
-   through a group input directly to its output. Structured bindings outside
-   the template resolver's supported set remain the next slice.
-4. Structured colour, pattern-selection and status bindings, followed by RTC
-   sources: resolve the actual wired source through the same validation and
-   emission plan. Unsupported paths must continue to fail explicitly.
+   through a group input directly to its output.
+4. Structured colour, pattern selection and LED status: implemented. A Colour
+   Swatch accepts a self-contained colour node. The control graph keeps a
+   `CRGB`; the swatch binding packs it. Palette, image and harmony sources
+   still fail explicitly. A Pattern Browser accepts only the running engine's
+   `patternSelect` and reads the browsing-aware name. Source-field pattern
+   names stay on the active index. LED status answers for an output the
+   template drives, using that output's own runtime. A show latches status
+   with the pixels. A player reports the driven output's manual settings and
+   does not fold in master brightness. A second, undriven output stays
+   unresolved. Other time-dependent sources and arbitrary RTC sources remain
+   the next slice: unsupported paths must continue to fail explicitly.
 
 `scripts/compile-fixtures/control-graph.ts` generates normal, show and SD-player
 fixtures with nested Interval, both Time outputs, wired Wave inputs and wired
-Master Speed where supported. The regression fixture also checks a timer shared
-between a Control Map and a panel's Enabled path, plus a physical button that
-still requires debounce. Results are recorded in
+Master Speed where supported. The shared OLED reads the LED output it is wired
+to. Show and player fixtures also mount a write-only ST7789 whose Colour Swatch
+is a temperature sampled through an hsv-long gradient, and whose Pattern
+Browser reads the running engine. The regression fixture also checks a timer
+shared between a Control Map and a panel's Enabled path, plus a physical button
+that still requires debounce. Results are recorded in
 [control graph compile checks](../reports/compile/control-graph-compile-checks.md).
 These are software checks, not hardware evidence.
 
@@ -338,8 +348,8 @@ These are software checks, not hardware evidence.
 HW-01–08 are closed. Direct-control compilation is done; its bench evidence
 is still open in
 [direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
-Performance Generator is now a real Display source. Broader structured
-bindings remain open in D-01; density/size thresholds and multi-screen scope
-stay deferred.
+Performance Generator is now a real Display source. Arbitrary RTC sources
+remain open in D-01; density/size thresholds and multi-screen scope stay
+deferred.
 Driver, bus and asset contracts remain in
 [auxiliary displays](auxiliary-displays.md).

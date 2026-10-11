@@ -479,10 +479,12 @@ drifts — a list beside one generator says nothing about the other two.
   room to say both draw BLACKOUT *beside* the level the fixture would return
   to, which is the pair the golden vectors freeze. Custom widgets bind through
   `LED_OUTPUT_FIELDS`, answered in firmware by `normalSketchSourceExpressions`.
-  A normal sketch is the only generator that can answer at all; the two
-  template generators report the wire as unreadable through the walk they
-  already use, which `MatrixOutput` joining `DISPLAY_SOURCE_NODE_TYPES` put it
-  inside without a second rule.
+  A show or player answers the same fields for an output that template drives.
+  The show uses the latched pixel runtime; the player uses the driven output's
+  manual settings and does not fold in its master brightness. An output the
+  template does not drive stays unresolved. Omitting the status provider keeps
+  that warning, so a caller that never learned the reading cannot paint an
+  empty LED Status.
 - [x] Update rendering/codegen terminal discovery so adding an output socket
   cannot prune the LED fixture or its upstream graph. Verify rendering with the
   Display socket both wired and unwired, and independent status for two fixtures.
