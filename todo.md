@@ -287,22 +287,6 @@ chooses the supported combinations from whatever is on record at release.
   [release checklist](docs/release/versioning-and-releases.md#release-checklist).
   Never merge `main` and `Hardware`.
 
-## D-01 · Broader control graph (active)
-
-Started early at the maintainer's request on 11 October 2026.
-The implementation sequence and current boundary are in
-[control routing](docs/design/large-displays-and-control-routing.md#d-01-implementation).
-
-- [ ] **D-01 · Broader control graph.** Interval, Time and Wave template controls
-  are implemented, including wired periods/oscillator inputs, shared clock
-  snapshots and computed-pulse debounce handling. Nested typed groups now share
-  preview, normal/template expansion, validation and asset preparation.
-  Remaining: other time-dependent sources and arbitrary RTC sources in
-  show/player builds. Structured colour, pattern-selection and LED-status
-  bindings are implemented. Wired slideshow Master Speed and the Performance
-  Generator's real playback Display reading are complete. Preserve the music
-  player's track-position clock.
-
 ## 6. Deferred until after v1
 
 - [ ] **D-02 · Larger UI scope.** Shared-document panel interaction, multiple
@@ -372,6 +356,12 @@ The implementation sequence and current boundary are in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **D-01 · Broader control graph**: Interval, Time, Wave, nested groups,
+  colour, pattern selection, LED status, wall-clock signal nodes and a wired
+  local RTC in show and player builds
+  ([control routing](docs/design/large-displays-and-control-routing.md#d-01-implementation);
+  [compile checks](docs/reports/compile/control-graph-compile-checks.md)).
+  NTP in those generators stays with D-03.
 - **HW-01–HW-10, HW-15, HW-21–HW-31**: controls and screens, workflow, catalogue
   and helper work.
 - **Direct controls and LED output status**: software complete; bench readings

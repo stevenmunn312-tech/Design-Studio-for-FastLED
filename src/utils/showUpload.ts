@@ -145,6 +145,7 @@ export function buildShowPlayer(
       controlSources: controlGraph.displaySources,
       sourceIds: build.templateDisplaySourceIds ?? undefined,
       ledStatusFor: controlGraph.ledStatusFor,
+      clockFor: controlGraph.clockFor,
     }),
     // Baked here rather than in the generator: baking evaluates patterns, and
     // only this side knows whether the workspace has been trusted. Without it

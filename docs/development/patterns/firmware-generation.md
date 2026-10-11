@@ -49,7 +49,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   instead: it scans the emitted sketch for every `struct X {` definition used by
   reference and requires each to be forward-declared before the first function,
   so `_RtcDateTime` needed no new test-side listing to be caught — proof the
-  derive-don't-list design holds as the struct count grows. Better still, don't
+  derive-don't-list design holds as the struct count grows. Show and player
+  control graphs emit that same `RTC_CPP_FORWARD` when a helper contains
+  `struct _RtcDateTime {`, after `#include <FastLED.h>`. Better still, don't
   qualify: a generated struct that carries its state in *member* functions is
   never a by-reference parameter, so it never meets the hoist at all —
   `playerControlsCpp.ts`'s `PlayerControlsValue`/`CtlEdge`/`CtlDetent` are built

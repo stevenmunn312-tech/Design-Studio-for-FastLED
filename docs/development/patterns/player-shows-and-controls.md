@@ -150,6 +150,29 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   physical contact forwarded through a group input still debounces. Do not add
   a second flattener in a generator. The boundary rules are in
   [graph and nodes](graph-and-nodes.md).
+- Clock, Envelope, BeatSin, Noise LFO, Counter and Schedule Trigger share
+  `signalControlCpp.ts` with normal sketches. They read `millis()`, keep static
+  locals keyed by node id, and do not request `_controlTime`, so Master Speed
+  does not scale them and the track clock stays put. Clock's firmware reset is
+  the reset wire's rising edge. The evaluator also resets a Clock when
+  animation time jumps backward; leave that in the preview. Counter still adds
+  `rate/60` once per pass. A non-finite stored BeatSin bpm fails the control
+  graph; the normal-sketch wrapper still sanitises that stored value before
+  emitting it. Schedule Trigger's unwired Enable uses the property and defaults
+  on. Other unwired bools are false. Complex Wave, Random and DMX Channel stay
+  refused.
+- A wired RTC Clock is resolved by `clockFor`, beside `ledStatusFor`. NTP
+  returns null before `resolve`, so a display-only NTP wire stays a warning and
+  does not become a graph error. A scalar NTP wire fails with
+  "control graph cannot use NTP". Compile Time, Manual and DS3231 emit through
+  `rtcInputCpp.ts`. Resolving `valid` emits the node, and displays read
+  `n_<id>_dateTime` from the Display edge's source. `dateTime` is not a control
+  type. The first emitted DS3231 owns `_rtcHandleSerialSet()`. The templates
+  already call `Serial.begin`, so this path must not add another. Inside
+  `controlGraphCpp`, a `Wire.begin` line that names the parts on the bus wins
+  over a power-monitor start. A display that already starts I2C still drops the
+  control graph's `Wire.begin`. `RTC_CPP_FORWARD` is returned when a helper
+  contains `struct _RtcDateTime {`.
 - A Colour Swatch packs its `CRGB` at the binding. Palette, image and harmony
   colours stay explicit failures. A Pattern Browser wire is accepted only from
   the template engine's `patternSelect` and publishes the browsing-aware name;

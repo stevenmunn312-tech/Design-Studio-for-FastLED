@@ -151,8 +151,8 @@ describe('custom displays in generative shows', () => {
     expect(() => generate([panel('tft')], [], {})).toThrow('screen document is missing')
     expect(findDisplayGeneratorIssues([...root, panel('tft')], [...routing]).errors)
       .toEqual([expect.stringContaining('screen document is missing')])
-    const nodes = [...root, panel('tft'), node('noise', 'NoiseSignal')]
-    const edges = [...routing, edge('noise', 'value', 'tft', 'widget:slider:set')]
+    const nodes = [...root, panel('tft'), node('wave', 'ComplexWave')]
+    const edges = [...routing, edge('wave', 'result', 'tft', 'widget:slider:set')]
     const documents = { screen: document() }
     expect(findOutputRuntimeIssues(nodes, edges, documents).errors.join(' ')).toContain('unsupported')
     expect(buildGraphDiagnostics(nodes, edges, { displayDocuments: documents })).toContainEqual(expect.objectContaining({ message: expect.stringContaining('widget input') }))

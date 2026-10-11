@@ -55,14 +55,48 @@ function withColourAndPattern(mode: 'show' | 'player', fixture: ReturnType<typeo
   }
 }
 
+/**
+ * Local clock chain for every mode.
+ *
+ * Compile Time has no pins, so it does not share the OLED's I2C bus. The
+ * segment module is the clock layout. The button fans out to the clock reset.
+ * The player refuses a direct Enabled wire on the LED output, so that build
+ * gates the panel instead.
+ */
+function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
+  mode: 'normal' | 'show' | 'player', graph: T,
+): T {
+  const consumer = mode === 'player' ? 'panel' : 'out'
+  return {
+    ...graph,
+    nodes: [...graph.nodes,
+      node('rtc', 'RTCInput', { timeSource: 'Compile Time' }),
+      node('clk', 'Clock'),
+      node('sched', 'ScheduleTrigger'),
+      node('digits', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 })],
+    edges: [...graph.edges,
+      edge('button', 'pressed', 'clk', 'reset'),
+      edge('clk', 'beat', 'sched', 'enable'),
+      edge('rtc', 'valid', 'sched', 'valid'),
+      edge('rtc', 'synced', 'sched', 'synced'),
+      edge('rtc', 'secondsOfDay', 'sched', 'secondsOfDay'),
+      edge('rtc', 'weekday', 'sched', 'weekday'),
+      edge('rtc', 'day', 'sched', 'day'),
+      edge('rtc', 'month', 'sched', 'month'),
+      edge('rtc', 'year', 'sched', 'year'),
+      edge('sched', 'active', consumer, 'enabled'),
+      edge('rtc', 'display', 'digits', 'display')],
+  }
+}
+
 const outputDir = resolve(process.argv[2] ?? 'artifacts/control-graph-compile')
 mkdirSync(outputDir, { recursive: true })
 const manifest: Record<string, { bytes: number; sha256: string }> = {}
 for (const mode of ['normal', 'show', 'player'] as const) {
   const fixture = nestedControlFixture(mode)
-  const graph = mode === 'normal'
+  const graph = withLocalClock(mode, mode === 'normal'
     ? { ...fixture, displayDocuments: undefined as DisplayDocumentRegistry | undefined }
-    : withColourAndPattern(mode, fixture)
+    : withColourAndPattern(mode, fixture))
   const { nodes, edges, groups, displayDocuments } = graph
   assertWireable(nodes, edges, displayDocuments)
   for (const definition of Object.values(groups)) assertWireable(definition.nodes, definition.edges)
@@ -94,6 +128,21 @@ for (const mode of ['normal', 'show', 'player'] as const) {
   }
   if (!source.includes('LED Matrix') || !source.includes('64 LEDS')) {
     throw new Error(`${mode}: LED status was not emitted`)
+  }
+  const structAt = source.indexOf('struct _RtcDateTime {')
+  const leapAt = source.indexOf('_rtcLeap')
+  if (structAt < 0 || leapAt < 0 || structAt > leapAt) {
+    throw new Error(`${mode}: RTC struct is missing before _rtcLeap`)
+  }
+  if (!source.includes('n_rtc_dateTime') || !source.includes('_clkOrigin_') || !source.includes('_schedulePrevActive_')) {
+    throw new Error(`${mode}: local clock chain was not emitted`)
+  }
+  if (mode !== 'normal') {
+    const fastLed = source.indexOf('#include <FastLED.h>')
+    const forward = source.indexOf('struct _RtcDateTime;')
+    if (fastLed < 0 || forward < fastLed) {
+      throw new Error(`${mode}: RTC forward is missing after FastLED.h`)
+    }
   }
   writeFileSync(resolve(outputDir, `${mode}.ino`), source, 'utf8')
   manifest[mode] = { bytes: Buffer.byteLength(source), sha256: createHash('sha256').update(source).digest('hex') }

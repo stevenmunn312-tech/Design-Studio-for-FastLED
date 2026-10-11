@@ -558,7 +558,7 @@ function showDisplaysCpp(
     playingExpr: display.sources.playing ?? 'false',
     volumeExpr: display.sources.volume ?? '0.0f',
     durationExpr: display.sources.duration ?? '0.0f',
-    dateTimeExpr: null,
+    dateTimeExpr: display.dateTimeExpr,
     boot: { project: bootTitle, device: bootDevice },
     indicatorExprs: [1, 2, 3, 4].map((i) => display.sources[`indicator${i}`] ?? 'false'),
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
@@ -578,7 +578,7 @@ function showDisplaysCpp(
     mode: display.mode,
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
-    dateTimeExpr: null,
+    dateTimeExpr: display.dateTimeExpr,
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
@@ -598,10 +598,9 @@ function showDisplaysCpp(
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
-    // A show has no RTC-in-template path yet, so a Clock-kind wire stays
-    // unresolved here the same way it already is for the OLED beside it — see
-    // playerDisplays.ts's `kinds`.
-    dateTimeExpr: null,
+    // The wired local RTC, when this template accepted the clock. Null draws
+    // the layout's empty clock rather than a guessed time.
+    dateTimeExpr: display.dateTimeExpr,
     titleExpr: display.sources.title ?? null,
     artistExpr: display.sources.artist ?? null,
     patternNameExpr: display.sources.patternName ?? null,
@@ -826,6 +825,7 @@ export function generateShowSketch(
       controlTouchIds: controls.touchIds, controlSources: controls.displaySources,
       sourceIds: build.templateDisplaySourceIds ?? undefined,
       ledStatusFor: controls.ledStatusFor,
+      clockFor: controls.clockFor,
     },
   )
   const selection = showSelectionPlan(
@@ -889,7 +889,7 @@ export function generateShowSketch(
   L.push('// line nothing in this generator wrote.')
   for (const decl of fastLedDecls) L.push(decl)
   if (renderers.helpers.includes(LATTICE_HELPER_CPP)) L.push(LATTICE_CPP_FORWARD)
-  for (const decl of new Set([...displays.forwards, ...selectionCpp.forwards, ...customDisplays.forwards])) L.push(decl)
+  for (const decl of new Set([...displays.forwards, ...selectionCpp.forwards, ...customDisplays.forwards, ...controlGraph.forwards])) L.push(decl)
   if (stereoVuMeters.length > 0) L.push(STEREO_VU_CPP_FORWARD)
   if (nodes.some((node) => nodeType(node) === 'EnvironmentInput')) L.push(ENVIRONMENT_SENSOR_CPP_FORWARD)
   L.push('')

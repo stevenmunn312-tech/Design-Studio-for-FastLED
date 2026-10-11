@@ -11,6 +11,9 @@ import { displayTextCppHelpers } from './displays/displayTextCpp'
 import { TIME_CONTROL_OUTPUTS, timeNodeCpp } from './signalTimeCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 import { COLOR_CONTROL_NODES, colorControlCpp } from './colorControlCpp'
+import { TIMED_CONTROL_NODES, timedControlCpp } from './signalControlCpp'
+import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcTimeSource } from './peripherals/rtcInputCpp'
+import { RTC_CPP_FORWARD } from './peripherals/rtcCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { KELVIN_TO_RGB_CPP } from './helpers/kelvinCpp'
 
@@ -33,6 +36,7 @@ export type ControlInstruction =
   | { kind: 'gpio'; nodeId: string; emission: ControlInputEmission }
   | { kind: 'scalar'; nodeId: string; nodeType: string; properties: Record<string, unknown>; inputs: Record<string, ControlOperand> }
   | { kind: 'color'; nodeId: string; nodeType: string; properties: Record<string, unknown>; inputs: Record<string, ColorControlInput> }
+  | { kind: 'timed'; nodeId: string; nodeType: string; properties: Record<string, unknown>; inputs: Record<string, string>; attackWired: boolean }
 
 export function controlReferenceCpp(reference: ControlReference): string {
   return `n_${safeId(reference.nodeId)}_${safeId(reference.port)}`
@@ -50,6 +54,8 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
   const label = (id: string) => String(byId.get(id)?.data.label || id)
   const fail = (message: string): null => { errors.add(message); return null }
   const samples = new Map(sampledSources.map((source) => [JSON.stringify([source.nodeId, source.port]), source]))
+  // One serial reader serves every DS3231. The first chip to be emitted owns it.
+  let rtcSerialArmed = false
   // Samples are declared before the graph even when no consumer reads them.
   // Reserve all their symbols so an otherwise unused output cannot collide.
   for (const source of sampledSources) {
@@ -63,12 +69,20 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     if (!node) return fail(`Control graph: missing source ${nodeId}.`)
     const color = Object.hasOwn(COLOR_CONTROL_NODES, node.data.nodeType) ? COLOR_CONTROL_NODES[node.data.nodeType] : undefined
     const scalar = !color && Object.hasOwn(SCALAR_CONTROL_NODES, node.data.nodeType) ? SCALAR_CONTROL_NODES[node.data.nodeType] : undefined
+    const timed = !color && !scalar && Object.hasOwn(TIMED_CONTROL_NODES, node.data.nodeType)
+      ? TIMED_CONTROL_NODES[node.data.nodeType] : undefined
+    const rtc = node.data.nodeType === 'RTCInput'
+    if (rtc && rtcTimeSource(node.data.properties) === 'NTP') {
+      return fail(`${label(nodeId)}: control graph cannot use NTP. Networking stays with a normal sketch.`)
+    }
     const clock = node.data.nodeType === 'TimeNode'
-    const gpio = scalar || clock || color ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
+    const gpio = scalar || clock || color || timed || rtc ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
     const sample = samples.get(JSON.stringify([nodeId, port]))
     const outputs: Readonly<Record<string, ControlDataType>> = clock ? TIME_CONTROL_OUTPUTS
       : scalar ? { [scalar.port]: scalar.type }
       : color ? color.outputs
+      : timed ? timed.outputs
+      : rtc ? RTC_CONTROL_OUTPUTS
       : gpio?.outputs ?? {}
     const actualType = sample?.type ?? (Object.hasOwn(outputs, port) ? outputs[port] : undefined)
     if (actualType !== type) return fail(`${label(nodeId)}.${port}: control graph requires ${type}; this source or port is unsupported.`)
@@ -129,6 +143,46 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
         }
       }
       instructions.push({ kind: 'color', nodeId, nodeType: node.data.nodeType, properties, inputs })
+    } else if (rtc) {
+      // dateTime is not a control port. Emitting the node writes the struct
+      // beside these scalars; the first DS3231 owns the one serial reader.
+      const serialSet = !rtcSerialArmed && rtcTimeSource(node.data.properties) === 'DS3231'
+      if (serialSet) rtcSerialArmed = true
+      instructions.push({
+        kind: 'gpio', nodeId,
+        emission: rtcControlEmission(safeId(node.id), node.data.properties, nodes, serialSet),
+      })
+    } else if (timed) {
+      const inputs: Record<string, string> = {}
+      let attackWired = false
+      for (const [inputPort, spec] of Object.entries(timed.inputs)) {
+        const edge = incoming.get(`${nodeId}:${inputPort}`)
+        if (edge) {
+          const upstream = resolve(edge.source, edge.sourceHandle ?? '', spec.type)
+          if (!upstream) { visiting.delete(nodeId); return null }
+          if (inputPort === 'attack') attackWired = true
+          let expression = controlReferenceCpp(upstream)
+          if (spec.type === 'float' && node.data.properties.clampInputs) {
+            const clamp = inputClampRange(node.data.nodeType, inputPort)
+            if (clamp) expression = `constrain(${expression}, ${clamp.min}, ${clamp.max})`
+          }
+          inputs[inputPort] = expression
+        } else if (spec.type === 'bool') {
+          // Enable follows its property (default on). Every other bool defaults off.
+          inputs[inputPort] = inputPort === 'enable' && node.data.properties.enable !== false ? 'true' : 'false'
+        } else {
+          const value = Number(node.data.properties[inputPort] ?? spec.fallback)
+          if (!Number.isFinite(value)) {
+            visiting.delete(nodeId)
+            return fail(`${label(nodeId)}.${inputPort}: control value must be finite.`)
+          }
+          inputs[inputPort] = String(value)
+        }
+      }
+      instructions.push({
+        kind: 'timed', nodeId, nodeType: node.data.nodeType,
+        properties: node.data.properties, inputs, attackWired,
+      })
     } else {
       const properties = resolveNodeScalarExpressions(node.data.nodeType, node.data.properties, w, h)
       const inputs: Record<string, ControlOperand> = {}
@@ -229,6 +283,14 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>, ti
       if (emitted.needsHueMix) helpers.add(HUE_MIX_HELPER_CPP)
       continue
     }
+    if (instruction.kind === 'timed') {
+      // Wall-clock millis and the node's own statics. Not the animation clock.
+      loop.push(...timedControlCpp(
+        instruction.nodeType, safeId(instruction.nodeId), instruction.properties,
+        instruction.inputs, instruction.attackWired,
+      )!)
+      continue
+    }
     const emitted = scalarControlCpp(instruction.nodeType, safeId(instruction.nodeId), instruction.properties, (port) => {
       const operand = instruction.inputs[port]
       if (operand.kind === 'literal') return String(operand.value)
@@ -246,15 +308,21 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>, ti
   const ir = irRemoteProjectEmission(irNodes)
   for (const line of ir.setup) setup.add(line)
   for (const include of ir.includes) includes.add(include)
+  // One bus start. A DS3231 names the pins the parts actually use; another
+  // sensor's begin is the fallback when no RTC claimed the bus.
+  const wireBegins = [...setup].filter((line) => line.trimStart().startsWith('Wire.begin('))
+  const wireBegin = wireBegins.find((line) => line.includes('I2C pins from the parts on the bus')) ?? wireBegins[0]
+  const forwards = [...helpers].some((block) => block.includes('struct _RtcDateTime {')) ? [RTC_CPP_FORWARD] : []
   return {
     irDebug: ir.debug,
     powerMonitorDebug: graph.instructions.some((instruction) => instruction.kind === 'gpio'
       && instruction.emission.serialDebug === true),
     setup: [
-      ...[...setup].filter((line) => line.trimStart().startsWith('Wire.begin(')).slice(0, 1),
+      ...(wireBegin ? [wireBegin] : []),
       ...[...setup].filter((line) => !line.trimStart().startsWith('Wire.begin(')),
     ],
     helpers: [...helpers],
+    forwards,
     includes: [...includes],
     globals: ir.globals,
     loop: [...ir.sample, ...(needsTime ? [`  float _controlTime = ${timeExpr};`] : []), ...loop],

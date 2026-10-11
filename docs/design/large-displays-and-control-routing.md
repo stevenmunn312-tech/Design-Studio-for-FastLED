@@ -73,7 +73,7 @@ through the scalar control graph, which is what `controlSources` carries.
 
 | Content connection | Panel content |
 | --- | --- |
-| RTC Clock Display → Display | Clock (implemented for normal firmware) |
+| RTC Clock Display → Display | Clock (Compile Time, Manual, and DS3231 in every generator; NTP stays with a normal sketch) |
 | Music Player Display → Display | Now Playing or Fixed Transport |
 | Pattern Slideshow Display → Display | Show Status |
 | A screen design on the panel itself (`displayId`) | Authored LVGL screen |
@@ -87,7 +87,9 @@ feeds it from that source.
 `tftLayout` is a presentation choice within the connected source's treatments;
 it cannot choose another source's content. `transportLayoutForKind` resolves it.
 The TFT Clock treatment was implemented in `fecbc2bb`; it is no longer deferred.
-Show/player templates still cannot read arbitrary RTC sources.
+Show and player templates read a wired RTC Clock whose source is Compile Time,
+Manual, or DS3231. NTP stays with a normal sketch: the panel stays blank and
+the warning names that NTP clock.
 
 Show Status displays the engine's pattern/selection information. It has no LED
 toggle or brightness touch region. Use custom Toggle/Slider widgets for those
@@ -329,17 +331,56 @@ in independently compiled slices:
    template drives, using that output's own runtime. A show latches status
    with the pixels. A player reports the driven output's manual settings and
    does not fold in master brightness. A second, undriven output stays
-   unresolved. Other time-dependent sources and arbitrary RTC sources remain
-   the next slice: unsupported paths must continue to fail explicitly.
+   unresolved.
+5. Other time-dependent sources and a wired RTC: implemented. Clock, Envelope,
+   BeatSin, Noise LFO, Counter and Schedule Trigger share the normal emitters.
+   They keep wall-clock `millis()`, static state keyed by node id, and Clock's
+   rising-edge reset. Master Speed does not scale them, and the player's
+   track-position clock is untouched. The preview resets a Clock when animation
+   time jumps backward; firmware does not, because these nodes do not read that
+   clock. Counter still steps by `rate/60` each pass. Complex Wave, Random and
+   DMX Channel still fail explicitly.
+
+   The RTC is the wired RTC Clock node, not a scene-wide clock. Show and player
+   graphs emit Compile Time, Manual and DS3231 through the normal sketch's RTC
+   loop. Scalar ports are ordinary control outputs, so Schedule Trigger and Math
+   can read them. `dateTime` is the value that loop writes; a display reads it
+   after the graph resolves the clock's `valid` port, which emits the whole
+   node. Two consumed clocks stay two clocks, and an unread clock is not
+   emitted. NTP fails before resolve. A scalar NTP wire is a control-graph
+   error. A Display wire stays unresolved and the source is named "NTP clock".
+   Networking in these generators stays with D-03.
+
+   DS3231 starts Wire from the node's pins, then the board profile, and the
+   first emitted chip calls `_rtcHandleSerialSet()` once per loop. The templates
+   already start Serial, so this path adds no second `Serial.begin`. When a
+   power monitor and a DS3231 both ask to start Wire, the control graph keeps
+   the RTC line. A panel that already starts I2C still wins over the control
+   graph, so the compile fixture's clock is Compile Time and stays off the
+   OLED bus. `RTC_CPP_FORWARD` is emitted when a helper contains
+   `struct _RtcDateTime {`, after `#include <FastLED.h>`.
+
+   Fixed Clock layouts and bound custom widgets accept kind `clock` before the
+   template's own kind list when `clockFor` returns the dateTime symbol.
+   Omitting that provider keeps the unresolved warning. The symbol comes from
+   the Display edge's source. Custom widgets use the normal sketch's
+   `_rtcClockText` and `_rtcDateText` fields. The source table is the power
+   monitor, then LED status, then the clock, then the template's own fields.
+   An RTC Display wire that produces no clock table replaces that table, so
+   the widgets stay blank.
 
 `scripts/compile-fixtures/control-graph.ts` generates normal, show and SD-player
 fixtures with nested Interval, both Time outputs, wired Wave inputs and wired
 Master Speed where supported. The shared OLED reads the LED output it is wired
 to. Show and player fixtures also mount a write-only ST7789 whose Colour Swatch
 is a temperature sampled through an hsv-long gradient, and whose Pattern
-Browser reads the running engine. The regression fixture also checks a timer
-shared between a Control Map and a panel's Enabled path, plus a physical button
-that still requires debounce. Results are recorded in
+Browser reads the running engine. Every mode adds a Compile Time RTC, a Clock
+reset by the root button, a Schedule Trigger enabled by that Clock's beat, and
+a TM1637 Clock layout on GPIO 2 and 3. Normal and slideshow builds gate the LED
+output from the schedule. The player gates the colour panel, because a direct
+Enabled wire on its LED output is an error. The regression fixture also checks
+a timer shared between a Control Map and a panel's Enabled path, plus a physical
+button that still requires debounce. Results are recorded in
 [control graph compile checks](../reports/compile/control-graph-compile-checks.md).
 These are software checks, not hardware evidence.
 
@@ -348,8 +389,8 @@ These are software checks, not hardware evidence.
 HW-01–08 are closed. Direct-control compilation is done; its bench evidence
 is still open in
 [direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
-Performance Generator is now a real Display source. Arbitrary RTC sources
-remain open in D-01; density/size thresholds and multi-screen scope stay
-deferred.
+Performance Generator is now a real Display source. NTP in the show and
+SD-player generators stays with D-03. Density/size thresholds and multi-screen
+scope stay deferred.
 Driver, bus and asset contracts remain in
 [auxiliary displays](auxiliary-displays.md).

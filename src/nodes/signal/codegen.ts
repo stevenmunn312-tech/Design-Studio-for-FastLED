@@ -1,10 +1,8 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
-import { safeId, seedProp, floatLit } from '../../codegen/cppLiterals'
-import { scheduleTimeOfDay } from './evaluate'
-import { rateCpp, SPEED_MAX } from '../shared/speedRange'
-import { seedOffset } from '../../state/evaluator/random'
+import { floatLit, safeId, seedProp } from '../../codegen/cppLiterals'
 import { intervalCpp } from '../../codegen/intervalCpp'
 import { timeNodeCpp, waveCpp } from '../../codegen/signalTimeCpp'
+import { beatSinCpp, clockCpp, counterCpp, envelopeCpp, noiseSignalCpp, scheduleTriggerCpp } from '../../codegen/signalControlCpp'
 
 export const SIGNAL_EMITTERS: NodeEmitters = {
   TimeNode({ id, ln, needsT }) {
@@ -54,95 +52,17 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
     ln(`  _dmxPrev_${id} = _dmxByte_${id};`)
   },
   ScheduleTrigger({ node, id, p, ln, v, incoming, floatExpr, boolExpr }) {
-    const mode = String(p.scheduleMode ?? 'Window')
-    const dayMode = String(p.dayMode ?? 'Every day')
-    const requireSync = p.requireSync === true
     const enabledDefault = p.enable !== false
-    // Same per-field clamping the evaluator applies, via the shared helper,
-    // so preview and firmware resolve the same instant.
-    const startSec = scheduleTimeOfDay(p.startHour, p.startMinute, p.startSecond)
-    const endSec = scheduleTimeOfDay(p.endHour, p.endMinute, p.endSecond)
-    const sunday = p.sunday !== false
-    const monday = p.monday !== false
-    const tuesday = p.tuesday !== false
-    const wednesday = p.wednesday !== false
-    const thursday = p.thursday !== false
-    const friday = p.friday !== false
-    const saturday = p.saturday !== false
-    ln(`  static bool _schedulePrevActive_${id} = false;`)
-    ln(`  static int32_t _scheduleLastPulseDay_${id} = -1;`)
-    // Previous usable seconds-of-day sample (negative = none), so Trigger
-    // mode fires on the crossing of its instant instead of only while
-    // inside a one-second window — see the evaluator's ScheduleState.
-    ln(`  static float _schedulePrevSeconds_${id} = -1.0f;`)
-    ln(`  static int32_t _schedulePrevDay_${id} = -1;`)
-    ln(`  bool _scheduleValid_${id} = ${boolExpr(node.id, 'valid')};`)
-    ln(`  bool _scheduleSynced_${id} = ${boolExpr(node.id, 'synced')};`)
-    ln(`  bool _scheduleEnabled_${id} = ${incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : enabledDefault ? 'true' : 'false'};`)
-    ln(`  int _scheduleWeekday_${id} = constrain((int)roundf(${floatExpr(node.id, 'weekday', p, 'weekday', 0)}), 0, 6);`)
-    ln(`  float _scheduleSeconds_${id} = constrain(${floatExpr(node.id, 'secondsOfDay', p, 'secondsOfDay', 0)}, 0.0f, 86399.999f);`)
-    ln(`  int _scheduleDay_${id} = constrain((int)roundf(${floatExpr(node.id, 'day', p, 'day', 1)}), 1, 31);`)
-    ln(`  int _scheduleMonth_${id} = constrain((int)roundf(${floatExpr(node.id, 'month', p, 'month', 1)}), 1, 12);`)
-    ln(`  int _scheduleYear_${id} = max(1970, (int)roundf(${floatExpr(node.id, 'year', p, 'year', 1970)}));`)
-    ln(`  bool _scheduleDayAllowed_${id} = true;`)
-    if (dayMode === 'Weekdays') {
-      ln(`  _scheduleDayAllowed_${id} = _scheduleWeekday_${id} >= 1 && _scheduleWeekday_${id} <= 5;`)
-    } else if (dayMode === 'Weekends') {
-      ln(`  _scheduleDayAllowed_${id} = _scheduleWeekday_${id} == 0 || _scheduleWeekday_${id} == 6;`)
-    } else if (dayMode === 'Custom') {
-      ln(`  switch (_scheduleWeekday_${id}) {`)
-      ln(`    case 0: _scheduleDayAllowed_${id} = ${sunday ? 'true' : 'false'}; break;`)
-      ln(`    case 1: _scheduleDayAllowed_${id} = ${monday ? 'true' : 'false'}; break;`)
-      ln(`    case 2: _scheduleDayAllowed_${id} = ${tuesday ? 'true' : 'false'}; break;`)
-      ln(`    case 3: _scheduleDayAllowed_${id} = ${wednesday ? 'true' : 'false'}; break;`)
-      ln(`    case 4: _scheduleDayAllowed_${id} = ${thursday ? 'true' : 'false'}; break;`)
-      ln(`    case 5: _scheduleDayAllowed_${id} = ${friday ? 'true' : 'false'}; break;`)
-      ln(`    default: _scheduleDayAllowed_${id} = ${saturday ? 'true' : 'false'}; break;`)
-      ln(`  }`)
-    }
-    ln(`  bool _scheduleTimeReady_${id} = _scheduleValid_${id} && ${requireSync ? '_scheduleSynced_' + id : 'true'};`)
-    ln(`  int32_t _scheduleDayKey_${id} = _scheduleYear_${id} * 10000 + _scheduleMonth_${id} * 100 + _scheduleDay_${id};`)
-    ln(`  bool ${v('active')} = false;`)
-    ln(`  bool ${v('start')} = false;`)
-    ln(`  bool ${v('end')} = false;`)
-    ln(`  float ${v('progress')} = 0.0f;`)
-    ln(`  if (_scheduleEnabled_${id} && _scheduleTimeReady_${id} && _scheduleDayAllowed_${id}) {`)
-    if (mode === 'Trigger') {
-      // A new calendar day puts the whole day ahead of us; no previous
-      // sample at all never fires, so a board booting after the instant
-      // does not back-fire.
-      ln(`    float _scheduleSince_${id} = _schedulePrevDay_${id} < 0 ? -2.0f`)
-      ln(`      : (_schedulePrevDay_${id} == _scheduleDayKey_${id} ? _schedulePrevSeconds_${id} : -1.0f);`)
-      ln(`    if (_scheduleSince_${id} > -2.0f && _scheduleSince_${id} < ${startSec}.0f && _scheduleSeconds_${id} >= ${startSec}.0f`)
-      ln(`        && _scheduleLastPulseDay_${id} != _scheduleDayKey_${id}) {`)
-      ln(`      ${v('start')} = true;`)
-      ln(`      _scheduleLastPulseDay_${id} = _scheduleDayKey_${id};`)
-      ln(`    }`)
-    } else {
-      if (startSec <= endSec) {
-        ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f && _scheduleSeconds_${id} <= ${endSec}.0f;`)
-      } else {
-        ln(`    ${v('active')} = _scheduleSeconds_${id} >= ${startSec}.0f || _scheduleSeconds_${id} <= ${endSec}.0f;`)
-      }
-      // Mirrors scheduleWindowProgress: elapsed / span, both measured
-      // across the wrap when the window crosses midnight.
-      const span = endSec >= startSec ? endSec - startSec : 86400 - startSec + endSec
-      if (span > 0) {
-        ln(`    if (${v('active')}) {`)
-        ln(`      float _scheduleElapsed_${id} = _scheduleSeconds_${id} >= ${startSec}.0f`)
-        ln(`        ? _scheduleSeconds_${id} - ${startSec}.0f : ${86400 - startSec}.0f + _scheduleSeconds_${id};`)
-        ln(`      ${v('progress')} = constrain(_scheduleElapsed_${id} / ${span}.0f, 0.0f, 1.0f);`)
-        ln(`    }`)
-      }
-    }
-    ln(`  }`)
-    ln(`  if (${v('active')} && !_schedulePrevActive_${id}) ${v('start')} = true;`)
-    ln(`  if (!${v('active')} && _schedulePrevActive_${id}) ${v('end')} = true;`)
-    ln(`  _schedulePrevActive_${id} = ${v('active')};`)
-    // Only remember a sample the clock vouched for, so the first frame
-    // after a sync is a fresh start rather than one giant jump.
-    ln(`  _schedulePrevSeconds_${id} = _scheduleTimeReady_${id} ? _scheduleSeconds_${id} : -1.0f;`)
-    ln(`  _schedulePrevDay_${id} = _scheduleTimeReady_${id} ? _scheduleDayKey_${id} : -1;`)
+    scheduleTriggerCpp(id, v, {
+      valid: boolExpr(node.id, 'valid'),
+      synced: boolExpr(node.id, 'synced'),
+      enable: incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : enabledDefault ? 'true' : 'false',
+      weekday: floatExpr(node.id, 'weekday', p, 'weekday', 0),
+      secondsOfDay: floatExpr(node.id, 'secondsOfDay', p, 'secondsOfDay', 0),
+      day: floatExpr(node.id, 'day', p, 'day', 1),
+      month: floatExpr(node.id, 'month', p, 'month', 1),
+      year: floatExpr(node.id, 'year', p, 'year', 1970),
+    }, p).forEach(ln)
   },
   Random({ id, p, ln, v }) {
     const lo = Number(p.min ?? 0), hi = Number(p.max ?? 1)
@@ -159,99 +79,47 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
   // Mirrors the evaluator's fBm over time with inoise16 (period 256 cells, so
   // fmodf wraps without a jump). Octaves clamp at 3, as in the evaluator.
   NoiseSignal({ id, p, ln, v, f }) {
-    const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.NoiseSignal)
-    const lo = `_nsLo_${id}`
-    const octaves = Math.max(1, Math.min(3, Math.floor(Number(p.octaves ?? 1))))
-    const seed = seedProp(p)
-    const zOff = floatLit(seedOffset(seed, 0) % 256)
-    const yOff = floatLit(seedOffset(seed, 1) % 256)
-    ln(`  float ${lo} = ${f('min', 'min', 0)};`)
-    ln(`  float ${v('value')};`)
-    ln(`  { float _z = (millis() / 1000.0f) * ${speed} + ${zOff}, _v = 0.0f, _amp = 0.5f, _norm = 0.0f, _freq = 1.0f;`)
-    ln(`    for (int _o = 0; _o < ${octaves}; _o++) {`)
-    ln(`      uint32_t _x = (uint32_t)(fmodf(_z * _freq, 256.0f) * 65536.0f);`)
-    ln(`      uint32_t _y = (uint32_t)(fmodf(${yOff} + _o * 17.0f, 256.0f) * 65536.0f);`)
-    ln(`      _v += _amp * (inoise16(_x, _y) / 65535.0f);`)
-    ln(`      _norm += _amp; _amp *= 0.5f; _freq *= 2.0f; }`)
-    ln(`    ${v('value')} = ${lo} + constrain(_v / _norm, 0.0f, 1.0f) * (${f('max', 'max', 1)} - ${lo}); }`)
+    noiseSignalCpp(id, v, {
+      speed: f('speed', 'speed', 0.25),
+      min: f('min', 'min', 0),
+      max: f('max', 'max', 1),
+    }, p).forEach(ln)
   },
   Counter({ ln, v, f }) {
-    const rate = f('rate', 'rate', 0.5)
-    ln(`  static float ${v('value')} = 0;`)
-    ln(`  ${v('value')} = fmod(${v('value')} + (${rate}) / 60.0f, 1.0f);`)
+    counterCpp(v, f('rate', 'rate', 0.5)).forEach(ln)
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
   // linear decay to 0; outputs 0 until the first trigger.
   Envelope({ node, id, p, ln, v, f, incoming, boolExpr }) {
-    const trig = boolExpr(node.id, 'trigger')
     const attackProp = Number(p.attack ?? 0)
     const decayProp = Number(p.decay ?? 0.5)
     const attackMs = Number.isFinite(attackProp) ? Math.max(0, Math.round(attackProp * 1000)) : 0
     const decayMs = Number.isFinite(decayProp) ? Math.max(50, Math.round(decayProp * 1000)) : 500
-    const attackWired = incoming.has(`${node.id}:attack`)
-    const atkE = `_envAtk_${id}`
-    const decE = `_envDec_${id}`
-    const envKnobs = [
-      `  float ${atkE} = fmaxf(0.0f, (${f('attack', 'attack', attackMs / 1000)})*1000.0f);`,
-      `  float ${decE} = fmaxf(50.0f, (${f('decay', 'decay', decayMs / 1000)})*1000.0f);`,
-    ]
-    for (const line of envKnobs) ln(line)
-    ln(`  static uint32_t _envT_${id} = 0; static bool _envF_${id} = false, _envP_${id} = false;`)
-    ln(`  { bool _t = (${trig}); if (_t && !_envP_${id}) { _envT_${id} = millis(); _envF_${id} = true; } _envP_${id} = _t; }`)
-    ln(`  float ${v('result')} = 0.0f;`)
-    ln(`  if (_envF_${id}) { uint32_t _envAge_${id} = millis() - _envT_${id};`)
-    if (attackMs > 0 || attackWired) ln(`    ${v('result')} = ${atkE} > 0.0f && _envAge_${id} < (uint32_t)${atkE} ? constrain(_envAge_${id} / ${atkE}, 0.0f, 1.0f) : constrain(1.0f - (_envAge_${id} - (${atkE} > 0.0f ? (uint32_t)${atkE} : 0u)) / ${decE}, 0.0f, 1.0f);`)
-    else ln(`    ${v('result')} = constrain(1.0f - _envAge_${id} / ${decE}, 0.0f, 1.0f);`)
-    ln(`  }`)
+    envelopeCpp(id, v, {
+      trigger: boolExpr(node.id, 'trigger'),
+      attack: f('attack', 'attack', attackMs / 1000),
+      decay: f('decay', 'decay', decayMs / 1000),
+    }, p, incoming.has(`${node.id}:attack`)).forEach(ln)
   },
   BeatSin({ p, ln, v, f }) {
     const bpmProp = Number(p.bpm ?? 60)
     // `f` would emit NaN for a non-numeric stored bpm, so the sanitised
     // value is what it falls back to.
-    const bpm = `fmaxf(1.0f,${f('bpm', 'bpm', Number.isFinite(bpmProp) ? bpmProp : 60)})`
-    const lo = Number(p.low ?? 0), hi = Number(p.high ?? 1)
-    ln(`  float ${v('value')} = ${lo.toFixed(3)}f + ((sinf(((millis() / 1000.0f) * ${bpm} / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f);`)
+    beatSinCpp(v, { bpm: f('bpm', 'bpm', Number.isFinite(bpmProp) ? bpmProp : 60) }, p).forEach(ln)
   },
   // Free-running BPM clock/transport — millis()-based, mirroring the
   // stateful `Clock` case in graphEvaluator.ts (same tap/sync EMA and
   // beat/bar/subdivision edge semantics) so preview and firmware timing
-  // match.
+  // match. Reset is the reset wire. A backward jump of the animation
+  // clock resets the preview only, because this node does not read it.
   Clock({ node, id, ln, v, f, boolExpr }) {
-    const bpmProp = `_clkBpmP_${id}`
-    const beatsPerBar = `_clkBar_${id}`
-    const subdivision = `_clkSub_${id}`
-    const clockKnobs = [
-      `  float ${bpmProp} = fmaxf(1.0f,${f('bpm', 'bpm', 120)});`,
-      `  int ${beatsPerBar} = (int)fmaxf(1.0f,${f('beatsPerBar', 'beatsPerBar', 4)});`,
-      `  int ${subdivision} = (int)fmaxf(1.0f,${f('subdivision', 'subdivision', 2)});`,
-    ]
-    const tap = boolExpr(node.id, 'tap')
-    const sync = boolExpr(node.id, 'sync')
-    const reset = boolExpr(node.id, 'reset')
-    for (const line of clockKnobs) ln(line)
-    ln(`  static uint32_t _clkOrigin_${id} = 0; static bool _clkInit_${id} = false;`)
-    ln(`  static uint32_t _clkLastPulse_${id} = 0; static bool _clkHasPulse_${id} = false;`)
-    ln(`  static float _clkTapBpm_${id} = 0; static bool _clkHasTap_${id} = false;`)
-    ln(`  static bool _clkPTap_${id} = false, _clkPSync_${id} = false, _clkPReset_${id} = false;`)
-    ln(`  static uint32_t _clkLastBeat_${id} = 0, _clkLastSub_${id} = 0;`)
-    ln(`  { if (!_clkInit_${id}) { _clkOrigin_${id} = millis(); _clkInit_${id} = true; }`)
-    ln(`    bool _tapNow = (${tap}); bool _syncNow = (${sync}); bool _resetNow = (${reset});`)
-    ln(`    bool _pulseNow = (_tapNow && !_clkPTap_${id}) || (_syncNow && !_clkPSync_${id});`)
-    ln(`    if (_pulseNow) { uint32_t _now = millis();`)
-    ln(`      if (_clkHasPulse_${id}) { uint32_t _iv = _now - _clkLastPulse_${id};`)
-    ln(`        if (_iv > 200 && _iv < 3000) { float _sample = 60000.0f / _iv; _clkTapBpm_${id} = _clkHasTap_${id} ? (_clkTapBpm_${id} * 0.5f + _sample * 0.5f) : _sample; _clkHasTap_${id} = true; }`)
-    ln(`        else { _clkHasTap_${id} = false; } }`)
-    ln(`      _clkLastPulse_${id} = _now; _clkHasPulse_${id} = true; _clkOrigin_${id} = _now; }`)
-    ln(`    if (_resetNow && !_clkPReset_${id}) { _clkOrigin_${id} = millis(); _clkHasPulse_${id} = false; _clkHasTap_${id} = false; _clkLastBeat_${id} = 0; _clkLastSub_${id} = 0; }`)
-    ln(`    _clkPTap_${id} = _tapNow; _clkPSync_${id} = _syncNow; _clkPReset_${id} = _resetNow; }`)
-    ln(`  float ${v('bpm')} = _clkHasTap_${id} ? _clkTapBpm_${id} : ${bpmProp};`)
-    ln(`  float _clkElapsed_${id} = ((millis() - _clkOrigin_${id}) / 60000.0f) * ${v('bpm')};`)
-    ln(`  float ${v('phase')} = _clkElapsed_${id} - (uint32_t)_clkElapsed_${id};`)
-    ln(`  uint32_t _clkBeatCount_${id} = (uint32_t)_clkElapsed_${id};`)
-    ln(`  bool ${v('beat')} = _clkBeatCount_${id} > _clkLastBeat_${id};`)
-    ln(`  bool ${v('bar')} = ${v('beat')} && (_clkBeatCount_${id} % (uint32_t)${beatsPerBar} == 0u);`)
-    ln(`  uint32_t _clkSubCount_${id} = (uint32_t)(_clkElapsed_${id} * (float)${subdivision});`)
-    ln(`  bool ${v('sub')} = _clkSubCount_${id} > _clkLastSub_${id};`)
-    ln(`  _clkLastBeat_${id} = _clkBeatCount_${id}; _clkLastSub_${id} = _clkSubCount_${id};`)
+    clockCpp(id, v, {
+      bpm: f('bpm', 'bpm', 120),
+      beatsPerBar: f('beatsPerBar', 'beatsPerBar', 4),
+      subdivision: f('subdivision', 'subdivision', 2),
+      tap: boolExpr(node.id, 'tap'),
+      sync: boolExpr(node.id, 'sync'),
+      reset: boolExpr(node.id, 'reset'),
+    }).forEach(ln)
   },
 }

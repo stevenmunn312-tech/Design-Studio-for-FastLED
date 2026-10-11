@@ -278,8 +278,8 @@ describe('what a show or player build cannot honour', () => {
 
   it('still refuses a show runtime wire from an unsupported source', () => {
     const { nodes, edges } = showGraph()
-    const { errors } = findOutputRuntimeIssues([...nodes, node('noise', 'NoiseSignal')],
-      [...edges, edge('unsupported', 'noise', 'value', 'out', 'brightness')])
+    const { errors } = findOutputRuntimeIssues([...nodes, node('wave', 'ComplexWave')],
+      [...edges, edge('unsupported', 'wave', 'result', 'out', 'brightness')])
     expect(errors.join(' ')).toContain('cannot evaluate the wire feeding brightness')
   })
 

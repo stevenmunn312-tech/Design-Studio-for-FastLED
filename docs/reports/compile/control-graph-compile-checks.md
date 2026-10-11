@@ -164,3 +164,52 @@ files skipped. ESLint and the production build pass. The existing circular
 chunk warning between `graph-runtime` and `node-catalog` remains. Arbitrary
 RTC sources remain open in
 [D-01's implementation sequence](../../design/large-displays-and-control-routing.md#d-01-implementation).
+
+## Local clocks and a wired RTC, 11 October 2026
+
+Show and player control graphs now share the normal emitters for Clock,
+Envelope, BeatSin, Noise LFO, Counter and Schedule Trigger. Those nodes keep
+wall-clock `millis()` and their existing static state, so Master Speed does
+not scale them and the player's track-position clock stays its own clock.
+Complex Wave, Random and DMX Channel still fail explicitly.
+
+A wired RTC Clock is the source. Compile Time, Manual and DS3231 emit through
+the normal sketch's RTC loop. Scalar ports are ordinary control outputs.
+Displays read the date-time value from the Display edge's source. NTP fails
+before resolve: a scalar wire is a control-graph error, and a Display wire
+stays unresolved with the panel left blank. Networking in these generators
+stays with D-03. The first emitted DS3231 calls `_rtcHandleSerialSet()` once
+per loop and does not add a second `Serial.begin`. `RTC_CPP_FORWARD` is
+emitted after `#include <FastLED.h>` when a helper contains
+`struct _RtcDateTime {`.
+
+The fixtures add a Compile Time RTC, a Clock reset by the root button, a
+Schedule Trigger enabled by that Clock's beat, and a TM1637 Clock layout on
+GPIO 2 and 3. Normal and slideshow builds gate the LED output from the
+schedule. The player gates the colour panel. Compile Time stays off the OLED's
+I2C bus.
+
+The same reproduce command and toolchain apply. The run is recorded under
+`artifacts/compile-matrix/2026-10-11_1950/`. The generator replaces the prior
+colour-binding sources and reports; earlier matrix summaries retain their
+evidence. The sources are the working tree on top of `5eba62da`.
+
+Windows, Arduino CLI 1.5.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0.
+The helper pins player audio to 3.0.12. All three use
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`.
+
+| Fixture | Source SHA-256 prefix | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| Normal | `02c0daa6d9fc` | Passed | 465,335 | 31,108 |
+| Slideshow | `8f27f22f2873` | Passed | 639,823 | 41,740 |
+| SD player | `234106a4c301` | Passed | 1,305,707 | 57,636 |
+
+Each report's full source hash matches the fixture manifest. All three builds
+pass on Arduino CLI; fbuild remains on hold. No hardware was flashed.
+
+The full Vitest run passes 7,215 tests across 420 files, with 20 tests and five
+files skipped. ESLint and the production build pass. The existing circular
+chunk warning between `graph-runtime` and `node-catalog` remains, and the
+build warns that the index chunk is 755.7 KiB. This closes the listed D-01
+sequence. NTP in show and player sketches stays with
+[D-03](../../design/large-displays-and-control-routing.md#other-scope).

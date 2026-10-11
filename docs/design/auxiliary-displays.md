@@ -433,17 +433,21 @@ and normal sketches. Time's two outputs share `signalTimeCpp.ts`. Custom control
 provide float/bool pre-pass samples; template widget inputs accept supported
 float/bool/string paths, a self-contained colour, and the running engine's
 pattern selection. Interval shares the normal firmware's elapsed-millisecond
-timer and computed presses bypass contact debounce. Other time-dependent
-sources, arbitrary scripts and palette or image colours remain outside that
-template scope.
+timer and computed presses bypass contact debounce. Clock, Envelope, BeatSin,
+Noise LFO, Counter and Schedule Trigger share those emitters and keep
+wall-clock milliseconds. A wired RTC Clock (Compile Time, Manual, or DS3231)
+is a control source and a Clock layout. NTP stays with a normal sketch.
+Complex Wave, Random, DMX Channel, arbitrary scripts and palette or image
+colours remain outside that template scope.
 
 Time/Wave controls share the slideshow's animation clock, including Master
 Speed's previous-pass update. SD-player root controls instead sample elapsed
 time; collected patterns continue to use track position. Neither control path
 changes slideshow dwell or music timing.
 
-`playerDisplays.ts` resolves fixed content envelopes. The normal generator can
-read RTC Clock, the player reads its track, and the show reads its slideshow.
+`playerDisplays.ts` resolves fixed content envelopes. Every generator can read
+a local RTC Clock. The player also reads its track, and the show reads its
+slideshow.
 The show song-expression table is intentionally empty because it owns no track.
 Player scalar song readings come through Song Info nodes wired to the active
 Music Player, not removed per-field ports on the player itself.

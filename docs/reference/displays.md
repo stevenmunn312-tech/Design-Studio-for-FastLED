@@ -81,8 +81,9 @@ obvious wires (Volume direct, Play/Pause through a Changed Trigger,
 Blackout through a Not) without overriding a connection you already
 made.
 
-The normal generator can render a clock. Show/player templates only read their
-own supported source kinds, so an arbitrary RTC wire there remains unresolved.
+The normal generator can render a clock. Show and player templates do the same
+for a wired RTC Clock whose source is Compile Time, Manual, or a DS3231. An NTP
+clock stays unresolved there, and that panel stays blank.
 
 ### Diagnostics and touch bounds
 
@@ -283,6 +284,10 @@ scales that clock and a wired speed applies on the next pass; dwell and
 transitions keep elapsed time. In an SD player, root Time/Wave controls use
 elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
+Clock, Envelope, BeatSin, Noise LFO, Counter and Schedule Trigger share the
+normal emitters and keep wall-clock milliseconds, so Master Speed does not
+scale them. A wired RTC Clock (Compile Time, Manual, or DS3231) can feed a
+Schedule Trigger and a Clock layout. NTP stays with a normal sketch.
 
 Supported scalar nodes keep that behaviour inside groups, including a contact
 forwarded through a group input. A Colour Swatch accepts a self-contained
@@ -290,8 +295,8 @@ colour node, and the device stores that colour packed at the swatch. A Pattern
 Browser names the pattern the running slideshow or player is browsing. An LED
 output wired to a panel reports that output's own name, count, blackout and
 level when the template drives it. Palette sources, a pattern selection from
-any other node, an output the template does not drive, and other
-time-dependent sources including an arbitrary RTC still fail explicitly.
+any other node, an output the template does not drive, and Complex Wave,
+Random and DMX Channel still fail explicitly.
 Graph Health and build validation identify unresolved bindings rather than
 silently supplying a value.
 A widget appearing in the editor is not a promise that every generator can

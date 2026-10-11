@@ -20,6 +20,7 @@
 // than emitting a display that quietly shows nothing.
 
 import { controlReferenceCpp } from '../controlGraph'
+import { rtcTimeSource } from '../peripherals/rtcInputCpp'
 import { infoLayoutForKind, type InfoDisplayLayout } from '../../state/displays/infoDisplay'
 import {
   DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind,
@@ -85,6 +86,8 @@ export interface PlayerInfoDisplay {
   powerMonitor?: { volts: string; amps: string; watts: string }
   /** Set when this panel's Display wire is an LED output the template drives. */
   ledStatus?: LedStatusExpressions
+  /** The wired local RTC, or null when this panel is not a clock. */
+  dateTimeExpr: string | null
   sources: Record<string, string>
 }
 
@@ -105,6 +108,8 @@ export interface PlayerSegmentDisplay {
   powerMonitor?: { volts: string; amps: string; watts: string }
   /** Set when this module's Display wire is an LED output the template drives. */
   ledStatus?: LedStatusExpressions
+  /** The wired local RTC, or null when this module is not a clock. */
+  dateTimeExpr: string | null
   sources: Record<string, string>
 }
 
@@ -150,6 +155,8 @@ export interface PlayerTransportDisplay {
   powerMonitor?: { volts: string; amps: string; watts: string }
   /** Set when this panel's Display wire is an LED output the template drives. */
   ledStatus?: LedStatusExpressions
+  /** The wired local RTC, or null when this panel is not a clock. */
+  dateTimeExpr: string | null
   sources: Record<string, string>
 }
 
@@ -314,6 +321,14 @@ export interface TemplateDisplayOptions {
    * content source.
    */
   ledStatusFor?: (outputId: string) => LedStatusExpressions | null
+  /**
+   * Local RTC `dateTime` for a clock this template can read.
+   *
+   * Absent, or null for NTP, and the panel stays unresolved. A reading
+   * accepts `clock` before the kind list and before `sourceIds`. Omitting
+   * the provider keeps today's "RTC Clock" warning, including for NTP.
+   */
+  clockFor?: (rtcId: string) => string | null
 }
 
 /**
@@ -331,6 +346,7 @@ function resolveDisplayKind(
   kinds: readonly DisplaySignalKind[],
   sourceIds?: ReadonlySet<string>,
   ledStatusFor?: (outputId: string) => LedStatusExpressions | null,
+  clockFor?: (rtcId: string) => string | null,
 ): DisplaySignalKind | null {
   const edge = edges.find((e) => e.target === displayId && e.targetHandle === 'display')
   if (!edge) return null
@@ -347,6 +363,21 @@ function resolveDisplayKind(
   if (kind === 'ledOutput') {
     if (!ledStatusFor?.(source.id)) {
       unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
+      return null
+    }
+    return kind
+  }
+  // Before the kind list and before sourceIds. No symbol, and the panel
+  // stays unresolved rather than drawing an empty clock. NTP is named on
+  // its own so the warning can say networking stays with a normal sketch.
+  if (kind === 'clock') {
+    const symbol = clockFor?.(source.id) ?? null
+    if (!symbol) {
+      unresolved.push({
+        display: displayId, port: 'display',
+        source: clockFor && rtcTimeSource(source.data.properties) === 'NTP'
+          ? 'NTP clock' : DISPLAY_SOURCE_LABELS.clock,
+      })
       return null
     }
     return kind
@@ -376,6 +407,11 @@ export function playerDisplaysFromGraph(
   const kinds = options.kinds ?? ['player']
   const sourceIds = options.sourceIds
   const ledStatusFor = options.ledStatusFor
+  const clockFor = options.clockFor
+  const dateTimeOf = (displayId: string): string | null => {
+    const edge = edges.find((candidate) => candidate.target === displayId && candidate.targetHandle === 'display')
+    return edge ? clockFor?.(edge.source) ?? null : null
+  }
   const ledStatusOf = (displayId: string): LedStatusExpressions | undefined => {
     const edge = edges.find((candidate) => candidate.target === displayId && candidate.targetHandle === 'display')
     return edge ? ledStatusFor?.(edge.source) ?? undefined : undefined
@@ -404,7 +440,7 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'sh1106-oled-128x64')
       const controller = oledControllerForProps(node.data.properties)
       const rotation = oledRotationCommands(asOledRotation(props.oledRotation))
-      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor)
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor, clockFor)
       // One envelope in, so the fields come from the generator's own table
       // rather than one wire at a time. Nothing to forget, and nothing that
       // resolves in preview and not here.
@@ -441,6 +477,7 @@ export function playerDisplaysFromGraph(
         enabledExpr: enabledExprFor(node.id, props),
         powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
         ledStatus: kind === 'ledOutput' ? ledStatusOf(node.id) : undefined,
+        dateTimeExpr: kind === 'clock' ? dateTimeOf(node.id) : null,
         sources,
       })
       continue
@@ -450,7 +487,16 @@ export function playerDisplaysFromGraph(
       // A panel drawing a screen design is the custom-display half's to emit.
       // Emitting a fixed layout for it too painted both onto one glass and
       // read the digitiser twice — once for LVGL, once for fixed hit regions.
-      if (designedPanels.has(node.id)) continue
+      if (designedPanels.has(node.id)) {
+        // A design replaces the fixed layout, but a clock wire still has to
+        // be accepted or named. Other sources keep the widget-field report.
+        const displayEdge = edges.find((candidate) => candidate.target === node.id && candidate.targetHandle === 'display')
+        const displaySource = displayEdge ? byId.get(displayEdge.source) : undefined
+        if (displaySource && DISPLAY_SOURCE_NODE_TYPES[displaySource.data.nodeType] === 'clock') {
+          resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor, clockFor)
+        }
+        continue
+      }
       const partId = String(props.partId ?? 'st7789-tft-240x240')
       const part = partById(partId)
       // Touch leaves through the Touch node that names this panel, not through
@@ -463,10 +509,10 @@ export function playerDisplaysFromGraph(
       // the property and never asks what is plugged in. Everything else is the
       // one envelope, resolved exactly as the OLED above resolves its own.
       const diagnostics = asTransportDisplayLayout(props.tftLayout) === 'Diagnostics'
-      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor)
-      // A source this generator honours can still have no colour layout — an
-      // RTC does not, today — and that is reported too, rather than falling
-      // back to a screen built for something else.
+      const kind = diagnostics ? null : resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor, clockFor)
+      // A source this generator honours can still have no colour layout, and
+      // that is reported rather than falling back to a screen built for
+      // something else.
       const resolved = kind ? transportLayoutForKind(kind, props.tftLayout) : null
       if (kind && !resolved) {
         unresolved.push({ display: node.id, port: 'display', source: DISPLAY_SOURCE_LABELS[kind] })
@@ -526,6 +572,7 @@ export function playerDisplaysFromGraph(
         enabledExpr: enabledExprFor(node.id, props),
         powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
         ledStatus: kind === 'ledOutput' ? ledStatusOf(node.id) : undefined,
+        dateTimeExpr: kind === 'clock' ? dateTimeOf(node.id) : null,
         sources,
       })
       continue
@@ -535,7 +582,7 @@ export function playerDisplaysFromGraph(
       const partId = String(props.partId ?? 'tm1637-4digit-display')
       const controller = segmentControllerFor(partById(partId)?.display?.controller)
       const isMax = controller.id === 'MAX7219'
-      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor)
+      const kind = resolveDisplayKind(node.id, edges, byId, unresolved, kinds, sourceIds, ledStatusFor, clockFor)
       // A segment module reads one number, and which number is the kind:
       // elapsed seconds from a player, an ordinal from a show.
       const sources: Record<string, string> = kind === 'player'
@@ -556,6 +603,7 @@ export function playerDisplaysFromGraph(
         enabledExpr: enabledExprFor(node.id, props),
         powerMonitor: kind === 'powerMonitor' ? powerMonitorFor(node.id) : undefined,
         ledStatus: kind === 'ledOutput' ? ledStatusOf(node.id) : undefined,
+        dateTimeExpr: kind === 'clock' ? dateTimeOf(node.id) : null,
         sources,
       })
     }

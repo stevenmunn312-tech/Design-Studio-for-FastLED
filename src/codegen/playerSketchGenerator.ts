@@ -436,6 +436,8 @@ export function generatePlayerSketch(
     block.includes('struct _Bme280Calibration {'))
     ? `${ENVIRONMENT_SENSOR_CPP_FORWARD}\n`
     : ''
+  const rtcForwards = compiledGraph?.forwards ?? []
+  const rtcStructForward = rtcForwards.length ? `${rtcForwards.join('\n')}\n` : ''
   const customDisplays = graphRouting
     ? customDisplayShowCpp(graphRouting.custom, opts.customDisplayAssets, opts.telemetry === true)
     : null
@@ -854,7 +856,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     playingExpr: display.sources.playing ?? 'false',
     volumeExpr: display.sources.volume ?? '0.0f',
     durationExpr: display.sources.duration ?? 'songDurationSec()',
-    dateTimeExpr: null,
+    dateTimeExpr: display.dateTimeExpr,
     boot: {
       project: opts.bootLabel?.trim() || 'FASTLED BUILD',
       device: opts.deviceLabel?.trim() || 'ESP32 PLAYER',
@@ -893,7 +895,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     mode: display.mode,
     showColon: display.showColon,
     valueExpr: display.sources.value ?? '0.0f',
-    dateTimeExpr: null,
+    dateTimeExpr: display.dateTimeExpr,
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
@@ -918,10 +920,9 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     powerMonitor: display.powerMonitor,
     enabledExpr: display.enabledExpr,
     ...(display.ledStatus ? { ledStatus: display.ledStatus } : {}),
-    // The player has no RTC-in-template path yet, so a Clock-kind wire stays
-    // unresolved here the same way it already is for the OLED beside it — see
-    // playerDisplays.ts's `kinds`.
-    dateTimeExpr: null,
+    // The wired local RTC, when this template accepted the clock. Null draws
+    // the layout's empty clock rather than a guessed time.
+    dateTimeExpr: display.dateTimeExpr,
     titleExpr: display.sources.title ?? null,
     artistExpr: display.sources.artist ?? null,
     patternNameExpr: display.sources.patternName ?? null,
@@ -1101,7 +1102,7 @@ ${customDisplays?.includes.filter((include) => include !== '#include <SPI.h>').j
 // in this generator wrote.
 ${[...fastLedDecls].join('\n')}
 ${renderers?.helpers.includes(LATTICE_HELPER_CPP) ? LATTICE_CPP_FORWARD + '\n' : ''}
-${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${environmentSensorForward}${customDisplays?.forwards.join('\n') ?? ''}
+${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasTftDisplays ? TFT_DISPLAY_CPP_FORWARD + '\n' : ''}${hasPatternSelection ? PATTERN_SELECTION_CPP_FORWARD + '\n' : ''}${hasStereoVu ? STEREO_VU_CPP_FORWARD + '\n' : ''}${environmentSensorForward}${rtcStructForward}${customDisplays?.forwards.join('\n') ?? ''}
 // ── Pin config ────────────────────────────────────────────────────────────────
 ${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}

@@ -145,8 +145,8 @@ describe('fixed touch output routing validation', () => {
   })
 
   it('names an unsupported mapper input rather than silently dropping its physical override', () => {
-    const nodes = [...show, out(), panel, controls, node('noise', 'NoiseSignal'), touch('panel')]
-    const edges = [...showEdges, ...chain, edge('unsupported', 'noise', 'value', 'controls', 'brightness')]
+    const nodes = [...show, out(), panel, controls, node('wave', 'ComplexWave'), touch('panel')]
+    const edges = [...showEdges, ...chain, edge('unsupported', 'wave', 'result', 'controls', 'brightness')]
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('cannot evaluate the wire feeding brightness'),
     ])

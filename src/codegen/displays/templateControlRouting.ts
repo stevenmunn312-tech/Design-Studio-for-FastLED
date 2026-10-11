@@ -15,6 +15,7 @@ import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources, type PatternSelectionBinding } from './customDisplayControlGraph'
 import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedStatusExpressions } from './displaySourceExpressions'
+import { rtcDateTimeSymbol, rtcTimeSource } from '../peripherals/rtcInputCpp'
 import { drivenOutputLedStatus, ledOutputManualExprs, ledOutputRuntimeExpressions } from '../output/ledOutputRuntimeCpp'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
@@ -311,7 +312,39 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     const status = ledStatusFor(source.id)
     if (status) ledTables.set(edge.target, normalSketchSourceExpressions(null, status))
   }
-  bindCustomDisplaySources(custom, (panelId) => powerSources.get(panelId) ?? ledTables.get(panelId) ?? context.sourceExpressions ?? {})
+  // A local RTC is a wire, not a scene clock. Resolving `valid` emits the
+  // node, and the display reads the dateTime struct that emission writes.
+  // NTP is not resolved: a display-only wire must not become a graph error.
+  const clockFor = (rtcId: string): string | null => {
+    const source = byId.get(rtcId)
+    if (!source || source.data.nodeType !== 'RTCInput') return null
+    if (rtcTimeSource(source.data.properties) === 'NTP') return null
+    const reference = graph.resolve(rtcId, 'valid', 'bool')
+    return reference ? rtcDateTimeSymbol(safeId(rtcId)) : null
+  }
+  const clockTables = new Map<string, DisplaySourceExpressions>()
+  for (const edge of edges) {
+    if (edge.targetHandle !== 'display' || edge.sourceHandle !== 'display') continue
+    if (!DISPLAY_NODE_TYPES.has(byId.get(edge.target)?.data.nodeType ?? '')) continue
+    const source = byId.get(edge.source)
+    if (source?.data.nodeType !== 'RTCInput') continue
+    const symbol = clockFor(source.id)
+    if (symbol) clockTables.set(edge.target, normalSketchSourceExpressions(symbol))
+  }
+  bindCustomDisplaySources(custom, (panelId) => {
+    const power = powerSources.get(panelId)
+    if (power) return power
+    const led = ledTables.get(panelId)
+    if (led) return led
+    const clock = clockTables.get(panelId)
+    if (clock) return clock
+    const edge = incoming.get(`${panelId}:display`)
+    const source = edge?.sourceHandle === 'display' ? byId.get(edge.source) : undefined
+    // One display wire replaces the whole table. An RTC this template cannot
+    // read leaves the widgets blank rather than showing the template's own source.
+    if (source?.data.nodeType === 'RTCInput') return {}
+    return context.sourceExpressions ?? {}
+  })
   // Enabled is a control wire like any other now: the panel keeps one latch,
   // written where its expression is evaluable and read by the drawing, touch
   // and output-rest that a disabled panel has to skip. Refusing the wire here
@@ -345,7 +378,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   }
   return {
     touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, scalarInputs,
-    patternNameBindings: custom.patternNameBindings, ledStatusFor, errors: issues,
+    patternNameBindings: custom.patternNameBindings, ledStatusFor, clockFor, errors: issues,
   }
 }
 
