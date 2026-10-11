@@ -45,6 +45,15 @@ Three distinct concepts (Library ≠ Collection):
    on an advance. This choice applies to live preview and the SD music player.
    Output → LED output.
 
+   **Beat Transitions** enables beat-gated changes. After each transition
+   finishes, the player chooses a cooldown between Min Time and Max Time
+   (seconds), ignores beats during that cooldown, then changes on the next
+   fresh beat. Max Time bounds the cooldown, not the total pattern duration:
+   without another beat, the pattern keeps playing. A wired Beat input overrides
+   the Audio input in preview and the decoder beat in the SD player. With the
+   checkbox off, the player changes on the random timer alone. Beat-triggered
+   particles still operate independently of this checkbox.
+
 ```
 [Library]  --drag-->  (pattern groups on canvas)
                               |

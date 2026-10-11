@@ -46,7 +46,7 @@ export const LIVE_PLAYER_SHOW_PROPERTIES: Record<string, readonly string[]> = {
  * would work in preview and compile to the value frozen at Generate.
  */
 export const BAKE_TIME_PROPERTIES: Record<string, readonly string[]> = {
-  PatternMaster: ['seed'],
+  PatternMaster: ['seed', 'beatTransitions'],
   PatternSlideshow: ['order', 'transitionsEnabled', 'transitionSec', 'audioReactive', 'seed'],
   PerformanceGenerator: [
     'beatIntensity',

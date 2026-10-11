@@ -1540,6 +1540,9 @@ export const FORMULA_LANG_HELP = 'Variables: x, y, t, cx, cy, r, angle, W, H, a,
 export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, string>> = {
   PatternMaster: {
     order: 'Sequential plays patterns in collection order and wraps back to the first. Random chooses a different pattern at each advance.',
+    beatTransitions: 'Wait for a fresh beat after a random cooldown between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes.',
+    minTime: 'Minimum hold time in seconds. With Beat Transitions enabled, this is the shortest cooldown after a transition finishes.',
+    maxTime: 'Maximum random hold time in seconds. With Beat Transitions enabled, the player still waits for the next beat after the cooldown ends.',
   },
   PdTriggerSource: {
     requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',
@@ -1937,6 +1940,7 @@ export function propertyDescription(nodeType: string, key: string): string | und
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PatternMaster: {
     order: 'Pattern Order',
+    beatTransitions: 'Beat Transitions',
   },
   BuzzerOutput: {
     sigPin: 'SIG',
@@ -2367,7 +2371,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },
   ],
   PatternMaster: [
-    { key: 'timing', label: 'Timing', keys: ['order', 'minTime', 'maxTime', 'transitionSec'] },
+    { key: 'timing', label: 'Timing', keys: ['order', 'beatTransitions', 'minTime', 'maxTime', 'transitionSec'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   PatternSlideshow: [

@@ -61,6 +61,17 @@ function renderNode(n: StudioNodeT, options?: { board?: boolean }) {
 }
 
 describe('StudioNode', () => {
+  it('adds Beat Transitions to the timing controls of an existing Music Player', () => {
+    const { container } = renderNode(makeNode('PatternMaster', { minTime: 4, maxTime: 12 }))
+    const header = within(container).getByRole('button', { name: /timing/i })
+    if (header.getAttribute('aria-expanded') !== 'true') fireEvent.click(header)
+    const checkbox = within(header.parentElement!).getByRole('checkbox') as HTMLInputElement
+    expect(within(header.parentElement!).getByText('Beat Transitions')).toBeTruthy()
+    expect(checkbox.checked).toBe(false)
+    fireEvent.click(checkbox)
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.beatTransitions).toBe(true)
+  })
+
   it('shows On and Off sockets and Start on for Toggle', () => {
     const { container, getByText } = renderNode(makeNode('Trigger', { ...libraryDefaults('Trigger'), triggerOp: 'toggle' }))
     expect(container.querySelector('[data-handle="target:on"]')).not.toBeNull()

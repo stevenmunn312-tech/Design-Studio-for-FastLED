@@ -29,7 +29,7 @@ describe('buildShowPlayer', () => {
     }])) as GroupRegistry
     const nodes = [
       node('stray-player', 'PatternMaster', { order: order === 'Random' ? 'Sequential' : 'Random' }),
-      node('player', 'PatternMaster', { order }),
+      node('player', 'PatternMaster', { order, beatTransitions: true, minTime: 3, maxTime: 7, transitionSec: 0.5 }),
       node('collection', 'PatternCollection', { patternIds: ['c', 'a', 'b'] }),
       node('sd', 'SDCard'), node('amp', 'Amplifier'),
       node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
@@ -43,10 +43,43 @@ describe('buildShowPlayer', () => {
     })
     const measured = buildShowPlayerForMeasurement(nodes, edges, groups)!
     for (const sketch of [uploaded, measured]) {
+      expect(sketch.includes('const bool beatNow = _audioBeat;')).toBe(true)
+      expect(sketch.includes('posMs - rotatedAtMs >= rotateMs && beatEdge')).toBe(true)
+      expect(sketch.includes('const float minHold = constrain(3.0000f')).toBe(true)
+      expect(sketch.includes('const float maxHold = max(minHold, constrain(7.0000f')).toBe(true)
+      expect(sketch.includes('constrain(0.5000f, 0.0f, 86400.0f) * 1000.0f')).toBe(true)
+      expect(sketch.includes('rotateMs = transitionMs + pickHoldMs();')).toBe(true)
       expect(sketch).toContain(order === 'Sequential'
         ? '(uint8_t)((rotateIndex + 1) % 3)'
         : '(uint8_t)((rotateIndex + 1 + random(2)) % 3)')
     }
+  })
+
+  it.each(['Compare', 'BeatDetect'])('uses a wired %s beat ahead of the decoder fallback', (sourceType) => {
+    const nodes = [
+      node('player', 'PatternMaster', { beatTransitions: true }),
+      node('pulse', sourceType, { a: 1, b: 0.5 }),
+      node('hold', 'Math', { mathOp: 'add', a: 5, b: 0 }),
+      node('audio', 'Audio', { sourceId: 'decoder:sd' }),
+      node('sd', 'SDCard'), node('amp', 'Amplifier'),
+      node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const edges = [
+      { id: 'leds', source: 'player', sourceHandle: 'frame', target: 'led', targetHandle: 'frame' },
+      { id: 'beat', source: 'pulse', sourceHandle: sourceType === 'Compare' ? 'result' : 'beat', target: 'player', targetHandle: 'beat' },
+      { id: 'audio', source: 'audio', sourceHandle: 'audio', target: 'pulse', targetHandle: 'audio' },
+      { id: 'hold', source: 'hold', sourceHandle: 'result', target: 'player', targetHandle: 'minTime' },
+    ] as Edge[]
+    const groups = Object.fromEntries(['a', 'b'].map((id) => [id, {
+      nodes: [node('color', 'SolidColor'), node('out', 'GroupOutput')],
+      edges: [{ id: 'out', source: 'color', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }],
+    }])) as GroupRegistry
+    const sketch = buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['a', 'b'], bakedAudio: false, preferredTrack: '', genericPlayer: true,
+    })
+    expect(sketch.includes(`const bool beatNow = n_pulse_${sourceType === 'Compare' ? 'result' : 'beat'};`)).toBe(true)
+    expect(sketch.includes('const float minHold = constrain(n_hold_result')).toBe(true)
+    if (sourceType === 'BeatDetect') expect(sketch.includes('bool n_pulse_beat = _audioBeat;')).toBe(true)
   })
 
   it('generates from the selected engine in a mixed graph, not the first engine in node order', () => {

@@ -198,9 +198,9 @@ describe('playerSketchGenerator', () => {
       expect(sketch).toContain('(uint16_t)((selActive + 1) % PATTERN_COUNT)')
       // A move the show did not make restarts the dwell, giving a confirmed
       // pattern a whole window rather than the tail of someone else's.
-      expect(sketch).toContain('if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }')
+      expect(sketch).toMatch(/if \(selActive != rotatedFrom\) \{\s+rotatedFrom = selActive; rotatedAtMs = posMs;/)
       // posMs rewinds on a track change; the unsigned difference would wrap.
-      expect(sketch).toContain('if (posMs < rotatedAtMs) rotatedAtMs = posMs;')
+      expect(sketch).toContain('if (posMs < previousPosMs) {')
     })
   })
 
@@ -237,7 +237,7 @@ describe('playerSketchGenerator', () => {
         : '(uint8_t)((rotateIndex + 1 + random(3)) % 4)')
       if (hasControls) {
         expect(sketch).toContain('_selSetActive(_sel_player, PATTERN_COUNT, patternId);')
-        expect(sketch).toContain('if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }')
+        expect(sketch).toMatch(/if \(selActive != rotatedFrom\) \{\s+rotatedFrom = selActive; rotatedAtMs = posMs;/)
       } else {
         expect(sketch).toContain('static uint8_t rotateIndex = patternId;')
       }

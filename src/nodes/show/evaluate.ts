@@ -1,4 +1,5 @@
 import type { EvalContext } from '../../state/evaluator/types'
+import { musicPlayerTiming } from '../../state/player/musicPlayerTiming'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import { type StudioNode, useGraphStore } from '../../state/graphStore'
@@ -647,6 +648,8 @@ interface ShowState {
   phase: 'hold' | 'trans'
   start: number; dwell: number; trans: string; lastBeat: boolean
   seed: number
+  activeId?: string
+  lastTime?: number
   /** The most recent beat-triggered particle burst, if any — style/colour are
    *  rolled once when the burst starts (randomStyle/randomColor) so they stay
    *  fixed for the burst's lifetime instead of re-rolling every frame. */
@@ -663,6 +666,7 @@ export interface PatternShowSelection {
 }
 interface ShowOpts {
   minTime: number; maxTime: number; transSec: number; pool: string[]; beatEnabled: boolean
+  beatTransitions?: boolean
   particles: boolean; particleStyle: number; particleColor: RGB; particleIntensity: number
   randomStyle: boolean; randomColor: boolean
   seed: number
@@ -695,7 +699,7 @@ export function getMusicPlayerControls(key: string): PlayerControls | null {
 
 // The generative show: hold a random pattern for a random dwell in
 // [minTime, maxTime], then transition (a random style from `pool`) into another
-// random pattern. A wired beat advances early, once at least minTime has passed.
+// random pattern. Beat Transitions waits for a fresh beat after the dwell.
 // `render(groupId)` rasterises a pattern's subgraph to a frame.
 // ── Particle-burst overlay ────────────────────────────────────────────────────
 // A burst spawns PARTICLE_COUNT short-lived colored sparks that fade out, in one
@@ -918,6 +922,14 @@ function evalPatternShow(
   st.ids = ids
   const cur = st.sel.active.index
 
+  // A seek or a manual selection starts a full cooldown for the new hold.
+  if (t < (st.lastTime ?? st.start) || (st.activeId !== undefined && st.activeId !== st.sel.active.id)) {
+    st.phase = 'hold'
+    st.start = t
+    st.dwell = pickDwell()
+    st.lastBeat = beat
+  }
+
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
   // Each beat also fires a particle burst (independent of the dwell-gated
@@ -934,8 +946,7 @@ function evalPatternShow(
 
   if (st.phase === 'hold' && n > 1) {
     const timeUp = t >= st.start + st.dwell
-    const beatTrig = beatEdge && t >= st.start + o.minTime
-    if (timeUp || beatTrig) {
+    if (timeUp && (!o.beatTransitions || beatEdge)) {
       // Sequential walks the collection in the order it was arranged; random
       // picks uniformly from everything except what is already showing.
       const target = sequential ? (cur + 1) % n : (cur + 1 + Math.floor(rnd() * (n - 1))) % n
@@ -962,6 +973,9 @@ function evalPatternShow(
   } else {
     frame = render(ids[cur])
   }
+
+  st.activeId = st.sel.active.id
+  st.lastTime = t
 
   // Overlay a beat-triggered particle burst additively (pre-brightness), the
   // same sparks the firmware spawns on _audioBeat.
@@ -1145,7 +1159,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const audioSignal = input(id, 'audio', null)
     const audio = isAudioSignal(audioSignal) ? audioSignal : null
-    const beat = input(id, 'beat', false) as boolean
+    const beat = input(id, 'beat', Boolean(audio?.active && audio.beat)) as boolean
     const render = (gid: string): Frame => renderCollectedPattern(gid, {
       groups, groupStack, instancePrefix, nodeId: id, tick, W, H,
       elapsedTick: tick,
@@ -1157,12 +1171,17 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
     const particleValue = input(id, 'particleFx', null)
     const particleFx = isPlayerParticles(particleValue) ? particleValue : null
-    const o = {
+    const timing = musicPlayerTiming({
+      ...props,
       minTime: num(id, 'minTime', props, 'minTime', 4),
       maxTime: num(id, 'maxTime', props, 'maxTime', 12),
-      transSec: num(id, 'transitionSec', props, 'transitionSec', 1),
+      transitionSec: num(id, 'transitionSec', props, 'transitionSec', 1),
+    })
+    const o = {
+      ...timing,
+      transSec: timing.transitionSec,
       pool,
-      beatEnabled: incoming.has(`${id}:beat`),
+      beatEnabled: incoming.has(`${id}:beat`) || Boolean(audio?.active),
       particles: particleFx?.enabled ?? false,
       particleStyle: particleFx?.style ?? 0,
       particleColor: particleFx?.color ?? { r: 255, g: 128, b: 0 },

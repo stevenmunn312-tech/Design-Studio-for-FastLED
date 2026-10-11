@@ -1,4 +1,5 @@
 import { controlGraphCpp } from './controlGraph'
+import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
 import type { PlayerControlGraph } from './player/playerControlGraph'
 import { playerControlApplyCpp } from './player/playerControlGraph'
@@ -379,6 +380,7 @@ export function generatePlayerSketch(
     genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig
     /** Automatic collection playback; timed Performance shows keep their own schedule. */
     patternOrder?: PatternSlideshowOrder
+    patternTiming?: ReturnType<typeof musicPlayerTiming>
     particleFx?: PlayerParticlesConfig | null; displays?: PlayerDisplays
     thumbnails?: BrowserThumbnails; patternNames?: PatternNames; artworks?: TransportArtworks
     stereoVuMeters?: StereoVuEmit[]
@@ -419,7 +421,9 @@ export function generatePlayerSketch(
   const bakedAudio = !!opts.audioEnvelope
   const stereoVuMeters = opts.stereoVuMeters ?? []
   const hasStereoVu = stereoVuMeters.length > 0
-  const decoderTap = (collection && opts.decoderTap === true) || hasStereoVu
+  const patternTiming = musicPlayerTiming(opts.patternTiming ?? {})
+  const decoderTap = (collection && (opts.decoderTap === true
+    || (opts.genericPlayer === true && patternTiming.beatTransitions))) || hasStereoVu
   // ESP32-audioI2S's own volumetable, mirrored so the meter can undo the gain
   // the decoder applies before the tap sees a sample. The player only changes
   // volume at runtime when it has controls, so setup can state the starting
@@ -430,6 +434,8 @@ export function generatePlayerSketch(
   const genericPlayer = collection && opts.genericPlayer === true
   const sequentialPatterns = asSlideshowOrder(opts.patternOrder) === 'Sequential'
   const graphRouting = opts.controlGraph
+  const timingExpression = (port: 'minTime' | 'maxTime' | 'transitionSec') =>
+    graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
   const environmentSensorForward = (compiledGraph?.helpers ?? []).some((block) =>
@@ -2081,11 +2087,27 @@ ${genericPlayer ? `  // Unknown tracks have no pre-baked event timeline. Rotate 
   // means a confirm sticks, keeps a full dwell of its own, and decides what
   // comes after it.
   if (GENERIC_PLAYER && ${collection ? renderers?.count ?? 0 : 0} > 1) {
-    const uint32_t rotateMs = 8000UL;
+    const float minHold = constrain(${timingExpression('minTime')}, 0.0f, 86400.0f);
+    const float maxHold = max(minHold, constrain(${timingExpression('maxTime')}, 0.0f, 86400.0f));
+    const uint32_t transitionMs = (uint32_t)(constrain(${timingExpression('transitionSec')}, 0.0f, 86400.0f) * 1000.0f);
+    auto pickHoldMs = [&]() -> uint32_t {
+      return (uint32_t)(minHold * 1000.0f) + (uint32_t)random((long)((maxHold - minHold) * 1000.0f) + 1);
+    };
+    static uint32_t rotateMs = pickHoldMs();
     static uint32_t rotatedAtMs = 0;
+    const bool beatNow = ${patternTiming.beatTransitions ? (graphRouting?.timingInputs.beat ?? '_audioBeat') : 'false'};
+    static bool lastBeat = beatNow;
+    bool beatEdge = beatNow && !lastBeat;
+    lastBeat = beatNow;
     // A track change rewinds posMs. Without this the unsigned difference
     // below wraps to something enormous and forces a spurious advance.
-    if (posMs < rotatedAtMs) rotatedAtMs = posMs;
+    static uint32_t previousPosMs = 0;
+    if (posMs < previousPosMs) {
+      rotatedAtMs = posMs;
+      rotateMs = pickHoldMs();
+      beatEdge = false;
+    }
+    previousPosMs = posMs;
 ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern and a dwell-driven one
     // move the same cursor - and a confirm actually changes what renders.
     static uint16_t rotatedFrom = 0xFFFF;
@@ -2094,17 +2116,23 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
     // a chosen pattern gets a whole window instead of the tail of one.
     // Confirming what is already playing moves nothing, and so extends
     // nothing - which is what that press means.
-    if (selActive != rotatedFrom) { rotatedFrom = selActive; rotatedAtMs = posMs; }
-    if (posMs - rotatedAtMs >= rotateMs) {
+    if (selActive != rotatedFrom) {
+      rotatedFrom = selActive; rotatedAtMs = posMs;
+      rotateMs = pickHoldMs() + (selActive != patternId ? transitionMs : 0);
+      beatEdge = false;
+    }
+    if (posMs - rotatedAtMs >= rotateMs${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
       rotatedAtMs = posMs;
+      rotateMs = transitionMs + pickHoldMs();
       _selSetActive(_sel_${PLAYER_SELECTION_STEM}, PATTERN_COUNT,
                     (uint16_t)((selActive + 1${sequentialPatterns ? '' : ' + random(PATTERN_COUNT - 1)'}) % PATTERN_COUNT));
       rotatedFrom = _sel_${PLAYER_SELECTION_STEM}.active;
     }
     uint8_t nextPattern = (uint8_t)_sel_${PLAYER_SELECTION_STEM}.active;
 ` : `    static uint8_t rotateIndex = patternId;
-    if (posMs - rotatedAtMs >= rotateMs) {
+    if (posMs - rotatedAtMs >= rotateMs${patternTiming.beatTransitions ? ' && beatEdge' : ''}) {
       rotatedAtMs = posMs;
+      rotateMs = transitionMs + pickHoldMs();
       rotateIndex = (uint8_t)((rotateIndex + 1${sequentialPatterns ? '' : ` + random(${patternCount - 1})`}) % ${patternCount});
     }
     uint8_t nextPattern = rotateIndex;
@@ -2113,7 +2141,7 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
       patternId = nextPattern;
       transType = 0;
       transStart = posMs;
-      transDurMs = 1000.0f;
+      transDurMs = (float)transitionMs;
     }
   }
 ` : ''}

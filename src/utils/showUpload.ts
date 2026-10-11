@@ -1,4 +1,5 @@
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
+import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { CustomDisplayAssets } from '../codegen/displays/customDisplayShowCpp'
 
@@ -122,16 +123,19 @@ export function buildShowPlayer(
   })
   // FastLED's audio processor is sizeable. Link it when a compiled pattern
   // consumes audio or Player Particles needs live beat events.
+  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id, groups)
   const decoderTap = patternRenderersUseAudio(renderers)
     || particleFx?.enabled === true
     || stereoVuMeters.length > 0
-  const controlGraph = playerControlGraph(nodes, edges, opts.displayDocuments, selectedEngine?.id, groups)
+    || (opts.genericPlayer === true && pgProps.beatTransitions === true)
+    || controlGraph.usesDecoderBeat
   return generatePlayerSketch(playerConfigFromGraph(nodes, edges, opts.fqbn, selectedEngine?.id), renderers, {
     audioEnvelope: opts.bakedAudio && (!!renderers || stereoVuMeters.length > 0),
     decoderTap,
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,
     patternOrder: asSlideshowOrder(pgProps.order),
+    patternTiming: musicPlayerTiming(pgProps),
     psramAllowed: opts.psramAllowed,
     controlGraph,
     customDisplayAssets: opts.customDisplayAssets,

@@ -12,7 +12,8 @@
 // testing anything.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { evaluateGraph, getPatternShowSelection, resetEvaluatorState } from '../../graphEvaluator'
+import { evaluateGraph, getPatternShowSelection, resetEvaluatorState, type AudioSignal } from '../../graphEvaluator'
+import { musicPlayerTiming } from '../../player/musicPlayerTiming'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../graphStore'
 
@@ -46,17 +47,18 @@ const BLUE: Record<string, number> = { 'grp-a': 10, 'grp-b': 20, 'grp-c': 30, 'g
 const GROUPS = Object.fromEntries(ALL.map((id) => [id, solidGroup(BLUE[id])]))
 
 /** Run one frame of a Music Player over `ids`, returning its rendered blue. */
-function runShow(ids: string[], t: number, props: Record<string, unknown> = {}): number {
+function runShow(ids: string[], t: number, props: Record<string, unknown> = {}, beat?: boolean): number {
   // A dwell far longer than the test holds the show on one pattern, so any
   // change of pattern is the collection edit rather than the show advancing.
   const collection = node('coll', 'PatternCollection', { patternIds: ids })
   const master = node('master', 'PatternMaster', { minTime: 9999, maxTime: 9999, transitionSec: 1, seed: 7, ...props })
   const out = node('out', 'MatrixOutput', {})
   const frame = evaluateGraph(
-    [collection, master, out],
+    [collection, master, out, ...(beat === undefined ? [] : [node('pulse', 'Compare', { a: beat ? 1 : 0, b: 0.5 })])],
     [
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
       edge('e2', 'master', 'frame', 'out', 'frame'),
+      ...(beat === undefined ? [] : [edge('eb', 'pulse', 'result', 'master', 'beat')]),
     ],
     t, 4, 4, GROUPS,
   )
@@ -67,6 +69,114 @@ function runShow(ids: string[], t: number, props: Record<string, unknown> = {}):
 function playingId(ids: string[]): string {
   return ids[getPatternShowSelection('master')!.currentIndex]
 }
+
+describe('beat-triggered pattern transitions', () => {
+  beforeEach(() => resetEvaluatorState())
+  const timing = { order: 'Sequential', beatTransitions: true, minTime: 2, maxTime: 2, transitionSec: 0 }
+  const run = (seconds: number, beat: boolean, props = timing) => runShow(ALL, seconds * 60, props, beat)
+
+  it('ignores early beats, waits past the cooldown, and requires a fresh edge', () => {
+    run(0, false)
+    run(1, true)
+    run(3, true)
+    expect(playingId(ALL)).toBe(ALL[0])
+    run(4, false)
+    expect(playingId(ALL)).toBe(ALL[0])
+    run(4.1, true)
+    expect(playingId(ALL)).toBe(ALL[1])
+    run(8, true)
+    expect(playingId(ALL)).toBe(ALL[1])
+    run(8.1, false)
+    run(8.2, true)
+    expect(playingId(ALL)).toBe(ALL[2])
+  })
+
+  it('uses a random cooldown inside both bounds instead of advancing at minimum time', () => {
+    const props = { ...timing, minTime: 2, maxTime: 6 }
+    run(0, false, props)
+    run(2, true, props)
+    expect(playingId(ALL)).toBe(ALL[0])
+    run(6, false, props)
+    expect(playingId(ALL)).toBe(ALL[0])
+    run(6.1, true, props)
+    expect(playingId(ALL)).toBe(ALL[1])
+  })
+
+  it('starts the next cooldown after the transition finishes', () => {
+    const props = { ...timing, transitionSec: 1 }
+    run(0, false, props)
+    run(2, true, props)
+    expect(getPatternShowSelection('master')!.transitioning).toBe(true)
+    run(2.1, false, props)
+    run(2.5, true, props)
+    run(3, false, props)
+    expect(playingId(ALL)).toBe(ALL[1])
+    run(4.5, true, props)
+    expect(getPatternShowSelection('master')!.transitioning).toBe(false)
+    run(5, false, props)
+    run(5.1, true, props)
+    expect(getPatternShowSelection('master')!.transitioning).toBe(true)
+  })
+
+  it('uses timed changes when disabled even with a wired beat', () => {
+    const props = { ...timing, beatTransitions: false }
+    run(0, false, props)
+    run(1, true, props)
+    expect(playingId(ALL)).toBe(ALL[0])
+    run(2, false, props)
+    expect(playingId(ALL)).toBe(ALL[1])
+  })
+
+  it('holds indefinitely without a beat source', () => {
+    runShow(ALL, 0, timing)
+    runShow(ALL, 100 * 60, timing)
+    expect(playingId(ALL)).toBe(ALL[0])
+  })
+
+  it('restarts cooldown after seeking backward', () => {
+    run(0, false)
+    run(4, true)
+    run(1, false)
+    run(2, true)
+    expect(playingId(ALL)).toBe(ALL[1])
+    run(3, false)
+    run(3.1, true)
+    expect(playingId(ALL)).toBe(ALL[2])
+  })
+
+  it.each([false, true])('uses Audio beats unless Beat is wired (override %s)', (wired) => {
+    const nodes = [
+      node('coll', 'PatternCollection', { patternIds: ALL }),
+      node('master', 'PatternMaster', timing), node('out', 'MatrixOutput'),
+      node('mic', 'MicInput'), node('audio', 'Audio', { sourceId: 'mic' }),
+      node('pulse', 'Compare', { a: 0, b: 0.5 }),
+    ]
+    const edges = [
+      edge('patterns', 'coll', 'patternset', 'master', 'patternset'),
+      edge('out', 'master', 'frame', 'out', 'frame'),
+      edge('audio', 'audio', 'audio', 'master', 'audio'),
+      ...(wired ? [edge('beat', 'pulse', 'result', 'master', 'beat')] : []),
+    ]
+    const frame = (seconds: number, beat: boolean) => {
+      const audio: AudioSignal = {
+        active: true, micActive: true, nativeFastLed: true, beat,
+        micBass: 0, micMids: 0, micTreble: 0, spectrum: [], detectorSpectrum: [],
+      }
+      evaluateGraph(nodes, edges, seconds * 60, 4, 4, GROUPS, '', new Set(), {}, audio, true, nodes)
+    }
+    frame(0, false)
+    frame(3, true)
+    expect(playingId(ALL)).toBe(ALL[wired ? 0 : 1])
+  })
+
+  it('normalizes invalid timing and a maximum below the minimum', () => {
+    expect(musicPlayerTiming({ minTime: 5, maxTime: 2, transitionSec: -1 })).toEqual({
+      minTime: 5, maxTime: 5, transitionSec: 0, beatTransitions: false,
+    })
+    expect(musicPlayerTiming({ minTime: NaN, maxTime: Infinity }).minTime).toBe(4)
+    expect(musicPlayerTiming({ minTime: NaN, maxTime: Infinity }).maxTime).toBe(12)
+  })
+})
 
 describe('a running show whose collection is edited', () => {
   beforeEach(() => resetEvaluatorState())

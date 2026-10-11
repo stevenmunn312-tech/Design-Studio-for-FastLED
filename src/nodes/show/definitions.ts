@@ -88,8 +88,8 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
   {
     // Runs a sequential or random show from a Pattern Collection: holds a pattern for
     // a random dwell (minTime…maxTime), then transitions (a random style from
-    // the chosen pool) into another. A wired `beat` advances early (after
-    // minTime). See docs/design/generative-pattern-show.md.
+    // the chosen pool) into another. Beat Transitions waits for a fresh beat
+    // after that dwell. See docs/design/generative-pattern-show.md.
     type: 'PatternMaster',
     label: 'Music Player',
     category: 'show',
@@ -122,7 +122,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {
-      volume: 1, order: 'Random', minTime: 4, maxTime: 12, transitionSec: 1,
+      volume: 1, order: 'Random', beatTransitions: false, minTime: 4, maxTime: 12, transitionSec: 1,
       // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,

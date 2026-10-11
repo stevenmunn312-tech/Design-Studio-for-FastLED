@@ -9,6 +9,8 @@ import { resolveShowTarget } from '../../state/player/showTarget'
 import { playerSourceExpressions } from '../displays/displaySourceExpressions'
 import { controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { DISPLAY_TEXT_BUFFER_BYTES } from '../../state/displays/displayText'
+import { expandGroups } from '../../state/expandGroups'
+import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
 
 /**
  * One player, one cursor, one collection.
@@ -52,6 +54,9 @@ const PLAYER_ENGINE_NODE_TYPES = ['PatternMaster', 'PerformanceGenerator']
 export function playerControlGraph(
   nodes: StudioNode[], edges: StudioEdge[], documents?: DisplayDocumentRegistry, engineId?: string, groups: GroupRegistry = {},
 ) {
+  const expanded = expandGroups(nodes, edges, groups)
+  nodes = expanded.nodes
+  edges = expanded.edges
   const master = nodes.find((node) => PLAYER_ENGINE_NODE_TYPES.includes(node.data.nodeType)
     && (!engineId || node.id === engineId))
   // The track report is opened by a Song Info node now, not by the player's
@@ -67,10 +72,23 @@ export function playerControlGraph(
   const sources: ControlReference[] = songNodes.flatMap((node) => (
     SONG_INFO_PORTS.map((port) => ({ nodeId: node.id, port: port.id, type: port.dataType }))
   ))
+  // An SD player's Audio source is its decoder. Native Beat Detect forwards
+  // the same beat as the detector inside a collected pattern.
+  const decoderBeats = new Set(nodes.filter((node) => node.data.nodeType === 'BeatDetect'
+    && edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio'
+      && edge.sourceHandle === 'audio'
+      && nodes.some((source) => source.id === edge.source && source.data.nodeType === 'Audio'
+        && resolveAudioCapabilitySource(nodes, source.data.properties.sourceId)?.kind === 'decoder')))
+    .map((node) => node.id))
+  sources.push(...[...decoderBeats].map((nodeId): ControlReference => ({ nodeId, port: 'beat', type: 'bool' })))
   const drivenOutput = master ? resolveShowTarget(nodes, edges, master.id).target : null
   const routing = templateControlRouting(nodes, edges, documents, {
     label: 'an SD player', widgetLabel: 'the SD player',
     destinationIds: new Set(master ? [master.id] : []), sampledSources: sources,
+    scalarInputs: master?.data.nodeType === 'PatternMaster' ? [
+      ...(master.data.properties.beatTransitions === true ? [{ nodeId: master.id, port: 'beat', type: 'bool' as const }] : []),
+      ...['minTime', 'maxTime', 'transitionSec'].map((port) => ({ nodeId: master.id, port, type: 'float' as const })),
+    ] : [],
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
     patternSelection: {
       sourceIds: new Set(master ? [master.id] : []),
@@ -80,7 +98,8 @@ export function playerControlGraph(
     // The player applies the output's own fields and refuses direct wires, so
     // status does not latch and does not fold in the player's master brightness.
     ledStatus: { drivenIds: new Set(drivenOutput ? [drivenOutput.id] : []), latch: false },
-  }, groups)
+  })
+  routing.errors.push(...expanded.errors)
   const outputRuntimePorts = ['enabled', 'brightness', 'controls', 'ledToggle', 'brightnessUp', 'brightnessDown']
   for (const output of nodes.filter((node) => node.data.nodeType === 'MatrixOutput')) {
     if (edges.some((edge) => edge.target === output.id && outputRuntimePorts.includes(edge.targetHandle ?? ''))) {
@@ -96,10 +115,16 @@ export function playerControlGraph(
       ? [`  char ${variable}[${DISPLAY_TEXT_BUFFER_BYTES}]; _dsCopy(${variable}, ${expression});`]
       : [`  ${source.type} ${variable} = ${expression};`]
   })
+  const usedDecoderBeats = [...routing.graph.usedSamples.values()].filter((source) => decoderBeats.has(source.nodeId))
+  sample.push(...usedDecoderBeats.map((source) => `  bool ${controlReferenceCpp(source)} = _audioBeat;`))
   const bundle = master ? routing.bundles.get(master.id) : undefined
   const hasPatternControls = routing.controls.some((control) => control.patternPositionExpr
     || control.buttons.some((button) => button.port.startsWith('pattern')))
-  return { ...routing, sample, bundle, hasPatternControls, hasSongSources: usedSources.length > 0 }
+  return { ...routing, sample, bundle, hasPatternControls, hasSongSources: usedSources.length > 0,
+    usesDecoderBeat: usedDecoderBeats.length > 0,
+    timingInputs: Object.fromEntries(['beat', 'minTime', 'maxTime', 'transitionSec'].map((port) =>
+      [port, routing.scalarInputs.get(`${master?.id}:${port}`)])),
+  }
 }
 
 export type PlayerControlGraph = ReturnType<typeof playerControlGraph>

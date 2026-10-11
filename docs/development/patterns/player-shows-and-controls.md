@@ -9,6 +9,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Music Player
 
+- `beatTransitions` is the Music Player's opt-in Beat Transitions checkbox.
+  Preview and the generic SD player choose a random cooldown from `minTime`
+  through `maxTime`, then wait for a fresh rising beat edge. Cooldown starts
+  after the preceding transition finishes; no beat means no automatic change.
+  With the checkbox off, the same range controls timed changes. A wired Beat
+  input takes precedence over preview Audio beats or the SD decoder's beats.
+  Particles remain independently beat-triggered. `musicPlayerTiming` normalizes
+  stored timing; SD control routing also resolves wired timing and Beat inputs.
+  Decoder-fed Beat Detect nodes can supply SD control pulses; other unsupported
+  audio/control sources must fail validation rather than silently use the decoder.
+  Authored Performance Generator event schedules do not use this option.
 - Music Player's `order` property uses the same Random/Sequential choices and
   `asSlideshowOrder` resolver as Pattern Slideshow. Preview passes the choice
   into `evalPatternShow`; `buildShowPlayer` passes the selected engine's choice
