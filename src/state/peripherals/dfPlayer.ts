@@ -1,3 +1,5 @@
+import { targetFamilyFromFqbn } from '../../build/buildProfile'
+
 export const DFPLAYER_PART_ID = 'dfplayer-mini'
 export const DFPLAYER_RX_PIN_FALLBACK = 16
 export const DFPLAYER_TX_PIN_FALLBACK = 17
@@ -38,11 +40,14 @@ export function dfPlayerAudioOutput(value: unknown): DfPlayerAudioOutput {
  *
  * Classic ESP32 and ESP32-S3 have UART2, so the player leaves UART1 for a
  * presence sensor. S2, C3, C6 and H2 have only UART0 (the console) and UART1.
+ * The chip comes from `targetFamilyFromFqbn`: `lolin_s2_mini` does not contain
+ * `esp32s2`, and the firmware still opens UART1 for it.
  */
 export function dfPlayerUartPort(fqbn: string): 1 | 2 | null {
   if (!fqbn.startsWith('esp32:')) return null
-  const board = fqbn.slice('esp32:esp32:'.length)
-  return /esp32(s2|c3|c6|h2)/i.test(board) ? 1 : 2
+  const family = targetFamilyFromFqbn(fqbn)
+  if (family === 'esp32' || family === 'esp32-s3') return 2
+  return family.startsWith('esp32-') ? 1 : null
 }
 
 /** The browser has no module to query. Playing follows the requested Play level. */

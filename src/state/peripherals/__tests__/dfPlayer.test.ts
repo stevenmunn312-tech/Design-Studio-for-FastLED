@@ -76,7 +76,13 @@ describe('the catalogued DFPlayer Mini', () => {
     expect(dfPlayerVolumeStep(0.7)).toBe(21)
     expect(dfPlayerUartPort('esp32:esp32:esp32')).toBe(2)
     expect(dfPlayerUartPort('esp32:esp32:esp32s3')).toBe(2)
+    expect(dfPlayerUartPort('esp32:esp32:lolin_s3')).toBe(2)
+    expect(dfPlayerUartPort('esp32:esp32:esp32s2')).toBe(1)
+    expect(dfPlayerUartPort('esp32:esp32:lolin_s2_mini')).toBe(1)
     expect(dfPlayerUartPort('esp32:esp32:esp32c3')).toBe(1)
+    expect(dfPlayerUartPort('esp32:esp32:lolin_c3_mini')).toBe(1)
+    expect(dfPlayerUartPort('esp32:esp32:esp32c6')).toBe(1)
+    expect(dfPlayerUartPort('esp32:esp32:esp32h2')).toBe(1)
     expect(dfPlayerUartPort('arduino:avr:uno')).toBeNull()
   })
 })
@@ -179,6 +185,12 @@ describe('DFPlayer wiring, audio routing, and UART ownership', () => {
       player,
       node('radar', 'PresenceInput'),
     ], 'esp32:esp32:esp32c3').join('\n')).toContain('UART1')
+    expect(findDfPlayerErrors([
+      player,
+      node('radar', 'PresenceInput'),
+    ], 'esp32:esp32:lolin_s2_mini').join('\n')).toContain('UART1')
+    expect(buildHardwareManifest([player], [], 'esp32:esp32:lolin_s2_mini').primaryItems[0]?.facts.uart)
+      .toBe('UART1 at 9600 baud, 8N1')
     expect(findDfPlayerErrors([
       player,
       node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2 }),
