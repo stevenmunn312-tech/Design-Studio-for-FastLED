@@ -4,6 +4,7 @@
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
+import { pressSourceBounces } from '../../state/player/pressSource'
 import { createControlGraph, controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButtonEmit, type PlayerControlsEmit } from '../player/playerControlsCpp'
@@ -115,7 +116,8 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
    * A press into a Control Map row or a direct action. A screen Toggle is
    * counted by taps rather than edge-detected, since its value also follows
    * Set feedback and would echo transport changes back as presses (see
-   * `toggleWidgetSource`); every other source keeps its debounced contact.
+   * `toggleWidgetSource`). Physical contacts keep debounce; computed pulses
+   * bypass it so a one-pass pulse cannot disappear before it is committed.
    */
   const pressButton = (target: StudioNode, port: string, repeat: boolean): PlayerControlButtonEmit | null => {
     const edge = incoming.get(`${target.id}:${port}`)
@@ -124,7 +126,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     const tap = toggle && display ? customDisplayLvglTapExpression(display.emit, toggle.widgetId) : null
     if (tap) return { port, expr: tap, repeat: false, edge: 'tap' }
     const expr = sourceExpr(target, port, 'bool')
-    return expr ? { port, repeat, expr } : null
+    return expr ? { port, repeat, expr, debounce: pressSourceBounces(edge ? byId.get(edge.source)?.data.nodeType : undefined) } : null
   }
 
   const visit = (edge: StudioEdge): string | null => {

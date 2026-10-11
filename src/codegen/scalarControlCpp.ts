@@ -1,7 +1,9 @@
-// Pure scalar operations shared by the normal graph and template control graphs.
+// Scalar operations shared by the normal graph and template control graphs.
 import { displayString, normalizeNumberFormat } from '../state/displays/displayText'
 import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../nodes/shared/stepValue'
 import { toggleCpp } from './toggleCpp'
+import { intervalCpp } from './intervalCpp'
+import { waveCpp } from './signalTimeCpp'
 import { formatNumberCpp, textValueCpp } from './displays/displayTextCpp'
 
 export type ControlDataType = 'float' | 'bool' | 'string'
@@ -16,6 +18,8 @@ export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlD
   Cos: { port: 'result', type: 'float' },
   Compare: { port: 'result', type: 'bool' },
   Trigger: { port: 'out', type: 'bool' },
+  Interval: { port: 'pulse', type: 'bool' },
+  Wave: { port: 'result', type: 'float' },
   TextValue: { port: 'text', type: 'string' },
   FormatNumber: { port: 'text', type: 'string' },
 }
@@ -35,6 +39,8 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
     case 'Compare': return { a: 0, b: 0.5 }
     case 'Trigger': return props.triggerOp === 'toggle' ? { trigger: 0, on: 0, off: 0 } : { trigger: 0 }
     case 'FormatNumber': return { value: 0 }
+    case 'Interval': return { interval: 0.5 }
+    case 'Wave': return { amplitude: 1, frequency: 1, phase: 0 }
     default: return {}
   }
 }
@@ -54,7 +60,8 @@ export const MAP_FLOAT_CPP = `float mapFloat(float x, float inMin, float inMax, 
 export function scalarControlCpp(
   type: string, id: string, props: Record<string, unknown>,
   input: (port: string, fallback: number) => string,
-): { loop: string[]; needsMapFloat: boolean; needsDisplayText: boolean } | null {
+  time = 't',
+): { loop: string[]; needsMapFloat: boolean; needsDisplayText: boolean; needsTime: boolean } | null {
   if (!Object.hasOwn(SCALAR_CONTROL_NODES, type)) return null
   const f = Object.fromEntries(Object.entries(scalarControlInputDefaults(type, props))
     .map(([port, fallback]) => [port, input(port, fallback)]))
@@ -103,6 +110,8 @@ export function scalarControlCpp(
     case 'Sin': expression = `sin((${f.x}) * TWO_PI)`; break
     case 'Cos': expression = `cos((${f.x}) * TWO_PI)`; break
     case 'Compare': expression = `(${f.a}) > (${f.b})`; break
+    case 'Interval': loop = intervalCpp(id, output, f.interval); break
+    case 'Wave': loop = waveCpp(output, String(props.waveform ?? 'sine'), f.amplitude, f.frequency, f.phase, time); break
     case 'Trigger': {
       const op = String(props.triggerOp ?? 'debounce')
       if (op === 'toggle') {
@@ -154,5 +163,6 @@ export function scalarControlCpp(
     // TextValue is already a baked C string. Only runtime number formatting
     // calls the generated display-number helper.
     needsDisplayText: type === 'FormatNumber',
+    needsTime: type === 'Wave',
   }
 }

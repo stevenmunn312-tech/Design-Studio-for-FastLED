@@ -650,7 +650,9 @@ describe('showGenerator', () => {
       expect(cpp).toContain('void setupAudio()')
       expect(cpp).toContain('void updateAudio()')
       expect(cpp).toContain('setupAudio();')              // in setup()
-      expect(cpp).toMatch(/void loop\(\) \{\n {2}updateAudio\(\);/)   // once per frame
+      const loop = cpp.slice(cpp.indexOf('void loop() {'))
+      expect(loop.match(/updateAudio\(\);/g)).toHaveLength(1)
+      expect(loop.indexOf('updateAudio();')).toBeLessThan(loop.indexOf('renderPattern(0, now)'))
       expect(cpp).toContain('_sum += _audioSpectrum[_i];') // render_p0 resamples the live spectrum
       expect(cpp).not.toContain('constrain(0.5f')         // not the placeholder
     })

@@ -796,8 +796,8 @@ export function generateShowSketch(
   // Resolve them against the controller template rather than the pattern walk.
   const controls = showControlRouting(nodes, edges, opts.displayDocuments, info.masterId)
   if (controls.errors.length > 0) throw new Error(controls.errors.join('\n'))
-  const controlGraph = controlGraphCpp(controls.graph)
   const speedNode = nodes.find((node) => nodeType(node) === 'MasterSpeed')
+  const controlGraph = controlGraphCpp(controls.graph, `${speedNode ? 'animNow' : 'now'} / 1000.0f`)
   const initialMasterSpeed = clampMasterSpeed(speedNode ? props(speedNode).speed : MASTER_SPEED_DEFAULT)
   const speedFallbackExpr = controls.masterSpeedInputExpr ?? `${initialMasterSpeed.toFixed(4)}f`
   const masterSpeedEmit: MasterSpeedEmit = {
@@ -1069,6 +1069,10 @@ export function generateShowSketch(
     : '(cur + 1 + random8(PATTERN_COUNT - 1)) % PATTERN_COUNT'
   L.push('void loop() {')
   if (emitTelemetry) L.push(TELEMETRY_LOOP_BEGIN_CPP)
+  // Timed controls and patterns observe one clock snapshot. A wired Master
+  // Speed is resolved below and takes effect on the next pass.
+  L.push('  uint32_t now = millis();')
+  L.push(...masterShowClockLoopCpp(masterSpeedEmit))
   L.push(...displays.sample)
   L.push(...customDisplays.sample)
   L.push(...controlGraph.loop)
@@ -1090,8 +1094,6 @@ export function generateShowSketch(
     // still the one running, and the transition commits its own choice.
     if (selection.used) L.push(`  if (!transitioning) cur = (uint8_t)${selection.variable}.active;`)
   }
-  L.push('  uint32_t now = millis();')
-  L.push(...masterShowClockLoopCpp(masterSpeedEmit))
   L.push(...masterShowSpeedUpdateCpp(masterSpeedEmit))
   const patternNow = masterSpeedEmit.present ? 'animNow' : 'now'
   if (!transitions) {

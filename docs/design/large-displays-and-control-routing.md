@@ -280,10 +280,63 @@ compatibility baseline only after it ships.
 
 ## Remaining decisions
 
+### D-01 implementation
+
+D-01 started on 11 October 2026, ahead of the other post-v1 items. Work proceeds
+in independently compiled slices:
+
+1. Interval-driven controls: implemented in the shared scalar graph. A wired
+   period resolves before the timer, one timer sample feeds every consumer,
+   and a computed press bypasses contact debounce. Normal, show and player
+   firmware share the existing elapsed-millisecond emitter. Physical button
+   debounce and the player's track-position clock remain unchanged.
+2. Time and Wave: implemented with shared normal/template emitters and one
+   clock snapshot per control pass. Slideshow controls read animation time,
+   including Master Speed; the clock uses the previous pass's speed so a
+   time-dependent speed source is resolved after its clock, not before it.
+   Slideshow dwell and transitions retain elapsed time. SD-player root controls
+   read elapsed time independently of playback; patterns retain track position.
+   Time's `dt` remains the existing nominal 1/60 second. Other time-dependent
+   sources still need their clock, reset and state contracts defined.
+3. Nested groups: preserve instance state, dependency limits, cycle detection
+   and trust while resolving typed group inputs and outputs. The current group
+   authoring and evaluator contract exposes typed inputs but only one `frame`
+   output. Normal firmware flattening also rewires every group consumer through
+   that frame terminal. Accepting scalar group outputs in the template resolver
+   alone would therefore create a firmware-only path that cannot be authored
+   or previewed correctly.
+
+   Implement the output contract first: preserve each outgoing boundary port's
+   type and identity when grouping, evaluate those outputs once per instance,
+   and restore the same wires when ungrouping. Keep existing frame patterns
+   working. Then share group expansion with template control routing, passing
+   the group registry through validation, asset preparation and generation.
+   Expansion must reject recursive definitions and identifier collisions, count
+   expanded dependencies against the control limit, and retain root hardware
+   authority. Tests must cover nested input forwarding, repeated instances with
+   independent timer state, unwired input fallbacks, recursive definitions and
+   trust propagation before a compiled nested-group fixture can establish
+   support. Nested control outputs remain unsupported until that sequence is
+   complete.
+4. Structured colour, pattern-selection and status bindings, followed by RTC
+   sources: resolve the actual wired source through the same validation and
+   emission plan. Unsupported paths must continue to fail explicitly.
+
+`scripts/compile-fixtures/control-graph.ts` generates normal, show and SD-player
+fixtures with Interval, both Time outputs, wired Wave inputs and wired Master
+Speed where supported. The regression fixture also checks a timer shared
+between a Control Map and a panel's Enabled path, plus a physical button that
+still requires debounce. Results are recorded in
+[control graph compile checks](../reports/compile/control-graph-compile-checks.md).
+These are software checks, not hardware evidence.
+
+### Other scope
+
 HW-01–08 are closed. Direct-control compilation is done; its bench evidence
 is still open in
 [direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
 Performance Generator is now a real Display source. Broader structured
-bindings, density/size thresholds and multi-screen scope stay deferred.
+bindings remain open in D-01; density/size thresholds and multi-screen scope
+stay deferred.
 Driver, bus and asset contracts remain in
 [auxiliary displays](auxiliary-displays.md).

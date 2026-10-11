@@ -162,12 +162,15 @@ def plan() -> list[Leg]:
         *ethernet_legs("fbuild"),
         *custom_board_legs("arduino-cli"), *display_legs("arduino-cli"), *ethernet_legs("arduino-cli"),
         *power_switch_legs("arduino-cli"),
+        *(Leg("control-graph", "compile-display-smoke.py", "arduino-cli",
+              ROOT / "artifacts" / "control-graph-compile" / f"{mode}.ino")
+          for mode in ("normal", "show", "player")),
         *ir_arduino_cli_legs(),
     ]
 
 
 GENERATORS = {"display": "display", "custom-board": "custom-board", "ir": "ir", "vl53l0x": "vl53l0x", "vl53l1x": "vl53l1x",
-              "ethernet": "ethernet", "power-switch": "power-switch"}
+              "ethernet": "ethernet", "power-switch": "power-switch", "control-graph": "control-graph"}
 
 
 def read_report(path: Path) -> dict | None:

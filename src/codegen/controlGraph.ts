@@ -8,6 +8,7 @@ import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
 import { i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
 import { irRemoteProjectEmission, type IrRemoteProjectNode } from './peripherals/irRemoteCpp'
 import { displayTextCppHelpers } from './displays/displayTextCpp'
+import { TIME_CONTROL_OUTPUTS, timeNodeCpp } from './signalTimeCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 
 export const MAX_CONTROL_GRAPH_NODES = 256
@@ -19,6 +20,7 @@ export type ControlOperand =
   | { kind: 'reference'; reference: ControlReference; clamp?: { min: number; max: number } }
 
 export type ControlInstruction =
+  | { kind: 'time'; nodeId: string }
   | { kind: 'gpio'; nodeId: string; emission: ControlInputEmission }
   | { kind: 'scalar'; nodeId: string; nodeType: string; properties: Record<string, unknown>; inputs: Record<string, ControlOperand> }
 
@@ -50,22 +52,32 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     const node = byId.get(nodeId)
     if (!node) return fail(`Control graph: missing source ${nodeId}.`)
     const scalar = Object.hasOwn(SCALAR_CONTROL_NODES, node.data.nodeType) ? SCALAR_CONTROL_NODES[node.data.nodeType] : undefined
-    const gpio = scalar ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
+    const clock = node.data.nodeType === 'TimeNode'
+    const gpio = scalar || clock ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
     const sample = samples.get(JSON.stringify([nodeId, port]))
-    const actualType = sample?.type ?? (scalar ? (port === scalar.port ? scalar.type : undefined) : gpio?.outputs[port])
+    const outputs: Readonly<Record<string, ControlDataType>> = clock ? TIME_CONTROL_OUTPUTS
+      : scalar ? { [scalar.port]: scalar.type } : gpio?.outputs ?? {}
+    const actualType = sample?.type ?? (Object.hasOwn(outputs, port) ? outputs[port] : undefined)
     if (actualType !== type) return fail(`${label(nodeId)}.${port}: control graph requires ${type}; this source or port is unsupported.`)
     const reference = { nodeId, port, type }
-    const symbol = controlReferenceCpp(reference)
     const owner = JSON.stringify([nodeId, port])
-    if (symbols.has(symbol) && symbols.get(symbol) !== owner) return fail(`${label(nodeId)}: control identifiers collide after sanitization. Rename or recreate this node.`)
-    symbols.set(symbol, owner)
+    // A producer emits all its outputs, including ones no consumer asks for.
+    // Reserve every emitted symbol, not just the currently requested port.
+    for (const output of sample ? [port] : Object.keys(outputs)) {
+      const symbol = controlReferenceCpp({ nodeId, port: output, type })
+      const outputOwner = JSON.stringify([nodeId, output])
+      if (symbols.has(symbol) && symbols.get(symbol) !== outputOwner) return fail(`${label(nodeId)}: control identifiers collide after sanitization. Rename or recreate this node.`)
+      symbols.set(symbol, outputOwner)
+    }
     // Touch outputs depend on the pre-pass sample, never on a wired Set value.
     if (sample) { usedSamples.set(owner, reference); return reference }
     if (done.has(nodeId)) return reference
     if (visiting.has(nodeId)) return fail(`${label(nodeId)}: control graph contains an instantaneous cycle. Remove a feedback wire.`)
     if (visiting.size + done.size >= MAX_CONTROL_GRAPH_NODES) return fail(`Control graph exceeds ${MAX_CONTROL_GRAPH_NODES} nodes. Split or simplify its wiring.`)
     visiting.add(nodeId)
-    if (gpio) {
+    if (clock) {
+      instructions.push({ kind: 'time', nodeId })
+    } else if (gpio) {
       instructions.push({ kind: 'gpio', nodeId, emission: gpio })
     } else {
       const properties = resolveNodeScalarExpressions(node.data.nodeType, node.data.properties, w, h)
@@ -118,11 +130,17 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
 
 /** Emit each producer exactly once in dependency order. Values live for the
  * whole loop, so all downstream consumers observe the same GPIO sample. */
-export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
+export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>, timeExpr = 'millis() / 1000.0f') {
   if (graph.errors.size) throw new Error([...graph.errors].join('\n'))
   const setup = new Set<string>(), helpers = new Set<string>(), includes = new Set<string>(), loop: string[] = []
   const irNodes: IrRemoteProjectNode[] = []
+  let needsTime = false
   for (const instruction of graph.instructions) {
+    if (instruction.kind === 'time') {
+      needsTime = true
+      loop.push(...timeNodeCpp(safeId(instruction.nodeId), '_controlTime'))
+      continue
+    }
     if (instruction.kind === 'gpio') {
       if (instruction.emission.ir) {
         irNodes.push(instruction.emission.ir)
@@ -139,8 +157,9 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
       if (operand.kind === 'literal') return String(operand.value)
       const expression = controlReferenceCpp(operand.reference)
       return operand.clamp ? `constrain(${expression}, ${operand.clamp.min}, ${operand.clamp.max})` : expression
-    })!
+    }, '_controlTime')!
     loop.push(...emitted.loop)
+    needsTime ||= emitted.needsTime
     if (emitted.needsMapFloat) helpers.add(MAP_FLOAT_CPP)
     if (emitted.needsDisplayText) helpers.add(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
   }
@@ -161,6 +180,6 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>) {
     helpers: [...helpers],
     includes: [...includes],
     globals: ir.globals,
-    loop: [...ir.sample, ...loop],
+    loop: [...ir.sample, ...(needsTime ? [`  float _controlTime = ${timeExpr};`] : []), ...loop],
   }
 }

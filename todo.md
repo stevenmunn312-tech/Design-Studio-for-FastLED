@@ -287,13 +287,23 @@ chooses the supported combinations from whatever is on record at release.
   [release checklist](docs/release/versioning-and-releases.md#release-checklist).
   Never merge `main` and `Hardware`.
 
+## D-01 · Broader control graph (active)
+
+Started early at the maintainer's request on 11 October 2026.
+The implementation sequence and current boundary are in
+[control routing](docs/design/large-displays-and-control-routing.md#d-01-implementation).
+
+- [ ] **D-01 · Broader control graph.** Interval, Time and Wave template controls
+  are implemented, including wired periods/oscillator inputs, shared clock
+  snapshots and computed-pulse debounce handling.
+  Remaining: other time-dependent sources, nested-group evaluation, structured
+  colour/pattern/status bindings, and arbitrary RTC sources in show/player
+  builds. Wired slideshow Master Speed and the Performance Generator's real
+  playback Display reading are complete. Preserve the music player's
+  track-position clock.
+
 ## 6. Deferred until after v1
 
-- [ ] **D-01 · Broader control graph.** Time-dependent/nested-group evaluation
-  and structured colour/pattern/status bindings in template builds. Wired
-  slideshow Master Speed and the Performance Generator's real playback
-  Display reading are complete. Preserve the music player's track-position
-  clock. Show and player templates still cannot read arbitrary RTC sources.
 - [ ] **D-02 · Larger UI scope.** Shared-document panel interaction, multiple
   screens/navigation, containers/overlap/free drawing, charts/histories/marquees,
   XY/Launch Pads, Choice/Step controls, Colour Picker/Arc Gauge, text entry,

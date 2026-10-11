@@ -428,10 +428,18 @@ Normal sketches evaluate general graph expressions. Show and SD-player
 templates share a bounded scalar IR in `controlGraph.ts`, with GPIO sampling,
 typed sources, dependency ordering, cycle/type/id checks and a 256-node limit.
 `scalarControlCpp.ts` supplies Math, Lerp, Clamp, MapRange, Sin, Cos, Compare,
-TextValue and FormatNumber to both the IR and normal sketches. Custom controls
+Trigger, StepValue, Interval, Wave, TextValue and FormatNumber to both the IR
+and normal sketches. Time's two outputs share `signalTimeCpp.ts`. Custom controls
 provide float/bool pre-pass samples; template widget inputs accept supported
-float/bool/string paths. Time-dependent sources, groups, arbitrary scripts and
+float/bool/string paths. Interval shares the normal firmware's elapsed-millisecond
+timer and computed presses bypass contact debounce. Other time-dependent sources,
+groups, arbitrary scripts and
 structured colour/pattern bindings remain outside that template scope.
+
+Time/Wave controls share the slideshow's animation clock, including Master
+Speed's previous-pass update. SD-player root controls instead sample elapsed
+time; collected patterns continue to use track position. Neither control path
+changes slideshow dwell or music timing.
 
 `playerDisplays.ts` resolves fixed content envelopes. The normal generator can
 read RTC Clock, the player reads its track, and the show reads its slideshow.

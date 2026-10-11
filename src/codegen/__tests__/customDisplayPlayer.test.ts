@@ -138,8 +138,8 @@ describe('custom displays in SD-player firmware', () => {
   })
 
   it('rejects unsupported sources, wrong types and output wires before code generation', () => {
-    const nodes = [...root, node('wave', 'Wave'), node('controls', 'ControlMap', { controls: ['brightness'] })]
-    const edges = [...route, edge('wave', 'result', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]
+    const nodes = [...root, node('noise', 'NoiseSignal'), node('controls', 'ControlMap', { controls: ['brightness'] })]
+    const edges = [...route, edge('noise', 'value', 'controls', 'brightness'), edge('controls', 'controls', 'player', 'controls')]
     const issues = playerControlGraph(nodes, edges, docs).errors
     expect(issues.join(' ')).toContain('an SD player cannot evaluate')
     expect(() => buildShowPlayer(nodes, edges, {}, { bakedAudio: false, preferredTrack: '', displayDocuments: docs })).toThrow('unsupported')

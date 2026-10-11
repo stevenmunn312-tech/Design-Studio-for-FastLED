@@ -3,27 +3,18 @@ import { safeId, seedProp, floatLit } from '../../codegen/cppLiterals'
 import { scheduleTimeOfDay } from './evaluate'
 import { rateCpp, SPEED_MAX } from '../shared/speedRange'
 import { seedOffset } from '../../state/evaluator/random'
+import { intervalCpp } from '../../codegen/intervalCpp'
+import { timeNodeCpp, waveCpp } from '../../codegen/signalTimeCpp'
 
 export const SIGNAL_EMITTERS: NodeEmitters = {
-  TimeNode({ ln, v, needsT }) {
+  TimeNode({ id, ln, needsT }) {
     needsT.v = true
-    ln(`  float ${v('time')} = t;`)
-    ln(`  float ${v('dt')} = 1.0f / 60.0f;`)
+    timeNodeCpp(id, 't').forEach(ln)
   },
   Wave({ p, ln, v, f, needsT }) {
     needsT.v = true
-    const amp = f('amplitude', 'amplitude', 1), freq = f('frequency', 'frequency', 1), phase = f('phase', 'phase', 0)
-    const wf = String(p.waveform ?? 'sine')
-    const arg = `((${freq}) * t + (${phase}))`
-    let wave: string
-    switch (wf) {
-      case 'square':   wave = `((_ph < 0.5f) ? (${amp}) : -(${amp}))`; break
-      case 'sawtooth': wave = `((${amp}) * (2.0f * _ph - 1.0f))`; break
-      case 'triangle': wave = `((${amp}) * (4.0f * fabsf(_ph - 0.5f) - 1.0f))`; break
-      default:         wave = `((${amp}) * sinf(6.2831853f * _arg))` // sine
-    }
-    ln(`  float ${v('result')};`)
-    ln(`  { float _arg = ${arg}, _ph = fmodf(fmodf(_arg, 1.0f) + 1.0f, 1.0f); ${v('result')} = ${wave}; }`)
+    waveCpp(v('result'), String(p.waveform ?? 'sine'), f('amplitude', 'amplitude', 1),
+      f('frequency', 'frequency', 1), f('phase', 'phase', 0), 't').forEach(ln)
   },
   ComplexWave({ p, ln, v, f }) {
     const a = f('a', 'a', 0), b = f('b', 'b', 0)
@@ -42,9 +33,7 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
   // Metronome — a boolean pulse every `interval` seconds, via a millis timer.
   // Mirrors the stateful `Interval` case in graphEvaluator.ts.
   Interval({ id, ln, v, f }) {
-    ln(`  static uint32_t _iv_${id} = 0; bool ${v('pulse')} = false;`)
-    ln(`  uint32_t _ivMs_${id} = (uint32_t)fmaxf(50.0f, (${f('interval', 'interval', 0.5)})*1000.0f);`)
-    ln(`  if (millis() - _iv_${id} >= _ivMs_${id}) { _iv_${id} = millis(); ${v('pulse')} = true; }`)
+    intervalCpp(id, v('pulse'), f('interval', 'interval', 0.5)).forEach(ln)
   },
   DMXChannel({ node, id, p, ln, v, f, incoming, nodeMap, intProp }) {
     const channel = intProp(p.channel, 1, 1, 512)

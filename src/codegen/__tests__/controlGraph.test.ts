@@ -132,7 +132,7 @@ describe('typed control graph', () => {
     for (const [nodes, id, port, type] of [
       [[node('button', 'ButtonInput')], 'button', 'pressed', 'float'],
       [[node('math', 'Math')], 'math', 'value', 'float'],
-      [[node('wave', 'Wave')], 'wave', 'result', 'float'],
+      [[node('noise', 'NoiseSignal')], 'noise', 'value', 'float'],
       [[], 'missing', 'value', 'float'],
     ] as const) {
       const graph = createControlGraph([...nodes], [])

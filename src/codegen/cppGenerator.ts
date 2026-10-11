@@ -1206,6 +1206,7 @@ export function generateCpp(
       scalar.loop.forEach(ln)
       needsMapFloat[0] ||= scalar.needsMapFloat
       needsDisplayText.number ||= scalar.needsDisplayText
+      needsT.v ||= scalar.needsTime
       return
     }
 

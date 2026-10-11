@@ -131,6 +131,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Controls and LED output runtime
 
+- Time and Wave in a template share one `_controlTime` snapshot. The slideshow
+  emits its animation clock before the control graph, then resolves a wired
+  Master Speed for the next pass; pattern rendering reads the same `animNow`,
+  while dwell and transitions keep `now`. The SD player defaults the control
+  snapshot to elapsed milliseconds, before transport actions and decoder work;
+  its renderer's `t` remains track position. Keep those scopes separate. Time's
+  two outputs are emitted once, and the control graph reserves every emitted
+  output symbol even when only one is requested, preventing hidden collisions.
+- Template presses use `pressSourceBounces` in `templateControlRouting.ts`,
+  just as normal sketches and preview do. A Control Map's debounce setting
+  applies to contacts, not computed sources: an Interval pulse lasts one pass
+  and disappears inside a 30 ms debounce window. Interval's firmware timer is
+  shared through `intervalCpp.ts`; template support does not change the music
+  player's track-position clock or the normal sketch's timer behavior.
 - Per-output blackout and dimming are wires, not project settings:
   `src/state/output/ledOutputRuntime.ts` resolves an output's `enabled`/`brightness`
   ports, defaulting unwired to lit/undimmed so adding the ports to an existing

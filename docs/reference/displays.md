@@ -269,11 +269,22 @@ connected panel and sizes the document from its mounted glass.
 Normal, generative-show, and SD-player builds generate custom LVGL widgets.
 Show and SD-player control paths accept float, boolean, and string bindings
 from supported sources and scalar operations: Math, Lerp, Clamp, Map Range,
-Sin, Cos, Compare, Text Value, and Format Number. Supported GPIO buttons,
+Sin, Cos, Compare, Trigger, Step Value, Interval, Time, Wave, Text Value, and
+Format Number. Supported GPIO buttons,
 button banks, potentiometers, and encoders can participate; SD-player displays
 can also use supported Song Info fields from an unpacker wired to the player.
 
-This does not enable every node in a template build. Time-dependent nodes,
+Interval uses the firmware's elapsed-millisecond timer and accepts a wired
+period. Computed pulses bypass contact debounce; physical buttons retain it.
+The music player's track-position clock is unchanged.
+
+Time and Wave share one animation-clock snapshot in a slideshow. Master Speed
+scales that clock and a wired speed applies on the next pass; dwell and
+transitions keep elapsed time. In an SD player, root Time/Wave controls use
+elapsed time and remain separate from the track-position clock used to render
+patterns. Time's Delta Time output retains its nominal 1/60-second value.
+
+This does not enable every node in a template build. Other time-dependent sources,
 nested groups, and wired colour or pattern-selection widget inputs are
 unsupported by these show/player control paths. Graph Health and build
 validation identify unresolved bindings rather than silently supplying a value.

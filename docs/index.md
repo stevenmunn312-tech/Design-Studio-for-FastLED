@@ -145,6 +145,7 @@ with `--engine fbuild` or `--engine all`.
 
 - [Buzzer compile checks](reports/compile/buzzer-compile-checks.md)
 - [Controller-board compile checks](reports/compile/controller-board-compile-checks.md)
+- [Control graph compile checks](reports/compile/control-graph-compile-checks.md)
 - [Custom-board compile checks](reports/compile/custom-board-compile-checks.md)
 - [Cooling-fan compile checks](reports/compile/cooling-fan-compile-checks.md)
 - [Darlington-driver compile checks](reports/compile/darlington-compile-checks.md)
