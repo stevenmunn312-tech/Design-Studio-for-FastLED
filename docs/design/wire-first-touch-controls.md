@@ -417,13 +417,13 @@ sampled last wins, which is a frame-ordering accident rather than a design.
 The refusal is a sentence, not a dead gesture. Retargeting stays easy because
 deleting the first wire releases the property immediately.
 
-## Deleting a panel takes its screen, and that is deliberate
+## Deleting the last panel takes its screen
 
-A document is named by its panel's `displayId`, so deleting the panel already
-takes the design, the Touch node and their edges with it. That is existing
-behaviour and it stays: the screen is part of the panel, not a document the
-panel happens to reference — which is the same reasoning that made a design
-shared by two panels unsayable rather than merely refused.
+A document is named by its panel's `displayId`. Deleting a panel takes that
+panel's Touch node and edges with it, and deletes the design when no remaining
+panel names that id. While another panel still names the design, the drawing
+stays. Duplicating a panel still mints a fresh document. Showing a design on
+another same-size panel is that panel's Screen design choice.
 
 ## Dimming, not colour
 

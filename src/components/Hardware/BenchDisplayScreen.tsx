@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
-import { useGraphStore } from '../../state/graphStore'
+import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import { partById } from '../../build/parts/partCatalogue'
 import { asOledRotation } from '../../state/displays/oledSurface'
 import { asTftRotation } from '../../state/displays/tftSurface'
@@ -65,17 +66,19 @@ function TftScreen({ nodeId, glass, properties }: {
   // does in the node body; the evaluator's fixed surface is not what shows.
   const designId = shownDesignId(properties)
   const document = useGraphStore((state) => (designId ? state.displayDocuments[designId] : undefined))
+  const rootNodes = useGraphStore(rootGraphNodes)
   const lit = usePreviewStore((state) => state.outputs.get(nodeId)?.lit)
   const picture = useSurfacePicture(nodeId, 'tft', !designId)
   if (designId) {
     const enabled = typeof lit === 'boolean' ? lit : properties.enabled !== false
     if (!document || !enabled) return null
     const { width, height } = document.designSize
+    const runtimeId = displayRuntimeId(nodeId, designId, rootNodes)
     return (
       <g transform={screenContentTransform(glass, width, height, turn)}>
         <foreignObject x={0} y={0} width={width} height={height}>
           <div style={{ position: 'relative', width, height, overflow: 'hidden', background: '#000' }}>
-            <DisplayDesignSurface displayId={designId} document={document} />
+            <DisplayDesignSurface displayId={runtimeId} document={document} />
           </div>
         </foreignObject>
       </g>

@@ -157,10 +157,11 @@ button is disabled and says to choose Custom design. Choosing a fixed layout
 sets the design aside rather than deleting it: its widgets and wires are kept,
 the fixed layout draws and reads touch, and any wire from the design's controls
 reads at rest (Graph Health says how many). Choosing Custom design again brings
-it back as it was. A design belongs to the panel it
-was drawn on, so it is always the size of that glass and there is no separate
-document to add, connect, or accidentally attach to two panels at once. To reuse
-a design, duplicate the panel — the copy gets a design of its own.
+it back as it was. A design is the size of the glass it was drawn for.
+A second panel of that same size can show it from **Screen design** on
+the panel: each glass keeps its own touch and Enabled state, and **Own
+copy** gives this panel a separate drawing. Duplicate still copies.
+There is no separate document node to add or connect.
 
 Design adds and resizes widgets or inserts ordinary widget templates. Module,
 pins and mounted rotation belong to the panel. A template's readings arrive

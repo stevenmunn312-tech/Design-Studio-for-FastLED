@@ -179,6 +179,47 @@ describe('custom Display node evaluation', () => {
     expect(runtime().readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBe(0.9)
   })
 
+  it('samples and publishes each glass of a shared design on its own', () => {
+    const second = node('screen-b', 'TransportDisplay', {
+      tftLayout: 'Custom design', displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
+    }, {
+      inputs: [{ id: 'widget:text:value', label: 'Title', dataType: 'string' }],
+    })
+    const nodes = [
+      screen(),
+      second,
+      touch(),
+      touch('touch-b', 'screen-b'),
+      node('title-a', 'TextValue', { text: 'ONE' }),
+      node('title-b', 'TextValue', { text: 'TWO' }),
+    ]
+    const edges = [
+      edge('e-a', 'title-a', 'text', 'screen', 'widget:text:value'),
+      edge('e-b', 'title-b', 'text', 'screen-b', 'widget:text:value'),
+    ]
+    runtime().touchDisplayWidget('screen', 'slider', 0.2)
+    runtime().touchDisplayWidget('screen-b', 'slider', 0.8)
+
+    const outputs = evaluateGraphFull(nodes, edges, 1, 8, 8, {}, true).outputs
+
+    expect(outputs.get('touch')!['widget:slider:out']).toBe(0.2)
+    expect(outputs.get('touch-b')!['widget:slider:out']).toBe(0.8)
+    expect(runtime().readDisplayWidget('screen', 'text')?.roleValues.get('value')).toBe('ONE')
+    expect(runtime().readDisplayWidget('screen-b', 'text')?.roleValues.get('value')).toBe('TWO')
+    expect(runtime().readDisplayWidget('panel', 'text')).toBeUndefined()
+  })
+
+  it('keeps the document runtime key while another panel only names the design', () => {
+    const aside = node('screen-b', 'TransportDisplay', {
+      tftLayout: 'Now Playing', displayId: 'panel', partId: 'st7789v-xpt2046-touch-240x320',
+    })
+    runtime().touchDisplayWidget('panel', 'slider', 0.33)
+
+    const outputs = evaluateGraphFull([screen(), aside, touch()], [], 1, 8, 8, {}, true).outputs
+
+    expect(outputs.get('touch')!['widget:slider:out']).toBe(0.33)
+  })
+
   /*
    * A widget reading the panel's source publishes without a cable.
    *

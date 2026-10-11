@@ -32,6 +32,17 @@
   text-align: center;
 }
 
+.designSelect {
+  width: min(160px, 100%);
+  min-height: 26px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--node-accent) 16%, var(--bg-secondary));
+  font-size: 11px;
+}
+
 .designAction:hover,
 .designAction:focus-visible {
   border-color: var(--node-accent);

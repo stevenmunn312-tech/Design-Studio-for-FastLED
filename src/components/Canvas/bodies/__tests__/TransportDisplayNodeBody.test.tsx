@@ -263,6 +263,41 @@ describe('TransportDisplayNodeBody', () => {
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'display', displayId: 'panel' })
   })
 
+  it('shows another same-size design and can take its own copy', () => {
+    const part = {
+      partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design',
+    }
+    const other = display({ ...part, displayId: 'beta' })
+    other.id = 'tft-b'
+    useGraphStore.setState({
+      nodes: [display({ ...part, displayId: 'alpha' }), other],
+      edges: [],
+      displayDocuments: {
+        alpha: createDisplayDocument('alpha', 240, 320),
+        beta: addDisplayWidget(createDisplayDocument('beta', 240, 320), 'Text'),
+      },
+      activeGraphId: ROOT_GRAPH_ID,
+    } as never)
+
+    render(<TransportDisplayNodeBody nodeId="tft" />)
+    const select = screen.getByRole('combobox', { name: 'Screen design' })
+    expect((select as HTMLSelectElement).value).toBe('alpha')
+    expect(screen.queryByRole('button', { name: 'Own copy' })).toBeNull()
+
+    act(() => { fireEvent.change(select, { target: { value: 'beta' } }) })
+
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'tft')!.data.properties.displayId).toBe('beta')
+    expect(useGraphStore.getState().displayDocuments.alpha).toBeUndefined()
+    expect(useUiStore.getState().statusText).toBe('This panel is showing that screen design')
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Own copy' })) })
+
+    const mine = useGraphStore.getState().nodes.find((entry) => entry.id === 'tft')!
+    expect(mine.data.properties.displayId).toBe('tft')
+    expect(useGraphStore.getState().displayDocuments.beta.widgets.map((widget) => widget.id)).toEqual(['text'])
+    expect(useGraphStore.getState().displayDocuments.tft.widgets.map((widget) => widget.id)).toEqual(['text'])
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'tft-b')!.data.properties.displayId).toBe('beta')
+  })
+
   it('does not make the non-touch module interactive', () => {
     useGraphStore.setState({
       nodes: [display({ partId: 'st7789-tft-240x240', tftRotation: '0' })],

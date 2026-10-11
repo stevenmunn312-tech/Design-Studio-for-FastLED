@@ -24,6 +24,7 @@ import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/output/ren
 import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/player/playerControlsCpp'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import { displayControlEdges } from '../../state/player/wireFirstControls'
+import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import { propertyInputsFor } from '../../state/propertyInputs'
 import {
   type InfoDisplayEmit,
@@ -327,22 +328,18 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of infoDisplayLoopCpp(emit)) ln(line)
   },
   TransportDisplay({ node, id, p, ln, ledStatusEmit, nodes, edges, opts, incoming, nodeMap, intProp, nativeMultiRender, boolExpr, customDisplaySamples, customDisplayPublication, setupLines, globalLines, needsDisplayText, tftDisplays, playerControlNodes, tftTouches, emitTelemetry, customDisplays, customDisplayPanels, customDisplayOwners }) {
-    // A panel draws its own screen design when it has one, and one of the
+    // A panel draws its screen design when it has one, and one of the
     // fixed layouts otherwise (see
     // docs/design/large-displays-and-control-routing.md).
-    // The design is named by the panel's `displayId` rather than wired in,
-    // so there is no second content input to be exclusive with. Its widget
-    // bindings and outputs stay keyed by the design's own id (matching
-    // what any wire drawn from its ports already
-    // expects) while the physical driver — struct instance, SPI pins,
-    // LVGL display object — is keyed by this panel's id. Call order
-    // matters: the panel's setup lines must precede the document's, since
-    // LVGL creates widgets against whichever display was most recently
-    // made the default.
-    // The screen drawn on this panel, which the panel owns: no wire to
-    // follow and no second node to find. The document id is still what
-    // keys every widget symbol, so a design keeps its identifiers whatever
-    // the panel is called.
+    // The design is named by the panel's `displayId`. Widget ports stay on
+    // this panel. The LVGL screen and widget objects use the document id
+    // while one panel shows the design, and this panel's id when another
+    // panel shows it too, so two glasses do not declare one symbol twice.
+    // Image bytes stay under the document id and are emitted once. The
+    // physical driver — struct instance, SPI pins, LVGL display object —
+    // is keyed by this panel's id. Call order matters: the panel's setup
+    // lines must precede the document's, since LVGL creates widgets
+    // against whichever display was most recently made the default.
     const documentId = shownDesignId(p)
     const document = documentId ? opts.displayDocuments?.[documentId] : undefined
     // Fixed layouts format their own fields. Only a screen-design Numeric
@@ -370,7 +367,10 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       : null
 
     if (document && customDisplayOwners.has(node.id)) {
-      const docId = safeId(documentId)
+      // One glass, one symbol stem. Shared drawings use the panel id;
+      // a drawing one panel shows keeps the document id existing sketches name.
+      const instanceId = safeId(displayRuntimeId(node.id, documentId, nodes))
+      const assetStem = safeId(documentId)
       const ports = displayDocumentPorts(document)
       const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
         if (!up || dataType === 'patternselect') return null
@@ -420,7 +420,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
        * than a second opinion about which wire a widget is on.
        */
       const initialValues: Record<string, number | boolean> = {}
-      for (const [widgetId, controlEdge] of displayControlEdges(documentId, nodes, edges)) {
+      for (const [widgetId, controlEdge] of displayControlEdges(documentId, nodes, edges, node.id)) {
         const target = nodeMap.get(controlEdge.target)
         const key = controlEdge.targetHandle ?? ''
         if (!target || !key) continue
@@ -432,7 +432,10 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       }
 
       const custom: CustomDisplayLvglEmit = {
-        id: docId, document, bindings: bindingsByWidget,
+        id: instanceId,
+        ...(assetStem === instanceId ? {} : { assetId: assetStem }),
+        document,
+        bindings: bindingsByWidget,
         // Keyed by the design, because the artwork belongs to the screen
         // rather than to the glass it happens to be drawn on.
         assets: opts.customDisplayAssets?.[documentId],
@@ -470,8 +473,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         if (!touchNode) continue
         // Named for the Touch node, because that is the node a wire leaves:
         // the panel draws the widget, but the touch surface publishes the
-        // control value. The screen's own internals stay keyed by the
-        // document id.
+        // control value.
         const name = `n_${safeId(touchNode.id)}_${safeId(port.id)}`
         const rest = cppType === 'bool' ? 'false' : '0.0f'
         // A control nobody can touch reports its rest value rather than

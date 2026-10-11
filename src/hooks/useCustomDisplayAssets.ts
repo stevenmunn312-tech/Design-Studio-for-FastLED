@@ -57,7 +57,11 @@ export function useCustomDisplayAssets(nodes: StudioNode[], enabled: boolean, ed
     // build will contain — and worse, a broken asset in a design left over in
     // the workspace refused an upload that never referenced it. The same walk
     // the generators, the RAM estimate and validation use decides what is real.
+    const seenDocuments = new Set<string>()
     if (enabled) for (const mounted of customDisplayMountPlan(nodes).mounted) {
+      // One bake per drawing. Two panels showing it share the bytes.
+      if (seenDocuments.has(mounted.documentId)) continue
+      seenDocuments.add(mounted.documentId)
       const node = mounted.document
       const document = documents[mounted.documentId]
       const label = String(node.data.label || 'Display')

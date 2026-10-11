@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useGraphStore } from '../../../state/graphStore'
+import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { usePreviewStore } from '../../../state/previewStore'
-import { tftControllerForProps } from '../../../state/nodeLibrary'
+import { nodeDisplayLabel, tftControllerForProps } from '../../../state/nodeLibrary'
+import { displayRuntimeId, mountedPanelGeometry, panelsNamingDocument } from '../../../state/displays/mountedDisplays'
 import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize } from '../../../state/displays/tftSurface'
 import { displayHasTouch } from '../../../build/parts/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../../state/displays/transportDisplayTouchStore'
@@ -35,9 +36,44 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     ? state.displayDocuments[customDisplayId]
     : undefined))
   const customDisplayWired = customDisplayId !== ''
+  const documents = useGraphStore((state) => state.displayDocuments)
+  const rootNodes = useGraphStore(rootGraphNodes)
   const createScreenDesignForPanel = useGraphStore((state) => state.createScreenDesignForPanel)
+  const adoptScreenDesign = useGraphStore((state) => state.adoptScreenDesign)
+  const detachScreenDesign = useGraphStore((state) => state.detachScreenDesign)
   const openDisplayWorkspace = useUiStore((state) => state.openDisplayWorkspace)
   const setStatus = useUiStore((state) => state.setStatus)
+  const namedId = String((props as Record<string, unknown> | undefined)?.displayId ?? '')
+  const geometry = useMemo(
+    () => mountedPanelGeometry((props ?? {}) as Record<string, unknown>),
+    [props],
+  )
+  const shareOptions = useMemo(() => {
+    const ids = new Set<string>()
+    if (namedId && documents[namedId]) ids.add(namedId)
+    for (const [id, document] of Object.entries(documents)) {
+      if (panelsNamingDocument(id, rootNodes).length === 0) continue
+      if (document.designSize.width === geometry.width && document.designSize.height === geometry.height) {
+        ids.add(id)
+      }
+    }
+    return [...ids].map((id) => {
+      const namers = panelsNamingDocument(id, rootNodes)
+      const names = namers.map((panel) => (
+        panel.id === nodeId
+          ? 'this panel'
+          : nodeDisplayLabel(panel.data.nodeType, panel.data.properties, panel.data.label)
+      ))
+      const widgets = documents[id]?.widgets.length ?? 0
+      const who = names.length > 0 ? names.join(', ') : 'Screen design'
+      return { id, label: `${who} (${widgets} ${widgets === 1 ? 'widget' : 'widgets'})` }
+    })
+  }, [documents, geometry.height, geometry.width, namedId, nodeId, rootNodes])
+  const otherDesigns = shareOptions.some((option) => option.id !== namedId)
+  const shared = namedId !== '' && panelsNamingDocument(namedId, rootNodes).length > 1
+  const runtimeId = customDisplayId
+    ? displayRuntimeId(nodeId, customDisplayId, rootNodes)
+    : ''
   const lit = usePreviewStore((state) => state.outputs.get(nodeId)?.lit)
   // Enabled is resolved by the evaluator, including a wire overriding the
   // property. Before the first published frame, use the panel's saved setting.
@@ -66,6 +102,17 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     openDisplayWorkspace(nodeId)
     setStatus('Screen design added to this panel', 'success')
   }, [createScreenDesignForPanel, nodeId, openDisplayWorkspace, setStatus])
+
+  const showDesign = useCallback((documentId: string) => {
+    if (!documentId || documentId === namedId) return
+    adoptScreenDesign(nodeId, documentId)
+    setStatus('This panel is showing that screen design', 'success')
+  }, [adoptScreenDesign, namedId, nodeId, setStatus])
+
+  const takeOwnCopy = useCallback(() => {
+    detachScreenDesign(nodeId)
+    setStatus('This panel has its own copy of the screen design', 'success')
+  }, [detachScreenDesign, nodeId, setStatus])
 
   /*
    * The Layout dropdown decides; this button only follows it. A fixed layout
@@ -98,6 +145,30 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
             Create screen design
           </button>
         )
+  const selectedDesign = shareOptions.some((option) => option.id === namedId) ? namedId : ''
+  const designFooter = (
+    <>
+      {designAction}
+      {customSelected && otherDesigns && (
+        <select
+          className={`nodrag ${styles.designSelect}`}
+          aria-label="Screen design"
+          value={selectedDesign}
+          onChange={(event) => showDesign(event.target.value)}
+        >
+          {selectedDesign === '' && <option value="">Screen design</option>}
+          {shareOptions.map((option) => (
+            <option key={option.id} value={option.id}>{option.label}</option>
+          ))}
+        </select>
+      )}
+      {shared && (
+        <button type="button" className={`nodrag ${styles.designAction}`} onClick={takeOwnCopy}>
+          Own copy
+        </button>
+      )}
+    </>
+  )
 
   const updateTouch = useCallback((clientX: number, clientY: number) => {
     const screen = screenRef.current
@@ -131,13 +202,13 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
           >
             {panelEnabled && (
               <DisplayDesignSurface
-                displayId={customDisplayId}
+                displayId={runtimeId}
                 document={customDocument}
                 style={{ transform: `scale(${scale})` }}
               />
             )}
           </div>
-          {designAction}
+          {designFooter}
         </div>
       )
     }
@@ -147,7 +218,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
           aria-label="Driven by a wired Screen Design">
           Screen Design — its document is missing
         </div>
-        {designAction}
+        {designFooter}
       </div>
     )
   }
@@ -173,7 +244,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
         onPointerUp={() => releaseTouch(nodeId)}
         onPointerCancel={() => releaseTouch(nodeId)}
       />
-      {designAction}
+      {designFooter}
     </div>
   )
 }

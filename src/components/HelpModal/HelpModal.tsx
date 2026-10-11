@@ -480,7 +480,7 @@ function DisplaysTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Creating a custom user interface</div>
         <div className={styles.text}>
-          A colour panel can draw a screen you design instead of one of the fixed presentations. Set the panel's Layout to Custom design and choose Edit screen design (a fixed layout sets the design aside, and choosing Custom design brings it back): you get a canvas the exact size of the glass, a palette of widgets down the side, and a theme picker.
+          A colour panel can draw a screen you design instead of one of the fixed presentations. Set the panel's Layout to Custom design and choose Edit screen design (a fixed layout sets the design aside, and choosing Custom design brings it back): you get a canvas the exact size of the glass, a palette of widgets down the side, and a theme picker. A second panel of the same size can show that design, and each glass keeps its own touch.
         </div>
         <div className={styles.text}>
           Place readouts for things the panel is being told — text, numbers, a timecode, a progress bar, a meter — and controls for things a finger can change. Design shows you the layout; Run leaves the designer and floats a live touch screen on the graph, so you can drive wired properties and watch the LED preview before any hardware exists.

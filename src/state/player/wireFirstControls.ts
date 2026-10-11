@@ -16,6 +16,7 @@ import {
 import { placeDisplayWidget } from '../displays/displayEditor'
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { useDisplayRuntimeStore } from '../displays/displayRuntimeStore'
+import { displayRuntimeId } from '../displays/mountedDisplays'
 
 /**
  * What a touch control should be, read off the property it will drive.
@@ -187,20 +188,15 @@ export function touchControlWidget(id: string, spec: TouchControlSpec): DisplayW
 }
 
 /**
- * The single edge each widget's `out` port drives, for one screen design.
- *
- * One walk rather than one per widget: the panel and its Touch node are found
- * once, and the map is keyed on the widget id that `parseDisplayWidgetPortId`
- * reads back out of the port. A widget driving two things is deliberately left
- * out — "what does this control?" has no single answer then, and the Connected
- * group would have to invent one.
- */
-/**
  * The screen widget a graph source is, when that source is a Touch output.
  *
  * A property driven by one of these is still adjustable in the graph: the
  * slider is a remote for the widget, not a second control fighting it. A pot
  * or an audio band has no such remote, so those rows stay read-only.
+ *
+ * `displayId` is the runtime key that glass publishes under. One panel
+ * showing the design keeps the document id. Two panels showing it each
+ * publish under their own panel id, so the remote moves only that glass.
  */
 export function touchControlDriver(
   source: { srcId: string; srcPort: string } | undefined,
@@ -213,8 +209,9 @@ export function touchControlDriver(
   if (touch?.data.nodeType !== 'TouchInput') return null
   const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
   const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
-  const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
-  return displayId ? { displayId, widgetId: parsed.widgetId } : null
+  const documentId = panel ? String(panel.data.properties.displayId ?? '') : ''
+  if (!documentId || !panel) return null
+  return { displayId: displayRuntimeId(panel.id, documentId, nodes), widgetId: parsed.widgetId }
 }
 
 /** Set a widget the way the editor's Run surface does for a completed drag. */
@@ -228,15 +225,31 @@ export function writeTouchControlValue(
   store.releaseDisplayWidget(displayId, widgetId)
 }
 
+/**
+ * The single edge each widget's `out` port drives, for one screen design.
+ *
+ * One walk rather than one per widget: the panel and its Touch node are found
+ * once, and the map is keyed on the widget id that `parseDisplayWidgetPortId`
+ * reads back out of the port. A widget driving two things is deliberately left
+ * out — "what does this control?" has no single answer then, and the Connected
+ * group would have to invent one.
+ *
+ * With no panel id, a design named by two panels also has no single answer:
+ * each glass may wire the same widget differently. Pass the panel id when the
+ * caller already knows which glass it is emitting, and that glass's wires
+ * come back on their own.
+ */
 export function displayControlEdges(
   displayId: string,
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
+  panelId?: string,
 ): Map<string, StudioEdge> {
-  const panels = nodes.filter((node) => (
+  const naming = nodes.filter((node) => (
     node.data.nodeType === 'TransportDisplay'
     && String(node.data.properties.displayId ?? '') === displayId
   ))
+  const panels = panelId ? naming.filter((node) => node.id === panelId) : naming
   if (panels.length !== 1) return new Map()
   const touchIds = new Set(nodes
     .filter((node) => (
@@ -276,7 +289,8 @@ export interface DisplayWidgetWire {
  * leave from the panel's Touch node (`out`), so asking only one of them would
  * report a wired Toggle as half connected. Unlike `displayControlEdges`, a
  * port wired twice lists both wires: this is an inventory, not a caption that
- * needs one answer.
+ * needs one answer. A design named by several panels lists every glass, and
+ * the panel's name leads `otherEnd` so the two wires stay tellable apart.
  */
 export function displayWidgetWires(
   displayId: string,
@@ -288,35 +302,42 @@ export function displayWidgetWires(
     node.data.nodeType === 'TransportDisplay'
     && String(node.data.properties.displayId ?? '') === displayId
   ))
-  if (panels.length !== 1) return []
-  const panelId = panels[0].id
-  const touchIds = new Set(nodes
-    .filter((node) => (
-      node.data.nodeType === 'TouchInput'
-      && String(node.data.properties.panelId ?? '') === panelId
-    ))
-    .map((node) => node.id))
+  if (panels.length === 0) return []
+  const shared = panels.length > 1
   const labelOf = (id: string) => {
     const node = nodes.find((entry) => entry.id === id)
     return node ? nodeDisplayLabel(node.data.nodeType, node.data.properties, node.data.label) : 'a missing node'
   }
 
   const wires: DisplayWidgetWire[] = []
-  for (const edge of edges) {
-    if (edge.target === panelId) {
-      const port = parseDisplayWidgetPortId(edge.targetHandle ?? '')
-      if (port?.widgetId === widgetId) {
-        wires.push({ edge, direction: 'in', role: port.role, otherEnd: labelOf(edge.source) })
-      }
-    } else if (touchIds.has(edge.source)) {
-      const port = parseDisplayWidgetPortId(edge.sourceHandle ?? '')
-      if (port?.widgetId === widgetId) {
-        wires.push({
-          edge,
-          direction: 'out',
-          role: port.role,
-          otherEnd: controlDestinationLabel(edge, nodes) ?? labelOf(edge.target),
-        })
+  for (const panel of panels) {
+    const panelId = panel.id
+    const panelName = nodeDisplayLabel(panel.data.nodeType, panel.data.properties, panel.data.label)
+    const touchIds = new Set(nodes
+      .filter((node) => (
+        node.data.nodeType === 'TouchInput'
+        && String(node.data.properties.panelId ?? '') === panelId
+      ))
+      .map((node) => node.id))
+    for (const edge of edges) {
+      if (edge.target === panelId) {
+        const port = parseDisplayWidgetPortId(edge.targetHandle ?? '')
+        if (port?.widgetId === widgetId) {
+          const end = labelOf(edge.source)
+          wires.push({
+            edge, direction: 'in', role: port.role,
+            otherEnd: shared ? `${panelName} · ${end}` : end,
+          })
+        }
+      } else if (touchIds.has(edge.source)) {
+        const port = parseDisplayWidgetPortId(edge.sourceHandle ?? '')
+        if (port?.widgetId === widgetId) {
+          const end = controlDestinationLabel(edge, nodes) ?? labelOf(edge.target)
+          wires.push({
+            edge, direction: 'out', role: port.role,
+            otherEnd: shared ? `${panelName} · ${end}` : end,
+          })
+        }
       }
     }
   }

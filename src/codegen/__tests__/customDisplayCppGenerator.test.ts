@@ -191,6 +191,26 @@ describe('normal-sketch codegen for the custom Display node', () => {
     }
   })
 
+  it('gives two panels showing one design a screen each and keeps the exclusive symbols for one panel', () => {
+    const shared = generateCpp(
+      [output, panel('tft-a'), panel('tft-b'), touch('tft-a'), touch('tft-b')],
+      [],
+      {},
+      { displayDocuments: documents },
+    )
+    expect(customDisplayMountPlan([panel('tft-a'), panel('tft-b')]).mounted).toHaveLength(2)
+    expect(shared.match(/_cdScreen_tft_a = lv_obj_create/g)).toHaveLength(1)
+    expect(shared.match(/_cdScreen_tft_b = lv_obj_create/g)).toHaveLength(1)
+    expect(shared).not.toContain('_cdScreen_screen')
+    expect(shared).toContain('bool n_tft_a_touch_widget_toggle_out = _cdBoolOutput(_cd_tft_a[0]);')
+    expect(shared).toContain('bool n_tft_b_touch_widget_toggle_out = _cdBoolOutput(_cd_tft_b[0]);')
+    expect(shared).not.toContain('_cd_screen[')
+
+    const alone = generateCpp([output, panel()], [], {}, { displayDocuments: documents })
+    expect(alone).toContain('_cdScreen_screen = lv_obj_create')
+    expect(alone).not.toContain('_cdScreen_tft')
+  })
+
   it('samples all widget outputs before scalar feedback and publishes after evaluation', () => {
     const wideDoc = addDisplayWidget(document(), 'Slider')
     const nodes = [panel(), touch(), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }),

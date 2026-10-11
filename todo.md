@@ -287,16 +287,32 @@ chooses the supported combinations from whatever is on record at release.
   [release checklist](docs/release/versioning-and-releases.md#release-checklist).
   Never merge `main` and `Hardware`.
 
+## D-02 · Larger UI scope
+
+Shared-document interaction is in
+([large displays](docs/design/large-displays-and-control-routing.md#one-physical-panel-its-own-screen-design)).
+The rest waits until after v1.
+
+- [x] **Shared-document panel interaction.** Two same-size panels can show one
+  drawing. Each glass keeps its own touch, Enabled latch and widget values.
+  Image bytes are emitted once. An unshared sketch keeps its document-id symbols.
+- [ ] **Multiple screens and navigation.**
+- [ ] **Containers, overlap and free drawing.**
+- [ ] **Charts, histories and marquees.**
+- [ ] **XY pad and Launch Pad.**
+- [ ] **Choice and Step controls.**
+- [ ] **Colour Picker and Arc Gauge.**
+- [ ] **Text entry.**
+- [ ] **Arbitrary callbacks, code and LVGL properties.**
+- [ ] **SquareLine project exchange.**
+- [ ] **Remote and phone UI.**
+- [ ] **TFT video, e-paper, RGB and HDMI.**
+- [ ] **Size thresholds and density**, from actual capabilities and legibility.
+- [ ] **Show Status colour-pattern artwork**, feeding the player-owned 96x96 bake
+  from a Slideshow's collection.
+
 ## 6. Deferred until after v1
 
-- [ ] **D-02 · Larger UI scope.** Shared-document panel interaction, multiple
-  screens/navigation, containers/overlap/free drawing, charts/histories/marquees,
-  XY/Launch Pads, Choice/Step controls, Colour Picker/Arc Gauge, text entry,
-  arbitrary callbacks/code/LVGL properties, SquareLine project exchange, remote/
-  phone UI, TFT video and e-paper/RGB/HDMI. Resolve size thresholds and density
-  from actual capabilities and legibility. Also deferred: colour pattern
-  artwork on Show Status, which is a feature (feeding the player-owned 96x96
-  bake from a Slideshow's collection), not a repair.
 - [ ] **D-03 · Other architecture/authoring.** Multi-board, Raspberry Pi/Linux
   backend, richer timed sequences, pattern weighting/tags, broader library
   sharing and distinct per-input modulation. Keep Collection/engine ownership

@@ -1650,6 +1650,125 @@ describe('graphStore — custom display documents', () => {
     expect(state.edges).toEqual([])
     expect(state.displayDocuments).toEqual({})
   })
+
+  const glass = {
+    partId: 'st7789v-xpt2046-touch-240x320',
+    tftRotation: '0',
+    tftLayout: 'Custom design',
+  }
+
+  it('lets a same-size panel show a design another panel names', () => {
+    reset([
+      node('a', 'TransportDisplay', { ...glass, displayId: 'design-a' }),
+      node('b', 'TransportDisplay', { ...glass, displayId: 'design-b' }),
+    ])
+    const shared = addDisplayWidget(createDisplayDocument('design-a', 240, 320), 'Button')
+    useGraphStore.getState().setDisplayDocument(shared)
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('design-b', 240, 320))
+
+    useGraphStore.getState().adoptScreenDesign('b', 'design-a')
+
+    const state = useGraphStore.getState()
+    expect(state.nodes.find((entry) => entry.id === 'b')!.data.properties.displayId).toBe('design-a')
+    expect(state.nodes.find((entry) => entry.id === 'b')!.data.properties.tftLayout).toBe('Custom design')
+    expect(state.nodes.find((entry) => entry.id === 'a')!.data.properties.displayId).toBe('design-a')
+    expect(state.displayDocuments['design-b']).toBeUndefined()
+    expect(state.displayDocuments['design-a'].widgets.map((widget) => widget.id)).toEqual(['button'])
+  })
+
+  it('leaves a panel alone when the design is a different size', () => {
+    reset([
+      node('a', 'TransportDisplay', { ...glass, displayId: 'tall' }),
+      node('b', 'TransportDisplay', {
+        partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Custom design', displayId: 'square',
+      }),
+    ])
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('tall', 240, 320))
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('square', 240, 240))
+
+    useGraphStore.getState().adoptScreenDesign('b', 'tall')
+
+    const state = useGraphStore.getState()
+    expect(state.nodes.find((entry) => entry.id === 'b')!.data.properties.displayId).toBe('square')
+    expect(state.displayDocuments.tall).toBeTruthy()
+    expect(state.displayDocuments.square).toBeTruthy()
+  })
+
+  it('keeps a shared design until the last panel that names it is removed', () => {
+    const part = { ...glass, displayId: 'shared' }
+    reset([
+      node('a', 'TransportDisplay', part),
+      node('b', 'TransportDisplay', part),
+    ])
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('shared', 240, 320), 'Text'))
+
+    useGraphStore.getState().removeNodeCompletely('a')
+    expect(useGraphStore.getState().nodes.map((entry) => entry.id)).toEqual(['b'])
+    expect(useGraphStore.getState().displayDocuments.shared.widgets.map((widget) => widget.id)).toEqual(['text'])
+
+    useGraphStore.getState().onNodesChange([{ type: 'remove', id: 'b' }])
+    expect(useGraphStore.getState().nodes).toEqual([])
+    expect(useGraphStore.getState().displayDocuments).toEqual({})
+  })
+
+  it('copies one shared panel off the design and leaves the others on it', () => {
+    const part = { ...glass, displayId: 'shared' }
+    reset([
+      node('a', 'TransportDisplay', part),
+      node('b', 'TransportDisplay', part),
+    ])
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('shared', 240, 320), 'Button'))
+
+    useGraphStore.getState().detachScreenDesign('b')
+
+    const state = useGraphStore.getState()
+    expect(state.nodes.find((entry) => entry.id === 'a')!.data.properties.displayId).toBe('shared')
+    expect(state.nodes.find((entry) => entry.id === 'b')!.data.properties.displayId).toBe('b')
+    expect(state.displayDocuments.shared.widgets.map((widget) => widget.id)).toEqual(['button'])
+    expect(state.displayDocuments.b.widgets.map((widget) => widget.id)).toEqual(['button'])
+    expect(state.displayDocuments.b).not.toBe(state.displayDocuments.shared)
+
+    useGraphStore.getState().detachScreenDesign('a')
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'a')!.data.properties.displayId).toBe('shared')
+  })
+
+  it('still copies a design when a shared panel is duplicated', () => {
+    const part = { ...glass, displayId: 'shared' }
+    reset([
+      node('a', 'TransportDisplay', part),
+      node('b', 'TransportDisplay', part),
+    ])
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('shared', 240, 320), 'Button'))
+
+    useGraphStore.getState().duplicateNode('a')
+
+    const state = useGraphStore.getState()
+    const copy = state.nodes.find((entry) => entry.id !== 'a' && entry.id !== 'b')!
+    const copyId = String(copy.data.properties.displayId)
+    expect(copyId).toBe(copy.id)
+    expect(state.nodes.find((entry) => entry.id === 'a')!.data.properties.displayId).toBe('shared')
+    expect(state.nodes.find((entry) => entry.id === 'b')!.data.properties.displayId).toBe('shared')
+    expect(state.displayDocuments.shared.widgets.map((widget) => widget.id)).toEqual(['button'])
+    expect(state.displayDocuments[copyId].widgets.map((widget) => widget.id)).toEqual(['button'])
+    expect(state.displayDocuments[copyId]).not.toBe(state.displayDocuments.shared)
+  })
+
+  it('does not re-fit a design while another panel names it', () => {
+    const part = { ...glass, displayId: 'shared' }
+    reset([
+      node('a', 'TransportDisplay', part),
+      node('b', 'TransportDisplay', part),
+    ])
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('shared', 240, 320, '0'))
+
+    useGraphStore.getState().updateNodeProperty('a', 'tftRotation', '90')
+
+    const document = useGraphStore.getState().displayDocuments.shared
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'a')!.data.properties.tftRotation).toBe('90')
+    expect(document.designSize).toEqual({ width: 240, height: 320 })
+    expect(document.orientation).toBe('0')
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'b')!.data.properties.tftRotation).toBe('0')
+  })
 })
 
 // todo.md's P0 trust-boundary item: imported/shared/pattern-dropped content
@@ -1705,6 +1824,25 @@ describe('graphStore — hardware while a group is open', () => {
     useGraphStore.getState().removeNodeCompletely('out')
 
     expect(rootGraphNodes(useGraphStore.getState()).map((n) => n.id)).toEqual(['board-root'])
+  })
+
+  it('keeps a shared design until its last panel is removed from inside a group', () => {
+    const part = {
+      partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'shared',
+    }
+    enterAGroup([
+      node('a', 'TransportDisplay', part),
+      node('b', 'TransportDisplay', part),
+    ])
+    useGraphStore.getState().setDisplayDocument(createDisplayDocument('shared', 240, 320))
+
+    useGraphStore.getState().removeNodeCompletely('a')
+    expect(useGraphStore.getState().displayDocuments.shared).toBeTruthy()
+    expect(useGraphStore.getState().nodes.map((entry) => entry.id)).toEqual(['inner'])
+
+    useGraphStore.getState().removeNodeCompletely('b')
+    expect(useGraphStore.getState().displayDocuments).toEqual({})
+    expect(rootGraphNodes(useGraphStore.getState())).toEqual([])
   })
 
   it('turns a VU meter standalone when its selected matrix is removed', () => {

@@ -91,6 +91,25 @@ describe('custom displays in generative shows', () => {
     expect(cpp.indexOf('lv_display_set_default(_cdDisp_tft2)')).toBeLessThan(cpp.indexOf('_cdScreen_second = lv_obj_create'))
   })
 
+  it('builds two glasses of one design as two screens', () => {
+    const nodes = [panel('tft-a'), touch('tft-a'), panel('tft-b'), touch('tft-b')]
+    const edges = [
+      edge('tft-a-touch', 'widget:slider:out', 'out', 'brightness'),
+      edge('tft-b-touch', 'widget:toggle:out', 'out', 'enabled'),
+    ]
+    const shared = { screen: document() }
+    const graphNodes = [...root, ...nodes]
+    const graphEdges = [...routing, ...edges]
+    expect(showControlRouting(graphNodes, graphEdges, shared).errors).toEqual([])
+    const cpp = generate(nodes, edges, shared)
+    expect(cpp.match(/_cdScreen_tft_a = lv_obj_create/g)).toHaveLength(1)
+    expect(cpp.match(/_cdScreen_tft_b = lv_obj_create/g)).toHaveLength(1)
+    expect(cpp).not.toContain('_cdScreen_screen')
+    expect(cpp).toContain('float n_tft_a_touch_widget_slider_out = _cdFloatOutput(_cd_tft_a[')
+    expect(cpp).toContain('bool n_tft_b_touch_widget_toggle_out = _cdBoolOutput(_cd_tft_b[')
+    expect(cpp.match(/lv_init\(\);/g)).toHaveLength(1)
+  })
+
   it('composes scalar brightness with the Controls latch and supports HUB75', () => {
     const nodes = [panel('tft'), touch(), node('controls', 'ControlMap')]
     const edges = [edge('tft-touch', 'widget:slider:out', 'out', 'brightness'), edge('controls', 'controls', 'out', 'controls')]

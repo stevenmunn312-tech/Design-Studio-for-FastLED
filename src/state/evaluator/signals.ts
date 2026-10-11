@@ -1,4 +1,5 @@
 import { useDisplayRuntimeStore } from '../displays/displayRuntimeStore'
+import { displayRuntimeId } from '../displays/mountedDisplays'
 import { toggleWidgetSource } from '../displays/designControlBundle'
 import type { ButtonEdgeState } from '../player/transportBridge'
 import { type StudioNode, useGraphStore } from '../graphStore'
@@ -50,7 +51,10 @@ export function toggleTapPress(
   const toggle = toggleWidgetSource(nodeMap.get(wire.srcId), wire.srcPort, nodeMap,
     useGraphStore.getState().displayDocuments)
   if (!toggle) return null
-  const count = useDisplayRuntimeStore.getState().readDisplayWidget(toggle.documentId, toggle.widgetId)?.touchCount ?? 0
+  const count = useDisplayRuntimeStore.getState().readDisplayWidget(
+    displayRuntimeId(toggle.panelId, toggle.documentId, [...nodeMap.values()]),
+    toggle.widgetId,
+  )?.touchCount ?? 0
   const before = toggleTapState.get(consumerKey)
   toggleTapState.set(consumerKey, count)
   return before !== undefined && count !== before

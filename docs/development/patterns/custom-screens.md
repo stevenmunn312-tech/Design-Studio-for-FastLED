@@ -191,20 +191,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   so only the nearest pinned Montserrat sizes selected by
   `customDisplayFontSizes` compile into flash; keep the marker, emitter and
   helper tests in step.
-- **Custom-screen generation:** a `TransportDisplay` panel owns its own screen
-  design (named by its `displayId` property) and its widget port identity —
-  there is no separate document node, so a design shared by two panels or
-  mounted on none is unsayable rather than refused. `customDisplayMountPlan` in
-  `mountedDisplays.ts` is now just that list — the fields that reported a shared
-  or unmounted design went with the states they reported — and is the one walk
-  read by the RAM estimate, asset baking, deploy validation, the template
-  planner and the normal generator, so they cannot disagree about which screens
-  a build contains. Sanitize widget source port ids (`widget:id:role`) through
+- **Custom-screen generation:** a `TransportDisplay` panel owns the screen it
+  shows (named by its `displayId` property) and its widget port identity.
+  There is no separate document node. Two panels of the same size may name
+  one design. A document exists only while a panel names it.
+  `customDisplayMountPlan` in `mountedDisplays.ts` is the list of panels
+  showing a design — the fields that reported a shared or unmounted design
+  went with the states they reported — and is the one walk read by the RAM
+  estimate, asset baking, deploy validation, the template planner and the
+  normal generator, so they cannot disagree about which screens a build
+  contains. Sanitize widget source port ids (`widget:id:role`) through
   `safeId` before forming C++ symbols. Sample touch/output values before graph
   evaluation, publish widget bindings after LED output, and emit `lv_init` once
-  before any LVGL setup. Every symbol a screen emits is keyed by the panel's
-  `displayId`, so duplicating a panel — which mints a fresh `displayId` — gives
-  the copy's design a fresh, non-colliding symbol set for free. Rotation and the
+  before any LVGL setup. While one panel shows a design, the LVGL screen and
+  widget symbols use that design's id. When a second panel shows it, each
+  glass uses its panel id as the instance stem (`displayRuntimeId`) and the
+  image table stays under the document id, emitted once. Duplicating a panel
+  mints a fresh `displayId` and a fresh symbol set. Rotation and the
   module are the panel's, so price the buffer from the panel, and do not also
   charge a custom panel the fixed-layout field caches it never emits. Geometry,
   Enabled, live readback and the shared build-mode resolver are all settled (see

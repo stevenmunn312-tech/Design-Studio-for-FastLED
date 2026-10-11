@@ -98,9 +98,22 @@ python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/displa
 python scripts/compile-fixtures/compile-display-smoke.py fbuild artifacts/display-compile/part-parallel.ino
 ```
 
-There is no fixture for a design on two panels or on none. Those shapes were
-compiled once, while they were still expressible; a panel owns its design now, so
-neither can be built in the app to be generated from.
+A design no panel names is not stored, so it has no fixture. Two panels
+showing one design are the `shared-design` fixture. An earlier compile of a
+shared drawing, from when a document was its own node, is a different sketch.
+
+## Shared design, 11 October 2026
+
+`shared-design.ino` is two ST7789 panels showing one screen design on an
+ESP32-S3 N16R8. Arduino CLI 1.5.1, ESP32 core 3.3.11, LVGL 9.5.0, FQBN
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`.
+Source `48eddd333270`, flash 649,875 bytes (20% of 3,145,728), static RAM
+51,932 bytes (15% of 327,680). The report is
+`artifacts/display-compile/shared-design.arduino-cli.json`. fbuild was not run.
+
+```powershell
+python scripts/compile-fixtures/compile-display-smoke.py arduino-cli artifacts/display-compile/shared-design.ino
+```
 
 The bench instrument, which is the normal graph with the Board's telemetry
 property on:

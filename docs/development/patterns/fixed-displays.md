@@ -133,8 +133,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   pins/rotation, and has **no outputs** — the panel/document split is gone:
   there is no `Display` node, no `customDisplay` input, and no mount edge. A
   panel's own screen design lives on the panel itself, named by its `displayId`
-  property, so a design plugged into two panels or left mounted on none is
-  unsayable rather than validated. Touch leaves through the separate
+  property. Two panels may name one design. A document exists only while a
+  panel names it, so a design left on no panel is not stored. Touch leaves through the separate
   `TouchInput` node (one `controls` output, an internal `panelId` link naming
   the glass it reads), created and deleted together with its panel. Music Player
   reports one envelope; Song Info unpacks its fields. Normal firmware supports

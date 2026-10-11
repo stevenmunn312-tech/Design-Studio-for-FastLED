@@ -259,6 +259,16 @@ describe('connectTouchControl', () => {
     expect(driver).toEqual({ displayId: 'screen', widgetId: widget.id })
   })
 
+  it('names the panel when two glasses show the design', () => {
+    const panel = node('panel', 'TransportDisplay', { displayId: 'screen', tftLayout: 'Custom design' })
+    const other = node('other', 'TransportDisplay', { displayId: 'screen', tftLayout: 'Custom design' })
+    const touch = node('touch', 'TouchInput', { panelId: 'panel' })
+    expect(touchControlDriver(
+      { srcId: 'touch', srcPort: 'widget:slider:out' },
+      [panel, other, touch],
+    )).toEqual({ displayId: 'panel', widgetId: 'slider' })
+  })
+
   it('takes one undo to remove, wire and widget together', () => {
     // The push is debounced 400 ms after the last write in a burst, which is
     // what makes the widget and its wire one entry rather than two.
@@ -510,6 +520,19 @@ describe('displayControlEdges', () => {
     expect(displayControlEdges('elsewhere', nodes, wires).size).toBe(0)
     expect(displayControlEdges('screen', [panel, juggle], wires).size).toBe(0)
   })
+
+  it('answers for the named glass when two panels name the design', () => {
+    const second = node('panel-2', 'TransportDisplay', { displayId: 'screen' })
+    const secondTouch = node('touch-2', 'TouchInput', { panelId: 'panel-2' })
+    const wires = [
+      edge('a', 'widget:slider:out', 'count'),
+      { id: 'b', source: 'touch-2', sourceHandle: 'widget:slider:out', target: 'juggle', targetHandle: 'speed' },
+    ] as never
+    const both = [...nodes, second, secondTouch]
+    expect(displayControlEdges('screen', both, wires).size).toBe(0)
+    expect(displayControlEdges('screen', both, wires, 'panel').get('slider')?.id).toBe('a')
+    expect(displayControlEdges('screen', both, wires, 'panel-2').get('slider')?.id).toBe('b')
+  })
 })
 
 /*
@@ -710,7 +733,20 @@ describe('displayWidgetWires', () => {
     ])
   })
 
-  it('answers nothing for a design no single panel shows', () => {
+  it('answers nothing for a design no panel names', () => {
     expect(displayWidgetWires('elsewhere', 'toggle', nodes, [] as never)).toEqual([])
+  })
+
+  it('lists every panel that names a shared design, naming the glass', () => {
+    const second = node('panel-2', 'TransportDisplay', { displayId: 'screen' })
+    const secondTouch = node('touch-2', 'TouchInput', { panelId: 'panel-2' })
+    const wires = displayWidgetWires('screen', 'toggle', [...nodes, second, secondTouch], [
+      { id: 'out', source: 'touch', sourceHandle: 'widget:toggle:out', target: 'juggle', targetHandle: 'count' },
+      { id: 'out-b', source: 'touch-2', sourceHandle: 'widget:toggle:out', target: 'juggle', targetHandle: 'count' },
+    ] as never)
+    expect(wires.map((wire) => [wire.edge.id, wire.direction, wire.otherEnd])).toEqual([
+      ['out', 'out', 'Display Panel · Juggle · Count'],
+      ['out-b', 'out', 'Display Panel · Juggle · Count'],
+    ])
   })
 })

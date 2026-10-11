@@ -75,7 +75,7 @@ class Leg:
 
 def display_legs(engine: str) -> list[Leg]:
     folder = ROOT / "artifacts" / "display-compile"
-    s3 = ["normal", "show", "player", "isolated-tft", "headless", "disabled", "multi-panel",
+    s3 = ["normal", "show", "player", "isolated-tft", "headless", "disabled", "multi-panel", "shared-design",
           "part-families", "part-families-i2c", "part-parallel", "telemetry"]
     legs = [Leg("display", "compile-display-smoke.py", engine, folder / f"{name}.ino") for name in s3]
     legs.append(Leg("display", "compile-display-smoke.py", engine, folder / "classic-esp32-fixed.ino", CLASSIC, "classic"))

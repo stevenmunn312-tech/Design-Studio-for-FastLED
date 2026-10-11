@@ -78,7 +78,7 @@ import {
   type TouchControlRefusal,
   type TouchControlSpec,
 } from './player/wireFirstControls'
-import { mountedPanelGeometry } from './displays/mountedDisplays'
+import { displayRuntimeId, mountedPanelGeometry, panelsNamingDocument, panelsShowingDocument } from './displays/mountedDisplays'
 import { useDisplayRuntimeStore } from './displays/displayRuntimeStore'
 import { useUploadStore } from './upload/uploadStore'
 import { assignPartPins } from '../build/parts/partPinAssignment'
@@ -217,6 +217,14 @@ interface GraphState {
    *  undoable step. `documentNodeId` is minted by the caller so it can open
    *  the editor on the design it just made. */
   createScreenDesignForPanel: (panelId: string) => void
+  /**
+   * Point this panel at a design another panel already has, when the glass
+   * matches that drawing's size. The previous drawing is removed if nothing
+   * else names it. Touch stays per panel.
+   */
+  adoptScreenDesign: (panelId: string, documentId: string) => void
+  /** Give this panel its own copy of a design other panels also show. */
+  detachScreenDesign: (panelId: string) => void
   pinProperty: (nodeId: string, propertyKey: string) => void
   unpinProperty: (pinId: string) => void
   renamePin: (pinId: string, label: string) => void
@@ -744,6 +752,11 @@ function displayDocumentsForMountedPanel(
   const displayId = String(panel.data.properties.displayId ?? '')
   const document = displayId ? documents[displayId] : undefined
   if (!document) return documents
+  // A shared drawing is sized by the editor, which rotates every glass that
+  // shows it together. One panel's module or rotation change must not re-fit
+  // a drawing the other glass still shows. That panel then fails the size
+  // check until it matches again or takes its own copy.
+  if (panelsNamingDocument(displayId, nodes).length > 1) return documents
   const geometry = mountedPanelGeometry(panel.data.properties)
   if (document.designSize.width === geometry.width
     && document.designSize.height === geometry.height
@@ -1338,6 +1351,32 @@ function pruneOrphanDisplayDocuments(
   return entries.length === Object.keys(documents).length ? documents : Object.fromEntries(entries)
 }
 
+/** Drop a drawing once no panel names it. A shared drawing stays. */
+function releaseUnnamedDocument(
+  documents: DisplayDocumentRegistry,
+  nodes: readonly StudioNode[],
+  displayId: string | null,
+): DisplayDocumentRegistry {
+  if (!displayId || !documents[displayId]) return documents
+  if (panelsNamingDocument(displayId, nodes).length > 0) return documents
+  stashedDisplayHistory.delete(displayId)
+  const next = { ...documents }
+  delete next[displayId]
+  return next
+}
+
+function freshDocumentId(
+  panelId: string,
+  documents: DisplayDocumentRegistry,
+  nodes: readonly StudioNode[],
+): string {
+  const taken = (id: string) => Boolean(documents[id]) || panelsNamingDocument(id, nodes).length > 0
+  if (!taken(panelId)) return panelId
+  let suffix = 2
+  while (taken(`${panelId}-${suffix}`)) suffix += 1
+  return `${panelId}-${suffix}`
+}
+
 function duplicateNodeDocument(
   node: StudioNode,
   newId: string,
@@ -1686,6 +1725,56 @@ export const useGraphStore = create<GraphState>()(
         }
       }),
 
+      adoptScreenDesign: (panelId, documentId) => set((s) => {
+        const nodes = rootGraphNodes(s)
+        const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+        const document = s.displayDocuments[documentId]
+        if (!panel || !document) return {}
+        const current = String(panel.data.properties.displayId ?? '')
+        if (current === documentId && String(panel.data.properties.tftLayout ?? '') === CUSTOM_DESIGN_LAYOUT) return {}
+        const geometry = mountedPanelGeometry(panel.data.properties)
+        if (geometry.width !== document.designSize.width || geometry.height !== document.designSize.height) return {}
+        const nextNodes = nodes.map((node) => (node.id === panelId
+          ? {
+            ...node,
+            data: {
+              ...node.data,
+              properties: { ...node.data.properties, displayId: documentId, tftLayout: CUSTOM_DESIGN_LAYOUT },
+            },
+          }
+          : node))
+        const displayDocuments = current === documentId
+          ? s.displayDocuments
+          : releaseUnnamedDocument(s.displayDocuments, nextNodes, current)
+        const root = syncDisplayNodesInContent(
+          { nodes: nextNodes, edges: rootGraphEdges(s) },
+          displayDocuments,
+        )
+        return { displayDocuments, ...withRootContent(s, root) }
+      }),
+
+      detachScreenDesign: (panelId) => set((s) => {
+        const nodes = rootGraphNodes(s)
+        const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
+        if (!panel) return {}
+        const documentId = String(panel.data.properties.displayId ?? '')
+        const document = documentId ? s.displayDocuments[documentId] : undefined
+        if (!document || panelsNamingDocument(documentId, nodes).length < 2) return {}
+        const newId = freshDocumentId(panelId, s.displayDocuments, nodes)
+        const displayDocuments = {
+          ...s.displayDocuments,
+          [newId]: { ...structuredClone(document), displayId: newId },
+        }
+        const nextNodes = nodes.map((node) => (node.id === panelId
+          ? { ...node, data: { ...node.data, properties: { ...node.data.properties, displayId: newId } } }
+          : node))
+        const root = syncDisplayNodesInContent(
+          { nodes: nextNodes, edges: rootGraphEdges(s) },
+          displayDocuments,
+        )
+        return { displayDocuments, ...withRootContent(s, root) }
+      }),
+
       panicActive: false,
       panicRestoreValues: null,
 
@@ -1905,13 +1994,12 @@ export const useGraphStore = create<GraphState>()(
           const edges = companionIds.size > 0
             ? s.edges.filter((edge) => !companionIds.has(edge.source) && !companionIds.has(edge.target))
             : s.edges
+          const remaining = s.nodes.filter((node) => !removedPanels.has(node.id) && !companionIds.has(node.id))
           let displayDocuments = s.displayDocuments
           for (const panel of s.nodes.filter((node) => removedPanels.has(node.id))) {
             const displayId = String(panel.data.properties.displayId ?? '')
-            if (!displayId || !displayDocuments[displayId]) continue
-            if (displayDocuments === s.displayDocuments) displayDocuments = { ...displayDocuments }
-            stashedDisplayHistory.delete(displayId)
-            delete displayDocuments[displayId]
+            const released = releaseUnnamedDocument(displayDocuments, remaining, displayId)
+            if (released !== displayDocuments) displayDocuments = released
           }
           let nodes = applyNodeChanges(changes, s.nodes) as StudioNode[]
           // Once a click-to-add node has been measured, lift it by half its
@@ -2674,8 +2762,8 @@ export const useGraphStore = create<GraphState>()(
         // A part removed mid-question ends the question, whether or not it was
         // one of the two nodes the drop was between.
         if (state.pendingControlAssignment) set({ pendingControlAssignment: null })
-        // A panel takes its screen design with it: the design belongs to the
-        // glass, so there is nothing left to keep it for.
+        // The last panel that names a design takes it. A design another panel
+        // still shows stays, because the drawing is not the glass.
         const displayId = node.data.nodeType === 'TransportDisplay'
           ? String(node.data.properties.displayId ?? '') || null
           : null
@@ -2696,22 +2784,21 @@ export const useGraphStore = create<GraphState>()(
         }
         scheduleOrphanGraphPrune()
         set((s) => {
-          const withoutDisplayDocument = (result: Partial<GraphState>): Partial<GraphState> => {
-            if (!displayId || !s.displayDocuments[displayId]) return result
-            stashedDisplayHistory.delete(displayId)
-            const displayDocuments = { ...s.displayDocuments }
-            delete displayDocuments[displayId]
-            return { ...result, displayDocuments }
+          const withoutDisplayDocument = (
+            result: Partial<GraphState>,
+            remaining: readonly StudioNode[],
+          ): Partial<GraphState> => {
+            const displayDocuments = releaseUnnamedDocument(s.displayDocuments, remaining, displayId)
+            return displayDocuments === s.displayDocuments ? result : { ...result, displayDocuments }
           }
           if (inActive) {
-            return withoutDisplayDocument(
-              removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, removeIds),
-            )
+            const removed = removeNodeAndEdges(s.nodes, s.edges, s.selectedNodeId, s.performanceDeck, removeIds)
+            return withoutDisplayDocument(removed, removed.nodes ?? [])
           }
           const removed = removeNodeAndEdges(
             rootGraphNodes(s), rootGraphEdges(s), s.selectedNodeId, s.performanceDeck, removeIds)
           const { nodes, edges, ...rest } = removed
-          return withoutDisplayDocument({ ...rest, ...withRootContent(s, { nodes, edges }) })
+          return withoutDisplayDocument({ ...rest, ...withRootContent(s, { nodes, edges }) }, nodes)
         })
       },
 
@@ -3900,7 +3987,9 @@ export function connectTouchControl(
     ? (target.data.properties as Record<string, unknown>)[propertyKey]
     : undefined
   if (typeof current === 'number' || typeof current === 'boolean') {
-    writeTouchControlValue(displayId, widgetId, current)
+    const panelId = String((touch.data.properties as Record<string, unknown>).panelId ?? '')
+    const runtimeId = displayRuntimeId(panelId, displayId, useGraphStore.getState().nodes)
+    writeTouchControlValue(runtimeId, widgetId, current)
   }
 
   return { ok: true, spec: plan.spec, placed }
@@ -4215,11 +4304,24 @@ export function getGroupRegistry(s = useGraphStore.getState()): GroupRegistry {
  * rebases the registry directly, and loading a workspace replaces it), rather
  * than a cleanup call at each writer that the next writer would forget.
  */
+let shownDesignKey = ''
 useGraphStore.subscribe((state, previous) => {
-  if (state.displayDocuments === previous.displayDocuments) return
+  const root = rootGraphNodes(state)
+  const key = root
+    .filter((node) => node.data.nodeType === 'TransportDisplay')
+    .map((node) => `${node.id}=${shownDesignId(node.data.properties)}`)
+    .join(',')
+  if (state.displayDocuments === previous.displayDocuments && key === shownDesignKey) return
+  shownDesignKey = key
   const live: Record<string, string[]> = {}
   for (const [displayId, document] of Object.entries(state.displayDocuments)) {
-    live[displayId] = document.widgets.map((widget) => widget.id)
+    const widgetIds = document.widgets.map((widget) => widget.id)
+    const showing = panelsShowingDocument(displayId, root)
+    if (showing.length > 1) {
+      for (const panel of showing) live[displayRuntimeId(panel.id, displayId, root)] = widgetIds
+    } else {
+      live[displayId] = widgetIds
+    }
   }
   useDisplayRuntimeStore.getState().retainDisplayWidgets(live)
 })

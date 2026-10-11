@@ -1,5 +1,6 @@
 import { useTransportDisplayTouchStore } from '../../state/displays/transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/displays/displayRuntimeStore'
+import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from '../../state/displays/displayRegistry'
 import { readDisplaySourceField } from '../../state/displays/displaySourceFields'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
@@ -260,7 +261,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
 
     return { lit: true, layout, surface: renderInfoDisplay(controller, payload) }
   },
-  TransportDisplay({ input, incoming, groups, groupStack, instancePrefix, trusted, capabilityNodes, evaluateGraph }, id, props, node) {
+  TransportDisplay({ input, incoming, nodes, groups, groupStack, instancePrefix, trusted, capabilityNodes, evaluateGraph }, id, props, node) {
     const out: Record<string, PortValue> = {}
     // A terminal like the OLED beside it, and it draws through
     // state/displays/transportDisplay.ts for the same reason: the node body, the
@@ -305,12 +306,13 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
       .filter((port) => parseDisplayWidgetPortId(port.id))
     if (designId && enabled) {
       const runtime = useDisplayRuntimeStore.getState()
+      const runtimeId = displayRuntimeId(id, designId, nodes)
       for (const port of widgetInputs) {
         const parsed = parseDisplayWidgetPortId(port.id)!
         if (!incoming.has(`${id}:${port.id}`)) continue
         const value = input(id, port.id, null)
         if (value === null || Array.isArray(value)) continue
-        runtime.publishDisplayRoleValue(designId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
+        runtime.publishDisplayRoleValue(runtimeId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
       }
       /*
        * Widgets reading the panel's own source rather than a cable.
@@ -330,7 +332,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
           const roles = Array.isArray(entry?.roles) ? entry.roles : ['value']
           for (const role of roles) {
             runtime.publishDisplayRoleValue(
-              designId, widgetId, role as DisplayWidgetPortRoleId, value as DisplayRuntimeValue,
+              runtimeId, widgetId, role as DisplayWidgetPortRoleId, value as DisplayRuntimeValue,
             )
           }
         }

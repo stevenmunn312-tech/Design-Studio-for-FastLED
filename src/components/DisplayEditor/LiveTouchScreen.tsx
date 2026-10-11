@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
 import { nodeDisplayLabel } from '../../state/nodeLibrary'
-import { panelsShowingDocument } from '../../state/displays/mountedDisplays'
+import { displayRuntimeId, panelsShowingDocument } from '../../state/displays/mountedDisplays'
 import DisplayRunSurface from './DisplayRunSurface'
 import styles from './LiveTouchScreen.module.css'
 
@@ -22,6 +22,8 @@ export default function LiveTouchScreen() {
   const panel = useGraphStore((state) => (displayId
     ? panelsShowingDocument(displayId, rootGraphNodes(state))[0]
     : undefined))
+  const rootNodes = useGraphStore(rootGraphNodes)
+  const runtimeId = panel && displayId ? displayRuntimeId(panel.id, displayId, rootNodes) : displayId
   const [position, setPosition] = useState({ x: 24, y: 72 })
   const drag = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null)
 
@@ -119,7 +121,7 @@ export default function LiveTouchScreen() {
             transform: `scale(${scale})`,
           }}
         >
-          <DisplayRunSurface displayId={displayId} document={document} />
+          <DisplayRunSurface displayId={runtimeId ?? displayId} document={document} />
         </div>
       </div>
     </div>,

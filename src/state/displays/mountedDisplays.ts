@@ -45,15 +45,15 @@ export interface MountedCustomDisplay {
  * Showing, not merely having: a panel set to a fixed layout keeps its design
  * aside, and builds, draws and reads touch as the fixed layout it shows.
  *
- * A design belongs to the panel it was drawn on. It used to live on a node of
- * its own, wired across — which meant a design could be drawn at a size no
- * panel had, plugged into two panels at once, or plugged into none, and each
- * of those had to be detected and refused. A panel owning its own design makes
- * all three unsayable rather than caught.
+ * A design is a drawing stored under `displayId`. One panel usually owns that
+ * id. Another panel of the same size may name it too: the drawing is shared,
+ * and each panel stays its own glass (`displayRuntimeId`). A document no
+ * panel names is not stored.
  *
  * `document` is the panel itself, so everything downstream that asks a mounted
- * display for its document id keeps working: the id is the panel's, and the
- * symbols keyed by it are as unique as the panel is.
+ * display for its document id keeps working. The id is the drawing's. The
+ * glass's symbols are `displayRuntimeId`, which is that drawing's id until a
+ * second panel shows it.
  */
 export function mountedCustomDisplays(nodes: readonly StudioNode[]): MountedCustomDisplay[] {
   return nodes.flatMap((panel) => {
@@ -91,10 +91,11 @@ export function panelDisplaySourceKind(
  * What the panel showing this design is showing.
  *
  * The design editor's question: it has a document id and needs to know which
- * fields a widget on it can be bound to. A design belongs to one panel, so the
- * first (and only) panel showing it is the answer, and a design nobody has put
- * on a panel yet offers nothing — which is the honest answer rather than a
- * guess at where it will end up.
+ * fields a widget on it can be bound to. The first panel in graph order that
+ * shows the design answers. A second panel showing the same drawing resolves
+ * its own Display wire when the sketch is built. A design nobody has put on
+ * a panel yet offers nothing — which is the honest answer rather than a guess
+ * at where it will end up.
  */
 export function documentDisplaySourceKind(
   documentId: string,
@@ -145,6 +146,41 @@ export function panelsShowingDocument(
 }
 
 /**
+ * Panels that name this design, whether or not they are drawing it.
+ *
+ * A fixed layout sets the design aside and still names it, so deleting the
+ * panel that happens to be showing it must not throw the drawing away while
+ * another panel is keeping it.
+ */
+export function panelsNamingDocument(
+  documentId: string,
+  nodes: readonly StudioNode[],
+): StudioNode[] {
+  if (!documentId) return []
+  return nodes.filter((node) => node.data.nodeType === 'TransportDisplay'
+    && String(node.data.properties.displayId ?? '') === documentId)
+}
+
+/**
+ * The runtime and firmware instance for one glass.
+ *
+ * One panel showing a design keeps the document id. That is the key every
+ * existing preview, thumbnail and sketch already uses, so a design that is
+ * not shared emits the same symbols it did before. Two panels showing it
+ * each take their own key — the panel id — so a finger on one glass does
+ * not move the other, and the sketch declares two screens rather than one
+ * symbol twice. The drawing stays one document either way.
+ */
+export function displayRuntimeId(
+  panelId: string,
+  documentId: string,
+  nodes: readonly StudioNode[],
+): string {
+  if (!documentId) return panelId
+  return panelsShowingDocument(documentId, nodes).length > 1 ? panelId : documentId
+}
+
+/**
  * Why this document cannot be drawn on the panel it is plugged into.
  *
  * One sentence, one owner: the panel states the size and the document is the
@@ -174,14 +210,11 @@ export function mountedSizeIssue(
  * codegen emitted one document twice when two panels shared it, which the
  * template planner refused as an identifier collision. One walk, one answer.
  *
- * `mounted` holds one panel per document node, so the symbols keyed by that
- * document's id are declared exactly once. A second panel showing the same
- * document is reported in `shared` rather than built: one design drives one
- * panel for now, and a user who wants the same screen twice duplicates the
- * `Display` node — two documents, two sets of widgets, two independent
- * touch surfaces. Documents `unmounted` have no physical existence at all;
- * they cost nothing and block nothing, but anything wired out of one is
- * driving a control that does not exist.
+ * `mounted` holds one entry per panel that is showing a design. Two panels
+ * may name the same document. Each entry is one glass: firmware keys that
+ * glass by `displayRuntimeId`, so a shared drawing is two screens and two
+ * touch surfaces. A document no panel names is not in the plan. It is not
+ * stored either — deleting the last panel that names it removes it.
  */
 export interface CustomDisplayMountPlan {
   /** Every panel with a screen design, in graph order. */
@@ -189,15 +222,6 @@ export interface CustomDisplayMountPlan {
 }
 
 export function customDisplayMountPlan(nodes: readonly StudioNode[]): CustomDisplayMountPlan {
-  /*
-   * `shared` and `unmounted` are empty, and cannot be otherwise.
-   *
-   * They were the two ways a design could be wrong when it lived on a node of
-   * its own: plugged into two panels, or into none. A design that belongs to
-   * its panel can be neither. The fields stay so the callers that report those
-   * cases keep compiling while they are removed, and so the shape of this plan
-   * does not have to change twice.
-   */
   return { mounted: mountedCustomDisplays(nodes) }
 }
 

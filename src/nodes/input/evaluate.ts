@@ -24,6 +24,7 @@ import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/peripherals/distanceSensor'
 import { useTransportDisplayTouchStore } from '../../state/displays/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
+import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import { designControlBundle } from '../../state/displays/designControlBundle'
 import { parseDisplayWidgetPortId, displayControlStartValue } from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
@@ -171,6 +172,8 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     if (designId) {
       const live = panelEnabled && touchCapable
       const runtime = useDisplayRuntimeStore.getState()
+      // One glass. A shared drawing keeps a separate touch value on each panel.
+      const runtimeId = displayRuntimeId(panelId, designId, nodes)
       const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
         .filter((port) => parseDisplayWidgetPortId(port.id))
       const samples: Record<string, PortValue> = {}
@@ -184,7 +187,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
           ? false
           : (restWidget ? displayControlStartValue(restWidget) : undefined) ?? 0
         samples[port.id] = live
-          ? runtime.sampleDisplayWidgetOutput(designId, parsed.widgetId, rest)
+          ? runtime.sampleDisplayWidgetOutput(runtimeId, parsed.widgetId, rest)
           : rest
       }
       /*
@@ -205,7 +208,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
           // A level commands nothing until a finger has moved it, or its
           // starting position would override the LED output's own level
           // or the player's volume the moment the screen is wired.
-          const moved = (runtime.readDisplayWidget(designId, control.widgetId)?.touchCount ?? 0) > 0
+          const moved = (runtime.readDisplayWidget(runtimeId, control.widgetId)?.touchCount ?? 0) > 0
           const value = Number(samples[control.portId] ?? 0)
           if (live && moved && Number.isFinite(value)) controls[control.field as 'volume' | 'brightness'] = clamp01(value)
           continue
@@ -214,7 +217,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         // Toggle's gesture count moving, never its value (see the helper).
         const now = control.edge === 'press'
           ? Boolean(samples[control.portId])
-          : runtime.readDisplayWidget(designId, control.widgetId)?.touchCount ?? 0
+          : runtime.readDisplayWidget(runtimeId, control.widgetId)?.touchCount ?? 0
         const before = edgeState.get(control.widgetId)
         edgeState.set(control.widgetId, now)
         const fired = control.edge === 'press'

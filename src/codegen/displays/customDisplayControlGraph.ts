@@ -2,7 +2,7 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { displayWidgetPorts } from '../../state/displays/displayRegistry'
 import { customDisplayResourceIssues } from '../../state/displays/customDisplayResources'
-import { customDisplayMountPlan, mountedPanelGeometry, mountedSizeIssue } from '../../state/displays/mountedDisplays'
+import { customDisplayMountPlan, displayRuntimeId, mountedPanelGeometry, mountedSizeIssue } from '../../state/displays/mountedDisplays'
 import { parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
 import { controlReferenceCpp, type ControlReference, type createControlGraph } from '../controlGraph'
 import { packedColorCpp } from '../colorControlCpp'
@@ -64,9 +64,8 @@ export function customDisplayControlPlan(
   // "identifiers collide after sanitization", which named the wrong problem,
   // and a document on none was simply invisible while its widget wires still
   // asked the control graph for values.
-  // Two shapes this used to have to diagnose are now unsayable: a design on
-  // two panels, and a design on none. A panel owns the screen drawn on it, so
-  // there is no wire to plug wrongly.
+  // A design no panel names is not stored. Two panels may show one design;
+  // each glass below gets its own symbol stem.
   const mountPlan = customDisplayMountPlan(nodes)
   const displays = mountPlan.mounted.flatMap(({ panel: panelNode, document: node, documentId }) => {
     const label = String(node.data.label || node.id)
@@ -75,7 +74,12 @@ export function customDisplayControlPlan(
       errors.push(`${label}: the screen document is missing. Open the display editor to configure it.`)
       return []
     }
-    const id = customDisplayId(documentId)
+    // One glass, one symbol stem. A shared drawing uses the panel id so two
+    // screens do not both declare `_cdScreen_<document>`. A drawing one panel
+    // shows keeps the document id, which is what existing sketches name.
+    const instanceId = displayRuntimeId(panelNode.id, documentId, nodes)
+    const id = customDisplayId(instanceId)
+    const assetId = customDisplayId(documentId)
     if (symbols.has(id)) errors.push(`${label}: display identifiers collide after sanitization. Recreate this display.`)
     symbols.add(id)
     const panel = { ...customDisplayPanelFromProps(customDisplayId(panelNode.id), panelNode.data.properties), manualTouch: true }
@@ -88,7 +92,12 @@ export function customDisplayControlPlan(
     if (issue) errors.push(issue)
     errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
     const bindings: Record<string, CustomDisplayLvglBinding[]> = Object.create(null)
-    const emit: CustomDisplayLvglEmit = { id, document, bindings }
+    const emit: CustomDisplayLvglEmit = {
+      id,
+      ...(assetId === id ? {} : { assetId }),
+      document,
+      bindings,
+    }
     const ports = document.widgets.flatMap(displayWidgetPorts)
     // Enabled lives on the panel now, not the document — the document has no
     // physical existence to be enabled or disabled. The property is the gate

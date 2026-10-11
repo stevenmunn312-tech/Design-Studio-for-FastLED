@@ -150,12 +150,13 @@ export function toggleWidgetSource(
   sourcePort: string,
   nodeById: ReadonlyMap<string, StudioNode>,
   documents: Readonly<Record<string, DisplayDocument | undefined>>,
-): { documentId: string; widgetId: string } | null {
+): { documentId: string; panelId: string; widgetId: string } | null {
   if (source?.data.nodeType !== 'TouchInput') return null
   const parsed = parseDisplayWidgetPortId(sourcePort)
   if (parsed?.role !== 'out') return null
   const panel = nodeById.get(String(source.data.properties?.panelId ?? ''))
   const documentId = String(panel?.data.properties?.displayId ?? '')
   const widget = documentId ? documents[documentId]?.widgets.find((entry) => entry.id === parsed.widgetId) : undefined
-  return widget && LATCH_WIDGETS.has(widget.type) ? { documentId, widgetId: widget.id } : null
+  if (!panel || !widget || !LATCH_WIDGETS.has(widget.type)) return null
+  return { documentId, panelId: panel.id, widgetId: widget.id }
 }

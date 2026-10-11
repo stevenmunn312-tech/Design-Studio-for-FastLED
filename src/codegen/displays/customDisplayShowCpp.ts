@@ -29,6 +29,7 @@ export function customDisplayShowCpp(
   const includes: string[] = [], forwards: string[] = [], helpers: string[] = [], shared: string[] = []
   const setup: string[] = [], sample: string[] = [], enable: string[] = [], loop: string[] = []
   const snapshots: string[] = []
+  const emittedAssets = new Set<string>()
   if (displays.length) {
     includes.push(CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_PANEL_CPP_INCLUDES)
     forwards.push(CUSTOM_DISPLAY_LVGL_FORWARD)
@@ -42,7 +43,14 @@ export function customDisplayShowCpp(
   for (const display of displays) {
     const emit = { ...display.emit, assets: assets[display.documentId] ?? [] }
     const panel = { ...display.panel, telemetry }
-    helpers.push(customDisplayAssetsCpp(emit.id, emit.document, emit.assets), customDisplayLvglGlobalCpp(emit),
+    // One PROGMEM table per drawing. A second glass references it and does
+    // not emit the bytes again.
+    const assetStem = emit.assetId ?? emit.id
+    if (!emittedAssets.has(assetStem)) {
+      emittedAssets.add(assetStem)
+      helpers.push(customDisplayAssetsCpp(assetStem, emit.document, emit.assets))
+    }
+    helpers.push(customDisplayLvglGlobalCpp(emit),
       customDisplayPanelGlobalCpp(panel), customDisplayPanelHelpersCpp(panel))
     setup.push(...customDisplayPanelSetupCpp(panel), ...customDisplayLvglSetupCpp(emit))
     const gate = `_cdPanelOn_${panel.id}`

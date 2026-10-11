@@ -76,6 +76,13 @@ export interface CustomDisplayLvglBinding {
 export interface CustomDisplayLvglEmit {
   /** Codegen-owned identifier stem (normally the sanitized graph node id). */
   id: string
+  /**
+   * Stem for baked image symbols. Omitted when it is `id`.
+   *
+   * A drawing shown on two panels keeps one PROGMEM table under the document
+   * id. Each glass still has its own screen and widget objects, under `id`.
+   */
+  assetId?: string
   document: DisplayDocument
   /** Finished, validated browser-side rasterizations. Omit while previewing an
    * incomplete document; deploy generation validates and requires every use. */
@@ -130,6 +137,11 @@ function floatLiteral(value: number): string {
 
 function opacity(value: number): number {
   return Math.round(Math.max(0, Math.min(1, value)) * 255)
+}
+
+/** The symbol stem of this drawing's baked images. */
+export function customDisplayAssetStem(emit: Pick<CustomDisplayLvglEmit, 'id' | 'assetId'>): string {
+  return emit.assetId ?? emit.id
 }
 
 function binding(emit: CustomDisplayLvglEmit, widgetId: string, role: DisplayWidgetPortRoleId): string | null {
@@ -354,7 +366,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     const assetIndex = emit.assets ? customDisplayAssetIndex(emit.document, { kind: 'widget', widgetIndex: index }) : null
     if (assetIndex !== null) {
       const request = customDisplayAssetRequests(emit.document)[assetIndex]
-      lines.push(`  lv_image_set_src(${obj}, &${customDisplayAssetSymbol(emit.id, assetIndex)});`)
+      lines.push(`  lv_image_set_src(${obj}, &${customDisplayAssetSymbol(customDisplayAssetStem(emit), assetIndex)});`)
       if (request.format === 'a8') {
         lines.push(`  lv_obj_set_style_image_recolor(${obj}, lv_color_hex(${colorHex(request.tintColor ?? '#ffffff')}), LV_PART_MAIN);`)
         lines.push(`  lv_obj_set_style_image_recolor_opa(${obj}, LV_OPA_COVER, LV_PART_MAIN);`)
@@ -405,7 +417,7 @@ function controlContentsLines(
   if (assetIndex !== null) {
     const image = `_cdImage_${safeId(emit.id)}_${index}`
     lines.push(`  lv_obj_t *${image} = lv_image_create(${obj});`)
-    lines.push(`  lv_image_set_src(${image}, &${customDisplayAssetSymbol(emit.id, assetIndex)});`)
+    lines.push(`  lv_image_set_src(${image}, &${customDisplayAssetSymbol(customDisplayAssetStem(emit), assetIndex)});`)
     lines.push(presentation === 'icon'
       ? `  lv_obj_center(${image});`
       : `  lv_obj_align(${image}, LV_ALIGN_LEFT_MID, 4, 0);`)
@@ -669,7 +681,7 @@ export function customDisplayLvglSetupCpp(emit: CustomDisplayLvglEmit): string[]
   const backgroundIndex = emit.assets ? customDisplayAssetIndex(emit.document, { kind: 'background' }) : null
   if (backgroundIndex !== null) {
     lines.push(`  lv_obj_t *_cdBackground_${id} = lv_image_create(_cdScreen_${id});`)
-    lines.push(`  lv_image_set_src(_cdBackground_${id}, &${customDisplayAssetSymbol(emit.id, backgroundIndex)});`)
+    lines.push(`  lv_image_set_src(_cdBackground_${id}, &${customDisplayAssetSymbol(customDisplayAssetStem(emit), backgroundIndex)});`)
     lines.push(`  lv_obj_set_pos(_cdBackground_${id}, 0, 0);`)
     lines.push(`  lv_obj_set_size(_cdBackground_${id}, ${emit.document.designSize.width}, ${emit.document.designSize.height});`)
   }

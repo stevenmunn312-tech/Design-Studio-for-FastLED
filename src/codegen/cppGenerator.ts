@@ -68,7 +68,7 @@ import {
   customDisplayPanelHelpersCpp,
 } from './displays/customDisplayPanelCpp'
 import { parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
-import { customDisplayMountPlan } from '../state/displays/mountedDisplays'
+import { customDisplayMountPlan, displayRuntimeId } from '../state/displays/mountedDisplays'
 import { toggleWidgetSource } from '../state/displays/designControlBundle'
 import { customDisplayAssetsCpp } from './displays/customDisplayAssetsCpp'
 import { partById } from '../build/parts/partCatalogue'
@@ -716,7 +716,11 @@ export function generateCpp(
     const toggle = wire ? toggleWidgetSource(nodeMap.get(wire.srcId), wire.srcPort, nodeMap, documents) : null
     const document = toggle ? documents[toggle.documentId] : undefined
     const tap = toggle && document
-      ? customDisplayLvglTapExpression({ id: safeId(toggle.documentId), document, bindings: {} }, toggle.widgetId)
+      ? customDisplayLvglTapExpression({
+        id: safeId(displayRuntimeId(toggle.panelId, toggle.documentId, nodes)),
+        document,
+        bindings: {},
+      }, toggle.widgetId)
       : null
     if (tap) return { port, expr: tap, repeat: false, edge: 'tap' }
     return { port, expr: boolExpr(nodeId, port), repeat, debounce: pressSourceBounces(wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined) }
@@ -1339,8 +1343,13 @@ export function generateCpp(
     lines.push(CUSTOM_DISPLAY_LVGL_HELPERS)
     lines.push(CUSTOM_DISPLAY_LVGL_TIMING_CPP)
     if (customDisplayPanels.some((panel) => panel.touch)) emitXptPointHelpersOnce()
+    const emittedAssets = new Set<string>()
     for (const display of customDisplays) {
-      if (display.assets) lines.push(customDisplayAssetsCpp(display.id, display.document, display.assets))
+      const assetStem = display.assetId ?? display.id
+      if (display.assets && !emittedAssets.has(assetStem)) {
+        emittedAssets.add(assetStem)
+        lines.push(customDisplayAssetsCpp(assetStem, display.document, display.assets))
+      }
       lines.push(customDisplayLvglGlobalCpp(display))
     }
     for (const panel of customDisplayPanels) {

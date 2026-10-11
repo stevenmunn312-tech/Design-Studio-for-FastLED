@@ -141,7 +141,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const pressButton = (target: StudioNode, port: string, repeat: boolean): PlayerControlButtonEmit | null => {
     const edge = incoming.get(`${target.id}:${port}`)
     const toggle = edge ? toggleWidgetSource(byId.get(edge.source), edge.sourceHandle ?? '', byId, documents ?? {}) : null
-    const display = toggle ? custom.displays.find((entry) => entry.documentId === toggle.documentId) : undefined
+    const display = toggle ? custom.displays.find((entry) => entry.panelNodeId === toggle.panelId) : undefined
     const tap = toggle && display ? customDisplayLvglTapExpression(display.emit, toggle.widgetId) : null
     if (tap) return { port, expr: tap, repeat: false, edge: 'tap' }
     const expr = sourceExpr(target, port, 'bool')

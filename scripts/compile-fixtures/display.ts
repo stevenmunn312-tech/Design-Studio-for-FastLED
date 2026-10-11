@@ -632,6 +632,18 @@ const sketches: Record<string, string> = {
       node('fill', 'SolidColor')],
     [edge('fill', 'frame', 'out', 'frame')], {}, multiOptions,
   ),
+  // Two glasses, one drawing. Each panel keeps its own screen symbols; the
+  // image table is emitted once under the document id.
+  'shared-design': generateCpp(
+    [board(), output(), panel('custom-tft', { displayId: 'screen' }), touch('custom-tft'),
+      panel('deck-tft', {
+        displayId: 'screen',
+        csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21,
+        touchCsPin: 15, touchIrqPin: 2,
+      }), touch('deck-tft'),
+      node('fill', 'SolidColor')],
+    [edge('fill', 'frame', 'out', 'frame')], {}, options,
+  ),
   'part-families': generateCpp(
     [board(), output(), rtc(), node('fill', 'SolidColor'), ...partNodes],
     [edge('fill', 'frame', 'out', 'frame'), ...partNodes.map((entry) => edge('rtc', 'display', entry.id, 'display'))],
@@ -681,6 +693,15 @@ const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }
   normal: { nodes: normalNodes, edges: normalEdges },
   show: { nodes: showNodes, edges: showEdges },
   player: { nodes: playerNodes, edges: playerEdges },
+  'shared-design': {
+    nodes: [board(), output(), panel('custom-tft', { displayId: 'screen' }), touch('custom-tft'),
+      panel('deck-tft', {
+        displayId: 'screen',
+        csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21,
+        touchCsPin: 15, touchIrqPin: 2,
+      }), touch('deck-tft'), node('fill', 'SolidColor')],
+    edges: [edge('fill', 'frame', 'out', 'frame')],
+  },
   'part-families': { nodes: [board(), output(), rtc(), ...partNodes], edges: [] },
   'part-families-i2c': { nodes: [board(), output(), rtc(), ...altPartNodes], edges: [] },
   'part-parallel': { nodes: [board(), output(), rtc(), ...parallelNodes], edges: [] },
@@ -751,6 +772,13 @@ const requiredSymbols: Record<string, readonly string[]> = {
   headless: ['_pcE_controls_patternNext.update', '_selUpdate(_sel_show'],
   disabled: ['static bool _cdPanelOn_custom_tft = false', 'if (_cdPanelOn_custom_tft) lv_indev_read'],
   'multi-panel': ['_cdScreen_screen = lv_obj_create', '_cdScreen_deck = lv_obj_create', '_cdDisp_custom_tft', '_cdDisp_deck_tft'],
+  'shared-design': [
+    '_cdScreen_custom_tft = lv_obj_create', '_cdScreen_deck_tft = lv_obj_create',
+    '_cdDisp_custom_tft', '_cdDisp_deck_tft',
+    'static const lv_image_dsc_t _cdAsset_screen_0',
+    'bool n_custom_tft_touch_widget_toggle_out = _cdBoolOutput(_cd_custom_tft[',
+    'bool n_deck_tft_touch_widget_toggle_out = _cdBoolOutput(_cd_deck_tft[',
+  ],
   'part-families': ['SEG_KIND_TM1637', 'SEG_KIND_MAX7219', '_oledBeginSpi', '_oledBeginI2c', '_tftPaint'],
   'part-families-i2c': ['_oledBeginI2c', '#include <Wire.h>'],
   telemetry: ['void _telReport() {', 'FLS_STAT uptime=', '_telTouchPress();', 'drawbuf=',
@@ -771,6 +799,13 @@ for (const [name, symbols] of Object.entries(requiredSymbols)) {
   }
 }
 if (sketches.headless.includes('#include <lvgl.h>')) throw new Error('headless.ino unexpectedly includes LVGL')
+if (sketches['shared-design'].includes('_cdScreen_screen')) {
+  throw new Error('shared-design.ino keyed a shared screen by the document id')
+}
+const sharedAssetDefs = sketches['shared-design'].match(/static const lv_image_dsc_t _cdAsset_screen_0 =/g) ?? []
+if (sharedAssetDefs.length !== 1) {
+  throw new Error(`shared-design.ino emitted the shared image table ${sharedAssetDefs.length} times`)
+}
 for (const [name, field] of [['template-led', 'Brightness'], ['template-player', 'Volume'], ['classic-caption-level', 'Brightness']] as const) {
   // The field is set only inside `if (<taps> > 0) {`, never at rest.
   const gated = new RegExp(String.raw`if \(([^

@@ -29,16 +29,22 @@ a set-aside design's controls read at rest: the evaluator publishes rest
 values and firmware declares them as constants, only where something
 reads them. Duplicating the
 panel mints a fresh `displayId`, so the copy has its own design. A
-design shared by two panels, or left mounted on none, is unsayable
-rather than refused.
+second panel of the same rotated size can show that design: **Screen
+design** on the panel lists the drawings that fit the glass, and **Own
+copy** gives this panel a fresh document. Each panel keeps its own
+touch, Enabled latch and widget values. Two fingers on two panels are
+two signals, so simultaneous touch needs no precedence. Image bytes are
+emitted once, under the document id. LVGL screen and widget symbols
+stay on the document id while one panel shows the design, and use each
+panel's id (`displayRuntimeId`) when a second panel shows it, so an
+unshared sketch keeps the symbols it already had. A document exists
+only while a panel names it. Deleting a panel deletes the design when
+it is the last panel that names that id.
 
 `customDisplayMountPlan` in `mountedDisplays.ts` is the list of panels
-that name a design. RAM pricing, asset baking, deploy validation and
+showing a design. RAM pricing, asset baking, deploy validation and
 all three generators read it. The old `shared` / `unmounted` fields
 went with the states they reported.
-
-Document fan-out to two panels stays out of scope until there is an
-answer for simultaneous touch.
 
 ### Geometry
 
@@ -46,8 +52,11 @@ answer for simultaneous touch.
 from the panel. A design's size must equal the panel's rotated size;
 deploy validation checks it for every generator and the template plan
 resolves it through the same helper. The editor's Portrait/Landscape
-control rotates the panel and sizes the design from what it then
-presents, in one undoable action.
+control rotates every panel showing the design and sizes the document
+from what the glass then presents, in one undoable action. Rotating one
+shared panel from its own inspector leaves the document as it is; that
+glass then fails the size check until it matches again or takes its own
+copy. There is no scaling between different glass sizes.
 
 ### Enabled
 
@@ -390,7 +399,8 @@ HW-01–08 are closed. Direct-control compilation is done; its bench evidence
 is still open in
 [direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
 Performance Generator is now a real Display source. NTP in the show and
-SD-player generators stays with D-03. Density/size thresholds and multi-screen
-scope stay deferred.
+SD-player generators stays with D-03. A shared document on two same-size
+panels is in. Density/size thresholds, multi-screen navigation and the
+rest of D-02 stay deferred.
 Driver, bus and asset contracts remain in
 [auxiliary displays](auxiliary-displays.md).
