@@ -638,7 +638,10 @@ The same hardware-only node also offers the isolated Mean Well SD-100A-5 and
 SD-100B-5 with the `led-rail` role. One selected model becomes the type used
 for every generated 5 V power zone: feeds are packed only while the converter
 retains 20% headroom at a 40 °C enclosure ambient, so a larger installation
-gets another converter rather than an overloaded zone. The B model's 20 A
+gets another converter rather than an overloaded zone. A single feed that
+exceeds one zone is split across isolated zones; the plan blocks when one
+pixel still does not fit. Each zone's input current is sized from its
+headroom-adjusted load. The B model's 20 A
 nameplate becomes 17.333 A at that ambient from its imported derating curve;
 the A model remains at 18 A.
 

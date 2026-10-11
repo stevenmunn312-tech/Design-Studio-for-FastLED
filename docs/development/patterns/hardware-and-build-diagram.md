@@ -526,7 +526,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `deratedCurrentMa` reads the imported temperature curve at
   `ENCLOSURE_AMBIENT_C` (40 °C), `groupSupplies` packs each 5 V zone only while
   it retains the ordinary 20% headroom, and each zone gets its own source-side
-  fuse/conductor plus output main fuse/trunk. A controller buck joins the same
+  fuse/conductor plus output main fuse/trunk. That ceiling applies to a new
+  zone as well as one already open. A feed larger than the budget is split
+  into smaller feeds on separate isolated zones; a load that still cannot fit
+  (one pixel exceeds the zone) blocks the plan. Input current follows each
+  zone's headroom-adjusted load and is not capped at the converter rating.
+  A controller buck joins the same
   upstream-source budget; different source voltages, mixed rail models and
   out-of-range sources block the electrical plan. The Build Diagram follows
   terminals 1 V+, 2 V-, 3 FG, 4-5 -V and 6-7 +V, including the isolated-output

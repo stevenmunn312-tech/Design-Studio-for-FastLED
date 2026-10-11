@@ -255,6 +255,65 @@ function injectionRoles(designCurrentMa: number): PowerInjectionRole[] {
   return ['start', ...Array.from({ length: centerCount }, () => 'center' as const), 'end']
 }
 
+/** Current a zone must deliver so the design load keeps the supply headroom. */
+function headroomMa(designCurrentMa: number): number {
+  return Math.ceil((designCurrentMa * (100 + DEFAULT_SUPPLY_HEADROOM_PERCENT)) / 100)
+}
+
+/** Largest design current whose headroom still fits inside one zone ceiling. */
+function maxZoneDesignCurrentMa(ceilingMa: number): number {
+  if (!Number.isFinite(ceilingMa) || ceilingMa <= 0) return 0
+  return Math.floor((ceilingMa * 100) / (100 + DEFAULT_SUPPLY_HEADROOM_PERCENT))
+}
+
+function zoneAccepts(designMa: number, addedMa: number, ceilingMa: number): boolean {
+  return headroomMa(designMa + addedMa) <= ceilingMa
+}
+
+/**
+ * Pixel-accurate feeds when a converter zone is smaller than an ordinary
+ * center feed. Returns undefined when even one pixel exceeds the budget.
+ */
+function feedLayout(
+  pixelCount: number,
+  endMa: number,
+  centerMa: number,
+): { roles: PowerInjectionRole[], pixels: number[] } | undefined {
+  const endPixels = Math.floor(endMa / WS2812_WORST_CASE_MA_PER_PIXEL)
+  const centerPixels = Math.floor(centerMa / WS2812_WORST_CASE_MA_PER_PIXEL)
+  if (endPixels < 1 || pixelCount < 1) return undefined
+
+  let roles: PowerInjectionRole[]
+  let pixels: number[]
+  if (pixelCount <= endPixels) {
+    roles = ['start']
+    pixels = [pixelCount]
+  } else if (pixelCount <= endPixels * 2) {
+    const first = Math.ceil(pixelCount / 2)
+    roles = ['start', 'end']
+    pixels = [first, pixelCount - first]
+  } else if (centerPixels < 1) {
+    return undefined
+  } else {
+    const centerCount = Math.ceil((pixelCount - (endPixels * 2)) / centerPixels)
+    roles = ['start', ...Array.from({ length: centerCount }, () => 'center' as const), 'end']
+    const capacities = roles.map((role) => role === 'center' ? centerPixels : endPixels)
+    const total = capacities.reduce((sum, value) => sum + value, 0)
+    if (total < pixelCount) return undefined
+    const allocations = capacities.map((capacity) => Math.floor((pixelCount * capacity) / total))
+    let remaining = pixelCount - allocations.reduce((sum, value) => sum + value, 0)
+    while (remaining > 0) {
+      const index = allocations.findIndex((value, candidate) => value < capacities[candidate])
+      if (index < 0) return undefined
+      allocations[index] += 1
+      remaining -= 1
+    }
+    if (allocations.some((count) => count < 1)) return undefined
+    pixels = allocations
+  }
+  return { roles, pixels }
+}
+
 function allocatePixels(pixelCount: number, roles: PowerInjectionRole[]): number[] {
   const capacities = roles.map((role) => role === 'center' ? MAX_CENTER_FEED_CURRENT_MA : MAX_END_FEED_CURRENT_MA)
   const capacityPixels = capacities.map((capacity) => Math.floor(capacity / WS2812_WORST_CASE_MA_PER_PIXEL))
@@ -270,9 +329,45 @@ function allocatePixels(pixelCount: number, roles: PowerInjectionRole[]): number
   return allocations
 }
 
-function calculateInjections(itemId: string, outputTitle: string, pixelCount: number, physicalLengthMm: number, nominalVoltage: number): PowerInjectionPlan[] {
-  const roles = injectionRoles(pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL)
-  const pixels = allocatePixels(pixelCount, roles)
+function calculateInjections(
+  itemId: string,
+  outputTitle: string,
+  pixelCount: number,
+  physicalLengthMm: number,
+  nominalVoltage: number,
+): PowerInjectionPlan[]
+function calculateInjections(
+  itemId: string,
+  outputTitle: string,
+  pixelCount: number,
+  physicalLengthMm: number,
+  nominalVoltage: number,
+  maxFeedDesignMa: number,
+): PowerInjectionPlan[] | undefined
+function calculateInjections(
+  itemId: string,
+  outputTitle: string,
+  pixelCount: number,
+  physicalLengthMm: number,
+  nominalVoltage: number,
+  maxFeedDesignMa?: number,
+): PowerInjectionPlan[] | undefined {
+  // Ordinary 5 A / 10 A feeds stay on the current splitter. A converter zone
+  // smaller than a center feed has to be pixel-accurate or it drops LEDs.
+  const binding = maxFeedDesignMa != null && maxFeedDesignMa < MAX_CENTER_FEED_CURRENT_MA
+  const endLimit = binding ? Math.min(MAX_END_FEED_CURRENT_MA, maxFeedDesignMa) : MAX_END_FEED_CURRENT_MA
+  const centerLimit = binding ? Math.min(MAX_CENTER_FEED_CURRENT_MA, maxFeedDesignMa) : MAX_CENTER_FEED_CURRENT_MA
+  let roles: PowerInjectionRole[]
+  let pixels: number[]
+  if (binding) {
+    const layout = feedLayout(pixelCount, endLimit, centerLimit)
+    if (!layout) return undefined
+    roles = layout.roles
+    pixels = layout.pixels
+  } else {
+    roles = injectionRoles(pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL)
+    pixels = allocatePixels(pixelCount, roles)
+  }
   return roles.map((role, index) => {
     const designCurrentMa = pixels[index] * WS2812_WORST_CASE_MA_PER_PIXEL
     const connectorMinimumMa = connectorMinimumForLoad(designCurrentMa)
@@ -302,7 +397,7 @@ function calculateInjections(itemId: string, outputTitle: string, pixelCount: nu
       positionMm: roles.length <= 1 ? 0 : Math.round((physicalLengthMm * index) / (roles.length - 1)),
       pixelCount: pixels[index],
       designCurrentMa,
-      maximumCurrentMa: role === 'center' ? MAX_CENTER_FEED_CURRENT_MA : MAX_END_FEED_CURRENT_MA,
+      maximumCurrentMa: role === 'center' ? centerLimit : endLimit,
       conductor,
       connectorMinimumMa,
       fuse,
@@ -463,18 +558,51 @@ function planRailConverter(
   }
 }
 
+function zoneCapacityDetail(
+  output: OutputElectricalPlan,
+  injection: PowerInjectionPlan,
+  ceilingMa: number,
+  railConverter?: RailConverterContext,
+): string {
+  const budget = maxZoneDesignCurrentMa(ceilingMa)
+  if (!railConverter) {
+    return `${output.title}'s ${injection.role} feed draws ${formatRuleCurrent(injection.designCurrentMa)}, which is more than one supply zone can carry (${formatRuleCurrent(ceilingMa)}).`
+  }
+  const zone = `One ${railConverter.module.label} zone supplies ${formatRuleCurrent(railConverter.deratedCurrentMa)} at ${ENCLOSURE_AMBIENT_C} °C`
+  if (budget < WS2812_WORST_CASE_MA_PER_PIXEL) {
+    return `${output.title} draws ${formatRuleCurrent(output.designCurrentMa)} at full white. ${zone}, and ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom on one pixel is ${formatRuleCurrent(headroomMa(WS2812_WORST_CASE_MA_PER_PIXEL))}. That feed cannot be split into a valid isolated zone.`
+  }
+  return `${output.title}'s ${injection.role} feed draws ${formatRuleCurrent(injection.designCurrentMa)}. ${zone}, and ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom leaves ${formatRuleCurrent(budget)}. Converter outputs are not paralleled, so this feed is not assigned to a zone.`
+}
+
 function groupSupplies(
   outputs: OutputElectricalPlan[],
+  blockers: ElectricalPlanIssue[],
   railConverter?: RailConverterContext,
 ): SupplyRecommendation[] {
   const supplies: SupplyRecommendation[] = []
+  const refusedOutputs = new Set<string>()
   for (const output of outputs) {
     for (const injection of output.injections) {
-      const headroom = 1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100)
       const groupCeilingMa = railConverter?.deratedCurrentMa ?? MAX_RECOMMENDED_SUPPLY_CURRENT_MA
       let supply = supplies.find((candidate) =>
-        ((candidate.designCurrentMa + injection.designCurrentMa) * headroom) <= groupCeilingMa)
+        zoneAccepts(candidate.designCurrentMa, injection.designCurrentMa, groupCeilingMa))
       if (!supply) {
+        // The fit check above only sees zones that already exist. A new zone
+        // has to pass the same ceiling; otherwise one module is recommended
+        // for a load it cannot carry.
+        if (!zoneAccepts(0, injection.designCurrentMa, groupCeilingMa)) {
+          if (!refusedOutputs.has(output.itemId)) {
+            refusedOutputs.add(output.itemId)
+            blockers.push({
+              id: `${output.itemId}:converter-zone-capacity`,
+              severity: 'blocking',
+              title: railConverter?.module.label ?? 'Supply zone',
+              detail: zoneCapacityDetail(output, injection, groupCeilingMa, railConverter),
+            })
+          }
+          continue
+        }
         supply = {
           id: `supply-${supplies.length + 1}`,
           designCurrentMa: 0,
@@ -501,10 +629,17 @@ function groupSupplies(
   for (const supply of supplies) {
     supply.trunk = planTrunk(supply.designCurrentMa, nominalVoltageOf(outputs))
     if (railConverter) {
-      const plannedOutputCurrentMa = Math.min(
-        railConverter.deratedCurrentMa,
-        Math.ceil(supply.designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))),
-      )
+      // Size the input from the headroom-adjusted load. Capping at the
+      // nameplate understates the source current when the zone is overloaded.
+      const plannedOutputCurrentMa = headroomMa(supply.designCurrentMa)
+      if (plannedOutputCurrentMa > railConverter.deratedCurrentMa) {
+        blockers.push({
+          id: `${supply.id}:converter-zone-capacity`,
+          severity: 'blocking',
+          title: railConverter.module.label,
+          detail: `${railConverter.module.label} zone ${supply.id.replace('supply-', '')} would need ${formatRuleCurrent(plannedOutputCurrentMa)} with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, above the ${formatRuleCurrent(railConverter.deratedCurrentMa)} it can supply at ${ENCLOSURE_AMBIENT_C} °C.`,
+        })
+      }
       const inputCurrentMa = inputCurrentForOutputMa(
         railConverter.module.spec,
         railConverter.sourceVoltage,
@@ -735,6 +870,7 @@ export function calculateElectricalPlan(
     })
   }
 
+  const railConverter = planRailConverter(manifest, blockers, warnings, batterySource)
   const outputItems = manifest.primaryItems.filter((item) => item.kind === 'matrix-output')
   const outputPlans: OutputElectricalPlan[] = []
 
@@ -755,7 +891,11 @@ export function calculateElectricalPlan(
     const pitchMm = 1000 / densityPerMeter
     const physicalLengthMm = Math.round((pixelCount / densityPerMeter) * 1000)
     const designCurrentMa = pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL
-    const injections = calculateInjections(item.id, item.title, pixelCount, physicalLengthMm, nominalVoltage)
+    const zoneBudgetMa = railConverter ? maxZoneDesignCurrentMa(railConverter.deratedCurrentMa) : undefined
+    const injections = (zoneBudgetMa != null
+      ? calculateInjections(item.id, item.title, pixelCount, physicalLengthMm, nominalVoltage, zoneBudgetMa)
+      : undefined)
+      ?? calculateInjections(item.id, item.title, pixelCount, physicalLengthMm, nominalVoltage)
     const recommendedFeedCount = injections.length
     const pixelsPerFeed = Math.max(...injections.map((injection) => injection.pixelCount))
     const branchDesignCurrentMa = Math.max(...injections.map((injection) => injection.designCurrentMa))
@@ -800,7 +940,6 @@ export function calculateElectricalPlan(
   }
 
   const controllerSupply = planControllerSupply(manifest, exactBoard, blockers, warnings, batterySource)
-  const railConverter = planRailConverter(manifest, blockers, warnings, batterySource)
   if (!batterySource && controllerSupply && railConverter && controllerSupply.sourceVoltage !== railConverter.sourceVoltage) {
     blockers.push({
       id: 'converter-source-voltage-mismatch',
@@ -814,10 +953,12 @@ export function calculateElectricalPlan(
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
       const designCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-      const supplies = groupSupplies(outputPlans, railConverter)
+      const supplies = groupSupplies(outputPlans, blockers, railConverter)
       const recommendedSupplyCurrentMa = supplies.reduce((sum, supply) => sum + supply.recommendedCurrentMa, 0)
       const recommendedSupplyCount = supplies.length
-      const perSupplyCurrentMa = Math.max(...supplies.map((supply) => supply.recommendedCurrentMa))
+      const perSupplyCurrentMa = supplies.length > 0
+        ? Math.max(...supplies.map((supply) => supply.recommendedCurrentMa))
+        : 0
       const cappedCurrents = outputPlans
         .map((plan) => plan.operatingCurrentCapMa)
         .filter((entry): entry is number => typeof entry === 'number')
@@ -951,7 +1092,7 @@ export function calculateElectricalPlan(
     `${DEFAULT_LED_DENSITY_PER_METER} LEDs/m and ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way copper feeds are used when the graph has no physical product dimensions.`,
     `Start and end feeds are limited to ${formatRuleCurrent(MAX_END_FEED_CURRENT_MA)}; centre feeds may carry up to ${formatRuleCurrent(MAX_CENTER_FEED_CURRENT_MA)} before splitting in both directions.`,
     railConverter
-      ? `Supply groups are packed from uncapped full-white loads into ${railConverter.module.label} converters at ${ENCLOSURE_AMBIENT_C} °C with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; separate converter outputs must not be paralleled.`
+      ? `Supply groups are packed from uncapped full-white loads into ${railConverter.module.label} converters at ${ENCLOSURE_AMBIENT_C} °C with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; a feed larger than one zone is split across isolated converters, and separate converter outputs must not be paralleled.`
       : `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
     `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the full-white load.`,
     `Conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,

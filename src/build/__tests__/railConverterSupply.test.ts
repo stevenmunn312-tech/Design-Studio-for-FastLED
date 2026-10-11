@@ -70,6 +70,78 @@ describe('Mean Well LED rail converters', () => {
     expect(plan.totals?.supplies.every((supply) => supply.converter?.partId === 'mean-well-sd-100a-5')).toBe(true)
   })
 
+  it('splits an 8×8 WS2812B feed across TPS61023 zones that each keep 20% headroom', () => {
+    const spec = partById('tps61023-1s-5v-boost-module')!.powerConverter!
+    const { manifest, plan } = planFor([
+      output(8, 8),
+      converter('tps61023-1s-5v-boost-module', 3.7),
+    ])
+    const supplies = plan.totals?.supplies ?? []
+
+    expect(plan.status).toBe('calculated')
+    expect(plan.blockers).toEqual([])
+    expect(plan.totals?.designCurrentMa).toBe(3840)
+    expect(supplies).toHaveLength(5)
+    expect(supplies.reduce((sum, supply) => sum + supply.designCurrentMa, 0)).toBe(3840)
+    for (const supply of supplies) {
+      const planned = Math.ceil((supply.designCurrentMa * 120) / 100)
+      expect(planned).toBeLessThanOrEqual(spec.continuousCurrentMa)
+      expect(supply.designCurrentMa * 1.2).toBeLessThanOrEqual(spec.continuousCurrentMa)
+      expect(supply.converter).toEqual(expect.objectContaining({
+        partId: 'tps61023-1s-5v-boost-module',
+        sourceVoltage: 3.7,
+        deratedCurrentMa: 1000,
+        plannedOutputCurrentMa: planned,
+        inputCurrentMa: inputCurrentForOutputMa(spec, 3.7, planned),
+      }))
+      expect(supply.recommendedCurrentMa).toBe(1000)
+    }
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(5000)
+    expect(plan.outputs[0].injections.reduce((sum, injection) => sum + injection.pixelCount, 0)).toBe(64)
+    expect(plan.outputs[0].injections.every((injection) => injection.supplyId)).toBe(true)
+    expect(plan.totals?.source?.designCurrentMa).toBe(
+      supplies.reduce((sum, supply) => sum + (supply.converter?.inputCurrentMa ?? 0), 0),
+    )
+    const bom = buildBomRows(manifest, plan, ensureBuildProfile({ version: 1 }), board)
+    expect(bom.filter((row) => row.item === 'TPS61023 1S 5 V boost module')).toHaveLength(5)
+  })
+
+  it('leaves a TPS61023 load that fits inside one zone on that zone', () => {
+    const spec = partById('tps61023-1s-5v-boost-module')!.powerConverter!
+    const { plan } = planFor([output(2, 2), converter('tps61023-1s-5v-boost-module', 3.7)])
+    const [supply] = plan.totals?.supplies ?? []
+
+    expect(plan.status).toBe('calculated')
+    expect(plan.blockers).toEqual([])
+    expect(plan.totals?.supplies).toHaveLength(1)
+    expect(supply.designCurrentMa).toBe(240)
+    expect(supply.converter?.plannedOutputCurrentMa).toBe(288)
+    expect(supply.converter?.inputCurrentMa).toBe(inputCurrentForOutputMa(spec, 3.7, 288))
+  })
+
+  it('blocks a converter that cannot power one pixel with zone headroom', () => {
+    const spec = partById('tps61023-1s-5v-boost-module')!.powerConverter!
+    const original = spec.continuousCurrentMa
+    spec.continuousCurrentMa = 50
+    try {
+      const { plan } = planFor([output(8, 8), converter('tps61023-1s-5v-boost-module', 3.7)])
+
+      expect(plan.status).toBe('blocked')
+      expect(plan.blockers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'output:out:converter-zone-capacity',
+          severity: 'blocking',
+          detail: expect.stringContaining('cannot be split'),
+        }),
+      ]))
+      expect(plan.totals?.designCurrentMa).toBe(3840)
+      expect(plan.totals?.supplies).toEqual([])
+      expect(plan.totals?.recommendedSupplyCurrentMa).toBe(0)
+    } finally {
+      spec.continuousCurrentMa = original
+    }
+  })
+
   it('blocks invalid and inconsistent shared-source configurations', () => {
     const badRange = planFor([output(), converter('mean-well-sd-100b-5', 12)]).plan
     expect(badRange.blockers).toEqual(expect.arrayContaining([
