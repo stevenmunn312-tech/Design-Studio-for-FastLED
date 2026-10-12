@@ -99,10 +99,11 @@ export interface DisplayWidgetSize {
 export type DisplayPreviewRenderer =
   | 'text' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
   | 'swatch' | 'pattern-browser' | 'image' | 'button' | 'toggle' | 'slider' | 'dial'
+  | 'choice' | 'stepper'
 
 export type DisplayLvglEmitter =
   | 'label' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
-  | 'button' | 'switch' | 'slider' | 'arc'
+  | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper'
 
 export interface DisplayWidgetDefinition {
   type: DisplayWidgetType
@@ -269,6 +270,37 @@ function requiredAssetIssues(properties: Readonly<Record<string, DisplayWidgetPr
   return displayAsset(id) ? [] : [`Asset ${id} is not in the installed pack.`]
 }
 
+/** A Choice Strip shows between two and six segments. */
+export const DISPLAY_CHOICE_MIN_OPTIONS = 2
+export const DISPLAY_CHOICE_MAX_OPTIONS = 6
+
+function authoredChoiceOptions(properties: Readonly<Record<string, DisplayWidgetProperty>>): string[] {
+  const raw = typeof properties.options === 'string' ? properties.options : ''
+  return raw.split(',').map((option) => option.trim()).filter((option) => option.length > 0)
+}
+
+/**
+ * The segments a Choice Strip draws, in order. Its output is the index into
+ * this list, so the preview, the touch evaluator and the LVGL emitter all
+ * read it here: two renderers splitting the text their own way would put a
+ * finger on one option and report another.
+ */
+export function displayChoiceOptions(widget: Pick<DisplayWidget, 'properties'>): string[] {
+  return authoredChoiceOptions(widget.properties).slice(0, DISPLAY_CHOICE_MAX_OPTIONS)
+}
+
+function choicePropertyIssues(properties: Readonly<Record<string, DisplayWidgetProperty>>): string[] {
+  const count = authoredChoiceOptions(properties).length
+  if (count < DISPLAY_CHOICE_MIN_OPTIONS) return ['List at least two options, separated by commas.']
+  const issues = count > DISPLAY_CHOICE_MAX_OPTIONS
+    ? [`Only the first ${DISPLAY_CHOICE_MAX_OPTIONS} options are shown.`]
+    : []
+  if (typeof properties.initial === 'number' && properties.initial >= Math.min(count, DISPLAY_CHOICE_MAX_OPTIONS)) {
+    issues.push('Starts at must name one of the options, counting the first as 0.')
+  }
+  return issues
+}
+
 export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayWidgetDefinition>> = {
   Text: {
     type: 'Text', label: 'Text', description: 'One or two lines of static or graph-driven text.',
@@ -377,6 +409,23 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     portRoles: synchronized('float'), defaultProperties: { min: 0, max: 1, step: 0.01 },
     minimumVisualSize: { width: 48, height: 48 }, minimumTouchSize: { width: 48, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'dial', lvglEmitter: 'arc',
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01)],
+    states: CONTROL_STATES, assetSlots: NO_ASSETS,
+    validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
+  },
+  'Choice Strip': {
+    type: 'Choice Strip', label: 'Choice Strip', description: 'A row of two to six options; outputs the chosen one, counting the first as 0.',
+    portRoles: synchronized('float'), defaultProperties: { options: 'One, Two, Three' },
+    minimumVisualSize: { width: 96, height: 32 }, minimumTouchSize: { width: 144, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'choice', lvglEmitter: 'choice',
+    propertyInspector: [text('options', 'Options (comma separated)', 120), number('initial', 'Starts at (first is 0)', 0, DISPLAY_CHOICE_MAX_OPTIONS - 1, 1, true)],
+    states: CONTROL_STATES, assetSlots: NO_ASSETS, validateProperties: choicePropertyIssues,
+  },
+  'Step Control': {
+    type: 'Step Control', label: 'Step Control', description: 'Minus and plus keys that move a ranged value one step at a time.',
+    portRoles: synchronized('float'), defaultProperties: { min: 0, max: 10, step: 1 },
+    minimumVisualSize: { width: 96, height: 32 }, minimumTouchSize: { width: 144, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'stepper', lvglEmitter: 'stepper',
     propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01)],
     states: CONTROL_STATES, assetSlots: NO_ASSETS,
     validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
@@ -652,20 +701,72 @@ export function displayDocumentTouchOutputPorts(
   return outputs
 }
 
+const RANGED_CONTROLS: ReadonlySet<DisplayWidgetType> = new Set(['Slider', 'Dial', 'Step Control'])
+
 /**
- * The value a Slider or Dial holds before a finger has moved it.
+ * Whether this control's range is authored as Minimum, Maximum and Step.
+ *
+ * These are the controls that can take a target property's range when wired
+ * to it, carry a level on the Controls wire, and be offered a range repair. A
+ * Choice Strip publishes a number too, but its range is its option count, so
+ * a property's range has nothing to say to it.
+ */
+export function displayWidgetIsRangedControl(type: DisplayWidgetType): boolean {
+  return RANGED_CONTROLS.has(type)
+}
+
+/** Whether a finger sets this widget to a number. */
+export function displayWidgetIsNumericControl(type: DisplayWidgetType): boolean {
+  return displayWidgetIsRangedControl(type) || type === 'Choice Strip'
+}
+
+/**
+ * The range a numeric control moves in. A Choice Strip's is its option
+ * indices; the ranged controls read their own properties, with a maximum
+ * below the minimum held at the minimum and a missing step at 0.01.
+ */
+export function displayControlRange(
+  widget: Pick<DisplayWidget, 'type' | 'properties'>,
+): { min: number; max: number; step: number } {
+  if (widget.type === 'Choice Strip') {
+    return { min: 0, max: Math.max(0, displayChoiceOptions(widget).length - 1), step: 1 }
+  }
+  const min = numericProperty(widget.properties, 'min', 0)
+  const max = Math.max(min, numericProperty(widget.properties, 'max', 1))
+  const step = numericProperty(widget.properties, 'step', 0.01)
+  return { min, max, step: step > 0 ? step : 0.01 }
+}
+
+/**
+ * Width of each of a Step Control's two keys, in pixels: as wide as the
+ * control is tall, so the keys are square, but never more than a third of
+ * its width so the value between them keeps room to be read. Both renderers
+ * and the run surface's hit test lay the keys out on this.
+ */
+export function displayStepKeyWidth(width: number, height: number): number {
+  return Math.max(1, Math.min(Math.round(height), Math.floor(width / 3)))
+}
+
+/** Decimal places a Step Control shows: the step's own, at most four. */
+export function displayStepDecimals(widget: Pick<DisplayWidget, 'type' | 'properties'>): number {
+  const { step } = displayControlRange(widget)
+  const fraction = String(step).split('.')[1] ?? ''
+  return Math.min(4, fraction.length)
+}
+
+/**
+ * The value a numeric control holds before a finger has moved it.
  *
  * Its own `initial` when set, otherwise its minimum, clamped into range. Read
  * by the preview evaluator, the live renderer and the LVGL emitter alike, so a
  * control starts in the same place on screen, in the graph and on the board —
  * which matters because a level on the Controls wire is absolute: a Brightness
  * slider starting at its minimum would black out the LEDs it commands.
- * `undefined` for anything that is not a ranged control.
+ * `undefined` for anything that is not a numeric control.
  */
 export function displayControlStartValue(widget: Pick<DisplayWidget, 'type' | 'properties'>): number | undefined {
-  if (widget.type !== 'Slider' && widget.type !== 'Dial') return undefined
-  const min = numericProperty(widget.properties, 'min', 0)
-  const max = Math.max(min, numericProperty(widget.properties, 'max', 1))
+  if (!displayWidgetIsNumericControl(widget.type)) return undefined
+  const { min, max } = displayControlRange(widget)
   const initial = widget.properties.initial
   const start = typeof initial === 'number' && Number.isFinite(initial) ? initial : min
   return Math.max(min, Math.min(max, start))
@@ -830,6 +931,16 @@ export function displayWidgetValidationIssues(
     issues.push({
       code: 'touch-size',
       message: `${definition.label} needs a ${touch.width}×${touch.height} px touch target.`,
+    })
+  }
+  // Each option is its own target, so the strip has to be wide enough for
+  // all of them, not just for the default three.
+  const options = widget.type === 'Choice Strip' ? displayChoiceOptions(widget).length : 0
+  if (bounds && options > 0 && bounds.width < options * DISPLAY_TOUCH_TARGET_MIN_PX
+    && !issues.some((issue) => issue.code === 'touch-size')) {
+    issues.push({
+      code: 'touch-size',
+      message: `${options} options need a strip at least ${options * DISPLAY_TOUCH_TARGET_MIN_PX} px wide.`,
     })
   }
   issues.push(...definition.validateProperties(widget.properties).map((message) => ({ code: 'property' as const, message })))

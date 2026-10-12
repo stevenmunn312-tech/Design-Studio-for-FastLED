@@ -45,11 +45,11 @@ describe('custom display document normalization', () => {
     expect(result.widgets[0]).toMatchObject({ id: 'title', type: 'Text', properties: { align: 'left', fontSize: 18 } })
   })
 
-  it('defines every launch widget named by the frozen display design', () => {
+  it('defines every launch widget named by the frozen display design, then the v1 additions', () => {
     expect(DISPLAY_WIDGET_TYPES).toEqual([
       'Text', 'Numeric Readout', 'Timecode', 'Progress', 'Value Meter',
       'Status Indicator', 'Colour Swatch', 'Pattern Browser', 'Image/Icon',
-      'Button', 'Toggle', 'Slider', 'Dial',
+      'Button', 'Toggle', 'Slider', 'Dial', 'Choice Strip', 'Step Control',
     ])
   })
 

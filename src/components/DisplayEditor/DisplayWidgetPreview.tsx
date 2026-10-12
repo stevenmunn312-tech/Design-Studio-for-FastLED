@@ -1,13 +1,19 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displays/displayDocument'
 import {
+  displayChoiceOptions,
+  displayControlRange,
+  displayControlStartValue,
+  displayStepDecimals,
+  displayStepKeyWidth,
   displayWidgetBodyFallback,
   displayWidgetCaptionLayout,
+  displayWidgetContentBounds,
   type DisplayPreviewRenderer,
   type DisplayWidgetState,
 } from '../../state/displays/displayRegistry'
 import { displayAsset, displayAssetUrl } from '../../state/displays/displayAssets'
-import { displayWidgetTextTokens } from '../../state/displays/displayTheme'
+import { displayWidgetTextTokens, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
 import { rgbToHex } from '../../state/palettes/customPalette'
 import { isPatternSelect } from '../../state/patterns/patternSelection'
 import styles from './DisplayWidgetPreview.module.css'
@@ -247,6 +253,44 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
       return <span className={styles.slider} style={fillStyle}><span className={styles.fill} /><span className={styles.thumb} /></span>
     case 'dial':
       return <span className={styles.dial} style={{ '--dial-angle': `${-135 + amount * 270}deg` } as CSSProperties}><span /></span>
+    case 'choice': {
+      // The chosen option wears the theme's active state, as its LVGL button
+      // does when checked.
+      const selected = Math.round(numericValue(value, displayControlStartValue(widget) ?? 0))
+      const chosen = resolveDisplayThemeTokens(theme).states.active
+      return (
+        <span className={styles.choice}>
+          {displayChoiceOptions(widget).map((option, index) => (
+            <span
+              key={index}
+              className={styles.choiceOption}
+              data-selected={index === selected || undefined}
+              style={index === selected
+                ? { background: chosen.surfaceColor, color: chosen.textColor }
+                : undefined}
+            >
+              {option}
+            </span>
+          ))}
+        </span>
+      )
+    }
+    case 'stepper': {
+      const current = numericValue(value, displayControlStartValue(widget) ?? displayControlRange(widget).min)
+      // Keys laid out in the pixels the emitter uses, as a share of the width
+      // so they scale with the canvas.
+      const content = widget.bounds
+        ? displayWidgetContentBounds({ ...widget, bounds: widget.bounds }, typography.fontSize)
+        : null
+      const key = content ? `${(displayStepKeyWidth(content.width, content.height) / content.width) * 100}%` : '33%'
+      return (
+        <span className={styles.stepper} style={{ '--step-key': key } as CSSProperties}>
+          <span className={styles.stepKey}>-</span>
+          <span className={styles.stepValue}>{current.toFixed(displayStepDecimals(widget))}</span>
+          <span className={styles.stepKey}>+</span>
+        </span>
+      )
+    }
   }
   })()
 

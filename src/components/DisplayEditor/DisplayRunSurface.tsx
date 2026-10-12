@@ -1,13 +1,22 @@
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { DISPLAY_WIDGET_LIBRARY, displayControlHitBounds } from '../../state/displays/displayRegistry'
+import {
+  DISPLAY_WIDGET_LIBRARY,
+  displayChoiceOptions,
+  displayControlHitBounds,
+  displayControlRange,
+  displayStepKeyWidth,
+  displayWidgetContentBounds,
+  displayWidgetIsNumericControl,
+} from '../../state/displays/displayRegistry'
 import type { DisplayDocument, PlacedDisplayWidget } from '../../state/displays/displayDocument'
-import { displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
+import { displayWidgetTextTokens, displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import DisplayWidgetPreview from './DisplayWidgetPreview'
 import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
@@ -17,14 +26,19 @@ import {
   displayWidgetThemeVariables,
 } from './displayPreviewStyles'
 import {
+  choiceIndexFromPoint,
   dialValueFromDrag,
-  displayControlRange,
   isInteractiveDisplayWidget,
   sliderValueFromPoint,
+  stepDirectionFromPoint,
   stepDisplayControlValue,
   type DisplayControlValue,
 } from './displayRunPreview'
 import styles from './DisplayEditor.module.css'
+
+/** LVGL's default long-press time, then its repeat interval. */
+const STEP_HOLD_MS = 400
+const STEP_REPEAT_MS = 100
 
 interface RunDisplayWidgetProps {
   widget: PlacedDisplayWidget
@@ -40,18 +54,46 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
   const suppressToggleClick = useRef(false)
   const [touchOwned, setTouchOwned] = useState(false)
+  // A held Step Control key repeats, on LVGL's own long-press timings.
+  const stepRepeat = useRef<number | null>(null)
   const range = displayControlRange(widget)
   const numericValue = typeof value === 'number' ? value : range.min
   const booleanValue = value === true
+  const numeric = displayWidgetIsNumericControl(widget.type)
   const visualState = displayWidgetVisualState(widget, value, { pressed: touchOwned })
   const hitBounds = displayControlHitBounds(widget)
   const role = widget.type === 'Toggle'
     ? 'switch'
-    : widget.type === 'Slider' || widget.type === 'Dial'
-      ? 'slider'
-      : widget.type === 'Button'
-        ? 'button'
-        : undefined
+    : widget.type === 'Step Control'
+      ? 'spinbutton'
+      : numeric
+        ? 'slider'
+        : widget.type === 'Button'
+          ? 'button'
+          : undefined
+
+  const stopStepRepeat = () => {
+    if (stepRepeat.current !== null) window.clearTimeout(stepRepeat.current)
+    stepRepeat.current = null
+  }
+  useEffect(() => stopStepRepeat, [])
+
+  const pressStepKey = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const content = displayWidgetContentBounds(widget, displayWidgetTextTokens(widget, theme).fontSize)
+    const keyFraction = displayStepKeyWidth(content.width, content.height) / Math.max(1, content.width)
+    const direction = stepDirectionFromPoint(event.clientX, event.currentTarget.getBoundingClientRect(), keyFraction)
+    if (direction === 0) return
+    let current = stepDisplayControlValue(widget, numericValue, direction)
+    onValue(current, true)
+    const repeat = (delay: number) => {
+      stepRepeat.current = window.setTimeout(() => {
+        current = stepDisplayControlValue(widget, current, direction)
+        onValue(current, true)
+        repeat(STEP_REPEAT_MS)
+      }, delay)
+    }
+    repeat(STEP_HOLD_MS)
+  }
 
   const setSliderFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     onValue(sliderValueFromPoint(
@@ -73,6 +115,10 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
       onValue(!booleanValue, true)
     }
     else if (widget.type === 'Slider') setSliderFromPointer(event)
+    else if (widget.type === 'Choice Strip') {
+      onValue(choiceIndexFromPoint(widget, event.clientX, event.currentTarget.getBoundingClientRect()), true)
+    }
+    else if (widget.type === 'Step Control') pressStepKey(event)
     else if (widget.type === 'Dial') {
       drag.current = { pointerId: event.pointerId, startY: event.clientY, startValue: numericValue }
       onValue(numericValue, true)
@@ -89,6 +135,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
 
   const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     setTouchOwned(false)
+    stopStepRepeat()
     if (widget.type === 'Button') onValue(false, false)
     else onRelease()
     if (event.type === 'pointercancel') suppressToggleClick.current = false
@@ -113,7 +160,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
       }
       return
     }
-    if (widget.type !== 'Slider' && widget.type !== 'Dial') return
+    if (!numeric) return
     if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault()
       onValue(event.key === 'Home' ? range.min : range.max, false)
@@ -144,9 +191,10 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
       aria-label={interactive ? `${widget.label || definition.label} run preview` : undefined}
       aria-pressed={widget.type === 'Button' ? booleanValue : undefined}
       aria-checked={widget.type === 'Toggle' ? booleanValue : undefined}
-      aria-valuemin={widget.type === 'Slider' || widget.type === 'Dial' ? range.min : undefined}
-      aria-valuemax={widget.type === 'Slider' || widget.type === 'Dial' ? range.max : undefined}
-      aria-valuenow={widget.type === 'Slider' || widget.type === 'Dial' ? numericValue : undefined}
+      aria-valuemin={numeric ? range.min : undefined}
+      aria-valuemax={numeric ? range.max : undefined}
+      aria-valuenow={numeric ? numericValue : undefined}
+      aria-valuetext={widget.type === 'Choice Strip' ? displayChoiceOptions(widget)[Math.round(numericValue)] : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}

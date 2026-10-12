@@ -258,6 +258,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   teaches people to stop reading the drawer. Not auto-repaired: waking the panel
   on the next press, or turning the toggle momentary, would each make Enabled
   mean something different on this panel than on every other one.
+- **Numeric controls are asked about, never listed.** `displayRegistry.ts`
+  answers two questions a site used to answer with `'Slider' || 'Dial'`:
+  `displayWidgetIsRangedControl` (Slider, Dial, Step Control — Minimum,
+  Maximum and Step are authored, so the control adopts a wired property's
+  range, is offered a range repair and can be a `level` on the Controls wire)
+  and `displayWidgetIsNumericControl` (those plus Choice Strip, whose range is
+  its option indices). `displayControlRange`, `displayControlStartValue` and
+  `displayChoiceOptions` are the one reading of range, start and options for
+  the preview, run surface, Touch evaluator and emitter. Choice Strip and Step
+  Control are an `lv_obj` container of `lv_button`s and labels, laid out in
+  pixels by the emitter from the same helpers (`displayStepKeyWidth`); the
+  container takes no callback, each key reports to the widget's runtime, and
+  `_cdSetChoice`/`_cdSetStep` find the option or value label by child index,
+  so the child order is a contract. They need no extra `LV_USE_*` in the
+  helper's `lv_conf.h`, which leaves button matrix, spinbox and roller off.
 - **LVGL pool:** the helper's `lv_conf.h` (`_LV_CONF_TEXT` in
   `backend/toolchain.py`) has ESP32 take LVGL's 64 KiB pool from internal heap
   in `lv_init()` and defines `FLS_LVGL_POOL_FROM_HEAP`. A static pool filled

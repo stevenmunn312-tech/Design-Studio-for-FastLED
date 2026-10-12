@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Screen designs gain two touch controls. **Choice Strip** shows two to six
+  options from a comma-separated list and outputs the chosen one, counting the
+  first as 0. **Step Control** has minus and plus keys that move a value one
+  Step inside its range, repeating while held. Both have an optional Set input,
+  and a new Step Control wired to a property takes that property's range. On
+  the panel they are built from LVGL buttons and labels, so the LVGL
+  configuration is unchanged.
 - Lithium battery power planning now supports exact-cell series/parallel packs,
   combined or separate protection, balancing and charging boards, and
   catalogue-defined non-isolated 5 V converters. Build Diagram derives the

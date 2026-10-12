@@ -260,7 +260,10 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
   drawing. Each glass keeps its own touch, Enabled latch and widget values.
   Image bytes are emitted once. An unshared sketch keeps its document-id symbols
   ([large displays](docs/design/large-displays-and-control-routing.md#one-physical-panel-its-own-screen-design)).
-- [ ] **Choice and Step controls.**
+- [x] **Choice and Step controls.** Choice Strip (two to six options, outputs
+  the chosen index) and Step Control (minus/value/plus, repeats when held),
+  built from LVGL buttons and labels
+  ([widget ports](docs/reference/displays.md#widget-ports)).
 - [ ] **Colour Picker and Arc Gauge.**
 - [ ] **Marquees** (scrolling text).
 - [ ] **Containers and overlap.**

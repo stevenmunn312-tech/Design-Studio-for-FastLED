@@ -58,6 +58,7 @@ import {
   displayDocumentInputPorts,
   displayDocumentPorts,
   displayDocumentTouchOutputPorts,
+  displayWidgetIsRangedControl,
   displayWidgetSources,
   displayWidgetPortId,
   parseDisplayWidgetPortId,
@@ -609,7 +610,7 @@ function withAdoptedDisplayControlRange(
   const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
   const document = displayId ? s.displayDocuments[displayId] : undefined
   const widget = document?.widgets.find((entry) => entry.id === parsed.widgetId)
-  if (!document || !widget || (widget.type !== 'Slider' && widget.type !== 'Dial')) {
+  if (!document || !widget || !displayWidgetIsRangedControl(widget.type)) {
     return { nodes, edges, displayDocuments: s.displayDocuments }
   }
   // The same gate placement applies, so a control adopts a range on exactly

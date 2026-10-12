@@ -75,6 +75,8 @@ export function customDisplayFontSizes(document: DisplayDocument): number[] {
       || widget.type === 'Pattern Browser'
       || widget.type === 'Button'
       || widget.type === 'Toggle'
+      || widget.type === 'Choice Strip'
+      || widget.type === 'Step Control'
     if (hasText) sizes.add(customDisplayFontSize(fontSize))
     // A caption is set smaller than the widget it names, so it pins a face of
     // its own rather than riding the widget's — a screen of nothing but

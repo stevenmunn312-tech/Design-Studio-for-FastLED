@@ -1,5 +1,9 @@
 import type { DisplayWidget } from '../../state/displays/displayDocument'
-import { displayControlStartValue, displayWidgetIsControl } from '../../state/displays/displayRegistry'
+import {
+  displayControlRange,
+  displayControlStartValue,
+  displayWidgetIsControl,
+} from '../../state/displays/displayRegistry'
 import {
   resolvedDisplayControlValue,
   type DisplayWidgetRuntime,
@@ -25,11 +29,6 @@ export interface DisplayControlRect {
   height: number
 }
 
-function numberProperty(widget: DisplayWidget, key: string, fallback: number): number {
-  const value = widget.properties[key]
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
-}
-
 export function isInteractiveDisplayWidget(widget: DisplayWidget): boolean {
   // Through the registry rather than by naming the four: the `out` role is
   // what makes a widget finger-driven, so a fifth control joins this for free.
@@ -38,15 +37,7 @@ export function isInteractiveDisplayWidget(widget: DisplayWidget): boolean {
 
 export function initialDisplayControlValue(widget: DisplayWidget): DisplayControlValue | undefined {
   if (widget.type === 'Button' || widget.type === 'Toggle') return false
-  if (widget.type === 'Slider' || widget.type === 'Dial') return displayControlStartValue(widget)
-  return undefined
-}
-
-export function displayControlRange(widget: DisplayWidget): { min: number; max: number; step: number } {
-  const min = numberProperty(widget, 'min', 0)
-  const max = Math.max(min, numberProperty(widget, 'max', 1))
-  const configuredStep = numberProperty(widget, 'step', 0.01)
-  return { min, max, step: configuredStep > 0 ? configuredStep : 0.01 }
+  return displayControlStartValue(widget)
 }
 
 export function snapDisplayControlValue(widget: DisplayWidget, value: number): number {
@@ -82,4 +73,28 @@ export function dialValueFromDrag(
 
 export function stepDisplayControlValue(widget: DisplayWidget, value: number, direction: -1 | 1): number {
   return snapDisplayControlValue(widget, value + displayControlRange(widget).step * direction)
+}
+
+/**
+ * Which option of a Choice Strip a point lands on, counting the first as 0.
+ * The strip is divided evenly, the same split the LVGL emitter lays out.
+ */
+export function choiceIndexFromPoint(widget: DisplayWidget, x: number, rect: DisplayControlRect): number {
+  const { max } = displayControlRange(widget)
+  const count = max + 1
+  const index = Math.floor(((x - rect.left) / Math.max(1, rect.width)) * count)
+  return Math.max(0, Math.min(max, index))
+}
+
+/**
+ * Which key of a Step Control a point lands on: -1 for minus, 1 for plus,
+ * 0 for the value between them. `keyFraction` is each key's share of the
+ * control's width (`displayStepKeyWidth` over the drawn width), so the hit
+ * test follows the drawing at any zoom.
+ */
+export function stepDirectionFromPoint(x: number, rect: DisplayControlRect, keyFraction: number): -1 | 0 | 1 {
+  const key = rect.width * keyFraction
+  if (x < rect.left + key) return -1
+  if (x >= rect.left + rect.width - key) return 1
+  return 0
 }

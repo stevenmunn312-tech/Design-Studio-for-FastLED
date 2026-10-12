@@ -192,7 +192,20 @@ control state. A disabled panel's thumbnail is dark; editing remains available.
 | Image / Icon | Asset selected in the inspector | — |
 | Button | — | Output: boolean |
 | Toggle | Set: boolean, optional | Output: boolean |
-| Slider, Dial | Set: float, optional | Output: float |
+| Slider, Dial, Step Control | Set: float, optional | Output: float |
+| Choice Strip | Set: float, optional | Output: float, the chosen option counting the first as 0 |
+
+A **Choice Strip** divides its width evenly between two to six options, typed
+as one comma-separated list (`Calm, Party, Strobe`). It outputs the chosen
+option's position, the first being 0, so it can drive anything that takes a
+number. A Set value is rounded and held inside the options. Give each option at
+least 48 px of width; Graph Health reports a strip too narrow for its options.
+
+A **Step Control** is a minus key, the value and a plus key. Each press moves
+the value one Step inside Minimum and Maximum, and a held key repeats. It shows
+the value to the precision of its Step. Like a Slider, a new Step Control wired
+to a property takes that property's range, and it can carry Volume or
+Brightness on a template's Controls wire.
 
 An input appears only for a widget reading **A wire from the graph**. Set a
 widget's **Reads** row to a field of the panel's source instead — Title, Elapsed,

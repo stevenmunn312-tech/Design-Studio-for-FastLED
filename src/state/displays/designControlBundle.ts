@@ -33,7 +33,9 @@
 
 import { placedWidgets, type DisplayDocument, type DisplayWidget } from './displayDocument'
 import type { StudioEdge, StudioNode } from '../graphStore'
-import { displayWidgetPortId, normalizeDisplayControlRole, parseDisplayWidgetPortId } from './displayRegistry'
+import {
+  displayWidgetIsRangedControl, displayWidgetPortId, normalizeDisplayControlRole, parseDisplayWidgetPortId,
+} from './displayRegistry'
 import { panelDisplaySourceKind } from './mountedDisplays'
 
 /** The bundle field a role lands on. */
@@ -51,8 +53,8 @@ export type DesignBundleField =
  * flick. It is counted from the touch itself, never from the Toggle's value:
  * a template binds Play's Set to the player's `playing`, so the value also
  * moves when the transport is driven from anywhere else, and reading it would
- * echo every such change back as a press. `level` is a Slider or Dial's
- * absolute value.
+ * echo every such change back as a press. `level` is a ranged control's
+ * absolute value (Slider, Dial or Step Control).
  */
 export type DesignBundleEdge = 'press' | 'tap' | 'level'
 
@@ -66,7 +68,6 @@ export interface DesignBundleControl {
 
 const PRESS_WIDGETS: ReadonlySet<string> = new Set(['Button'])
 const LATCH_WIDGETS: ReadonlySet<string> = new Set(['Toggle'])
-const LEVEL_WIDGETS: ReadonlySet<string> = new Set(['Slider', 'Dial'])
 
 /** Fields a finger commands, as opposed to a level it sets. */
 const ACTION_FIELDS: ReadonlySet<DesignBundleField> = new Set([
@@ -94,7 +95,7 @@ function edgeFor(widget: Pick<DisplayWidget, 'type'>, field: DesignBundleField):
     if (LATCH_WIDGETS.has(widget.type)) return 'tap'
     return null
   }
-  return LEVEL_WIDGETS.has(widget.type) ? 'level' : null
+  return displayWidgetIsRangedControl(widget.type) ? 'level' : null
 }
 
 /**

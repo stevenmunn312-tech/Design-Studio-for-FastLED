@@ -3,6 +3,7 @@ import type { StudioEdge, StudioNode } from '../graphStore'
 import { nodeDisplayLabel, propertyLabel, propertyMeta } from '../nodeLibrary'
 import { propertyInputsFor } from '../propertyInputs'
 import { displayControlEdges } from '../player/wireFirstControls'
+import { displayWidgetIsRangedControl } from './displayRegistry'
 
 export interface DisplayWidgetTargetRangeRepair {
   targetNodeId: string
@@ -32,7 +33,7 @@ export function displayWidgetTargetRangeRepair(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
 ): DisplayWidgetTargetRangeRepair | null {
-  if (widget.type !== 'Slider' && widget.type !== 'Dial') return null
+  if (!displayWidgetIsRangedControl(widget.type)) return null
   // The same panel -> Touch -> edge walk the Connected group reads, so the
   // range offered here and the destination named there cannot disagree about
   // which wire a widget is on.

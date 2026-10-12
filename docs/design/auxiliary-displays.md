@@ -112,10 +112,13 @@ property on each widget rather than a hidden runtime. Which templates the editor
 offers first is derived from exactly those bindings, so a template cannot claim
 a source that could not feed it.
 
-Colour Picker, Choice Strip, Step Control, XY Pad, Launch Pad and Arc Gauge are
-the next palette after the one-screen runtime is proven. They are named now so
-the registry and port-role model leave room for `color`, indexed and multi-role
-outputs without making them launch requirements. Charts, waveform/spectrum
+Choice Strip (an option index, `float` out with reserved state input) and Step
+Control (the Slider's value contract, moved one step per press) joined the
+palette for v1. Both are built on the glass from LVGL buttons and labels, so the
+pinned `lv_conf.h` enables no extra widget for them. Colour Picker, XY Pad,
+Launch Pad and Arc Gauge are the next palette. They are named now so the
+registry and port-role model leave room for `color` and multi-role outputs
+without making them launch requirements. Charts, waveform/spectrum
 histories and animated marquees wait on measured display bandwidth.
 
 The first editor has two visual layers: one background owned by `DisplayTheme`
@@ -281,7 +284,7 @@ A Button widget reads `true` while pressed. A Toggle holds a boolean. Where a
 sink needs a one-shot action it detects the rising edge itself. Defining this at
 the widget would make "press" mean different things on different displays.
 
-Toggle, Slider and Dial also reserve an optional graph-authoritative `set`
+Toggle, Slider, Dial, Choice Strip and Step Control also reserve an optional graph-authoritative `set`
 input beside their touch-intent `out` output. The first runtime may implement
 the output-only form first, but persistence and port identity must not freeze
 that limitation. With `set` wired, the finger owns the value while pressed and
@@ -737,8 +740,8 @@ from the shared-bus run. Do not infer runtime capacity from the completed
 editor or historical successful compiles; check each new widget against those
 budgets.
 
-**In v1:** Choice and Step controls, Colour Picker, Arc Gauge, marquees,
-containers and overlapping widgets. They reuse the existing widget and binding
+**In v1:** Choice and Step controls (shipped), Colour Picker, Arc Gauge,
+marquees, containers and overlapping widgets. They reuse the existing widget and binding
 path, so they join v1 ahead of the HW-18 save-format freeze.
 
 **Deferred until after v1:** multiple screens and navigation stacks, freeform

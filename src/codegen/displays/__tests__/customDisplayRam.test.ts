@@ -51,10 +51,10 @@ describe('custom display firmware RAM', () => {
     const single = graph(screen('a')), pair = graph(screen('a'), screen('b'))
     const one = estimateFirmwareRam(single.nodes, single.edges, documents)!
     const two = estimateFirmwareRam(pair.nodes, pair.edges, documents)!
-    // One screen: 32-byte driver allowance, 20 RGB565 rows, one 160-byte cache.
+    // One screen: 32-byte driver allowance, 20 RGB565 rows, one 164-byte cache.
     // The panel showing a document is not also charged the fixed-layout field
     // caches it never emits.
-    const screenBytes = 32 + 240 * 20 * 2 + 160
+    const screenBytes = 32 + 240 * 20 * 2 + 164
     expect(one.displayBytes).toBe(65536 + 4 + screenBytes)
     expect(two.displayBytes - one.displayBytes).toBe(screenBytes)
     expect(one.internalBytes).toBe(48 + one.displayBytes)
@@ -93,7 +93,7 @@ describe('custom display firmware RAM', () => {
     })
     const pixels = Number(globals.match(/_cdPanelBuf_a\[(\d+) \* 2\]/)?.[1])
     expect(pixels).toBe(320 * 20)
-    expect(landscape.displayBytes).toBe(65536 + 4 + 32 + pixels * 2 + 160)
+    expect(landscape.displayBytes).toBe(65536 + 4 + 32 + pixels * 2 + 164)
   })
 
   it('tracks passive widget additions and reserves the maximum when a document is unavailable', () => {

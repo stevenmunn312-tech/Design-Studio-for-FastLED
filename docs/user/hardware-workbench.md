@@ -858,7 +858,7 @@ updates the Touch node and releases the port; upload your project again
 to run with the measured bounds.
 
 Readout widgets receive values. Buttons publish boolean outputs. Toggles,
-sliders, and dials also have an optional **Set** input: touch owns a control
+sliders, dials, choice strips and step controls also have an optional **Set** input: touch owns a control
 while held, and its wired Set value takes over after release. With Set
 unwired, it retains its local value. See the
 [widget role table](../reference/displays.md#widget-ports) for the complete map.

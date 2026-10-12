@@ -397,6 +397,15 @@
   padding-block: 3px;
 }
 
+/* A Choice Strip or Step Control lays its keys edge to edge inside the
+   border, as its LVGL container does; the corners clip them as LVGL's
+   clip_corner does. */
+.widget[data-widget-type='Choice Strip'],
+.widget[data-widget-type='Step Control'] {
+  overflow: hidden;
+  padding: 0;
+}
+
 .widget:active {
   cursor: grabbing;
 }

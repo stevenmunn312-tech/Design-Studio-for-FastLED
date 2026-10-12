@@ -15,11 +15,16 @@ import {
   type PlacedDisplayWidget,
 } from '../../state/displays/displayDocument'
 import {
+  displayChoiceOptions,
+  displayControlRange,
   displayControlStartValue,
+  displayStepDecimals,
+  displayStepKeyWidth,
   displayWidgetBodyFallback,
   displayWidgetCaptionLayout,
   displayWidgetContentBounds,
   displayWidgetDefinition,
+  displayWidgetIsNumericControl,
   type DisplayWidgetPortRoleId,
 } from '../../state/displays/displayRegistry'
 import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../../state/displays/displayTheme'
@@ -62,9 +67,10 @@ export const CUSTOM_DISPLAY_LVGL_HANDLER_MIN_MS = 5
 export const CUSTOM_DISPLAY_LVGL_HEAP_BYTES = 64 * 1024
 
 /** CustomDisplayWidgetRuntime on the supported 32-bit targets: pointer,
- * four byte-sized fields, four floats, two integers and two bounded strings,
- * rounded to the struct's four-byte alignment. This lives outside LVGL's heap. */
-export const CUSTOM_DISPLAY_WIDGET_RAM_BYTES = Math.ceil((32 + 2 * DISPLAY_TEXT_BUFFER_BYTES) / 4) * 4
+ * four byte-sized fields, the tap count and step precision (padded to four
+ * bytes), four floats, two integers and two bounded strings, rounded to the
+ * struct's four-byte alignment. This lives outside LVGL's heap. */
+export const CUSTOM_DISPLAY_WIDGET_RAM_BYTES = Math.ceil((36 + 2 * DISPLAY_TEXT_BUFFER_BYTES) / 4) * 4
 
 export interface CustomDisplayLvglBinding {
   /** C++ expression for the registry role, already resolved by the graph
@@ -227,6 +233,10 @@ function lvglWidgetClass(widget: DisplayWidget): string {
     case 'pattern-browser': return 'lv_label'
     case 'image': return 'lv_image'
     case 'swatch': return 'lv_obj'
+    // Both are a plain container holding buttons and labels, so neither
+    // needs an LVGL widget the pinned lv_conf.h leaves out.
+    case 'choice': return 'lv_obj'
+    case 'stepper': return 'lv_obj'
   }
 }
 
@@ -239,6 +249,8 @@ function controlKind(widget: DisplayWidget): number {
   if (widget.type === 'Toggle') return 2
   if (widget.type === 'Slider') return 3
   if (widget.type === 'Dial') return 4
+  if (widget.type === 'Choice Strip') return 5
+  if (widget.type === 'Step Control') return 6
   return 0
 }
 
@@ -343,10 +355,15 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   const kind = controlKind(widget)
   if (kind > 0) {
     lines.push(`  ${rt}.kind = ${kind};`)
-    lines.push(`  lv_obj_add_event_cb(${obj}, _cdEvent, LV_EVENT_ALL, &${rt});`)
+    // A container's keys take the touch, each reporting to this runtime.
+    if (kind < 5) lines.push(`  lv_obj_add_event_cb(${obj}, _cdEvent, LV_EVENT_ALL, &${rt});`)
     lines.push(...stateStyleLines(obj, theme.states.pressed, 'PRESSED'))
     lines.push(...stateStyleLines(obj, theme.states.active, 'CHECKED'))
     lines.push(...stateStyleLines(obj, theme.states.disabled, 'DISABLED'))
+  }
+
+  if (widget.type === 'Choice Strip' || widget.type === 'Step Control') {
+    lines.push(...keyedControlLines(emit, widget, index, box, text.fontSize))
   }
 
   if (widget.type === 'Text') {
@@ -401,6 +418,104 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   return lines
 }
 
+/**
+ * A Choice Strip or Step Control: a container whose own buttons take the
+ * touch. Laid out here in pixels from the same registry helpers the DOM
+ * preview reads, inside the container's border. The value is seeded and drawn
+ * before the first pass, as a Slider's is.
+ */
+function keyedControlLines(
+  emit: CustomDisplayLvglEmit,
+  widget: PlacedDisplayWidget,
+  index: number,
+  box: { width: number; height: number },
+  fontSize: number,
+): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const obj = object(emit, index)
+  const rt = runtime(emit, index)
+  const stem = `${safeId(emit.id)}_${index}`
+  const font = `&lv_font_montserrat_${customDisplayFontSize(fontSize)}`
+  const border = theme.borderWidth
+  const width = Math.max(1, box.width - 2 * border)
+  const height = Math.max(1, box.height - 2 * border)
+  const range = displayControlRange(widget)
+  const seeded = emit.initialValues?.[widget.id]
+  const start = typeof seeded === 'number' ? seeded : (displayControlStartValue(widget) ?? range.min)
+  const lines = [
+    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_SCROLLABLE);`,
+    `  lv_obj_set_style_pad_all(${obj}, 0, LV_PART_MAIN);`,
+    `  lv_obj_set_style_clip_corner(${obj}, true, LV_PART_MAIN);`,
+    `  ${rt}.minimum = ${floatLiteral(range.min)};`,
+    `  ${rt}.maximum = ${floatLiteral(range.max)};`,
+    `  ${rt}.step = ${floatLiteral(range.step)};`,
+  ]
+  const key = (name: string, x: number, keyWidth: number, label: string): void => {
+    lines.push(
+      `  lv_obj_t *${name} = lv_button_create(${obj});`,
+      `  lv_obj_remove_flag(${name}, LV_OBJ_FLAG_SCROLL_ON_FOCUS);`,
+      `  lv_obj_set_pos(${name}, ${x}, 0);`,
+      `  lv_obj_set_size(${name}, ${keyWidth}, ${height});`,
+      `  lv_obj_add_event_cb(${name}, _cdEvent, LV_EVENT_ALL, &${rt});`,
+      `  lv_obj_t *${name}Label = lv_label_create(${name});`,
+      `  lv_obj_set_style_text_font(${name}Label, ${font}, LV_PART_MAIN);`,
+      `  lv_label_set_long_mode(${name}Label, LV_LABEL_LONG_MODE_DOTS);`,
+      `  lv_obj_set_style_text_align(${name}Label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);`,
+      `  lv_obj_set_width(${name}Label, ${Math.max(1, keyWidth - 4)});`,
+      `  lv_label_set_text(${name}Label, ${cppStringLiteral(displayString(label))});`,
+      `  lv_obj_center(${name}Label);`,
+    )
+  }
+
+  if (widget.type === 'Choice Strip') {
+    const options = displayChoiceOptions(widget)
+    options.forEach((option, optionIndex) => {
+      const x = Math.floor((optionIndex * width) / options.length)
+      const next = Math.floor(((optionIndex + 1) * width) / options.length)
+      const name = `_cdOption_${stem}_${optionIndex}`
+      key(name, x, next - x, option)
+      // A rule between neighbours, the chosen one in the active state.
+      lines.push(
+        `  lv_obj_set_style_radius(${name}, 0, LV_PART_MAIN);`,
+        `  lv_obj_set_style_border_width(${name}, ${optionIndex > 0 ? border : 0}, LV_PART_MAIN);`,
+        `  lv_obj_set_style_border_side(${name}, LV_BORDER_SIDE_LEFT, LV_PART_MAIN);`,
+        ...styleLines(name, theme.states.default),
+        ...stateStyleLines(name, theme.states.pressed, 'PRESSED'),
+        ...stateStyleLines(name, theme.states.active, 'CHECKED'),
+      )
+    })
+    lines.push(`  _cdSetChoice(${rt}, ${floatLiteral(start)});`)
+    return lines
+  }
+
+  const keyWidth = displayStepKeyWidth(width, height)
+  const valueName = `_cdStepValue_${stem}`
+  key(`_cdStepDown_${stem}`, 0, keyWidth, '-')
+  lines.push(
+    `  lv_obj_t *${valueName} = lv_label_create(${obj});`,
+    `  lv_obj_set_style_text_font(${valueName}, ${font}, LV_PART_MAIN);`,
+    `  lv_obj_set_style_text_color(${valueName}, lv_color_hex(${colorHex(theme.states.default.textColor)}), LV_PART_MAIN);`,
+    `  lv_obj_set_style_text_align(${valueName}, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);`,
+    `  lv_label_set_long_mode(${valueName}, LV_LABEL_LONG_MODE_DOTS);`,
+    `  lv_obj_set_width(${valueName}, ${Math.max(1, width - 2 * keyWidth)});`,
+    `  lv_obj_align(${valueName}, LV_ALIGN_CENTER, 0, 0);`,
+  )
+  key(`_cdStepUp_${stem}`, width - keyWidth, keyWidth, '+')
+  for (const name of [`_cdStepDown_${stem}`, `_cdStepUp_${stem}`]) {
+    lines.push(
+      `  lv_obj_set_style_radius(${name}, ${theme.cornerRadius}, LV_PART_MAIN);`,
+      `  lv_obj_set_style_border_width(${name}, 0, LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_color(${name}, lv_color_hex(${colorHex(theme.states.default.trackColor)}), LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_opa(${name}, LV_OPA_COVER, LV_PART_MAIN);`,
+      `  lv_obj_set_style_text_color(${name}, lv_color_hex(${colorHex(theme.states.default.textColor)}), LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_color(${name}, lv_color_hex(${colorHex(theme.states.pressed.trackColor)}), _cdSel(LV_PART_MAIN, LV_STATE_PRESSED));`,
+    )
+  }
+  lines.push(`  ${rt}.decimals = ${displayStepDecimals(widget)};`)
+  lines.push(`  _cdSetStep(${rt}, ${floatLiteral(start)});`)
+  return lines
+}
+
 function controlContentsLines(
   emit: CustomDisplayLvglEmit,
   widget: DisplayWidget,
@@ -452,7 +567,7 @@ static inline lv_style_selector_t _cdSel(lv_part_t part, lv_state_t state) {
 
 struct CustomDisplayWidgetRuntime {
   lv_obj_t *object;
-  uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial
+  uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial, 5 choice, 6 step
   bool touchOwned;
   bool touchPending;
   bool boolValue;
@@ -461,6 +576,7 @@ struct CustomDisplayWidgetRuntime {
   // bundle tells a press from the player's own feedback, and how a Slider or
   // Dial there says it has been moved at all.
   uint16_t taps;
+  uint8_t decimals;             // a Step Control's shown precision
   float floatValue;
   float minimum, maximum, step;
   int32_t lastInteger;
@@ -498,6 +614,40 @@ static bool _cdSetChecked(CustomDisplayWidgetRuntime &runtime, bool checked) {
   runtime.boolValue = checked;
   if (checked) lv_obj_add_state(runtime.object, LV_STATE_CHECKED);
   else lv_obj_remove_state(runtime.object, LV_STATE_CHECKED);
+  return true;
+}
+
+// A Choice Strip's options are its children, in order; the chosen one is
+// checked. The index is clamped into the options, so a wire can only pick one.
+static bool _cdSetChoice(CustomDisplayWidgetRuntime &runtime, float value) {
+  if (!isfinite(value)) value = runtime.minimum;
+  int32_t index = (int32_t)lroundf(constrain(value, runtime.minimum, runtime.maximum));
+  runtime.floatValue = (float)index;
+  if (runtime.lastInteger == index) return false;
+  runtime.lastInteger = index;
+  uint32_t count = lv_obj_get_child_count(runtime.object);
+  for (uint32_t i = 0; i < count; i++) {
+    lv_obj_t *option = lv_obj_get_child(runtime.object, (int32_t)i);
+    if ((int32_t)i == index) lv_obj_add_state(option, LV_STATE_CHECKED);
+    else lv_obj_remove_state(option, LV_STATE_CHECKED);
+  }
+  return true;
+}
+
+// A Step Control's children are its minus key, its value and its plus key.
+// The value snaps to the step from the minimum and is redrawn only when it
+// lands on a different step.
+static bool _cdSetStep(CustomDisplayWidgetRuntime &runtime, float value) {
+  if (!isfinite(value)) value = runtime.minimum;
+  float steps = runtime.step > 0.0f ? roundf((value - runtime.minimum) / runtime.step) : 0.0f;
+  runtime.floatValue = constrain(runtime.minimum + steps * runtime.step, runtime.minimum, runtime.maximum);
+  int32_t position = runtime.step > 0.0f
+    ? (int32_t)lroundf((runtime.floatValue - runtime.minimum) / runtime.step)
+    : 0;
+  if (runtime.lastInteger == position) return false;
+  runtime.lastInteger = position;
+  snprintf(runtime.text, CD_TEXT_BYTES, "%.*f", (int)runtime.decimals, (double)runtime.floatValue);
+  lv_label_set_text(lv_obj_get_child(runtime.object, 1), runtime.text);
   return true;
 }
 
@@ -568,6 +718,19 @@ static void _cdEvent(lv_event_t *event) {
       runtime->taps++;
       runtime->touchPending = true;
     }
+  }
+  // A Choice Strip picks the option lifted from; a Step Control moves on the
+  // press and again while held, at LVGL's long-press repeat.
+  if (runtime->kind == 5 && code == LV_EVENT_CLICKED) {
+    _cdSetChoice(*runtime, (float)lv_obj_get_index((lv_obj_t *)lv_event_get_target(event)));
+    runtime->taps++;
+    runtime->touchPending = true;
+  }
+  if (runtime->kind == 6 && (code == LV_EVENT_PRESSED || code == LV_EVENT_LONG_PRESSED_REPEAT)) {
+    float direction = lv_obj_get_index((lv_obj_t *)lv_event_get_target(event)) == 0 ? -1.0f : 1.0f;
+    _cdSetStep(*runtime, runtime->floatValue + direction * runtime->step);
+    runtime->taps++;
+    runtime->touchPending = true;
   }
   if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
     if (runtime->kind == 1) {
@@ -748,6 +911,13 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
       `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
     ]
   }
+  if (widget.type === 'Choice Strip' || widget.type === 'Step Control') {
+    const setter = widget.type === 'Choice Strip' ? '_cdSetChoice' : '_cdSetStep'
+    return [
+      `  if (!${rt}.touchOwned && !${rt}.touchPending) ${setter}(${rt}, (float)(${expr}));`,
+      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
+    ]
+  }
   return []
 }
 
@@ -773,7 +943,7 @@ export function customDisplayLvglOutputExpression(
   if (index < 0) return null
   const widget = widgets[index]
   if (widget.type === 'Button' || widget.type === 'Toggle') return `_cdBoolOutput(${runtime(emit, index)})`
-  if (widget.type === 'Slider' || widget.type === 'Dial') return `_cdFloatOutput(${runtime(emit, index)})`
+  if (displayWidgetIsNumericControl(widget.type)) return `_cdFloatOutput(${runtime(emit, index)})`
   return null
 }
 
@@ -791,6 +961,6 @@ export function customDisplayLvglTapExpression(
   const widgets = emittedWidgets(emit)
   const index = widgets.findIndex((widget) => widget.id === widgetId)
   const type = widgets[index]?.type
-  if (index < 0 || (type !== 'Toggle' && type !== 'Slider' && type !== 'Dial')) return null
+  if (index < 0 || !type || (type !== 'Toggle' && !displayWidgetIsNumericControl(type))) return null
   return `${runtime(emit, index)}.taps`
 }

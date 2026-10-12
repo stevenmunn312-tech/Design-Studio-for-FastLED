@@ -10,6 +10,7 @@ import {
   defaultDisplayWidgetProperties,
   displayWidgetDefinition,
   displayWidgetIsControl,
+  displayWidgetIsRangedControl,
   parseDisplayWidgetPortId,
   type DisplayWidgetPortRoleId,
 } from '../displays/displayRegistry'
@@ -508,7 +509,8 @@ export function touchControlWireInert(
  */
 export function displayControlIsUnconfigured(widget: DisplayWidget): boolean {
   const defaults = defaultDisplayWidgetProperties(widget.type)
-  return widget.label === displayWidgetDefinition(widget.type).label
+  return displayWidgetIsRangedControl(widget.type)
+    && widget.label === displayWidgetDefinition(widget.type).label
     && widget.properties.source === undefined
     && widget.properties.min === defaults.min
     && widget.properties.max === defaults.max
