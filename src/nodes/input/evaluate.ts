@@ -186,13 +186,17 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         // and the firmware also start it at, not at a bare zero.
         const restWidget = shownDocument?.widgets.find((entry) => entry.id === parsed.widgetId)
         if (port.dataType === 'color') {
-          // A Colour Picker samples its hue and reports the colour; a dark
-          // panel's picker rests at black, as the firmware's does.
-          samples[port.id] = live && restWidget
-            ? displayControlOutput(restWidget, runtime.sampleDisplayWidgetOutput(
-              runtimeId, parsed.widgetId, displayPickerStartHue(restWidget),
-            )) as PortValue
-            : { r: 0, g: 0, b: 0 }
+          // A Colour Picker samples its hue and reports the colour. Like a
+          // number control it rests where it starts, so wiring one to a
+          // panel without touch keeps the colour it was seeded from.
+          if (!restWidget) {
+            samples[port.id] = { r: 0, g: 0, b: 0 }
+            continue
+          }
+          const start = displayPickerStartHue(restWidget)
+          samples[port.id] = displayControlOutput(restWidget, live
+            ? runtime.sampleDisplayWidgetOutput(runtimeId, parsed.widgetId, start)
+            : start) as PortValue
           continue
         }
         const rest = port.dataType === 'bool'

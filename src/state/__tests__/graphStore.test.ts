@@ -1456,6 +1456,28 @@ describe('graphStore — custom display documents', () => {
     expect(useGraphStore.getState().edges).toHaveLength(1)
   })
 
+  it('starts a fresh Colour Picker at the colour of the input it is wired to', () => {
+    reset([
+      node('screen', 'TransportDisplay', { displayId: 'panel' }),
+      node('touch', 'TouchInput', { panelId: 'screen' }),
+      node('fill', 'SolidColor', { r: 0, g: 0, b: 128 }),
+    ])
+    useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Colour Picker'))
+
+    useGraphStore.getState().onConnect({
+      source: 'touch',
+      sourceHandle: 'widget:colour-picker:out',
+      target: 'fill',
+      targetHandle: 'color',
+    })
+
+    const picker = useGraphStore.getState().displayDocuments.panel.widgets.find((widget) => widget.id === 'colour-picker')!
+    expect(picker.label).toBe('Color')
+    // Navy: blue, fully saturated, at half brightness.
+    expect(picker.properties).toMatchObject({ initial: 240, saturation: 1, brightness: 0.5 })
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+
   it('preserves a configured touch slider domain when connected to a property', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),

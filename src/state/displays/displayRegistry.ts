@@ -371,6 +371,23 @@ export function displayPickerStartHue(widget: Pick<DisplayWidget, 'properties'>)
   return Number.isFinite(initial) ? Math.max(0, Math.min(DISPLAY_PICKER_HUE_MAX, Math.round(initial))) : 0
 }
 
+/**
+ * The Colour Picker properties that reproduce a colour: its hue, and its
+ * saturation and brightness to the inspector's two decimals. What a picker
+ * wired to a colour input starts at, so wiring it keeps the colour that was
+ * there, to within a step of each channel.
+ */
+export function displayPickerSeed(color: DisplayRgb): { initial: number; saturation: number; brightness: number } {
+  const high = Math.max(color.r, color.g, color.b)
+  const low = Math.min(color.r, color.g, color.b)
+  const hundredths = (value: number) => Math.round(value * 100) / 100
+  return {
+    initial: displayColorHue(color),
+    saturation: high > 0 ? hundredths((high - low) / high) : 0,
+    brightness: hundredths(high / 255),
+  }
+}
+
 /** The colour a Colour Picker reports at a hue. */
 export function displayPickerColor(widget: Pick<DisplayWidget, 'properties'>, hue: number): DisplayRgb {
   const { saturation, brightness } = displayPickerTone(widget)

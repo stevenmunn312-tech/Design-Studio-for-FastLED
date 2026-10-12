@@ -213,7 +213,11 @@ pick a colour; the output is that hue at the picker's own **Saturation** and
 **Brightness**. A colour wired to Set moves the marker to that colour's hue, so
 a grey or black moves it to red. Its colour wire works in all three firmware
 builds. Unlike FastLED's `CHSV`, the colours match the strip drawn under your
-finger exactly, with no boosted yellow.
+finger exactly, with no boosted yellow. Drag from the Touch node's **Add
+control…** socket onto any colour input that holds a colour of its own — a
+Solid Colour's Color, a Blend's A or B, a Circle's Fill — and a picker is made
+that starts at that colour. Picking a colour in that node's own colour row
+while the picker drives it moves the picker to the colour's hue.
 
 An **Arc Gauge** draws a number between Minimum and Maximum as a 270-degree arc
 with the gap at the bottom, the reading in the middle formatted by its Decimals,

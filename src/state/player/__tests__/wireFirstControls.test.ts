@@ -9,6 +9,7 @@ import {
   touchControlDriver,
   touchControlPlan,
   touchControlWireInert,
+  writeTouchControlValue,
 } from '../wireFirstControls'
 import { useDisplayRuntimeStore } from '../../displays/displayRuntimeStore'
 import {
@@ -22,7 +23,7 @@ import { createDisplayDocument } from '../../displays/displayEditor'
 import { controllableInputsFor, exposableInputsFor } from '../../propertyInputs'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import { placedWidgets } from '../../displays/displayDocument'
-import { TOUCH_CONTROL_ADD_HANDLE } from '../../displays/displayRegistry'
+import { TOUCH_CONTROL_ADD_HANDLE, displayControlOutput } from '../../displays/displayRegistry'
 import { useUiStore } from '../../uiStore'
 
 /*
@@ -171,14 +172,101 @@ describe('which inputs can take a wired control', () => {
       }
       widened += controllable.length - exposable.length
       // Everything the widening adds is a declared input backed by a property
-      // of the same name — the evidence a wire-then-property read needs.
+      // of the same name — the evidence a wire-then-property read needs — or a
+      // colour port backed by three numeric channel properties.
       for (const port of controllable) {
         if (exposable.some((entry) => entry.id === port.id)) continue
         expect(definition.inputs.some((input) => input.id === port.id)).toBe(true)
-        expect(definition.defaultProperties?.[port.propertyKey!]).toBeDefined()
+        if (port.channels) {
+          expect(port.dataType).toBe('color')
+          for (const key of port.channels) expect(typeof definition.defaultProperties?.[key]).toBe('number')
+        } else {
+          expect(definition.defaultProperties?.[port.propertyKey!]).toBeDefined()
+        }
       }
     }
     expect(widened).toBeGreaterThan(0)
+  })
+})
+
+/*
+ * A colour input takes a Colour Picker that starts at the colour already
+ * there, whether one `#rrggbb` property backs it or three channel properties.
+ */
+describe('colour inputs take a Colour Picker', () => {
+  const close = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }) => {
+    for (const channel of ['r', 'g', 'b'] as const) expect(Math.abs(a[channel] - b[channel])).toBeLessThanOrEqual(3)
+  }
+
+  it('reaches a colour port through its r, g and b properties', () => {
+    const port = controllableInputsFor('SolidColor').find((entry) => entry.id === 'color')
+    expect(port).toMatchObject({ kind: 'property', dataType: 'color', channels: ['r', 'g', 'b'] })
+    expect(port?.propertyKey).toBeUndefined()
+    // The A and B colours of a two-colour node, under either port naming.
+    expect(controllableInputsFor('BlendColors').find((entry) => entry.id === 'b')?.channels).toEqual(['rB', 'gB', 'bB'])
+    expect(controllableInputsFor('GradientSampler').find((entry) => entry.id === 'colorA')?.channels).toEqual(['rA', 'gA', 'bA'])
+    // A palette's stops are not channels behind its colour ports.
+    expect(controllableInputsFor('CustomPalette').some((entry) => entry.dataType === 'color')).toBe(false)
+  })
+
+  it('starts the picker at a channel-held colour', () => {
+    const plan = touchControlPlan('SolidColor', 'color', { r: 255, g: 220, b: 90 })
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.spec).toMatchObject({ type: 'Colour Picker', label: 'Color' })
+    expect(plan.spec.properties).toEqual({ initial: 47, saturation: 0.65, brightness: 1 })
+    close(displayControlOutput({ type: 'Colour Picker', properties: plan.spec.properties }, 47) as never, { r: 255, g: 220, b: 90 })
+  })
+
+  it('starts the picker at a hex-held colour', () => {
+    const circle = NODE_LIBRARY.find((entry) => entry.type === 'Circle')!
+    const plan = touchControlPlan('Circle', 'fill', { ...circle.defaultProperties, fill: '#ff3080' })
+    expect(plan.ok && plan.spec.type).toBe('Colour Picker')
+    if (!plan.ok) return
+    expect(plan.spec.label).toBe('Fill')
+    const { initial } = plan.spec.properties as { initial: number }
+    close(displayControlOutput({ type: 'Colour Picker', properties: plan.spec.properties }, initial) as never, { r: 255, g: 48, b: 128 })
+  })
+
+  it('refuses a colour the node is not using', () => {
+    // Player Particles ignores its colour under its default style.
+    const definition = NODE_LIBRARY.find((entry) => entry.type === 'PlayerParticles')!
+    const plan = touchControlPlan('PlayerParticles', 'color', { ...definition.defaultProperties })
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.refusal.code).toBe('disabled')
+  })
+
+  it('moves a picker to the hue of a colour picked in the inspector', () => {
+    writeTouchControlValue('screen', 'colour-picker', '#00ffff')
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('screen', 'colour-picker')?.touchValue).toBe(180)
+    writeTouchControlValue('screen', 'colour-picker', { r: 0, g: 0, b: 255 })
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('screen', 'colour-picker')?.touchValue).toBe(240)
+    // Text that is not a colour has no control state to stand for.
+    writeTouchControlValue('screen', 'colour-picker', 'sin(t)')
+    expect(useDisplayRuntimeStore.getState().readDisplayWidget('screen', 'colour-picker')?.touchValue).toBe(240)
+    useDisplayRuntimeStore.getState().resetDisplayRuntime()
+  })
+
+  it('counts a picker as untouched only with no start hue and the default tone', () => {
+    const fresh = { id: 'colour-picker', type: 'Colour Picker', label: 'Colour Picker', properties: { saturation: 1, brightness: 1 } }
+    expect(displayControlIsUnconfigured(fresh as never)).toBe(true)
+    expect(displayControlIsUnconfigured({ ...fresh, properties: { ...fresh.properties, initial: 0 } } as never)).toBe(false)
+    expect(displayControlIsUnconfigured({ ...fresh, properties: { ...fresh.properties, brightness: 0.5 } } as never)).toBe(false)
+  })
+
+  it('takes the target colour when an untouched picker is placed', () => {
+    const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
+    const touch = node('touch', 'TouchInput', { panelId: 'panel' })
+    const fill = node('fill', 'SolidColor', { r: 0, g: 0, b: 255 })
+    const edges = [{ id: 'w', source: 'touch', sourceHandle: 'widget:colour-picker:out', target: 'fill', targetHandle: 'color' }] as never
+    const document = {
+      ...createDisplayDocument('screen', 240, 320),
+      widgets: [{ id: 'colour-picker', type: 'Colour Picker', label: 'Colour Picker', properties: { saturation: 1, brightness: 1 } }],
+    } as never
+    const placed = placeTouchControlIn(document, 'screen', 'colour-picker', [panel, touch, fill], edges)
+    expect(placed.widgets[0]).toMatchObject({ label: 'Color', properties: { initial: 240, saturation: 1, brightness: 1 } })
+    expect(placed.widgets[0].bounds).toBeDefined()
   })
 })
 
@@ -215,6 +303,20 @@ describe('connectTouchControl', () => {
 
   const touchNode = () => useGraphStore.getState().nodes.find((entry) => entry.id === 'touch')!
   const document = () => useGraphStore.getState().displayDocuments.screen
+
+  it('mints a Colour Picker on a colour port, starting at the colour there', () => {
+    useGraphStore.setState((s) => ({ nodes: [...s.nodes, node('fill', 'SolidColor', { r: 0, g: 255, b: 0 })] }))
+    const plan = connectTouchControl('touch', 'fill', 'color')
+    expect(plan.ok).toBe(true)
+    const widget = document().widgets.at(-1)!
+    expect(widget).toMatchObject({ type: 'Colour Picker', label: 'Color', properties: { initial: 120, saturation: 1, brightness: 1 } })
+    expect(useGraphStore.getState().edges.at(-1)).toMatchObject({
+      sourceHandle: `widget:${widget.id}:out`, target: 'fill', targetHandle: 'color',
+    })
+    const output = (touchNode().data.outputs as { id: string; dataType?: string }[])
+      .find((port) => port.id === `widget:${widget.id}:out`)
+    expect(output?.dataType).toBe('color')
+  })
 
   it('mints a connected widget with no bounds and wires it in one step', () => {
     const plan = connectTouchControl('touch', 'ff', 'petals')

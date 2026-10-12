@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react'
 import type { NodeCategory, NodePort } from '../types'
 import { NODE_LIBRARY, portColor } from './nodeLibrary'
-import { controllableInputsFor, exposableInputsFor, normalizeExposedInputs, propertyInputsFor } from './propertyInputs'
+import { controllableInputsFor, exposableInputsFor, normalizeExposedInputs } from './propertyInputs'
 import { orderPorts } from '../utils/portOrder'
 import { templateControlPlan, type TemplateControlPlan } from './displays/templateControlPlan'
 import type { GroupRegistry } from './graphEvaluator'
@@ -58,7 +58,6 @@ import {
   displayDocumentInputPorts,
   displayDocumentPorts,
   displayDocumentTouchOutputPorts,
-  displayWidgetIsRangedControl,
   displayWidgetSources,
   displayWidgetPortId,
   parseDisplayWidgetPortId,
@@ -69,7 +68,7 @@ import {
 import { gpioRequirementForProperty, libraryDefaults, spliceTargetPorts, tftControllerForProps } from './nodeLibrary'
 import { createDisplayDocument, nextDisplayWidgetId, resizeDisplayDocument } from './displays/displayEditor'
 import {
-  adoptedControlRange,
+  adoptedControlProperties,
   displayControlIsUnconfigured,
   placeTouchControlIn,
   touchControlDisplayId,
@@ -576,7 +575,7 @@ function withAdoptedMirrorPin(
     : node)
 }
 
-function withAdoptedDisplayControlRange(
+function withAdoptedDisplayControl(
   s: GraphState,
   nodes: StudioNode[],
   edges: StudioEdge[],
@@ -591,16 +590,11 @@ function withAdoptedDisplayControlRange(
   if (!source || source.data.nodeType !== 'TouchInput') return { nodes, edges, displayDocuments: s.displayDocuments }
   const target = nodes.find((node) => node.id === connection.target)
   if (!target) return { nodes, edges, displayDocuments: s.displayDocuments }
-  const propertyInput = propertyInputsFor(target.data.nodeType)
+  // Controllable, as the wire-first and placement paths read it, so a colour
+  // held in three channel properties is reached as well as a single property.
+  const input = controllableInputsFor(target.data.nodeType)
     .find((port) => port.id === connection.targetHandle)
-  if (!propertyInput || propertyInput.dataType !== 'float') {
-    return { nodes, edges, displayDocuments: s.displayDocuments }
-  }
-  // The same derivation the wire-first path applies at creation; here it runs
-  // when an existing unconfigured control is wired to a property instead.
-  const adopted = adoptedControlRange(
-    target.data.nodeType, propertyInput.propertyKey, propertyInput.label)
-  if (!adopted) return { nodes, edges, displayDocuments: s.displayDocuments }
+  if (!input) return { nodes, edges, displayDocuments: s.displayDocuments }
   const alreadyShared = s.edges.some((edge) =>
     edge.source === connection.source && edge.sourceHandle === connection.sourceHandle)
   if (alreadyShared) return { nodes, edges, displayDocuments: s.displayDocuments }
@@ -610,14 +604,17 @@ function withAdoptedDisplayControlRange(
   const displayId = panel ? String(panel.data.properties.displayId ?? '') : ''
   const document = displayId ? s.displayDocuments[displayId] : undefined
   const widget = document?.widgets.find((entry) => entry.id === parsed.widgetId)
-  if (!document || !widget || !displayWidgetIsRangedControl(widget.type)) {
+  // The same gate placement applies, so a control adopts its target on
+  // exactly the same terms whichever of the two moments reaches it first.
+  if (!document || !widget || !displayControlIsUnconfigured(widget)) {
     return { nodes, edges, displayDocuments: s.displayDocuments }
   }
-  // The same gate placement applies, so a control adopts a range on exactly
-  // the same terms whichever of the two moments reaches it first.
-  if (!displayControlIsUnconfigured(widget)) {
-    return { nodes, edges, displayDocuments: s.displayDocuments }
-  }
+  // The same derivation the wire-first path applies at creation; here it runs
+  // when an existing unconfigured control is wired to an input instead: a
+  // range for a ranged control, the colour already there for a Colour Picker.
+  const adopted = adoptedControlProperties(
+    widget.type, target.data.nodeType, input, target.data.properties as Record<string, unknown>)
+  if (!adopted) return { nodes, edges, displayDocuments: s.displayDocuments }
 
   // Only a brand-new semantic control adopts a target; configured or shared
   // controls keep their source contract and need an explicit mapper/repair.
@@ -627,12 +624,7 @@ function withAdoptedDisplayControlRange(
       ? {
           ...entry,
           label: adopted.label,
-          properties: {
-            ...entry.properties,
-            min: adopted.min,
-            max: adopted.max,
-            step: adopted.step,
-          },
+          properties: { ...entry.properties, ...adopted.properties },
         }
       : entry),
   }
@@ -786,7 +778,7 @@ function completeConnection(s: GraphState, connection: Connection): Partial<Grap
   // `reconnectable: 'target'` lets a noodle be unplugged/re-routed from
   // the input (target) end only — grab it at the input port and drag.
   const edges = addEdge({ ...resolved, type: 'glowEdge', reconnectable: 'target', style: { stroke: color } }, replaced)
-  const adopted = withAdoptedDisplayControlRange(
+  const adopted = withAdoptedDisplayControl(
     s,
     withAdoptedMirrorPin(grown.nodes, edges, resolved),
     edges,

@@ -9,6 +9,11 @@ export interface PropertyInput extends NodePort {
 export interface ExposableInput extends NodePort {
   kind: 'property' | 'action'
   propertyKey?: string
+  /**
+   * The red, green and blue properties a colour port reads while unwired, when
+   * no single property backs it. See `colorChannels`.
+   */
+  channels?: readonly [string, string, string]
 }
 
 // Opt in only after both preview and firmware read the property through this
@@ -64,15 +69,40 @@ const EXPOSABLES = new Map(NODE_LIBRARY.map((definition) => {
  * well as the port row it already has, which is the duplicate-socket trap the
  * registry's three derived readers exist to avoid.
  */
+/**
+ * The three channel properties behind a colour port, or null.
+ *
+ * Most colour inputs hold no colour property of their own: a Solid Colour
+ * keeps `r`, `g` and `b` and its `color` port overrides all three while wired,
+ * a Blend or Gradient keeps `rA`…`bB` behind `a`/`colorA` and `b`/`colorB`.
+ * That is the same wire-then-property read a single property gets, only
+ * spread over three fields, so the port is just as controllable. Derived from
+ * the names rather than declared, on the same evidence the implicit ports
+ * below use: all three channels must be numbers in `defaultProperties`, or the
+ * port is not reached this way.
+ */
+function colorChannels(
+  portId: string,
+  defaults: Readonly<Record<string, unknown>>,
+): [string, string, string] | null {
+  const suffix = portId === 'color' || portId === 'rgb'
+    ? ''
+    : /^(?:colou?r)?([ab])$/i.exec(portId)?.[1]?.toUpperCase()
+  if (suffix === undefined) return null
+  const channels: [string, string, string] = [`r${suffix}`, `g${suffix}`, `b${suffix}`]
+  return channels.every((key) => typeof defaults[key] === 'number') ? channels : null
+}
+
 const CONTROLLABLES = new Map(NODE_LIBRARY.map((definition) => {
   const exposable = EXPOSABLES.get(definition.type) ?? []
   const declared = new Set(exposable.map((port) => port.id))
   const defaults = definition.defaultProperties ?? {}
-  const implicit = definition.inputs.flatMap((port): ExposableInput[] => (
-    declared.has(port.id) || !(port.id in defaults)
-      ? []
-      : [{ ...port, kind: 'property', propertyKey: port.id }]
-  ))
+  const implicit = definition.inputs.flatMap((port): ExposableInput[] => {
+    if (declared.has(port.id)) return []
+    if (port.id in defaults) return [{ ...port, kind: 'property', propertyKey: port.id }]
+    const channels = port.dataType === 'color' ? colorChannels(port.id, defaults) : null
+    return channels ? [{ ...port, kind: 'property', channels }] : []
+  })
   return [definition.type, [...exposable, ...implicit]]
 }))
 

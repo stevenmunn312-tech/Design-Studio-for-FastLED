@@ -71,8 +71,13 @@ rather than after it.
 2. **A widget is minted and the edge is drawn, in one undo step.** The widget
    type is derived from the property, not chosen: a `float` property whose
    `propertyMeta.control` is `slider` gives a **Slider**, a `bool` gives a
-   **Toggle**, an action input gives a **Button**. Its `min`/`max`/`step` and
-   its label come from the property.
+   **Toggle**, an action input gives a **Button**, and a colour input gives a
+   **Colour Picker**. Its `min`/`max`/`step` and its label come from the
+   property; a picker instead starts at the colour already there, as hue,
+   saturation and brightness. A colour port counts as a property when one
+   `#rrggbb` property backs it (a Circle's Fill) or when three numeric channel
+   properties do (a Solid Colour's `r`/`g`/`b`, a Blend's `rA`…`bB`), since the
+   port overrides them exactly as a wired number overrides its property.
 3. **The widget has no bounds yet.** It exists, it has a port id, the edge is a
    real edge — it simply is not on the canvas.
 4. **The screen designer lists it** in a "Connected" group above the widget

@@ -1,5 +1,5 @@
 import { isPropertyEnabled, nodeDisplayLabel, propertyLabel, propertyMeta } from '../nodeLibrary'
-import { controllableInputsFor, wiredPropertyIsInert } from '../propertyInputs'
+import { controllableInputsFor, wiredPropertyIsInert, type ExposableInput } from '../propertyInputs'
 import type {
   DisplayDocument,
   DisplayWidget,
@@ -8,12 +8,17 @@ import type {
 } from '../displays/displayDocument'
 import {
   defaultDisplayWidgetProperties,
+  displayColorHue,
+  displayPickerSeed,
   displayWidgetDefinition,
   displayWidgetIsControl,
   displayWidgetIsRangedControl,
+  isDisplayRgb,
   parseDisplayWidgetPortId,
+  type DisplayRgb,
   type DisplayWidgetPortRoleId,
 } from '../displays/displayRegistry'
+import { hexToRgb, isHexColor } from '../palettes/customPalette'
 import { placeDisplayWidget } from '../displays/displayEditor'
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { useDisplayRuntimeStore } from '../displays/displayRuntimeStore'
@@ -80,9 +85,7 @@ export function touchControlPlan(
     }
   }
 
-  const label = input.propertyKey
-    ? readableLabel(nodeType, input.propertyKey, input.label)
-    : input.label
+  const label = inputLabel(nodeType, input)
 
   if (driven) {
     return {
@@ -97,7 +100,10 @@ export function touchControlPlan(
   // Refused rather than merely dimmed: a control that does nothing the moment
   // it is made is a worse thing to hand someone than a sentence. A wire that
   // goes inert *later*, because the variant changed, is the dim case instead.
-  if (input.propertyKey && !isPropertyEnabled(nodeType, input.propertyKey, properties)) {
+  // A colour held in three channels is switched on and off as one; its red
+  // channel answers for all three.
+  const backing = input.propertyKey ?? input.channels?.[0]
+  if (backing && !isPropertyEnabled(nodeType, backing, properties)) {
     return {
       ok: false,
       refusal: {
@@ -107,7 +113,7 @@ export function touchControlPlan(
     }
   }
 
-  const spec = specFor(input.kind, input.dataType, nodeType, input.propertyKey, label)
+  const spec = specFor(input, nodeType, label, properties)
   if (!spec) {
     return {
       ok: false,
@@ -123,7 +129,7 @@ export function touchControlPlan(
 /**
  * The label and range a property hands a control it drives.
  *
- * Shared with the widget-first path: `withAdoptedDisplayControlRange` in
+ * Shared with the widget-first path: `withAdoptedDisplayControl` in
  * `graphStore.ts` applies exactly this when an existing, unconfigured Slider
  * is wired to a property, and the wire-first path applies it at creation. One
  * derivation, two moments — see the design note.
@@ -143,6 +149,60 @@ export function adoptedControlRange(
   }
 }
 
+/**
+ * The colour a colour input holds while nothing is wired to it: its own
+ * `#rrggbb` property, or the three channel properties behind it. Null when it
+ * holds neither, which leaves a Colour Picker at its own defaults.
+ */
+export function controllableInputColor(
+  input: Pick<ExposableInput, 'propertyKey' | 'channels'>,
+  properties: Readonly<Record<string, unknown>>,
+): DisplayRgb | null {
+  if (input.propertyKey) {
+    const value = properties[input.propertyKey]
+    return isHexColor(value) ? hexToRgb(value) : null
+  }
+  if (!input.channels) return null
+  const [r, g, b] = input.channels.map((key) => properties[key])
+  if (![r, g, b].every((channel) => typeof channel === 'number' && Number.isFinite(channel))) return null
+  const byte = (channel: unknown) => Math.max(0, Math.min(255, Math.round(channel as number)))
+  return { r: byte(r), g: byte(g), b: byte(b) }
+}
+
+/**
+ * What a new control takes from the input it is wired to: the input's label,
+ * and the range a ranged control moves in or the colour a Colour Picker starts
+ * at. Null when the input has nothing to hand this kind of control.
+ *
+ * One derivation for the three moments a control meets its target — created by
+ * a wire (`specFor`), an existing unconfigured control wired to it
+ * (`withAdoptedDisplayControl` in `graphStore.ts`), and placement
+ * (`placeTouchControlIn`) — so none can start a control differently. A picker
+ * starts at the colour the target already has, as a slider starts at its
+ * value, so wiring one does not turn the LEDs red.
+ */
+export function adoptedControlProperties(
+  widgetType: DisplayWidgetType,
+  nodeType: string,
+  input: Pick<ExposableInput, 'label' | 'dataType' | 'propertyKey' | 'channels'>,
+  properties: Readonly<Record<string, unknown>>,
+): { label: string; properties: Record<string, DisplayWidgetProperty> } | null {
+  if (widgetType === 'Colour Picker') {
+    if (input.dataType !== 'color') return null
+    const color = controllableInputColor(input, properties)
+    return { label: inputLabel(nodeType, input), properties: color ? { ...displayPickerSeed(color) } : {} }
+  }
+  if (!displayWidgetIsRangedControl(widgetType) || input.dataType !== 'float' || !input.propertyKey) return null
+  const adopted = adoptedControlRange(nodeType, input.propertyKey, input.label)
+  return adopted
+    ? { label: adopted.label, properties: { min: adopted.min, max: adopted.max, step: adopted.step } }
+    : null
+}
+
+function inputLabel(nodeType: string, input: Pick<ExposableInput, 'label' | 'propertyKey'>): string {
+  return input.propertyKey ? readableLabel(nodeType, input.propertyKey, input.label) : input.label
+}
+
 function readableLabel(nodeType: string, propertyKey: string, portLabel: string): string {
   const label = propertyLabel(nodeType, propertyKey)
   // `propertyLabel` returns the key itself when nothing nicer is declared, and
@@ -151,28 +211,34 @@ function readableLabel(nodeType: string, propertyKey: string, portLabel: string)
 }
 
 function specFor(
-  kind: 'property' | 'action',
-  dataType: string,
+  input: ExposableInput,
   nodeType: string,
-  propertyKey: string | undefined,
   label: string,
+  properties: Readonly<Record<string, unknown>>,
 ): TouchControlSpec | null {
   // An action is a press, not a value it can hold — a momentary Button, never
   // a latch. A Toggle here would keep saying "pressed" after the finger left.
-  if (kind === 'action') {
+  if (input.kind === 'action') {
     return { type: 'Button', label, properties: defaultDisplayWidgetProperties('Button') }
   }
-  if (dataType === 'bool') {
+  if (input.dataType === 'bool') {
     return { type: 'Toggle', label, properties: defaultDisplayWidgetProperties('Toggle') }
   }
-  if (dataType !== 'float') return null
+  // A colour wants a Colour Picker, starting at the colour already there.
+  if (input.dataType === 'color') {
+    const adopted = adoptedControlProperties('Colour Picker', nodeType, input, properties)
+    return {
+      type: 'Colour Picker',
+      label,
+      properties: { ...defaultDisplayWidgetProperties('Colour Picker'), ...adopted?.properties },
+    }
+  }
+  if (input.dataType !== 'float') return null
 
   // A number with no declared range is still controllable, but the control has
   // to guess at it; 0–1 is what an undeclared slider means everywhere else.
-  const adopted = propertyKey ? adoptedControlRange(nodeType, propertyKey, label) : null
-  const range = adopted
-    ? { min: adopted.min, max: adopted.max, step: adopted.step }
-    : { min: 0, max: 1, step: 0.01 }
+  const adopted = adoptedControlProperties('Slider', nodeType, input, properties)
+  const range = adopted?.properties ?? { min: 0, max: 1, step: 0.01 }
   return {
     type: 'Slider',
     label,
@@ -215,14 +281,26 @@ export function touchControlDriver(
   return { displayId: displayRuntimeId(panel.id, documentId, nodes), widgetId: parsed.widgetId }
 }
 
-/** Set a widget the way the editor's Run surface does for a completed drag. */
+/**
+ * Set a widget the way the editor's Run surface does for a completed drag.
+ *
+ * A colour — `#rrggbb` from a colour property's row, or `{ r, g, b }` from a
+ * channel swatch — is a Colour Picker's hue, its state; the picker keeps its
+ * own saturation and brightness. Anything else that is not a number or a
+ * boolean has no control state to stand for, and is ignored.
+ */
 export function writeTouchControlValue(
   displayId: string,
   widgetId: string,
-  value: number | boolean,
+  value: unknown,
 ): void {
+  const state = typeof value === 'number' || typeof value === 'boolean' ? value
+    : isHexColor(value) ? displayColorHue(hexToRgb(value))
+      : isDisplayRgb(value) ? displayColorHue(value)
+        : null
+  if (state === null) return
   const store = useDisplayRuntimeStore.getState()
-  store.touchDisplayWidget(displayId, widgetId, value)
+  store.touchDisplayWidget(displayId, widgetId, state)
   store.releaseDisplayWidget(displayId, widgetId)
 }
 
@@ -372,12 +450,7 @@ export function controlDestination(
   const input = controllableInputsFor(nodeType).find((port) => port.id === edge.targetHandle)
   const node = nodeDisplayLabel(nodeType, target.data.properties, target.data.label)
   if (!input) return { node, property: null }
-  return {
-    node,
-    property: input.propertyKey
-      ? readableLabel(nodeType, input.propertyKey, input.label)
-      : input.label,
-  }
+  return { node, property: inputLabel(nodeType, input) }
 }
 
 /** Both halves, for somewhere with room for both: "Formula Field · Petals". */
@@ -509,6 +582,13 @@ export function touchControlWireInert(
  */
 export function displayControlIsUnconfigured(widget: DisplayWidget): boolean {
   const defaults = defaultDisplayWidgetProperties(widget.type)
+  // A Colour Picker nobody has tuned: no starting hue, and the default tone.
+  if (widget.type === 'Colour Picker') {
+    return widget.label === displayWidgetDefinition(widget.type).label
+      && widget.properties.initial === undefined
+      && widget.properties.saturation === defaults.saturation
+      && widget.properties.brightness === defaults.brightness
+  }
   return displayWidgetIsRangedControl(widget.type)
     && widget.label === displayWidgetDefinition(widget.type).label
     && widget.properties.source === undefined
@@ -543,8 +623,9 @@ export function placeTouchControlIn(
   const target = edge ? nodes.find((node) => node.id === edge.target) : undefined
   if (!edge || !target) return placed
   const input = controllableInputsFor(target.data.nodeType).find((port) => port.id === edge.targetHandle)
-  if (!input?.propertyKey) return placed
-  const adopted = adoptedControlRange(target.data.nodeType, input.propertyKey, input.label)
+  if (!input) return placed
+  const adopted = adoptedControlProperties(
+    widget.type, target.data.nodeType, input, target.data.properties as Record<string, unknown>)
   if (!adopted) return placed
 
   return {
@@ -552,7 +633,7 @@ export function placeTouchControlIn(
     widgets: placed.widgets.map((entry) => entry.id === widgetId ? {
       ...entry,
       label: adopted.label,
-      properties: { ...entry.properties, min: adopted.min, max: adopted.max, step: adopted.step },
+      properties: { ...entry.properties, ...adopted.properties },
     } : entry),
   }
 }

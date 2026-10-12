@@ -15,6 +15,10 @@ versioning (`0.y.z`) until the first stable release.
   Gauge shows a ranged number as a 270-degree arc with the formatted value in
   the middle. Both run in the designer preview, the live touch surface and all
   three firmware builds, and need no change to the LVGL configuration.
+  Dragging the Touch node's Add control socket onto a colour input — Solid
+  Colour, Text, Line, Blend, Gradient, Circle and Shape fills, and the other
+  nodes that hold a colour of their own — makes a Colour Picker that starts at
+  that colour.
 - Screen designs gain two touch controls. **Choice Strip** shows two to six
   options from a comma-separated list and outputs the chosen one, counting the
   first as 0. **Step Control** has minus and plus keys that move a value one

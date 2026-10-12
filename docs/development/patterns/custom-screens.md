@@ -131,12 +131,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   a control by dropping a wire (rather than placing a widget first) goes through
   one derivation, `src/state/player/wireFirstControls.ts`'s
   `touchControlPlan(nodeType, portId, properties, driven)`: it reads
-  `exposableInputsFor` — covering property *and* action inputs — and returns a
-  spec (Slider/Toggle/momentary Button, ranged via `propertyMeta`) or a refusal
-  (`not-a-property-input`, `unsupported-type`, `disabled`, `already-driven`).
-  Its `adoptedControlRange` is shared with `withAdoptedDisplayControlRange` in
-  `graphStore.ts` so the widget-first and wire-first paths cannot disagree on
-  label/min/max/step. `connectTouchControl` mints the widget and its edge in one
+  `controllableInputsFor` — covering property *and* action inputs — and returns a
+  spec (Slider/Toggle/momentary Button/Colour Picker, ranged via
+  `propertyMeta`) or a refusal (`not-a-property-input`, `unsupported-type`,
+  `disabled`, `already-driven`). A colour port with no single property behind
+  it is controllable through its channel triple (`ExposableInput.channels`,
+  derived by `colorChannels` in `propertyInputs.ts` from `r/g/b`, `rA…`, `rB…`
+  being numbers in `defaultProperties`); its red channel answers
+  `isPropertyEnabled` for all three. `adoptedControlProperties` is the one
+  answer to what a control takes from its target — a ranged control's
+  label/min/max/step, a picker's starting hue, saturation and brightness
+  (`displayPickerSeed`) — shared by `specFor`, `withAdoptedDisplayControl` in
+  `graphStore.ts` and `placeTouchControlIn`, so the three moments cannot
+  disagree. `writeTouchControlValue` turns a colour (a `#rrggbb` row or a
+  channel swatch) into the picker's hue, so the inspector stays a remote for a
+  picker as it is for a slider. `connectTouchControl` mints the widget and its edge in one
   `set`, so one undo removes both; a Ctrl/Cmd-held drop also *places* it, doubly
   gated — the modifier is consent at the moment of the gesture, and
   `visibleLiveTouchScreen` must name that same panel, so "which screen?" is

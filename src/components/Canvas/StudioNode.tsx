@@ -596,16 +596,37 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const swatch = isRGB(live)
           ? toHex(live.r, live.g, live.b)
           : toHex(props.r as number, props.g as number, props.b as number)
+        // A Colour Picker driving the swatch is a control with a remote here,
+        // as a slider driving a number row is: picking moves the picker to
+        // that hue and keeps the colour as the disconnect restore.
+        const touchSource = wired ? sourceMap.get('color') : undefined
+        const drivenByTouchWidget = Boolean(
+          touchSource && parseDisplayWidgetPortId(touchSource.srcPort)?.role === 'out',
+        )
         return (
-          <div className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`} title={wired ? 'Driven by connection' : undefined}>
+          <div
+            className={`${styles.propRow}${wired ? ` ${styles.wired}` : ''}`}
+            title={wired
+              ? drivenByTouchWidget
+                ? `Driven by ${describeSource('color')}. Pick here to move it to that hue; disconnect to restore the saved colour.`
+                : 'Driven by connection'
+              : undefined}
+          >
             <span className={styles.propKey}>color</span>
             <input
               className={`nodrag ${styles.colorInput}`}
               type="color"
-              disabled={wired || locked}
+              disabled={(wired && !drivenByTouchWidget) || locked}
               value={swatch}
               aria-label={`${nodeLabel} color`}
-              onChange={(e) => updateNodeProperties(nodeId, hexToRgb(e.target.value))}
+              onChange={(e) => {
+                const rgb = hexToRgb(e.target.value)
+                const driver = drivenByTouchWidget
+                  ? touchControlDriver(touchSource, useGraphStore.getState().nodes)
+                  : null
+                if (driver) writeTouchControlValue(driver.displayId, driver.widgetId, rgb)
+                updateNodeProperties(nodeId, rgb)
+              }}
             />
           </div>
         )
@@ -628,8 +649,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
         const disabled = (wired && !drivenByTouchWidget) || gated || locked
         const live = wired ? liveFor(key) : undefined
         const writeValue = (value: unknown) => {
-          if (drivenByTouchWidget && touchSource
-            && (typeof value === 'number' || typeof value === 'boolean')) {
+          // A number or a boolean is the control's own state; a colour moves
+          // a Colour Picker to its hue (`writeTouchControlValue`).
+          if (drivenByTouchWidget && touchSource) {
             const driver = touchControlDriver(touchSource, useGraphStore.getState().nodes)
             if (driver) writeTouchControlValue(driver.displayId, driver.widgetId, value)
           }
