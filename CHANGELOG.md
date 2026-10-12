@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Screen designs gain a **Marquee**: one line of text that keeps travelling
+  across, entering on the right, at a speed you set. Unlike a scrolling Text,
+  it moves even when the text fits, and new text carries on from where the old
+  had reached. It runs in the designer preview and on the panel, and needs no
+  change to the LVGL configuration.
 - Screen designs gain a **Colour Picker** and an **Arc Gauge**. The Colour
   Picker is a hue strip: drag along it to output a colour at its own saturation
   and brightness, or wire a colour to its optional Set input to move it. The Arc
@@ -244,6 +249,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The screen designer scrolls a Text title at the panel's own speed, 40 pixels
+  per second with one loop held between 0.3 and 10 seconds, rather than a
+  little faster than the panel and never speeding up for a long title.
 - Battery Assembly, the connection list and the fuse recommendation now follow
   one path: pack positive lands on the cell pad, the main fuse leaves the
   protected positive, and a charger return joins that protected negative.

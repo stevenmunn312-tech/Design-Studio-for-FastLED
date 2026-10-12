@@ -305,6 +305,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is the arc's child 0 (`_cdSetChildText`). LVGL insets an arc by its padding
   alone, so the emitter pads it by border plus `DISPLAY_GAUGE_PAD_PX`, the
   inset `displayGaugeGeometry` gives the preview.
+- **A Marquee is a label moved, not a label scrolled.** LVGL's
+  `LV_LABEL_LONG_MODE_SCROLL_CIRCULAR` moves only text wider than its label,
+  so the Marquee is an `lv_obj` container (not scrollable, `clip_corner`,
+  `border_post` so the border paints over the text) with the label as child 0,
+  and `_cdSetMarquee` runs an `lv_anim` on its x from the content width to
+  minus its own width, in milliseconds it works out itself:
+  `lv_anim_speed` caps a loop at 10 s. New text resumes at the x the old had
+  reached, or from the right when too short to be there; the first text starts
+  at x 0. `MarqueeText` in the preview mirrors all three cases from
+  `displayMarqueeSpeed`, and its tests pin them. A scrolling Text's preview
+  copies LVGL 9.5's own `LV_LABEL_DEF_SCROLL_SPEED`: 40 px/s, one loop held
+  between 0.3 and 10 s.
 - **LVGL pool:** the helper's `lv_conf.h` (`_LV_CONF_TEXT` in
   `backend/toolchain.py`) has ESP32 take LVGL's 64 KiB pool from internal heap
   in `lv_init()` and defines `FLS_LVGL_POOL_FROM_HEAP`. A static pool filled

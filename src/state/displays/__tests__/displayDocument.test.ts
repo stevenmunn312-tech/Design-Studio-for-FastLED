@@ -50,6 +50,7 @@ describe('custom display document normalization', () => {
       'Text', 'Numeric Readout', 'Timecode', 'Progress', 'Value Meter',
       'Status Indicator', 'Colour Swatch', 'Pattern Browser', 'Image/Icon',
       'Button', 'Toggle', 'Slider', 'Dial', 'Choice Strip', 'Step Control', 'Colour Picker', 'Arc Gauge',
+      'Marquee',
     ])
   })
 

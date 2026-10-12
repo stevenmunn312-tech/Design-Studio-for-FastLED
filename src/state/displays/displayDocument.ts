@@ -28,6 +28,7 @@ export const DISPLAY_WIDGET_TYPES = [
   'Step Control',
   'Colour Picker',
   'Arc Gauge',
+  'Marquee',
 ] as const
 
 export type DisplayWidgetType = (typeof DISPLAY_WIDGET_TYPES)[number]

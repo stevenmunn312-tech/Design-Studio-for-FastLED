@@ -398,11 +398,12 @@
 }
 
 /* A Choice Strip or Step Control lays its keys edge to edge inside the
-   border, as its LVGL container does, and a Colour Picker its strip; the
-   corners clip them as LVGL's clip_corner does. */
+   border, as its LVGL container does, a Colour Picker its strip and a Marquee
+   its travelling text; the corners clip them as LVGL's clip_corner does. */
 .widget[data-widget-type='Choice Strip'],
 .widget[data-widget-type='Step Control'],
-.widget[data-widget-type='Colour Picker'] {
+.widget[data-widget-type='Colour Picker'],
+.widget[data-widget-type='Marquee'] {
   overflow: hidden;
   padding: 0;
 }

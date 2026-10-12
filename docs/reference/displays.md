@@ -183,7 +183,7 @@ control state. A disabled panel's thumbnail is dark; editing remains available.
 
 | Widget | Input | Output |
 | --- | --- | --- |
-| Text | Text: string (Value role) | — |
+| Text, Marquee | Text: string (Value role) | — |
 | Numeric Readout, Progress, Value Meter, Arc Gauge | Value: float | — |
 | Timecode | Seconds: float (Value role) | — |
 | Status Indicator | Value: boolean | — |
@@ -222,6 +222,16 @@ while the picker drives it moves the picker to the colour's hue.
 An **Arc Gauge** draws a number between Minimum and Maximum as a 270-degree arc
 with the gap at the bottom, the reading in the middle formatted by its Decimals,
 Prefix and Suffix. Turn off **Show value** for the arc alone. It takes no touch.
+
+A **Marquee** is one line of text that never stops moving: it starts at the
+left edge, travels left at its **Speed** in pixels per second until it has
+gone, then enters again from the right. It moves even when the text would fit,
+which is the difference from a Text widget with **Scroll text that does not
+fit**, whose title stands still until it is too long. New text, wired or read
+from the panel's source, carries on from where the old text had reached. The
+default speed, 40 pixels per second, is the one a scrolling Text uses. A
+Marquee repaints its whole box on every frame it moves, so keep it to the one
+line it needs.
 
 An input appears only for a widget reading **A wire from the graph**. Set a
 widget's **Reads** row to a field of the panel's source instead — Title, Elapsed,

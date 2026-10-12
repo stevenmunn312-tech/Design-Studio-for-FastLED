@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import DisplayWidgetPreview from '../DisplayWidgetPreview'
 import { DEFAULT_DISPLAY_THEME, type DisplayWidget } from '../../../state/displays/displayDocument'
@@ -120,5 +120,76 @@ describe('display widget preview text', () => {
     // rather than reading "Artist" as though that were the name.
     expect(draw(artist, '').container.textContent).toBe('')
     expect(draw(artist, 'Björk').container.textContent).toBe('Björk')
+  })
+})
+
+/*
+ * jsdom lays nothing out and animates nothing, so the box and text widths are
+ * given and each animation recorded: the contract is the keyframes, duration
+ * and start time `_cdSetMarquee` gives the glass.
+ */
+describe('Marquee preview', () => {
+  const BOX = 200
+  const animations: Array<{ keyframes: Keyframe[]; options: KeyframeAnimationOptions; currentTime: number | null; cancel: () => void }> = []
+  let textWidth = 100
+
+  beforeEach(() => {
+    animations.length = 0
+    textWidth = 100
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => BOX)
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(() => textWidth)
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => {
+        const animation = { keyframes, options, currentTime: null as number | null, cancel: vi.fn() }
+        animations.push(animation)
+        return animation
+      },
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    delete (HTMLElement.prototype as { animate?: unknown }).animate
+  })
+
+  const ticker = (text: string): DisplayWidget => ({
+    id: 'ticker',
+    type: 'Marquee',
+    label: 'Marquee',
+    bounds: { x: 0, y: 0, width: BOX, height: 32 },
+    properties: { ...DISPLAY_WIDGET_LIBRARY.Marquee.defaultProperties, text, speed: 50 },
+  })
+
+  it('runs from the right edge until the text has gone, starting with it at the left', () => {
+    draw(ticker('Doors open at 8'))
+    const [animation] = animations
+    expect(animation.keyframes).toEqual([{ transform: 'translateX(200px)' }, { transform: 'translateX(-100px)' }])
+    expect(animation.options).toMatchObject({ duration: 6000, iterations: Infinity, easing: 'linear' })
+    // 200 px travelled at 50 px/s puts the text at the left edge.
+    expect(animation.currentTime).toBe(4000)
+  })
+
+  it('moves even text that fits, unlike a scrolling Text', () => {
+    textWidth = 20
+    draw(ticker('Hi'))
+    expect(animations).toHaveLength(1)
+  })
+
+  it('keeps its place through new text, or starts again from the right when the text is too short', () => {
+    const view = draw(ticker('First'))
+    animations[0].currentTime = 5000 // 250 px in: x = -50
+    view.rerender(
+      <DisplayWidgetPreview widget={ticker('First')} renderer="marquee" theme={DEFAULT_DISPLAY_THEME} state="default" value="Second" />,
+    )
+    expect(animations[0].cancel).toHaveBeenCalled()
+    expect(animations[1].currentTime).toBe(5000)
+
+    animations[1].currentTime = 5800 // 290 px in: x = -90
+    textWidth = 40
+    view.rerender(
+      <DisplayWidgetPreview widget={ticker('First')} renderer="marquee" theme={DEFAULT_DISPLAY_THEME} state="default" value="3rd" />,
+    )
+    expect(animations[2].currentTime).toBe(0)
   })
 })

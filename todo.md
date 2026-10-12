@@ -267,7 +267,9 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
 - [x] **Colour Picker and Arc Gauge.** A hue strip with a colour output and
   colour Set, and a ranged arc readout, built from LVGL objects, gradients and
   the existing arc ([widget ports](docs/reference/displays.md#widget-ports)).
-- [ ] **Marquees** (scrolling text).
+- [x] **Marquees.** One line of text that travels continuously, entering on
+  the right, at an authored speed, built from an LVGL label moved inside a
+  clipping container ([widget ports](docs/reference/displays.md#widget-ports)).
 - [ ] **Containers and overlap.**
 
 ## 5. Release track (in order)

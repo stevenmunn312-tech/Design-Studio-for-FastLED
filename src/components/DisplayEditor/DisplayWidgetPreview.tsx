@@ -1,12 +1,14 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displays/displayDocument'
 import {
+  DISPLAY_MARQUEE_DEFAULT_SPEED,
   DISPLAY_PICKER_HUE_MAX,
   DISPLAY_PICKER_MARKER_PX,
   displayChoiceOptions,
   displayControlRange,
   displayControlStartValue,
   displayGaugeGeometry,
+  displayMarqueeSpeed,
   displayPickerStartHue,
   displayPickerStops,
   displayStepDecimals,
@@ -27,11 +29,13 @@ import styles from './DisplayWidgetPreview.module.css'
 /**
  * LVGL's circular label scroll, as the preview draws it.
  *
- * `LV_LABEL_DEF_SCROLL_SPEED` is a third of the display DPI, and LVGL's default
- * DPI is 130, so the glass moves text at about 43 px/s; the loop's gap is three
- * spaces (`LV_LABEL_WAIT_CHAR_COUNT`). Text that fits does not move, on either.
+ * LVGL 9.5's `LV_LABEL_DEF_SCROLL_SPEED` is `lv_anim_speed_clamped(40, 300,
+ * 10000)`: 40 px/s, but one loop never takes less than 0.3 s or more than
+ * 10 s, so text over 400 px travels faster. The loop's gap is three spaces
+ * (`LV_LABEL_WAIT_CHAR_COUNT`). Text that fits does not move, on either.
  */
-const SCROLL_PX_PER_SEC = 130 / 3
+const SCROLL_MIN_MS = 300
+const SCROLL_MAX_MS = 10000
 const SCROLL_GAP = '   '
 
 function ScrollingText({ text, className, style }: { text: string; className: string; style: CSSProperties }) {
@@ -63,7 +67,11 @@ function ScrollingText({ text, className, style }: { text: string; className: st
     // layer is what kept GPU memory climbing until the tab died.
     const animation = track.animate?.(
       [{ transform: 'translateX(0)' }, { transform: `translateX(${-distance}px)` }],
-      { duration: (distance / SCROLL_PX_PER_SEC) * 1000, iterations: Infinity, easing: 'linear' },
+      {
+        duration: Math.min(SCROLL_MAX_MS, Math.max(SCROLL_MIN_MS, (distance / DISPLAY_MARQUEE_DEFAULT_SPEED) * 1000)),
+        iterations: Infinity,
+        easing: 'linear',
+      },
     )
     return () => animation?.cancel()
   }, [overflows, text])
@@ -74,6 +82,64 @@ function ScrollingText({ text, className, style }: { text: string; className: st
         <span>{text}{overflows ? SCROLL_GAP : ''}</span>
         {overflows && <span aria-hidden="true">{text}{SCROLL_GAP}</span>}
       </span>
+    </span>
+  )
+}
+
+/**
+ * A Marquee, as `_cdSetMarquee` moves it on the glass: the text starts at the
+ * left edge, travels left at `speed` panel pixels per second until it has
+ * gone, then enters again from the right. New text keeps the place the old
+ * had reached, or starts again from the right when it is too short to be
+ * there.
+ */
+function MarqueeText({ text, speed, className, style }: { text: string; speed: number; className: string; style: CSSProperties }) {
+  const outer = useRef<HTMLSpanElement>(null)
+  const inner = useRef<HTMLSpanElement>(null)
+  const [width, setWidth] = useState(0)
+  // How far the text has travelled from the right edge; null until it moves,
+  // which is the text standing at the left edge.
+  const travelled = useRef<number | null>(null)
+
+  // Layout widths, not rendered ones: the surface is scaled with a transform,
+  // and the speed is in the panel's own pixels.
+  useLayoutEffect(() => {
+    const box = outer.current
+    if (!box) return
+    const measure = () => setWidth(box.clientWidth)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [])
+
+  useLayoutEffect(() => {
+    const line = inner.current
+    if (!line || width <= 0) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const from = width
+    const to = -line.offsetWidth
+    const distance = from - to
+    const at = travelled.current ?? from
+    // Transform only, never a filter: an endless animation on a filtered
+    // layer is what kept GPU memory climbing until the tab died.
+    const animation = line.animate?.(
+      [{ transform: `translateX(${from}px)` }, { transform: `translateX(${to}px)` }],
+      { duration: (distance / speed) * 1000, iterations: Infinity, easing: 'linear' },
+    )
+    if (!animation) return
+    animation.currentTime = at > 0 && at < distance ? (at / speed) * 1000 : 0
+    return () => {
+      const time = Number(animation.currentTime ?? 0)
+      travelled.current = ((time / 1000) * speed) % distance
+      animation.cancel()
+    }
+  }, [text, speed, width])
+
+  return (
+    <span ref={outer} className={`${className} ${styles.marquee}`} style={{ ...style, textOverflow: 'clip' }}>
+      <span ref={inner} className={styles.scrollTrack}>{text}</span>
     </span>
   )
 }
@@ -182,6 +248,8 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
         return <ScrollingText text={text} className={styles.text} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }} />
       }
       return <span className={`${styles.text} ${typography.wrap ? styles.wrappedText : ''}`} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }}>{text}</span>
+    case 'marquee':
+      return <MarqueeText text={text} speed={displayMarqueeSpeed(widget)} className={styles.text} style={{ ...textStyle, color: stringProperty(widget, 'color', 'inherit') }} />
     case 'numeric': {
       const decimals = Math.max(0, Math.min(4, Math.round(numberProperty(widget, 'decimals', 1))))
       return <span className={styles.numeric} style={textStyle}>{stringProperty(widget, 'prefix')}{numericValue(value, 42).toFixed(decimals)}{stringProperty(widget, 'suffix')}</span>

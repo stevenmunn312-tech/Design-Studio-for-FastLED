@@ -70,6 +70,7 @@ export function customDisplayFontSizes(document: DisplayDocument): number[] {
   for (const widget of placedWidgets(document)) {
     const fontSize = displayWidgetTextTokens(widget, document.theme).fontSize
     const hasText = widget.type === 'Text'
+      || widget.type === 'Marquee'
       || widget.type === 'Numeric Readout'
       || widget.type === 'Timecode'
       || widget.type === 'Pattern Browser'

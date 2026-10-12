@@ -97,12 +97,12 @@ export interface DisplayWidgetSize {
  * registry without making persisted documents executable.
  */
 export type DisplayPreviewRenderer =
-  | 'text' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
+  | 'text' | 'marquee' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
   | 'swatch' | 'pattern-browser' | 'image' | 'button' | 'toggle' | 'slider' | 'dial'
   | 'choice' | 'stepper' | 'colour-picker' | 'gauge'
 
 export type DisplayLvglEmitter =
-  | 'label' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
+  | 'label' | 'marquee' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
   | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper' | 'colour-picker' | 'gauge'
 
 export interface DisplayWidgetDefinition {
@@ -430,12 +430,28 @@ export function displayControlOutput(
 
 /**
  * The control state a graph value arriving on Set stands for: a colour on a
- * Colour Picker's Set is the hue it moves to, as `_cdSetHueRgb` reads it on
+ * Colour Picker's Set is the hue it moves to, as `_cdColorHue` reads it on
  * the glass. Other controls take the value as it is.
  */
 export function displayControlSetState(widget: Pick<DisplayWidget, 'type'>, value: unknown): unknown {
   if (widget.type !== 'Colour Picker') return value
   return isDisplayRgb(value) ? displayColorHue(value) : value
+}
+
+/**
+ * How fast a Marquee's text travels, in panel pixels per second. The default
+ * is LVGL's own label scroll speed (`LV_LABEL_DEF_SCROLL_SPEED`), so a Marquee
+ * and a scrolling Text title beside it move together.
+ */
+export const DISPLAY_MARQUEE_DEFAULT_SPEED = 40
+export const DISPLAY_MARQUEE_MIN_SPEED = 10
+export const DISPLAY_MARQUEE_MAX_SPEED = 200
+
+/** A Marquee's speed, held inside the range the inspector offers. */
+export function displayMarqueeSpeed(widget: Pick<DisplayWidget, 'properties'>): number {
+  const speed = widget.properties.speed
+  if (typeof speed !== 'number' || !Number.isFinite(speed)) return DISPLAY_MARQUEE_DEFAULT_SPEED
+  return Math.round(Math.min(DISPLAY_MARQUEE_MAX_SPEED, Math.max(DISPLAY_MARQUEE_MIN_SPEED, speed)))
 }
 
 /** Width of a Colour Picker's position marker, in pixels. */
@@ -588,6 +604,14 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     previewRenderer: 'gauge', lvglEmitter: 'gauge',
     propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), toggle('showValue', 'Show value'), number('decimals', 'Decimals', 0, 4, 1, true), text('prefix', 'Prefix', 16), text('suffix', 'Suffix', 16)],
     states: VALUE_STATES, assetSlots: NO_ASSETS, validateProperties: rangePropertyIssues,
+  },
+  Marquee: {
+    type: 'Marquee', label: 'Marquee', description: 'One line of text that travels across continuously, entering on the right and leaving on the left.',
+    portRoles: input('string', 'Text'), defaultProperties: { text: '', fontSize: 16, color: '#f4f7ff', speed: DISPLAY_MARQUEE_DEFAULT_SPEED },
+    minimumVisualSize: { width: 48, height: 20 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'marquee', lvglEmitter: 'marquee',
+    propertyInspector: [text('text', 'Text when unwired (optional)'), number('fontSize', 'Font size', 8, 96, 1, true), color('color', 'Text colour'), number('speed', 'Speed (pixels per second)', DISPLAY_MARQUEE_MIN_SPEED, DISPLAY_MARQUEE_MAX_SPEED, 1, true)],
+    states: PASSIVE_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
   },
 }
 

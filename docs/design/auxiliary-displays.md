@@ -120,9 +120,11 @@ strip, `color` out with a reserved `color` state input) and Arc Gauge (a ranged
 `float` reading on a 270-degree arc) followed. The picker is six two-stop
 gradient segments and a marker in a plain container, because LVGL 9 has no
 colour wheel; the gauge is the Dial's `lv_arc` with its touch removed. Neither
-needs a new `LV_USE_*`. XY Pad and Launch Pad remain named but deferred, so the
-port-role model still leaves room for multi-role outputs. Charts, waveform/spectrum
-histories and animated marquees wait on measured display bandwidth.
+needs a new `LV_USE_*`. A Marquee (a `string` in, like Text) is a label moved
+by an `lv_anim` inside a clipping container, because LVGL's circular label
+scroll leaves text that fits standing still. XY Pad and Launch Pad remain named
+but deferred, so the port-role model still leaves room for multi-role outputs.
+Charts and waveform/spectrum histories wait on measured display bandwidth.
 
 The first editor has two visual layers: one background owned by `DisplayTheme`
 (solid, gradient or validated baked image), then one non-overlapping widget
@@ -743,8 +745,8 @@ from the shared-bus run. Do not infer runtime capacity from the completed
 editor or historical successful compiles; check each new widget against those
 budgets.
 
-**In v1:** Choice and Step controls, Colour Picker and Arc Gauge (shipped),
-marquees, containers and overlapping widgets. They reuse the existing widget and binding
+**In v1:** Choice and Step controls, Colour Picker, Arc Gauge and Marquee
+(shipped), containers and overlapping widgets. They reuse the existing widget and binding
 path, so they join v1 ahead of the HW-18 save-format freeze.
 
 **Deferred until after v1:** multiple screens and navigation stacks, freeform

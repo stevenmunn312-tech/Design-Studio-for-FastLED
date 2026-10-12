@@ -41,16 +41,17 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
  * a compiled sketch. Without them the matrix would build the restructure and
  * leave every line of the binding path untested.
  *
- * The second Text, the Choice Strip, the Step Control, the Colour Picker and
- * the Arc Gauge are appended rather than inserted so the widget indices the
- * required-symbol checks name (`_cd_screen[4]` is the first Text) do not move.
+ * The second Text, the Choice Strip, the Step Control, the Colour Picker, the
+ * Arc Gauge and the Marquee are appended rather than inserted so the widget
+ * indices the required-symbol checks name (`_cd_screen[4]` is the first Text)
+ * do not move.
  */
 function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {}): DisplayDocument {
   let document = createDisplayDocument(id, 240, 320)
   for (const type of [
     'Slider', 'Button', 'Toggle', 'Dial', 'Text', 'Numeric Readout', 'Timecode',
     'Progress', 'Value Meter', 'Status Indicator', 'Colour Swatch', 'Pattern Browser', 'Image/Icon',
-    'Text', 'Choice Strip', 'Step Control', 'Colour Picker', 'Arc Gauge',
+    'Text', 'Choice Strip', 'Step Control', 'Colour Picker', 'Arc Gauge', 'Marquee',
   ] as const) document = addDisplayWidget(document, type)
   const icon = document.widgets.find((widget) => widget.type === 'Image/Icon')!
   icon.properties = { ...icon.properties, assetId: 'icon:power', tint: true }
@@ -176,6 +177,7 @@ const commonWires = [
   edge('custom-tft-touch', 'widget:slider:out', 'math', 'a'),
   edge('math', 'result', 'format', 'value'),
   edge('format', 'text', 'custom-tft', 'widget:text:value'),
+  edge('format', 'text', 'custom-tft', 'widget:marquee:value'),
   edge('math', 'result', 'custom-tft', 'widget:numeric-readout:value'),
   edge('math', 'result', 'controls', 'brightness'),
   // A colour in and a colour out: the picker's Set from a colour node, and

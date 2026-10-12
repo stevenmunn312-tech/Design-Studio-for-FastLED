@@ -20,6 +20,7 @@ import {
   displayControlRange,
   displayControlStartValue,
   displayGaugeGeometry,
+  displayMarqueeSpeed,
   displayPickerStartHue,
   displayPickerStops,
   displayPickerTone,
@@ -226,6 +227,9 @@ function stateStyleLines(
 function lvglWidgetClass(widget: DisplayWidget): string {
   switch (displayWidgetDefinition(widget.type).lvglEmitter) {
     case 'label': return 'lv_label'
+    // Its text is a label moved inside a clipping container, because LVGL's
+    // circular label scroll leaves text that fits standing still.
+    case 'marquee': return 'lv_obj'
     case 'bar': return 'lv_bar'
     case 'led': return 'lv_led'
     case 'button': return 'lv_button'
@@ -384,6 +388,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
 
   if (widget.type === 'Colour Picker') lines.push(...pickerLines(emit, widget, index, box))
   if (widget.type === 'Arc Gauge') lines.push(...gaugeLines(emit, widget, index, box, text.fontSize))
+  if (widget.type === 'Marquee') lines.push(...marqueeLines(emit, widget, index, text.fontSize))
 
   if (widget.type === 'Text') {
     const fallbackText = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
@@ -642,6 +647,39 @@ function gaugeLines(
   return lines
 }
 
+/**
+ * A Marquee: a container clipped to its rounded box, its border drawn over
+ * the text, and the text as its only child — a label `_cdSetMarquee` moves
+ * from the inner right edge until it has left on the left.
+ */
+function marqueeLines(
+  emit: CustomDisplayLvglEmit,
+  widget: PlacedDisplayWidget,
+  index: number,
+  fontSize: number,
+): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const obj = object(emit, index)
+  const rt = runtime(emit, index)
+  const label = `_cdMarqueeText_${safeId(emit.id)}_${index}`
+  const fallbackText = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
+  return [
+    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_SCROLLABLE);`,
+    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_CLICKABLE);`,
+    `  lv_obj_set_style_pad_all(${obj}, 0, LV_PART_MAIN);`,
+    `  lv_obj_set_style_clip_corner(${obj}, true, LV_PART_MAIN);`,
+    `  lv_obj_set_style_border_post(${obj}, true, LV_PART_MAIN);`,
+    `  lv_obj_t *${label} = lv_label_create(${obj});`,
+    `  lv_obj_set_style_text_font(${label}, &lv_font_montserrat_${customDisplayFontSize(fontSize)}, LV_PART_MAIN);`,
+    `  lv_obj_set_style_text_color(${label}, lv_color_hex(${colorHex(stringProperty(widget, 'color', theme.states.default.textColor))}), LV_PART_MAIN);`,
+    // Empty until the first text, which starts at the left edge, readable
+    // from the first frame, and sets it moving.
+    `  lv_label_set_text(${label}, "");`,
+    `  lv_obj_align(${label}, LV_ALIGN_LEFT_MID, 0, 0);`,
+    `  _cdSetMarquee(${rt}, ${cppStringLiteral(displayString(fallbackText))}, ${displayMarqueeSpeed(widget)});`,
+  ]
+}
+
 function controlContentsLines(
   emit: CustomDisplayLvglEmit,
   widget: DisplayWidget,
@@ -731,6 +769,37 @@ static bool _cdSetChildText(CustomDisplayWidgetRuntime &runtime, int32_t child, 
   if (strncmp(runtime.text, value, CD_TEXT_BYTES) == 0) return false;
   _cdCopy(runtime.text, value);
   lv_label_set_text(lv_obj_get_child(runtime.object, child), runtime.text);
+  return true;
+}
+
+static void _cdMarqueeX(void *label, int32_t x) {
+  lv_obj_set_x((lv_obj_t *)label, x);
+}
+
+// A Marquee's text is its container's child 0, travelling from the inner
+// right edge until it has left on the left, then round again, at speed
+// pixels per second. New text keeps the place the old had reached, so a
+// reading that changes every frame still travels; text too short to reach
+// that place starts again from the right. Starting the animation replaces the
+// running one, since LVGL keeps one per object and callback.
+static bool _cdSetMarquee(CustomDisplayWidgetRuntime &runtime, const char *value, uint32_t speed) {
+  if (strncmp(runtime.text, value, CD_TEXT_BYTES) == 0) return false;
+  _cdCopy(runtime.text, value);
+  lv_obj_t *label = lv_obj_get_child(runtime.object, 0);
+  int32_t at = lv_obj_get_x_aligned(label);
+  lv_label_set_text(label, runtime.text);
+  lv_obj_update_layout(runtime.object);
+  int32_t from = lv_obj_get_content_width(runtime.object);
+  int32_t to = -lv_obj_get_width(label);
+  lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, label);
+  lv_anim_set_exec_cb(&a, _cdMarqueeX);
+  lv_anim_set_values(&a, from, to);
+  lv_anim_set_duration(&a, (uint32_t)(from - to) * 1000u / speed);
+  lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+  if (at < from && at > to) a.act_time = (int32_t)((uint32_t)(from - at) * 1000u / speed);
+  lv_anim_start(&a);
   return true;
 }
 
@@ -1072,6 +1141,8 @@ function passiveUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, 
   switch (widget.type) {
     case 'Text':
       return [`  _cdSetText(${rt}, ${expr});`]
+    case 'Marquee':
+      return [`  _cdSetMarquee(${rt}, ${expr}, ${displayMarqueeSpeed(widget)});`]
     case 'Numeric Readout': {
       const format = normalizeNumberFormat(widget.properties)
       return [

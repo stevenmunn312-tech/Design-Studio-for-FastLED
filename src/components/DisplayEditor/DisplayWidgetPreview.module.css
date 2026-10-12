@@ -49,6 +49,10 @@
   will-change: transform;
 }
 
+.marquee {
+  width: 100%;
+}
+
 .wrappedText {
   display: -webkit-box;
   overflow-wrap: anywhere;
