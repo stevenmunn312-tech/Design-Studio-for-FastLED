@@ -729,20 +729,34 @@ remain in PROGMEM and are measured by the actual compile-capacity check.
 The estimate excludes other framework overhead and does not establish runtime
 heap headroom or replace the physical measurements above.
 
-## Deferred, and why
+## Deferred, dropped, and why
 
-Multiple screens and navigation stacks, overlapping widgets, freeform drawing,
-containers, arbitrary LVGL properties, embedded C/C++ or JavaScript, on-device
-text entry, charts and waveform/spectrum histories, animated marquees, the
-second-wave Colour Picker/Choice Strip/Step Control/XY Pad/Launch Pad/Arc Gauge
-palette, video on a TFT, SquareLine project import, remote/network UI, e-paper,
-and large RGB/HDMI panels.
+These features waited for a representative one-screen bench budget. HW-11 has
+now recorded it ([bench](../development/testing/display-budget-bench.md)), apart
+from the shared-bus run. Do not infer runtime capacity from the completed
+editor or historical successful compiles; check each new widget against those
+budgets.
 
-The fixed and custom software paths now exist. The original sequence required
-a representative bench budget before freezing custom-UI limits; that measurement
-is still outstanding and is HW-11. Do not infer runtime capacity from the
-completed editor or historical successful compiles.
+**In v1:** Choice and Step controls, Colour Picker, Arc Gauge, marquees,
+containers and overlapping widgets. They reuse the existing widget and binding
+path, so they join v1 ahead of the HW-18 save-format freeze.
 
-E-paper and RGB/HDMI stay out because they are different runtime classes, not
-because they are exotic. Character LCDs stay out because they would add a third
-text backend without covering a use case the OLED slice does not already serve.
+**Deferred until after v1:** multiple screens and navigation stacks, freeform
+drawing, on-device text entry, charts and waveform/spectrum histories, XY Pad,
+Launch Pad, video on a TFT, remote/network UI, and large RGB/HDMI panels. Each
+needs new plumbing: a new document shape, a firmware data feed, text storage,
+networking, or a different runtime class. RGB/HDMI stays out because it is a
+different runtime class, not because it is exotic.
+
+**Dropped:**
+
+- **E-paper.** Refresh takes seconds, so it does not suit live LED control, and
+  it would need its own drawing path.
+- **SquareLine project import/export.** It tracks a third-party paid tool's file
+  format: ongoing upkeep for few users.
+- **Arbitrary LVGL properties, callbacks and embedded C/C++ or JavaScript.**
+  They bypass validation of user text before C++ interpolation and the no-code
+  editor. The Code node already serves raw-code users.
+
+Character LCDs stay out because they would add a third text backend without
+covering a use case the OLED slice does not already serve.

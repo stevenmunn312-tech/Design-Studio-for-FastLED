@@ -401,6 +401,7 @@ is still open in
 Performance Generator is now a real Display source. NTP in the show and
 SD-player generators stays with D-03. A shared document on two same-size
 panels is in. Density/size thresholds, multi-screen navigation and the
-rest of D-02 stay deferred.
+rest of D-02 stay deferred; the widgets joining v1 are listed in
+[auxiliary displays](auxiliary-displays.md#deferred-dropped-and-why).
 Driver, bus and asset contracts remain in
 [auxiliary displays](auxiliary-displays.md).

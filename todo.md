@@ -250,6 +250,21 @@ chooses the supported combinations from whatever is on record at release.
   a long twisted A/B/ground cable, with the length recorded, powered from
   separate supplies at each end with bonded grounds.
 
+## D-02 · Larger UI scope, v1 part
+
+The one-screen budgets these widgets waited on are measured (HW-11), so the
+cheaper ones join v1. Each adds to the screen-design save format, so land them
+before HW-18 freezes it. The rest of D-02 is in section 6.
+
+- [x] **Shared-document panel interaction.** Two same-size panels can show one
+  drawing. Each glass keeps its own touch, Enabled latch and widget values.
+  Image bytes are emitted once. An unshared sketch keeps its document-id symbols
+  ([large displays](docs/design/large-displays-and-control-routing.md#one-physical-panel-its-own-screen-design)).
+- [ ] **Choice and Step controls.**
+- [ ] **Colour Picker and Arc Gauge.**
+- [ ] **Marquees** (scrolling text).
+- [ ] **Containers and overlap.**
+
 ## 5. Release track (in order)
 
 - [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
@@ -287,31 +302,15 @@ chooses the supported combinations from whatever is on record at release.
   [release checklist](docs/release/versioning-and-releases.md#release-checklist).
   Never merge `main` and `Hardware`.
 
-## D-02 · Larger UI scope
-
-Shared-document interaction is in
-([large displays](docs/design/large-displays-and-control-routing.md#one-physical-panel-its-own-screen-design)).
-The rest waits until after v1.
-
-- [x] **Shared-document panel interaction.** Two same-size panels can show one
-  drawing. Each glass keeps its own touch, Enabled latch and widget values.
-  Image bytes are emitted once. An unshared sketch keeps its document-id symbols.
-- [ ] **Multiple screens and navigation.**
-- [ ] **Containers, overlap and free drawing.**
-- [ ] **Charts, histories and marquees.**
-- [ ] **XY pad and Launch Pad.**
-- [ ] **Choice and Step controls.**
-- [ ] **Colour Picker and Arc Gauge.**
-- [ ] **Text entry.**
-- [ ] **Arbitrary callbacks, code and LVGL properties.**
-- [ ] **SquareLine project exchange.**
-- [ ] **Remote and phone UI.**
-- [ ] **TFT video, e-paper, RGB and HDMI.**
-- [ ] **Size thresholds and density**, from actual capabilities and legibility.
-- [ ] **Show Status colour-pattern artwork**, feeding the player-owned 96x96 bake
-  from a Slideshow's collection.
-
 ## 6. Deferred until after v1
+
+- [ ] **D-02 · Rest of the larger UI scope.** Multiple screens and navigation,
+  free drawing, charts and histories, XY pad and Launch Pad, text entry, remote
+  and phone UI, TFT video, RGB and HDMI panels, size thresholds and density from
+  actual capabilities and legibility, and Show Status colour-pattern artwork
+  feeding the player-owned 96x96 bake from a Slideshow's collection. The v1
+  part is above the release track; dropped items are listed in
+  [auxiliary displays](docs/design/auxiliary-displays.md#deferred-dropped-and-why).
 
 - [ ] **D-03 · Other architecture/authoring.** Multi-board, Raspberry Pi/Linux
   backend, richer timed sequences, pattern weighting/tags, broader library
