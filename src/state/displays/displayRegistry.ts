@@ -99,11 +99,11 @@ export interface DisplayWidgetSize {
 export type DisplayPreviewRenderer =
   | 'text' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
   | 'swatch' | 'pattern-browser' | 'image' | 'button' | 'toggle' | 'slider' | 'dial'
-  | 'choice' | 'stepper'
+  | 'choice' | 'stepper' | 'colour-picker' | 'gauge'
 
 export type DisplayLvglEmitter =
   | 'label' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
-  | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper'
+  | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper' | 'colour-picker' | 'gauge'
 
 export interface DisplayWidgetDefinition {
   type: DisplayWidgetType
@@ -161,7 +161,7 @@ const output = (
 ): readonly DisplayWidgetPortRole[] => [{ role: 'out', label: 'Output', direction: 'output', dataType }]
 
 const synchronized = (
-  dataType: 'float' | 'bool',
+  dataType: 'float' | 'bool' | 'color',
 ): readonly DisplayWidgetPortRole[] => [
   { role: 'out', label: 'Output', direction: 'output', dataType },
   { role: 'set', label: 'Set', direction: 'input', dataType, optional: true },
@@ -301,6 +301,129 @@ function choicePropertyIssues(properties: Readonly<Record<string, DisplayWidgetP
   return issues
 }
 
+/** A Colour Picker's hue is in degrees, red at both ends of the strip. */
+export const DISPLAY_PICKER_HUE_MAX = 360
+
+export interface DisplayRgb {
+  r: number
+  g: number
+  b: number
+}
+
+/**
+ * The colour a hue stands for, in degrees, at a saturation and brightness
+ * from 0 to 1: the six-sector HSV conversion.
+ *
+ * Between two neighbouring sectors' pure hues every channel moves linearly,
+ * so a strip drawn as six two-stop gradients shows exactly these colours. That
+ * is why the preview, the LVGL strip and `_cdHueColor` in firmware all use
+ * this rather than FastLED's CHSV, whose rainbow conversion brightens yellow
+ * and would report a colour the strip under the finger does not show.
+ */
+export function displayHueColor(hue: number, saturation: number, value: number): DisplayRgb {
+  const h = ((((Number.isFinite(hue) ? hue : 0) % 360) + 360) % 360) / 60
+  const v = Math.max(0, Math.min(1, value))
+  const chroma = v * Math.max(0, Math.min(1, saturation))
+  const x = chroma * (1 - Math.abs((h % 2) - 1))
+  const sector = Math.floor(h)
+  const [r, g, b] = sector === 0 ? [chroma, x, 0]
+    : sector === 1 ? [x, chroma, 0]
+      : sector === 2 ? [0, chroma, x]
+        : sector === 3 ? [0, x, chroma]
+          : sector === 4 ? [x, 0, chroma]
+            : [chroma, 0, x]
+  const m = v - chroma
+  const byte = (channel: number) => Math.round((channel + m) * 255)
+  return { r: byte(r), g: byte(g), b: byte(b) }
+}
+
+/**
+ * The hue of a colour, in whole degrees: where a Colour Picker moves when its
+ * Set input names that colour. A grey has no hue and reads as 0, red, the
+ * same answer `_cdColorHue` gives on the glass.
+ */
+export function displayColorHue(color: DisplayRgb): number {
+  const r = color.r / 255, g = color.g / 255, b = color.b / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min
+  if (!(delta > 0)) return 0
+  const sector = max === r ? ((g - b) / delta + 6) % 6
+    : max === g ? (b - r) / delta + 2
+      : (r - g) / delta + 4
+  return Math.round(sector * 60) % DISPLAY_PICKER_HUE_MAX
+}
+
+/** Whether a value is a graph colour, `{ r, g, b }`. */
+export function isDisplayRgb(value: unknown): value is DisplayRgb {
+  if (!value || typeof value !== 'object') return false
+  const color = value as Partial<DisplayRgb>
+  return [color.r, color.g, color.b].every((channel) => typeof channel === 'number' && Number.isFinite(channel))
+}
+
+/** A Colour Picker's authored saturation and brightness, each 0 to 1. */
+export function displayPickerTone(widget: Pick<DisplayWidget, 'properties'>): { saturation: number; brightness: number } {
+  const unit = (key: string) => Math.max(0, Math.min(1, numericProperty(widget.properties, key, 1)))
+  return { saturation: unit('saturation'), brightness: unit('brightness') }
+}
+
+/** The hue a Colour Picker shows before a finger has moved it. */
+export function displayPickerStartHue(widget: Pick<DisplayWidget, 'properties'>): number {
+  const initial = numericProperty(widget.properties, 'initial', 0)
+  return Number.isFinite(initial) ? Math.max(0, Math.min(DISPLAY_PICKER_HUE_MAX, Math.round(initial))) : 0
+}
+
+/** The colour a Colour Picker reports at a hue. */
+export function displayPickerColor(widget: Pick<DisplayWidget, 'properties'>, hue: number): DisplayRgb {
+  const { saturation, brightness } = displayPickerTone(widget)
+  return displayHueColor(hue, saturation, brightness)
+}
+
+/**
+ * A Colour Picker's strip as seven stops, 60 degrees apart, red to red. Each
+ * neighbouring pair is one segment of the LVGL strip and one leg of the
+ * preview's gradient.
+ */
+export function displayPickerStops(widget: Pick<DisplayWidget, 'properties'>): DisplayRgb[] {
+  return Array.from({ length: 7 }, (_, index) => displayPickerColor(widget, index * 60))
+}
+
+/**
+ * The hue under a point on a Colour Picker, in whole degrees: the strip's
+ * left edge is 0, its right edge 360. `left` and `width` are the strip's.
+ * `_cdEvent` reads a press the same way on the glass.
+ */
+export function displayPickerHueAt(x: number, left: number, width: number): number {
+  const unit = (x - left) / Math.max(1, width)
+  return Math.round(Math.max(0, Math.min(1, unit)) * DISPLAY_PICKER_HUE_MAX)
+}
+
+/**
+ * What a control's Output reports for the state a finger left it in.
+ *
+ * A Colour Picker holds a hue, so the touch store and the run surface deal in
+ * one number like every other control, and the colour is derived here at the
+ * port. Every other control reports its state as it is.
+ */
+export function displayControlOutput(
+  widget: Pick<DisplayWidget, 'type' | 'properties'>,
+  state: number | boolean,
+): number | boolean | DisplayRgb {
+  if (widget.type !== 'Colour Picker') return state
+  return displayPickerColor(widget, typeof state === 'number' ? state : displayPickerStartHue(widget))
+}
+
+/**
+ * The control state a graph value arriving on Set stands for: a colour on a
+ * Colour Picker's Set is the hue it moves to, as `_cdSetHueRgb` reads it on
+ * the glass. Other controls take the value as it is.
+ */
+export function displayControlSetState(widget: Pick<DisplayWidget, 'type'>, value: unknown): unknown {
+  if (widget.type !== 'Colour Picker') return value
+  return isDisplayRgb(value) ? displayColorHue(value) : value
+}
+
+/** Width of a Colour Picker's position marker, in pixels. */
+export const DISPLAY_PICKER_MARKER_PX = 8
+
 export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayWidgetDefinition>> = {
   Text: {
     type: 'Text', label: 'Text', description: 'One or two lines of static or graph-driven text.',
@@ -430,6 +553,54 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     states: CONTROL_STATES, assetSlots: NO_ASSETS,
     validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
   },
+  'Colour Picker': {
+    type: 'Colour Picker', label: 'Colour Picker', description: 'A hue strip; drag along it to pick a colour at a set saturation and brightness.',
+    portRoles: synchronized('color'), defaultProperties: { saturation: 1, brightness: 1 },
+    minimumVisualSize: { width: 96, height: 24 }, minimumTouchSize: { width: 144, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'colour-picker', lvglEmitter: 'colour-picker',
+    propertyInspector: [number('initial', 'Starts at hue (degrees)', 0, DISPLAY_PICKER_HUE_MAX, 1, true), number('saturation', 'Saturation', 0, 1, 0.01), number('brightness', 'Brightness', 0, 1, 0.01)],
+    states: CONTROL_STATES, assetSlots: NO_ASSETS,
+    validateProperties: (properties) => (numericProperty(properties, 'brightness', 1) <= 0
+      ? ['Brightness 0 picks black whatever the hue.']
+      : []),
+  },
+  'Arc Gauge': {
+    type: 'Arc Gauge', label: 'Arc Gauge', description: 'A ranged reading drawn as a 270 degree arc, with the number in the middle.',
+    portRoles: input('float'), defaultProperties: { min: 0, max: 1, decimals: 2, prefix: '', suffix: '', showValue: true },
+    minimumVisualSize: { width: 48, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'gauge', lvglEmitter: 'gauge',
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), toggle('showValue', 'Show value'), number('decimals', 'Decimals', 0, 4, 1, true), text('prefix', 'Prefix', 16), text('suffix', 'Suffix', 16)],
+    states: VALUE_STATES, assetSlots: NO_ASSETS, validateProperties: rangePropertyIssues,
+  },
+}
+
+/** Space between an Arc Gauge's border and its ring: the preview widget's own padding. */
+export const DISPLAY_GAUGE_PAD_PX = 4
+
+/**
+ * Where an Arc Gauge's arc sits inside its box: inside the border and
+ * `DISPLAY_GAUGE_PAD_PX`, centred, as wide as the shorter side left, its
+ * stroke a tenth of that. The arc runs 270 degrees with the gap at the
+ * bottom, as a Dial's does. Both renderers draw from this — LVGL insets an
+ * arc by its padding alone, so `inset` is the padding the emitter sets — and
+ * the value text sits in the ring it leaves.
+ */
+export function displayGaugeGeometry(
+  width: number,
+  height: number,
+  borderWidth: number,
+): { inset: number; size: number; stroke: number } {
+  const inset = Math.max(0, borderWidth) + DISPLAY_GAUGE_PAD_PX
+  const size = Math.max(1, Math.floor(Math.min(width, height) - 2 * inset))
+  return { inset, size, stroke: Math.max(3, Math.round(size / 10)) }
+}
+
+/**
+ * Whether a widget formats a number through the shared `formatNumberText`,
+ * so a sketch holding one needs `_dsFormatNumber`.
+ */
+export function displayWidgetFormatsNumber(type: DisplayWidgetType): boolean {
+  return type === 'Numeric Readout' || type === 'Arc Gauge'
 }
 
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/

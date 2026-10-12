@@ -184,7 +184,7 @@ control state. A disabled panel's thumbnail is dark; editing remains available.
 | Widget | Input | Output |
 | --- | --- | --- |
 | Text | Text: string (Value role) | — |
-| Numeric Readout, Progress, Value Meter | Value: float | — |
+| Numeric Readout, Progress, Value Meter, Arc Gauge | Value: float | — |
 | Timecode | Seconds: float (Value role) | — |
 | Status Indicator | Value: boolean | — |
 | Colour Swatch | Colour: colour (Value role) | — |
@@ -194,6 +194,7 @@ control state. A disabled panel's thumbnail is dark; editing remains available.
 | Toggle | Set: boolean, optional | Output: boolean |
 | Slider, Dial, Step Control | Set: float, optional | Output: float |
 | Choice Strip | Set: float, optional | Output: float, the chosen option counting the first as 0 |
+| Colour Picker | Set: colour, optional | Output: colour |
 
 A **Choice Strip** divides its width evenly between two to six options, typed
 as one comma-separated list (`Calm, Party, Strobe`). It outputs the chosen
@@ -206,6 +207,17 @@ the value one Step inside Minimum and Maximum, and a held key repeats. It shows
 the value to the precision of its Step. Like a Slider, a new Step Control wired
 to a property takes that property's range, and it can carry Volume or
 Brightness on a template's Controls wire.
+
+A **Colour Picker** is a strip of every hue, red at both ends. Drag along it to
+pick a colour; the output is that hue at the picker's own **Saturation** and
+**Brightness**. A colour wired to Set moves the marker to that colour's hue, so
+a grey or black moves it to red. Its colour wire works in all three firmware
+builds. Unlike FastLED's `CHSV`, the colours match the strip drawn under your
+finger exactly, with no boosted yellow.
+
+An **Arc Gauge** draws a number between Minimum and Maximum as a 270-degree arc
+with the gap at the bottom, the reading in the middle formatted by its Decimals,
+Prefix and Suffix. Turn off **Show value** for the arc alone. It takes no touch.
 
 An input appears only for a widget reading **A wire from the graph**. Set a
 widget's **Reads** row to a field of the panel's source instead — Title, Elapsed,

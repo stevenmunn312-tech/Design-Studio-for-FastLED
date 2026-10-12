@@ -77,6 +77,7 @@ export function customDisplayFontSizes(document: DisplayDocument): number[] {
       || widget.type === 'Toggle'
       || widget.type === 'Choice Strip'
       || widget.type === 'Step Control'
+      || (widget.type === 'Arc Gauge' && widget.properties.showValue !== false)
     if (hasText) sizes.add(customDisplayFontSize(fontSize))
     // A caption is set smaller than the widget it names, so it pins a face of
     // its own rather than riding the widget's — a screen of nothing but

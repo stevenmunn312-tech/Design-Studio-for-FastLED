@@ -264,7 +264,9 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
   the chosen index) and Step Control (minus/value/plus, repeats when held),
   built from LVGL buttons and labels
   ([widget ports](docs/reference/displays.md#widget-ports)).
-- [ ] **Colour Picker and Arc Gauge.**
+- [x] **Colour Picker and Arc Gauge.** A hue strip with a colour output and
+  colour Set, and a ranged arc readout, built from LVGL objects, gradients and
+  the existing arc ([widget ports](docs/reference/displays.md#widget-ports)).
 - [ ] **Marquees** (scrolling text).
 - [ ] **Containers and overlap.**
 

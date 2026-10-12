@@ -2,6 +2,7 @@ import type { BakedCustomDisplayAsset } from '../../state/displays/customDisplay
 import { customDisplaySampleCpp, type customDisplayControlPlan } from './customDisplayControlGraph'
 import {
   CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_LVGL_FORWARD, CUSTOM_DISPLAY_LVGL_HELPERS,
+  CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP, customDisplayNeedsHueColor,
   CUSTOM_DISPLAY_LVGL_TIMING_CPP, customDisplayLvglInitCpp, customDisplayLvglTimingSetupCpp,
   customDisplayLvglGlobalCpp, customDisplayLvglSetupCpp, customDisplayLvglLoopCpp,
 } from './customDisplayLvglCpp'
@@ -11,6 +12,7 @@ import {
 } from './customDisplayPanelCpp'
 import { customDisplayAssetsCpp } from './customDisplayAssetsCpp'
 import { displayTextCppHelpers } from './displayTextCpp'
+import { displayWidgetFormatsNumber } from '../../state/displays/displayRegistry'
 import { TFT_TOUCH_CPP_HELPERS } from './tftTouchCpp'
 
 export type CustomDisplayAssets = Record<string, readonly BakedCustomDisplayAsset[]>
@@ -33,10 +35,11 @@ export function customDisplayShowCpp(
   if (displays.length) {
     includes.push(CUSTOM_DISPLAY_LVGL_INCLUDE, CUSTOM_DISPLAY_PANEL_CPP_INCLUDES)
     forwards.push(CUSTOM_DISPLAY_LVGL_FORWARD)
-    if (displays.some((display) => display.emit.document.widgets.some((widget) => widget.type === 'Numeric Readout'))) {
+    if (displays.some((display) => display.emit.document.widgets.some((widget) => displayWidgetFormatsNumber(widget.type)))) {
       shared.push(displayTextCppHelpers({ number: true, dateTime: false, copy: false }))
     }
     helpers.push(CUSTOM_DISPLAY_LVGL_HELPERS, CUSTOM_DISPLAY_LVGL_TIMING_CPP)
+    if (customDisplayNeedsHueColor(displays.map((display) => display.emit.document))) helpers.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
     if (displays.some((display) => display.panel.touch)) helpers.push(TFT_TOUCH_CPP_HELPERS)
     setup.push(...customDisplayLvglInitCpp(), customDisplayLvglTimingSetupCpp())
   }

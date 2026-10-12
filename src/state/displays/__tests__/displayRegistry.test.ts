@@ -262,7 +262,7 @@ describe('display widget registry', () => {
       .filter((definition) => displayWidgetIsControl(definition.type))
       .map((definition) => definition.type)
       .sort()
-    expect(controls).toEqual(['Button', 'Choice Strip', 'Dial', 'Slider', 'Step Control', 'Toggle'])
+    expect(controls).toEqual(['Button', 'Choice Strip', 'Colour Picker', 'Dial', 'Slider', 'Step Control', 'Toggle'])
 
     // And it is the port that decides, not the name: a readout with an input
     // role only is not a control however finger-like it looks.

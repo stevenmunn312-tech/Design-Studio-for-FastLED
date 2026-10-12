@@ -2,6 +2,7 @@ import type { DisplayWidget } from '../../state/displays/displayDocument'
 import {
   displayControlRange,
   displayControlStartValue,
+  displayPickerStartHue,
   displayWidgetIsControl,
 } from '../../state/displays/displayRegistry'
 import {
@@ -37,6 +38,8 @@ export function isInteractiveDisplayWidget(widget: DisplayWidget): boolean {
 
 export function initialDisplayControlValue(widget: DisplayWidget): DisplayControlValue | undefined {
   if (widget.type === 'Button' || widget.type === 'Toggle') return false
+  // A Colour Picker's state is its hue in degrees; the colour is derived.
+  if (widget.type === 'Colour Picker') return displayPickerStartHue(widget)
   return displayControlStartValue(widget)
 }
 

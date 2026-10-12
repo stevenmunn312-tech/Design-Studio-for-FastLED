@@ -41,16 +41,16 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
  * a compiled sketch. Without them the matrix would build the restructure and
  * leave every line of the binding path untested.
  *
- * The second Text, the Choice Strip and the Step Control are appended rather
- * than inserted so the widget indices the required-symbol checks name
- * (`_cd_screen[4]` is the first Text) do not move.
+ * The second Text, the Choice Strip, the Step Control, the Colour Picker and
+ * the Arc Gauge are appended rather than inserted so the widget indices the
+ * required-symbol checks name (`_cd_screen[4]` is the first Text) do not move.
  */
 function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {}): DisplayDocument {
   let document = createDisplayDocument(id, 240, 320)
   for (const type of [
     'Slider', 'Button', 'Toggle', 'Dial', 'Text', 'Numeric Readout', 'Timecode',
     'Progress', 'Value Meter', 'Status Indicator', 'Colour Swatch', 'Pattern Browser', 'Image/Icon',
-    'Text', 'Choice Strip', 'Step Control',
+    'Text', 'Choice Strip', 'Step Control', 'Colour Picker', 'Arc Gauge',
   ] as const) document = addDisplayWidget(document, type)
   const icon = document.widgets.find((widget) => widget.type === 'Image/Icon')!
   icon.properties = { ...icon.properties, assetId: 'icon:power', tint: true }
@@ -158,17 +158,19 @@ const controls = (...functions: string[]) => node('controls', 'ControlMap', {
 })
 const math = () => node('math', 'Math', { mathOp: 'multiply', b: 0.5 })
 const format = () => node('format', 'FormatNumber', { decimals: 2 })
+/** A colour every generator can resolve, for the Colour Picker's Set. */
+const tint = () => node('tint', 'HSVToRGB', { h: 200, s: 1, v: 1 })
 /** The panel showing one of the bound screens above, projection included. */
 const boundPanel = (design: DisplayDocument, properties: Record<string, unknown> = {}) => panel('custom-tft', {
   displayId: 'screen', widgetSources: displayWidgetSources(design), ...properties,
 })
 const common = [
   board(), output(), panel('custom-tft', { displayId: 'screen' }), touch('custom-tft'),
-  controls('brightness', 'playPause'), math(), format(),
+  controls('brightness', 'playPause'), math(), format(), tint(),
 ]
 const commonFor = (design: DisplayDocument, ...functions: string[]) => [
   board(), output(), boundPanel(design), touch('custom-tft'),
-  controls(...(functions.length ? functions : ['brightness', 'playPause'])), math(), format(),
+  controls(...(functions.length ? functions : ['brightness', 'playPause'])), math(), format(), tint(),
 ]
 const commonWires = [
   edge('custom-tft-touch', 'widget:slider:out', 'math', 'a'),
@@ -176,6 +178,11 @@ const commonWires = [
   edge('format', 'text', 'custom-tft', 'widget:text:value'),
   edge('math', 'result', 'custom-tft', 'widget:numeric-readout:value'),
   edge('math', 'result', 'controls', 'brightness'),
+  // A colour in and a colour out: the picker's Set from a colour node, and
+  // its CRGB output read by the Swatch beside it, in every generator.
+  edge('tint', 'color', 'custom-tft', 'widget:colour-picker:set'),
+  edge('custom-tft-touch', 'widget:colour-picker:out', 'custom-tft', 'widget:colour-swatch:value'),
+  edge('math', 'result', 'custom-tft', 'widget:arc-gauge:value'),
 ]
 
 const rtc = () => node('rtc', 'RTCInput', {

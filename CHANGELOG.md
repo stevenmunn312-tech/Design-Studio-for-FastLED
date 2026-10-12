@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Screen designs gain a **Colour Picker** and an **Arc Gauge**. The Colour
+  Picker is a hue strip: drag along it to output a colour at its own saturation
+  and brightness, or wire a colour to its optional Set input to move it. The Arc
+  Gauge shows a ranged number as a 270-degree arc with the formatted value in
+  the middle. Both run in the designer preview, the live touch surface and all
+  three firmware builds, and need no change to the LVGL configuration.
 - Screen designs gain two touch controls. **Choice Strip** shows two to six
   options from a comma-separated list and outputs the chosen one, counting the
   first as 0. **Step Control** has minus and plus keys that move a value one

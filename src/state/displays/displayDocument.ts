@@ -26,6 +26,8 @@ export const DISPLAY_WIDGET_TYPES = [
   'Dial',
   'Choice Strip',
   'Step Control',
+  'Colour Picker',
+  'Arc Gauge',
 ] as const
 
 export type DisplayWidgetType = (typeof DISPLAY_WIDGET_TYPES)[number]

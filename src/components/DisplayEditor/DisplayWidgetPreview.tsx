@@ -1,9 +1,14 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import type { DisplayTheme, DisplayWidget } from '../../state/displays/displayDocument'
 import {
+  DISPLAY_PICKER_HUE_MAX,
+  DISPLAY_PICKER_MARKER_PX,
   displayChoiceOptions,
   displayControlRange,
   displayControlStartValue,
+  displayGaugeGeometry,
+  displayPickerStartHue,
+  displayPickerStops,
   displayStepDecimals,
   displayStepKeyWidth,
   displayWidgetBodyFallback,
@@ -14,6 +19,7 @@ import {
 } from '../../state/displays/displayRegistry'
 import { displayAsset, displayAssetUrl } from '../../state/displays/displayAssets'
 import { displayWidgetTextTokens, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
+import { formatNumberText, normalizeNumberFormat } from '../../state/displays/displayText'
 import { rgbToHex } from '../../state/palettes/customPalette'
 import { isPatternSelect } from '../../state/patterns/patternSelection'
 import styles from './DisplayWidgetPreview.module.css'
@@ -288,6 +294,56 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
           <span className={styles.stepKey}>-</span>
           <span className={styles.stepValue}>{current.toFixed(displayStepDecimals(widget))}</span>
           <span className={styles.stepKey}>+</span>
+        </span>
+      )
+    }
+    case 'colour-picker': {
+      // Seven stops, 60 degrees apart: the six two-stop segments the LVGL
+      // strip is built from, so both show the same colour under a finger.
+      const stops = displayPickerStops(widget)
+        .map((stop, index) => `${rgbToHex(stop)} ${((index / 6) * 100).toFixed(4)}%`)
+        .join(', ')
+      const hue = numericValue(value, displayPickerStartHue(widget))
+      const at = Math.max(0, Math.min(1, hue / DISPLAY_PICKER_HUE_MAX))
+      return (
+        <span
+          className={styles.picker}
+          style={{
+            background: `linear-gradient(to right, ${stops})`,
+            '--picker-at': `${at * 100}%`,
+            '--picker-marker': `${DISPLAY_PICKER_MARKER_PX}px`,
+          } as CSSProperties}
+        >
+          <span className={styles.pickerMarker} />
+        </span>
+      )
+    }
+    case 'gauge': {
+      // Drawn in the content box's own pixels, from the geometry the LVGL
+      // arc is sized by: 270 degrees from 135, clockwise, gap at the bottom.
+      const content = widget.bounds
+        ? displayWidgetContentBounds({ ...widget, bounds: widget.bounds }, typography.fontSize)
+        : { width: 64, height: 64 }
+      const { size, stroke } = displayGaugeGeometry(content.width, content.height, resolveDisplayThemeTokens(theme).borderWidth)
+      const radius = Math.max(0.5, (size - stroke) / 2)
+      // The same resting reading `normalized` fills the arc from.
+      const reading = numericValue(value)
+      const arc = (sweep: number) => ({
+        cx: size / 2, cy: size / 2, r: radius, fill: 'none', strokeWidth: stroke,
+        pathLength: 360, strokeDasharray: `${sweep} 360`,
+        transform: `rotate(135 ${size / 2} ${size / 2})`,
+      })
+      return (
+        <span className={styles.gauge}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+            <circle {...arc(270)} className={styles.gaugeTrack} />
+            {amount > 0 && <circle {...arc(270 * amount)} className={styles.gaugeFill} />}
+          </svg>
+          {boolProperty(widget, 'showValue', true) && (
+            <span className={styles.gaugeValue} style={textStyle}>
+              {formatNumberText(reading, normalizeNumberFormat(widget.properties))}
+            </span>
+          )}
         </span>
       )
     }

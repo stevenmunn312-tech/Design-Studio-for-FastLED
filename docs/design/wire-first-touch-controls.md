@@ -137,11 +137,11 @@ control wire" rather than "live": the caller falls back to the ordinary
 target-side rule, so answering `false` there would have quietly stopped dimming
 every other inert property wire in the graph.
 
-The scope rule above ("only six widget types are controls") is now derived
+The scope rule above ("only seven widget types are controls") is now derived
 rather than named: `displayWidgetIsControl` in `displayRegistry.ts` asks
 whether the type has an `out` role, since that role *is* the thing in question,
 and `isInteractiveDisplayWidget` — which had the four hand-listed — reads it.
-`displayRegistry.test.ts` pins the resulting set to those six so a widget that
+`displayRegistry.test.ts` pins the resulting set to those seven so a widget that
 grows an output later fails until someone has thought about what it means for
 these rules.
 
@@ -292,16 +292,16 @@ wired to nothing with an **empty palette** — undesignable — and would hide t
 widgets that can never have a connection at all. Which brings us to the rule
 that most needs its scope stated.
 
-## Only six widget types are controls
+## Only seven widget types are controls
 
 `portRoles` says which: **Button**, **Toggle**, **Slider**, **Dial**, **Choice
-Strip** and **Step Control** are the widget types with an `out` port. Everything else either reads a value (Text,
-Numeric Readout, Timecode, Progress, Value Meter, Status Indicator, Colour
+Strip**, **Step Control** and **Colour Picker** are the widget types with an `out` port. Everything else either reads a value (Text,
+Numeric Readout, Timecode, Progress, Value Meter, Arc Gauge, Status Indicator, Colour
 Swatch, Pattern Browser — all `input(...)`) or draws nothing but itself
 (Image/Icon — `portRoles: []`, which the palette labels "Visual").
 
 Any rule of the form "a widget without a connection is not available / is
-removed" applies **only to those six**. A bound readout deliberately mints no
+removed" applies **only to those seven**. A bound readout deliberately mints no
 port at all (`displayWidgetIsBound`), taking its reading from the one source
 wired into its panel; a Label or an Image can never have a wire. Applying the
 rule to every widget would delete most of a finished screen.

@@ -26,7 +26,9 @@ import { useTransportDisplayTouchStore } from '../../state/displays/transportDis
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import { displayRuntimeId } from '../../state/displays/mountedDisplays'
 import { designControlBundle } from '../../state/displays/designControlBundle'
-import { parseDisplayWidgetPortId, displayControlStartValue } from '../../state/displays/displayRegistry'
+import {
+  parseDisplayWidgetPortId, displayControlOutput, displayControlStartValue, displayPickerStartHue,
+} from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
 import { blankDmxSnapshot } from '../../state/peripherals/dmx'
 import {
@@ -183,6 +185,16 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
         // A ranged control rests where it starts, the value the renderer
         // and the firmware also start it at, not at a bare zero.
         const restWidget = shownDocument?.widgets.find((entry) => entry.id === parsed.widgetId)
+        if (port.dataType === 'color') {
+          // A Colour Picker samples its hue and reports the colour; a dark
+          // panel's picker rests at black, as the firmware's does.
+          samples[port.id] = live && restWidget
+            ? displayControlOutput(restWidget, runtime.sampleDisplayWidgetOutput(
+              runtimeId, parsed.widgetId, displayPickerStartHue(restWidget),
+            )) as PortValue
+            : { r: 0, g: 0, b: 0 }
+          continue
+        }
         const rest = port.dataType === 'bool'
           ? false
           : (restWidget ? displayControlStartValue(restWidget) : undefined) ?? 0

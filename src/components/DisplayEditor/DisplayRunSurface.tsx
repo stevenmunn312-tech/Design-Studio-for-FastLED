@@ -7,14 +7,18 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
+  DISPLAY_PICKER_HUE_MAX,
   DISPLAY_WIDGET_LIBRARY,
   displayChoiceOptions,
   displayControlHitBounds,
   displayControlRange,
+  displayPickerColor,
+  displayPickerHueAt,
   displayStepKeyWidth,
   displayWidgetContentBounds,
   displayWidgetIsNumericControl,
 } from '../../state/displays/displayRegistry'
+import { rgbToHex } from '../../state/palettes/customPalette'
 import type { DisplayDocument, PlacedDisplayWidget } from '../../state/displays/displayDocument'
 import { displayWidgetTextTokens, displayWidgetVisualState, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
@@ -39,6 +43,8 @@ import styles from './DisplayEditor.module.css'
 /** LVGL's default long-press time, then its repeat interval. */
 const STEP_HOLD_MS = 400
 const STEP_REPEAT_MS = 100
+/** Degrees an arrow key moves a Colour Picker. */
+const PICKER_KEY_DEGREES = 10
 
 interface RunDisplayWidgetProps {
   widget: PlacedDisplayWidget
@@ -60,13 +66,14 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
   const numericValue = typeof value === 'number' ? value : range.min
   const booleanValue = value === true
   const numeric = displayWidgetIsNumericControl(widget.type)
+  const picker = widget.type === 'Colour Picker'
   const visualState = displayWidgetVisualState(widget, value, { pressed: touchOwned })
   const hitBounds = displayControlHitBounds(widget)
   const role = widget.type === 'Toggle'
     ? 'switch'
     : widget.type === 'Step Control'
       ? 'spinbutton'
-      : numeric
+      : numeric || picker
         ? 'slider'
         : widget.type === 'Button'
           ? 'button'
@@ -95,6 +102,13 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
     repeat(STEP_HOLD_MS)
   }
 
+  // The strip spans the whole box, so the hue is read across the box, the
+  // same span `_cdEvent` reads on the glass.
+  const setHueFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    onValue(displayPickerHueAt(event.clientX, rect.left, rect.width), true)
+  }
+
   const setSliderFromPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     onValue(sliderValueFromPoint(
       widget,
@@ -115,6 +129,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
       onValue(!booleanValue, true)
     }
     else if (widget.type === 'Slider') setSliderFromPointer(event)
+    else if (picker) setHueFromPointer(event)
     else if (widget.type === 'Choice Strip') {
       onValue(choiceIndexFromPoint(widget, event.clientX, event.currentTarget.getBoundingClientRect()), true)
     }
@@ -128,6 +143,8 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (widget.type === 'Slider' && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       setSliderFromPointer(event)
+    } else if (picker && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      setHueFromPointer(event)
     } else if (widget.type === 'Dial' && drag.current?.pointerId === event.pointerId) {
       onValue(dialValueFromDrag(widget, drag.current.startValue, event.clientY - drag.current.startY), true)
     }
@@ -158,6 +175,18 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
         suppressToggleClick.current = true
         onValue(!booleanValue, true)
       }
+      return
+    }
+    if (picker) {
+      const hue = typeof value === 'number' ? value : 0
+      const next = event.key === 'Home' ? 0
+        : event.key === 'End' ? DISPLAY_PICKER_HUE_MAX
+          : event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? hue - PICKER_KEY_DEGREES
+            : event.key === 'ArrowRight' || event.key === 'ArrowUp' ? hue + PICKER_KEY_DEGREES
+              : null
+      if (next === null) return
+      event.preventDefault()
+      onValue(Math.max(0, Math.min(DISPLAY_PICKER_HUE_MAX, next)), false)
       return
     }
     if (!numeric) return
@@ -191,10 +220,14 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
       aria-label={interactive ? `${widget.label || definition.label} run preview` : undefined}
       aria-pressed={widget.type === 'Button' ? booleanValue : undefined}
       aria-checked={widget.type === 'Toggle' ? booleanValue : undefined}
-      aria-valuemin={numeric ? range.min : undefined}
-      aria-valuemax={numeric ? range.max : undefined}
-      aria-valuenow={numeric ? numericValue : undefined}
-      aria-valuetext={widget.type === 'Choice Strip' ? displayChoiceOptions(widget)[Math.round(numericValue)] : undefined}
+      aria-valuemin={numeric ? range.min : picker ? 0 : undefined}
+      aria-valuemax={numeric ? range.max : picker ? DISPLAY_PICKER_HUE_MAX : undefined}
+      aria-valuenow={numeric ? numericValue : picker && typeof value === 'number' ? value : undefined}
+      aria-valuetext={widget.type === 'Choice Strip'
+        ? displayChoiceOptions(widget)[Math.round(numericValue)]
+        : picker && typeof value === 'number'
+          ? `Hue ${value} degrees, ${rgbToHex(displayPickerColor(widget, value)).toUpperCase()}`
+          : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}

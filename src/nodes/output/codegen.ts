@@ -56,7 +56,7 @@ import {
   customDisplayPanelSetupCpp,
   customDisplayPanelEnableCpp,
 } from '../../codegen/displays/customDisplayPanelCpp'
-import { displayDocumentPorts, parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
+import { displayDocumentPorts, displayWidgetFormatsNumber, parseDisplayWidgetPortId } from '../../state/displays/displayRegistry'
 import { designControlBundle } from '../../state/displays/designControlBundle'
 import { resolveBoundWidgets, normalSketchSourceExpressions } from '../../codegen/displays/displaySourceExpressions'
 import { OLED_CONTROLLERS, asOledAddress, oledRotationCommands, asOledRotation } from '../../state/displays/oledSurface'
@@ -342,10 +342,10 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     // against whichever display was most recently made the default.
     const documentId = shownDesignId(p)
     const document = documentId ? opts.displayDocuments?.[documentId] : undefined
-    // Fixed layouts format their own fields. Only a screen-design Numeric
-    // Readout calls the shared graph number formatter; Text and Timecode
-    // use the LVGL runtime's own helpers.
-    if (document?.widgets.some((widget) => widget.type === 'Numeric Readout')) {
+    // Fixed layouts format their own fields. Only a screen design's Numeric
+    // Readout or Arc Gauge calls the shared graph number formatter; Text and
+    // Timecode use the LVGL runtime's own helpers.
+    if (document?.widgets.some((widget) => displayWidgetFormatsNumber(widget.type))) {
       needsDisplayText.number = true
     }
     // What this sketch can answer for a bound widget: a clock, and the
@@ -469,13 +469,14 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         if (!parsed) continue
         const expr = customDisplayLvglOutputExpression(custom, parsed.widgetId)
         if (expr === null) continue
-        const cppType = port.dataType === 'bool' ? 'bool' : 'float'
+        // A Colour Picker's colour is a CRGB, as every colour wire is here.
+        const cppType = port.dataType === 'bool' ? 'bool' : port.dataType === 'color' ? 'CRGB' : 'float'
         if (!touchNode) continue
         // Named for the Touch node, because that is the node a wire leaves:
         // the panel draws the widget, but the touch surface publishes the
         // control value.
         const name = `n_${safeId(touchNode.id)}_${safeId(port.id)}`
-        const rest = cppType === 'bool' ? 'false' : '0.0f'
+        const rest = cppType === 'bool' ? 'false' : cppType === 'CRGB' ? 'CRGB::Black' : '0.0f'
         // A control nobody can touch reports its rest value rather than
         // the position its finger left it in.
         const value = panel.enabledExpr === 'true' ? expr : `${gate} ? (${expr}) : ${rest}`

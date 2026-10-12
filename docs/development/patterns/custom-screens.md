@@ -273,6 +273,29 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `_cdSetChoice`/`_cdSetStep` find the option or value label by child index,
   so the child order is a contract. They need no extra `LV_USE_*` in the
   helper's `lv_conf.h`, which leaves button matrix, spinbox and roller off.
+- **A Colour Picker's state is a hue, its port a colour.** The touch store,
+  run surface, preview and LVGL runtime all hold the hue in whole degrees, a
+  number like every other control's state; the colour is derived only at the
+  ports, by `displayControlOutput` (Touch evaluator) and `_cdHueColor`
+  (firmware), and a colour on Set becomes a hue where it enters —
+  `displayControlSetState` when the panel evaluator publishes it, `_cdColorHue`
+  on the glass. Converting at publish keeps `resolvedDisplayControlValue`'s
+  same-type rule working and keeps a rebuilt colour object from redrawing every
+  frame. Every renderer uses the six-sector HSV in `displayHueColor`, never
+  FastLED's `CHSV`: its rainbow conversion brightens yellow, so the output
+  would not be the colour drawn under the finger. The strip is six two-stop
+  `LV_GRAD_DIR_HOR` segments then the marker, and `_cdSetHue` finds the marker
+  as child 6, so that order is a contract. `_cdHueColor` is the one LVGL helper
+  that names `CRGB`, so it lives in `CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP`, emitted
+  only when `customDisplayNeedsHueColor`: in the shared helpers it would keep
+  FastLED in a screen-only sketch (`withoutUnusedFastLed` keys on emitted text).
+  A colour Output is a `CRGB` sample in every generator and rests at
+  `CRGB::Black` on a dark panel. The Arc Gauge is the Dial's `lv_arc`, not
+  clickable, with `kind` 0; `_cdSetInteger` tells an arc by
+  `lv_obj_check_type(..., &lv_arc_class)` rather than by kind, and its reading
+  is the arc's child 0 (`_cdSetChildText`). LVGL insets an arc by its padding
+  alone, so the emitter pads it by border plus `DISPLAY_GAUGE_PAD_PX`, the
+  inset `displayGaugeGeometry` gives the preview.
 - **LVGL pool:** the helper's `lv_conf.h` (`_LV_CONF_TEXT` in
   `backend/toolchain.py`) has ESP32 take LVGL's 64 KiB pool from internal heap
   in `lv_init()` and defines `FLS_LVGL_POOL_FROM_HEAP`. A static pool filled

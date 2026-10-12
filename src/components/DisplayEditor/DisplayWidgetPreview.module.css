@@ -363,3 +363,54 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Colour Picker: the hue strip and a hollow marker at the picked hue, the
+   seven stops and marker width the LVGL strip is built from. */
+.picker {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.pickerMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(0px, calc(var(--picker-at, 0%) - var(--picker-marker, 8px) / 2), calc(100% - var(--picker-marker, 8px)));
+  width: var(--picker-marker, 8px);
+  box-sizing: border-box;
+  border: 2px solid var(--widget-state-thumb, white);
+  border-radius: 3px;
+}
+
+/* Arc Gauge: track and fill arcs in an SVG sized by displayGaugeGeometry,
+   the reading centred in the ring. */
+.gauge {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.gaugeTrack {
+  stroke: var(--widget-state-track, color-mix(in srgb, currentColor 18%, transparent));
+}
+
+.gaugeFill {
+  stroke: var(--widget-state-indicator, var(--display-accent, #36c8ff));
+}
+
+.gaugeValue {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-family: var(--widget-text-font);
+  font-size: var(--widget-text-size);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

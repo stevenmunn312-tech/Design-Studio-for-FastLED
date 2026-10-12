@@ -14,7 +14,7 @@ import { resolveBoundWidgets, type DisplaySourceExpressions } from './displaySou
 
 /** One widget output snapshot, before it is known whether it needs a gate. */
 export interface CustomDisplaySample {
-  type: 'bool' | 'float'
+  type: 'bool' | 'float' | 'color'
   variable: string
   expression: string
 }
@@ -27,9 +27,18 @@ export interface CustomDisplaySample {
  * nothing and reading no touch.
  */
 export function customDisplaySampleCpp(sample: CustomDisplaySample, gate: string | null): string {
-  const rest = sample.type === 'bool' ? 'false' : '0.0f'
-  const value = gate ? `${gate} ? (${sample.expression}) : ${rest}` : sample.expression
-  return `  ${sample.type} ${sample.variable} = ${value};`
+  const value = gate ? `${gate} ? (${sample.expression}) : ${customDisplayRestCpp(sample.type)}` : sample.expression
+  return `  ${customDisplaySampleType(sample.type)} ${sample.variable} = ${value};`
+}
+
+/** The C++ type a widget output is read into. A colour is a CRGB, as the control graph's colour nodes carry it. */
+function customDisplaySampleType(type: CustomDisplaySample['type']): string {
+  return type === 'color' ? 'CRGB' : type
+}
+
+/** What a widget output reads while no finger can reach it. */
+function customDisplayRestCpp(type: CustomDisplaySample['type']): string {
+  return type === 'bool' ? 'false' : type === 'color' ? 'CRGB::Black' : '0.0f'
 }
 
 /**
@@ -110,7 +119,7 @@ export function customDisplayControlPlan(
     // and this plan is what that resolution is built on.
     const samples: CustomDisplaySample[] = []
     for (const port of ports.filter((port) => port.direction === 'output')) {
-      if (port.dataType !== 'bool' && port.dataType !== 'float') {
+      if (port.dataType !== 'bool' && port.dataType !== 'float' && port.dataType !== 'color') {
         errors.push(`${label}.${port.label}: this widget output is unsupported by ${generatorLabel} control graph.`)
         continue
       }
@@ -144,12 +153,12 @@ export function customDisplayControlPlan(
       && String(candidate.data.properties.panelId ?? '') === panelNode.id)
     if (!document || !touchNode) continue
     for (const port of document.widgets.flatMap(displayWidgetPorts)) {
-      if (port.direction !== 'output' || (port.dataType !== 'bool' && port.dataType !== 'float')) continue
+      if (port.direction !== 'output' || (port.dataType !== 'bool' && port.dataType !== 'float' && port.dataType !== 'color')) continue
       // Only what something reads: an unread resting local is a warning.
       if (!edges.some((edge) => edge.source === touchNode.id && edge.sourceHandle === port.id)) continue
       const reference = { nodeId: touchNode.id, port: port.id, type: port.dataType }
       sources.push(reference)
-      resting.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: port.dataType === 'bool' ? 'false' : '0.0f' })
+      resting.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: customDisplayRestCpp(port.dataType) })
     }
   }
   const patternNameBindings: boolean = false

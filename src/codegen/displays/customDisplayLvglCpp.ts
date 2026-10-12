@@ -15,9 +15,14 @@ import {
   type PlacedDisplayWidget,
 } from '../../state/displays/displayDocument'
 import {
+  DISPLAY_PICKER_MARKER_PX,
   displayChoiceOptions,
   displayControlRange,
   displayControlStartValue,
+  displayGaugeGeometry,
+  displayPickerStartHue,
+  displayPickerStops,
+  displayPickerTone,
   displayStepDecimals,
   displayStepKeyWidth,
   displayWidgetBodyFallback,
@@ -237,6 +242,11 @@ function lvglWidgetClass(widget: DisplayWidget): string {
     // needs an LVGL widget the pinned lv_conf.h leaves out.
     case 'choice': return 'lv_obj'
     case 'stepper': return 'lv_obj'
+    // A strip of gradient segments and a marker in a plain container: LVGL 9
+    // has no colour wheel, and a canvas would cost a frame buffer.
+    case 'colour-picker': return 'lv_obj'
+    // The Dial's arc, with its knob left unstyled and its touch removed.
+    case 'gauge': return 'lv_arc'
   }
 }
 
@@ -251,7 +261,12 @@ function controlKind(widget: DisplayWidget): number {
   if (widget.type === 'Dial') return 4
   if (widget.type === 'Choice Strip') return 5
   if (widget.type === 'Step Control') return 6
+  if (widget.type === 'Colour Picker') return 7
   return 0
+}
+
+function rgbHex(color: { r: number; g: number; b: number }): string {
+  return `0x${[color.r, color.g, color.b].map((channel) => channel.toString(16).padStart(2, '0')).join('').toUpperCase()}`
 }
 
 function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidget, index: number): string[] {
@@ -355,8 +370,9 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   const kind = controlKind(widget)
   if (kind > 0) {
     lines.push(`  ${rt}.kind = ${kind};`)
-    // A container's keys take the touch, each reporting to this runtime.
-    if (kind < 5) lines.push(`  lv_obj_add_event_cb(${obj}, _cdEvent, LV_EVENT_ALL, &${rt});`)
+    // A container's keys take the touch, each reporting to this runtime; a
+    // Colour Picker's container takes it itself.
+    if (kind < 5 || kind === 7) lines.push(`  lv_obj_add_event_cb(${obj}, _cdEvent, LV_EVENT_ALL, &${rt});`)
     lines.push(...stateStyleLines(obj, theme.states.pressed, 'PRESSED'))
     lines.push(...stateStyleLines(obj, theme.states.active, 'CHECKED'))
     lines.push(...stateStyleLines(obj, theme.states.disabled, 'DISABLED'))
@@ -365,6 +381,9 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   if (widget.type === 'Choice Strip' || widget.type === 'Step Control') {
     lines.push(...keyedControlLines(emit, widget, index, box, text.fontSize))
   }
+
+  if (widget.type === 'Colour Picker') lines.push(...pickerLines(emit, widget, index, box))
+  if (widget.type === 'Arc Gauge') lines.push(...gaugeLines(emit, widget, index, box, text.fontSize))
 
   if (widget.type === 'Text') {
     const fallbackText = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
@@ -516,6 +535,113 @@ function keyedControlLines(
   return lines
 }
 
+/**
+ * A Colour Picker: six two-stop horizontal gradients, red to red through the
+ * stops `displayPickerStops` gives the preview, then a hollow marker. The
+ * container takes the touch; its children take none, and `_cdSetHue` finds
+ * the marker as the seventh child, so the child order is a contract.
+ */
+function pickerLines(
+  emit: CustomDisplayLvglEmit,
+  widget: PlacedDisplayWidget,
+  index: number,
+  box: { width: number; height: number },
+): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const obj = object(emit, index)
+  const rt = runtime(emit, index)
+  const stem = `${safeId(emit.id)}_${index}`
+  const width = Math.max(1, box.width - 2 * theme.borderWidth)
+  const height = Math.max(1, box.height - 2 * theme.borderWidth)
+  const stops = displayPickerStops(widget)
+  const lines = [
+    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_SCROLLABLE);`,
+    `  lv_obj_set_style_pad_all(${obj}, 0, LV_PART_MAIN);`,
+    `  lv_obj_set_style_clip_corner(${obj}, true, LV_PART_MAIN);`,
+  ]
+  const child = (name: string): void => {
+    lines.push(
+      `  lv_obj_t *${name} = lv_obj_create(${obj});`,
+      `  lv_obj_remove_flag(${name}, LV_OBJ_FLAG_CLICKABLE);`,
+      `  lv_obj_remove_flag(${name}, LV_OBJ_FLAG_SCROLLABLE);`,
+      `  lv_obj_set_style_pad_all(${name}, 0, LV_PART_MAIN);`,
+    )
+  }
+  for (let segment = 0; segment < 6; segment++) {
+    const x = Math.floor((segment * width) / 6)
+    const next = Math.floor(((segment + 1) * width) / 6)
+    const name = `_cdHue_${stem}_${segment}`
+    child(name)
+    lines.push(
+      `  lv_obj_set_pos(${name}, ${x}, 0);`,
+      `  lv_obj_set_size(${name}, ${next - x}, ${height});`,
+      `  lv_obj_set_style_radius(${name}, 0, LV_PART_MAIN);`,
+      `  lv_obj_set_style_border_width(${name}, 0, LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_color(${name}, lv_color_hex(${rgbHex(stops[segment])}), LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_opa(${name}, LV_OPA_COVER, LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_grad_color(${name}, lv_color_hex(${rgbHex(stops[segment + 1])}), LV_PART_MAIN);`,
+      `  lv_obj_set_style_bg_grad_dir(${name}, LV_GRAD_DIR_HOR, LV_PART_MAIN);`,
+    )
+  }
+  const marker = `_cdHueMarker_${stem}`
+  child(marker)
+  lines.push(
+    `  lv_obj_set_size(${marker}, ${DISPLAY_PICKER_MARKER_PX}, ${height});`,
+    `  lv_obj_set_style_radius(${marker}, 3, LV_PART_MAIN);`,
+    `  lv_obj_set_style_bg_opa(${marker}, LV_OPA_TRANSP, LV_PART_MAIN);`,
+    `  lv_obj_set_style_border_width(${marker}, 2, LV_PART_MAIN);`,
+    `  lv_obj_set_style_border_color(${marker}, lv_color_hex(${colorHex(theme.states.default.thumbColor)}), LV_PART_MAIN);`,
+    `  lv_obj_set_style_border_opa(${marker}, LV_OPA_COVER, LV_PART_MAIN);`,
+    // The marker is placed from the strip's laid-out width.
+    `  lv_obj_update_layout(${obj});`,
+    `  _cdSetHue(${rt}, ${floatLiteral(displayPickerStartHue(widget))});`,
+  )
+  return lines
+}
+
+/**
+ * An Arc Gauge: the arc inset by its border and the preview's padding, 270 degrees from 135
+ * as a Dial draws, its knob unstyled so it does not draw, and the reading in a
+ * centred label as the arc's only child.
+ */
+function gaugeLines(
+  emit: CustomDisplayLvglEmit,
+  widget: PlacedDisplayWidget,
+  index: number,
+  box: { width: number; height: number },
+  fontSize: number,
+): string[] {
+  const theme = resolveDisplayThemeTokens(emit.document.theme)
+  const obj = object(emit, index)
+  const rt = runtime(emit, index)
+  const { inset, stroke } = displayGaugeGeometry(box.width, box.height, theme.borderWidth)
+  const lines = [
+    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_CLICKABLE);`,
+    `  lv_obj_set_style_pad_all(${obj}, ${inset}, LV_PART_MAIN);`,
+    `  lv_arc_set_range(${obj}, 0, CD_VALUE_SCALE);`,
+    `  lv_arc_set_bg_angles(${obj}, 135, 45);`,
+    `  lv_arc_set_value(${obj}, 0);`,
+    `  lv_obj_set_style_arc_width(${obj}, ${stroke}, LV_PART_MAIN);`,
+    `  lv_obj_set_style_arc_width(${obj}, ${stroke}, LV_PART_INDICATOR);`,
+    `  lv_obj_set_style_arc_color(${obj}, lv_color_hex(${colorHex(theme.states.default.trackColor)}), LV_PART_MAIN);`,
+    `  lv_obj_set_style_arc_color(${obj}, lv_color_hex(${colorHex(theme.states.default.indicatorColor)}), LV_PART_INDICATOR);`,
+  ]
+  if (boolProperty(widget, 'showValue', true)) {
+    const label = `_cdGaugeValue_${safeId(emit.id)}_${index}`
+    const format = normalizeNumberFormat(widget.properties)
+    lines.push(
+      `  lv_obj_t *${label} = lv_label_create(${obj});`,
+      `  lv_obj_set_style_text_font(${label}, &lv_font_montserrat_${customDisplayFontSize(fontSize)}, LV_PART_MAIN);`,
+      `  lv_obj_set_style_text_align(${label}, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);`,
+      `  lv_obj_center(${label});`,
+      `  _dsFormatNumber(${rt}.nextText, ${floatLiteral(numberProperty(widget, 'min', 0))}, ${format.decimals}, ${format.padWidth}, `
+        + `${format.showSign ? 'true' : 'false'}, ${format.maxIntegerDigits}, ${cppStringLiteral(format.prefix)}, ${cppStringLiteral(format.suffix)});`,
+      `  _cdSetChildText(${rt}, 0, ${rt}.nextText);`,
+    )
+  }
+  return lines
+}
+
 function controlContentsLines(
   emit: CustomDisplayLvglEmit,
   widget: DisplayWidget,
@@ -567,7 +693,7 @@ static inline lv_style_selector_t _cdSel(lv_part_t part, lv_state_t state) {
 
 struct CustomDisplayWidgetRuntime {
   lv_obj_t *object;
-  uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial, 5 choice, 6 step
+  uint8_t kind;                 // 0 passive, 1 button, 2 toggle, 3 slider, 4 dial, 5 choice, 6 step, 7 colour picker
   bool touchOwned;
   bool touchPending;
   bool boolValue;
@@ -600,11 +726,20 @@ static bool _cdSetText(CustomDisplayWidgetRuntime &runtime, const char *value) {
   return true;
 }
 
+// A label held as a child, such as an Arc Gauge's reading.
+static bool _cdSetChildText(CustomDisplayWidgetRuntime &runtime, int32_t child, const char *value) {
+  if (strncmp(runtime.text, value, CD_TEXT_BYTES) == 0) return false;
+  _cdCopy(runtime.text, value);
+  lv_label_set_text(lv_obj_get_child(runtime.object, child), runtime.text);
+  return true;
+}
+
 static bool _cdSetInteger(CustomDisplayWidgetRuntime &runtime, int32_t value) {
   if (runtime.lastInteger == value) return false;
   runtime.lastInteger = value;
   if (runtime.kind == 3) lv_slider_set_value(runtime.object, value, LV_ANIM_OFF);
-  else if (runtime.kind == 4) lv_arc_set_value(runtime.object, value);
+  // A Dial and an Arc Gauge are both arcs; only the Dial is a control.
+  else if (lv_obj_check_type(runtime.object, &lv_arc_class)) lv_arc_set_value(runtime.object, value);
   else lv_bar_set_value(runtime.object, value, LV_ANIM_OFF);
   return true;
 }
@@ -649,6 +784,36 @@ static bool _cdSetStep(CustomDisplayWidgetRuntime &runtime, float value) {
   snprintf(runtime.text, CD_TEXT_BYTES, "%.*f", (int)runtime.decimals, (double)runtime.floatValue);
   lv_label_set_text(lv_obj_get_child(runtime.object, 1), runtime.text);
   return true;
+}
+
+// A Colour Picker holds its hue in whole degrees in floatValue, and its marker
+// is the seventh child, after the six strip segments. Placed the way the
+// preview places it: centred on the hue, held inside the strip.
+static bool _cdSetHue(CustomDisplayWidgetRuntime &runtime, float hue) {
+  if (!isfinite(hue)) hue = 0.0f;
+  int32_t degrees = (int32_t)lroundf(constrain(hue, 0.0f, 360.0f));
+  runtime.floatValue = (float)degrees;
+  if (runtime.lastInteger == degrees) return false;
+  runtime.lastInteger = degrees;
+  lv_obj_t *marker = lv_obj_get_child(runtime.object, 6);
+  int32_t width = lv_obj_get_content_width(runtime.object);
+  int32_t span = lv_obj_get_width(marker);
+  int32_t x = (int32_t)lroundf(degrees * width / 360.0f) - span / 2;
+  int32_t travel = width > span ? width - span : 0;
+  lv_obj_set_x(marker, x < 0 ? 0 : (x > travel ? travel : x));
+  return true;
+}
+
+// The hue of a packed RGB colour in whole degrees (displayColorHue); a grey
+// has none and reads as 0.
+static float _cdColorHue(uint32_t rgb) {
+  float r = ((rgb >> 16) & 0xFFu) / 255.0f, g = ((rgb >> 8) & 0xFFu) / 255.0f, b = (rgb & 0xFFu) / 255.0f;
+  float high = max(r, max(g, b)), low = min(r, min(g, b)), delta = high - low;
+  if (!(delta > 0.0f)) return 0.0f;
+  float sector = high == r ? fmodf((g - b) / delta + 6.0f, 6.0f)
+    : high == g ? (b - r) / delta + 2.0f
+    : (r - g) / delta + 4.0f;
+  return fmodf(roundf(sector * 60.0f), 360.0f);
 }
 
 static bool _cdSetLed(CustomDisplayWidgetRuntime &runtime, bool on) {
@@ -732,6 +897,19 @@ static void _cdEvent(lv_event_t *event) {
     runtime->taps++;
     runtime->touchPending = true;
   }
+  // A Colour Picker follows the finger along its strip, read across the whole
+  // box as the preview reads it.
+  if (runtime->kind == 7 && (code == LV_EVENT_PRESSED || code == LV_EVENT_PRESSING)) {
+    lv_point_t point;
+    lv_indev_get_point(lv_indev_active(), &point);
+    lv_area_t area;
+    lv_obj_get_coords(runtime->object, &area);
+    int32_t span = lv_area_get_width(&area);
+    float unit = (point.x - area.x1) / (float)(span > 1 ? span : 1);
+    _cdSetHue(*runtime, roundf(constrain(unit, 0.0f, 1.0f) * 360.0f));
+    if (code == LV_EVENT_PRESSED) runtime->taps++;
+    runtime->touchPending = true;
+  }
   if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
     if (runtime->kind == 1) {
       runtime->boolValue = false;
@@ -741,6 +919,40 @@ static void _cdEvent(lv_event_t *event) {
   }
 }
 `
+
+/**
+ * A Colour Picker's colour, emitted only into a sketch that has one.
+ *
+ * Kept out of the shared helpers because it is the one helper that names
+ * `CRGB`: a screen-only sketch drops the FastLED include when nothing it
+ * emits mentions FastLED, and a CRGB in a helper nobody calls would keep it.
+ */
+export const CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP = `// The six-sector HSV every renderer shares (displayHueColor): channels move
+// linearly between neighbouring pure hues, matching the drawn strip. FastLED's
+// CHSV is not used because its rainbow conversion brightens yellow.
+static CRGB _cdHueColor(float hue, float saturation, float value) {
+  float h = fmodf(fmodf(isfinite(hue) ? hue : 0.0f, 360.0f) + 360.0f, 360.0f) / 60.0f;
+  float v = constrain(value, 0.0f, 1.0f);
+  float c = v * constrain(saturation, 0.0f, 1.0f);
+  float x = c * (1.0f - fabsf(fmodf(h, 2.0f) - 1.0f));
+  float r = 0.0f, g = 0.0f, b = 0.0f;
+  switch ((int)h) {
+    case 0: r = c; g = x; break;
+    case 1: r = x; g = c; break;
+    case 2: g = c; b = x; break;
+    case 3: g = x; b = c; break;
+    case 4: r = x; b = c; break;
+    default: r = c; b = x; break;
+  }
+  float m = v - c;
+  return CRGB((uint8_t)lroundf((r + m) * 255.0f), (uint8_t)lroundf((g + m) * 255.0f), (uint8_t)lroundf((b + m) * 255.0f));
+}
+`
+
+/** Whether any of these designs needs `CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP`. */
+export function customDisplayNeedsHueColor(documents: readonly DisplayDocument[]): boolean {
+  return documents.some((document) => placedWidgets(document).some((widget) => widget.type === 'Colour Picker'))
+}
 
 /**
  * One monotonic LVGL clock and one bounded service gate per sketch.
@@ -883,6 +1095,20 @@ function passiveUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWidget, 
       return [`  _cdSetLed(${rt}, (bool)(${expr}));`]
     case 'Colour Swatch':
       return [`  _cdSetColor(${rt}, (uint32_t)(${expr}));`]
+    case 'Arc Gauge': {
+      const min = numberProperty(widget, 'min', 0)
+      const max = numberProperty(widget, 'max', 1)
+      const lines = [`  _cdSetInteger(${rt}, _cdScaled((float)(${expr}), ${floatLiteral(min)}, ${floatLiteral(max)}));`]
+      if (boolProperty(widget, 'showValue', true)) {
+        const format = normalizeNumberFormat(widget.properties)
+        lines.push(
+          `  _dsFormatNumber(${rt}.nextText, (double)(${expr}), ${format.decimals}, ${format.padWidth}, `
+            + `${format.showSign ? 'true' : 'false'}, ${format.maxIntegerDigits}, ${cppStringLiteral(format.prefix)}, ${cppStringLiteral(format.suffix)});`,
+          `  _cdSetChildText(${rt}, 0, ${rt}.nextText);`,
+        )
+      }
+      return lines
+    }
     case 'Pattern Browser':
       // The control-graph resolver supplies the selected name expression; the
       // thumbnail itself belongs to the asset-baking slice.
@@ -908,6 +1134,13 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
       `    ${rt}.floatValue = constrain((float)(${expr}), ${rt}.minimum, ${rt}.maximum);`,
       `    _cdSetInteger(${rt}, _cdScaled(${rt}.floatValue, ${rt}.minimum, ${rt}.maximum));`,
       `  }`,
+      `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
+    ]
+  }
+  if (widget.type === 'Colour Picker') {
+    // The binding is the packed colour a Colour Swatch also stores.
+    return [
+      `  if (!${rt}.touchOwned && !${rt}.touchPending) _cdSetHue(${rt}, _cdColorHue((uint32_t)(${expr})));`,
       `  if (!${rt}.touchOwned) ${rt}.touchPending = false;`,
     ]
   }
@@ -943,6 +1176,11 @@ export function customDisplayLvglOutputExpression(
   if (index < 0) return null
   const widget = widgets[index]
   if (widget.type === 'Button' || widget.type === 'Toggle') return `_cdBoolOutput(${runtime(emit, index)})`
+  if (widget.type === 'Colour Picker') {
+    // A CRGB, the type a colour wire carries in every generator.
+    const { saturation, brightness } = displayPickerTone(widget)
+    return `_cdHueColor(_cdFloatOutput(${runtime(emit, index)}), ${floatLiteral(saturation)}, ${floatLiteral(brightness)})`
+  }
   if (displayWidgetIsNumericControl(widget.type)) return `_cdFloatOutput(${runtime(emit, index)})`
   return null
 }

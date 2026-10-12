@@ -1,8 +1,11 @@
 import { useTransportDisplayTouchStore } from '../../state/displays/transportDisplayTouchStore'
 import { useDisplayRuntimeStore, type DisplayRuntimeValue } from '../../state/displays/displayRuntimeStore'
 import { displayRuntimeId } from '../../state/displays/mountedDisplays'
-import { parseDisplayWidgetPortId, type DisplayWidgetPortRoleId } from '../../state/displays/displayRegistry'
+import {
+  displayControlSetState, parseDisplayWidgetPortId, type DisplayWidgetPortRoleId,
+} from '../../state/displays/displayRegistry'
 import { readDisplaySourceField } from '../../state/displays/displaySourceFields'
+import { useGraphStore } from '../../state/graphStore'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
@@ -307,12 +310,17 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     if (designId && enabled) {
       const runtime = useDisplayRuntimeStore.getState()
       const runtimeId = displayRuntimeId(id, designId, nodes)
+      const shownWidgets = useGraphStore.getState().displayDocuments[designId]?.widgets ?? []
       for (const port of widgetInputs) {
         const parsed = parseDisplayWidgetPortId(port.id)!
         if (!incoming.has(`${id}:${port.id}`)) continue
         const value = input(id, port.id, null)
         if (value === null || Array.isArray(value)) continue
-        runtime.publishDisplayRoleValue(runtimeId, parsed.widgetId, parsed.role, value as DisplayRuntimeValue)
+        // A Set is published as the state it stands for — a Colour Picker's
+        // colour as its hue — so the control compares like with like.
+        const widget = parsed.role === 'set' ? shownWidgets.find((entry) => entry.id === parsed.widgetId) : undefined
+        const published = widget ? displayControlSetState(widget, value) : value
+        runtime.publishDisplayRoleValue(runtimeId, parsed.widgetId, parsed.role, published as DisplayRuntimeValue)
       }
       /*
        * Widgets reading the panel's own source rather than a cable.
