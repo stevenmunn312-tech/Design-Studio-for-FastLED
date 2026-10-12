@@ -276,6 +276,19 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
   clipped to it, built as LVGL child objects
   ([layout](docs/reference/displays.md#layout-and-assets)).
 
+## D-03 · Networking in every firmware output, v1 part
+
+An LED clock should keep real time whichever firmware it is built into.
+
+- [ ] **NTP in the show and SD-player generators.** The normal sketch already
+  syncs NTP and receives Art-Net over Wi-Fi or Ethernet, but the
+  generative-show and SD-player sketches have no network at all, so an RTC
+  Clock in those builds cannot use NTP, whether it feeds an LED Clock Display,
+  a screen or a schedule. Bring the shared network bootstrap into both, with
+  the same Wi-Fi credentials and wired Ethernet the normal sketch uses, and lift
+  the control graph's NTP refusal. Art-Net in those builds is a separate
+  question: a show already owns its LEDs.
+
 ## 5. Release track (in order)
 
 - [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
@@ -327,8 +340,8 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
   backend, richer timed sequences, pattern weighting/tags, broader library
   sharing and distinct per-input modulation. Keep Collection/engine ownership
   separate unless user research establishes a better model. Networking beyond
-  the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi), and any
-  networking in the show and SD-player generators.
+  the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi); networking
+  in the show and SD-player generators is in v1, above the release track.
 - [ ] **D-04 · Code/field fidelity.** Code-node overflow, persistent globals,
   timing macros/includes/palette/XY support and richer inference; writable
   FieldFormula buffers. VU expansion beyond the current contract (clocked
