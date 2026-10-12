@@ -145,10 +145,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   an empty LED Status, and a caller that omits the provider keeps the
   unresolved warning. `clock` is accepted on the same terms when `clockFor`
   returns the dateTime symbol for the RTC on the Display edge. That symbol
-  belongs to the clock, not the panel. An NTP source is named "NTP clock"
-  without resolving the node, and omitting `clockFor` keeps the unresolved
-  warning. A designed panel still skips the fixed Clock layout, and a clock
-  wire on it is still probed so the NTP warning appears. See [simple displays](../../design/simple-displays.md) and
+  belongs to the clock, not the panel. Omitting `clockFor` keeps the
+  unresolved warning. A designed panel still skips the fixed Clock layout, and
+  a clock wire on it is still probed so an unresolved clock is reported. See [simple displays](../../design/simple-displays.md) and
   [large displays/control routing](../../design/large-displays-and-control-routing.md).
 - Pattern thumbnails are baked in the browser at export, never rendered
   on-device: `src/state/patterns/patternThumbnail.ts` owns what a thumbnail *is* (32x32 =

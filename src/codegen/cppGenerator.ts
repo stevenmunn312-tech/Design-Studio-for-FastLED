@@ -12,9 +12,7 @@ import {
   SEGMENT_DISPLAY_CPP_HELPERS,
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
-import { MAX_PIN_NUMBER } from '../build/boards/boardGpio'
-import { wiredNetworkIn, DEFAULT_ETHERNET_PART_ID } from '../state/peripherals/ethernetModule'
-import { ETHERNET_INCLUDES_CPP, ONBOARD_ETHERNET_INCLUDES_CPP, ethernetBootstrapCpp, onboardEthernetBootstrapCpp } from './peripherals/ethernetCpp'
+import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
 import {
   NODE_LIBRARY,
   resolveNodeScalarExpressions,
@@ -25,7 +23,6 @@ import {
   nodeDisplayLabel,
   bypassPort,
   SPI_CHIPSETS,
-  libraryDefaults,
 } from '../state/nodeLibrary'
 import { ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
@@ -73,7 +70,6 @@ import { parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
 import { customDisplayMountPlan, displayRuntimeId } from '../state/displays/mountedDisplays'
 import { toggleWidgetSource } from '../state/displays/designControlBundle'
 import { customDisplayAssetsCpp } from './displays/customDisplayAssetsCpp'
-import { partById } from '../build/parts/partCatalogue'
 import { buildXYTable } from '../state/output/xyLayout'
 import {
   outputMirrorLeaders,
@@ -87,7 +83,6 @@ import {
 import { outputForm, isLinearForm, outputCanvasDims, outputLedTotal } from '../state/output/ledOutputForm'
 import { halfDim, renderScaleHalf } from '../state/output/renderScale'
 import { POSITION_FIXED_SCALE, positionsFixedFor } from '../state/output/stringPositions'
-import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
   boardSupportsTelemetry,
@@ -134,7 +129,7 @@ import {
   stereoVuGlobalCpp,
 } from './audio/stereoVuMeterCpp'
 import { audioEngineForGraph } from './audio/audioEngineCpp'
-import { safeId, cppStringLiteral, cppComment } from './cppLiterals'
+import { safeId, cppComment } from './cppLiterals'
 import { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75SetupCpp } from './output/hub75Cpp'
 import {
   ledHardwareFromProps,
@@ -281,19 +276,6 @@ function reachableFromOutputs(nodes: StudioNode[], edges: StudioEdge[]): StudioN
     for (const src of sources.get(id) ?? []) stack.push(src)
   }
   return nodes.filter((n) => keep.has(n.id))
-}
-
-function parseIpv4Literal(value: unknown): [number, number, number, number] | null {
-  const parts = String(value ?? '').trim().split('.')
-  if (parts.length !== 4) return null
-  const nums = parts.map((part) => Number(part))
-  if (nums.some((num) => !Number.isInteger(num) || num < 0 || num > 255)) return null
-  return nums as [number, number, number, number]
-}
-
-function ipAddressExpr(value: [number, number, number, number] | null): string {
-  const ip = value ?? [0, 0, 0, 0]
-  return `IPAddress(${ip[0]}, ${ip[1]}, ${ip[2]}, ${ip[3]})`
 }
 
 /*
@@ -659,34 +641,12 @@ export function generateCpp(
     max: MASTER_SPEED_MAX,
   }
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
-  const needsArtNet = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'Art-Net')
   const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
-  const ntpNodes = sorted.filter((n) => n.data.nodeType === 'RTCInput' && String(props(n).timeSource ?? 'Compile Time') === 'NTP')
-  const needsNtp = ntpNodes.length > 0
-  const needsNetwork = needsArtNet || needsNtp
-  // A cable carries the network instead of Wi-Fi: the board's own Ethernet
-  // port, or a W5500 on the bench. Found in the whole graph, not `sorted`: a
-  // hardware-only part has no ports to sort by.
-  const wiredNetwork = needsNetwork ? wiredNetworkIn(nodes) : null
-  const networkSource = sorted.find((n) => {
-    const p = props(n)
-    return (n.data.nodeType === 'DMXInput' && String(p.inputMode ?? 'Art-Net') === 'Art-Net')
-      || (n.data.nodeType === 'RTCInput' && String(p.timeSource ?? 'Compile Time') === 'NTP')
-  })
-  const networkProps = networkSource ? props(networkSource) : {}
-  // SSID/password are deliberately not node properties — see networkCredentials.ts —
-  // so they're looked up by node id from that browser-local store instead of `props`.
-  const networkCredentials = networkSource ? getNetworkCredentials(networkSource.id) : { ssid: '', password: '' }
-  const networkCfg = {
-    ssid: cppStringLiteral(networkCredentials.ssid),
-    password: cppStringLiteral(networkCredentials.password),
-    hostname: cppStringLiteral(networkProps.wifiHostname ?? 'fastled-node'),
-    useDhcp: networkProps.useDhcp !== false,
-    staticIp: parseIpv4Literal(networkProps.staticIp),
-    staticGateway: parseIpv4Literal(networkProps.staticGateway),
-    staticSubnet: parseIpv4Literal(networkProps.staticSubnet),
-    staticDns: parseIpv4Literal(networkProps.staticDns),
-  }
+  // The first network user in topological order owns the connection's
+  // settings. The link itself is found in the whole graph, not `sorted`: a
+  // cable is a hardware-only part with no ports to sort by.
+  const networkSource = networkSourceIn(sorted)
+  const network = networkSource ? networkSketchCpp(nodes, networkSource) : null
 
   // Resolve a float input to a C++ expression
   function floatExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number): string {
@@ -1165,22 +1125,7 @@ export function generateCpp(
     lines.push(TFT_DISPLAY_CPP_INCLUDES)
   }
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_INCLUDE)
-  if (needsNetwork) {
-    lines.push(`#if defined(ESP32)`)
-    lines.push(`#include <WiFi.h>`)
-    lines.push(`#include <WiFiUdp.h>`)
-    lines.push(`#include <time.h>`)
-    if (wiredNetwork) lines.push(...(wiredNetwork.kind === 'onboard' ? ONBOARD_ETHERNET_INCLUDES_CPP : ETHERNET_INCLUDES_CPP))
-    lines.push(`#define FLS_NET_SUPPORTED 1`)
-    lines.push(`#elif defined(ESP8266)`)
-    lines.push(`#include <ESP8266WiFi.h>`)
-    lines.push(`#include <WiFiUdp.h>`)
-    lines.push(`#include <time.h>`)
-    lines.push(`#define FLS_NET_SUPPORTED 1`)
-    lines.push(`#else`)
-    lines.push(`#define FLS_NET_SUPPORTED 0`)
-    lines.push(`#endif`)
-  }
+  if (network) lines.push(network.include)
   if (needsDmx512) {
     lines.push(`#if defined(ESP32)`)
     lines.push(`#include <esp_dmx.h>`)
@@ -1530,70 +1475,7 @@ export function generateCpp(
   if (motionVectors.length > 0) lines.push(...MOTION_VECTOR_HELPER_CPP)
   if (touchPads.length > 0) lines.push(...TOUCH_PAD_HELPER_CPP)
 
-  const wiredStaticConfig = !networkCfg.useDhcp && networkCfg.staticIp && networkCfg.staticGateway && networkCfg.staticSubnet
-    ? {
-        ip: ipAddressExpr(networkCfg.staticIp),
-        gateway: ipAddressExpr(networkCfg.staticGateway),
-        subnet: ipAddressExpr(networkCfg.staticSubnet),
-        dns: ipAddressExpr(networkCfg.staticDns),
-      }
-    : null
-  if (wiredNetwork?.kind === 'onboard') {
-    lines.push(...onboardEthernetBootstrapCpp({
-      boardLabel: wiredNetwork.boardLabel,
-      ethernet: wiredNetwork.ethernet,
-      hostname: networkCfg.hostname,
-      staticConfig: wiredStaticConfig,
-    }))
-  } else if (wiredNetwork) {
-    const p = props(wiredNetwork.node)
-    const d = libraryDefaults('EthernetModule')
-    const pin = (key: string) => intProp(p[key] ?? d[key], Number(d[key]), 0, MAX_PIN_NUMBER)
-    lines.push(...ethernetBootstrapCpp({
-      label: partById(String(p.partId ?? DEFAULT_ETHERNET_PART_ID))?.label ?? 'W5500 Ethernet',
-      sckPin: pin('sckPin'),
-      mosiPin: pin('mosiPin'),
-      misoPin: pin('misoPin'),
-      csPin: pin('csPin'),
-      intPin: pin('intPin'),
-      resetPin: pin('resetPin'),
-      hostname: networkCfg.hostname,
-      staticConfig: wiredStaticConfig,
-    }))
-  } else if (needsNetwork) {
-    lines.push(`// Shared Wi-Fi bootstrap for Art-Net receive / NTP clock sync.`)
-    lines.push(`static bool _wifiInit = false;`)
-    lines.push(`static uint32_t _wifiLastAttemptMs = 0;`)
-    lines.push(`void _netEnsureConnected() {`)
-    lines.push(`#if FLS_NET_SUPPORTED`)
-    lines.push(`  if (!_wifiInit) {`)
-    lines.push(`    WiFi.mode(WIFI_STA);`)
-    lines.push(`#if defined(ESP32)`)
-    lines.push(`    WiFi.setHostname(${networkCfg.hostname});`)
-    lines.push(`#elif defined(ESP8266)`)
-    lines.push(`    WiFi.hostname(${networkCfg.hostname});`)
-    lines.push(`#endif`)
-    if (!networkCfg.useDhcp && networkCfg.staticIp && networkCfg.staticGateway && networkCfg.staticSubnet) {
-      lines.push(`    WiFi.config(${ipAddressExpr(networkCfg.staticIp)}, ${ipAddressExpr(networkCfg.staticGateway)}, ${ipAddressExpr(networkCfg.staticSubnet)}, ${ipAddressExpr(networkCfg.staticDns)});`)
-    }
-    lines.push(`    _wifiInit = true;`)
-    lines.push(`  }`)
-    lines.push(`  if (WiFi.status() == WL_CONNECTED) return;`)
-    lines.push(`  uint32_t _wifiNow = millis();`)
-    lines.push(`  if (_wifiNow - _wifiLastAttemptMs < 5000u) return;`)
-    lines.push(`  _wifiLastAttemptMs = _wifiNow;`)
-    lines.push(`  WiFi.begin(${networkCfg.ssid}, ${networkCfg.password});`)
-    lines.push(`#endif`)
-    lines.push(`}`)
-    lines.push(`bool _netConnected() {`)
-    lines.push(`#if FLS_NET_SUPPORTED`)
-    lines.push(`  return WiFi.status() == WL_CONNECTED;`)
-    lines.push(`#else`)
-    lines.push(`  return false;`)
-    lines.push(`#endif`)
-    lines.push(`}`)
-    lines.push(``)
-  }
+  if (network) lines.push(network.bootstrap)
 
   lines.push(...customPaletteDeclarationsCpp(usedPalettes))
   lines.push(``)
@@ -1661,7 +1543,7 @@ export function generateCpp(
   if (customDisplays.length > 0) lines.push(...customDisplayLvglInitCpp())
   // The wired interface has to exist before an Art-Net socket is opened on it
   // in setupLines below. Starting it does not wait for a cable or an address.
-  if (wiredNetwork) lines.push(`  _netEnsureConnected();`)
+  if (network) lines.push(...network.setup)
   lines.push(...setupLines)
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingSetupCpp())
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 1))

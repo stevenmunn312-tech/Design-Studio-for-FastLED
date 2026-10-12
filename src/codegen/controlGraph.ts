@@ -72,9 +72,6 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     const timed = !color && !scalar && Object.hasOwn(TIMED_CONTROL_NODES, node.data.nodeType)
       ? TIMED_CONTROL_NODES[node.data.nodeType] : undefined
     const rtc = node.data.nodeType === 'RTCInput'
-    if (rtc && rtcTimeSource(node.data.properties) === 'NTP') {
-      return fail(`${label(nodeId)}: control graph cannot use NTP. Networking stays with a normal sketch.`)
-    }
     const clock = node.data.nodeType === 'TimeNode'
     const gpio = scalar || clock || color || timed || rtc ? null : controlInputCpp(node.data.nodeType, safeId(node.id), node.data.properties)
     const sample = samples.get(JSON.stringify([nodeId, port]))

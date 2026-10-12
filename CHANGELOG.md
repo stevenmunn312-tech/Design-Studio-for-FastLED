@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- An RTC Clock synced by NTP now keeps real time in generative-show and
+  SD-player firmware, not only in the normal sketch. Those builds bring up the
+  same Wi-Fi or wired Ethernet connection, with the same credentials and
+  addressing, so an LED Clock Display, a screen or a Schedule Trigger in a show
+  reads network time. Graph Health no longer refuses an NTP clock wired into
+  those builds.
 - Screen design widgets may now overlap. Later widgets draw over earlier ones,
   and the designer can bring a widget forward or send it back (Ctrl+] and
   Ctrl+[). Only controls take a touch, so text or an image over a button lets

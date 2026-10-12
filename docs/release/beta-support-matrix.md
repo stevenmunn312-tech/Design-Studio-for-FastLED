@@ -1029,6 +1029,10 @@ Notes:
   board catalogue and does have Wi-Fi hardware, but is not an ESP32/ESP8266
   FQBN, so NTP is currently blocked on it too — a known gap, not a validated
   "unsupported" result.
+- NTP inside generative-show and SD-player firmware is **experimental**: it
+  compiles (D-03, 13 October 2026, over Wi-Fi and over the WIZ850io) through
+  the same bootstrap the normal sketch uses, but no show or player build has
+  synced on hardware yet. The bench row is in the root todo, HW-13.
 - Art-Net input (see above) is gated by the identical ESP32-family-or-ESP8266
   check and shares this same open hardware-validation gap.
 - Compile Time and Manual need no network and are not blocked on any board.

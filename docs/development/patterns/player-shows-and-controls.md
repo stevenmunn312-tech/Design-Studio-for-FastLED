@@ -172,11 +172,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   emitting it. Schedule Trigger's unwired Enable uses the property and defaults
   on. Other unwired bools are false. Complex Wave, Random and DMX Channel stay
   refused.
-- A wired RTC Clock is resolved by `clockFor`, beside `ledStatusFor`. NTP
-  returns null before `resolve`, so a display-only NTP wire stays a warning and
-  does not become a graph error. A scalar NTP wire fails with
-  "control graph cannot use NTP". Compile Time, Manual and DS3231 emit through
-  `rtcInputCpp.ts`. Resolving `valid` emits the node, and displays read
+- A wired RTC Clock is resolved by `clockFor`, beside `ledStatusFor`. Every
+  time source emits through `rtcInputCpp.ts`; an NTP clock's emission also
+  carries the sketch's network (headers, bootstrap, wired setup line) from
+  `networkCpp.ts`, the same emitter the normal sketch uses, so the three
+  generators cannot drift apart. Resolving `valid` emits the node, and displays read
   `n_<id>_dateTime` from the Display edge's source. `dateTime` is not a control
   type. The first emitted DS3231 owns `_rtcHandleSerialSet()`. The templates
   already call `Serial.begin`, so this path must not add another. Inside

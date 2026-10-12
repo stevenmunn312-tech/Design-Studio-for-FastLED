@@ -195,6 +195,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   positioned string bakes only fixed-point (1/256 unit) numbers into PROGMEM;
   the user's text is parsed in TypeScript and never interpolated into C++.
 
+- The sketch's network is one emitter, `src/codegen/peripherals/networkCpp.ts`:
+  `networkSketchCpp(nodes, source)` returns the platform headers as **one
+  string**, the `_netEnsureConnected()`/`_netConnected()` bootstrap and the
+  wired setup line. The normal sketch pushes those three pieces itself; in a
+  show or SD player an NTP `RTCInput`'s control-graph emission carries them,
+  so every generator starts the same link. Keep the header block a single
+  string: the control graph dedupes includes by element, and a per-line block
+  would lose its second `#endif` against another block's. Every NTP clock in a
+  graph emits identical blocks (settings from `networkSourceIn`), which is what
+  lets that dedupe leave exactly one bootstrap.
+
 ## Instrument sketches
 
 - Device telemetry (HW-11's bench instrument) is one line format defined once in

@@ -20,7 +20,6 @@
 // than emitting a display that quietly shows nothing.
 
 import { controlReferenceCpp } from '../controlGraph'
-import { rtcTimeSource } from '../peripherals/rtcInputCpp'
 import { infoLayoutForKind, type InfoDisplayLayout } from '../../state/displays/infoDisplay'
 import {
   DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind,
@@ -322,11 +321,11 @@ export interface TemplateDisplayOptions {
    */
   ledStatusFor?: (outputId: string) => LedStatusExpressions | null
   /**
-   * Local RTC `dateTime` for a clock this template can read.
+   * An RTC's `dateTime` for a clock this template can read.
    *
-   * Absent, or null for NTP, and the panel stays unresolved. A reading
-   * accepts `clock` before the kind list and before `sourceIds`. Omitting
-   * the provider keeps today's "RTC Clock" warning, including for NTP.
+   * Absent, and the panel stays unresolved. A reading accepts `clock` before
+   * the kind list and before `sourceIds`. Omitting the provider keeps today's
+   * "RTC Clock" warning.
    */
   clockFor?: (rtcId: string) => string | null
 }
@@ -368,16 +367,11 @@ function resolveDisplayKind(
     return kind
   }
   // Before the kind list and before sourceIds. No symbol, and the panel
-  // stays unresolved rather than drawing an empty clock. NTP is named on
-  // its own so the warning can say networking stays with a normal sketch.
+  // stays unresolved rather than drawing an empty clock.
   if (kind === 'clock') {
     const symbol = clockFor?.(source.id) ?? null
     if (!symbol) {
-      unresolved.push({
-        display: displayId, port: 'display',
-        source: clockFor && rtcTimeSource(source.data.properties) === 'NTP'
-          ? 'NTP clock' : DISPLAY_SOURCE_LABELS.clock,
-      })
+      unresolved.push({ display: displayId, port: 'display', source: DISPLAY_SOURCE_LABELS.clock })
       return null
     }
     return kind

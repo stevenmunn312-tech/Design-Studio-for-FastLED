@@ -82,7 +82,7 @@ through the scalar control graph, which is what `controlSources` carries.
 
 | Content connection | Panel content |
 | --- | --- |
-| RTC Clock Display → Display | Clock (Compile Time, Manual, and DS3231 in every generator; NTP stays with a normal sketch) |
+| RTC Clock Display → Display | Clock (Compile Time, Manual, DS3231 and NTP in every generator) |
 | Music Player Display → Display | Now Playing or Fixed Transport |
 | Pattern Slideshow Display → Display | Show Status |
 | A screen design on the panel itself (`displayId`) | Authored LVGL screen |
@@ -96,9 +96,9 @@ feeds it from that source.
 `tftLayout` is a presentation choice within the connected source's treatments;
 it cannot choose another source's content. `transportLayoutForKind` resolves it.
 The TFT Clock treatment was implemented in `fecbc2bb`; it is no longer deferred.
-Show and player templates read a wired RTC Clock whose source is Compile Time,
-Manual, or DS3231. NTP stays with a normal sketch: the panel stays blank and
-the warning names that NTP clock.
+Show and player templates read a wired RTC Clock whatever its source. An NTP
+clock brings the sketch's network bootstrap with it (`networkCpp.ts`), over
+Wi-Fi or the wired link the normal sketch would use.
 
 Show Status displays the engine's pattern/selection information. It has no LED
 toggle or brightness touch region. Use custom Toggle/Slider widgets for those
@@ -356,9 +356,11 @@ in independently compiled slices:
    can read them. `dateTime` is the value that loop writes; a display reads it
    after the graph resolves the clock's `valid` port, which emits the whole
    node. Two consumed clocks stay two clocks, and an unread clock is not
-   emitted. NTP fails before resolve. A scalar NTP wire is a control-graph
-   error. A Display wire stays unresolved and the source is named "NTP clock".
-   Networking in these generators stays with D-03.
+   emitted. An NTP clock resolves like the others; its emission carries the
+   network headers, the `_netEnsureConnected()`/`_netConnected()` bootstrap
+   and, for a wired link, the setup line, all from the shared
+   `src/codegen/peripherals/networkCpp.ts` the normal sketch uses (D-03). Two
+   NTP clocks emit identical blocks, so the caller's dedupe leaves one.
 
    DS3231 starts Wire from the node's pins, then the board profile, and the
    first emitted chip calls `_rtcHandleSerialSet()` once per loop. The templates
@@ -399,7 +401,7 @@ HW-01–08 are closed. Direct-control compilation is done; its bench evidence
 is still open in
 [direct controls](direct-controls-and-output-status.md#10-verify-the-complete-workflows).
 Performance Generator is now a real Display source. NTP in the show and
-SD-player generators stays with D-03. A shared document on two same-size
+SD-player generators landed with D-03. A shared document on two same-size
 panels is in. Density/size thresholds, multi-screen navigation and the
 rest of D-02 stay deferred; the widgets joining v1 are listed in
 [auxiliary displays](auxiliary-displays.md#deferred-dropped-and-why).

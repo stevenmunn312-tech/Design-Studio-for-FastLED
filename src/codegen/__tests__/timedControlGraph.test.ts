@@ -9,6 +9,7 @@ import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { buildShowPlayer } from '../../utils/showUpload'
 import { findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../../utils/validateGraph'
+import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -89,14 +90,47 @@ describe('time-dependent control sources', () => {
     for (const line of linesOf(loop, '_rtc')) expect(normal).toContain(line)
   })
 
-  it('refuses NTP before any network code is emitted', () => {
+  it('carries the Wi-Fi bootstrap with an NTP clock, once for two clocks', () => {
+    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: 'studio', password: 'secret' })
+    const rtc = node('rtc', 'RTCInput', { timeSource: 'NTP', wifiHostname: 'led-clock' })
+    const second = node('second', 'RTCInput', { timeSource: 'NTP', ntpServer: 'time.nist.gov' })
+    const math = node('math', 'Math')
+    const graph = createControlGraph([rtc, second, math], [edge('rtc', 'hour', 'math', 'a'), edge('second', 'minute', 'math', 'b')])
+    expect(graph.resolve('math', 'result', 'float')).not.toBeNull()
+    expect([...graph.errors]).toEqual([])
+    const compiled = controlGraphCpp(graph)
+    const loop = compiled.loop.join('\n')
+    expect(loop).toContain('_rtcNtpConfigured_rtc')
+    expect(loop).toContain('configTime(0, 0, "time.nist.gov");')
+    expect(loop).toContain('if (_netConnected() && !_rtcNtpConfigured_second)')
+    // The first network user's settings win, and the block is emitted once.
+    const bootstraps = compiled.helpers.filter((block) => block.includes('void _netEnsureConnected()'))
+    expect(bootstraps).toHaveLength(1)
+    expect(bootstraps[0]).toContain('WiFi.setHostname("led-clock");')
+    expect(bootstraps[0]).toContain('WiFi.begin("studio", "secret");')
+    expect(compiled.includes.filter((block) => block.includes('#include <WiFi.h>'))).toHaveLength(1)
+    expect(compiled.includes.join('\n')).toContain('#define FLS_NET_SUPPORTED 1')
+    expect(compiled.includes.join('\n')).not.toContain('ETH.h')
+    expect(compiled.setup).toEqual([])
+    const normal = generateCpp([rtc, second, math], [edge('rtc', 'hour', 'math', 'a'), edge('second', 'minute', 'math', 'b')])
+    expect(normal).toContain(bootstraps[0])
+    useNetworkCredentialsStore.getState().removeCredentials('rtc')
+  })
+
+  it('starts a wired link in setup when the bench has an Ethernet module', () => {
+    const board = node('board', 'Board', { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' })
+    const eth = node('eth', 'EthernetModule', { sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 10, intPin: 14, resetPin: 21 })
     const rtc = node('rtc', 'RTCInput', { timeSource: 'NTP' })
     const math = node('math', 'Math')
-    const graph = createControlGraph([rtc, math], [edge('rtc', 'hour', 'math', 'a')])
-    expect(graph.resolve('math', 'result', 'float')).toBeNull()
-    expect([...graph.errors].join('\n')).toContain('control graph cannot use NTP. Networking stays with a normal sketch.')
-    expect(JSON.stringify(graph.instructions)).not.toContain('_rtcNtpConfigured_')
-    expect(() => controlGraphCpp(graph)).toThrow(/cannot use NTP/)
+    const graph = createControlGraph([board, eth, rtc, math], [edge('rtc', 'hour', 'math', 'a')])
+    expect(graph.resolve('math', 'result', 'float')).not.toBeNull()
+    const compiled = controlGraphCpp(graph)
+    const bootstrap = compiled.helpers.find((block) => block.includes('void _netEnsureConnected()'))!
+    expect(bootstrap).toContain('ETH.begin(ETH_PHY_W5500, 1, 10, 14, 21, _ethSpi)')
+    expect(bootstrap).toContain('_ethSpi.begin(12, 13, 11);')
+    expect(bootstrap).not.toContain('WiFi.begin(')
+    expect(compiled.includes.join('\n')).toContain('#include <ETH.h>')
+    expect(compiled.setup).toEqual(['  _netEnsureConnected();'])
   })
 
   it('leaves an unread RTC out and arms one serial reader for two DS3231 chips', () => {
@@ -169,22 +203,47 @@ describe('local RTC displays in show and player builds', () => {
     expect(source).not.toContain('_rtcNtpConfigured_')
   })
 
-  it('warns for an NTP display and does not emit the network clock', () => {
+  it('draws an NTP clock on a show panel and starts the network after FastLED.h', () => {
     const { nodes, edges, groups } = withClock('show', 'NTP')
     const issues = findDisplayGeneratorIssues(nodes, edges, undefined, groups)
-    expect(issues.errors.join('\n')).not.toContain('cannot use NTP')
-    expect(issues.warnings.join('\n')).toContain('wired to an NTP clock')
-    expect(issues.warnings.join('\n')).toContain('Networking stays with a normal sketch')
+    expect(issues.errors).toEqual([])
+    expect(issues.warnings.join('\n')).not.toContain('RTC Clock')
+    expect(issues.warnings.join('\n')).not.toContain('NTP')
     const source = generateShowSketch(nodes, edges, groups)
-    expect(source).not.toContain('_rtcNtpConfigured_')
-    expect(source).not.toContain('n_rtc_dateTime')
+    expect(source).toContain('n_rtc_dateTime')
+    expect(source).toContain('(int)n_rtc_dateTime.hour')
+    expect(source).toContain('if (_netConnected() && !_rtcNtpConfigured_rtc)')
+    expect(source.indexOf('#include <FastLED.h>')).toBeLessThan(source.indexOf('#include <WiFi.h>'))
+    expect(source.indexOf('#include <WiFi.h>')).toBeLessThan(source.indexOf('void _netEnsureConnected()'))
+    expect(source.indexOf('void _netEnsureConnected()')).toBeLessThan(source.indexOf('void setup()'))
+    expect(linesOf(source, 'void _netEnsureConnected()')).toHaveLength(1)
+    expect(linesOf(source, 'bool _netConnected()')).toHaveLength(1)
   })
 
-  it('reports a scalar NTP wire as a control-graph error', () => {
+  it('accepts a scalar NTP wire in a show control graph', () => {
     const { nodes, edges, groups } = withClock('show', 'NTP')
     edges.push(edge('rtc', 'hour', 'out', 'brightness'))
     const runtime = findOutputRuntimeIssues(nodes, edges, undefined, groups)
-    expect(runtime.errors.join('\n')).toContain('cannot use NTP')
+    expect(runtime.errors).toEqual([])
+    const source = generateShowSketch(nodes, edges, groups)
+    expect(source).toContain('n_rtc_hour')
+    expect(linesOf(source, 'void _netEnsureConnected()')).toHaveLength(1)
+  })
+
+  it('keeps NTP time in the SD player with the network headers before Audio.h', () => {
+    const { nodes, edges, groups } = withClock('player', 'NTP')
+    const issues = findDisplayGeneratorIssues(nodes, edges, undefined, groups)
+    expect(issues.errors).toEqual([])
+    expect(issues.warnings.join('\n')).not.toContain('RTC Clock')
+    const source = buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
+    })
+    expect(source).toContain('n_rtc_dateTime.hour')
+    expect(source).toContain('if (_netConnected() && !_rtcNtpConfigured_rtc)')
+    expect(source.indexOf('#include <WiFi.h>')).toBeLessThan(source.indexOf('#include <Audio.h>'))
+    expect(source.indexOf('void _netEnsureConnected()')).toBeLessThan(source.indexOf('void setup()'))
+    expect(linesOf(source, 'void _netEnsureConnected()')).toHaveLength(1)
+    expect(linesOf(source, 'bool _netConnected()')).toHaveLength(1)
   })
 
   it('reads the player clock without folding in player brightness', () => {

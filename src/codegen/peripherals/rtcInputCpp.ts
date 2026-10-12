@@ -1,11 +1,14 @@
 // One RTC node's loop, shared by the normal sketch and template control graphs.
-// Compile Time, Manual and DS3231 are local. NTP stays in the normal sketch:
-// show and player builds do not start a network.
+// Compile Time, Manual and DS3231 are local. NTP needs the sketch's network:
+// the normal sketch starts it beside Art-Net, and a control graph carries the
+// same bootstrap with the clock, so a show or SD player keeps real time too.
+import type { StudioNode } from '../../state/graphStore'
 import { cppStringLiteral } from '../cppLiterals'
 import { sanitizePin } from '../hardwarePins'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
 import { ds3231HelperCpp, rtcHelperCpp } from './rtcCpp'
+import { networkSketchCpp, networkSourceIn } from './networkCpp'
 import type { ControlInputEmission } from '../controlInputCpp'
 
 export const RTC_CONTROL_OUTPUTS: Record<string, 'bool' | 'float'> = {
@@ -155,11 +158,19 @@ export function rtcInputLoopCpp(id: string, p: Record<string, unknown>, v: (port
   return lines
 }
 
-/** Local RTC as a control-graph producer. NTP is refused by the caller. */
+/**
+ * An RTC as a control-graph producer.
+ *
+ * An NTP clock carries the sketch's network with it: the same headers,
+ * bootstrap and setup line the normal sketch emits, built from the whole graph
+ * so a wired link on the bench is found, and from the first network user's
+ * settings so two NTP clocks share one connection. The caller dedupes those
+ * blocks, which is why every NTP clock in a graph emits identical ones.
+ */
 export function rtcControlEmission(
   id: string,
   properties: Record<string, unknown>,
-  nodes: readonly { data: { nodeType?: unknown; properties?: unknown } }[],
+  nodes: readonly StudioNode[],
   serialSet: boolean,
 ): ControlInputEmission {
   const source = rtcTimeSource(properties)
@@ -169,6 +180,15 @@ export function rtcControlEmission(
   if (ds3231 && serialSet) loop.push('  _rtcHandleSerialSet();')
   const setup: string[] = []
   const includes: string[] = []
+  const helpers = [rtcHelperCpp().join('\n'), ...(ds3231 ? [ds3231HelperCpp().join('\n')] : [])]
+  // This clock is itself a network user, so the source is never missing.
+  const networkSource = source === 'NTP' ? networkSourceIn(nodes) : null
+  if (networkSource) {
+    const network = networkSketchCpp(nodes, networkSource)
+    includes.push(network.include)
+    helpers.push(network.bootstrap)
+    setup.push(...network.setup)
+  }
   if (ds3231) {
     const board = selectedPhysicalBoardProfile(nodes)
     const boardPins = rtcI2cPinsForProfile(board ?? undefined)
@@ -180,11 +200,5 @@ export function rtcControlEmission(
       : '  Wire.begin();  // I2C parts on the board\'s default SDA/SCL pins')
     includes.push('#include <Wire.h>')
   }
-  return {
-    setup,
-    loop,
-    outputs: { ...RTC_CONTROL_OUTPUTS },
-    helpers: [rtcHelperCpp().join('\n'), ...(ds3231 ? [ds3231HelperCpp().join('\n')] : [])],
-    includes,
-  }
+  return { setup, loop, outputs: { ...RTC_CONTROL_OUTPUTS }, helpers, includes }
 }

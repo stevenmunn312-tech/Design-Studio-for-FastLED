@@ -3055,13 +3055,6 @@ export function findDisplayGeneratorIssues(
       // A simple panel has one content input, so name it as one thing rather
       // than as a port id nobody typed.
       const what = issue.port === 'display' ? 'its Display input' : issue.port
-      if (issue.source === 'NTP clock') {
-        warnings.push(
-          `${display ? nodeLabel(display) : 'A display'}: ${what} is wired to an NTP clock, which the ${template.label} cannot use. `
-          + 'Networking stays with a normal sketch, so on the device that panel stays blank.',
-        )
-        continue
-      }
       warnings.push(
         `${display ? nodeLabel(display) : 'A display'}: ${what} is wired to ${issue.source}, which the ${template.label} cannot read. `
         + `On the device that panel stays blank — wire it to ${template.fix}, or drive the display from a normal sketch.`,

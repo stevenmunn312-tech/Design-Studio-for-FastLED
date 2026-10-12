@@ -15,7 +15,7 @@ import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources, type PatternSelectionBinding } from './customDisplayControlGraph'
 import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedStatusExpressions } from './displaySourceExpressions'
-import { rtcDateTimeSymbol, rtcTimeSource } from '../peripherals/rtcInputCpp'
+import { rtcDateTimeSymbol } from '../peripherals/rtcInputCpp'
 import { drivenOutputLedStatus, ledOutputManualExprs, ledOutputRuntimeExpressions } from '../output/ledOutputRuntimeCpp'
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_]/g, '_')
@@ -312,13 +312,12 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
     const status = ledStatusFor(source.id)
     if (status) ledTables.set(edge.target, normalSketchSourceExpressions(null, status))
   }
-  // A local RTC is a wire, not a scene clock. Resolving `valid` emits the
-  // node, and the display reads the dateTime struct that emission writes.
-  // NTP is not resolved: a display-only wire must not become a graph error.
+  // An RTC is a wire, not a scene clock. Resolving `valid` emits the node,
+  // and the display reads the dateTime struct that emission writes. An NTP
+  // clock's emission carries the sketch's network bootstrap with it.
   const clockFor = (rtcId: string): string | null => {
     const source = byId.get(rtcId)
     if (!source || source.data.nodeType !== 'RTCInput') return null
-    if (rtcTimeSource(source.data.properties) === 'NTP') return null
     const reference = graph.resolve(rtcId, 'valid', 'bool')
     return reference ? rtcDateTimeSymbol(safeId(rtcId)) : null
   }

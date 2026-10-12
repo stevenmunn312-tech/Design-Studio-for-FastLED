@@ -163,7 +163,8 @@ measured pad.
    remains open, so it stays experimental.
 6. W5500 wired networking. The WIZnet WIZ850io (`EthernetModule`) is now
    modelled from WIZnet's board file, catalogued, drawn and generated for the
-   normal sketch, where it carries Art-Net and NTP instead of Wi-Fi. It is
+   normal sketch, where it carries Art-Net and NTP instead of Wi-Fi, and since
+   D-03 for NTP in the show and SD-player sketches too. It is
    experimental: its [compile fixtures pass](../reports/compile/ethernet-compile-checks.md),
    and the bench run is still open. See
    [wired Ethernet](../design/wired-ethernet.md).

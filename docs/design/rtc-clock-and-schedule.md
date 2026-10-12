@@ -56,6 +56,14 @@ is issued once the Wi-Fi link is up, and thereafter the sketch reads
 `time(nullptr)` and lets the platform's own SNTP client keep it fresh. An epoch
 below `946684800` (2000-01-01) is treated as "not synced yet."
 
+NTP is available in every firmware output. The normal sketch, the generative
+show and the SD player all take their network from
+`src/codegen/peripherals/networkCpp.ts`: the first Art-Net or NTP node's
+hostname and addressing, Wi-Fi credentials from the browser-local store, or the
+wired link when the board or bench has one. In a show or player the RTC's
+control-graph emission carries those blocks, so an LED Clock Display, a screen
+or a schedule in those builds keeps real time (D-03).
+
 That last part is the fix in `063fbaa`. NTP used to leave every output dark
 until Wi-Fi came up, so a board with a bad password showed nothing and gave no
 signal about why. Now it runs from the build stamp immediately, flagged

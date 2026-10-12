@@ -565,7 +565,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `transceiverEnableBridgePads` finds it by name and the sheet draws a jumper to
   DE. See [DMX / Art-Net input](../../design/dmx-artnet-input.md#the-transceiver).
 - **Wired Ethernet (experimental):** `EthernetModule` is a hardware-only WIZnet
-  WIZ850io (W5500) that replaces Wi-Fi for Art-Net and NTP in the normal sketch;
+  WIZ850io (W5500) that replaces Wi-Fi for Art-Net and NTP in every generated sketch;
   both call the transport-neutral `_netEnsureConnected`/`_netConnected`, and
   only `src/codegen/peripherals/ethernetCpp.ts`'s bootstrap differs. It takes
   `SPIClass(HSPI)` where the chip has a second SPI host, because a colour panel

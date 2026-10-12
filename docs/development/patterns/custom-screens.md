@@ -41,9 +41,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   field as unanswerable. A normal sketch answers for the clock through the same
   `_rtcClockText`/`_rtcDateText` helpers the fixed Clock layout uses, so a bound
   time widget and a Clock screen beside it cannot format the hour two ways.
-  Show and player sketches use those helpers when the panel's Display wire is a
-  local RTC (Compile Time, Manual, or DS3231). An NTP wire leaves the widgets
-  blank. The source table is the power monitor, then LED status, then the
+  Show and player sketches use those helpers when the panel's Display wire is
+  an RTC Clock of any source; an NTP clock brings the network with it. The
+  source table is the power monitor, then LED status, then the
   clock, then the template table. An RTC Display wire that produces no clock
   table replaces that table, so the widgets do not fall through to the song or
   slideshow fields. A

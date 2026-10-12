@@ -82,8 +82,8 @@ Blackout through a Not) without overriding a connection you already
 made.
 
 The normal generator can render a clock. Show and player templates do the same
-for a wired RTC Clock whose source is Compile Time, Manual, or a DS3231. An NTP
-clock stays unresolved there, and that panel stays blank.
+for a wired RTC Clock of any source. An NTP clock starts the sketch's network
+in those builds too, over Wi-Fi or the wired link.
 
 ### Diagnostics and touch bounds
 
@@ -343,8 +343,8 @@ elapsed time and remain separate from the track-position clock used to render
 patterns. Time's Delta Time output retains its nominal 1/60-second value.
 Clock, Envelope, BeatSin, Noise LFO, Counter and Schedule Trigger share the
 normal emitters and keep wall-clock milliseconds, so Master Speed does not
-scale them. A wired RTC Clock (Compile Time, Manual, or DS3231) can feed a
-Schedule Trigger and a Clock layout. NTP stays with a normal sketch.
+scale them. A wired RTC Clock of any source can feed a Schedule Trigger and a
+Clock layout; an NTP clock brings the network bootstrap into the build.
 
 Supported scalar nodes keep that behaviour inside groups, including a contact
 forwarded through a group input. A Colour Swatch accepts a self-contained

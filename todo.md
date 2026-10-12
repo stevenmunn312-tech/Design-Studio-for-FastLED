@@ -95,6 +95,8 @@ chooses the supported combinations from whatever is on record at release.
     Turing Field's pixels against the preview;
   - a real Art-Net controller, and DMX512 over RS-485;
   - long-duration RTC software-clock drift, and DS3231 recovery;
+  - an NTP RTC Clock inside a generative show and an SD-player build, synced
+    over Wi-Fi and over the WIZ850io, with the clock read on a panel;
   - Button, Pot, Encoder and PIR, including the encoder's Confirm with a Music
     Player and its detent edge cases
     ([input bench](docs/reports/bench/input-peripheral-bench.md));
@@ -276,19 +278,6 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
   clipped to it, built as LVGL child objects
   ([layout](docs/reference/displays.md#layout-and-assets)).
 
-## D-03 · Networking in every firmware output, v1 part
-
-An LED clock should keep real time whichever firmware it is built into.
-
-- [ ] **NTP in the show and SD-player generators.** The normal sketch already
-  syncs NTP and receives Art-Net over Wi-Fi or Ethernet, but the
-  generative-show and SD-player sketches have no network at all, so an RTC
-  Clock in those builds cannot use NTP, whether it feeds an LED Clock Display,
-  a screen or a schedule. Bring the shared network bootstrap into both, with
-  the same Wi-Fi credentials and wired Ethernet the normal sketch uses, and lift
-  the control graph's NTP refusal. Art-Net in those builds is a separate
-  question: a show already owns its LEDs.
-
 ## D-04 · Code-node preview fidelity, v1 part
 
 A pasted FastLED classic such as DemoReel100 should move in the preview as it
@@ -379,8 +368,9 @@ and its design notes.
   backend, richer timed sequences, pattern weighting/tags, broader library
   sharing and distinct per-input modulation. Keep Collection/engine ownership
   separate unless user research establishes a better model. Networking beyond
-  the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi); networking
-  in the show and SD-player generators is in v1, above the release track.
+  the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi). Art-Net in
+  the show and SD-player generators is an open question, because a show
+  already owns its LEDs; NTP in those generators shipped with D-03.
 - [ ] **D-04 · Code/field fidelity.** Code-node includes, custom gradient
   palettes, custom XY maps and richer type inference in the preview; writable
   FieldFormula buffers. VU expansion beyond the current contract (clocked
@@ -443,7 +433,12 @@ are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
   local RTC in show and player builds
   ([control routing](docs/design/large-displays-and-control-routing.md#d-01-implementation);
   [compile checks](docs/reports/compile/control-graph-compile-checks.md)).
-  NTP in those generators stays with D-03.
+- **D-03 · Networking in every firmware output, v1 part**: an NTP RTC Clock
+  in the generative-show and SD-player sketches brings up the same Wi-Fi or
+  wired Ethernet connection the normal sketch uses, through one shared
+  emitter, and the control graph's NTP refusal is lifted
+  ([RTC design](docs/design/rtc-clock-and-schedule.md#time-sources-software-clock-optional-ntp-or-a-ds3231);
+  [compile checks](docs/reports/compile/control-graph-compile-checks.md)).
 - **HW-01–HW-10, HW-15, HW-21–HW-31**: controls and screens, workflow, catalogue
   and helper work.
 - **Direct controls and LED output status**: software complete; bench readings

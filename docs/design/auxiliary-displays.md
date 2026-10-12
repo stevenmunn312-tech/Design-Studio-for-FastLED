@@ -448,8 +448,8 @@ float/bool/string paths, a self-contained colour, and the running engine's
 pattern selection. Interval shares the normal firmware's elapsed-millisecond
 timer and computed presses bypass contact debounce. Clock, Envelope, BeatSin,
 Noise LFO, Counter and Schedule Trigger share those emitters and keep
-wall-clock milliseconds. A wired RTC Clock (Compile Time, Manual, or DS3231)
-is a control source and a Clock layout. NTP stays with a normal sketch.
+wall-clock milliseconds. A wired RTC Clock of any source is a control source
+and a Clock layout; an NTP clock starts the sketch's network.
 Complex Wave, Random, DMX Channel, arbitrary scripts and palette or image
 colours remain outside that template scope.
 

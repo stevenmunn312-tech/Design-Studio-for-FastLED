@@ -164,7 +164,7 @@ def plan() -> list[Leg]:
         *power_switch_legs("arduino-cli"),
         *(Leg("control-graph", "compile-display-smoke.py", "arduino-cli",
               ROOT / "artifacts" / "control-graph-compile" / f"{mode}.ino")
-          for mode in ("normal", "show", "player")),
+          for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet")),
         *ir_arduino_cli_legs(),
     ]
 

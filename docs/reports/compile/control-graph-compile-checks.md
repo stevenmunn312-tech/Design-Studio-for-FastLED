@@ -211,5 +211,51 @@ The full Vitest run passes 7,215 tests across 420 files, with 20 tests and five
 files skipped. ESLint and the production build pass. The existing circular
 chunk warning between `graph-runtime` and `node-catalog` remains, and the
 build warns that the index chunk is 755.7 KiB. This closes the listed D-01
-sequence. NTP in show and player sketches stays with
-[D-03](../../design/large-displays-and-control-routing.md#other-scope).
+sequence. NTP in show and player sketches followed as D-03, below.
+
+## D-03: NTP in show and player sketches, 13 October 2026
+
+An NTP RTC Clock now builds into the generative show and the SD player. The
+network bootstrap moved out of `cppGenerator.ts` into
+`src/codegen/peripherals/networkCpp.ts`, which the normal sketch and the
+control graph share: the platform headers as one block, the
+`_netEnsureConnected()`/`_netConnected()` bootstrap over Wi-Fi, a W5500 module
+or a board's own Ethernet, and the wired setup line. An NTP `RTCInput`'s
+control-graph emission carries those three pieces, so `controlGraph.ts` no
+longer refuses NTP, `clockFor` resolves an NTP clock like any other, and the
+"NTP clock" display warning is gone. Two NTP clocks in one graph emit identical
+blocks and the control graph's dedupe leaves one bootstrap. Art-Net in these
+sketches is unchanged and still outside their scope.
+
+The fixture generator gained three variants of the D-01 clock chain above, all
+with the same Schedule Trigger, TM1637 Clock layout and custom panel: `show-ntp`
+and `player-ntp` sync over Wi-Fi with credentials seeded into the browser-local
+store the way the app does, and `show-ethernet` adds a WIZ850io on the S3's
+HSPI pins (SCK 12, MOSI 11, MISO 13, CS 10, INT 14, RST 15). The generator
+checks that each NTP sketch defines `_netEnsureConnected()` exactly once, that
+the wired variant alone emits `ETH.begin(ETH_PHY_W5500, ...)` and starts the
+link in `setup()`, and that the Compile Time sketches emit no network code.
+
+The same reproduce command and toolchain apply; the plan now lists the six
+control-graph fixtures. The three new sketches were compiled serially through
+`compile-display-smoke.py` on 13 October 2026. The sources are the working tree
+on top of `1375d4d5`.
+
+Windows, Arduino CLI 1.5.1, ESP32 core 3.3.11, FastLED 3.10.5, LVGL 9.5.0.
+The helper pins player audio to 3.0.12. All three use
+`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB`.
+
+| Fixture | Source SHA-256 prefix | Result | Flash bytes | Static RAM bytes |
+| --- | --- | --- | ---: | ---: |
+| Slideshow, NTP over Wi-Fi | `6e6ffa4362a4` | Passed | 1,227,051 | 64,060 |
+| SD player, NTP over Wi-Fi | `427d7123aa7e` | Passed | 1,716,447 | 74,036 |
+| Slideshow, NTP over WIZ850io | `feb73870a9a8` | Passed | 890,911 | 48,452 |
+
+Each report's full source hash matches the fixture manifest. The wired build is
+smaller than the Wi-Fi one because nothing in it references `WiFi.begin`, so
+the station driver is not linked. All three pass on Arduino CLI; fbuild remains
+on hold. No hardware was flashed; the bench row is in the root todo, HW-13.
+
+The full Vitest run passes 7,364 tests across 426 files, with 20 tests and five
+files skipped. ESLint and the production build pass. This closes the v1 part of
+[D-03](../../design/rtc-clock-and-schedule.md#time-sources-software-clock-optional-ntp-or-a-ds3231).
