@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
-import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes } from '../../state/graphStore'
+import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes, ROOT_GRAPH_ID } from '../../state/graphStore'
+import { openGroupInputs } from '../../state/evaluator/openGroupInputs'
+import { cloneFrame } from '../../state/evaluator/frames'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
@@ -127,6 +129,18 @@ let nextTrackId = 0
 // the generated sketch) so the preview matches what the hardware shows. Only
 // the graph's own frame is dimmed — the idle shimmer isn't a real output, and
 // show playback drives brightness through its own SET_BRIGHTNESS events.
+/** Copy an evaluator-pooled frame into the caller-owned route buffer (or a
+ * fresh one when the size changed), so the in-place master-brightness scale
+ * below never touches a frame the evaluator still publishes to node previews. */
+function ownFrame(source: Frame, reuse: Frame | null): Frame {
+  if (!reuse || reuse.length !== source.length || reuse[0]?.length !== source[0]?.length) return cloneFrame(source)
+  for (let y = 0; y < source.length; y++) {
+    const from = source[y], to = reuse[y]
+    for (let x = 0; x < from.length; x++) { to[x].r = from[x].r; to[x].g = from[x].g; to[x].b = from[x].b }
+  }
+  return reuse
+}
+
 function applyMasterBrightness(frame: Frame | null, brightness: number): Frame | null {
   if (!frame) return null
   if (brightness >= 255) return frame
@@ -570,6 +584,10 @@ export default function LEDPreview() {
         const hardwareNodes = rootGraphNodes(state)
         const controller = controllerSettings(hardwareNodes)
         const groups = getGroupRegistry()
+        // A pattern group open on the canvas has no Group node binding its
+        // inputs, so its audio inputs take the project's live source and the
+        // analyzers inside keep reacting while the pattern is edited.
+        const groupInputs = state.activeGraphId === ROOT_GRAPH_ID ? undefined : openGroupInputs(graphNodes, hardwareNodes)
         // One evaluation pass feeds both the main matrix and every node preview.
         // Nodes disconnected from the output only feed previews published at
         // the 125 ms cadence, so they're evaluated only on publish frames —
@@ -595,13 +613,16 @@ export default function LEDPreview() {
           ? [...passes.filter((pass) => pass !== selectedPass), selectedPass]
           : passes
         let outputs = new Map<string, Record<string, unknown>>()
+        // The terminal frame of the selected pass: a graph with no LED output
+        // (a pattern group open on the canvas) previews its Group Output.
+        let terminalFrame: Frame | null = null
         const routedByOutput = new Map<string, Frame | null>()
         let sawBeat = false
         for (const pass of orderedPasses) {
           const result = evaluateGraphFull(
             graphNodes, graphEdges, tick, pass.width, pass.height,
             groups, pass === selectedPass && fullPass, trusted,
-            `__output_pass_${pass.key}/`, null, elapsedTick,
+            `__output_pass_${pass.key}/`, null, elapsedTick, groupInputs,
           )
           const passBeat = Array.from(result.outputs.values()).some((output) => output.beat === true)
           sawBeat ||= passBeat
@@ -613,7 +634,7 @@ export default function LEDPreview() {
               : route.id === requestedStreamOutputId ? streamRouteBufRef.current : null
             routedByOutput.set(route.id, routeFrame(source ?? null, route, pass.width, pass.height, reuse))
           }
-          if (pass === selectedPass || outputs.size === 0) outputs = result.outputs
+          if (pass === selectedPass || outputs.size === 0) { outputs = result.outputs; terminalFrame = result.frame }
         }
         /*
          * Master Speed, applied by sliding the animation clock's origin rather
@@ -629,7 +650,9 @@ export default function LEDPreview() {
         const masterSpeed = masterSpeedFromOutputs(graphNodes, outputs)
         if (masterSpeed !== 1) startTime.current += masterSpeedOriginShift(gapMs, masterSpeed)
         const evalMs = PERF_TELEMETRY ? performance.now() - evalStart : 0
-        const selectedRouted = selectedRoute ? routedByOutput.get(selectedRoute.id) ?? null : null
+        const selectedRouted = selectedRoute
+          ? routedByOutput.get(selectedRoute.id) ?? null
+          : routes.length === 0 && terminalFrame ? ownFrame(terminalFrame, routeBufRef.current) : null
         let frame = selectedRouted
         if (frame) routeBufRef.current = frame
         frame = applyMasterBrightness(frame, controller.brightness)

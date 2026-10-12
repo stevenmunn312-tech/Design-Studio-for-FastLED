@@ -1,4 +1,4 @@
-import { useAudioStore } from '../../state/audio/audioStore'
+import { liveAudioSignal } from '../../state/audio/liveAudioSignal'
 import { useDmxStore } from '../../state/peripherals/dmxStore'
 import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
 import {
@@ -58,13 +58,12 @@ import { useGraphStore } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
-import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
 import { resolveStorageCapabilitySource } from '../../build/storageCapabilities'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
 import { clamp01 } from '../../state/evaluator/frames'
 import { markStateUsed, stateClock, instanceState } from '../../state/evaluator/memory'
 import { blankPlayerControls } from '../../state/evaluator/signals'
-import type { PlayerControls, AudioSignal, PortValue, NodeEvaluators } from '../../state/evaluator/types'
+import type { PlayerControls, PortValue, NodeEvaluators } from '../../state/evaluator/types'
 
 const irPreviewState = instanceState('irPreviewState', new Map<string, IrPreviewMemory>())
 
@@ -119,10 +118,6 @@ function panelTouchControls(
   previousTouch.pressed = pressed
   transportDisplayTouchState.set(touchKey, previousTouch)
   return controls
-}
-
-function liveAudioSignal(kind: 'microphone' | 'line-in' | 'decoder'): AudioSignal {
-  return kind === 'decoder' ? useDecoderAudioStore.getState() : useAudioStore.getState()
 }
 
 export const INPUT_EVALUATORS: NodeEvaluators = {

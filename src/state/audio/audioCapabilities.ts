@@ -21,7 +21,7 @@ export interface AudioCapabilityOption {
   unavailableHint: string
 }
 
-const AUDIO_CAPABILITY_INTENT_PREFIX = 'kind:'
+export const AUDIO_CAPABILITY_INTENT_PREFIX = 'kind:'
 
 /** A stable authored value that records which source class the user wants,
  * even before the corresponding Hardware provider exists. */

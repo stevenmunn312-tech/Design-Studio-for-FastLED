@@ -421,13 +421,16 @@ export function evaluateGraphFull(
   // Separate wall clock for schedulers that must not follow Master Speed.
   // Defaulting to `tick` preserves every non-preview/direct evaluator caller.
   elapsedTick = tick,
+  // Values for the graph's GroupInput nodes when it is a group subgraph
+  // evaluated on its own (open on the canvas) rather than through a Group node.
+  groupInputs: Record<string, PortValue> = {},
 ): { frame: Frame | null; outputs: Map<string, Record<string, unknown>> } {
   maybePruneEvaluatorState()
   advanceFramePool()
   const outputs = new Map<string, Record<string, unknown>>()
   if (nodes.length === 0) return { frame: null, outputs }
   const evalNode = createEvalNode(
-    nodes, edges, tick, gridW, gridH, groups, instancePrefix, new Set(), {}, audioOverride, null, trusted, nodes, elapsedTick,
+    nodes, edges, tick, gridW, gridH, groups, instancePrefix, new Set(), groupInputs, audioOverride, null, trusted, nodes, elapsedTick,
   )
   const hot = auxNodes ? null : hotNodeIds(nodes, edges)
   for (const n of nodes) {

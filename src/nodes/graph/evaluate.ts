@@ -1,5 +1,6 @@
 import type { PortValue, NodeEvaluators } from '../../state/evaluator/types'
 import { blankFrame } from '../../state/evaluator/frames'
+import { audioGroupInputParamIds } from '../../state/evaluator/openGroupInputs'
 
 export const GRAPH_EVALUATORS: NodeEvaluators = {
   Group({ inputSourceType, input, tick, elapsedTick, W, H, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGroup }, id, props, node) {
@@ -21,11 +22,8 @@ export const GRAPH_EVALUATORS: NodeEvaluators = {
     // boundary. The group's own Audio cables still decide which analyzers
     // receive it; no analyzer reads the override directly.
     if (audioOverride) {
-      for (const groupNode of def.nodes) {
-        if (String(groupNode.data.nodeType ?? '') !== 'GroupInput') continue
-        const paramId = String((groupNode.data.properties as { paramId?: string } | undefined)?.paramId ?? '')
-        const outputType = ((groupNode.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType) ?? ''
-        if (paramId && outputType === 'audio' && !boundInputs[paramId]) boundInputs[paramId] = audioOverride
+      for (const paramId of audioGroupInputParamIds(def.nodes)) {
+        if (!boundInputs[paramId]) boundInputs[paramId] = audioOverride
       }
     }
     const outputs = evaluateGroup(

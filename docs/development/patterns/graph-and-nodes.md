@@ -48,6 +48,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Evaluation
 
+- A pattern group open on the canvas is evaluated on its own, with no Group
+  node to bind its inputs and no LED output to route to. The preview loop in
+  `LEDPreview.tsx` therefore shows the subgraph's Group Output frame whenever
+  the active graph has no LED output, and binds the project's live audio
+  source to every audio-typed GroupInput through
+  `openGroupInputs` (`src/state/evaluator/openGroupInputs.ts`), handed to
+  `evaluateGraphFull`'s trailing `groupInputs` parameter. The source follows
+  the root graph's Audio capability (microphone, line-in or decoder) via
+  `liveAudioSignal`, the same helper the Audio node reads, so a pattern edited
+  inside its group reacts exactly as the instance on the root canvas does.
+  Non-audio GroupInputs stay unbound and their consumers fall back to their
+  properties.
 - Master Speed scales the one shared time value `t` that every animated node
   reads, rather than rewriting each node's own rate, so a graph's relative
   speeds hold exactly and a node added later needs no teaching.
