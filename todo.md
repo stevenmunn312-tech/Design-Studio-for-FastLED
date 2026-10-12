@@ -305,6 +305,29 @@ stands still. All three fixes are in the preview's C++-to-JS shim
 - [ ] **Timing macros.** Support `EVERY_N_MILLISECONDS` and `EVERY_N_SECONDS`
   in the preview, on the evaluator's clock.
 
+## D-06 · Pattern and output follow-ons, v1 part
+
+From [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
+and its design notes.
+
+- [ ] **Shaped outputs in show and player sketches.** A ring, corkscrew or
+  positioned string works in a normal sketch, but `findShowOutputFormErrors`
+  refuses it under the Music Player or the SD player, because those sketches
+  render straight into `leds` and have no shape map. Teach them the
+  composition/physical split `generateCpp` already makes, and the shape-map
+  copy between the two, then lift the refusal for all three forms at once.
+- [ ] **Shapes in the main LED Output pane.** The node's own preview draws a
+  positioned string along its curve, but the main LED Output pane draws it, and
+  a ring, as a straight row. Draw both in their real shape there.
+- [ ] **Raw `field` output on `Noise`.** Expose the noise values before the
+  palette, so other field nodes can mix, warp or mask them before colouring
+  ([ANIMartRIX note](docs/design/animartrix-float-field.md)).
+- [ ] **One `.h` per pattern in show output.** `showGenerator.ts` writes every
+  `render_pN()` into one controller file. Split each pattern into its own
+  header beside a small controller `.ino`
+  ([generative show](docs/design/generative-pattern-show.md#codegen-target)).
+  The compile, sketch-cache and export paths must carry a multi-file sketch.
+
 ## 5. Release track (in order)
 
 - [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
@@ -374,13 +397,11 @@ stands still. All three fixes are in the preview's C++-to-JS shim
     `fl::profiles` and `ChannelOptions::setColorProfile`.
   - Segment networks: strings as the edges of a graph with a travelling
     `Ripple`, the Chromancer model. It needs a layout editor.
-  - Positioned strings everywhere: draw them in the main LED Output pane and
-    the Build Diagram, and generate the map in Music Player and SD-player
-    sketches, which `findShowOutputFormErrors` refuses today.
-  - A raw, pre-palette `field` output on `Noise`
-    ([ANIMartRIX note](docs/design/animartrix-float-field.md)).
-  - One `.h` per pattern in show output, only if flash size or build time
-    calls for it ([generative show](docs/design/generative-pattern-show.md)).
+  - Positioned strings in the Build Diagram, which needs positions in
+    millimetres rather than canvas units.
+  - Shaped outputs in show and player sketches, the main LED Output pane
+    drawing, raw `Noise` field output and one `.h` per pattern are in v1,
+    above the release track.
 - [ ] **D-07 · Workspace information shelves.** Build Diagram's own tidy-up
   (whether its left column becomes the sidebar), then its information shelf;
   then Upload's, if it wants one
