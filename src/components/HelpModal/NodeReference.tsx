@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useRef } from 'react'
 import type { NodeCategory, NodeDefinition } from '../../types'
-import { CATEGORIES, CATEGORY_COLOR, isPortlessNodeType, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyGroupsFor, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { CATEGORIES, CATEGORY_COLOR, isPortlessNodeType, NODE_DESCRIPTIONS, NODE_LIBRARY, propertyDescription, propertyGroupsFor, propertyLabel, propertyMeta, portColor } from '../../state/nodeLibrary'
+import { exposableInputsFor } from '../../state/propertyInputs'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { insertLiveExample } from '../../utils/insertLiveExample'
@@ -16,6 +17,7 @@ import {
 import type { ReferenceLiveExample } from './liveExamples'
 import { OUTPUT_USE_CASES, PORT_DESCRIPTIONS, TYPE_GLYPH } from './portCopy'
 import { DISPLAY_REFERENCE } from './displayReference'
+import { MUSIC_PLAYER_REFERENCE } from './musicPlayerReference'
 import styles from './NodeReference.module.css'
 
 type FilterCategory = 'all' | NodeCategory
@@ -377,14 +379,18 @@ function groupedPropertyEntries(node: NodeDefinition): Array<{ label: string; en
   const valueByKey = new Map(entries)
   const groups = propertyGroupsFor(node.type)
   if (groups && groups.length > 0) {
-    return groups
+    const grouped = new Set(groups.flatMap((group) => group.keys))
+    const remaining = entries.filter(([key]) => !grouped.has(key))
+    return [...groups
       .map((group) => ({
         label: group.label,
         entries: group.keys
           .map((key) => [key, valueByKey.get(key)] as [string, unknown])
           .filter((entry) => valueByKey.has(entry[0])),
       }))
-      .filter((group) => group.entries.length > 0)
+      .filter((group) => group.entries.length > 0),
+      ...(remaining.length ? [{ label: 'Settings', entries: remaining }] : []),
+    ]
   }
   return entries.length > 0 ? [{ label: 'Settings', entries }] : []
 }
@@ -778,6 +784,7 @@ function buildExampleRecipe(node: NodeDefinition): ExampleRecipe {
 }
 
 function buildUseCases(node: NodeDefinition): string[] {
+  if (node.type === 'PatternMaster') return MUSIC_PLAYER_REFERENCE.overview
   if (DISPLAY_REFERENCE[node.type]) return DISPLAY_REFERENCE[node.type].overview
   const primaryOutput = node.outputs[0]?.dataType
   const primaryUse = NODE_DESCRIPTIONS[node.type] ?? `${node.label} is part of the Design Studio for FastLED graph pipeline.`
@@ -979,7 +986,7 @@ function PortSection({ title, ports, direction }: { title: string; ports: NodeDe
   )
 }
 
-function PortPanel({ title, ports, direction }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output' }) {
+function PortPanel({ title, ports, direction, descriptions }: { title: string; ports: NodeDefinition['inputs']; direction: 'input' | 'output'; descriptions?: Record<string, string> }) {
   return (
     <section className={styles.referencePanel}>
       <div className={styles.panelLabel}>{title}</div>
@@ -992,7 +999,7 @@ function PortPanel({ title, ports, direction }: { title: string; ports: NodeDefi
             <b>{port.label}</b>
             <code>{port.dataType}</code>
           </div>
-          <p>{describePort(port.dataType, direction)}</p>
+          <p>{descriptions?.[port.id] ?? describePort(port.dataType, direction)}</p>
         </div>
       ))}
     </section>
@@ -1003,10 +1010,12 @@ function PropertyPanel({
   node,
   emptyText,
   note,
+  detailed = false,
 }: {
   node: NodeDefinition
   emptyText?: string
   note?: string
+  detailed?: boolean
 }) {
   const groups = groupedPropertyEntries(node)
   return (
@@ -1015,11 +1024,18 @@ function PropertyPanel({
       {groups.length === 0 ? (
         <p className={styles.panelEmpty}>{emptyText ?? 'This node has no inline properties.'}</p>
       ) : (
-        <div className={styles.propertyGroups}>
+        <div className={detailed ? styles.propertyGroupsDetailed : styles.propertyGroups}>
           {groups.map((group) => (
             <div className={styles.propertyGroup} key={group.label}>
               <h3>{group.label}</h3>
-              {group.entries.map(([key, value]) => (
+              {group.entries.map(([key, value]) => detailed ? (
+                <dl className={styles.definitionList} key={key}>
+                  <div className={styles.definitionItem}>
+                    <dt>{propertyLabel(node.type, key) === key ? humanizePropertyKey(key) : propertyLabel(node.type, key)} <span className={styles.defaultValue}>Default: {formatPropertyValue(value)}</span></dt>
+                    <dd>{propertyDescription(node.type, key) ?? describeProperty(node, key)}</dd>
+                  </div>
+                </dl>
+              ) : (
                 <div className={styles.propertyRow} key={key}>
                   <span>{humanizePropertyKey(key)}</span>
                   <b>{formatPropertyValue(value)}</b>
@@ -1552,6 +1568,9 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
   const useCases = buildUseCases(node)
   const liveExample = liveExampleForNode(node)
   const displayReference = DISPLAY_REFERENCE[node.type]
+  const musicPlayer = node.type === 'PatternMaster'
+  const optionalInputs = exposableInputsFor(node.type)
+  const mainInputs = node.inputs.filter((port) => !optionalInputs.some((optional) => optional.id === port.id))
   const usesMicrophone = exampleUsesMicrophone(liveExample)
   const tryLive = () => {
     openLiveExample(liveExample, {
@@ -1568,7 +1587,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           <h1>{node.label}</h1>
           <p>{NODE_DESCRIPTIONS[node.type]}</p>
         </div>
-        <div className={styles.articleMeta}>{node.type === 'Display' ? 'Widget-defined ports' : `${node.inputs.length} inputs · ${node.outputs.length} outputs`} · {properties.length} properties</div>
+        <div className={styles.articleMeta}>{node.type === 'Display' ? 'Widget-defined ports' : musicPlayer ? `${mainInputs.length} main inputs · ${optionalInputs.length} optional inputs · ${node.outputs.length} outputs` : `${node.inputs.length} inputs · ${node.outputs.length} outputs`} · {properties.length} properties</div>
       </header>
 
       <div className={styles.introGrid}>
@@ -1576,6 +1595,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           <div className={styles.nodeCaptureFrame}>
             <NodeCardImage node={node} narrow />
           </div>
+          {musicPlayer && <figcaption>Factory defaults, with Timing and Randomness expanded. The preview stays black until a populated Pattern Collection is connected.</figcaption>}
         </figure>
         <section className={styles.overviewPanel}>
           <div className={styles.sectionKicker}>What it does</div>
@@ -1584,7 +1604,24 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
         </section>
       </div>
 
-      <div className={styles.ioGrid}>
+      {musicPlayer ? (
+        <>
+          <section className={styles.manualSection}>
+            <h2>Set up and connect</h2>
+            <ol>{MUSIC_PLAYER_REFERENCE.steps.map((step) => <li key={step}><p>{step}</p></li>)}</ol>
+          </section>
+          <PropertyPanel node={node} detailed note={MUSIC_PLAYER_REFERENCE.propertyNote} />
+          <div className={styles.musicPlayerPorts}>
+            <PortPanel title="Main inputs" ports={mainInputs} direction="input" descriptions={MUSIC_PLAYER_REFERENCE.inputs} />
+            <PortPanel title="Outputs" ports={node.outputs} direction="output" descriptions={MUSIC_PLAYER_REFERENCE.outputs} />
+          </div>
+          <section className={styles.manualSection}>
+            <h2>Optional inputs</h2>
+            <p>Use Expose inputs… on the node to show these sockets: {optionalInputs.map((port) => port.label).join(', ')}.</p>
+            <p>Volume and timing sockets override their matching property fields. Action sockets accept boolean pulses: previous/next track changes the song; previous/next pattern browses the collection, and Confirm commits that selection. Control Map bundles these controls into one connection.</p>
+          </section>
+        </>
+      ) : <div className={styles.ioGrid}>
         <PortPanel title="Inputs" ports={node.inputs} direction="input" />
         <PropertyPanel
           node={node}
@@ -1592,7 +1629,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
           note={propertyNoteForNode(node)}
         />
         <PortPanel title="Outputs" ports={node.outputs} direction="output" />
-      </div>
+      </div>}
 
       {displayReference && (
         <section className={styles.manualSection}>
@@ -1637,7 +1674,7 @@ function ReferenceArticle({ node }: { node: NodeDefinition }) {
             <div className={styles.workflowOutcome}>
               <span>Workflow result</span>
               <b>{node.label}</b>
-              <p>Add the required patterns or analysed songs in the node body, then use the show preview or export controls.</p>
+              <p>{musicPlayer ? 'Add saved patterns in Pattern Collection, then choose timed or beat-triggered changes on Music Player.' : 'Add the required patterns or analysed songs in the node body, then use the show preview or export controls.'}</p>
             </div>
           ) : (
             <MainPreviewImage node={node} alt={`Evaluated frame from the ${node.label} example graph`} />

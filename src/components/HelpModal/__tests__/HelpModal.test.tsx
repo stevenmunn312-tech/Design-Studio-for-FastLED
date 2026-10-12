@@ -55,6 +55,23 @@ describe('HelpModal session state', () => {
     expect(view.getByRole('link', { name: 'third-party notices' })).toBeTruthy()
   })
 
+  it('explains every Music Player property and separates optional sockets', () => {
+    useUiStore.setState({
+      helpTab: 'nodes',
+      helpNodeReference: { search: 'music player', expandedCategory: 'show', selectedType: 'PatternMaster' },
+    })
+    const view = render(<HelpModal />)
+    expect(view.getByRole('heading', { name: 'Music Player' })).toBeTruthy()
+    expect(view.getByText(/6 main inputs · 15 optional inputs · 3 outputs/)).toBeTruthy()
+    expect(view.getByText(/12 seconds is not a forced change deadline/)).toBeTruthy()
+    expect(view.getByText(/Playback volume from 0/)).toBeTruthy()
+    expect(view.getByText(/Controls random pattern, hold-time/)).toBeTruthy()
+    expect(view.getByText(/Duration of the change between patterns/)).toBeTruthy()
+    expect(view.getByRole('heading', { name: 'Optional inputs' })).toBeTruthy()
+    const article = view.container.querySelector('article')!
+    expect(article.querySelectorAll('dt').length).toBe(7)
+  })
+
   it('reopens the node reference where the session left off', async () => {
     const first = render(<HelpModal />)
 

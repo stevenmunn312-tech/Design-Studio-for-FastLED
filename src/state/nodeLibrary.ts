@@ -1543,6 +1543,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     beatTransitions: 'Wait for a fresh beat after a random cooldown between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes.',
     minTime: 'Minimum hold time in seconds. With Beat Transitions enabled, this is the shortest cooldown after a transition finishes.',
     maxTime: 'Maximum random hold time in seconds. With Beat Transitions enabled, the player still waits for the next beat after the cooldown ends.',
+    transitionSec: 'Duration of the change between patterns, in seconds. The next hold or beat cooldown starts when this transition finishes. Preview chooses a style from the connected Transitions pool, or crossfade when none is supplied; the generic SD player uses crossfade.',
+    volume: 'Playback volume from 0 (muted) to 1 (full volume). This controls the music, not LED brightness or microphone gain. A wired Volume input takes priority over this field.',
+    seed: 'Controls random pattern, hold-time, transition, and particle choices in preview. Zero runs freely; a nonzero value makes the random sequence repeatable for the same inputs. The SD player uses its own random sequence.',
   },
   PdTriggerSource: {
     requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',

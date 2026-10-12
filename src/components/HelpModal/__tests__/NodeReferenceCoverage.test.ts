@@ -64,6 +64,16 @@ describe('Node Reference port-type coverage', () => {
 })
 
 describe('Node Reference generated assets', () => {
+  it('shows the Music Player default sockets and expanded timing controls', () => {
+    const svg = readFileSync(resolve(`public${nodeCardSrc('PatternMaster')}`), 'utf8')
+    expect(svg).toContain('Expose inputs…')
+    expect(svg).toContain('Beat Transitions')
+    expect(svg).toContain('minTime')
+    expect(svg).toContain('maxTime')
+    expect(svg).toContain('▾ TIMING')
+    expect(svg).not.toContain('Play / Pause')
+    expect(svg).not.toContain('Previous Pattern')
+  })
   // The previous generation command failed before writing any files, leaving
   // newly registered displays with broken images while live-example tests passed.
   it.each(NODE_LIBRARY)('has a card, example graph and preview for $type', (node) => {

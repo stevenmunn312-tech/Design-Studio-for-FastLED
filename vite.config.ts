@@ -147,8 +147,10 @@ export default defineConfig(() => {
             },
             {
               urlPattern: /\/node-cards\/.+\.svg$/,
-              handler: 'CacheFirst',
-              options: { cacheName: 'node-cards', expiration: { maxEntries: 200 } },
+              // Generated help images keep stable URLs across releases.
+              // Refresh online; retain cached illustrations for offline help.
+              handler: 'NetworkFirst',
+              options: { cacheName: 'node-cards', networkTimeoutSeconds: 3, expiration: { maxEntries: 200 } },
             },
             {
               urlPattern: /\/boards\/.+\.webp$/,

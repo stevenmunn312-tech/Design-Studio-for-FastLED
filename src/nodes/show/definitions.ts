@@ -346,7 +346,7 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   Transition: 'Transitions A→B — 21 styles: wipe, iris, push, spiral, dolly, cube + more.',
   ControlMap: 'Maps buttons and knobs to Music Player transport, volume, and LED controls.',
   PlayerParticles: 'Configures the Music Player\'s beat-triggered particle overlay.',
-  PatternMaster: 'Plays a Pattern Collection in order or randomly, with transitions and music.',
+  PatternMaster: 'Plays a Pattern Collection in order or at random, changing on a timer or beats.',
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Absorbs pattern groups into a set for the Music Player or Performance Generator.',

@@ -7,6 +7,12 @@ Moved out of the always-loaded `CLAUDE.md` so a session reads it only when
 working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.
 
+## Node reference assets
+
+- Generate one node's help illustrations with `npm run gen:node-cards -- --only PatternMaster`; this preserves unrelated assets and the gallery index. The generator uses the shared exposable-input helpers so hidden action sockets stay hidden unless connected in an example.
+- Music Player help uses `musicPlayerReference.ts` for its overview and wiring guidance, and `propertyDescription` for detailed property notes. Property groups must retain ungrouped settings such as Volume. Its card expands Timing and Randomness for comparison with those notes.
+- Generated help SVGs have stable URLs. Keep their service-worker cache network-first with an offline fallback so updated illustrations reach installed clients.
+
 ## Workspaces and guides
 
 - Workspace tabs replaced the split graph/hardware canvas with four full-canvas

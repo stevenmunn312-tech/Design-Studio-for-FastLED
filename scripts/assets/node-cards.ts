@@ -3,7 +3,7 @@
  * visual style of the on-canvas StudioNode: category-accent header with badges,
  * typed port dots, and the node's inline property controls at their defaults.
  *
- * Run: npm run gen:node-cards
+ * Run: npm run gen:node-cards [-- --only PatternMaster]
  * Output: public/node-cards/<kebab-type>.svg + docs/reference/node-cards.md
  *
  * The cards live under public/ because the Help modal's node-reference pages
@@ -17,7 +17,7 @@
  * the current library.
  */
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import {
   NODE_LIBRARY, CATEGORIES, CATEGORY_COLOR, categoryNodes, portColor,
   propertyMeta, propertyLabel, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
@@ -38,7 +38,7 @@ import {
   ringSampleMap,
   ringStartAngle,
 } from '../../src/state/output/ledOutputForm'
-import { exposedPropertyInputs, propertyInputsFor } from '../../src/state/propertyInputs'
+import { exposableInputsFor, exposedNodeInputs, exposedPropertyInputs } from '../../src/state/propertyInputs'
 import { tidyLayout } from '../../src/utils/tidyLayout'
 import { nodeReferenceSlug as kebab } from '../../src/utils/nodeReferenceAssets'
 import type { LiveExampleSpec } from '../../src/utils/insertLiveExample'
@@ -203,7 +203,7 @@ function showsRGBSwatch(def: NodeDefinition, props: Record<string, unknown>): bo
 // One renderable row in the .props section.
 type PropRow =
   | { kind: 'swatch'; rgb: [number, number, number] }
-  | { kind: 'group'; label: string }
+  | { kind: 'group'; label: string; expanded?: boolean }
   // `key` identifies the property (meta, exposed sockets); `label` is what the
   // canvas prints for it, which is not always the raw key.
   | { kind: 'slider'; key: string; label: string; value: number; min: number; max: number; disabled: boolean }
@@ -230,10 +230,19 @@ function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): Pro
   }
   const groups = propertyGroupsFor(def.type)
   if (groups) {
-    // Groups start collapsed in the app — render just the section headers.
+    // Open the player's timing controls in its reference card so its beat
+    // switch and cooldown range can be compared with the property notes.
     const grouped = new Set(groups.flatMap((g) => g.keys))
     for (const g of groups) {
-      if (entries.some(([k]) => g.keys.includes(k))) rows.push({ kind: 'group', label: g.label })
+      if (entries.some(([k]) => g.keys.includes(k))) {
+        rows.push({ kind: 'group', label: g.label, expanded: def.type === 'PatternMaster' })
+        if (def.type === 'PatternMaster') {
+          for (const key of g.keys) {
+            const entry = entries.find(([entryKey]) => entryKey === key)
+            if (entry) rows.push(entryRow(entry))
+          }
+        }
+      }
     }
     for (const e of entries) if (!grouped.has(e[0])) rows.push(entryRow(e))
   } else {
@@ -480,7 +489,7 @@ function propRowSvg(row: PropRow, y: number): string {
 
   switch (row.kind) {
     case 'group':
-      return `<text x="${BODY_PAD}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" letter-spacing="0.03em" fill="${C.dim}">▸ ${esc(row.label.toUpperCase())}</text>`
+      return `<text x="${BODY_PAD}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" letter-spacing="0.03em" fill="${C.dim}">${row.expanded ? '▾' : '▸'} ${esc(row.label.toUpperCase())}</text>`
     case 'swatch': {
       const [r, g, b] = row.rgb
       parts.push(key('color', 160))
@@ -627,10 +636,12 @@ function nodeInner(
     : CATEGORY_COLOR[def.category] ?? '#9aa0a6'
   // Property inputs live on their own property row, exposed on demand, so the
   // port rows are only what a fresh node actually shows (src/state/propertyInputs.ts).
-  const propertyInputs = propertyInputsFor(def.type)
+  const optionalInputs = exposableInputsFor(def.type)
+  const exposedActions = new Set(exposedNodeInputs(def.type, undefined, connected)
+    .filter((port) => port.kind === 'action').map((port) => port.id))
   const exposedByKey = new Map(exposedPropertyInputs(def.type, undefined, connected)
     .map((port) => [port.propertyKey, port] as const))
-  const portInputs = def.inputs.filter((port) => !propertyInputs.some((property) => property.id === port.id))
+  const portInputs = def.inputs.filter((port) => !optionalInputs.some((optional) => optional.id === port.id) || exposedActions.has(port.id))
   const rowCount = Math.max(portInputs.length, def.outputs.length)
   const hasScope = def.type === 'Wave' || def.type === 'ComplexWave'
   const strip = EMBEDDED_UI[def.type]
@@ -661,6 +672,9 @@ function nodeInner(
     children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(portInputs, def.outputs, i, y) })
   }
   if (strip) children.push({ h: STRIP_H, render: (y) => stripSvg(strip, y) })
+  if (optionalInputs.length > 0) children.push({ h: PROP_ROW_H, render: (y) =>
+    `<text x="${BODY_PAD}" y="${y + 13}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.dim}">Expose inputs…</text>`,
+  })
   if (isComment) children.push({ h: NOTE_H, render: (y) => noteSvg(String(props.text ?? 'Note'), y) })
   if (propRows.length > 0) {
     const h = 4 + 1 + 6 + propRows.length * PROP_ROW_H + (propRows.length - 1) * PROP_GAP
@@ -944,12 +958,25 @@ function galleryMd(): string {
 }
 
 // ── Main ──
-rmSync(OUT_DIR, { recursive: true, force: true })
+// A focused refresh avoids rewriting unrelated reference illustrations.
+const onlyIndex = process.argv.indexOf('--only')
+const onlyType = onlyIndex >= 0 ? process.argv[onlyIndex + 1] : undefined
+if (onlyIndex >= 0 && !NODE_LIBRARY.some((def) => def.type === onlyType)) {
+  throw new Error('--only requires a registered node type, for example PatternMaster')
+}
+const definitions = onlyType ? NODE_LIBRARY.filter((def) => def.type === onlyType) : NODE_LIBRARY
+if (!onlyType) {
+  const expected = resolve(ROOT, 'public', 'node-cards')
+  if (resolve(OUT_DIR) !== expected || relative(resolve(ROOT), expected) !== join('public', 'node-cards')) {
+    throw new Error('Refusing to clear a node-card directory outside the workspace')
+  }
+  rmSync(expected, { recursive: true, force: true })
+}
 mkdirSync(join(OUT_DIR, 'graphs'), { recursive: true })
 mkdirSync(join(OUT_DIR, 'previews'), { recursive: true })
 mkdirSync(join(ROOT, 'docs', 'reference'), { recursive: true })
 let count = 0
-for (const def of NODE_LIBRARY) {
+for (const def of definitions) {
   const k = kebab(def.type)
   const spec = liveExampleForNode(def)
   writeFileSync(join(OUT_DIR, `${k}.svg`), nodeCardSvg(def))
@@ -964,5 +991,5 @@ for (const def of NODE_LIBRARY) {
   )
   count++
 }
-writeFileSync(GALLERY, galleryMd())
-console.log(`wrote ${count} node cards + example graphs + evaluated previews to public/node-cards/ + docs/reference/node-cards.md`)
+if (!onlyType) writeFileSync(GALLERY, galleryMd())
+console.log(`wrote ${count} node cards + example graphs + evaluated previews to public/node-cards/${onlyType ? '' : ' + docs/reference/node-cards.md'}`)

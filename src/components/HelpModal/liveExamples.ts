@@ -910,7 +910,12 @@ function workflowExample(node: NodeDefinition): ReferenceLiveExample {
       builder.wire('transitions', 'transitions', 'target', 'transitions')
       builder.wire('controls', 'controls', 'target', 'controls')
       builder.wire('particles', 'particleFx', 'target', 'particleFx')
-      break
+      return builder.finish(
+        'Run a collection with beat-triggered changes',
+        'Add at least two saved patterns to Pattern Collection. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transitions chooses the preview transition pool, Control Map carries transport and lighting commands, and Player Particles configures independent beat bursts.',
+        'The collection starts empty, so the preview is black until you add patterns. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change. Connect Music Player’s Frame to the LED output.',
+        'workflow',
+      )
     case 'SongInfo':
       // One wire in. The player publishes its whole report on `display`, and
       // this is the node that opens it into a field per cable — which is why

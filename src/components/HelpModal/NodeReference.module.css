@@ -293,11 +293,18 @@
 .portTitle code { margin-left: auto; padding: 2px 4px; border-radius: 3px; background: rgba(255,255,255,.055); color: var(--text-secondary); font: 7px var(--font-code); letter-spacing: .08em; text-transform: uppercase; }
 .portCard p { margin: 8px 0 0; color: var(--text-secondary); font-size: 9px; line-height: 1.5; }
 .propertyGroups { display: grid; grid-template-columns: 1fr 1fr .72fr; gap: 12px; }
+.propertyGroupsDetailed { display: grid; gap: 20px; }
+.propertyGroupsDetailed .propertyGroup h3 { font-size: 10px; }
+.musicPlayerPorts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; padding: 24px 0; }
+.musicPlayerPorts .portCard p { font-size: 12px; line-height: 1.65; }
+.musicPlayerPorts .portCard + .portCard { margin-top: 10px; }
+.nodeCapture figcaption { margin-top: 12px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 .propertyGroup { min-width: 0; }
 .propertyGroup h3 { margin: 0 0 6px; color: var(--node-accent); font: 700 8px var(--font-code); letter-spacing: .11em; text-transform: uppercase; }
 .propertyRow { display: flex; justify-content: space-between; gap: 7px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.045); color: var(--text-secondary); font-size: 9px; }
 .propertyRow b { overflow: hidden; color: var(--text-primary); font: 8px var(--font-code); text-overflow: ellipsis; white-space: nowrap; }
 .panelNote { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.05); color: var(--text-secondary); font-size: 9px; line-height: 1.55; }
+.propertyGroupsDetailed ~ .panelNote { font-size: 12px; line-height: 1.65; }
 
 .exampleSection { padding: 26px 0 30px; border-top: 1px solid var(--border-glow); }
 .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
@@ -481,6 +488,7 @@
   .introGrid { grid-template-columns: 1fr; }
   .nodeCaptureFrame { min-height: 320px; }
   .ioGrid { grid-template-columns: 1fr; }
+  .musicPlayerPorts { grid-template-columns: 1fr; }
   .propertyGroups { grid-template-columns: repeat(3, 1fr); }
   .previewSection { grid-template-columns: 1fr; }
   .nodeBasicsFlow { grid-template-columns: 1fr; }
