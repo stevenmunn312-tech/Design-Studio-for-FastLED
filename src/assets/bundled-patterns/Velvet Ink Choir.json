@@ -1,0 +1,1531 @@
+{
+ "id": "pat-1788436800100",
+ "name": "Velvet Ink Choir",
+ "createdAt": 1788436800100,
+ "inputs": [
+  {
+   "id": "param0",
+   "label": "Audio",
+   "dataType": "audio"
+  }
+ ],
+ "outputs": [
+  {
+   "id": "frame",
+   "label": "Frame",
+   "dataType": "frame"
+  }
+ ],
+ "subgraph": {
+  "nodes": [
+   {
+    "id": "audio",
+    "type": "studioNode",
+    "position": {
+     "x": -1500,
+     "y": 0
+    },
+    "data": {
+     "label": "Audio",
+     "nodeType": "GroupInput",
+     "category": "composite",
+     "properties": {
+      "paramId": "param0"
+     },
+     "inputs": [],
+     "outputs": [
+      {
+       "id": "out",
+       "label": "Audio",
+       "dataType": "audio"
+      }
+     ]
+    }
+   },
+   {
+    "id": "vibe",
+    "type": "studioNode",
+    "position": {
+     "x": -1220,
+     "y": -260
+    },
+    "data": {
+     "label": "Vibe",
+     "nodeType": "Vibe",
+     "category": "audio",
+     "properties": {
+      "gain": 1
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      },
+      {
+       "id": "gain",
+       "label": "Gain",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "bass",
+       "label": "Bass",
+       "dataType": "float"
+      },
+      {
+       "id": "mid",
+       "label": "Mid",
+       "dataType": "float"
+      },
+      {
+       "id": "treble",
+       "label": "Treble",
+       "dataType": "float"
+      },
+      {
+       "id": "volume",
+       "label": "Volume",
+       "dataType": "float"
+      },
+      {
+       "id": "bassAtt",
+       "label": "Bass smoothed",
+       "dataType": "float"
+      },
+      {
+       "id": "midAtt",
+       "label": "Mid smoothed",
+       "dataType": "float"
+      },
+      {
+       "id": "trebleAtt",
+       "label": "Treble smoothed",
+       "dataType": "float"
+      },
+      {
+       "id": "bassSpike",
+       "label": "Bass spike",
+       "dataType": "bool"
+      },
+      {
+       "id": "midSpike",
+       "label": "Mid spike",
+       "dataType": "bool"
+      },
+      {
+       "id": "trebleSpike",
+       "label": "Treble spike",
+       "dataType": "bool"
+      }
+     ]
+    }
+   },
+   {
+    "id": "feat",
+    "type": "studioNode",
+    "position": {
+     "x": -1220,
+     "y": 0
+    },
+    "data": {
+     "label": "Audio Features",
+     "nodeType": "AudioFeatures",
+     "category": "audio",
+     "properties": {
+      "sensitivity": 0.55,
+      "gate": 0.1,
+      "smoothing": 0.9
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      },
+      {
+       "id": "sensitivity",
+       "label": "Sensitivity",
+       "dataType": "float"
+      },
+      {
+       "id": "gate",
+       "label": "Gate",
+       "dataType": "float"
+      },
+      {
+       "id": "smoothing",
+       "label": "Smoothing",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "vocals",
+       "label": "Vocals",
+       "dataType": "float"
+      },
+      {
+       "id": "energy",
+       "label": "Energy",
+       "dataType": "float"
+      },
+      {
+       "id": "silence",
+       "label": "Silence",
+       "dataType": "bool"
+      }
+     ]
+    }
+   },
+   {
+    "id": "beat",
+    "type": "studioNode",
+    "position": {
+     "x": -1220,
+     "y": 260
+    },
+    "data": {
+     "label": "Beat Detect",
+     "nodeType": "BeatDetect",
+     "category": "audio",
+     "properties": {
+      "threshold": 0.3,
+      "attack": 0.55,
+      "decay": 0.3
+     },
+     "inputs": [
+      {
+       "id": "audio",
+       "label": "Audio",
+       "dataType": "audio"
+      },
+      {
+       "id": "threshold",
+       "label": "Threshold",
+       "dataType": "float"
+      },
+      {
+       "id": "attack",
+       "label": "Attack",
+       "dataType": "float"
+      },
+      {
+       "id": "decay",
+       "label": "Decay",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "beat",
+       "label": "Beat",
+       "dataType": "bool"
+      },
+      {
+       "id": "bpm",
+       "label": "BPM",
+       "dataType": "float"
+      },
+      {
+       "id": "flux",
+       "label": "Flux",
+       "dataType": "float"
+      },
+      {
+       "id": "onset",
+       "label": "Onset",
+       "dataType": "float"
+      },
+      {
+       "id": "contrast",
+       "label": "Contrast",
+       "dataType": "float"
+      },
+      {
+       "id": "threshold",
+       "label": "Threshold",
+       "dataType": "float"
+      },
+      {
+       "id": "cooldownMs",
+       "label": "Cooldown (ms)",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "orbitRate",
+    "type": "studioNode",
+    "position": {
+     "x": -940,
+     "y": -420
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.05,
+      "inMax": 0.7,
+      "outMin": 0.06,
+      "outMax": 0.35
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "waveX",
+    "type": "studioNode",
+    "position": {
+     "x": -700,
+     "y": -480
+    },
+    "data": {
+     "label": "Wave",
+     "nodeType": "Wave",
+     "category": "signal",
+     "properties": {
+      "amplitude": 1,
+      "frequency": 0.1,
+      "phase": 0,
+      "waveform": "sine"
+     },
+     "inputs": [
+      {
+       "id": "amplitude",
+       "label": "Amplitude",
+       "dataType": "float"
+      },
+      {
+       "id": "frequency",
+       "label": "Frequency",
+       "dataType": "float"
+      },
+      {
+       "id": "phase",
+       "label": "Phase",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "waveY",
+    "type": "studioNode",
+    "position": {
+     "x": -700,
+     "y": -340
+    },
+    "data": {
+     "label": "Wave",
+     "nodeType": "Wave",
+     "category": "signal",
+     "properties": {
+      "amplitude": 1,
+      "frequency": 0.1,
+      "phase": 0.25,
+      "waveform": "sine"
+     },
+     "inputs": [
+      {
+       "id": "amplitude",
+       "label": "Amplitude",
+       "dataType": "float"
+      },
+      {
+       "id": "frequency",
+       "label": "Frequency",
+       "dataType": "float"
+      },
+      {
+       "id": "phase",
+       "label": "Phase",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "posX",
+    "type": "studioNode",
+    "position": {
+     "x": -460,
+     "y": -480
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": -1,
+      "inMax": 1,
+      "outMin": 0.22,
+      "outMax": 0.78
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "posY",
+    "type": "studioNode",
+    "position": {
+     "x": -460,
+     "y": -340
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": -1,
+      "inMax": 1,
+      "outMin": 0.25,
+      "outMax": 0.8
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "inject",
+    "type": "studioNode",
+    "position": {
+     "x": -940,
+     "y": -200
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.2,
+      "inMax": 1.6,
+      "outMin": 0.04,
+      "outMax": 0.38
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "dissip",
+    "type": "studioNode",
+    "position": {
+     "x": -940,
+     "y": -40
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.05,
+      "inMax": 0.7,
+      "outMin": 0.045,
+      "outMax": 0.014
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "forceSpeed",
+    "type": "studioNode",
+    "position": {
+     "x": -940,
+     "y": 120
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.2,
+      "inMax": 1.5,
+      "outMin": 0.1,
+      "outMax": 0.9
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fx",
+    "type": "studioNode",
+    "position": {
+     "x": -700,
+     "y": 80
+    },
+    "data": {
+     "label": "Field Noise",
+     "nodeType": "FieldNoise",
+     "category": "field",
+     "properties": {
+      "speed": 0.3,
+      "scale": 0.35,
+      "octaves": 2,
+      "seed": 3,
+      "wrapX": false,
+      "noiseShape": "plain"
+     },
+     "inputs": [
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "scale",
+       "label": "Scale",
+       "dataType": "float"
+      },
+      {
+       "id": "octaves",
+       "label": "Octaves",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "field",
+       "label": "Field",
+       "dataType": "field"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fy",
+    "type": "studioNode",
+    "position": {
+     "x": -700,
+     "y": 240
+    },
+    "data": {
+     "label": "Field Noise",
+     "nodeType": "FieldNoise",
+     "category": "field",
+     "properties": {
+      "speed": 0.3,
+      "scale": 0.35,
+      "octaves": 2,
+      "seed": 11,
+      "wrapX": false,
+      "noiseShape": "plain"
+     },
+     "inputs": [
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      },
+      {
+       "id": "scale",
+       "label": "Scale",
+       "dataType": "float"
+      },
+      {
+       "id": "octaves",
+       "label": "Octaves",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "field",
+       "label": "Field",
+       "dataType": "field"
+      }
+     ]
+    }
+   },
+   {
+    "id": "fluid",
+    "type": "studioNode",
+    "position": {
+     "x": -220,
+     "y": -120
+    },
+    "data": {
+     "label": "Fluid",
+     "nodeType": "FluidSim",
+     "category": "field",
+     "properties": {
+      "inject": 0.6,
+      "injectX": 0.5,
+      "injectY": 0.6,
+      "viscosity": 0,
+      "diffusion": 0.015,
+      "dissipation": 0.04,
+      "speed": 10,
+      "buoyancy": 0.3
+     },
+     "inputs": [
+      {
+       "id": "inject",
+       "label": "Inject",
+       "dataType": "float"
+      },
+      {
+       "id": "injectX",
+       "label": "Inject X",
+       "dataType": "float"
+      },
+      {
+       "id": "injectY",
+       "label": "Inject Y",
+       "dataType": "float"
+      },
+      {
+       "id": "forceX",
+       "label": "Force X",
+       "dataType": "field"
+      },
+      {
+       "id": "forceY",
+       "label": "Force Y",
+       "dataType": "field"
+      },
+      {
+       "id": "trigger",
+       "label": "Trigger",
+       "dataType": "bool"
+      },
+      {
+       "id": "viscosity",
+       "label": "Viscosity",
+       "dataType": "float"
+      },
+      {
+       "id": "diffusion",
+       "label": "Diffusion",
+       "dataType": "float"
+      },
+      {
+       "id": "dissipation",
+       "label": "Dissipation",
+       "dataType": "float"
+      },
+      {
+       "id": "speed",
+       "label": "Speed",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "field",
+       "label": "Field",
+       "dataType": "field"
+      },
+      {
+       "id": "velocityX",
+       "label": "Velocity X",
+       "dataType": "field"
+      },
+      {
+       "id": "velocityY",
+       "label": "Velocity Y",
+       "dataType": "field"
+      }
+     ]
+    }
+   },
+   {
+    "id": "levels",
+    "type": "studioNode",
+    "position": {
+     "x": 60,
+     "y": -120
+    },
+    "data": {
+     "label": "Field Levels",
+     "nodeType": "FieldLevels",
+     "category": "field",
+     "properties": {
+      "low": 0.08,
+      "high": 0.95,
+      "steps": 1,
+      "invert": false
+     },
+     "inputs": [
+      {
+       "id": "field",
+       "label": "Field",
+       "dataType": "field"
+      },
+      {
+       "id": "low",
+       "label": "Low",
+       "dataType": "float"
+      },
+      {
+       "id": "high",
+       "label": "High",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "field",
+       "label": "Field",
+       "dataType": "field"
+      }
+     ]
+    }
+   },
+   {
+    "id": "pal",
+    "type": "studioNode",
+    "position": {
+     "x": 60,
+     "y": -320
+    },
+    "data": {
+     "label": "Poline Palette",
+     "nodeType": "Poline",
+     "category": "color",
+     "properties": {
+      "anchorA": "#03000c",
+      "anchorB": "#2c0b86",
+      "anchorC": "#ffcf6a",
+      "points": 6,
+      "position": "sinusoidal"
+     },
+     "inputs": [
+      {
+       "id": "colorA",
+       "label": "Anchor A",
+       "dataType": "color"
+      },
+      {
+       "id": "colorB",
+       "label": "Anchor B",
+       "dataType": "color"
+      },
+      {
+       "id": "colorC",
+       "label": "Anchor C",
+       "dataType": "color"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "palette",
+       "label": "Palette",
+       "dataType": "palette"
+      }
+     ]
+    }
+   },
+   {
+    "id": "f2f",
+    "type": "studioNode",
+    "position": {
+     "x": 320,
+     "y": -120
+    },
+    "data": {
+     "label": "Field → Frame",
+     "nodeType": "FieldToFrame",
+     "category": "field",
+     "properties": {
+      "palette": "ocean",
+      "brightness": 1
+     },
+     "inputs": [
+      {
+       "id": "field",
+       "label": "Field",
+       "dataType": "field"
+      },
+      {
+       "id": "paletteIn",
+       "label": "Palette",
+       "dataType": "palette"
+      },
+      {
+       "id": "brightness",
+       "label": "Brightness",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "spinRate",
+    "type": "studioNode",
+    "position": {
+     "x": 320,
+     "y": 120
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.05,
+      "inMax": 0.7,
+      "outMin": 4,
+      "outMax": 28
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
+    "id": "sym",
+    "type": "studioNode",
+    "position": {
+     "x": 580,
+     "y": -120
+    },
+    "data": {
+     "label": "Symmetry",
+     "nodeType": "Symmetry",
+     "category": "composite",
+     "properties": {
+      "group": "p6m",
+      "cells": 1.3,
+      "rotation": 0,
+      "spin": 8,
+      "offsetX": 0,
+      "offsetY": 0
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "cells",
+       "label": "Cells",
+       "dataType": "float"
+      },
+      {
+       "id": "rotation",
+       "label": "Rotation",
+       "dataType": "float"
+      },
+      {
+       "id": "spin",
+       "label": "Spin",
+       "dataType": "float"
+      },
+      {
+       "id": "offsetX",
+       "label": "Offset X",
+       "dataType": "float"
+      },
+      {
+       "id": "offsetY",
+       "label": "Offset Y",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "boost",
+    "type": "studioNode",
+    "position": {
+     "x": 840,
+     "y": -120
+    },
+    "data": {
+     "label": "Color Boost",
+     "nodeType": "ColorBoost",
+     "category": "composite",
+     "properties": {
+      "boost": 0.35
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "boost",
+       "label": "Boost",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "sat",
+    "type": "studioNode",
+    "position": {
+     "x": 1080,
+     "y": -120
+    },
+    "data": {
+     "label": "Saturation",
+     "nodeType": "Saturation",
+     "category": "composite",
+     "properties": {
+      "amount": 1.1
+     },
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      },
+      {
+       "id": "amount",
+       "label": "Amount",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ]
+    }
+   },
+   {
+    "id": "out",
+    "type": "studioNode",
+    "position": {
+     "x": 1340,
+     "y": -120
+    },
+    "data": {
+     "label": "Group Output",
+     "nodeType": "GroupOutput",
+     "category": "output",
+     "properties": {},
+     "inputs": [
+      {
+       "id": "frame",
+       "label": "Frame",
+       "dataType": "frame"
+      }
+     ],
+     "outputs": []
+    }
+   },
+   {
+    "id": "glow",
+    "type": "studioNode",
+    "position": {
+     "x": 60,
+     "y": 60
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.2,
+      "inMax": 1.6,
+      "outMin": 1.05,
+      "outMax": 0.75
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e0",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "vibe",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e1",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "feat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e2",
+    "source": "audio",
+    "sourceHandle": "out",
+    "target": "beat",
+    "targetHandle": "audio",
+    "type": "glowEdge",
+    "reconnectable": "target",
+    "style": {
+     "stroke": "#00e0a4"
+    }
+   },
+   {
+    "id": "e3",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "orbitRate",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e4",
+    "source": "orbitRate",
+    "sourceHandle": "result",
+    "target": "waveX",
+    "targetHandle": "frequency",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e5",
+    "source": "orbitRate",
+    "sourceHandle": "result",
+    "target": "waveY",
+    "targetHandle": "frequency",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e6",
+    "source": "waveX",
+    "sourceHandle": "result",
+    "target": "posX",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e7",
+    "source": "waveY",
+    "sourceHandle": "result",
+    "target": "posY",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e8",
+    "source": "posX",
+    "sourceHandle": "result",
+    "target": "fluid",
+    "targetHandle": "injectX",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e9",
+    "source": "posY",
+    "sourceHandle": "result",
+    "target": "fluid",
+    "targetHandle": "injectY",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e10",
+    "source": "vibe",
+    "sourceHandle": "bassAtt",
+    "target": "inject",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e11",
+    "source": "inject",
+    "sourceHandle": "result",
+    "target": "fluid",
+    "targetHandle": "inject",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e12",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "dissip",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e13",
+    "source": "dissip",
+    "sourceHandle": "result",
+    "target": "fluid",
+    "targetHandle": "dissipation",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e14",
+    "source": "vibe",
+    "sourceHandle": "midAtt",
+    "target": "forceSpeed",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e15",
+    "source": "forceSpeed",
+    "sourceHandle": "result",
+    "target": "fx",
+    "targetHandle": "speed",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e16",
+    "source": "forceSpeed",
+    "sourceHandle": "result",
+    "target": "fy",
+    "targetHandle": "speed",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e17",
+    "source": "fx",
+    "sourceHandle": "field",
+    "target": "fluid",
+    "targetHandle": "forceX",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e18",
+    "source": "fy",
+    "sourceHandle": "field",
+    "target": "fluid",
+    "targetHandle": "forceY",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e19",
+    "source": "beat",
+    "sourceHandle": "beat",
+    "target": "fluid",
+    "targetHandle": "trigger",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e20",
+    "source": "fluid",
+    "sourceHandle": "field",
+    "target": "levels",
+    "targetHandle": "field",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e21",
+    "source": "levels",
+    "sourceHandle": "field",
+    "target": "f2f",
+    "targetHandle": "field",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e22",
+    "source": "pal",
+    "sourceHandle": "palette",
+    "target": "f2f",
+    "targetHandle": "paletteIn",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e23",
+    "source": "f2f",
+    "sourceHandle": "frame",
+    "target": "sym",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e24",
+    "source": "feat",
+    "sourceHandle": "energy",
+    "target": "spinRate",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e25",
+    "source": "spinRate",
+    "sourceHandle": "result",
+    "target": "sym",
+    "targetHandle": "spin",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e26",
+    "source": "sym",
+    "sourceHandle": "frame",
+    "target": "boost",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e27",
+    "source": "boost",
+    "sourceHandle": "frame",
+    "target": "sat",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e28",
+    "source": "sat",
+    "sourceHandle": "frame",
+    "target": "out",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e29",
+    "source": "vibe",
+    "sourceHandle": "trebleAtt",
+    "target": "glow",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e30",
+    "source": "glow",
+    "sourceHandle": "result",
+    "target": "levels",
+    "targetHandle": "high",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   }
+  ]
+ }
+}

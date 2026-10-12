@@ -8,7 +8,7 @@ import { generateCpp } from '../../../codegen/cppGenerator'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 
 const standard = STANDARD_BUNDLED_PATTERNS.slice(22)
-const audio = AUDIO_BUNDLED_PATTERNS.slice(51)
+const audio = AUDIO_BUNDLED_PATTERNS.slice(51, 71)
 
 function pixels(windows: Frame[][]) {
   return windows.flatMap((window) => window.flatMap((frame) => frame.flatMap((row) => row.flatMap((pixel) => [pixel.r, pixel.g, pixel.b]))))

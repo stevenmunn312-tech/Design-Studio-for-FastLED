@@ -47,6 +47,7 @@ import strangeAttractorFog from '../../assets/bundled-patterns/Strange Attractor
 import subBassScanline from '../../assets/bundled-patterns/Sub Bass Scanline.json'
 import turbulentDeep from '../../assets/bundled-patterns/Turbulent Deep.json'
 import ultravioletLavaLamp from '../../assets/bundled-patterns/Ultraviolet Lava Lamp.json'
+import velvetInkChoir from '../../assets/bundled-patterns/Velvet Ink Choir.json'
 import vocalGravityVeil from '../../assets/bundled-patterns/Vocal Gravity Veil.json'
 import wireframeBassCage from '../../assets/bundled-patterns/Wireframe Bass Cage.json'
 import { AUDIO_SHELF_THREE_SEEDS, PATTERN_EXPANSION_AUDIO_SEEDS } from './bundledAudioShelf3'
@@ -865,6 +866,15 @@ const AUDIO_PATTERN_SEEDS = [
  *           field, Animartrix
  *   ring    angular or radial content that comes round without a seam
  */
+// Audio patterns added after the string shelf shipped. They follow the string
+// seeds for the same reason shelf three follows shelf two: a pattern's
+// `bundled-audio-NN` id is its position, so nothing is ever interleaved.
+const AUDIO_LATE_SEEDS = [
+  // Stam fluid fed by the bass, puffed by the kick, stirred by a mids-driven
+  // noise force and folded through a spinning p6m wallpaper symmetry.
+  velvetInkChoir,
+] as unknown as BundledSeed[]
+
 const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   // Standard shelf
   'Azure Tideglass': ['string', 'ring'],
@@ -930,6 +940,7 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Strange Attractor Fog': ['matrix'],
   'Sub Bass Scanline': ['string', 'matrix'],
   'Ultraviolet Lava Lamp': ['matrix'],
+  'Velvet Ink Choir': ['matrix'],
   'Vocal Gravity Veil': ['matrix', 'ring'],
   'Wireframe Bass Cage': ['matrix'],
 
@@ -986,7 +997,7 @@ export const STANDARD_BUNDLED_PATTERNS = materializeBundledPatterns(
 
 /** Curated beta patterns are immutable audio-reactive examples. */
 export const AUDIO_BUNDLED_PATTERNS = materializeBundledPatterns(
-  [...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS],
+  [...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS, ...AUDIO_LATE_SEEDS],
   'audio',
   AUDIO_REACTIVE_CATEGORY_ID,
   Date.UTC(2026, 6, 29, 12, 0, 0),
