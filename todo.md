@@ -415,22 +415,23 @@ and its design notes.
   since 2026-10-08: development compiles on Arduino CLI alone, and fbuild stays
   in the helper untested until the repository matures, which may come before
   v1. Then rerun every fbuild leg and pick these up:
-  - Report the RP2040, Renesas and SAMD21 IR failures upstream; all three
-    still fail on 2.5.37.
-  - Add the upstream note that Windows ESP32 builds need
-    `LongPathsEnabled=1`. Every surviving workaround now has an upstream
-    issue: §12 LVGL archive length
-    ([FastLED/fbuild#1656](https://github.com/FastLED/fbuild/issues/1656)),
-    §7 ESP8266 `deploy`
-    ([FastLED/fbuild#1657](https://github.com/FastLED/fbuild/issues/1657)) and
+  - Every known fbuild problem now has an upstream issue: §12 LVGL archive
+    length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
+    ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
     §5 no size summary on a link overflow
-    ([FastLED/fbuild#1658](https://github.com/FastLED/fbuild/issues/1658)).
-  - Move the four vendored libraries the helper never patches
-    (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) from `lib/` to
-    `lib_deps`. FastLED stays vendored until its SAMD51 patches land upstream
-    (§1).
+    ([#1658](https://github.com/FastLED/fbuild/issues/1658)), the RP2040,
+    Renesas and SAMD21 build failures
+    ([#1670](https://github.com/FastLED/fbuild/issues/1670),
+    [#1671](https://github.com/FastLED/fbuild/issues/1671),
+    [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
+    paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
+    workaround as its fix lands.
   - Compile the IR fbuild legs for RP2040, Renesas and SAMD21 as each one's
     fbuild fix lands.
+  - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
+    `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
+    does not build on IDF 5.5, and every `lib_deps` library is compiled
+    whether used or not (§1). Not yet reported upstream; revisit after that.
 
 ## Completed
 

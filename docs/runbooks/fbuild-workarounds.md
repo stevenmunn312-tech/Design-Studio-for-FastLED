@@ -6,8 +6,12 @@ an internal record.
 
 - **On hold since 2026-10-08.** Development and compile evidence use Arduino CLI
   alone. fbuild stays in the helper with every workaround below, and is tested
-  again once the repository matures; until then nothing here is rerun or filed
-  upstream.
+  again once the repository matures; until then nothing here is rerun. Four
+  issues were filed on 2026-10-12 from existing evidence:
+  [#1670](https://github.com/FastLED/fbuild/issues/1670),
+  [#1671](https://github.com/FastLED/fbuild/issues/1671),
+  [#1672](https://github.com/FastLED/fbuild/issues/1672) and
+  [#1673](https://github.com/FastLED/fbuild/issues/1673).
 - **Current repository pin:** 2.5.37 (`backend/requirements.txt` and
   `backend/constraints.txt`), moved from 2.5.26 on 2026-10-07 and validated on
   2026-10-08: every fbuild leg on record built as it did on 2.5.26
@@ -95,10 +99,26 @@ build succeeded in 26.0s
 **Workaround kept anyway, for one reason.** We do not merely fetch FastLED, we *patch*
 it: `_patch_fastled_samd51_build` edits four vendored headers to fix SAMD51 compile
 errors upstream has not landed yet. A registry-resolved library is not ours to edit, so
-FastLED stays vendored until those patches are unnecessary. The four libraries we never
-patch (ESP32-audioI2S, esp_dmx, HUB75, ZeroI2S/ZeroDMA) could move to `lib_deps` — worth
-doing, and blocked on nothing but issue #10 below, which is what the local `lib/`
-currently costs us.
+FastLED stays vendored until those patches are unnecessary.
+
+**The other four stay vendored too, on 2.5.37 evidence (2026-10-12).** Each was tried
+as a pinned `lib_deps` entry in a throwaway project:
+
+| Library | `lib_deps` entry tried | Result |
+|---|---|---|
+| ESP32-audioI2S 3.0.12 | `https://github.com/schreibfaul1/ESP32-audioI2S.git#3.0.12` | Not in the registry (only the `esphome` fork, 2.3.0). fbuild's GitHub downloader ignores `#ref`: it fetches `<url>#3.0.12/archive/refs/heads/main.zip`, GitHub answers with an HTML page, and extraction fails with `invalid Zip archive`. A tag-archive `.zip` URL is treated as a repository URL too (404), and `git+https://…#3.0.12` is looked up in the registry. `library_downloader.rs` is unchanged in 2.5.39 |
+| esp_dmx | `someweisguy/esp_dmx@4.1.0` | Resolves, pin honoured, but 4.1.0 (the registry's newest) does not compile against arduino-esp32 3.3.9 / IDF 5.5: `'uart_signal_conn_t' has no member named 'module'`. The helper clones the default branch, which does |
+| ESP32-HUB75-MatrixPanel-DMA 3.0.14 | `mrfaptastic/ESP32 HUB75 LED MATRIX PANEL DMA Display@3.0.14` | The pin is ignored without a warning (3.1.0 is downloaded), then `failed to move library source: Access is denied. (os error 5)` on every run |
+| Adafruit ZeroI2S 1.2.4 + ZeroDMA 1.1.4 | `adafruit/Adafruit Zero I2S Library@1.2.4`, `adafruit/Adafruit Zero DMA Library@1.1.4` | Works: both pins honoured, a SAMD51 sketch builds in 11 s |
+
+One more finding applies to all of them: fbuild compiles every `lib_deps` library
+for every build of the environment, whether the sketch includes it or not. A blink
+sketch with esp_dmx declared compiled esp_dmx's sources (and failed on them). The
+include-walk selection of §10 applies to `lib/` only. So a static `lib_deps` list
+would compile the ZeroI2S pair into every SAMD51 build, and the alternative,
+rewriting `platformio.ini` per sketch, changes the environment's configuration
+between builds. Moving one pair out of four is not worth either cost; revisit when
+the downloader and pin problems above are fixed upstream.
 
 **Note for anyone driving fbuild by hand.** The daemon binds to the project directory it
 was first started in, so `fbuild build` run from another directory is answered against
@@ -732,7 +752,8 @@ it clears within seconds. We retry the deploy up to 3 times with a 2s backoff.
 
 **Windows long paths.** ESP32 builds fail intermittently on a different vendored-toolchain
 file each run once path depth crosses `MAX_PATH`. Requires `LongPathsEnabled=1` in the
-registry. Worth a documentation note upstream, since the failure looks random.
+registry. Reported upstream as a documentation request,
+[#1673](https://github.com/FastLED/fbuild/issues/1673), since the failure looks random.
 
 ---
 
@@ -780,7 +801,7 @@ next `compile-matrix.py --engine fbuild` run is the first full run without it.
 | §12 LVGL archive command length | None: `archive_objects` still passes every object on the command line | — | Keep the recovery; reported as [#1656](https://github.com/FastLED/fbuild/issues/1656) |
 | §5 no size summary on linker overflow | None found | — | Keep the `ld` parsing; reported as [#1658](https://github.com/FastLED/fbuild/issues/1658) |
 | §7 ESP8266 `deploy` | None: the deploy dispatch has no `Espressif8266` arm | — | Keep the arduino-cli fallback; reported as [#1657](https://github.com/FastLED/fbuild/issues/1657) |
-| IR RP2040, Renesas, SAMD21 legs | None found; none of the three was reported upstream | — | Still failing on 2.5.37; report them upstream |
+| IR RP2040, Renesas, SAMD21 legs | None found | — | Still failing on 2.5.37; reported 2026-10-12 as [#1670](https://github.com/FastLED/fbuild/issues/1670) (RP2040 boot2), [#1671](https://github.com/FastLED/fbuild/issues/1671) (Renesas core 1.2.2) and [#1672](https://github.com/FastLED/fbuild/issues/1672) (SAMD architecture define, then `EIC_Handler`) |
 
 Also in this range: ESP32 builds read headers through one generated include
 directory instead of ~200 SDK include paths, and compile in one shared job pool
