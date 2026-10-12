@@ -126,13 +126,18 @@ scroll leaves text that fits standing still. XY Pad and Launch Pad remain named
 but deferred, so the port-role model still leaves room for multi-role outputs.
 Charts and waveform/spectrum histories wait on measured display bandwidth.
 
-The first editor has two visual layers: one background owned by `DisplayTheme`
-(solid, gradient or validated baked image), then one non-overlapping widget
-layer. The theme also owns surfaces, text, accent/warning/success colours,
-approved font faces and sizes, corner/border treatment, and default, pressed,
-active, inactive and disabled states. This permits authored skins without
-opening arbitrary z-order or containers. Graph-type-coloured port notches are
-an editor-only Design-mode aid and never become generated screen content.
+The editor has a background owned by `DisplayTheme` (solid, gradient or
+validated baked image), then one widget layer in which widgets may overlap. The
+theme also owns surfaces, text, accent/warning/success colours, approved font
+faces and sizes, corner/border treatment, and default, pressed, active,
+inactive and disabled states. Stacking is the widget list's own order, the
+order LVGL creates objects in, so there is no separate z-index to drift from
+the glass. Only controls take a touch, so overlap is a problem only between two
+controls, and the editor reports exactly that. A Container is one level of
+grouping, an `lv_obj` its children are created in, rather than a layout engine:
+it clips and carries them, and has no flex, scrolling or nesting.
+Graph-type-coloured port notches are an editor-only Design-mode aid and never
+become generated screen content.
 
 ### Asset library contract
 
@@ -745,8 +750,8 @@ from the shared-bus run. Do not infer runtime capacity from the completed
 editor or historical successful compiles; check each new widget against those
 budgets.
 
-**In v1:** Choice and Step controls, Colour Picker, Arc Gauge and Marquee
-(shipped), containers and overlapping widgets. They reuse the existing widget and binding
+**In v1:** Choice and Step controls, Colour Picker, Arc Gauge, Marquee,
+containers and overlapping widgets (all shipped). They reuse the existing widget and binding
 path, so they join v1 ahead of the HW-18 save-format freeze.
 
 **Deferred until after v1:** multiple screens and navigation stacks, freeform

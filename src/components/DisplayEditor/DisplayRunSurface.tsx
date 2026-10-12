@@ -27,6 +27,7 @@ import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
 import {
   displayBackgroundStyle,
   displayThemeVariables,
+  displayWidgetClipStyle,
   displayWidgetThemeVariables,
 } from './displayPreviewStyles'
 import {
@@ -49,12 +50,14 @@ const PICKER_KEY_DEGREES = 10
 interface RunDisplayWidgetProps {
   widget: PlacedDisplayWidget
   theme: DisplayDocument['theme']
+  /** Its container's clip, from `displayWidgetClipStyle`. */
+  clip: CSSProperties
   value: unknown
   onValue: (value: DisplayControlValue, held: boolean) => void
   onRelease: () => void
 }
 
-function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDisplayWidgetProps) {
+function RunDisplayWidget({ widget, theme, clip, value, onValue, onRelease }: RunDisplayWidgetProps) {
   const definition = DISPLAY_WIDGET_LIBRARY[widget.type]
   const interactive = isInteractiveDisplayWidget(widget)
   const drag = useRef<{ pointerId: number; startY: number; startValue: number } | null>(null)
@@ -212,6 +215,7 @@ function RunDisplayWidget({ widget, theme, value, onValue, onRelease }: RunDispl
         ...displayWidgetThemeVariables(theme, visualState),
         '--widget-hit-inset-x': `${(widget.bounds.width - hitBounds.width) / 2}px`,
         '--widget-hit-inset-y': `${(widget.bounds.height - hitBounds.height) / 2}px`,
+        ...clip,
       } as CSSProperties}
       data-widget-state={visualState}
       data-widget-type={widget.type}
@@ -291,6 +295,7 @@ export default function DisplayRunSurface({
             key={widget.id}
             widget={widget}
             theme={document.theme}
+            clip={displayWidgetClipStyle(document, widget)}
             value={value}
             onValue={(next, held) => writeRunValue(widget.id, next, held)}
             onRelease={() => releaseRunValue(widget.id)}

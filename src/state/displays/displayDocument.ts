@@ -29,6 +29,7 @@ export const DISPLAY_WIDGET_TYPES = [
   'Colour Picker',
   'Arc Gauge',
   'Marquee',
+  'Container',
 ] as const
 
 export type DisplayWidgetType = (typeof DISPLAY_WIDGET_TYPES)[number]
@@ -83,6 +84,15 @@ export interface DisplayWidget {
    * compile error at each site rather than something to remember.
    */
   bounds?: DisplayBounds
+  /**
+   * The Container this widget sits in, if any. A child moves, copies and
+   * deletes with its container, is clipped to it, and is drawn as its LVGL
+   * child. Bounds stay in screen pixels either way, so nothing that reads
+   * geometry has to know about containers. Only a placed widget can have
+   * one, only a placed Container can be one, and containers do not nest:
+   * `displayWidgetParent` is the one reading of whether it holds.
+   */
+  parentId?: string
   properties: Record<string, DisplayWidgetProperty>
 }
 
@@ -100,6 +110,56 @@ export function placedWidgets(
   document: Pick<DisplayDocument, 'widgets'> | null | undefined,
 ): PlacedDisplayWidget[] {
   return (document?.widgets ?? []).filter(isPlacedWidget)
+}
+
+/**
+ * The Container a widget is drawn in, or null when it sits on the screen
+ * itself — including when its `parentId` names something that cannot hold it.
+ */
+export function displayWidgetParent(
+  document: { readonly widgets: readonly DisplayWidget[] },
+  widget: DisplayWidget,
+): PlacedDisplayWidget | null {
+  if (!widget.parentId || !isPlacedWidget(widget) || widget.type === 'Container') return null
+  const parent = document.widgets.find((entry) => entry.id === widget.parentId)
+  return parent && parent.type === 'Container' && isPlacedWidget(parent) ? parent : null
+}
+
+/** The widget on the screen itself: the same widget with no `parentId` field. */
+export function withoutDisplayParent<T extends DisplayWidget>(widget: T): T {
+  if (widget.parentId === undefined) return widget
+  const copy = { ...widget }
+  delete copy.parentId
+  return copy
+}
+
+/**
+ * The widgets in paint order, each Container followed at once by its
+ * children, with any `parentId` that cannot hold dropped.
+ *
+ * Paint order is list order: a later widget draws over an earlier one, in the
+ * designer as on the glass. LVGL draws a parent's children with it, so a
+ * widget listed between a Container and one of its children would be drawn
+ * over that child on the glass and under it in a flat preview. Keeping each
+ * container's children contiguous behind it makes list order and LVGL's tree
+ * order the same thing, so the emitter creates in list order and the preview
+ * stacks in it. Every edit that can change a parent ends here.
+ */
+export function orderDisplayWidgetTree(widgets: readonly DisplayWidget[]): DisplayWidget[] {
+  const document = { widgets }
+  const children = new Map<string, DisplayWidget[]>()
+  const settled = widgets.map((widget) => {
+    const parent = displayWidgetParent(document, widget)
+    if (parent) {
+      children.set(parent.id, [...(children.get(parent.id) ?? []), widget])
+      return widget
+    }
+    return withoutDisplayParent(widget)
+  })
+  return settled.flatMap((widget) => {
+    if (displayWidgetParent(document, widget)) return []
+    return [widget, ...(children.get(widget.id) ?? [])]
+  })
 }
 
 export interface DisplayDocument {
@@ -238,6 +298,7 @@ function normalizeWidget(value: unknown, width: number, height: number): Display
       height: boundedInteger(bounds.height, 1, 1, height - y),
     }
   })() : undefined
+  const parentId = normalizedId(source.parentId)
   return {
     id,
     type: source.type as DisplayWidgetType,
@@ -245,6 +306,7 @@ function normalizeWidget(value: unknown, width: number, height: number): Display
       ? [...source.label].slice(0, DISPLAY_DOCUMENT_LIMITS.labelLength).join('')
       : '',
     ...(placedBounds ? { bounds: placedBounds } : {}),
+    ...(parentId ? { parentId } : {}),
     properties: normalizeProperties(source.type as DisplayWidgetType, source.properties),
   }
 }
@@ -273,7 +335,7 @@ export function normalizeDisplayDocument(value: unknown): DisplayDocument | null
     orientation: orientation === '90' || orientation === '180' || orientation === '270' ? orientation : '0',
     gridSize: boundedInteger(source.gridSize, 8, 1, DISPLAY_DOCUMENT_LIMITS.gridSize),
     theme: normalizeDisplayTheme(source.theme),
-    widgets,
+    widgets: orderDisplayWidgetTree(widgets),
   }
 }
 

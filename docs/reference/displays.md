@@ -268,6 +268,23 @@ Ctrl/Cmd+A selects all, Ctrl/Cmd+C/V copies/pastes, Ctrl/Cmd+D duplicates, and
 Delete removes the selection. Multiple selections expose alignment and
 distribution controls.
 
+Widgets may overlap. A widget added later draws over an earlier one, and
+**To front**, **Forward**, **Backward** and **To back** in the inspector change
+that order (Ctrl/Cmd+] and Ctrl/Cmd+[, with Shift to go all the way). Only a
+control takes a touch: text, readings, images and containers let a press
+through to whatever control is under them, on the panel as in the Run preview,
+so a label can sit on a button. Two controls over each other are reported,
+because the panel gives the press to the upper one and the lower can only be
+reached where it shows.
+
+A **Container** is a framed panel for grouping. Drop a widget wholly inside
+one, or move or resize a container round widgets, and they become its
+contents: they move, copy, cut and delete with it, draw over it, and are cut
+off at its edge. Drag a widget out of it, even partly, to take it out.
+Resizing never takes a widget out; one that no longer fits is reported as cut
+off. Containers do not hold other containers. A wired control deleted with its
+container goes back to **Connected**, as when it is deleted on its own.
+
 Choose images, icons, and backgrounds from the installed asset choices in the
 inspector. Resolve missing-asset and layout issues before deployment. Asset
 preparation is part of generated-code, capacity, and upload preparation; imported

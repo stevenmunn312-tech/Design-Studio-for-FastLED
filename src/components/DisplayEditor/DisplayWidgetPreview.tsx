@@ -415,6 +415,10 @@ export default function DisplayWidgetPreview({ widget, renderer, theme, state, v
         </span>
       )
     }
+    // Its frame is the widget box itself; its children draw over it as
+    // widgets of their own.
+    case 'container':
+      return null
   }
   })()
 

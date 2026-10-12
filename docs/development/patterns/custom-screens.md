@@ -305,6 +305,28 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is the arc's child 0 (`_cdSetChildText`). LVGL insets an arc by its padding
   alone, so the emitter pads it by border plus `DISPLAY_GAUGE_PAD_PX`, the
   inset `displayGaugeGeometry` gives the preview.
+- **List order is paint order and LVGL tree order.** `document.widgets` draws
+  later over earlier in every renderer, and each Container is followed at once
+  by its children (`orderDisplayWidgetTree`, applied by normalize and by every
+  edit that can change a parent). That is what lets the emitter create objects
+  in list order, with a child created in its container's object, and lets the
+  flat DOM preview stack siblings without a z-index: a widget listed between a
+  container and its child would draw over that child in LVGL and under it in
+  the DOM. `.widget.selected` is deliberately not raised for the same reason.
+- **A child's parent is checked where it is read.** `parentId` is honoured
+  only through `displayWidgetParent`: a placed non-Container widget in a placed
+  Container. Bounds stay in screen pixels, so geometry readers ignore
+  containers; the emitter subtracts `displayContainerInnerBounds` (inside the
+  border, below any caption, which is where LVGL measures a child from with no
+  padding) and the preview clips with `displayWidgetClipStyle`. Containers
+  carry their children in `translateDisplayWidgets` and
+  `updateDisplayWidget(s)` unless the child was moved itself; membership is
+  settled only at commit, by `adoptDisplayWidgets`, never mid-drag.
+- **Only controls are clickable.** The emitter removes `LV_OBJ_FLAG_CLICKABLE`
+  from every kind 0 object and the Run surface gives non-interactive widgets
+  `pointer-events: none`, so anything drawn over a control lets the press
+  through. `displayLayoutIssues` therefore reports overlap only between two
+  touch targets; reinstating a general overlap rule would contradict both.
 - **A Marquee is a label moved, not a label scrolled.** LVGL's
   `LV_LABEL_LONG_MODE_SCROLL_CIRCULAR` moves only text wider than its label,
   so the Marquee is an `lv_obj` container (not scrollable, `clip_corner`,

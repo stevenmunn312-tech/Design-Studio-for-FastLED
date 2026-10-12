@@ -7,6 +7,7 @@ import DisplayRuntimeWidgets from './DisplayRuntimeWidgets'
 import {
   displayBackgroundStyle,
   displayThemeVariables,
+  displayWidgetClipStyle,
   displayWidgetThemeVariables,
 } from './displayPreviewStyles'
 import styles from './DisplayDesignSurface.module.css'
@@ -55,6 +56,7 @@ export default function DisplayDesignSurface({
                 width: widget.bounds.width,
                 height: widget.bounds.height,
                 ...displayWidgetThemeVariables(document.theme, state),
+                ...displayWidgetClipStyle(document, widget),
               }}
             >
               <DisplayWidgetPreview

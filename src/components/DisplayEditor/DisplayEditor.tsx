@@ -28,20 +28,26 @@ import {
 } from '../../state/displays/displayRegistry'
 import {
   addDisplayWidget,
+  adoptDisplayWidgets,
   alignDisplayWidgets,
   constrainDisplayWidgetBounds,
+  displayContainerChildren,
   displayLayoutIssues,
+  displayWidgetsWithChildren,
   distributeDisplayWidgets,
   duplicateDisplayWidgets,
   pasteDisplayWidgets,
   resizeDisplayDocument,
   removeDisplayWidgets,
+  restackDisplayWidgets,
   translateDisplayWidgets,
   unplaceDisplayWidgets,
   updateDisplayWidget,
   type DisplayLayoutIssue,
+  type DisplayRestack,
 } from '../../state/displays/displayEditor'
 import {
+  displayWidgetParent,
   isPlacedWidget,
   placedWidgets,
   type DisplayBounds,
@@ -93,6 +99,7 @@ import DisplayWidgetPreview from './DisplayWidgetPreview'
 import {
   displayBackgroundStyle as backgroundStyle,
   displayThemeVariables as editorVariables,
+  displayWidgetClipStyle,
   displayWidgetThemeVariables as widgetThemeVariables,
 } from './displayPreviewStyles'
 import styles from './DisplayEditor.module.css'
@@ -173,6 +180,14 @@ function selectionAnnouncement(
     widgetIds.includes(issue.widgetId) || (issue.otherWidgetId ? widgetIds.includes(issue.otherWidgetId) : false)
   ))
   return `${widgetIds.length} widgets selected. ${validationAnnouncement(selectedIssues)}`
+}
+
+/** What a restack did, for the announcement. */
+const RESTACKED: Readonly<Record<DisplayRestack, string>> = {
+  front: 'brought to the front',
+  forward: 'brought forward',
+  backward: 'sent backward',
+  back: 'sent to the back',
 }
 
 /** Widget properties that set the value range rather than the look. */
@@ -580,8 +595,18 @@ export default function DisplayEditor() {
     const active = gesture.current
     if (!active || active.pointerId !== event.pointerId) return
     gesture.current = null
-    const next = draftRef.current
+    // Which container a widget is in is settled where it lands, not while it
+    // is dragged, so nothing jumps above or below it on the way there. A
+    // resized child stays where it is; a resized container takes in what it
+    // now wholly covers.
+    const dragged = draftRef.current
+    const settledIds = active.kind === 'move'
+      ? active.widgetIds
+      : dragged?.widgets.find((widget) => widget.id === active.widgetId)?.type === 'Container' ? [active.widgetId] : []
+    const next = dragged ? adoptDisplayWidgets(dragged, settledIds) : dragged
     if (next && next !== persisted) {
+      draftRef.current = next
+      setDraft(next)
       setDisplayDocument(next)
       setAnnouncement(widgetAnnouncement(next, active.widgetId, displayLayoutIssues(next)))
     }
@@ -621,11 +646,21 @@ export default function DisplayEditor() {
 
   const applySelectionTransform = (next: DisplayDocument, message: string) => {
     if (next === document) return
-    commit(next, message)
+    commit(adoptDisplayWidgets(next, selectedIds), message)
   }
 
+  const restackSelection = (direction: DisplayRestack) => {
+    const next = restackDisplayWidgets(document, selectedIds, direction)
+    if (next === document) return
+    commit(next, `${selectedIds.length === 1 ? 'Widget' : `${selectedIds.length} widgets`} ${RESTACKED[direction]}.`)
+  }
+  // A container comes with what it holds, as one piece, for every edit that
+  // moves, copies or removes widgets.
+  const withChildren = (widgetIds: readonly string[]) => displayWidgetsWithChildren(document, widgetIds)
+
   const copySelection = () => {
-    displayWidgetClipboard = selectedWidgets.map((widget) => structuredClone(widget))
+    const ids = new Set(withChildren(selectedIds))
+    displayWidgetClipboard = document.widgets.filter((widget) => ids.has(widget.id)).map((widget) => structuredClone(widget))
     setAnnouncement(`${displayWidgetClipboard.length} ${displayWidgetClipboard.length === 1 ? 'widget' : 'widgets'} copied.`)
   }
 
@@ -862,7 +897,7 @@ export default function DisplayEditor() {
         if (mod && direction.toLowerCase() === 'x' && selectedWidgets.length > 0) {
           event.preventDefault()
           event.stopPropagation()
-          void removeSelection(selectedIds, 'cut')
+          void removeSelection(withChildren(selectedIds), 'cut')
           return
         }
         if (mod && direction.toLowerCase() === 'v') {
@@ -875,13 +910,22 @@ export default function DisplayEditor() {
         if (direction === 'Delete' || direction === 'Backspace') {
           event.preventDefault()
           event.stopPropagation()
-          void removeSelection(selectedIds, 'deleted')
+          void removeSelection(withChildren(selectedIds), 'deleted')
+          return
+        }
+        // The usual drawing-program keys: Ctrl+] and Ctrl+[ step up and down
+        // the stack, with Shift to go all the way.
+        if (mod && (event.code === 'BracketRight' || event.code === 'BracketLeft')) {
+          event.preventDefault()
+          event.stopPropagation()
+          const up = event.code === 'BracketRight'
+          restackSelection(event.shiftKey ? (up ? 'front' : 'back') : (up ? 'forward' : 'backward'))
           return
         }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
           event.preventDefault()
           event.stopPropagation()
-          const result = duplicateDisplayWidgets(document, selectedIds)
+          const result = duplicateDisplayWidgets(document, withChildren(selectedIds))
           commit(result.document, `${selectedIds.length} ${selectedIds.length === 1 ? 'widget' : 'widgets'} duplicated.`)
           setSelectedIds(result.widgetIds)
           return
@@ -892,7 +936,7 @@ export default function DisplayEditor() {
         const amount = event.shiftKey ? 1 : document.gridSize
         const dx = direction === 'ArrowLeft' ? -amount : direction === 'ArrowRight' ? amount : 0
         const dy = direction === 'ArrowUp' ? -amount : direction === 'ArrowDown' ? amount : 0
-        const next = translateDisplayWidgets(document, selectedIds, dx, dy, !event.shiftKey)
+        const next = adoptDisplayWidgets(translateDisplayWidgets(document, selectedIds, dx, dy, !event.shiftKey), selectedIds)
         commit(next, selectionAnnouncement(next, selectedIds, displayLayoutIssues(next)))
       }}
     >
@@ -1149,6 +1193,7 @@ export default function DisplayEditor() {
                       width: widget.bounds.width,
                       height: widget.bounds.height,
                       ...widgetThemeVariables(document.theme, 'default'),
+                      ...displayWidgetClipStyle(document, widget),
                     }}
                     data-widget-state="default"
                     data-widget-type={widget.type}
@@ -1206,10 +1251,36 @@ export default function DisplayEditor() {
               {isPlacedWidget(selected) && (
                 <div className={styles.bounds}>
                   {(['x', 'y', 'width', 'height'] as const).map((key) => (
-                    <label key={key}>{key}<input type="number" value={selected.bounds[key]} onChange={(event) => commit(updateDisplayWidget(document, selected.id, (widget) => (widget.bounds ? { ...widget, bounds: { ...widget.bounds, [key]: Number(event.target.value) } } : widget)))} /></label>
+                    <label key={key}>{key}<input
+                      type="number"
+                      value={selected.bounds[key]}
+                      onChange={(event) => {
+                        const next = updateDisplayWidget(document, selected.id, (widget) => (widget.bounds ? { ...widget, bounds: { ...widget.bounds, [key]: Number(event.target.value) } } : widget))
+                        // A typed position is a move; a typed size settles only a container.
+                        commit(key === 'x' || key === 'y' || selected.type === 'Container' ? adoptDisplayWidgets(next, [selected.id]) : next)
+                      }}
+                    /></label>
                   ))}
                 </div>
               )}
+              {isPlacedWidget(selected) && (() => {
+                const parent = displayWidgetParent(document, selected)
+                const held = selected.type === 'Container' ? displayContainerChildren(document, selected.id).length : 0
+                const note = parent
+                  ? `In ${parent.label || 'its container'}. It moves with it and is cut off at its edge; drag it out to take it out.`
+                  : selected.type === 'Container'
+                    ? held > 0
+                      ? `Holds ${held} ${held === 1 ? 'widget' : 'widgets'}, which move, copy and delete with it.`
+                      : 'Drop widgets wholly inside it, or draw it round them, and they move, copy and delete with it.'
+                    : null
+                return note ? <p className={styles.sectionHint}>{note}</p> : null
+              })()}
+              <div className={styles.selectionActions} aria-label="Stacking order">
+                <button type="button" onClick={() => restackSelection('front')} title="Ctrl+Shift+]">To front</button>
+                <button type="button" onClick={() => restackSelection('forward')} title="Ctrl+]">Forward</button>
+                <button type="button" onClick={() => restackSelection('backward')} title="Ctrl+[">Backward</button>
+                <button type="button" onClick={() => restackSelection('back')} title="Ctrl+Shift+[">To back</button>
+              </div>
               {appearanceProperties.length > 0 && (
                 <div className={styles.properties}>
                   {appearanceProperties.map((property) => renderProperty(selected, property))}
@@ -1295,7 +1366,7 @@ export default function DisplayEditor() {
                 </button>
               )}
               </section>
-              <button className={styles.delete} type="button" onClick={() => { void removeSelection([selected.id], 'deleted') }}>Delete widget</button>
+              <button className={styles.delete} type="button" onClick={() => { void removeSelection(withChildren([selected.id]), 'deleted') }}>Delete widget</button>
             </>
           ) : selectedWidgets.length > 1 ? (
             <>
@@ -1310,7 +1381,13 @@ export default function DisplayEditor() {
                 <button type="button" disabled={selectedWidgets.length < 3} onClick={() => applySelectionTransform(distributeDisplayWidgets(document, selectedIds, 'horizontal'), 'Widgets distributed horizontally.')}>Distribute X</button>
                 <button type="button" disabled={selectedWidgets.length < 3} onClick={() => applySelectionTransform(distributeDisplayWidgets(document, selectedIds, 'vertical'), 'Widgets distributed vertically.')}>Distribute Y</button>
               </div>
-              <button className={styles.delete} type="button" onClick={() => { void removeSelection(selectedIds, 'deleted') }}>Delete widgets</button>
+              <div className={styles.selectionActions} aria-label="Stacking order">
+                <button type="button" onClick={() => restackSelection('front')} title="Ctrl+Shift+]">To front</button>
+                <button type="button" onClick={() => restackSelection('forward')} title="Ctrl+]">Forward</button>
+                <button type="button" onClick={() => restackSelection('backward')} title="Ctrl+[">Backward</button>
+                <button type="button" onClick={() => restackSelection('back')} title="Ctrl+Shift+[">To back</button>
+              </div>
+              <button className={styles.delete} type="button" onClick={() => { void removeSelection(withChildren(selectedIds), 'deleted') }}>Delete widgets</button>
             </>
           ) : (
             <>

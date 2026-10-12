@@ -130,22 +130,32 @@ describe('DisplayEditor', () => {
   it('announces validation changes and associates each issue with its widgets', () => {
     const view = renderEditor()
     fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
-    fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Toggle widget' }))
     fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }), { ctrlKey: true })
     fireEvent.click(view.getByRole('button', { name: 'Left' }))
 
+    const message = 'Button is under Toggle, so a touch where they overlap reaches only Toggle.'
     const validation = view.getByRole('status', { name: 'Display validation status' })
-    expect(validation.textContent).toContain('1 layout issue. Button overlaps Text.')
+    expect(validation.textContent).toContain(`1 layout issue. ${message}`)
     const button = view.getByRole('button', { name: /Button, Button\. Position/ })
-    const text = view.getByRole('button', { name: /Text, Text\. Position/ })
+    const toggle = view.getByRole('button', { name: /Toggle, Toggle\. Position/ })
     expect(button.getAttribute('aria-invalid')).toBe('true')
-    expect(text.getAttribute('aria-invalid')).toBe('true')
+    expect(toggle.getAttribute('aria-invalid')).toBe('true')
     expect(button.getAttribute('aria-describedby')).toBe('display-widget-issues-button')
-    expect(view.getByText('Button overlaps Text.', { selector: '#display-widget-issues-button' })).toBeTruthy()
+    expect(view.getByText(message, { selector: '#display-widget-issues-button' })).toBeTruthy()
     fireEvent.click(button)
     expect(view.getByRole('status', { name: 'Display editor announcements' }).textContent).toContain(
-      '1 validation issue: Button overlaps Text.',
+      `1 validation issue: ${message}`,
     )
+  })
+
+  it('lets a reading sit over a control, since only controls take a touch', () => {
+    const view = renderEditor()
+    fireEvent.click(view.getByRole('button', { name: 'Add Button widget' }))
+    fireEvent.click(view.getByRole('button', { name: 'Add Text widget' }))
+    fireEvent.click(view.getByRole('button', { name: /Button, Button\. Position/ }), { ctrlKey: true })
+    fireEvent.click(view.getByRole('button', { name: 'Left' }))
+    expect(view.getByRole('status', { name: 'Display validation status' }).textContent).toContain('Layout valid.')
   })
 
   /*

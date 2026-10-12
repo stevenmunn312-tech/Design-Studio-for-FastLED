@@ -8,6 +8,7 @@ import { customDisplayId as safeId } from './customDisplayId'
 // callbacks, bounded caches and bindings.
 
 import {
+  displayWidgetParent,
   placedWidgets,
   type DisplayDocument,
   type DisplayWidget,
@@ -42,6 +43,7 @@ import {
   type BakedCustomDisplayAsset,
 } from '../../state/displays/customDisplayResources'
 import { customDisplayAssetIndex, customDisplayAssetSymbol } from './customDisplayAssetsCpp'
+import { displayContainerInnerBounds } from '../../state/displays/displayEditor'
 
 /** `FLS_LVGL_POOL_FROM_HEAP` comes from the helper's lv_conf.h, through lvgl.h. */
 export const CUSTOM_DISPLAY_LVGL_INCLUDE = [
@@ -251,6 +253,8 @@ function lvglWidgetClass(widget: DisplayWidget): string {
     case 'colour-picker': return 'lv_obj'
     // The Dial's arc, with its knob left unstyled and its touch removed.
     case 'gauge': return 'lv_arc'
+    // A plain object its children are created in.
+    case 'container': return 'lv_obj'
   }
 }
 
@@ -286,16 +290,29 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   // preview lays it out. Both sides read the one layout in displayRegistry.
   const caption = displayWidgetCaptionLayout(widget, text.fontSize, b.height)
   const box = displayWidgetContentBounds(widget, text.fontSize)
+  // A Container's child is created in it, placed from the inside of its
+  // border, which is where LVGL measures a child's position from. The list is
+  // in tree order (`orderDisplayWidgetTree`), so the container already exists.
+  const parent = displayWidgetParent(emit.document, widget)
+  const holder = parent
+    ? object(emit, emittedWidgets(emit).findIndex((entry) => entry.id === parent.id))
+    : `_cdScreen_${safeId(emit.id)}`
+  const origin = parent ? displayContainerInnerBounds(parent, emit.document.theme) : { x: 0, y: 0 }
+  const kind = controlKind(widget)
   const lines = [
     `  ${rt}.lastInteger = INT32_MIN;`,
     `  ${rt}.lastColor = UINT32_MAX;`,
-    `  ${obj} = ${widgetCreateExpression(widget, `_cdScreen_${safeId(emit.id)}`)};`,
-    `  lv_obj_set_pos(${obj}, ${box.x}, ${box.y});`,
+    `  ${obj} = ${widgetCreateExpression(widget, holder)};`,
+    `  lv_obj_set_pos(${obj}, ${box.x - origin.x}, ${box.y - origin.y});`,
     `  lv_obj_set_size(${obj}, ${box.width}, ${box.height});`,
     `  lv_obj_set_style_radius(${obj}, ${theme.cornerRadius}, LV_PART_MAIN);`,
     `  lv_obj_set_style_border_width(${obj}, ${theme.borderWidth}, LV_PART_MAIN);`,
     ...styleLines(obj, base),
   ]
+  // Only a control takes a press. Anything else is left out of LVGL's hit
+  // test, so a widget drawn over a control lets the press through to it, as
+  // the preview's Run surface does; a plain lv_obj is clickable by default.
+  if (kind === 0) lines.push(`  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_CLICKABLE);`)
 
   if (lvglWidgetClass(widget) === 'lv_label') {
     lines.push(
@@ -371,7 +388,6 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     }
   }
 
-  const kind = controlKind(widget)
   if (kind > 0) {
     lines.push(`  ${rt}.kind = ${kind};`)
     // A container's keys take the touch, each reporting to this runtime; a
@@ -389,6 +405,16 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   if (widget.type === 'Colour Picker') lines.push(...pickerLines(emit, widget, index, box))
   if (widget.type === 'Arc Gauge') lines.push(...gaugeLines(emit, widget, index, box, text.fontSize))
   if (widget.type === 'Marquee') lines.push(...marqueeLines(emit, widget, index, text.fontSize))
+  // Children larger than it, or partly outside it, are clipped rather than
+  // scrolled to, and its border is drawn over them as the preview's is.
+  if (widget.type === 'Container') {
+    lines.push(
+      `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_SCROLLABLE);`,
+      `  lv_obj_set_style_pad_all(${obj}, 0, LV_PART_MAIN);`,
+      `  lv_obj_set_style_clip_corner(${obj}, true, LV_PART_MAIN);`,
+      `  lv_obj_set_style_border_post(${obj}, true, LV_PART_MAIN);`,
+    )
+  }
 
   if (widget.type === 'Text') {
     const fallbackText = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
@@ -426,10 +452,9 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
 
   if (caption) {
     const cap = `_cdCaption_${safeId(emit.id)}_${index}`
-    const screen = `_cdScreen_${safeId(emit.id)}`
     lines.push(
-      `  lv_obj_t *${cap} = lv_label_create(${screen});`,
-      `  lv_obj_set_pos(${cap}, ${b.x}, ${b.y});`,
+      `  lv_obj_t *${cap} = lv_label_create(${holder});`,
+      `  lv_obj_set_pos(${cap}, ${b.x - origin.x}, ${b.y - origin.y});`,
       `  lv_obj_set_size(${cap}, ${b.width}, ${caption.height});`,
       `  lv_obj_set_style_text_font(${cap}, &lv_font_montserrat_${customDisplayFontSize(caption.fontSize)}, LV_PART_MAIN);`,
       `  lv_obj_set_style_text_color(${cap}, lv_color_hex(${colorHex(base.textColor)}), LV_PART_MAIN);`,
@@ -621,7 +646,6 @@ function gaugeLines(
   const rt = runtime(emit, index)
   const { inset, stroke } = displayGaugeGeometry(box.width, box.height, theme.borderWidth)
   const lines = [
-    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_CLICKABLE);`,
     `  lv_obj_set_style_pad_all(${obj}, ${inset}, LV_PART_MAIN);`,
     `  lv_arc_set_range(${obj}, 0, CD_VALUE_SCALE);`,
     `  lv_arc_set_bg_angles(${obj}, 135, 45);`,
@@ -665,7 +689,6 @@ function marqueeLines(
   const fallbackText = stringProperty(widget, 'text') || displayWidgetBodyFallback(widget)
   return [
     `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_SCROLLABLE);`,
-    `  lv_obj_remove_flag(${obj}, LV_OBJ_FLAG_CLICKABLE);`,
     `  lv_obj_set_style_pad_all(${obj}, 0, LV_PART_MAIN);`,
     `  lv_obj_set_style_clip_corner(${obj}, true, LV_PART_MAIN);`,
     `  lv_obj_set_style_border_post(${obj}, true, LV_PART_MAIN);`,

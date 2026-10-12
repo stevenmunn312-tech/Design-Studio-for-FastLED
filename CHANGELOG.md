@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Screen design widgets may now overlap. Later widgets draw over earlier ones,
+  and the designer can bring a widget forward or send it back (Ctrl+] and
+  Ctrl+[). Only controls take a touch, so text or an image over a button lets
+  the press through; two controls over each other are reported. A new
+  **Container** groups widgets: drop widgets inside it, or draw it round them,
+  and they move, copy and delete with it and are clipped to its edge. On the
+  panel it is an LVGL parent object, so the LVGL configuration is unchanged.
 - Screen designs gain a **Marquee**: one line of text that keeps travelling
   across, entering on the right, at a speed you set. Unlike a scrolling Text,
   it moves even when the text fits, and new text carries on from where the old

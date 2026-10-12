@@ -270,7 +270,11 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
 - [x] **Marquees.** One line of text that travels continuously, entering on
   the right, at an authored speed, built from an LVGL label moved inside a
   clipping container ([widget ports](docs/reference/displays.md#widget-ports)).
-- [ ] **Containers and overlap.**
+- [x] **Containers and overlap.** Widgets may overlap, drawn in a stacking
+  order the designer can change, with touch reaching only controls. A Container
+  is a framed panel whose children move, copy and delete with it and are
+  clipped to it, built as LVGL child objects
+  ([layout](docs/reference/displays.md#layout-and-assets)).
 
 ## 5. Release track (in order)
 

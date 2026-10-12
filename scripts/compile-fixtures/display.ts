@@ -8,7 +8,7 @@ import { catalogueDisplays, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../src/bu
 import { partOptionsFor } from '../../src/build/parts/partOptions'
 import { findDisplayGeneratorIssues, findPinConflicts } from '../../src/utils/validateGraph'
 import { assertWireable } from '../../src/test-utils/assertWireable'
-import { createDisplayDocument, addDisplayWidget } from '../../src/state/displays/displayEditor'
+import { createDisplayDocument, addDisplayWidget, adoptDisplayWidgets, displayContainerInnerBounds } from '../../src/state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../src/state/displays/displayTemplates'
 import { displayWidgetSources } from '../../src/state/displays/displayRegistry'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../src/state/displays/displayDocument'
@@ -42,9 +42,10 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
  * leave every line of the binding path untested.
  *
  * The second Text, the Choice Strip, the Step Control, the Colour Picker, the
- * Arc Gauge and the Marquee are appended rather than inserted so the widget
- * indices the required-symbol checks name (`_cd_screen[4]` is the first Text)
- * do not move.
+ * Arc Gauge, the Marquee, and a Container holding a third, wired Text are
+ * appended rather than inserted so the widget indices the required-symbol
+ * checks name (`_cd_screen[4]` is the first Text) do not move. The Container's
+ * child is what builds an LVGL object inside another rather than on the screen.
  */
 function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {}): DisplayDocument {
   let document = createDisplayDocument(id, 240, 320)
@@ -53,6 +54,13 @@ function fullDocument(id: string, bindings: Readonly<Record<string, string>> = {
     'Progress', 'Value Meter', 'Status Indicator', 'Colour Swatch', 'Pattern Browser', 'Image/Icon',
     'Text', 'Choice Strip', 'Step Control', 'Colour Picker', 'Arc Gauge', 'Marquee',
   ] as const) document = addDisplayWidget(document, type)
+  document = addDisplayWidget(addDisplayWidget(document, 'Container'), 'Text')
+  const container = document.widgets.find((entry) => entry.type === 'Container')!
+  const inner = displayContainerInnerBounds({ ...container, bounds: container.bounds! }, document.theme)
+  const child = document.widgets.at(-1)!
+  child.bounds = { ...child.bounds!, x: inner.x, y: inner.y }
+  document = adoptDisplayWidgets(document, [child.id])
+  if (!document.widgets.some((entry) => entry.parentId === container.id)) throw new Error(`${id}: the Text did not go in the Container`)
   const icon = document.widgets.find((widget) => widget.type === 'Image/Icon')!
   icon.properties = { ...icon.properties, assetId: 'icon:power', tint: true }
   /*
@@ -178,6 +186,7 @@ const commonWires = [
   edge('math', 'result', 'format', 'value'),
   edge('format', 'text', 'custom-tft', 'widget:text:value'),
   edge('format', 'text', 'custom-tft', 'widget:marquee:value'),
+  edge('format', 'text', 'custom-tft', 'widget:text-3:value'),
   edge('math', 'result', 'custom-tft', 'widget:numeric-readout:value'),
   edge('math', 'result', 'controls', 'brightness'),
   // A colour in and a colour out: the picker's Set from a colour node, and

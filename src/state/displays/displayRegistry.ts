@@ -99,11 +99,11 @@ export interface DisplayWidgetSize {
 export type DisplayPreviewRenderer =
   | 'text' | 'marquee' | 'numeric' | 'timecode' | 'progress' | 'meter' | 'status'
   | 'swatch' | 'pattern-browser' | 'image' | 'button' | 'toggle' | 'slider' | 'dial'
-  | 'choice' | 'stepper' | 'colour-picker' | 'gauge'
+  | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container'
 
 export type DisplayLvglEmitter =
   | 'label' | 'marquee' | 'bar' | 'led' | 'swatch' | 'pattern-browser' | 'image'
-  | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper' | 'colour-picker' | 'gauge'
+  | 'button' | 'switch' | 'slider' | 'arc' | 'choice' | 'stepper' | 'colour-picker' | 'gauge' | 'container'
 
 export interface DisplayWidgetDefinition {
   type: DisplayWidgetType
@@ -611,6 +611,14 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     minimumVisualSize: { width: 48, height: 20 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'marquee', lvglEmitter: 'marquee',
     propertyInspector: [text('text', 'Text when unwired (optional)'), number('fontSize', 'Font size', 8, 96, 1, true), color('color', 'Text colour'), number('speed', 'Speed (pixels per second)', DISPLAY_MARQUEE_MIN_SPEED, DISPLAY_MARQUEE_MAX_SPEED, 1, true)],
+    states: PASSIVE_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
+  },
+  Container: {
+    type: 'Container', label: 'Container', description: 'A framed panel. Widgets dropped inside it move, copy and delete with it, and are clipped to it.',
+    portRoles: [], defaultProperties: {},
+    minimumVisualSize: { width: 64, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
+    previewRenderer: 'container', lvglEmitter: 'container',
+    propertyInspector: [],
     states: PASSIVE_STATES, assetSlots: NO_ASSETS, validateProperties: noPropertyIssues,
   },
 }

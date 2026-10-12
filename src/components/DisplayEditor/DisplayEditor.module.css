@@ -417,6 +417,13 @@
   user-select: none;
 }
 
+/* Only a control takes a touch, as on the glass, where everything else is
+   built unclickable: a reading or a container drawn over a control lets the
+   press through to it. */
+.widget.runWidget:not(.interactiveWidget) {
+  pointer-events: none;
+}
+
 .widget.runWidget.interactiveWidget,
 .widget.runWidget.interactiveWidget:active {
   cursor: pointer;
@@ -436,8 +443,9 @@
   outline-offset: 2px;
 }
 
+/* Not raised: what draws over what is the design's own stacking order, and
+   lifting the selection would hide a container's children behind it. */
 .widget.selected {
-  z-index: 3;
   border-color: var(--accent-output);
   box-shadow: 0 0 0 1px var(--accent-output), 0 0 14px color-mix(in srgb, var(--accent-output) 40%, transparent);
 }

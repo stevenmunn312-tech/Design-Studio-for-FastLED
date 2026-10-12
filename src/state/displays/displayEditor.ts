@@ -4,11 +4,15 @@ import {
   type DisplayBounds,
   type DisplayDocument,
   type DisplayOrientation,
+  type DisplayTheme,
   type DisplayWidget,
   type DisplayWidgetType,
   type PlacedDisplayWidget,
+  displayWidgetParent,
   isPlacedWidget,
+  orderDisplayWidgetTree,
   placedWidgets,
+  withoutDisplayParent,
 } from './displayDocument'
 import {
   DISPLAY_TOUCH_SEPARATION_PX,
@@ -17,12 +21,13 @@ import {
   defaultDisplayWidgetProperties,
   displayControlHitBounds,
   displayWidgetCaptionLayout,
+  displayWidgetContentBounds,
   displayWidgetOnScreenCaption,
   displayWidgetValidationIssues,
   isDisplayTouchTarget,
   type DisplayClass,
 } from './displayRegistry'
-import { displayWidgetTextTokens } from './displayTheme'
+import { displayWidgetTextTokens, resolveDisplayThemeTokens } from './displayTheme'
 import { canonicalDisplayTemplateBounds } from './displayTemplates'
 
 /**
@@ -335,7 +340,7 @@ export function updateDisplayWidget(
       ? { ...next, bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds) }
       : next
   })
-  return changed ? { ...document, widgets } : document
+  return changed ? { ...document, widgets: carryContainerChildren(document, widgets, new Set([widgetId])) } : document
 }
 
 export function updateDisplayWidgets(
@@ -354,7 +359,7 @@ export function updateDisplayWidgets(
       ? { ...next, bounds: constrainDisplayWidgetBounds(document, next.type, next.bounds) }
       : next
   })
-  return changed ? { ...document, widgets } : document
+  return changed ? { ...document, widgets: carryContainerChildren(document, widgets, ids) } : document
 }
 
 export function removeDisplayWidget(document: DisplayDocument, widgetId: string): DisplayDocument {
@@ -374,7 +379,7 @@ export function duplicateDisplayWidget(document: DisplayDocument, widgetId: stri
   if (!source) return document
   const offset = Math.max(1, document.gridSize)
   const duplicate: DisplayWidget = {
-    ...source,
+    ...withoutDisplayParent(source),
     id: nextDisplayWidgetId(document, source.type),
     label: `${source.label} copy`,
     ...(isPlacedWidget(source) ? {
@@ -386,7 +391,7 @@ export function duplicateDisplayWidget(document: DisplayDocument, widgetId: stri
     } : {}),
     properties: { ...source.properties },
   }
-  return { ...document, widgets: [...document.widgets, duplicate] }
+  return adoptDisplayWidgets({ ...document, widgets: [...document.widgets, duplicate] }, [duplicate.id])
 }
 
 export function pasteDisplayWidgets(
@@ -397,10 +402,17 @@ export function pasteDisplayWidgets(
   if (copiedWidgets.length === 0) return { document, widgetIds: [] }
   let working = document
   const pasted: DisplayWidget[] = []
+  // A child copied with its container goes in the copy of that container;
+  // any other copy finds its container by where it lands.
+  const copies = new Map<string, string>()
   for (const source of copiedWidgets) {
+    const id = nextDisplayWidgetId(working, source.type)
+    copies.set(source.id, id)
+    const parent = source.parentId ? copies.get(source.parentId) : undefined
     const copy: DisplayWidget = {
-      ...source,
-      id: nextDisplayWidgetId(working, source.type),
+      ...withoutDisplayParent(source),
+      ...(parent ? { parentId: parent } : {}),
+      id,
       label: source.label,
       ...(isPlacedWidget(source) ? {
         bounds: constrainDisplayWidgetBounds(document, source.type, {
@@ -414,7 +426,10 @@ export function pasteDisplayWidgets(
     pasted.push(copy)
     working = { ...working, widgets: [...working.widgets, copy] }
   }
-  return { document: working, widgetIds: pasted.map((widget) => widget.id) }
+  return {
+    document: adoptDisplayWidgets(working, pasted.filter((widget) => !widget.parentId).map((widget) => widget.id)),
+    widgetIds: pasted.map((widget) => widget.id),
+  }
 }
 
 export function duplicateDisplayWidgets(
@@ -423,6 +438,189 @@ export function duplicateDisplayWidgets(
 ): { document: DisplayDocument; widgetIds: string[] } {
   const ids = new Set(widgetIds)
   return pasteDisplayWidgets(document, document.widgets.filter((widget) => ids.has(widget.id)))
+}
+
+/**
+ * The pixels inside a Container's border that its children are drawn in:
+ * LVGL's content area for an object with no padding, below any caption.
+ */
+export function displayContainerInnerBounds(container: PlacedDisplayWidget, theme: DisplayTheme): DisplayBounds {
+  const box = displayWidgetContentBounds(container, displayWidgetTextTokens(container, theme).fontSize)
+  const border = resolveDisplayThemeTokens(theme).borderWidth
+  return {
+    x: box.x + border,
+    y: box.y + border,
+    width: Math.max(0, box.width - 2 * border),
+    height: Math.max(0, box.height - 2 * border),
+  }
+}
+
+function boundsContain(outer: DisplayBounds, inner: DisplayBounds): boolean {
+  return inner.x >= outer.x && inner.y >= outer.y
+    && inner.x + inner.width <= outer.x + outer.width
+    && inner.y + inner.height <= outer.y + outer.height
+}
+
+/** A Container's children, in paint order. */
+export function displayContainerChildren(document: DisplayDocument, containerId: string): PlacedDisplayWidget[] {
+  return placedWidgets(document).filter((widget) => displayWidgetParent(document, widget)?.id === containerId)
+}
+
+/**
+ * The ids, with the children of every Container among them added: selecting a
+ * container selects what it holds, for moving, copying and deleting alike.
+ */
+export function displayWidgetsWithChildren(document: DisplayDocument, widgetIds: Iterable<string>): string[] {
+  const ids = new Set(widgetIds)
+  for (const widget of document.widgets) {
+    const parent = displayWidgetParent(document, widget)
+    if (parent && ids.has(parent.id)) ids.add(widget.id)
+  }
+  return document.widgets.filter((widget) => ids.has(widget.id)).map((widget) => widget.id)
+}
+
+/**
+ * Move each Container's children as far as the container moved, except a
+ * child that was moved itself. Moved by the delta rather than re-snapped, so
+ * a child keeps its exact place inside; held on the screen, since a child cut
+ * off by its container may hang past the edge the container stopped at.
+ */
+function carryContainerChildren(
+  previous: DisplayDocument,
+  widgets: DisplayWidget[],
+  moved: ReadonlySet<string>,
+): DisplayWidget[] {
+  const before = new Map(previous.widgets.map((widget) => [widget.id, widget]))
+  const shifts = new Map<string, { dx: number; dy: number }>()
+  for (const widget of widgets) {
+    const old = before.get(widget.id)
+    if (widget.type !== 'Container' || !widget.bounds || !old?.bounds) continue
+    const dx = widget.bounds.x - old.bounds.x
+    const dy = widget.bounds.y - old.bounds.y
+    if (dx !== 0 || dy !== 0) shifts.set(widget.id, { dx, dy })
+  }
+  if (shifts.size === 0) return widgets
+  const { width, height } = previous.designSize
+  return widgets.map((widget) => {
+    const old = before.get(widget.id)
+    const parent = old ? displayWidgetParent(previous, old) : null
+    const shift = parent ? shifts.get(parent.id) : undefined
+    if (!shift || !widget.bounds || moved.has(widget.id)) return widget
+    return {
+      ...widget,
+      bounds: {
+        ...widget.bounds,
+        x: Math.max(0, Math.min(width - widget.bounds.width, widget.bounds.x + shift.dx)),
+        y: Math.max(0, Math.min(height - widget.bounds.height, widget.bounds.y + shift.dy)),
+      },
+    }
+  })
+}
+
+/**
+ * Settle which Container each of these widgets is in, after they were moved
+ * or a container was moved or resized.
+ *
+ * A widget belongs to the topmost container whose inside holds the whole of
+ * it, and leaves one only when it is moved out, wholly or in part. Resizing a
+ * child or its container never takes it out: what no longer fits is reported
+ * as cut off rather than silently moved. A container that has been moved or
+ * resized takes in every widget on the screen that now lies wholly inside it,
+ * so drawing a container round some widgets groups them. A widget that changes
+ * container becomes the top child of the new one, and one that leaves sits
+ * just above the container it left, so neither drops behind what it was just
+ * drawn over. Containers do not nest.
+ */
+export function adoptDisplayWidgets(document: DisplayDocument, widgetIds: Iterable<string>): DisplayDocument {
+  const ids = new Set(widgetIds)
+  if (ids.size === 0) return document
+  let widgets = orderDisplayWidgetTree(document.widgets)
+  const inside = (container: PlacedDisplayWidget, widget: PlacedDisplayWidget) => (
+    boundsContain(displayContainerInnerBounds(container, document.theme), widget.bounds)
+  )
+  const rehome = (widgetId: string, parentId: string | null, anchorId: string) => {
+    const widget = widgets.find((entry) => entry.id === widgetId)!
+    const rest = withoutDisplayParent(widget)
+    const rehomed: DisplayWidget = parentId ? { ...rest, parentId } : rest
+    const without = widgets.filter((entry) => entry.id !== widgetId)
+    // After the anchor's whole block: the anchor and every child it holds.
+    let index = without.findIndex((entry) => entry.id === anchorId)
+    while (index + 1 < without.length && without[index + 1].parentId === anchorId) index++
+    widgets = orderDisplayWidgetTree([...without.slice(0, index + 1), rehomed, ...without.slice(index + 1)])
+  }
+
+  for (const id of ids) {
+    const widget = widgets.find((entry) => entry.id === id)
+    if (!widget || !isPlacedWidget(widget)) continue
+    if (widget.type === 'Container') {
+      const taken = placedWidgets({ widgets }).filter((entry) => (
+        entry.type !== 'Container'
+        && !displayWidgetParent({ widgets }, entry)
+        && inside(widget, entry)
+      ))
+      for (const entry of taken) rehome(entry.id, widget.id, widget.id)
+      continue
+    }
+    const current = displayWidgetParent({ widgets }, widget)
+    // Moved along with its own container, so still in it.
+    if (current && ids.has(current.id)) continue
+    const host = placedWidgets({ widgets })
+      .filter((entry) => entry.type === 'Container')
+      .reverse()
+      .find((container) => inside(container, widget))
+    if (host?.id === current?.id) continue
+    if (host) rehome(widget.id, host.id, host.id)
+    else if (current) rehome(widget.id, null, current.id)
+  }
+  return { ...document, widgets }
+}
+
+export type DisplayRestack = 'front' | 'forward' | 'backward' | 'back'
+
+function restack<T extends { id: string }>(list: readonly T[], ids: ReadonlySet<string>, direction: DisplayRestack): T[] {
+  if (direction === 'front') return [...list.filter((item) => !ids.has(item.id)), ...list.filter((item) => ids.has(item.id))]
+  if (direction === 'back') return [...list.filter((item) => ids.has(item.id)), ...list.filter((item) => !ids.has(item.id))]
+  const next = [...list]
+  if (direction === 'forward') {
+    for (let index = next.length - 2; index >= 0; index--) {
+      if (ids.has(next[index].id) && !ids.has(next[index + 1].id)) {
+        [next[index], next[index + 1]] = [next[index + 1], next[index]]
+      }
+    }
+  } else {
+    for (let index = 1; index < next.length; index++) {
+      if (ids.has(next[index].id) && !ids.has(next[index - 1].id)) {
+        [next[index], next[index - 1]] = [next[index - 1], next[index]]
+      }
+    }
+  }
+  return next
+}
+
+/**
+ * Change what draws over what. A widget moves among those that share its
+ * parent — the screen, or its Container — and a container takes its children
+ * with it, so restacking can never split a container from what it holds.
+ * Widgets not on the screen have no place in the stack and stay at the end.
+ */
+export function restackDisplayWidgets(
+  document: DisplayDocument,
+  widgetIds: Iterable<string>,
+  direction: DisplayRestack,
+): DisplayDocument {
+  const ids = new Set(widgetIds)
+  const tree = orderDisplayWidgetTree(document.widgets)
+  const scope = { widgets: tree }
+  const top = tree.filter((widget) => isPlacedWidget(widget) && !displayWidgetParent(scope, widget))
+  const children = new Map(top.map((widget) => [
+    widget.id,
+    tree.filter((entry) => displayWidgetParent(scope, entry)?.id === widget.id),
+  ]))
+  const widgets = [
+    ...restack(top, ids, direction).flatMap((widget) => [widget, ...restack(children.get(widget.id) ?? [], ids, direction)]),
+    ...tree.filter((widget) => !isPlacedWidget(widget)),
+  ]
+  return widgets.every((widget, index) => widget === document.widgets[index]) ? document : { ...document, widgets }
 }
 
 export function translateDisplayWidgets(
@@ -444,12 +642,10 @@ export function translateDisplayWidgets(
   const offsetX = Math.max(-minX, Math.min(document.designSize.width - maxX, snappedX))
   const offsetY = Math.max(-minY, Math.min(document.designSize.height - maxY, snappedY))
   if (offsetX === 0 && offsetY === 0) return document
-  return {
-    ...document,
-    widgets: overPlacedWidgets(document, (placed) => placed.map((widget) => ids.has(widget.id)
-      ? { ...widget, bounds: { ...widget.bounds, x: widget.bounds.x + offsetX, y: widget.bounds.y + offsetY } }
-      : widget)),
-  }
+  const moved = overPlacedWidgets(document, (placed) => placed.map((widget) => ids.has(widget.id)
+    ? { ...widget, bounds: { ...widget.bounds, x: widget.bounds.x + offsetX, y: widget.bounds.y + offsetY } }
+    : widget))
+  return { ...document, widgets: carryContainerChildren(document, moved, ids) }
 }
 
 export type DisplayAlignment = 'left' | 'horizontal-centre' | 'right' | 'top' | 'vertical-centre' | 'bottom'
@@ -562,13 +758,31 @@ export function displayLayoutIssues(
         message: `${widget.label} is too short to show its label as well.`,
       })
     }
+    const parent = displayWidgetParent(document, widget)
+    if (parent && !boundsContain(displayContainerInnerBounds(parent, document.theme), widget.bounds)) {
+      issues.push({
+        widgetId: widget.id,
+        otherWidgetId: parent.id,
+        code: 'bounds',
+        message: `${widget.label} is cut off by its container ${parent.label}.`,
+      })
+    }
+    /*
+     * Overlap is allowed: a later widget draws over an earlier one, and only a
+     * control takes a touch — everything else is built untouchable on the
+     * glass and in the preview — so text over a button, or a button over a
+     * container, works as drawn. Two controls over each other do not: LVGL
+     * gives the press to the upper one, and the lower can only be reached
+     * where it shows. `onScreen` is in paint order, so `other` is the upper.
+     */
     for (const other of onScreen.slice(index + 1)) {
-      if (boundsIntersect(widget.bounds, other.bounds)) {
+      if (isDisplayTouchTarget(widget.type) && isDisplayTouchTarget(other.type)
+        && boundsIntersect(displayControlHitBounds(widget), displayControlHitBounds(other))) {
         issues.push({
           widgetId: widget.id,
           otherWidgetId: other.id,
           code: 'collision',
-          message: `${widget.label} overlaps ${other.label}.`,
+          message: `${widget.label} is under ${other.label}, so a touch where they overlap reaches only ${other.label}.`,
         })
       } else if (displayWidgetsTooClose(widget, other)) {
         issues.push({
