@@ -1,6 +1,6 @@
 # Code node — design note
 
-Status: implemented (first-slice scope shipped) · Owner: app · Date: 2026-06-27
+Status: implemented (first-slice scope shipped; preview fidelity for the FastLED classics 2026-10-13) · Owner: app · Date: 2026-06-27
 
 A **Code node** lets a user paste raw FastLED/Arduino C++ — a loop body that
 writes directly into `leds[]` — and have it both (a) compile into the generated
@@ -111,19 +111,47 @@ instead of `new Function`, since those don't need general-purpose execution).
 Mirror `formulaCache`: cache the transpiled function keyed by `globalCode + code`
 (now cached per-worker-instance, one worker per Code-node instance, rather than
 one shared cache keyed by source string), run inside `try/catch` so a malformed
-paste falls back to black. The global section is transpiled and prepended to the
-loop section in one compiled function (so global helpers/constants are in scope
-for the loop). The transpile itself is unchanged and still runs on the main
-thread (only the *compiled result* crosses into the worker) — a handful of regex
-rewrites applied before `new Function`:
+paste falls back to black. The two sections cross to the worker separately
+(`globalBody` and `body` on the run request) and compile into a **factory**:
+the Global section runs once in the factory body, at compile time, and the
+factory returns the per-frame loop function as a closure over it. So a global
+`uint8_t gHue` declared once keeps its value across frames, as a file-scope
+variable does on the board, and a global helper sees `leds[]`, `NUM_LEDS`,
+`WIDTH`, `HEIGHT`, `t` and the whole shim vocabulary, which the factory binds
+as `let`s at its top and the loop function rebinds each frame (the shim closes
+over that frame's `t` and `leds[]`). Editing either section recompiles and
+re-initialises the globals, as re-uploading would. The transpile runs on the
+main thread (only the *compiled source* crosses into the worker) — a handful
+of regex rewrites and one small scanner applied before `new Function`:
 
 - **Drop storage qualifiers** (`static uint8_t x` → `x`).
 - **C++ function definition → JS function**: `<retType> name(<typed args>) {` →
   `function name(<stripped args>) {`, so global helper functions run.
 - **Strip C++ type keywords** at declaration sites → `let`.
-  (Integer-overflow wrap semantics are a known divergence — see below.)
-- **Rewrite `leds[]` writes** (JS can't overload `|=`):
-  - `leds[EXPR] |= RHS;` → `addLed(EXPR, RHS);` (additive blend / `qadd8` per channel)
+- **Wrap narrow integers.** Every scalar declared `uint8_t`, `byte`, `int8_t`,
+  `uint16_t` or `int16_t` (a variable or a typed helper argument) is remembered
+  by name across both sections, and each assignment to it masks the stored
+  value to that width: `x = E` → `x = (E) & 255`, `x += E` →
+  `x = (x + (E)) & 255`, `x++` → `((x = (x + 1) & 255), (x - 1) & 255)` so
+  postfix keeps its value; signed types sign-extend with a shift pair. The
+  right-hand side ends at the first `;`, `,` or closing bracket at depth zero,
+  so a for-header `i += 2)` and `x = CRGB(1, 2, 3);` both stop where C++
+  does, and a right-hand side that itself assigns (`y = x++`) is rewritten
+  inside. `int` and wider types are left alone: `int` is 32-bit on the ESP32
+  targets the preview models, so `for (int i …)` never wraps. A `uint8_t`
+  loop counter against a strip longer than 255 spins forever in the preview
+  exactly as it would on the board, and the run timeout reports it.
+- **Timing macros.** `EVERY_N_MILLISECONDS(n)`, `EVERY_N_MILLIS(n)` and
+  `EVERY_N_SECONDS(n)` become `if (everyN(k, n))`, where `k` numbers the
+  macro's position across both sections and the worker keeps that timer's
+  last-fire time in evaluator milliseconds (`t * 1000`), so Master Speed
+  scales it with everything else. The timer follows FastLED's `CEveryNTime`:
+  created on first reach with its trigger time set to now, it fires once the
+  period has elapsed and re-arms from the fire time, not from the schedule.
+  Timers reset on recompile, as fresh statics would.
+- **Rewrite `leds[]` writes** (JS can't overload the CRGB operators):
+  - `leds[EXPR] += RHS;` → `addLed(EXPR, RHS);` (`qadd8` per channel, saturating)
+  - `leds[EXPR] |= RHS;` → `maxLed(EXPR, RHS);` (per-channel maximum, as FastLED's `|=`)
   - `leds[EXPR] = RHS;`  → `setLed(EXPR, RHS);`
   - index `EXPR` is matched as `leds\[([^\]]*)\]` (no nested `[`, which covers the
     demo vocabulary including `beatsin16(...)` indices).
@@ -171,15 +199,18 @@ and unit tests (transpile/eval cases + codegen snapshots).
 
 ## Deferred (known divergences / follow-ups)
 
-- **Integer-overflow semantics.** `dothue += 32` wraps at 256 in `uint8_t` (and
-  `CHSV` hue wraps); the JS preview uses floats and won't wrap identically.
-  Acceptable for a visual approximation; revisit if it bites.
-- **Mutable global state doesn't persist in the preview.** The global section
-  re-runs each frame, so a global counter like `gHue` re-initialises every frame
-  in the preview (helper functions and constants are fine). It persists and
-  animates correctly **on-device** (file-scope vars). Making the preview persist
-  global state needs identifier-rewriting onto a per-node scope object — deferred.
-- `EVERY_N_MILLISECONDS` / `EVERY_N_SECONDS` and other timing macros.
+- **`static` locals in the Loop section** re-initialise each frame: `static`
+  is stripped and the declaration becomes a `let` inside the per-frame
+  function. On the board a function-scope static persists. Move the variable
+  to the Global section, which does persist in the preview.
+- **Integer wrap covers assignments to named scalars only.** A wider
+  expression that is never stored back into a narrow variable (`CHSV(h + 300,
+  …)`) is not wrapped, nor are `uint8_t` arrays, `int` on AVR (16-bit there,
+  32-bit on every ESP32 target), or a name declared narrow in one place and
+  wide in another.
+- **Timing macros** cover `EVERY_N_MILLISECONDS`, `EVERY_N_MILLIS` and
+  `EVERY_N_SECONDS`. The `_I` named forms, `EVERY_N_MINUTES`/`HOURS` and the
+  `CEveryNMillis` objects are not rewritten.
 - `#include`s; custom `CRGBPalette16` gradient definitions (`CRGBPalette16 p = { … }`
   / `fill_gradient`*), beyond the constructor-from-colours and preset forms;
   `XY`-map customisation in the preview shim.
@@ -190,13 +221,16 @@ and unit tests (transpile/eval cases + codegen snapshots).
 - `src/nodes/code/definitions.ts` — node entry (`globalCode` + `code`) and its description.
 - `src/state/graphEvaluator.ts` — `Code` case, calling `evalCodeAsync` (below);
   no longer owns the compile/execute pipeline itself.
-- `src/state/codeSandboxRuntime.ts` — main-thread controller: `transpileCode`
-  (storage/function-def/type/`::`/leds rewrites, unchanged), per-instance
-  worker pool, the run-timeout/respawn logic, `evalCodeAsync`, and
-  `codeError`/`getCodeError`/`disposeCodeSandbox`.
+- `src/state/codeSandboxRuntime.ts` — main-thread controller:
+  `transpileSections` (storage/function-def/type/`::`/leds rewrites, the
+  integer-wrap scanner and the `EVERY_N_*` rewrite, sharing one type table and
+  timer numbering across both sections; `transpileCode` is the one-section
+  form for tests), per-instance worker pool, the run-timeout/respawn logic,
+  `evalCodeAsync`, and `codeError`/`getCodeError`/`disposeCodeSandbox`.
 - `src/state/codeSandbox.worker.ts` — the sandboxed worker: bootstrap that
-  closes network/storage/messaging APIs, `makeCodeShim`, and `handleRunRequest`
-  (compile + run + pack one tick against the persistent `leds[]`).
+  closes network/storage/messaging APIs, `compileSections` (the global-once
+  factory), `makeCodeShim` with the `everyN` timers, and `handleRunRequest`
+  (size `leds[]`, compile if the source changed, run one tick, pack).
 - `src/state/palettes/ledColor.ts` — `RGB`/`Palette`/`hsv`/`samplePalette`/`palAt`/the
   FastLED preset-palette tables, shared by the worker and the main-thread
   evaluator (re-exported from `graphEvaluator.ts` for existing importers).
@@ -204,8 +238,11 @@ and unit tests (transpile/eval cases + codegen snapshots).
   the loop block (buffer alias + verbatim body) — unchanged, still pass-through.
 - `src/components/Canvas/StudioNode.tsx` — the Global + Loop `<textarea>` editors
   and the `CodeError` banner.
-- Tests: `src/state/__tests__/codeSandbox.worker.test.ts` (compile/execute/
-  persistence/error cases against `handleRunRequest` directly),
+- Tests: `src/state/__tests__/codeTranspile.test.ts` (the wrap and timer
+  rewrites as strings), `src/state/__tests__/codeSandbox.worker.test.ts`
+  (compile/execute/persistence/error cases against `handleRunRequest`
+  directly, including persistent globals, wrap and `EVERY_N_*` through the
+  worker),
   `src/state/__tests__/codeSandboxRuntime.test.ts` (message protocol, timeout/
   respawn, fail-closed, against a mocked `Worker`), and `src/codegen/__tests__/`
   for codegen (unchanged).

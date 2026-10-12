@@ -18,11 +18,12 @@ import type { RunRequest, RunResponse } from './codeSandbox.worker'
 
 const RUN_TIMEOUT_MS = 100
 
-// ── C++→JS transpile (unchanged from the pre-sandbox implementation) ──────
+// ── C++→JS transpile ───────────────────────────────────────────────────────
 // Lightweight, best-effort so pasted FastLED loop bodies can be approximated
-// in the live preview. Strips C++ type keywords from declarations and
-// rewrites leds[] writes to shim calls (JS can't overload |=). The pasted
-// text is still emitted verbatim into the firmware. See
+// in the live preview. Strips C++ type keywords from declarations, rewrites
+// leds[] writes to shim calls (JS can't overload |=), wraps narrow integers
+// to their width and turns the EVERY_N_* timing macros into timer checks. The
+// pasted text is still emitted verbatim into the firmware. See
 // docs/design/code-node.md for the rules and known divergences.
 // Runs on the main thread; only the *result* is sent into the sandbox worker.
 const FN_RET_TYPES = 'void|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGB|CHSV|fract8|fract16|accum88'
@@ -34,17 +35,134 @@ function stripArgTypes(args: string): string {
     .join(', ')
 }
 
-/** Exported for direct testing of the transpile step and for feeding
- *  `codeSandbox.worker.ts`'s `handleRunRequest` pre-transpiled bodies in tests. */
-export function transpileCode(code: string): string {
-  return code
+// ── Integer wrap ───────────────────────────────────────────────────────────
+// A `uint8_t` counter wraps from 255 to 0 on the board but keeps counting in
+// JS. Every scalar declared with an 8- or 16-bit type (a variable or a typed
+// function argument) is remembered by name, and each assignment to it is
+// rewritten to mask the stored value to that width:
+//   `x = E`   → `x = (E) & 255`         `x += E` → `x = (x + (E)) & 255`
+//   `x++`     → `((x = (x + 1) & 255), (x - 1) & 255)`   (postfix keeps its value)
+// Signed types sign-extend with a shift pair instead of a mask. `int` is left
+// alone: it is 32-bit on the ESP32 targets the preview models. A name declared
+// once with a narrow type and once with a wide one is a user bug either way.
+type Width = 'u8' | 's8' | 'u16' | 's16'
+const NARROW_TYPES: Record<string, Width> = {
+  uint8_t: 'u8', byte: 'u8', int8_t: 's8', uint16_t: 'u16', int16_t: 's16',
+}
+// A typed scalar name: not a function (`uint8_t pick(`) and not an array
+// (`uint8_t heat[`).
+const NARROW_TYPE_RE = /\b(uint8_t|byte|int8_t|uint16_t|int16_t)\s+(\w+)(?!\s*[([])/g
+const COMPOUND_OPS = '\\+|-|\\*|\\/|%|<<|>>|&|\\||\\^'
+
+function wrapExpr(expr: string, width: Width): string {
+  switch (width) {
+    case 'u8': return `(${expr}) & 255`
+    case 'u16': return `(${expr}) & 65535`
+    case 's8': return `(${expr}) << 24 >> 24`
+    case 's16': return `(${expr}) << 16 >> 16`
+  }
+}
+
+function collectNarrowTypes(code: string, into: Map<string, Width>): void {
+  for (const m of code.matchAll(NARROW_TYPE_RE)) into.set(m[2], NARROW_TYPES[m[1]])
+}
+
+/** End of the right-hand side that starts at `start`: the first `;`, `,` or
+ *  closing bracket at bracket depth zero, so `x += 2)` in a for-header and
+ *  `x = CRGB(1, 2, 3);` both stop where C++ would. */
+function scanRhsEnd(src: string, start: number): number {
+  let depth = 0
+  for (let i = start; i < src.length; i++) {
+    const c = src[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') { if (depth === 0) return i; depth-- }
+    else if ((c === ';' || c === ',') && depth === 0) return i
+  }
+  return src.length
+}
+
+function wrapNarrowAssignments(code: string, widths: Map<string, Width>): string {
+  if (widths.size === 0) return code
+  const names = [...widths.keys()].map((n) => n.replace(/\$/g, '\\$')).join('|')
+  // prefix ++/--  ·  name  ·  (op)= | ++/--  — each optional around the name.
+  const re = new RegExp(`(\\+\\+|--)?\\b(${names})\\b\\s*(?:(${COMPOUND_OPS})?(=)(?!=)|(\\+\\+|--))?`, 'g')
+  let out = ''
+  let pos = 0
+  for (let m = re.exec(code); m; m = re.exec(code)) {
+    const [full, prefix, name, op, eq, postfix] = m
+    const width = widths.get(name)!
+    const start = m.index
+    out += code.slice(pos, start)
+    if (prefix) {
+      out += `(${name} = ${wrapExpr(`${name} ${prefix[0]} 1`, width)})`
+      pos = start + full.length
+    } else if (postfix) {
+      const sign = postfix[0], back = sign === '+' ? '-' : '+'
+      out += `((${name} = ${wrapExpr(`${name} ${sign} 1`, width)}), ${wrapExpr(`${name} ${back} 1`, width)})`
+      pos = start + full.length
+    } else if (eq) {
+      const rhsStart = start + full.length
+      const end = scanRhsEnd(code, rhsStart)
+      // The right-hand side may itself assign to a narrow name (`y = x++`).
+      const rhs = wrapNarrowAssignments(code.slice(rhsStart, end).trim(), widths)
+      out += `${name} = ${wrapExpr(op ? `${name} ${op} (${rhs})` : rhs, width)}`
+      pos = end
+    } else {
+      out += full
+      pos = start + full.length
+    }
+    re.lastIndex = pos
+  }
+  return out + code.slice(pos)
+}
+
+// ── Timing macros ──────────────────────────────────────────────────────────
+// `EVERY_N_MILLISECONDS(20) { … }` becomes `if (everyN(k, 20)) { … }`, where
+// `k` numbers the macro's position in the source and the worker keeps that
+// timer's last-fire time across frames on the evaluator's clock (`t`). The
+// numbering is shared between the Global and Loop sections so a timer in a
+// global helper never collides with one in the loop.
+const EVERY_N_RE = /\bEVERY_N_(MILLISECONDS|MILLIS|SECONDS)\s*\(([^)]*)\)/g
+
+interface TranspileContext {
+  widths: Map<string, Width>
+  nextTimer: number
+}
+
+function transpileSection(code: string, ctx: TranspileContext): string {
+  collectNarrowTypes(code, ctx.widths)
+  const typed = code
     .replace(/\bstatic\s+/g, '')
     .replace(new RegExp(`\\b(?:${FN_RET_TYPES})\\s+(\\w+)\\s*\\(([^)]*)\\)\\s*\\{`, 'g'),
       (_m, name, args) => `function ${name}(${stripArgTypes(args)}) {`)
     .replace(/\b(?:uint8_t|uint16_t|uint32_t|int8_t|int16_t|int|long|float|double|bool|byte|CRGBPalette16|CRGBPalette256|TBlendType)\s+(?=[A-Za-z_])/g, 'let ')
     .replace(/\b(?:CRGB|CHSV)::(\w+)/g, "crgbConst('$1')")
-    .replace(/leds\s*\[([^\]]*)\]\s*\|=\s*([^;]+);/g, 'addLed($1, $2);')
+    // FastLED's CRGB operators: `+=` saturates per channel, `|=` takes the max.
+    .replace(/leds\s*\[([^\]]*)\]\s*\+=\s*([^;]+);/g, 'addLed($1, $2);')
+    .replace(/leds\s*\[([^\]]*)\]\s*\|=\s*([^;]+);/g, 'maxLed($1, $2);')
     .replace(/leds\s*\[([^\]]*)\]\s*=\s*([^;]+);/g, 'setLed($1, $2);')
+    .replace(EVERY_N_RE, (_m, unit: string, period: string) =>
+      `if (everyN(${ctx.nextTimer++}, (${period.trim()})${unit === 'SECONDS' ? ' * 1000' : ''}))`)
+  return wrapNarrowAssignments(typed, ctx.widths)
+}
+
+/** Transpile one section on its own. Exported for direct testing of the
+ *  transpile step; the runtime uses `transpileSections` so the Global and Loop
+ *  sections share one type table and one timer numbering. */
+export function transpileCode(code: string): string {
+  return transpileSection(code, { widths: new Map(), nextTimer: 0 })
+}
+
+/** The worker's compile input. The Global section runs once at compile time
+ *  (its state then persists across frames, as file-scope C++ does) and only
+ *  the Loop section runs each frame. The two share one type table and one
+ *  timer numbering, so a global `uint8_t gHue` wraps when the loop increments
+ *  it and a timer in a global helper never collides with one in the loop. */
+export function transpileSections(globalCode: string, code: string): { globalBody: string; body: string } {
+  const ctx: TranspileContext = { widths: new Map(), nextTimer: 0 }
+  collectNarrowTypes(globalCode, ctx.widths)
+  collectNarrowTypes(code, ctx.widths)
+  return { globalBody: transpileSection(globalCode, ctx), body: transpileSection(code, ctx) }
 }
 
 // ── Worker instance pool (one per Code-node instance, keyed by stateKey) ──
@@ -165,7 +283,7 @@ export function evalCodeAsync(key: string, globalCode: string, code: string, see
   }
 
   const cacheKey = globalCode + ' ' + code
-  const body = transpileCode(globalCode) + '\n' + transpileCode(code)
+  const { globalBody, body } = transpileSections(globalCode, code)
   const id = inst.nextRunId++
   inst.pendingRunId = id
 
@@ -177,7 +295,7 @@ export function evalCodeAsync(key: string, globalCode: string, code: string, see
   }, RUN_TIMEOUT_MS)
 
   const packedSeed = packSeed(seed, W, H)
-  const req: RunRequest = { id, cacheKey, body, t, W, H, seed: packedSeed }
+  const req: RunRequest = { id, cacheKey, globalBody, body, t, W, H, seed: packedSeed }
   if (packedSeed) inst.worker.postMessage(req, [packedSeed.buffer])
   else inst.worker.postMessage(req)
 

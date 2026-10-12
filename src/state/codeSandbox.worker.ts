@@ -43,7 +43,10 @@ export interface RunRequest {
   id: number
   /** `globalCode + ' ' + code`, used only to detect when a recompile is needed. */
   cacheKey: string
-  /** Already transpiled (C++-ish → JS) by the main thread; this worker only compiles/runs it. */
+  /** The Global section, already transpiled (C++-ish → JS) by the main thread.
+   *  Runs once per compile; its variables persist across frames like file-scope C++. */
+  globalBody: string
+  /** The Loop section, already transpiled; runs every frame. */
   body: string
   t: number
   W: number
@@ -58,7 +61,10 @@ export interface RunResponse {
   error: string | null
 }
 
-type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Record<string, unknown>) => void
+type Shim = Record<string, unknown>
+type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Shim) => void
+/** Runs the Global section once and returns the per-frame loop function. */
+type CodeFactory = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Shim) => CodeFn
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -69,15 +75,50 @@ let leds: RGB[] = []
 let compiledKey: string | null = null
 let compiledFn: CodeFn | null = null
 let compileError: string | null = null
+/** EVERY_N_* timers: last-fire time in evaluator milliseconds, keyed by the
+ *  macro's number in the source. Reset on recompile, as fresh statics would be. */
+let timers = new Map<number, number>()
+
+// Every name the compiled code sees from the shim. Destructured once at
+// global scope (so global helpers can call them) and rebound each frame,
+// since the shim closes over that frame's `t` and `leds`.
+const SHIM_NAMES = 'CHSV,CRGB,beatsin16,beatsin8,beat8,beat16,sin8,cos8,sin16,qadd8,qsub8,scale8,triwave8,quadwave8,cubicwave8,ease8InOutQuad,ease8InOutCubic,blend8,lerp8by8,lerp16by16,sqrt16,nscale8,random8,random16,millis,XY,addLed,maxLed,setLed,fadeToBlackBy,crgbConst,fill_solid,fill_rainbow,nblend,ColorFromPalette,fill_palette,CRGBPalette16,NOBLEND,LINEARBLEND,LINEARBLEND_NOWRAP,RainbowColors_p,RainbowStripeColors_p,OceanColors_p,LavaColors_p,ForestColors_p,PartyColors_p,HeatColors_p,CloudColors_p,everyN'
+
+/** Build the factory: the Global section runs in the factory body, so its
+ *  variables and helpers live in the closure the loop function keeps. The
+ *  loop function rebinds `leds`, the size constants, `t` and the shim names
+ *  each frame before running the Loop section. */
+function compileSections(globalBody: string, body: string): CodeFactory {
+  return new Function('_leds', '_N', '_W', '_H', '_t', '_shim',
+    '"use strict";\n' +
+    'let leds = _leds, NUM_LEDS = _N, WIDTH = _W, HEIGHT = _H, t = _t;\n' +
+    `let { ${SHIM_NAMES} } = _shim;\n` +
+    globalBody + '\n' +
+    'return function (_leds, _N, _W, _H, _t, _shim) {\n' +
+    'leds = _leds; NUM_LEDS = _N; WIDTH = _W; HEIGHT = _H; t = _t;\n' +
+    `({ ${SHIM_NAMES} } = _shim);\n` +
+    body + '\n};',
+  ) as CodeFactory
+}
 
 // FastLED vocabulary the transpiled body runs against — identical to the
 // main-thread evaluator's former `makeCodeShim`, just relocated here.
-function makeCodeShim(ledsRef: RGB[], t: number, W: number, H: number) {
+function makeCodeShim(ledsRef: RGB[], t: number, W: number, H: number): Shim {
   const N = ledsRef.length
   const c8 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
   const inRange = (i: number) => i >= 0 && i < N
+  const nowMs = t * 1000
   return {
     ...makeShims(t),
+    // FastLED's CEveryNTime: created on first reach with its trigger time set
+    // to now, fires once `period` has elapsed, and re-arms from the fire time.
+    everyN: (key: number, periodMs: number): boolean => {
+      const prev = timers.get(key)
+      if (prev === undefined) { timers.set(key, nowMs); return false }
+      if (nowMs - prev < periodMs) return false
+      timers.set(key, nowMs)
+      return true
+    },
     CHSV: (h: number, s = 255, v = 255) => hsv((h / 255) * 360, s / 255, v / 255),
     CRGB: (r: number, gr: number, b: number) => ({ r: c8(r), g: c8(gr), b: c8(b) }),
     beat8: (bpm: number) => Math.floor((t * bpm / 60) * 256) % 256,
@@ -90,6 +131,10 @@ function makeCodeShim(ledsRef: RGB[], t: number, W: number, H: number) {
     addLed: (i: number, c: RGB) => {
       i |= 0
       if (inRange(i) && c) ledsRef[i] = { r: Math.min(255, ledsRef[i].r + c.r), g: Math.min(255, ledsRef[i].g + c.g), b: Math.min(255, ledsRef[i].b + c.b) }
+    },
+    maxLed: (i: number, c: RGB) => {
+      i |= 0
+      if (inRange(i) && c) ledsRef[i] = { r: Math.max(ledsRef[i].r, c8(c.r)), g: Math.max(ledsRef[i].g, c8(c.g)), b: Math.max(ledsRef[i].b, c8(c.b)) }
     },
     setLed: (i: number, c: RGB) => { i |= 0; if (inRange(i) && c) ledsRef[i] = { r: c8(c.r), g: c8(c.g), b: c8(c.b) } },
     fadeToBlackBy: (arr: RGB[], n: number, amount: number) => {
@@ -133,21 +178,8 @@ function makeCodeShim(ledsRef: RGB[], t: number, W: number, H: number) {
  *  the result. Exported separately from the `self.onmessage` wiring below so
  *  it can be unit tested without invoking the module's bootstrap side effects. */
 export function handleRunRequest(req: RunRequest): RunResponse {
-  const { id, cacheKey, body, t, W, H, seed } = req
+  const { id, cacheKey, globalBody, body, t, W, H, seed } = req
   const N = W * H
-
-  if (compiledKey !== cacheKey) {
-    compiledKey = cacheKey
-    try {
-      compiledFn = new Function('leds', 'NUM_LEDS', 'WIDTH', 'HEIGHT', 't', 'shim',
-        '"use strict"; const { CHSV,CRGB,beatsin16,beatsin8,beat8,beat16,sin8,cos8,sin16,qadd8,qsub8,scale8,triwave8,quadwave8,cubicwave8,ease8InOutQuad,ease8InOutCubic,blend8,lerp8by8,lerp16by16,sqrt16,nscale8,random8,random16,millis,XY,addLed,setLed,fadeToBlackBy,crgbConst,fill_solid,fill_rainbow,nblend,ColorFromPalette,fill_palette,CRGBPalette16,NOBLEND,LINEARBLEND,LINEARBLEND_NOWRAP,RainbowColors_p,RainbowStripeColors_p,OceanColors_p,LavaColors_p,ForestColors_p,PartyColors_p,HeatColors_p,CloudColors_p } = shim; ' + body
-      ) as CodeFn
-      compileError = null
-    } catch (err) {
-      compiledFn = null
-      compileError = errMsg(err)
-    }
-  }
 
   if (leds.length !== N) {
     leds = Array.from({ length: N }, () => ({ r: 0, g: 0, b: 0 }))
@@ -155,6 +187,20 @@ export function handleRunRequest(req: RunRequest): RunResponse {
   if (seed) {
     for (let i = 0; i < N; i++) {
       leds[i] = { r: seed[i * 3], g: seed[i * 3 + 1], b: seed[i * 3 + 2] }
+    }
+  }
+
+  // Compile after leds[] is sized: the Global section runs here, and a
+  // global initialiser may touch leds[] or NUM_LEDS.
+  if (compiledKey !== cacheKey) {
+    compiledKey = cacheKey
+    timers = new Map()
+    try {
+      compiledFn = compileSections(globalBody, body)(leds, N, W, H, t, makeCodeShim(leds, t, W, H))
+      compileError = null
+    } catch (err) {
+      compiledFn = null
+      compileError = errMsg(err)
     }
   }
 

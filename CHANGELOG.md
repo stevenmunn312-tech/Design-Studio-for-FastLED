@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- A pasted FastLED classic such as DemoReel100 now moves in the Code node's
+  preview as it does on the board. The Global section runs once and keeps its
+  variables across frames, so a `gHue` counter advances instead of resetting;
+  `uint8_t` and the other 8- and 16-bit types wrap at their width; and
+  `EVERY_N_MILLISECONDS`, `EVERY_N_MILLIS` and `EVERY_N_SECONDS` fire on the
+  preview clock. `leds[i] += c` saturates and `leds[i] |= c` takes the
+  per-channel maximum, as FastLED's operators do. The firmware is unchanged.
 - An RTC Clock synced by NTP now keeps real time in generative-show and
   SD-player firmware, not only in the normal sketch. Those builds bring up the
   same Wi-Fi or wired Ethernet connection, with the same credentials and

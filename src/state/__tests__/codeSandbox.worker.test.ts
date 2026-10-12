@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { handleRunRequest, type RunRequest } from '../codeSandbox.worker'
-import { transpileCode } from '../codeSandboxRuntime'
+import { transpileSections } from '../codeSandboxRuntime'
 
 // handleRunRequest holds its compiled-fn/leds[] state at module scope — the
 // same way one real Worker instance IS one Code-node instance's persistent
@@ -18,11 +18,12 @@ function blackSeed(): Uint8ClampedArray {
 
 function run(code: string, opts: { globalCode?: string; t?: number; seed?: Uint8ClampedArray | null } = {}) {
   const globalCode = opts.globalCode ?? ''
-  const body = transpileCode(globalCode) + '\n' + transpileCode(code)
+  const { globalBody, body } = transpileSections(globalCode, code)
   const cacheKey = globalCode + ' ' + code
   const req: RunRequest = {
     id: nextId++,
     cacheKey,
+    globalBody,
     body,
     t: opts.t ?? 0,
     W, H,
@@ -49,6 +50,13 @@ describe('codeSandbox.worker — handleRunRequest', () => {
     const res = run('leds[XY(2, 1)] |= CRGB(0, 0, 255);')
     expect(pixelAt(res.pixels, 2, 1)).toEqual({ r: 0, g: 0, b: 255 })
     expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('leds[] += saturates per channel and |= takes the per-channel max', () => {
+    run('leds[0] = CRGB(200, 10, 0); leds[0] += CRGB(100, 10, 5);')
+    const res = run('leds[1] = CRGB(200, 10, 0); leds[1] |= CRGB(100, 50, 0);', { seed: null })
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 255, g: 20, b: 5 })
+    expect(pixelAt(res.pixels, 1, 0)).toEqual({ r: 200, g: 50, b: 0 })
   })
 
   it('persists leds[] across calls so fadeToBlackBy leaves trails', () => {
@@ -116,5 +124,88 @@ describe('codeSandbox.worker — handleRunRequest', () => {
     expect(pixelAt(first.pixels, 0, 0)).toEqual({ r: 255, g: 0, b: 0 })
     const second = run('leds[0] = CRGB::Green;')
     expect(pixelAt(second.pixels, 0, 0)).toEqual({ r: 0, g: 255, b: 0 })
+  })
+
+  // ── D-04: preview fidelity for pasted FastLED classics ────────────────────
+
+  it('keeps Global-section state across frames (DemoReel100 gHue)', () => {
+    // gHue is declared once at file scope and advanced by the loop; the
+    // preview must not reset it each frame.
+    const globalCode = 'uint8_t gHue = 0;'
+    const code = 'gHue += 10; leds[0] = CHSV(gHue, 255, 255);'
+    const first = run(code, { globalCode, t: 0 })
+    expect(first.error).toBeNull()
+    const second = run(code, { globalCode, t: 0.02 })
+    const third = run(code, { globalCode, t: 0.04 })
+    // Hue 10, 20, 30 → red fades toward yellow: green channel rises each frame.
+    expect(pixelAt(second.pixels, 0, 0).g).toBeGreaterThan(pixelAt(first.pixels, 0, 0).g)
+    expect(pixelAt(third.pixels, 0, 0).g).toBeGreaterThan(pixelAt(second.pixels, 0, 0).g)
+  })
+
+  it('a global helper sees leds[] and NUM_LEDS when called from the loop', () => {
+    const globalCode = 'void addGlitter(fract8 chance) { leds[NUM_LEDS - 1] |= CRGB::White; }'
+    const res = run('addGlitter(80);', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, W - 1, H - 1)).toEqual({ r: 255, g: 255, b: 255 })
+  })
+
+  it('re-initialises global state when the code changes', () => {
+    const globalCode = 'uint8_t n = 0;'
+    run('n += 100; leds[0] = CRGB(n, 0, 0);', { globalCode })
+    run('n += 100; leds[0] = CRGB(n, 0, 0);', { globalCode })
+    // Edited loop → recompile → n starts from 0 again.
+    const res = run('n += 100; leds[0] = CRGB(n, 0, 1);', { globalCode })
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 100, g: 0, b: 1 })
+  })
+
+  it('wraps a uint8_t counter at 256 like the board', () => {
+    // 250 + 10 wraps to 4 on-device; CHSV(4) is still red, CHSV(260) would not be.
+    const res = run('uint8_t h = 250; h += 10; leds[0] = CRGB(h, 0, 0);')
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 4, g: 0, b: 0 })
+  })
+
+  it('wraps a global uint8_t incremented with ++ in the loop', () => {
+    const globalCode = 'uint8_t c = 255;'
+    const res = run('c++; leds[0] = CRGB(c, c, c);', { globalCode })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('fires EVERY_N_MILLISECONDS on the evaluator clock, once per period', () => {
+    const globalCode = 'uint8_t hits = 0;'
+    const code = 'EVERY_N_MILLISECONDS(100) { hits++; } leds[0] = CRGB(hits, 0, 0);'
+    // t=0: timer created, no fire. 0.05s: too soon. 0.1s: fires. 0.15s: no.
+    // 0.25s: fires again (re-armed from the 0.1s fire).
+    expect(pixelAt(run(code, { globalCode, t: 0 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 0.05 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 0.1 }).pixels, 0, 0).r).toBe(1)
+    expect(pixelAt(run(code, { globalCode, t: 0.15 }).pixels, 0, 0).r).toBe(1)
+    expect(pixelAt(run(code, { globalCode, t: 0.25 }).pixels, 0, 0).r).toBe(2)
+  })
+
+  it('EVERY_N_SECONDS counts in seconds', () => {
+    const globalCode = 'uint8_t hits = 0;'
+    const code = 'EVERY_N_SECONDS(2) { hits++; } leds[0] = CRGB(hits, 0, 0);'
+    expect(pixelAt(run(code, { globalCode, t: 0 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 1.9 }).pixels, 0, 0).r).toBe(0)
+    expect(pixelAt(run(code, { globalCode, t: 2 }).pixels, 0, 0).r).toBe(1)
+  })
+
+  it('runs the DemoReel100 rainbow-with-glitter pair unchanged', () => {
+    const globalCode = [
+      'uint8_t gHue = 0;',
+      'void addGlitter(fract8 chanceOfGlitter) {',
+      '  if (random8() < chanceOfGlitter) { leds[random16(NUM_LEDS)] += CRGB::White; }',
+      '}',
+    ].join('\n')
+    const code = [
+      'fill_rainbow(leds, NUM_LEDS, gHue, 7);',
+      'addGlitter(80);',
+      'EVERY_N_MILLISECONDS(20) { gHue++; }',
+    ].join('\n')
+    const res = run(code, { globalCode, t: 0.5 })
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0)).not.toEqual({ r: 0, g: 0, b: 0 })
   })
 })

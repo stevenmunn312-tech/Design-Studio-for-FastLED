@@ -35,7 +35,8 @@ export const CODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // File-scope: persistent vars, palettes, helper functions. Emitted above
-      // setup()/loop() in the sketch; runs each frame in the preview.
+      // setup()/loop() in the sketch; runs once per compile in the preview, so
+      // its variables persist across frames as they do on the board.
       globalCode: '',
       // The loop() body — runs every frame, writes into leds[].
       code: [

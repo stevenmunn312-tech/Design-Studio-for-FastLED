@@ -280,19 +280,18 @@ before HW-18 freezes it. The rest of D-02 is in section 6.
 
 ## D-04 · Code-node preview fidelity, v1 part
 
-A pasted FastLED classic such as DemoReel100 should move in the preview as it
-does on the board. Today it compiles and runs on the LEDs, but the preview
-stands still. All three fixes are in the preview's C++-to-JS shim
+A pasted FastLED classic such as DemoReel100 moves in the preview as it does
+on the board. All three fixes are in the preview's C++-to-JS shim
 ([code node](docs/design/code-node.md)); the firmware is unchanged.
 
-- [ ] **Persistent globals.** The Global section re-runs every frame in the
-  preview, so a counter such as `gHue` resets each frame. Keep each Code
-  node's global state across frames, as the board does.
-- [ ] **Integer wrap.** A `uint8_t` counter wraps from 255 to 0 on the board
-  but keeps counting in the preview. Wrap the declared 8- and 16-bit integer
-  types to their width.
-- [ ] **Timing macros.** Support `EVERY_N_MILLISECONDS` and `EVERY_N_SECONDS`
-  in the preview, on the evaluator's clock.
+- [x] **Persistent globals.** The Global section runs once per compile in the
+  preview and the loop closes over it, so a counter such as `gHue` keeps its
+  value across frames, as the board does.
+- [x] **Integer wrap.** Every scalar declared with an 8- or 16-bit type wraps
+  to its width on assignment, increment and compound assignment.
+- [x] **Timing macros.** `EVERY_N_MILLISECONDS`, `EVERY_N_MILLIS` and
+  `EVERY_N_SECONDS` run in the preview on the evaluator's clock, with
+  FastLED's re-arm-from-fire-time behaviour.
 
 ## D-06 · Pattern and output follow-ons, v1 part
 
