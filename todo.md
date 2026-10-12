@@ -289,6 +289,22 @@ An LED clock should keep real time whichever firmware it is built into.
   the control graph's NTP refusal. Art-Net in those builds is a separate
   question: a show already owns its LEDs.
 
+## D-04 · Code-node preview fidelity, v1 part
+
+A pasted FastLED classic such as DemoReel100 should move in the preview as it
+does on the board. Today it compiles and runs on the LEDs, but the preview
+stands still. All three fixes are in the preview's C++-to-JS shim
+([code node](docs/design/code-node.md)); the firmware is unchanged.
+
+- [ ] **Persistent globals.** The Global section re-runs every frame in the
+  preview, so a counter such as `gHue` resets each frame. Keep each Code
+  node's global state across frames, as the board does.
+- [ ] **Integer wrap.** A `uint8_t` counter wraps from 255 to 0 on the board
+  but keeps counting in the preview. Wrap the declared 8- and 16-bit integer
+  types to their width.
+- [ ] **Timing macros.** Support `EVERY_N_MILLISECONDS` and `EVERY_N_SECONDS`
+  in the preview, on the evaluator's clock.
+
 ## 5. Release track (in order)
 
 - [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
@@ -342,14 +358,15 @@ An LED clock should keep real time whichever firmware it is built into.
   separate unless user research establishes a better model. Networking beyond
   the ESP32/ESP8266 FQBN gate (NTP and Art-Net on the UNO R4 WiFi); networking
   in the show and SD-player generators is in v1, above the release track.
-- [ ] **D-04 · Code/field fidelity.** Code-node overflow, persistent globals,
-  timing macros/includes/palette/XY support and richer inference; writable
+- [ ] **D-04 · Code/field fidelity.** Code-node includes, custom gradient
+  palettes, custom XY maps and richer type inference in the preview; writable
   FieldFormula buffers. VU expansion beyond the current contract (clocked
   strings, unequal lengths, multiple pairs, stereo FFT or streamed audio) needs
   its own protocol/resource design. So do show-side Vibe, Song Structure,
   Pitch Detect and Waveform, which would need per-frame detector output baked
   offline ([audio detectors](docs/design/audio-detectors.md)). Retain explicit
-  approximation limits until a concrete use case justifies the work.
+  approximation limits until a concrete use case justifies the work. Persistent
+  globals, integer wrap and timing macros are in v1, above the release track.
 - [ ] **D-06 · Pattern and output follow-ons**, from
   [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
   and its design notes:
