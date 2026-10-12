@@ -527,8 +527,8 @@
       "value": 0,
       "inMin": 0.05,
       "inMax": 0.7,
-      "outMin": 0.5,
-      "outMax": 1.4
+      "outMin": 0.6,
+      "outMax": 2.0
      },
      "inputs": [
       {
