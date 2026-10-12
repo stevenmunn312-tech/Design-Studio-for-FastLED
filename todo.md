@@ -402,9 +402,13 @@ and its design notes.
   - Shaped outputs in show and player sketches, the main LED Output pane
     drawing, raw `Noise` field output and one `.h` per pattern are in v1,
     above the release track.
-- [ ] **D-07 · Workspace information shelves.** Build Diagram's own tidy-up
-  (whether its left column becomes the sidebar), then its information shelf;
-  then Upload's, if it wants one
+- [ ] **D-07 · Build Diagram panel into the shared sidebar.** Build Diagram's
+  own left panel already is its information shelf (power, readiness,
+  connections, parts, requirements and exports), but it is a separate `<aside>`
+  with its own width and hide controls, and the shared sidebar is switched off
+  on that workspace. Move it into the shared sidebar host the way Hardware and
+  Upload do, so all four workspaces behave alike. The content does not change.
+  An Upload information shelf waits for a user asking for one
   ([workspace shelves](docs/plans/workspace-shelves.md#order)).
 
 - [ ] **fbuild upkeep** ([runbook](docs/runbooks/fbuild-workarounds.md)). On hold

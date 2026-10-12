@@ -5,8 +5,9 @@ on 2026-09-08 (`659f8b50`, tidied by `64fa8b15`). That note is the contract for
 the tabs themselves; this one covers what the tabs exposed.
 
 Status: **Hardware shelf and persistent four-workspace preview implemented on
-2026-09-09.** Build Diagram and Upload information shelves remain undesigned
-follow-up work. Raised from bench use the same evening the tabs landed.
+2026-09-09.** Build Diagram's information shelf exists as its own left panel;
+moving that panel into the shared sidebar is the one remaining step (root todo
+D-07). Raised from bench use the same evening the tabs landed.
 
 ## What the tabs exposed
 
@@ -109,6 +110,17 @@ separate workflow without a reviewed design.
    it.
 3. Build Diagram's own tidy-up, then its information shelf.
 4. Upload's information shelf, if it wants one at all.
+
+Steps 1 and 2 shipped. For step 3, the information shelf already exists: Build
+Diagram's left panel carries the power summary, fix-before-building list,
+selected item, readiness, connections, parts, calculated requirements and
+exports. What remains is plumbing. The panel is a separate `<aside>` in
+`BuildDiagramWorkspace.tsx` with its own width and hide controls, and `App.tsx`
+switches the shared sidebar off on that workspace; moving the panel into the
+shared sidebar host, as Hardware and Upload do, makes the four workspaces
+behave alike without changing what the panel shows. For step 4, Upload's
+sidebar already holds its controls; an information shelf there waits for a user
+asking for one.
 
 ## What is already settled
 
