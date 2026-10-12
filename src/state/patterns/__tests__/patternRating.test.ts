@@ -40,6 +40,31 @@ describe('scoreStructure', () => {
   it('scores a flat solid fill low', () => {
     expect(scoreStructure([solid(8, 8, { r: 128, g: 128, b: 128 })])).toBeLessThan(0.35)
   })
+  it('reads a few bright features on a dark ground as composition, not absence', () => {
+    const indigo = { r: 44, g: 11, b: 134 }, gold = { r: 255, g: 207, b: 106 }
+    const ring = buildFrame(16, 16, (x, y) => {
+      const d = Math.hypot(x - 7.5, y - 7.5)
+      return d > 3.5 && d < 5.5 ? gold : indigo
+    })
+    expect(scoreStructure([ring])).toBeGreaterThan(0.75)
+  })
+  it('does not demand more than two hues from a deliberate palette', () => {
+    const twoHue = buildFrame(16, 16, (x, y) => ((x >> 2) + (y >> 2)) % 2 ? hsv(260, 1, 0.6) : hsv(45, 1, 1))
+    const fourHue = buildFrame(16, 16, (x, y) => hsv((((x >> 2) + (y >> 2)) % 4) * 90, 1, 1))
+    expect(scoreStructure([twoHue])).toBeGreaterThan(scoreStructure([fourHue]) - 0.1)
+  })
+  it('prefers a shaped frame over per-pixel noise', () => {
+    let seed = 7
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+    const noise = buildFrame(16, 16, () => hsv(rand() * 360, 1, rand()))
+    const shaped = buildFrame(16, 16, (x, y) => hsv(((x >> 3) + (y >> 3)) % 2 ? 200 : 20, 1, (y & 4) ? 1 : 0.2))
+    expect(scoreStructure([shaped])).toBeGreaterThan(scoreStructure([noise]))
+  })
+  it('sets the darkest third of a run aside so a breathing pattern is judged lit', () => {
+    const lit = buildFrame(8, 8, (x, y) => (x + y) % 3 === 0 ? hsv(x * 45, 1, 1) : { r: 0, g: 0, b: 0 })
+    const breathing = [lit, lit, lit, lit, lit, lit, lit, black(8, 8), black(8, 8), black(8, 8)]
+    expect(scoreStructure(breathing)).toBeCloseTo(scoreStructure([lit]), 6)
+  })
 })
 
 describe('frameThumbnailScore', () => {
@@ -213,6 +238,31 @@ describe('scorePattern', () => {
     expect(result.criteria.map((c) => c.id)).toContain('audio')
     expect(result.criteria).toHaveLength(6)
     expect(result.criteria.find((criterion) => criterion.id === 'audio')?.score).toBeGreaterThan(0)
+  })
+
+  it('judges an audio-reactive pattern with music playing, so silence being dark costs nothing', () => {
+    const nodes = [node('fft', 'FFTAnalyzer', 'audio'), node('bp', 'BassPulse', 'pattern')]
+    const edges = [edge('e', 'fft', 'bp', 'bass', 'bass')]
+    const indigo = { r: 44, g: 11, b: 134 }, gold = { r: 255, g: 207, b: 106 }
+    const ring = (phase: number) => buildFrame(16, 16, (x, y) => {
+      const d = Math.hypot(x - 7.5, y - 7.5)
+      return d > 2.5 + phase && d < 4.5 + phase ? gold : indigo
+    })
+    const music = Array.from({ length: 10 }, (_, i) => ring(i * 0.3))
+    const darkInSilence = scorePattern(
+      [...Array.from({ length: 10 }, () => black(16, 16)), ...music, ...music], [], nodes, edges, 'audio-reactive',
+      { silent: Array.from({ length: 10 }, () => black(16, 16)), steady: music, pulse: music },
+    )
+    const litInSilence = scorePattern(
+      [...music, ...music, ...music], [], nodes, edges, 'audio-reactive',
+      { silent: music, steady: music, pulse: music },
+    )
+    const composition = (result: ReturnType<typeof scorePattern>) => result.criteria.find((c) => c.id === 'composition')?.score ?? 0
+    expect(composition(darkInSilence)).toBeCloseTo(composition(litInSilence), 6)
+    expect(composition(darkInSilence)).toBeGreaterThan(0.8)
+    // Only the audio criterion tells the two apart: silence that looks like music is unresponsive.
+    const audio = (result: ReturnType<typeof scorePattern>) => result.criteria.find((c) => c.id === 'audio')?.score ?? 0
+    expect(audio(darkInSilence)).toBeGreaterThan(audio(litInSilence))
   })
 })
 

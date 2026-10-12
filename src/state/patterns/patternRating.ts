@@ -213,10 +213,12 @@ const RATE_FPS = 15
 const RATE_DURATION_SEC = 1.4
 const RATE_FRAMES = Math.max(2, Math.round(RATE_FPS * RATE_DURATION_SEC))
 // Frames evaluated (but not scored) before the capture window, so slow-warming
-// nodes — FrameFeedback's recursive buffer, Smooth's EMA, audio build-up — reach
-// a representative state instead of the cold black they start at from t=0. The
-// live preview looks lit only because it has been running for seconds.
-const RATE_WARMUP_FRAMES = Math.max(2, Math.round(RATE_FPS * 1.2))
+// nodes — FrameFeedback's recursive buffer, Smooth's EMA, audio build-up, a
+// fluid or reaction-diffusion field filling from empty — reach a representative
+// state instead of the cold black they start at from t=0. The live preview
+// looks lit only because it has been running for seconds; a fluid needs about
+// three of them before its first injection has spread.
+const RATE_WARMUP_FRAMES = Math.max(2, Math.round(RATE_FPS * 3))
 // A pattern's look varies moment to moment (quiet vs. peak sections, beat
 // flashes, slow morphs). Capture a few windows spread across the animation and
 // keep the best-scoring one, so a pattern is judged on how good it can look
@@ -285,30 +287,61 @@ function hueBinWeights(frame: Frame): number[] {
 
 // ── Criterion helpers (pure, exported for tests) ─────────────────────────────
 
+/** Perceived brightness, for judging how a frame reads rather than how hard
+ *  the LEDs drive: `pixelBrightness` (max channel) calls deep indigo half-lit,
+ *  while to the eye it is the dark ground a gold feature sits on. */
+function perceivedLuma(px: RGB): number {
+  return (0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b) / 255
+}
+
+/** Fraction of pixels on a brightness edge: flat fills have none, shaped
+ *  frames some, per-pixel noise nearly all. */
+const EDGE_STEP = 0.1
+
+function frameStructure(frame: Frame): number {
+  const h = frame.length, w = frame[0]?.length ?? 0
+  if (!w || !h) return 0
+  const luma = new Array<number>(w * h).fill(0)
+  let lit = 0
+  forEachPixel(frame, (px, x, y) => {
+    const v = perceivedLuma(px)
+    luma[y * w + x] = v
+    if (v > 0.04) lit++
+  })
+  let edges = 0
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = luma[y * w + x]
+    const right = x + 1 < w ? luma[y * w + x + 1] : v
+    const below = y + 1 < h ? luma[(y + 1) * w + x] : v
+    if (Math.abs(v - right) > EDGE_STEP || Math.abs(v - below) > EDGE_STEP) edges++
+  }
+  const variation = clamp01(stddev(luma) / 0.22)
+  const coverage = lit / luma.length
+  // Some edges mean shape; nearly every pixel on an edge means noise.
+  const definition = scoreInRange(edges / luma.length, 0.05, 0.55, 0.05)
+  const bins = hueBinWeights(frame)
+  const total = bins.reduce((a, b) => a + b, 0)
+  const distinctHues = total > 0 ? bins.filter((weight) => weight / total > 0.05).length : 0
+  // Two deliberate hues are a palette; more is not better composition.
+  const colour = clamp01(distinctHues / 2)
+  return 0.4 * variation + 0.25 * definition + 0.2 * colour + 0.15 * coverage
+}
+
 /** Structure / visual clarity: does the pattern actually have shape? Combines
- *  spatial brightness variation, hue diversity, and lit coverage. A black frame
- *  or a flat single-colour fill scores low; a shaped, multi-hue pattern scores
- *  high. */
+ *  perceived-brightness contrast, edge definition, a two-hue colour floor and
+ *  lit coverage. A black frame or a flat single-colour fill scores low; a
+ *  shaped pattern scores high whether it fills the matrix or draws a few
+ *  bright features on a dark ground. The darkest third of the captured frames
+ *  is set aside and the run's strong moments count for part of the mark: a
+ *  pattern is allowed to breathe, a quiet passage or a beat-synchronous dip
+ *  is not an empty composition, and a pattern is remembered by its
+ *  highlights as much as by its typical frame. */
 export function scoreStructure(frames: Frame[]): number {
   if (frames.length === 0) return 0
-  const per = frames.map((frame) => {
-    const brights: number[] = []
-    let lit = 0
-    forEachPixel(frame, (px) => {
-      const b = pixelBrightness(px)
-      brights.push(b)
-      if (b > 0.05) lit++
-    })
-    if (brights.length === 0) return 0
-    const variation = clamp01(stddev(brights) / 0.3)
-    const coverage = lit / brights.length
-    const bins = hueBinWeights(frame)
-    const total = bins.reduce((a, b) => a + b, 0)
-    const distinctHues = total > 0 ? bins.filter((w) => w / total > 0.05).length : 0
-    const hueDiversity = clamp01(distinctHues / 4)
-    return 0.55 * variation + 0.3 * hueDiversity + 0.15 * coverage
-  })
-  return clamp01(mean(per))
+  const per = frames.map(frameStructure).sort((a, b) => a - b)
+  const typical = mean(per.slice(Math.floor(per.length * 0.3)))
+  const highlight = per[Math.min(per.length - 1, Math.floor(per.length * 0.9))]
+  return clamp01(0.6 * typical + 0.4 * highlight)
 }
 
 /** Structural health from the shared graph diagnostics. Errors weigh heavily,
@@ -605,6 +638,11 @@ export function scorePattern(
   const audioReactive = isAudioReactiveSubgraph(nodes)
   const inferredIntent = inferPatternIntent(nodes)
   const intent = requestedIntent ?? inferredIntent
+  // An audio-reactive pattern is judged on how it looks with music playing.
+  // Its silent scenario is judged only for being different from the others
+  // (audio responsiveness): dark in silence is correct, not a weak frame.
+  const withMusic = [...(scenarios.steady ?? []), ...(scenarios.pulse ?? [])]
+  const judged = intent === 'audio-reactive' && withMusic.length > 0 ? withMusic : frames
 
   const specs: CriterionSpec[] = [
     {
@@ -614,22 +652,22 @@ export function scorePattern(
     },
     {
       id: 'composition', label: 'Spatial composition', weight: 0.22,
-      score: scoreComposition(frames, nodes, intent),
+      score: scoreComposition(judged, nodes, intent),
       detail: (s) => s >= 0.8 ? 'Uses the matrix with clear intent' : s >= 0.55 ? 'The composition reads, but lacks definition' : 'The frame feels unresolved for this intent',
     },
     {
       id: 'tone', label: 'Colour & tonal control', weight: 0.18,
-      score: scoreTonalControl(frames, intent),
+      score: scoreTonalControl(judged, intent),
       detail: (s) => s >= 0.8 ? 'Brightness and colour remain controlled' : s >= 0.55 ? 'Some passages lose tonal separation' : 'Output is crushed, empty, or overexposed',
     },
     {
       id: 'motion', label: 'Motion craft', weight: intent === 'static-utility' ? 0.14 : 0.22,
-      score: scoreMotionCraft(frames, intent),
+      score: scoreMotionCraft(judged, intent),
       detail: (s) => s >= 0.8 ? 'Motion suits the pattern’s intent' : s >= 0.55 ? 'Pacing is usable but uneven' : intent === 'static-utility' ? 'Unexpected motion distracts from its function' : 'Motion is either inert or too erratic',
     },
     {
       id: 'expressiveness', label: 'Expressiveness over time', weight: intent === 'static-utility' ? 0.1 : 0.2,
-      score: scoreExpressiveness(frames, intent),
+      score: scoreExpressiveness(judged, intent),
       detail: (s) => s >= 0.8 ? 'Develops meaningfully across the captured run' : s >= 0.55 ? 'Some evolution, but the range is narrow' : intent === 'static-utility' ? 'Stable and readable' : 'Changes too little to sustain interest',
     },
   ]
@@ -812,7 +850,7 @@ export interface RateOptions {
   confirmTrust?: (saved: SavedPattern) => Promise<boolean>
 }
 
-const ANALYSIS_VERSION = 2
+const ANALYSIS_VERSION = 3
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
