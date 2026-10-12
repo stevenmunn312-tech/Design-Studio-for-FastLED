@@ -41,7 +41,7 @@ describe('slice tiling subdivision', () => {
         expect([0, 1]).toContain(sliceBit(a.bits, leaf))
         expect([0, 1]).toContain(sliceBit(a.bitsB, leaf))
       }
-      const { field } = evalSliceTiling('hex', depth, 'dihedral', preset, '', '', 1.5, 0, 0, 0, 0.4, 0.03, 0, 12, 12)
+      const { field } = evalSliceTiling('hex', depth, 'dihedral', preset, '', '', 1.5, 0, 0, 0, 0.4, 0.03, 12, 12)
       expect([...field].every((value) => value >= 0 && value <= 1)).toBe(true)
     }
   })
@@ -62,21 +62,21 @@ describe('slice tiling subdivision', () => {
     const difference = folded.y / (Math.SQRT1_2 * Math.sin(Math.PI / 4))
     const direct = walkSliceLeaf([1 - sum, (sum - difference) / 2, (sum + difference) / 2], depth, buildSliceChildMatrices(0))
     const onlyDirectLeaf = (1n << BigInt(direct.leaf)).toString(16).padStart(4, '0')
-    const { field } = evalSliceTiling('square', depth, 'rotational', 'custom', onlyDirectLeaf, '0000', 1, 0, 0, 0, 0, 0, 0, W, H)
+    const { field } = evalSliceTiling('square', depth, 'rotational', 'custom', onlyDirectLeaf, '0000', 1, 0, 0, 0, 0, 0, W, H)
     expect(field[y * W + x]).toBe(1)
   })
 
   it('responds to every wireable control and animates when spin is nonzero', () => {
     const render = (overrides: Partial<{
-      cells: number; rotation: number; spin: number; warp: number; morph: number; edge: number; t: number
+      cells: number; rotation: number; spin: number; warp: number; morph: number; edge: number
     }> = {}) => [...evalSliceTiling(
       'hex', 3, 'dihedral', 'braid', '', '', overrides.cells ?? 1.5,
       overrides.rotation ?? 0, overrides.spin ?? 0, overrides.warp ?? 0,
-      overrides.morph ?? 0.2, overrides.edge ?? 0.03, overrides.t ?? 0, 16, 16,
+      overrides.morph ?? 0.2, overrides.edge ?? 0.03, 16, 16,
     ).field]
     const base = render()
     for (const variant of [
-      render({ cells: 2.3 }), render({ rotation: 27 }), render({ spin: 45, t: 1 }),
+      render({ cells: 2.3 }), render({ rotation: 27 }), render({ spin: 45 }),
       render({ warp: 0.8 }), render({ morph: 0.8 }), render({ edge: 0.2 }),
     ]) expect(variant).not.toEqual(base)
   })
@@ -89,7 +89,7 @@ describe('slice tiling cell output', () => {
   }> = {}) => [...evalSliceTiling(
     lattice, overrides.depth ?? 2, 'dihedral', overrides.preset ?? 'pinwheel', '', '',
     overrides.cells ?? 2.5, overrides.rotation ?? 0, 0, overrides.warp ?? 0,
-    overrides.morph ?? 0, overrides.edge ?? 0.03, 0, W, H, overrides.seed ?? 7,
+    overrides.morph ?? 0, overrides.edge ?? 0.03, W, H, overrides.seed ?? 7,
   ).cell]
 
   it('gives every pixel the value of the lattice polygon it falls in', () => {

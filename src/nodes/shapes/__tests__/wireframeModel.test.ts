@@ -245,7 +245,7 @@ describe('meshBoundingRadius', () => {
 
 describe('projectWireframeVertices', () => {
   const baseParams = {
-    spinX: 0, spinY: 0, spinZ: 0, t: 0, scale: 1, W: 16, H: 16,
+    angleX: 0, angleY: 0, angleZ: 0, scale: 1, W: 16, H: 16,
     projection: 'orthographic' as const, perspectiveStrength: 0.4,
   }
 
@@ -258,8 +258,8 @@ describe('projectWireframeVertices', () => {
 
   it('rotation about Y moves an off-axis vertex over time', () => {
     const mesh = { vertices: [1, 0, 0], edges: [] }
-    const at0 = projectWireframeVertices(mesh, { ...baseParams, spinY: 90, t: 0 })[0]
-    const at1 = projectWireframeVertices(mesh, { ...baseParams, spinY: 90, t: 1 })[0]
+    const at0 = projectWireframeVertices(mesh, { ...baseParams, angleY: 0 })[0]
+    const at1 = projectWireframeVertices(mesh, { ...baseParams, angleY: 90 })[0]
     expect(at0.x).not.toBeCloseTo(at1.x, 2)
   })
 

@@ -4,6 +4,7 @@ import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleIma
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
+import { speedPhase } from '../shared/speedClock'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
 import { pathPoint } from './pathShapes'
@@ -160,7 +161,7 @@ export function evalFourierEpicycles(
   const radius = Math.max(FOURIER_THICKNESS_MIN, Math.min(FOURIER_THICKNESS_MAX, p.thickness)) * 0.5
   const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
   const cx = W * 0.5, cy = H * 0.5
-  let turn = Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)) * t
+  let turn = speedPhase(nodeId, t, Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)))
   turn -= Math.floor(turn)
   const pen = fourierPen(terms, p.harmonics, turn, extent, (x, y, r) => {
     if (p.showCircles && r >= FOURIER_RING_MIN_RADIUS) fourierRing(W, H, cx + x, cy - y, r, p.color, add)
@@ -268,6 +269,7 @@ function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number
 // over time (scroll = cells/second) along either axis. Shares textColumns()
 // with codegen.
 function renderText(
+  key: string,
   text: string,
   color: RGB,
   startX: number[],
@@ -287,8 +289,9 @@ function renderText(
   const vertical = scrollAxis === 'vertical'
   const totalX = layout.width + W
   const totalY = layout.height + H
-  const offsetX = !vertical && scroll !== 0 ? Math.floor((((t * scroll) % totalX) + totalX) % totalX) : 0
-  const offsetY = vertical && scroll !== 0 ? Math.floor((((t * scroll) % totalY) + totalY) % totalY) : 0
+  const phase = speedPhase(key, t, scroll)
+  const offsetX = !vertical && scroll !== 0 ? Math.floor(((phase % totalX) + totalX) % totalX) : 0
+  const offsetY = vertical && scroll !== 0 ? Math.floor(((phase % totalY) + totalY) % totalY) : 0
   const xOffsets = wrap ? [-W, 0, W] : [0]
   const yOffsets = wrap ? [-H, 0, H] : [0]
   for (const ox of xOffsets) {
@@ -470,7 +473,8 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, mode: GradientMi
 // Angled palette gradient: project each pixel onto a direction set by `angle`,
 // normalise across the matrix to 0–1, then sample the palette (with `repeat`
 // cycles and an optional time-scrolling offset).
-function evalPaletteGradient(angle: number, repeat: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalPaletteGradient(key: string, angle: number, repeat: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const phase = speedPhase(key, t, speed)
   const a = (angle * Math.PI) / 180
   const cosA = Math.cos(a), sinA = Math.sin(a)
   const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
@@ -478,7 +482,7 @@ function evalPaletteGradient(angle: number, repeat: number, speed: number, t: nu
   const range = Math.max(1e-6, projMax - projMin)
   return buildFrame(W, H, (x, y) => {
       const tnorm = (x * cosA + y * sinA - projMin) / range
-      return samplePalette(palette, tnorm * repeat + t * speed)
+      return samplePalette(palette, tnorm * repeat + phase)
     })
 }
 
@@ -536,7 +540,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     }
     return { frame: solidFrame(color, W, H) }
   },
-  Text({ input, num, t, W, H }, id, props) {
+  Text({ input, num, t, W, H, stateKey }, id, props) {
     const text = String(props.text ?? 'HELLO')
     const font = asFont(props.font)
     const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
@@ -556,7 +560,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
     const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
     const scroll = num(id, 'scroll', props, 'scroll', 0)
-    return { frame: renderText(text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
+    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
   },
   ClockDisplay({ input, num, t, W, H, stateKey }, id, props) {
     const mode = String(props.displayMode ?? 'Digital HH:MM')
@@ -810,7 +814,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
   // each edge splatting AA discs (same technique as Line), dimming by
   // rotated depth when depthShade is on. Kept in lockstep with the
   // Wireframe3D case in cppGenerator.ts.
-  Wireframe3D({ input, num, t, W, H }, id, props) {
+  Wireframe3D({ input, num, t, W, H, stateKey }, id, props) {
     const baseIn = input(id, 'base', null) as Frame | null
     const frame  = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
     const colorIn = input(id, 'color', null) as RGB | null
@@ -821,11 +825,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     }
     const mesh = resolveWireframeMesh(props.model, props.mesh)
     const projection = props.projection === 'perspective' ? 'perspective' : 'orthographic'
+    const key = stateKey(id)
     const verts = projectWireframeVertices(mesh, {
-      spinX: num(id, 'spinX', props, 'spinX', 0),
-      spinY: num(id, 'spinY', props, 'spinY', 40),
-      spinZ: num(id, 'spinZ', props, 'spinZ', 0),
-      t,
+      angleX: speedPhase(key, t, num(id, 'spinX', props, 'spinX', 0), 'spinX'),
+      angleY: speedPhase(key, t, num(id, 'spinY', props, 'spinY', 40), 'spinY'),
+      angleZ: speedPhase(key, t, num(id, 'spinZ', props, 'spinZ', 0), 'spinZ'),
       scale: Math.max(0.05, num(id, 'scale', props, 'scale', 1)),
       W, H,
       projection,
@@ -863,24 +867,27 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     }
     return { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), gradientMixMode(props.mixMode), W, H) }
   },
-  PaletteGradient({ num, pal, t, W, H }, id, props) {
+  PaletteGradient({ num, pal, t, W, H, stateKey }, id, props) {
     const angle   = num(id, 'angle', props, 'angle', 45)
     const repeat  = num(id, 'repeat', props, 'repeat', 1)
     const speed   = denormRate(num(id, 'speed', props, 'speed', 0), SPEED_MAX.PaletteGradient)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalPaletteGradient(angle, repeat, speed, t, palette, W, H) }
+    return { frame: evalPaletteGradient(stateKey(id), angle, repeat, speed, t, palette, W, H) }
   },
-  PolarGradient({ num, pal, t, W, H }, id, props) {
+  PolarGradient({ num, pal, t, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     const angleOffset = num(id, 'angleOffset', props, 'angleOffset', 0)
     const spin = num(id, 'spin', props, 'spin', 0.1)
     const repeat = polarRepeat(num(id, 'repeat', props, 'repeat', 1))
     const radialMix = clamp01(num(id, 'radialMix', props, 'radialMix', 0))
     const radialScroll = num(id, 'radialScroll', props, 'radialScroll', 0)
+    const key = stateKey(id)
+    const spinPhase = speedPhase(key, t, spin, 'spin')
+    const scrollPhase = speedPhase(key, t, radialScroll, 'scroll')
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const rMax = Math.max(1e-6, Math.sqrt(cx * cx + cy * cy))
     return { frame: buildFrame(W, H, (x, y) => {
-      const u = polarGradientU(x - cx, y - cy, rMax, angleOffset, spin, repeat, radialMix, radialScroll, t)
+      const u = polarGradientU(x - cx, y - cy, rMax, angleOffset, spinPhase, repeat, radialMix, scrollPhase)
       return samplePalette(palette, u - Math.floor(u))
     }) }
   },

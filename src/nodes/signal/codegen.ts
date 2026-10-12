@@ -101,11 +101,11 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
       decay: f('decay', 'decay', decayMs / 1000),
     }, p, incoming.has(`${node.id}:attack`)).forEach(ln)
   },
-  BeatSin({ p, ln, v, f }) {
+  BeatSin({ id, p, ln, v, f }) {
     const bpmProp = Number(p.bpm ?? 60)
     // `f` would emit NaN for a non-numeric stored bpm, so the sanitised
     // value is what it falls back to.
-    beatSinCpp(v, { bpm: f('bpm', 'bpm', Number.isFinite(bpmProp) ? bpmProp : 60) }, p).forEach(ln)
+    beatSinCpp(id, v, { bpm: f('bpm', 'bpm', Number.isFinite(bpmProp) ? bpmProp : 60) }, p).forEach(ln)
   },
   // Free-running BPM clock/transport — millis()-based, mirroring the
   // stateful `Clock` case in graphEvaluator.ts (same tap/sync EMA and

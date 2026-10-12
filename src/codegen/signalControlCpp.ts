@@ -8,6 +8,7 @@
 import { seedProp, floatLit } from './cppLiterals'
 import { scheduleTimeOfDay } from '../nodes/signal/evaluate'
 import { rateCpp, SPEED_MAX } from '../nodes/shared/speedRange'
+import { phaseTag, speedPhaseCpp } from '../nodes/shared/speedClockCpp'
 import { seedOffset } from '../state/evaluator/random'
 import type { ControlDataType } from './scalarControlCpp'
 
@@ -99,17 +100,23 @@ export function noiseSignalCpp(id: string, v: Value, expr: Expr, props: Record<s
   const seed = seedProp(props)
   const zOff = floatLit(seedOffset(seed, 0) % 256)
   const yOff = floatLit(seedOffset(seed, 1) % 256)
-  return [
+  const lines = [
     `  float ${lo} = ${expr.min};`,
     `  float ${v('value')};`,
-    `  { float _z = (millis() / 1000.0f) * ${speed} + ${zOff}, _v = 0.0f, _amp = 0.5f, _norm = 0.0f, _freq = 1.0f;`,
+    // Wall clock, bound as `t` so the integrated phase seeds the same way.
+    `  { float t = millis() / 1000.0f;`,
+  ]
+  const ph = speedPhaseCpp((line) => lines.push(line), phaseTag(id), speed)
+  lines.push(
+    `    float _z = ${ph} + ${zOff}, _v = 0.0f, _amp = 0.5f, _norm = 0.0f, _freq = 1.0f;`,
     `    for (int _o = 0; _o < ${octaves}; _o++) {`,
     `      uint32_t _x = (uint32_t)(fmodf(_z * _freq, 256.0f) * 65536.0f);`,
     `      uint32_t _y = (uint32_t)(fmodf(${yOff} + _o * 17.0f, 256.0f) * 65536.0f);`,
     `      _v += _amp * (inoise16(_x, _y) / 65535.0f);`,
     `      _norm += _amp; _amp *= 0.5f; _freq *= 2.0f; }`,
     `    ${v('value')} = ${lo} + constrain(_v / _norm, 0.0f, 1.0f) * (${expr.max} - ${lo}); }`,
-  ]
+  )
+  return lines
 }
 
 export function counterCpp(v: Value, rate: string): string[] {
@@ -211,13 +218,18 @@ export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Reco
   return lines
 }
 
-export function beatSinCpp(v: Value, expr: Expr, props: Record<string, unknown>): string[] {
+export function beatSinCpp(id: string, v: Value, expr: Expr, props: Record<string, unknown>): string[] {
   const bpm = `fmaxf(1.0f,${expr.bpm})`
   const lo = Number(props.low ?? 0)
   const hi = Number(props.high ?? 1)
-  return [
-    `  float ${v('value')} = ${lo.toFixed(3)}f + ((sinf(((millis() / 1000.0f) * ${bpm} / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f);`,
+  const lines = [
+    `  float ${v('value')};`,
+    // Wall clock, bound as `t` so the integrated phase seeds the same way.
+    `  { float t = millis() / 1000.0f;`,
   ]
+  const ph = speedPhaseCpp((line) => lines.push(line), phaseTag(id), `${bpm} / 60.0f`)
+  lines.push(`    ${v('value')} = ${lo.toFixed(3)}f + ((sinf(${ph} * 6.2831853f) + 1.0f) * 0.5f) * (${hi.toFixed(3)}f - ${lo.toFixed(3)}f); }`)
+  return lines
 }
 
 export function clockCpp(id: string, v: Value, expr: Expr): string[] {
@@ -266,7 +278,7 @@ export function timedControlCpp(
     case 'NoiseSignal': return noiseSignalCpp(id, v, inputs, props)
     case 'Counter': return counterCpp(v, inputs.rate)
     case 'ScheduleTrigger': return scheduleTriggerCpp(id, v, inputs, props)
-    case 'BeatSin': return beatSinCpp(v, inputs, props)
+    case 'BeatSin': return beatSinCpp(id, v, inputs, props)
     case 'Clock': return clockCpp(id, v, inputs)
     default: return null
   }

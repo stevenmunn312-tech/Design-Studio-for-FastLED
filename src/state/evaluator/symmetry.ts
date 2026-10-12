@@ -49,28 +49,32 @@ export function foldWallpaper(group: unknown, x: number, y: number): WallpaperPo
   }
 }
 
+/** The spin rate both symmetry nodes integrate (deg/s, clamped). */
+export function wallpaperSpinRate(spinDeg: number): number {
+  return Math.max(-360, Math.min(360, spinDeg))
+}
+
 /** Resolve one output pixel to the centred source coordinate sampled by both
- * symmetry nodes. Canvas Y deliberately uses the width scale too, keeping
- * lattice cells regular on a non-square matrix. */
-export function wallpaperSamplePoint(
+ * symmetry nodes. `spinPhaseDeg` is the integrated spin (`∫ spin dt`, degrees).
+ * Canvas Y deliberately uses the width scale too, keeping lattice cells
+ * regular on a non-square matrix. */
+export function wallpaperSamplePointAt(
   group: unknown,
   x: number,
   y: number,
   cellsValue: number,
   rotationDeg: number,
-  spinDeg: number,
+  spinPhaseDeg: number,
   offsetXValue: number,
   offsetYValue: number,
-  t: number,
   width: number,
   height: number,
 ): WallpaperPoint {
   const cells = Math.max(0.5, Math.min(8, cellsValue))
   const rotation = Math.max(-180, Math.min(180, rotationDeg))
-  const spin = Math.max(-360, Math.min(360, spinDeg))
   const offsetX = Math.max(-8, Math.min(8, offsetXValue))
   const offsetY = Math.max(-8, Math.min(8, offsetYValue))
-  const angle = -(rotation + spin * t) * Math.PI / 180
+  const angle = -(rotation + spinPhaseDeg) * Math.PI / 180
   const cos = Math.cos(angle), sin = Math.sin(angle)
   const px = (x + 0.5 - width / 2) * cells / width
   const py = (y + 0.5 - height / 2) * cells / width

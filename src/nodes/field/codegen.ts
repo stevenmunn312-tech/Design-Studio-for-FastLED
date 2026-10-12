@@ -1,4 +1,5 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX, FORMULA_FIELD_SPEED_MAX } from '../shared/speedRange'
+import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { usesShims, cppRewriteShims } from '../shared/fastledShims'
 import { isNodeFormulaValid } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -62,7 +63,9 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const seed = seedProp(p)
     const timeExpr = seed ? `(t+${(seed * 0.013).toFixed(3)}f)` : 't'
     ln(`  { // Field noise (fBm via inoise8)`)
-    ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr}; uint16_t _z=(uint16_t)(_t*_spd*40);`)
+    ln(`    float _spd=${speed},_sc=${scale},_t=${timeExpr};`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+    ln(`    uint16_t _z=(uint16_t)((${ph}${seed ? '+(_t-t)*_spd' : ''})*40);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _v=0,_amp=0.5f,_norm=0,_freq=_sc*96;`)
     ln(octavesDecl)
@@ -100,7 +103,9 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float _cells=constrain(${f('cells', 'cells', 1)},0.5f,8.0f),_warp=constrain(${f('warp', 'warp', 0)},-1.0f,1.0f);`)
     ln(`    float _morph=constrain(${f('morph', 'morph', 0)},0.0f,1.0f),_edge=constrain(${f('edge', 'edge', 0.03)},0.0f,0.5f);`)
     ln(`    float _split=constrain(0.5f+0.3f*_warp,0.2f,0.8f),_matrices[4][9]; _sliceBuildMatrices(_split,_matrices);`)
-    ln(`    float _angle=-(${f('rotation', 'rotation', 0)}+${f('spin', 'spin', 0)}*t)*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    ln(`    float _spin=${f('spin', 'spin', 0)};`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
+    ln(`    float _angle=-(${f('rotation', 'rotation', 0)}+${ph})*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
     ln(`    const int _sides=${sides}; const float _sector=6.283185307180f/_sides,_radius=${radius};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
@@ -137,10 +142,11 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    if(_reroll&&!${state}prev)${state}epoch++; ${state}prev=_reroll;`)
     ln(`    float _cells=constrain(${f('cells', 'cells', 4)},0.5f,8.0f),_lineWidth=constrain(${f('lineWidth', 'lineWidth', 0.08)},0.0f,0.5f);`)
     ln(`    float _scroll=constrain(${f('scroll', 'scroll', 0)},-8.0f,8.0f),_rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_scroll')
     ln(`    float _angle=-_rotation*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
-    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_scroll*t,_sr*_px+_cr*_py);`)
+    ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+${ph},_sr*_px+_cr*_py);`)
     ln(`      uint32_t _bits=_latticeHashBits(_cell.a+(int)${state}epoch*31,_cell.b-(int)${state}epoch*17,${seedProp(p)}u);`)
     ln(`      int _orientation=(int)(((uint64_t)_bits*${orientations}u)>>24);`)
     ln(`      float _distance=_truchetDistance(${latticeId},${motifId},_cell.x,_cell.y,_orientation);`)
@@ -151,7 +157,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   // one dedicated block per formulaType baked at generation time (the
   // variant isn't wired, so there's nothing to branch on at runtime). See
   // docs/design/formula-pattern-nodes.md.
-  FormulaField({ p, ln, f, ownField, needsT }) {
+  FormulaField({ id, p, ln, f, ownField, needsT }) {
     needsT.v = true
     const of = ownField()
     const formulaType = String(p.formulaType ?? 'rose')
@@ -169,11 +175,15 @@ export const FIELD_EMITTERS: NodeEmitters = {
      * computed once a frame instead of once a pixel.
      */
     const speedMax = floatLit(FORMULA_FIELD_SPEED_MAX[formulaType] ?? 1)
-    const spd = `  float _spd=constrain(${f('speed', 'speed', 0.3)},0.0f,1.0f)*${speedMax}; float _rot=t*_spd;`
+    const emitSpd = () => {
+      ln(`  float _spd=constrain(${f('speed', 'speed', 0.3)},0.0f,1.0f)*${speedMax};`)
+      const ph = speedPhaseCpp(ln, phaseTag(id), '_spd', '  ')
+      ln(`  float _rot=${ph};`)
+    }
     switch (formulaType) {
       case 'superformula': {
         ln(`  { /* Formula Field: superformula */`)
-        ln(spd)
+        emitSpd()
         ln(`    float _m=fmaxf(1.0f,${f('symmetry', 'symmetry', 6)});`)
         ln(`    float _invN1=1.0f/fmaxf(0.05f,${f('n1', 'n1', 0.3)});`)
         ln(`    float _n2=fmaxf(0.05f,${f('n2', 'n2', 0.3)}),_n3=fmaxf(0.05f,${f('n3', 'n3', 0.3)});`)
@@ -189,7 +199,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
       case 'fibonacciSpiral': {
         const lnPhiLit = floatLit(Math.log(GOLDEN_RATIO))
         ln(`  { /* Formula Field: fibonacciSpiral */`)
-        ln(spd)
+        emitSpd()
         ln(`    float _turns=fmaxf(1.0f,${f('turns', 'turns', 3)});`)
         ln(`    float _period=6.2831853f/_turns;`)
         ln(`    float _aSp=fmaxf(0.02f,${f('tightness', 'tightness', 0.15)});`)
@@ -207,7 +217,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
       case 'goldenTiling': {
         const invPhi = floatLit(1 / GOLDEN_RATIO)
         ln(`  { /* Formula Field: goldenTiling */`)
-        ln(spd)
+        emitSpd()
         ln(`    float _dens=fmaxf(1.0f,${f('density', 'density', 12)}),_phase=${f('phase', 'phase', 0)};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
         ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
@@ -219,7 +229,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
       }
       case 'lissajousField': {
         ln(`  { /* Formula Field: lissajousField */`)
-        ln(spd)
+        emitSpd()
         ln(`    float _fa=fmaxf(1.0f,${f('freqA', 'freqA', 3)}),_fb=fmaxf(1.0f,${f('freqB', 'freqB', 2)});`)
         ln(`    float _thick=fmaxf(0.02f,${f('thickness', 'thickness', 0.1)});`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -236,7 +246,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
       case 'rose':
       default: {
         ln(`  { /* Formula Field: rose */`)
-        ln(spd)
+        emitSpd()
         ln(`    float _k=fmaxf(1.0f,${f('petals', 'petals', 5)});`)
         ln(`    float _off=(${f('offset', 'offset', 0)})*0.0174532925f;`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -519,12 +529,14 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
     ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
   },
-  FieldRotate({ ln, f, ownField, srcField, needsT }) {
+  FieldRotate({ id, ln, f, ownField, srcField, needsT }) {
     needsT.v = true
     const of = ownField()
     const angle = f('angle', 'angle', 0), spin = f('spin', 'spin', 0)
     const src = srcField('field')
-    ln(`  { /* FieldRotate */ float _ang=((${angle})+t*${spin})*0.01745329f;`)
+    ln(`  { /* FieldRotate */ float _spin=${spin};`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
+    ln(`    float _ang=((${angle})+${ph})*0.01745329f;`)
     ln(`    float _ca=cosf(-_ang),_sa=sinf(-_ang),_cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _dx=_x-_cx,_dy=_y-_cy;`)
@@ -542,7 +554,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      int _tx=max(1,(int)roundf(${tx})),_ty=max(1,(int)roundf(${ty})); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;`)
     ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
   },
-  FieldSymmetry({ p, ln, f, ownField, srcField, needsT, needsLattice, needsSymmetry }) {
+  FieldSymmetry({ id, p, ln, f, ownField, srcField, needsT, needsLattice, needsSymmetry }) {
     needsT.v = true
     needsLattice.v = true
     needsSymmetry.v = true
@@ -558,8 +570,9 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`  { /* FieldSymmetry: ${groupName} */`)
     ln(`    float _cells=constrain(${f('cells', 'cells', 2)},0.5f,8.0f);`)
     ln(`    float _rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f),_spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
     ln(`    float _ox=constrain(${f('offsetX', 'offsetX', 0)},-8.0f,8.0f),_oy=constrain(${f('offsetY', 'offsetY', 0)},-8.0f,8.0f);`)
-    ln(`    float _angle=-(_rotation+_spin*t)*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    ln(`    float _angle=-(_rotation+${ph})*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
     ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_ox,_sr*_px+_cr*_py+_oy);`)

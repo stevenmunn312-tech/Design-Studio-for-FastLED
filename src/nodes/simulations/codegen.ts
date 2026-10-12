@@ -1,4 +1,5 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
@@ -395,7 +396,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`  { // Formula Points: lissajousPath`)
         ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
         // FORMULA_POINTS_SPEED_MAX.lissajousPath
-        ln(`    float _phase=t*(${speedVar}*2.0f);`)
+        ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
         ln(`    float _cx=sinf(${freqA}*_phase), _cy=sinf(${freqB}*_phase);`)
         ln(`    float _hue=fmodf(_phase/6.2831853f,1.0f); if(_hue<0.0f)_hue+=1.0f;`)
         splat(`(_cx+1.0f)/2.0f*(WIDTH-1)`, `(_cy+1.0f)/2.0f*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(_hue*255.0f))`, ob)
@@ -407,7 +408,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`  { // Formula Points: rosePath`)
         ln(`    fadeToBlackBy(${ob}, NUM_LEDS, (uint8_t)((1.0f-${persistVar})*255.0f));`)
         // FORMULA_POINTS_SPEED_MAX.rosePath
-        ln(`    float _phase=t*(${speedVar}*2.0f);`)
+        ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
         ln(`    float _rr=cosf(fmaxf(1.0f, ${f('petals', 'petals', 5)})*_phase);`)
         ln(`    float _cx=_rr*cosf(_phase), _cy=_rr*sinf(_phase);`)
         ln(`    float _hue=fmodf(_phase/6.2831853f,1.0f); if(_hue<0.0f)_hue+=1.0f;`)
@@ -426,7 +427,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         const goldenAngle = floatLit(2 * Math.PI * (1 - 1 / 1.618033988749895), 8)
         ln(`  { // Formula Points: phyllotaxis`)
         // FORMULA_POINTS_SPEED_MAX.phyllotaxis
-        ln(`    float _spin=t*(${speedVar}*1.0f);`)
+        ln(`    float _spin=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*1.0f;`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
         ln(`    for(int _i=0;_i<${count};_i++){`)
         ln(`      float _ang=_i*${goldenAngle}+_spin, _rr=sqrtf((float)_i/${count});`)

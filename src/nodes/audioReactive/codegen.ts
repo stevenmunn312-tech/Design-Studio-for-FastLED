@@ -2,6 +2,7 @@ import { audioFlowExpr } from '../../state/audio/audioFlowRange'
 import { animartrixCppLines } from '../../animartrix/codegen'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
+import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
   WAVE_SAMPLES, WAVE_SMOOTHING_MAX, WAVE_STYLES, WAVE_THICKNESS_MAX, WAVE_THICKNESS_MIN,
@@ -9,7 +10,7 @@ import {
 import { BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN } from './evaluate'
 
 export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
-  SpectrumBars({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  SpectrumBars({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     // Test Signal is preview-only; an unwired firmware pattern rests at 0.
@@ -27,8 +28,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
     ln(`    const int _cols = max(1, ${mirror ? '((WIDTH + 1) / 2)' : 'WIDTH'});`)
     ln(`    float _levels[3] = { _b, _m, _t };`)
-    ln(`    float _geometryMotion = t * (0.45f + _spd * 3.2f);`)
-    ln(`    float _paletteScroll = t * (0.08f + _spd * 0.42f);`)
+    ln(`    float _geomRate = 0.45f + _spd * 3.2f;`)
+    const phRipple = speedPhaseCpp(ln, phaseTag(id, 'ripple'), '_geomRate * (1.1f + _t * 1.8f)')
+    const phShimmer = speedPhaseCpp(ln, phaseTag(id, 'shimmer'), '_geomRate * (2.0f + _m * 2.5f)')
+    const phPulse = speedPhaseCpp(ln, phaseTag(id, 'pulse'), '_geomRate * (1.4f + _b * 1.6f)')
+    const phPalette = speedPhaseCpp(ln, phaseTag(id, 'palette'), '0.08f + _spd * 0.42f')
+    ln(`    float _paletteScroll = ${phPalette};`)
     ln(`    for (int _x = 0; _x < _cols; _x++) {`)
     ln(`      float _nx = _cols <= 1 ? 0.0f : (float)_x / (float)(_cols - 1);`)
     ln(`      float _spec = _nx * 2.0f;`)
@@ -36,14 +41,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      int _right = min(2, _left + 1);`)
     ln(`      float _mix = _spec - (float)_left;`)
     ln(`      float _base = _levels[_left] * (1.0f - _mix) + _levels[_right] * _mix;`)
-    ln(`      float _ripple = sinf(_nx * 10.5f - _geometryMotion * (1.1f + _t * 1.8f)) * 0.08f * _strength;`)
-    ln(`      float _shimmer = max(0.0f, sinf(_nx * 21.0f + _geometryMotion * (2.0f + _m * 2.5f))) * 0.06f * _t * _strength;`)
+    ln(`      float _ripple = sinf(_nx * 10.5f - ${phRipple}) * 0.08f * _strength;`)
+    ln(`      float _shimmer = max(0.0f, sinf(_nx * 21.0f + ${phShimmer})) * 0.06f * _t * _strength;`)
     ln(`      float _level = min(1.0f, max(0.0f, _base * (0.45f + _strength * 0.9f) + _ripple + _shimmer));`)
     ln(`      int _barH = max(0, (int)roundf(_level * HEIGHT));`)
     ln(`      for (int _row = 0; _row < _barH; _row++) {`)
     ln(`        int _y = HEIGHT - 1 - _row;`)
     ln(`        float _vertical = HEIGHT <= 1 ? 0.0f : (float)_row / (float)(HEIGHT - 1);`)
-    ln(`        float _pulse = 0.72f + 0.28f * sinf(_vertical * 6.2f - _geometryMotion * (1.4f + _b * 1.6f));`)
+    ln(`        float _pulse = 0.72f + 0.28f * sinf(_vertical * 6.2f - ${phPulse});`)
     ln(`        float _v = min(1.0f, max(0.0f, (0.28f + _vertical * 0.72f) * _pulse));`)
     ln(`        float _pt = _nx + _paletteScroll + _vertical * (0.12f + _m * 0.12f) + _spec * 0.08f;`)
     ln(`        CRGB _px = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
@@ -160,7 +165,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    CRGB _c = ColorFromPalette(${pal}, (uint8_t)(_lv * 255)); _c.nscale8((uint8_t)(_v * 255));`)
     ln(`    fill_solid(${ob}, NUM_LEDS, _c); }`)
   },
-  BassRings({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  BassRings({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
@@ -173,7 +178,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
     ln(`    float _cx = WIDTH * 0.5f, _cy = HEIGHT * 0.5f, _maxD = sqrtf(_cx * _cx + _cy * _cy);`)
     ln(`    float _motion = _spd * (0.75f + _b * 1.75f * _strength);`)
-    ln(`    float _phase = t * (1.2f + _motion * 4.8f);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '1.2f + _motion * 4.8f')
+    ln(`    float _phase = ${ph};`)
     ln(`    float _rings = 4.0f + _b * 8.0f * _strength;`)
     ln(`    float _floor = 0.04f + _b * 0.1f * _strength;`)
     ln(`    float _gain = 0.16f + _b * 0.84f * _strength;`)
@@ -189,7 +195,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  MidrangeWaves({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  MidrangeWaves({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const mids = f('mids', 'mids', 0.5)
@@ -198,12 +204,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     ln(`    float _m = ${mids}, _intensity = ${energy}, _spd = ${speed};`)
+    ln(`    float _mAmt = min(1.0f, max(0.0f, _m));`)
+    ln(`    float _strength = min(1.0f, max(0.0f, _intensity));`)
+    ln(`    float _motion = _spd * (1.0f + _mAmt * 1.5f * _strength);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    ln(`      float _mAmt = min(1.0f, max(0.0f, _m));`)
-    ln(`      float _strength = min(1.0f, max(0.0f, _intensity));`)
-    ln(`      float _motion = _spd * (1.0f + _mAmt * 1.5f * _strength);`)
     ln(`      float _contrast = 0.7f + _mAmt * 1.8f * _strength;`)
-    ln(`      float _wBase = sin(_x * 0.8f + t * _motion * 4) * sin(_y * 0.5f + t * _motion * 2.5f);`)
+    ln(`      float _wBase = sin(_x * 0.8f + ${ph} * 4) * sin(_y * 0.5f + ${ph} * 2.5f);`)
     ln(`      float _w = min(1.0f, max(-1.0f, _wBase * _contrast));`)
     ln(`      float _int = min(1.0f, 0.1f + powf(_mAmt, 0.65f) * 1.25f * _strength);`)
     ln(`      float _v = (_w + 1) / 2.0f * _int;`)
@@ -212,7 +219,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  MidrangeBloom({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  MidrangeBloom({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const mids = f('mids', 'mids', 0.5)
@@ -224,16 +231,17 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _mAmt = min(1.0f, max(0.0f, _m));`)
     ln(`    float _strength = min(1.0f, max(0.0f, _intensity));`)
     ln(`    float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
     ln(`    float _cx0 = (WIDTH - 1) / 2.0f, _cy0 = (HEIGHT - 1) / 2.0f;`)
     ln(`    float _sx = max(1.0f, WIDTH / 2.0f), _sy = max(1.0f, HEIGHT / 2.0f);`)
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
     ln(`      float _cx = (_x - _cx0) / _sx, _cy = (_y - _cy0) / _sy;`)
     ln(`      float _radial = sqrtf(_cx * _cx + _cy * _cy);`)
-    ln(`      float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + t * _motion * 3.2f) + cosf((_cx + _cy) * 4 - t * _motion * 2.4f);`)
-    ln(`      float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f - t * _motion * 4.0f + _swirl * 0.6f);`)
+    ln(`      float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + ${ph} * 3.2f) + cosf((_cx + _cy) * 4 - ${ph} * 2.4f);`)
+    ln(`      float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f - ${ph} * 4.0f + _swirl * 0.6f);`)
     ln(`      float _crisp = powf(max(0.0f, _bloom * 0.5f + 0.5f), 1.8f);`)
     ln(`      float _v = min(1.0f, _crisp * (0.22f + _mAmt * 0.78f * _strength));`)
-    ln(`      float _pt = _radial * 0.6f + _swirl * 0.12f + t * _motion * 0.05f;`)
+    ln(`      float _pt = _radial * 0.6f + _swirl * 0.12f + ${ph} * 0.05f;`)
     ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
     ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
     ln(`    }`)
@@ -266,7 +274,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  TreblePrism({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  TreblePrism({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const treble = f('treble', 'treble', 0.5)
@@ -278,13 +286,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
     ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
     ln(`    float _motion = _spd * (1.2f + _t * 3.2f * _strength);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
     ln(`      float _diagA = _x * 1.7f + _y * 1.15f, _diagB = _x * -1.1f + _y * 1.9f;`)
-    ln(`      float _waveA = sinf(_diagA + t * _motion * 7.5f);`)
-    ln(`      float _waveB = sinf(_diagB - t * _motion * 6.1f);`)
+    ln(`      float _waveA = sinf(_diagA + ${ph} * 7.5f);`)
+    ln(`      float _waveB = sinf(_diagB - ${ph} * 6.1f);`)
     ln(`      float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);`)
     ln(`      float _shard = powf(_prism, 3.6f);`)
-    ln(`      float _flash = powf(max(0.0f, sinf((_x + _y) * 2.4f - t * _motion * 9.0f) * 0.5f + 0.5f), 10.0f);`)
+    ln(`      float _flash = powf(max(0.0f, sinf((_x + _y) * 2.4f - ${ph} * 9.0f) * 0.5f + 0.5f), 10.0f);`)
     ln(`      float _v = min(1.0f, _shard * (0.3f + _t * 0.7f * _strength) + _flash * _t * 0.9f * _strength);`)
     ln(`      float _pt = (_x + _y) / (float)(WIDTH + HEIGHT);`)
     ln(`      int _i = _y * WIDTH + _x;`)
@@ -293,7 +302,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  AudioCascade({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  AudioCascade({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
@@ -307,15 +316,19 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
     ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
     ln(`    float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);`)
+    const phRibbon = speedPhaseCpp(ln, phaseTag(id, 'ribbon'), '_motion * (2.0f + _m * 3.0f * _strength)')
+    const phSweep = speedPhaseCpp(ln, phaseTag(id, 'sweep'), '_motion * (1.4f + _b * 2.2f * _strength)')
+    const phShimmer = speedPhaseCpp(ln, phaseTag(id, 'shimmer'), '_motion * (4.0f + _t * 8.0f * _strength)')
+    const phPalette = speedPhaseCpp(ln, phaseTag(id, 'palette'), '_motion')
     ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
     ln(`      float _nx = WIDTH > 1 ? (float)_x / (float)(WIDTH - 1) : 0.0f;`)
     ln(`      float _ny = HEIGHT > 1 ? (float)_y / (float)(HEIGHT - 1) : 0.0f;`)
-    ln(`      float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + t * _motion * (2.0f + _m * 3.0f * _strength));`)
-    ln(`      float _sweep = cosf((_ny * 9.0f - _nx * 3.0f) - t * _motion * (1.4f + _b * 2.2f * _strength));`)
-    ln(`      float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + t * _motion * (4.0f + _t * 8.0f * _strength)) * 0.5f + 0.5f), 6.0f);`)
+    ln(`      float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + ${phRibbon});`)
+    ln(`      float _sweep = cosf((_ny * 9.0f - _nx * 3.0f) - ${phSweep});`)
+    ln(`      float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + ${phShimmer}) * 0.5f + 0.5f), 6.0f);`)
     ln(`      float _body = max(0.0f, _ribbon * 0.55f + _sweep * 0.45f);`)
     ln(`      float _v = min(1.0f, _body * (0.18f + _m * 0.52f * _strength) + _b * 0.24f * _strength + _shimmer * _t * 0.85f * _strength);`)
-    ln(`      float _pt = _nx * (0.2f + _b * 0.5f) + _ny * (0.35f + _m * 0.45f) + _shimmer * 0.15f + t * _motion * 0.03f;`)
+    ln(`      float _pt = _nx * (0.2f + _b * 0.5f) + _ny * (0.35f + _m * 0.45f) + _shimmer * 0.15f + ${phPalette} * 0.03f;`)
     ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(_pt * 255));`)
     ln(`      ${ob}[_y * WIDTH + _x].nscale8((uint8_t)(_v * 255));`)
     ln(`    }`)
@@ -394,6 +407,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _spdK=(0.35f+_strength*0.5f)*max(0.2f,_spd)/_ksLife, _spdS=_spdK*1.8f;`)
     ln(`    const float _lifeK=${lifeK},_lifeS=${lifeS},_bandK=${bandK},_bandS=${bandS};`)
     ln(`    float _maxD=max(1e-6f,sqrtf(_ksCx*_ksCx+_ksCy*_ksCy));`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _lx=fmodf((_x+0.5f)*_tiles,WIDTH)/_tiles-0.5f,_ly=fmodf((_y+0.5f)*_tiles,HEIGHT)/_tiles-0.5f;`)
     ln(`      float _cdx=_lx-_ksCx,_cdy=_ly-_ksCy,_distC=sqrtf(_cdx*_cdx+_cdy*_cdy)/_maxD;`)
@@ -408,9 +422,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ? `        _wave+=_front*(1.0f-_age/_life); }`
       : `        _wave=max(_wave,_front*(1.0f-_age/_life)); }`)
     ln(`      _wave=min(1.0f,_wave);`)
-    ln(`      float _jitter=_hihatAmt*0.18f*(sinf(_distC*50.0f-t*_spd*22.0f)*0.5f+0.5f);`)
+    ln(`      float _jitter=_hihatAmt*0.18f*(sinf(_distC*50.0f-${ph}*22.0f)*0.5f+0.5f);`)
     ln(`      float _v=min(1.0f,_wave*(0.5f+_strength*0.5f)+_jitter*_wave+0.03f*_strength);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_distC*0.5f+t*_spd*0.03f)*255));`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_distC*0.5f+${ph}*0.03f)*255));`)
     ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
     ln(`    }`)
     ln(`  }`)
@@ -469,6 +483,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _bkDt_${id}=(_bkLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_bkLast_${id})); _bkLast_${id}=t;`)
     ln(`    _bkPhase_${id}+=_bkDt_${id}*${speed}*(0.15f+_strength*0.35f);`)
     ln(`    float _rot=_bkPhase_${id}+_bkPunch_${id}*0.8f;`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    float _wedgeAngle=6.2831853f/_wedges;`)
     ln(`    float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_maxD=max(1e-6f,sqrtf(_cx*_cx+_cy*_cy));`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -476,9 +491,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      float _ang=atan2f(_dy,_dx)+_rot;`)
     ln(`      float _a=fmodf(fmodf(_ang,_wedgeAngle)+_wedgeAngle,_wedgeAngle);`)
     ln(`      if(_a>_wedgeAngle/2.0f) _a=_wedgeAngle-_a;`)
-    ln(`      float _tex=sinf(_a*10.0f+_dist*8.0f*(1.0f+_bkPunch_${id}*0.6f)-t*${speed}*3.0f)*cosf(_dist*5.0f*(1.0f+_bkPunch_${id}*0.6f)-_a*6.0f);`)
+    ln(`      float _tex=sinf(_a*10.0f+_dist*8.0f*(1.0f+_bkPunch_${id}*0.6f)-${ph}*3.0f)*cosf(_dist*5.0f*(1.0f+_bkPunch_${id}*0.6f)-_a*6.0f);`)
     ln(`      float _v=min(1.0f,max(0.0f,_tex*0.5f+0.5f)*(0.35f+_strength*0.65f)+_bkPunch_${id}*0.25f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_dist*0.5f+_a*0.3f+${hue}/360.0f+t*${speed}*0.05f)*255));`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_dist*0.5f+_a*0.3f+${hue}/360.0f+${ph}*0.05f)*255));`)
     ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
     ln(`    }`)
     ln(`  }`)
@@ -501,6 +516,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    static float _smPhase_${id}=0.0f,_smLast_${id}=-1.0f;`)
     ln(`    float _smDt_${id}=(_smLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_smLast_${id})); _smLast_${id}=t;`)
     ln(`    _smPhase_${id}+=_smDt_${id}*${speed}*(0.4f+_strength*0.8f);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      int _cx=(int)(_x/_cellW),_cy=(int)(_y/_cellH);`)
     ln(`      float _diag=(_cx+_cy)/(2.0f*(float)max(1,_n-1));`)
@@ -508,7 +524,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      float _phase=_cx*0.6f+_cy*0.9f+_smPhase_${id};`)
     ln(`      float _shimmer=sinf(_phase)*0.5f+0.5f;`)
     ln(`      float _v=min(1.0f,0.15f+_mix*0.6f*_strength+_shimmer*0.25f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_diag*0.6f+_mix*0.3f+t*${speed}*0.04f)*255));`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_diag*0.6f+_mix*0.3f+${ph}*0.04f)*255));`)
     ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
     ln(`    }`)
     ln(`  }`)
@@ -572,7 +588,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    static float _epBurst_${id}=0;`)
     ln(`    _epBurst_${id}=(${beat})?min(1.0f,_epBurst_${id}+0.6f):_epBurst_${id}*0.90f;`)
     ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
-    ln(`    float _flicker=t*${speed}*3.0f;`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), speed)
+    ln(`    float _flicker=${ph}*3.0f;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _nx=WIDTH>1?(float)_x/(WIDTH-1):0.0f;`)
     ln(`      float _hfb=HEIGHT>1?(float)(HEIGHT-1-_y)/(HEIGHT-1):0.0f;`)
@@ -607,6 +624,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _tbDt_${id}=(_tbLast_${id}<0.0f)?0.0f:min(0.25f,max(0.0f,t-_tbLast_${id})); _tbLast_${id}=t;`)
     ln(`    _tbFast_${id}+=_tbDt_${id}*${speed}*(1.5f+_tr*2.0f); _tbSlow_${id}+=_tbDt_${id}*${speed}*(0.3f+_m*0.6f);`)
     ln(`    float _tFast=_tbFast_${id},_tSlow=_tbSlow_${id};`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _cx=(_x-(WIDTH-1)/2.0f)/max(1.0f,WIDTH/2.0f), _cy=(_y-(HEIGHT-1)/2.0f)/max(1.0f,HEIGHT/2.0f);`)
     ln(`      float _n1=((inoise8((uint16_t)(${wrap('_cx*3.0f+_tFast')}*256.0f),(uint16_t)(${wrap('_cy*3.0f-_tFast')}*256.0f))/255.0f)-0.5f)*2.0f;`)
@@ -615,7 +633,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      float _n4=((inoise8((uint16_t)(${wrap('_cx*0.6f+50.0f+_tSlow')}*256.0f),(uint16_t)(${wrap('_cy*0.6f+_tSlow')}*256.0f))/255.0f)-0.5f)*2.0f;`)
     ln(`      float _nOffX=_n1*_trebleAmp+_n2*_midsAmp, _nOffY=_n3*_trebleAmp+_n4*_midsAmp;`)
     ln(`      float _wx=_cx+_nOffX,_wy=_cy+_nOffY,_radial=sqrtf(_wx*_wx+_wy*_wy);`)
-    ln(`      float _bloom=sinf(_radial*6.0f-t*${speed}*3.0f)+cosf((_wx+_wy)*3.0f+t*${speed}*2.0f);`)
+    ln(`      float _bloom=sinf(_radial*6.0f-${ph}*3.0f)+cosf((_wx+_wy)*3.0f+${ph}*2.0f);`)
     ln(`      float _crisp=powf(max(0.0f,_bloom*0.5f+0.5f),1.6f);`)
     ln(`      float _v=min(1.0f,_crisp*(0.2f+0.8f*_strength)*_bassPulse);`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_radial*0.5f+_tSlow*0.05f)*255));`)
@@ -623,7 +641,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  GravityWell({ ln, f, channelColor, ownBuf, needsT }) {
+  GravityWell({ id, ln, f, channelColor, ownBuf, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
@@ -634,9 +652,11 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _level=min(1.0f,max(0.0f,${bass})),_strength=min(1.0f,max(0.0f,${energy}));`)
     ln(`    float _cx0=(WIDTH-1)/2.0f,_cy0=(HEIGHT-1)/2.0f;`)
     ln(`    float _orbitR=min((float)WIDTH,(float)HEIGHT)*0.12f*(0.5f+_strength*0.5f);`)
-    ln(`    float _wellX=_cx0+cosf(t*${speed}*0.25f)*_orbitR, _wellY=_cy0+sinf(t*${speed}*0.35f)*_orbitR;`)
+    const phOrbit = speedPhaseCpp(ln, phaseTag(id, 'orbit'), speed)
+    const phWave = speedPhaseCpp(ln, phaseTag(id, 'wave'), `1.0f+${speed}*2.2f`)
+    ln(`    float _wellX=_cx0+cosf(${phOrbit}*0.25f)*_orbitR, _wellY=_cy0+sinf(${phOrbit}*0.35f)*_orbitR;`)
     ln(`    float _maxD=max(1e-6f,sqrtf(_cx0*_cx0+_cy0*_cy0));`)
-    ln(`    float _k=5.0f+_level*10.0f*_strength, _phase=t*(1.0f+${speed}*2.2f);`)
+    ln(`    float _k=5.0f+_level*10.0f*_strength, _phase=${phWave};`)
     ln(`    CRGB _base=${colorE};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _dx=_x-_wellX,_dy=_y-_wellY,_dist=sqrtf(_dx*_dx+_dy*_dy)/_maxD;`)
@@ -680,6 +700,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _strength=min(1.0f,max(0.0f,${energy})); float _spd=max(0.2f,${speed});`)
     ln(`    float _life=(1.6f/_spd)*_rrLife; float _speedPx=max((float)WIDTH,(float)HEIGHT)*0.9f/_life;`)
     ln(`    float _band=(0.9f+(1.0f-_strength)*0.6f)*_rrBand;`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _v=0;`)
     ln(`      for(int _r=0;_r<${CAP};_r++){ if(!_rrAlive_${id}[_r]) continue;`)
@@ -690,7 +711,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ? `        _v+=_ring*(1.0f-_age/_life); }`
       : `        _v=max(_v,_ring*(1.0f-_age/_life)); }`)
     ln(`      _v=min(1.0f,_v*(0.6f+_strength*0.6f));`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+t*${speed}*0.02f)*255));`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+${ph}*0.02f)*255));`)
     ln(`      ${ob}[_y*WIDTH+_x].nscale8((uint8_t)(_v*255));`)
     ln(`    }`)
     ln(`  }`)
@@ -719,6 +740,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _drift=_psPhase_${id};`)
     ln(`    float _omega=(_psOri_${id}+_drift)*0.01745329f,_co=cosf(_omega),_si=sinf(_omega);`)
     ln(`    float _freq=0.8f+${treble}*2.5f,_sc=0.5f+${mids}*0.4f;`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), speed)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=_x*_sc,_py=_y*_sc; int _xi=(int)floorf(_px),_yi=(int)floorf(_py); float _v=0;`)
     ln(`      for(int _dj=-1;_dj<=1;_dj++) for(int _di=-1;_di<=1;_di++){`)
@@ -726,7 +748,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`        float _fx=_cx+0.5f+(_h-0.5f),_fy=_cy+0.5f+(_h2-0.5f);`)
     ln(`        float _dx=_px-_fx,_dy=_py-_fy,_g=expf(-2.5f*(_dx*_dx+_dy*_dy));`)
     ln(`        float _proj=_dx*_co+_dy*_si,_w=_h2<0.5f?1.0f:-1.0f;`)
-    ln(`        _v+=_w*_g*cosf(6.2831853f*_freq*_proj+t*${speed}*2.0f+_h*6.2831853f); }`)
+    ln(`        _v+=_w*_g*cosf(6.2831853f*_freq*_proj+${ph}*2.0f+_h*6.2831853f); }`)
     ln(`      float _shard=powf(max(0.0f,_v*0.5f+0.5f),1.4f);`)
     ln(`      float _vv=min(1.0f,_shard*(0.25f+_strength*0.75f));`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_v*0.5f+0.5f+${mids}*0.2f)*255));`)
@@ -748,7 +770,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    _afPhase_${id}+=_afDt_${id}*_spd*(0.2f+_m*1.5f);`)
     ln(`    float _flow=_afPhase_${id}; uint8_t _bright=(uint8_t)((0.25f+sqrtf(constrain(_b,0.0f,1.0f))*0.75f)*255);`)
     ln(`    float _vamp=0.2f+_tr*0.7f+_b*0.3f;`)
-    ln(`    float _vflow=((float)inoise8((uint16_t)((t*_spd*4.0f+50)*256),4429)/128.0f-1.0f)*_vamp;`)
+    const ph = speedPhaseCpp(ln, phaseTag(id, 'vflow'), '_spd')
+    ln(`    float _vflow=((float)inoise8((uint16_t)((${ph}*4.0f+50)*256),4429)/128.0f-1.0f)*_vamp;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      uint8_t _v=inoise8((uint16_t)((_x*_sc+_flow)*256),(uint16_t)((_y*_sc*0.6f+_vflow+8.0f)*256));`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_v+_tr*80)); ${ob}[_y*WIDTH+_x].nscale8(_bright);}}`)
@@ -784,6 +807,10 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      float _ctEpSpeed=(${endpointSpeed})*(1.0f+_ctMids*1.5f);`)
     ln(`      float _ctColorSpeed=(${colorSpeed})*(1.0f+_ctTreble*2.0f);`)
     ln(`      float _ctDisp=max(0.0f,(float)(${displacement}))*(1.0f+_ctBass*1.5f)*_ctDtf;`)
+    const phColor = speedPhaseCpp(ln, phaseTag(id, 'color'), '_ctColorSpeed', '      ')
+    const phEndpoint = speedPhaseCpp(ln, phaseTag(id, 'endpoint'), '_ctEpSpeed', '      ')
+    const phY = speedPhaseCpp(ln, phaseTag(id, 'y'), ySpeed, '      ')
+    const phX = speedPhaseCpp(ln, phaseTag(id, 'x'), xSpeed, '      ')
     ln(`      auto _ctHash=[](int32_t _q,uint32_t _seed)->uint32_t{ uint32_t _h=((uint32_t)_q)^_seed; _h=(_h^(_h>>16))*0x7feb352dU; _h=(_h^(_h>>15))*0x846ca68bU; return _h^(_h>>16); };`)
     ln(`      auto _ctNoise=[&](float _x,uint32_t _seed)->float{ int32_t _xi=(int32_t)floorf(_x); float _xf=_x-_xi; float _u=_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f); float _a=(_ctHash(_xi,_seed)&1U)?-_xf:_xf; float _d=_xf-1.0f; float _b=(_ctHash(_xi+1,_seed)&1U)?-_d:_d; return _a+(_b-_a)*_u; };`)
     if (morphFlow) {
@@ -791,14 +818,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ln(`      auto _ctGrad=[](uint32_t _h,float _x,float _y)->float{ switch(_h&7U){ case 0:return _x+_y; case 1:return -_x+_y; case 2:return _x-_y; case 3:return -_x-_y; case 4:return _x; case 5:return -_x; case 6:return _y; default:return -_y; } };`)
       ln(`      auto _ctNoise2=[&](float _x,float _y,uint32_t _seed)->float{ int32_t _xi=(int32_t)floorf(_x),_yi=(int32_t)floorf(_y); float _xf=_x-_xi,_yf=_y-_yi; float _u=_xf*_xf*_xf*(_xf*(_xf*6.0f-15.0f)+10.0f),_v=_yf*_yf*_yf*(_yf*(_yf*6.0f-15.0f)+10.0f); float _aa=_ctGrad(_ctHash2(_xi,_yi,_seed),_xf,_yf),_ba=_ctGrad(_ctHash2(_xi+1,_yi,_seed),_xf-1.0f,_yf); float _ab=_ctGrad(_ctHash2(_xi,_yi+1,_seed),_xf,_yf-1.0f),_bb=_ctGrad(_ctHash2(_xi+1,_yi+1,_seed),_xf-1.0f,_yf-1.0f); float _x0=_aa+(_ba-_aa)*_u,_x1=_ab+(_bb-_ab)*_u; return _x0+(_x1-_x0)*_v; };`)
     }
-    ln(`      auto _ctColor=[&](float _u)->CRGB{ float _h=fmodf(t*_ctColorSpeed+_u,1.0f); if(_h<0.0f)_h+=1.0f; return ColorFromPalette(${pal},(uint8_t)(_h*255.0f),255,LINEARBLEND); };`)
+    ln(`      auto _ctColor=[&](float _u)->CRGB{ float _h=fmodf(${phColor}+_u,1.0f); if(_h<0.0f)_h+=1.0f; return ColorFromPalette(${pal},(uint8_t)(_h*255.0f),255,LINEARBLEND); };`)
     ln(`      auto _ctBlend=[&](int _x,int _y,const CRGB& _c,float _weight){ if(_x<0||_x>=WIDTH||_y<0||_y>=HEIGHT)return; float _w=constrain(_weight*(1.0f+_ctBeatPulse_${id}*0.65f),0.0f,1.0f); _w=1.0f-powf(1.0f-_w,_ctDtf); CRGB& _d=${ob}[_y*WIDTH+_x]; _d.r=(uint8_t)(_d.r*(1.0f-_w)+_c.r*_w+0.5f); _d.g=(uint8_t)(_d.g*(1.0f-_w)+_c.g*_w+0.5f); _d.b=(uint8_t)(_d.b*(1.0f-_w)+_c.b*_w+0.5f); };`)
     if (injectLine) {
       ln(`      float _cx=(WIDTH-1)*0.5f,_cy=(HEIGHT-1)*0.5f;`)
-      ln(`      float _x1=_cx+(WIDTH-1)*(11.5f/31.0f)*sinf(t*_ctEpSpeed*1.13f+0.20f);`)
-      ln(`      float _y1=_cy+(HEIGHT-1)*(10.5f/31.0f)*sinf(t*_ctEpSpeed*1.71f+1.30f);`)
-      ln(`      float _x2=_cx+(WIDTH-1)*(12.0f/31.0f)*sinf(t*_ctEpSpeed*1.89f+2.20f);`)
-      ln(`      float _y2=_cy+(HEIGHT-1)*(11.0f/31.0f)*sinf(t*_ctEpSpeed*1.37f+0.70f);`)
+      ln(`      float _x1=_cx+(WIDTH-1)*(11.5f/31.0f)*sinf(${phEndpoint}*1.13f+0.20f);`)
+      ln(`      float _y1=_cy+(HEIGHT-1)*(10.5f/31.0f)*sinf(${phEndpoint}*1.71f+1.30f);`)
+      ln(`      float _x2=_cx+(WIDTH-1)*(12.0f/31.0f)*sinf(${phEndpoint}*1.89f+2.20f);`)
+      ln(`      float _y2=_cy+(HEIGHT-1)*(11.0f/31.0f)*sinf(${phEndpoint}*1.37f+0.70f);`)
       ln(`      float _dx=_x2-_x1,_dy=_y2-_y1; int _steps=max(1,(int)(max(fabsf(_dx),fabsf(_dy))*3.0f));`)
       ln(`      for(int _i=0;_i<=_steps;_i++){ float _u=_i/(float)_steps,_x=_x1+_dx*_u,_y=_y1+_dy*_u; int _xi=(int)floorf(_x),_yi=(int)floorf(_y); float _fx=_x-_xi,_fy=_y-_yi; CRGB _c=_ctColor(_u); _ctBlend(_xi,_yi,_c,(1.0f-_fx)*(1.0f-_fy)); _ctBlend(_xi+1,_yi,_c,_fx*(1.0f-_fy)); _ctBlend(_xi,_yi+1,_c,(1.0f-_fx)*_fy); _ctBlend(_xi+1,_yi+1,_c,_fx*_fy); }`)
       ln(`      float _radius=0.85f+_ctBeatPulse_${id}*0.9f;`)
@@ -813,8 +840,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       ln(`      if(WIDTH>1)for(int _y=HEIGHT-2;_y>0;_y--)_ctBlend(0,_y,_ctColor(_ctPi++/(float)_ctPn),1.0f);`)
     }
     ln(`      const uint32_t _seedX=${seed}U,_seedY=${(seed + 1295) >>> 0}U;`)
-    const yNoise = morphFlow ? `_ctNoise2(_y*0.23f*(${yFreq}),t*(${ySpeed}),_seedY)` : `_ctNoise(_y*0.23f*(${yFreq})+t*(${ySpeed}),_seedY)`
-    const xNoise = morphFlow ? `_ctNoise2((WIDTH-1-_x)*0.23f*(${xFreq}),t*(${xSpeed}),_seedX)` : `_ctNoise((WIDTH-1-_x)*0.23f*(${xFreq})+t*(${xSpeed}),_seedX)`
+    const yNoise = morphFlow ? `_ctNoise2(_y*0.23f*(${yFreq}),${phY},_seedY)` : `_ctNoise(_y*0.23f*(${yFreq})+${phY},_seedY)`
+    const xNoise = morphFlow ? `_ctNoise2((WIDTH-1-_x)*0.23f*(${xFreq}),${phX},_seedX)` : `_ctNoise((WIDTH-1-_x)*0.23f*(${xFreq})+${phX},_seedX)`
     ln(`      for(int _y=0;_y<HEIGHT;_y++){ float _profile=${yNoise}*(${yAmp}); float _shift=constrain(_profile*_ctDisp,-1.0f,1.0f); for(int _x=0;_x<WIDTH;_x++){ float _sx=fmodf(_x-_shift,(float)WIDTH); if(_sx<0)_sx+=WIDTH; int _x0=(int)floorf(_sx),_xN=(_x0+1)%WIDTH; float _f=_sx-_x0; CRGB _a=${ob}[_y*WIDTH+_x0],_b=${ob}[_y*WIDTH+_xN]; ${tmp}[_y*WIDTH+_x]=CRGB((uint8_t)(_a.r*(1.0f-_f)+_b.r*_f+0.5f),(uint8_t)(_a.g*(1.0f-_f)+_b.g*_f+0.5f),(uint8_t)(_a.b*(1.0f-_f)+_b.b*_f+0.5f)); } }`)
     ln(`      float _fade=powf(constrain((float)(${persistence}),0.0f,0.99999f),_ctDtf);`)
     ln(`      for(int _x=0;_x<WIDTH;_x++){ float _profile=${xNoise}*(${xAmp}); float _shift=constrain(_profile*_ctDisp,-1.0f,1.0f); for(int _y=0;_y<HEIGHT;_y++){ float _sy=fmodf(_y-_shift,(float)HEIGHT); if(_sy<0)_sy+=HEIGHT; int _y0=(int)floorf(_sy),_yN=(_y0+1)%HEIGHT; float _f=_sy-_y0; CRGB _a=${tmp}[_y0*WIDTH+_x],_b=${tmp}[_yN*WIDTH+_x]; ${ob}[_y*WIDTH+_x]=CRGB((uint8_t)((_a.r*(1.0f-_f)+_b.r*_f)*_fade+0.5f),(uint8_t)((_a.g*(1.0f-_f)+_b.g*_f)*_fade+0.5f),(uint8_t)((_a.b*(1.0f-_f)+_b.b*_f)*_fade+0.5f)); } }`)

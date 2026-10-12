@@ -1,8 +1,9 @@
 import { blankDmxSnapshot, type DmxSnapshot, clampDmxChannel, clampDmxByte } from '../../state/peripherals/dmx'
-import { waveSample, combineWaves } from './wave'
+import { waveAt, combineWaves } from './wave'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/evaluator/random'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
+import { speedPhase } from '../shared/speedClock'
 import { instanceState } from '../../state/evaluator/memory'
 
 const counterVals = instanceState('counterVals', new Map<string, number>())
@@ -85,12 +86,12 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   Cos({ num }, id, props) {
     return { result: Math.cos(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
   },
-  Wave({ num, t }, id, props) {
+  Wave({ num, t, stateKey }, id, props) {
     const amplitude = num(id, 'amplitude', props, 'amplitude', 1)
     const frequency = num(id, 'frequency', props, 'frequency', 1)
     const phase     = num(id, 'phase', props, 'phase', 0)
     const waveform  = String(props.waveform ?? 'sine')
-    return { result: waveSample(waveform, amplitude, frequency, phase, t) }
+    return { result: waveAt(waveform, amplitude, speedPhase(stateKey(id), t, frequency), phase) }
   },
   ComplexWave({ num }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
@@ -105,13 +106,13 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
   },
   // Smooth random: fBm of the simplex noise, sampled along time. Firmware reads
   // inoise16 instead (the documented approximation gap shared with Field Noise).
-  NoiseSignal({ num, t }, id, props) {
+  NoiseSignal({ num, t, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.NoiseSignal)
     const lo = num(id, 'min', props, 'min', 0)
     const hi = num(id, 'max', props, 'max', 1)
     const octaves = Math.max(1, Math.min(3, Math.floor(Number(props.octaves ?? 1))))
     const seed = normalizedSeed(props.seed)
-    const z = t * speed + seedOffset(seed, 0)
+    const z = speedPhase(stateKey(id), t, speed) + seedOffset(seed, 0)
     const y = seedOffset(seed, 1)
     let v = 0, amp = 0.5, freq = 1, norm = 0
     for (let o = 0; o < octaves; o++) {
@@ -208,12 +209,12 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     })
     return { active, start, end, progress }
   },
-  BeatSin({ num, t }, id, props) {
+  BeatSin({ num, t, stateKey }, id, props) {
     const bpmProp = num(id, 'bpm', props, 'bpm', 60)
     const bpm = Math.max(1, Number.isFinite(bpmProp) ? bpmProp : 60)
     const lo  = Number(props.low  ?? 0)
     const hi  = Number(props.high ?? 1)
-    const phase = (t * bpm / 60) % 1
+    const phase = speedPhase(stateKey(id), t, bpm / 60) % 1
     return { value: lo + ((Math.sin(phase * Math.PI * 2) + 1) / 2) * (hi - lo) }
   },
   // Free-running BPM clock/transport — see ClockState above and the

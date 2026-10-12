@@ -1,6 +1,7 @@
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
+import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
@@ -83,7 +84,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
   },
-  Symmetry({ p, ln, f, ownBuf, srcBuf, needsT, needsLattice, needsSymmetry, needsFrameSample }) {
+  Symmetry({ id, p, ln, f, ownBuf, srcBuf, needsT, needsLattice, needsSymmetry, needsFrameSample }) {
     needsT.v = true
     needsLattice.v = true
     needsSymmetry.v = true
@@ -98,7 +99,8 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    float _cells=constrain(${f('cells', 'cells', 2)},0.5f,8.0f);`)
     ln(`    float _rotation=constrain(${f('rotation', 'rotation', 0)},-180.0f,180.0f),_spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
     ln(`    float _ox=constrain(${f('offsetX', 'offsetX', 0)},-8.0f,8.0f),_oy=constrain(${f('offsetY', 'offsetY', 0)},-8.0f,8.0f);`)
-    ln(`    float _angle=-(_rotation+_spin*t)*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
+    ln(`    float _angle=-(_rotation+${ph})*0.017453292519943f,_cr=cosf(_angle),_sr=sinf(_angle);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _px=(_x+0.5f-WIDTH/2.0f)*_cells/WIDTH,_py=(_y+0.5f-HEIGHT/2.0f)*_cells/WIDTH;`)
     ln(`      _LatticeCell _cell=${finder}(_cr*_px-_sr*_py+_ox,_sr*_px+_cr*_py+_oy);`)
@@ -207,7 +209,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const g = f('gamma', 'gamma', 2.2)
     ln(`  { ${seedFrom('frame')} napplyGamma_video(${ob}, NUM_LEDS, max(0.1f, ${g})); }`)
   },
-  Transform({ p, ln, f, ownBuf, srcBuf, needsT }) {
+  Transform({ id, p, ln, f, ownBuf, srcBuf, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const src = srcBuf('frame')
@@ -216,18 +218,19 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const rate = f('rate', 'rate', 90)
     const angle = f('angle', 'angle', 0)
     ln(`  { float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rate=${rate};`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_rate')
     if (mode === 'translate') {
-      ln(`    float _a=${angle}*0.01745329f,_dx=cos(_a)*_rate*t,_dy=sin(_a)*_rate*t;`)
+      ln(`    float _a=${angle}*0.01745329f,_dx=cos(_a)*${ph},_dy=sin(_a)*${ph};`)
       ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`      int _sx=(((int)floorf(_x-_dx+0.5f))%WIDTH+WIDTH)%WIDTH, _sy=(((int)floorf(_y-_dy+0.5f))%HEIGHT+HEIGHT)%HEIGHT;`)
       ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
     } else if (mode === 'scale') {
-      ln(`    float _s=1.0f+(_rate/100.0f)*t; _s=constrain(_s,0.05f,20.0f);`)
+      ln(`    float _s=1.0f+${ph}/100.0f; _s=constrain(_s,0.05f,20.0f);`)
       ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`      int _sx=(int)floorf(_cx+(_x-_cx)/_s+0.5f), _sy=(int)floorf(_cy+(_y-_cy)/_s+0.5f);`)
       ln(`      ${ob}[_y*WIDTH+_x]=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${src}[_sy*WIDTH+_sx]:CRGB::Black;}}`)
     } else {
-      ln(`    float _a=_rate*t*0.01745329f,_co=cos(_a),_si=sin(_a);`)
+      ln(`    float _a=${ph}*0.01745329f,_co=cos(_a),_si=sin(_a);`)
       ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`      float _rx=_x-_cx,_ry=_y-_cy; int _sx=(int)floorf(_cx+_rx*_co+_ry*_si+0.5f), _sy=(int)floorf(_cy-_rx*_si+_ry*_co+0.5f);`)
       ln(`      ${ob}[_y*WIDTH+_x]=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${src}[_sy*WIDTH+_sx]:CRGB::Black;}}`)

@@ -386,10 +386,9 @@ export interface ProjectedVertex {
 }
 
 export interface WireframeProjectionParams {
-  spinX: number // deg/sec
-  spinY: number // deg/sec
-  spinZ: number // deg/sec
-  t: number // seconds
+  angleX: number // degrees: the integrated spinX (`∫ spinX dt`)
+  angleY: number // degrees: the integrated spinY
+  angleZ: number // degrees: the integrated spinZ
   scale: number // multiplier on the auto-fit-to-matrix baseline
   W: number
   H: number
@@ -408,15 +407,15 @@ export const WIREFRAME_CAM_FAR = 6
 export const WIREFRAME_CAM_NEAR = 1.5
 
 /**
- * Rotate (X→Y→Z, degrees/sec × t) and project every vertex of `mesh` to
- * screen space. Kept in lockstep with the Wireframe3D case in
- * cppGenerator.ts — the C++ generator hand-ports this exact formula.
+ * Rotate (X→Y→Z, by the integrated spin angles in degrees) and project every
+ * vertex of `mesh` to screen space. Kept in lockstep with the Wireframe3D
+ * case in cppGenerator.ts — the C++ generator hand-ports this exact formula.
  */
 export function projectWireframeVertices(mesh: WireframeMesh, params: WireframeProjectionParams): ProjectedVertex[] {
   const radius = meshBoundingRadius(mesh)
-  const ax = (params.spinX * params.t * Math.PI) / 180
-  const ay = (params.spinY * params.t * Math.PI) / 180
-  const az = (params.spinZ * params.t * Math.PI) / 180
+  const ax = (params.angleX * Math.PI) / 180
+  const ay = (params.angleY * Math.PI) / 180
+  const az = (params.angleZ * Math.PI) / 180
   const cosX = Math.cos(ax), sinX = Math.sin(ax)
   const cosY = Math.cos(ay), sinY = Math.sin(ay)
   const cosZ = Math.cos(az), sinZ = Math.sin(az)

@@ -1,5 +1,6 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { speedPhase } from '../shared/speedClock'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
@@ -17,7 +18,7 @@ import {
 } from '../../state/evaluator/automaton'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { fanFold, hexCell, latticeCellValue, squareCell, triCell } from '../../state/evaluator/lattice'
-import { wallpaperSamplePoint } from '../../state/evaluator/symmetry'
+import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import {
   truchetCell, truchetLattice, truchetLineValue, truchetMotif,
   truchetMotifDistance, truchetOrientation, truchetOrientationCount,
@@ -66,11 +67,12 @@ export function evalTruchet(
   const rotation = Math.max(-180, Math.min(180, rotationValue))
   const angle = -rotation * Math.PI / 180
   const cos = Math.cos(angle), sin = Math.sin(angle)
+  const scrolled = speedPhase(nodeId, t, scroll)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const px = (x + 0.5 - W / 2) * cells / W
     const py = (y + 0.5 - H / 2) * cells / W
-    const rx = cos * px - sin * py + scroll * t
+    const rx = cos * px - sin * py + scrolled
     const ry = sin * px + cos * py
     const cell = truchetCell(rx, ry, lattice)
     const orientation = truchetOrientation(cell, state.epoch, seed, orientations)
@@ -131,8 +133,8 @@ export function evalTuringField(
 // Same fBm construction as evalFractalNoise, but returns the raw 0–1 scalar
 // field instead of sampling it through a palette — the noise-driven Field
 // source, alongside FieldFormula's hand-written expressions.
-function evalFieldNoise(speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, xo = 0): Field {
-  const z = (t + seedOffset(seed, 0)) * speed * 0.15
+function evalFieldNoise(key: string, speed: number, scale: number, octaves: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, xo = 0): Field {
+  const z = speedPhase(key, t + seedOffset(seed, 0), speed) * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
@@ -205,9 +207,9 @@ export interface FormulaFieldParams {
   thickness: number
 }
 
-function evalFormulaField(p: FormulaFieldParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalFormulaField(key: string, p: FormulaFieldParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const out = allocField(W * H)
-  const rot = t * p.speed * (FORMULA_FIELD_SPEED_MAX[p.formulaType] ?? 1)
+  const rot = speedPhase(key, t, p.speed * (FORMULA_FIELD_SPEED_MAX[p.formulaType] ?? 1))
 
   switch (p.formulaType) {
     case 'superformula': {
@@ -617,17 +619,16 @@ export function evalFieldSymmetry(
   group: unknown,
   cells: number,
   rotation: number,
-  spin: number,
+  spinPhaseDeg: number,
   offsetX: number,
   offsetY: number,
-  t: number,
   W = DEFAULT_W,
   H = DEFAULT_H,
 ): Field {
   const out = allocField(W * H)
   if (!field) return out
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const source = wallpaperSamplePoint(group, x, y, cells, rotation, spin, offsetX, offsetY, t, W, H)
+    const source = wallpaperSamplePointAt(group, x, y, cells, rotation, spinPhaseDeg, offsetX, offsetY, W, H)
     const sx = Math.max(0, Math.min(W - 1, Math.floor(source.x + 0.5)))
     const sy = Math.max(0, Math.min(H - 1, Math.floor(source.y + 0.5)))
     out[y * W + x] = field[sy * W + sx]
@@ -656,11 +657,10 @@ export function evalSliceTiling(
   customBitsB: unknown,
   cellsValue: number,
   rotationDeg: number,
-  spinDeg: number,
+  spinPhaseDeg: number,
   warpValue: number,
   morphValue: number,
   edgeValue: number,
-  t: number,
   W = DEFAULT_W,
   H = DEFAULT_H,
   seed = 0,
@@ -678,7 +678,7 @@ export function evalSliceTiling(
   const sides = latticeType === 'hex' ? 6 : latticeType === 'square' ? 4 : 3
   const radius = latticeType === 'hex' ? 2 / 3 : latticeType === 'square' ? Math.SQRT1_2 : 1 / Math.sqrt(3)
   const sector = Math.PI * 2 / sides
-  const angle = -(rotationDeg + spinDeg * t) * Math.PI / 180
+  const angle = -(rotationDeg + spinPhaseDeg) * Math.PI / 180
   const cos = Math.cos(angle), sin = Math.sin(angle)
 
   for (let y = 0; y < H; y++) {
@@ -719,19 +719,20 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const formula = String(props.formula ?? 'sin8(r*200 + t*60)/255')
     return { field: trusted ? evalFieldFormula(formula, a, b, fieldIn, t, W, H) : allocField(W * H) }
   },
-  FieldNoise({ num, t, W, H }, id, props) {
+  FieldNoise({ num, t, W, H, stateKey }, id, props) {
+    const key = stateKey(id)
     const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FieldNoise)
     const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
     const octaves = num(id, 'octaves', props, 'octaves', 4)
     const seed = normalizedSeed(props.seed)
-    const field = evalFieldNoise(speed, scale, octaves, t, W, H, seed)
+    const field = evalFieldNoise(key, speed, scale, octaves, t, W, H, seed)
     // Seamless left/right join: see state/evaluator/wrapX.ts.
-    const out = props.wrapX === true ? wrapXBlend(field, evalFieldNoise(speed, scale, octaves, t, W, H, seed, W), W, H) : field
+    const out = props.wrapX === true ? wrapXBlend(field, evalFieldNoise(key, speed, scale, octaves, t, W, H, seed, W), W, H) : field
     const shape = noiseShape(props.noiseShape)
     if (shape !== 'plain') for (let i = 0; i < out.length; i++) out[i] = shapeNoise(out[i], shape)
     return { field: out }
   },
-  SliceTiling({ num, t, W, H }, id, props) {
+  SliceTiling({ num, t, W, H, stateKey }, id, props) {
     return evalSliceTiling(
       String(props.lattice ?? 'hex'),
       Number(props.depth ?? 2),
@@ -741,11 +742,11 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       props.bitsB,
       num(id, 'cells', props, 'cells', 1),
       num(id, 'rotation', props, 'rotation', 0),
-      num(id, 'spin', props, 'spin', 0),
+      speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 0)),
       num(id, 'warp', props, 'warp', 0),
       num(id, 'morph', props, 'morph', 0),
       num(id, 'edge', props, 'edge', 0.03),
-      t, W, H, normalizedSeed(props.seed),
+      W, H, normalizedSeed(props.seed),
     )
   },
   Truchet({ input, num, t, W, H, stateKey }, id, props) {
@@ -767,7 +768,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   // docs/design/formula-pattern-nodes.md. Every knob is a
   // property input; only the chosen variant's are read, so a wire into a
   // knob another formulaType owns is inert rather than wrong.
-  FormulaField({ num, t, W, H }, id, props) {
+  FormulaField({ num, t, W, H, stateKey }, id, props) {
     const fp: FormulaFieldParams = {
       formulaType: String(props.formulaType ?? 'rose'),
       speed: num(id, 'speed', props, 'speed', 0.3),
@@ -788,7 +789,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       freqB: num(id, 'freqB', props, 'freqB', 2),
       thickness: num(id, 'thickness', props, 'thickness', 0.1),
     }
-    return { field: evalFormulaField(fp, t, W, H) }
+    return { field: evalFormulaField(stateKey(id), fp, t, W, H) }
   },
   TuringField({ input, num, W, H, stateKey }, id, props) {
     return { field: evalTuringField(
@@ -939,11 +940,11 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       strength, W, H,
     ) }
   },
-  FieldRotate({ input, num, t, W, H }, id, props) {
+  FieldRotate({ input, num, t, W, H, stateKey }, id, props) {
     const fv = input(id, 'field', null)
     const field = fv instanceof Float32Array ? fv : null
     // angle (degrees) plus an optional continuous spin (degrees/sec).
-    const deg = num(id, 'angle', props, 'angle', 0) + t * num(id, 'spin', props, 'spin', 0)
+    const deg = num(id, 'angle', props, 'angle', 0) + speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 0))
     return { field: evalFieldRotate(field, (deg * Math.PI) / 180, W, H) }
   },
   FieldTile({ input, num, W, H }, id, props) {
@@ -953,17 +954,17 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const ty = num(id, 'tilesY', props, 'tilesY', 2)
     return { field: evalFieldTile(field, tx, ty, W, H) }
   },
-  FieldSymmetry({ input, num, t, W, H }, id, props) {
+  FieldSymmetry({ input, num, t, W, H, stateKey }, id, props) {
     const source = input(id, 'field', null)
     return { field: evalFieldSymmetry(
       source instanceof Float32Array ? source : null,
       props.group ?? 'p4m',
       num(id, 'cells', props, 'cells', 2),
       num(id, 'rotation', props, 'rotation', 0),
-      num(id, 'spin', props, 'spin', 0),
+      speedPhase(stateKey(id), t, wallpaperSpinRate(num(id, 'spin', props, 'spin', 0))),
       num(id, 'offsetX', props, 'offsetX', 0),
       num(id, 'offsetY', props, 'offsetY', 0),
-      t, W, H,
+      W, H,
     ) }
   },
 }

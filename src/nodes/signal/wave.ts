@@ -7,7 +7,12 @@ export type CombineOp = 'add' | 'multiply' | 'average' | 'min' | 'max' | 'differ
 
 /** amplitude · wave(frequency·t + phase); the base wave is in [-1, 1]. */
 export function waveSample(type: string, amplitude: number, frequency: number, phase: number, t: number): number {
-  const arg = frequency * t + phase
+  return waveAt(type, amplitude, frequency * t, phase)
+}
+
+/** `waveSample` over an already-integrated argument: `cycles` is `∫ frequency dt`. */
+export function waveAt(type: string, amplitude: number, cycles: number, phase: number): number {
+  const arg = cycles + phase
   const ph = ((arg % 1) + 1) % 1
   let w: number
   switch (type) {

@@ -24,6 +24,7 @@ import { hexToRgb, polinePalette } from '../../state/palettes/polinePalette'
 import { normalizeCustomPalette, hexToRgb as customHexToRgb, customPaletteStops16 } from '../../state/palettes/customPalette'
 import { type RGB, hsv, samplePalette, samplePaletteClamped } from '../../state/palettes/ledColor'
 import type { NodeEvaluators } from '../../state/evaluator/types'
+import { speedPhase } from '../shared/speedClock'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
@@ -77,11 +78,11 @@ function applySweepEase(type: string, x: number): number {
 }
 
 export const COLOR_EVALUATORS: NodeEvaluators = {
-  HueCycle({ num, t }, id, props) {
+  HueCycle({ num, t, stateKey }, id, props) {
     const rate = num(id, 'rate', props, 'rate', 0.1)
     const s = num(id, 's', props, 's', 1)
     const v = num(id, 'v', props, 'v', 1)
-    return { color: hsv(t * rate * 360, s, v) }
+    return { color: hsv(speedPhase(stateKey(id), t, rate) * 360, s, v) }
   },
   HSVToRGB({ num }, id, props) {
     const h = num(id, 'h', props, 'h', 0)
@@ -158,9 +159,9 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     const palName = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { color: samplePalette(palName, tt) }
   },
-  PaletteSweep({ num, pal, t }, id, props) {
+  PaletteSweep({ num, pal, t, stateKey }, id, props) {
     const rate = Math.max(0, num(id, 'rate', props, 'rate', 0.1))
-    const phase = ((t * rate) % 1 + 1) % 1
+    const phase = (speedPhase(stateKey(id), t, rate) % 1 + 1) % 1
     const pingPong = phase < 0.5 ? phase * 2 : (1 - phase) * 2
     const position = applySweepEase(String(props.easing ?? 'sine'), pingPong)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')

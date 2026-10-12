@@ -9,6 +9,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## C++ emission hazards
 
+- Animation phase is integrated, never `t * rate`: a node whose rate can move
+  (a wired `speed`, a level-modulated motion term) emits
+  `speedPhaseCpp(ln, phaseTag(id, term), rateExpr)` from
+  `src/nodes/shared/speedClockCpp.ts` inside its own `{ }` block — a static
+  accumulator seeded at `t * rate` on the first frame — and uses the returned
+  `_phase_<tag>` where the preview uses `speedPhase(...)`. Same term names on
+  both sides keep parity; `needsT.v = true` is still required. See
+  [graph and nodes](graph-and-nodes.md#evaluation) for the rule and the seed
+  guarantee that keeps constant rates bit-identical to the old form.
+
 - Show transitions embed `FRAME_SAMPLE_HELPER_CPP`. When collected patterns
   also lift that block (Frame Warp or Symmetry), emit it only when transitions
   are disabled; deduplicating the standalone helper list alone cannot remove

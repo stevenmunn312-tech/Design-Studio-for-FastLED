@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 
 const mockAudio = vi.hoisted(() => ({
   active: false,
@@ -73,6 +73,10 @@ import { wrapXMix } from '../evaluator/wrapX'
 import { noiseShape, shapeNoise, WORLEY_EDGE_GAIN } from '../evaluator/noiseShape'
 import { CURL_EPS, CURL_GAIN, curlFlow } from '../evaluator/curl'
 import { usePlayerTransport } from '../player/playerTransport'
+
+// Tests reuse node ids across unrelated graphs; integrated phases
+// (`speedPhase`) persist per id, so each test starts from cold state.
+beforeEach(() => resetEvaluatorState())
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -3883,10 +3887,15 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
     for (const properties of [
       { ...baseProperties, cells: 3.1 },
       { ...baseProperties, rotation: 39 },
-      { ...baseProperties, spin: 40 },
       { ...baseProperties, offsetX: 0.36 },
       { ...baseProperties, offsetY: 0.22 },
     ]) expect([...renderField(properties, 0.7)]).not.toEqual(base)
+    // Spin is a rate: it integrates over time, so a new spin at the same
+    // instant changes nothing and a held spin turns the field between ticks.
+    const spinning = { ...baseProperties, spin: 40 }
+    const held = [...renderField(spinning, 0.7)]
+    expect(held).toEqual(base)
+    expect([...renderField(spinning, 1.2)]).not.toEqual(held)
   })
 
   it('keeps p1 at one cell as an identity for both field and frame nodes', () => {
@@ -4764,7 +4773,8 @@ describe('Trails', () => {
   })
 
   it('fades toward black by decay once the input goes dark, instead of resetting', () => {
-    build(255)                       // seed the persistent buffer at tick 0
+    const lit = build(255)
+    pixel(lit.nodes, lit.edges, 0)   // seed the persistent buffer at tick 0
     const dark = build(0)
     const after = pixel(dark.nodes, dark.edges, 1)
     // decay is cubed internally (0.5 slider → 0.125 effective fade) so the

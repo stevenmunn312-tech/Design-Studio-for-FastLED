@@ -1,5 +1,6 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { speedPhase } from '../shared/speedClock'
 import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
 import {
   DEFAULT_W,
@@ -43,12 +44,13 @@ function evalRainbow(start: number, deltaHue: number, W = DEFAULT_W, H = DEFAULT
 }
 
 // ── Pattern evaluators ────────────────────────────────────────────────────────
-function evalPlasma(speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalPlasma(key: string, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const ph = speedPhase(key, t, speed)
   return buildFrame(W, H, (x, y) => {
-      const v = Math.sin(x / 3 + t * speed)
-              + Math.sin(y / 3 + t * speed * 0.8)
-              + Math.sin((x + y) / 5 + t * speed * 0.6)
-              + Math.sin(Math.hypot(x - W / 2, y - H / 2) / 3 + t * speed * 0.5)
+      const v = Math.sin(x / 3 + ph)
+              + Math.sin(y / 3 + ph * 0.8)
+              + Math.sin((x + y) / 5 + ph * 0.6)
+              + Math.sin(Math.hypot(x - W / 2, y - H / 2) / 3 + ph * 0.5)
       // Same shifting phase the old hue sweep used (v*45 + t*20), now mapped
       // through the palette — /256 so it wraps the same way ColorFromPalette's
       // uint8_t index does in codegen. The default 'rainbow' palette keeps the
@@ -63,14 +65,15 @@ function evalPlasma(speed: number, t: number, palette: Palette, W = DEFAULT_W, H
 // literal port of the original's 16-bit fixed-point beatsin88 arithmetic.
 // With a palette wired it becomes Kriegsman's colorwaves: the same hue sweep and
 // brightness wave, read through the palette instead of the colour wheel.
-function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, palette: Palette | null = null): Frame {
+function evalPride2015(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, palette: Palette | null = null): Frame {
+  const ph = speedPhase(key, t, speed)
   const out: Frame = []
   let i = 0
   for (let y = 0; y < H; y++) {
     const row: RGB[] = []
     for (let x = 0; x < W; x++) {
-      const hue = (i * scale * 6 + t * speed * 40) % 360
-      const briTheta = i * scale * 3 + t * speed * 15
+      const hue = (i * scale * 6 + ph * 40) % 360
+      const briTheta = i * scale * 3 + ph * 15
       const bri = 0.35 + 0.65 * (Math.sin(briTheta) * 0.5 + 0.5)
       if (palette) {
         const c = samplePalette(palette, hue / 360)
@@ -87,14 +90,15 @@ function evalPride2015(speed: number, scale: number, t: number, W = DEFAULT_W, H
 // wave layers through an ocean palette, with a whitecap sparkle where a
 // faster secondary wave crests. Same evocative-formula approach as Plasma,
 // not a literal port of Pacifica's palette-blend/deepen/whitecap pipeline.
-function evalPacifica(speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalPacifica(key: string, speed: number, scale: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const ph = speedPhase(key, t, speed)
   return buildFrame(W, H, (x, y) => {
-      const v = Math.sin(x * 0.3 * scale + t * speed)
-              + Math.sin((x * 0.15 * scale - y * 0.1 * scale) + t * speed * 0.6) * 0.7
-              + Math.sin((x + y) * 0.08 * scale + t * speed * 1.3) * 0.5
+      const v = Math.sin(x * 0.3 * scale + ph)
+              + Math.sin((x * 0.15 * scale - y * 0.1 * scale) + ph * 0.6) * 0.7
+              + Math.sin((x + y) * 0.08 * scale + ph * 1.3) * 0.5
       const n = Math.max(0, Math.min(1, v / 2.2 * 0.5 + 0.5))
       const c = samplePalette(palette, n)
-      const foam = Math.sin(x * 0.9 * scale + y * 0.4 * scale + t * speed * 2.2)
+      const foam = Math.sin(x * 0.9 * scale + y * 0.4 * scale + ph * 2.2)
       if (foam > 0.85) {
         const w = (foam - 0.85) / 0.15
         return {
@@ -119,7 +123,8 @@ function twinkleHash(n: number): number {
 // approach as Pride2015/Pacifica (identical maths on both sides), not a literal
 // port of the original's PRNG16 walk. `density` blends from sparse, sharp
 // sparkles (low) to most pixels lit (high) by softening the brightness curve.
-function evalTwinkleFox(speed: number, density: number, t: number, palette: Palette, seed = 0, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalTwinkleFox(key: string, speed: number, density: number, t: number, palette: Palette, seed = 0, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const ph = speedPhase(key, t, speed)
   const exponent = 6 - 5 * Math.max(0, Math.min(1, density))
   const out: Frame = []
   let i = 0
@@ -130,7 +135,7 @@ function evalTwinkleFox(speed: number, density: number, t: number, palette: Pale
       const phase = twinkleHash(si)
       const rate = 0.5 + twinkleHash(si + 11)
       const colorIdx = twinkleHash(si + 23)
-      const cycle = (t * speed * rate + phase) % 1
+      const cycle = (ph * rate + phase) % 1
       const tri = 1 - Math.abs(2 * cycle - 1)   // 0 → 1 → 0 across the cycle
       const bri = Math.pow(tri, exponent)
       const base = samplePalette(palette, colorIdx)
@@ -147,12 +152,12 @@ function evalTwinkleFox(speed: number, density: number, t: number, palette: Pale
 }
 
 function evalScanner(
-  speed: number, width: number, fade: number, axis: string, t: number, palette: Palette,
+  key: string, speed: number, width: number, fade: number, axis: string, t: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const horizontal = axis !== 'vertical'
   const span = Math.max(1, horizontal ? W : H)
-  const phase = ((t * speed) % 2 + 2) % 2
+  const phase = (speedPhase(key, t, speed) % 2 + 2) % 2
   const travel = phase <= 1 ? phase : 2 - phase
   const pos = travel * Math.max(0, span - 1)
   const core = Math.max(0.5, Number.isFinite(width) ? width * 0.5 : 1)
@@ -198,7 +203,7 @@ function evalConfetti(
   const motion = Math.max(0, speed)
   let spawnCount = Math.round(amount * (0.08 + motion * 0.3) * Math.max(1, Math.sqrt(area)))
   if (spawnCount < 1 && amount * motion > 0.08) spawnCount = 1
-  const hueDrift = t * motion * 0.08
+  const hueDrift = speedPhase(nodeId, t, motion) * 0.08
 
   const rnd = () => seededRandom(`${nodeId}:confetti`, seed)
   for (let i = 0; i < spawnCount; i++) {
@@ -244,12 +249,13 @@ function evalJuggle(
     px.r = sum.r; px.g = sum.g; px.b = sum.b
   }
 
+  const ph = speedPhase(nodeId, t, speed)
   for (let i = 0; i < dots; i++) {
     const phase = seed ? seedOffset(seed, i) : 0
-    const travel = Math.sin(t * speed * (2.5 + i * 0.35) + i * 0.9 + phase) * 0.5 + 0.5
+    const travel = Math.sin(ph * (2.5 + i * 0.35) + i * 0.9 + phase) * 0.5 + 0.5
     const x = Math.round(travel * (W - 1))
     const y = laneY(i)
-    const pulse = 0.75 + 0.25 * Math.sin(t * speed * 3 + i + phase)
+    const pulse = 0.75 + 0.25 * Math.sin(ph * 3 + i + phase)
     const base = samplePalette(palette, (travel * 0.35 + i / dots) % 1)
     const dot = scaleRgb(base, pulse)
     addDot(x, y, dot, 1)
@@ -262,13 +268,14 @@ function evalJuggle(
   return frame
 }
 
-function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+function evalSineField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+  const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
-        v += amp * Math.sin(x * freq + t * speed + oct * 1.7) * Math.cos(y * freq * 1.3 + t * speed * 0.8 + oct * 2.3)
+        v += amp * Math.sin(x * freq + ph + oct * 1.7) * Math.cos(y * freq * 1.3 + ph * 0.8 + oct * 2.3)
         amp *= 0.5; freq *= 2.1
       }
       out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
@@ -277,24 +284,26 @@ function evalSineField(speed: number, scale: number, t: number, W = DEFAULT_W, H
   return out
 }
 
-function evalRadialBurst(speed: number, rings: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalRadialBurst(key: string, speed: number, rings: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
   const density = Math.max(1, Math.min(32, rings))
+  const ph = speedPhase(key, t, speed)
   return buildFrame(W, H, (x, y) => {
       const dist = Math.hypot(x - cx, y - cy) / maxD
-      const wave = (Math.sin((dist * density - t * speed * 3) * Math.PI) + 1) / 2
+      const wave = (Math.sin((dist * density - ph * 3) * Math.PI) + 1) / 2
       // Palette across the radius, ring brightness from the burst wave.
       return scaleRgb(samplePalette(palette, dist), wave)
     })
 }
 
-function evalSpiral(speed: number, arms: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalSpiral(key: string, speed: number, arms: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2, maxD = Math.hypot(cx, cy)
+  const ph = speedPhase(key, t, speed)
   return buildFrame(W, H, (x, y) => {
       const dx = x - cx, dy = y - cy
       const dist = Math.hypot(dx, dy) / maxD
       const angle = Math.atan2(dy, dx)
-      const spiral = (angle + dist * Math.PI * 4 - t * speed * Math.PI) * arms
+      const spiral = (angle + dist * Math.PI * 4 - ph * Math.PI) * arms
       const v = (Math.sin(spiral) + 1) / 2
       return scaleRgb(samplePalette(palette, dist + t * 0.083), v * 0.9)
     })
@@ -323,47 +332,49 @@ function wrap01(v: number): number {
 // All variants share the (speed, scale)→field signature, then the node maps
 // that field through a palette for its normal `frame` output. Keep the cases
 // in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
-function evalNoiseFieldByType(noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, wrapX = false, worley: WorleyMode = 'f1'): Field {
-  if (!wrapX) return evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0, worley)
+function evalNoiseFieldByType(key: string, noiseType: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0, wrapX = false, worley: WorleyMode = 'f1'): Field {
+  if (!wrapX) return evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, worley)
   // Seamless left/right join: the plain field blended with itself shifted a
   // canvas width (see state/evaluator/wrapX.ts).
-  const plain = evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, 0, worley)
-  return wrapXBlend(plain, evalNoiseFieldVariant(noiseType, speed, scale, t, W, H, seed, W, worley), W, H)
+  const plain = evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, worley)
+  return wrapXBlend(plain, evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, W, worley), W, H)
 }
 
-function evalNoiseFieldVariant(noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, worley: WorleyMode): Field {
+function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, worley: WorleyMode): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
-    case 'simplex': return evalSimplex2DField(speed, scale, ts, W, H, xo)
-    case 'noise3d': return evalNoise3DField(speed, scale, ts, W, H, xo)
-    case 'noise4d': return evalNoise4DField(speed, scale, ts, W, H, xo)
-    case 'worley':  return evalWorleyField(speed, scale, ts, W, H, xo, worley)
-    case 'plasma':  return evalPlasmaFractalField(speed, scale, ts, W, H, xo)
-    case 'sine':    return evalSineField(speed, scale, ts, W, H, xo)
+    case 'simplex': return evalSimplex2DField(key, speed, scale, ts, W, H, xo)
+    case 'noise3d': return evalNoise3DField(key, speed, scale, ts, W, H, xo)
+    case 'noise4d': return evalNoise4DField(key, speed, scale, ts, W, H, xo)
+    case 'worley':  return evalWorleyField(key, speed, scale, ts, W, H, xo, worley)
+    case 'plasma':  return evalPlasmaFractalField(key, speed, scale, ts, W, H, xo)
+    case 'sine':    return evalSineField(key, speed, scale, ts, W, H, xo)
     case 'field':
-    default:        return evalNoiseFieldRaw(speed, scale, ts, W, H, xo)
+    default:        return evalNoiseFieldRaw(key, speed, scale, ts, W, H, xo)
   }
 }
 
-function evalNoiseFieldRaw(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+function evalNoiseFieldRaw(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+  const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
-      const v = (Math.sin(x * scale * 0.5 + t * speed) +
-                 Math.cos(y * scale * 0.5 + t * speed * 0.7)) / 2
+      const v = (Math.sin(x * scale * 0.5 + ph) +
+                 Math.cos(y * scale * 0.5 + ph * 0.7)) / 2
       out[y * W + x - xo] = Math.max(0, Math.min(1, (v + 1) / 2))
     }
   }
   return out
 }
 
-function evalSimplex2DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+function evalSimplex2DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+  const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 4; oct++) {
-        v += amp * _snoise2(x * freq + t * speed * 0.13, y * freq + t * speed * 0.1)
+        v += amp * _snoise2(x * freq + ph * 0.13, y * freq + ph * 0.1)
         amp *= 0.5; freq *= 2
       }
       out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
@@ -372,12 +383,13 @@ function evalSimplex2DField(speed: number, scale: number, t: number, W = DEFAULT
   return out
 }
 
-function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+function evalNoise3DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   // 3D via two orthogonal 2D slices animated along the z (time) axis
+  const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
-      const z = t * speed * 0.08
+      const z = ph * 0.08
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
         v += amp * (_snoise2(x * freq + z * 0.37, y * freq) * 0.6 +
@@ -394,8 +406,8 @@ function evalNoise3DField(speed: number, scale: number, t: number, W = DEFAULT_W
 // circle in two hidden dimensions so the pattern returns to its starting point
 // every cycle, matching the firmware variant's circular z/t path through
 // FastLED's real inoise16(x, y, z, t).
-function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
-  const ang = t * speed * Math.PI * 2
+function evalNoise4DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+  const ang = speedPhase(key, t, speed) * Math.PI * 2
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
@@ -416,7 +428,8 @@ function evalNoise4DField(speed: number, scale: number, t: number, W = DEFAULT_W
 
 // Worley (cellular) noise: distance to the nearest animated feature point,
 // coloured through a palette. Feature points jitter on a circle over time.
-function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0, mode: WorleyMode = 'f1'): Field {
+function evalWorleyField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0, mode: WorleyMode = 'f1'): Field {
+  const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
@@ -427,8 +440,8 @@ function evalWorleyField(speed: number, scale: number, t: number, W = DEFAULT_W,
         for (let di = -1; di <= 1; di++) {
           const cx = xi + di, cy = yi + dj
           const hh = worleyHash(cx, cy)
-          const fx = cx + 0.5 + 0.45 * Math.sin(t * speed + hh * 6.2831)
-          const fy = cy + 0.5 + 0.45 * Math.cos(t * speed * 1.1 + hh * 6.2831)
+          const fx = cx + 0.5 + 0.45 * Math.sin(ph + hh * 6.2831)
+          const fy = cy + 0.5 + 0.45 * Math.cos(ph * 1.1 + hh * 6.2831)
           const d = Math.hypot(px - fx, py - fy)
           if (d < f1) { f2 = f1; f1 = d } else if (d < f2) f2 = d
         }
@@ -452,10 +465,11 @@ export function gaborCellHashes(cx: number, cy: number, seed: number): [number, 
 // (Gabor) kernel per grid cell. `orientation` fixes the band direction (the
 // anisotropic variant) and `frequency` the band spacing; phase animates over
 // time. Coloured through a palette.
-function evalGaborNoise(speed: number, scale: number, frequency: number, orientation: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+function evalGaborNoise(key: string, speed: number, scale: number, frequency: number, orientation: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const omega = (orientation * Math.PI) / 180
   const cosO = Math.cos(omega), sinO = Math.sin(omega)
   const TAU = Math.PI * 2
+  const ph = speedPhase(key, t, speed)
   return buildFrame(W, H, (x, y) => {
       const px = x * scale, py = y * scale
       const xi = Math.floor(px), yi = Math.floor(py)
@@ -470,7 +484,7 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
           const gauss = Math.exp(-2.5 * (dx * dx + dy * dy))
           const proj = dx * cosO + dy * sinO
           const w = h2 < 0.5 ? 1 : -1
-          v += w * gauss * Math.cos(TAU * frequency * proj + t * speed + h * TAU)
+          v += w * gauss * Math.cos(TAU * frequency * proj + ph + h * TAU)
         }
       return samplePalette(palette, v * 0.5 + 0.5)
     })
@@ -478,8 +492,8 @@ function evalGaborNoise(speed: number, scale: number, frequency: number, orienta
 
 // Fractal (fBm) noise: sum simplex octaves at doubling frequency / halving
 // amplitude for a detailed, cloud-like field, coloured through a palette.
-function evalFractalNoise(speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, shape: NoiseShape = 'plain'): Frame {
-  const z = (t + seedOffset(seed, 0)) * speed * 0.15
+function evalFractalNoise(key: string, speed: number, scale: number, octaves: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, shape: NoiseShape = 'plain'): Frame {
+  const z = speedPhase(key, t + seedOffset(seed, 0), speed) * 0.15
   const oct = Math.max(1, Math.min(6, Math.floor(octaves)))
   return buildFrame(W, H, (x, y) => {
       let v = 0, amp = 0.5, freq = scale, norm = 0
@@ -494,13 +508,14 @@ function evalFractalNoise(speed: number, scale: number, octaves: number, t: numb
 
 // Metaballs: several moving charges; each pixel's field is the summed inverse-
 // square influence, mapped smoothly to a palette (lava-lamp blobs).
-function evalBlobs(speed: number, scale: number, count: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBlobs(key: string, speed: number, scale: number, count: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(1, Math.min(6, Math.floor(count)))
   const r2 = (scale * Math.min(W, H)) ** 2
+  const ph = speedPhase(key, t, speed)
   const bx: number[] = [], by: number[] = []
   for (let i = 0; i < n; i++) {
-    bx.push(W * (0.5 + 0.4 * Math.sin(t * speed * (0.7 + i * 0.13) + i * 1.7)))
-    by.push(H * (0.5 + 0.4 * Math.cos(t * speed * (0.6 + i * 0.17) + i * 2.3)))
+    bx.push(W * (0.5 + 0.4 * Math.sin(ph * (0.7 + i * 0.13) + i * 1.7)))
+    by.push(H * (0.5 + 0.4 * Math.cos(ph * (0.6 + i * 0.17) + i * 2.3)))
   }
   return buildFrame(W, H, (x, y) => {
       let f = 0
@@ -510,13 +525,14 @@ function evalBlobs(speed: number, scale: number, count: number, t: number, palet
 }
 
 // Plasma blended with fractal (simplex) noise for an organic flowing field.
-function evalPlasmaFractalField(speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+function evalPlasmaFractalField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+  const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
     for (let x = xo; x < W + xo; x++) {
-      let v = Math.sin(x * 0.2 + t * speed) + Math.sin(y * 0.25 + t * speed * 0.8) + Math.sin((x + y) * 0.15 + t * speed * 0.6)
+      let v = Math.sin(x * 0.2 + ph) + Math.sin(y * 0.25 + ph * 0.8) + Math.sin((x + y) * 0.15 + ph * 0.6)
       let amp = 1, freq = scale, fn = 0
-      for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + t * speed * 0.1, y * freq); amp *= 0.5; freq *= 2 }
+      for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + ph * 0.1, y * freq); amp *= 0.5; freq *= 2 }
       v += fn * 2.5
       out[y * W + x - xo] = wrap01(v * 0.15)
     }
@@ -530,52 +546,52 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   // node exposes that raw `field` output and also maps it through a palette
   // to its normal `frame` output. Keep in sync with PROPERTY_META.noiseType
   // and the `Noise` case in cppGenerator.ts.
-  Noise({ num, pal, t, W, H }, id, props) {
+  Noise({ num, pal, t, W, H, stateKey }, id, props) {
     const noiseType = String(props.noiseType ?? 'field')
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    const field = evalNoiseFieldByType(noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true, worleyMode(props.worleyMode))
+    const field = evalNoiseFieldByType(stateKey(id), noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true, worleyMode(props.worleyMode))
     const shape = noiseShape(props.noiseShape)
     if (shape !== 'plain') for (let i = 0; i < field.length; i++) field[i] = shapeNoise(field[i], shape)
     return { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
   },
-  Plasma({ num, pal, t, W, H }, id, props) {
+  Plasma({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Plasma)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalPlasma(speed, t, palette, W, H) }
+    return { frame: evalPlasma(stateKey(id), speed, t, palette, W, H) }
   },
-  Rainbow({ num, t, W, H }, id, props) {
+  Rainbow({ num, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)
     const deltaHue = Math.max(0, Math.min(255, num(id, 'deltaHue', props, 'deltaHue', 6)))
-    return { frame: evalRainbow(t * speed, deltaHue, W, H) }
+    return { frame: evalRainbow(speedPhase(stateKey(id), t, speed), deltaHue, W, H) }
   },
-  Pride2015({ input, num, t, W, H }, id, props) {
+  Pride2015({ input, num, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Pride2015)
     const wired = input(id, 'paletteIn', null)
     const palette = Array.isArray(wired) ? wired as RGB[] : typeof wired === 'string' ? wired : null
-    return { frame: evalPride2015(speed, scale, t, W, H, palette) }
+    return { frame: evalPride2015(stateKey(id), speed, scale, t, W, H, palette) }
   },
-  Pacifica({ num, pal, t, W, H }, id, props) {
+  Pacifica({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.35), SPEED_MAX.Pacifica)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), SCALE_MAX.Pacifica)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalPacifica(speed, scale, t, palette, W, H) }
+    return { frame: evalPacifica(stateKey(id), speed, scale, t, palette, W, H) }
   },
-  TwinkleFox({ num, pal, t, W, H }, id, props) {
+  TwinkleFox({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.TwinkleFox)
     const density = num(id, 'density', props, 'density', 0.5)
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-    return { frame: evalTwinkleFox(speed, density, t, palette, normalizedSeed(props.seed), W, H) }
+    return { frame: evalTwinkleFox(stateKey(id), speed, density, t, palette, normalizedSeed(props.seed), W, H) }
   },
-  Scanner({ num, pal, t, W, H }, id, props) {
+  Scanner({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Scanner)
     const width = Math.max(1, num(id, 'width', props, 'width', 2))
     const fade = num(id, 'fade', props, 'fade', 0.6)
     const axis = String(props.axis ?? 'horizontal')
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
-    return { frame: evalScanner(speed, width, fade, axis, t, palette, W, H) }
+    return { frame: evalScanner(stateKey(id), speed, width, fade, axis, t, palette, W, H) }
   },
   Confetti({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.45), SPEED_MAX.Confetti)
@@ -591,17 +607,17 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalJuggle(stateKey(id), speed, count, fade, t, palette, normalizedSeed(props.seed), W, H) }
   },
-  RadialBurst({ num, pal, t, W, H }, id, props) {
+  RadialBurst({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)
     const rings = num(id, 'arms', props, 'arms', 8)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalRadialBurst(speed, rings, palette, t, W, H) }
+    return { frame: evalRadialBurst(stateKey(id), speed, rings, palette, t, W, H) }
   },
-  Spiral({ num, pal, t, W, H }, id, props) {
+  Spiral({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Spiral)
     const arms = num(id, 'arms', props, 'arms', 2)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalSpiral(speed, arms, palette, t, W, H) }
+    return { frame: evalSpiral(stateKey(id), speed, arms, palette, t, W, H) }
   },
   Kaleidoscope({ input, num, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
@@ -609,27 +625,27 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     if (!src) { return { frame: blankFrame(W, H) } }
     return { frame: evalKaleidoscope(src, segments, W, H) }
   },
-  FractalNoise({ num, pal, t, W, H }, id, props) {
+  FractalNoise({ num, pal, t, W, H, stateKey }, id, props) {
     const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FractalNoise)
     const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FractalNoise)
     const octaves = num(id, 'octaves', props, 'octaves', 4)
     const palette = pal(id, 'paletteIn', props, 'palette', 'forest')
-    return { frame: evalFractalNoise(speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed), noiseShape(props.noiseShape)) }
+    return { frame: evalFractalNoise(stateKey(id), speed, scale, octaves, t, palette, W, H, normalizedSeed(props.seed), noiseShape(props.noiseShape)) }
   },
-  GaborNoise({ num, pal, t, W, H }, id, props) {
+  GaborNoise({ num, pal, t, W, H, stateKey }, id, props) {
     const speed       = denormRate(num(id, 'speed', props, 'speed', 0.33), SPEED_MAX.GaborNoise)
     const scale       = denormRate(num(id, 'scale', props, 'scale', 0.7), SCALE_MAX.GaborNoise)
     const frequency   = num(id, 'frequency', props, 'frequency', 1.2)
     const orientation = num(id, 'orientation', props, 'orientation', 45)
     const palette     = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalGaborNoise(speed, scale, frequency, orientation, t, palette, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalGaborNoise(stateKey(id), speed, scale, frequency, orientation, t, palette, W, H, normalizedSeed(props.seed)) }
   },
-  Blobs({ num, pal, t, W, H }, id, props) {
+  Blobs({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Blobs)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.44), SCALE_MAX.Blobs)
     const count = num(id, 'count', props, 'count', 3)
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
-    return { frame: evalBlobs(speed, scale, count, t, palette, W, H) }
+    return { frame: evalBlobs(stateKey(id), speed, scale, count, t, palette, W, H) }
   },
 }
 

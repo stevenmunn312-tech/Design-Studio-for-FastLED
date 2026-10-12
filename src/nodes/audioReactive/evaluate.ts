@@ -23,6 +23,7 @@ import { resampleSpectrumBins, isAudioSignal } from '../../state/evaluator/signa
 import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
+import { speedPhase } from '../shared/speedClock'
 
 // An AnimARTrix instance is instance state held outside the evaluator's maps.
 onInstanceDisposed(disposeAnimartrixState)
@@ -100,6 +101,7 @@ function advanceDrift(key: string, t: number, rateA: number, rateB = 0): DriftPh
 }
 
 function evalSpectrumBars(
+  key: string,
   bass: number,
   mids: number,
   treble: number,
@@ -119,8 +121,11 @@ function evalSpectrumBars(
   const spd = Math.max(0, Math.min(1, speed))
   const columns = Math.max(1, mirror ? Math.ceil(W / 2) : W)
   const levels = [b, m, tr]
-  const geometryMotion = t * (0.45 + spd * 3.2)
-  const paletteScroll = t * (0.08 + spd * 0.42)
+  const geomRate = 0.45 + spd * 3.2
+  const rippleMotion = speedPhase(key, t, geomRate * (1.1 + tr * 1.8), 'ripple')
+  const shimmerMotion = speedPhase(key, t, geomRate * (2 + m * 2.5), 'shimmer')
+  const pulseMotion = speedPhase(key, t, geomRate * (1.4 + b * 1.6), 'pulse')
+  const paletteScroll = speedPhase(key, t, 0.08 + spd * 0.42, 'palette')
 
   for (let x = 0; x < columns; x++) {
     const nx = columns <= 1 ? 0 : x / (columns - 1)
@@ -129,15 +134,15 @@ function evalSpectrumBars(
     const right = Math.min(levels.length - 1, left + 1)
     const blend = spectrumPos - left
     const baseLevel = levels[left] * (1 - blend) + levels[right] * blend
-    const ripple = Math.sin(nx * 10.5 - geometryMotion * (1.1 + tr * 1.8)) * 0.08 * strength
-    const shimmer = Math.max(0, Math.sin(nx * 21 + geometryMotion * (2 + m * 2.5))) * 0.06 * tr * strength
+    const ripple = Math.sin(nx * 10.5 - rippleMotion) * 0.08 * strength
+    const shimmer = Math.max(0, Math.sin(nx * 21 + shimmerMotion)) * 0.06 * tr * strength
     const level = Math.max(0, Math.min(1, baseLevel * (0.45 + strength * 0.9) + ripple + shimmer))
     const barH = Math.max(0, Math.round(level * H))
 
     for (let row = 0; row < barH; row++) {
       const y = H - 1 - row
       const vertical = H <= 1 ? 0 : row / (H - 1)
-      const pulse = 0.72 + 0.28 * Math.sin(vertical * 6.2 - geometryMotion * (1.4 + b * 1.6))
+      const pulse = 0.72 + 0.28 * Math.sin(vertical * 6.2 - pulseMotion)
       const v = Math.max(0, Math.min(1, (0.28 + vertical * 0.72) * pulse))
       const colorPos = nx + paletteScroll + vertical * (0.12 + m * 0.12) + spectrumPos * 0.08
       const c = samplePalette(palette, colorPos)
@@ -340,14 +345,14 @@ function evalBassPulse(bass: number, palette: Palette, W = DEFAULT_W, H = DEFAUL
   return solidFrame(lit, W, H)
 }
 
-function evalBassRings(bass: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalBassRings(key: string, bass: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, bass))
   const strength = Math.max(0, Math.min(1, intensity))
   const cx = W / 2
   const cy = H / 2
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
   const motion = Math.max(0, speed) * (0.75 + level * 1.75 * strength)
-  const phase = t * (1.2 + motion * 4.8)
+  const phase = speedPhase(key, t, 1.2 + motion * 4.8)
   const ringCount = 4 + level * 8 * strength
   const floor = 0.04 + level * 0.1 * strength
   const gain = 0.16 + level * 0.84 * strength
@@ -361,13 +366,14 @@ function evalBassRings(bass: number, intensity: number, speed: number, palette: 
     })
 }
 
-function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalMidrangeWaves(key: string, mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const midsAmt = Math.min(1, Math.max(0, mids))
+  const strength = Math.min(1, Math.max(0, intensity))
+  const motion = speed * (1 + midsAmt * 1.5 * strength)
+  const phase = speedPhase(key, t, motion)
   return buildFrame(W, H, (x, y) => {
-      const midsAmt = Math.min(1, Math.max(0, mids))
-      const strength = Math.min(1, Math.max(0, intensity))
-      const motion = speed * (1 + midsAmt * 1.5 * strength)
       const contrast = 0.7 + midsAmt * 1.8 * strength
-      const waveBase = Math.sin(x * 0.8 + t * motion * 4) * Math.sin(y * 0.5 + t * motion * 2.5)
+      const waveBase = Math.sin(x * 0.8 + phase * 4) * Math.sin(y * 0.5 + phase * 2.5)
       const wave = Math.max(-1, Math.min(1, waveBase * contrast))
       const waveIntensity = Math.min(1, 0.1 + Math.pow(midsAmt, 0.65) * 1.25 * strength)
       const v = (wave + 1) / 2 * waveIntensity
@@ -380,10 +386,11 @@ function evalMidrangeWaves(mids: number, intensity: number, speed: number, t: nu
     })
 }
 
-function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalMidrangeBloom(key: string, mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, mids))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, speed) * (0.8 + level * 2.2 * strength)
+  const phase = speedPhase(key, t, motion)
   const cx0 = (W - 1) / 2
   const cy0 = (H - 1) / 2
   const sx = Math.max(1, W / 2)
@@ -392,12 +399,12 @@ function evalMidrangeBloom(mids: number, intensity: number, speed: number, t: nu
       const cx = (x - cx0) / sx
       const cy = (y - cy0) / sy
       const radial = Math.hypot(cx, cy)
-      const swirl = Math.sin((cx * cx - cy * cy) * 6 + t * motion * 3.2)
-        + Math.cos((cx + cy) * 4 - t * motion * 2.4)
-      const bloom = Math.sin(radial * (5 + level * 8 * strength) * Math.PI - t * motion * 4 + swirl * 0.6)
+      const swirl = Math.sin((cx * cx - cy * cy) * 6 + phase * 3.2)
+        + Math.cos((cx + cy) * 4 - phase * 2.4)
+      const bloom = Math.sin(radial * (5 + level * 8 * strength) * Math.PI - phase * 4 + swirl * 0.6)
       const crisp = Math.pow(Math.max(0, bloom * 0.5 + 0.5), 1.8)
       const v = Math.min(1, crisp * (0.22 + level * 0.78 * strength))
-      const c = samplePalette(palette, radial * 0.6 + swirl * 0.12 + t * motion * 0.05)
+      const c = samplePalette(palette, radial * 0.6 + swirl * 0.12 + phase * 0.05)
       return {
         r: Math.round(c.r * v),
         g: Math.round(c.g * v),
@@ -461,18 +468,19 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, palet
   return frame
 }
 
-function evalTreblePrism(treble: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalTreblePrism(key: string, treble: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, speed) * (1.2 + level * 3.2 * strength)
+  const phase = speedPhase(key, t, motion)
   return buildFrame(W, H, (x, y) => {
       const diagA = x * 1.7 + y * 1.15
       const diagB = x * -1.1 + y * 1.9
-      const waveA = Math.sin(diagA + t * motion * 7.5)
-      const waveB = Math.sin(diagB - t * motion * 6.1)
+      const waveA = Math.sin(diagA + phase * 7.5)
+      const waveB = Math.sin(diagB - phase * 6.1)
       const prism = Math.max(0, waveA * 0.55 + waveB * 0.45)
       const shard = Math.pow(prism, 3.6)
-      const flash = Math.pow(Math.max(0, Math.sin((x + y) * 2.4 - t * motion * 9) * 0.5 + 0.5), 10)
+      const flash = Math.pow(Math.max(0, Math.sin((x + y) * 2.4 - phase * 9) * 0.5 + 0.5), 10)
       const v = Math.min(1, shard * (0.3 + level * 0.7 * strength) + flash * level * 0.9 * strength)
       // Diagonal position spreads the palette across the shards, like a prism.
       const pt = (x + y) / (W + H)
@@ -480,21 +488,25 @@ function evalTreblePrism(treble: number, intensity: number, speed: number, palet
     })
 }
 
-function evalAudioCascade(bass: number, mids: number, treble: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalAudioCascade(key: string, bass: number, mids: number, treble: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const b = Math.max(0, Math.min(1, bass))
   const m = Math.max(0, Math.min(1, mids))
   const tr = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
   const motion = Math.max(0, speed) * (0.8 + (b + m + tr) * 1.4 * strength)
+  const ribbonPhase = speedPhase(key, t, motion * (2 + m * 3 * strength), 'ribbon')
+  const sweepPhase = speedPhase(key, t, motion * (1.4 + b * 2.2 * strength), 'sweep')
+  const shimmerPhase = speedPhase(key, t, motion * (4 + tr * 8 * strength), 'shimmer')
+  const palettePhase = speedPhase(key, t, motion, 'palette')
   return buildFrame(W, H, (x, y) => {
       const nx = W > 1 ? x / (W - 1) : 0
       const ny = H > 1 ? y / (H - 1) : 0
-      const ribbon = Math.sin((nx * 7 + ny * 2.5) + t * motion * (2 + m * 3 * strength))
-      const sweep = Math.cos((ny * 9 - nx * 3) - t * motion * (1.4 + b * 2.2 * strength))
-      const shimmer = Math.pow(Math.max(0, Math.sin((nx + ny) * 18 + t * motion * (4 + tr * 8 * strength)) * 0.5 + 0.5), 6)
+      const ribbon = Math.sin((nx * 7 + ny * 2.5) + ribbonPhase)
+      const sweep = Math.cos((ny * 9 - nx * 3) - sweepPhase)
+      const shimmer = Math.pow(Math.max(0, Math.sin((nx + ny) * 18 + shimmerPhase) * 0.5 + 0.5), 6)
       const body = Math.max(0, ribbon * 0.55 + sweep * 0.45)
       const v = Math.min(1, body * (0.18 + m * 0.52 * strength) + b * 0.24 * strength + shimmer * tr * 0.85 * strength)
-      const pt = nx * (0.2 + b * 0.5) + ny * (0.35 + m * 0.45) + shimmer * 0.15 + t * motion * 0.03
+      const pt = nx * (0.2 + b * 0.5) + ny * (0.35 + m * 0.45) + shimmer * 0.15 + palettePhase * 0.03
       const c = samplePalette(palette, pt)
       return {
         r: Math.round(c.r * v),
@@ -602,6 +614,7 @@ function evalKickShock(
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
   const hihatAmt = clamp01(hihat)
   const additive = blendMode !== 'max'
+  const phase = speedPhase(key, t, speed)
 
   return buildFrame(W, H, (x, y) => {
     // Repeat the same shockwave field in every grid cell. Fractional tile
@@ -625,9 +638,9 @@ function evalKickShock(
       wave = additive ? wave + contribution : Math.max(wave, contribution)
     }
     wave = Math.min(1, wave)
-    const jitter = hihatAmt * 0.18 * (Math.sin(distC * 50 - t * speed * 22) * 0.5 + 0.5)
+    const jitter = hihatAmt * 0.18 * (Math.sin(distC * 50 - phase * 22) * 0.5 + 0.5)
     const v = Math.min(1, wave * (0.5 + strength * 0.5) + jitter * wave + 0.03 * strength)
-    const c = samplePalette(palette, distC * 0.5 + t * speed * 0.03)
+    const c = samplePalette(palette, distC * 0.5 + phase * 0.03)
     return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
   })
 }
@@ -676,6 +689,7 @@ function evalBeatKaleidoscope(
   const strength = clamp01(energy)
   const wedges = 6 + Math.round(punch * 6)
   const rot = advanceDrift(key, t, speed * (0.15 + strength * 0.35)).a + punch * 0.8
+  const phase = speedPhase(key, t, speed)
   const wedgeAngle = (Math.PI * 2) / wedges
   const cx = (W - 1) / 2, cy = (H - 1) / 2
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
@@ -686,9 +700,9 @@ function evalBeatKaleidoscope(
     const ang = Math.atan2(dy, dx) + rot
     let a = ((ang % wedgeAngle) + wedgeAngle) % wedgeAngle
     if (a > wedgeAngle / 2) a = wedgeAngle - a
-    const tex = Math.sin(a * 10 + dist * 8 * (1 + punch * 0.6) - t * speed * 3) * Math.cos(dist * 5 * (1 + punch * 0.6) - a * 6)
+    const tex = Math.sin(a * 10 + dist * 8 * (1 + punch * 0.6) - phase * 3) * Math.cos(dist * 5 * (1 + punch * 0.6) - a * 6)
     const v = Math.min(1, Math.max(0, tex * 0.5 + 0.5) * (0.35 + strength * 0.65) + punch * 0.25)
-    const c = samplePalette(palette, dist * 0.5 + a * 0.3 + hue / 360 + t * speed * 0.05)
+    const c = samplePalette(palette, dist * 0.5 + a * 0.3 + hue / 360 + phase * 0.05)
     return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
   })
 }
@@ -702,6 +716,7 @@ function evalSpectraMosaic(
   const strength = clamp01(energy)
   const cellW = W / n, cellH = H / n
   const sweep = advanceDrift(key, t, speed * (0.4 + strength * 0.8)).a
+  const scroll = speedPhase(key, t, speed)
   return buildFrame(W, H, (x, y) => {
     const cx = Math.floor(x / cellW), cy = Math.floor(y / cellH)
     const diag = (cx + cy) / (2 * Math.max(1, n - 1))
@@ -709,7 +724,7 @@ function evalSpectraMosaic(
     const phase = cx * 0.6 + cy * 0.9 + sweep
     const shimmer = Math.sin(phase) * 0.5 + 0.5
     const v = Math.min(1, 0.15 + mix * 0.6 * strength + shimmer * 0.25)
-    const c = samplePalette(palette, diag * 0.6 + mix * 0.3 + t * speed * 0.04)
+    const c = samplePalette(palette, diag * 0.6 + mix * 0.3 + scroll * 0.04)
     return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
   })
 }
@@ -785,7 +800,7 @@ function evalEmberPulse(
   emberBurst.set(key, burst)
 
   const strength = clamp01(energy)
-  const flicker = t * speed * 3.0
+  const flicker = speedPhase(key, t, speed) * 3.0
 
   return buildFrame(W, H, (x, y) => {
     const nx = W > 1 ? x / (W - 1) : 0
@@ -816,6 +831,7 @@ function evalTurbulentBloom(
   const bassPulse = 0.5 + Math.sqrt(clamp01(bass)) * 0.5
   const phases = advanceDrift(key, t, speed * (1.5 + treble * 2), speed * (0.3 + mids * 0.6))
   const tFast = phases.a, tSlow = phases.b
+  const phase = speedPhase(key, t, speed)
 
   return buildFrame(W, H, (x, y) => {
     const cx = (x - (W - 1) / 2) / Math.max(1, W / 2)
@@ -824,7 +840,7 @@ function evalTurbulentBloom(
     const nOffY = _snoise2(cx * 3 + 50 + tFast, cy * 3 + 50 - tFast) * trebleAmp + _snoise2(cx * 0.6 + 50 + tSlow, cy * 0.6 + tSlow) * midsAmp
     const wx = cx + nOffX, wy = cy + nOffY
     const radial = Math.hypot(wx, wy)
-    const bloom = Math.sin(radial * 6 - t * speed * 3) + Math.cos((wx + wy) * 3 + t * speed * 2)
+    const bloom = Math.sin(radial * 6 - phase * 3) + Math.cos((wx + wy) * 3 + phase * 2)
     const crisp = Math.pow(Math.max(0, bloom * 0.5 + 0.5), 1.6)
     const v = Math.min(1, crisp * (0.2 + 0.8 * strength) * bassPulse)
     const c = samplePalette(palette, radial * 0.5 + tSlow * 0.05)
@@ -835,17 +851,18 @@ function evalTurbulentBloom(
 // Gravitational-lensing rings around a drifting well — rings bunch up near the
 // well instead of BassRings' evenly-spaced sine rings.
 function evalGravityWell(
-  bass: number, energy: number, speed: number, color: RGB, t: number,
+  key: string, bass: number, energy: number, speed: number, color: RGB, t: number,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
   const level = clamp01(bass), strength = clamp01(energy)
   const cx0 = (W - 1) / 2, cy0 = (H - 1) / 2
   const orbitR = Math.min(W, H) * 0.12 * (0.5 + strength * 0.5)
-  const wellX = cx0 + Math.cos(t * speed * 0.25) * orbitR
-  const wellY = cy0 + Math.sin(t * speed * 0.35) * orbitR
+  const orbit = speedPhase(key, t, speed, 'orbit')
+  const wellX = cx0 + Math.cos(orbit * 0.25) * orbitR
+  const wellY = cy0 + Math.sin(orbit * 0.35) * orbitR
   const maxD = Math.max(1e-6, Math.hypot(cx0, cy0))
   const k = 5 + level * 10 * strength
-  const phase = t * (1.0 + speed * 2.2)
+  const phase = speedPhase(key, t, 1.0 + speed * 2.2, 'wave')
 
   return buildFrame(W, H, (x, y) => {
     const dist = Math.hypot(x - wellX, y - wellY) / maxD
@@ -889,6 +906,7 @@ function evalRainRipples(
   const speedPx = Math.max(W, H) * 0.9 / life
   const band = (0.9 + (1 - strength) * 0.6) * bandMult
   const additive = blendMode === 'add'
+  const phase = speedPhase(key, t, speed)
 
   return buildFrame(W, H, (x, y) => {
     let v = 0
@@ -902,7 +920,7 @@ function evalRainRipples(
       v = additive ? v + contribution : Math.max(v, contribution)
     }
     v = Math.min(1, v * (0.6 + strength * 0.6))
-    const c = samplePalette(palette, v * 0.5 + t * speed * 0.02)
+    const c = samplePalette(palette, v * 0.5 + phase * 0.02)
     return { r: Math.round(c.r * v), g: Math.round(c.g * v), b: Math.round(c.b * v) }
   })
 }
@@ -926,6 +944,7 @@ function evalPrismStorm(
   const freq = 0.8 + treble * 2.5
   const scale = 0.5 + mids * 0.4
   const TAU = Math.PI * 2
+  const phase = speedPhase(key, t, speed)
 
   return buildFrame(W, H, (x, y) => {
     const px = x * scale, py = y * scale
@@ -941,7 +960,7 @@ function evalPrismStorm(
         const gauss = Math.exp(-2.5 * (dx * dx + dy * dy))
         const proj = dx * cosO + dy * sinO
         const w = h2 < 0.5 ? 1 : -1
-        v += w * gauss * Math.cos(TAU * freq * proj + t * speed * 2 + h * TAU)
+        v += w * gauss * Math.cos(TAU * freq * proj + phase * 2 + h * TAU)
       }
     }
     const shard = Math.pow(Math.max(0, v * 0.5 + 0.5), 1.4)
@@ -1075,7 +1094,11 @@ function evalColorTrails(
     dst.g = Math.round(dst.g * (1 - w) + color.g * w)
     dst.b = Math.round(dst.b * (1 - w) + color.b * w)
   }
-  const phaseColor = (u: number) => samplePalette(palette, t * colorSpeed + u)
+  const colorPhase = speedPhase(key, t, colorSpeed, 'color')
+  const endpointPhase = speedPhase(key, t, endpointSpeed, 'endpoint')
+  const yPhase = speedPhase(key, t, p.ySpeed, 'y')
+  const xPhase = speedPhase(key, t, p.xSpeed, 'x')
+  const phaseColor = (u: number) => samplePalette(palette, colorPhase + u)
 
   const injectLine = p.injectionMode !== 'Rainbow Border'
   const injectBorder = p.injectionMode !== 'Moving Line'
@@ -1083,10 +1106,10 @@ function evalColorTrails(
   // Inject the moving, palette-swept Lissajous segment using the same 3×
   // oversampled bilinear splat and soft endpoint discs as the Pygame source.
   const cx = (W - 1) * 0.5, cy = (H - 1) * 0.5
-  const x1 = cx + (W - 1) * (11.5 / 31) * Math.sin(t * endpointSpeed * 1.13 + 0.20)
-  const y1 = cy + (H - 1) * (10.5 / 31) * Math.sin(t * endpointSpeed * 1.71 + 1.30)
-  const x2 = cx + (W - 1) * (12.0 / 31) * Math.sin(t * endpointSpeed * 1.89 + 2.20)
-  const y2 = cy + (H - 1) * (11.0 / 31) * Math.sin(t * endpointSpeed * 1.37 + 0.70)
+  const x1 = cx + (W - 1) * (11.5 / 31) * Math.sin(endpointPhase * 1.13 + 0.20)
+  const y1 = cy + (H - 1) * (10.5 / 31) * Math.sin(endpointPhase * 1.71 + 1.30)
+  const x2 = cx + (W - 1) * (12.0 / 31) * Math.sin(endpointPhase * 1.89 + 2.20)
+  const y2 = cy + (H - 1) * (11.0 / 31) * Math.sin(endpointPhase * 1.37 + 0.70)
   if (injectLine) {
     const dx = x2 - x1, dy = y2 - y1
     const steps = Math.max(1, Math.floor(Math.max(Math.abs(dx), Math.abs(dy)) * 3))
@@ -1134,8 +1157,8 @@ function evalColorTrails(
   for (let y = 0; y < H; y++) {
     const spatial = y * 0.23 * p.yFrequency
     const noise = p.flowMode === 'Morphing 2D'
-      ? colorTrailsNoise2(spatial, t * p.ySpeed, seedY)
-      : colorTrailsNoise1(spatial + t * p.ySpeed, seedY)
+      ? colorTrailsNoise2(spatial, yPhase, seedY)
+      : colorTrailsNoise1(spatial + yPhase, seedY)
     const profile = noise * p.yAmplitude
     const shift = Math.max(-1, Math.min(1, profile * displacement))
     for (let x = 0; x < W; x++) {
@@ -1153,8 +1176,8 @@ function evalColorTrails(
   for (let x = 0; x < W; x++) {
     const spatial = (W - 1 - x) * 0.23 * p.xFrequency
     const noise = p.flowMode === 'Morphing 2D'
-      ? colorTrailsNoise2(spatial, t * p.xSpeed, seedX)
-      : colorTrailsNoise1(spatial + t * p.xSpeed, seedX)
+      ? colorTrailsNoise2(spatial, xPhase, seedX)
+      : colorTrailsNoise1(spatial + xPhase, seedX)
     const profile = noise * p.xAmplitude
     const shift = Math.max(-1, Math.min(1, profile * displacement))
     for (let y = 0; y < H; y++) {
@@ -1176,7 +1199,7 @@ function evalAudioFlow(key: string, bass: number, mids: number, treble: number, 
   // reach grows with treble/bass, so the field bobs vertically in time with the
   // music while `flow` scrolls it horizontally.
   const vAmp = 0.2 + treble * 0.7 + bass * 0.3
-  const vflow = _snoise2(t * speed * 4 + 50, 17.3) * vAmp
+  const vflow = _snoise2(speedPhase(key, t, speed, 'vflow') * 4 + 50, 17.3) * vAmp
   // Preserve the old useful low-level lift, but do not flatten FastLED's
   // normalized bass range above 0.7 into one constant brightness.
   const bright = 0.25 + Math.sqrt(clamp01(bass)) * 0.75
@@ -1188,7 +1211,7 @@ function evalAudioFlow(key: string, bass: number, mids: number, treble: number, 
 }
 
 export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
-  SpectrumBars({ num, pal, t, W, H }, id, props) {
+  SpectrumBars({ num, pal, t, W, H, stateKey }, id, props) {
     // Unwired bands rest at 0 unless the Test Signal toggle drives a demo.
     const demo = useUiStore.getState().testSignal
     const bass   = num(id, 'bass',   props, 'bass',   demo ? (Math.sin(t * 2.1) + 1) / 2 : 0)
@@ -1198,7 +1221,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const speed = num(id, 'speed', props, 'speed', 0.6)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     const mirror = !!props.mirror
-    return { frame: evalSpectrumBars(bass, mids, treble, energy, speed, t, palette, mirror, W, H) }
+    return { frame: evalSpectrumBars(stateKey(id), bass, mids, treble, energy, speed, t, palette, mirror, W, H) }
   },
   SpectrumVisualizer({ input, num, pal, t, W, H, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
@@ -1254,26 +1277,26 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBassPulse(bass, palette, W, H) }
   },
-  BassRings({ num, pal, t, W, H }, id, props) {
+  BassRings({ num, pal, t, W, H, stateKey }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0.5)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
-    return { frame: evalBassRings(bass, energy, speed, palette, t, W, H) }
+    return { frame: evalBassRings(stateKey(id), bass, energy, speed, palette, t, W, H) }
   },
-  MidrangeWaves({ num, pal, t, W, H }, id, props) {
+  MidrangeWaves({ num, pal, t, W, H, stateKey }, id, props) {
     const mids = num(id, 'mids', props, 'mids', 0.5)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return { frame: evalMidrangeWaves(mids, energy, speed, t, palette, W, H) }
+    return { frame: evalMidrangeWaves(stateKey(id), mids, energy, speed, t, palette, W, H) }
   },
-  MidrangeBloom({ num, pal, t, W, H }, id, props) {
+  MidrangeBloom({ num, pal, t, W, H, stateKey }, id, props) {
     const mids = num(id, 'mids', props, 'mids', 0.5)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
-    return { frame: evalMidrangeBloom(mids, energy, speed, t, palette, W, H) }
+    return { frame: evalMidrangeBloom(stateKey(id), mids, energy, speed, t, palette, W, H) }
   },
   TrebleSparks({ num, pal, W, H, stateKey }, id, props) {
     const treble = num(id, 'treble', props, 'treble', 0.5)
@@ -1281,21 +1304,21 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'ice')
     return { frame: evalTrebleSparks(stateKey(id), treble, density, palette, W, H) }
   },
-  TreblePrism({ num, pal, t, W, H }, id, props) {
+  TreblePrism({ num, pal, t, W, H, stateKey }, id, props) {
     const treble = num(id, 'treble', props, 'treble', 0.5)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
-    return { frame: evalTreblePrism(treble, energy, speed, palette, t, W, H) }
+    return { frame: evalTreblePrism(stateKey(id), treble, energy, speed, palette, t, W, H) }
   },
-  AudioCascade({ num, pal, t, W, H }, id, props) {
+  AudioCascade({ num, pal, t, W, H, stateKey }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0.5)
     const mids = num(id, 'mids', props, 'mids', 0.5)
     const treble = num(id, 'treble', props, 'treble', 0.5)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalAudioCascade(bass, mids, treble, energy, speed, t, palette, W, H) }
+    return { frame: evalAudioCascade(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
   },
   BeatFlash({ input, num, pal, W, H, stateKey, incoming }, id, props) {
     const beatVal = input(id, 'beat', false) as boolean
@@ -1391,7 +1414,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'deepsea')
     return { frame: evalTurbulentBloom(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
   },
-  GravityWell({ input, num, t, W, H }, id, props) {
+  GravityWell({ input, num, t, W, H, stateKey }, id, props) {
     const bass = num(id, 'bass', props, 'bass', 0.5)
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
@@ -1401,7 +1424,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 160) / 255),
       b: byte(num(id, 'b', props, 'b', 255) / 255),
     }
-    return { frame: evalGravityWell(bass, energy, speed, color, t, W, H) }
+    return { frame: evalGravityWell(stateKey(id), bass, energy, speed, color, t, W, H) }
   },
   RainRipples({ input, num, pal, t, W, H, stateKey }, id, props) {
     const trigger = input(id, 'trigger', false) as boolean

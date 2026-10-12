@@ -14,7 +14,8 @@ import {
   type FrameEdgeMode,
 } from '../../state/evaluator/frames'
 import { instanceState } from '../../state/evaluator/memory'
-import { wallpaperSamplePoint } from '../../state/evaluator/symmetry'
+import { wallpaperSamplePointAt, wallpaperSpinRate } from '../../state/evaluator/symmetry'
+import { speedPhase } from '../shared/speedClock'
 
 // Trails node — the persisted, fading accumulator frame.
 const trailState = instanceState('trailState', new Map<string, Frame>())
@@ -50,8 +51,9 @@ function blendPixel(mode: string, a: RGB, b: RGB, opacity: number): RGB {
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
 // (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
-function evalTransform(src: Frame, mode: string, rate: number, angle: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+function evalTransform(key: string, src: Frame, mode: string, rate: number, angle: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = (W - 1) / 2, cy = (H - 1) / 2
+  const phase = speedPhase(key, t, rate)
   const sample = (sx: number, sy: number): RGB => {
     const xi = Math.round(sx), yi = Math.round(sy)
     if (xi < 0 || xi >= W || yi < 0 || yi >= H) return { r: 0, g: 0, b: 0 }
@@ -59,7 +61,7 @@ function evalTransform(src: Frame, mode: string, rate: number, angle: number, t:
   }
   if (mode === 'translate') {
     const a = (angle * Math.PI) / 180
-    const dx = Math.cos(a) * rate * t, dy = Math.sin(a) * rate * t
+    const dx = Math.cos(a) * phase, dy = Math.sin(a) * phase
     return buildFrame(W, H, (x, y) => {
         const sx = ((Math.round(x - dx) % W) + W) % W
         const sy = ((Math.round(y - dy) % H) + H) % H
@@ -67,11 +69,11 @@ function evalTransform(src: Frame, mode: string, rate: number, angle: number, t:
       })
   }
   if (mode === 'scale') {
-    const s = Math.max(0.05, Math.min(20, 1 + (rate / 100) * t))
+    const s = Math.max(0.05, Math.min(20, 1 + phase / 100))
     return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
   }
   // rotate: sample the source under the inverse rotation
-  const a = (rate * t * Math.PI) / 180
+  const a = (phase * Math.PI) / 180
   const cosA = Math.cos(a), sinA = Math.sin(a)
   return buildFrame(W, H, (x, y) => {
       const rx = x - cx, ry = y - cy
@@ -264,13 +266,13 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  Transform({ input, num, t, W, H }, id, props) {
+  Transform({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: null } }
     const mode = String(props.transform ?? 'rotate')
     const rate = num(id, 'rate', props, 'rate', 90)
     const angle = num(id, 'angle', props, 'angle', 0)
-    return { frame: evalTransform(src, mode, rate, angle, t, W, H) }
+    return { frame: evalTransform(stateKey(id), src, mode, rate, angle, t, W, H) }
   },
   Array({ input, num, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
@@ -383,17 +385,18 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       return sampleFrame(src, sx, sy, edgeMode, bilinear)
     }) }
   },
-  Symmetry({ input, num, t, W, H }, id, props) {
+  Symmetry({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) return { frame: null }
     const group = props.group ?? 'p4m'
     const cells = num(id, 'cells', props, 'cells', 2)
     const rotation = num(id, 'rotation', props, 'rotation', 0)
-    const spin = num(id, 'spin', props, 'spin', 0)
+    const spin = wallpaperSpinRate(num(id, 'spin', props, 'spin', 0))
     const offsetX = num(id, 'offsetX', props, 'offsetX', 0)
     const offsetY = num(id, 'offsetY', props, 'offsetY', 0)
+    const spinPhase = speedPhase(stateKey(id), t, spin)
     return { frame: buildFrame(W, H, (x, y) => {
-      const source = wallpaperSamplePoint(group, x, y, cells, rotation, spin, offsetX, offsetY, t, W, H)
+      const source = wallpaperSamplePointAt(group, x, y, cells, rotation, spinPhase, offsetX, offsetY, W, H)
       return sampleFrame(src, source.x, source.y, 'clamp', true)
     }) }
   },

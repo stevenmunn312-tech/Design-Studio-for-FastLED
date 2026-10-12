@@ -1,4 +1,5 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { speedPhase } from '../shared/speedClock'
 import { particleRadius } from './particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
 import {
@@ -543,7 +544,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
     case 'lissajousPath': {
       const buf = formulaPointsTrailBuf(st, W, H)
       fadeFrameInPlace(buf, p.persistence)
-      const phase = t * p.speed * (FORMULA_POINTS_SPEED_MAX.lissajousPath ?? 1)
+      const phase = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.lissajousPath ?? 1)
       const cx = Math.sin(Math.max(1, p.freqA) * phase)
       const cy = Math.sin(Math.max(1, p.freqB) * phase)
       const px = ((cx + 1) / 2) * (W - 1)
@@ -557,7 +558,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
     case 'rosePath': {
       const buf = formulaPointsTrailBuf(st, W, H)
       fadeFrameInPlace(buf, p.persistence)
-      const phase = t * p.speed * (FORMULA_POINTS_SPEED_MAX.rosePath ?? 1)
+      const phase = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.rosePath ?? 1)
       const k = Math.max(1, p.petals)
       const rr = Math.cos(k * phase)
       const cx = rr * Math.cos(phase)
@@ -572,7 +573,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
 
     case 'phyllotaxis':
     default: {
-      const spin = t * p.speed * (FORMULA_POINTS_SPEED_MAX.phyllotaxis ?? 1)
+      const spin = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.phyllotaxis ?? 1)
       const frame = blankFrame(W, H)
       for (let i = 0; i < count; i++) {
         const ang = i * GOLDEN_ANGLE + spin

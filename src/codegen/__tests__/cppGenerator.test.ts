@@ -920,7 +920,8 @@ describe('generateCpp', () => {
       ],
     )
     expect(cpp).toContain('float t = millis() / 1000.0f;')
-    expect(cpp).toContain('fmodf(fmodf(t * (0.25), 1.0f) + 1.0f, 1.0f)')
+    expect(cpp).toContain('t * (0.25)')
+    expect(cpp).toContain('fmodf(fmodf(_phase_hc, 1.0f) + 1.0f, 1.0f)')
     expect(cpp).toContain('n_hc_color = CHSV((uint8_t)(_huePhase * 256.0f)')
     expect(cpp).toContain('(0.8) * 255.0f')
     expect(cpp).toContain('(0.7) * 255.0f')
@@ -931,7 +932,8 @@ describe('generateCpp', () => {
     const bs = node('b', 'BeatSin', 'math', { bpm: 120, low: 0, high: 1 })
     const cpp = generateCpp([bs], [])
     // BPM reads wire-then-property, so it arrives as a bounded expression.
-    expect(cpp).toContain('float n_b_value = 0.000f + ((sinf(((millis() / 1000.0f) * fmaxf(1.0f,120) / 60.0f) * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
+    expect(cpp).toContain('t * (fmaxf(1.0f,120) / 60.0f)')
+    expect(cpp).toContain('n_b_value = 0.000f + ((sinf(_phase_b * 6.2831853f) + 1.0f) * 0.5f) * (1.000f - 0.000f);')
   })
 
   it('emits Noise LFO as inoise16 fBm over time with a wrapped phase', () => {
@@ -999,7 +1001,8 @@ describe('generateCpp', () => {
   it('emits a sine Wave oscillator', () => {
     const w = node('w', 'Wave', 'math', { amplitude: 2, frequency: 0.5, phase: 0.25, waveform: 'sine' })
     const cpp = generateCpp([w], [])
-    expect(cpp).toContain('_arg = ((0.5) * t + (0.25))')
+    expect(cpp).toContain('t * (0.5)')
+    expect(cpp).toContain('_arg = (_phase_n_w_result + (0.25))')
     expect(cpp).toContain('sinf(6.2831853f * _arg)')
     expect(cpp).toContain('float t = millis()') // needs the time variable
   })
@@ -1402,7 +1405,8 @@ describe('generateCpp', () => {
       edge('e2', 'solid', 'out', 'frame', 'frame'),
     ])
 
-    expect(cpp).toContain('fmodf(t * fmaxf(0.0f, (0.5')
+    expect(cpp).toContain('t * (fmaxf(0.0f, (0.5')
+    expect(cpp).toContain('fmodf(fmodf(_phase_ps, 1.0f)')
     expect(cpp).toContain('powf(-2.0f * _psPos_ps + 2.0f, 3.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
@@ -1775,7 +1779,8 @@ describe('generateCpp', () => {
     const cpp = generateCpp([pg, outputNode], [edge('e', 'pg', 'out', 'frame', 'frame')])
     expect(cpp).toContain('constrain(roundf(3),1.0f,16.0f)')
     expect(cpp).toContain('float _ao=90')
-    expect(cpp).toContain('atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+_sp*t')
+    expect(cpp).toContain('atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+_phase_pg_spin')
+    expect(cpp).toContain('_rad=sqrtf(_dx*_dx+_dy*_dy)/_rm+_phase_pg_scroll')
     expect(cpp).toContain('_u-=floorf(_u);')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean,(uint8_t)(_u*255.0f))')
   })
@@ -2169,7 +2174,7 @@ describe('generateCpp', () => {
     const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, energy: 0.8, speed: 0.6, palette: 'party' })
     const cpp = generateCpp([mb, outputNode], [edge('e', 'mb', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
-    expect(cpp).toContain('float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + t * _motion * 3.2f)')
+    expect(cpp).toContain('float _swirl = sinf((_cx * _cx - _cy * _cy) * 6 + _phase_mb * 3.2f)')
     expect(cpp).toContain('float _bloom = sinf(_radial * (5.0f + _mAmt * 8.0f * _strength) * 3.14159265f')
     expect(cpp).toContain('ColorFromPalette(paldef_party')
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255))')
@@ -2181,7 +2186,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _motion = _spd * (1.2f + _t * 3.2f * _strength);')
     expect(cpp).toContain('float _prism = max(0.0f, _waveA * 0.55f + _waveB * 0.45f);')
     expect(cpp).toContain('powf(_prism, 3.6f)')
-    expect(cpp).toContain('powf(max(0.0f, sinf((_x + _y) * 2.4f - t * _motion * 9.0f) * 0.5f + 0.5f), 10.0f)')
+    expect(cpp).toContain('powf(max(0.0f, sinf((_x + _y) * 2.4f - _phase_tp * 9.0f) * 0.5f + 0.5f), 10.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_amethyst, (uint8_t)(_pt * 255))')
   })
 
@@ -2189,8 +2194,8 @@ describe('generateCpp', () => {
     const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, energy: 0.85, speed: 0.75, palette: 'rainbow' })
     const cpp = generateCpp([ac, outputNode], [edge('e', 'ac', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);')
-    expect(cpp).toContain('float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + t * _motion * (2.0f + _m * 3.0f * _strength));')
-    expect(cpp).toContain('float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + t * _motion * (4.0f + _t * 8.0f * _strength)) * 0.5f + 0.5f), 6.0f);')
+    expect(cpp).toContain('float _ribbon = sinf((_nx * 7.0f + _ny * 2.5f) + _phase_ac_ribbon);')
+    expect(cpp).toContain('float _shimmer = powf(max(0.0f, sinf((_nx + _ny) * 18.0f + _phase_ac_shimmer) * 0.5f + 0.5f), 6.0f);')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
     expect(cpp).toContain('.nscale8((uint8_t)(_v * 255));')
   })
@@ -2210,7 +2215,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('45*0.01745329f')
     expect(cpp).toContain('_pmax-_pmin')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow')
-    expect(cpp).toContain('_tn*2+t*')
+    expect(cpp).toContain('_tn*2+_phase_g)*255')
   })
 
   it('declares CustomFormula A/B inputs before using them', () => {
@@ -2380,7 +2385,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([n4, outputNode], [edge('e', 'n4', 'out', 'frame', 'frame')])
     expect(cpp).toContain('inoise16((uint32_t)(_x*_fr),(uint32_t)(_y*_fr),_z+(uint32_t)(_o*8192),_w+(uint32_t)(_o*12288))')
     expect(cpp).toContain('float _spd=')
-    expect(cpp).toContain('_ang=_t*_spd*6.2831853f;')
+    expect(cpp).toContain('_ang=_phase_n4*6.2831853f;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
@@ -3344,7 +3349,7 @@ describe('Float Field — Phase 3 codegen', () => {
       ...t.edges,
     ])
     expect(cpp).toContain('/* FieldRotate */')
-    expect(cpp).toContain('t*45')                 // spin baked in
+    expect(cpp).toContain('float _spin=45;')     // spin baked in, integrated into _phase_fr
     expect(cpp).toContain('float t = millis()')   // needsT triggered
     expect(cpp).toContain('field_fr[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
   })
@@ -3966,7 +3971,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     const cpp = generateCpp([sb, out], [edge('e1', 'sb', 'out', 'frame', 'frame')])
     expect(cpp).toContain('fill_solid(buf_sb, NUM_LEDS, CRGB::Black);')
     expect(cpp).toContain('float _levels[3] = { _b, _m, _t };')
-    expect(cpp).toContain('float _paletteScroll = t * (0.08f + _spd * 0.42f);')
+    expect(cpp).toContain('float _paletteScroll = _phase_sb_palette;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).toContain('WIDTH - 1 - _x')
     expect(cpp).not.toContain('// SpectrumBars')
@@ -4961,7 +4966,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([pr, outputNode], [edge('e1', 'pr', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB* const buf_pr = leds;')
     expect(cpp).toContain('buf_pr[_y*WIDTH+_x]=CHSV(')
-    expect(cpp).toContain('fmodf(_i*_sc*6.0f+t*_spd*40.0f,360.0f)')
+    expect(cpp).toContain('fmodf(_i*_sc*6.0f+_phase_pr*40.0f,360.0f)')
   })
 
   it('Pacifica emits the layered-wave formula through ColorFromPalette with a whitecap blend', () => {
@@ -5009,7 +5014,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('const int _dots=1;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, (uint8_t)(_fd * 255.0f));')
     expect(cpp).toContain('float _phase=0.0f;')
-    expect(cpp).toContain('float _travel=sinf(t*_spd*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
+    expect(cpp).toContain('float _travel=sinf(_phase_jg*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
 
@@ -5788,7 +5793,7 @@ describe('seeded cells agree between preview and sketch', () => {
     const [first, second] = calls(sketch)
     expect([first, second]).toEqual([{ dx: 0, dy: 0, seed }, { dx: 31, dy: -17, seed }])
     // The seed no longer shifts time, which the preview never did.
-    expect(sketch).toContain('cosf(6.2831853f*_fr*_proj+t*_spd+_h*6.2831853f)')
+    expect(sketch).toContain('cosf(6.2831853f*_fr*_proj+_phase_g+_h*6.2831853f)')
     for (let cx = -4; cx <= 12; cx++) for (let cy = -4; cy <= 12; cy++) {
       expect(gaborCellHashes(cx, cy, seed), `${cx},${cy}`).toEqual([
         worleyHash(cx + first.dx, cy + first.dy, first.seed),

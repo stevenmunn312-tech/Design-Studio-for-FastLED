@@ -80,6 +80,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   scalar wire, or a Control Map carrying the Master Speed job, with the same
   one-pass delay. Music Player continues to refuse Master Speed because its
   animation clock is track position.
+- The same rule applies per node: a node never animates as `t * rate` when
+  `rate` can move. Multiplying the absolute clock re-scales every elapsed
+  second whenever the rate changes, so a `speed` wired to an audio level (or
+  a motion term such as Midrange Waves' `speed * (1 + mids…)`) jumps its phase
+  by `t × Δrate` every frame — the "twitchy" wired speed. Nodes integrate
+  instead through `speedPhase(stateKey(id), t, rate, term)` in
+  `src/nodes/shared/speedClock.ts`, whose firmware twin `speedPhaseCpp` in
+  `speedClockCpp.ts` emits the matching static accumulator inside the node's
+  block. Both seed at `t * rate` on first sight and never clamp `dt`, so a
+  constant rate reproduces `t * rate` exactly and unwired nodes, golden frames
+  and sparse offline renders are unchanged. Constants stay outside the phase
+  (`t*spd*0.8` → `phase*0.8`); terms not multiplied by a rate (a palette
+  scroll on bare `t`, particle ages) stay on `t`. A new node with a `speed` or
+  level-modulated rate uses the helper on both sides from the start.
 - Most numeric node inputs are **not** normalised: `num()` in
   `graphEvaluator.ts` passes a wired value straight through, so a raw 0–1 signal
   (an audio band, say) wired into `Fire2012.sparking` (0–255),

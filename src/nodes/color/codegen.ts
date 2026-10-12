@@ -12,13 +12,16 @@ import {
 import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/palettes/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
+import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 
 export const COLOR_EMITTERS: NodeEmitters = {
-  HueCycle({ ln, v, f, needsT }) {
+  HueCycle({ id, ln, v, f, needsT }) {
     needsT.v = true
     const rate = f('rate', 'rate', 0.1), s = f('s', 's', 1), val = f('v', 'v', 1)
     ln(`  CRGB ${v('color')};`)
-    ln(`  { float _huePhase = fmodf(fmodf(t * (${rate}), 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), (uint8_t)((${s}) * 255.0f), (uint8_t)((${val}) * 255.0f)); }`)
+    ln(`  {`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), rate)
+    ln(`    float _huePhase = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), (uint8_t)((${s}) * 255.0f), (uint8_t)((${val}) * 255.0f)); }`)
   },
   HSVToRGB({ ln, v, f }) {
     ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
@@ -66,7 +69,8 @@ export const COLOR_EMITTERS: NodeEmitters = {
     const rate = f('rate', 'rate', 0.1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const easing = String(p.easing ?? 'sine')
-    ln(`  float _psPhase_${id} = fmodf(fmodf(t * fmaxf(0.0f, (${rate})), 1.0f) + 1.0f, 1.0f);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), `fmaxf(0.0f, (${rate}))`, '  ')
+    ln(`  float _psPhase_${id} = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f);`)
     ln(`  float _psPos_${id} = _psPhase_${id} < 0.5f ? _psPhase_${id} * 2.0f : (1.0f - _psPhase_${id}) * 2.0f;`)
     if (easing === 'quad') {
       ln(`  _psPos_${id} = _psPos_${id} < 0.5f ? 2.0f * _psPos_${id} * _psPos_${id} : 1.0f - powf(-2.0f * _psPos_${id} + 2.0f, 2.0f) / 2.0f;`)

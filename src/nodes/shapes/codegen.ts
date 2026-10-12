@@ -11,6 +11,7 @@ import {
 import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { rateCpp, SPEED_MAX } from '../shared/speedRange'
+import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   resolveWireframeMesh,
   meshBoundingRadius,
@@ -375,7 +376,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _rad=constrain(${f('thickness', 'thickness', 1.25)},${floatLit(FOURIER_THICKNESS_MIN)},${floatLit(FOURIER_THICKNESS_MAX)})*0.5f;`)
     ln(`    float _ext=fmaxf(0.0f,min(WIDTH,HEIGHT)*0.5f*_scale-_rad), _cx=WIDTH*0.5f, _cy=HEIGHT*0.5f;`)
     ln(`    float _h=${f('harmonics', 'harmonics', 32)};`)
-    ln(`    float _turn=constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})*t; _turn-=floorf(_turn);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), `constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})`)
+    ln(`    float _turn=${ph}; _turn-=floorf(_turn);`)
     ln(`    float _penX, _penY;`)
     ln(`    _fePen(${A},${terms.length},_h,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
     ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${f('persistence', 'persistence', 0.995)},${A},${terms.length},_h,_turn,_ext,_cx,_cy,_penX,_penY,_rad,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
@@ -414,7 +416,10 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    static const float _vtx_${id}[] = {${mesh.vertices.map((n) => `${n.toFixed(6)}f`).join(',')}};`)
     ln(`    static const uint8_t _edg_${id}[] = {${mesh.edges.join(',')}};`)
     ln(`    CRGB _wfColor = ${colorE};`)
-    ln(`    float _ax = (${spinX}) * t * 0.017453293f, _ay = (${spinY}) * t * 0.017453293f, _az = (${spinZ}) * t * 0.017453293f;`)
+    const phX = speedPhaseCpp(ln, phaseTag(id, 'spinX'), spinX)
+    const phY = speedPhaseCpp(ln, phaseTag(id, 'spinY'), spinY)
+    const phZ = speedPhaseCpp(ln, phaseTag(id, 'spinZ'), spinZ)
+    ln(`    float _ax = ${phX} * 0.017453293f, _ay = ${phY} * 0.017453293f, _az = ${phZ} * 0.017453293f;`)
     if (perspective) {
       // Both constants go through toFixed: WIREFRAME_CAM_FAR is a whole
       // number, and `6f` is not a C++ literal — an integer cannot take the
@@ -483,10 +488,12 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     if (dynamic) {
       needsT.v = true
+      ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
+      const ph = speedPhaseCpp(ln, phaseTag(id), '_scr')
       if (scrollAxis === 'vertical') {
-        ln(`    int _totY = ${layout.height} + HEIGHT, _offY = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totY) + _totY) % _totY, _offX = 0;`)
+        ln(`    int _totY = ${layout.height} + HEIGHT, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
       } else {
-        ln(`    int _totX = ${layout.width} + WIDTH, _offX = (((int)(t * (${f('scroll', 'scroll', 0)})) % _totX) + _totX) % _totX, _offY = 0;`)
+        ln(`    int _totX = ${layout.width} + WIDTH, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
       }
     } else {
       ln(`    int _offX = 0, _offY = 0;`)
@@ -703,14 +710,14 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    ${ob}[_y*WIDTH+_x]=_hueMix(${cA}, ${cB}, _t, ${mode === 'hsvLong'});}}`)
     }
   },
-  PaletteGradient({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  PaletteGradient({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     const ob = ownBuf()
     const angle = f('angle', 'angle', 45), repeat = f('repeat', 'repeat', 1)
     const speed = rateCpp(f('speed', 'speed', 0), SPEED_MAX.PaletteGradient)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const scroll = `+t*${speed}`
     needsT.v = true
     ln(`  { // Palette gradient`)
+    const scroll = `+${speedPhaseCpp(ln, phaseTag(id), speed)}`
     ln(`    float _a=${angle}*0.01745329f,_co=cos(_a),_si=sin(_a);`)
     ln(`    float _pmin=(_co<0?(WIDTH-1)*_co:0)+(_si<0?(HEIGHT-1)*_si:0);`)
     ln(`    float _pmax=(_co>0?(WIDTH-1)*_co:0)+(_si>0?(HEIGHT-1)*_si:0);`)
@@ -719,17 +726,19 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`      float _tn=(_x*_co+_y*_si-_pmin)/_rng;`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_tn*${repeat}${scroll})*255));}}`)
   },
-  PolarGradient({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  PolarGradient({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     needsT.v = true
     ln(`  { // Polar gradient`)
     ln(`    float _ao=${f('angleOffset', 'angleOffset', 0)},_sp=${f('spin', 'spin', 0.1)},_rs=${f('radialScroll', 'radialScroll', 0)};`)
+    const spinPh = speedPhaseCpp(ln, phaseTag(id, 'spin'), '_sp')
+    const scrollPh = speedPhaseCpp(ln, phaseTag(id, 'scroll'), '_rs')
     ln(`    float _rp=constrain(roundf(${f('repeat', 'repeat', 1)}),1.0f,16.0f),_mx=constrain(${f('radialMix', 'radialMix', 0)},0.0f,1.0f);`)
     ln(`    float _cx=(WIDTH-1)*0.5f,_cy=(HEIGHT-1)*0.5f,_rm=max(1e-6f,sqrtf(_cx*_cx+_cy*_cy));`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _dx=_x-_cx,_dy=_y-_cy;`)
-    ln(`      float _turn=atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+_sp*t,_rad=sqrtf(_dx*_dx+_dy*_dy)/_rm+_rs*t;`)
+    ln(`      float _turn=atan2f(_dy,_dx)/6.2831853f+_ao/360.0f+${spinPh},_rad=sqrtf(_dx*_dx+_dy*_dy)/_rm+${scrollPh};`)
     ln(`      float _u=(1.0f-_mx)*_turn*_rp+_mx*_rad*_rp; _u-=floorf(_u);`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(_u*255.0f));}}`)
   },
