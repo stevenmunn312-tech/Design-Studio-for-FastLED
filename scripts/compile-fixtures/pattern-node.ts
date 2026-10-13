@@ -1,8 +1,11 @@
-/** Generate the real pattern-node graphs used by the Phase 0–10 firmware gates. */
+/** Generate the real pattern-node graphs used by the Phase 0–11 firmware gates. */
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
+import { generateShowSketch } from '../../src/codegen/showGenerator'
+import { buildShowPlayer } from '../../src/utils/showUpload'
+import type { GroupRegistry } from '../../src/state/graphEvaluator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import { BUNDLED_PATTERNS } from '../../src/state/patterns/bundledPatterns'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
@@ -720,6 +723,49 @@ const phase10Big = (() => {
   return requireMarkers('32×32', generateCpp(nodes, edges), ['static void _fluidStep(', '// Automaton (cyclic)', '// Fractal (julia)'])
 })()
 
+// Phase 11: a ring driven by the show sketch and by the SD player. Both
+// compose every pattern into `leds` and copy it through the ring's PROGMEM map
+// into the chain FastLED drives — the composition/physical split the normal
+// sketch has always made, which these two generators lacked. Two patterns, so
+// the transition compositing is in the build too.
+const phase11Groups = {
+  g0: { nodes: [node('nz', 'Noise', { palette: 'ocean' }), node('go', 'GroupOutput')], edges: [edge('e', 'nz', 'frame', 'go', 'frame')] },
+  g1: { nodes: [node('pl', 'Plasma'), node('go', 'GroupOutput')], edges: [edge('e', 'pl', 'frame', 'go', 'frame')] },
+} as unknown as GroupRegistry
+const phase11Markers = ['#define RING_LEDS 60', 'CRGB ledsOut[RING_LEDS];', '_ringmap[RING_LEDS] PROGMEM', '(ledsOut, RING_LEDS)', 'ledsOut[_i] = leds[pgm_read_word(&_ringmap[_i])];']
+
+const phase11ShowRing = (() => {
+  const nodes = [
+    node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+    node('out', 'MatrixOutput', { form: 'ring', ledCount: 60, dataPin: 5 }),
+  ]
+  const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+  const sketch = generateShowSketch(nodes, edges, phase11Groups)
+  for (const marker of phase11Markers) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 11 show ring fixture is missing ${marker}`)
+  }
+  return sketch
+})()
+
+const phase11PlayerRing = (() => {
+  const nodes = [
+    node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
+    node('pm', 'PatternMaster', {}),
+    node('out', 'MatrixOutput', { form: 'ring', ledCount: 60, dataPin: 5 }),
+    node('sd', 'SDCard'),
+    node('amp', 'Amplifier'),
+  ]
+  const edges = [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')]
+  const sketch = buildShowPlayer(nodes, edges, phase11Groups, {
+    patternSet: ['g0', 'g1'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
+  })
+  for (const marker of phase11Markers) {
+    if (!sketch.includes(marker)) throw new Error(`Phase 11 player ring fixture is missing ${marker}`)
+  }
+  return sketch
+})()
+
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/pattern-node-fixtures')
 mkdirSync(outputDir, { recursive: true })
 writeFileSync(resolve(outputDir, 'phase0.ino'), phase0, 'utf8')
@@ -753,6 +799,8 @@ writeFileSync(resolve(outputDir, 'phase10-string.ino'), phase10String, 'utf8')
 writeFileSync(resolve(outputDir, 'phase10-ring.ino'), phase10Ring, 'utf8')
 writeFileSync(resolve(outputDir, 'phase10-matrix.ino'), phase10Matrix, 'utf8')
 writeFileSync(resolve(outputDir, 'phase10-32.ino'), phase10Big, 'utf8')
+writeFileSync(resolve(outputDir, 'phase11-show-ring.ino'), phase11ShowRing, 'utf8')
+writeFileSync(resolve(outputDir, 'phase11-player-ring.ino'), phase11PlayerRing, 'utf8')
 writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
   phase0: {
     bytes: Buffer.byteLength(phase0),
@@ -798,10 +846,11 @@ writeFileSync(resolve(outputDir, 'manifest.json'), `${JSON.stringify({
     ['phase8-waveform', phase8Waveform], ['phase8-waveform-s3', phase8WaveformS3],
     ['phase9-string', phase9String], ['phase9-ring', phase9Ring], ['phase9-matrix', phase9Matrix],
     ['phase10-string', phase10String], ['phase10-ring', phase10Ring], ['phase10-matrix', phase10Matrix], ['phase10-32', phase10Big],
+    ['phase11-show-ring', phase11ShowRing], ['phase11-player-ring', phase11PlayerRing],
     ['phase8-base', phase8Base], ['phase8-base-s3', phase8BaseS3], ['phase8-all', phase8All], ['phase8-all-s3', phase8AllS3],
   ] as const).map(([key, sketch]) => [key, {
     bytes: Buffer.byteLength(sketch),
     sha256: createHash('sha256').update(sketch).digest('hex'),
   }])),
 }, null, 2)}\n`, 'utf8')
-console.log(`wrote the Phase 0–10 pattern-node compile fixtures to ${outputDir}`)
+console.log(`wrote the Phase 0–11 pattern-node compile fixtures to ${outputDir}`)

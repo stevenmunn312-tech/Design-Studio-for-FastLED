@@ -357,6 +357,10 @@ controller file (one `render_pN()` per pattern plus the dispatch/transition
 loop) rather than emitting a separate `.h` per pattern. Multi-file
 `.h`-per-pattern output remains an
 unshipped follow-up if flash-size or build-time pressure ever calls for it.
+Every pattern renders into `leds`, the composition canvas; a shape-mapped chain
+or a wired matrix then drives its own `ledsOut` through the same PROGMEM table
+the normal sketch bakes (`src/codegen/output/shapeMapCpp.ts`), so a ring,
+corkscrew or positioned string plays a show like any other output.
 
 ## Phased rollout
 

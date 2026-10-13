@@ -473,9 +473,10 @@ through step 11 of the
       plan: the LED Output node's own preview draws the string over its canvas,
       but the main LED Output pane still draws a row (as it does for a ring) and
       the Build Diagram still draws a straight run, because canvas units are not
-      millimetres; and Music Player and SD player sketches do not generate the
-      map, so `findShowOutputFormErrors` blocks them the way it blocks a ring.
-      Compiled on classic ESP32 and ESP8266, see the
+      millimetres. The Music Player and SD player sketches at first did not
+      generate the map and were blocked; since 2026-10-13 they bake it through
+      the shared `src/codegen/output/shapeMapCpp.ts` beside the normal sketch,
+      for rings and corkscrews too. Compiled on classic ESP32 and ESP8266, see the
       [compile record](../reports/compile/pattern-node-compile-checks.md).
 - [x] **White point.** A per-output `whitePoint` select of FastLED
       `ColorTemperature` names, emitted through `setTemperature` by

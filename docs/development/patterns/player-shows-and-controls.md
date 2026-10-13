@@ -195,6 +195,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `playerBrightness`. Bind the panel's source table after scalar outputs exist:
   binding earlier records LED fields as unresolved before the real table is
   built. A power-monitor table still wins when one matches the panel.
+- The show and SD-player sketches compose every pattern and transition into
+  `leds`, `WIDTH x HEIGHT`, and that array is the chain only when the output is
+  a straight string or a row-major matrix. A ring, corkscrew or positioned
+  string, and a serpentine, tiled or custom-mapped matrix, drive a second array
+  `ledsOut` that FastLED is registered on: the loop copies `leds` into it
+  through the PROGMEM table just before `show()`, the same split the normal
+  sketch makes at its LED output. The shape tables and the copy come from one
+  emitter, `src/codegen/output/shapeMapCpp.ts` (`shapeMapFor` against the
+  canvas that actually exists, `shapeTableCpp`, `shapeCopyCpp`), which the
+  normal sketch's `MatrixOutput` emitter uses too, so the three sketches and the
+  preview's `routeFrame` light the same LED from the same pixel. The player's
+  `PlayerConfig` carries `ledShape` and `ledXyTable`, and its `ledWidth`/
+  `ledHeight` are `outputCanvasDims`, not the raw grid properties (a 60-LED
+  string is 60 x 1, a 24-LED ring an 8 x 8 canvas). Multi-output shows map each
+  route against the shared composition. Keep `ledsOut` out of a sketch whose
+  output needs no table: the plain path is byte-identical to before.
 - Per-output blackout and dimming are wires, not project settings:
   `src/state/output/ledOutputRuntime.ts` resolves an output's `enabled`/`brightness`
   ports, defaulting unwired to lit/undimmed so adding the ports to an existing

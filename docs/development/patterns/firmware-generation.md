@@ -194,6 +194,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is matrix-only and mutually exclusive with supersample (supersample wins). A
   positioned string bakes only fixed-point (1/256 unit) numbers into PROGMEM;
   the user's text is parsed in TypeScript and never interpolated into C++.
+  The ring, corkscrew and position tables and the copy through them are one
+  emitter, `src/codegen/output/shapeMapCpp.ts`, shared by the normal sketch
+  (single and multi-route), the show sketch and the SD player; `ringMapFor`
+  and `corkscrewMapFor` stay in `src/state/output/outputRouting.ts` because the
+  preview routes through them. Add a shape there, not in a generator.
 
 - The sketch's network is one emitter, `src/codegen/peripherals/networkCpp.ts`:
   `networkSketchCpp(nodes, source)` returns the platform headers as **one

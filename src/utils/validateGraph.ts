@@ -1250,51 +1250,6 @@ export function findPixelDataExtenderErrors(nodes: StudioNode[]): string[] {
 }
 
 /**
- * A shape-mapped chain driven by the Show Engine or music-sync SD player,
- * whose specialized sketches cannot render it yet.
- *
- * Rings and corkscrews are chains that read through dedicated sample maps, so
- * they need a map table plus a physical LED array kept
- * separate from the render buffer — `generateCpp` does both. The show/player
- * generators have neither: `leds` is the composition buffer every pattern
- * renders into and every transition composites through, and their blits have
- * no shape-map branch.
- * So a mapped chain in a show drove its authoring raster down the physical run,
- * lighting the wrong LED from the wrong pixel.
- *
- * Blocked rather than emitted, on the same principle as the HUB75 gate above:
- * a config no generator can express is an error at deploy, not a surprise on
- * the bench. Removing this means teaching the show sketch the same
- * composition/physical split `generateCpp` already makes.
- */
-export function findShowOutputFormErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
-  const masters = new Set(nodes.filter((node) => node.data.nodeType === 'PatternMaster').map((node) => node.id))
-  const showDriven = new Set(edges
-    .filter((edge) => masters.has(edge.source) && edge.sourceHandle === 'frame' && edge.targetHandle === 'frame')
-    .map((edge) => edge.target))
-  const playerDriven = new Set(edges
-    .filter((edge) => edge.targetHandle === 'sdcard')
-    .map((edge) => edge.target))
-  return nodes
-    .filter((node) => node.data.nodeType === 'MatrixOutput' && (showDriven.has(node.id) || playerDriven.has(node.id)))
-    .filter((node) => {
-      const props = node.data.properties as Record<string, unknown>
-      const form = outputForm(props)
-      return form === 'ring' || form === 'corkscrew' || usesPositions(props)
-    })
-    .map((node) => {
-      const props = node.data.properties as Record<string, unknown>
-      const form = outputForm(props)
-      const positioned = usesPositions(props)
-      const label = positioned ? 'positioned string' : form === 'ring' ? 'ring' : 'corkscrew'
-      const geometry = positioned ? 'per-LED position' : form === 'ring' ? 'circular' : 'helical'
-      const workflow = showDriven.has(node.id) ? 'Music Player' : 'music-sync SD player'
-      const fallbackLabel = positioned ? 'LED String' : form === 'ring' ? 'LED Ring' : 'LED Corkscrew'
-      return `${String(node.data.label ?? fallbackLabel)}: a ${label} cannot be driven by the ${workflow} yet — its ${geometry} LED map is not generated for that firmware. Use a straight string or matrix output, or drive the ${label} from a normal pattern graph.`
-    })
-}
-
-/**
  * What a music-sync show needs on the bench before it can be built.
  *
  * The player is a whole firmware for a whole board: it reads the card, decodes
@@ -1650,7 +1605,6 @@ export function findDeployBlockingErrors(
     ...findMatrixLayoutErrors(nodes),
     ...findPixelDataExtenderErrors(nodes),
     ...findSdVideoErrors(nodes, edges, selectedFqbn),
-    ...findShowOutputFormErrors(nodes, edges),
     ...findShowRequirementErrors(nodes, edges, selectedFqbn),
     ...findAudioCapabilityErrors(nodes, edges),
     ...findStorageCapabilityErrors(nodes, edges),

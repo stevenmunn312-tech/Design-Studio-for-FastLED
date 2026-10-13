@@ -298,12 +298,13 @@ on the board. All three fixes are in the preview's C++-to-JS shim
 From [pattern node expansion, Phase 11](docs/plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons)
 and its design notes.
 
-- [ ] **Shaped outputs in show and player sketches.** A ring, corkscrew or
-  positioned string works in a normal sketch, but `findShowOutputFormErrors`
-  refuses it under the Music Player or the SD player, because those sketches
-  render straight into `leds` and have no shape map. Teach them the
-  composition/physical split `generateCpp` already makes, and the shape-map
-  copy between the two, then lift the refusal for all three forms at once.
+- [x] **Shaped outputs in show and player sketches.** The Music Player and the
+  SD player compose into `leds` and copy it through the same ring, corkscrew
+  or position map the normal sketch bakes, from one emitter
+  (`src/codegen/output/shapeMapCpp.ts`), so the refusal is gone for all three
+  forms. The same stage carries a wired matrix's XY table, which both sketches
+  had silently skipped, and the SD player now takes a string its length rather
+  than the grid defaults.
 - [ ] **Shapes in the main LED Output pane.** The node's own preview draws a
   positioned string along its curve, but the main LED Output pane draws it, and
   a ring, as a straight row. Draw both in their real shape there.

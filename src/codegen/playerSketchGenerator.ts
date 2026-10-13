@@ -58,6 +58,10 @@ import {
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
 } from './displays/segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
+import { outputCanvasDims, outputForm } from '../state/output/ledOutputForm'
+import { outputRoutes } from '../state/output/outputRouting'
+import { buildXYTable } from '../state/output/xyLayout'
+import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName, type ShapeMap } from './output/shapeMapCpp'
 import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
 import type { StudioNode } from '../state/graphStore'
@@ -76,8 +80,16 @@ import { SPI_BUS_CPP } from './helpers/spiBusCpp'
 export interface PlayerConfig {
   /** False when the player's only physical pixels are standalone VU rails. */
   hasPrimaryLedOutput: boolean
+  /** The composition canvas the show renders on: a matrix's grid, a string's
+   *  1 x N, or the square/strip a ring, corkscrew or positioned string reads. */
   ledWidth:    number
   ledHeight:   number
+  /** How the chain reads that canvas: a ring, corkscrew or positioned string's
+   *  sample map, or null when the chain is the canvas in wire order. */
+  ledShape:    ShapeMap | null
+  /** A wired matrix's grid-to-chain table (serpentine, tiles, custom map), or
+   *  null for row-major. */
+  ledXyTable:  number[] | null
   ledDataPin:  number
   ledClockPin: number   // SPI chipsets (APA102/WS2801/HD108) only
   chipset:     string
@@ -115,7 +127,7 @@ export interface PlayerConfig {
 
 const DEFAULTS: PlayerConfig = {
   hasPrimaryLedOutput: true,
-  ledWidth: 16, ledHeight: 16, ledDataPin: 18, ledClockPin: 6,
+  ledWidth: 16, ledHeight: 16, ledShape: null, ledXyTable: null, ledDataPin: 18, ledClockPin: 6,
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', whitePoint: 'none', dither: true, overclock: 1,
   powerLimit: false, volts: 5, milliamps: 2000,
@@ -177,10 +189,16 @@ export function playerConfigFromGraph(
   const volumeStage = audioVolumeStage(nodes as StudioNode[])?.data.properties ?? {}
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v))
   const str = (v: unknown, d: string) => (v === undefined || v === null ? d : String(v))
+  // `width`/`height` are the grid forms' properties; a string's length and a
+  // ring's canvas come from the form, as the show generator's do.
+  const canvas = outputCanvasDims(mo)
+  const route = target ? outputRoutes([target as unknown as StudioNode])[0] : null
   return {
     hasPrimaryLedOutput: !!target,
-    ledWidth:    num(mo.width, DEFAULTS.ledWidth),
-    ledHeight:   num(mo.height, DEFAULTS.ledHeight),
+    ledWidth:    canvas.width,
+    ledHeight:   canvas.height,
+    ledShape:    route ? shapeMapFor(route, canvas.width, canvas.height) : null,
+    ledXyTable:  route && outputForm(mo) === 'matrix' ? buildXYTable(canvas.width, canvas.height, mo) : null,
     ledDataPin:  sanitizePin(mo.dataPin, DEFAULTS.ledDataPin),
     ledClockPin: sanitizePin(mo.clockPin, DEFAULTS.ledClockPin),
     chipset:     str(mo.chipset, DEFAULTS.chipset),
@@ -556,11 +574,48 @@ export function generatePlayerSketch(
   const clockPinDefine = c.hasPrimaryLedOutput && !isHub75 && SPI_CHIPSETS.has(hw.chipset)
     ? `#define LED_CLOCK_PIN ${hw.clockPin}\n`
     : ''
+  // The patterns and transitions compose into `leds`, WIDTH x HEIGHT. A
+  // shape-mapped chain or a wired matrix reads it through a table into a
+  // physical array of its own — the normal sketch's composition/physical split.
+  const shape = c.hasPrimaryLedOutput && !isHub75 ? c.ledShape : null
+  const xyTable = c.hasPrimaryLedOutput && !isHub75 && !shape ? c.ledXyTable : null
+  const physical = shape
+    ? { array: 'ledsOut', count: SHAPE_COUNT_MACRO[shape.kind] }
+    : xyTable
+      ? { array: 'ledsOut', count: 'NUM_LEDS' }
+      : { array: 'leds', count: 'NUM_LEDS' }
+  const physicalGlobals = shape
+    ? [
+      `CRGB ${physical.array}[${physical.count}];   // the chain FastLED drives; leds is the composition canvas`,
+      ...shapeTableCpp(shape, {
+        table: shapeTableName(shape.kind),
+        length: shape.kind === 'positions' ? `${physical.count} * 2` : physical.count,
+      }),
+    ]
+    : xyTable
+      ? [
+        `CRGB ${physical.array}[NUM_LEDS];   // the chain FastLED drives; leds is the composition canvas`,
+        `// Physical wiring map (grid index -> physical LED index), baked from`,
+        `// LED output layout/serpentine/tile settings.`,
+        `const uint16_t _xytable[NUM_LEDS] PROGMEM = { ${xyTable.join(',')} };`,
+        `uint16_t XY(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable[(uint16_t)y * WIDTH + x]); }`,
+      ]
+      : []
+  const physicalCopyLines = shape
+    ? shapeCopyCpp(shape, {
+      src: 'leds', leds: physical.array, table: shapeTableName(shape.kind), count: physical.count, srcW: 'WIDTH', srcH: 'HEIGHT',
+    })
+    : xyTable
+      ? [`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) ${physical.array}[XY(_x, _y)] = leds[_y * WIDTH + _x];`]
+      : []
   const ledSetupLines = !c.hasPrimaryLedOutput
     ? ''
     : isHub75
       ? hub75SetupCpp(hub75Hw!).join('\n')
-      : fastledSetupCpp(hw, { dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: c.ledBrightness }).join('\n')
+      : fastledSetupCpp(hw, {
+        dataPinMacro: 'LED_DATA_PIN', clockPinMacro: 'LED_CLOCK_PIN', brightness: c.ledBrightness,
+        ...(physical.array !== 'leds' ? { ledCountMacro: physical.count, ledsName: physical.array } : {}),
+      }).join('\n')
   const stereoVuSetupLines = stereoVuMeters.flatMap((meter) => {
     const meterHw = ledHardwareFromProps(meter.properties)
     return [
@@ -1113,7 +1168,7 @@ ${hasInfoDisplays ? INFO_DISPLAY_CPP_FORWARD + '\n' : ''}${hasSegmentDisplays ? 
 ${c.hasPrimaryLedOutput && !isHub75 ? `#define LED_DATA_PIN  ${c.ledDataPin}\n` : ''}${clockPinDefine}#define WIDTH         ${c.ledWidth}
 #define HEIGHT        ${c.ledHeight}
 #define NUM_LEDS      ${numLeds}
-#define SD_CS         ${c.sdCsPin}
+${shape ? shapeCountDefineCpp(shape) + '\n' : ''}#define SD_CS         ${c.sdCsPin}
 #define SD_SCK        ${c.sdSckPin}
 #define SD_MISO       ${c.sdMisoPin}
 #define SD_MOSI       ${c.sdMosiPin}
@@ -1159,7 +1214,7 @@ struct ShowEvent {
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 CRGB leds[NUM_LEDS];
-${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition')}
+${physicalGlobals.map((line) => line + '\n').join('')}${isHub75 ? hub75GlobalsCpp(hub75Hw!).join('\n') + '\n' : ''}${playerBufferDecl('CRGB showA[NUM_LEDS];             // outgoing pattern during a transition')}
 ${playerBufferDecl('CRGB showB[NUM_LEDS];            // incoming pattern during a transition')}
 Audio audio${internalDac ? '(true)' : ''};  // true = internal DAC on GPIO25/26; otherwise external I2S
 uint32_t audioPosMs = 0;      // elapsed playback time, never read-ahead bytes
@@ -2296,7 +2351,7 @@ ${genericPlayer && reactiveAudio ? `  for (int i = 0; i < NUM_LEDS; i++) {
     leds[i].nscale8((uint8_t)constrain(audioFade * 255.0f, 0.0f, 255.0f));
   }
 ` : ''}
-
+${physicalCopyLines.map((line) => line + '\n').join('')}
 ${stereoVuMeters.map(stereoVuLoopCpp).join('\n')}
   ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : ''}
   ${!isHub75 || hasStereoVu ? 'FastLED.show();' : ''}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findShowOutputFormErrors, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/displays/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/displays/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/displays/tftDisplayCpp'
@@ -562,63 +562,6 @@ describe('validateGraph', () => {
     // No board selected yet, or an addressable chipset: no HUB75-specific error.
     expect(findBoardCompatibilityErrors(nodes, '')).toEqual([])
     expect(findBoardCompatibilityErrors([node('out', 'MatrixOutput', { chipset: 'WS2812B' })], 'esp32:esp32:esp32c3')).toEqual([])
-  })
-
-  // A ring reads a circle out of the composition, which needs the `_ringmap`
-  // table and a physical array kept apart from the render buffer. The show
-  // sketch has neither, so it drove a d x d raster down a chain of N.
-  it('blocks a ring driven by the Show Engine, and allows a string', () => {
-    const ring = [
-      node('pc', 'PatternCollection', { patternIds: [] }),
-      node('pm', 'PatternMaster', {}),
-      node('out', 'MatrixOutput', { form: 'ring', ledCount: 24 }),
-    ]
-    const wires = [edge('e1', 'pm', 'out', 'frame')]
-    expect(findShowOutputFormErrors(ring, wires)).toEqual([
-      expect.stringMatching(/ring cannot be driven by the Music Player/),
-    ])
-
-    const strip = [ring[0], ring[1], node('out', 'MatrixOutput', { form: 'strip', ledCount: 60 })]
-    expect(findShowOutputFormErrors(strip, wires)).toEqual([])
-  })
-
-  it('leaves a ring alone when no Show Engine drives it', () => {
-    const nodes = [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { form: 'ring', ledCount: 24 })]
-    expect(findShowOutputFormErrors(nodes, [edge('e1', 'sc', 'out', 'frame')])).toEqual([])
-  })
-
-  it('blocks a corkscrew from the Show Engine until that generator can emit its helix map', () => {
-    const nodes = [
-      node('pc', 'PatternCollection', { patternIds: [] }),
-      node('pm', 'PatternMaster', {}),
-      node('out', 'MatrixOutput', { form: 'corkscrew', ledCount: 120, corkscrewTurns: 6 }),
-    ]
-    expect(findShowOutputFormErrors(nodes, [edge('e1', 'pm', 'out', 'frame')])).toEqual([
-      expect.stringMatching(/corkscrew cannot be driven by the Music Player.*helical LED map/),
-    ])
-  })
-
-  it('blocks mapped chains from the music-sync player and ignores stale matrix layout fields', () => {
-    const nodes = [
-      node('sd', 'SDCard'),
-      node('out', 'MatrixOutput', {
-        form: 'corkscrew',
-        ledCount: 120,
-        corkscrewTurns: 6,
-        width: 0,
-        height: 0,
-        layout: 'custom',
-        customXYMap: 'not a matrix map',
-      }),
-    ]
-    const wires = [{
-      id: 'sd-out', source: 'sd', target: 'out', sourceHandle: 'sdcard', targetHandle: 'sdcard',
-    }] as StudioEdge[]
-
-    expect(findMatrixLayoutErrors(nodes)).toEqual([])
-    expect(findShowOutputFormErrors(nodes, wires)).toEqual([
-      expect.stringMatching(/corkscrew cannot be driven by the music-sync SD player.*helical LED map/),
-    ])
   })
 
   it('allows a single HUB75 Matrix Output route with default layout', () => {

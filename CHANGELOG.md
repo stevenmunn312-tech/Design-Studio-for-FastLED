@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- A ring, corkscrew or positioned string can now be driven by the Music Player
+  and by the music-sync SD player. Those sketches compose into one canvas and
+  copy it through the same LED map the normal sketch bakes, so the pattern on
+  the bench matches the preview. Graph Health no longer refuses those forms in
+  a show, and a serpentine, tiled or custom-mapped matrix now takes its wiring
+  map in those builds too, where it was silently driven row-major before. The
+  SD player also takes a string its length instead of the unused grid defaults.
 - A pasted FastLED classic such as DemoReel100 now moves in the Code node's
   preview as it does on the board. The Global section runs once and keeps its
   variables across frames, so a `gHue` counter advances instead of resetting;

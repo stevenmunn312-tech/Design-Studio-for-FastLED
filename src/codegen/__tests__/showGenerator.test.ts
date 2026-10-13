@@ -730,6 +730,86 @@ describe('show sketch output geometry', () => {
     expect(cpp).toContain('#define WIDTH    32')
     expect(cpp).toContain('#define HEIGHT   8')
   })
+
+  // The show composes into `leds`; a shape-mapped chain is a second, physical
+  // array read through the same PROGMEM map a normal sketch bakes — so the
+  // Music Player no longer refuses a ring, corkscrew or positioned string.
+  it('drives a ring through its sample map into a physical array', () => {
+    const cpp = show({ form: 'ring', ledCount: 24, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' })
+    expect(cpp).toContain('#define WIDTH    8')
+    expect(cpp).toContain('#define HEIGHT   8')
+    expect(cpp).toContain('#define RING_LEDS 24')
+    expect(cpp).toContain('CRGB leds[NUM_LEDS];')
+    expect(cpp).toContain('CRGB ledsOut[RING_LEDS];')
+    expect(cpp).toContain('const uint16_t _ringmap[RING_LEDS] PROGMEM = {')
+    expect(cpp).toContain('FastLED.addLeds<WS2812B, DATA_PIN, GRB>(ledsOut, RING_LEDS);')
+    const copy = cpp.indexOf('for (int _i = 0; _i < RING_LEDS; _i++) ledsOut[_i] = leds[pgm_read_word(&_ringmap[_i])];')
+    expect(copy).toBeGreaterThan(cpp.indexOf('void loop()'))
+    expect(copy).toBeLessThan(cpp.indexOf('FastLED.show();', copy))
+    // The same map the normal sketch bakes for the same ring.
+    const normal = generateCpp(
+      [node('sc', 'SolidColor'), node('out', 'MatrixOutput', { form: 'ring', ledCount: 24, dataPin: 5 })],
+      [edge('e', 'sc', 'frame', 'out', 'frame')],
+    )
+    const table = (src: string) => src.match(/_ringmap\[RING_LEDS\] PROGMEM = \{ ([^}]+) \}/)![1]
+    expect(table(cpp)).toBe(table(normal))
+  })
+
+  it('drives a corkscrew through its helix map', () => {
+    const cpp = show({ form: 'corkscrew', ledCount: 120, corkscrewTurns: 6, dataPin: 5 })
+    expect(cpp).toContain('#define CORKSCREW_LEDS 120')
+    expect(cpp).toContain('CRGB ledsOut[CORKSCREW_LEDS];')
+    expect(cpp).toContain('const uint16_t _corkscrewmap[CORKSCREW_LEDS] PROGMEM = {')
+    expect(cpp).toContain('ledsOut[_i] = leds[pgm_read_word(&_corkscrewmap[_i])];')
+    expect(cpp).toContain('(ledsOut, CORKSCREW_LEDS);')
+  })
+
+  it('drives a positioned string by bilinear reads at its baked positions', () => {
+    const cpp = show({
+      form: 'strip', stripLayout: 'positions', ledCount: 3, positionsWidth: 8, positionsHeight: 4,
+      positionsPreset: 'custom', positions: '0.5,0.5 2.5,1.5 3.5,3.5', dataPin: 5,
+    })
+    expect(cpp).toContain('#define WIDTH    8')
+    expect(cpp).toContain('#define HEIGHT   4')
+    expect(cpp).toContain('#define POS_LEDS 3')
+    expect(cpp).toContain('CRGB ledsOut[POS_LEDS];')
+    expect(cpp).toContain('const uint16_t _posmap[POS_LEDS * 2] PROGMEM = { 128,128,640,384,896,896 };')
+    expect(cpp).toContain('pgm_read_word(&_posmap[_i * 2])')
+    expect(cpp).toContain('ledsOut[_i] = _c;')
+    expect(cpp).toContain('(ledsOut, POS_LEDS);')
+  })
+
+  // A wired matrix went straight from the composition to the pins in row-major
+  // order, so a serpentine panel showed every other row mirrored. It takes the
+  // same XY() remap a normal sketch bakes.
+  it('remaps a serpentine matrix through XY() into the physical array', () => {
+    const cpp = show({ form: 'matrix', width: 4, height: 2, serpentine: true, dataPin: 5 })
+    expect(cpp).toContain('CRGB ledsOut[NUM_LEDS];')
+    expect(cpp).toContain('const uint16_t _xytable[NUM_LEDS] PROGMEM = { 0,1,2,3,7,6,5,4 };')
+    expect(cpp).toContain('ledsOut[XY(_x, _y)] = leds[_y * WIDTH + _x];')
+    expect(cpp).toContain('(ledsOut, NUM_LEDS);')
+    const plain = show({ form: 'matrix', width: 4, height: 2, dataPin: 5 })
+    expect(plain).not.toContain('ledsOut')
+    expect(plain).toContain('(leds, NUM_LEDS);')
+  })
+
+  it('maps a ring beside a matrix against the shared composition', () => {
+    const cpp = generateShowSketch(
+      [
+        node('pc', 'PatternCollection', { patternIds: ['g0'] }), node('pm', 'PatternSlideshow', {}),
+        node('board', 'Board', { brightness: 90 }),
+        node('panel', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5, routeMode: 'fit' }),
+        node('ring', 'MatrixOutput', { form: 'ring', ledCount: 12, dataPin: 6, routeMode: 'fit' }),
+      ],
+      [...wiring, edge('e3', 'pm', 'frame', 'panel', 'frame'), edge('e4', 'pm', 'frame', 'ring', 'frame')],
+      groups,
+    )
+    expect(cpp).toContain('#define WIDTH    16')
+    expect(cpp).toContain('CRGB leds_ring[12];')
+    expect(cpp).toContain('const uint16_t _ringmap_ring[12] PROGMEM = {')
+    expect(cpp).toContain('CRGB _c = leds[pgm_read_word(&_ringmap_ring[_i])]; _c.nscale8_video(90);')
+    expect(cpp).toContain('leds_ring[_i] = _c;')
+  })
 })
 
 describe('show sketch weight', () => {

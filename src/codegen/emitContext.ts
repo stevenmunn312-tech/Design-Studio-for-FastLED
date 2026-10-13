@@ -9,6 +9,7 @@ import type { TransportArtworks } from '../utils/transportArtworks'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/displays/customDisplayResources'
 import type { OutputRoute } from '../state/output/outputRouting'
+import type { ShapeMap } from './output/shapeMapCpp'
 import type { LedHardware } from './output/ledHardwareCpp'
 import type { Hub75Hardware } from './output/hub75Cpp'
 import type { PlayerControlButtonEmit } from './player/playerControlsCpp'
@@ -71,10 +72,9 @@ export interface OutputEmitConfig extends OutputRoute {
   passIndex: number
   renderWidth: number
   renderHeight: number
-  ringMap: number[] | null
-  corkscrewMap: number[] | null
-  /** Positioned string: x, y per LED in 1/256 render pixels, or null. */
-  posMap: number[] | null
+  /** The ring, corkscrew or position map this route reads its render pass
+   *  through, or null for a grid and a straight chain. */
+  shape: ShapeMap | null
 }
 
 /** A set-once flag an emitter raises to pull a helper into the sketch. */
@@ -105,10 +105,8 @@ export interface SketchEmitContext {
   ss: boolean
   /** Half-resolution render upscaled into the panel (matrix, single output). */
   rs: boolean
-  ringMap: number[] | null
-  corkscrewMap: number[] | null
-  /** Positioned string: x, y per LED in 1/256 render pixels, or null. */
-  posMap: number[] | null
+  /** Single output: its ring, corkscrew or position map, or null. */
+  shape: ShapeMap | null
   physLeds: 'RING_LEDS' | 'CORKSCREW_LEDS' | 'POS_LEDS' | 'PANEL_LEDS' | 'NUM_LEDS'
   outputConfigs: OutputEmitConfig[]
   nativeFastLedAudio: boolean

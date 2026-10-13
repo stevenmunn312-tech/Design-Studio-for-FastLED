@@ -48,6 +48,66 @@ describe('playerSketchGenerator', () => {
     })
   })
 
+  // The player composes into `leds`, WIDTH x HEIGHT; a shape-mapped chain or a
+  // wired matrix drives a physical array of its own through the table a
+  // normal sketch bakes, so the SD player no longer refuses those forms.
+  describe('the LED output\'s geometry', () => {
+    const withOutput = (properties: Record<string, unknown>) => playerConfigFromGraph([
+      generator,
+      { id: 'mo', data: { nodeType: 'MatrixOutput', properties } },
+    ], SHOW_EDGE)
+
+    it('takes a string its length, not the unused grid defaults', () => {
+      const cfg = withOutput({ form: 'strip', ledCount: 60, width: 16, height: 16 })
+      expect([cfg.ledWidth, cfg.ledHeight, cfg.ledShape, cfg.ledXyTable]).toEqual([60, 1, null, null])
+      const sketch = generatePlayerSketch(cfg)
+      expect(sketch).toContain('#define NUM_LEDS      60')
+      expect(sketch).not.toContain('ledsOut')
+    })
+
+    it('drives a ring through its sample map into a physical array', () => {
+      const cfg = withOutput({ form: 'ring', ledCount: 24, chipset: 'WS2812B', colorOrder: 'GRB' })
+      expect([cfg.ledWidth, cfg.ledHeight, cfg.ledShape?.kind, cfg.ledShape?.ledCount]).toEqual([8, 8, 'ring', 24])
+      const sketch = generatePlayerSketch(cfg)
+      expect(sketch).toContain('#define NUM_LEDS      64')
+      expect(sketch).toContain('#define RING_LEDS 24')
+      expect(sketch).toContain('CRGB leds[NUM_LEDS];')
+      expect(sketch).toContain('CRGB ledsOut[RING_LEDS];')
+      expect(sketch).toContain('const uint16_t _ringmap[RING_LEDS] PROGMEM = {')
+      expect(sketch).toContain('FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(ledsOut, RING_LEDS);')
+      const copy = sketch.indexOf('for (int _i = 0; _i < RING_LEDS; _i++) ledsOut[_i] = leds[pgm_read_word(&_ringmap[_i])];')
+      expect(copy).toBeGreaterThan(sketch.indexOf('void loop()'))
+      expect(copy).toBeLessThan(sketch.indexOf('FastLED.show();', copy))
+    })
+
+    it('drives a corkscrew and a positioned string the same way', () => {
+      const helix = generatePlayerSketch(withOutput({ form: 'corkscrew', ledCount: 120, corkscrewTurns: 6 }))
+      expect(helix).toContain('#define CORKSCREW_LEDS 120')
+      expect(helix).toContain('ledsOut[_i] = leds[pgm_read_word(&_corkscrewmap[_i])];')
+      expect(helix).toContain('(ledsOut, CORKSCREW_LEDS);')
+      const positioned = generatePlayerSketch(withOutput({
+        form: 'strip', stripLayout: 'positions', ledCount: 3, positionsWidth: 8, positionsHeight: 4,
+        positionsPreset: 'custom', positions: '0.5,0.5 2.5,1.5 3.5,3.5',
+      }))
+      expect(positioned).toContain('#define WIDTH         8')
+      expect(positioned).toContain('#define HEIGHT        4')
+      expect(positioned).toContain('const uint16_t _posmap[POS_LEDS * 2] PROGMEM = { 128,128,640,384,896,896 };')
+      expect(positioned).toContain('pgm_read_word(&_posmap[_i * 2])')
+      expect(positioned).toContain('(ledsOut, POS_LEDS);')
+    })
+
+    it('remaps a serpentine matrix through XY() into the physical array', () => {
+      const cfg = withOutput({ form: 'matrix', width: 4, height: 2, serpentine: true })
+      expect(cfg.ledXyTable).toEqual([0, 1, 2, 3, 7, 6, 5, 4])
+      const sketch = generatePlayerSketch(cfg)
+      expect(sketch).toContain('CRGB ledsOut[NUM_LEDS];')
+      expect(sketch).toContain('const uint16_t _xytable[NUM_LEDS] PROGMEM = { 0,1,2,3,7,6,5,4 };')
+      expect(sketch).toContain('ledsOut[XY(_x, _y)] = leds[_y * WIDTH + _x];')
+      expect(sketch).toContain('(ledsOut, NUM_LEDS);')
+      expect(generatePlayerSketch(withOutput({ form: 'matrix', width: 4, height: 2 }))).not.toContain('ledsOut')
+    })
+  })
+
   describe('Control Map', () => {
     it('traces a chained controls bundle and lets the downstream mapper override an action', () => {
       const nodes = [

@@ -31,6 +31,8 @@ import { SYMMETRY_HELPER_CPP } from './helpers/symmetryHelperCpp'
 import { HUE_MIX_HELPER_CPP } from './helpers/hueMixHelperCpp'
 import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
+import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
+import { cppComment } from './cppLiterals'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
   SLIDESHOW_SILENCE_FADE_OUT_SEC,
@@ -757,7 +759,22 @@ export function generateShowSketch(
     hardware: ledHardwareFromProps(ledPropsWithController(props(route.node), nodes)),
     dataPin: Math.max(0, Math.min(48, Math.round(Number(props(route.node).dataPin ?? 5)))),
     xyTable: buildXYTable(route.width, route.height, props(route.node)),
+    // A ring, corkscrew or positioned string on this route reads the shared
+    // composition through its map — the same map the preview routes through.
+    shape: shapeMapFor(route, width, height),
   }))
+  // The show composes every pattern and transition into `leds`, WIDTH x
+  // HEIGHT. A shape-mapped chain and a wired matrix read that canvas through a
+  // table, so they drive a physical array of their own: the same
+  // composition/physical split a normal sketch makes at its LED output.
+  const singleRoute = !multiOutput && out && !isHub75 ? routes[0] : null
+  const singleShape = singleRoute ? singleRoute.shape : null
+  const singleXy = singleRoute && !singleShape ? singleRoute.xyTable : null
+  const physical = singleShape
+    ? { array: 'ledsOut', count: SHAPE_COUNT_MACRO[singleShape.kind] }
+    : singleXy
+      ? { array: 'ledsOut', count: 'NUM_LEDS' }
+      : { array: 'leds', count: 'NUM_LEDS' }
   // "Use PSRAM": every collected pattern contributes its own set of render
   // buffers, so a show is the heaviest static-RAM consumer — move those (and
   // the two transition compositing buffers) to external PSRAM. The sub-pattern
@@ -896,6 +913,7 @@ export function generateShowSketch(
   L.push(`#define WIDTH    ${width}`)
   L.push(`#define HEIGHT   ${height}`)
   L.push('#define NUM_LEDS (WIDTH * HEIGHT)')
+  if (singleShape) L.push(shapeCountDefineCpp(singleShape))
   if (multiOutput) {
     for (const route of routes) {
       L.push(`#define DATA_PIN_${route.safeId} ${route.dataPin}`)
@@ -914,6 +932,7 @@ export function generateShowSketch(
   // composition buffer regardless of chipset — but the physical output is the
   // DMA display object instead of a registered CLEDController.
   L.push('CRGB leds[NUM_LEDS];')
+  if (physical.array !== 'leds') L.push(`CRGB ${physical.array}[${physical.count}];   // the chain FastLED drives; leds is the composition canvas`)
   if (isHub75) L.push(...hub75GlobalsCpp(hub75Hw!))
   if (multiOutput) for (const route of routes) L.push(`CRGB leds_${route.safeId}[${route.width * route.height}];`)
   const showBufs = [
@@ -963,11 +982,31 @@ export function generateShowSketch(
 
   if (multiOutput) {
     for (const route of routes) {
+      if (route.shape) {
+        L.push(...shapeTableCpp(route.shape, {
+          table: shapeTableName(route.shape.kind, `_${route.safeId}`),
+          length: String(route.shape.table.length),
+          label: cppComment(route.label),
+        }))
+        L.push('')
+      }
       if (!route.xyTable) continue
       L.push(`const uint16_t _xytable_${route.safeId}[${route.width * route.height}] PROGMEM = { ${route.xyTable.join(',')} };`)
       L.push(`uint16_t XY_${route.safeId}(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable_${route.safeId}[(uint16_t)y * ${route.width} + x]); }`)
       L.push('')
     }
+  } else if (singleShape) {
+    L.push(...shapeTableCpp(singleShape, {
+      table: shapeTableName(singleShape.kind),
+      length: singleShape.kind === 'positions' ? `${physical.count} * 2` : physical.count,
+    }))
+    L.push('')
+  } else if (singleXy) {
+    L.push(`// Physical wiring map (grid index -> physical LED index), baked from`)
+    L.push(`// LED output layout/serpentine/tile settings.`)
+    L.push(`const uint16_t _xytable[NUM_LEDS] PROGMEM = { ${singleXy.join(',')} };`)
+    L.push(`uint16_t XY(uint8_t x, uint8_t y) { return pgm_read_word(&_xytable[(uint16_t)y * WIDTH + x]); }`)
+    L.push('')
   }
 
   for (const fn of renderers.functions) { L.push(fn); L.push('') }
@@ -1025,7 +1064,7 @@ export function generateShowSketch(
   } else if (isHub75) {
     for (const s of hub75SetupCpp(hub75Hw!)) L.push(s)
   } else {
-    for (const s of fastledSetupCpp(hw)) L.push(s)
+    for (const s of fastledSetupCpp(hw, physical.array !== 'leds' ? { ledCountMacro: physical.count, ledsName: physical.array } : {})) L.push(s)
   }
   for (const meter of stereoVuMeters) {
     const meterHw = ledHardwareFromProps(ledPropsWithController(meter.properties, nodes))
@@ -1147,7 +1186,12 @@ export function generateShowSketch(
     for (const route of routes) {
       const dest = `leds_${route.safeId}`
       const index = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
-      if (route.routeMode === 'crop') {
+      if (route.shape) {
+        L.push(...shapeCopyCpp(route.shape, {
+          src: 'leds', leds: dest, table: shapeTableName(route.shape.kind, `_${route.safeId}`), count: String(route.shape.ledCount),
+          srcW: 'WIDTH', srcH: 'HEIGHT', post: `_c.nscale8_video(${route.hardware.brightness});`,
+        }))
+      } else if (route.routeMode === 'crop') {
         L.push(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
         L.push(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
         L.push(`    CRGB _c = leds[_sy * WIDTH + _sx]; _c.nscale8_video(${route.hardware.brightness}); ${dest}[${index}] = _c;`)
@@ -1165,7 +1209,14 @@ export function generateShowSketch(
       L.push(...outputRuntime(route.id, dest, String(route.width * route.height)))
     }
   } else if (!isHub75 && out) {
-    L.push(...outputRuntime(out.id, 'leds', 'NUM_LEDS'))
+    if (singleShape) {
+      L.push(...shapeCopyCpp(singleShape, {
+        src: 'leds', leds: physical.array, table: shapeTableName(singleShape.kind), count: physical.count, srcW: 'WIDTH', srcH: 'HEIGHT',
+      }))
+    } else if (singleXy) {
+      L.push(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) ${physical.array}[XY(_x, _y)] = leds[_y * WIDTH + _x];`)
+    }
+    L.push(...outputRuntime(out.id, physical.array, physical.count))
   }
   for (const meter of stereoVuMeters) L.push(stereoVuLoopCpp(meter))
   if (isHub75) {

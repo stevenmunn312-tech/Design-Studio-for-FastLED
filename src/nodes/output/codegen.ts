@@ -20,7 +20,8 @@ import {
   xptTouchPinsForProps,
 } from '../../state/nodeLibrary'
 import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/output/ledOutputRuntimeCpp'
-import { positionReadCpp, renderScaleUpscaleCpp } from '../../codegen/output/renderScaleCpp'
+import { renderScaleUpscaleCpp } from '../../codegen/output/renderScaleCpp'
+import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeTableName } from '../../codegen/output/shapeMapCpp'
 import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/player/playerControlsCpp'
 import { normalizeButtonEdgeSettings } from '../../state/player/transportBridge'
 import { displayControlEdges } from '../../state/player/wireFirstControls'
@@ -728,7 +729,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of segmentDisplaySetupCpp(emit)) setupLines.push(line)
     for (const line of segmentDisplayLoopCpp(emit)) ln(line)
   },
-  MatrixOutput({ node, id, ln, srcBuf, outputRuntimeEmit, incoming, nodeMap, isMirrorOf, multipleOutputs, nativeMultiRender, hw, isHub75, hub75Hw, xyTable, ss, rs, ringMap, corkscrewMap, posMap, physLeds, outputConfigs, aliasedTerminalId, pressButton, stereoVuMeters, playerControlNodes, ledLatchOutputs }) {
+  MatrixOutput({ node, id, ln, srcBuf, outputRuntimeEmit, incoming, nodeMap, isMirrorOf, multipleOutputs, nativeMultiRender, hw, isHub75, hub75Hw, xyTable, ss, rs, shape, physLeds, outputConfigs, aliasedTerminalId, pressButton, stereoVuMeters, playerControlNodes, ledLatchOutputs }) {
     const mirrorOf = isMirrorOf(node)
     if (mirrorOf) {
       const leader = nodeMap.get(mirrorOf)
@@ -793,20 +794,10 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       const xy = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
       if (!src) {
         ln(`  fill_solid(${leds}, ${route.ledTotal}, CRGB::Black);`)
-      } else if (route.ringMap) {
-        ln(`  for (int _i = 0; _i < ${route.ringMap.length}; _i++) {`)
-        ln(`    CRGB _c = ${src}[pgm_read_word(&_ringmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
-        ln(`    ${leds}[_i] = _c;`)
-        ln(`  }`)
-      } else if (route.corkscrewMap) {
-        ln(`  for (int _i = 0; _i < ${route.corkscrewMap.length}; _i++) {`)
-        ln(`    CRGB _c = ${src}[pgm_read_word(&_corkscrewmap_${route.safeId}[_i])]; _c.nscale8_video(${route.hardware.brightness});`)
-        ln(`    ${leds}[_i] = _c;`)
-        ln(`  }`)
-      } else if (route.posMap) {
-        for (const line of positionReadCpp({
-          src, table: `_posmap_${route.safeId}`, count: String(route.posMap.length / 2),
-          srcW: 'WIDTH', srcH: 'HEIGHT', leds, post: `_c.nscale8_video(${route.hardware.brightness});`,
+      } else if (route.shape) {
+        for (const line of shapeCopyCpp(route.shape, {
+          src, leds, table: shapeTableName(route.shape.kind, `_${route.safeId}`), count: String(route.shape.ledCount),
+          srcW: 'WIDTH', srcH: 'HEIGHT', post: `_c.nscale8_video(${route.hardware.brightness});`,
         })) ln(line)
       } else if (route.routeMode === 'native' && route.renderScale < 1) {
         for (const line of renderScaleUpscaleCpp({
@@ -851,13 +842,9 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     }
     if (!src) {
       ln(`  fill_solid(leds, ${physLeds}, CRGB::Black);`)
-    } else if (ringMap) {
-      ln(`  for (int _i = 0; _i < RING_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_ringmap[_i])];`)
-    } else if (corkscrewMap) {
-      ln(`  for (int _i = 0; _i < CORKSCREW_LEDS; _i++) leds[_i] = ${src}[pgm_read_word(&_corkscrewmap[_i])];`)
-    } else if (posMap) {
-      for (const line of positionReadCpp({
-        src, table: '_posmap', count: 'POS_LEDS', srcW: 'WIDTH', srcH: 'HEIGHT', leds: 'leds',
+    } else if (shape) {
+      for (const line of shapeCopyCpp(shape, {
+        src, leds: 'leds', table: shapeTableName(shape.kind), count: SHAPE_COUNT_MACRO[shape.kind], srcW: 'WIDTH', srcH: 'HEIGHT',
       })) ln(line)
     } else if (rs) {
       for (const line of renderScaleUpscaleCpp({
