@@ -363,18 +363,22 @@ library defaults.
   Transition's `t` is one ungrouped row (the body's scrub slider is gone).
   Pre-1.0, no migration: a save made before this still shows its stale keys as
   raw rows until the node is replaced. No compile needed.
-- [ ] **D-08.4 · Definition bugs.** Line defaults `x2: 'W-1', y2: 'H-1'` are
-  rejected by `supportsScalarExpression` (a fresh Line draws nothing); Math has
-  no `a`/`b` defaults; Blend with B unwired blends against black in preview
-  and is a no-op in firmware (splice creates this state); HUB75 pins are
-  collected by `hardwareManifest.ts` on `chipset === 'HUB75'` while firmware
-  keys on `form === 'hub75'`; Fire `intensity` slider 0–2 against a 0–1 clamp
-  and Blobs `count` 1–200 against 1–6; GameOfLife reseeds on stagnation in
-  preview but only on extinction in firmware; DMXInput `universe` and
-  `previewPort` and LightInput `maxLux` as 72 px sliders (bounded number
-  inputs instead); DFPlayerOutput `audioOutput` inheriting the I2S tooltip;
-  CustomFormula edited in a one-line 72 px box with no inline parse error
-  (give it the Code node's editor and width).
+- [ ] **D-08.4 · Definition bugs.** Done, awaiting the queued compile in
+  `tmp/node-audit/compiles.ps1` (Game of Life and Blend firmware changed).
+  Line's end point defaults to `max_x`, `max_y`, which the scalar-expression
+  rules now accept as a matrix-relative default; Math ships `a: 0, b: 0`, and
+  changing its operation moves an operand still at the old identity to the
+  new one, so Add to Multiply passes a wired input through; Blend passes A
+  through in every mode while B is unwired, preview and firmware; HUB75 pins,
+  the deploy popup's and wizard's topology flash, the RAM alias check and the
+  validation profile all key on `form === 'hub75'` (the hardware catalogue
+  makes a panel by `form` alone); Fire `intensity` and Blobs `count` sliders
+  match their clamps; firmware Game of Life reseeds after four empty or
+  frozen steps, as the preview does; DMX `universe`/`previewPort` and LightInput `maxLux` are
+  bounded number fields (`entry: 'number'` on the slider meta); Custom Formula
+  has the Code node's editor, its 320 px width and an inline parse error. The
+  DFPlayer tooltip was already overridden; a test now holds it. Pre-1.0, no
+  migration: a Math saved without A/B still evaluates the identity but shows 0.
 - [ ] **D-08.5 · Beat response that honours its controls.** On every live
   source BeatDetect takes the FastLED-native branch, so `threshold`, `attack`,
   `decay` and its five diagnostic outputs are dead while Help says "raise

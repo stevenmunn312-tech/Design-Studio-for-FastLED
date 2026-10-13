@@ -1993,6 +1993,14 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*0.75')
   })
 
+  it('reseeds Game of Life after four empty or frozen steps, as the preview does', () => {
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, fade: 0.75, palette: 'mojito' })
+    const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('if(_gn_g[_i]!=_gc_g[_i]) _chg=true;')
+    expect(cpp).toContain('_gst_g=(_pop==0||!_chg)?_gst_g+1:0;')
+    expect(cpp).toContain('if (_gst_g>3) {')
+  })
+
   it('emits a Gray-Scott reaction-diffusion simulation', () => {
     const rd = node('rd', 'ReactionDiffusion', 'pattern', { feed: 0.055, kill: 0.062, speed: 8, palette: 'ocean' })
     const cpp = generateCpp([rd, outputNode], [edge('e', 'rd', 'out', 'frame', 'frame')])
@@ -2629,6 +2637,20 @@ describe('generateCpp', () => {
     // The terminal node renders into `leds` directly — no second buffer to copy.
     expect(cpp).toContain('CRGB* const buf_lb = leds;')
     expect(cpp).not.toContain('::memmove(leds, buf_lb,')
+  })
+
+  it('Blend with B unwired copies A and blends nothing, in every mode', () => {
+    const a = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
+    for (const blendMode of ['normal', 'multiply']) {
+      const bl = node('bl', 'Blend', 'composite', { blendMode, amount: 0.5 })
+      const cpp = generateCpp([a, bl, outputNode], [
+        edge('e1', 'a', 'bl', 'frame', 'a'),
+        edge('e3', 'bl', 'out', 'frame', 'frame'),
+      ])
+      expect(cpp).toContain('::memmove(buf_bl, buf_a, sizeof(CRGB) * NUM_LEDS)')
+      expect(cpp).not.toContain('nblend(buf_bl')
+      expect(cpp).not.toContain('float _op=')
+    }
   })
 
   it('Blend non-normal mode emits a per-channel blend loop', () => {

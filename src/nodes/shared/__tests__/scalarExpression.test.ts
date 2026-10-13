@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateScalarExpression } from '../scalarExpression'
-import { resolveNodeNumericProperties, supportsScalarExpression } from '../../../state/nodeLibrary'
+import { libraryDefaults, NODE_LIBRARY, resolveNodeNumericProperties, supportsScalarExpression } from '../../../state/nodeLibrary'
 
 describe('scalar numeric expressions', () => {
   it('exposes matrix geometry and mathematical constants', () => {
@@ -33,6 +33,24 @@ describe('scalar numeric expressions', () => {
 
     expect(resolveNodeNumericProperties('Random', { min: 'h - 2', max: 'w / 2' }, 20, 10))
       .toEqual({ min: 8, max: 10 })
+  })
+
+  it('draws a fresh Line corner to corner on any matrix', () => {
+    expect(supportsScalarExpression('Line', 'x2')).toBe(true)
+    expect(resolveNodeNumericProperties('Line', libraryDefaults('Line'), 20, 10))
+      .toMatchObject({ x1: 0, y1: 0, x2: 19, y2: 9 })
+    // An invalid end point falls back to the default expression, resolved.
+    expect(resolveNodeNumericProperties('Line', { x2: 'w +', y2: Number.NaN }, 32, 8))
+      .toEqual({ x2: 31, y2: 7 })
+  })
+
+  it('reads no text or option default as a numeric expression by accident', () => {
+    // A string default that happens to parse (a text node's `t`, an option
+    // named `pi`) would otherwise turn into a number in preview and firmware.
+    const expressionDefaults = NODE_LIBRARY.flatMap((node) => Object.entries(node.defaultProperties ?? {})
+      .filter(([key, value]) => typeof value === 'string' && supportsScalarExpression(node.type, key))
+      .map(([key]) => `${node.type}.${key}`))
+    expect(expressionDefaults).toEqual(['Line.x2', 'Line.y2'])
   })
 
   it('falls back to the library default while invalid source is being edited', () => {

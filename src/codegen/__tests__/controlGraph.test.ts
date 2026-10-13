@@ -110,7 +110,14 @@ describe('typed control graph', () => {
   })
 
   it('retains operation identities, zero-span mapping and interpolation defaults', () => {
-    const nodes = [node('multiply', 'Math', { mathOp: 'multiply' }), node('divide', 'Math', { mathOp: 'divide', b: 0 }),
+    // A save without A/B falls back to the operation's identity.
+    const withoutOperands = (entry: StudioNode, ...keys: string[]) => {
+      for (const key of keys) delete (entry.data.properties as Record<string, unknown>)[key]
+      return entry
+    }
+    const nodes = [
+      withoutOperands(node('multiply', 'Math', { mathOp: 'multiply' }), 'a', 'b'),
+      withoutOperands(node('divide', 'Math', { mathOp: 'divide', b: 0 }), 'a'),
       node('map', 'MapRange', { value: 6, inMin: 3, inMax: 3, outMin: 7 }),
       node('lerp', 'Lerp'), node('out', 'MatrixOutput', { width: 16, height: 16 })]
     const graph = createControlGraph(nodes, [])

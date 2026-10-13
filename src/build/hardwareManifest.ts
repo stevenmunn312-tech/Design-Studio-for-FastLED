@@ -319,7 +319,7 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
         break
       case 'MatrixOutput':
-        if (String(props.chipset ?? 'WS2812B') === HUB75_CHIPSET) {
+        if (outputForm(props) === 'hub75') {
           const hub75Props = { ...libraryDefaults('MatrixOutput'), ...props }
           push(node, `${baseLabel} R1 pin`, 'hub75R1Pin', hub75Props.hub75R1Pin)
           push(node, `${baseLabel} G1 pin`, 'hub75G1Pin', hub75Props.hub75G1Pin)

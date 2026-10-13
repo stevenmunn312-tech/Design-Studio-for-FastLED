@@ -21,7 +21,7 @@ import { resolveShowTarget } from '../state/player/showTarget'
 import {
   DEFAULT_STANDALONE_VU_LED_COUNT,
 } from '../state/audio/stereoVuSizing'
-import { evaluateScalarExpression } from '../nodes/shared/scalarExpression'
+import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
 import { isNodeFormulaValid } from '../nodes/shared/formulaLang'
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
@@ -732,7 +732,7 @@ export function estimateFirmwareRam(nodes: StudioNode[], edges: StudioEdge[], di
     const output = outputs[0]
     const p = output.data.properties as Record<string, unknown>
     if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p) || usesPositions(p)) return null
-    if (String(p.chipset ?? '') === 'HUB75') return null
+    if (outputForm(p) === 'hub75') return null
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
     if (!feed || feed.sourceHandle !== 'frame') return null
@@ -3688,7 +3688,7 @@ export function buildGraphDiagnostics(
           id: `${node.id}-expression-${key}`, severity: 'error', category: 'expression',
           title: `${nodeLabel(node)} has an invalid expression`,
           message: `${key}: ${value || '(empty)'}`,
-          fix: `Replace “${key}” with a number or a valid expression using W, H, min, max, abs, floor, ceil, round, or clamp.`,
+          fix: `Replace “${key}” with a number or a valid expression. ${SCALAR_EXPRESSION_HELP}.`,
           nodeIds: [node.id], nodeLabel: nodeLabel(node), propertyKey: key,
         })
       }

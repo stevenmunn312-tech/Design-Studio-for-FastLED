@@ -2797,6 +2797,19 @@ describe('evaluateGraph', () => {
     expect(frame![0][0].g).toBeCloseTo(128, -1)
   })
 
+  it('Blend passes A through untouched while B is unwired, in every mode', () => {
+    for (const blendMode of ['normal', 'multiply', 'screen']) {
+      const red = node('r', 'SolidColor', 'pattern', { r: 200, g: 40, b: 10 })
+      const blend = node('bl', 'Blend', 'composite', { blendMode, amount: 0.5 })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      const frame = evaluateGraph([red, blend, out], [
+        edge('e1', 'r', 'frame', 'bl', 'a'),
+        edge('e3', 'bl', 'frame', 'out', 'frame'),
+      ], 0, W, H)
+      expect(frame![0][0]).toEqual({ r: 200, g: 40, b: 10 })
+    }
+  })
+
   it('clampInputs clamps a wired control to its slider range', () => {
     const grey = node('g', 'SolidColor', 'pattern', { r: 50, g: 50, b: 50 })
     const four = node('four', 'Math', 'math', { mathOp: 'add', a: 4, b: 0 })   // emits 4.0

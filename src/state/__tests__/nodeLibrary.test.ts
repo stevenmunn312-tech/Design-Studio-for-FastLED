@@ -151,7 +151,7 @@ describe('nodeLibrary', () => {
 
   it('ships matrix-relative Line defaults', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'Line')?.defaultProperties).toMatchObject({
-      x1: 0, y1: 0, x2: 'W-1', y2: 'H-1',
+      x1: 0, y1: 0, x2: 'max_x', y2: 'max_y',
     })
   })
 
@@ -212,7 +212,20 @@ describe('nodeLibrary', () => {
     expect(propertyDescription('Fire', 'direction')).toBe('Which way the flame rises.')
     expect(propertyDescription('Transition', 'direction')).toBe('Slide direction for the Wipe / Push styles.')
     expect(propertyDescription('SDCard', 'audioOutput')).toBe(PROPERTY_DESCRIPTIONS.audioOutput)
+    expect(propertyDescription('DFPlayerOutput', 'audioOutput')).toMatch(/^Speaker uses/)
     expect(propertyDescription('Circle', 'nonexistentProp')).toBeUndefined()
+  })
+
+  it('slider ranges match the clamps preview and firmware apply', () => {
+    // Fire clamps intensity to 0-1 and Blobs keeps 1-6 blobs on both sides.
+    expect(propertyMeta('Fire', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('Blobs', 'count')).toMatchObject({ control: 'slider', min: 1, max: 6 })
+  })
+
+  it('types wide-range settings into a bounded number field rather than a slider', () => {
+    for (const [nodeType, key] of [['DMXInput', 'universe'], ['DMXInput', 'previewPort'], ['LightInput', 'maxLux']]) {
+      expect(propertyMeta(nodeType, key), `${nodeType}.${key}`).toMatchObject({ control: 'slider', entry: 'number' })
+    }
   })
 
   it('port colours distinguish bool events from float controls despite compatibility', () => {
@@ -826,7 +839,7 @@ describe('nodeLibrary', () => {
 
   it('math todo nodes expose editable defaults before wiring', () => {
     const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
-    expect(defaults('Math')).toEqual({ mathOp: 'add' })
+    expect(defaults('Math')).toEqual({ mathOp: 'add', a: 0, b: 0 })
     expect(defaults('Clamp')).toMatchObject({ value: 0, min: 0, max: 1 })
     expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
     expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.inputs.map((port) => port.id)).toEqual([

@@ -231,8 +231,11 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const fa = input(id, 'a', null) as Frame | null
     const fb = input(id, 'b', null) as Frame | null
     if (!fa && !fb) { return { frame: null } }
+    // Nothing on B yet (a fresh splice): A passes through, as the firmware's
+    // nblend of a buffer onto itself does.
+    if (!fb) { return { frame: fa } }
     const a = fa ?? blankFrame(W, H)
-    const b = fb ?? blankFrame(W, H)
+    const b = fb
     const opacity = Math.max(0, Math.min(1, num(id, 'amount', props, 'amount', 0.5)))
     const mode = String(props.blendMode ?? 'normal')
     return { frame: a.map((row, y) => row.map((px, x) => blendPixel(mode, px, b[y][x], opacity))) }

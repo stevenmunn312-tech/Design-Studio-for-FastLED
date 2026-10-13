@@ -10,12 +10,14 @@ import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsC
 import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
+import { nodeFormulaError } from '../../nodes/shared/formulaLang'
 import { waveNodeSamples } from '../../nodes/signal/wave'
 import WaveScope from './WaveScope'
 import ComplexWaveScope from './ComplexWaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
 import BoardPinPicker from '../Hardware/BoardPinPicker'
+import ClampedNumberInput from './ClampedNumberInput'
 import { LED_CELL_FILL } from '../Hardware/ledPreviewGeometry'
 import {
   corkscrewDiameterMm,
@@ -662,7 +664,6 @@ const LivePropertyControls = memo(function LivePropertyControls({
           if (nodeType === 'TransportDisplay' && key === 'tftLayout' && value === CUSTOM_DESIGN_LAYOUT
             && !props.displayId) createScreenDesignForPanel(nodeId)
         }
-        const forceTextNumber = nodeType === 'Math' && (key === 'a' || key === 'b')
         const expressionCapable = supportsScalarExpression(nodeType, key)
         const expressionResult = expressionCapable
           ? evaluateScalarExpression(val, expressionW, expressionH)
@@ -772,6 +773,17 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 ariaLabel={`${controlLabel} value`}
                 onChange={(value) => writeValue(value)}
               />
+            ) : meta?.control === 'slider' && meta.entry === 'number' && typeof val === 'number' ? (
+              <ClampedNumberInput
+                className={`nodrag ${styles.propInput}`}
+                value={typeof live === 'number' ? live : val}
+                min={meta.min}
+                max={meta.max}
+                step={meta.step}
+                disabled={disabled}
+                ariaLabel={`${controlLabel} value`}
+                onCommit={(value) => writeValue(value)}
+              />
             ) : meta?.control === 'slider' && typeof val === 'number' ? (
               <SliderProperty
                 label={controlLabel}
@@ -816,25 +828,11 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   writeValue(raw.trim() !== '' && Number.isFinite(n) ? n : raw)
                 }}
               />
-            ) : typeof val === 'number' && !forceTextNumber ? (
+            ) : typeof val === 'number' ? (
               <input
                 className={`nodrag ${styles.propInput}`}
                 type="number"
                 step="any"
-                disabled={disabled}
-                value={typeof live === 'number' ? showNum(live) : val}
-                aria-label={`${controlLabel} value`}
-                onWheelCapture={stopWheelWhileFocused}
-                onChange={(e) => {
-                  const n = Number(e.target.value)
-                  writeValue(e.target.value === '' || !Number.isFinite(n) ? 0 : n)
-                }}
-              />
-            ) : typeof val === 'number' && forceTextNumber ? (
-              <input
-                className={`nodrag ${styles.propInput}`}
-                type="text"
-                inputMode="decimal"
                 disabled={disabled}
                 value={typeof live === 'number' ? showNum(live) : val}
                 aria-label={`${controlLabel} value`}
@@ -1267,15 +1265,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     // Layer the saved properties over the library defaults, so a property
     // added to the library after this node was saved still gets an editor
     // (showing its default value until first edited).
-    const merged = { ...libraryDefaults(d.nodeType), ...rawProps }
-    if (d.nodeType !== 'Math') return merged
-    const op = String(rawProps.mathOp ?? 'add')
-    const idn = op === 'multiply' || op === 'divide' ? 1 : 0
-    return {
-      a: typeof rawProps.a === 'number' ? rawProps.a : idn,
-      b: typeof rawProps.b === 'number' ? rawProps.b : idn,
-      ...merged,
-    }
+    return { ...libraryDefaults(d.nodeType), ...rawProps }
   }, [d.nodeType, rawProps])
   const palettePreviewPropsJson = useGraphStore((s) => {
     if (d.nodeType !== 'CustomPalette' && d.nodeType !== 'Poline') return ''
@@ -1487,6 +1477,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const musicLibraryAnalyzing = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
+  const formulaError = d.nodeType === 'CustomFormula' ? nodeFormulaError(String(props.formula ?? '')) : null
   const signalKey = outPort ? `${id}:${outPort.id}` : null
   const categoryClass = CATEGORY_CLASS[d.category] ?? ''
   const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
@@ -1917,6 +1908,25 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               onChange={(e) => updateNodeProperty(id, 'code', e.target.value)}
             />
             <CodeError nodeId={id} />
+          </>
+        )}
+
+        {d.nodeType === 'CustomFormula' && (
+          <>
+            <div className={styles.codeLabel}>Formula</div>
+            <textarea
+              className={`nodrag ${styles.codeEditor}`}
+              style={{ minHeight: 56 }}
+              spellCheck={false}
+              value={String(props.formula ?? '')}
+              placeholder="sin(x*6+t)*0.5+0.5"
+              aria-label={`${displayName} formula`}
+              aria-invalid={formulaError ? 'true' : undefined}
+              disabled={bakeLocked}
+              onWheelCapture={stopWheelWhileFocused}
+              onChange={(e) => updateNodeProperty(id, 'formula', e.target.value)}
+            />
+            {formulaError && <div className={styles.codeErr} title={formulaError}>⚠ {formulaError}</div>}
           </>
         )}
 

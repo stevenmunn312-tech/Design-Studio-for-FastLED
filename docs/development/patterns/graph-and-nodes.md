@@ -156,8 +156,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   takes the library default. A node may therefore size an array or a
   `const int` from `Number(p.count)` without its own NaN check. That holds only
   for a key with a numeric library default, so a new numeric property needs
-  one. `num()` and `floatExpr` keep a finiteness fallback for a key without
-  one. A wired signal is not sanitised: firmware cannot intercept a NaN on a
+  one. A default may instead be a matrix-relative expression (Line's end point
+  is `max_x`, `max_y`, so a fresh Line spans whatever matrix it lands on); a
+  string default counts only when its value changes with the matrix, because a
+  bit pattern such as Slice Tiling's `bitsB` also parses and must stay text.
+  `scalarExpression.test.ts` lists every expression default, so a new one is a
+  deliberate addition. `num()` and `floatExpr` keep a finiteness fallback for a
+  key without one. A wired signal is not sanitised: firmware cannot intercept a NaN on a
   wire, so the preview passes it through too, and Format Number shows it as
   "no reading". The stored properties stay untouched for the editors and
   validation.

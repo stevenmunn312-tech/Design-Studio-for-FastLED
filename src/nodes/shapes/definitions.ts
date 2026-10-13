@@ -179,7 +179,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { x1: 'x1', y1: 'y1', x2: 'x2', y2: 'y2', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x1: 0, y1: 0, x2: 'W-1', y2: 'H-1', r: 0, g: 200, b: 255 },
+    defaultProperties: { x1: 0, y1: 0, x2: 'max_x', y2: 'max_y', r: 0, g: 200, b: 255 },
   },
   {
     // Bundled shape generator: draws a rect / ellipse / regular polygon at

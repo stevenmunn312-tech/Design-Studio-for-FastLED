@@ -256,7 +256,7 @@ describe('hardware validation profiles', () => {
     const output = node('matrix', 'MatrixOutput', {
       width: 128,
       height: 64,
-      chipset: 'HUB75',
+      form: 'hub75',
       layout: 'panels',
       tilesX: 2,
       tilesY: 2,

@@ -1068,6 +1068,16 @@ describe('graphStore — loadGraph normalization', () => {
   })
 })
 
+describe('graphStore — Math operation change', () => {
+  beforeEach(() => reset())
+
+  it('moves an untouched operand to the new operation\'s identity and keeps an edited one', () => {
+    reset([node('m', 'Math', { mathOp: 'add', a: 0, b: 0.25 })])
+    useGraphStore.getState().updateNodeProperty('m', 'mathOp', 'multiply')
+    expect(useGraphStore.getState().nodes[0].data.properties).toEqual({ mathOp: 'multiply', a: 1, b: 0.25 })
+  })
+})
+
 describe('graphStore — Stereo VU sizing', () => {
   beforeEach(() => reset())
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compileFormulaSource } from '../formulaLang'
+import { compileFormulaSource, isNodeFormulaValid, nodeFormulaError } from '../formulaLang'
 import { SHIM_NAMES, makeShims } from '../fastledShims'
 
 const VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
@@ -141,5 +141,15 @@ describe('formulaLang — adversarial input is rejected at parse time, not silen
     expect(compile('   ')).toBeNull()
     expect(compile('+')).toBeNull()
     expect(compile('((')).toBeNull()
+  })
+})
+
+describe('nodeFormulaError — the reason the Custom Formula editor shows', () => {
+  it('agrees with isNodeFormulaValid and names what went wrong', () => {
+    for (const source of ['sin(x*6+t)*0.5+0.5', 'r < 0.5 ? a : b', '', '   ', 'x +', 'window.alert(1)', 'foo(x)', 'x; y', 'x'.repeat(5000)]) {
+      expect(nodeFormulaError(source) === null).toBe(isNodeFormulaValid(source))
+    }
+    expect(nodeFormulaError('foo + x')).toMatch(/Unknown identifier 'foo'/)
+    expect(nodeFormulaError('foo(x)')).toMatch(/Unknown function 'foo'/)
   })
 })

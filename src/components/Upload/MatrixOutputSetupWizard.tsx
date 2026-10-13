@@ -503,7 +503,7 @@ export default function MatrixOutputSetupWizard() {
               🧪 Flash wiring test
             </button>
 
-            {chipset === 'HUB75' && (
+            {form === 'hub75' && (
               <button
                 className={`${styles.wizardButtonBase} ${styles.exportBtn} ${styles.topologyBtn}`}
                 disabled={!uploadReady || busy || hub75TopologyErrors.length > 0}

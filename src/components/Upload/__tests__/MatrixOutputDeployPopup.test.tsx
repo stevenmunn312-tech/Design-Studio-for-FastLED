@@ -118,7 +118,7 @@ function setHub75Grid() {
           ...matrix.data.properties,
           width: 64,
           height: 64,
-          chipset: 'HUB75',
+          form: 'hub75',
           layout: 'panels',
           tilesX: 2,
           tilesY: 2,

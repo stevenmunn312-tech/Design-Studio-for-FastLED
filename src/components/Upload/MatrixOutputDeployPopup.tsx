@@ -38,6 +38,7 @@ import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { resolveBuildMode } from '../../state/upload/buildMode'
 import { describePort } from '../../utils/portStatus'
 import { graphDrivesOutput, readinessLayers } from '../../utils/readinessLayers'
+import { outputForm } from '../../state/output/ledOutputForm'
 import ReadinessLayers from './ReadinessLayers'
 
 type ReadinessState = 'ready' | 'checking' | 'missing'
@@ -100,7 +101,7 @@ export default function MatrixOutputDeployPopup({
     ?? nodes.find((n) => n.data.nodeType === 'MatrixOutput')
   const ownProps = ((outputNode?.data.properties ?? {}) as Record<string, unknown>)
   const nodeId = outputNode?.id ?? ''
-  const isHub75 = String(ownProps.chipset ?? 'WS2812B') === 'HUB75'
+  const isHub75 = outputForm(ownProps) === 'hub75'
   const build = useMemo(() => resolveBuildMode(nodes, edges), [nodes, edges])
   const hasBuildOutput = build.capabilities.buildable
   // A card is ordinary storage hardware until a connected engine selects the

@@ -50,6 +50,15 @@ describe('hardwareManifest', () => {
     ])
   })
 
+  it('collects a HUB75 panel ribbon by its form, as the firmware keys it', () => {
+    const keys = collectPinUses([node('panel', 'MatrixOutput', { form: 'hub75', width: 64, height: 32 })])
+      .map((use) => use.propertyKey)
+    expect(keys).toEqual([
+      'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
+      'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75ClkPin', 'hub75LatPin', 'hub75OePin',
+    ])
+  })
+
   it('describes the complete PCM1802 line-in clock and data wiring', () => {
     const manifest = buildHardwareManifest([
       node('line', 'LineInput', {

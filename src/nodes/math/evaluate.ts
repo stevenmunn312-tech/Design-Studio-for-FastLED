@@ -7,6 +7,7 @@ import {
   asDateTimeTextMode,
 } from '../../state/displays/displayText'
 import { applyEase } from './easing'
+import { mathOperandIdentity } from './mathIdentity'
 import { type StepValueState, reduceStepValue } from '../shared/stepValue'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import { instanceState } from '../../state/evaluator/memory'
@@ -35,11 +36,12 @@ const triggerState = instanceState('triggerState', new Map<string, TriggerState>
 
 export const MATH_EVALUATORS: NodeEvaluators = {
   // Bundled binary math (Add / Subtract / Multiply / Divide / Min / Max),
-  // selected by `mathOp`. Missing inputs default to the operation's identity
-  // (1 for multiply/divide, else 0). Keep in sync with cppGenerator's `Math`.
+  // selected by `mathOp`. A save without A or B falls back to the operation's
+  // identity (1 for multiply/divide, else 0). Keep in sync with `Math` in
+  // scalarControlCpp.
   Math({ num }, id, props) {
     const op = String(props.mathOp ?? 'add')
-    const idn = op === 'multiply' || op === 'divide' ? 1 : 0
+    const idn = mathOperandIdentity(op)
     const a = num(id, 'a', props, 'a', idn)
     const b = num(id, 'b', props, 'b', idn)
     let r: number

@@ -118,6 +118,7 @@ import { designControlBundle } from './displays/designControlBundle'
 import { asTftRotation } from './displays/tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
 import { partDerivedInputs } from '../build/parts/partPorts'
+import { retargetMathOperands } from '../nodes/math/mathIdentity'
 
 export interface StudioNodeData extends Record<string, unknown> {
   label: string
@@ -4242,6 +4243,9 @@ function editNodePropertyAndSyncVu(
     }
     if (target?.data.nodeType === 'StereoVuMeter' && ledCountWasEdited) {
       properties[VU_LED_COUNT_CUSTOM_KEY] = true
+    }
+    if (target?.data.nodeType === 'Math' && Object.prototype.hasOwnProperty.call(updates, 'mathOp')) {
+      return retargetMathOperands(current, properties)
     }
     return properties
   })

@@ -1,6 +1,7 @@
 // Scalar operations shared by the normal graph and template control graphs.
 import { displayString, normalizeNumberFormat } from '../state/displays/displayText'
 import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../nodes/shared/stepValue'
+import { mathOperandIdentity } from '../nodes/math/mathIdentity'
 import { toggleCpp } from './toggleCpp'
 import { intervalCpp } from './intervalCpp'
 import { waveCpp } from './signalTimeCpp'
@@ -28,7 +29,7 @@ export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlD
 export function scalarControlInputDefaults(type: string, props: Record<string, unknown>): Record<string, number> {
   switch (type) {
     case 'Math': {
-      const identity = props.mathOp === 'multiply' || props.mathOp === 'divide' ? 1 : 0
+      const identity = mathOperandIdentity(props.mathOp)
       return { a: identity, b: identity }
     }
     case 'Lerp': return { a: 0, b: 1, t: 0.5 }

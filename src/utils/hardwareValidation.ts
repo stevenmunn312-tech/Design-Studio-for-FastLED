@@ -487,7 +487,7 @@ function makeChecks(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>)
   if (profile.features.some((feature) => feature.endsWith('/on-device microphone'))) checks.push({ id: 'microphone', label: 'Microphone input', detail: 'Live audio drove the expected FFT/beat behavior on-device.' })
   if (profile.features.includes('PCM1802/on-device line input')) checks.push({ id: 'line-input', label: 'PCM1802 line input', detail: 'Left, right, and stereo source material drove the expected FFT/beat behavior on-device without clipping or channel inversion.' })
   if (profile.action === 'wiring-test') {
-    const foldedHub75 = profile.matrix.chipset === 'HUB75'
+    const foldedHub75 = profile.matrix.form === 'hub75'
       && profile.matrix.layout === 'panels'
       && (profile.matrix.tilesY ?? 1) > 1
     checks.push({

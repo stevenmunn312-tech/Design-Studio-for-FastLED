@@ -19,7 +19,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    defaultProperties: { mathOp: 'add' },
+    defaultProperties: { mathOp: 'add', a: 0, b: 0 },
   },
   {
     type: 'Clamp',

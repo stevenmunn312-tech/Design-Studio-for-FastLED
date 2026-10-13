@@ -334,11 +334,14 @@ export const WHITE_POINT_OPTIONS = [
  * Control hints for inline node property editors (StudioNode), keyed by
  * property name. `select` → dropdown of fixed options; `slider` → range input
  * with the given bounds. Properties not listed fall back to type-based editors
- * (checkbox for booleans, number/text input otherwise).
+ * (checkbox for booleans, number/text input otherwise). A slider whose range is
+ * too wide to drag on a node (a port number, a lux ceiling) sets
+ * `entry: 'number'` and is typed into a bounded number field instead; every
+ * other reader still treats it as the same bounded range.
  */
 export type PropertyControl =
   | { control: 'select'; options: readonly string[] }
-  | { control: 'slider'; min: number; max: number; step: number }
+  | { control: 'slider'; min: number; max: number; step: number; entry?: 'number' }
 
 export const PROPERTY_META: Record<string, PropertyControl> = {
   // Enumerated options → dropdown
@@ -587,8 +590,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   DMXInput: {
     inputMode: { control: 'select', options: ['Art-Net', 'DMX512'] },
-    universe: { control: 'slider', min: 0, max: 32767, step: 1 },
-    previewPort: { control: 'slider', min: 1, max: 65535, step: 1 },
+    universe: { control: 'slider', min: 0, max: 32767, step: 1, entry: 'number' },
+    previewPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
     dmxPort: { control: 'slider', min: 1, max: 2, step: 1 },
     dmxTxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dmxRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -919,7 +922,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   FractalNoise: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, noiseShape: { control: 'select', options: [...NOISE_SHAPES] } },
   GaborNoise:      { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
-  Blobs:           { speed: N01, scale: N01 },
+  Blobs:           { speed: N01, scale: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
   FlowField: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, flowMode: { control: 'select', options: ['angle', 'curl'] } },
   Pride2015:       { speed: N01, scale: N01 },
   Pacifica:        { speed: N01, scale: N01 },
@@ -1035,7 +1038,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2cAddress: { control: 'select', options: lightSensorAddressOptions('adafruit-bh1750-light-sensor') },
-    maxLux: { control: 'slider', min: 100, max: 100_000, step: 100 },
+    maxLux: { control: 'slider', min: 100, max: 100_000, step: 100, entry: 'number' },
   },
   TemperatureInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1388,6 +1391,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Fire: {
     direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
     fireStyle:   { control: 'select', options: [...FIRE_STYLES] },
+    intensity:   N01,
     turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
     paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
     seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -2179,9 +2183,32 @@ export function isPortlessNodeType(nodeType: string): boolean {
   return definition ? definition.inputs.length === 0 && definition.outputs.length === 0 : false
 }
 
+// A default may itself be an expression (Line's end point is `max_x`, `max_y`)
+// so a fresh node fits whatever matrix it lands on. Only one whose value
+// follows the matrix counts: a bit pattern such as Slice Tiling's '0110' also
+// parses, and must stay text. Memoised per property: the per-frame resolver
+// asks about every string property, and compiling each colour or option string
+// would churn the expression cache.
+const expressionDefaultCache = new Map<string, boolean>()
+
+function hasScalarExpressionDefault(nodeType: string, key: string): boolean {
+  const fallback = libraryDefaults(nodeType)[key]
+  if (typeof fallback === 'number') return true
+  if (typeof fallback !== 'string') return false
+  const cacheKey = `${nodeType}.${key}`
+  let result = expressionDefaultCache.get(cacheKey)
+  if (result === undefined) {
+    const square = evaluateScalarExpression(fallback, 16, 16)
+    result = propertyMeta(nodeType, key)?.control === undefined
+      && square != null && square !== evaluateScalarExpression(fallback, 24, 8)
+    expressionDefaultCache.set(cacheKey, result)
+  }
+  return result
+}
+
 export function supportsScalarExpression(nodeType: string, key: string): boolean {
   if (SCALAR_EXPRESSION_BLOCKED_TYPES.has(nodeType)) return false
-  if (typeof libraryDefaults(nodeType)[key] !== 'number') return false
+  if (!hasScalarExpressionDefault(nodeType, key)) return false
   return propertyMeta(nodeType, key)?.control !== 'slider'
 }
 
@@ -2206,10 +2233,13 @@ export function resolveNodeNumericProperties(
   let resolved: Record<string, unknown> | null = null
   const defaults = libraryDefaults(nodeType)
   for (const [key, value] of Object.entries(properties)) {
-    const fallback = defaults[key]
-    if (typeof fallback !== 'number') continue
     if (typeof value === 'number' && Number.isFinite(value)) continue
-    const result = supportsScalarExpression(nodeType, key)
+    const expressionCapable = supportsScalarExpression(nodeType, key)
+    const fallback = typeof defaults[key] === 'number'
+      ? defaults[key]
+      : expressionCapable ? evaluateScalarExpression(defaults[key], width, height) : null
+    if (typeof fallback !== 'number') continue
+    const result = expressionCapable
       ? evaluateScalarExpression(value, width, height)
       : finiteNumber(value)
     resolved ??= { ...properties }

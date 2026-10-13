@@ -286,8 +286,11 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const a = srcBuf('a'), b = srcBuf('b'), amt = f('amount', 'amount', 0.5)
     const mode = String(p.blendMode ?? 'normal')
     ln(`  { ${a ? `::memmove(${ob}, ${a}, sizeof(CRGB) * NUM_LEDS);` : `fill_solid(${ob}, NUM_LEDS, CRGB::Black);`}`)
-    if (mode === 'normal') {
-      ln(`    nblend(${ob}, ${b ?? ob}, NUM_LEDS, (uint8_t)((${amt}) * 255)); }`)
+    // Nothing on B yet (a fresh splice): A passes through in every mode.
+    if (!b) {
+      ln(`  }`)
+    } else if (mode === 'normal') {
+      ln(`    nblend(${ob}, ${b}, NUM_LEDS, (uint8_t)((${amt}) * 255)); }`)
     } else {
       const expr: Record<string, string> = {
         multiply:   '_av*_bv',
@@ -297,7 +300,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
         difference: 'fabsf(_av-_bv)',
       }
       ln(`    float _op=(${amt}); for(int _i=0;_i<NUM_LEDS;_i++){`)
-      ln(`      CRGB _a=${ob}[_i], _b=${b ?? ob}[_i];`)
+      ln(`      CRGB _a=${ob}[_i], _b=${b}[_i];`)
       ln(`      for(int _c=0;_c<3;_c++){ float _av=_a[_c]/255.0f,_bv=_b[_c]/255.0f;`)
       ln(`        float _r=${expr[mode] ?? '_bv'};`)
       ln(`        ${ob}[_i][_c]=(uint8_t)((_av*(1.0f-_op)+_r*_op)*255.0f); } } }`)

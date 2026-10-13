@@ -116,7 +116,7 @@ export interface PlayerConfig {
   maxVolume:   number   // 0-21 for MAX98357A
   ledBrightness: number // controller brightness ceiling, 0-255
   usePsram:    boolean  // honoured only when the selected board exposes PSRAM
-  // Raw HUB75 properties from the MatrixOutput node (chipset === 'HUB75'
+  // Raw HUB75 properties from the MatrixOutput node (form === 'hub75'
   // only), passed straight to hub75HardwareFromProps rather than flattening
   // ~14 pin fields into this interface — that function's own sanitizePin
   // calls already apply the correct per-field defaults.

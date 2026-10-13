@@ -362,3 +362,16 @@ export function compileNodeFormula(source: string): FormulaFn | null {
 export function isNodeFormulaValid(source: string): boolean {
   return compileNodeFormula(source) !== null
 }
+
+/** Why a CustomFormula/FieldFormula source does not parse, for the editor;
+ *  `null` when it is valid. Agrees with `isNodeFormulaValid`. */
+export function nodeFormulaError(source: string): string | null {
+  if (source.trim() === '') return 'Empty formula'
+  if (source.length > MAX_SOURCE_LENGTH) return `Longer than ${MAX_SOURCE_LENGTH} characters`
+  try {
+    new Parser(tokenize(source), NODE_FORMULA_VARIABLES, SHIM_NAMES).parseProgram()
+    return null
+  } catch (error) {
+    return error instanceof FormulaParseError ? error.message : 'Invalid formula'
+  }
+}

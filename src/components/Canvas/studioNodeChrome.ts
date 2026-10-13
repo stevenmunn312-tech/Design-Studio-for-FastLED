@@ -32,6 +32,7 @@ export function moduleCode(nodeType: string): string {
 export const NODE_WIDTH_OVERRIDES: Record<string, number> = {
   MusicLibrary: 300,
   Code: 320,
+  CustomFormula: 320,
   PerformanceGenerator: 300,
   Comment: 260,
 }
@@ -135,6 +136,9 @@ export function editableProperties(nodeType: string, props: Record<string, unkno
       // Comment's `text` gets its own multi-line editor in the body, not the
       // generic single-line field list.
       && !(isComment && k === 'text')
+      // Custom Formula's `formula` gets the Code node's editor in the body,
+      // with its parse error beneath it.
+      && !(nodeType === 'CustomFormula' && k === 'formula')
       // PSRAM controls render in the upload tab — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
       && k !== 'usePsram' && k !== 'psramPolicy' && k !== 'psramMode' && k !== 'serialRoute'
