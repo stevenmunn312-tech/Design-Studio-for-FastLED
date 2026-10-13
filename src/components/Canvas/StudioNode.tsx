@@ -1315,7 +1315,9 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // A Comment's own color picker tints the node directly (sticky-note
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
-  const editable = editableProperties(d.nodeType, props)
+  const editable = editableProperties(d.nodeType, props, new Set(exposedInputs
+    .map((port) => (port.kind === 'property' ? port.propertyKey : undefined))
+    .filter((key): key is string => Boolean(key))))
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
   // node's default properties); show it only where it would do something.
   const showClamp = hasClampableInputs(d.nodeType, inputs)

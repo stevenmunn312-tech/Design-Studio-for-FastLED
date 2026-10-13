@@ -76,14 +76,14 @@
 <circle cx="0" cy="528" r="6" fill="#9aa0a6"/>
 <text x="18" y="532" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Channel 15</text>
 <line x1="8" y1="548.5" x2="232" y2="548.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="570" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">i2cAddress</text>
+<text x="8" y="570" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">I2C address</text>
 <g>
 <rect x="98" y="555" width="112" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
 <text x="102" y="570" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0x40</text>
 <path d="M198,564 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
 </g>
 <text x="224" y="570" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="592" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">pwmHz</text>
+<text x="8" y="592" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">PWM (Hz)</text>
 <g>
 <rect x="98" y="586" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="98" y="586" width="46.8" height="4" rx="2" fill="#d633ff"/>

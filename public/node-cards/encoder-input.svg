@@ -37,7 +37,7 @@
 <circle cx="240" cy="172" r="6" fill="#c6ff32"/>
 <text x="222" y="176" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Pressed</text>
 <line x1="8" y1="192.5" x2="232" y2="192.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">resetOnPre…</text>
+<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">reset on p…</text>
 <g>
 <rect x="98" y="200.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>

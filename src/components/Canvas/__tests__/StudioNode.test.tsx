@@ -38,6 +38,13 @@ if (!Element.prototype.setPointerCapture) {
   Element.prototype.releasePointerCapture = () => {}
 }
 
+/** Expand every collapsed property group on a rendered node (they start folded). */
+function openAllGroups(container: HTMLElement) {
+  for (const header of container.querySelectorAll('button[aria-expanded="false"]:not([aria-haspopup])')) {
+    fireEvent.click(header)
+  }
+}
+
 function makeNode(nodeType: string, props: Record<string, unknown>): StudioNodeT {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)!
   return {
@@ -108,7 +115,7 @@ describe('StudioNode', () => {
 
   it('offers Music Player pattern order for existing nodes and saves a sequential choice', () => {
     const { getByText, getByLabelText } = renderNode(makeNode('PatternMaster', {}))
-    fireEvent.click(getByText('Timing'))
+    fireEvent.click(getByText('Playback'))
     const order = getByLabelText('Pattern Order value') as HTMLSelectElement
     expect(order.value).toBe('Random')
     expect(Array.from(order.options, (option) => option.value)).toEqual(['Random', 'Sequential'])
@@ -178,11 +185,11 @@ describe('StudioNode', () => {
     // Physical pins have one editor on the bench; chip settings live here.
     expect(view.queryByLabelText('sdaPin value')).toBeNull()
     expect(view.queryByLabelText('sclPin value')).toBeNull()
-    const address = view.getByLabelText('i2cAddress value') as HTMLSelectElement
+    const address = view.getByLabelText('I2C address value') as HTMLSelectElement
     expect(address.options).toHaveLength(48)
     expect([address.options[0].value, address.options[47].value]).toEqual(['0x40', '0x6F'])
     fireEvent.change(address, { target: { value: '0x41' } })
-    const frequency = view.getByLabelText('pwmHz value') as HTMLInputElement
+    const frequency = view.getByLabelText('PWM (Hz) value') as HTMLInputElement
     expect([frequency.min, frequency.max]).toEqual(['24', '1526'])
     fireEvent.change(frequency, { target: { value: '50' } })
     expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({ i2cAddress: '0x41', pwmHz: 50 })
@@ -308,13 +315,29 @@ describe('StudioNode', () => {
    * to another formulaType is still a drop target (the wire is allowed; it
    * just draws dark until the variant changes).
    */
-  it('offers every Formula Field knob as a drop target, whatever the variant', () => {
+  it('offers the chosen formula\'s knobs as drop targets and hides the other formulas\' rows', () => {
     const n = makeNode('FormulaField', { formulaType: 'rose', petals: 5, symmetry: 6 })
     useGraphStore.setState({ nodes: [n], edges: [] })
     const view = renderNode(n)
-    for (const key of ['petals', 'offset', 'symmetry', 'freqA', 'thickness', 'speed']) {
+    openAllGroups(view.container)
+    for (const key of ['petals', 'offset', 'speed']) {
       expect(view.container.querySelector(`[data-property-input="${n.id}|${key}"]`), key).toBeTruthy()
     }
+    // A row the chosen formula does not read is hidden rather than greyed, and
+    // its group goes with it.
+    for (const key of ['symmetry', 'freqA', 'thickness']) {
+      expect(view.container.querySelector(`[data-property-input="${n.id}|${key}"]`), key).toBeNull()
+    }
+    expect(view.queryByText('Superformula')).toBeNull()
+    expect(view.queryByText('Lissajous')).toBeNull()
+    view.unmount()
+
+    // Exposing the socket keeps its row, disabled, so a wire has a handle.
+    n.data.exposedInputs = ['symmetry']
+    const exposed = renderNode(n)
+    openAllGroups(exposed.container)
+    expect(exposed.container.querySelector(`[data-property-input="${n.id}|symmetry"]`)).toBeTruthy()
+    expect((exposed.getByLabelText('lobes value') as HTMLInputElement).disabled).toBe(true)
   })
 
   it('warns on normalized float sources that need Map Range for a wider property target', () => {
@@ -414,6 +437,7 @@ describe('StudioNode', () => {
 
     useUiStore.setState({ connectionDrag: { ...drag, canPlaceOnVisibleScreen: true } })
     const view = render(<StudioNode {...props} />)
+    openAllGroups(view.container)
     const row = () => view.container.querySelector('[data-property-input="ff|petals"]') as HTMLElement
     expect(row().title).toContain('Creates a Slider for Petals')
     expect(row().title).toContain('Hold Ctrl')
@@ -823,7 +847,8 @@ describe('StudioNode', () => {
   })
 
   it('pinning a property from its row adds it to the performance deck; clicking again unpins it', () => {
-    const { getByLabelText } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
+    const { container, getByLabelText } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
+    openAllGroups(container)
     const pinBtn = getByLabelText('Pin radius to Control Deck')
     fireEvent.click(pinBtn)
     expect(useGraphStore.getState().performanceDeck.pins).toHaveLength(1)
@@ -873,6 +898,7 @@ describe('StudioNode', () => {
 
   it('shows colour swatches for Circle fill/edge and updates the hex property', () => {
     const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: true, fill: '#00ff00', edge: '#ff0000' }))
+    openAllGroups(container)
     const colors = Array.from(container.querySelectorAll('input[type="color"]')) as HTMLInputElement[]
     expect(colors).toHaveLength(2)
     expect(colors[0].value).toBe('#00ff00')
@@ -891,22 +917,24 @@ describe('StudioNode', () => {
   })
 
   it('renders a slider for speed and updates the property', () => {
-    const { container } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
-    const range = container.querySelector('input[type="range"]') as HTMLInputElement
-    expect(range).toBeTruthy()
+    const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
+    openAllGroups(container)
+    const range = getByLabelText('speed value') as HTMLInputElement
+    expect(range.type).toBe('range')
     expect(range.min).toBe('0')
     expect(range.max).toBe('1')   // speed is now a normalised 0–1 slider
-    // First slider is `speed` (property iteration order).
     fireEvent.change(range, { target: { value: '0.5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.speed).toBe(0.5)
   })
 
   it('temporarily accepts validated keyboard input after a slider double-click', () => {
     const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
-    const range = container.querySelector('input[type="range"]') as HTMLInputElement
+    openAllGroups(container)
+    const range = getByLabelText('speed value') as HTMLInputElement
 
     fireEvent.doubleClick(range)
     const editor = getByLabelText('speed value') as HTMLInputElement
+    expect(editor.type).toBe('text')
     expect(editor.value).toBe('0.5')
 
     fireEvent.change(editor, { target: { value: '0.73' } })
@@ -917,7 +945,8 @@ describe('StudioNode', () => {
 
   it('rejects invalid, out-of-range, and off-step slider keyboard input', () => {
     const { container, getByLabelText } = renderNode(makeNode('Noise', { speed: 0.5, scale: 1, palette: 'rainbow' }))
-    fireEvent.doubleClick(container.querySelector('input[type="range"]') as HTMLInputElement)
+    openAllGroups(container)
+    fireEvent.doubleClick(getByLabelText('speed value'))
     const editor = getByLabelText('speed value') as HTMLInputElement
 
     for (const badValue of ['not a number', '2', '0.735']) {
@@ -1043,6 +1072,7 @@ describe('StudioNode', () => {
 
   it('programmatically labels common property controls', () => {
     const noise = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow', seed: 0 }))
+    openAllGroups(noise.container)
     expect(noise.getByLabelText('speed value')).toBeTruthy()
     expect(noise.getByLabelText('scale value')).toBeTruthy()
     expect(noise.getByLabelText('palette value')).toBeTruthy()
@@ -1051,6 +1081,7 @@ describe('StudioNode', () => {
     const circle = renderNode(makeNode('Circle', {
       cx: 0.5, cy: 0.5, radius: 3, wrap: false, filled: true, fill: '#00ff00', edge: '#ff0000',
     }))
+    openAllGroups(circle.container)
     expect(circle.getByLabelText('filled')).toBeTruthy()
     expect(circle.getByLabelText('fill color')).toBeTruthy()
     expect(circle.getByLabelText('radius value')).toBeTruthy()
@@ -1188,6 +1219,7 @@ describe('StudioNode', () => {
 
   it('renders a dropdown for palette with the preset options', () => {
     const { container } = renderNode(makeNode('Noise', { speed: 1, scale: 1, palette: 'rainbow' }))
+    openAllGroups(container)
     // Library defaults are backfilled onto saved nodes, so the node also grows
     // a `noiseType` dropdown — pick the one holding the palette value.
     const selects = [...container.querySelectorAll('select')] as HTMLSelectElement[]
@@ -1206,7 +1238,8 @@ describe('StudioNode', () => {
     // Circle now renders more than one checkbox (wrap + filled), so target
     // the "filled" property row specifically rather than the first checkbox
     // in the node.
-    const { getByText } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, edge: '#ff0000' }))
+    const { container, getByText } = renderNode(makeNode('Circle', { cx: 4, cy: 4, radius: 3, filled: false, edge: '#ff0000' }))
+    openAllGroups(container)
     const row = getByText('filled').closest('div') as HTMLElement
     const check = row.querySelector('input[type="checkbox"]') as HTMLInputElement
     expect(check).toBeTruthy()
@@ -1267,9 +1300,9 @@ describe('StudioNode', () => {
       const { container } = renderNode(makeNode('MatrixOutput', { form: 'strip', ledCount: 60 }))
       const keys = offeredKeys(container)
 
-      expect(keys).toContain('ledCount')
+      expect(keys).toContain('LED count')
       expect(keys).toContain('chipset')
-      for (const dead of ['serpentine', 'supersample', 'customXYMap', 'tilesX', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
+      for (const dead of ['serpentine', 'supersample', 'custom map', 'tiles X', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
         expect(keys, dead).not.toContain(dead)
       }
       // A string has no grid, so the whole Layout group goes with it.
@@ -1284,8 +1317,8 @@ describe('StudioNode', () => {
       expect(keys).not.toContain('hub75ClkPin')
       expect(within(container).queryByTitle('Pin assignments are owned by the hardware view')).toBeNull()
       // …and not the addressable-chain settings a scan panel has no use for.
-      expect(keys).not.toContain('ledCount')
-      expect(keys).not.toContain('colorOrder')
+      expect(keys).not.toContain('LED count')
+      expect(keys).not.toContain('color order')
       expect(keys).not.toContain('dataPin')
     })
 
@@ -1361,8 +1394,7 @@ describe('StudioNode', () => {
 
       const keys = offeredKeys(container)
       expect(keys).toEqual(expect.arrayContaining([
-        'ledCount', 'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
-        'corkscrewDiameterMm', 'corkscrewHeightMm',
+        'LED count', 'turns', 'start angle (°)', 'direction', 'diameter (mm)', 'height (mm)',
       ]))
       expect(keys).not.toEqual(expect.arrayContaining(['width', 'height', 'layout', 'serpentine']))
 
@@ -1404,15 +1436,13 @@ describe('StudioNode', () => {
     expect(await within(container).findByRole('button', { name: 'Calibrate touch' }, { timeout: 5000 })).toBeTruthy()
     const header = within(container).getByRole('button', { name: /calibration/i })
     expect(header.getAttribute('aria-expanded')).toBe('false')
-    expect(within(container).queryByText('touchXMin')).toBeNull()
+    expect(within(container).queryByText('X min')).toBeNull()
 
     fireEvent.click(header)
     expect(header.getAttribute('aria-expanded')).toBe('true')
     const keys = [...header.parentElement!.querySelectorAll('[class*="propKey"]')]
       .map((key) => key.textContent ?? '')
-    expect(keys).toEqual([
-      'touchXMin', 'touchXMax', 'touchYMin', 'touchYMax', 'touchFlipX', 'touchFlipY',
-    ])
+    expect(keys).toEqual(['X min', 'X max', 'Y min', 'Y max', 'flip X', 'flip Y'])
   })
 
   it('embeds an empty show monitor in the Performance Generator node', async () => {
@@ -1435,11 +1465,18 @@ describe('StudioNode', () => {
       'Analyse music in a Music Library node, then preview the timed show here.',
     )).toBeTruthy()
     expect((container.firstElementChild as HTMLElement).style.width).toBe('300px')
-    // paletteMode/fixedPalette live in the collapsible "Palette" group.
+    // paletteMode/fixedPalette live in the collapsible "Palette" group; the
+    // fixed palette row only exists once the mode asks for one.
     fireEvent.click(within(container).getByText('Palette'))
-    const selects = Array.from(container.querySelectorAll('select')) as HTMLSelectElement[]
-    expect(selects.map((select) => select.value)).toEqual(['mood', 'rainbow'])
-    expect(selects[1].disabled).toBe(true)
+    const selectValues = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll('select'), (select) => (select as HTMLSelectElement).value)
+    expect(selectValues(container)).toEqual(['mood'])
+
+    // Group state is shared per node type, so only open what is still folded.
+    const fixed = renderNode({ ...node, id: 'n2', data: { ...node.data, properties: { ...node.data.properties, paletteMode: 'fixed' } } })
+    openAllGroups(fixed.container)
+    expect(selectValues(fixed.container)).toEqual(['fixed', 'rainbow'])
+    expect((fixed.container.querySelectorAll('select')[1] as HTMLSelectElement).disabled).toBe(false)
   })
 
   it('keeps the live Performance Generator ports and drops the one that really did go', () => {
@@ -1629,20 +1666,18 @@ describe('StudioNode', () => {
     expect(getByText('Multiply')).toBeTruthy()   // not the generic "Math"
   })
 
-  // The Transition's `direction` only applies to a wipe, so its editor is
-  // disabled (but still shown) for crossfade/dissolve.
+  // The Transition's `direction` only applies to a wipe or push, so its row
+  // is hidden for crossfade/dissolve — and with `axis` hidden too, the whole
+  // "Direction" group goes.
   const directionSelect = (container: HTMLElement) =>
     Array.from(container.querySelectorAll('select')).find((s) =>
       Array.from(s.options).some((o) => o.value === 'right')) as HTMLSelectElement | undefined
 
-  it('disables Transition direction unless the type is wipe', () => {
-    // `direction`/`axis` live in the collapsible "Direction" group. Both nodes
-    // share the same (localStorage-persisted) open/closed state per node type,
-    // so clear it between renders instead of assuming a fresh collapsed start.
+  it('hides Transition direction unless the type is a wipe', () => {
     const off = renderNode(makeNode('Transition', { transitionType: 'crossfade', t: 0.5, direction: 'right' }))
-    fireEvent.click(within(off.container).getByText('Direction'))
-    expect(directionSelect(off.container)!.disabled).toBe(true)
-    localStorage.clear()
+    expect(within(off.container).queryByText('Direction')).toBeNull()
+    expect(directionSelect(off.container)).toBeUndefined()
+    off.unmount()
     const on = renderNode(makeNode('Transition', { transitionType: 'wipe', t: 0.5, direction: 'right' }))
     fireEvent.click(within(on.container).getByText('Direction'))
     expect(directionSelect(on.container)!.disabled).toBe(false)

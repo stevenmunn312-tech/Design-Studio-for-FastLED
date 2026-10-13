@@ -372,12 +372,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Mod example graph](../../public/node-cards/graphs/mod.svg)
 
-### Gate
-
-![Gate node](../../public/node-cards/gate.svg)
-
-![Gate example graph](../../public/node-cards/graphs/gate.svg)
-
 ### Smooth
 
 ![Smooth node](../../public/node-cards/smooth.svg)
@@ -389,6 +383,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Sample & Hold node](../../public/node-cards/sample-hold.svg)
 
 ![Sample & Hold example graph](../../public/node-cards/graphs/sample-hold.svg)
+
+### XY → Index
+
+![XY → Index node](../../public/node-cards/xy-mapper.svg)
+
+![XY → Index example graph](../../public/node-cards/graphs/xy-mapper.svg)
+
+### Gate
+
+![Gate node](../../public/node-cards/gate.svg)
+
+![Gate example graph](../../public/node-cards/graphs/gate.svg)
 
 ### Switch
 
@@ -431,12 +437,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Format Date/Time node](../../public/node-cards/format-date-time.svg)
 
 ![Format Date/Time example graph](../../public/node-cards/graphs/format-date-time.svg)
-
-### XY → Index
-
-![XY → Index node](../../public/node-cards/xy-mapper.svg)
-
-![XY → Index example graph](../../public/node-cards/graphs/xy-mapper.svg)
 
 ## Color
 
@@ -1258,6 +1258,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Music Player example graph](../../public/node-cards/graphs/pattern-master.svg)
 
+### Pattern Slideshow
+
+![Pattern Slideshow node](../../public/node-cards/pattern-slideshow.svg)
+
+![Pattern Slideshow example graph](../../public/node-cards/graphs/pattern-slideshow.svg)
+
 ### Song Info
 
 ![Song Info node](../../public/node-cards/song-info.svg)
@@ -1287,12 +1293,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![SD Card node](../../public/node-cards/sd-card.svg)
 
 ![SD Card example graph](../../public/node-cards/graphs/sd-card.svg)
-
-### Pattern Slideshow
-
-![Pattern Slideshow node](../../public/node-cards/pattern-slideshow.svg)
-
-![Pattern Slideshow example graph](../../public/node-cards/graphs/pattern-slideshow.svg)
 
 ## Output
 

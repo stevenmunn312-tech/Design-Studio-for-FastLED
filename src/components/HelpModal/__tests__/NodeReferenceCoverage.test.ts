@@ -67,10 +67,10 @@ describe('Node Reference generated assets', () => {
   it('shows the Music Player default sockets and expanded timing controls', () => {
     const svg = readFileSync(resolve(`public${nodeCardSrc('PatternMaster')}`), 'utf8')
     expect(svg).toContain('Expose input…')
-    // Truncated by the shared control column until D-08.7 widens the node.
-    expect(svg).toContain('Beat Trans…')
-    expect(svg).toContain('minTime')
-    expect(svg).toContain('maxTime')
+    // The player is 280 px wide so this label fits the shared label column.
+    expect(svg).toContain('Beat Transitions')
+    expect(svg).toContain('min hold (s)')
+    expect(svg).toContain('max hold (s)')
     expect(svg).toContain('▾ TIMING')
     expect(svg).not.toContain('Play / Pause')
     expect(svg).not.toContain('Previous Pattern')

@@ -34,7 +34,7 @@
 <text x="120" y="140" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">segment layout</text>
 <line x1="8" y1="214.5" x2="232" y2="214.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="236" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
-<text x="8" y="258" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">showColon</text>
+<text x="8" y="258" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">colon</text>
 <g>
 <rect x="98" y="247.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
 <path d="M101,254 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>

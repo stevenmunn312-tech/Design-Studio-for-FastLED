@@ -44,7 +44,7 @@
 </g>
 <circle cx="0" cy="137" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="0" cy="137" r="6" fill="#9aa0a6"/>
-<text x="8" y="165" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">mathOp</text>
+<text x="8" y="165" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">operation</text>
 <g>
 <rect x="98" y="150" width="112" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
 <text x="102" y="165" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">add</text>

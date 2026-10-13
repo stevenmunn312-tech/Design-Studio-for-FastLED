@@ -206,8 +206,15 @@ function inputLabel(nodeType: string, input: Pick<ExposableInput, 'label' | 'pro
 function readableLabel(nodeType: string, propertyKey: string, portLabel: string): string {
   const label = propertyLabel(nodeType, propertyKey)
   // `propertyLabel` returns the key itself when nothing nicer is declared, and
-  // the port's own label is the better of the two in that case.
-  return label === propertyKey ? portLabel : label
+  // the port's own label is the better of the two in that case. A declared
+  // row label is lower case ("dot size"); a widget sits beside port-named
+  // ones ("Speed"), so it takes their case.
+  return label === propertyKey ? portLabel : titleCase(label)
+}
+
+/** "peak hold (s)" → "Peak Hold (s)": words keep their own capitals and units their parentheses. */
+function titleCase(label: string): string {
+  return label.replace(/(^|\s)([a-z])/g, (_, lead: string, letter: string) => lead + letter.toUpperCase())
 }
 
 function specFor(

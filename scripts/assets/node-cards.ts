@@ -355,7 +355,7 @@ function buildPropRows(
     && (def.type !== 'BeatFlash' || String(props.palette ?? 'none') === 'none')
   const isGroupInput = def.type === 'GroupInput'
   const isMatrixOutput = def.type === 'MatrixOutput'
-  const entries = editableProperties(def.type, props)
+  const entries = editableProperties(def.type, props, exposedKeys)
   const showClamp = hasClampableInputs(def.type, ports.inputs)
   const showBypass = bypassPort(ports.outputs, ports.inputs) != null
   const showSetDefault = def.type === 'MicInput' || def.type === 'MatrixOutput'

@@ -28,13 +28,29 @@ export function moduleCode(nodeType: string): string {
   return nodeType.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
 }
 
-/** Nodes whose body embeds a wider UI than the default node frame fits. */
+/**
+ * Nodes wider than the 240 px frame. The property row grid gives a label the
+ * width left beside its 112 px control and 16 px pin slot, so at 240 px a
+ * label gets 84 px (about eleven characters): the nodes below either embed a
+ * wider body (a code editor, the remote's key rows) or carry labels that
+ * cannot be shortened to fit.
+ */
 export const NODE_WIDTH_OVERRIDES: Record<string, number> = {
   MusicLibrary: 300,
   Code: 320,
   CustomFormula: 320,
+  FieldFormula: 320,
   PerformanceGenerator: 300,
+  IRRemoteInput: 300,
   Comment: 260,
+  ColorTrails: 280,
+  PatternMaster: 280,
+  MatrixOutput: 280,
+  SpectrumVisualizer: 260,
+  KickShock: 260,
+  RainRipples: 260,
+  PercussionBlobs: 260,
+  AudioHue: 260,
 }
 
 /** Node types whose body carries a live HardwareInputBody widget. */
@@ -104,15 +120,21 @@ export function hasRgbProperties(props: Record<string, unknown>): boolean {
   return ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
 }
 
+const NO_KEYS: ReadonlySet<string> = new Set()
+
 /**
  * The properties a node draws an inline editor for, in property order.
  *
  * Everything the app keeps for itself, edits through a dedicated body, or
  * owns from the hardware workbench is left out; the comments on each clause
  * say which. `props` is the node's saved properties layered over its library
- * defaults, as StudioNode builds them.
+ * defaults, as StudioNode builds them. `exposedKeys` names the properties
+ * whose input socket is exposed or wired: their rows stay even where the
+ * node's current mode does not use them, so the socket keeps its wire.
  */
-export function editableProperties(nodeType: string, props: Record<string, unknown>): Array<[string, unknown]> {
+export function editableProperties(
+  nodeType: string, props: Record<string, unknown>, exposedKeys: ReadonlySet<string> = NO_KEYS,
+): Array<[string, unknown]> {
   const hasRGB = hasRgbProperties(props)
   const isGroupInput = nodeType === 'GroupInput'
   const isComment = nodeType === 'Comment'
@@ -157,16 +179,15 @@ export function editableProperties(nodeType: string, props: Record<string, unkno
         && (isGpioPinProperty(nodeType, k) || isHardwarePartField(nodeType, k)))
       && !(isGroupInput && k === 'paramId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
-      // An inapplicable property is normally shown disabled, which reads as
-      // "this exists for the other variants" — useful on a five-property node
-      // like Transition. The LED output has forty-six, so a string was showing
-      // thirty-three dead rows against thirteen live ones, all sixteen HUB75
-      // pins among them. At that ratio the greyed rows stop being context and
-      // start being the thing you have to read past, so this node hides them.
-      // So does a power switch: its board decides how many channels exist,
-      // and a one-channel LR7843 would otherwise show seven dead Level rows.
-      // Empty groups already drop out below.
-      && !((nodeType === 'MatrixOutput' || nodeType === 'PowerSwitchOutput')
-        && !isPropertyEnabled(nodeType, k, props))
+      // A property the current mode does not use is hidden, not shown
+      // disabled. Disabled rows read as context on a five-property node like
+      // Transition, but the LED output has forty-six, so a string was showing
+      // thirty-three dead rows against thirteen live ones, and Formula Field
+      // showed fourteen dead rows for four live ones. At that ratio the
+      // greyed rows stop being context and start being the thing you have to
+      // read past, so every node hides them and its groups drop out when
+      // emptied. A row whose socket is exposed or wired stays, disabled, so
+      // the wire keeps its handle.
+      && (exposedKeys.has(k) || isPropertyEnabled(nodeType, k, props))
   )
 }

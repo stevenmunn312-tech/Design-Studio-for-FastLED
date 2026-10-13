@@ -102,6 +102,24 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Layout and input traps
 
+- A node's property rows are declared, not improvised, in `nodeLibrary.ts`:
+  `PROPERTY_LABELS` names every camelCase key the swept categories draw (the
+  audio-reactive patterns' shared `energy` → `reactivity` is merged in, so a
+  node's own entries never replace it), `PROPERTY_GROUPS` folds every node
+  that draws more than six rows at its defaults, and
+  `NODE_WIDTH_OVERRIDES` (`studioNodeChrome.ts`) widens the few nodes whose
+  labels cannot be shortened to the 84 px a 240 px node leaves beside a
+  control. `propertyLayout.test.ts` holds all three rules. Groups start
+  collapsed, so a node's master controls (the player's volume, the LED
+  output's enable switch) lead in a group of their own instead of trailing
+  the sections ungrouped. A row the node's current mode does not use is
+  hidden by `editableProperties`, not shown disabled, so a per-variant group
+  drops out whole; a row whose input socket is exposed or wired stays,
+  disabled, so the wire keeps its handle. A test that reads a grouped node's
+  rows opens its groups first (`openAllGroups` in `StudioNode.test.tsx`);
+  group state persists per node type in `localStorage`, so a second render
+  in the same test starts where the first left it.
+
 - A store selector returns something stored or a primitive, never a value it
   builds. `?? {}`, `.filter()`, `.map()` or `new Set()` make a new snapshot on
   every read, and React logs "The result of getSnapshot should be cached" and

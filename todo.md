@@ -349,9 +349,8 @@ library defaults.
 - [x] **D-08.2 · Property row grid.** Done: `.propRow` is a
   `minmax(0, 1fr) 112px 16px` grid, so every control starts and ends on the
   same x and the pin slot is reserved on every row; the node cards draw the
-  same grid. At the 240 px node width a label gets 84 px (11 characters), so
-  long labels such as `transitionSec` still truncate until D-08.7 gives those
-  nodes their labels and widths
+  same grid. At the 240 px node width a label gets 84 px (11 characters);
+  D-08.7 gives the nodes whose labels cannot fit their widths
   ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
 - [x] **D-08.3 · Remove dead properties and stale metadata.** Done: Zones
   `aName`…`dName`, SegmentDisplay `decimals`/`leadingZero` and Board `volts`
@@ -421,22 +420,26 @@ library defaults.
   tooltips. An unassigned Button Bank button (pin −1) was only a warning and
   read GPIO0; it is now never pressed, and the warning says it has no GPIO.
   Unchanged on purpose: Gabor Noise is unclamped but identical on both sides.
-- [ ] **D-08.7 · Labels, groups and widths.** `PROPERTY_LABELS` for every raw
-  camelCase key on composite, field, shapes, show and output nodes (Pattern
-  Master: `min hold (s)`, `max hold (s)`, `fade (s)`); `PROPERTY_GROUPS` for
-  the flat nodes with more than six rows (Fire, Fire2012, Particles,
-  FormulaPoints, Noise, BeatFlash, KickShock, PercussionBlobs, RainRipples,
-  Gauge, Text, FormatNumber, FormulaField, Automaton, ShapeField,
-  FrameFeedback, TouchInput), with a leading group for Pattern Master `volume`
-  and the LED output's `enabled` and `brightness`; gated rows hidden rather
-  than disabled; `NODE_WIDTH_OVERRIDES` of 320 for CustomFormula and
-  FieldFormula, 300 for IRRemoteInput, 280 for ColorTrails, Pattern Master and
-  the LED output, 260 for SpectrumVisualizer, KickShock, RainRipples,
-  PercussionBlobs and AudioHue; `SUBCATEGORY_ORDER.math` of Math, Logic, Text;
-  PatternSlideshow added to `CATEGORY_NODE_ORDER.show`. Since D-08.2 a
-  checkbox row's label also shares the narrow label column, so Pattern
-  Master's `Beat Transitions` renders as `Beat Trans…`; once it fits again,
-  restore the full label in the `NodeReferenceCoverage` card test.
+- [x] **D-08.7 · Labels, groups and widths.** Done, no compile needed (no
+  firmware changed). `PROPERTY_LABELS` names every camelCase row on the
+  composite, field, show, output, math and input nodes and the Shapes & Text,
+  Simulations and Audio-Reactive patterns (Pattern Master `min hold (s)`,
+  `max hold (s)`, `fade (s)`; the pool patterns' `lifetime ×`, `ring width ×`,
+  `blob size ×`); the audio-reactive `reactivity` label is merged per node so
+  a node's own entries no longer replace it. Every node that draws more than
+  six rows at its defaults has `PROPERTY_GROUPS` (the seventeen listed plus
+  Circle, GradientSampler, BlendColors, DigitalRain, FlowField, SpectraMosaic,
+  FluidSim and FractalField), Pattern Master leads with Playback (`volume`,
+  `order`) and the LED output with Output (`enabled`, `brightness`), and
+  Formula Field has one group per formula. A row the node's mode does not use
+  is hidden on every node (it was only the LED output and the power switch);
+  a row whose socket is exposed or wired stays, disabled, so the wire keeps
+  its handle. `NODE_WIDTH_OVERRIDES` as listed; `SUBCATEGORY_ORDER.math` of
+  Math, Logic, Text with every math node tagged; PatternSlideshow after
+  Pattern Master in the show order. `propertyLayout.test.ts` holds the label,
+  group and sidebar rules; the Music Player card shows `Beat Transitions` in
+  full again. Pre-1.0, no migration: nothing saved changed
+  ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
 - [ ] **D-08.8 · Tooltips on every property.** 355 of 1163 editable
   properties have a `propertyDescription`; the 808 drafts are in the audit
   reports as paste-ready `PROPERTY_DESCRIPTIONS_OVERRIDES` objects. Land them,

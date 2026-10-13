@@ -196,6 +196,7 @@ export const CATEGORIES = [
 // without an entry renders flat. Every node in a listed category should carry
 // a `subcategory` matching one of these labels.
 export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
+  math:    ['Math', 'Logic', 'Text'],
   color:   ['Colors', 'Palettes'],
   pattern: ['Shapes & Text', 'Generative', 'Simulations', 'Audio-Reactive', 'Code'],
 }
@@ -206,7 +207,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Counter', 'Random', 'NoiseSignal', 'Envelope', 'Sin', 'Cos', 'Wave', 'ComplexWave', 'BeatSin', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'DistanceField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldLerp', 'ShapeField', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**
@@ -2000,12 +2001,43 @@ const REACTIVITY_LABELS = Object.fromEntries(AUDIO_REACTIVE_DEFINITIONS
   .filter((definition) => definition.defaultProperties?.energy !== undefined)
   .map((definition) => [definition.type, { energy: 'reactivity' }]))
 
-/** Per-node overrides for a property's displayed label (defaults to the raw key). */
-export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
-  ...REACTIVITY_LABELS,
+/** The two colour triples of a gradient or blend node, named by channel and end. */
+const COLOR_PAIR_LABELS: Record<string, string> = {
+  rA: 'red A', gA: 'green A', bA: 'blue A',
+  rB: 'red B', gB: 'green B', bB: 'blue B',
+}
+
+/**
+ * Per-node overrides for a property's displayed label, written by hand. Every
+ * raw camelCase key a node draws a row for needs one (`nodeLibrary.test.ts`
+ * holds the rule for the categories that have been swept); a key with no
+ * entry shows as itself.
+ */
+const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PatternMaster: {
     order: 'Pattern Order',
     beatTransitions: 'Beat Transitions',
+    minTime: 'min hold (s)',
+    maxTime: 'max hold (s)',
+    transitionSec: 'fade (s)',
+  },
+  PatternSlideshow: {
+    interval: 'hold (s)',
+    transitionsEnabled: 'transitions',
+    transitionSec: 'fade (s)',
+    audioReactive: 'audio reactive',
+  },
+  PerformanceGenerator: {
+    beatIntensity: 'beat intensity',
+    energySensitivity: 'energy sensitivity',
+    transitionDuration: 'transition (s)',
+    patternHold: 'pattern hold (s)',
+    paletteMode: 'palette mode',
+    fixedPalette: 'palette',
+    useGroupInputs: 'use group inputs',
+  },
+  Transition: {
+    tileSize: 'tile size',
   },
   BuzzerOutput: {
     sigPin: 'SIG',
@@ -2023,14 +2055,276 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     audioOutput: 'Audio out',
   },
   DarlingtonDriverOutput: Object.fromEntries(darlingtonPinKeys().map((key, index) => [key, `${index + 1}B`])),
-  FieldLevels: {
-    low: 'low',
-    high: 'high',
+  PwmDriverOutput: {
+    i2cAddress: 'I2C address',
+    pwmHz: 'PWM (Hz)',
+  },
+  InfoDisplay: {
+    oledRotation: 'rotation',
+    i2cAddress: 'I2C address',
+  },
+  SegmentDisplay: {
+    showColon: 'colon',
   },
   ShapeField: {
     fieldMode: 'mode',
     cx: 'center X',
     cy: 'center Y',
+  },
+  FieldNoise: {
+    wrapX: 'wrap X',
+    noiseShape: 'shape',
+  },
+  FormulaField: {
+    formulaType: 'formula',
+    offset: 'angle offset',
+    symmetry: 'lobes',
+    bandWidth: 'band width',
+    freqA: 'freq A',
+    freqB: 'freq B',
+  },
+  WaveSim: {
+    halfDuplex: 'crests only',
+    wrapX: 'wrap X',
+  },
+  FluidSim: {
+    inject: 'dye',
+    injectX: 'source X',
+    injectY: 'source Y',
+  },
+  FractalField: {
+    fractalType: 'type',
+    cRe: 'c real',
+    cIm: 'c imag',
+    centerX: 'center X',
+    centerY: 'center Y',
+  },
+  Automaton: {
+    automatonType: 'type',
+  },
+  FieldMath: {
+    fieldOp: 'operation',
+  },
+  FieldTile: {
+    tilesX: 'tiles X',
+    tilesY: 'tiles Y',
+  },
+  FieldSymmetry: {
+    offsetX: 'offset X',
+    offsetY: 'offset Y',
+  },
+  Blend: {
+    blendMode: 'mode',
+    amount: 'opacity',
+  },
+  Transform: {
+    transform: 'mode',
+  },
+  Array: {
+    blendMode: 'combine',
+    offsetX: 'step X',
+    offsetY: 'step Y',
+  },
+  Mirror: {
+    mirrorMode: 'axis',
+    glowAmount: 'glow amount',
+  },
+  FrameWarp: {
+    edgeMode: 'edges',
+  },
+  Symmetry: {
+    offsetX: 'offset X',
+    offsetY: 'offset Y',
+  },
+  FrameFeedback: {
+    delayFrames: 'delay (frames)',
+    feedbackTransform: 'transform',
+    blendMode: 'mode',
+    amount: 'opacity',
+  },
+  // The group header names the zone, so its rows carry the bare field.
+  Zones: Object.fromEntries(['a', 'b', 'c', 'd'].flatMap((zone) => [
+    [`${zone}Enabled`, 'enabled'], [`${zone}X`, 'x'], [`${zone}Y`, 'y'], [`${zone}W`, 'width'], [`${zone}H`, 'height'],
+  ])),
+  Gauge: {
+    gaugeStyle: 'style',
+    peakHold: 'peak hold (s)',
+    arcStart: 'arc start (°)',
+    arcSweep: 'arc sweep (°)',
+    ringLeds: 'ring LEDs',
+  },
+  Text: {
+    hAlign: 'align X',
+    vAlign: 'align Y',
+    scrollAxis: 'scroll axis',
+    letterSpacing: 'letter spacing',
+  },
+  Path: {
+    customPoints: 'custom points',
+    pathShape: 'shape',
+  },
+  Wireframe3D: {
+    spinX: 'spin X (°/s)',
+    spinY: 'spin Y (°/s)',
+    spinZ: 'spin Z (°/s)',
+    perspectiveStrength: 'perspective',
+    depthShade: 'depth shade',
+  },
+  GradientFrame: {
+    ...COLOR_PAIR_LABELS,
+    mixMode: 'mix',
+  },
+  GradientSampler: {
+    ...COLOR_PAIR_LABELS,
+    mixMode: 'mix',
+  },
+  BlendColors: {
+    ...COLOR_PAIR_LABELS,
+    t: 'mix',
+  },
+  PaletteGradient: {
+    speed: 'scroll',
+  },
+  PolarGradient: {
+    angleOffset: 'angle (°)',
+    radialMix: 'radial mix',
+    radialScroll: 'radial scroll',
+  },
+  Image: {
+    positionX: 'position X',
+    positionY: 'position Y',
+    flipX: 'flip X',
+    flipY: 'flip Y',
+    cropX: 'crop X',
+    cropY: 'crop Y',
+    hueShift: 'hue shift (°)',
+    paletteLevels: 'levels',
+    playbackRate: 'playback rate',
+  },
+  Shape: {
+    cx: 'center X',
+    cy: 'center Y',
+  },
+  Noise: {
+    noiseType: 'type',
+    noiseShape: 'shape',
+    worleyMode: 'worley',
+    wrapX: 'wrap X',
+  },
+  Fire: {
+    fireStyle: 'style',
+    paletteMix: 'palette mix',
+  },
+  Fire2012: {
+    paletteMix: 'palette mix',
+  },
+  Particles: {
+    particleType: 'type',
+    rate: 'spawn',
+    size: 'dot size',
+  },
+  FormulaPoints: {
+    formulaType: 'formula',
+    dotSize: 'dot size',
+    freqA: 'freq A',
+    freqB: 'freq B',
+    preset: 'attractor',
+  },
+  DigitalRain: {
+    tailLength: 'tail length',
+  },
+  FlowField: {
+    flowMode: 'flow',
+  },
+  BeatFlash: {
+    blendMode: 'mode',
+    preserveBase: 'keep base',
+  },
+  // On the pool patterns decay, thickness and size are multipliers of a
+  // ring's or blob's lifetime, width and radius, not rates.
+  KickShock: {
+    decay: 'lifetime ×',
+    thickness: 'ring width ×',
+    spawnSpread: 'spread',
+    blendMode: 'mode',
+  },
+  RainRipples: {
+    decay: 'lifetime ×',
+    thickness: 'ring width ×',
+    spawnSpread: 'spread',
+    blendMode: 'mode',
+  },
+  PercussionBlobs: {
+    decay: 'lifetime ×',
+    size: 'blob size ×',
+    spawnSpread: 'spread',
+    blendMode: 'mode',
+  },
+  SpectrumVisualizer: {
+    peakHold: 'peak hold (s)',
+    peakGravity: 'peak gravity',
+    waterfallSpeed: 'rows/s',
+  },
+  ColorTrails: {
+    injectionMode: 'injection',
+    flowMode: 'flow',
+    xSpeed: 'X speed',
+    xAmplitude: 'X amplitude',
+    xFrequency: 'X frequency',
+    ySpeed: 'Y speed',
+    yAmplitude: 'Y amplitude',
+    yFrequency: 'Y frequency',
+    endpointSpeed: 'endpoint speed',
+    colorSpeed: 'color speed',
+  },
+  FormatNumber: {
+    padWidth: 'pad to',
+    showSign: 'show +',
+    maxIntegerDigits: 'max digits',
+  },
+  TouchInput: {
+    touchXMin: 'X min',
+    touchXMax: 'X max',
+    touchYMin: 'Y min',
+    touchYMax: 'Y max',
+    touchFlipX: 'flip X',
+    touchFlipY: 'flip Y',
+  },
+  MicInput: { serialDebug: 'serial debug' },
+  LineInput: { serialDebug: 'serial debug' },
+  EnvironmentInput: { i2cAddress: 'I2C address' },
+  MotionVectorInput: { i2cAddress: 'I2C address' },
+  TouchPadInput: {
+    i2cAddress: 'I2C address',
+    touchThreshold: 'touch threshold',
+    releaseThreshold: 'release threshold',
+  },
+  EncoderInput: { resetOnPress: 'reset on press' },
+  PowerMonitorInput: {
+    i2cAddress: 'I2C address',
+    overcurrentAmps: 'overcurrent (A)',
+  },
+  Math: { mathOp: 'operation' },
+  MapRange: {
+    inMin: 'in min',
+    inMax: 'in max',
+    outMin: 'out min',
+    outMax: 'out max',
+  },
+  Ease: { easeType: 'curve' },
+  Trigger: {
+    triggerOp: 'operation',
+    stableTime: 'stable time',
+  },
+  FormatDateTime: { dateTimeFormat: 'format' },
+  Boids: {
+    visualRange: 'range',
+    colorMode: 'color mode',
+  },
+  Animartrix: { audioAmount: 'audio amount' },
+  Board: {
+    powerLimit: 'power cap',
+    reportTelemetry: 'telemetry',
   },
   SliceTiling: {
     bits: 'pattern A',
@@ -2049,9 +2343,6 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     stepSize: 'step size',
     baseRadius: 'base radius',
   },
-  Path: {
-    customPoints: 'custom points',
-  },
   FourierEpicycles: {
     customPoints: 'custom points',
     maxHarmonics: 'max harmonics',
@@ -2067,6 +2358,31 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
   MatrixOutput: {
     outputBrightness: 'brightness',
     dataLink: 'data link',
+    colorOrder: 'color order',
+    ledCount: 'LED count',
+    ringStartAngle: 'start angle (°)',
+    ringDirection: 'direction',
+    corkscrewTurns: 'turns',
+    corkscrewStartAngle: 'start angle (°)',
+    corkscrewDirection: 'direction',
+    corkscrewDiameterMm: 'diameter (mm)',
+    corkscrewHeightMm: 'height (mm)',
+    stripLayout: 'string layout',
+    positionsPreset: 'preset',
+    positionsWidth: 'width',
+    positionsHeight: 'height',
+    routeMode: 'route',
+    routeX: 'offset X',
+    routeY: 'offset Y',
+    tilesX: 'tiles X',
+    tilesY: 'tiles Y',
+    tileSerpentine: 'tile serpentine',
+    tileRotations: 'tile turns',
+    customXYMap: 'custom map',
+    renderScale: 'render scale',
+    whitePoint: 'white point',
+    hub75WideScan: 'wide scan',
+    hub75ColorDepthBits: 'color depth',
   },
   TransportDisplay: {
     tftLayout: 'layout',
@@ -2094,6 +2410,8 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     trailAmount: 'trail amount',
     beatAccent: 'beat accent',
     milliamps: 'pair current cap (mA)',
+    colorOrder: 'color order',
+    powerLimit: 'power cap',
   },
   DMXInput: {
     inputMode: 'firmware source',
@@ -2184,9 +2502,13 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     displayMode: 'display',
     durationSec: 'duration (s)',
     scaleWithMatrix: 'scale with matrix',
+    hAlign: 'align X',
+    vAlign: 'align Y',
   },
   Circle: {
     scaleWithMatrix: 'scale with matrix',
+    cx: 'center X',
+    cy: 'center Y',
   },
   AudioFeatures: {
     gate: 'Silence Gate',
@@ -2197,6 +2519,11 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
     trebleWeight: 'treble weight',
   },
 }
+
+/** Per-node overrides for a property's displayed label (defaults to the raw key). */
+export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fromEntries(
+  [...new Set([...Object.keys(REACTIVITY_LABELS), ...Object.keys(EXPLICIT_PROPERTY_LABELS)])]
+    .map((type) => [type, { ...REACTIVITY_LABELS[type], ...EXPLICIT_PROPERTY_LABELS[type] }]))
 
 /**
  * Display text for a node's property row (StudioNode's inline editors).
@@ -2322,11 +2649,17 @@ export interface PropertyGroup {
 
 /**
  * Collapsible-section layout for nodes whose property list is long enough to
- * dwarf the node otherwise. Only the handful of nodes with enough properties
- * to bother are listed here; everything else falls back to a flat list
- * (`propertyGroupsFor` returns `null`). A property not covered by any group
- * still renders, ungrouped, after the listed sections — so adding a new
- * property to one of these nodes degrades gracefully instead of disappearing.
+ * dwarf the node otherwise: every node that draws more than six rows at its
+ * defaults is listed here (`nodeLibrary.test.ts` holds the rule); everything
+ * else falls back to a flat list (`propertyGroupsFor` returns `null`). A
+ * property not covered by any group still renders, ungrouped, after the
+ * listed sections — so adding a new property to one of these nodes degrades
+ * gracefully instead of disappearing. Groups start collapsed, so a node's
+ * master controls (the player's volume, the LED output's enable switch) lead
+ * in a group of their own rather than trailing the sections ungrouped. A row
+ * the node's current mode does not use is hidden, not listed disabled, so a
+ * per-variant group (Formula Field's five formulas) drops out whole while
+ * another variant is chosen.
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   DMXInput: [
@@ -2345,12 +2678,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'requireSync', 'enable'] },
   ],
   MatrixOutput: [
+    { key: 'output', label: 'Output', keys: ['enabled', 'outputBrightness'] },
     { key: 'form', label: 'Output Geometry', keys: [
       'form', 'ledCount', 'ringStartAngle', 'ringDirection',
       'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
       'corkscrewDiameterMm', 'corkscrewHeightMm',
     ] },
-    { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'clockPin', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
       'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
@@ -2360,6 +2693,8 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'positionsWidth', 'positionsHeight', 'positions'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
+    // The least-used group last: a crop offset into a larger frame.
+    { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     // No 'brightness' or power group here: master brightness, the power cap
     // and overclock are the Board's, brightness on FastLED's native 0-255. The
     // output's own normalised runtime dimmer has the distinct
@@ -2447,6 +2782,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
+    { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
     { key: 'style', label: 'Style', keys: ['injectionMode', 'flowMode'] },
     { key: 'xFlow', label: 'Column Flow', keys: ['xSpeed', 'xAmplitude', 'xFrequency'] },
     { key: 'yFlow', label: 'Row Flow', keys: ['ySpeed', 'yAmplitude', 'yFrequency'] },
@@ -2481,7 +2817,8 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },
   ],
   PatternMaster: [
-    { key: 'timing', label: 'Timing', keys: ['order', 'beatTransitions', 'minTime', 'maxTime', 'transitionSec'] },
+    { key: 'playback', label: 'Playback', keys: ['volume', 'order'] },
+    { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   PatternSlideshow: [
@@ -2509,6 +2846,121 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   GradientFrame: [
     { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
     { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
+  ],
+  Circle: [
+    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'radius', 'scaleWithMatrix'] },
+    { key: 'geometry', label: 'Geometry', keys: ['thickness', 'wrap', 'filled'] },
+    { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
+  ],
+  // Style decides which of the bar, ring and arc rows exist, so they share
+  // its group and the unused ones drop out with it.
+  Gauge: [
+    { key: 'style', label: 'Style', keys: ['gaugeStyle', 'direction', 'thickness', 'ringLeds', 'arcStart', 'arcSweep'] },
+    { key: 'reading', label: 'Reading', keys: ['value', 'segments', 'peakHold'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  Text: [
+    { key: 'text', label: 'Text', keys: ['text', 'letterSpacing', 'wrap'] },
+    { key: 'position', label: 'Position', keys: ['x', 'y', 'hAlign', 'vAlign'] },
+    { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
+  ],
+  GradientSampler: [
+    { key: 'mix', label: 'Mix', keys: ['t', 'mixMode'] },
+    { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
+    { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
+  ],
+  BlendColors: [
+    { key: 'mix', label: 'Mix', keys: ['t'] },
+    { key: 'colorA', label: 'Color A', keys: ['rA', 'gA', 'bA'] },
+    { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
+  ],
+  Noise: [
+    { key: 'noise', label: 'Noise', keys: ['noiseType', 'noiseShape', 'worleyMode', 'seed', 'wrapX'] },
+    { key: 'motion', label: 'Motion', keys: ['speed', 'scale'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  Fire: [
+    { key: 'flame', label: 'Flame', keys: ['fireStyle', 'intensity', 'cooling', 'sparking', 'turbulence'] },
+    { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
+    { key: 'color', label: 'Color', keys: ['palette', 'paletteMix'] },
+  ],
+  Fire2012: [
+    { key: 'flame', label: 'Flame', keys: ['cooling', 'sparking', 'turbulence'] },
+    { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
+    { key: 'color', label: 'Color', keys: ['palette', 'paletteMix'] },
+  ],
+  Particles: [
+    { key: 'mode', label: 'Mode', keys: ['particleType', 'rate', 'decay', 'count'] },
+    { key: 'physics', label: 'Physics', keys: ['spread', 'gravity', 'bounce', 'size'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  FormulaPoints: [
+    { key: 'formula', label: 'Formula', keys: ['formulaType', 'preset', 'count', 'speed'] },
+    { key: 'shape', label: 'Shape', keys: ['freqA', 'freqB', 'petals', 'chaos'] },
+    { key: 'trail', label: 'Trail', keys: ['persistence', 'dotSize'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  DigitalRain: [
+    { key: 'rain', label: 'Rain', keys: ['direction', 'density', 'speed', 'tailLength', 'flicker'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  FlowField: [
+    { key: 'flow', label: 'Flow', keys: ['flowMode', 'speed', 'scale'] },
+    { key: 'particles', label: 'Particles', keys: ['count', 'fade'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  BeatFlash: [
+    { key: 'envelope', label: 'Envelope', keys: ['attack', 'decay', 'intensity'] },
+    { key: 'blend', label: 'Blend', keys: ['blendMode', 'preserveBase'] },
+    { key: 'color', label: 'Color', keys: ['palette', 'r', 'g', 'b'] },
+  ],
+  KickShock: [
+    { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
+    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'rings', label: 'Rings', keys: ['count', 'decay', 'thickness', 'spawnSpread', 'tiles'] },
+    { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
+  ],
+  PercussionBlobs: [
+    { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
+    { key: 'blobs', label: 'Blobs', keys: ['count', 'size', 'decay', 'spawnSpread'] },
+    { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
+  ],
+  RainRipples: [
+    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'ripples', label: 'Ripples', keys: ['count', 'decay', 'thickness', 'spawnSpread'] },
+    { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
+  ],
+  SpectraMosaic: [
+    { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
+    { key: 'motion', label: 'Motion', keys: ['energy', 'speed', 'tiles'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
+  ],
+  FormatNumber: [
+    { key: 'number', label: 'Number', keys: ['value', 'decimals', 'padWidth', 'maxIntegerDigits', 'showSign'] },
+    { key: 'text', label: 'Text', keys: ['prefix', 'suffix'] },
+  ],
+  // One group per formula; the chosen formula's rows are the only ones shown,
+  // so the others' groups drop out whole.
+  FormulaField: [
+    { key: 'formula', label: 'Formula', keys: ['formulaType', 'speed'] },
+    { key: 'rose', label: 'Rose', keys: ['petals', 'offset'] },
+    { key: 'superformula', label: 'Superformula', keys: ['symmetry', 'n1', 'n2', 'n3', 'a', 'b'] },
+    { key: 'spiral', label: 'Spiral', keys: ['turns', 'tightness', 'bandWidth'] },
+    { key: 'golden', label: 'Golden Tiling', keys: ['density', 'phase'] },
+    { key: 'lissajous', label: 'Lissajous', keys: ['freqA', 'freqB', 'thickness'] },
+  ],
+  FluidSim: [
+    { key: 'source', label: 'Source', keys: ['inject', 'injectX', 'injectY'] },
+    { key: 'flow', label: 'Flow', keys: ['viscosity', 'diffusion', 'dissipation', 'buoyancy'] },
+    { key: 'solver', label: 'Solver', keys: ['speed'] },
+  ],
+  FractalField: [
+    { key: 'set', label: 'Set', keys: ['fractalType', 'cRe', 'cIm', 'iterations', 'smooth'] },
+    { key: 'view', label: 'View', keys: ['zoom', 'centerX', 'centerY', 'spin'] },
+  ],
+  Automaton: [
+    { key: 'rule', label: 'Rule', keys: ['automatonType', 'rule', 'states', 'threshold', 'spawn'] },
+    { key: 'timing', label: 'Timing', keys: ['speed', 'seed'] },
   ],
   Zones: [
     { key: 'zoneA', label: 'Zone A', keys: ['aEnabled', 'aX', 'aY', 'aW', 'aH'] },

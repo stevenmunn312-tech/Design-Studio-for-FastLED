@@ -14,6 +14,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Math',
     label: 'Math',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
@@ -27,6 +28,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Clamp',
     label: 'Clamp',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'min', label: 'Min', dataType: 'float' },
@@ -41,6 +43,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'MapRange',
     label: 'Map Range',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'inMin', label: 'In Min', dataType: 'float' },
@@ -60,6 +63,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'StepValue',
     label: 'Step Value',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'increase', label: 'Increase', dataType: 'bool' },
       { id: 'decrease', label: 'Decrease', dataType: 'bool' },
@@ -72,6 +76,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Lerp',
     label: 'Lerp',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
@@ -89,6 +94,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Ease',
     label: 'Ease',
     category: 'math',
+    subcategory: 'Math',
     inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { t: 't' },
@@ -101,6 +107,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Abs',
     label: 'Abs',
     category: 'math',
+    subcategory: 'Math',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     propertyInputs: { x: 'x' },
@@ -111,6 +118,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Mod',
     label: 'Mod',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'x', label: 'X', dataType: 'float' },
       { id: 'm', label: 'M', dataType: 'float' },
@@ -124,6 +132,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Gate',
     label: 'Gate',
     category: 'math',
+    subcategory: 'Logic',
     inputs: [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'gate', label: 'Gate', dataType: 'bool' },
@@ -141,6 +150,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Smooth',
     label: 'Smooth',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'response', label: 'Response', dataType: 'float' },
@@ -158,6 +168,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'SampleHold',
     label: 'Sample & Hold',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
@@ -173,6 +184,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Switch',
     label: 'Switch',
     category: 'math',
+    subcategory: 'Logic',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
@@ -187,6 +199,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Not',
     label: 'Not',
     category: 'math',
+    subcategory: 'Logic',
     inputs: [{ id: 'x', label: 'X', dataType: 'bool' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'bool' }],
     defaultProperties: {},
@@ -195,6 +208,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Compare',
     label: 'Compare',
     category: 'math',
+    subcategory: 'Logic',
     inputs: [
       { id: 'a', label: 'A', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
@@ -221,6 +235,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'Trigger',
     label: 'Trigger',
     category: 'math',
+    subcategory: 'Logic',
     inputs: [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
       { id: 'on', label: 'On', dataType: 'bool' },
@@ -247,6 +262,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'TextValue',
     label: 'Text Value',
     category: 'math',
+    subcategory: 'Text',
     inputs: [],
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
     defaultProperties: { text: 'HELLO' },
@@ -255,6 +271,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'FormatNumber',
     label: 'Format Number',
     category: 'math',
+    subcategory: 'Text',
     inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
     propertyInputs: { value: 'value' },
@@ -273,6 +290,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'FormatDateTime',
     label: 'Format Date/Time',
     category: 'math',
+    subcategory: 'Text',
     inputs: [{ id: 'dateTime', label: 'DateTime', dataType: 'datetime' }],
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
     defaultProperties: { dateTimeFormat: 'HH:MM' },
@@ -281,6 +299,7 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     type: 'XYMapper',
     label: 'XY → Index',
     category: 'math',
+    subcategory: 'Math',
     inputs: [
       { id: 'x', label: 'X', dataType: 'float' },
       { id: 'y', label: 'Y', dataType: 'float' },
