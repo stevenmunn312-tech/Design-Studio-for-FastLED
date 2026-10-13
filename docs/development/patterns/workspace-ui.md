@@ -99,6 +99,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Layout and input traps
 
+- Entering a group runs `runTidy({ scope: 'all' })` from an effect in
+  `NodeGraphCanvas.tsx` keyed on `activeGraphId`, never from the store:
+  `tidyGraph.ts` imports the store, so the store cannot import it back. The
+  effect remembers the last graph it tidied, so a re-render inside the same
+  group does not re-tidy, and the root graph is left alone. Tidy fits the
+  view itself when its glide ends, superseding the fit `enterGraph` requests.
+  The move is a history entry like any tidy, so Undo restores the seed layout.
 - The main LED Output pane draws a ring, corkscrew or positioned string where
   its LEDs are, not as the one-row frame its wire order is. `shapeLayoutFor`
   (`src/components/Hardware/ledPreviewGeometry.ts`) gives the emitters in cells

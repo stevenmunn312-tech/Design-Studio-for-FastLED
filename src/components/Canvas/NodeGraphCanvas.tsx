@@ -28,7 +28,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { MINIMAP_WIDTH, minimapFitsField } from './minimapFit'
 import { useShallow } from 'zustand/react/shallow'
-import { connectTouchControl, useGraphStore } from '../../state/graphStore'
+import { connectTouchControl, ROOT_GRAPH_ID, useGraphStore } from '../../state/graphStore'
 import { TOUCH_CONTROL_ADD_HANDLE } from '../../state/displays/displayRegistry'
 import { touchControlDisplayId } from '../../state/player/wireFirstControls'
 import type { StudioEdge, StudioNode as StudioGraphNode } from '../../state/graphStore'
@@ -190,7 +190,7 @@ function NodeGraphCanvasInner() {
   // re-renders it on every unrelated store write (clipboard, trust flag,
   // performance-deck edits, …) on top of the node/edge churn it genuinely
   // needs.
-  const { nodes: allNodes, edges: allEdges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, removeEdge, reconnectNoodle, setNodeInputExposed } =
+  const { nodes: allNodes, edges: allEdges, selectedNodeId, onNodesChange, onEdgesChange, onConnect, selectNode, addNode, insertNodeOnEdge, spliceNodeOnEdge, spreadNodes, instantiatePattern, addToCollection, addPatternToCollection, enterGraph, activeGraphId, removeEdge, reconnectNoodle, setNodeInputExposed } =
     useGraphStore(useShallow((s) => ({
       nodes: s.nodes,
       edges: s.edges,
@@ -207,6 +207,7 @@ function NodeGraphCanvasInner() {
       addToCollection: s.addToCollection,
       addPatternToCollection: s.addPatternToCollection,
       enterGraph: s.enterGraph,
+      activeGraphId: s.activeGraphId,
       removeEdge: s.removeEdge,
       setNodeInputExposed: s.setNodeInputExposed,
       reconnectNoodle: s.reconnectNoodle,
@@ -548,6 +549,17 @@ function NodeGraphCanvasInner() {
     lastFitViewNonce.current = fitViewRequest.nonce
     void fitFrame(fitViewRequest.nodeIds)
   }, [fitFrame, fitViewRequest])
+
+  // Entering a group tidies it. A pattern's nodes arrive wherever its author
+  // or a bundled seed left them; the reader wants the chain in columns. The
+  // main graph is left as laid out. Tidy fits the view itself once the glide
+  // ends, superseding the fit the store requested on entry.
+  const tidiedGraphRef = useRef(activeGraphId)
+  useEffect(() => {
+    if (activeGraphId === tidiedGraphRef.current) return
+    tidiedGraphRef.current = activeGraphId
+    if (activeGraphId !== ROOT_GRAPH_ID) runTidy({ scope: 'all' })
+  }, [activeGraphId])
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
   // the click-to-add centre.
