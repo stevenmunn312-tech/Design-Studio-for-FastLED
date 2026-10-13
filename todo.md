@@ -412,7 +412,10 @@ library defaults.
   FieldFormula, 300 for IRRemoteInput, 280 for ColorTrails, Pattern Master and
   the LED output, 260 for SpectrumVisualizer, KickShock, RainRipples,
   PercussionBlobs and AudioHue; `SUBCATEGORY_ORDER.math` of Math, Logic, Text;
-  PatternSlideshow added to `CATEGORY_NODE_ORDER.show`.
+  PatternSlideshow added to `CATEGORY_NODE_ORDER.show`. Since D-08.2 a
+  checkbox row's label also shares the narrow label column, so Pattern
+  Master's `Beat Transitions` renders as `Beat Trans…`; once it fits again,
+  restore the full label in the `NodeReferenceCoverage` card test.
 - [ ] **D-08.8 · Tooltips on every property.** 355 of 1163 editable
   properties have a `propertyDescription`; the 808 drafts are in the audit
   reports as paste-ready `PROPERTY_DESCRIPTIONS_OVERRIDES` objects. Land them,
