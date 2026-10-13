@@ -133,7 +133,8 @@ describe('electricalPlan', () => {
     expect(plan.outputs[0].injections[0]).toEqual(expect.objectContaining({ role: 'start', designCurrentMa: 4980, conductor: expect.objectContaining({ awg: 18 }) }))
     expect(plan.outputs[0].injections[1]).toEqual(expect.objectContaining({ role: 'center', designCurrentMa: 9960, conductor: expect.objectContaining({ awg: 16 }) }))
     expect(plan.outputs[0].injections.every((injection) => injection.designCurrentMa <= injection.maximumCurrentMa)).toBe(true)
-    expect(plan.outputs[0].injections.every((injection) => (injection.conductor?.voltageDrop ?? Infinity) <= 0.4)).toBe(true)
+    // 5% of the 5 V rail, the reviewed branch allowance.
+    expect(plan.outputs[0].injections.every((injection) => (injection.conductor?.voltageDrop ?? Infinity) <= 0.25)).toBe(true)
     expect(plan.totals?.supplies.every((supply) => supply.recommendedCurrentMa <= 100000)).toBe(true)
   })
 

@@ -330,14 +330,18 @@ and its design notes.
   happens *after* components are in the app and appear in the Build Diagram:
   a career electronics engineering lecturer checks that the generated wiring,
   calculations, tables and wording are safe and recommended practice. It
-  reviews what exists, so it gates nothing in D-05; hold it until the power
-  families v1 will include are in the app, and give families added later a
-  follow-up pass. Record findings and corrections against
-  [the Build Diagram contract](docs/architecture/build-diagram.md).
-  One change to review first: on 2026-09-27 the wire table moved from figures
-  of uncertain origin (10 AWG at 65 A) to NEC 310.16 at 90 C, fuse and wire
-  are now coordinated, and each supply has a main fuse and trunk
-  ([Build Diagram rules](docs/architecture/build-diagram.md)).
+  reviews what exists, so it gates nothing in D-05. Findings and dispositions
+  are recorded in
+  [the Build Diagram contract](docs/architecture/build-diagram.md#independent-electrical-review).
+  - [x] First pass (October 2026, against `main`): no blocking safety issue
+    in the fixed-supply WS2812 5 V path. Its one correction, a 5% branch
+    voltage-drop allowance instead of 0.4 V, landed on 2026-10-13 as ruleset
+    v8. Its wire-table caution was already fixed on 2026-09-27.
+  - [ ] Follow-up pass on what `Hardware` added after `main` froze: main
+    fuse and trunk, the NEC 310.16 transcription and bundle derating,
+    bolt-down fuse classes and interrupt ratings, battery packs and
+    protection, buck and isolated rail converters, and the PD trigger.
+    Hold it until the power families v1 will include are all in the app.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and

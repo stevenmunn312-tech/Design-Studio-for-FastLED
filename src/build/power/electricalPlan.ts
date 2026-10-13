@@ -38,7 +38,6 @@ const DEFAULT_LED_DENSITY_PER_METER = 60
 const DEFAULT_FEED_CABLE_LENGTH_MM = 500
 const MAX_END_FEED_CURRENT_MA = 5000
 const MAX_CENTER_FEED_CURRENT_MA = 10000
-const MAX_VOLTAGE_DROP_V = 0.4
 /** Supply terminal to fuse block. Kept short: this run carries the whole zone. */
 const DEFAULT_TRUNK_LENGTH_MM = 500
 /** The trunk's share of the drop, on top of each branch's own allowance. */
@@ -377,7 +376,7 @@ function calculateInjections(
       designCurrentMa: standardFuseRatingFor(designCurrentMa) ?? Math.ceil(designCurrentMa / 0.75),
       oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
       circuitVoltage: nominalVoltage,
-      allowedVoltageDropPercent: (MAX_VOLTAGE_DROP_V / nominalVoltage) * 100,
+      allowedVoltageDropPercent: DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
       material: 'copper',
       ambientC: 30,
       bundledCircuits: 1,
@@ -1095,7 +1094,7 @@ export function calculateElectricalPlan(
       ? `Supply groups are packed from uncapped full-white loads into ${railConverter.module.label} converters at ${ENCLOSURE_AMBIENT_C} °C with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; a feed larger than one zone is split across isolated converters, and separate converter outputs must not be paralleled.`
       : `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
     `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the full-white load.`,
-    `Conductor voltage drop is limited to ${MAX_VOLTAGE_DROP_V} V over the complete 500 mm one-way feed circuit.`,
+    `Branch conductor voltage drop is limited to ${DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT}% of the rail (${(nominalVoltageOf(outputPlans) * DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT) / 100} V at ${nominalVoltageOf(outputPlans)} V) over the complete ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way feed circuit.`,
     `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
     'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
   ]

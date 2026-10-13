@@ -1,6 +1,12 @@
 import type { BuildConductorMaterial } from '../buildProfile'
 
-export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.09.27-v7'
+export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.10.13-v8'
+/**
+ * Branch and converter-input feeds may drop this much of their rail. 5% keeps
+ * blue and green full strength on a 5 V WS2812 strip; the independent
+ * electrical review (October 2026) found the earlier 0.4 V (8%) borderline
+ * under full white.
+ */
 export const DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT = 5
 
 export interface WireRule {

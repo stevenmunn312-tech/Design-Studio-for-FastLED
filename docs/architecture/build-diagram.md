@@ -2,7 +2,9 @@
 
 Scope: `Hardware`. This document owns the generated-wiring contract, including
 the requirements formerly kept in the Build Diagram handoff. Independent
-electrical verification remains [HW-14 in the active backlog](../../todo.md).
+electrical verification is [HW-14](../../todo.md); its first pass and the
+families still awaiting one are recorded under
+[Independent Electrical Review](#independent-electrical-review).
 
 ## Purpose
 
@@ -149,8 +151,13 @@ The current bounded WS2812-class rules use:
 - 500 mm one-way feed cable when no reviewed physical route is available.
 - 5 A maximum design load for start/end feeds and 10 A maximum for centre
   feeds that split into no more than 5 A in either direction.
-- 0.4 V maximum calculated feed drop over the complete 500 mm one-way copper
-  feed circuit.
+- 5% of the rail (0.25 V at 5 V) maximum calculated branch feed drop over the
+  complete 500 mm one-way copper feed circuit; the same 5% bounds a converter's
+  input feed. Until 2026-10-13 branches were allowed 0.4 V (8%), which the
+  independent review found borderline for blue and green under full white.
+  The allowance is a rule, not a per-project setting: Build Diagram is not a
+  form, and the legacy `assumptions.allowedVoltageDropPercent` profile field
+  deserializes but is ignored like every other legacy planning field.
 - Fuse and wire are coordinated: a fuse carries its load at no more than 75%,
   and the wire is then sized to carry that fuse's standard rating, not just
   the load. Sizing the wire to the load alone could leave no standard fuse
@@ -262,9 +269,48 @@ matrix supply and feed recommendations. Component coverage must check:
   reviewed-pinout picker.
 
 The retired handoff recorded successful automated tests, lint and production
-builds. Those historical results do not qualify physical wiring. The independent
-review in [HW-14](../../todo.md) still owns verification of formulas, source
-tables and wording before authoritative-guidance claims are made.
+builds. Those historical results do not qualify physical wiring. The
+[independent review](#independent-electrical-review) owns verification of
+formulas, source tables and wording before authoritative-guidance claims are
+made.
+
+## Independent Electrical Review
+
+HW-14's first pass, *Design Studio for FastLED, Electrical Review* (October
+2026, source review of the public-beta `main` line, ruleset
+`build-rules-2026.08.11-v4`), found no blocking electrical safety issue in the
+fixed-supply WS2812 5 V path: worst-case 60 mA per pixel sizing, start/centre/
+end injection limits, 75% continuous fuse loading, coordinated fuse and
+conductor, 74AHCT125 conditioning with 330 ohm series resistors, 1000 uF bulk
+capacitors, common ground, no paralleled positives, and USB-only controller
+power all match recommended practice. Its cautions and their disposition:
+
+- **Voltage drop, 0.4 V (8%) on the branch feed.** Accepted. Branches now use
+  the 5% rule above; at the fixed 500 mm feed every reviewed branch still
+  resolves to the same gauge, so the tighter rule costs nothing today and
+  protects longer reviewed routes later. The review's appendix suggested a
+  per-project setting through the legacy profile field; declined, because
+  Build Diagram is not a form and legacy planning fields are ignored by
+  design.
+- **Wire ampacity table (automotive GPT figures, 20 AWG at 15 A).** Already
+  corrected on `Hardware` on 2026-09-27: the table is NEC 310.16 at 90 C
+  with no 20 AWG row (18 AWG carries 14 A). The review did not see this.
+- **Default 60 LEDs/m and 500 mm feed.** Accepted as stated: both appear in
+  the assumptions list, and users must check real length and density.
+- **10 A centre feeds versus strip copper.** Accepted as a user caution; the
+  feed wire is sized for it and the injection count already splits dense or
+  long runs. No rule change.
+- **6.3 V capacitor rating.** Correct for 5 V; 10 V would add margin. Kept at
+  6.3 V (Panasonic EEUFR0J102B), not a safety item.
+- **Connector ratings.** Stepped list at 75% loading accepted; users match the
+  physical connector to the stated minimum.
+
+Not covered by that pass, and still owed a follow-up review before they leave
+experimental: everything `Hardware` added after `main` froze, in particular
+the per-supply main fuse and trunk, the NEC ampacity and bundle-derating
+transcription, bolt-down fuse classes and interrupt ratings, battery packs
+and their protection, buck and isolated rail converters, and the USB-C PD
+trigger source.
 
 ## Current Scope
 
@@ -285,7 +331,8 @@ tables and wording before authoritative-guidance claims are made.
 - Unsupported graph hardware is reported and omitted rather than wired
   speculatively.
 
-The formulas and source-table transcription still require independent
-electrical review before the feature is presented as authoritative engineering
-advice. Exports remain a low-voltage design-assistance reference and must be
-checked against exact component datasheets and applicable local requirements.
+The fixed-supply WS2812 path has had its independent review; the families
+listed under [Independent Electrical Review](#independent-electrical-review)
+have not, and stay experimental until they do. Exports remain a low-voltage
+design-assistance reference and must be checked against exact component
+datasheets and applicable local requirements.
