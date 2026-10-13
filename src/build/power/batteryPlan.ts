@@ -190,6 +190,9 @@ export function planBattery(
   if (mainFuse.ratingMa && prospectiveCurrentA && !mainFuseClass) {
     blockers.push(issue('battery-fuse-interrupt', 'blocking', 'Battery main fuse', `No reviewed fuse class covers a ${formatCurrent(mainFuse.ratingMa)} fuse at ${window.ceilingV} V DC with at least ${prospectiveCurrentA} A interrupting capacity.`))
   }
+  if (mainFuse.ratingMa && !prospectiveCurrentA) {
+    warnings.push(issue('battery-fuse-interrupt-unknown', 'warning', 'Battery main fuse', `The battery cell's catalogue entry has no usable internal resistance, so the fuse interrupt rating was not checked against the pack's prospective short-circuit current.`))
+  }
 
   const converterEfficiencies = (totals?.supplies ?? []).map((supply) => {
     const partId = supply.converter?.partId

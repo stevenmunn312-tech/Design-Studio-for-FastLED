@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { StudioNode } from '../../state/graphStore'
 import { boardProfileById } from '../boards/boardProfiles'
 import { buildBomRows, buildConnectionRows } from '../buildExports'
@@ -6,6 +6,12 @@ import { ensureBuildProfile } from '../buildProfile'
 import { buildHardwareManifest } from '../hardwareManifest'
 import { PART_CATALOGUE } from '../parts/partCatalogue'
 import { calculateElectricalPlan } from '../power/electricalPlan'
+import { prospectiveShortCircuitA } from '../../state/peripherals/battery'
+
+vi.mock('../../state/peripherals/battery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../state/peripherals/battery')>()
+  return { ...actual, prospectiveShortCircuitA: vi.fn(actual.prospectiveShortCircuitA) }
+})
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -140,6 +146,15 @@ describe('battery power planning', () => {
       pack(4, 2), module('bms', 'hx-4s-f30a-bms-balance'),
       node('pd', 'PdTriggerSource', { requestedVoltage: 12 }),
     ])).toContain('pd-trigger-battery')
+  })
+
+  it('warns instead of skipping the interrupt check when the cell has no usable internal resistance', () => {
+    vi.mocked(prospectiveShortCircuitA).mockReturnValueOnce(undefined)
+    const ids = issueIds([pack(4, 2), module('bms', 'hx-4s-f30a-bms-balance'), converter('generic-300w-9a-buck-module'), output(8, 8)])
+    expect(ids).toContain('battery-fuse-interrupt-unknown')
+    expect(ids).not.toContain('battery-fuse-interrupt')
+    expect(issueIds([pack(4, 2), module('bms', 'hx-4s-f30a-bms-balance'), converter('generic-300w-9a-buck-module'), output(8, 8)]))
+      .not.toContain('battery-fuse-interrupt-unknown')
   })
 
   it('reports low, impossible and overcurrent source paths', () => {

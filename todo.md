@@ -337,11 +337,15 @@ and its design notes.
     in the fixed-supply WS2812 5 V path. Its one correction, a 5% branch
     voltage-drop allowance instead of 0.4 V, landed on 2026-10-13 as ruleset
     v8. Its wire-table caution was already fixed on 2026-09-27.
-  - [ ] Follow-up pass on what `Hardware` added after `main` froze: main
-    fuse and trunk, the NEC 310.16 transcription and bundle derating,
-    bolt-down fuse classes and interrupt ratings, battery packs and
-    protection, buck and isolated rail converters, and the PD trigger.
-    Hold it until the power families v1 will include are all in the app.
+  - [x] Second pass (October 2026, against `Hardware` at `5d10f5e7`, ruleset
+    v8): main fuse and trunk, the NEC 310.16 transcription, bolt-down fuse
+    classes and interrupt ratings, battery packs and protection, buck and
+    isolated rail converters, and the PD trigger. No blocking safety issue;
+    six non-blocking cautions recorded with dispositions. One tightening
+    landed: a battery cell with no usable internal-resistance figure now
+    warns that the main-fuse interrupt rating was not checked.
+  - [ ] Any power family added after `5d10f5e7` needs its own pass before
+    it leaves experimental.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and

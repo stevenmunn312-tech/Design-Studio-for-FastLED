@@ -305,12 +305,37 @@ power all match recommended practice. Its cautions and their disposition:
 - **Connector ratings.** Stepped list at 75% loading accepted; users match the
   physical connector to the stated minimum.
 
-Not covered by that pass, and still owed a follow-up review before they leave
-experimental: everything `Hardware` added after `main` froze, in particular
-the per-supply main fuse and trunk, the NEC ampacity and bundle-derating
-transcription, bolt-down fuse classes and interrupt ratings, battery packs
-and their protection, buck and isolated rail converters, and the USB-C PD
-trigger source.
+The second pass (October 2026, source review of `Hardware` at commit
+`5d10f5e7`, ruleset `build-rules-2026.10.13-v8`) covered what the first pass
+had not: the per-supply main fuse and 500 mm trunk with its 0.1 V allowance,
+the NEC 310.16 transcription, bolt-down fuse classes with interrupt-rating
+checks, battery packs with protection-board, charge-current and runtime
+rules, buck and isolated rail converters with derating, source-window and
+bonding rules, and the USB-C PD trigger. It confirmed the 5% branch rule and
+the wire table, and found no blocking electrical safety issue in any of
+those paths. Its cautions and their disposition:
+
+- **Voltage-drop limit fixed at 5%.** Accepted, as before: a generated
+  recommendation, not a form; tighter or looser limits are sized by hand.
+- **Default 60 LEDs/m and 500 mm feed.** Unchanged; still in the assumptions.
+- **10 A centre feeds versus strip copper.** Unchanged user caution.
+- **Battery prospective short-circuit current from catalogue data.** The
+  interrupt check uses the cell's catalogue internal resistance; the review
+  noted that a missing or optimistic figure leaves the check incomplete. The
+  catalogue type requires the figure, and a cell that cannot yield one now
+  raises a warning that the interrupt rating was not checked instead of
+  silently skipping it. An optimistic figure remains a catalogue-review item.
+- **Isolated converter bonding.** Field wiring stays a user responsibility;
+  the output -V bond and FG sentences already surface it.
+- **Trunk and branch drop stacking, up to about 0.35 V on a 5 V rail.**
+  Accepted: the trunk is short and its allowance is stated separately in the
+  assumptions. No rule change.
+
+Both passes are source reviews, not a substitute for professional review of
+a specific installation. The battery, converter and PD-trigger families have
+now had their independent review; they leave experimental only when their
+bench rows in `todo.md` hold evidence and
+[the support matrix](../release/beta-support-matrix.md) says so.
 
 ## Current Scope
 
@@ -331,8 +356,9 @@ trigger source.
 - Unsupported graph hardware is reported and omitted rather than wired
   speculatively.
 
-The fixed-supply WS2812 path has had its independent review; the families
-listed under [Independent Electrical Review](#independent-electrical-review)
-have not, and stay experimental until they do. Exports remain a low-voltage
-design-assistance reference and must be checked against exact component
-datasheets and applicable local requirements.
+Both the fixed-supply WS2812 path and the families listed under
+[Independent Electrical Review](#independent-electrical-review) have had
+their source review; the battery, converter and PD-trigger families stay
+experimental until their bench rows graduate them. Exports remain a
+low-voltage design-assistance reference and must be checked against exact
+component datasheets and applicable local requirements.
