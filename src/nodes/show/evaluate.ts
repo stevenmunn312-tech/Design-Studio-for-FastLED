@@ -1241,7 +1241,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
           ? clamp01((Number(audio.bass ?? audio.micBass ?? 0) + Number(audio.mids ?? audio.micMids ?? 0) + Number(audio.treble ?? audio.micTreble ?? 0)) / 3)
           : 0
         : null,
-      audioReactive: (gid) => isAudioReactiveSubgraph(groups[gid]?.nodes ?? []),
+      audioReactive: (gid: string) => isAudioReactiveSubgraph(groups[gid]?.nodes ?? []),
     }
     const key = stateKey(id)
     const controlsValue = input(id, 'controls', null)
