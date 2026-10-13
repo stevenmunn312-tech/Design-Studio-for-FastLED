@@ -5,5 +5,7 @@
  */
 export const FLOW_FIELD_COUNT = { min: 8, max: 400 } as const
 export const STARFIELD_COUNT = { min: 8, max: 300 } as const
+/** Boids neighbour radius in pixels; separation, alignment and cohesion are 0–1. */
+export const BOIDS_VISUAL_RANGE = { min: 1, max: 8 } as const
 /** Gray-Scott updates per frame; each one costs a full pass over the matrix. */
 export const REACTION_DIFFUSION_MAX_STEPS = 20

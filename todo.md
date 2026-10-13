@@ -405,7 +405,8 @@ library defaults.
   and Starfield 8–300 particles; Path `scale` 0.1–1, Frame Feedback `angle`
   ±45°, the LED output's tiles 1–16. Wired values clamp alike on both sides:
   Particles `rate`/`decay`, Wave Sim `impulse`, Formula Field and Formula
-  Points `speed`, Array `falloff`, Flow Field and Game of Life `fade`, the
+  Points `speed`, Array `falloff`, Flow Field and Game of Life `fade`, Beat
+  Flash `decay`, the Boids weights and `visualRange`, the
   colour nodes' CHSV bytes (shared `levelByteCpp` and siblings), the five
   audio-pattern speeds. A wired Poline anchor now builds the palette on the
   board (`_polineStops16`, held to the library by `polineFirmware.test.ts`).
@@ -419,8 +420,7 @@ library defaults.
   Encoder `pullup` moved to the part panel; part panel fields carry their
   tooltips. An unassigned Button Bank button (pin −1) was only a warning and
   read GPIO0; it is now never pressed, and the warning says it has no GPIO.
-  Unchanged on purpose: Gabor Noise, Boids weights and Beat Flash `decay` are
-  unclamped but identical on both sides.
+  Unchanged on purpose: Gabor Noise is unclamped but identical on both sides.
 - [ ] **D-08.7 · Labels, groups and widths.** `PROPERTY_LABELS` for every raw
   camelCase key on composite, field, shapes, show and output nodes (Pattern
   Master: `min hold (s)`, `max hold (s)`, `fade (s)`); `PROPERTY_GROUPS` for

@@ -803,6 +803,16 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB(10, 20, 30)')
   })
 
+  it('bounds the Boids weights and range to their sliders, wired or not', () => {
+    const range = node('rg', 'Random', 'signal', { min: -5, max: 20 })
+    const cpp = generateCpp([range, node('bd', 'Boids', 'pattern', { separation: 0.6 }), outputNode], [
+      edge('e1', 'rg', 'bd', 'value', 'visualRange'),
+      edge('e2', 'bd', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('_sx*(constrain(0.6,0.0f,1.0f))*0.05f')
+    expect(cpp).toContain('constrain(n_rg_value,1.0f,8.0f)')
+  })
+
   it('emits CHSV per-boid colouring for the heading and spectrum colour modes', () => {
     const mk = (colorMode: string) =>
       generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10 }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
@@ -5484,6 +5494,8 @@ describe('generateCpp — BeatFlash', () => {
     ])
     expect(cpp).toContain('CRGB(255, 255, 255)')
     expect(cpp).toContain('_fAtkStep_bf')
+    // Above 1 the flash would grow instead of fading and never let go.
+    expect(cpp).toContain('else _flash_bf *= constrain(0.85,0.0f,1.0f);')
     expect(cpp).not.toContain('ColorFromPalette(paldef_rainbow')
     // Screen blend subtracts the base pixel from the flash color.
     expect(cpp).toMatch(/_fc_bf\.r - .*\[_i\]\.r/)

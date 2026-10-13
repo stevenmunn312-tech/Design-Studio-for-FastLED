@@ -1,5 +1,5 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
-import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
+import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
 import { particleRadius } from './particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
@@ -1081,10 +1081,12 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
   Boids({ input, num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Boids)
     const count = num(id, 'count', props, 'count', 24)
-    const sep = num(id, 'separation', props, 'separation', 0.6)
-    const ali = num(id, 'alignment', props, 'alignment', 0.5)
-    const coh = num(id, 'cohesion', props, 'cohesion', 0.4)
-    const range = num(id, 'visualRange', props, 'visualRange', 4)
+    // Bounded to their sliders, as the sketch bounds them: a wired negative
+    // weight would invert its rule.
+    const sep = clamp01(num(id, 'separation', props, 'separation', 0.6))
+    const ali = clamp01(num(id, 'alignment', props, 'alignment', 0.5))
+    const coh = clamp01(num(id, 'cohesion', props, 'cohesion', 0.4))
+    const range = Math.max(BOIDS_VISUAL_RANGE.min, Math.min(BOIDS_VISUAL_RANGE.max, num(id, 'visualRange', props, 'visualRange', 4)))
     const colorMode = String(props.colorMode ?? 'solid')
     const colorIn = input(id, 'color', null) as RGB | null
     const color = colorIn ?? {

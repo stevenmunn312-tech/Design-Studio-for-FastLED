@@ -1,5 +1,5 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
-import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
+import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
@@ -556,8 +556,10 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
   Boids({ node, id, p, ln, f, channelColor, ownBuf, paletteExpr, needsT }) {
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Boids)
-    const sep = f('separation', 'separation', 0.6), ali = f('alignment', 'alignment', 0.5)
-    const coh = f('cohesion', 'cohesion', 0.4), range = f('visualRange', 'visualRange', 4)
+    const unit = (expr: string) => `constrain(${expr},0.0f,1.0f)`
+    const sep = unit(f('separation', 'separation', 0.6)), ali = unit(f('alignment', 'alignment', 0.5))
+    const coh = unit(f('cohesion', 'cohesion', 0.4))
+    const range = `constrain(${f('visualRange', 'visualRange', 4)},${BOIDS_VISUAL_RANGE.min}.0f,${BOIDS_VISUAL_RANGE.max}.0f)`
     const colorMode = String(p.colorMode ?? 'solid')
     if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
     const colorE = channelColor('color', 120, 200, 255)

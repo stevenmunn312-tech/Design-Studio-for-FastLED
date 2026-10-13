@@ -1323,7 +1323,9 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   BeatFlash({ input, num, pal, W, H, stateKey, incoming }, id, props) {
     const beatVal = input(id, 'beat', false) as boolean
     const baseFrame = input(id, 'frame', null) as Frame | null
-    const decay = num(id, 'decay', props, 'decay', 0.85)
+    // 0–1 like its slider, as the sketch bounds it: above 1 the flash grows
+    // instead of fading and holds on for good.
+    const decay = clamp01(num(id, 'decay', props, 'decay', 0.85))
     const attack = num(id, 'attack', props, 'attack', 0)
     const intensity = num(id, 'intensity', props, 'intensity', 1)
     const blendMode = String(props.blendMode ?? 'screen') === 'add' ? 'add' : 'screen'

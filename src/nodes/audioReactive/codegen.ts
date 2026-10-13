@@ -338,7 +338,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const beat = boolExpr(node.id, 'beat')
     const attack = f('attack', 'attack', 0)
-    const decay = f('decay', 'decay', 0.85)
+    const decay = `constrain(${f('decay', 'decay', 0.85)},0.0f,1.0f)`
     const intensity = f('intensity', 'intensity', 1)
     const blendMode = String(p.blendMode ?? 'screen') === 'add' ? 'add' : 'screen'
     const preserveBase = p.preserveBase !== false

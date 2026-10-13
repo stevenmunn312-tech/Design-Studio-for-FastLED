@@ -32,7 +32,7 @@ import {
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
 import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from '../nodes/generative/limits'
-import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
+import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
@@ -929,7 +929,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     separation:  { control: 'slider', min: 0, max: 1, step: 0.01 },
     alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     cohesion:    { control: 'slider', min: 0, max: 1, step: 0.01 },
-    visualRange: { control: 'slider', min: 1, max: 8, step: 0.5 },
+    visualRange: { control: 'slider', min: BOIDS_VISUAL_RANGE.min, max: BOIDS_VISUAL_RANGE.max, step: 0.5 },
     colorMode:   { control: 'select', options: ['solid', 'palette', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
   },
   GradientFrame: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
