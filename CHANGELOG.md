@@ -9,6 +9,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The LED Output pane now draws a ring, a corkscrew and a positioned string in
+  their real shape, where the node's own preview already did, instead of as a
+  straight row of LEDs.
 - A ring, corkscrew or positioned string can now be driven by the Music Player
   and by the music-sync SD player. Those sketches compose into one canvas and
   copy it through the same LED map the normal sketch bakes, so the pattern on

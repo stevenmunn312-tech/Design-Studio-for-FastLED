@@ -1,3 +1,6 @@
+import type { OutputRoute } from '../../state/output/outputRouting'
+import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/output/ledOutputForm'
+
 /**
  * Fraction of its cell one LED emitter covers.
  *
@@ -62,3 +65,157 @@ export interface EmitterGlowLayer {
 export const EMITTER_GLOW: readonly EmitterGlowLayer[] = [
   { along: 1.8, across: 1.44, opacity: 0.34 },
 ]
+
+/** Half the width of one LED on a ring, in bounding-box fractions — a 5050
+ *  package against the ~76 mm circle a 24-LED ring describes. */
+export const RING_LED_RADIUS = 0.035
+export const CORKSCREW_LED_RADIUS_X = 0.028
+export const CORKSCREW_LED_RADIUS_Y = 0.016
+
+export interface RingGeometry {
+  ledCount: number
+  startAngle: number
+  direction: RingDirection
+}
+
+export interface CorkscrewGeometry {
+  ledCount: number
+  turns: number
+  startAngle: number
+  direction: CorkscrewDirection
+}
+
+export interface PositionsGeometry {
+  canvasW: number
+  canvasH: number
+  points: ReadonlyArray<readonly [number, number]>
+}
+
+/**
+ * A ring's LEDs on a unit-square box, in wire order. Angles match
+ * `ringSampleMap` exactly — 0 degrees at 12 o'clock, clockwise positive — so
+ * the LED lit here is the LED the frame was sampled for. `radius` is the
+ * circle's radius in box fractions.
+ */
+export function ringUnitPoints(ring: RingGeometry, radius: number): Array<{ cx: number; cy: number }> {
+  const sign = ring.direction === 'ccw' ? -1 : 1
+  const start = ring.startAngle * Math.PI / 180
+  return Array.from({ length: Math.max(1, ring.ledCount) }, (_, index) => {
+    const theta = start + (sign * index * 2 * Math.PI / Math.max(1, ring.ledCount))
+    return { cx: 0.5 + (radius * Math.sin(theta)), cy: 0.5 - (radius * Math.cos(theta)) }
+  })
+}
+
+export interface CorkscrewUnitPoint {
+  index: number
+  cx: number
+  cy: number
+  /** cos of the LED's angle: 1 at the front of the winding, -1 at the back. */
+  depth: number
+  opacity: number
+  scale: number
+}
+
+/**
+ * Front-on projection of the same corkscrew angles used by the authoring
+ * sample map, on a unit-square box. Depth makes the back half quieter and
+ * smaller; the wire-order index stays with each point so live colour painting
+ * is unchanged whatever order the points are drawn in.
+ */
+export function corkscrewUnitPoints(corkscrew: CorkscrewGeometry): CorkscrewUnitPoint[] {
+  const count = Math.max(1, corkscrew.ledCount)
+  return Array.from({ length: count }, (_, index) => {
+    const theta = corkscrewAngleAt(index, count, corkscrew.turns, corkscrew.startAngle, corkscrew.direction)
+    const progress = count <= 1 ? 0.5 : index / (count - 1)
+    const depth = Math.cos(theta)
+    return {
+      index,
+      cx: 0.5 + (0.42 * Math.sin(theta)),
+      cy: 0.04 + (0.92 * progress),
+      depth,
+      opacity: 0.42 + (0.58 * ((depth + 1) / 2)),
+      scale: 0.72 + (0.28 * ((depth + 1) / 2)),
+    }
+  })
+}
+
+/** One LED of a shaped output on the main preview canvas, in LED-pitch cells. */
+export interface ShapeEmitter {
+  x: number
+  y: number
+  /** Emitter size relative to a grid LED: the back of a corkscrew is smaller. */
+  scale: number
+  opacity: number
+}
+
+/**
+ * Where a shape-mapped chain's LEDs sit, in cells of one LED pitch, so the
+ * main LED Output pane can size and draw it the way it draws a matrix: a cell
+ * is a cell, and the per-LED pixel budget is the same.
+ */
+export interface ShapeLayout {
+  kind: 'ring' | 'corkscrew' | 'positions'
+  /** The box the emitters sit in, in cells. */
+  width: number
+  height: number
+  /** In wire order: emitter i shows LED i of the routed one-row frame. */
+  emitters: ShapeEmitter[]
+  /** Draw the wire joining the LEDs in order behind them. */
+  wire: boolean
+}
+
+/**
+ * The layout the main pane draws for a route, or null when the route is a grid
+ * or a straight chain and the row-major canvas is already its true shape.
+ *
+ * A ring of N LEDs at one pitch has a circumference of N cells, so its box is
+ * N / pi cells across plus one cell of emitter; a corkscrew's box follows its
+ * diameter and height in millimetres; a positioned string's canvas units are
+ * already one LED pitch. The angles are the ones `ringSampleMap` and
+ * `corkscrewSampleMap` use, so the LED drawn here is the LED the frame was
+ * sampled for.
+ */
+export function shapeLayoutFor(route: OutputRoute): ShapeLayout | null {
+  if (route.ring) {
+    const count = Math.max(1, route.ring.ledCount)
+    const size = Math.max(3, count / Math.PI + 1)
+    const radius = (size - 1) / 2
+    return {
+      kind: 'ring',
+      width: size,
+      height: size,
+      emitters: ringUnitPoints(route.ring, radius / size).map((point) => ({
+        x: point.cx * size, y: point.cy * size, scale: 1, opacity: 1,
+      })),
+      wire: false,
+    }
+  }
+  if (route.corkscrew) {
+    const count = Math.max(1, route.corkscrew.ledCount)
+    const turns = Math.max(0.25, route.corkscrew.turns)
+    const width = Math.max(3, count / (turns * Math.PI) + 1)
+    const ratio = route.corkscrew.heightMm > 0 && route.corkscrew.diameterMm > 0
+      ? route.corkscrew.heightMm / route.corkscrew.diameterMm
+      : 2
+    const height = Math.max(3, width * Math.max(0.5, Math.min(6, ratio)))
+    return {
+      kind: 'corkscrew',
+      width,
+      height,
+      emitters: corkscrewUnitPoints(route.corkscrew).map((point) => ({
+        x: point.cx * width, y: point.cy * height, scale: point.scale, opacity: point.opacity,
+      })),
+      wire: true,
+    }
+  }
+  if (route.positions) {
+    return {
+      kind: 'positions',
+      width: Math.max(1, route.positions.canvasW),
+      height: Math.max(1, route.positions.canvasH),
+      emitters: route.positions.points.map(([x, y]) => ({ x, y, scale: 1, opacity: 1 })),
+      wire: true,
+    }
+  }
+  return null
+}

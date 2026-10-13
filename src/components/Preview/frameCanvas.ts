@@ -1,5 +1,6 @@
 import type { Frame } from '../../state/graphEvaluator'
 import type { PreviewStyle } from './previewStyles'
+import type { ShapeLayout } from '../Hardware/ledPreviewGeometry'
 
 // ── Canvas-2D LED sprites (shared by the live fallback renderer and export) ──
 // Drawing every lit LED as two `arc` fills with shadowBlur — a per-LED
@@ -66,13 +67,7 @@ export function renderGridFrame(
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
       const { r, g, b } = frame[y][x]
-      const brightness = Math.max(r, g, b) / 255
-      if (brightness < 0.012) continue
-      const cx = (x + 0.5) * pixel
-      const cy = (y + 0.5) * pixel
-      const size = pixel * (1.4 + brightness * 1.8) * emitterScale
-      ctx.globalAlpha = 0.18 + brightness * 0.3
-      ctx.drawImage(ledSprite('spill', r, g, b), cx - size / 2, cy - size / 2, size, size)
+      drawEmitterSpill(ctx, (x + 0.5) * pixel, (y + 0.5) * pixel, pixel, r, g, b, emitterScale, 1)
     }
   }
   ctx.restore()
@@ -80,22 +75,102 @@ export function renderGridFrame(
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
       const { r, g, b } = frame[y][x]
-      const brightness = Math.max(r, g, b) / 255
-      if (brightness < 0.012) continue
-      const cx = (x + 0.5) * pixel
-      const cy = (y + 0.5) * pixel
-      const size = Math.max(1.6, pixel * (0.52 + brightness * 0.42) * emitterScale)
-      ctx.globalAlpha = 0.72 + brightness * 0.28
-      ctx.drawImage(ledSprite('core', r, g, b), cx - size / 2, cy - size / 2, size, size)
-
-      if (brightness > 0.66) {
-        ctx.globalAlpha = (brightness - 0.66) * 1.5
-        ctx.fillStyle = '#fff'
-        ctx.beginPath()
-        ctx.arc(cx, cy, Math.max(0.35, pixel * 0.045 * emitterScale), 0, Math.PI * 2)
-        ctx.fill()
-      }
+      drawEmitterCore(ctx, (x + 0.5) * pixel, (y + 0.5) * pixel, pixel, r, g, b, emitterScale, 1)
     }
+  }
+  ctx.globalAlpha = 1
+}
+
+/** The bloom around one lit LED centred at (cx, cy); `pixel` is one LED pitch. */
+function drawEmitterSpill(
+  ctx: CanvasRenderingContext2D, cx: number, cy: number, pixel: number,
+  r: number, g: number, b: number, emitterScale: number, opacity: number,
+) {
+  const brightness = Math.max(r, g, b) / 255
+  if (brightness < 0.012) return
+  const size = pixel * (1.4 + brightness * 1.8) * emitterScale
+  ctx.globalAlpha = (0.18 + brightness * 0.3) * opacity
+  ctx.drawImage(ledSprite('spill', r, g, b), cx - size / 2, cy - size / 2, size, size)
+}
+
+/** The package of one lit LED centred at (cx, cy), with its white-hot centre. */
+function drawEmitterCore(
+  ctx: CanvasRenderingContext2D, cx: number, cy: number, pixel: number,
+  r: number, g: number, b: number, emitterScale: number, opacity: number,
+) {
+  const brightness = Math.max(r, g, b) / 255
+  if (brightness < 0.012) return
+  const size = Math.max(1.6, pixel * (0.52 + brightness * 0.42) * emitterScale)
+  ctx.globalAlpha = (0.72 + brightness * 0.28) * opacity
+  ctx.drawImage(ledSprite('core', r, g, b), cx - size / 2, cy - size / 2, size, size)
+
+  if (brightness > 0.66) {
+    ctx.globalAlpha = (brightness - 0.66) * 1.5 * opacity
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(cx, cy, Math.max(0.35, pixel * 0.045 * emitterScale), 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+/**
+ * A shape-mapped chain — ring, corkscrew or positioned string — drawn where
+ * its LEDs really are. `frame` is the routed one-row frame in wire order and
+ * `layout` says where emitter i sits, in cells of one LED pitch; `pixel` is
+ * that pitch on the canvas, the same per-LED budget a matrix gets. The emitters
+ * are the matrix renderer's, so a ring reads as the same LEDs as a panel.
+ */
+export function renderShapeFrame(
+  ctx: CanvasRenderingContext2D,
+  frame: Frame,
+  layout: ShapeLayout,
+  pixel: number,
+) {
+  const width = Math.max(1, Math.floor(layout.width * pixel))
+  const height = Math.max(1, Math.floor(layout.height * pixel))
+  ctx.clearRect(0, 0, width, height)
+  const substrate = ctx.createRadialGradient(
+    width * 0.5, height * 0.46, 0,
+    width * 0.5, height * 0.46, Math.max(width, height) * 0.72,
+  )
+  substrate.addColorStop(0, '#080c10')
+  substrate.addColorStop(1, '#020405')
+  ctx.fillStyle = substrate
+  ctx.fillRect(0, 0, width, height)
+
+  if (layout.wire && layout.emitters.length > 1) {
+    // The wire joining the LEDs in order, behind them, as the node draws it.
+    ctx.save()
+    ctx.strokeStyle = '#5b4824'
+    ctx.globalAlpha = 0.8
+    ctx.lineWidth = Math.max(1, pixel * 0.18)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    layout.emitters.forEach((emitter, index) => {
+      if (index === 0) ctx.moveTo(emitter.x * pixel, emitter.y * pixel)
+      else ctx.lineTo(emitter.x * pixel, emitter.y * pixel)
+    })
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  const srcW = frame[0]?.length ?? 0
+  const read = (index: number) => (srcW > 0 ? frame[Math.floor(index / srcW)]?.[index % srcW] : undefined) ?? { r: 0, g: 0, b: 0 }
+  // Back emitters first so the front of a corkscrew covers its far side.
+  const order = layout.emitters.map((emitter, index) => ({ emitter, index }))
+    .sort((a, b) => a.emitter.opacity - b.emitter.opacity)
+
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  for (const { emitter, index } of order) {
+    const { r, g, b } = read(index)
+    drawEmitterSpill(ctx, emitter.x * pixel, emitter.y * pixel, pixel, r, g, b, emitter.scale, emitter.opacity)
+  }
+  ctx.restore()
+  for (const { emitter, index } of order) {
+    const { r, g, b } = read(index)
+    drawEmitterCore(ctx, emitter.x * pixel, emitter.y * pixel, pixel, r, g, b, emitter.scale, emitter.opacity)
   }
   ctx.globalAlpha = 1
 }

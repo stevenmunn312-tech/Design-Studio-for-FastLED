@@ -99,6 +99,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Layout and input traps
 
+- The main LED Output pane draws a ring, corkscrew or positioned string where
+  its LEDs are, not as the one-row frame its wire order is. `shapeLayoutFor`
+  (`src/components/Hardware/ledPreviewGeometry.ts`) gives the emitters in cells
+  of one LED pitch, from the same angle rules the node preview, the hardware bay
+  and the sketch maps use; the pane sizes its canvas by that box instead of the
+  physical grid, so `pixel` keeps meaning one LED, and `renderShapeFrame`
+  (`frameCanvas.ts`) draws the matrix renderer's emitters at those points.
+  Shapes go through Canvas 2D, not the WebGL shader: the `<canvas>` is keyed on
+  whether a shape is active, because an element that has handed out one
+  context kind cannot hand out the other, and the renderer effect restarts on
+  that key. The W×H readout, streaming and recording stay on the physical
+  one-row frame. The pane remains the one visible per-frame canvas; the node
+  and bay previews stay SVG for the leak reason `HardwareLedPreview` explains.
 - The Output matrix heading hangs above its frame on a negative `top` inside a
   clipping `.canvasWrap`, so it only survives when the wrap's `padding-top` is
   at least the heading's offset — true at full height, but a height-limited

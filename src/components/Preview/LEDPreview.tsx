@@ -13,7 +13,8 @@ import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
 import { showAudioSpectrum } from '../../state/player/showAudio'
 import { WebGLLEDRenderer } from './webglRenderer'
-import { renderPreviewFrame } from './frameCanvas'
+import { renderPreviewFrame, renderShapeFrame } from './frameCanvas'
+import { shapeLayoutFor, type ShapeLayout } from '../Hardware/ledPreviewGeometry'
 import { applyShowPlaybackSignal } from './showPlaybackSignal'
 import RecordPopup from './RecordPopup'
 import { isDiffusedStyle, previewStyleLabel, type PreviewStyle } from './previewStyles'
@@ -237,6 +238,14 @@ export default function LEDPreview() {
     if (activeOutputId !== previewOutputId) setPreviewOutputId(activeOutputId)
   }, [activeOutputId, previewOutputId, setPreviewOutputId])
   const activeOutput = useGraphStore((s) => s.nodes.find((node) => node.id === activeOutputId && node.data.nodeType === 'MatrixOutput'))
+  // A ring, corkscrew or positioned string is drawn where its LEDs are, not as
+  // the one-row frame its wire order is. The node's own preview and the
+  // hardware bay already do; the main pane draws the same geometry on its
+  // canvas, in cells of one LED pitch so the per-LED pixel budget is a matrix's.
+  const activeShape = useMemo<ShapeLayout | null>(
+    () => activeOutput ? shapeLayoutFor(outputRoutes([activeOutput])[0]) : null,
+    [activeOutput],
+  )
   const vuMeterId = useGraphStore((s) => rootGraphNodes(s)
     .find((node) => node.data.nodeType === 'StereoVuMeter')?.id ?? '')
   const combinedVuKey = useGraphStore((s) => {
@@ -319,8 +328,12 @@ export default function LEDPreview() {
     : null
   const renderGridW = fullscreenGrid?.width ?? gridW
   const renderGridH = fullscreenGrid?.height ?? gridH
-  const pixelScaleW = Math.max(2, renderGridW)
-  const pixelScaleH = Math.max(2, renderGridH)
+  // The canvas is sized by the shape's box when there is one: a 24-LED ring is
+  // about 8.6 cells square, not 24 cells wide and one tall.
+  const sizeGridW = activeShape?.width ?? renderGridW
+  const sizeGridH = activeShape?.height ?? renderGridH
+  const pixelScaleW = Math.max(2, sizeGridW)
+  const pixelScaleH = Math.max(2, sizeGridH)
   const fallbackPixelLimit = stageMode ? STAGE_CANVAS_PX : MAX_CANVAS_PX
   const pixelLimit = Math.min(
     stageFullscreen ? Number.MAX_SAFE_INTEGER : fallbackPixelLimit,
@@ -338,8 +351,8 @@ export default function LEDPreview() {
   // 64×64), so a denser matrix visibly shrinks. Flooring the product keeps the
   // preview the same physical size at any resolution, with the per-LED size left
   // fractional (the canvas 2D fills and the WebGL shader both handle that).
-  const canvasBufW = Math.max(1, Math.floor(renderGridW * pixel))
-  const canvasBufH = Math.max(1, Math.floor(renderGridH * pixel))
+  const canvasBufW = Math.max(1, Math.floor(sizeGridW * pixel))
+  const canvasBufH = Math.max(1, Math.floor(sizeGridH * pixel))
   const gridWRef = useRef(gridW)
   const gridHRef = useRef(gridH)
   const renderGridWRef = useRef(renderGridW)
@@ -352,8 +365,10 @@ export default function LEDPreview() {
   const pixelRef = useRef(pixel)
   const canvasBufWRef = useRef(canvasBufW)
   const canvasBufHRef = useRef(canvasBufH)
+  const activeShapeRef = useRef(activeShape)
   useEffect(() => {
     gridWRef.current = gridW; gridHRef.current = gridH; pixelRef.current = pixel
+    activeShapeRef.current = activeShape
     renderGridWRef.current = renderGridW; renderGridHRef.current = renderGridH
     stageMatrixFullscreenRef.current = stageMatrixFullscreen
     if (!stageMatrixFullscreen) fullscreenFrameRef.current = null
@@ -361,7 +376,7 @@ export default function LEDPreview() {
     combinedVuIdRef.current = combinedVuId
     vuMeterIdRef.current = vuMeterId
     canvasBufWRef.current = canvasBufW; canvasBufHRef.current = canvasBufH
-  }, [gridW, gridH, renderGridW, renderGridH, stageMatrixFullscreen, activeOutputId, combinedVuId, vuMeterId, pixel, canvasBufW, canvasBufH])
+  }, [gridW, gridH, renderGridW, renderGridH, stageMatrixFullscreen, activeOutputId, combinedVuId, vuMeterId, pixel, canvasBufW, canvasBufH, activeShape])
 
   // Panel-boundary gridlines: a thin static overlay redrawn only when the
   // tile grid or canvas size changes (not on every animation frame like the
@@ -509,6 +524,7 @@ export default function LEDPreview() {
     if (!effectivePreview3d) drag.current = null
   }, [effectivePreview3d])
 
+  const shapeCanvas = activeShape !== null
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -722,7 +738,13 @@ export default function LEDPreview() {
         const drawStart = PERF_TELEMETRY ? performance.now() : 0
         // Nothing shows the matrix canvas while the panel is hidden — skip the
         // draw (evaluation still ran above so node previews stay live).
-        if (visible && useWebGL && glRef.current) {
+        const shape = activeShapeRef.current
+        if (visible && shape && ctx) {
+          if (canvas.width !== bw || canvas.height !== bh) {
+            canvas.width = bw; canvas.height = bh
+          }
+          renderShapeFrame(ctx, displayFrame, shape, px)
+        } else if (visible && useWebGL && glRef.current) {
           glRef.current.render(displayFrame, displayW, displayH, px, previewStyleRef.current)
         } else if (visible && ctx) {
           if (canvas.width !== bw || canvas.height !== bh) {
@@ -868,12 +890,20 @@ export default function LEDPreview() {
 
     const startRenderer = () => {
       if (disposed) return
-      try {
-        glRef.current = new WebGLLEDRenderer(canvas)
-        useWebGL = true
-      } catch {
+      // A shaped output draws through Canvas 2D: its emitters sit at arbitrary
+      // points, not on the shader's grid. The canvas element is keyed on the
+      // shape so a context of the other kind is never asked of the same element.
+      if (shapeCanvas) {
         glRef.current = null
         ctx = canvas.getContext('2d')
+      } else {
+        try {
+          glRef.current = new WebGLLEDRenderer(canvas)
+          useWebGL = true
+        } catch {
+          glRef.current = null
+          ctx = canvas.getContext('2d')
+        }
       }
       animRef.current = requestAnimationFrame(loop)
     }
@@ -892,7 +922,7 @@ export default function LEDPreview() {
       glRef.current?.destroy()
       glRef.current = null
     }
-  }, [])
+  }, [shapeCanvas])
 
   // Revoke every playlist object URL on unmount.
   useEffect(() => {
@@ -1251,6 +1281,7 @@ export default function LEDPreview() {
               style={effectivePreview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
             >
               <canvas
+                key={shapeCanvas ? 'shape' : 'grid'}
                 ref={canvasRef}
                 width={canvasBufW}
                 height={canvasBufH}

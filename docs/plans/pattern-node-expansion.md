@@ -471,9 +471,10 @@ through step 11 of the
       shows. Contract and sampling rule live in `state/output/stringPositions.ts`,
       shared by the preview's `routeFrame` and the sketch. Deviations from the
       plan: the LED Output node's own preview draws the string over its canvas,
-      but the main LED Output pane still draws a row (as it does for a ring) and
-      the Build Diagram still draws a straight run, because canvas units are not
-      millimetres. The Music Player and SD player sketches at first did not
+      and since 2026-10-13 the main LED Output pane draws it, a ring and a
+      corkscrew in their real shape too (`shapeLayoutFor`); the Build Diagram
+      still draws a straight run, because canvas units are not millimetres. The
+      Music Player and SD player sketches at first did not
       generate the map and were blocked; since 2026-10-13 they bake it through
       the shared `src/codegen/output/shapeMapCpp.ts` beside the normal sketch,
       for rings and corkscrews too. Compiled on classic ESP32 and ESP8266, see the

@@ -2,33 +2,13 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
-import { corkscrewAngleAt, type CorkscrewDirection, type RingDirection } from '../../state/output/ledOutputForm'
-import { EMITTER_GLOW } from './ledPreviewGeometry'
+import {
+  CORKSCREW_LED_RADIUS_X, CORKSCREW_LED_RADIUS_Y, EMITTER_GLOW, RING_LED_RADIUS,
+  corkscrewUnitPoints, ringUnitPoints,
+  type CorkscrewGeometry, type PositionsGeometry, type RingGeometry,
+} from './ledPreviewGeometry'
 
-/** Half the width of one LED on a ring, in bounding-box fractions — a 5050
- *  package against the ~76 mm circle a 24-LED ring describes. */
-const RING_LED_RADIUS = 0.035
-const CORKSCREW_LED_RADIUS_X = 0.028
-const CORKSCREW_LED_RADIUS_Y = 0.016
-
-export interface RingGeometry {
-  ledCount: number
-  startAngle: number
-  direction: RingDirection
-}
-
-export interface PositionsGeometry {
-  canvasW: number
-  canvasH: number
-  points: ReadonlyArray<readonly [number, number]>
-}
-
-export interface CorkscrewGeometry {
-  ledCount: number
-  turns: number
-  startAngle: number
-  direction: CorkscrewDirection
-}
+export type { CorkscrewGeometry, PositionsGeometry, RingGeometry }
 
 /**
  * The live frame an output is showing, drawn over that part's render.
@@ -102,49 +82,19 @@ export default function HardwareLedPreview({
 
   const count = run ? run.cells.length : ring?.ledCount ?? corkscrew?.ledCount ?? positions?.points.length ?? cols * rows
 
-  /*
-   * A ring's LEDs, laid out on a unit-square viewBox. Angles match
-   * `ringSampleMap` exactly — 0 degrees at 12 o'clock, clockwise positive — so
-   * the LED lit here is the LED the frame was sampled for.
-   */
-  const ringCells = useMemo(() => {
-    if (!ring) return null
-    const radius = 0.5 - (RING_LED_RADIUS * 1.6)
-    const sign = ring.direction === 'ccw' ? -1 : 1
-    const start = ring.startAngle * Math.PI / 180
-    return Array.from({ length: ring.ledCount }, (_, index) => {
-      const theta = start + (sign * index * 2 * Math.PI / ring.ledCount)
-      return { cx: 0.5 + (radius * Math.sin(theta)), cy: 0.5 - (radius * Math.cos(theta)) }
-    })
-  }, [ring])
+  // A ring's LEDs on the unit-square viewBox, from the geometry the main LED
+  // Output pane draws with too (ledPreviewGeometry.ts), so both show the ring
+  // the frame was sampled for.
+  const ringCells = useMemo(
+    () => ring ? ringUnitPoints(ring, 0.5 - (RING_LED_RADIUS * 1.6)) : null,
+    [ring],
+  )
 
-  /*
-   * Front-on projection of the same corkscrew angles used by the authoring
-   * sample map. Depth makes the back half quieter and renders it first; the
-   * wire-order refs remain indexed by LED so live colour painting is unchanged.
-   */
+  // The same front-on corkscrew projection as the main pane. The wire-order
+  // refs stay indexed by LED so live colour painting is unchanged.
   const corkscrewCells = useMemo(() => {
     if (!corkscrew) return null
-    const count = Math.max(1, corkscrew.ledCount)
-    const points = Array.from({ length: count }, (_, index) => {
-      const theta = corkscrewAngleAt(
-        index,
-        count,
-        corkscrew.turns,
-        corkscrew.startAngle,
-        corkscrew.direction,
-      )
-      const progress = count <= 1 ? 0.5 : index / (count - 1)
-      const depth = Math.cos(theta)
-      return {
-        index,
-        cx: 0.5 + (0.42 * Math.sin(theta)),
-        cy: 0.04 + (0.92 * progress),
-        depth,
-        opacity: 0.42 + (0.58 * ((depth + 1) / 2)),
-        scale: 0.72 + (0.28 * ((depth + 1) / 2)),
-      }
-    })
+    const points = corkscrewUnitPoints(corkscrew)
     return {
       points,
       // Back emitters first, front emitters last, like a real winding.

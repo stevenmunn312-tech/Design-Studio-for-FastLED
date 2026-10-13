@@ -305,9 +305,11 @@ and its design notes.
   forms. The same stage carries a wired matrix's XY table, which both sketches
   had silently skipped, and the SD player now takes a string its length rather
   than the grid defaults.
-- [ ] **Shapes in the main LED Output pane.** The node's own preview draws a
-  positioned string along its curve, but the main LED Output pane draws it, and
-  a ring, as a straight row. Draw both in their real shape there.
+- [x] **Shapes in the main LED Output pane.** The pane draws a ring, a
+  corkscrew and a positioned string where their LEDs are, from the same
+  geometry the node preview and the hardware bay use
+  (`shapeLayoutFor` in `src/components/Hardware/ledPreviewGeometry.ts`), on a
+  canvas sized in LED-pitch cells so the per-LED pixel budget is a matrix's.
 - [ ] **Raw `field` output on `Noise`.** Expose the noise values before the
   palette, so other field nodes can mix, warp or mask them before colouring
   ([ANIMartRIX note](docs/design/animartrix-float-field.md)).
