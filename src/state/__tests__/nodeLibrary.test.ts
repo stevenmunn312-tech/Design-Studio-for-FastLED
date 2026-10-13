@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty } from '../nodeLibrary'
+import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
+import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES } from '../../nodes/math/easing'
 import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from '../../nodes/generative/limits'
 import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../../nodes/simulations/limits'
@@ -170,13 +172,40 @@ describe('nodeLibrary', () => {
 
   it('gives formula nodes editable inputs and in-app vocabulary help', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'CustomFormula')?.defaultProperties).toMatchObject({ a: 0, b: 0 })
-    expect(propertyDescription('CustomFormula', 'formula')).toMatch(/x, y, t.*sin8/)
+    const help = propertyDescription('CustomFormula', 'formula') ?? ''
+    expect(help).toMatch(/Variables: x, y, cx, cy, r, angle, t, W, H, a, b\./)
+    expect(help).toMatch(/Constants: PI, PHI\./)
+    for (const name of [...MATH_FUNCTION_NAMES, ...SHIM_NAMES]) expect(help, name).toMatch(new RegExp(`[ :]${name}[,.]`))
     expect(propertyDescription('FieldFormula', 'formula')).toMatch(/beatsin8.*fieldIn/)
   })
 
   it('every node in the shelf has a tooltip description', () => {
     const missing = NODE_LIBRARY.filter((n) => !NODE_DESCRIPTIONS[n.type]).map((n) => n.type)
     expect(missing).toEqual([])
+  })
+
+  // D-08.8 lock-in: a property with no tooltip falls back to the Help
+  // reference's generated sentence, which is where undocumented knobs hid.
+  it('every editable property of every node has a tooltip description', () => {
+    const missing: string[] = []
+    for (const node of NODE_LIBRARY) {
+      for (const key of Object.keys(node.defaultProperties ?? {})) {
+        if (!isInternalProperty(key) && !propertyDescription(node.type, key)) missing.push(`${node.type}.${key}`)
+      }
+    }
+    expect(missing).toEqual([])
+  })
+
+  it('every per-node tooltip override names a property or input that node has', () => {
+    const byType = new Map(NODE_LIBRARY.map((n) => [n.type, n]))
+    const stale: string[] = []
+    for (const [nodeType, overrides] of Object.entries(PROPERTY_DESCRIPTIONS_OVERRIDES)) {
+      const node = byType.get(nodeType)
+      if (!node) { stale.push(nodeType); continue }
+      const known = new Set([...Object.keys(node.defaultProperties ?? {}), ...node.inputs.map((port) => port.id)])
+      for (const key of Object.keys(overrides)) if (!known.has(key)) stale.push(`${nodeType}.${key}`)
+    }
+    expect(stale).toEqual([])
   })
 
   // A colour for a dataType nothing carries tints a handle that cannot exist;

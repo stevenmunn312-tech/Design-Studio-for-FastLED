@@ -56,6 +56,10 @@ const MATH_FUNCTIONS: Readonly<Record<string, MathFn>> = {
   hypot: { fn: (...a) => Math.hypot(...a), minArgs: 1, maxArgs: Infinity },
 }
 
+/** The names a formula may call and name, for the in-app vocabulary help. */
+export const MATH_FUNCTION_NAMES: readonly string[] = Object.keys(MATH_FUNCTIONS)
+export const MATH_CONSTANT_NAMES: readonly string[] = Object.keys(MATH_CONSTANTS)
+
 // ── Tokenizer ─────────────────────────────────────────────────────────────
 type TokenType = 'num' | 'ident' | 'punct' | 'eof'
 interface Token { type: TokenType; value: string; pos: number }

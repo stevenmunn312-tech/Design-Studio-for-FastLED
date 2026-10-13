@@ -158,6 +158,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   subgraph goes through `ctx.evaluateGraph`. For the same reason `memory.ts`
   imports only types: state held outside its maps (a Code worker, an
   AnimARTrix instance) registers a disposer with `onInstanceDisposed`.
+- Every non-internal property of every library node has a tooltip:
+  `propertyDescription(nodeType, key)` reads `PROPERTY_DESCRIPTIONS_OVERRIDES`
+  first and the global `PROPERTY_DESCRIPTIONS` second, and
+  `nodeLibrary.test.ts` fails on a property with neither. A new property needs
+  a description before its node is complete; a global entry is for a key that
+  means the same on every node that carries it (`seed`, `palette`, `r`), and a
+  key whose meaning or range differs per node (`speed`, `decay`, `t`) gets a
+  per-node override. A property edited by a bespoke body rather than a generic
+  row still carries a description, because the Help reference lists it. The
+  same test holds every override to a property or input port its node has, so
+  a renamed key fails rather than leaving dead text. `FORMULA_LANG_HELP` is
+  built from the formula sandbox's own tables (`formulaLang.ts`,
+  `fastledShims.ts`); extend those, never the string.
 - Handlers and emitters read numeric properties already sanitised.
   `resolveNodeNumericProperties` (`nodeLibrary.ts`) runs before the evaluator,
   `cppGenerator.ts` and the control graph, and turns every property whose

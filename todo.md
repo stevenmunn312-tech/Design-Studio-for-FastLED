@@ -440,12 +440,21 @@ library defaults.
   group and sidebar rules; the Music Player card shows `Beat Transitions` in
   full again. Pre-1.0, no migration: nothing saved changed
   ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
-- [ ] **D-08.8 · Tooltips on every property.** 355 of 1163 editable
-  properties have a `propertyDescription`; the 808 drafts are in the audit
-  reports as paste-ready `PROPERTY_DESCRIPTIONS_OVERRIDES` objects. Land them,
-  extend `FORMULA_LANG_HELP` to the full function and shim list, and add a
-  test beside the `NODE_DESCRIPTIONS` test that every non-internal property of
-  every `NODE_LIBRARY` node has a description, so the lock-in holds.
+- [x] **D-08.8 · Tooltips on every property.** Done, no compile needed (no
+  firmware changed). Every non-internal property of every `NODE_LIBRARY` node
+  has a `propertyDescription`: the audit drafts landed as per-node
+  `PROPERTY_DESCRIPTIONS_OVERRIDES` (an existing override was kept; a draft
+  that contradicted a slider range was corrected to it), the audio levels,
+  `spawnSpread`, `palette` and the `r`/`g`/`b` channels became global
+  `PROPERTY_DESCRIPTIONS`, and the body-edited properties the drafts skipped
+  (`sourceId`, `buttons`, `controls`, `patternIds`, `transitions`, the Poline
+  anchors, Code, Board `profileId`, Power Switch levels) say what their body
+  edits. `FORMULA_LANG_HELP` is built from `NODE_FORMULA_VARIABLES`,
+  `MATH_FUNCTION_NAMES`, `MATH_CONSTANT_NAMES` and `SHIM_NAMES`, so it lists
+  exactly what the sandbox accepts. `nodeLibrary.test.ts` holds the lock-in
+  (every property described; every override names a property or input its
+  node has)
+  ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
 - [ ] **D-08.9 · Merges, renames and category moves.** Decide each, then apply
   the approved ones in one pass with their descriptions, live examples and
   README counts. Candidate merges: Fire into Fire2012 as a style; Particles
