@@ -283,6 +283,18 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A Code node whose pasted loop runs slower than one preview frame now shows
+  its frames instead of staying blank while the sandbox worker's queue grew
+  without bound; one run is in flight at a time and later frames coalesce.
+  A runaway loop in pasted code is now terminated while the preview is
+  animating, where the per-frame calls used to keep resetting the timeout.
+- Saving a pattern, or a project through the Save As dialog, writes a temporary
+  file and replaces the target, so a crash mid-write keeps the last complete
+  file. A pattern save no longer deletes the old file before the new one exists.
+- A project or shared graph whose edge is missing a port handle now counts that
+  edge as skipped on load instead of loading it as a wire that carries nothing.
+- A single-LED corkscrew draws its LED at the top of the shape in the LED
+  Output pane, where the firmware sample map reads it, instead of mid-height.
 - The screen designer scrolls a Text title at the panel's own speed, 40 pixels
   per second with one loop held between 0.3 and 10 seconds, rather than a
   little faster than the panel and never speeding up for a long title.

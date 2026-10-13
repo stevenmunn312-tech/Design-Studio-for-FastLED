@@ -94,8 +94,10 @@ worker bootstrap additionally closes `fetch`/`XMLHttpRequest`/`WebSocket`/
 `EventSource`/`importScripts`/`indexedDB`/`caches`/`BroadcastChannel`/spawning
 sub-workers before any pasted code can run. `new Function` inside that closed
 realm is fine — there's nothing dangerous left to reach. The main-thread
-controller (`src/state/codeSandboxRuntime.ts`) sends one `run` message per
-tick and enforces a ~100ms timeout: a request that doesn't answer in time gets
+controller (`src/state/codeSandboxRuntime.ts`) keeps at most one `run`
+message in flight per instance — while one is outstanding, later ticks only
+replace the queued next request, posted when the reply lands — and enforces a
+~100ms timeout on that in-flight run: a request that doesn't answer in time gets
 `worker.terminate()`'d and a fresh worker spawns on the next call (the
 persisted `leds[]` state is lost when that happens — an accepted trade-off for
 "a runaway paste can't hang the tab"). Preview evaluation is therefore no

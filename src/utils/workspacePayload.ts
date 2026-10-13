@@ -11,9 +11,14 @@ function isWorkspaceNode(value: unknown): value is StudioNode {
   return typeof value.data.nodeType === 'string'
 }
 
+/** An edge the evaluator can wire: all four endpoints present. The evaluator
+ *  skips an edge missing a handle, so accepting one here would load it as a
+ *  silent no-op (the downstream port falls back to its default) instead of
+ *  counting it as dropped. */
 function isWorkspaceEdge(value: unknown): value is StudioEdge {
   if (!isPlainObject(value)) return false
   return typeof value.source === 'string' && typeof value.target === 'string'
+    && typeof value.sourceHandle === 'string' && typeof value.targetHandle === 'string'
 }
 
 /** Top-level workspace object whose `nodes` and `edges` are arrays.

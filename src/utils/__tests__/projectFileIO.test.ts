@@ -38,16 +38,17 @@ describe('parseProjectFile — trust boundary', () => {
         { id: 'broken' },
       ],
       edges: [
-        { source: 'ok', target: 'ok' },
+        { source: 'ok', target: 'ok', sourceHandle: 'out', targetHandle: 'frame' },
+        { source: 'ok', target: 'ok' },   // no handles: the evaluator could never wire it
         {},
       ],
       trusted: true,
     })
     const { project, dropped } = parseProjectFile(text, 'fallback')
     expect(project.workspace.nodes.map((node) => node.id)).toEqual(['ok'])
-    expect(project.workspace.edges).toEqual([{ source: 'ok', target: 'ok' }])
+    expect(project.workspace.edges).toEqual([{ source: 'ok', target: 'ok', sourceHandle: 'out', targetHandle: 'frame' }])
     expect(project.workspace.trusted).toBe(false)
-    expect(dropped).toBe(2)
+    expect(dropped).toBe(3)
   })
 })
 

@@ -53,6 +53,14 @@ describe('shapeLayoutFor', () => {
     expect(layout.emitters.every((emitter) => emitter.x >= 0 && emitter.x <= layout.width && emitter.y >= 0 && emitter.y <= layout.height)).toBe(true)
   })
 
+  it('puts a single-LED corkscrew at the top, where the firmware sample map reads it', () => {
+    const layout = shapeLayoutFor(route({
+      form: 'corkscrew', ledCount: 1, corkscrewTurns: 6, corkscrewDiameterMm: 100, corkscrewHeightMm: 300,
+    }))!
+    expect(layout.emitters).toHaveLength(1)
+    expect(layout.emitters[0].y).toBeLessThan(layout.height * 0.1)
+  })
+
   it('draws a positioned string at its own canvas coordinates, joined by its wire', () => {
     const layout = shapeLayoutFor(route({
       form: 'strip', stripLayout: 'positions', ledCount: 3, positionsWidth: 8, positionsHeight: 4,

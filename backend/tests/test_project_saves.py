@@ -49,3 +49,37 @@ def test_failed_replacement_keeps_previous_save(tmp_path, monkeypatch):
     files = list(tmp_path.iterdir())
     assert len(files) == 1
     assert json.loads(files[0].read_text()) == original
+
+
+def test_failed_pattern_replacement_keeps_previous_save(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", tmp_path)
+    original = {"id": "pat-1", "name": "Pulse", "subgraph": {"nodes": [1, 2, 3], "edges": []}}
+    assert storage.save_pattern(original)["ok"] is True
+
+    def fail_replace(self, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    result = storage.save_pattern({**original, "subgraph": {"nodes": [], "edges": []}})
+    assert result.status_code == 500
+    files = [f for f in tmp_path.iterdir() if f.suffix == ".json"]
+    assert len(files) == 1
+    assert json.loads(files[0].read_text(encoding="utf-8")) == original
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_failed_dialog_replacement_keeps_previous_save(tmp_path, monkeypatch):
+    target = tmp_path / f"Collection{storage._PROJECT_FILE_SUFFIX}"
+    original = project(3, 100)
+    monkeypatch.setattr(storage, "_show_project_save_dialog", lambda initial_file: target)
+    assert storage.save_project_dialog(original)["ok"] is True
+    saved = json.loads(target.read_text(encoding="utf-8"))
+
+    def fail_replace(self, target_path):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    result = storage.save_project_dialog(project(23, 200))
+    assert result.status_code == 500
+    assert json.loads(target.read_text(encoding="utf-8")) == saved
+    assert not list(tmp_path.glob("*.tmp"))

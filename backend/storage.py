@@ -40,6 +40,24 @@ _LEGACY_PATTERNS_DIR = Path(__file__).parent.parent / "My Patterns"
 _project_file_lock = threading.RLock()
 
 
+def _write_json_atomically(path: Path, payload: dict) -> None:
+    """Write JSON so the last complete file survives a crash mid-write.
+
+    A unique non-JSON temp file beside the target is invisible to the
+    listings, then replaces the target in one rename.
+    """
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         suffix=".tmp", delete=False) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(json.dumps(payload, indent=2))
+        temporary_path.replace(path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 # ── Saved patterns ("My Patterns") ────────────────────────────────────────────
 # Each pattern is one JSON file (the SavedPattern the frontend store uses). The
 # pattern's `id` is the stable identity; the filename is derived from its name
@@ -113,10 +131,12 @@ def _iter_project_files():
         return []
 
 
-def _remove_files_for_id(pattern_id: str) -> None:
+def _remove_files_for_id(pattern_id: str, keep: Path | None = None) -> None:
     """Delete any existing file(s) holding this pattern id, so a save that
     renames (and thus changes the derived filename) doesn't leave a stale copy."""
     for f in _iter_pattern_files():
+        if f == keep:
+            continue
         try:
             if json.loads(f.read_text(encoding="utf-8")).get("id") == pattern_id:
                 f.unlink(missing_ok=True)
@@ -339,13 +359,15 @@ def save_pattern(pattern: dict = Body(...)):
     name = str(pattern.get("name") or "").strip()
     if not pid or not name or "subgraph" not in pattern:
         return JSONResponse({"ok": False, "error": "pattern needs id, name and subgraph"}, status_code=400)
-    _remove_files_for_id(pid)
     path = _unique_path(_sanitize_filename(name), pid)
     # Defence in depth: never write outside the patterns folder.
     if _patterns_dir().resolve() not in path.resolve().parents:
         return JSONResponse({"ok": False, "error": "invalid pattern name"}, status_code=400)
     try:
-        path.write_text(json.dumps(pattern, indent=2), encoding="utf-8")
+        # Write first, then drop any stale copy under an older filename, so a
+        # failed write never leaves the pattern with no file at all.
+        _write_json_atomically(path, pattern)
+        _remove_files_for_id(pid, keep=path)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     return {"ok": True, "file": path.name}
@@ -527,21 +549,11 @@ def save_project(project: dict = Body(...)):
         path = _unique_project_path(_sanitize_filename(name), pid)
         if _projects_dir().resolve() not in path.resolve().parents:
             return JSONResponse({"ok": False, "error": "invalid project name"}, status_code=400)
-        temporary_path: Path | None = None
         try:
-            # Keep the last complete save until its replacement is ready.
-            # A unique non-JSON temp file is invisible to the project listing.
-            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                             suffix=".tmp", delete=False) as temporary:
-                temporary_path = Path(temporary.name)
-                temporary.write(json.dumps(project, indent=2))
-            temporary_path.replace(path)
+            _write_json_atomically(path, project)
             _remove_project_files_for_id(pid, keep=path)
         except Exception as e:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-        finally:
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
         return {"ok": True, "file": path.name}
 
 
@@ -579,7 +591,7 @@ def save_project_dialog(project: dict = Body(...)):
         "name": _project_name_from_filename(path.name),
     }
     try:
-        path.write_text(json.dumps(saved_project, indent=2), encoding="utf-8")
+        _write_json_atomically(path, saved_project)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     return {"ok": True, "canceled": False, "project": saved_project, "path": str(path)}

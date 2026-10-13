@@ -4,7 +4,9 @@
   atomic replacement and rename cleanup; listing and deletion share that lock.
   An older `updatedAt` cannot overwrite a newer saved workspace. Write to a
   unique non-JSON temporary file and replace only after the whole JSON is ready,
-  preserving the prior save if writing fails.
+  preserving the prior save if writing fails. Pattern saves and the Save As
+  dialog write through the same `_write_json_atomically` helper; a pattern save
+  writes its new file before removing a stale copy under an older name.
 - `projectStore.refreshFromDisk` compares a pending browser save with the disk
   revision before retrying it. A stale localStorage snapshot (quota exceeded)
   must never overwrite a newer helper save just because its pending journal

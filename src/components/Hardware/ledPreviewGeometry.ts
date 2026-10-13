@@ -126,7 +126,9 @@ export function corkscrewUnitPoints(corkscrew: CorkscrewGeometry): CorkscrewUnit
   const count = Math.max(1, corkscrew.ledCount)
   return Array.from({ length: count }, (_, index) => {
     const theta = corkscrewAngleAt(index, count, corkscrew.turns, corkscrew.startAngle, corkscrew.direction)
-    const progress = count <= 1 ? 0.5 : index / (count - 1)
+    // Same progress the firmware sample map uses (`corkscrewSampleMap`): a
+    // single LED sits at the top, not mid-height.
+    const progress = count <= 1 ? 0 : index / (count - 1)
     const depth = Math.cos(theta)
     return {
       index,

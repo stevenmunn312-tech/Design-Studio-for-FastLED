@@ -3,15 +3,18 @@
 // holding that instance's persistent leds[] state, isolated from the app's own
 // window/DOM/storage/network — see that file for what's closed off and why.
 //
-// `evalCodeAsync` never blocks the render loop: it fires the latest `run`
-// request (superseding any still in flight for that instance) and immediately
-// returns the most recently *completed* frame, the same decoupled-cadence
-// approach `previewStore` already uses for per-node live previews elsewhere
-// in this codebase. A per-request timeout kills and respawns a worker that
-// doesn't answer in time (a runaway/infinite loop in pasted code) — the
-// persisted leds[] state is unavoidably lost when that happens, since the
-// worker holding it is gone; a fresh, empty-state worker takes over on the
-// next call.
+// `evalCodeAsync` never blocks the render loop: it immediately returns the
+// most recently *completed* frame, the same decoupled-cadence approach
+// `previewStore` already uses for per-node live previews elsewhere in this
+// codebase. At most one `run` request is in flight per instance; while one is
+// outstanding, later calls only replace the queued *next* request, which is
+// posted the moment the reply lands. That keeps the worker's message queue
+// bounded (a run slower than one frame still shows its result, just at its
+// own cadence) and lets the timeout measure the in-flight run itself: a
+// worker that doesn't answer in time (a runaway/infinite loop in pasted
+// code) is killed and respawned — the persisted leds[] state is unavoidably
+// lost when that happens, since the worker holding it is gone; a fresh,
+// empty-state worker takes over on the next call.
 
 import type { Frame, RGB } from './palettes/ledColor'
 import type { RunRequest, RunResponse } from './codeSandbox.worker'
@@ -169,7 +172,10 @@ export function transpileSections(globalCode: string, code: string): { globalBod
 interface Instance {
   worker: Worker
   nextRunId: number
+  /** Id of the one request the worker is answering, or null when idle. */
   pendingRunId: number | null
+  /** Latest request that arrived while one was in flight; posted on reply. */
+  queued: Omit<RunRequest, 'id'> | null
   timeoutHandle: ReturnType<typeof setTimeout> | null
   lastFrame: Frame
   lastW: number
@@ -243,17 +249,22 @@ function createInstance(key: string, W: number, H: number): Instance | null {
     return null
   }
   const inst: Instance = {
-    worker, nextRunId: 1, pendingRunId: null, timeoutHandle: null,
+    worker, nextRunId: 1, pendingRunId: null, queued: null, timeoutHandle: null,
     lastFrame: blankFrame(W, H), lastW: W, lastH: H,
   }
   worker.onmessage = (e: MessageEvent<RunResponse>) => {
     const msg = e.data
-    if (msg.id !== inst.pendingRunId) return   // stale/superseded response — ignore
+    if (msg.id !== inst.pendingRunId) return   // not the in-flight request — ignore
     clearPendingTimeout(inst)
     inst.pendingRunId = null
     inst.lastFrame = unpackFrame(msg.pixels, inst.lastW, inst.lastH)
     if (msg.error) codeError.set(key, msg.error)
     else codeError.delete(key)
+    if (inst.queued) {
+      const next = inst.queued
+      inst.queued = null
+      post(key, inst, next)
+    }
   }
   worker.onerror = () => {
     codeError.set(key, 'Code sandbox crashed — restarting')
@@ -284,22 +295,26 @@ export function evalCodeAsync(key: string, globalCode: string, code: string, see
 
   const cacheKey = globalCode + ' ' + code
   const { globalBody, body } = transpileSections(globalCode, code)
+  const req = { cacheKey, globalBody, body, t, W, H, seed: packSeed(seed, W, H) }
+  if (inst.pendingRunId === null) post(key, inst, req)
+  else inst.queued = req   // one in flight already — newest wins, posted on reply
+
+  return inst.lastFrame
+}
+
+/** Send one request and arm its timeout. Only called when nothing is in
+ *  flight, so the timeout always measures a single run of the pasted code. */
+function post(key: string, inst: Instance, req: Omit<RunRequest, 'id'>): void {
   const id = inst.nextRunId++
   inst.pendingRunId = id
-
-  clearPendingTimeout(inst)
   inst.timeoutHandle = setTimeout(() => {
-    if (inst!.pendingRunId !== id) return
+    if (inst.pendingRunId !== id) return
     codeError.set(key, 'Execution timed out — code was terminated')
     respawn(key)
   }, RUN_TIMEOUT_MS)
-
-  const packedSeed = packSeed(seed, W, H)
-  const req: RunRequest = { id, cacheKey, globalBody, body, t, W, H, seed: packedSeed }
-  if (packedSeed) inst.worker.postMessage(req, [packedSeed.buffer])
-  else inst.worker.postMessage(req)
-
-  return inst.lastFrame
+  const message: RunRequest = { id, ...req }
+  if (req.seed) inst.worker.postMessage(message, [req.seed.buffer])
+  else inst.worker.postMessage(message)
 }
 
 /** Tear down a Code-node instance's worker (called from the evaluator's idle

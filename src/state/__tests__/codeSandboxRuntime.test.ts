@@ -56,16 +56,48 @@ describe('codeSandboxRuntime', () => {
     expect(frame[0][0]).toEqual({ r: 200, g: 100, b: 50 })
   })
 
-  it('ignores a stale response that has been superseded by a newer request', () => {
+  it('keeps one request in flight: later calls queue (newest wins) and post on reply', () => {
+    evalCodeAsync('k-queue', '', 'leds[0] = CRGB::Red;', null, 0, 2, 2)
+    evalCodeAsync('k-queue', '', 'leds[0] = CRGB::Red;', null, 1 / 60, 2, 2)
+    evalCodeAsync('k-queue', '', 'leds[0] = CRGB::Red;', null, 2 / 60, 2, 2)
+    const worker = FakeWorker.instances[0]
+    expect(worker.posted.length).toBe(1) // calls 2 and 3 coalesced, nothing extra queued in the worker
+
+    const pixels = new Uint8ClampedArray(2 * 2 * 3)
+    pixels[0] = 9
+    respond(worker, 0, pixels)
+    // A run slower than one frame still lands: the reply is for the request
+    // actually in flight, however many frames elapsed meanwhile.
+    expect(evalCodeAsync('k-queue', '', 'leds[0] = CRGB::Red;', null, 3 / 60, 2, 2)[0][0]).toEqual({ r: 9, g: 0, b: 0 })
+    // The reply posted the newest queued call (t = 2/60), not the superseded one.
+    expect(worker.posted.length).toBe(2)
+    expect(worker.posted[1].t).toBeCloseTo(2 / 60)
+    expect(worker.posted[1].id).not.toBe(worker.posted[0].id)
+  })
+
+  it('ignores a response whose id is not the in-flight request', () => {
     evalCodeAsync('k-stale', '', 'leds[0] = CRGB::Red;', null, 0, 2, 2)
-    evalCodeAsync('k-stale', '', 'leds[0] = CRGB::Red;', null, 1 / 60, 2, 2) // supersedes request 0
     const worker = FakeWorker.instances[0]
     const stalePixels = new Uint8ClampedArray(2 * 2 * 3)
     stalePixels[0] = 9
-    respond(worker, 0, stalePixels) // response to the superseded request 0 — must be ignored
+    worker.onmessage?.({ data: { id: 999, pixels: stalePixels, error: null } } as MessageEvent)
 
-    const frame = evalCodeAsync('k-stale', '', 'leds[0] = CRGB::Red;', null, 2 / 60, 2, 2)
-    expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 }) // still blank — stale response never applied
+    const frame = evalCodeAsync('k-stale', '', 'leds[0] = CRGB::Red;', null, 1 / 60, 2, 2)
+    expect(frame[0][0]).toEqual({ r: 0, g: 0, b: 0 })
+    expect(worker.posted.length).toBe(1) // still waiting on request 0, nothing new posted
+  })
+
+  it('times out a runaway run even while the preview keeps calling every frame', () => {
+    vi.useFakeTimers()
+    evalCodeAsync('k-runaway', '', 'while(true){}', null, 0, 2, 2)
+    const worker = FakeWorker.instances[0]
+    for (let frame = 1; frame <= 12; frame++) {
+      vi.advanceTimersByTime(16)
+      evalCodeAsync('k-runaway', '', 'while(true){}', null, frame / 60, 2, 2)
+    }
+    expect(worker.terminated).toBe(true) // ~192 ms with no reply: killed despite the per-frame calls
+    expect(worker.posted.length).toBe(1) // the hung worker was never fed more requests
+    expect(getCodeError('k-runaway')).toMatch(/timed out/i)
   })
 
   it('surfaces a worker error via getCodeError, clearing it on the next clean response', () => {
