@@ -440,7 +440,12 @@ part was unplugged.
 Clicking a part opens `HardwarePartBody` in a workbench inspector. GPIO fields
 use `BoardPinPicker`, which filters by required capability, distinguishes
 recommended and caution pins, detects conflicts across root hardware, and
-allows an explicit custom GPIO.
+allows an explicit custom GPIO. The part's other settings come from
+`PART_FIELDS` (`src/build/parts/partFields.ts`): selects, number fields
+bounded through `ClampedNumberInput`, and toggles such as a Button's or an
+Encoder's internal pull-up, which is a wiring fact and so lives beside the pin
+as it does on each Button Bank row. Every field carries its
+`propertyDescription` as its tooltip.
 
 `ButtonBank` is the compact graph form for several independent momentary
 buttons. Its final hollow output is a UI-only invitation. Connecting that
@@ -452,7 +457,9 @@ preview press control, and assigned GPIO; the workbench inspector owns editing
 the name, pin, and per-button internal pull-up. Stable row ids keep edges intact
 when labels or pins change; removing a row there also removes the noodles fed
 by that output. Board retargeting tracks app-assigned and user-owned
-pins per row and restores hand wiring when returning to a board.
+pins per row and restores hand wiring when returning to a board. A row with no
+GPIO yet (pin -1) is never pressed in firmware rather than sanitised onto
+GPIO0, a boot strapping pin, and Graph Health says it has no GPIO assigned.
 
 The workbench draws automatic semantic links between the board and parts. They
 confirm attachment; they are not editable graph edges and are not a complete

@@ -3243,10 +3243,11 @@ describe('evaluateGraph', () => {
   })
 
   it('prunes persistent state left by inactive node instances', () => {
-    const counter = node('pruned-counter', 'Counter', 'math', { rate: 1 })
+    // A seeded Random's draw sequence is state no clock can restore.
+    const counter = node('pruned-counter', 'Random', 'signal', { seed: 7 })
     const first = evaluateScalar([counter], [], counter.id, 'value', 0)
     const second = evaluateScalar([counter], [], counter.id, 'value', 1)
-    expect(second).toBeGreaterThan(first)
+    expect(second).not.toBe(first)
 
     expect(pruneEvaluatorState(0, Number.POSITIVE_INFINITY)).toBeGreaterThan(0)
     expect(evaluateScalar([counter], [], counter.id, 'value', 2)).toBe(first)
@@ -5812,8 +5813,10 @@ describe('resetEvaluatorState', () => {
   // Counter is the crispest witness of carried-over state: it accumulates
   // monotonically, is fully deterministic, and draws no randomness — so any
   // difference between two identical runs is leftover state and nothing else.
+  // A seeded Random carries its draw sequence from frame to frame. (A Counter
+  // no longer would: it integrates on the clock, so it is a function of t.)
   const runCounter = (ticks = 20): number => {
-    const n = node('ctr', 'Counter', 'signal', { rate: 1 })
+    const n = node('ctr', 'Random', 'signal', { seed: 7 })
     let value = 0
     for (let t = 0; t <= ticks; t++) {
       value = Number(evaluateGraphFull([n], [], t, 8, 8).outputs.get('ctr')?.value ?? 0)

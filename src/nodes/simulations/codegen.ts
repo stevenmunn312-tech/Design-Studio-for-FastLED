@@ -1,4 +1,5 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
@@ -113,8 +114,11 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const mode = String(p.particleType ?? 'fountain')
     if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'attractor', 'luminova'].includes(mode)) needsT.v = true
-    const rate = f('rate', 'rate', 0.3)
-    const decayL = f('decay', 'decay', 0.92)
+    // Both are 0–1 sliders and both are wireable; bounded here as in the
+    // preview, since a rate over 1 wraps the uint8_t spawn test round to 0 and
+    // a decay over 1 lets particles live forever.
+    const rate = `constrain(${f('rate', 'rate', 0.3)},0.0f,1.0f)`
+    const decayL = `constrain(${f('decay', 'decay', 0.92)},0.0f,1.0f)`
     const pal = paletteExpr(node.id, 'paletteIn', p)
     // Extra variant-specific controls — see PARTICLE_*_MODES in
     // nodeLibrary.ts for which mode reads which. Compile-time constants
@@ -447,11 +451,12 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const seed = seedProp(p)
     const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
     ln(`  { // Flow field`)
-    ln(`    const int _count=max(8,min(400,(int)floorf(${f('count', 'count', 80)}))); static float ${px}[400], ${py}[400], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
+    const { min: flowMin, max: flowMax } = FLOW_FIELD_COUNT
+    ln(`    const int _count=max(${flowMin},min(${flowMax},(int)floorf(${f('count', 'count', 80)}))); static float ${px}[${flowMax}], ${py}[${flowMax}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
     if (seed) ln(`    static bool _fs_${id}=false; if(!_fs_${id}){ random16_set_seed(${seed}u); _fs_${id}=true; }`)
-    ln(`    if(!_fi_${id}){ for(int _i=0;_i<400;_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
+    ln(`    if(!_fi_${id}){ for(int _i=0;_i<${flowMax};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
     ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)(t*100);`)
-    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${fadeL};`)
+    ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=constrain(${fadeL},0.0f,1.0f);`)
     ln(`    for(int _i=0;_i<_count;_i++){`)
     if (p.flowMode === 'curl') {
       // Central differences of inoise16 a CURL_EPS apart (in cells), turned a quarter turn.
@@ -538,9 +543,10 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const seed = seedProp(p)
     const sx = `_sfx_${id}`, sy = `_sfy_${id}`, sz = `_sfz_${id}`
     ln(`  { // Starfield`)
-    ln(`    const int _count=max(8,min(300,(int)floorf(${f('count', 'count', 60)}))); static float ${sx}[300], ${sy}[300], ${sz}[300]; static bool _sfi_${id}=false;`)
+    const { min: starMin, max: starMax } = STARFIELD_COUNT
+    ln(`    const int _count=max(${starMin},min(${starMax},(int)floorf(${f('count', 'count', 60)}))); static float ${sx}[${starMax}], ${sy}[${starMax}], ${sz}[${starMax}]; static bool _sfi_${id}=false;`)
     if (seed) ln(`    static bool _sfs_${id}=false; if(!_sfs_${id}){ random16_set_seed(${seed}u); _sfs_${id}=true; }`)
-    ln(`    if(!_sfi_${id}){ for(int _i=0;_i<300;_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+    ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${starMax};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
     ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f;`)
     ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
@@ -619,7 +625,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
     ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.25f+_worleyHash(_x,_y,${seed}u)*0.5f; } _rd_${id}=true; }`)
     ln(`    float _f=${feed}, _k=${kill};`)
-    ln(`    for (int _it=0, _iters=max(1,min(20,(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
+    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('speed', 'speed', 8)}))); _it<_iters; _it++) {`)
     ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for (int _x=0; _x<WIDTH; _x++) { int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
     ln(`          float _lu=(${u}[_ym+_x]+${u}[_yp+_x]+${u}[_yr+_xm]+${u}[_yr+_xp])*0.2f+(${u}[_ym+_xm]+${u}[_ym+_xp]+${u}[_yp+_xm]+${u}[_yp+_xp])*0.05f-${u}[_i];`)
@@ -635,7 +641,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const speed = f('speed', 'speed', 8)
-    const fadeL = f('fade', 'fade', 0.75)
+    const fadeL = `constrain(${f('fade', 'fade', 0.75)},0.0f,1.0f)`
     const seed = seedProp(p)
     const c = `_gc_${id}`, nx = `_gn_${id}`, br = `_gb_${id}`
     ln(`  { // Game of Life`)

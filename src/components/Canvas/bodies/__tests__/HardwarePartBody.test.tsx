@@ -228,4 +228,26 @@ describe('HardwarePartBody', () => {
     const { queryByText } = render(<HardwarePartBody nodeId="part" nodeType="Amplifier" />)
     expect(queryByText('Also assigned to LED Matrix.')).toBeNull()
   })
+
+  it("sets a button's pull-up here, beside its pin, as a Button Bank button does", () => {
+    for (const nodeType of ['ButtonInput', 'EncoderInput']) {
+      setPart(nodeType)
+      const { getByLabelText, unmount } = render(<HardwarePartBody nodeId="part" nodeType={nodeType} />)
+      const pullup = getByLabelText('Internal pull-up') as HTMLInputElement
+      expect(pullup.checked).toBe(true)
+      expect(pullup.closest('label')?.getAttribute('title')).toMatch(/INPUT_PULLUP/)
+      fireEvent.click(pullup)
+      expect(useGraphStore.getState().nodes[0].data.properties.pullup).toBe(false)
+      unmount()
+    }
+  })
+
+  it("holds a typed volume to the decoder's 0-21 steps", () => {
+    setPart('Amplifier')
+    const { getByLabelText } = render(<HardwarePartBody nodeId="part" nodeType="Amplifier" />)
+    const volume = getByLabelText('Volume') as HTMLInputElement
+    fireEvent.change(volume, { target: { value: '99' } })
+    fireEvent.blur(volume)
+    expect(useGraphStore.getState().nodes[0].data.properties.maxVolume).toBe(21)
+  })
 })

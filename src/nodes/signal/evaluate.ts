@@ -6,7 +6,8 @@ import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { instanceState } from '../../state/evaluator/memory'
 
-const counterVals = instanceState('counterVals', new Map<string, number>())
+// Time node — the previous pass's `t`, for a measured `dt`.
+const timePrev = instanceState('timePrev', new Map<string, number>())
 // Interval (metronome) node — last fire time in seconds, keyed by state id.
 const intervalLast = instanceState('intervalLast', new Map<string, number>())
 
@@ -77,8 +78,12 @@ export function scheduleWindowProgress(seconds: number, startSec: number, endSec
 }
 
 export const SIGNAL_EVALUATORS: NodeEvaluators = {
-  TimeNode({ t }) {
-    return { time: t, dt: 1 / 60 }
+  // `dt` is the time since this node's previous pass, 0 on its first.
+  TimeNode({ t, stateKey }, id) {
+    const key = stateKey(id)
+    const prev = timePrev.get(key)
+    timePrev.set(key, t)
+    return { time: t, dt: prev === undefined ? 0 : Math.max(0, t - prev) }
   },
   Sin({ num }, id, props) {
     return { result: Math.sin(num(id, 'x', props, 'x', 0) * Math.PI * 2) }
@@ -122,12 +127,11 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const n = Math.max(0, Math.min(1, (v / norm) * 0.5 + 0.5))
     return { value: lo + n * (hi - lo) }
   },
-  Counter({ num, stateKey }, id, props) {
-    const rate = num(id, 'rate', props, 'rate', 0.5)
-    const prev = counterVals.get(stateKey(id)) ?? 0
-    const next = (prev + rate / 60) % 1
-    counterVals.set(stateKey(id), next)
-    return { value: next }
+  // A 0→1 ramp at `rate` cycles a second, integrated on the shared clock so it
+  // follows Master Speed and holds its rate at any frame rate.
+  Counter({ num, t, stateKey }, id, props) {
+    const cycles = speedPhase(stateKey(id), t, num(id, 'rate', props, 'rate', 0.5))
+    return { value: ((cycles % 1) + 1) % 1 }
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
   // linear decay to 0 (wire through Ease for a shaped curve).

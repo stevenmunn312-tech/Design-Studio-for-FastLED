@@ -73,6 +73,7 @@ import { ringTrackLeds } from '../../state/evaluator/stringTrack'
 import { asSdVideoClip, SDV_HEADER_BYTES, SDV_MAX_SPEED, sdvFrameBytes, sdvPath } from '../../state/evaluator/sdVideo'
 import { sanitizePin } from '../../codegen/hardwarePins'
 import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
+import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -554,7 +555,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const monthExpr = dateTimeExpr ? `${dateTimeExpr}.month` : f('month', 'month', 1)
     const runExpr = incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true')
     const resetExpr = incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false')
-    const durationExpr = `max(0.0f, ${f('durationSec', 'durationSec', 300)})`
+    const durationExpr = `constrain(${f('durationSec', 'durationSec', 300)}, 0.0f, ${CLOCK_TIMER_MAX_SEC}.0f)`
     // Declared outside the render block so downstream nodes can read the
     // transport readouts (clock modes pass the time of day through).
     ln(`  float ${v('seconds')} = 0.0f; bool ${v('done')} = false;`)

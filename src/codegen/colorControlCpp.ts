@@ -8,6 +8,30 @@
 
 import { gradientMixMode } from '../state/palettes/hueMix'
 
+/*
+ * Colour bytes from wireable floats. A bare `(uint8_t)(x * 255)` wraps a wired
+ * 1.1 round to 25 and is undefined for a negative, where the preview's `hsv()`
+ * clamps a level and wraps a hue. Both generators build CHSV bytes through
+ * these so the board does what the preview does once a wire leaves the
+ * slider's range; inside it they emit the same truncated byte as before.
+ */
+/** A 0–1 level as a 0–255 byte. */
+export function levelByteCpp(level: string): string {
+  return `(uint8_t)(constrain(${level}, 0.0f, 1.0f) * 255.0f)`
+}
+/** Degrees as a CHSV hue, wrapped round the wheel. */
+export function degreesHueCpp(degrees: string): string {
+  return `(uint8_t)(fmodf(fmodf(${degrees}, 360.0f) + 360.0f, 360.0f) / 360.0f * 255.0f)`
+}
+/** A FastLED 0–255 hue, wrapped round the wheel. */
+export function hueByteCpp(hue: string): string {
+  return `(uint8_t)fmodf(fmodf(${hue}, 256.0f) + 256.0f, 256.0f)`
+}
+/** A FastLED 0–255 saturation or value, clamped. */
+export function channelByteCpp(channel: string): string {
+  return `(uint8_t)constrain(${channel}, 0.0f, 255.0f)`
+}
+
 export interface ColorControlSpec {
   outputs: Readonly<Record<string, 'color' | 'float'>>
   floats: Readonly<Record<string, number>>
@@ -70,10 +94,10 @@ export function colorControlCpp(
   let needsHueMix = false
   switch (type) {
     case 'HSVToRGB':
-      loop = [`  CRGB ${color} = CHSV((uint8_t)((${floats.h}) / 360.0f * 255), (uint8_t)((${floats.s}) * 255), (uint8_t)((${floats.v}) * 255));`]
+      loop = [`  CRGB ${color} = CHSV(${degreesHueCpp(floats.h)}, ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)});`]
       break
     case 'CHSV':
-      loop = [`  CRGB ${color} = CHSV((uint8_t)(${floats.hue}), (uint8_t)(${floats.sat}), (uint8_t)(${floats.val}));`]
+      loop = [`  CRGB ${color} = CHSV(${hueByteCpp(floats.hue)}, ${channelByteCpp(floats.sat)}, ${channelByteCpp(floats.val)});`]
       break
     case 'Temperature':
       needsKelvin = true
@@ -86,11 +110,11 @@ export function colorControlCpp(
     case 'HueCycle':
       loop = [
         `  CRGB ${color};`,
-        `  { float _huePhase = fmodf(fmodf(${time} * (${floats.rate}), 1.0f) + 1.0f, 1.0f); ${color} = CHSV((uint8_t)(_huePhase * 256.0f), (uint8_t)((${floats.s}) * 255.0f), (uint8_t)((${floats.v}) * 255.0f)); }`,
+        `  { float _huePhase = fmodf(fmodf(${time} * (${floats.rate}), 1.0f) + 1.0f, 1.0f); ${color} = CHSV((uint8_t)(_huePhase * 256.0f), ${levelByteCpp(floats.s)}, ${levelByteCpp(floats.v)}); }`,
       ]
       break
     case 'BlendColors':
-      loop = [`  CRGB ${color} = blend(${colors.a}, ${colors.b}, (uint8_t)((${floats.t}) * 255));`]
+      loop = [`  CRGB ${color} = blend(${colors.a}, ${colors.b}, ${levelByteCpp(floats.t)});`]
       break
     case 'GradientSampler': {
       const tt = `(${floats.t})`

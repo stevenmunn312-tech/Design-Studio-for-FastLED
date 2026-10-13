@@ -56,7 +56,17 @@ export function controlInputCpp(nodeType: string, id: string, p: Record<string, 
       break
     }
     case 'ButtonBank':
-      for (const b of normalizeButtonBankEntries(p.buttons)) button(buttonBankHandle(b.id), sanitizePin(b.pin, 0), b.pullup)
+      for (const b of normalizeButtonBankEntries(p.buttons)) {
+        const handle = buttonBankHandle(b.id)
+        // A button with no GPIO yet (-1) is never pressed. Sanitised, it
+        // would read GPIO0, a boot strapping pin, as the button.
+        if (b.pin < 0) {
+          loop.push(`  bool ${v(handle)} = false; // no GPIO assigned`)
+          outputs[handle] = 'bool'
+        } else {
+          button(handle, sanitizePin(b.pin, 0), b.pullup)
+        }
+      }
       break
     case 'PotInput':
       loop.push(`  float ${v('value')} = analogRead(${sanitizePin(p.pin, 4)}) / 4095.0f;`)

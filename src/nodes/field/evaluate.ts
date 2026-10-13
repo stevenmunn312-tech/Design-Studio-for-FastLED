@@ -771,7 +771,8 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   FormulaField({ num, t, W, H, stateKey }, id, props) {
     const fp: FormulaFieldParams = {
       formulaType: String(props.formulaType ?? 'rose'),
-      speed: num(id, 'speed', props, 'speed', 0.3),
+      // Bounded as the generator bounds it, so a wired LFO runs at one rate.
+      speed: clamp01(num(id, 'speed', props, 'speed', 0.3)),
       petals: num(id, 'petals', props, 'petals', 5),
       offset: num(id, 'offset', props, 'offset', 0),
       symmetry: num(id, 'symmetry', props, 'symmetry', 6),
@@ -807,7 +808,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const trigger = Boolean(input(id, 'trigger', false))
     const speed = num(id, 'speed', props, 'speed', 4)
     const damping = num(id, 'damping', props, 'damping', 0.985)
-    const impulse = num(id, 'impulse', props, 'impulse', 1)
+    const impulse = Math.max(0.1, Math.min(1, num(id, 'impulse', props, 'impulse', 1)))
     return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapX !== false, props.halfDuplex === true, W, H) }
   },
   FluidSim({ input, num, W, H, stateKey }, id, props) {
@@ -944,7 +945,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const fv = input(id, 'field', null)
     const field = fv instanceof Float32Array ? fv : null
     // angle (degrees) plus an optional continuous spin (degrees/sec).
-    const deg = num(id, 'angle', props, 'angle', 0) + speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 0))
+    const deg = num(id, 'angle', props, 'angle', 0) + speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 30))
     return { field: evalFieldRotate(field, (deg * Math.PI) / 180, W, H) }
   },
   FieldTile({ input, num, W, H }, id, props) {

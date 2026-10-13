@@ -3283,35 +3283,35 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 <g id="lamp-7.00x7.00"><rect x="-2.80" y="-1.54" width="12.60" height="10.08" rx="5.04" fill-opacity="0.34"/><rect width="7.00" height="7.00" rx="1.54"/></g>
 </defs>
-<path d="M624,140 C669,140 679,552 724,552" fill="none" stroke="#33ffd6" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,140 C669,140 679,552 724,552" fill="none" stroke="#33ffd6" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,140 C669,140 679,552 724,552" fill="none" stroke="#33ffd6" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="552" r="3" fill="#33ffd6"/>
-<path d="M624,316 C669,316 679,467 724,467" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,316 C669,316 679,467 724,467" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,316 C669,316 679,467 724,467" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="467" r="3" fill="#33ff33"/>
-<path d="M284,456 C329,456 339,556 384,556" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,456 C329,456 339,556 384,556" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,456 C329,456 339,556 384,556" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M624,140 C669,140 679,572 724,572" fill="none" stroke="#33ffd6" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,140 C669,140 679,572 724,572" fill="none" stroke="#33ffd6" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,140 C669,140 679,572 724,572" fill="none" stroke="#33ffd6" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="572" r="3" fill="#33ffd6"/>
+<path d="M624,336 C669,336 679,487 724,487" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,336 C669,336 679,487 724,487" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,336 C669,336 679,487 724,487" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="487" r="3" fill="#33ff33"/>
+<path d="M284,456 C329,456 339,618 384,618" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,456 C329,456 339,618 384,618" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,456 C329,456 339,618 384,618" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="618" r="3" fill="#33ff33"/>
+<path d="M284,656 C329,656 339,556 384,556" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,656 C329,656 339,556 384,556" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,656 C329,656 339,556 384,556" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="384" cy="556" r="3" fill="#33ff33"/>
-<path d="M284,656 C329,656 339,584 384,584" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,656 C329,656 339,584 384,584" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,656 C329,656 339,584 384,584" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="584" r="3" fill="#33ff33"/>
-<path d="M624,556 C669,556 679,509 724,509" fill="none" stroke="#33ff85" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,556 C669,556 679,509 724,509" fill="none" stroke="#33ff85" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,556 C669,556 679,509 724,509" fill="none" stroke="#33ff85" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="509" r="3" fill="#33ff85"/>
-<path d="M964,384 C1009,384 1019,444 1064,444" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M964,384 C1009,384 1019,444 1064,444" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M964,384 C1009,384 1019,444 1064,444" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M624,556 C669,556 679,529 724,529" fill="none" stroke="#33ff85" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,556 C669,556 679,529 724,529" fill="none" stroke="#33ff85" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,556 C669,556 679,529 724,529" fill="none" stroke="#33ff85" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="529" r="3" fill="#33ff85"/>
+<path d="M964,404 C1009,404 1019,444 1064,444" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M964,404 C1009,404 1019,444 1064,444" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M964,404 C1009,404 1019,444 1064,444" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="1064" cy="444" r="3" fill="#33d6ff"/>
 <path d="M1304,444 C1349,444 1359,384 1404,384" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
 <path d="M1304,444 C1349,444 1359,384 1404,384" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M1304,444 C1349,444 1359,384 1404,384" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="1404" cy="384" r="3" fill="#3333ff"/>
-<g transform="translate(724,104)">
+<g transform="translate(724,124)">
 <defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="484" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="484" rx="8" fill="url(#tint-pattern)"/>
@@ -3629,8 +3629,8 @@
 </g>
 <g transform="translate(384,44)">
 <defs><linearGradient id="tint-color" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#224746"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="166" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="166" rx="8" fill="url(#tint-color)"/>
+<rect x="0" y="0" width="240" height="172" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="172" rx="8" fill="url(#tint-color)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ffd6"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Color…</text>
@@ -3648,28 +3648,24 @@
 <rect x="8" y="40" width="224" height="40" rx="4" fill="rgb(191,211,255)" stroke="rgba(255,255,255,0.1)"/>
 <rect x="214" y="42" width="16" height="14" rx="3" fill="rgba(0,0,0,0.45)"/>
 <text x="222" y="52" text-anchor="middle" font-size="9" fill="#a0a0a0">▾</text>
-<circle cx="0" cy="96" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="96" r="6" fill="#9aa0a6"/>
-<text x="18" y="100" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Temp (0-1)</text>
 <circle cx="240" cy="96" r="9" fill="#ffd24a" opacity="0.22"/>
 <circle cx="240" cy="96" r="6" fill="#ffd24a"/>
 <text x="222" y="100" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Color</text>
 <line x1="8" y1="116.5" x2="232" y2="116.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">kelvin</text>
+<text x="8" y="138" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">kelvin</text>
 <g>
-<rect x="98" y="129" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="129" width="72.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="170.0" cy="131" r="6" fill="#d633ff"/>
-<text x="210" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">9000</text>
+<rect x="98" y="154" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="154" width="72.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="170.0" cy="156" r="6" fill="#d633ff"/>
+<text x="210" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">9000</text>
 </g>
-<text x="224" y="135" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="154" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inpu…</text>
-<g>
-<rect x="98" y="143.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<text x="224" y="160" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="156" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="156" r="6" fill="#9aa0a6"/>
+<rect x="0.5" y="0.5" width="239" height="171" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
-<rect x="0.5" y="0.5" width="239" height="165" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
-</g>
-<g transform="translate(384,264)">
+<g transform="translate(384,284)">
 <defs><linearGradient id="tint-signal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#213a2c"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="174" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="174" rx="8" fill="url(#tint-signal)"/>
@@ -3793,8 +3789,8 @@
 </g>
 <g transform="translate(384,504)">
 <defs><linearGradient id="tint-math" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#213632"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="135" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="135" rx="8" fill="url(#tint-math)"/>
+<rect x="0" y="0" width="240" height="132" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="132" rx="8" fill="url(#tint-math)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ff85"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Sampl…</text>
@@ -3809,23 +3805,22 @@
 <text x="203" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
 <rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
 <text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
-<circle cx="0" cy="52" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="52" r="6" fill="#9aa0a6"/>
-<text x="18" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Value</text>
+<circle cx="0" cy="52" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="0" cy="52" r="6" fill="#c6ff32"/>
+<text x="18" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Trigger</text>
 <circle cx="240" cy="52" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="240" cy="52" r="6" fill="#9aa0a6"/>
 <text x="222" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Result</text>
-<circle cx="0" cy="80" r="9" fill="#c6ff32" opacity="0.22"/>
-<circle cx="0" cy="80" r="6" fill="#c6ff32"/>
-<text x="18" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Trigger</text>
-<line x1="8" y1="100.5" x2="232" y2="100.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="121" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">value</text>
-<g>
-<rect x="98" y="107" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="121" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
+<line x1="8" y1="72.5" x2="232" y2="72.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="118" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">value</text>
+<g opacity="0.45">
+<rect x="98" y="104" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="103" y="118" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
 </g>
-<text x="224" y="121" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<rect x="0.5" y="0.5" width="239" height="134" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<circle cx="0" cy="114" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="114" r="6" fill="#9aa0a6"/>
+<rect x="0.5" y="0.5" width="239" height="131" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(1064,164)">
 <defs><linearGradient id="tint-composite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#212644"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>

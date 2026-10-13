@@ -121,7 +121,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
   BlendColors({ input, num }, id, props) {
     const ca = input(id, 'a', null) as RGB | null
     const cb = input(id, 'b', null) as RGB | null
-    const mix = num(id, 't', props, 't', 0.5)
+    const mix = Math.max(0, Math.min(1, num(id, 't', props, 't', 0.5)))
     const a = ca ?? {
       r: byte(num(id, 'rA', props, 'rA', 255) / 255),
       g: byte(num(id, 'gA', props, 'gA', 0) / 255),

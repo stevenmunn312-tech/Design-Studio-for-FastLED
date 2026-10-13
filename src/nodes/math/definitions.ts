@@ -19,6 +19,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { a: 'a', b: 'b' },
+    defaultExposedInputs: ['a', 'b'],
     defaultProperties: { mathOp: 'add', a: 0, b: 0 },
   },
   {
@@ -31,6 +33,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'max', label: 'Max', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { value: 'value', min: 'min', max: 'max' },
+    defaultExposedInputs: ['value', 'min', 'max'],
     defaultProperties: { value: 0, min: 0, max: 1 },
   },
   {
@@ -45,6 +49,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'outMax', label: 'Out Max', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { value: 'value', inMin: 'inMin', inMax: 'inMax', outMin: 'outMin', outMax: 'outMax' },
+    defaultExposedInputs: ['value', 'inMin', 'inMax', 'outMin', 'outMax'],
     defaultProperties: { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 },
   },
   {
@@ -72,6 +78,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 't', label: 'T', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { a: 'a', b: 'b', t: 't' },
+    defaultExposedInputs: ['a', 'b', 't'],
     defaultProperties: { a: 0, b: 1, t: 0.5 },
   },
   {
@@ -83,6 +91,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 't', label: 'T (0–1)', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { t: 't' },
+    defaultExposedInputs: ['t'],
     defaultProperties: { easeType: 'inOutCubic', t: 0 },
   },
 
@@ -93,6 +103,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'x', label: 'X', dataType: 'float' }],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { x: 'x' },
+    defaultExposedInputs: ['x'],
     defaultProperties: { x: 0 },
   },
   {
@@ -104,6 +116,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'm', label: 'M', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { x: 'x', m: 'm' },
+    defaultExposedInputs: ['x', 'm'],
     defaultProperties: { x: 0, m: 1 },
   },
   {
@@ -115,6 +129,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'gate', label: 'Gate', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { value: 'value' },
+    defaultExposedInputs: ['value'],
     defaultProperties: { value: 0, fallback: 0 },
   },
   {
@@ -129,7 +145,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'value', label: 'Value', dataType: 'float' },
       { id: 'response', label: 'Response', dataType: 'float' },
     ],
-    propertyInputs: { response: 'response' },
+    propertyInputs: { value: 'value', response: 'response' },
+    defaultExposedInputs: ['value'],
 
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
     defaultProperties: { value: 0, response: 0.25 },
@@ -146,6 +163,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { value: 'value' },
+    defaultExposedInputs: ['value'],
     defaultProperties: { value: 0 },
   },
   {
@@ -160,6 +179,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'sel', label: 'Select', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { a: 'a', b: 'b' },
+    defaultExposedInputs: ['a', 'b'],
     defaultProperties: { a: 0, b: 1 },
   },
   {
@@ -179,6 +200,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'A > B', dataType: 'bool' }],
+    propertyInputs: { a: 'a', b: 'b' },
+    defaultExposedInputs: ['a', 'b'],
     defaultProperties: { a: 0, b: 0.5 },
   },
   {
@@ -234,6 +257,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
     category: 'math',
     inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
     outputs: [{ id: 'text', label: 'Text', dataType: 'string' }],
+    propertyInputs: { value: 'value' },
+    defaultExposedInputs: ['value'],
     defaultProperties: {
       value: 0,
       decimals: 0,
@@ -261,6 +286,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'y', label: 'Y', dataType: 'float' },
     ],
     outputs: [{ id: 'index', label: 'Index', dataType: 'float' }],
+    propertyInputs: { x: 'x', y: 'y' },
+    defaultExposedInputs: ['x', 'y'],
     defaultProperties: { x: 0, y: 0 },
   },
 ]

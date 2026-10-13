@@ -33,7 +33,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'octaves', label: 'Octaves', dataType: 'float' },
     ],
-    propertyInputs: { octaves: 'octaves' },
+    propertyInputs: { speed: 'speed', scale: 'scale', octaves: 'octaves' },
+    defaultExposedInputs: ['speed', 'scale'],
 
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0, wrapX: false, noiseShape: 'plain' },
@@ -175,6 +176,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'impulse', label: 'Impulse', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    propertyInputs: { speed: 'speed', damping: 'damping', impulse: 'impulse' },
+    defaultExposedInputs: ['speed', 'damping', 'impulse'],
     defaultProperties: { speed: 4, damping: 0.985, impulse: 1, halfDuplex: false, wrapX: true },
   },
   {
@@ -268,6 +271,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    propertyInputs: { brightness: 'brightness' },
+    defaultExposedInputs: ['brightness'],
     defaultProperties: { palette: 'ocean', brightness: 1 },
   },
   // Phase 2 field-composition nodes.
@@ -281,6 +286,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    propertyInputs: { px: 'px', py: 'py', scale: 'scale' },
+    defaultExposedInputs: ['px', 'py', 'scale'],
     defaultProperties: { px: 0.5, py: 0.5, scale: 1 },
   },
   {
@@ -364,6 +371,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'strength', label: 'Strength', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    propertyInputs: { strength: 'strength' },
+    defaultExposedInputs: ['strength'],
     defaultProperties: { strength: 1 },
   },
   // Phase 3 coordinate-space transforms (resample a field at remapped coords).
@@ -377,6 +386,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'spin', label: 'Spin', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    propertyInputs: { angle: 'angle', spin: 'spin' },
+    defaultExposedInputs: ['angle', 'spin'],
     defaultProperties: { angle: 0, spin: 30 },
   },
   {
@@ -389,6 +400,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'tilesY', label: 'Tiles Y', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
+    propertyInputs: { tilesX: 'tilesX', tilesY: 'tilesY' },
+    defaultExposedInputs: ['tilesX', 'tilesY'],
     defaultProperties: { tilesX: 2, tilesY: 2 },
   },
 

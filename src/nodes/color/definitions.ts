@@ -22,8 +22,9 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'bB', label: 'B (B)', dataType: 'float' },
     ],
     propertyInputs: {
-      rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
+      t: 't', rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
     },
+    defaultExposedInputs: ['t'],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { t: 0, rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, mixMode: 'rgb' },
   },
@@ -37,6 +38,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 't', label: 'T (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { t: 't' },
+    defaultExposedInputs: ['t'],
     defaultProperties: { palette: 'rainbow', t: 0 },
   },
   {
@@ -51,6 +54,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'rate', label: 'Rate (cycles/s)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { rate: 'rate' },
+    defaultExposedInputs: ['rate'],
     defaultProperties: { palette: 'rainbow', rate: 0.1, easing: 'sine' },
   },
 
@@ -68,6 +73,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'v', label: 'Value', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { rate: 'rate', s: 's', v: 'v' },
+    defaultExposedInputs: ['rate', 's', 'v'],
     defaultProperties: { rate: 0.1, s: 1, v: 1 },
   },
   {
@@ -81,6 +88,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'v', label: 'V (0–1)', dataType: 'float' },
     ],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { h: 'h', s: 's', v: 'v' },
+    defaultExposedInputs: ['h', 's', 'v'],
     defaultProperties: { h: 0, s: 1, v: 1 },
   },
   {
@@ -114,6 +123,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Colors',
     inputs: [{ id: 'kelvin', label: 'Temp (0-1)', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { kelvin: 'kelvin' },
+    defaultExposedInputs: ['kelvin'],
     defaultProperties: { kelvin: 0.27 },
   },
   {
@@ -124,6 +135,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Colors',
     inputs: [{ id: 'heat', label: 'Heat', dataType: 'float' }],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { heat: 'heat' },
+    defaultExposedInputs: ['heat'],
     defaultProperties: { heat: 0.5 },
   },
   {
@@ -143,8 +156,9 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'bB', label: 'B (B)', dataType: 'float' },
     ],
     propertyInputs: {
-      rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
+      t: 't', rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
     },
+    defaultExposedInputs: ['t'],
     outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
     defaultProperties: { rA: 255, gA: 0, bA: 0, rB: 0, gB: 0, bB: 255, t: 0.5 },
   },
@@ -159,6 +173,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'val', label: 'Val (0–255)', dataType: 'float' },
     ],
     outputs: [{ id: 'rgb', label: 'RGB', dataType: 'color' }],
+    propertyInputs: { hue: 'hue', sat: 'sat', val: 'val' },
+    defaultExposedInputs: ['hue', 'sat', 'val'],
     defaultProperties: { hue: 128, sat: 255, val: 255 },
   },
   {
@@ -239,6 +255,8 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'amount', label: 'Amount', dataType: 'float' },
     ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
+    propertyInputs: { amount: 'amount' },
+    defaultExposedInputs: ['amount'],
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
   },
   {

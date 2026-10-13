@@ -119,11 +119,15 @@ export function noiseSignalCpp(id: string, v: Value, expr: Expr, props: Record<s
   return lines
 }
 
-export function counterCpp(v: Value, rate: string): string[] {
-  return [
-    `  static float ${v('value')} = 0;`,
-    `  ${v('value')} = fmod(${v('value')} + (${rate}) / 60.0f, 1.0f);`,
-  ]
+/** A 0→1 ramp at `rate` cycles a second, integrated over `time` as the
+ *  preview's `speedPhase` is. The control graph passes the wall clock. */
+export function counterCpp(id: string, v: Value, rate: string, time = 'millis() / 1000.0f'): string[] {
+  // The accumulator reads `t`; bind it only where the caller's clock is another.
+  const clock = time === 't' ? '' : `float t = ${time}; `
+  const lines = [`  float ${v('value')};`, `  { ${clock}float _cRate = ${rate};`]
+  const cycles = speedPhaseCpp((line) => lines.push(line), phaseTag(id), '_cRate')
+  lines.push(`    ${v('value')} = fmodf(fmodf(${cycles}, 1.0f) + 1.0f, 1.0f); }`)
+  return lines
 }
 
 export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Record<string, unknown>): string[] {
@@ -276,7 +280,7 @@ export function timedControlCpp(
   switch (nodeType) {
     case 'Envelope': return envelopeCpp(id, v, inputs, props, attackWired)
     case 'NoiseSignal': return noiseSignalCpp(id, v, inputs, props)
-    case 'Counter': return counterCpp(v, inputs.rate)
+    case 'Counter': return counterCpp(id, v, inputs.rate)
     case 'ScheduleTrigger': return scheduleTriggerCpp(id, v, inputs, props)
     case 'BeatSin': return beatSinCpp(id, v, inputs, props)
     case 'Clock': return clockCpp(id, v, inputs)

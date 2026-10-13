@@ -85,8 +85,9 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
       max: f('max', 'max', 1),
     }, p).forEach(ln)
   },
-  Counter({ ln, v, f }) {
-    counterCpp(v, f('rate', 'rate', 0.5)).forEach(ln)
+  Counter({ id, ln, v, f, needsT }) {
+    needsT.v = true
+    counterCpp(id, v, f('rate', 'rate', 0.5), 't').forEach(ln)
   },
   // Trigger envelope — optional linear attack to 1 on a rising edge, then
   // linear decay to 0; outputs 0 until the first trigger.

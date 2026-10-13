@@ -2347,8 +2347,8 @@
 <text x="8" y="460" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">scale</text>
 <g opacity="0.45">
 <rect x="98" y="454" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="454" width="28.8" height="4" rx="2" fill="#d633ff"/>
-<circle cx="126.8" cy="456" r="6" fill="#d633ff"/>
+<rect x="98" y="454" width="56.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="154.0" cy="456" r="6" fill="#d633ff"/>
 <text x="210" y="460" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.8</text>
 </g>
 <circle cx="0" cy="456" r="9" fill="#9aa0a6" opacity="0.22"/>
@@ -2446,13 +2446,13 @@
 <text x="8" y="137" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">low</text>
 <g>
 <rect x="98" y="123" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="137" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.3</text>
+<text x="103" y="137" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.23500000000…</text>
 </g>
 <text x="224" y="137" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">high</text>
 <g>
 <rect x="98" y="146" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1.7</text>
+<text x="103" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.865</text>
 </g>
 <text x="224" y="160" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <rect x="0.5" y="0.5" width="239" height="173" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
@@ -2800,9 +2800,9 @@
 <use href="#lamp-7.00x7.00" x="95.50" y="57.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="109.50" y="57.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="123.50" y="57.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="137.50" y="57.50" fill="rgb(3,3,1)"/>
-<use href="#lamp-7.00x7.00" x="151.50" y="57.50" fill="rgb(2,2,1)"/>
-<use href="#lamp-7.00x7.00" x="165.50" y="57.50" fill="rgb(1,1,0)"/>
+<use href="#lamp-7.00x7.00" x="137.50" y="57.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="151.50" y="57.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="165.50" y="57.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="179.50" y="57.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="193.50" y="57.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="207.50" y="57.50" fill="rgb(0,0,0)"/>
@@ -2814,10 +2814,10 @@
 <use href="#lamp-7.00x7.00" x="67.50" y="71.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="81.50" y="71.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="95.50" y="71.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="109.50" y="71.50" fill="rgb(42,36,13)"/>
-<use href="#lamp-7.00x7.00" x="123.50" y="71.50" fill="rgb(55,47,17)"/>
-<use href="#lamp-7.00x7.00" x="137.50" y="71.50" fill="rgb(21,18,7)"/>
-<use href="#lamp-7.00x7.00" x="151.50" y="71.50" fill="rgb(4,4,1)"/>
+<use href="#lamp-7.00x7.00" x="109.50" y="71.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="123.50" y="71.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="137.50" y="71.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="151.50" y="71.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="165.50" y="71.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="179.50" y="71.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="193.50" y="71.50" fill="rgb(0,0,0)"/>
@@ -2830,9 +2830,9 @@
 <use href="#lamp-7.00x7.00" x="67.50" y="85.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="81.50" y="85.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="95.50" y="85.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="109.50" y="85.50" fill="rgb(218,188,68)"/>
-<use href="#lamp-7.00x7.00" x="123.50" y="85.50" fill="rgb(97,84,30)"/>
-<use href="#lamp-7.00x7.00" x="137.50" y="85.50" fill="rgb(3,2,1)"/>
+<use href="#lamp-7.00x7.00" x="109.50" y="85.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="123.50" y="85.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="137.50" y="85.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="151.50" y="85.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="165.50" y="85.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="179.50" y="85.50" fill="rgb(0,0,0)"/>
@@ -2846,9 +2846,9 @@
 <use href="#lamp-7.00x7.00" x="67.50" y="99.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="81.50" y="99.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="95.50" y="99.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="109.50" y="99.50" fill="rgb(5,4,2)"/>
-<use href="#lamp-7.00x7.00" x="123.50" y="99.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="137.50" y="99.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="109.50" y="99.50" fill="rgb(102,88,32)"/>
+<use href="#lamp-7.00x7.00" x="123.50" y="99.50" fill="rgb(35,30,11)"/>
+<use href="#lamp-7.00x7.00" x="137.50" y="99.50" fill="rgb(3,3,1)"/>
 <use href="#lamp-7.00x7.00" x="151.50" y="99.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="165.50" y="99.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="179.50" y="99.50" fill="rgb(0,0,0)"/>
@@ -2862,8 +2862,8 @@
 <use href="#lamp-7.00x7.00" x="67.50" y="113.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="81.50" y="113.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="95.50" y="113.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="109.50" y="113.50" fill="rgb(0,0,0)"/>
-<use href="#lamp-7.00x7.00" x="123.50" y="113.50" fill="rgb(0,0,0)"/>
+<use href="#lamp-7.00x7.00" x="109.50" y="113.50" fill="rgb(204,176,64)"/>
+<use href="#lamp-7.00x7.00" x="123.50" y="113.50" fill="rgb(57,49,18)"/>
 <use href="#lamp-7.00x7.00" x="137.50" y="113.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="151.50" y="113.50" fill="rgb(0,0,0)"/>
 <use href="#lamp-7.00x7.00" x="165.50" y="113.50" fill="rgb(0,0,0)"/>

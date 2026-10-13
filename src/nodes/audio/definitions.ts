@@ -183,8 +183,10 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
       { id: 'trebleWeight', label: 'Treble Weight', dataType: 'float' },
     ],
     propertyInputs: {
+      bass: 'bass', mids: 'mids', treble: 'treble',
       bassWeight: 'bassWeight', midsWeight: 'midsWeight', trebleWeight: 'trebleWeight',
     },
+    defaultExposedInputs: ['bass', 'mids', 'treble'],
 
     outputs: [{ id: 'hue', label: 'Hue (0–360)', dataType: 'float' }],
     // bass/mids/treble match the evaluator's own hardcoded fallback

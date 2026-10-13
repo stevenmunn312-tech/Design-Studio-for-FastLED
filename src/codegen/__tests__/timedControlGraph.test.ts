@@ -38,7 +38,9 @@ describe('time-dependent control sources', () => {
     ['Envelope', 'result', 'float', '_envT_'],
     ['BeatSin', 'value', 'float', '6.2831853f'],
     ['NoiseSignal', 'value', 'float', 'inoise16'],
-    ['Counter', 'value', 'float', '/ 60.0f'],
+    // The ramp itself; the normal sketch integrates it on the animation
+    // clock `t`, as the preview does, where the control graph reads millis().
+    ['Counter', 'value', 'float', 'fmodf(fmodf(_phase_sig'],
   ] as const)('%s keeps the normal sketch emitter and the wall clock', (nodeType, port, type, marker) => {
     const signal = node('sig', nodeType)
     const graph = createControlGraph([signal], [])

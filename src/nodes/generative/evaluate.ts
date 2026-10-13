@@ -1,4 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
+import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from './limits'
 import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { type Frame, hsv, type Palette, samplePalette, type RGB } from '../../state/palettes/ledColor'
@@ -311,7 +312,7 @@ function evalSpiral(key: string, speed: number, arms: number, palette: Palette, 
 
 function evalKaleidoscope(src: Frame, segments: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = W / 2, cy = H / 2
-  const segAngle = (Math.PI * 2) / Math.max(2, segments)
+  const segAngle = (Math.PI * 2) / Math.max(KALEIDOSCOPE_SEGMENTS.min, Math.min(KALEIDOSCOPE_SEGMENTS.max, segments))
   return buildFrame(W, H, (x, y) => {
       const dx = x - cx, dy = y - cy
       const dist = Math.hypot(dx, dy)
@@ -615,7 +616,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
   Spiral({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Spiral)
-    const arms = num(id, 'arms', props, 'arms', 2)
+    const arms = Math.max(SPIRAL_ARMS.min, Math.min(SPIRAL_ARMS.max, num(id, 'arms', props, 'arms', 2)))
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalSpiral(stateKey(id), speed, arms, palette, t, W, H) }
   },

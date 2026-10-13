@@ -535,6 +535,8 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'controls', label: 'Controls', dataType: 'playercontrols' },
     ],
     outputs: [],
+    propertyInputs: { speed: 'speed' },
+    defaultExposedInputs: ['speed'],
     defaultProperties: { speed: MASTER_SPEED_DEFAULT },
   },
   {

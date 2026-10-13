@@ -521,6 +521,20 @@ describe('generateCpp', () => {
     expect(cpp).toContain('digitalRead(13) == HIGH')
   })
 
+  it('never presses a Button Bank button that has no GPIO yet', () => {
+    // An unassigned pin is -1; clamped into range it read GPIO0, a strapping pin.
+    const bank = node('bank', 'ButtonBank', 'input', { buttons: [{ id: 'next', label: 'Next' }] })
+    const bm = node('bm', 'BrightnessMod', 'composite', {})
+    const sc = node('sc', 'SolidColor', 'pattern', {})
+    const cpp = generateCpp([bank, bm, sc, outputNode], [
+      edge('e1', 'bank', 'bm', 'button-next', 'brightness'),
+      edge('e2', 'sc', 'bm', 'frame', 'frame'),
+      edge('e3', 'bm', 'out', 'frame', 'frame'),
+    ])
+    expect(cpp).toContain('bool n_bank_button_next = false; // no GPIO assigned')
+    expect(cpp).not.toContain('pinMode(0,')
+  })
+
   it('emits setup() pinModes for all three EncoderInput pins, honouring pullup', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 18, pinB: 19, pinSW: 21, pullup: true })
     const bm = node('bm', 'BrightnessMod', 'composite', {})
@@ -897,7 +911,9 @@ describe('generateCpp', () => {
       [edge('e1', 't1', 's1', 'time', 'x')]
     )
     expect(cpp).toContain('n_t1_time')
-    expect(cpp).toContain('float n_t1_dt = 1.0f / 60.0f;')
+    // dt is measured: the time since this node's previous loop, 0 on the first.
+    expect(cpp).toContain('static float _timePrev_t1 = -1.0f;')
+    expect(cpp).toContain('float n_t1_dt = _timePrev_t1 < 0.0f ? 0.0f : fmaxf(0.0f, n_t1_time - _timePrev_t1); _timePrev_t1 = n_t1_time;')
     expect(cpp).toContain('n_s1_result')
   })
 
@@ -924,8 +940,9 @@ describe('generateCpp', () => {
     expect(cpp).toContain('t * (0.25)')
     expect(cpp).toContain('fmodf(fmodf(_phase_hc, 1.0f) + 1.0f, 1.0f)')
     expect(cpp).toContain('n_hc_color = CHSV((uint8_t)(_huePhase * 256.0f)')
-    expect(cpp).toContain('(0.8) * 255.0f')
-    expect(cpp).toContain('(0.7) * 255.0f')
+    // Bounded as the preview's hsv() bounds them, so a wired 1.1 cannot wrap.
+    expect(cpp).toContain('(uint8_t)(constrain(0.8, 0.0f, 1.0f) * 255.0f)')
+    expect(cpp).toContain('(uint8_t)(constrain(0.7, 0.0f, 1.0f) * 255.0f)')
     expect(cpp).toContain('fill_solid(buf_sc, NUM_LEDS, n_hc_color);')
   })
 
@@ -1129,7 +1146,7 @@ describe('generateCpp', () => {
     expect(add).toContain('// Array x4')
     expect(add).toContain('for(int _i=3;_i>=0;_i--)')       // high→low paint order
     expect(add).toContain('_inv=1.0f/powf(max(0.05f, 0.9),_i)') // per-copy scale accumulation
-    expect(add).toContain('_dim=powf(0.7,_i)')                  // per-copy falloff
+    expect(add).toContain('_dim=powf(constrain(0.7,0.0f,1.0f),_i)')                  // per-copy falloff
     expect(add).toContain('buf_sc[_sy*WIDTH+_sx]')           // samples the source buffer
     expect(add).toContain('qadd8(_o.r,_r)')                  // add = saturating add
     expect(mk({ blendMode: 'lighten' })).toContain('max(_o.r,_r)')
@@ -1768,7 +1785,7 @@ describe('generateCpp', () => {
     expect(lum).toContain('static bool _pa_nem[8];')
     expect(lum).toContain('for(int i=0;i<5;i++){ if(!_pa_nem[i])')
     expect(lum).toContain('for(int j=5;j<_PN;j++) if(_pa_nl[j]<=0.04f)')
-    expect(lum).toContain('if(i<5) _pa_nl[i]=1; else _pa_nl[i]*=0.92*0.96f;')
+    expect(lum).toContain('if(i<5) _pa_nl[i]=1; else _pa_nl[i]*=constrain(0.92,0.0f,1.0f)*0.96f;')
     expect(lum).toContain('*1.5f);')
     const other = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'fountain' }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(other).toContain('const int _PN=120;')
@@ -1991,7 +2008,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('static uint8_t _gc_g[NUM_LEDS], _gn_g[NUM_LEDS]')
     expect(cpp).toContain('millis() - _gt_g')
     expect(cpp).toContain('ColorFromPalette(paldef_mojito,(uint8_t)(_gb_g[_i]*255))')
-    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*0.75')
+    expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*constrain(0.75,0.0f,1.0f)')
   })
 
   it('reseeds Game of Life after four empty or frozen steps, as the preview does', () => {
@@ -2025,7 +2042,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('const int _count=max(8,min(400,(int)floorf(50)))')
     expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
     expect(cpp).toContain('inoise8(')
-    expect(cpp).toContain('_ftr_ff[_i]*=0.9')
+    expect(cpp).toContain('_ftr_ff[_i]*=constrain(0.9,0.0f,1.0f)')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
   })
 
@@ -3534,15 +3551,15 @@ describe('generateCpp — Kaleidoscope', () => {
     expect(cpp).toContain('int _ksx=(int)floorf(_kCx+_kd*cosf(_ka)+0.5f),_ksy=(int)floorf(_kCy+_kd*sinf(_ka)+0.5f);')
   })
 
-  it('bakes an unwired segments property and clamps it to the evaluator floor of 2', () => {
-    expect(gen({ segments: 8 })).toContain('float _kSeg=6.2831853f/max(2.0f,(float)(8));')
-    expect(gen({ segments: 1 })).toContain('max(2.0f,(float)(1))')
+  it('bakes an unwired segments property and clamps it to the evaluator range of 2-16', () => {
+    expect(gen({ segments: 8 })).toContain('float _kSeg=6.2831853f/constrain((float)(8),2.0f,16.0f);')
+    expect(gen({ segments: 1 })).toContain('constrain((float)(1),2.0f,16.0f)')
   })
 
   it('recomputes the wedge angle from a wired segments input', () => {
     const seg = node('seg', 'Random', 'signal', { min: 3, max: 9 })
     const cpp = gen({ segments: 6 }, [seg], [edge('e3', 'seg', 'kal', 'value', 'segments')])
-    expect(cpp).toContain('float _kSeg=6.2831853f/max(2.0f,(float)(n_seg_value));')
+    expect(cpp).toContain('float _kSeg=6.2831853f/constrain((float)(n_seg_value),2.0f,16.0f);')
   })
 
   it('renders black when nothing is wired into the frame input', () => {
@@ -5107,7 +5124,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
       t: 0.25,
     })
     const cpp = generateCpp([bc], [])
-    expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10, 20, 30), CRGB(110, 220, 130), (uint8_t)((0.25) * 255));')
+    expect(cpp).toContain('CRGB n_bc_color = blend(CRGB(10, 20, 30), CRGB(110, 220, 130), (uint8_t)(constrain(0.25, 0.0f, 1.0f) * 255.0f));')
   })
 
   /*

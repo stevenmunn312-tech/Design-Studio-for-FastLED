@@ -979,7 +979,9 @@ export function isValidPinNumber(pin: number): boolean {
 export function findPinRangeWarnings(nodes: StudioNode[]): string[] {
   const warnings = collectPinUses(nodes)
     .filter((use) => !isValidPinNumber(use.pin))
-    .map((use) => `${use.label} is set to ${use.pin}, which isn't a valid Arduino pin number (expected a whole number from 0–${MAX_PIN_NUMBER})`)
+    .map((use) => use.pin === -1
+      ? `${use.label} has no GPIO assigned yet, so it does nothing on the board. Pick one in its hardware panel.`
+      : `${use.label} is set to ${use.pin}, which isn't a valid Arduino pin number (expected a whole number from 0–${MAX_PIN_NUMBER})`)
   return warnings.sort()
 }
 

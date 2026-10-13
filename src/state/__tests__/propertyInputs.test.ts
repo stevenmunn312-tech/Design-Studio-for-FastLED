@@ -52,6 +52,29 @@ describe('property input exposure', () => {
       .toEqual(['playPause', 'previous', 'next', 'volumeUp', 'volumeDown', 'ledToggle', 'brightnessUp', 'brightnessDown'])
   })
 
+  /*
+   * A port that shares its id with a property is the wire for that property:
+   * the preview and the sketch both read it wire-then-property. Undeclared, the
+   * node drew the port as a row of its own and the property as another, and a
+   * wire left the property row editable while nothing read it. Declaring it
+   * puts the socket on the property row and locks the row while wired; the
+   * node's defaults keep the socket drawn. Colour and palette ports carry the
+   * substance a node works on rather than a setting, so they stay rows.
+   */
+  it('declares every number or switch port that shares its id with a property', () => {
+    const undeclared: string[] = []
+    for (const def of NODE_LIBRARY) {
+      const defaults = def.defaultProperties ?? {}
+      const declared = new Set(Object.values(def.propertyInputs ?? {}))
+      for (const port of def.inputs) {
+        if (port.dataType !== 'float' && port.dataType !== 'bool') continue
+        if (port.id in defaults && !declared.has(port.id)) undeclared.push(`${def.type}.${port.id}`)
+      }
+    }
+    expect(undeclared).toEqual([])
+    expect(normalizeExposedInputs('Clamp', undefined)).toEqual(['value', 'min', 'max'])
+  })
+
   it('bounds imported visibility data and reveals wired ports without mutating the graph', () => {
     expect(normalizeExposedInputs('Juggle', ['frame', 'speed', 'speed', 'seed', {}, 'fade']))
       .toEqual(['speed', 'fade'])

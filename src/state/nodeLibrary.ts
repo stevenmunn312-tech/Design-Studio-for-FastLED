@@ -31,6 +31,11 @@ import {
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
+import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from '../nodes/generative/limits'
+import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
+import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
+import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
@@ -623,6 +628,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     startHour: { control: 'slider', min: 0, max: 23, step: 1 },
     startMinute: { control: 'slider', min: 0, max: 59, step: 1 },
     startSecond: { control: 'slider', min: 0, max: 59, step: 1 },
+    startYear: { control: 'slider', min: RTC_YEAR_MIN, max: RTC_YEAR_MAX, step: 1, entry: 'number' },
   },
   ScheduleTrigger: {
     scheduleMode: { control: 'select', options: ['Window', 'Trigger'] },
@@ -652,16 +658,21 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Circle: {
     cx: N01,
     cy: N01,
+    // Pixels at the 16-pixel reference size (scale with matrix multiplies it).
+    radius: { control: 'slider', min: 0.5, max: 32, step: 0.5 },
     thickness: { control: 'slider', min: 0, max: 6, step: 0.1 },
   },
   Text: {
     x: N01,
     y: N01,
+    // Cells a second; negative scrolls the other way.
+    scroll: { control: 'slider', min: -20, max: 20, step: 0.5 },
   },
   ClockDisplay: {
     x: N01,
     y: N01,
     radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
+    durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
   BeatFlash: {
     // 'none' (default) uses the r/g/b color below; any other preset sweeps
@@ -730,8 +741,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     routeMode: { control: 'select', options: ['native', 'fit', 'crop'] },
     routeX: { control: 'slider', min: 0, max: 63, step: 1 },
     routeY: { control: 'slider', min: 0, max: 63, step: 1 },
-    tilesX: { control: 'slider', min: 1, max: 8, step: 1 },
-    tilesY: { control: 'slider', min: 1, max: 8, step: 1 },
+    // xyLayout.ts divides the matrix into at most 16 panels each way.
+    tilesX: { control: 'slider', min: 1, max: 16, step: 1 },
+    tilesY: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   StereoVuMeter: {
     ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
@@ -895,8 +907,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Plasma:          { speed: N01 },
   Rainbow:         { speed: N01 },
   RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
-  Spiral:          { speed: N01 },
-  Starfield:       { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
+  Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
+  Kaleidoscope:    { segments: { control: 'slider', min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max, step: 1 } },
+  Starfield:       {
+    speed: N01,
+    seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+    count: { control: 'slider', min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max, step: 1 },
+  },
   StringParticles: {
     speed: N01, spawn: N01, fade: N01, bed: N01,
     seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -935,7 +952,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   FractalNoise: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, noiseShape: { control: 'select', options: [...NOISE_SHAPES] } },
   GaborNoise:      { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Blobs:           { speed: N01, scale: N01, count: { control: 'slider', min: 1, max: 6, step: 1 } },
-  FlowField: { speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 }, flowMode: { control: 'select', options: ['angle', 'curl'] } },
+  FlowField: {
+    speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+    flowMode: { control: 'select', options: ['angle', 'curl'] },
+    count: { control: 'slider', min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max, step: 1 },
+  },
   Pride2015:       { speed: N01, scale: N01 },
   Pacifica:        { speed: N01, scale: N01 },
   TwinkleFox:      { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
@@ -1138,6 +1159,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Sequencer: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
   },
+  // The I2S decoder's 0–21 volume steps, typed in the part's hardware panel.
+  Amplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
+  PowerAmplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
   PowerConverter: {
     sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
   },
@@ -1169,6 +1193,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     cc:   { control: 'slider', min: 0, max: 127, step: 1 },
   },
   FrameFeedback: {
+    // Turned again every frame the echo comes round, so a few degrees is a
+    // slow swirl and anything past ~10° smears into a blur.
+    angle:     { control: 'slider', min: -45, max: 45, step: 0.5 },
     blendMode: { control: 'select', options: ['normal', 'screen', 'add', 'multiply', 'difference', 'lighten'] },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
     offsetY:   { control: 'slider', min: -16, max: 16, step: 0.5 },
@@ -1200,6 +1227,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Shape: {
     cx:        N01,
     cy:        N01,
+    // Half-height in pixels (circumradius for a polygon).
+    size:      { control: 'slider', min: 0.5, max: 32, step: 0.5 },
     shape:     { control: 'select', options: ['rect', 'ellipse', 'polygon'] },
     aspect:    { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     // Fractional sides morph the polygon between vertex counts.
@@ -1237,6 +1266,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  // A fraction of half the shorter side: past 1 the point leaves the canvas.
+  Path: { scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 } },
   FourierEpicycles: {
     outline: { control: 'select', options: [...FOURIER_OUTLINES] },
     maxHarmonics: { control: 'slider', min: FOURIER_MAX_HARMONICS_MIN, max: FOURIER_MAX_HARMONICS_MAX, step: 1 },
@@ -1271,7 +1302,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   GameOfLife:        { speed: { control: 'slider', min: 1, max: 30,  step: 1 }, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   ReactionDiffusion: {
     rdPreset: { control: 'select', options: [...REACTION_DIFFUSION_PRESETS] },
-    speed: { control: 'slider', min: 1, max: 30,  step: 1 },
+    speed: { control: 'slider', min: 1, max: REACTION_DIFFUSION_MAX_STEPS, step: 1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   PatternMaster: {

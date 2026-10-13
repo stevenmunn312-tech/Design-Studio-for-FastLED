@@ -12,6 +12,8 @@ import {
 import { normalizeCustomPalette, customPaletteStops16, hexToRgb as customHexToRgb } from '../../state/palettes/customPalette'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { cppStringLiteral } from '../../codegen/cppLiterals'
+import { POLINE_HELPER_CPP, polinePositionId } from '../../codegen/helpers/polineHelperCpp'
+import { channelByteCpp, degreesHueCpp, hueByteCpp, levelByteCpp } from '../../codegen/colorControlCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 
 export const COLOR_EMITTERS: NodeEmitters = {
@@ -21,10 +23,10 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  CRGB ${v('color')};`)
     ln(`  {`)
     const ph = speedPhaseCpp(ln, phaseTag(id), rate)
-    ln(`    float _huePhase = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), (uint8_t)((${s}) * 255.0f), (uint8_t)((${val}) * 255.0f)); }`)
+    ln(`    float _huePhase = fmodf(fmodf(${ph}, 1.0f) + 1.0f, 1.0f); ${v('color')} = CHSV((uint8_t)(_huePhase * 256.0f), ${levelByteCpp(s)}, ${levelByteCpp(val)}); }`)
   },
   HSVToRGB({ ln, v, f }) {
-    ln(`  CRGB ${v('color')} = CHSV((uint8_t)((${f('h', 'h', 0)}) / 360.0f * 255), (uint8_t)((${f('s', 's', 1)}) * 255), (uint8_t)((${f('v', 'v', 1)}) * 255));`)
+    ln(`  CRGB ${v('color')} = CHSV(${degreesHueCpp(f('h', 'h', 0))}, ${levelByteCpp(f('s', 's', 1))}, ${levelByteCpp(f('v', 'v', 1))});`)
   },
   // The inverse of HSVToRGB — via FastLED's rgb2hsv_approximate.
   RGBToHSV({ id, ln, v, channelColor }) {
@@ -46,7 +48,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     const ca = channelColor('a', 255, 0, 0, ['rA', 'gA', 'bA'])
     const cb = channelColor('b', 0, 0, 255, ['rB', 'gB', 'bB'])
     const mix = f('t', 't', 0.5)
-    ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, (uint8_t)((${mix}) * 255));`)
+    ln(`  CRGB ${v('color')} = blend(${ca}, ${cb}, ${levelByteCpp(mix)});`)
   },
   GradientSampler({ id, p, ln, v, f, channelColor, gradientChannel, needsHueMix }) {
     const tt = `(${f('t', 't', 0)})`
@@ -83,7 +85,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
   },
   CHSV({ ln, v, f }) {
     const hue = f('hue', 'hue', 128), sat = f('sat', 'sat', 255), val = f('val', 'val', 255)
-    ln(`  CRGB ${v('rgb')} = CHSV((uint8_t)(${hue}), (uint8_t)(${sat}), (uint8_t)(${val}));`)
+    ln(`  CRGB ${v('rgb')} = CHSV(${hueByteCpp(hue)}, ${channelByteCpp(sat)}, ${channelByteCpp(val)});`)
   },
   PaletteSelector({ p, ln, fastledPalette }) {
     ln(`  // PaletteSelector — drives ${fastledPalette(String(p.palette ?? 'rainbow'))} in connected palette-consuming nodes`)
@@ -131,19 +133,26 @@ export const COLOR_EMITTERS: NodeEmitters = {
     if (!source) globalLines.push(`// Palette from Image: connect an Image node with an uploaded file.`)
     globalLines.push(`const CRGBPalette16 pal_${id}(${cppStops});`)
   },
-  Poline({ node, id, p, ln, incoming }) {
-    // Bake the poline palette (computed from the configured anchor hex
-    // props) into a CRGBPalette16. Live-wired anchors drive only the
-    // preview; firmware uses the configured anchors.
+  Poline({ node, id, p, ln, incoming, colorExpr, globalLines }) {
     const a = hexToRgb(String(p.anchorA ?? '#1020ff'))
     const b = hexToRgb(String(p.anchorB ?? '#ff20a0'))
     const c = hexToRgb(String(p.anchorC ?? '#20ffd0'))
-    const stops = polineStops16([a, b, c], Number(p.points ?? 4), String(p.position ?? 'sinusoidal'))
-    const cppStops = stops.map((s) => `CRGB(${s.r},${s.g},${s.b})`).join(', ')
-    if (incoming.get(`${node.id}:colorA`) || incoming.get(`${node.id}:colorB`) || incoming.get(`${node.id}:colorC`)) {
-      ln(`  // Poline: wired anchors drive the live preview; firmware bakes the configured anchors.`)
+    const points = Number(p.points ?? 4)
+    const position = String(p.position ?? 'sinusoidal')
+    const ports = ['colorA', 'colorB', 'colorC'] as const
+    if (!ports.some((port) => incoming.get(`${node.id}:${port}`))) {
+      // Every anchor is a swatch, so the palette is known now: bake it.
+      const stops = polineStops16([a, b, c], points, position)
+      ln(`  CRGBPalette16 pal_${id}(${stops.map((s) => `CRGB(${s.r},${s.g},${s.b})`).join(', ')});`)
+      return
     }
-    ln(`  CRGBPalette16 pal_${id}(${cppStops});`)
+    // A wired anchor changes at run time, so the board builds the palette
+    // each frame from the wires, the swatches standing in for unwired ones.
+    if (!globalLines.includes(POLINE_HELPER_CPP)) globalLines.push(POLINE_HELPER_CPP)
+    const anchor = (port: typeof ports[number], rgb: { r: number; g: number; b: number }) =>
+      incoming.get(`${node.id}:${port}`) ? colorExpr(node.id, port) : `CRGB(${rgb.r},${rgb.g},${rgb.b})`
+    ln(`  CRGBPalette16 pal_${id};`)
+    ln(`  _polineStops16(pal_${id}, ${anchor('colorA', a)}, ${anchor('colorB', b)}, ${anchor('colorC', c)}, ${Math.floor(Number.isFinite(points) ? points : 4)}, ${polinePositionId(position)});`)
   },
   // Runs harmonyStopHue's loop on the device so a wired hue keeps the palette
   // live. CHSV goes through hsv2rgb_spectrum, the plain HSV wheel the

@@ -55,6 +55,26 @@ patterns here, not in `CLAUDE.md`.
   `Float32Array.from(field)`, `[...field]` or `structuredClone(frame)` before
   the next evaluation.
 
+## Firmware state against the preview
+
+- **Run the emitted snippet, frame by frame, rather than matching its text.**
+  A stateful node's firmware can contain every expected line and still drift
+  from the preview over a run: Interval rescheduled from the frame that saw
+  the pulse, not the pulse's due time, so its period stretched by a frame
+  every time, and the string tests passed. `compileCppSnippet`
+  (`src/test-utils/cppSnippet.ts`) turns the small dialect the scalar and
+  signal emitters write into a JavaScript step function, with `static`
+  locals hoisted so they persist across calls and `millis()` bound to the
+  test's clock. `statefulSignalParity.test.ts` drives each preview handler and
+  its snippet through the same inputs and compares every frame. It is not a
+  C++ interpreter: integers are not wrapped, so keep it to the emitters it
+  was written for and extend it deliberately.
+- **Keep frame times off exact thresholds.** Seconds in a double and whole
+  milliseconds round differently at a boundary, so a frame landing exactly
+  on a debounce or delay time compares float representation, not the node.
+  The parity test's frames step by a fractional, jittered amount for that
+  reason.
+
 ## Full-suite runs under load
 
 - The full suite takes about two minutes on an otherwise idle machine. Firmware

@@ -394,24 +394,33 @@ library defaults.
   do). Bundled patterns with a Beat Detect, authored while Threshold did
   nothing live, now use 0.4
   ([player, shows and controls](docs/development/patterns/player-shows-and-controls.md#audio-levels)).
-- [ ] **D-08.6 · Data-type and sanitising sweep.** Per node lists are in the
-  audit reports; the classes are: free numbers that need bounds (Spiral
-  `arms`, Kaleidoscope `segments`, Circle `radius`, Shape `size`, ClockDisplay
-  `durationSec`, Amplifier and PowerAmplifier `maxVolume`, RTCInput
-  `startYear`, Text `scroll`); slider ranges that disagree with the clamp
-  (ReactionDiffusion `speed`, FlowField and Starfield `count`, Path `scale`,
-  FrameFeedback `angle`, `tilesX`/`tilesY`); preview/firmware parity on wired
-  values (Particles `rate` uint8 wrap, WaveSim `impulse`, FormulaField
-  `speed`, Array `falloff`, HueCycle/HSVToRGB/BlendColors `(uint8_t)(x*255)`,
-  the five audio-pattern speed clamps, Poline ignoring wired anchors); the
-  duplicate-row trap where a port and property share an id without
-  `propertyInputs` (fifteen math and signal nodes plus FieldNoise, WaveSim,
-  DistanceField, FieldToFrame, FieldWarp, FieldRotate, FieldTile); Counter
-  advancing per evaluation pass instead of on the speed clock and Time `dt`
-  fixed at 1/60; `pullup` as a canvas row on ButtonInput/EncoderInput but a
-  popup checkbox on ButtonBank; ButtonBank's unassigned pin −1 sanitising to
-  GPIO0 (confirm deploy blocks it); HardwarePartBody never reading
-  `propertyDescription`. Add parity tests for the stateful signal nodes.
+- [ ] **D-08.6 · Data-type and sanitising sweep.** Done, awaiting the queued
+  compile in `tmp/node-audit/compiles.ps1` (`d086` normal sketch, `d086show`
+  show controller). Spiral `arms`, Kaleidoscope `segments`, Circle `radius`,
+  Shape `size`, Text `scroll` are sliders; ClockDisplay `durationSec` (to
+  99:59:59), RTCInput `startYear` (1970–2099) and the amplifiers' `maxVolume`
+  (0–21, now a clamped field in the part panel) are bounded number fields.
+  Slider and clamp now name one constant (`generative/limits.ts`,
+  `simulations/limits.ts`): Reaction Diffusion 1–20 steps, Flow Field 8–400
+  and Starfield 8–300 particles; Path `scale` 0.1–1, Frame Feedback `angle`
+  ±45°, the LED output's tiles 1–16. Wired values clamp alike on both sides:
+  Particles `rate`/`decay`, Wave Sim `impulse`, Formula Field and Formula
+  Points `speed`, Array `falloff`, Flow Field and Game of Life `fade`, the
+  colour nodes' CHSV bytes (shared `levelByteCpp` and siblings), the five
+  audio-pattern speeds. A wired Poline anchor now builds the palette on the
+  board (`_polineStops16`, held to the library by `polineFirmware.test.ts`).
+  Thirty-six nodes' same-named number/switch ports are declared property
+  inputs, drawn by default (`propertyInputs.test.ts` derives the rule);
+  Field Rotate's code fallback for `spin` now matches its default of 30.
+  Counter integrates on the shared clock; Time `dt` is measured; Interval no
+  longer drifts in firmware; `statefulSignalParity.test.ts` runs Interval,
+  Envelope, Counter, Time, Clock and every Trigger variant's firmware against
+  the preview frame by frame (`test-utils/cppSnippet.ts`). Button and
+  Encoder `pullup` moved to the part panel; part panel fields carry their
+  tooltips. An unassigned Button Bank button (pin −1) was only a warning and
+  read GPIO0; it is now never pressed, and the warning says it has no GPIO.
+  Unchanged on purpose: Gabor Noise, Boids weights and Beat Flash `decay` are
+  unclamped but identical on both sides.
 - [ ] **D-08.7 · Labels, groups and widths.** `PROPERTY_LABELS` for every raw
   camelCase key on composite, field, shapes, show and output nodes (Pattern
   Master: `min hold (s)`, `max hold (s)`, `fade (s)`); `PROPERTY_GROUPS` for

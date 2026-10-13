@@ -351,7 +351,7 @@ function evalBassRings(key: string, bass: number, intensity: number, speed: numb
   const cx = W / 2
   const cy = H / 2
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
-  const motion = Math.max(0, speed) * (0.75 + level * 1.75 * strength)
+  const motion = Math.max(0, Math.min(1, speed)) * (0.75 + level * 1.75 * strength)
   const phase = speedPhase(key, t, 1.2 + motion * 4.8)
   const ringCount = 4 + level * 8 * strength
   const floor = 0.04 + level * 0.1 * strength
@@ -389,7 +389,7 @@ function evalMidrangeWaves(key: string, mids: number, intensity: number, speed: 
 function evalMidrangeBloom(key: string, mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, mids))
   const strength = Math.max(0, Math.min(1, intensity))
-  const motion = Math.max(0, speed) * (0.8 + level * 2.2 * strength)
+  const motion = Math.max(0, Math.min(1, speed)) * (0.8 + level * 2.2 * strength)
   const phase = speedPhase(key, t, motion)
   const cx0 = (W - 1) / 2
   const cy0 = (H - 1) / 2
@@ -471,7 +471,7 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, palet
 function evalTreblePrism(key: string, treble: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
-  const motion = Math.max(0, speed) * (1.2 + level * 3.2 * strength)
+  const motion = Math.max(0, Math.min(1, speed)) * (1.2 + level * 3.2 * strength)
   const phase = speedPhase(key, t, motion)
   return buildFrame(W, H, (x, y) => {
       const diagA = x * 1.7 + y * 1.15
@@ -493,7 +493,7 @@ function evalAudioCascade(key: string, bass: number, mids: number, treble: numbe
   const m = Math.max(0, Math.min(1, mids))
   const tr = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
-  const motion = Math.max(0, speed) * (0.8 + (b + m + tr) * 1.4 * strength)
+  const motion = Math.max(0, Math.min(1, speed)) * (0.8 + (b + m + tr) * 1.4 * strength)
   const ribbonPhase = speedPhase(key, t, motion * (2 + m * 3 * strength), 'ribbon')
   const sweepPhase = speedPhase(key, t, motion * (1.4 + b * 2.2 * strength), 'sweep')
   const shimmerPhase = speedPhase(key, t, motion * (4 + tr * 8 * strength), 'shimmer')
@@ -1344,7 +1344,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const snare = num(id, 'snare', props, 'snare', 0)
     const hihat = num(id, 'hihat', props, 'hihat', 0)
     const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    // 0–1 like its slider, as the sketch bounds it.
+    const speed = clamp01(num(id, 'speed', props, 'speed', 1))
     const palette = pal(id, 'paletteIn', props, 'palette', 'volcano')
     // `count` sizes the firmware's static shock pool, so it stays a
     // property; the multipliers are read wire-then-property.

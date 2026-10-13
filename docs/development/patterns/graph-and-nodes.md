@@ -176,6 +176,28 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   wire, so the preview passes it through too, and Format Number shows it as
   "no reading". The stored properties stay untouched for the editors and
   validation.
+- A number or switch input that shares its id with a property is that
+  property's wire, and is declared as a property input. Undeclared, the node
+  drew the port as one row and the property as another, and a wire left the
+  property row editable while nothing read it. `propertyInputs.test.ts`
+  derives the rule from `NODE_LIBRARY`; the math, signal, colour and field
+  nodes that once kept every input visible list their ports in
+  `defaultExposedInputs` instead, so the sockets are still drawn by default.
+  Colour and palette ports stay rows: they are what the node works on.
+- A bound that the slider, the preview and the sketch all apply lives in one
+  constant they each import, such as `SPIRAL_ARMS` in
+  `src/nodes/generative/limits.ts` or `FLOW_FIELD_COUNT` in
+  `src/nodes/simulations/limits.ts`, whose `max` also sizes the sketch's
+  static pool. Three literals drift: Reaction Diffusion's slider ran to 30
+  steps a frame while both sides stopped at 20. A wireable 0–1 level that
+  becomes a byte goes through `levelByteCpp` and its siblings in
+  `colorControlCpp.ts`, because `(uint8_t)(x * 255)` wraps a wired 1.1 round
+  to 25 where the preview's `hsv()` clamps it.
+- A rate that accumulates does so on the clock, never per pass. Counter added
+  `rate / 60` every evaluation, so it ran with the frame rate and ignored
+  Master Speed; it now integrates through `speedPhase` like Wave. Time's `dt`
+  is the time since that node's previous pass (0 on its first), measured on
+  both sides, where it was a fixed 1/60.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared

@@ -1,4 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
+import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from './limits'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
@@ -330,11 +331,11 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Spiral), arms = f('arms', 'arms', 2)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { float _spd=${speed};`)
+    ln(`  { float _spd=${speed},_arms=constrain(${arms},${SPIRAL_ARMS.min}.0f,${SPIRAL_ARMS.max}.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`    float _d=sqrt((_x-WIDTH/2.0f)*(_x-WIDTH/2.0f)+(_y-HEIGHT/2.0f)*(_y-HEIGHT/2.0f))/sqrt(WIDTH*WIDTH/4.0f+HEIGHT*HEIGHT/4.0f);`)
-    ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-${ph}*3.14159f)*${arms};`)
+    ln(`    float _a=atan2(_y-HEIGHT/2.0f,_x-WIDTH/2.0f);float _s=(_a+_d*12.57f-${ph}*3.14159f)*_arms;`)
     ln(`    ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_d+t*0.083f)*255)); ${ob}[_y*WIDTH+_x].nscale8((uint8_t)((sin(_s)+1)/2.0f*230));}}`)
   },
   // Wedge mirror — folds each pixel's polar angle into a single segment,
@@ -349,7 +350,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     // `segments` is wireable, so the wedge angle is computed per frame.
     const seg = f('segments', 'segments', 6)
     ln(`  { float _kCx=WIDTH/2.0f,_kCy=HEIGHT/2.0f;`)
-    ln(`    float _kSeg=6.2831853f/max(2.0f,(float)(${seg}));`)
+    ln(`    float _kSeg=6.2831853f/constrain((float)(${seg}),${KALEIDOSCOPE_SEGMENTS.min}.0f,${KALEIDOSCOPE_SEGMENTS.max}.0f);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _kdx=_x-_kCx,_kdy=_y-_kCy,_kd=sqrtf(_kdx*_kdx+_kdy*_kdy);`)
     ln(`      float _ka=fmodf(fmodf(atan2f(_kdy,_kdx),_kSeg)+_kSeg,_kSeg);`)

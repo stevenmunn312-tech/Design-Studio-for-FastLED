@@ -1,4 +1,5 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
 import { particleRadius } from './particleScale'
 import { curlFlow } from '../../state/evaluator/curl'
@@ -591,7 +592,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
 // fading trails that are coloured through a palette. Stateful.
 function evalFlowField(nodeId: string, speed: number, scale: number, count: number, fade: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0, curl = false): Frame {
   const N = W * H
-  const pc = Math.max(8, Math.min(400, Math.floor(count)))
+  const pc = Math.max(FLOW_FIELD_COUNT.min, Math.min(FLOW_FIELD_COUNT.max, Math.floor(count)))
   let s = flowState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.px.length !== pc || s.seed !== seed) {
     seededRngState.delete(`${nodeId}:flow`)
@@ -734,7 +735,7 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
 
 // Warp starfield: stars fly outward from the centre; nearer stars are brighter.
 function evalStarfield(nodeId: string, speed: number, count: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
-  const pc = Math.max(8, Math.min(300, Math.floor(count)))
+  const pc = Math.max(STARFIELD_COUNT.min, Math.min(STARFIELD_COUNT.max, Math.floor(count)))
   let s = starState.get(nodeId)
   const rnd = () => seededRandom(`${nodeId}:star`, seed)
   if (!s || s.w !== W || s.h !== H || s.x.length !== pc || s.seed !== seed) {
@@ -1006,8 +1007,8 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
   },
   Particles({ num, pal, t, W, H, stateKey }, id, props) {
     const mode = String(props.particleType ?? 'fountain')
-    const rate = num(id, 'rate', props, 'rate', 0.3)
-    const decay = num(id, 'decay', props, 'decay', 0.92)
+    const rate = clamp01(num(id, 'rate', props, 'rate', 0.3))
+    const decay = clamp01(num(id, 'decay', props, 'decay', 0.92))
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
     /*
      * Each knob is bounded to the domain its own slider declares, and to
@@ -1035,7 +1036,8 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
   FormulaPoints({ num, pal, t, W, H, stateKey }, id, props) {
     const fp: FormulaPointsParams = {
       formulaType: String(props.formulaType ?? 'phyllotaxis'),
-      speed: num(id, 'speed', props, 'speed', 0.3),
+      // Bounded as the generator bounds it, so a wired LFO runs at one rate.
+      speed: clamp01(num(id, 'speed', props, 'speed', 0.3)),
       dotSize: num(id, 'dotSize', props, 'dotSize', 1),
       palette: pal(id, 'paletteIn', props, 'palette', 'rainbow'),
       count: num(id, 'count', props, 'count', 60),
@@ -1098,7 +1100,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const rates = reactionDiffusionRates(props.rdPreset)
     const feed  = rates?.feed ?? num(id, 'feed', props, 'feed', 0.055)
     const kill  = rates?.kill ?? num(id, 'kill', props, 'kill', 0.062)
-    const iters = Math.max(1, Math.min(20, Math.floor(num(id, 'speed', props, 'speed', 8))))
+    const iters = Math.max(1, Math.min(REACTION_DIFFUSION_MAX_STEPS, Math.floor(num(id, 'speed', props, 'speed', 8))))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
   },

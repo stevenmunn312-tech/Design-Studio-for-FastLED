@@ -43,7 +43,9 @@ Implementation status:
     `propertyInputs` mapping to name.
   - **Math, signal, colour and field nodes generally.** Their inputs are the
     substance they operate on, and step 1 settled that they keep every input
-    visible — so an undeclared input there is the decision, not an omission.
+    visible. Superseded in D-08.6: an undeclared port drew a second, dead
+    property row, so their number and switch ports are declared and listed
+    in `defaultExposedInputs`, which keeps them drawn.
 
 ## Classification rules
 

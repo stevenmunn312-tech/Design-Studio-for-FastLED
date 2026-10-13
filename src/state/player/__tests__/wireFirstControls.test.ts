@@ -20,7 +20,7 @@ import {
   type StudioNode,
 } from '../../graphStore'
 import { createDisplayDocument } from '../../displays/displayEditor'
-import { controllableInputsFor, exposableInputsFor } from '../../propertyInputs'
+import { controllableInputsFor, exposableInputsFor, normalizeExposedInputs } from '../../propertyInputs'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import { placedWidgets } from '../../displays/displayDocument'
 import { TOUCH_CONTROL_ADD_HANDLE, displayControlOutput } from '../../displays/displayRegistry'
@@ -106,10 +106,10 @@ describe('touchControlPlan', () => {
  * not controllable properties.
  */
 describe('which inputs can take a wired control', () => {
-  it('offers a control on an always-drawn property port, not only a hidden one', () => {
-    // Field -> Frame draws Brightness unconditionally and has never had a
-    // propertyInputs row, so there is nothing to expose and it was refused.
-    expect(exposableInputsFor('FieldToFrame').some((port) => port.id === 'brightness')).toBe(false)
+  it('offers a control on a property port drawn by default, not only a hidden one', () => {
+    // Field -> Frame draws Brightness by default; a control on it was once
+    // refused because nothing had to be exposed first.
+    expect(normalizeExposedInputs('FieldToFrame', undefined)).toContain('brightness')
     expect(controllableInputsFor('FieldToFrame').some((port) => port.id === 'brightness')).toBe(true)
 
     const plan = touchControlPlan('FieldToFrame', 'brightness', { brightness: 1 })

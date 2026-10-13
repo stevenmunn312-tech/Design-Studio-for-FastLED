@@ -532,7 +532,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   FieldRotate({ id, ln, f, ownField, srcField, needsT }) {
     needsT.v = true
     const of = ownField()
-    const angle = f('angle', 'angle', 0), spin = f('spin', 'spin', 0)
+    const angle = f('angle', 'angle', 0), spin = f('spin', 'spin', 30)
     const src = srcField('field')
     ln(`  { /* FieldRotate */ float _spin=${spin};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')

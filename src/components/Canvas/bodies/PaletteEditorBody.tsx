@@ -213,7 +213,6 @@ export function PolineEditorBody({ nodeId, topPlacement }: { nodeId: string; top
   )
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const wired = useIncomingColors(nodeId, ANCHOR_PORTS)
-  const hasWiredAnchor = wired.some((anchor) => anchor.wired)
   const anchors = ANCHORS.map(([key], i) => {
     const live = wired[i]?.color
     const prop = props[key]
@@ -226,14 +225,6 @@ export function PolineEditorBody({ nodeId, topPlacement }: { nodeId: string; top
     <div className={`nodrag ${topPlacement ? styles.wrapTop : styles.wrap}`}>
       <div className={styles.header}>
         <span>Poline anchors</span>
-        {hasWiredAnchor && (
-          <span
-            className={styles.badge}
-            title="Wired anchors drive the live preview only; generated firmware bakes the configured anchor swatches."
-          >
-            preview-only wires
-          </span>
-        )}
       </div>
       <div className={styles.anchorRail} style={{ background: gradientCss }}>
         {ANCHORS.map(([key,, label], i) => (

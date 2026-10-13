@@ -40,6 +40,7 @@ import { getSdVideoBytes } from '../../state/sdVideoStore'
 import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../state/palettes/hueMix'
 import { polarGradientU, polarRepeat } from '../../state/evaluator/polar'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
+import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 
 function normalizedCenterAxis(value: number, size: number, extent: number, wrap: boolean): number {
   if (value > 1) return value
@@ -595,7 +596,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       const key = stateKey(id)
       const run = Boolean(input(id, 'run', Boolean(props.run ?? true)))
       const reset = Boolean(input(id, 'reset', Boolean(props.reset ?? false)))
-      const duration = Math.max(0, num(id, 'durationSec', props, 'durationSec', 300))
+      const duration = Math.min(CLOCK_TIMER_MAX_SEC, Math.max(0, num(id, 'durationSec', props, 'durationSec', 300)))
       let st = clockDisplayState.get(key)
       const reinit = !st || t < st.lastT || st.mode !== mode
       if (!st || reinit) {

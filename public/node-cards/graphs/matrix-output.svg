@@ -2953,7 +2953,7 @@
 </g>
 <circle cx="0" cy="378" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="0" cy="378" r="6" fill="#9aa0a6"/>
-<text x="8" y="401" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">energy</text>
+<text x="8" y="401" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">reactivity</text>
 <g>
 <rect x="98" y="395" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="98" y="395" width="50.4" height="4" rx="2" fill="#d633ff"/>

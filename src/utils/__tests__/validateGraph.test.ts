@@ -1134,6 +1134,11 @@ describe('validateGraph', () => {
       expect(warnings[0]).toContain('-5')
     })
 
+    it('names a Button Bank button with no GPIO yet as unassigned, not invalid', () => {
+      const warnings = findPinRangeWarnings([node('bank', 'ButtonBank', { buttons: [{ id: 'next', label: 'Next' }] })])
+      expect(warnings).toEqual(['Next pin has no GPIO assigned yet, so it does nothing on the board. Pick one in its hardware panel.'])
+    })
+
     it('flags a pin above the highest supported GPIO', () => {
       const nodes = [node('pot', 'PotInput', { pin: 9999 })]
       const warnings = findPinRangeWarnings(nodes)

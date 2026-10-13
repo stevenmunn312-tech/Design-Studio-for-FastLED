@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1688 623" width="1688" height="623" role="img" aria-label="Turn BeatSin into visible motion">
-<rect width="1688" height="623" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1688 619" width="1688" height="619" role="img" aria-label="Turn BeatSin into visible motion">
+<rect width="1688" height="619" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -2611,22 +2611,22 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 <g id="lamp-7.00x7.00"><rect x="-2.80" y="-1.54" width="12.60" height="10.08" rx="5.04" fill-opacity="0.34"/><rect width="7.00" height="7.00" rx="1.54"/></g>
 </defs>
-<path d="M284,276 C329,276 339,216 384,216" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,276 C329,276 339,216 384,216" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,276 C329,276 339,216 384,216" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="216" r="3" fill="#33ff33"/>
-<path d="M624,216 C669,216 679,424 724,424" fill="none" stroke="#33ff85" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,216 C669,216 679,424 724,424" fill="none" stroke="#33ff85" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,216 C669,216 679,424 724,424" fill="none" stroke="#33ff85" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="424" r="3" fill="#33ff85"/>
+<path d="M284,276 C329,276 339,318 384,318" fill="none" stroke="#33ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,276 C329,276 339,318 384,318" fill="none" stroke="#33ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,276 C329,276 339,318 384,318" fill="none" stroke="#33ff33" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="318" r="3" fill="#33ff33"/>
+<path d="M624,256 C669,256 679,422 724,422" fill="none" stroke="#33ff85" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,256 C669,256 679,422 724,422" fill="none" stroke="#33ff85" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,256 C669,256 679,422 724,422" fill="none" stroke="#33ff85" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="422" r="3" fill="#33ff85"/>
 <path d="M964,324 C1009,324 1019,404 1064,404" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
 <path d="M964,324 C1009,324 1019,404 1064,404" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M964,324 C1009,324 1019,404 1064,404" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="1064" cy="404" r="3" fill="#33d6ff"/>
-<path d="M1304,404 C1349,404 1359,344 1404,344" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M1304,404 C1349,404 1359,344 1404,344" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M1304,404 C1349,404 1359,344 1404,344" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="1404" cy="344" r="3" fill="#3333ff"/>
+<path d="M1304,404 C1349,404 1359,324 1404,324" fill="none" stroke="#3333ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M1304,404 C1349,404 1359,324 1404,324" fill="none" stroke="#3333ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M1304,404 C1349,404 1359,324 1404,324" fill="none" stroke="#3333ff" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="1404" cy="324" r="3" fill="#3333ff"/>
 <g transform="translate(44,224)">
 <defs><linearGradient id="tint-signal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#213a2c"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="174" rx="8" fill="#1f242b" filter="url(#shadow)"/>
@@ -2672,10 +2672,10 @@
 <text x="224" y="160" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <rect x="0.5" y="0.5" width="239" height="173" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
-<g transform="translate(384,164)">
+<g transform="translate(384,204)">
 <defs><linearGradient id="tint-math" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#213632"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="311" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="311" rx="8" fill="url(#tint-math)"/>
+<rect x="0" y="0" width="240" height="224" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="224" rx="8" fill="url(#tint-math)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ff85"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Map R…</text>
@@ -2690,61 +2690,56 @@
 <text x="203" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
 <rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
 <text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
-<circle cx="0" cy="52" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="52" r="6" fill="#9aa0a6"/>
-<text x="18" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Value</text>
 <circle cx="240" cy="52" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="240" cy="52" r="6" fill="#9aa0a6"/>
 <text x="222" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Result</text>
-<circle cx="0" cy="80" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="80" r="6" fill="#9aa0a6"/>
-<text x="18" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">In Min</text>
-<circle cx="0" cy="108" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="108" r="6" fill="#9aa0a6"/>
-<text x="18" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">In Max</text>
-<circle cx="0" cy="136" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="136" r="6" fill="#9aa0a6"/>
-<text x="18" y="140" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Out Min</text>
-<circle cx="0" cy="164" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="164" r="6" fill="#9aa0a6"/>
-<text x="18" y="168" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Out Max</text>
-<line x1="8" y1="184.5" x2="232" y2="184.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="205" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">value</text>
-<g>
-<rect x="98" y="191" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="205" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
+<line x1="8" y1="72.5" x2="232" y2="72.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="118" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">value</text>
+<g opacity="0.45">
+<rect x="98" y="104" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="103" y="118" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
 </g>
-<text x="224" y="205" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="228" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">inMin</text>
+<circle cx="0" cy="114" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="114" r="6" fill="#9aa0a6"/>
+<text x="8" y="141" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">inMin</text>
 <g>
-<rect x="98" y="214" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="228" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
+<rect x="98" y="127" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="103" y="141" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
 </g>
-<text x="224" y="228" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="251" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">inMax</text>
+<text x="224" y="141" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="137" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="137" r="6" fill="#9aa0a6"/>
+<text x="8" y="164" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">inMax</text>
 <g>
-<rect x="98" y="237" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="251" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1</text>
+<rect x="98" y="150" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="103" y="164" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1</text>
 </g>
-<text x="224" y="251" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="274" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">outMin</text>
+<text x="224" y="164" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="160" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="160" r="6" fill="#9aa0a6"/>
+<text x="8" y="187" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">outMin</text>
 <g>
-<rect x="98" y="260" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="274" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1.5</text>
+<rect x="98" y="173" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="103" y="187" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">1.5</text>
 </g>
-<text x="224" y="274" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="297" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">outMax</text>
+<text x="224" y="187" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="183" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="183" r="6" fill="#9aa0a6"/>
+<text x="8" y="210" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">outMax</text>
 <g>
-<rect x="98" y="283" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="297" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">7</text>
+<rect x="98" y="196" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="103" y="210" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">7</text>
 </g>
-<text x="224" y="297" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<rect x="0.5" y="0.5" width="239" height="310" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="224" y="210" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="206" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="206" r="6" fill="#9aa0a6"/>
+<rect x="0.5" y="0.5" width="239" height="223" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(724,44)">
 <defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="535" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="535" rx="8" fill="url(#tint-pattern)"/>
+<rect x="0" y="0" width="240" height="531" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="531" rx="8" fill="url(#tint-pattern)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33d6ff"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Circle</text>
@@ -3042,47 +3037,49 @@
 <text x="210" y="363" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
 </g>
 <text x="224" y="363" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="384" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">radius</text>
+<text x="8" y="382" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">radius</text>
 <g opacity="0.45">
-<rect x="98" y="370" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="103" y="384" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">6</text>
+<rect x="98" y="376" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="376" width="12.6" height="4" rx="2" fill="#d633ff"/>
+<circle cx="110.6" cy="378" r="6" fill="#d633ff"/>
+<text x="210" y="382" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">6</text>
 </g>
-<circle cx="0" cy="380" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="0" cy="380" r="6" fill="#9aa0a6"/>
-<text x="8" y="405" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">scale with…</text>
+<circle cx="0" cy="378" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="378" r="6" fill="#9aa0a6"/>
+<text x="8" y="401" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">scale with…</text>
 <g>
-<rect x="98" y="394.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
-<path d="M101,401 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+<rect x="98" y="390.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
+<path d="M101,397 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="224" y="405" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="424" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">thickness</text>
+<text x="224" y="401" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="420" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">thickness</text>
 <g>
-<rect x="98" y="418" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="418" width="18.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="116.0" cy="420" r="6" fill="#d633ff"/>
-<text x="210" y="424" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1.5</text>
+<rect x="98" y="414" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="414" width="18.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="116.0" cy="416" r="6" fill="#d633ff"/>
+<text x="210" y="420" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1.5</text>
 </g>
-<text x="224" y="424" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="443" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">wrap</text>
+<text x="224" y="420" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="439" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">wrap</text>
 <g>
-<rect x="98" y="432.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="428.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
-<text x="224" y="443" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="462" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">filled</text>
+<text x="224" y="439" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="458" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">filled</text>
 <g>
-<rect x="98" y="451.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
-<path d="M101,458 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+<rect x="98" y="447.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
+<path d="M101,454 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="224" y="462" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="482" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">fill</text>
-<rect x="98" y="469" width="28" height="18" rx="4" fill="#ff3080" stroke="rgba(255,255,255,0.1)"/>
-<text x="8" y="503" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">edge</text>
-<rect x="98" y="490" width="28" height="18" rx="4" fill="#ff0080" stroke="rgba(255,255,255,0.1)"/>
-<text x="8" y="523" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
+<text x="224" y="458" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="478" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">fill</text>
+<rect x="98" y="465" width="28" height="18" rx="4" fill="#ff3080" stroke="rgba(255,255,255,0.1)"/>
+<text x="8" y="499" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">edge</text>
+<rect x="98" y="486" width="28" height="18" rx="4" fill="#ff0080" stroke="rgba(255,255,255,0.1)"/>
+<text x="8" y="519" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
 <g>
-<rect x="98" y="512.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="508.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
-<rect x="0.5" y="0.5" width="239" height="534" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<rect x="0.5" y="0.5" width="239" height="530" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(1064,124)">
 <defs><linearGradient id="tint-composite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#212644"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
@@ -3383,7 +3380,7 @@
 </g>
 <rect x="0.5" y="0.5" width="239" height="374" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
-<g transform="translate(1404,64)">
+<g transform="translate(1404,44)">
 <defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="514" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="514" rx="8" fill="url(#tint-output)"/>

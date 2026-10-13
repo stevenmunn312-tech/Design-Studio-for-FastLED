@@ -6,8 +6,9 @@ export const TIME_CONTROL_OUTPUTS = { time: 'float', dt: 'float' } as const
 export function timeNodeCpp(id: string, time: string): string[] {
   return [
     `  float n_${id}_time = ${time};`,
-    // Preserve Time's existing nominal timestep contract.
-    `  float n_${id}_dt = 1.0f / 60.0f;`,
+    // The time since this node's previous loop, 0 on the first, as the preview.
+    `  static float _timePrev_${id} = -1.0f;`,
+    `  float n_${id}_dt = _timePrev_${id} < 0.0f ? 0.0f : fmaxf(0.0f, n_${id}_time - _timePrev_${id}); _timePrev_${id} = n_${id}_time;`,
   ]
 }
 

@@ -78,7 +78,7 @@ describe('palette and transition node bodies', () => {
     expect(props.positions).toHaveLength(3)
   })
 
-  it('flags wired Poline anchors as preview-only for firmware', () => {
+  it('locks a wired Poline anchor swatch to its wire', () => {
     useGraphStore.setState({
       nodes: [{
         id: 'src',
@@ -100,9 +100,9 @@ describe('palette and transition node bodies', () => {
       edges: [{ id: 'e1', source: 'src', sourceHandle: 'rgb', target: 'pl', targetHandle: 'colorA' }],
     })
 
-    const { container, getByText, getByTitle } = render(<PolineEditorBody nodeId="pl" />)
-    expect(getByText('preview-only wires')).toBeTruthy()
-    expect(getByTitle(/generated firmware bakes/i)).toBeTruthy()
+    // The board builds the palette from the wire too, so nothing is flagged.
+    const { container, queryByText } = render(<PolineEditorBody nodeId="pl" />)
+    expect(queryByText('preview-only wires')).toBeNull()
     expect((container.querySelector('input[type="color"]') as HTMLInputElement | null)?.disabled).toBe(true)
   })
 })

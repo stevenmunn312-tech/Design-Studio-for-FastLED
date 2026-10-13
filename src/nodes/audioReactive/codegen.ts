@@ -396,7 +396,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _ksLife=fmaxf(0.05f, ${f('decay', 'decay', 1)});`)
     ln(`    float _ksBand=fmaxf(0.05f, ${f('thickness', 'thickness', 1)});`)
     ln(`    if(!_ksInit_${id}){ for(int _i=0;_i<${CAP};_i++) _ksAlive_${id}[_i]=false; _ksInit_${id}=true; }`)
-    ln(`    float _spd=${speed},_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
+    ln(`    float _spd=constrain(${speed},0.0f,1.0f),_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
     ln(`    bool _kickHit=(${kick})>0.5f, _snareHit=(${snare})>0.5f;`)
     ln(`    float _tileW=WIDTH/(float)_tiles,_tileH=HEIGHT/(float)_tiles,_ksCx=(_tileW-1)/2.0f,_ksCy=(_tileH-1)/2.0f;`)
     ln(`    if(_kickHit && !_ksPrevKick_${id}){ _ksX_${id}[_ksNext_${id}]=_ksCx+(random8()/255.0f*_tileW-_ksCx)*${spreadF}; _ksY_${id}[_ksNext_${id}]=_ksCy+(random8()/255.0f*_tileH-_ksCy)*${spreadF}; _ksBorn_${id}[_ksNext_${id}]=t; _ksKind_${id}[_ksNext_${id}]=0; _ksAlive_${id}[_ksNext_${id}]=true; _ksNext_${id}=(uint8_t)((_ksNext_${id}+1)%${CAP}); }`)

@@ -845,12 +845,12 @@ describe('StudioNode', () => {
   })
 
   it('editing a plain number field updates the node property in the store', () => {
-    // Circle's `cx`/`cy` are sliders, while `radius` is a free numeric/expression input.
-    const { container } = renderNode(makeNode('Circle', { cx: 0.5, cy: 0.5, radius: 3, filled: false, edge: '#ff0000' }))
-    const num = container.querySelector('input[aria-label="radius value or expression"]') as HTMLInputElement
+    // Line's end points are free numeric/expression inputs.
+    const { container } = renderNode(makeNode('Line', { x1: 0, y1: 0, x2: 7, y2: 7 }))
+    const num = container.querySelector('input[aria-label="x1 value or expression"]') as HTMLInputElement
     expect(num).toBeTruthy()
     fireEvent.change(num, { target: { value: '5' } })
-    expect(useGraphStore.getState().nodes[0].data.properties.radius).toBe(5)
+    expect(useGraphStore.getState().nodes[0].data.properties.x1).toBe(5)
   })
 
   it('stores dimension expressions and marks invalid source without erasing it', () => {
@@ -1053,7 +1053,7 @@ describe('StudioNode', () => {
     }))
     expect(circle.getByLabelText('filled')).toBeTruthy()
     expect(circle.getByLabelText('fill color')).toBeTruthy()
-    expect(circle.getByLabelText('radius value or expression')).toBeTruthy()
+    expect(circle.getByLabelText('radius value')).toBeTruthy()
   })
 
   it('labels freeform node editors', () => {

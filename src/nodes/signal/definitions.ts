@@ -31,6 +31,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
       { id: 'phase', label: 'Phase', dataType: 'float' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
+    propertyInputs: { amplitude: 'amplitude', frequency: 'frequency', phase: 'phase' },
+    defaultExposedInputs: ['amplitude', 'frequency', 'phase'],
     defaultProperties: { amplitude: 1, frequency: 1, phase: 0, waveform: 'sine' },
   },
   {
@@ -118,6 +120,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     category: 'signal',
     inputs: [{ id: 'rate', label: 'Rate', dataType: 'float' }],
     outputs: [{ id: 'value', label: 'Value 0–1', dataType: 'float' }],
+    propertyInputs: { rate: 'rate' },
+    defaultExposedInputs: ['rate'],
     defaultProperties: { rate: 0.5 },
   },
   {
@@ -146,6 +150,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
       // fade or ramp instead of only a hard on/off. Always 0 in Trigger mode.
       { id: 'progress', label: 'Progress', dataType: 'float' },
     ],
+    propertyInputs: { enable: 'enable' },
+    defaultExposedInputs: ['enable'],
     defaultProperties: {
       scheduleMode: 'Window',
       dayMode: 'Every day',

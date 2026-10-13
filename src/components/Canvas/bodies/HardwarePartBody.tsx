@@ -4,9 +4,11 @@ import {
   isGpioPinProperty,
   isPropertyEnabled,
   libraryDefaults,
+  propertyDescription,
   propertyLabel,
   propertyMeta,
 } from '../../../state/nodeLibrary'
+import ClampedNumberInput from '../ClampedNumberInput'
 import styles from './BoardNodeBody.module.css'
 import PartIdentity from '../../Hardware/PartIdentity'
 import BoardPinPicker from '../../Hardware/BoardPinPicker'
@@ -40,6 +42,12 @@ function hardwareFieldLabel(
   if (known !== key) return known
   const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** The step a part's number field shares with its slider metadata, else whole units. */
+function sliderStep(nodeType: string, key: string): number {
+  const meta = propertyMeta(nodeType, key)
+  return meta?.control === 'slider' ? meta.step : 1
 }
 
 export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Props) {
@@ -145,7 +153,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
             const value = Number(props[key] ?? 0)
             const label = hardwareFieldLabel(nodeType, key, props, field?.label)
             return (
-              <label key={key} className={styles.settingField}>
+              <label key={key} className={styles.settingField} title={propertyDescription(nodeType, key)}>
                 <span>{label}</span>
                 <BoardPinPicker
                   nodeId={nodeId}
@@ -172,8 +180,17 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
       )}
       {otherFields.length > 0 && (
         <div className={styles.detail}>
-        {otherFields.map((field) => (
-          <label key={field.key} className={styles.row}>
+        {otherFields.map((field) => field.kind === 'toggle' ? (
+          <label key={field.key} className={styles.checkField} title={propertyDescription(nodeType, field.key)}>
+            <input
+              type="checkbox"
+              checked={props[field.key] !== false}
+              onChange={(event) => updateNodeProperty(nodeId, field.key, event.target.checked)}
+            />
+            {field.label}
+          </label>
+        ) : (
+          <label key={field.key} className={styles.row} title={propertyDescription(nodeType, field.key)}>
             <span className={styles.key}>{field.label}</span>
             {field.kind === 'select' ? (
               <select
@@ -185,16 +202,17 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
-            ) : (
-              <input
+            ) : field.kind === 'number' ? (
+              <ClampedNumberInput
                 className={`nodrag nowheel ${styles.picker}`}
-                type="number"
-                min={field.kind === 'number' ? field.min : 0}
-                max={field.kind === 'number' ? field.max : undefined}
-                value={Number(props[field.key] ?? 0)}
-                onChange={(event) => updateNodeProperty(nodeId, field.key, Number(event.target.value))}
+                value={Number(props[field.key] ?? field.min)}
+                min={field.min}
+                max={field.max}
+                step={sliderStep(nodeType, field.key)}
+                ariaLabel={field.label}
+                onCommit={(value) => updateNodeProperty(nodeId, field.key, value)}
               />
-            )}
+            ) : null}
           </label>
         ))}
         </div>

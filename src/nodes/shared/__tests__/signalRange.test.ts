@@ -15,7 +15,7 @@ describe('signalRange', () => {
     // The three docs/development/patterns/graph-and-nodes.md calls out by name.
     expect(signalRangeMismatch('Fire2012', 'sparking')).toEqual({ min: 0, max: 255 })
     expect(signalRangeMismatch('ReactionDiffusion', 'feed')).toEqual({ min: 0, max: 0.1 })
-    expect(signalRangeMismatch('Starfield', 'count')).toEqual({ min: 1, max: 200 })
+    expect(signalRangeMismatch('Starfield', 'count')).toEqual({ min: 8, max: 300 })
     expect(formatSignalRange({ min: 0, max: 255 })).toBe('0–255')
   })
 

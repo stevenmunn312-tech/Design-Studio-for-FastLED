@@ -54,11 +54,13 @@ const EXPOSABLES = new Map(NODE_LIBRARY.map((definition) => {
  * *draw on demand* — and a port the node draws unconditionally has nothing to
  * expose, so it is deliberately absent from that list. A touch control does
  * not care whether a socket is hidden: what it needs is a property behind the
- * port to set. Reading the narrower list refused a control on every
- * always-visible property port — Field → Frame's Brightness, Field Noise's
- * Speed, Master Speed's own Speed, sixty-odd more — on the stated grounds
- * that they were "not controllable properties", which is the opposite of true
- * and reads as a broken gesture rather than a rule.
+ * port to set. Reading the narrower list once refused a control on every
+ * always-visible property port, on the stated grounds that they were "not
+ * controllable properties", which is the opposite of true and reads as a
+ * broken gesture rather than a rule. Every number and switch port with a
+ * property of its own name is declared now (`propertyInputs.test.ts` holds
+ * that), so what still reaches this list implicitly is the colour and
+ * palette ports a node draws as its substance.
  *
  * A port qualifies here on the same evidence `propertyInputs` requires, only
  * derived rather than declared: the node's `defaultProperties` carries a key

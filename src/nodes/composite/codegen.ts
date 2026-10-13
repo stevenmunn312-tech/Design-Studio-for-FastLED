@@ -248,7 +248,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     // `angle` and `count` are wire-able (see nodeLibrary inputs) so an
     // animated signal can spin/grow the array; unwired they bake the slider.
     const ang = f('angle', 'angle', 0)
-    const scl = `max(0.05f, ${f('scale', 'scale', 1)})`, fo = f('falloff', 'falloff', 0.7)
+    const scl = `max(0.05f, ${f('scale', 'scale', 1)})`, fo = `constrain(${f('falloff', 'falloff', 0.7)},0.0f,1.0f)`
     const mode = ['lighten', 'over'].includes(String(p.blendMode)) ? String(p.blendMode) : 'add'
     const countWired = incoming.has(`${node.id}:count`)
     const countLit = Math.max(1, Math.min(32, Math.round(Number(p.count ?? 5))))

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 668 1002" width="668" height="1002" role="img" aria-label="Switch a load to ground from a button">
-<rect width="668" height="1002" fill="#0d0f12"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 668 1022" width="668" height="1022" role="img" aria-label="Switch a load to ground from a button">
+<rect width="668" height="1022" fill="#0d0f12"/>
 <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="30" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.04)"/>
@@ -1650,6 +1650,39 @@
 <circle cx="610" cy="990" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="630" cy="990" r="1" fill="rgba(255,255,255,0.04)"/>
 <circle cx="650" cy="990" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="10" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="30" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="50" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="70" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="90" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="110" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="130" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="150" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="170" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="190" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="210" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="230" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="250" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="270" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="290" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="310" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="330" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="350" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="370" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="390" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="410" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="430" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="450" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="470" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="490" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="510" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="530" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="550" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="570" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="590" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="610" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="630" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
+<circle cx="650" cy="1010" r="1" fill="rgba(255,255,255,0.04)"/>
 <defs>
 <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
 <filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
@@ -1657,18 +1690,18 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 <g id="lamp-7.00x7.00"><rect x="-2.80" y="-1.54" width="12.60" height="10.08" rx="5.04" fill-opacity="0.34"/><rect width="7.00" height="7.00" rx="1.54"/></g>
 </defs>
-<path d="M284,248 C329,248 339,152 384,152" fill="none" stroke="#d6ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,248 C329,248 339,152 384,152" fill="none" stroke="#d6ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,248 C329,248 339,152 384,152" fill="none" stroke="#d6ff33" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M284,268 C329,268 339,152 384,152" fill="none" stroke="#d6ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,268 C329,268 339,152 384,152" fill="none" stroke="#d6ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,268 C329,268 339,152 384,152" fill="none" stroke="#d6ff33" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="384" cy="152" r="3" fill="#d6ff33"/>
-<path d="M284,804 C329,804 339,724 384,724" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,804 C329,804 339,724 384,724" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,804 C329,804 339,724 384,724" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="724" r="3" fill="#33d6ff"/>
-<g transform="translate(44,104)">
+<path d="M284,824 C329,824 339,744 384,744" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,824 C329,824 339,744 384,744" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,824 C329,824 339,744 384,744" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="744" r="3" fill="#33d6ff"/>
+<g transform="translate(44,124)">
 <defs><linearGradient id="tint-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e362c"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="195" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="195" rx="8" fill="url(#tint-input)"/>
+<rect x="0" y="0" width="240" height="164" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="164" rx="8" fill="url(#tint-input)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d6ff33"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Button</text>
@@ -1691,14 +1724,7 @@
 <circle cx="240" cy="144" r="9" fill="#c6ff32" opacity="0.22"/>
 <circle cx="240" cy="144" r="6" fill="#c6ff32"/>
 <text x="222" y="148" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Pressed</text>
-<line x1="8" y1="164.5" x2="232" y2="164.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="183" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">pullup</text>
-<g>
-<rect x="98" y="172.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
-<path d="M101,179 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-</g>
-<text x="224" y="183" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<rect x="0.5" y="0.5" width="239" height="194" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<rect x="0.5" y="0.5" width="239" height="163" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,44)">
 <defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
@@ -1747,7 +1773,7 @@
 <text x="18" y="308" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Channel 8</text>
 <rect x="0.5" y="0.5" width="239" height="323" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
-<g transform="translate(44,524)">
+<g transform="translate(44,544)">
 <defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="358" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="358" rx="8" fill="url(#tint-pattern)"/>
@@ -2036,7 +2062,7 @@
 <rect x="98" y="332" width="28" height="18" rx="4" fill="rgb(92,58,22)" stroke="rgba(255,255,255,0.1)"/>
 <rect x="0.5" y="0.5" width="239" height="357" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
-<g transform="translate(384,444)">
+<g transform="translate(384,464)">
 <defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="514" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="514" rx="8" fill="url(#tint-output)"/>

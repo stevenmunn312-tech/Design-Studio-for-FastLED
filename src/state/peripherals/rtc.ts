@@ -20,6 +20,11 @@ export interface RtcDateTimeFields {
   second: number
 }
 
+/** The Manual start year a node accepts: the DS3231 stores 2000–2099, and
+ *  the ESP32's own clock starts at the Unix epoch. */
+export const RTC_YEAR_MIN = 1970
+export const RTC_YEAR_MAX = 2099
+
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 export function isRtcLeapYear(year: number): boolean {

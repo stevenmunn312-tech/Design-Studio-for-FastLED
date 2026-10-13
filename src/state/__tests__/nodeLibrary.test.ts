@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel } from '../nodeLibrary'
 import { EASE_TYPES } from '../../nodes/math/easing'
+import { KALEIDOSCOPE_SEGMENTS, SPIRAL_ARMS } from '../../nodes/generative/limits'
+import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../../nodes/simulations/limits'
+import { CLOCK_TIMER_MAX_SEC } from '../../nodes/shapes/clockTimer'
 import { PLAYER_CONTROL_FUNCTIONS, playerControlActionPortsFor } from '../player/playerControlAssignments'
 
 describe('nodeLibrary', () => {
@@ -220,10 +223,33 @@ describe('nodeLibrary', () => {
     // Fire clamps intensity to 0-1 and Blobs keeps 1-6 blobs on both sides.
     expect(propertyMeta('Fire', 'intensity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('Blobs', 'count')).toMatchObject({ control: 'slider', min: 1, max: 6 })
+    // The rest name the same constant the preview and the sketch bound to.
+    expect(propertyMeta('Spiral', 'arms')).toMatchObject({ min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max })
+    expect(propertyMeta('Kaleidoscope', 'segments')).toMatchObject({ min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max })
+    expect(propertyMeta('FlowField', 'count')).toMatchObject({ min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max })
+    expect(propertyMeta('Starfield', 'count')).toMatchObject({ min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max })
+    expect(propertyMeta('ReactionDiffusion', 'speed')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
+    expect(propertyMeta('ClockDisplay', 'durationSec')).toMatchObject({ min: 0, max: CLOCK_TIMER_MAX_SEC })
+    // xyLayout.ts divides a panel layout into at most 16 tiles each way.
+    expect(propertyMeta('MatrixOutput', 'tilesX')).toMatchObject({ min: 1, max: 16 })
+    expect(propertyMeta('MatrixOutput', 'tilesY')).toMatchObject({ min: 1, max: 16 })
+  })
+
+  it('bounds every number a beginner would otherwise type freely', () => {
+    for (const [nodeType, key] of [
+      ['Spiral', 'arms'], ['Kaleidoscope', 'segments'], ['Circle', 'radius'], ['Shape', 'size'],
+      ['ClockDisplay', 'durationSec'], ['Amplifier', 'maxVolume'], ['PowerAmplifier', 'maxVolume'],
+      ['RTCInput', 'startYear'], ['Text', 'scroll'], ['Path', 'scale'], ['FrameFeedback', 'angle'],
+    ]) {
+      expect(propertyMeta(nodeType, key)?.control, `${nodeType}.${key}`).toBe('slider')
+    }
   })
 
   it('types wide-range settings into a bounded number field rather than a slider', () => {
-    for (const [nodeType, key] of [['DMXInput', 'universe'], ['DMXInput', 'previewPort'], ['LightInput', 'maxLux']]) {
+    for (const [nodeType, key] of [
+      ['DMXInput', 'universe'], ['DMXInput', 'previewPort'], ['LightInput', 'maxLux'],
+      ['ClockDisplay', 'durationSec'], ['RTCInput', 'startYear'], ['Amplifier', 'maxVolume'],
+    ]) {
       expect(propertyMeta(nodeType, key), `${nodeType}.${key}`).toMatchObject({ control: 'slider', entry: 'number' })
     }
   })

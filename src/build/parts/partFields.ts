@@ -8,12 +8,24 @@ import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTri
  * commit: real settings, one of them board-validated, with nowhere left to
  * enter them once the node left the canvas.
  */
+/** An I2S decoder's volume steps (ESP32-audioI2S `setVolume`, 0–21). */
+export const DECODER_MAX_VOLUME = 21
+
 type PartField =
   | { key: string; label: string; kind: 'pin' }
   | { key: string; label: string; kind: 'select'; options: readonly string[] }
   | { key: string; label: string; kind: 'number'; min: number; max: number }
+  | { key: string; label: string; kind: 'toggle' }
 
 export const PART_FIELDS: Record<string, readonly PartField[]> = {
+  // How the switch is wired is a fact about the bench, as it already is for
+  // each Button Bank button.
+  ButtonInput: [
+    { key: 'pullup', label: 'Internal pull-up', kind: 'toggle' },
+  ],
+  EncoderInput: [
+    { key: 'pullup', label: 'Internal pull-up', kind: 'toggle' },
+  ],
   DFPlayerOutput: [
     { key: 'uartRxPin', label: 'TX', kind: 'pin' },
     { key: 'uartTxPin', label: 'RX', kind: 'pin' },
@@ -58,14 +70,14 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'i2sBclk', label: 'BCLK', kind: 'pin' },
     { key: 'i2sLrc', label: 'LRC / WS', kind: 'pin' },
     { key: 'i2sDout', label: 'DIN', kind: 'pin' },
-    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
+    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
   ],
   // Volume only: a power amplifier has no GPIO to set. The decoder applies it
   // only when this part is fed straight from the internal DAC; with a DAC in
   // the chain, the DAC's volume is the one the board drives, and the panel
   // hides this one rather than show two answers.
   PowerAmplifier: [
-    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: 21 },
+    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
   ],
   // Labelled as WIZnet prints them in its pinout; the board itself prints none.
   PowerConverter: [
