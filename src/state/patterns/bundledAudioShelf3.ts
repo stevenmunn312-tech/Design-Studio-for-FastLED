@@ -137,6 +137,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('juggle', 'Juggle', -520, 40, { speed: 0.55, fade: 0.18, palette: 'lava', seed: 19 }),
       studioNode('trails', 'Trails', -220, 40, { decay: 0.11 }),
       studioNode('flash', 'BeatFlash', 80, 40, {
+        bypassed: true,
         attack: 0.1, decay: 0.9, intensity: 1.15, blendMode: 'screen', preserveBase: true,
         palette: 'lava', r: 255, g: 210, b: 120,
       }),
@@ -179,6 +180,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('sparks', 'TrebleSparks', -520, 220, { density: 0.7, palette: 'citrus' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.48 }),
       studioNode('flash', 'BeatFlash', 140, 80, {
+        bypassed: true,
         attack: 0.08, decay: 0.9, intensity: 1.35, blendMode: 'add', preserveBase: true,
         palette: 'party', r: 255, g: 255, b: 255,
       }),
@@ -218,6 +220,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('veil', 'VocalAurora', -520, 240, { speed: 0.55, palette: 'aurora' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.38 }),
       studioNode('flash', 'BeatFlash', 140, 80, {
+        bypassed: true,
         attack: 0.12, decay: 0.91, intensity: 1.1, blendMode: 'screen', preserveBase: true,
         palette: 'aurora', r: 210, g: 255, b: 160,
       }),
@@ -256,6 +259,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('boost', 'ColorBoost', -180, 40, { boost: 0.48 }),
       studioNode('flash', 'BeatFlash', 140, 40, {
+        bypassed: true,
         attack: 0.1, decay: 0.92, intensity: 1.2, blendMode: 'screen', preserveBase: true,
         palette: 'peacock', r: 120, g: 220, b: 255,
       }),
@@ -293,6 +297,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('bloom', 'MidrangeBloom', -520, 40, { energy: 0.85, speed: 0.62, palette: 'amethyst' }),
       studioNode('kale', 'Kaleidoscope', -220, 40, { segments: 6 }),
       studioNode('flash', 'BeatFlash', 80, 40, {
+        bypassed: true,
         attack: 0.11, decay: 0.9, intensity: 1.18, blendMode: 'screen', preserveBase: true,
         palette: 'amethyst', r: 255, g: 180, b: 255,
       }),
@@ -339,6 +344,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'add', amount: 0.42 }),
       studioNode('flash', 'BeatFlash', 140, 80, {
+        bypassed: true,
         attack: 0.09, decay: 0.9, intensity: 1.22, blendMode: 'screen', preserveBase: true,
         palette: 'citrus', r: 255, g: 240, b: 160,
       }),
@@ -379,6 +385,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'add', amount: 0.52 }),
       studioNode('flash', 'BeatFlash', 140, 80, {
+        bypassed: true,
         attack: 0.08, decay: 0.89, intensity: 1.4, blendMode: 'screen', preserveBase: true,
         palette: 'volcano', r: 255, g: 180, b: 80,
       }),
@@ -415,6 +422,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('caps', 'TrebleSparks', -520, 220, { density: 0.55, palette: 'ice' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.32 }),
       studioNode('flash', 'BeatFlash', 140, 80, {
+        bypassed: true,
         attack: 0.14, decay: 0.93, intensity: 0.95, blendMode: 'screen', preserveBase: true,
         palette: 'ocean', r: 200, g: 240, b: 255,
       }),
@@ -454,6 +462,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('trails', 'Trails', -180, 40, { decay: 0.16 }),
       studioNode('flash', 'BeatFlash', 140, 40, {
+        bypassed: true,
         attack: 0.1, decay: 0.9, intensity: 1.25, blendMode: 'add', preserveBase: true,
         palette: 'lava', r: 255, g: 120, b: 160,
       }),
@@ -493,6 +502,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('kale', 'Kaleidoscope', -220, -40, { segments: 5 }),
       studioNode('tint', 'HueShift', -220, 200),
       studioNode('flash', 'BeatFlash', 80, 40, {
+        bypassed: true,
         attack: 0.09, decay: 0.9, intensity: 1.28, blendMode: 'screen', preserveBase: true,
         palette: 'ultraviolet', r: 220, g: 160, b: 255,
       }),

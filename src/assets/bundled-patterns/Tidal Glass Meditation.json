@@ -354,6 +354,7 @@
           "nodeType": "BeatFlash",
           "category": "pattern",
           "properties": {
+            "bypassed": true,
             "decay": 0.92,
             "attack": 0.1
           },
