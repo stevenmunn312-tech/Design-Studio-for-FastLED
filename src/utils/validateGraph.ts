@@ -1356,6 +1356,10 @@ export interface Hub75ConfigIssue {
 // none of them can emit yet (mixed-output HUB75, unsupported layout, non-
 // square quarter-turns, supersample) — not which generator a given graph would
 // reach.
+// What the output physically is comes from the part on the bench, so the way
+// out of a HUB75 limit is a different part, not a chipset setting.
+const HUB75_REPLACE_PANEL = 'replace the panel with an addressable LED matrix on the Hardware tab'
+
 export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
   const issues: Hub75ConfigIssue[] = []
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
@@ -1368,7 +1372,7 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
     if (!singleOutput) {
       issues.push({
         nodeId: output.id, label,
-        message: `${label} is set to HUB75, which only supports a single LED output route by design — remove the other output route(s), or switch this one to an addressable chipset.`,
+        message: `${label}: a HUB75 panel supports only one LED output route — remove the other output route(s), or ${HUB75_REPLACE_PANEL}.`,
       })
       return
     }
@@ -1384,21 +1388,21 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
       if (quarterTurn && tileW > 0 && tileH > 0 && tileW !== tileH) {
         issues.push({
           nodeId: output.id, label,
-          message: `${label} is set to HUB75, which only supports 90°/270° per-panel rotation when each panel tile is square — use square panel tiles, change those panels to 0°/180°, or use an addressable chipset.`,
+          message: `${label}: a HUB75 chain supports 90°/270° per-panel rotation only when each panel tile is square — use square panel tiles, change those panels to 0°/180°, or ${HUB75_REPLACE_PANEL}.`,
         })
         return
       }
     } else if (layout !== 'matrix') {
       issues.push({
         nodeId: output.id, label,
-        message: `${label} is set to HUB75, which only supports the Matrix layout or a Panels chain so far — switch layout to Matrix or Panels, or use an addressable chipset.`,
+        message: `${label}: a HUB75 panel supports only the Matrix layout or a Panels chain so far — switch layout to Matrix or Panels, or ${HUB75_REPLACE_PANEL}.`,
       })
       return
     }
     if (props.supersample === true) {
       issues.push({
         nodeId: output.id, label,
-        message: `${label} is set to HUB75, which doesn't support supersampling yet — turn off Supersample, or use an addressable chipset.`,
+        message: `${label}: a HUB75 panel doesn't support supersampling yet — turn off Supersample, or ${HUB75_REPLACE_PANEL}.`,
       })
     }
   })
@@ -3659,7 +3663,7 @@ export function buildGraphDiagnostics(
         id: `${matrixOutput.id}-hub75-config`, severity: 'error', category: 'layout',
         title: 'HUB75 configuration is not supported',
         message: hub75Issue.message,
-        fix: 'Switch to an addressable chipset, or adjust the HUB75 route to a single LED output using Matrix or Panels layout with Supersample off.',
+        fix: `Keep the HUB75 panel on a single LED output route, with Matrix or Panels layout and Supersample off, or ${HUB75_REPLACE_PANEL}.`,
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     }
@@ -3890,7 +3894,7 @@ export function buildGraphDiagnostics(
         id: `${node.id}-board-hub75`, severity: 'error', category: 'board',
         title: 'HUB75 output is incompatible with the selected board',
         message: 'The HUB75 DMA driver needs the LCD-mode peripheral found on the classic ESP32, ESP32-S2, and ESP32-S3; RISC-V ESP32 variants (C3/C6/H2) and other board families have none.',
-        fix: 'Choose a classic ESP32, ESP32-S2, or ESP32-S3 board in Board & Port, or switch the LED output to an addressable chipset.',
+        fix: `Choose a classic ESP32, ESP32-S2, or ESP32-S3 board in Board & Port, or ${HUB75_REPLACE_PANEL}.`,
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }

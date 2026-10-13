@@ -627,7 +627,7 @@ describe('MatrixOutputDeployPopup', () => {
     // cppGenerator.ts can't actually emit. It reaches the buttons through the
     // shared deploy gate now.
     vi.mocked(findDeployBlockingErrors).mockReturnValue([
-      'Matrix Output is set to HUB75, which only supports the Matrix layout or a Panels chain so far — switch layout to Matrix or Panels, or use an addressable chipset.',
+      'Matrix Output: a HUB75 panel supports only the Matrix layout or a Panels chain so far — switch layout to Matrix or Panels, or replace the panel with an addressable LED matrix on the Hardware tab.',
     ])
     useUploadStore.setState({
       helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },

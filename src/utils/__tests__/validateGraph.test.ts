@@ -645,22 +645,22 @@ describe('validateGraph', () => {
         form: 'hub75', width: 128, height: 64, chipset: 'HUB75', layout: 'panels', tilesX: 2, tilesY: 2,
         tileRotations: '0,90,0,0',
       }),
-    ])).toEqual([expect.stringMatching(/only supports 90°\/270° per-panel rotation when each panel tile is square/)])
+    ])).toEqual([expect.stringMatching(/supports 90°\/270° per-panel rotation only when each panel tile is square/)])
   })
 
   it('blocks HUB75 quarter-turn panel rotation on non-square tiles', () => {
     const errors = findHub75ConfigErrors([
       node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75', layout: 'panels', tilesX: 1, tilesY: 1, tileRotations: '90' }),
     ])
-    expect(errors).toEqual([expect.stringMatching(/only supports 90°\/270° per-panel rotation when each panel tile is square/)])
+    expect(errors).toEqual([expect.stringMatching(/supports 90°\/270° per-panel rotation only when each panel tile is square/)])
   })
 
   it('blocks HUB75 strip/custom layouts', () => {
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'strip' })])).toEqual([
-      expect.stringMatching(/only supports the Matrix layout or a Panels chain/),
+      expect.stringMatching(/supports only the Matrix layout or a Panels chain/),
     ])
     expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', layout: 'custom' })])).toEqual([
-      expect.stringMatching(/only supports the Matrix layout or a Panels chain/),
+      expect.stringMatching(/supports only the Matrix layout or a Panels chain/),
     ])
   })
 
@@ -676,7 +676,7 @@ describe('validateGraph', () => {
       node('out-b', 'MatrixOutput', { chipset: 'WS2812B' }),
     ]
     const errors = findHub75ConfigErrors(nodes)
-    expect(errors).toEqual([expect.stringMatching(/only supports a single LED output route/)])
+    expect(errors).toEqual([expect.stringMatching(/supports only one LED output route .* replace the panel with an addressable LED matrix on the Hardware tab\.$/)])
   })
 
   it('allows HUB75 wired into the generative Pattern Show pipeline', () => {
