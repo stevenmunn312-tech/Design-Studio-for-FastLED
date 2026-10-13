@@ -303,7 +303,7 @@
 <line x1="8" y1="636.5" x2="312" y2="636.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="655" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
 <g>
-<rect x="299" y="644.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="178" y="644.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
 <rect x="0.5" y="0.5" width="319" height="666" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>

@@ -296,7 +296,7 @@
 <text x="8" y="392" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ TRANSFORM</text>
 <text x="8" y="413" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
 <g>
-<rect x="219" y="402.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="402.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
 <rect x="0.5" y="0.5" width="239" height="424" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>

@@ -33,48 +33,48 @@
 <line x1="8" y1="72.5" x2="232" y2="72.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">triggerOp</text>
 <g>
-<rect x="100.85" y="79" width="84" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
-<text x="104.85" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">debounce</text>
-<path d="M172.85,88 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
+<rect x="98" y="79" width="112" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="102" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">debounce</text>
+<path d="M198,88 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
 </g>
-<text x="222.45" y="94" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="94" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="116" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">Start on</text>
 <g opacity="0.45">
-<rect x="132.75" y="105.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="105.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
-<text x="222.45" y="116" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="116" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">stableTime</text>
 <g>
-<rect x="90.45" y="129" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="90.45" y="129" width="2.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="93.4" cy="131" r="6" fill="#d633ff"/>
-<text x="202.45" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.05</text>
+<rect x="98" y="129" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="129" width="2.9" height="4" rx="2" fill="#d633ff"/>
+<circle cx="100.9" cy="131" r="6" fill="#d633ff"/>
+<text x="210" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.05</text>
 </g>
-<text x="222.45" y="135" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="135" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="154" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">holdTime</text>
 <g opacity="0.45">
-<rect x="83.25" y="148" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="83.25" y="148" width="1.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="85.2" cy="150" r="6" fill="#d633ff"/>
-<text x="195.25" y="154" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.1</text>
+<rect x="98" y="148" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="148" width="1.9" height="4" rx="2" fill="#d633ff"/>
+<circle cx="99.9" cy="150" r="6" fill="#d633ff"/>
+<text x="210" y="154" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.1</text>
 </g>
-<text x="222.45" y="154" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="154" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="173" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">divideBy</text>
 <g opacity="0.45">
-<rect x="83.25" y="167" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="83.25" y="167" width="0.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="83.3" cy="169" r="6" fill="#d633ff"/>
-<text x="195.25" y="173" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">2</text>
+<rect x="98" y="167" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="167" width="0.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="98.0" cy="169" r="6" fill="#d633ff"/>
+<text x="210" y="173" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">2</text>
 </g>
-<text x="222.45" y="173" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="173" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="192" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">delayTime</text>
 <g opacity="0.45">
-<rect x="86.85" y="186" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="86.85" y="186" width="6.5" height="4" rx="2" fill="#d633ff"/>
-<circle cx="93.4" cy="188" r="6" fill="#d633ff"/>
-<text x="198.85" y="192" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
+<rect x="98" y="186" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="186" width="6.5" height="4" rx="2" fill="#d633ff"/>
+<circle cx="104.5" cy="188" r="6" fill="#d633ff"/>
+<text x="210" y="192" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
 </g>
-<text x="222.45" y="192" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="192" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <rect x="0.5" y="0.5" width="239" height="203" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

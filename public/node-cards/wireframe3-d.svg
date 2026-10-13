@@ -295,14 +295,14 @@
 <line x1="8" y1="328.5" x2="232" y2="328.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="350" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
 <text x="8" y="373" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">color</text>
-<rect x="204" y="360" width="28" height="18" rx="4" fill="rgb(0,200,255)" stroke="rgba(255,255,255,0.1)"/>
+<rect x="98" y="360" width="28" height="18" rx="4" fill="rgb(0,200,255)" stroke="rgba(255,255,255,0.1)"/>
 <text x="8" y="395" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ MODEL</text>
 <text x="8" y="418" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ ROTATION</text>
 <text x="8" y="441" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ PROJECTION</text>
 <text x="8" y="464" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ APPEARANCE</text>
 <text x="8" y="485" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
 <g>
-<rect x="219" y="474.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="474.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
 <rect x="0.5" y="0.5" width="239" height="496" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>

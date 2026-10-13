@@ -297,7 +297,7 @@
 <text x="8" y="475" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ COLOR</text>
 <text x="8" y="498" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ PLAYBACK</text>
 <text x="8" y="520" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">background</text>
-<rect x="204" y="507" width="28" height="18" rx="4" fill="#000000" stroke="rgba(255,255,255,0.1)"/>
+<rect x="98" y="507" width="28" height="18" rx="4" fill="#000000" stroke="rgba(255,255,255,0.1)"/>
 <rect x="0.5" y="0.5" width="239" height="532" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

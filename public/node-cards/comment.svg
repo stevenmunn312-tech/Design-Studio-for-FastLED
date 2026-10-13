@@ -28,7 +28,7 @@
 <text x="16" y="60" font-family="'Inter','Segoe UI',sans-serif" font-size="14" fill="#e0e0e0">Note</text>
 <line x1="8" y1="140.5" x2="252" y2="140.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">color</text>
-<rect x="224" y="147" width="28" height="18" rx="4" fill="#ffd24a" stroke="rgba(255,255,255,0.1)"/>
+<rect x="118" y="147" width="28" height="18" rx="4" fill="#ffd24a" stroke="rgba(255,255,255,0.1)"/>
 <rect x="0.5" y="0.5" width="259" height="172" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

@@ -33,15 +33,15 @@
 <line x1="8" y1="100.5" x2="232" y2="100.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="119" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">speed</text>
 <g>
-<rect x="72.45" y="113" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="72.45" y="113" width="18.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="90.5" cy="115" r="6" fill="#d633ff"/>
-<text x="184.45" y="119" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
+<rect x="98" y="113" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="113" width="18.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="116.0" cy="115" r="6" fill="#d633ff"/>
+<text x="210" y="119" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
 </g>
-<text x="222.45" y="119" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="138" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inputs</text>
+<text x="224" y="119" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="138" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clamp inpu…</text>
 <g>
-<rect x="219" y="127.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="127.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
 <rect x="0.5" y="0.5" width="239" height="149" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>

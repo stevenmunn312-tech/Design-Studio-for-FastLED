@@ -346,15 +346,13 @@ library defaults.
   control graph a finite number for every numeric property, with `num()` and
   `floatExpr` keeping a finiteness fallback
   ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
-- [ ] **D-08.2 · Property row grid.** `.propRow` in
-  `src/components/Canvas/StudioNode.module.css` is flex space-between with a
-  different fixed width per control (slider 112 px, select 84, input 72,
-  checkbox 16), so the control edge jumps row to row and a label beside a
-  slider gets about 85 px (11 characters: `transitionTime` renders as
-  `transitio…`). Change the row to `grid-template-columns: minmax(0, 1fr)
-  112px 16px`, give select, input and slider wrap the same 112 px, and always
-  reserve the pin slot. Verify on Pattern Master, the LED output and Format
-  Number in the Browser pane.
+- [x] **D-08.2 · Property row grid.** Done: `.propRow` is a
+  `minmax(0, 1fr) 112px 16px` grid, so every control starts and ends on the
+  same x and the pin slot is reserved on every row; the node cards draw the
+  same grid. At the 240 px node width a label gets 84 px (11 characters), so
+  long labels such as `transitionSec` still truncate until D-08.7 gives those
+  nodes their labels and widths
+  ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
 - [ ] **D-08.3 · Remove dead properties and stale metadata.** Zones
   `aName`…`dName`; SegmentDisplay `decimals` and `leadingZero`; Board `volts`;
   MatrixOutput's power and bench `PROPERTY_GROUPS` keys and the

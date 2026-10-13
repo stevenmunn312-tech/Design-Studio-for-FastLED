@@ -39,7 +39,7 @@
 <line x1="8" y1="128.5" x2="232" y2="128.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="150" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
 <text x="8" y="173" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">color</text>
-<rect x="204" y="160" width="28" height="18" rx="4" fill="rgb(0,0,0)" stroke="rgba(255,255,255,0.1)"/>
+<rect x="98" y="160" width="28" height="18" rx="4" fill="rgb(0,0,0)" stroke="rgba(255,255,255,0.1)"/>
 <rect x="0.5" y="0.5" width="239" height="185" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

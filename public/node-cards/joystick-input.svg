@@ -51,12 +51,12 @@
 <line x1="8" y1="264.5" x2="232" y2="264.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="283" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">deadzone</text>
 <g>
-<rect x="83.25" y="277" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="83.25" y="277" width="14.4" height="4" rx="2" fill="#d633ff"/>
-<circle cx="97.7" cy="279" r="6" fill="#d633ff"/>
-<text x="195.25" y="283" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.08</text>
+<rect x="98" y="277" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="277" width="14.4" height="4" rx="2" fill="#d633ff"/>
+<circle cx="112.4" cy="279" r="6" fill="#d633ff"/>
+<text x="210" y="283" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.08</text>
 </g>
-<text x="222.45" y="283" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="283" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="311" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">ⓘ preview axes come from the</text>
 <text x="8" y="326.6" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">sliders; firmware reads the two</text>
 <text x="8" y="342.2" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">ADC pins</text>

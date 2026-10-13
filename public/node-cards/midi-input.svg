@@ -38,20 +38,20 @@
 <line x1="8" y1="185.5" x2="232" y2="185.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="204" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">note</text>
 <g>
-<rect x="68.85" y="198" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="68.85" y="198" width="34.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="102.9" cy="200" r="6" fill="#d633ff"/>
-<text x="180.85" y="204" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">60</text>
+<rect x="98" y="198" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="198" width="34.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="132.0" cy="200" r="6" fill="#d633ff"/>
+<text x="210" y="204" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">60</text>
 </g>
-<text x="222.45" y="204" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="204" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="223" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">cc</text>
 <g>
-<rect x="61.65" y="217" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="61.65" y="217" width="0.6" height="4" rx="2" fill="#d633ff"/>
-<circle cx="62.2" cy="219" r="6" fill="#d633ff"/>
-<text x="173.65" y="223" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
+<rect x="98" y="217" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="217" width="0.6" height="4" rx="2" fill="#d633ff"/>
+<circle cx="98.6" cy="219" r="6" fill="#d633ff"/>
+<text x="210" y="223" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
 </g>
-<text x="222.45" y="223" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="224" y="223" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="251" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">ⓘ preview-only — no embedded</text>
 <text x="8" y="266.6" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">MIDI equivalent</text>
 <rect x="0.5" y="0.5" width="239" height="277.2" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>

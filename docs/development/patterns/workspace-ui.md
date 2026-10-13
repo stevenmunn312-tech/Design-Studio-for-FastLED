@@ -170,6 +170,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Volts/Milliamps fields use it. Reach for this component rather than a raw
   `type="number"` input for any new numeric field with a non-zero minimum.
 
+- Inline property rows (`.propRow` in `StudioNode.module.css`) are a
+  `minmax(0, 1fr) 112px 16px` grid: label, one shared control column, and a
+  pin slot reserved whether or not the row has a pin. A control fills the
+  column (`width: 100%`) rather than declaring its own width; checkboxes and
+  colour swatches sit at its start. The property socket handle is absolutely
+  positioned, so it takes no cell. A new kind of row control must follow the
+  same rule or the control edge jumps again, and `scripts/assets/node-cards.ts`
+  draws the same three columns (`PROP_CONTROL_W`, `PROP_PIN_W`,
+  `PROP_COL_GAP`). `src/components/Canvas/__tests__/propertyRowGrid.test.ts`
+  asserts the grid from the stylesheet text.
 - **Scrollable lists inside nodes need `nowheel` and a max-height.** React Flow
   turns the wheel into canvas zoom, so an overflowing list inside a node either
   zooms the canvas or, uncapped, grows the node taller than the canvas. Give the

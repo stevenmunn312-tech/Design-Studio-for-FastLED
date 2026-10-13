@@ -589,12 +589,20 @@ span.connectionBlocked {
   user-select: none;
 }
 
+/* Label, control, pin slot. Every control starts and ends on the same x, and
+   the pin column is reserved on rows with no pin so the edge never jumps.
+   The socket handle is absolutely positioned and takes no cell. */
 .propRow {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px 16px;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  column-gap: 6px;
+}
+
+.propRow > input[type='checkbox'],
+.propRow > .colorInput {
+  justify-self: start;
 }
 
 /* Match portRow's -8px socket offset; grouped fields add 2px indentation. */
@@ -641,11 +649,10 @@ span.connectionBlocked {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 0 1 auto;
 }
 
 .pinBtn {
-  flex: 0 0 auto;
+  grid-column: 3;
   border: 0;
   background: transparent;
   padding: 0 2px;
@@ -665,8 +672,8 @@ span.connectionBlocked {
 }
 
 .propInput {
-  width: 72px;
-  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
   background: var(--bg-primary);
   border: 1px solid var(--border-glow);
   border-radius: 4px;
@@ -776,8 +783,8 @@ span.connectionBlocked {
 }
 
 .propSelect {
-  width: 84px;
-  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
   background: var(--bg-primary);
   border: 1px solid var(--border-glow);
   border-radius: 4px;
@@ -869,11 +876,12 @@ span.connectionBlocked {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .propRange {
-  width: 72px;
+  flex: 1 1 0;
+  min-width: 0;
   accent-color: var(--accent-output);
   cursor: pointer;
 }
@@ -888,7 +896,7 @@ span.connectionBlocked {
 }
 
 .sliderInput {
-  width: 106px;
+  width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--accent-output);
   border-radius: 4px;
