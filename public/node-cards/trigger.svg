@@ -1,65 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 324" width="296" height="324" role="img" aria-label="Trigger node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 268" width="296" height="268" role="img" aria-label="Trigger node">
 
-<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<defs>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
+<filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
+<linearGradient id="headerGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+
+</defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="266" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="266" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<defs><linearGradient id="tint-math" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#213632"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<rect x="0" y="0" width="240" height="204" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="204" rx="8" fill="url(#tint-math)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33ff85"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Debounce</text>
-<rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="166.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">MTH</text>
-<rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">TRI-296</text>
-<circle cx="-2" cy="52" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="-2" cy="52" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Trigger</text>
-<circle cx="242" cy="52" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="242" cy="52" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="56" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Out</text>
-<circle cx="-2" cy="80" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="-2" cy="80" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">On</text>
-<circle cx="-2" cy="108" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="-2" cy="108" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Off</text>
-<line x1="8" y1="128" x2="232" y2="128" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="148" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">triggerOp</text>
+<rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Debou…</text>
+<rect x="78.80000000000001" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="92.00000000000001" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">MTH</text>
+<rect x="111.20000000000002" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="136.60000000000002" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">TRI-296</text>
+<circle cx="172" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
+<circle cx="179" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
+<circle cx="186" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>
+<rect x="194" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="203" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
+<rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
+<circle cx="0" cy="52" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="0" cy="52" r="6" fill="#c6ff32"/>
+<text x="18" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Trigger</text>
+<circle cx="240" cy="52" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="240" cy="52" r="6" fill="#c6ff32"/>
+<text x="222" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Out</text>
+<line x1="8" y1="72.5" x2="232" y2="72.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">triggerOp</text>
 <g>
-<rect x="148" y="136" width="84" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="152" y="148" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">debounce</text>
-<text x="228" y="148" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
+<rect x="100.85" y="79" width="84" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="104.85" y="94" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">debounce</text>
+<path d="M172.85,88 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
 </g>
-<text x="8" y="169" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">Start on</text>
+<text x="222.45" y="94" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="116" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">Start on</text>
 <g opacity="0.45">
-<rect x="220" y="159" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="132.75" y="105.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
-<text x="8" y="190" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">stableTime</text>
+<text x="222.45" y="116" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">stableTime</text>
 <g>
-<rect x="120" y="184" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="184" width="2.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="122.9" cy="186" r="5" fill="#d633ff"/>
-<text x="232" y="190" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.05</text>
+<rect x="90.45" y="129" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="90.45" y="129" width="2.9" height="4" rx="2" fill="#d633ff"/>
+<circle cx="93.4" cy="131" r="6" fill="#d633ff"/>
+<text x="202.45" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.05</text>
 </g>
-<text x="8" y="211" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">holdTime</text>
+<text x="222.45" y="135" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="154" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">holdTime</text>
 <g opacity="0.45">
-<rect x="120" y="205" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="205" width="1.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="121.9" cy="207" r="5" fill="#d633ff"/>
-<text x="232" y="211" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.1</text>
+<rect x="83.25" y="148" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="83.25" y="148" width="1.9" height="4" rx="2" fill="#d633ff"/>
+<circle cx="85.2" cy="150" r="6" fill="#d633ff"/>
+<text x="195.25" y="154" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.1</text>
 </g>
-<text x="8" y="232" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">divideBy</text>
+<text x="222.45" y="154" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="173" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">divideBy</text>
 <g opacity="0.45">
-<rect x="120" y="226" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="226" width="0.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="120.0" cy="228" r="5" fill="#d633ff"/>
-<text x="232" y="232" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">2</text>
+<rect x="83.25" y="167" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="83.25" y="167" width="0.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="83.3" cy="169" r="6" fill="#d633ff"/>
+<text x="195.25" y="173" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">2</text>
 </g>
-<text x="8" y="253" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">delayTime</text>
+<text x="222.45" y="173" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="192" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">delayTime</text>
 <g opacity="0.45">
-<rect x="120" y="247" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="247" width="6.5" height="4" rx="2" fill="#d633ff"/>
-<circle cx="126.5" cy="249" r="5" fill="#d633ff"/>
-<text x="232" y="253" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0.5</text>
+<rect x="86.85" y="186" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="86.85" y="186" width="6.5" height="4" rx="2" fill="#d633ff"/>
+<circle cx="93.4" cy="188" r="6" fill="#d633ff"/>
+<text x="198.85" y="192" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
 </g>
+<text x="222.45" y="192" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<rect x="0.5" y="0.5" width="239" height="203" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

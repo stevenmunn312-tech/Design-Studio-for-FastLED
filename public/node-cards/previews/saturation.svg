@@ -1,33 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 564 42" width="564" height="42" role="img" aria-label="Evaluated output from the Saturation example graph">
 <rect width="564" height="42" rx="10" fill="#0d0f12"/>
-<rect x="16.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(135,208,0)"/>
-<rect x="34.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,193,0)"/>
-<rect x="52.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,137,0)"/>
-<rect x="70.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,80,0)"/>
-<rect x="88.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,35,0)"/>
-<rect x="106.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,10,0)"/>
-<rect x="124.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,5,0)"/>
-<rect x="142.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,20,0)"/>
-<rect x="160.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,52,0)"/>
-<rect x="178.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,96,0)"/>
-<rect x="196.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,139,0)"/>
-<rect x="214.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,176,0)"/>
-<rect x="232.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,208,0)"/>
-<rect x="250.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(203,210,0)"/>
-<rect x="268.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(162,209,0)"/>
-<rect x="286.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(173,209,0)"/>
-<rect x="304.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,211,0)"/>
-<rect x="322.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,171,0)"/>
-<rect x="340.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,129,0)"/>
-<rect x="358.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,83,0)"/>
-<rect x="376.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,49,0)"/>
-<rect x="394.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,35,0)"/>
-<rect x="412.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,44,0)"/>
-<rect x="430.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,76,0)"/>
-<rect x="448.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,129,0)"/>
-<rect x="466.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(255,182,0)"/>
-<rect x="484.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(164,209,0)"/>
-<rect x="502.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(0,200,86)"/>
-<rect x="520.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(0,185,194)"/>
-<rect x="538.50" y="16.50" width="9.00" height="9.00" rx="1.62" fill="rgb(0,159,255)"/>
+<defs><g id="lamp-9.00x9.00"><rect x="-3.60" y="-1.98" width="16.20" height="12.96" rx="6.48" fill-opacity="0.34"/><rect width="9.00" height="9.00" rx="1.98"/></g></defs>
+<use href="#lamp-9.00x9.00" x="16.50" y="16.50" fill="rgb(135,208,0)"/>
+<use href="#lamp-9.00x9.00" x="34.50" y="16.50" fill="rgb(255,193,0)"/>
+<use href="#lamp-9.00x9.00" x="52.50" y="16.50" fill="rgb(255,137,0)"/>
+<use href="#lamp-9.00x9.00" x="70.50" y="16.50" fill="rgb(255,80,0)"/>
+<use href="#lamp-9.00x9.00" x="88.50" y="16.50" fill="rgb(255,35,0)"/>
+<use href="#lamp-9.00x9.00" x="106.50" y="16.50" fill="rgb(255,10,0)"/>
+<use href="#lamp-9.00x9.00" x="124.50" y="16.50" fill="rgb(255,5,0)"/>
+<use href="#lamp-9.00x9.00" x="142.50" y="16.50" fill="rgb(255,20,0)"/>
+<use href="#lamp-9.00x9.00" x="160.50" y="16.50" fill="rgb(255,52,0)"/>
+<use href="#lamp-9.00x9.00" x="178.50" y="16.50" fill="rgb(255,96,0)"/>
+<use href="#lamp-9.00x9.00" x="196.50" y="16.50" fill="rgb(255,139,0)"/>
+<use href="#lamp-9.00x9.00" x="214.50" y="16.50" fill="rgb(255,176,0)"/>
+<use href="#lamp-9.00x9.00" x="232.50" y="16.50" fill="rgb(255,208,0)"/>
+<use href="#lamp-9.00x9.00" x="250.50" y="16.50" fill="rgb(203,210,0)"/>
+<use href="#lamp-9.00x9.00" x="268.50" y="16.50" fill="rgb(162,209,0)"/>
+<use href="#lamp-9.00x9.00" x="286.50" y="16.50" fill="rgb(173,209,0)"/>
+<use href="#lamp-9.00x9.00" x="304.50" y="16.50" fill="rgb(255,211,0)"/>
+<use href="#lamp-9.00x9.00" x="322.50" y="16.50" fill="rgb(255,171,0)"/>
+<use href="#lamp-9.00x9.00" x="340.50" y="16.50" fill="rgb(255,129,0)"/>
+<use href="#lamp-9.00x9.00" x="358.50" y="16.50" fill="rgb(255,83,0)"/>
+<use href="#lamp-9.00x9.00" x="376.50" y="16.50" fill="rgb(255,49,0)"/>
+<use href="#lamp-9.00x9.00" x="394.50" y="16.50" fill="rgb(255,35,0)"/>
+<use href="#lamp-9.00x9.00" x="412.50" y="16.50" fill="rgb(255,44,0)"/>
+<use href="#lamp-9.00x9.00" x="430.50" y="16.50" fill="rgb(255,76,0)"/>
+<use href="#lamp-9.00x9.00" x="448.50" y="16.50" fill="rgb(255,129,0)"/>
+<use href="#lamp-9.00x9.00" x="466.50" y="16.50" fill="rgb(255,182,0)"/>
+<use href="#lamp-9.00x9.00" x="484.50" y="16.50" fill="rgb(164,209,0)"/>
+<use href="#lamp-9.00x9.00" x="502.50" y="16.50" fill="rgb(0,200,86)"/>
+<use href="#lamp-9.00x9.00" x="520.50" y="16.50" fill="rgb(0,185,194)"/>
+<use href="#lamp-9.00x9.00" x="538.50" y="16.50" fill="rgb(0,159,255)"/>
 </svg>

@@ -1,27 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 408" width="408" height="408" role="img" aria-label="Evaluated output from the Color Temperature example graph">
 <rect width="408" height="408" rx="10" fill="#0d0f12"/>
-<rect x="197.50" y="33.50" width="13" height="13" rx="2.3" fill="rgb(197,215,255)"/>
-<rect x="239.95" y="39.09" width="13" height="13" rx="2.3" fill="rgb(197,215,255)"/>
-<rect x="279.50" y="55.47" width="13" height="13" rx="2.3" fill="rgb(195,214,255)"/>
-<rect x="313.47" y="81.53" width="13" height="13" rx="2.3" fill="rgb(193,212,255)"/>
-<rect x="339.53" y="115.50" width="13" height="13" rx="2.3" fill="rgb(191,211,255)"/>
-<rect x="355.91" y="155.05" width="13" height="13" rx="2.3" fill="rgb(191,211,255)"/>
-<rect x="361.50" y="197.50" width="13" height="13" rx="2.3" fill="rgb(191,211,255)"/>
-<rect x="355.91" y="239.95" width="13" height="13" rx="2.3" fill="rgb(191,211,255)"/>
-<rect x="339.53" y="279.50" width="13" height="13" rx="2.3" fill="rgb(191,211,255)"/>
-<rect x="313.47" y="313.47" width="13" height="13" rx="2.3" fill="rgb(193,212,255)"/>
-<rect x="279.50" y="339.53" width="13" height="13" rx="2.3" fill="rgb(195,214,255)"/>
-<rect x="239.95" y="355.91" width="13" height="13" rx="2.3" fill="rgb(197,215,255)"/>
-<rect x="197.50" y="361.50" width="13" height="13" rx="2.3" fill="rgb(197,215,255)"/>
-<rect x="155.05" y="355.91" width="13" height="13" rx="2.3" fill="rgb(200,217,255)"/>
-<rect x="115.50" y="339.53" width="13" height="13" rx="2.3" fill="rgb(202,218,255)"/>
-<rect x="81.53" y="313.47" width="13" height="13" rx="2.3" fill="rgb(204,220,255)"/>
-<rect x="55.47" y="279.50" width="13" height="13" rx="2.3" fill="rgb(206,221,255)"/>
-<rect x="39.09" y="239.95" width="13" height="13" rx="2.3" fill="rgb(206,221,255)"/>
-<rect x="33.50" y="197.50" width="13" height="13" rx="2.3" fill="rgb(206,221,255)"/>
-<rect x="39.09" y="155.05" width="13" height="13" rx="2.3" fill="rgb(206,221,255)"/>
-<rect x="55.47" y="115.50" width="13" height="13" rx="2.3" fill="rgb(206,221,255)"/>
-<rect x="81.53" y="81.53" width="13" height="13" rx="2.3" fill="rgb(204,220,255)"/>
-<rect x="115.50" y="55.47" width="13" height="13" rx="2.3" fill="rgb(202,218,255)"/>
-<rect x="155.05" y="39.09" width="13" height="13" rx="2.3" fill="rgb(200,217,255)"/>
+<use href="#lamp-13.00x13.00" x="197.50" y="33.50" fill="rgb(197,215,255)"/>
+<use href="#lamp-13.00x13.00" x="239.95" y="39.09" fill="rgb(197,215,255)"/>
+<use href="#lamp-13.00x13.00" x="279.50" y="55.47" fill="rgb(195,214,255)"/>
+<use href="#lamp-13.00x13.00" x="313.47" y="81.53" fill="rgb(193,212,255)"/>
+<use href="#lamp-13.00x13.00" x="339.53" y="115.50" fill="rgb(191,211,255)"/>
+<use href="#lamp-13.00x13.00" x="355.91" y="155.05" fill="rgb(191,211,255)"/>
+<use href="#lamp-13.00x13.00" x="361.50" y="197.50" fill="rgb(191,211,255)"/>
+<use href="#lamp-13.00x13.00" x="355.91" y="239.95" fill="rgb(191,211,255)"/>
+<use href="#lamp-13.00x13.00" x="339.53" y="279.50" fill="rgb(191,211,255)"/>
+<use href="#lamp-13.00x13.00" x="313.47" y="313.47" fill="rgb(193,212,255)"/>
+<use href="#lamp-13.00x13.00" x="279.50" y="339.53" fill="rgb(195,214,255)"/>
+<use href="#lamp-13.00x13.00" x="239.95" y="355.91" fill="rgb(197,215,255)"/>
+<use href="#lamp-13.00x13.00" x="197.50" y="361.50" fill="rgb(197,215,255)"/>
+<use href="#lamp-13.00x13.00" x="155.05" y="355.91" fill="rgb(200,217,255)"/>
+<use href="#lamp-13.00x13.00" x="115.50" y="339.53" fill="rgb(202,218,255)"/>
+<use href="#lamp-13.00x13.00" x="81.53" y="313.47" fill="rgb(204,220,255)"/>
+<use href="#lamp-13.00x13.00" x="55.47" y="279.50" fill="rgb(206,221,255)"/>
+<use href="#lamp-13.00x13.00" x="39.09" y="239.95" fill="rgb(206,221,255)"/>
+<use href="#lamp-13.00x13.00" x="33.50" y="197.50" fill="rgb(206,221,255)"/>
+<use href="#lamp-13.00x13.00" x="39.09" y="155.05" fill="rgb(206,221,255)"/>
+<use href="#lamp-13.00x13.00" x="55.47" y="115.50" fill="rgb(206,221,255)"/>
+<use href="#lamp-13.00x13.00" x="81.53" y="81.53" fill="rgb(204,220,255)"/>
+<use href="#lamp-13.00x13.00" x="115.50" y="55.47" fill="rgb(202,218,255)"/>
+<use href="#lamp-13.00x13.00" x="155.05" y="39.09" fill="rgb(200,217,255)"/>
+<defs><g id="lamp-13.00x13.00"><rect x="-5.20" y="-2.86" width="23.40" height="18.72" rx="9.36" fill-opacity="0.34"/><rect width="13.00" height="13.00" rx="2.86"/></g></defs>
 </svg>

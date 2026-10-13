@@ -1,66 +1,95 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 352" width="296" height="352" role="img" aria-label="Touch Pad node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 495.8" width="296" height="495.8" role="img" aria-label="Touch Pad node">
 
-<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<defs>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
+<filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
+<linearGradient id="headerGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+
+</defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="294" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="294" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<defs><linearGradient id="tint-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e362c"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<rect x="0" y="0" width="240" height="431.8" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="431.8" rx="8" fill="url(#tint-input)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d6ff33"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Touch Pad</text>
-<rect x="160" y="10" width="19" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="169.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">IN</text>
-<rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">TOU-358</text>
-<circle cx="242" cy="52" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="52" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="56" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Electrode (0-11)</text>
-<circle cx="242" cy="80" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="242" cy="80" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="84" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Touched</text>
-<circle cx="242" cy="108" r="9" fill="#9aa0a6" opacity="0.25"/>
-<circle cx="242" cy="108" r="6" fill="#9aa0a6" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="112" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Count</text>
-<circle cx="242" cy="136" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="242" cy="136" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="140" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Connected</text>
-<line x1="8" y1="156" x2="232" y2="156" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="176" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">partId</text>
+<rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Touch …</text>
+<rect x="85" y="8" width="20.2" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="95.1" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">IN</text>
+<rect x="111.2" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="136.6" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">TOU-358</text>
+<circle cx="172" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
+<circle cx="179" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
+<circle cx="186" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>
+<rect x="194" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="203" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
+<rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
+<rect x="8.00" y="44" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="34.88" y="60" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">0</text>
+<rect x="64.75" y="44" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="91.63" y="60" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">1</text>
+<rect x="121.50" y="44" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="148.38" y="60" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">2</text>
+<rect x="178.25" y="44" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="205.13" y="60" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">3</text>
+<rect x="8.00" y="71" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="34.88" y="87" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">4</text>
+<rect x="64.75" y="71" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="91.63" y="87" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">5</text>
+<rect x="121.50" y="71" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="148.38" y="87" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">6</text>
+<rect x="178.25" y="71" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="205.13" y="87" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">7</text>
+<rect x="8.00" y="98" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="34.88" y="114" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">8</text>
+<rect x="64.75" y="98" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="91.63" y="114" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">9</text>
+<rect x="121.50" y="98" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="148.38" y="114" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">10</text>
+<rect x="178.25" y="98" width="53.75" height="24" rx="5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="205.13" y="114" text-anchor="middle" font-family="'Inter','Segoe UI',sans-serif" font-size="12" fill="#a0a0a0">11</text>
+<image x="8" y="126" width="224" height="52" preserveAspectRatio="xMidYMid meet" href="data:image/webp;base64,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"/>
+<rect x="214" y="128" width="16" height="14" rx="3" fill="rgba(0,0,0,0.45)"/>
+<text x="222" y="138" text-anchor="middle" font-size="9" fill="#a0a0a0">▾</text>
+<circle cx="240" cy="194" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="240" cy="194" r="6" fill="#9aa0a6"/>
+<text x="222" y="198" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Electrode (0-11)</text>
+<circle cx="240" cy="222" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="240" cy="222" r="6" fill="#c6ff32"/>
+<text x="222" y="226" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Touched</text>
+<circle cx="240" cy="250" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="240" cy="250" r="6" fill="#9aa0a6"/>
+<text x="222" y="254" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Count</text>
+<circle cx="240" cy="278" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="240" cy="278" r="6" fill="#c6ff32"/>
+<text x="222" y="282" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Connected</text>
+<line x1="8" y1="298.5" x2="232" y2="298.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="320" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">i2cAddress</text>
 <g>
-<rect x="160" y="164" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="176" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">adafruit…</text>
+<rect x="104.45" y="305" width="84" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="108.45" y="320" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0x5A</text>
+<path d="M176.45,314 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
 </g>
-<text x="8" y="197" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">sdaPin</text>
+<text x="222.45" y="320" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="342" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">touchThres…</text>
 <g>
-<rect x="120" y="191" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="191" width="5.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="125.9" cy="193" r="5" fill="#d633ff"/>
-<text x="232" y="197" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">21</text>
+<rect x="94.9" y="336" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="94.9" y="336" width="3.1" height="4" rx="2" fill="#d633ff"/>
+<circle cx="98.0" cy="338" r="6" fill="#d633ff"/>
+<text x="206.9" y="342" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">12</text>
 </g>
-<text x="8" y="218" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">sclPin</text>
+<text x="222.45" y="342" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="361" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">releaseThr…</text>
 <g>
-<rect x="120" y="212" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="212" width="6.2" height="4" rx="2" fill="#d633ff"/>
-<circle cx="126.2" cy="214" r="5" fill="#d633ff"/>
-<text x="232" y="218" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">22</text>
+<rect x="94.9" y="355" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="94.9" y="355" width="1.4" height="4" rx="2" fill="#d633ff"/>
+<circle cx="96.3" cy="357" r="6" fill="#d633ff"/>
+<text x="206.9" y="361" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">6</text>
 </g>
-<text x="8" y="239" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">i2cAddress</text>
-<g>
-<rect x="148" y="227" width="84" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="152" y="239" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">0x5A</text>
-<text x="228" y="239" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
-</g>
-<text x="8" y="260" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">touchThreshold</text>
-<g>
-<rect x="120" y="254" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="254" width="3.1" height="4" rx="2" fill="#d633ff"/>
-<circle cx="123.1" cy="256" r="5" fill="#d633ff"/>
-<text x="232" y="260" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">12</text>
-</g>
-<text x="8" y="281" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">releaseThresh…</text>
-<g>
-<rect x="120" y="275" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="275" width="1.4" height="4" rx="2" fill="#d633ff"/>
-<circle cx="121.4" cy="277" r="5" fill="#d633ff"/>
-<text x="232" y="281" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">6</text>
-</g>
+<text x="222.45" y="361" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="389" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">ⓘ preview electrodes are the</text>
+<text x="8" y="404.6" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">pads on the node; firmware</text>
+<text x="8" y="420.2" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">reads the MPR121</text>
+<rect x="0.5" y="0.5" width="239" height="430.8" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

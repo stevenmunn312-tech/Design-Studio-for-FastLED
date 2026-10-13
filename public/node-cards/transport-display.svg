@@ -1,158 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 731" width="296" height="731" role="img" aria-label="Display Panel node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 514" width="296" height="514" role="img" aria-label="Display Panel node">
 
-<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<defs>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
+<filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
+<linearGradient id="headerGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+
+</defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="673" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="673" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<rect x="0" y="0" width="240" height="450" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="450" rx="8" fill="url(#tint-output)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Display Panel</text>
-<rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="166.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">OUT</text>
-<rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">TRA-853</text>
-<circle cx="-2" cy="52" r="9" fill="#ffe066" opacity="0.25"/>
-<circle cx="-2" cy="52" r="6" fill="#ffe066" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
-<text x="8" y="81" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#a0a0a0">Expose inputs…</text>
-<line x1="8" y1="94" x2="232" y2="94" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="114" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">partId</text>
+<rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Displ…</text>
+<rect x="78.80000000000001" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="92.00000000000001" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">OUT</text>
+<rect x="111.20000000000002" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="136.60000000000002" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">TRA-853</text>
+<circle cx="172" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
+<circle cx="179" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
+<circle cx="186" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>
+<rect x="194" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="203" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
+<rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
+<image x="8" y="40" width="224" height="52" preserveAspectRatio="xMidYMid meet" href="data:image/webp;base64,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"/>
+<rect x="214" y="42" width="16" height="14" rx="3" fill="rgba(0,0,0,0.45)"/>
+<text x="222" y="52" text-anchor="middle" font-size="9" fill="#a0a0a0">▾</text>
+<circle cx="0" cy="108" r="9" fill="#ffe066" opacity="0.22"/>
+<circle cx="0" cy="108" r="6" fill="#ffe066"/>
+<text x="18" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
+<rect x="8" y="124" width="224" height="212" rx="4" fill="none" stroke="rgba(255,255,255,0.1)" stroke-dasharray="4 3"/>
+<text x="120" y="140" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">edit screen design</text>
+<line x1="8" y1="344.5" x2="232" y2="344.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="366" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="391" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">layout</text>
 <g>
-<rect x="160" y="102" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="114" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">st7789-t…</text>
+<rect x="90.05000000000001" y="376" width="84" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="94.05000000000001" y="391" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">Waiting</text>
+<path d="M162.05,385 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
 </g>
-<text x="8" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">displayId</text>
+<text x="222.45" y="391" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="416" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">rotation</text>
 <g>
-<rect x="160" y="123" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="135" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0"></text>
+<rect x="97.25" y="401" width="84" height="22" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="101.25" y="416" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
+<path d="M169.25,410 l3.5,4 l3.5,-4" fill="none" stroke="#e0e0e0" stroke-width="1.3"/>
 </g>
-<text x="8" y="156" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">layout</text>
+<text x="222.45" y="416" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="438" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">enabled</text>
 <g>
-<rect x="148" y="144" width="84" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="152" y="156" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">Now Playi…</text>
-<text x="228" y="156" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
+<rect x="129.15" y="427.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
+<path d="M132.15,434 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="8" y="177" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">rotation</text>
-<g>
-<rect x="148" y="165" width="84" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="152" y="177" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">0</text>
-<text x="228" y="177" text-anchor="end" font-size="8" fill="#a0a0a0">▾</text>
-</g>
-<text x="8" y="198" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">sckPin</text>
-<g>
-<rect x="160" y="186" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="198" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">18</text>
-</g>
-<text x="8" y="219" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">mosiPin</text>
-<g>
-<rect x="160" y="207" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="219" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">23</text>
-</g>
-<text x="8" y="240" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">misoPin</text>
-<g opacity="0.45">
-<rect x="160" y="228" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="240" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">19</text>
-</g>
-<text x="8" y="261" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">csPin</text>
-<g>
-<rect x="160" y="249" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="261" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">5</text>
-</g>
-<text x="8" y="282" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">dcPin</text>
-<g>
-<rect x="160" y="270" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="282" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">9</text>
-</g>
-<text x="8" y="303" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">resetPin</text>
-<g>
-<rect x="160" y="291" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="303" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">17</text>
-</g>
-<text x="8" y="324" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">backlightPin</text>
-<g>
-<rect x="160" y="312" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="324" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">4</text>
-</g>
-<text x="8" y="345" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">touchCsPin</text>
-<g opacity="0.45">
-<rect x="160" y="333" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="345" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">15</text>
-</g>
-<text x="8" y="366" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">touchIrqPin</text>
-<g opacity="0.45">
-<rect x="160" y="354" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="366" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">2</text>
-</g>
-<text x="8" y="387" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">touchSckPin</text>
-<g opacity="0.45">
-<rect x="160" y="375" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="387" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">18</text>
-</g>
-<text x="8" y="408" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">touchMosiPin</text>
-<g opacity="0.45">
-<rect x="160" y="396" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="408" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">23</text>
-</g>
-<text x="8" y="429" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">touchMisoPin</text>
-<g opacity="0.45">
-<rect x="160" y="417" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="429" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">19</text>
-</g>
-<text x="8" y="450" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">wrPin</text>
-<g opacity="0.45">
-<rect x="160" y="438" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="450" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">33</text>
-</g>
-<text x="8" y="471" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">rdPin</text>
-<g opacity="0.45">
-<rect x="160" y="459" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="471" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">34</text>
-</g>
-<text x="8" y="492" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d0Pin</text>
-<g opacity="0.45">
-<rect x="160" y="480" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="492" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">7</text>
-</g>
-<text x="8" y="513" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d1Pin</text>
-<g opacity="0.45">
-<rect x="160" y="501" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="513" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">8</text>
-</g>
-<text x="8" y="534" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d2Pin</text>
-<g opacity="0.45">
-<rect x="160" y="522" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="534" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">39</text>
-</g>
-<text x="8" y="555" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d3Pin</text>
-<g opacity="0.45">
-<rect x="160" y="543" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="555" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">40</text>
-</g>
-<text x="8" y="576" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d4Pin</text>
-<g opacity="0.45">
-<rect x="160" y="564" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="576" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">41</text>
-</g>
-<text x="8" y="597" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d5Pin</text>
-<g opacity="0.45">
-<rect x="160" y="585" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="597" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">42</text>
-</g>
-<text x="8" y="618" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d6Pin</text>
-<g opacity="0.45">
-<rect x="160" y="606" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="618" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">47</text>
-</g>
-<text x="8" y="639" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">d7Pin</text>
-<g opacity="0.45">
-<rect x="160" y="627" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="639" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">48</text>
-</g>
-<text x="8" y="660" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">enabled</text>
-<g>
-<rect x="220" y="650" width="12" height="12" rx="3" fill="#d633ff"/>
-<path d="M222.5,656 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-</g>
-<circle cx="-2" cy="656" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="-2" cy="656" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="222.45" y="438" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="434" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="0" cy="434" r="6" fill="#c6ff32"/>
+<rect x="0.5" y="0.5" width="239" height="449" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

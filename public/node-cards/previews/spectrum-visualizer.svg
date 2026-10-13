@@ -1,259 +1,260 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 408" width="408" height="408" role="img" aria-label="Evaluated output from the Spectrum Visualizer example graph">
 <rect width="408" height="408" rx="10" fill="#0d0f12"/>
-<rect x="18.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(199,22,255)"/>
-<rect x="42.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="90.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(199,22,255)"/>
-<rect x="114.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(194,24,255)"/>
-<rect x="186.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="258.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="330.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="18.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(114,43,241)"/>
-<rect x="42.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="90.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(114,43,241)"/>
-<rect x="114.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(114,43,241)"/>
-<rect x="186.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="258.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="330.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="42.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(59,65,231)"/>
-<rect x="42.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="90.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(59,65,231)"/>
-<rect x="114.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(82,78,255)"/>
-<rect x="138.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(59,65,231)"/>
-<rect x="186.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(93,72,255)"/>
-<rect x="210.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(72,83,255)"/>
-<rect x="258.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="330.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="66.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(32,88,220)"/>
-<rect x="42.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="90.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(32,88,220)"/>
-<rect x="114.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(32,88,220)"/>
-<rect x="186.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(32,88,220)"/>
-<rect x="258.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(51,100,255)"/>
-<rect x="282.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="330.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="90.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(18,110,210)"/>
-<rect x="42.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="90.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(18,110,210)"/>
-<rect x="114.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(18,110,210)"/>
-<rect x="186.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(18,110,210)"/>
-<rect x="258.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="330.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="114.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(5,128,199)"/>
-<rect x="42.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(12,179,255)"/>
-<rect x="66.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(13,177,255)"/>
-<rect x="90.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(5,128,199)"/>
-<rect x="114.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(5,128,199)"/>
-<rect x="186.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(5,128,199)"/>
-<rect x="258.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(6,190,255)"/>
-<rect x="330.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(14,176,255)"/>
-<rect x="354.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="138.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,133,161)"/>
-<rect x="42.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,133,161)"/>
-<rect x="90.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,133,161)"/>
-<rect x="114.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,133,161)"/>
-<rect x="186.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,133,161)"/>
-<rect x="258.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,133,161)"/>
-<rect x="330.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="162.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,131,113)"/>
-<rect x="42.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,131,113)"/>
-<rect x="90.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,131,113)"/>
-<rect x="114.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="162.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,131,113)"/>
-<rect x="186.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,131,113)"/>
-<rect x="258.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,131,113)"/>
-<rect x="330.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="186.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="18.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,128,69)"/>
-<rect x="42.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,128,69)"/>
-<rect x="90.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,128,69)"/>
-<rect x="114.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(3,230,94)"/>
-<rect x="162.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,128,69)"/>
-<rect x="186.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,128,69)"/>
-<rect x="258.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,230,99)"/>
-<rect x="306.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,128,69)"/>
-<rect x="330.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="354.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,223,146)"/>
-<rect x="378.00" y="210.00" width="12.00" height="12.00" rx="2.16" fill="rgb(5,230,94)"/>
-<rect x="18.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="42.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="90.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="114.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="162.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="186.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="258.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="282.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="330.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="354.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="234.00" width="12.00" height="12.00" rx="2.16" fill="rgb(30,122,40)"/>
-<rect x="18.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="42.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="90.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="114.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="162.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="186.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="234.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="258.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="282.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="330.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="354.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="258.00" width="12.00" height="12.00" rx="2.16" fill="rgb(74,116,22)"/>
-<rect x="18.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="42.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="90.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="114.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="162.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="186.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="210.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(255,245,1)"/>
-<rect x="234.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="258.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="282.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="330.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="354.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="282.00" width="12.00" height="12.00" rx="2.16" fill="rgb(111,109,7)"/>
-<rect x="18.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="42.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="90.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="114.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="138.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="162.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="186.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="210.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="234.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="258.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="282.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="330.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="354.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="306.00" width="12.00" height="12.00" rx="2.16" fill="rgb(120,93,0)"/>
-<rect x="18.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="42.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="90.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="114.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="138.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="162.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="186.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="210.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="234.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="258.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="282.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="306.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="330.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="354.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="330.00" width="12.00" height="12.00" rx="2.16" fill="rgb(109,71,0)"/>
-<rect x="18.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="42.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="66.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="90.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="114.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="138.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="162.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="186.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="210.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="234.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="258.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="282.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="306.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="330.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="354.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(0,0,0)"/>
-<rect x="378.00" y="354.00" width="12.00" height="12.00" rx="2.16" fill="rgb(98,53,0)"/>
-<rect x="18.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="42.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="66.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="90.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="114.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="138.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="162.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="186.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="210.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="234.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="258.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="282.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="306.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="330.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="354.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
-<rect x="378.00" y="378.00" width="12.00" height="12.00" rx="2.16" fill="rgb(87,35,0)"/>
+<defs><g id="lamp-12.00x12.00"><rect x="-4.80" y="-2.64" width="21.60" height="17.28" rx="8.64" fill-opacity="0.34"/><rect width="12.00" height="12.00" rx="2.64"/></g></defs>
+<use href="#lamp-12.00x12.00" x="18.00" y="18.00" fill="rgb(199,22,255)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="18.00" fill="rgb(199,22,255)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="18.00" fill="rgb(194,24,255)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="18.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="42.00" fill="rgb(114,43,241)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="42.00" fill="rgb(114,43,241)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="42.00" fill="rgb(114,43,241)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="42.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="66.00" fill="rgb(59,65,231)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="66.00" fill="rgb(59,65,231)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="66.00" fill="rgb(82,78,255)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="66.00" fill="rgb(59,65,231)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="66.00" fill="rgb(93,72,255)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="66.00" fill="rgb(72,83,255)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="66.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="90.00" fill="rgb(32,88,220)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="90.00" fill="rgb(32,88,220)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="90.00" fill="rgb(32,88,220)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="90.00" fill="rgb(32,88,220)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="90.00" fill="rgb(51,100,255)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="90.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="114.00" fill="rgb(18,110,210)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="114.00" fill="rgb(18,110,210)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="114.00" fill="rgb(18,110,210)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="114.00" fill="rgb(18,110,210)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="114.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="138.00" fill="rgb(5,128,199)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="138.00" fill="rgb(12,179,255)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="138.00" fill="rgb(13,177,255)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="138.00" fill="rgb(5,128,199)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="138.00" fill="rgb(5,128,199)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="138.00" fill="rgb(5,128,199)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="138.00" fill="rgb(6,190,255)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="138.00" fill="rgb(14,176,255)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="138.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="162.00" fill="rgb(0,133,161)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="162.00" fill="rgb(0,133,161)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="162.00" fill="rgb(0,133,161)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="162.00" fill="rgb(0,133,161)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="162.00" fill="rgb(0,133,161)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="162.00" fill="rgb(0,133,161)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="162.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="186.00" fill="rgb(0,131,113)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="186.00" fill="rgb(0,131,113)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="186.00" fill="rgb(0,131,113)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="186.00" fill="rgb(0,131,113)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="186.00" fill="rgb(0,131,113)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="186.00" fill="rgb(0,131,113)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="186.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="210.00" fill="rgb(0,128,69)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="210.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="210.00" fill="rgb(0,128,69)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="210.00" fill="rgb(0,128,69)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="210.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="210.00" fill="rgb(3,230,94)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="210.00" fill="rgb(0,128,69)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="210.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="210.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="210.00" fill="rgb(0,128,69)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="210.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="210.00" fill="rgb(0,230,99)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="210.00" fill="rgb(0,128,69)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="210.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="210.00" fill="rgb(0,223,146)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="210.00" fill="rgb(5,230,94)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="234.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="234.00" fill="rgb(30,122,40)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="258.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="258.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="258.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="258.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="258.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="258.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="258.00" fill="rgb(74,116,22)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="282.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="282.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="282.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="282.00" fill="rgb(255,245,1)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="282.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="282.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="282.00" fill="rgb(111,109,7)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="306.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="306.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="306.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="306.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="306.00" fill="rgb(120,93,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="330.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="330.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="330.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="330.00" fill="rgb(109,71,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="354.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="354.00" fill="rgb(0,0,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="354.00" fill="rgb(98,53,0)"/>
+<use href="#lamp-12.00x12.00" x="18.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="42.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="66.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="90.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="114.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="138.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="162.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="186.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="210.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="234.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="258.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="282.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="306.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="330.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="354.00" y="378.00" fill="rgb(87,35,0)"/>
+<use href="#lamp-12.00x12.00" x="378.00" y="378.00" fill="rgb(87,35,0)"/>
 </svg>

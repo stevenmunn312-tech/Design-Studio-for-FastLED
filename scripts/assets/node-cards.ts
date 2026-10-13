@@ -1,7 +1,9 @@
 /**
  * Generate a reference card image (SVG) for every node in NODE_LIBRARY, in the
- * visual style of the on-canvas StudioNode: category-accent header with badges,
- * typed port dots, and the node's inline property controls at their defaults.
+ * visual style of the on-canvas StudioNode: category-tinted frame, accent
+ * header with badges, signal meter and window buttons, glowing typed sockets,
+ * the LED-emitter preview, the hardware-input widget and part thumbnail, and
+ * the node's inline property controls at their defaults.
  *
  * Run: npm run gen:node-cards [-- --only PatternMaster]
  * Output: public/node-cards/<kebab-type>.svg + docs/reference/node-cards.md
@@ -12,38 +14,64 @@
  * excluded from the PWA precache and runtime-cached instead (vite.config.ts).
  *
  * The layout constants mirror StudioNode.tsx / StudioNode.module.css /
- * tokens.css. Data (ports, properties, colours, control kinds, variant gating)
- * comes from src/state/nodeLibrary.ts, so a regenerated card always matches
- * the current library.
+ * NodePreview.module.css / HardwareInputBody.module.css / tokens.css, and were
+ * checked against the live DOM at zoom 1. Data (ports, properties, colours,
+ * control kinds, variant gating, badges, preview notes) comes from the shared
+ * app modules, so a regenerated card always matches the current library.
+ *
+ * Bespoke node bodies (music library, transition picker, pattern collection…)
+ * are drawn as a dashed placeholder of the body's real height; the card says
+ * where the UI sits without pretending to be it.
  */
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import {
   NODE_LIBRARY, CATEGORIES, CATEGORY_COLOR, categoryNodes, portColor,
   propertyMeta, propertyLabel, isPropertyEnabled, propertyGroupsFor, hasClampableInputs,
-  bypassPort, nodeDisplayLabel, libraryDefaults,
+  bypassPort, nodeDisplayLabel, libraryDefaults, supportsScalarExpression, isGpioPinProperty,
 } from '../../src/state/nodeLibrary'
-import { evaluateGraphFull, resetEvaluatorState } from '../../src/state/graphEvaluator'
+import {
+  CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
+  editableProperties, hasRgbProperties, moduleCode,
+} from '../../src/components/Canvas/studioNodeChrome'
+import { isPinnableProperty } from '../../src/state/player/performanceDeck'
+import { evaluateGraphFull, evaluateScalarSeries, resetEvaluatorState } from '../../src/state/graphEvaluator'
 import { useUiStore } from '../../src/state/uiStore'
 import { setRtcClockSource } from '../../src/state/peripherals/rtc'
 import { samplePalette, type RGB, type Palette, type Frame } from '../../src/state/palettes/ledColor'
 import { liveExampleForNode } from '../../src/components/HelpModal/liveExamples'
 import type { ReferenceLiveExample } from '../../src/components/HelpModal/liveExamples'
-import { LED_CELL_FILL } from '../../src/components/Hardware/ledPreviewGeometry'
 import {
-  outputCanvasDims,
-  outputForm,
-  outputGridDims,
-  ringDirection,
-  ringSampleMap,
-  ringStartAngle,
+  CORKSCREW_LED_RADIUS_X, CORKSCREW_LED_RADIUS_Y, EMITTER_GLOW, LED_CELL_FILL, RING_LED_RADIUS,
+  corkscrewUnitPoints, ringUnitPoints, thumbGrid,
+} from '../../src/components/Hardware/ledPreviewGeometry'
+import {
+  corkscrewDiameterMm, corkscrewDirection, corkscrewHeightMm, corkscrewStartAngle, corkscrewTurns,
+  outputCanvasDims, outputForm, outputGridDims, ringDirection, ringSampleMap, ringStartAngle,
 } from '../../src/state/output/ledOutputForm'
+import { stringPositions } from '../../src/state/output/stringPositions'
 import { exposableInputsFor, exposedNodeInputs, exposedPropertyInputs } from '../../src/state/propertyInputs'
+import { partDerivedInputs } from '../../src/build/parts/partPorts'
+import { partRenderForNodeType } from '../../src/build/parts/partRenders'
+import { playerControlInputs } from '../../src/state/player/playerControlAssignments'
+import { buttonBankOutputs } from '../../src/state/player/buttonBank'
+import { PREVIEW_POINTS, PREVIEW_SECONDS, waveNodeSamples } from '../../src/nodes/signal/wave'
+import { CUSTOM_DESIGN_LAYOUT, asTransportDisplayLayout } from '../../src/state/displays/transportDisplay'
+import { powerMonitorPreviewDefaults, powerMonitorPreviewReading } from '../../src/state/peripherals/powerMonitor'
+import { presencePreviewDefaultDistance, presencePreviewReading } from '../../src/state/peripherals/presenceSensor'
+import { lightSensorPreviewReading, lightSensorTransport } from '../../src/state/peripherals/lightSensor'
+import { environmentPreviewDefaults, environmentPreviewReading } from '../../src/state/peripherals/environmentSensor'
+import { temperaturePreviewDefault, temperaturePreviewReading } from '../../src/state/peripherals/temperatureSensor'
+import { joystickAxis } from '../../src/state/peripherals/joystick'
+import { KEYPAD_LEGENDS } from '../../src/state/peripherals/keypad'
+import { touchPadElectrodeCount } from '../../src/state/peripherals/touchPad'
+import { MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewReading } from '../../src/state/peripherals/motionVector'
+import { distancePreviewDefault, distancePreviewReading } from '../../src/state/peripherals/distanceSensor'
 import { tidyLayout } from '../../src/utils/tidyLayout'
 import { nodeReferenceSlug as kebab } from '../../src/utils/nodeReferenceAssets'
 import type { LiveExampleSpec } from '../../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../../src/state/graphStore'
-import type { NodeDefinition } from '../../src/types'
+import type { NodeDefinition, NodePort } from '../../src/types'
 
 // Synthetic audio for the audio-reactive nodes' previews (same as the app's
 // Test Signal toggle), so they don't render dark for lack of a microphone.
@@ -87,70 +115,115 @@ const ROOT = process.cwd()
 const OUT_DIR = join(ROOT, 'public', 'node-cards')
 const GALLERY = join(ROOT, 'docs', 'reference', 'node-cards.md')
 
-// ── Layout constants (keep in sync with StudioNode.module.css / tokens.css) ──
-const NODE_W = 240        // --node-width
-const HEADER_H = 32       // .header height
-const BODY_PAD = 8        // .body padding (--space-1)
-const ROW_H = 24          // .portRow height
-const GAP = 4             // .body flex gap
-const RADIUS = 8          // --node-radius
-const SCOPE_H = 40        // WaveScope height (Wave / ComplexWave)
-const PROP_ROW_H = 18     // inline property editor row
-const PROP_GAP = 3        // .props flex gap
-const STRIP_H = 24        // embedded-UI placeholder strip
-const NOTE_H = 72         // Comment sticky-note area
-const MIN_NODE_H = 80     // --node-height
+// ── Layout constants (keep in sync with StudioNode.module.css and friends) ──
+const NODE_W = 240          // --node-width
+const HEADER_H = 32         // .header height
+const BODY_PAD = 8          // .body padding (--space-1)
+const ROW_H = 24            // .portRow height
+const GAP = 4               // .body flex gap
+const RADIUS = 8            // --node-radius
+const MIN_NODE_H = 80       // --node-height
+const SCOPE_H = 40          // WaveScope height
+const PREVIEW_BAR_H = 40    // NodePreview .bar (palette / colour)
+const PART_THUMB_H = 52     // .partThumb height
+const RING_PREVIEW_PX = 116 // RING_PREVIEW_PX in StudioNode.tsx
+const CORKSCREW_PREVIEW_H = 150
+const FRAME_PREVIEW_MAX_AXIS = 128
+const FRAME_PREVIEW_MIN_HEIGHT = 8
+const PROP_GAP = 3          // .props / .propGroup flex gap
+const PROP_MARGIN_TOP = 4   // .props margin-top
+const PROP_PAD_TOP = 7      // .props border-top 1px + padding-top 6px
+const EXPOSE_BTN_H = 22     // .exposeInputs (3px padding + 12px caption line)
+const GROUP_HEADER_H = 20   // .propGroupHeader
+const SLIDER_ROW_H = 16     // range input row
+const SELECT_ROW_H = 22     // native <select> row
+const INPUT_ROW_H = 20      // .propInput row
+const CHECK_ROW_H = 16      // checkbox row (13px box in a 16px line)
+const COLOR_ROW_H = 18      // .colorInput row
+const CAPTION_PX = 7.2      // 12px JetBrains Mono advance
+const BADGE_PX = 6.12       // 9px JetBrains Mono + 0.08em tracking
+const TITLE_PX = 9.1        // 14px Audiowide average advance
+const COMMENT_EDITOR_H = 92 // .commentEditor min-height
+const CODE_LABEL_H = 16     // .codeLabel line (+8px margin-top)
+const CODE_GLOBAL_H = 56    // Global editor min-height (+8px margin-top)
+const CODE_LOOP_H = 120     // Loop editor min-height (+8px margin-top)
+const NOTE_LINE_H = 15.6    // .previewNote 12px × 1.3 (+8px margin-top)
+const WIDGET_MARGIN = 4     // HardwareInputBody rows' margin-top
 const BUTTON_WIDGET_H = 28
-const POT_WIDGET_H = 24
-const ENCODER_WIDGET_H = 48
+const POT_WIDGET_H = 14
+const ENCODER_WIDGET_H = 28
+const KEY_H = 24            // .keypadKey (4px padding + 12px line + borders)
+const KEY_GAP = 3
 
-const PAD_X = 28          // canvas margin (port dots + glow)
+const PAD_X = 28            // canvas margin (sockets + glow)
 const PAD_TOP = 24
-const PAD_BOT = 34        // room for the drop shadow
+const PAD_BOT = 40          // room for the drop shadow
 
 // ── Palette (tokens.css, dark theme) ──
 const C = {
-  canvas: '#0d0f12',        // --bg-primary
-  node: '#1f242b',          // --bg-node
-  border: 'rgba(255,255,255,0.12)',   // --border-glow
-  divider: 'rgba(255,255,255,0.08)',  // --divider (nudged for SVG legibility)
-  text: '#e0e0e0',          // --text-primary
-  dim: '#a0a0a0',           // --text-secondary
-  slider: '#d633ff',        // --accent-output (propRange accent-color)
-  track: '#cfd2d6',
-  field: '#0d0f12',         // .propInput/.propSelect background
+  canvas: '#0d0f12',                  // --bg-primary
+  node: '#1f242b',                    // --bg-node
+  border: 'rgba(255,255,255,0.1)',    // --border-glow
+  divider: 'rgba(255,255,255,0.05)',  // --divider
+  text: '#e0e0e0',                    // --text-primary
+  dim: '#a0a0a0',                     // --text-secondary
+  slider: '#d633ff',                  // --accent-output (propRange accent-color)
+  inputAccent: '#d6ff33',             // --accent-input (hardware widgets)
+  math: '#33ff85',                    // --accent-math (scope trace)
+  track: '#cfd2d6',                   // native range track
+  check: '#4a7dff',                   // native checked checkbox (Chrome dark)
+  field: '#0d0f12',                   // .propInput / .propSelect background
+  shape: '#0b0d10',                   // .outputShape background
+  wire: '#5b4824',                    // positioned-string / corkscrew wire
 }
 const MONO = "'JetBrains Mono','Cascadia Mono','Consolas',monospace"
 const DISPLAY = "'Audiowide','Trebuchet MS','Arial Black',sans-serif"
+const BODY_FONT = "'Inter','Segoe UI',sans-serif"
 
-// CATEGORY_TAG in StudioNode.tsx (not exported there)
-const CATEGORY_TAG: Record<string, string> = {
-  input: 'IN', audio: 'AUD', signal: 'SIG', math: 'MTH', color: 'CLR',
-  pattern: 'PAT', field: 'FLD', composite: 'CMP', show: 'SHW',
-  output: 'OUT', note: 'NOTE',
+// .categoryX body tints: how much accent is mixed into --bg-node at the top
+// of the frame (StudioNode.module.css). Notes are a flat mix.
+const CATEGORY_TINT: Record<string, number> = {
+  input: 8, audio: 12, signal: 10, math: 8, color: 16, pattern: 16,
+  field: 14, composite: 12, show: 18, output: 14, note: 16,
 }
 
-// Nodes whose body embeds a bespoke UI in the app — represented on the card by
-// a dashed placeholder strip so the card doesn't pretend the node is ports-only.
-const EMBEDDED_UI: Record<string, string> = {
-  MusicLibrary: 'music library · drop MP3s · analyse',
-  PerformanceGenerator: 'show preview player',
-  Image: 'image drop zone',
-  PatternCollection: 'collected patterns list',
-  Transition: 'transition picker',
-  TransitionSet: 'transition pool',
-  CustomPalette: 'palette editor',
-  Poline: 'poline palette editor',
-  MatrixOutput: 'board · port · upload',
-  Code: 'Global / Loop C++ editors',
+// Nodes whose body embeds a bespoke UI in the app, drawn on the card as a
+// dashed placeholder of the body's measured height (zoom 1, default state).
+// `top` bodies render above the preview and port rows; the rest sit between
+// the port rows and the property editors, as StudioNode orders them.
+const EMBEDDED_UI: Record<string, { label: string; h: number; top?: boolean }> = {
+  BeatDetect: { label: 'beat detector · LIVE / PREVIEW', h: 56, top: true },
+  FFTAnalyzer: { label: 'spectrum analyser · LOW / MID / HIGH', h: 124, top: true },
+  Audio: { label: 'audio source picker', h: 278, top: true },
+  Storage: { label: 'storage provider picker', h: 42, top: true },
+  ButtonBank: { label: '+ connect button…', h: 28, top: true },
+  IRRemoteInput: { label: 'map IR remote buttons', h: 75, top: true },
+  DMXInput: { label: 'Art-Net monitor · HELPER OFFLINE', h: 181, top: true },
+  RTCInput: { label: 'preview clock', h: 101, top: true },
+  MidiInput: { label: 'MIDI monitor', h: 53, top: true },
+  CustomPalette: { label: 'palette stops', h: 90, top: true },
+  Poline: { label: 'poline anchors', h: 89, top: true },
+  MusicLibrary: { label: '♪ drop MP3s here or click to browse', h: 146 },
+  PerformanceGenerator: { label: 'show preview player', h: 72 },
+  Image: { label: '[ img ] drop image or GIF', h: 74 },
+  SDVideo: { label: 'frame rate · clip picker', h: 99 },
+  Board: { label: 'board · port · upload', h: 120 },
+  TransportDisplay: { label: 'edit screen design', h: 212 },
+  InfoDisplay: { label: 'OLED layout', h: 83 },
+  SegmentDisplay: { label: 'segment layout', h: 82 },
+  PowerSwitchOutput: { label: 'load · off', h: 15 },
+  StereoVuMeter: { label: 'VU ladder · NO AUDIO', h: 85 },
+  TouchInput: { label: 'calibrate touch', h: 28 },
+  PatternCollection: { label: 'choose saved patterns or connect…', h: 98 },
+  Transition: { label: 'transition picker', h: 387 },
+  TransitionSet: { label: '▸ transitions · 0 selected', h: 27 },
+  PaletteBank: { label: '▸ palettes · 0 in bank', h: 208 },
 }
 
 // ── Small helpers ──
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-/** moduleCode + a deterministic 3-digit tag, matching the header badge style. */
-const moduleCode = (t: string) => t.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
 const hash3 = (t: string) => {
   let h = 0
   for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0
@@ -161,6 +234,8 @@ const fmtNum = (v: number) => {
   if (Number.isInteger(v)) return String(v)
   return String(Number(v.toFixed(2)))
 }
+/** showNum in StudioNode.tsx: a live float trimmed to a readable precision. */
+const showNum = (n: number) => String(Math.round(n * 1000) / 1000)
 const fmtVal = (v: unknown): string => {
   if (typeof v === 'number') return fmtNum(v)
   if (Array.isArray(v)) return v.map((x) => (typeof x === 'number' ? fmtNum(x) : String(x))).join(',')
@@ -173,89 +248,178 @@ const truncate = (s: string, maxPx: number, pxPerChar: number) => {
   return s.length <= max ? s : s.slice(0, max - 1) + '…'
 }
 
-// StudioNode's generic-property exclusions (edited via dedicated UI, or not
-// user-facing) — keep in sync with the `editable` filter in StudioNode.tsx.
-const EXCLUDED_KEYS = new Set([
-  'font', 'image', 'animation', 'code', 'globalCode', 'clampInputs',
-  'patternIds', 'patternSections', 'transitions', 'previewHidden', 'bypassed',
-  'showInMainPreview', 'usePsram', 'psramPolicy', 'psramMode', 'serialRoute', 'width', 'height', 'paramId',
-])
-
-function editableEntries(def: NodeDefinition, props: Record<string, unknown>): Array<[string, unknown]> {
-  const hasRGB = 'r' in props && 'g' in props && 'b' in props
-  return Object.entries(props).filter(([k]) =>
-    !EXCLUDED_KEYS.has(k)
-    && !(def.type === 'CustomPalette' && (k === 'colors' || k === 'positions'))
-    && !(def.type === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
-    && !(def.type === 'Comment' && k === 'text')
-    && !(hasRGB && (k === 'r' || k === 'g' || k === 'b')))
+/** Greedy word wrap at a character budget, for the preview note. */
+function wrapText(text: string, maxChars: number): string[] {
+  const lines: string[] = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    const next = line ? `${line} ${word}` : word
+    if (next.length > maxChars && line) {
+      lines.push(line)
+      line = word
+    } else {
+      line = next
+    }
+  }
+  if (line) lines.push(line)
+  return lines
 }
 
-/** Whether the r/g/b colour swatch row is shown (StudioNode's showRGB gates). */
-function showsRGBSwatch(def: NodeDefinition, props: Record<string, unknown>): boolean {
-  if (!('r' in props && 'g' in props && 'b' in props)) return false
-  if (def.type === 'Mirror' && props.glow !== true) return false
-  if (def.type === 'Boids' && props.colorMode !== 'solid') return false
-  if (def.type === 'BeatFlash' && String(props.palette ?? 'none') !== 'none') return false
-  return true
+const hexToRgb = (hex: string): RGB => {
+  const n = parseInt(hex.slice(1), 16)
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+const toHex = ({ r, g, b }: RGB) =>
+  '#' + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('')
+/** color-mix(in srgb, a p%, b) */
+const mix = (a: string, b: string, p: number) => {
+  const A = hexToRgb(a), B = hexToRgb(b)
+  const t = p / 100
+  return toHex({ r: A.r * t + B.r * (1 - t), g: A.g * t + B.g * (1 - t), b: A.b * t + B.b * (1 - t) })
 }
 
-// One renderable row in the .props section.
+const isHexColor = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+
+const mono = (x: number, y: number, text: string, size = 12, fill = C.dim, extra = '') =>
+  `<text x="${x}" y="${y}" font-family=${JSON.stringify(MONO)} font-size="${size}" fill="${fill}"${extra}>${esc(text)}</text>`
+
+// ── Part renders, embedded as data URIs ──
+// An <img src="card.svg"> never fetches external resources, so the thumbnail
+// has to travel inside the SVG. Catalogued parts are served from public/;
+// the three legacy module renders arrive through esbuild's dataurl loader
+// (scripts/run-ts.mjs) already encoded.
+const partImageCache = new Map<string, string | null>()
+function partImageHref(src: string): string | null {
+  if (!src) return null
+  if (src.startsWith('data:')) return src
+  if (!partImageCache.has(src)) {
+    try {
+      const file = join(ROOT, 'public', src.replace(/^\//, ''))
+      const ext = src.split('.').pop()?.toLowerCase() ?? 'webp'
+      const mime = ext === 'png' ? 'image/png' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/webp'
+      partImageCache.set(src, `data:${mime};base64,${readFileSync(file).toString('base64')}`)
+    } catch (err) {
+      console.warn(`  [part] ${src}: ${(err as Error).message}`)
+      partImageCache.set(src, null)
+    }
+  }
+  return partImageCache.get(src) ?? null
+}
+
+// ── Property rows ──
+// One renderable row in the .props section, mirroring LivePropertyControls.
 type PropRow =
+  | { kind: 'expose' }
+  | { kind: 'role'; value: string }
   | { kind: 'swatch'; rgb: [number, number, number] }
-  | { kind: 'group'; label: string; expanded?: boolean }
+  | { kind: 'group'; label: string; open: boolean; rows: PropRow[] }
   // `key` identifies the property (meta, exposed sockets); `label` is what the
   // canvas prints for it, which is not always the raw key.
-  | { kind: 'slider'; key: string; label: string; value: number; min: number; max: number; disabled: boolean }
-  | { kind: 'select'; key: string; label: string; value: string; disabled: boolean }
-  | { kind: 'checkbox'; key: string; label: string; value: boolean; disabled: boolean }
-  | { kind: 'input'; key: string; label: string; value: string; disabled: boolean }
+  | { kind: 'slider'; key: string; label: string; value: number; min: number; max: number; disabled: boolean; pin: boolean }
+  | { kind: 'select'; key: string; label: string; value: string; disabled: boolean; pin: boolean }
+  | { kind: 'checkbox'; key: string; label: string; value: boolean; disabled: boolean; pin: boolean }
+  | { kind: 'color'; key: string; label: string; value: string; disabled: boolean; pin: boolean }
+  | { kind: 'input'; key: string; label: string; value: string; disabled: boolean; pin: boolean }
 
-function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): PropRow[] {
+function rowHeight(row: PropRow): number {
+  switch (row.kind) {
+    case 'expose': return EXPOSE_BTN_H
+    case 'role': return SELECT_ROW_H
+    case 'swatch': return COLOR_ROW_H
+    case 'group': return GROUP_HEADER_H + row.rows.reduce((s, r) => s + PROP_GAP + rowHeight(r), 0)
+    case 'slider': return SLIDER_ROW_H
+    case 'select': return SELECT_ROW_H
+    case 'checkbox': return CHECK_ROW_H
+    case 'color': return COLOR_ROW_H
+    case 'input': return INPUT_ROW_H
+  }
+}
+
+function buildPropRows(
+  def: NodeDefinition,
+  props: Record<string, unknown>,
+  wired: ReadonlySet<string>,
+  exposedKeys: ReadonlySet<string>,
+  ports: { inputs: NodePort[]; outputs: NodePort[] },
+): PropRow[] {
+  const hasRGB = hasRgbProperties(props)
+  // showRGB in StudioNode.tsx: Mirror's r/g/b is only the glow tint, Boids
+  // only uses it in 'solid' mode, BeatFlash's solid colour is unused once a
+  // palette is selected.
+  const showRGB = hasRGB
+    && (def.type !== 'Mirror' || props.glow === true)
+    && (def.type !== 'Boids' || props.colorMode === 'solid')
+    && (def.type !== 'BeatFlash' || String(props.palette ?? 'none') === 'none')
+  const isGroupInput = def.type === 'GroupInput'
+  const isMatrixOutput = def.type === 'MatrixOutput'
+  const entries = editableProperties(def.type, props)
+  const showClamp = hasClampableInputs(def.type, ports.inputs)
+  const showBypass = bypassPort(ports.outputs, ports.inputs) != null
+  const showSetDefault = def.type === 'MicInput' || def.type === 'MatrixOutput'
+  if (!(showRGB || entries.length > 0 || showClamp || showBypass || isGroupInput || showSetDefault || isMatrixOutput)) return []
+
   const rows: PropRow[] = []
-  if (showsRGBSwatch(def, props)) {
-    rows.push({ kind: 'swatch', rgb: [Number(props.r), Number(props.g), Number(props.b)] })
-  }
-  const entries = editableEntries(def, props)
+  if (exposableInputsFor(def.type).length > 0) rows.push({ kind: 'expose' })
+  if (isGroupInput) rows.push({ kind: 'role', value: String(props.paramId ?? '') || '— input —' })
+  if (showRGB) rows.push({ kind: 'swatch', rgb: [Number(props.r), Number(props.g), Number(props.b)] })
+
   const entryRow = ([key, val]: [string, unknown]): PropRow => {
-    const disabled = !isPropertyEnabled(def.type, key, props)
+    const isWired = wired.has(key)
+    const gated = !isPropertyEnabled(def.type, key, props)
+    const disabled = isWired || gated
     const meta = propertyMeta(def.type, key)
-    const label = propertyLabel(def.type, key)
-    if (meta?.control === 'slider' && typeof val === 'number') {
-      return { kind: 'slider', key, label, value: val, min: meta.min, max: meta.max, disabled }
+    const label = propertyLabel(def.type, key, props)
+    const pin = !isWired && isPinnableProperty(def.type, key, val)
+    if (meta?.control === 'select') {
+      let value = String(val)
+      if (def.type === 'TransportDisplay' && key === 'tftLayout') {
+        // Without a wired source the panel offers only Waiting / Diagnostics /
+        // Custom design (transportLayoutChoicesForKind(null)).
+        value = val === CUSTOM_DESIGN_LAYOUT ? CUSTOM_DESIGN_LAYOUT
+          : asTransportDisplayLayout(val) === 'Diagnostics' ? 'Diagnostics' : 'Waiting'
+      }
+      return { kind: 'select', key, label, value, disabled, pin }
     }
-    if (meta?.control === 'select') return { kind: 'select', key, label, value: String(val), disabled }
-    if (typeof val === 'boolean') return { kind: 'checkbox', key, label, value: val, disabled }
-    return { kind: 'input', key, label, value: fmtVal(val), disabled }
+    if (isGpioPinProperty(def.type, key) && meta?.control === 'slider' && typeof val === 'number') {
+      // BoardPinPicker: a select of known-good pins, drawn as a select.
+      return { kind: 'select', key, label, value: String(val), disabled, pin }
+    }
+    if (meta?.control === 'slider' && typeof val === 'number') {
+      return { kind: 'slider', key, label, value: val, min: meta.min, max: meta.max, disabled, pin }
+    }
+    if (typeof val === 'boolean') return { kind: 'checkbox', key, label, value: val, disabled, pin }
+    if (isHexColor(val)) return { kind: 'color', key, label, value: val, disabled, pin }
+    if (supportsScalarExpression(def.type, key)) return { kind: 'input', key, label, value: String(val), disabled, pin }
+    if (typeof val === 'number') return { kind: 'input', key, label, value: showNum(val), disabled, pin }
+    return { kind: 'input', key, label, value: fmtVal(val), disabled, pin }
   }
+
   const groups = propertyGroupsFor(def.type)
   if (groups) {
-    // Open the player's timing controls in its reference card so its beat
-    // switch and cooldown range can be compared with the property notes.
     const grouped = new Set(groups.flatMap((g) => g.keys))
     for (const g of groups) {
-      if (entries.some(([k]) => g.keys.includes(k))) {
-        rows.push({ kind: 'group', label: g.label, expanded: def.type === 'PatternMaster' })
-        if (def.type === 'PatternMaster') {
-          for (const key of g.keys) {
-            const entry = entries.find(([entryKey]) => entryKey === key)
-            if (entry) rows.push(entryRow(entry))
-          }
-        }
-      }
+      const groupEntries = entries.filter(([k]) => g.keys.includes(k))
+      if (groupEntries.length === 0) continue
+      // Groups start collapsed. The player's timing controls are opened on its
+      // reference card so its beat switch and cooldown range can be compared
+      // with the property notes; a collapsed group still shows the rows whose
+      // socket is exposed, exactly as the canvas does.
+      const open = def.type === 'PatternMaster'
+      const shown = open ? groupEntries : groupEntries.filter(([k]) => exposedKeys.has(k))
+      rows.push({ kind: 'group', label: g.label, open, rows: shown.map(entryRow) })
     }
     for (const e of entries) if (!grouped.has(e[0])) rows.push(entryRow(e))
   } else {
     for (const e of entries) rows.push(entryRow(e))
   }
-  if (hasClampableInputs(def.type, def.inputs)) {
-    rows.push({ kind: 'checkbox', key: 'clamp inputs', label: 'clamp inputs', value: false, disabled: false })
+  if (showClamp) {
+    rows.push({ kind: 'checkbox', key: 'clamp inputs', label: 'clamp inputs', value: Boolean(props.clampInputs), disabled: false, pin: false })
   }
-  if (bypassPort(def.outputs, def.inputs) != null) {
-    rows.push({ kind: 'checkbox', key: 'bypass', label: 'bypass', value: false, disabled: false })
+  if (showBypass) {
+    rows.push({ kind: 'checkbox', key: 'bypass', label: 'bypass', value: Boolean(props.bypassed), disabled: false, pin: false })
   }
-  if (def.type === 'MicInput' || def.type === 'MatrixOutput') {
-    rows.push({ kind: 'checkbox', key: 'set default', label: 'set default', value: false, disabled: false })
+  if (showSetDefault) {
+    rows.push({ kind: 'checkbox', key: 'set default', label: 'set default', value: false, disabled: false, pin: false })
   }
   return rows
 }
@@ -265,10 +429,8 @@ function buildPropRows(def: NodeDefinition, props: Record<string, unknown>): Pro
 // fixed tick and bake the result into the card. Frame/field inputs get a stock
 // source wired in (like a user would) so effect nodes show their effect
 // instead of black.
-const PREVIEW_GRID = 16
-const PREVIEW_W = NODE_W - BODY_PAD * 2   // BODY_CONTENT_W
-const PREVIEW_FRAME_H = PREVIEW_W          // 16×16 matrix aspect
-const PREVIEW_STRIP_H = 40                 // palette / colour swatch height
+const PREVIEW_GRID = 16                    // the default 16×16 composition
+const BODY_CONTENT_W = NODE_W - BODY_PAD * 2
 const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
 
 // Shape-drawing nodes read best with their optional base frame left unwired;
@@ -311,11 +473,7 @@ type PreviewData =
   | { kind: 'palette'; stops: RGB[] }
   | { kind: 'color'; rgb: RGB }
 
-function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>): PreviewData | null {
-  if (def.type === 'Wave' || def.type === 'ComplexWave') return null
-  const out = def.outputs[0]
-  if (!out || !['frame', 'palette', 'color'].includes(out.dataType)) return null
-
+function buildPreview(def: NodeDefinition, out: NodePort, overrides?: Record<string, unknown>): PreviewData | null {
   // Preview variants of the same stateful node need distinct evaluator ids;
   // otherwise rendering an overridden Starfield/Particles card first advances
   // the default card's state and makes generator output depend on call order.
@@ -369,10 +527,55 @@ function buildPreview(def: NodeDefinition, overrides?: Record<string, unknown>):
   }
 }
 
-let paletteGradientId = 0
+// The preview evaluation dominates generation time and graphs repeat the same
+// stock nodes, so cache by type + overrides.
+const previewCache = new Map<string, PreviewData | null>()
+function buildPreviewCached(def: NodeDefinition, out: NodePort, overrides?: Record<string, unknown>): PreviewData | null {
+  const key = `${def.type}|${JSON.stringify(overrides ?? {})}`
+  if (!previewCache.has(key)) previewCache.set(key, withRandomSeed(`node-preview:${key}`, () => buildPreview(def, out, overrides)))
+  return previewCache.get(key)!
+}
+
+let gradientId = 0
 const px = ({ r, g, b }: RGB) =>
   `rgb(${Math.round(Math.max(0, Math.min(255, r)))},${Math.round(Math.max(0, Math.min(255, g)))},${Math.round(Math.max(0, Math.min(255, b)))})`
 
+// ── LED emitters (HardwareLedPreview's Lamp: a core plus one soft surround) ──
+// One <use> per LED against a shared symbol per emitter size, so a 16×16
+// thumbnail costs 256 elements rather than 512 and the file stays near the
+// size of the single-rect cards it replaces. `canvasWrap` drains the symbols
+// into the file's <defs>.
+const lampDefs = new Map<string, string>()
+function lampSymbol(w: number, h: number): string {
+  const id = `lamp-${w.toFixed(2)}x${h.toFixed(2)}`
+  if (!lampDefs.has(id)) {
+    const parts = [`<g id="${id}">`]
+    for (const layer of EMITTER_GLOW) {
+      parts.push(`<rect x="${(-w * (layer.along - 1) / 2).toFixed(2)}" y="${(-h * (layer.across - 1) / 2).toFixed(2)}" width="${(w * layer.along).toFixed(2)}" height="${(h * layer.across).toFixed(2)}" rx="${(h * layer.across * 0.5).toFixed(2)}" fill-opacity="${layer.opacity}"/>`)
+    }
+    parts.push(`<rect width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${(Math.min(w, h) * 0.22).toFixed(2)}"/>`, '</g>')
+    lampDefs.set(id, parts.join(''))
+  }
+  return id
+}
+function lampSvg(color: string, x: number, y: number, w: number, h: number, opacity = 1): string {
+  const op = opacity < 1 ? ` opacity="${opacity.toFixed(2)}"` : ''
+  return `<use href="#${lampSymbol(w, h)}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="${color}"${op}/>`
+}
+
+/** The symbols drawn so far, as a <defs> block, for an SVG shell that does
+ *  not go through canvasWrap. */
+function drainLampDefs(): string[] {
+  const defs = lampDefs.size ? [`<defs>${[...lampDefs.values()].join('')}</defs>`] : []
+  lampDefs.clear()
+  return defs
+}
+function withLampDefs(emitters: string[]): string[] {
+  return [...drainLampDefs(), ...emitters]
+}
+
+/** A frame sampled down onto a `columns`×`rows` emitter grid, like the
+ *  proportional sampling in HardwareLedPreview's paint loop. */
 function gridEmitters(frame: Frame | null, columns: number, rows: number, x: number, y: number, width: number, height: number): string[] {
   const cellW = width / columns
   const cellH = height / rows
@@ -380,321 +583,684 @@ function gridEmitters(frame: Frame | null, columns: number, rows: number, x: num
   const emitterH = cellH * LED_CELL_FILL
   const insetX = (cellW - emitterW) / 2
   const insetY = (cellH - emitterH) / 2
-  const radius = Math.min(emitterW, emitterH) * 0.18
+  const srcH = frame?.length ?? 0
+  const srcW = frame?.[0]?.length ?? 0
   const parts: string[] = []
   for (let ry = 0; ry < rows; ry++) {
     for (let rx = 0; rx < columns; rx++) {
-      const color = frame?.[ry]?.[rx] ?? { r: 0, g: 0, b: 0 }
-      parts.push(`<rect x="${(x + rx * cellW + insetX).toFixed(2)}" y="${(y + ry * cellH + insetY).toFixed(2)}" width="${emitterW.toFixed(2)}" height="${emitterH.toFixed(2)}" rx="${radius.toFixed(2)}" fill="${px(color)}"/>`)
+      const sy = srcH ? Math.min(srcH - 1, Math.floor(ry * srcH / rows)) : 0
+      const sx = srcW ? Math.min(srcW - 1, Math.floor(rx * srcW / columns)) : 0
+      const color = frame?.[sy]?.[sx] ?? { r: 0, g: 0, b: 0 }
+      parts.push(lampSvg(px(color), x + rx * cellW + insetX, y + ry * cellH + insetY, emitterW, emitterH))
     }
   }
   return parts
 }
 
-function frameEmitters(frame: Frame | null, x: number, y: number, width: number, height: number): string[] {
-  return gridEmitters(frame, PREVIEW_GRID, PREVIEW_GRID, x, y, width, height)
+/** NodePreview's FrameThumb: a bordered box the matrix fills at its own aspect. */
+function frameThumbSvg(frame: Frame | null, x: number, y: number, w: number, h: number, cols: number, rows: number): string {
+  const grid = thumbGrid(cols, rows)
+  return [
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${C.canvas}" stroke="${C.border}"/>`,
+    // The 1px border is inside the box (box-sizing: border-box).
+    ...gridEmitters(frame, grid.cols, grid.rows, x + 1, y + 1, w - 2, h - 2),
+  ].join('\n')
 }
 
-function previewSvg(p: PreviewData, y: number): string {
+function previewSvg(p: PreviewData, x: number, y: number, w: number): string {
   if (p.kind === 'frame') {
-    const parts = [`<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_FRAME_H}" rx="4" fill="${C.canvas}" stroke="${C.border}"/>`]
-    parts.push(...frameEmitters(p.frame, BODY_PAD, y, PREVIEW_W, PREVIEW_FRAME_H))
-    return parts.join('\n')
+    return frameThumbSvg(p.frame, x, y, w, w, PREVIEW_GRID, PREVIEW_GRID)
   }
   if (p.kind === 'palette') {
-    const id = `pal${++paletteGradientId}`
+    const id = `pal${++gradientId}`
     const stops = p.stops.map((c, i) => `<stop offset="${(i / (p.stops.length - 1) * 100).toFixed(1)}%" stop-color="${px(c)}"/>`).join('')
     return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${stops}</linearGradient></defs>
-<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_STRIP_H}" rx="4" fill="url(#${id})" stroke="${C.border}"/>`
+<rect x="${x}" y="${y}" width="${w}" height="${PREVIEW_BAR_H}" rx="4" fill="url(#${id})" stroke="${C.border}"/>`
   }
-  return `<rect x="${BODY_PAD}" y="${y}" width="${PREVIEW_W}" height="${PREVIEW_STRIP_H}" rx="4" fill="${px(p.rgb)}" stroke="${C.border}"/>`
+  return `<rect x="${x}" y="${y}" width="${w}" height="${PREVIEW_BAR_H}" rx="4" fill="${px(p.rgb)}" stroke="${C.border}"/>`
+}
+
+/** The ▾ button in the top-right corner of every preview wrap. */
+function previewToggleSvg(right: number, y: number): string {
+  const x = right - 2 - 16
+  return [
+    `<rect x="${x}" y="${y + 2}" width="16" height="14" rx="3" fill="rgba(0,0,0,0.45)"/>`,
+    `<text x="${x + 8}" y="${y + 12}" text-anchor="middle" font-size="9" fill="${C.dim}">▾</text>`,
+  ].join('\n')
+}
+
+// ── The LED output's own preview, in the shape of the part it drives ──
+type OutputShape = { h: number; render: (x: number, y: number, w: number, frame: Frame | null) => string }
+
+function outputShapeFor(props: Record<string, unknown>, contentW: number): OutputShape {
+  const form = outputForm(props)
+  const grid = outputGridDims(props)
+  const shapeBox = (x: number, y: number, w: number, h: number, extra = '') =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${C.shape}" stroke="rgba(255,255,255,0.06)"${extra}/>`
+
+  if (form === 'ring') {
+    const size = RING_PREVIEW_PX
+    const ring = { ledCount: grid.width, startAngle: ringStartAngle(props), direction: ringDirection(props) }
+    const canvas = outputCanvasDims(props)
+    const map = ringSampleMap(grid.width, ring.startAngle, ring.direction, canvas.width, canvas.height)
+    return {
+      h: size,
+      render: (x, y, w, frame) => {
+        const cx = x + w / 2
+        const cy = y + size / 2
+        const r = size / 2
+        // The annulus: .outputShapeRing masks the disc out of the middle.
+        const parts = [`<path d="M${cx - r},${cy} a${r},${r} 0 1,0 ${size},0 a${r},${r} 0 1,0 -${size},0 M${cx - r * 0.69},${cy} a${r * 0.69},${r * 0.69} 0 1,1 ${size * 0.69},0 a${r * 0.69},${r * 0.69} 0 1,1 -${size * 0.69},0" fill="${C.shape}" fill-rule="evenodd"/>`]
+        const cells = ringUnitPoints(ring, 0.5 - RING_LED_RADIUS * 1.6)
+        cells.forEach((cell, index) => {
+          const sample = map[index] ?? 0
+          const color = frame?.[Math.floor(sample / canvas.width)]?.[sample % canvas.width] ?? { r: 0, g: 0, b: 0 }
+          parts.push(lampSvg(px(color), cx - r + (cell.cx - RING_LED_RADIUS) * size, cy - r + (cell.cy - RING_LED_RADIUS) * size, RING_LED_RADIUS * 2 * size, RING_LED_RADIUS * 2 * size))
+        })
+        return parts.join('\n')
+      },
+    }
+  }
+
+  if (form === 'corkscrew') {
+    const diameter = corkscrewDiameterMm(props)
+    const physicalHeight = corkscrewHeightMm(props)
+    const h = CORKSCREW_PREVIEW_H
+    const width = Math.max(48, Math.min(160, Math.round(h * diameter / physicalHeight)))
+    const corkscrew = { ledCount: grid.width, turns: corkscrewTurns(props), startAngle: corkscrewStartAngle(props), direction: corkscrewDirection(props) }
+    return {
+      h,
+      render: (x, y, w, frame) => {
+        const left = x + (w - width) / 2
+        const points = corkscrewUnitPoints(corkscrew)
+        const parts = [`<polyline points="${points.map((p) => `${(left + p.cx * width).toFixed(1)},${(y + p.cy * h).toFixed(1)}`).join(' ')}" fill="none" stroke="${C.wire}" stroke-width="${(0.036 * width).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>`]
+        for (const p of [...points].sort((a, b) => a.depth - b.depth)) {
+          const color = frame?.[0]?.[p.index] ?? { r: 0, g: 0, b: 0 }
+          parts.push(lampSvg(px(color), left + (p.cx - CORKSCREW_LED_RADIUS_X * p.scale) * width, y + (p.cy - CORKSCREW_LED_RADIUS_Y * p.scale) * h,
+            CORKSCREW_LED_RADIUS_X * 2 * p.scale * width, CORKSCREW_LED_RADIUS_Y * 2 * p.scale * h, p.opacity))
+        }
+        return parts.join('\n')
+      },
+    }
+  }
+
+  const positioned = stringPositions(props)
+  if (positioned) {
+    const h = Math.max(FRAME_PREVIEW_MIN_HEIGHT, Math.round((contentW * positioned.canvasH) / positioned.canvasW))
+    return {
+      h,
+      render: (x, y, w, frame) => {
+        const sx = w / positioned.canvasW
+        const sy = h / positioned.canvasH
+        const radius = Math.max(0.28, Math.min(0.42, 6 / Math.max(positioned.points.length, 1) + 0.2))
+        const parts = [
+          shapeBox(x, y, w, h),
+          `<polyline points="${positioned.points.map(([px_, py_]) => `${(x + px_ * sx).toFixed(1)},${(y + py_ * sy).toFixed(1)}`).join(' ')}" fill="none" stroke="${C.wire}" stroke-width="${(0.18 * sx).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>`,
+        ]
+        positioned.points.forEach(([px_, py_], index) => {
+          const color = frame?.[0]?.[index] ?? { r: 0, g: 0, b: 0 }
+          parts.push(lampSvg(px(color), x + (px_ - radius) * sx, y + (py_ - radius) * sy, radius * 2 * sx, radius * 2 * sy))
+        })
+        return parts.join('\n')
+      },
+    }
+  }
+
+  if (form === 'strip') {
+    // A string is the same one-row frame its upstream node shows: generic
+    // thumbnail wrapper, axis cap and emitter renderer.
+    const cols = Math.min(FRAME_PREVIEW_MAX_AXIS, grid.width)
+    const h = Math.max(FRAME_PREVIEW_MIN_HEIGHT, Math.round(contentW / cols))
+    return { h, render: (x, y, w, frame) => frameThumbSvg(frame, x, y, w, h, cols, 1) }
+  }
+
+  const h = Math.round((contentW * grid.height) / grid.width)
+  return {
+    h,
+    render: (x, y, w, frame) => [
+      shapeBox(x, y, w, h),
+      ...gridEmitters(frame, grid.width, grid.height, x, y, w, h),
+    ].join('\n'),
+  }
 }
 
 // ── SVG fragments ──
-function headerSvg(def: NodeDefinition, accent: string, props: Record<string, unknown>): string {
+function headerSvg(def: NodeDefinition, w: number, accent: string, props: Record<string, unknown>): string {
   const title = nodeDisplayLabel(def.type, props, def.label)
   const tag = CATEGORY_TAG[def.category] ?? 'MOD'
   const code = `${moduleCode(def.type)}-${hash3(def.type)}`
-  const badgeChar = 5.5 // 8px mono + 0.08em letter-spacing
-  const codeW = Math.round(code.length * badgeChar) + 8
-  const tagW = Math.round(tag.length * badgeChar) + 8
-  const codeX = NODE_W - 8 - codeW
-  const tagX = codeX - 6 - tagW
-  const titleMax = tagX - 8 - 6
+  const tagW = Math.round(tag.length * BADGE_PX * 10) / 10 + 8
+  const codeW = Math.round(code.length * BADGE_PX * 10) / 10 + 8
+  const meterW = 20
+  // .headerMeta: padding-left 8, badges and the meter 6px apart, then the
+  // window buttons (2 × 18px, 2px apart) 6px further right, inside the 8px
+  // header padding.
+  const actionsX = w - BODY_PAD - 38
+  const metaW = 8 + tagW + 6 + codeW + 6 + meterW
+  const metaX = actionsX - 6 - metaW
+  const tagX = metaX + 8
+  const codeX = tagX + tagW + 6
+  const meterX = codeX + codeW + 6
+  const titleMax = metaX - BODY_PAD
   const parts: string[] = []
-  parts.push(`<path d="M0,${HEADER_H} L0,${RADIUS} Q0,0 ${RADIUS},0 L${NODE_W - RADIUS},0 Q${NODE_W},0 ${NODE_W},${RADIUS} L${NODE_W},${HEADER_H} Z" fill="${accent}"/>`)
-  parts.push(`<text x="8" y="21" font-family=${JSON.stringify(DISPLAY)} font-size="14" font-weight="600" fill="#000">${esc(truncate(title, titleMax, 9.5))}</text>`)
-  for (const [x, w, label] of [[tagX, tagW, tag], [codeX, codeW, code]] as const) {
-    parts.push(`<rect x="${x}" y="10" width="${w}" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>`)
-    parts.push(`<text x="${x + w / 2}" y="19" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="8" letter-spacing="0.08em" fill="#000">${esc(label)}</text>`)
+  parts.push(`<path d="M0,${HEADER_H} L0,${RADIUS} Q0,0 ${RADIUS},0 L${w - RADIUS},0 Q${w},0 ${w},${RADIUS} L${w},${HEADER_H} Z" fill="${accent}"/>`)
+  // box-shadow: 0 4px 12px accent@18% — the glow the header throws on the body.
+  parts.push(`<rect x="1" y="${HEADER_H}" width="${w - 2}" height="12" fill="url(#headerGlow)" opacity="0.18"/>`)
+  parts.push(`<text x="${BODY_PAD}" y="21" font-family=${JSON.stringify(DISPLAY)} font-size="14" font-weight="600" fill="#000">${esc(truncate(title, titleMax, TITLE_PX))}</text>`)
+  for (const [x, bw, label] of [[tagX, tagW, tag], [codeX, codeW, code]] as const) {
+    parts.push(`<rect x="${x}" y="8" width="${bw}" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>`)
+    parts.push(`<text x="${x + bw / 2}" y="19.5" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="9" letter-spacing="0.08em" fill="#000">${esc(label)}</text>`)
+  }
+  // The signal meter at rest: three 4px dots at their idle opacities.
+  for (const [i, opacity] of [0.2, 0.12, 0.08].entries()) {
+    parts.push(`<circle cx="${meterX + 4 + i * 7}" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="${opacity}"/>`)
+  }
+  for (const [i, glyph] of ['−', '×'].entries()) {
+    const x = actionsX + i * 20
+    parts.push(`<rect x="${x}" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>`)
+    parts.push(`<text x="${x + 9}" y="20.5" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">${glyph}</text>`)
   }
   return parts.join('\n')
 }
 
-function scopeSvg(y: number, accent: string): string {
-  const w = NODE_W - BODY_PAD * 2
-  const pts: string[] = []
-  for (let i = 0; i <= 56; i++) {
-    const x = BODY_PAD + (i / 56) * w
-    const yy = y + SCOPE_H / 2 - Math.sin((i / 56) * Math.PI * 4) * (SCOPE_H / 2 - 6)
-    pts.push(`${x.toFixed(1)},${yy.toFixed(1)}`)
+/** WaveScope: a normalised series on a 40px scope, zero line when it crosses. */
+function scopeSvg(samples: number[], x: number, y: number, w: number): string {
+  const pad = 3
+  let min = Infinity, max = -Infinity
+  for (const s of samples) {
+    if (s < min) min = s
+    if (s > max) max = s
   }
+  const range = Math.max(1e-6, max - min)
+  const pts = samples.map((s, i) => {
+    const sx = x + pad + (i / (samples.length - 1)) * (w - 2 * pad)
+    const sy = y + pad + (1 - (s - min) / range) * (SCOPE_H - 2 * pad)
+    return `${sx.toFixed(1)},${sy.toFixed(1)}`
+  })
+  const parts = [`<rect x="${x}" y="${y}" width="${w}" height="${SCOPE_H}" rx="4" fill="${C.canvas}" stroke="${C.border}"/>`]
+  if (min <= 0 && max >= 0) {
+    const zeroY = y + pad + (1 - (0 - min) / range) * (SCOPE_H - 2 * pad)
+    parts.push(`<line x1="${x}" y1="${zeroY.toFixed(1)}" x2="${x + w}" y2="${zeroY.toFixed(1)}" stroke="${C.divider}"/>`)
+  }
+  if (pts.length >= 2) parts.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${C.math}" stroke-width="1.5" stroke-linejoin="round"/>`)
+  return parts.join('\n')
+}
+
+function scopeSamples(def: NodeDefinition, props: Record<string, unknown>): number[] {
+  if (def.type === 'Wave') {
+    return waveNodeSamples(String(props.waveform ?? 'sine'), Number(props.amplitude ?? 1), Number(props.frequency ?? 1), Number(props.phase ?? 0))
+  }
+  // ComplexWaveScope samples the node's own `result` across the preview
+  // window through the real evaluator; alone on a card its inputs are unwired.
+  const ticks = Array.from({ length: PREVIEW_POINTS }, (_, i) => (i / (PREVIEW_POINTS - 1)) * PREVIEW_SECONDS * 60)
+  const id = `scope-${def.type}`
+  try {
+    return evaluateScalarSeries([mkNode(id, def.type, props)], [], id, 'result', ticks)
+  } catch {
+    return []
+  }
+}
+
+/** A socket: 12px disc with the port colour and its 6px glow. */
+function socketSvg(dataType: string, cx: number, cy: number): string {
+  const col = portColor(dataType)
   return [
-    `<rect x="${BODY_PAD}" y="${y}" width="${w}" height="${SCOPE_H}" rx="4" fill="${C.field}" stroke="${C.border}"/>`,
-    `<line x1="${BODY_PAD}" y1="${y + SCOPE_H / 2}" x2="${BODY_PAD + w}" y2="${y + SCOPE_H / 2}" stroke="rgba(255,255,255,0.06)"/>`,
-    `<polyline points="${pts.join(' ')}" fill="none" stroke="${accent}" stroke-width="1.5" stroke-linejoin="round"/>`,
+    `<circle cx="${cx}" cy="${cy}" r="9" fill="${col}" opacity="0.22"/>`,
+    `<circle cx="${cx}" cy="${cy}" r="6" fill="${col}"/>`,
   ].join('\n')
 }
 
-type NodePorts = NodeDefinition['inputs']
-
-function portRowSvg(inputs: NodePorts, outputs: NodePorts, i: number, y: number): string {
+function portRowSvg(inputs: NodePort[], outputs: NodePort[], i: number, w: number, y: number): string {
   const input = inputs[i]
   const output = outputs[i]
   const cy = y + ROW_H / 2
   const parts: string[] = []
   if (input) {
-    const col = portColor(input.dataType)
-    parts.push(`<circle cx="-2" cy="${cy}" r="9" fill="${col}" opacity="0.25"/>`)
-    parts.push(`<circle cx="-2" cy="${cy}" r="6" fill="${col}" stroke="${C.canvas}" stroke-width="1.5"/>`)
-    parts.push(`<text x="10" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}">${esc(input.label)}</text>`)
+    parts.push(socketSvg(input.dataType, 0, cy))
+    parts.push(mono(BODY_PAD + 10, cy + 4, input.label))
   }
   if (output) {
-    const col = portColor(output.dataType)
-    parts.push(`<circle cx="${NODE_W + 2}" cy="${cy}" r="9" fill="${col}" opacity="0.25"/>`)
-    parts.push(`<circle cx="${NODE_W + 2}" cy="${cy}" r="6" fill="${col}" stroke="${C.canvas}" stroke-width="1.5"/>`)
-    parts.push(`<text x="${NODE_W - 10}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}">${esc(output.label)}</text>`)
+    parts.push(socketSvg(output.dataType, w, cy))
+    parts.push(mono(w - BODY_PAD - 10, cy + 4, output.label, 12, C.dim, ' text-anchor="end"'))
   }
   return parts.join('\n')
 }
 
-/** The socket an exposed property input draws beside its own row (StudioNode's
- *  `.propertyHandle`), so a card shows a property port where the canvas puts it
- *  rather than as a separate port row. */
-function propSocketSvg(dataType: string, cy: number): string {
-  const col = portColor(dataType)
-  return [
-    `<circle cx="-2" cy="${cy}" r="9" fill="${col}" opacity="0.25"/>`,
-    `<circle cx="-2" cy="${cy}" r="6" fill="${col}" stroke="${C.canvas}" stroke-width="1.5"/>`,
-  ].join('\n')
-}
-
-function propRowSvg(row: PropRow, y: number): string {
-  const cy = y + PROP_ROW_H / 2
-  const right = NODE_W - BODY_PAD
+/**
+ * One .propRow: `justify-content: space-between` over [key, control, pin?],
+ * so a pinnable control floats between the key and the pin rather than
+ * hugging the right edge.
+ */
+function propRowSvg(row: PropRow, x: number, y: number, w: number): string {
+  const h = rowHeight(row)
+  const cy = y + h / 2
   const parts: string[] = []
-  const dim = 'disabled' in row && row.disabled ? ' opacity="0.45"' : ''
-  const key = (label: string, maxPx: number) =>
-    `<text x="${BODY_PAD}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.dim}"${dim}>${esc(truncate(label, maxPx, 7.2))}</text>`
+  const left = x + BODY_PAD
+  const right = x + w - BODY_PAD
+  const contentW = right - left
 
-  switch (row.kind) {
-    case 'group':
-      return `<text x="${BODY_PAD}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" letter-spacing="0.03em" fill="${C.dim}">${row.expanded ? '▾' : '▸'} ${esc(row.label.toUpperCase())}</text>`
-    case 'swatch': {
-      const [r, g, b] = row.rgb
-      parts.push(key('color', 160))
-      parts.push(`<rect x="${right - 28}" y="${cy - 9}" width="28" height="18" rx="4" fill="rgb(${r},${g},${b})" stroke="${C.border}"/>`)
-      return parts.join('\n')
+  if (row.kind === 'expose') {
+    return mono(left, cy + 4, 'Expose input…')
+  }
+  if (row.kind === 'group') {
+    parts.push(mono(left, y + GROUP_HEADER_H / 2 + 4, `${row.open ? '▾' : '▸'} ${row.label.toUpperCase()}`, 12, C.dim, ' letter-spacing="0.03em"'))
+    let ry = y + GROUP_HEADER_H + PROP_GAP
+    for (const inner of row.rows) {
+      // .propGroupRows indents its rows by 2px.
+      parts.push(propRowSvg(inner, x + 2, ry, w - 2))
+      ry += rowHeight(inner) + PROP_GAP
     }
+    return parts.join('\n')
+  }
+
+  const label = row.kind === 'role' ? 'role' : row.kind === 'swatch' ? 'color' : row.label
+  const disabled = 'disabled' in row && row.disabled
+  const pin = 'pin' in row && row.pin
+  const controlW = row.kind === 'slider' ? 112
+    : row.kind === 'select' || row.kind === 'role' ? 84
+    : row.kind === 'input' ? 72
+    : row.kind === 'checkbox' ? 13
+    : 28
+  const pinW = pin ? 19.1 : 0
+  const items = pin ? 3 : 2
+  const keyW = Math.min(label.length * CAPTION_PX, contentW - controlW - pinW - 6 * (items - 1))
+  const free = contentW - keyW - controlW - pinW
+  const gap = Math.max(6, free / (items - 1))
+  const controlX = left + keyW + gap
+  const keyText = truncate(label, keyW + 1, CAPTION_PX)
+
+  parts.push(mono(left, cy + 4, keyText, 12, C.dim, disabled ? ' opacity="0.7"' : ''))
+  const dim = disabled ? ' opacity="0.45"' : ''
+  switch (row.kind) {
     case 'slider': {
       const trackW = 72, valW = 34
-      const trackX = right - valW - 6 - trackW
       const frac = Math.max(0, Math.min(1, (row.value - row.min) / (row.max - row.min || 1)))
-      parts.push(key(row.label, trackX - BODY_PAD - 6))
       parts.push(`<g${dim}>`)
-      parts.push(`<rect x="${trackX}" y="${cy - 2}" width="${trackW}" height="4" rx="2" fill="${C.track}" opacity="0.85"/>`)
-      parts.push(`<rect x="${trackX}" y="${cy - 2}" width="${(trackW * frac).toFixed(1)}" height="4" rx="2" fill="${C.slider}"/>`)
-      parts.push(`<circle cx="${(trackX + trackW * frac).toFixed(1)}" cy="${cy}" r="5" fill="${C.slider}"/>`)
-      parts.push(`<text x="${right}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">${esc(fmtNum(row.value))}</text>`)
+      parts.push(`<rect x="${controlX}" y="${cy - 2}" width="${trackW}" height="4" rx="2" fill="${C.track}" opacity="0.85"/>`)
+      parts.push(`<rect x="${controlX}" y="${cy - 2}" width="${(trackW * frac).toFixed(1)}" height="4" rx="2" fill="${C.slider}"/>`)
+      parts.push(`<circle cx="${(controlX + trackW * frac).toFixed(1)}" cy="${cy}" r="6" fill="${C.slider}"/>`)
+      parts.push(mono(controlX + trackW + 6 + valW, cy + 4, showNum(row.value), 12, C.text, ' text-anchor="end"'))
       parts.push('</g>')
-      return parts.join('\n')
+      break
     }
-    case 'select': {
-      const w = 84, x = right - w
-      parts.push(key(row.label, x - BODY_PAD - 6))
+    case 'select':
+    case 'role': {
       parts.push(`<g${dim}>`)
-      parts.push(`<rect x="${x}" y="${cy - 8}" width="${w}" height="16" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
-      parts.push(`<text x="${x + 4}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.text}">${esc(truncate(row.value, w - 18, 6.6))}</text>`)
-      parts.push(`<text x="${x + w - 4}" y="${cy + 4}" text-anchor="end" font-size="8" fill="${C.dim}">▾</text>`)
+      parts.push(`<rect x="${controlX}" y="${cy - 11}" width="${controlW}" height="22" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
+      parts.push(mono(controlX + 4, cy + 4, truncate(row.value, controlW - 18, CAPTION_PX), 12, C.text))
+      parts.push(`<path d="M${controlX + controlW - 12},${cy - 2} l3.5,4 l3.5,-4" fill="none" stroke="${C.text}" stroke-width="1.3"/>`)
       parts.push('</g>')
-      return parts.join('\n')
+      break
     }
     case 'checkbox': {
-      const s = 12, x = right - s
-      parts.push(key(row.label, x - BODY_PAD - 6))
+      const s = 13
       parts.push(`<g${dim}>`)
       if (row.value) {
-        parts.push(`<rect x="${x}" y="${cy - s / 2}" width="${s}" height="${s}" rx="3" fill="${C.slider}"/>`)
-        parts.push(`<path d="M${x + 2.5},${cy} l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`)
+        parts.push(`<rect x="${controlX}" y="${cy - s / 2}" width="${s}" height="${s}" rx="2.5" fill="${C.check}"/>`)
+        parts.push(`<path d="M${controlX + 3},${cy} l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`)
       } else {
-        parts.push(`<rect x="${x}" y="${cy - s / 2}" width="${s}" height="${s}" rx="3" fill="${C.field}" stroke="${C.border}"/>`)
+        parts.push(`<rect x="${controlX}" y="${cy - s / 2}" width="${s}" height="${s}" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>`)
       }
       parts.push('</g>')
-      return parts.join('\n')
+      break
+    }
+    case 'color':
+    case 'swatch': {
+      const fill = row.kind === 'color' ? row.value : `rgb(${row.rgb[0]},${row.rgb[1]},${row.rgb[2]})`
+      parts.push(`<rect x="${controlX}" y="${cy - 9}" width="28" height="18" rx="4" fill="${fill}" stroke="${C.border}"${dim}/>`)
+      break
     }
     case 'input': {
-      const w = 72, x = right - w
-      parts.push(key(row.label, x - BODY_PAD - 6))
       parts.push(`<g${dim}>`)
-      parts.push(`<rect x="${x}" y="${cy - 8}" width="${w}" height="16" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
-      parts.push(`<text x="${x + 4}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.text}">${esc(truncate(row.value, w - 8, 6.6))}</text>`)
+      parts.push(`<rect x="${controlX}" y="${cy - 10}" width="${controlW}" height="20" rx="4" fill="${C.field}" stroke="${C.border}"/>`)
+      parts.push(mono(controlX + 5, cy + 4, truncate(row.value, controlW - 10, CAPTION_PX), 12, C.text))
       parts.push('</g>')
-      return parts.join('\n')
+      break
     }
   }
+  if (pin) {
+    // .pinBtn: 📌 at 11px, greyscale, 60% — "pin to Control Deck".
+    parts.push(`<text x="${right - pinW / 2}" y="${cy + 4}" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>`)
+  }
+  return parts.join('\n')
 }
 
-function stripSvg(label: string, y: number): string {
-  const w = NODE_W - BODY_PAD * 2
+function stripSvg(label: string, x: number, y: number, w: number, h: number): string {
   return [
-    `<rect x="${BODY_PAD}" y="${y}" width="${w}" height="${STRIP_H}" rx="4" fill="none" stroke="${C.border}" stroke-dasharray="4 3"/>`,
-    `<text x="${NODE_W / 2}" y="${y + STRIP_H / 2 + 4}" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="10" font-style="italic" fill="${C.dim}">${esc(label)}</text>`,
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="none" stroke="${C.border}" stroke-dasharray="4 3"/>`,
+    `<text x="${x + w / 2}" y="${y + Math.min(h, 24) / 2 + 4}" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="10" font-style="italic" fill="${C.dim}">${esc(label)}</text>`,
   ].join('\n')
 }
 
-function noteSvg(text: string, y: number): string {
-  const w = NODE_W - BODY_PAD * 2
+function commentEditorSvg(text: string, x: number, y: number, w: number): string {
+  const lines = text ? text.split('\n') : ['Note…']
+  const fill = text ? C.text : 'rgba(224,224,224,0.5)'
   return [
-    `<rect x="${BODY_PAD}" y="${y}" width="${w}" height="${NOTE_H}" rx="4" fill="none" stroke="${C.border}" stroke-dasharray="4 3"/>`,
-    `<text x="${BODY_PAD + 8}" y="${y + 18}" font-family="'Inter','Segoe UI',sans-serif" font-size="14" fill="${C.text}">${esc(text)}</text>`,
+    `<rect x="${x}" y="${y}" width="${w}" height="${COMMENT_EDITOR_H}" rx="4" fill="none" stroke="${C.border}" stroke-dasharray="3 2"/>`,
+    ...lines.slice(0, 4).map((line, i) =>
+      `<text x="${x + 8}" y="${y + 6 + 14 + i * 19.6}" font-family=${JSON.stringify(BODY_FONT)} font-size="14" fill="${fill}">${esc(line)}</text>`),
   ].join('\n')
 }
 
-function hardwareWidgetSvg(def: NodeDefinition, props: Record<string, unknown>, y: number): string | null {
-  const w = NODE_W - BODY_PAD * 2
-  if (def.type === 'ButtonInput') {
-    const buttonW = 78
-    const x = BODY_PAD + ((w - buttonW) / 2)
+function codeEditorSvg(code: string, placeholder: string, x: number, y: number, w: number, h: number): string {
+  const lines = code ? code.split('\n') : [placeholder]
+  const fill = code ? C.text : 'rgba(160,160,160,0.7)'
+  const maxLines = Math.floor((h - 12) / 17.4)
+  return [
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${C.canvas}" stroke="${C.border}"/>`,
+    ...lines.slice(0, maxLines).map((line, i) =>
+      mono(x + 8, y + 6 + 13 + i * 17.4, truncate(line, w - 16, CAPTION_PX), 12, fill)),
+  ].join('\n')
+}
+
+// ── Hardware-input widgets (HardwareInputBody) ──
+function buttonWidgetSvg(label: string, x: number, y: number, w: number): string {
+  return [
+    `<rect x="${x}" y="${y}" width="${w}" height="${BUTTON_WIDGET_H}" rx="6" fill="none" stroke="${C.border}"/>`,
+    `<text x="${x + w / 2}" y="${y + 18}" text-anchor="middle" font-family=${JSON.stringify(BODY_FONT)} font-size="12" letter-spacing="0.04em" fill="${C.dim}">${esc(label.toUpperCase())}</text>`,
+  ].join('\n')
+}
+
+function potWidgetSvg(fraction: number, readout: string, x: number, y: number, w: number): string {
+  const readoutW = 26
+  const trackW = w - 8 - readoutW
+  const cy = y + POT_WIDGET_H / 2
+  const f = Math.max(0, Math.min(1, fraction))
+  return [
+    `<rect x="${x}" y="${y}" width="${trackW}" height="${POT_WIDGET_H}" rx="7" fill="rgba(255,255,255,0.06)" stroke="${C.border}"/>`,
+    `<rect x="${x}" y="${y}" width="${(trackW * f).toFixed(1)}" height="${POT_WIDGET_H}" rx="7" fill="${C.inputAccent}" opacity="0.35"/>`,
+    `<circle cx="${(x + trackW * f).toFixed(1)}" cy="${cy}" r="7" fill="${C.inputAccent}" opacity="0.35"/>`,
+    `<circle cx="${(x + trackW * f).toFixed(1)}" cy="${cy}" r="5" fill="${C.inputAccent}"/>`,
+    mono(x + w, cy + 3.5, readout, 10, C.dim, ' text-anchor="end"'),
+  ].join('\n')
+}
+
+function encoderWidgetSvg(readout: string, x: number, y: number): string {
+  const r = 14
+  const cx = x + r
+  const cy = y + r
+  return [
+    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="rgba(255,255,255,0.06)" stroke="${C.border}"/>`,
+    `<rect x="${cx - 1}" y="${y + 3}" width="2" height="8" rx="1" fill="${C.inputAccent}"/>`,
+    mono(x + 28 + 8 + 26, cy + 3.5, readout, 10, C.dim, ' text-anchor="end"'),
+  ].join('\n')
+}
+
+function keypadWidgetSvg(legends: readonly string[], x: number, y: number, w: number): string {
+  const keyW = (w - KEY_GAP * 3) / 4
+  return legends.map((legend, i) => {
+    const kx = x + (i % 4) * (keyW + KEY_GAP)
+    const ky = y + Math.floor(i / 4) * (KEY_H + KEY_GAP)
     return [
-      `<rect x="${x}" y="${y}" width="${buttonW}" height="${BUTTON_WIDGET_H}" rx="8" fill="${C.field}" stroke="${C.border}"/>`,
-      `<text x="${x + buttonW / 2}" y="${y + 18}" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">press</text>`,
+      `<rect x="${kx.toFixed(2)}" y="${ky}" width="${keyW.toFixed(2)}" height="${KEY_H}" rx="5" fill="none" stroke="${C.border}"/>`,
+      `<text x="${(kx + keyW / 2).toFixed(2)}" y="${ky + 16}" text-anchor="middle" font-family=${JSON.stringify(BODY_FONT)} font-size="12" fill="${C.dim}">${esc(legend)}</text>`,
     ].join('\n')
+  }).join('\n')
+}
+
+type Widget = { h: number; render: (x: number, y: number, w: number) => string }
+
+/** The rows HardwareInputBody draws for a node type, in order, each with the
+ *  4px margin-top the live widgets carry. */
+function hardwareWidgets(def: NodeDefinition, props: Record<string, unknown>): Widget[] {
+  const partId = props.partId
+  const button = (label: string): Widget => ({ h: WIDGET_MARGIN + BUTTON_WIDGET_H, render: (x, y, w) => buttonWidgetSvg(label, x, y + WIDGET_MARGIN, w) })
+  const pot = (fraction: number, readout: string): Widget => ({ h: WIDGET_MARGIN + POT_WIDGET_H, render: (x, y, w) => potWidgetSvg(fraction, readout, x, y + WIDGET_MARGIN, w) })
+  switch (def.type) {
+    case 'PowerMonitorInput': {
+      const start = powerMonitorPreviewDefaults(partId)
+      return [
+        pot(start.volts, `${powerMonitorPreviewReading(partId, start.volts, 0).volts.toFixed(1)} V`),
+        pot(start.amps, `${powerMonitorPreviewReading(partId, 0, start.amps).amps.toFixed(2)} A`),
+      ]
+    }
+    case 'MotionVectorInput':
+      return MOTION_VECTOR_AXES.map((axis) => {
+        const fraction = motionVectorPreviewDefault(partId, axis)
+        const value = motionVectorPreviewReading(partId, axis, fraction)
+        return pot(fraction, axis.startsWith('accel') ? `${axis.slice(5)} ${value.toFixed(2)} g` : `${axis.slice(4)} ${Math.round(value)}°/s`)
+      })
+    case 'KeypadInput':
+      return [{ h: WIDGET_MARGIN + KEY_H * 4 + KEY_GAP * 3, render: (x, y, w) => keypadWidgetSvg(KEYPAD_LEGENDS, x, y + WIDGET_MARGIN, w) }]
+    case 'TouchPadInput': {
+      const count = touchPadElectrodeCount(partId)
+      const rows = Math.ceil(count / 4)
+      const legends = Array.from({ length: count }, (_, i) => String(i))
+      return [{ h: WIDGET_MARGIN + KEY_H * rows + KEY_GAP * (rows - 1), render: (x, y, w) => keypadWidgetSvg(legends, x, y + WIDGET_MARGIN, w) }]
+    }
+    case 'JoystickInput':
+      return [
+        pot(0.5, `X ${joystickAxis(0.5, props.deadzone).toFixed(2)}`),
+        pot(0.5, `Y ${joystickAxis(0.5, props.deadzone).toFixed(2)}`),
+        button('push'),
+      ]
+    case 'DistanceInput': {
+      const fraction = distancePreviewDefault(partId)
+      return [pot(fraction, `${Math.round(distancePreviewReading(partId, fraction))} mm`)]
+    }
+    case 'TemperatureInput': {
+      const fraction = temperaturePreviewDefault(partId)
+      return [pot(fraction, `${temperaturePreviewReading(partId, fraction).toFixed(1)} °C`)]
+    }
+    case 'EnvironmentInput': {
+      const start = environmentPreviewDefaults(partId)
+      const reading = environmentPreviewReading(partId, start.temperature, start.humidity, start.pressure)
+      return [
+        pot(start.temperature, `${reading.temperature.toFixed(1)} °C`),
+        pot(start.humidity, `${reading.humidity.toFixed(0)} %`),
+        pot(start.pressure, `${reading.pressure.toFixed(0)} hPa`),
+      ]
+    }
+    case 'PresenceInput': {
+      const distance = presencePreviewDefaultDistance(partId)
+      return [
+        {
+          h: WIDGET_MARGIN + BUTTON_WIDGET_H,
+          render: (x, y, w) => {
+            const bw = (w - 8) / 2
+            return buttonWidgetSvg('moving', x, y + WIDGET_MARGIN, bw) + '\n' + buttonWidgetSvg('still', x + bw + 8, y + WIDGET_MARGIN, bw)
+          },
+        },
+        pot(distance, `${presencePreviewReading(partId, true, false, distance).distance.toFixed(2)} m`),
+      ]
+    }
+    case 'ButtonInput':
+    case 'MotionInput':
+      return [button('press')]
+    case 'TouchButtonInput':
+      return [button('touch')]
+    case 'PotInput':
+      return [pot(0.5, '0.50')]
+    case 'LightInput': {
+      const digital = lightSensorTransport(partId) === 'i2c'
+      const reading = lightSensorPreviewReading(partId, 0.5, props.maxLux)
+      return [pot(0.5, digital ? `${reading.lux.toFixed(0)} lx` : reading.level.toFixed(2))]
+    }
+    case 'EncoderInput':
+      return [{ h: WIDGET_MARGIN + ENCODER_WIDGET_H, render: (x, y) => encoderWidgetSvg('0', x, y + WIDGET_MARGIN) }]
   }
-  if (def.type === 'PotInput') {
-    const readout = '0.50'
-    const readoutW = 34
-    const trackW = w - readoutW - 10
-    const x = BODY_PAD
-    const cy = y + POT_WIDGET_H / 2
-    const thumbX = x + trackW * 0.5
-    return [
-      `<rect x="${x}" y="${cy - 4}" width="${trackW}" height="8" rx="4" fill="${C.field}" stroke="${C.border}"/>`,
-      `<rect x="${x}" y="${cy - 4}" width="${(trackW * 0.5).toFixed(1)}" height="8" rx="4" fill="${C.slider}" opacity="0.75"/>`,
-      `<circle cx="${thumbX.toFixed(1)}" cy="${cy}" r="7" fill="${C.slider}" stroke="rgba(255,255,255,0.18)"/>`,
-      `<text x="${BODY_PAD + trackW + 10 + readoutW}" y="${cy + 4}" text-anchor="end" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">${readout}</text>`,
-    ].join('\n')
-  }
-  if (def.type === 'EncoderInput') {
-    const dialR = 16
-    const cx = BODY_PAD + 22
-    const cy = y + ENCODER_WIDGET_H / 2
-    const notchY = cy - dialR + 5
-    const readout = props.resetOnPress === true ? '0' : '12'
-    return [
-      `<circle cx="${cx}" cy="${cy}" r="${dialR + 4}" fill="rgba(214,51,255,0.14)"/>`,
-      `<circle cx="${cx}" cy="${cy}" r="${dialR}" fill="${C.field}" stroke="${C.border}"/>`,
-      `<circle cx="${cx}" cy="${cy}" r="${dialR - 5}" fill="rgba(255,255,255,0.04)"/>`,
-      `<rect x="${cx - 2}" y="${notchY}" width="4" height="9" rx="2" fill="${C.slider}"/>`,
-      `<text x="${BODY_PAD + 58}" y="${cy + 4}" font-family=${JSON.stringify(MONO)} font-size="12" fill="${C.text}">${readout}</text>`,
-    ].join('\n')
-  }
-  return null
+  return []
+}
+
+// ── Ports as the canvas derives them ──
+function nodePorts(
+  def: NodeDefinition,
+  props: Record<string, unknown>,
+  connected: ReadonlySet<string>,
+  wiredOutputs: ReadonlySet<string>,
+): { inputs: NodePort[]; outputs: NodePort[]; rowCount: number } {
+  const declared = (def.type === 'ControlMap'
+    ? playerControlInputs(props.controls)
+    : partDerivedInputs(def.type, props.partId) ?? def.inputs) as NodePort[]
+  const outputs = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons) : def.outputs) as Array<NodePort & { carriedByControls?: boolean }>)
+    .filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
+  // Separate state commands belong to Toggle; a wired one stays visible.
+  const active = declared.filter((port) => def.type !== 'Trigger'
+    || props.triggerOp === 'toggle' || !['on', 'off'].includes(port.id) || connected.has(port.id))
+  // Property inputs live on their own property row, exposed on demand, so the
+  // port rows are only what a fresh node actually shows; an exposed *action*
+  // input has no field behind it and gets a port row instead.
+  const exposable = exposableInputsFor(def.type)
+  const exposedActions = new Set(exposedNodeInputs(def.type, undefined, connected)
+    .filter((port) => port.kind === 'action').map((port) => port.id))
+  const inputs = active.filter((port) => !exposable.some((optional) => optional.id === port.id) || exposedActions.has(port.id))
+  const rowCount = def.type === 'ButtonBank' || def.type === 'IRRemoteInput' ? 0 : Math.max(inputs.length, outputs.length)
+  return { inputs, outputs, rowCount }
 }
 
 // ── Node assembly ──
-// The preview evaluation dominates generation time and graphs repeat the same
-// stock nodes, so cache by type + overrides.
-const previewCache = new Map<string, PreviewData | null>()
-function buildPreviewCached(def: NodeDefinition, overrides?: Record<string, unknown>): PreviewData | null {
-  const key = `${def.type}|${JSON.stringify(overrides ?? {})}`
-  if (!previewCache.has(key)) previewCache.set(key, withRandomSeed(`node-preview:${key}`, () => buildPreview(def, overrides)))
-  return previewCache.get(key)!
-}
-
 interface NodeInner {
+  w: number
   h: number
   svg: string
-  /** Port id → y of the handle centre, relative to the node's own origin. */
+  /** Port id → y of the socket centre, relative to the node's own origin. */
   portY: Map<string, number>
 }
 
-/** Render one node box at origin (0,0): header, ports, controls, preview.
- *  Shared by the single-node cards and the example-graph images. */
-function nodeInner(
-  def: NodeDefinition,
-  overrides?: Record<string, unknown>,
-  connected: ReadonlySet<string> = new Set(),
-): NodeInner {
-  const props = { ...libraryDefaults(def.type), ...overrides }
+interface NodeInnerOptions {
+  /** Input handles with a noodle landing on them (example graphs). */
+  connected?: ReadonlySet<string>
+  /** Output handles with a noodle leaving them (example graphs). */
+  wiredOutputs?: ReadonlySet<string>
+  /** The routed frame an LED output is showing (example graphs). */
+  outputFrame?: Frame | null
+}
+
+/** Render one node box at origin (0,0): header, body children in StudioNode
+ *  order, property editors. Shared by the single-node cards and the
+ *  example-graph images. */
+function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>, options: NodeInnerOptions = {}): NodeInner {
+  const connected = options.connected ?? new Set<string>()
+  const wiredOutputs = options.wiredOutputs ?? new Set<string>()
+  const merged = { ...libraryDefaults(def.type), ...overrides }
+  // Math's operands are not library defaults: StudioNode supplies the
+  // operation's identity for an unset one, listed ahead of everything else.
+  const props: Record<string, unknown> = def.type === 'Math'
+    ? (() => {
+        const op = String(merged.mathOp ?? 'add')
+        const identity = op === 'multiply' || op === 'divide' ? 1 : 0
+        return {
+          a: typeof merged.a === 'number' ? merged.a : identity,
+          b: typeof merged.b === 'number' ? merged.b : identity,
+          ...merged,
+        }
+      })()
+    : merged
+  const w = NODE_WIDTH_OVERRIDES[def.type] ?? NODE_W
+  const contentW = w - BODY_PAD * 2
   const isComment = def.type === 'Comment'
-  const isHardwareInput = def.type === 'ButtonInput' || def.type === 'PotInput' || def.type === 'EncoderInput'
   // A Comment tints itself with its own colour property (sticky-note
   // convention) instead of the category accent — mirror StudioNode.
-  const commentColor = String(props.color ?? '')
-  const accent = isComment && /^#[0-9a-f]{6}$/i.test(commentColor)
-    ? commentColor
-    : CATEGORY_COLOR[def.category] ?? '#9aa0a6'
-  // Property inputs live on their own property row, exposed on demand, so the
-  // port rows are only what a fresh node actually shows (src/state/propertyInputs.ts).
-  const optionalInputs = exposableInputsFor(def.type)
-  const exposedActions = new Set(exposedNodeInputs(def.type, undefined, connected)
-    .filter((port) => port.kind === 'action').map((port) => port.id))
+  const accent = isComment && isHexColor(props.color) ? props.color : CATEGORY_COLOR[def.category] ?? '#9aa0a6'
+  const tint = CATEGORY_TINT[def.category] ?? 10
+  const ports = nodePorts(def, props, connected, wiredOutputs)
   const exposedByKey = new Map(exposedPropertyInputs(def.type, undefined, connected)
     .map((port) => [port.propertyKey, port] as const))
-  const portInputs = def.inputs.filter((port) => !optionalInputs.some((optional) => optional.id === port.id) || exposedActions.has(port.id))
-  const rowCount = Math.max(portInputs.length, def.outputs.length)
-  const hasScope = def.type === 'Wave' || def.type === 'ComplexWave'
-  const strip = EMBEDDED_UI[def.type]
-  const propRows = isComment ? [] : buildPropRows(def, props)
+  const wiredKeys = new Set([...exposedByKey.values()].filter((port) => connected.has(port.id)).map((port) => port.propertyKey))
+  const propRows = buildPropRows(def, props, wiredKeys, new Set(exposedByKey.keys()), ports)
   // Filled while the props section renders, then merged into `portY` so an
   // example graph can wire a socket that sits on a property row.
   const propPortY = new Map<string, number>()
+  const embedded = EMBEDDED_UI[def.type]
+  const isScope = def.type === 'Wave' || def.type === 'ComplexWave'
+  const outPort = ports.outputs[0]
+  const previewKind = !isScope && outPort && ['frame', 'palette', 'color'].includes(outPort.dataType)
+    && def.type !== 'CustomPalette' && def.type !== 'Poline' ? outPort.dataType : null
+  const partRender = partRenderForNodeType(def.type, props)
+  const partHref = partRender ? partImageHref(partRender.src) : null
 
-  // Body children in StudioNode order: preview, scope, port rows, embedded
-  // body, props.
+  // Body children in StudioNode order.
   const children: Array<{ h: number; portRow?: number; render: (y: number) => string }> = []
-  const preview = buildPreviewCached(def, overrides)
-  if (preview) {
+  const strip = (label: string, h: number) => children.push({ h, render: (y) => stripSvg(label, BODY_PAD, y, contentW, h) })
+
+  if (isComment) children.push({ h: COMMENT_EDITOR_H, render: (y) => commentEditorSvg(String(props.text ?? ''), BODY_PAD, y, contentW) })
+  if (isScope) {
+    const samples = scopeSamples(def, props)
+    children.push({ h: SCOPE_H, render: (y) => scopeSvg(samples, BODY_PAD, y, contentW) })
+  }
+  if (embedded?.top) strip(embedded.label, embedded.h)
+  if (HARDWARE_INPUT_WIDGET_TYPES.has(def.type)) {
+    for (const widget of hardwareWidgets(def, props)) {
+      children.push({ h: widget.h, render: (y) => widget.render(BODY_PAD, y, contentW) })
+    }
+  }
+  if (previewKind) {
+    const preview = buildPreviewCached(def, outPort!, overrides)
+    const h = previewKind === 'frame' ? contentW : PREVIEW_BAR_H
     children.push({
-      h: preview.kind === 'frame' ? PREVIEW_FRAME_H : PREVIEW_STRIP_H,
-      render: (y) => previewSvg(preview, y),
+      h,
+      render: (y) => [
+        preview ? previewSvg(preview, BODY_PAD, y, contentW)
+          : previewKind === 'frame' ? frameThumbSvg(null, BODY_PAD, y, contentW, contentW, PREVIEW_GRID, PREVIEW_GRID)
+          : `<rect x="${BODY_PAD}" y="${y}" width="${contentW}" height="${PREVIEW_BAR_H}" rx="4" fill="#000" stroke="${C.border}"/>`,
+        previewToggleSvg(w - BODY_PAD, y),
+      ].join('\n'),
     })
   }
-  if (hasScope) children.push({ h: SCOPE_H, render: (y) => scopeSvg(y, accent) })
-  if (isHardwareInput) {
-    const widgetH = def.type === 'ButtonInput' ? BUTTON_WIDGET_H : def.type === 'PotInput' ? POT_WIDGET_H : ENCODER_WIDGET_H
+  if (partHref) {
     children.push({
-      h: widgetH,
-      render: (y) => hardwareWidgetSvg(def, props, y) ?? '',
+      h: PART_THUMB_H,
+      render: (y) => [
+        `<image x="${BODY_PAD}" y="${y}" width="${contentW}" height="${PART_THUMB_H}" preserveAspectRatio="xMidYMid meet" href="${partHref}"/>`,
+        previewToggleSvg(w - BODY_PAD, y),
+      ].join('\n'),
     })
   }
-  for (let i = 0; i < rowCount; i++) {
-    children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(portInputs, def.outputs, i, y) })
+  if (def.type === 'MatrixOutput') {
+    const shape = outputShapeFor(props, contentW)
+    children.push({
+      h: shape.h,
+      render: (y) => [shape.render(BODY_PAD, y, contentW, options.outputFrame ?? null), previewToggleSvg(w - BODY_PAD, y)].join('\n'),
+    })
   }
-  if (strip) children.push({ h: STRIP_H, render: (y) => stripSvg(strip, y) })
-  if (optionalInputs.length > 0) children.push({ h: PROP_ROW_H, render: (y) =>
-    `<text x="${BODY_PAD}" y="${y + 13}" font-family=${JSON.stringify(MONO)} font-size="11" fill="${C.dim}">Expose inputs…</text>`,
-  })
-  if (isComment) children.push({ h: NOTE_H, render: (y) => noteSvg(String(props.text ?? 'Note'), y) })
+  for (let i = 0; i < ports.rowCount; i++) {
+    children.push({ h: ROW_H, portRow: i, render: (y) => portRowSvg(ports.inputs, ports.outputs, i, w, y) })
+  }
+  if (embedded && !embedded.top) strip(embedded.label, embedded.h)
+  if (def.type === 'Code') {
+    const label = (text: string) => ({ h: 8 + CODE_LABEL_H, render: (y: number) => mono(BODY_PAD, y + 8 + 12, text, 12, C.dim, ' letter-spacing="0.03em"') })
+    children.push(label('Global'))
+    children.push({ h: 8 + CODE_GLOBAL_H, render: (y) => codeEditorSvg(String(props.globalCode ?? ''), '// file scope: helpers, palettes, persistent vars', BODY_PAD, y + 8, contentW, CODE_GLOBAL_H) })
+    children.push(label('Loop'))
+    children.push({ h: 8 + CODE_LOOP_H, render: (y) => codeEditorSvg(String(props.code ?? ''), '// loop body — runs each frame, writes into leds[]', BODY_PAD, y + 8, contentW, CODE_LOOP_H) })
+  }
   if (propRows.length > 0) {
-    const h = 4 + 1 + 6 + propRows.length * PROP_ROW_H + (propRows.length - 1) * PROP_GAP
+    const h = PROP_MARGIN_TOP + PROP_PAD_TOP + propRows.reduce((s, r) => s + rowHeight(r), 0) + (propRows.length - 1) * PROP_GAP
     children.push({
       h,
       render: (y) => {
-        const parts = [`<line x1="${BODY_PAD}" y1="${y + 4}" x2="${NODE_W - BODY_PAD}" y2="${y + 4}" stroke="${C.divider}"/>`]
-        let ry = y + 4 + 1 + 6
-        for (const row of propRows) {
-          parts.push(propRowSvg(row, ry))
+        const parts = [`<line x1="${BODY_PAD}" y1="${y + PROP_MARGIN_TOP + 0.5}" x2="${w - BODY_PAD}" y2="${y + PROP_MARGIN_TOP + 0.5}" stroke="${C.divider}"/>`]
+        const socketFor = (row: PropRow, cy: number) => {
           const exposed = 'key' in row ? exposedByKey.get(row.key) : undefined
-          if (exposed) {
-            const cy = ry + PROP_ROW_H / 2
-            parts.push(propSocketSvg(exposed.dataType, cy))
-            propPortY.set(exposed.id, cy)
+          if (!exposed) return
+          parts.push(socketSvg(exposed.dataType, 0, cy))
+          propPortY.set(exposed.id, cy)
+        }
+        let ry = y + PROP_MARGIN_TOP + PROP_PAD_TOP
+        for (const row of propRows) {
+          parts.push(propRowSvg(row, 0, ry, w))
+          if (row.kind === 'group') {
+            let gy = ry + GROUP_HEADER_H + PROP_GAP
+            for (const inner of row.rows) {
+              socketFor(inner, gy + rowHeight(inner) / 2)
+              gy += rowHeight(inner) + PROP_GAP
+            }
+          } else {
+            socketFor(row, ry + rowHeight(row) / 2)
           }
-          ry += PROP_ROW_H + PROP_GAP
+          ry += rowHeight(row) + PROP_GAP
         }
         return parts.join('\n')
       },
+    })
+  }
+  const note = PREVIEW_NOTES[def.type]
+  if (note) {
+    const lines = wrapText(`ⓘ ${note.text}`, Math.floor(contentW / CAPTION_PX))
+    children.push({
+      h: 8 + lines.length * NOTE_LINE_H,
+      render: (y) => lines.map((line, i) =>
+        mono(BODY_PAD, y + 8 + 12 + i * NOTE_LINE_H, line, 12, C.dim, ' font-style="italic"')).join('\n'),
     })
   }
 
@@ -710,22 +1276,35 @@ function nodeInner(
     body.push(c.render(y))
     if (c.portRow != null) {
       const cy = y + ROW_H / 2
-      const input = portInputs[c.portRow]
-      const output = def.outputs[c.portRow]
+      const input = ports.inputs[c.portRow]
+      const output = ports.outputs[c.portRow]
       if (input) portY.set(input.id, cy)
       if (output) portY.set(output.id, cy)
     }
     y += c.h + GAP
   }
+  // ButtonBank / IR Remote draw their sockets inside their own body; put them
+  // on that strip so an example noodle still lands on the node.
+  // Their button sockets are derived from the node's own `buttons` property
+  // rather than the library, so a wired handle counts too.
+  if (ports.rowCount === 0 && embedded) {
+    const stripTop = HEADER_H + BODY_PAD
+    const all = [...new Set([...ports.inputs, ...ports.outputs].map((port) => port.id).concat([...connected], [...wiredOutputs]))]
+    all.forEach((id, i) => portY.set(id, stripTop + embedded.h * (i + 1) / (all.length + 1)))
+  }
 
+  const tintId = `tint-${isComment ? accent.slice(1) : def.category}`
   const svg = [
-    `<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}" filter="url(#shadow)"/>`,
-    `<rect x="0" y="0" width="${NODE_W}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" stroke="${C.border}"/>`,
-    headerSvg(def, accent, props),
+    `<defs><linearGradient id="${tintId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix(accent, C.node, tint)}"/><stop offset="1" stop-color="${C.node}"/></linearGradient></defs>`,
+    `<rect x="0" y="0" width="${w}" height="${nodeH}" rx="${RADIUS}" fill="${C.node}" filter="url(#shadow)"/>`,
+    `<rect x="0" y="0" width="${w}" height="${nodeH}" rx="${RADIUS}" fill="url(#${tintId})"/>`,
+    headerSvg(def, w, accent, props),
     ...body,
+    // box-shadow: inset 0 0 0 1px --border-glow
+    `<rect x="0.5" y="0.5" width="${w - 1}" height="${nodeH - 1}" rx="${RADIUS - 0.5}" fill="none" stroke="${C.border}"/>`,
   ].join('\n')
   for (const [id, cy] of propPortY) portY.set(id, cy)
-  return { h: nodeH, svg, portY }
+  return { w, h: nodeH, svg, portY }
 }
 
 /** Wrap rendered content in an SVG shell. `backdrop` adds the canvas ground
@@ -733,6 +1312,8 @@ function nodeInner(
  *  stay transparent so just the node shows. */
 function canvasWrap(W: number, H: number, content: string, label: string, backdrop = true): string {
   const ground: string[] = []
+  const lamps = [...lampDefs.values()].join('\n')
+  lampDefs.clear()
   if (backdrop) {
     ground.push(`<rect width="${W}" height="${H}" fill="${C.canvas}"/>`)
     for (let dy = 10; dy < H; dy += 20) {
@@ -743,7 +1324,12 @@ function canvasWrap(W: number, H: number, content: string, label: string, backdr
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(label)}">
 ${ground.join('\n')}
-<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<defs>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
+<filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
+<linearGradient id="headerGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+${lamps}
+</defs>
 ${content}
 </svg>
 `
@@ -751,7 +1337,7 @@ ${content}
 
 function nodeCardSvg(def: NodeDefinition): string {
   const inner = nodeInner(def)
-  const W = NODE_W + PAD_X * 2
+  const W = inner.w + PAD_X * 2
   const H = inner.h + PAD_TOP + PAD_BOT
   return canvasWrap(W, H, `<g transform="translate(${PAD_X},${PAD_TOP})">\n${inner.svg}\n</g>`, `${def.label} node`, false)
 }
@@ -820,7 +1406,7 @@ function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<s
     return [
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(label)}">`,
       `<rect width="${width}" height="${height}" rx="10" fill="${C.canvas}"/>`,
-      ...gridEmitters(frame, grid.width, 1, pad, pad, grid.width * cell, cell),
+      ...withLampDefs(gridEmitters(frame, grid.width, 1, pad, pad, grid.width * cell, cell)),
       '</svg>',
       '',
     ].join('\n')
@@ -844,9 +1430,9 @@ function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<s
       const color = frame?.[sy]?.[sx] ?? { r: 0, g: 0, b: 0 }
       const x = center + Math.cos(angle) * radius - emitter / 2
       const y = center + Math.sin(angle) * radius - emitter / 2
-      parts.push(`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${emitter}" height="${emitter}" rx="2.3" fill="${px(color)}"/>`)
+      parts.push(lampSvg(px(color), x, y, emitter, emitter))
     }
-    parts.push('</svg>', '')
+    parts.push(...drainLampDefs(), '</svg>', '')
     return parts.join('\n')
   }
 
@@ -856,7 +1442,7 @@ function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<s
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(label)}">`,
     `<rect width="${size}" height="${size}" rx="10" fill="${C.canvas}"/>`,
   ]
-  parts.push(...gridEmitters(frame, grid.width, grid.height, pad, pad, grid.width * cell, grid.height * cell))
+  parts.push(...withLampDefs(gridEmitters(frame, grid.width, grid.height, pad, pad, grid.width * cell, grid.height * cell)))
   parts.push('</svg>', '')
   return parts.join('\n')
 }
@@ -865,20 +1451,33 @@ function mainPreviewSvg(frame: Frame | null, label: string, properties: Record<s
 // Renders a LiveExampleSpec — the same data the article's "Try it live"
 // button inserts — at the spec's own canvas positions, with GlowEdge-style
 // noodles (colour from the source node's category, like the canvas).
-function exampleGraphSvg(spec: LiveExampleSpec): string {
+function exampleGraphSvg(spec: LiveExampleSpec, outputFrame: Frame | null): string {
   // A wired property input is revealed on the card the same way the canvas
   // reveals it, so an example graph's noodle always has a socket to land on.
   const wired = new Map<string, Set<string>>()
+  const wiredOut = new Map<string, Set<string>>()
   for (const edge of spec.edges) {
-    if (!edge.targetHandle) continue
-    const ports = wired.get(edge.target) ?? new Set<string>()
-    ports.add(edge.targetHandle)
-    wired.set(edge.target, ports)
+    if (edge.targetHandle) {
+      const ports = wired.get(edge.target) ?? new Set<string>()
+      ports.add(edge.targetHandle)
+      wired.set(edge.target, ports)
+    }
+    if (edge.sourceHandle) {
+      const ports = wiredOut.get(edge.source) ?? new Set<string>()
+      ports.add(edge.sourceHandle)
+      wiredOut.set(edge.source, ports)
+    }
   }
   const raw = spec.nodes.flatMap((n) => {
     const def = NODE_LIBRARY.find((d) => d.type === n.type)
     return def
-      ? [{ key: n.key, def, x: n.dx, y: n.dy, inner: nodeInner(def, n.properties, wired.get(n.key)) }]
+      ? [{
+          key: n.key, def, x: n.dx, y: n.dy,
+          inner: nodeInner(def, n.properties, {
+            connected: wired.get(n.key), wiredOutputs: wiredOut.get(n.key),
+            outputFrame: def.type === 'MatrixOutput' ? outputFrame : null,
+          }),
+        }]
       : []
   })
   // Run the exact Tidy Graph algorithm with the SVG node measurements. The
@@ -889,7 +1488,7 @@ function exampleGraphSvg(spec: LiveExampleSpec): string {
       id: item.key,
       x: item.x,
       y: item.y,
-      width: NODE_W,
+      width: item.inner.w,
       height: item.inner.h,
     })),
     spec.edges.map((edge) => ({ source: edge.source, target: edge.target })),
@@ -899,7 +1498,7 @@ function exampleGraphSvg(spec: LiveExampleSpec): string {
   const PAD = 44
   const minX = Math.min(...items.map((i) => i.x)) - PAD
   const minY = Math.min(...items.map((i) => i.y)) - PAD
-  const W = Math.max(...items.map((i) => i.x + NODE_W)) + PAD - minX
+  const W = Math.max(...items.map((i) => i.x + i.inner.w)) + PAD - minX
   const H = Math.max(...items.map((i) => i.y + i.inner.h)) + PAD - minY
 
   const byKey = new Map(items.map((i) => [i.key, i]))
@@ -911,9 +1510,9 @@ function exampleGraphSvg(spec: LiveExampleSpec): string {
     const sy = s.inner.portY.get(e.sourceHandle)
     const ty = t.inner.portY.get(e.targetHandle)
     if (sy == null || ty == null) continue
-    const sx = s.x - minX + NODE_W + 2
+    const sx = s.x - minX + s.inner.w
     const syy = s.y - minY + sy
-    const tx = t.x - minX - 2
+    const tx = t.x - minX
     const tyy = t.y - minY + ty
     const color = CATEGORY_COLOR[s.def.category] ?? '#9aa0a6'
     const k = Math.max(40, Math.abs(tx - sx) * 0.45)
@@ -979,15 +1578,12 @@ let count = 0
 for (const def of definitions) {
   const k = kebab(def.type)
   const spec = liveExampleForNode(def)
+  const frame = evalSpecFrame(spec, k)
   writeFileSync(join(OUT_DIR, `${k}.svg`), nodeCardSvg(def))
-  writeFileSync(join(OUT_DIR, 'graphs', `${k}.svg`), exampleGraphSvg(spec))
+  writeFileSync(join(OUT_DIR, 'graphs', `${k}.svg`), exampleGraphSvg(spec, frame))
   writeFileSync(
     join(OUT_DIR, 'previews', `${k}.svg`),
-    mainPreviewSvg(
-      evalSpecFrame(spec, k),
-      `Evaluated output from the ${def.label} example graph`,
-      exampleOutputProperties(spec),
-    ),
+    mainPreviewSvg(frame, `Evaluated output from the ${def.label} example graph`, exampleOutputProperties(spec)),
   )
   count++
 }

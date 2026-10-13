@@ -10,6 +10,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Node reference assets
 
 - Generate one node's help illustrations with `npm run gen:node-cards -- --only PatternMaster`; this preserves unrelated assets and the gallery index. The generator uses the shared exposable-input helpers so hidden action sockets stay hidden unless connected in an example.
+- The card generator draws the node the way `StudioNode.tsx` does today. Header badges, preview notes, node widths, the hardware-widget type list and the inline-editor property filter live in `src/components/Canvas/studioNodeChrome.ts`, shared by the live node and the generator; change them there, never in one place only. Layout numbers in the generator (row heights, badge metrics, socket positions) were measured from the live DOM at zoom 1; re-measure after a `StudioNode.module.css` change rather than estimating.
+- Bespoke node bodies (music library, transition picker, pattern collection, audio source picker…) are drawn on the card as a dashed placeholder of the body's measured default height (`EMBEDDED_UI` in the generator). A new body component needs an entry there, or its card will omit the space it takes.
+- Part thumbnails travel inside the card as data URIs: an `<img src="card.svg">` never fetches external resources. `scripts/run-ts.mjs` loads `.webp`/`.png`/`.jpg`/`.svg` imports as data URLs for that reason.
 - Music Player help uses `musicPlayerReference.ts` for its overview and wiring guidance, and `propertyDescription` for detailed property notes. Property groups must retain ungrouped settings such as Volume. Its card expands Timing and Randomness for comparison with those notes.
 - Generated help SVGs have stable URLs. Keep their service-worker cache network-first with an offline fallback so updated illustrations reach installed clients.
 

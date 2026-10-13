@@ -1,27 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 408" width="408" height="408" role="img" aria-label="Evaluated output from the Pride 2015 example graph">
 <rect width="408" height="408" rx="10" fill="#0d0f12"/>
-<rect x="197.50" y="33.50" width="13" height="13" rx="2.3" fill="rgb(120,121,0)"/>
-<rect x="239.95" y="39.09" width="13" height="13" rx="2.3" fill="rgb(120,121,0)"/>
-<rect x="279.50" y="55.47" width="13" height="13" rx="2.3" fill="rgb(230,247,0)"/>
-<rect x="313.47" y="81.53" width="13" height="13" rx="2.3" fill="rgb(35,89,0)"/>
-<rect x="339.53" y="115.50" width="13" height="13" rx="2.3" fill="rgb(0,242,36)"/>
-<rect x="355.91" y="155.05" width="13" height="13" rx="2.3" fill="rgb(0,111,70)"/>
-<rect x="361.50" y="197.50" width="13" height="13" rx="2.3" fill="rgb(0,118,132)"/>
-<rect x="355.91" y="239.95" width="13" height="13" rx="2.3" fill="rgb(0,118,132)"/>
-<rect x="339.53" y="279.50" width="13" height="13" rx="2.3" fill="rgb(0,104,252)"/>
-<rect x="313.47" y="313.47" width="13" height="13" rx="2.3" fill="rgb(1,0,253)"/>
-<rect x="279.50" y="339.53" width="13" height="13" rx="2.3" fill="rgb(108,0,253)"/>
-<rect x="239.95" y="355.91" width="13" height="13" rx="2.3" fill="rgb(51,0,140)"/>
-<rect x="197.50" y="361.50" width="13" height="13" rx="2.3" fill="rgb(51,0,140)"/>
-<rect x="155.05" y="355.91" width="13" height="13" rx="2.3" fill="rgb(32,0,104)"/>
-<rect x="115.50" y="339.53" width="13" height="13" rx="2.3" fill="rgb(57,0,234)"/>
-<rect x="81.53" y="313.47" width="13" height="13" rx="2.3" fill="rgb(0,26,91)"/>
-<rect x="55.47" y="279.50" width="13" height="13" rx="2.3" fill="rgb(0,209,252)"/>
-<rect x="39.09" y="239.95" width="13" height="13" rx="2.3" fill="rgb(0,130,89)"/>
-<rect x="33.50" y="197.50" width="13" height="13" rx="2.3" fill="rgb(0,130,89)"/>
-<rect x="39.09" y="155.05" width="13" height="13" rx="2.3" fill="rgb(0,113,23)"/>
-<rect x="55.47" y="115.50" width="13" height="13" rx="2.3" fill="rgb(66,244,0)"/>
-<rect x="81.53" y="81.53" width="13" height="13" rx="2.3" fill="rgb(170,245,0)"/>
-<rect x="115.50" y="55.47" width="13" height="13" rx="2.3" fill="rgb(246,218,0)"/>
-<rect x="155.05" y="39.09" width="13" height="13" rx="2.3" fill="rgb(119,113,0)"/>
+<use href="#lamp-13.00x13.00" x="197.50" y="33.50" fill="rgb(19,133,0)"/>
+<use href="#lamp-13.00x13.00" x="239.95" y="39.09" fill="rgb(19,133,0)"/>
+<use href="#lamp-13.00x13.00" x="279.50" y="55.47" fill="rgb(21,252,0)"/>
+<use href="#lamp-13.00x13.00" x="313.47" y="81.53" fill="rgb(0,91,41)"/>
+<use href="#lamp-13.00x13.00" x="339.53" y="115.50" fill="rgb(0,233,231)"/>
+<use href="#lamp-13.00x13.00" x="355.91" y="155.05" fill="rgb(0,53,102)"/>
+<use href="#lamp-13.00x13.00" x="361.50" y="197.50" fill="rgb(0,6,146)"/>
+<use href="#lamp-13.00x13.00" x="355.91" y="239.95" fill="rgb(0,6,146)"/>
+<use href="#lamp-13.00x13.00" x="339.53" y="279.50" fill="rgb(110,0,254)"/>
+<use href="#lamp-13.00x13.00" x="313.47" y="313.47" fill="rgb(217,0,254)"/>
+<use href="#lamp-13.00x13.00" x="279.50" y="339.53" fill="rgb(254,0,184)"/>
+<use href="#lamp-13.00x13.00" x="239.95" y="355.91" fill="rgb(154,0,122)"/>
+<use href="#lamp-13.00x13.00" x="197.50" y="361.50" fill="rgb(154,0,122)"/>
+<use href="#lamp-13.00x13.00" x="155.05" y="355.91" fill="rgb(97,0,82)"/>
+<use href="#lamp-13.00x13.00" x="115.50" y="339.53" fill="rgb(223,0,202)"/>
+<use href="#lamp-13.00x13.00" x="81.53" y="313.47" fill="rgb(53,0,96)"/>
+<use href="#lamp-13.00x13.00" x="55.47" y="279.50" fill="rgb(2,0,254)"/>
+<use href="#lamp-13.00x13.00" x="39.09" y="239.95" fill="rgb(0,67,144)"/>
+<use href="#lamp-13.00x13.00" x="33.50" y="197.50" fill="rgb(0,67,144)"/>
+<use href="#lamp-13.00x13.00" x="39.09" y="155.05" fill="rgb(0,98,104)"/>
+<use href="#lamp-13.00x13.00" x="55.47" y="115.50" fill="rgb(0,235,134)"/>
+<use href="#lamp-13.00x13.00" x="81.53" y="81.53" fill="rgb(0,237,36)"/>
+<use href="#lamp-13.00x13.00" x="115.50" y="55.47" fill="rgb(63,238,0)"/>
+<use href="#lamp-13.00x13.00" x="155.05" y="39.09" fill="rgb(22,109,0)"/>
+<defs><g id="lamp-13.00x13.00"><rect x="-5.20" y="-2.86" width="23.40" height="18.72" rx="9.36" fill-opacity="0.34"/><rect width="13.00" height="13.00" rx="2.86"/></g></defs>
 </svg>

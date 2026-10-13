@@ -66,7 +66,7 @@ describe('Node Reference port-type coverage', () => {
 describe('Node Reference generated assets', () => {
   it('shows the Music Player default sockets and expanded timing controls', () => {
     const svg = readFileSync(resolve(`public${nodeCardSrc('PatternMaster')}`), 'utf8')
-    expect(svg).toContain('Expose inputs…')
+    expect(svg).toContain('Expose input…')
     expect(svg).toContain('Beat Transitions')
     expect(svg).toContain('minTime')
     expect(svg).toContain('maxTime')
@@ -82,7 +82,8 @@ describe('Node Reference generated assets', () => {
       const svg = readFileSync(path, 'utf8')
       expect(svg, path).toContain('<svg ')
       expect(svg, path).toContain('role="img"')
-      expect(svg, path).not.toMatch(/(?:NaN|Infinity)/)
+      // Embedded part thumbnails are base64, which can spell anything.
+      expect(svg.replace(/data:[^"]+/g, ''), path).not.toMatch(/(?:NaN|Infinity)/)
     }
   })
 

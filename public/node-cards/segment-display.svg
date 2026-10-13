@@ -1,81 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 352" width="296" height="352" role="img" aria-label="Segment Display node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 410" width="296" height="410" role="img" aria-label="Segment Display node">
 
-<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<defs>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
+<filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
+<linearGradient id="headerGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+
+</defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="294" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="294" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
+<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<rect x="0" y="0" width="240" height="346" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="346" rx="8" fill="url(#tint-output)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d633ff"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Segment Displ…</text>
-<rect x="154" y="10" width="25" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="166.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">OUT</text>
-<rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">SEG-659</text>
-<circle cx="-2" cy="52" r="9" fill="#ffe066" opacity="0.25"/>
-<circle cx="-2" cy="52" r="6" fill="#ffe066" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="10" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
-<line x1="8" y1="72" x2="232" y2="72" stroke="rgba(255,255,255,0.08)"/>
-<text x="8" y="92" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">partId</text>
+<rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
+<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Segme…</text>
+<rect x="78.80000000000001" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="92.00000000000001" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">OUT</text>
+<rect x="111.20000000000002" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="136.60000000000002" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">SEG-659</text>
+<circle cx="172" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
+<circle cx="179" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
+<circle cx="186" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>
+<rect x="194" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="203" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
+<rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
+<image x="8" y="40" width="224" height="52" preserveAspectRatio="xMidYMid meet" href="data:image/webp;base64,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"/>
+<rect x="214" y="42" width="16" height="14" rx="3" fill="rgba(0,0,0,0.45)"/>
+<text x="222" y="52" text-anchor="middle" font-size="9" fill="#a0a0a0">▾</text>
+<circle cx="0" cy="108" r="9" fill="#ffe066" opacity="0.22"/>
+<circle cx="0" cy="108" r="6" fill="#ffe066"/>
+<text x="18" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
+<rect x="8" y="124" width="224" height="82" rx="4" fill="none" stroke="rgba(255,255,255,0.1)" stroke-dasharray="4 3"/>
+<text x="120" y="140" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="10" font-style="italic" fill="#a0a0a0">segment layout</text>
+<line x1="8" y1="214.5" x2="232" y2="214.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="236" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="258" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">decimals</text>
 <g>
-<rect x="160" y="80" width="72" height="16" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
-<text x="164" y="92" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="11" fill="#e0e0e0">tm1637-4…</text>
+<rect x="83.25" y="252" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="83.25" y="252" width="0.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="83.3" cy="254" r="6" fill="#d633ff"/>
+<text x="195.25" y="258" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0</text>
 </g>
-<text x="8" y="113" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">clkPin</text>
+<text x="222.45" y="258" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="277" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">leadingZero</text>
 <g>
-<rect x="120" y="107" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="107" width="5.1" height="4" rx="2" fill="#d633ff"/>
-<circle cx="125.1" cy="109" r="5" fill="#d633ff"/>
-<text x="232" y="113" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">18</text>
+<rect x="143.55" y="266.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
-<text x="8" y="134" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">dioPin</text>
+<text x="222.45" y="277" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="296" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">showColon</text>
 <g>
-<rect x="120" y="128" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="128" width="5.4" height="4" rx="2" fill="#d633ff"/>
-<circle cx="125.4" cy="130" r="5" fill="#d633ff"/>
-<text x="232" y="134" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">19</text>
+<rect x="136.35" y="285.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
+<path d="M139.35,292 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="8" y="155" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">dinPin</text>
-<g opacity="0.45">
-<rect x="120" y="149" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="149" width="5.4" height="4" rx="2" fill="#d633ff"/>
-<circle cx="125.4" cy="151" r="5" fill="#d633ff"/>
-<text x="232" y="155" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">19</text>
-</g>
-<text x="8" y="176" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.45">csPin</text>
-<g opacity="0.45">
-<rect x="120" y="170" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="170" width="5.9" height="4" rx="2" fill="#d633ff"/>
-<circle cx="125.9" cy="172" r="5" fill="#d633ff"/>
-<text x="232" y="176" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">21</text>
-</g>
-<text x="8" y="197" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">decimals</text>
+<text x="222.45" y="296" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="315" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">brightness</text>
 <g>
-<rect x="120" y="191" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="191" width="0.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="120.0" cy="193" r="5" fill="#d633ff"/>
-<text x="232" y="197" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
+<rect x="90.45" y="309" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="90.45" y="309" width="19.2" height="4" rx="2" fill="#d633ff"/>
+<circle cx="109.7" cy="311" r="6" fill="#d633ff"/>
+<text x="202.45" y="315" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">4</text>
 </g>
-<text x="8" y="218" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">leadingZero</text>
+<text x="222.45" y="315" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="334" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">enabled</text>
 <g>
-<rect x="220" y="208" width="12" height="12" rx="3" fill="#0d0f12" stroke="rgba(255,255,255,0.12)"/>
+<rect x="129.15" y="323.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
+<path d="M132.15,330 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
 </g>
-<text x="8" y="239" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">showColon</text>
-<g>
-<rect x="220" y="229" width="12" height="12" rx="3" fill="#d633ff"/>
-<path d="M222.5,235 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-</g>
-<text x="8" y="260" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">brightness</text>
-<g>
-<rect x="120" y="254" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="120" y="254" width="19.2" height="4" rx="2" fill="#d633ff"/>
-<circle cx="139.2" cy="256" r="5" fill="#d633ff"/>
-<text x="232" y="260" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">4</text>
-</g>
-<text x="8" y="281" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">enabled</text>
-<g>
-<rect x="220" y="271" width="12" height="12" rx="3" fill="#d633ff"/>
-<path d="M222.5,277 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-</g>
-<circle cx="-2" cy="277" r="9" fill="#c6ff32" opacity="0.25"/>
-<circle cx="-2" cy="277" r="6" fill="#c6ff32" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="222.45" y="334" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="330" r="9" fill="#c6ff32" opacity="0.22"/>
+<circle cx="0" cy="330" r="6" fill="#c6ff32"/>
+<rect x="0.5" y="0.5" width="239" height="345" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

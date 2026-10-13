@@ -268,12 +268,12 @@ const RING_OUTPUT_EXAMPLES = new Set([
 
 function exampleOutputProperties(featuredType: string): Record<string, unknown> {
   if (STRING_OUTPUT_EXAMPLES.has(featuredType)) {
-    return { form: 'strip', ledCount: 30, brightness: 220 }
+    return { form: 'strip', ledCount: 30 }
   }
   if (RING_OUTPUT_EXAMPLES.has(featuredType)) {
-    return { form: 'ring', ledCount: 24, ringStartAngle: 0, ringDirection: 'cw', brightness: 220 }
+    return { form: 'ring', ledCount: 24, ringStartAngle: 0, ringDirection: 'cw' }
   }
-  return { form: 'matrix', width: 16, height: 16, brightness: 220 }
+  return { form: 'matrix', width: 16, height: 16 }
 }
 
 function differentType(candidates: string[], targetType: string, seed: string): string {
@@ -971,7 +971,7 @@ function matrixOutputExample(node: NodeDefinition): ReferenceLiveExample {
   builder.add('fft', 'FFTAnalyzer', { smoothing: 0.7 })
   builder.add('cascade', 'AudioCascade', { palette: 'party' })
   builder.add('trails', 'Trails', { decay: 0.9 })
-  builder.add('target', node.type, { form: 'matrix', width: 16, height: 16, brightness: 220 })
+  builder.add('target', node.type, { form: 'matrix', width: 16, height: 16 })
   builder.wire('mic', 'audio', 'fft', 'audio')
   builder.wire('fft', 'bass', 'cascade', 'bass')
   builder.wire('fft', 'mids', 'cascade', 'mids')

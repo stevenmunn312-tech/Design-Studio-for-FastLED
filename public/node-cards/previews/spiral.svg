@@ -1,27 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 408" width="408" height="408" role="img" aria-label="Evaluated output from the Spiral example graph">
 <rect width="408" height="408" rx="10" fill="#0d0f12"/>
-<rect x="197.50" y="33.50" width="13" height="13" rx="2.3" fill="rgb(4,13,10)"/>
-<rect x="239.95" y="39.09" width="13" height="13" rx="2.3" fill="rgb(4,13,10)"/>
-<rect x="279.50" y="55.47" width="13" height="13" rx="2.3" fill="rgb(10,29,22)"/>
-<rect x="313.47" y="81.53" width="13" height="13" rx="2.3" fill="rgb(29,35,31)"/>
-<rect x="339.53" y="115.50" width="13" height="13" rx="2.3" fill="rgb(95,112,99)"/>
-<rect x="355.91" y="155.05" width="13" height="13" rx="2.3" fill="rgb(1,2,1)"/>
-<rect x="361.50" y="197.50" width="13" height="13" rx="2.3" fill="rgb(0,1,0)"/>
-<rect x="355.91" y="239.95" width="13" height="13" rx="2.3" fill="rgb(0,1,0)"/>
-<rect x="339.53" y="279.50" width="13" height="13" rx="2.3" fill="rgb(64,88,74)"/>
-<rect x="313.47" y="313.47" width="13" height="13" rx="2.3" fill="rgb(22,36,29)"/>
-<rect x="279.50" y="339.53" width="13" height="13" rx="2.3" fill="rgb(141,194,163)"/>
-<rect x="239.95" y="355.91" width="13" height="13" rx="2.3" fill="rgb(127,188,156)"/>
-<rect x="197.50" y="361.50" width="13" height="13" rx="2.3" fill="rgb(127,188,156)"/>
-<rect x="155.05" y="355.91" width="13" height="13" rx="2.3" fill="rgb(78,107,90)"/>
-<rect x="115.50" y="339.53" width="13" height="13" rx="2.3" fill="rgb(29,35,31)"/>
-<rect x="81.53" y="313.47" width="13" height="13" rx="2.3" fill="rgb(95,112,99)"/>
-<rect x="55.47" y="279.50" width="13" height="13" rx="2.3" fill="rgb(6,18,14)"/>
-<rect x="39.09" y="239.95" width="13" height="13" rx="2.3" fill="rgb(6,18,14)"/>
-<rect x="33.50" y="197.50" width="13" height="13" rx="2.3" fill="rgb(6,18,14)"/>
-<rect x="39.09" y="155.05" width="13" height="13" rx="2.3" fill="rgb(1,4,3)"/>
-<rect x="55.47" y="115.50" width="13" height="13" rx="2.3" fill="rgb(6,15,11)"/>
-<rect x="81.53" y="81.53" width="13" height="13" rx="2.3" fill="rgb(2,7,5)"/>
-<rect x="115.50" y="55.47" width="13" height="13" rx="2.3" fill="rgb(14,39,29)"/>
-<rect x="155.05" y="39.09" width="13" height="13" rx="2.3" fill="rgb(5,15,11)"/>
+<use href="#lamp-13.00x13.00" x="197.50" y="33.50" fill="rgb(9,28,21)"/>
+<use href="#lamp-13.00x13.00" x="239.95" y="39.09" fill="rgb(9,28,21)"/>
+<use href="#lamp-13.00x13.00" x="279.50" y="55.47" fill="rgb(11,32,24)"/>
+<use href="#lamp-13.00x13.00" x="313.47" y="81.53" fill="rgb(126,148,132)"/>
+<use href="#lamp-13.00x13.00" x="339.53" y="115.50" fill="rgb(174,205,183)"/>
+<use href="#lamp-13.00x13.00" x="355.91" y="155.05" fill="rgb(54,75,63)"/>
+<use href="#lamp-13.00x13.00" x="361.50" y="197.50" fill="rgb(44,65,54)"/>
+<use href="#lamp-13.00x13.00" x="355.91" y="239.95" fill="rgb(44,65,54)"/>
+<use href="#lamp-13.00x13.00" x="339.53" y="279.50" fill="rgb(133,182,154)"/>
+<use href="#lamp-13.00x13.00" x="313.47" y="313.47" fill="rgb(84,135,109)"/>
+<use href="#lamp-13.00x13.00" x="279.50" y="339.53" fill="rgb(88,121,102)"/>
+<use href="#lamp-13.00x13.00" x="239.95" y="355.91" fill="rgb(84,124,103)"/>
+<use href="#lamp-13.00x13.00" x="197.50" y="361.50" fill="rgb(84,124,103)"/>
+<use href="#lamp-13.00x13.00" x="155.05" y="355.91" fill="rgb(9,13,11)"/>
+<use href="#lamp-13.00x13.00" x="115.50" y="339.53" fill="rgb(126,148,132)"/>
+<use href="#lamp-13.00x13.00" x="81.53" y="313.47" fill="rgb(174,205,183)"/>
+<use href="#lamp-13.00x13.00" x="55.47" y="279.50" fill="rgb(1,2,2)"/>
+<use href="#lamp-13.00x13.00" x="39.09" y="239.95" fill="rgb(1,3,2)"/>
+<use href="#lamp-13.00x13.00" x="33.50" y="197.50" fill="rgb(1,3,2)"/>
+<use href="#lamp-13.00x13.00" x="39.09" y="155.05" fill="rgb(1,2,1)"/>
+<use href="#lamp-13.00x13.00" x="55.47" y="115.50" fill="rgb(13,37,28)"/>
+<use href="#lamp-13.00x13.00" x="81.53" y="81.53" fill="rgb(9,27,21)"/>
+<use href="#lamp-13.00x13.00" x="115.50" y="55.47" fill="rgb(14,39,29)"/>
+<use href="#lamp-13.00x13.00" x="155.05" y="39.09" fill="rgb(11,31,23)"/>
+<defs><g id="lamp-13.00x13.00"><rect x="-5.20" y="-2.86" width="23.40" height="18.72" rx="9.36" fill-opacity="0.34"/><rect width="13.00" height="13.00" rx="2.86"/></g></defs>
 </svg>

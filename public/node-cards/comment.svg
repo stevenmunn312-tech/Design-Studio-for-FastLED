@@ -1,16 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 296 178" width="296" height="178" role="img" aria-label="Comment node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 316 237" width="316" height="237" role="img" aria-label="Comment node">
 
-<defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/></filter></defs>
+<defs>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
+<filter id="grey"><feColorMatrix type="saturate" values="0"/></filter>
+<linearGradient id="headerGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+
+</defs>
 <g transform="translate(28,24)">
-<rect x="0" y="0" width="240" height="120" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="120" rx="8" fill="#1f242b" stroke="rgba(255,255,255,0.12)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#ffd24a"/>
+<defs><linearGradient id="tint-ffd24a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#434030"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<rect x="0" y="0" width="260" height="173" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="260" height="173" rx="8" fill="url(#tint-ffd24a)"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L252,0 Q260,0 260,8 L260,32 Z" fill="#ffd24a"/>
+<rect x="1" y="32" width="258" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Comment</text>
-<rect x="149" y="10" width="30" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="164" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">NOTE</text>
-<rect x="185" y="10" width="47" height="12" rx="6" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
-<text x="208.5" y="19" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="8" letter-spacing="0.08em" fill="#000">COM-239</text>
-<rect x="8" y="40" width="224" height="72" rx="4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-dasharray="4 3"/>
-<text x="16" y="58" font-family="'Inter','Segoe UI',sans-serif" font-size="14" fill="#e0e0e0">Note</text>
+<rect x="92.7" y="8" width="32.5" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="108.95" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">NOTE</text>
+<rect x="131.2" y="8" width="50.8" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
+<text x="156.6" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">COM-239</text>
+<circle cx="192" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
+<circle cx="199" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.12"/>
+<circle cx="206" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.08"/>
+<rect x="214" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="223" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">−</text>
+<rect x="234" y="7" width="18" height="18" rx="4" fill="rgba(0,0,0,0.14)"/>
+<text x="243" y="20.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="13" font-weight="700" fill="rgba(0,0,0,0.82)">×</text>
+<rect x="8" y="40" width="244" height="92" rx="4" fill="none" stroke="rgba(255,255,255,0.1)" stroke-dasharray="3 2"/>
+<text x="16" y="60" font-family="'Inter','Segoe UI',sans-serif" font-size="14" fill="#e0e0e0">Note</text>
+<line x1="8" y1="140.5" x2="252" y2="140.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="160" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">color</text>
+<rect x="224" y="147" width="28" height="18" rx="4" fill="#ffd24a" stroke="rgba(255,255,255,0.1)"/>
+<rect x="0.5" y="0.5" width="259" height="172" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

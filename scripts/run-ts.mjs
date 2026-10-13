@@ -24,6 +24,9 @@ export async function runTs(entry, args = []) {
     await build({
       entryPoints: [entry], outfile, bundle: true,
       platform: 'node', format: 'esm', logLevel: 'warning',
+      // Part renders the app imports as files travel inline, so a script can
+      // embed them (node-cards.ts bakes module thumbnails into its SVGs).
+      loader: { '.webp': 'dataurl', '.png': 'dataurl', '.jpg': 'dataurl', '.svg': 'dataurl' },
       define: { 'import.meta.env.DEV': 'false', 'import.meta.env.VITEST': 'false', 'import.meta.env': '{}' },
     })
     process.argv = [process.argv[0], resolve(entry), ...args]

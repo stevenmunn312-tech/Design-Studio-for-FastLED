@@ -6,7 +6,7 @@ import { orderPorts } from '../../utils/portOrder'
 import { compositionDims } from '../../state/output/outputRouting'
 import type { StudioEdge, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isInternalProperty, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
@@ -31,7 +31,6 @@ import {
 } from '../../state/output/ledOutputForm'
 import { stringPositions } from '../../state/output/stringPositions'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
-import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './bodies/BeatDetectBody'
 import FFTAnalyzerBody from './bodies/FFTAnalyzerBody'
@@ -48,7 +47,6 @@ import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGp
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { playerControlInputs } from '../../state/player/playerControlAssignments'
 import { partDerivedInputs } from '../../build/parts/partPorts'
-import { isHardwareNodeType } from '../../build/hardware'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import {
@@ -66,7 +64,6 @@ import { stopWheelWhileFocused } from './wheelBehavior'
 import { customPaletteStops16, hexToRgb as customHexToRgb, normalizeCustomPalette, rgbToHex } from '../../state/palettes/customPalette'
 import { polinePalette, hexToRgb as polineHexToRgb } from '../../state/palettes/polinePalette'
 import type { Palette } from '../../state/palettes/ledColor'
-import { isHardwarePartField } from '../../build/parts/partFields'
 import { DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from '../../state/displays/displaySignal'
 import { CUSTOM_DESIGN_LAYOUT,
   asTransportDisplayLayout,
@@ -74,6 +71,10 @@ import { CUSTOM_DESIGN_LAYOUT,
   transportLayoutForKind,
 } from '../../state/displays/transportDisplay'
 import styles from './StudioNode.module.css'
+import {
+  CATEGORY_TAG, HARDWARE_INPUT_WIDGET_TYPES, NODE_WIDTH_OVERRIDES, PREVIEW_NOTES,
+  editableProperties, hasRgbProperties, moduleCode,
+} from './studioNodeChrome'
 import { NODE_HANDLE_STYLE } from './nodeHandleStyle'
 import {
   controllableInputsFor, exposableInputsFor, exposedNodeInputs, labelledForPart, propertyInputsFor,
@@ -1042,59 +1043,6 @@ const CORKSCREW_PREVIEW_H = 150
 // these tags it for that show signal; keep in sync with the generator/codegen.
 const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
 
-// Nodes whose canvas preview intentionally diverges from firmware behaviour
-// (export-only outputs). Rendered as a muted note at the bottom of the body
-// so the fallback reads as deliberate, not broken. The audio nodes surface
-// their own state (FFTAnalyzerBody's MIC LIVE / TEST SIGNAL / SILENT pill,
-// BeatDetectBody's LIVE / PREVIEW badge); ButtonInput/PotInput/EncoderInput
-// get a live widget (HardwareInputBody) instead of a note.
-const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
-  DMXInput: {
-    text: 'preview listens for helper-backed Art-Net; firmware uses the selected DMX source',
-    title: 'The browser preview reads Art-Net packets through the local helper. Generated firmware uses this node’s selected DMX source instead: Art-Net over Wi-Fi or DMX512 over an ESP32 transceiver.',
-  },
-  PowerMonitorInput: {
-    text: 'preview readings come from the sliders; firmware reads the INA219 or INA226',
-    title: 'The browser has no sensor to read, so the two sliders stand in for the measured volts and amps and watts is their product, as it is on the device. Generated firmware reads bus and shunt voltage from the monitor over I2C and derives amps from the fitted shunt.',
-  },
-  MotionVectorInput: {
-    text: 'preview axes come from the sliders; firmware reads the MPU-6050',
-    title: 'The browser has no motion sensor, so six sliders stand in for acceleration (g) and rotation rate (degrees per second), starting with the board lying flat, and Connected is always true. Generated firmware reads all six from the MPU-6050 over I2C in one burst; Connected goes false when it stops answering.',
-  },
-  TouchPadInput: {
-    text: 'preview electrodes are the pads on the node; firmware reads the MPR121',
-    title: 'The browser has no touch controller, so the twelve pads stand in for the electrodes and Connected is always true. Electrode holds the lowest one touched, as an index from 0 to 11, and keeps it after release; Touched is true while any pad is down and Count is how many. Generated firmware reads the touch status from the MPR121 over I2C; Connected goes false when it stops answering.',
-  },
-  KeypadInput: {
-    text: 'preview keys are the buttons on the node; firmware scans the matrix',
-    title: 'The browser has no keypad, so the sixteen buttons stand in for the keys. Key holds the last one pressed, as an index from 0 to 15 row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and Pressed is true while any key is down. Generated firmware drives each column low in turn and reads the rows through their pull-ups.',
-  },
-  JoystickInput: {
-    text: 'preview axes come from the sliders; firmware reads the two ADC pins',
-    title: 'The browser has no joystick, so the two sliders stand in for the X and Y axes, centred at half travel, and the push button for the switch. Generated firmware reads each axis as a 12-bit ADC count, centres it on half scale, removes the dead zone and rescales to -1 to 1.',
-  },
-  DistanceInput: {
-    text: 'preview reading comes from the slider; firmware times the HC-SR04 echo or reads the VL53L0X or VL53L1X',
-    title: 'The browser has no ultrasonic sensor, so the slider stands in for the distance and Connected is always true. Generated firmware pulses Trig, times the Echo, and reports Connected false when no echo returns. Readings are taken every 60 ms and held between.',
-  },
-  TemperatureInput: {
-    text: 'preview reading comes from the slider; firmware reads the DS18B20',
-    title: 'The browser has no probe to read, so the slider stands in for the temperature and Connected is always true. Generated firmware starts a conversion, reads the probe 800 ms later and checks its CRC; Connected goes false when a read fails.',
-  },
-  EnvironmentInput: {
-    text: 'preview readings come from the sliders; firmware reads the BME280',
-    title: 'The browser has no environment sensor to read, so the sliders stand in for temperature, humidity and pressure. Generated firmware reads and compensates all three measurements from the BME280 over I2C.',
-  },
-  RTCInput: {
-    text: 'preview follows the configured source; only sync state is simulated',
-    title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows UTC plus the configured offset, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
-  },
-  MidiInput: {
-    text: 'preview-only — no embedded MIDI equivalent',
-    title: 'Reads a connected MIDI controller via the Web MIDI API for live preview control. There is no hardware analogue, so the generated firmware always sees the idle default (velocity 0, gate off, cc 0).',
-  },
-}
-
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 
 const CATEGORY_CLASS: Record<string, string> = {
@@ -1109,24 +1057,6 @@ const CATEGORY_CLASS: Record<string, string> = {
   show: styles.categoryShow,
   output: styles.categoryOutput,
   note: styles.categoryNote,
-}
-
-const CATEGORY_TAG: Record<string, string> = {
-  input: 'IN',
-  audio: 'AUD',
-  signal: 'SIG',
-  math: 'MTH',
-  color: 'CLR',
-  pattern: 'PAT',
-  field: 'FLD',
-  composite: 'CMP',
-  show: 'SHW',
-  output: 'OUT',
-  note: 'NOTE',
-}
-
-function moduleCode(nodeType: string) {
-  return nodeType.replace(/[^A-Z0-9]/gi, '').slice(0, 3).toUpperCase().padEnd(3, '·')
 }
 
 // Single-entry cache mapping node id → serialised incoming-wiring key, rebuilt
@@ -1377,7 +1307,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
     }
     return undefined
   }, [d.nodeType, paletteEditorLive, palettePreviewProps])
-  const hasRGB = ['r', 'g', 'b'].every((k) => typeof props[k] === 'number')
+  const hasRGB = hasRgbProperties(props)
   // Mirror's r/g/b is only the glow tint, so hide its swatch until glow is on;
   // Boids only uses its r/g/b in the 'solid' colour mode; BeatFlash's solid
   // color is unused once a palette is selected — hide it otherwise.
@@ -1395,51 +1325,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // A Comment's own color picker tints the node directly (sticky-note
   // convention) instead of the fixed category accent every other node uses.
   const accent = isComment && isHexColor(props.color) ? props.color : categoryAccent
-  const editable = Object.entries(props).filter(
-    // Bookkeeping the app keeps for itself, declared in one place rather than
-    // added to the chain below each time somebody notices one on their canvas.
-    ([k]) => !isInternalProperty(k)
-      && !(d.nodeType === 'IRRemoteInput' && k === 'debug')
-      && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'clip' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'showInMainPreview' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
-    // Pin provenance is bookkeeping, not a setting: which pins the app
-    // assigned, which board for, and the user's own choices per board.
-    // It was rendering as `[object Object]` rows on every hardware node.
-    && k !== ASSIGNED_PINS_KEY && k !== ASSIGNED_BOARD_KEY && k !== USER_PINS_KEY
-      && !(d.nodeType === 'CustomPalette' && (k === 'colors' || k === 'positions'))
-      && !(d.nodeType === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
-      // Comment's `text` gets its own multi-line editor in the body, not the
-      // generic single-line field list.
-      && !(isComment && k === 'text')
-      // PSRAM controls render in the upload tab — their visibility depends
-      // on whether the *selected board* supports PSRAM, which only it knows.
-      && k !== 'usePsram' && k !== 'psramPolicy' && k !== 'psramMode' && k !== 'serialRoute'
-      // MatrixOutput's width/height are edited via the dedicated size dropdown
-      // (16/32/64/Custom) below, not the generic number-field editor.
-      && k !== 'width' && k !== 'height'
-      // What the output physically *is* belongs to the hardware view: you get
-      // a ring by putting a ring on the bench, not by retyping a matrix. A
-      // dropdown here let the graph claim a part the bench did not have, which
-      // is the one thing the two-view model exists to prevent.
-      && k !== 'form'
-      && !(d.nodeType === 'StereoVuMeter' && k === 'targetOutputId')
-      // Physical wiring and hardware-specific selectors have one owner: the
-      // part's popup on the workbench, not a second editor on the graph node.
-      && !(isHardwareNodeType(d.nodeType)
-        && (isGpioPinProperty(d.nodeType, k) || isHardwarePartField(d.nodeType, k)))
-      && !(isGroupInput && k === 'paramId')
-      && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
-      // An inapplicable property is normally shown disabled, which reads as
-      // "this exists for the other variants" — useful on a five-property node
-      // like Transition. The LED output has forty-six, so a string was showing
-      // thirty-three dead rows against thirteen live ones, all sixteen HUB75
-      // pins among them. At that ratio the greyed rows stop being context and
-      // start being the thing you have to read past, so this node hides them.
-      // So does a power switch: its board decides how many channels exist,
-      // and a one-channel LR7843 would otherwise show seven dead Level rows.
-      // Empty groups already drop out below.
-      && !((d.nodeType === 'MatrixOutput' || d.nodeType === 'PowerSwitchOutput')
-        && !isPropertyEnabled(d.nodeType, k, props))
-  )
+  const editable = editableProperties(d.nodeType, props)
   // The "clamp inputs" toggle is rendered specially (it has no entry in the
   // node's default properties); show it only where it would do something.
   const showClamp = hasClampableInputs(d.nodeType, inputs)
@@ -1468,9 +1354,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isComplexWave = d.nodeType === 'ComplexWave'
   const isBeatDetect = d.nodeType === 'BeatDetect'
   const isFFTAnalyzer = d.nodeType === 'FFTAnalyzer'
-  const isHardwareInput = d.nodeType === 'ButtonInput' || d.nodeType === 'TouchButtonInput' || d.nodeType === 'PotInput' || d.nodeType === 'EncoderInput'
-    || d.nodeType === 'MotionInput' || d.nodeType === 'LightInput' || d.nodeType === 'PowerMonitorInput' || d.nodeType === 'EnvironmentInput' || d.nodeType === 'TemperatureInput' || d.nodeType === 'DistanceInput' || d.nodeType === 'JoystickInput' || d.nodeType === 'MotionVectorInput' || d.nodeType === 'KeypadInput' || d.nodeType === 'TouchPadInput'
-    || d.nodeType === 'PresenceInput'
+  const isHardwareInput = HARDWARE_INPUT_WIDGET_TYPES.has(d.nodeType)
   /*
    * A thumbnail of the part this node is, in the preview slot.
    *
@@ -1603,8 +1487,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const musicLibraryAnalyzing = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
-  // The Performance Generator embeds a show-preview player (canvas + transport).
-  const isPerfGen = d.nodeType === 'PerformanceGenerator'
   const signalKey = outPort ? `${id}:${outPort.id}` : null
   const categoryClass = CATEGORY_CLASS[d.category] ?? ''
   const categoryTag = CATEGORY_TAG[d.category] ?? 'MOD'
@@ -1653,7 +1535,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
       ref={nodeRef}
       className={`${styles.node} ${minimized ? styles.nodeMinimized : ''} ${categoryClass} ${performanceMode ? styles.nodePerformance : ''} ${selected ? styles.nodeSelected : ''} ${focusState === 'dim' ? styles.nodeDim : focusState === 'active' ? styles.nodePath : ''} ${previewKind === 'frame' ? styles.nodeFrameSource : ''} ${flashing ? styles.nodeFlash : ''} ${isMusicLibrary && musicLibraryAnalyzing ? styles.nodeMusicAnalyzing : ''} ${micUnavailable ? styles.nodeDisabled : ''}`}
       style={{
-        width: isMusicLibrary ? 300 : isCode ? 320 : isPerfGen ? 300 : isComment ? 260 : undefined,
+        width: NODE_WIDTH_OVERRIDES[d.nodeType],
         '--node-accent': accent,
       } as React.CSSProperties}
     >
