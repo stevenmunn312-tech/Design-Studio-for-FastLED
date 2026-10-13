@@ -324,6 +324,130 @@ and its design notes.
   sketch with the blocks as comments
   ([generative show](docs/design/generative-pattern-show.md#codegen-target)).
 
+## D-08 · Node lock-in before the Help rewrite, v1 part
+
+From the node-by-node audit of 2026-10-13 (per-node detail and every tooltip
+draft are in the local, regenerable `tmp/node-audit/` reports; `REPORT.md`
+there is the summary). The goal is to freeze node names, property names, types
+and layout so the Help node reference is written once. Do the items in order:
+the first three change every node at once, the rest narrow down to single
+nodes, and the Help rewrite is last because it documents the result.
+
+- [ ] **D-08.1 · One NaN guard for every property.** `floatExpr` in
+  `src/codegen/cppGenerator.ts` (line ~650) emits the literal `NaN` for any
+  non-numeric saved property, and the evaluator's `num()`
+  (`src/state/graphEvaluator.ts`, line ~141) passes NaN through every per-node
+  clamp. Fall back to the library default in both, add a finiteness check to
+  `num()`, and cover it with one parity test. Closes the KickShock,
+  PercussionBlobs, RainRipples, FFTAnalyzer and SpectrumVisualizer
+  `new Array(NaN)` crashes and the `const int _PN=NaN;` sketch failures.
+- [ ] **D-08.2 · Property row grid.** `.propRow` in
+  `src/components/Canvas/StudioNode.module.css` is flex space-between with a
+  different fixed width per control (slider 112 px, select 84, input 72,
+  checkbox 16), so the control edge jumps row to row and a label beside a
+  slider gets about 85 px (11 characters: `transitionTime` renders as
+  `transitio…`). Change the row to `grid-template-columns: minmax(0, 1fr)
+  112px 16px`, give select, input and slider wrap the same 112 px, and always
+  reserve the pin slot. Verify on Pattern Master, the LED output and Format
+  Number in the Browser pane.
+- [ ] **D-08.3 · Remove dead properties and stale metadata.** Zones
+  `aName`…`dName`; SegmentDisplay `decimals` and `leadingZero`; Board `volts`;
+  MatrixOutput's power and bench `PROPERTY_GROUPS` keys and the
+  `isPropertyEnabled` volts/milliamps/overclock branches left from the Board
+  split; TransportDisplay's stale `tftLayout` META options; PaletteBank's
+  `palettes` array leaking as a text row (exclude it in `editableProperties`);
+  the Transition node rendering `transitionType` and `t` twice. Pre-1.0: remove
+  the shapes cleanly, no migration.
+- [ ] **D-08.4 · Definition bugs.** Line defaults `x2: 'W-1', y2: 'H-1'` are
+  rejected by `supportsScalarExpression` (a fresh Line draws nothing); Math has
+  no `a`/`b` defaults; Blend with B unwired blends against black in preview
+  and is a no-op in firmware (splice creates this state); HUB75 pins are
+  collected by `hardwareManifest.ts` on `chipset === 'HUB75'` while firmware
+  keys on `form === 'hub75'`; Fire `intensity` slider 0–2 against a 0–1 clamp
+  and Blobs `count` 1–200 against 1–6; GameOfLife reseeds on stagnation in
+  preview but only on extinction in firmware; DMXInput `universe` and
+  `previewPort` and LightInput `maxLux` as 72 px sliders (bounded number
+  inputs instead); DFPlayerOutput `audioOutput` inheriting the I2S tooltip;
+  CustomFormula edited in a one-line 72 px box with no inline parse error
+  (give it the Code node's editor and width).
+- [ ] **D-08.5 · Beat response that honours its controls.** On every live
+  source BeatDetect takes the FastLED-native branch, so `threshold`, `attack`,
+  `decay` and its five diagnostic outputs are dead while Help says "raise
+  Threshold". Make Threshold gate the native beat with a BPM-derived cooldown
+  and raise the default to 0.4. Coerce float-to-bool ports at 0.5 in the
+  evaluator and firmware (today any nonzero Kick fires Beat every frame). Label
+  `energy` as `reactivity` on the seventeen pattern nodes that use it that way.
+  This is the fix for stacked per-beat flashes
+  ([player, shows and controls](docs/development/patterns/player-shows-and-controls.md)).
+- [ ] **D-08.6 · Data-type and sanitising sweep.** Per node lists are in the
+  audit reports; the classes are: free numbers that need bounds (Spiral
+  `arms`, Kaleidoscope `segments`, Circle `radius`, Shape `size`, ClockDisplay
+  `durationSec`, Amplifier and PowerAmplifier `maxVolume`, RTCInput
+  `startYear`, Text `scroll`); slider ranges that disagree with the clamp
+  (ReactionDiffusion `speed`, FlowField and Starfield `count`, Path `scale`,
+  FrameFeedback `angle`, `tilesX`/`tilesY`); preview/firmware parity on wired
+  values (Particles `rate` uint8 wrap, WaveSim `impulse`, FormulaField
+  `speed`, Array `falloff`, HueCycle/HSVToRGB/BlendColors `(uint8_t)(x*255)`,
+  the five audio-pattern speed clamps, Poline ignoring wired anchors); the
+  duplicate-row trap where a port and property share an id without
+  `propertyInputs` (fifteen math and signal nodes plus FieldNoise, WaveSim,
+  DistanceField, FieldToFrame, FieldWarp, FieldRotate, FieldTile); Counter
+  advancing per evaluation pass instead of on the speed clock and Time `dt`
+  fixed at 1/60; `pullup` as a canvas row on ButtonInput/EncoderInput but a
+  popup checkbox on ButtonBank; ButtonBank's unassigned pin −1 sanitising to
+  GPIO0 (confirm deploy blocks it); HardwarePartBody never reading
+  `propertyDescription`. Add parity tests for the stateful signal nodes.
+- [ ] **D-08.7 · Labels, groups and widths.** `PROPERTY_LABELS` for every raw
+  camelCase key on composite, field, shapes, show and output nodes (Pattern
+  Master: `min hold (s)`, `max hold (s)`, `fade (s)`); `PROPERTY_GROUPS` for
+  the flat nodes with more than six rows (Fire, Fire2012, Particles,
+  FormulaPoints, Noise, BeatFlash, KickShock, PercussionBlobs, RainRipples,
+  Gauge, Text, FormatNumber, FormulaField, Automaton, ShapeField,
+  FrameFeedback, TouchInput), with a leading group for Pattern Master `volume`
+  and the LED output's `enabled` and `brightness`; gated rows hidden rather
+  than disabled; `NODE_WIDTH_OVERRIDES` of 320 for CustomFormula and
+  FieldFormula, 300 for IRRemoteInput, 280 for ColorTrails, Pattern Master and
+  the LED output, 260 for SpectrumVisualizer, KickShock, RainRipples,
+  PercussionBlobs and AudioHue; `SUBCATEGORY_ORDER.math` of Math, Logic, Text;
+  PatternSlideshow added to `CATEGORY_NODE_ORDER.show`.
+- [ ] **D-08.8 · Tooltips on every property.** 355 of 1163 editable
+  properties have a `propertyDescription`; the 808 drafts are in the audit
+  reports as paste-ready `PROPERTY_DESCRIPTIONS_OVERRIDES` objects. Land them,
+  extend `FORMULA_LANG_HELP` to the full function and shim list, and add a
+  test beside the `NODE_DESCRIPTIONS` test that every non-internal property of
+  every `NODE_LIBRARY` node has a description, so the lock-in holds.
+- [ ] **D-08.9 · Merges, renames and category moves.** Decide each, then apply
+  the approved ones in one pass with their descriptions, live examples and
+  README counts. Candidate merges: Fire into Fire2012 as a style; Particles
+  `swarm` into Boids; FractalNoise and GaborNoise as Noise variants;
+  ComplexWave into Math; Sin, Cos and Abs into one Function node; Mod as a
+  Math op; Counter and BeatSin into Wave once Wave has offset, unipolar and a
+  Hz/BPM unit; BlendColors into GradientSampler; CHSV into HSVToRGB with a
+  units select; Circle into Shape; FieldLerp into FieldMath; DistanceField into
+  ShapeField; Fade into Brightness; SpectrumBars into SpectrumVisualizer;
+  XYMapper removed (nothing consumes an LED index). Renames: Formula Field
+  (clashes with Field Formula); Fractal (clashes with Fractal Noise);
+  Temperature's `kelvin` is a 0–1 warmth; TouchInput to Touch Screen;
+  MotionInput to PIR Motion Sensor; PowerConverter's "Buck Converter" to
+  "DC-DC Converter"; TransitionSet to Transition Pool. Moves: Kaleidoscope to
+  Effects; Image and SDVideo to a Media subcategory; the portless power and
+  network parts out of Inputs into a non-sidebar hardware category. Open
+  questions: Sunrise's clock source, Transform's one-way zoom and 0–360 rate,
+  ClockDisplay's legacy scalar ports.
+- [ ] **D-08.10 · Nodes the library lacks.** In priority order: Color (a swatch
+  with a `color` output); Logic (and, or, xor, not); Expression (scalar
+  `f(a, b, t)` on `formulaLang`); Constant; Theater Chase, Color Wipe, Breathe
+  and a Glitter overlay; Gradient Field, Float to Field and Field Blur; Frame
+  Transform (rotate, flip, translate) and a Blend `mask` input; Frequency Band,
+  Level Meter, Beat Phase and Stereo Levels; Text with a string input and a
+  Palette Transform; sACN/E1.31 and DDP input and a hardware DIN MIDI input;
+  FPS cap, Adalight/DDP frame output and an analog RGB strip output. Each
+  follows the new-node checklist in
+  [graph and nodes](docs/development/patterns/graph-and-nodes.md).
+- [ ] **D-08.11 · Help node reference rewrite.** Only after D-08.1 to D-08.10:
+  one card per node from the frozen definitions, reusing the property
+  descriptions and the redrawn node cards, with a live example per node.
+
 ## 5. Release track (in order)
 
 - [x] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
