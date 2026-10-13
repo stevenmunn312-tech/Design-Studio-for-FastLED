@@ -309,8 +309,9 @@ This phase alone ports the majority of ANIMartRIX patterns as
 - Evaluator cases + codegen cases for each; field nodes share the `field_<id>`
   buffer plumbing from Phase 1.
 - Tests: 9 added (evaluator behaviour + codegen emission per node).
-- *Deferred:* a `field` output mode on the bundled `Noise` node (raw noise
-  pre-palette) — a follow-up, not required for the ANIMartRIX vocabulary.
+- The bundled `Noise` node's raw `field` output (the noise before the palette)
+  shipped later: every variant writes `field_<id>` and the `frame` output is
+  that field through the palette, in the preview and the sketch alike.
 
 ### Phase 3 — `FieldRotate` + `FieldTile` — **implemented**
 *Scope:* Coordinate-space transforms for the handful of ANIMartRIX patterns
@@ -334,8 +335,8 @@ params — a different operation that doesn't map onto an additive offset field.
 
 - **`CustomFormula`** — kept as-is (frame output); enhanced with new vars + shims.
   `FieldFormula` is the field-output sibling, not a replacement.
-- **`Noise`** (the bundled Simplex/Worley/etc. node) — could gain a `field` output
-  mode in a later pass (expose raw noise values pre-palette for composition).
+- **`Noise`** (the bundled Simplex/Worley/etc. node) — has a `field` output
+  beside `frame`: the raw noise values pre-palette, for composition.
 - **`Transition` / `Blend`** — operate on `frame` only; field nodes feed *into* a
   `frame` via `FieldToFrame`, then existing composites apply as normal.
 

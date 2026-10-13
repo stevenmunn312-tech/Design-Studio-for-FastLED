@@ -310,9 +310,11 @@ and its design notes.
   geometry the node preview and the hardware bay use
   (`shapeLayoutFor` in `src/components/Hardware/ledPreviewGeometry.ts`), on a
   canvas sized in LED-pitch cells so the per-LED pixel budget is a matrix's.
-- [ ] **Raw `field` output on `Noise`.** Expose the noise values before the
-  palette, so other field nodes can mix, warp or mask them before colouring
-  ([ANIMartRIX note](docs/design/animartrix-float-field.md)).
+- [x] **Raw `field` output on `Noise`.** Already shipped: the node's `Field`
+  port carries the noise values before the palette (`src/nodes/generative/`,
+  evaluator and firmware alike), so other field nodes can mix, warp or mask
+  them before colouring. The [ANIMartRIX note](docs/design/animartrix-float-field.md)
+  no longer lists it as deferred.
 - [ ] **One `.h` per pattern in show output.** `showGenerator.ts` writes every
   `render_pN()` into one controller file. Split each pattern into its own
   header beside a small controller `.ino`
