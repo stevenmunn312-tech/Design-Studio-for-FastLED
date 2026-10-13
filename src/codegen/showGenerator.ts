@@ -19,6 +19,7 @@ import { customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { generateCpp, audioEngineForGraph, psramBufferDecl, PSRAM_ALLOC_CPP, ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, PHI_DEFINE_CPP } from './cppGenerator'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
 import { SHOW_TRANSITIONS } from './performanceGenerator'
+import { isAudioReactiveSubgraph } from '../state/patterns/audioReactiveSubgraph'
 import { transitionHelperCpp } from './helpers/transitionHelperCpp'
 import { SDF_HELPER_CPP } from './helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
@@ -354,6 +355,10 @@ export interface PatternRenderers {
   count: number
   /** Role params threaded into every render_pN (e.g. ['energy']); [] when off. */
   params: string[]
+  /** Per pattern, whether its subgraph listens to audio (isAudioReactiveSubgraph):
+   *  the generic player fades only those to black on silence. Absent means
+   *  every pattern fades. */
+  audioReactive?: boolean[]
 }
 
 /** Whether the compiled pattern collection reads the player's shared audio
@@ -378,6 +383,7 @@ export function buildPatternRenderers(
     functions: units.map((u) => u.fn),
     count: units.length,
     params: roleParams,
+    audioReactive: patternIds.map((id) => isAudioReactiveSubgraph(groups[id]?.nodes ?? [])),
   }
 }
 

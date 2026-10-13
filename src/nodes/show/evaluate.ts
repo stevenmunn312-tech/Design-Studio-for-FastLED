@@ -47,6 +47,8 @@ import type {
   NodeEvaluators, EvaluateGraph,
 } from '../../state/evaluator/types'
 import { instanceState } from '../../state/evaluator/memory'
+import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
+import { PARTICLE_MIN_GAP_MS, silenceFadeStep, silenceFadeTarget } from '../../state/player/playerDynamics'
 
 const patternShowState = instanceState('patternShowState', new Map<string, ShowState>())
 const patternSlideshowFadeState = instanceState('patternSlideshowFadeState', new Map<string, { level: number; lastT: number }>())
@@ -654,6 +656,10 @@ interface ShowState {
    *  rolled once when the burst starts (randomStyle/randomColor) so they stay
    *  fixed for the burst's lifetime instead of re-rolling every frame. */
   burst?: { t: number; style: number; color: RGB }
+  /** The silence fade, 0 (black) to 1, following the track's mean band energy
+   *  the way the firmware's `audioFade` does. Starts where the track already
+   *  is, so a show opened mid-song shows its pattern at once. */
+  audioFade: number
 }
 export interface PatternShowSelection {
   currentIndex: number
@@ -675,6 +681,15 @@ interface ShowOpts {
    * generative show has always done. Both players can ask for collection order.
    */
   order?: PatternSlideshowOrder
+  /**
+   * Mean band energy of the audio driving the show, 0 to 1, or null when no
+   * audio is wired. With audio, each audio-reactive pattern fades to black
+   * during silence (see playerDynamics.ts); patterns that do not listen keep
+   * playing. The firmware's generic player does the same per pattern.
+   */
+  audioEnergy: number | null
+  /** Whether a collected pattern listens to audio, by group id. */
+  audioReactive: (groupId: string) => boolean
 }
 
 /** Read the current selection of a live PatternMaster by its evaluator state key.
@@ -909,7 +924,8 @@ function evalPatternShow(
     // interrupted the show.
     seededRngState.delete(`${key}:show`)
     st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
-           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed }
+           phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed,
+           audioFade: o.audioEnergy === null ? 1 : silenceFadeTarget(o.audioEnergy) }
     updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
   }
 
@@ -932,11 +948,15 @@ function evalPatternShow(
 
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
-  // Each beat also fires a particle burst (independent of the dwell-gated
-  // pattern advance), if the node has particles enabled. Style/colour are
-  // rolled once here (when randomStyle/randomColor are on) so they stay fixed
-  // for the whole burst instead of changing every frame.
-  if (beatEdge && o.particles) {
+  // A beat also fires a particle burst (independent of the dwell-gated
+  // pattern advance), if the node has particles enabled and the last burst
+  // is at least PARTICLE_MIN_GAP_MS old: on every beat the sparks never
+  // cleared. Style/colour are rolled once here (when randomStyle/randomColor
+  // are on) so they stay fixed for the whole burst instead of changing every
+  // frame. The firmware gates `_audioBeat` by the same gap.
+  const nowMs = t * 1000
+  const burstDue = st.burst == null || nowMs < st.burst.t || nowMs - st.burst.t >= PARTICLE_MIN_GAP_MS
+  if (beatEdge && o.particles && burstDue) {
     st.burst = {
       t: t * 1000,
       style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,
@@ -959,8 +979,12 @@ function evalPatternShow(
   }
 
   let frame: Frame
+  // Progress of the running transition, for the silence fade below; null
+  // while holding.
+  let transitionProgress: number | null = null
   if (st.phase === 'trans') {
     const prog = o.transSec <= 0 ? 1 : Math.min(1, (t - st.start) / o.transSec)
+    transitionProgress = prog
     frame = compositeTransition(st.trans, render(ids[cur]), render(ids[st.next.index]), prog, W, H)
     if (prog >= 1) {
       // The show's own advance goes through the contract, so a display naming
@@ -985,6 +1009,23 @@ function evalPatternShow(
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
         const s = ov[y][x], px = frame[y][x]
         px.r = Math.min(255, px.r + s.r); px.g = Math.min(255, px.g + s.g); px.b = Math.min(255, px.b + s.b)
+      }
+    }
+  }
+
+  // Silence fade: an audio-reactive pattern goes to black as the track goes
+  // quiet and comes back as it returns, after the sparks so they fade with
+  // it. Crossing from a listening pattern to one that does not fades the
+  // factor with the transition. The firmware scales `leds` the same way.
+  if (o.audioEnergy !== null) {
+    st.audioFade = silenceFadeStep(st.audioFade, silenceFadeTarget(o.audioEnergy))
+    const fadeOf = (gid: string) => (o.audioReactive(gid) ? st.audioFade : 1)
+    const fade = transitionProgress === null
+      ? fadeOf(ids[cur])
+      : fadeOf(ids[cur]) + (fadeOf(ids[st.next.index]) - fadeOf(ids[cur])) * transitionProgress
+    if (fade < 1) {
+      for (const row of frame) for (const px of row) {
+        px.r = Math.round(px.r * fade); px.g = Math.round(px.g * fade); px.b = Math.round(px.b * fade)
       }
     }
   }
@@ -1190,6 +1231,13 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       randomColor: particleFx?.randomColor ?? false,
       seed: normalizedSeed(props.seed),
       order: asSlideshowOrder(props.order),
+      // Mirrors the firmware: a decoder that is not live reads as silence.
+      audioEnergy: audio
+        ? audio.active
+          ? clamp01((Number(audio.bass ?? audio.micBass ?? 0) + Number(audio.mids ?? audio.micMids ?? 0) + Number(audio.treble ?? audio.micTreble ?? 0)) / 3)
+          : 0
+        : null,
+      audioReactive: (gid) => isAudioReactiveSubgraph(groups[gid]?.nodes ?? []),
     }
     const key = stateKey(id)
     const controlsValue = input(id, 'controls', null)
@@ -1351,6 +1399,9 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       randomColor: false,
       seed: settings.seed,
       order: settings.order,
+      // A slideshow is the show with the music taken out: nothing fades.
+      audioEnergy: null,
+      audioReactive: () => false,
     }, elapsedT, W, H, selection)
 
     if (settings.audioReactive) {

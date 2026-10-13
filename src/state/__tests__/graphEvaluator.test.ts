@@ -3024,6 +3024,73 @@ describe('evaluateGraph', () => {
     expect(usePlayerTransport.getState().controlSerial).toBe(1)
   })
 
+  it('PatternMaster fades a listening pattern to black on silence and leaves a deaf one lit', () => {
+    mockAudio.active = true
+    mockAudio.micActive = true
+    mockAudio.bass = 0
+    mockAudio.mids = 0
+    mockAudio.treble = 0
+    mockAudio.micBass = 0
+    mockAudio.micMids = 0
+    mockAudio.micTreble = 0
+    mockAudio.detectorSpectrum = Array(32).fill(0)
+    const listening = 'grp-listening'
+    const deaf = 'grp-deaf'
+    const white = () => node('white', 'SolidColor', 'pattern', { r: 255, g: 255, b: 255 })
+    const groups = {
+      [listening]: {
+        nodes: [
+          node('gi', 'GroupInput', 'composite', { paramId: 'param0' }),
+          node('fft', 'FFTAnalyzer', 'audio', { gain: 1, smoothing: 0 }),
+          white(),
+          node('go', 'GroupOutput', 'output', {}),
+        ],
+        edges: [edge('eg0', 'gi', 'out', 'fft', 'audio'), edge('eg3', 'white', 'frame', 'go', 'frame')],
+      },
+      [deaf]: {
+        nodes: [white(), node('go', 'GroupOutput', 'output', {})],
+        edges: [edge('eg3', 'white', 'frame', 'go', 'frame')],
+      },
+    }
+    const show = (gid: string, label: string) => {
+      const pc = node(`pc-${label}`, 'PatternCollection', 'composite', { patternIds: [gid] })
+      const pm = node(`pm-${label}`, 'PatternMaster', 'pattern', { minTime: 999, maxTime: 999, transitionSec: 1 })
+      const mic = node(`mic-${label}`, 'MicInput', 'input', {})
+      const out = node(`out-${label}`, 'MatrixOutput', 'output', {})
+      const edges = [
+        edge('e1', `pc-${label}`, 'patternset', `pm-${label}`, 'patternset'),
+        edge('e2', `mic-${label}`, 'audio', `pm-${label}`, 'audio'),
+        edge('e3', `pm-${label}`, 'frame', `out-${label}`, 'frame'),
+      ]
+      return (tick: number) => evaluateGraph([mic, pc, pm, out], edges, tick, 4, 4, groups)![0][0].r
+    }
+    const lit = show(listening, 'a')
+    const kept = show(deaf, 'b')
+    // Silent from the first frame: the listening pattern opens dark and stays
+    // dark; the pattern that never listens is untouched.
+    expect(lit(0)).toBe(0)
+    expect(lit(10)).toBe(0)
+    expect(kept(0)).toBe(255)
+    expect(kept(10)).toBe(255)
+    // Music returns: the listening pattern comes back up over a few frames.
+    mockAudio.bass = 0.6; mockAudio.mids = 0.3; mockAudio.treble = 0.3
+    mockAudio.micBass = 0.6; mockAudio.micMids = 0.3; mockAudio.micTreble = 0.3
+    const first = lit(11)
+    expect(first).toBeGreaterThan(0)
+    expect(first).toBeLessThan(255)
+    let last = first
+    for (let tick = 12; tick < 60; tick++) last = lit(tick)
+    expect(last).toBe(255)
+    // Silence again: it goes back down, slower than it rose.
+    mockAudio.bass = 0; mockAudio.mids = 0; mockAudio.treble = 0
+    mockAudio.micBass = 0; mockAudio.micMids = 0; mockAudio.micTreble = 0
+    const dimming = lit(60)
+    expect(dimming).toBeLessThan(255)
+    expect(255 - dimming).toBeLessThan(first)
+    mockAudio.active = false
+    mockAudio.micActive = false
+  })
+
   it('PatternMaster forwards its wired audio input into absorbed groups', () => {
     mockAudio.active = true
     mockAudio.micActive = true

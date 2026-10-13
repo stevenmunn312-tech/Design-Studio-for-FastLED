@@ -15,8 +15,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   after the preceding transition finishes; no beat means no automatic change.
   With the checkbox off, the same range controls timed changes. A wired Beat
   input takes precedence over preview Audio beats or the SD decoder's beats.
-  Particles remain independently beat-triggered. `musicPlayerTiming` normalizes
-  stored timing; SD control routing also resolves wired timing and Beat inputs.
+  Particles remain independently beat-triggered, at most one burst per
+  `PARTICLE_MIN_GAP_MS` (`src/state/player/playerDynamics.ts`); the preview's
+  `evalPatternShow` and the generic SD player's `_audioBeat` gate read the same
+  constant, so a burst that fires in one fires in the other. `musicPlayerTiming`
+  normalizes stored timing; SD control routing also resolves wired timing and
+  Beat inputs.
+- **Silence fades only the patterns that listen.** With audio wired, the Music
+  Player steps one `audioFade` from the mean of the three bands with
+  `playerDynamics.ts`'s floor, range and attack/release rates, and scales a
+  collected pattern by it only when `isAudioReactiveSubgraph`
+  (`src/state/patterns/audioReactiveSubgraph.ts`) says the pattern listens; a
+  pattern with no audio node keeps playing. Mid-transition the factor crosses
+  with the composite. `buildPatternRenderers` records the same answer per
+  pattern as `audioReactive`, and the generic SD player emits it as
+  `PATTERN_AUDIO_REACTIVE[]` with the same constants, so the device fades the
+  pattern the preview fades. A decoder or Audio node that is not live reads
+  as silence on both sides. The Pattern Slideshow never fades.
   Decoder-fed Beat Detect nodes can supply SD control pulses; other unsupported
   audio/control sources must fail validation rather than silently use the decoder.
   Authored Performance Generator event schedules do not use this option.

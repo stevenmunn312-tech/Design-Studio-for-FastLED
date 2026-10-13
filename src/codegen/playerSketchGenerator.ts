@@ -1,5 +1,8 @@
 import { controlGraphCpp } from './controlGraph'
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
+import {
+  PARTICLE_MIN_GAP_MS, SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
+} from '../state/player/playerDynamics'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
 import type { PlayerControlGraph } from './player/playerControlGraph'
 import { playerControlApplyCpp } from './player/playerControlGraph'
@@ -1202,8 +1205,10 @@ ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       
 
 // Particle-burst overlay — keep in sync with showPreview.ts (PARTICLE_LIFE_MS,
 // PARTICLE_COUNT) so the device spawns the same sparks the browser preview does.
+// The gap between bursts is emitted from playerDynamics.ts, as the preview reads it.
 #define PARTICLE_LIFE_MS   600
 #define PARTICLE_COUNT     16
+#define PARTICLE_MIN_GAP_MS ${PARTICLE_MIN_GAP_MS}
 
 struct ShowEvent {
   uint32_t t;
@@ -2121,8 +2126,10 @@ ${!genericPlayer && hasPatternSelection ? `  // The show file schedules the patt
 ` : ''}${bakedAudio ? decoderTap
     ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
     : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
-${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst.
-  if (_audioBeat) {
+${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst,
+  // at most one per PARTICLE_MIN_GAP_MS (a track change rewinds posMs and
+  // counts as due), the same gate the preview applies.
+  if (_audioBeat && (posMs < burstStart || posMs - burstStart >= PARTICLE_MIN_GAP_MS)) {
     burstStart = posMs;
     burstIntensity = ${particleFx.intensity.toFixed(3)}f;
     burstStyle = ${particleFx.randomStyle ? 'random8(17)' : particleFx.style};
@@ -2201,13 +2208,14 @@ ${hasPatternSelection ? `    // Through the selection, so a confirmed pattern an
   }
 ` : ''}
 ${genericPlayer && reactiveAudio ? `  // Fade the player down during genuine silence. Release is slower
-  // than attack so short pauses do not make the LEDs flicker.
+  // than attack so short pauses do not make the LEDs flicker. The numbers
+  // are playerDynamics.ts's, which the preview steps with.
   float audioEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);
-  float audioFadeTarget = audioEnergy <= 0.025f
+  float audioFadeTarget = audioEnergy <= ${SILENCE_ENERGY_FLOOR}f
     ? 0.0f
-    : constrain((audioEnergy - 0.025f) / 0.18f, 0.0f, 1.0f);
+    : constrain((audioEnergy - ${SILENCE_ENERGY_FLOOR}f) / ${SILENCE_ENERGY_RANGE}f, 0.0f, 1.0f);
   static float audioFade = 0.0f;
-  float audioFadeRate = audioFadeTarget < audioFade ? 0.045f : 0.18f;
+  float audioFadeRate = audioFadeTarget < audioFade ? ${SILENCE_RELEASE_RATE}f : ${SILENCE_ATTACK_RATE}f;
   audioFade += (audioFadeTarget - audioFade) * audioFadeRate;
 ` : ''}
   float t = posMs / 1000.0f;
@@ -2347,8 +2355,21 @@ ${genericPlayer && reactiveAudio ? `  // Fade the player down during genuine sil
   }
 
 ${outputFieldLines}
-${genericPlayer && reactiveAudio ? `  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i].nscale8((uint8_t)constrain(audioFade * 255.0f, 0.0f, 255.0f));
+${genericPlayer && reactiveAudio ? `  {
+${collection && renderers?.audioReactive && renderers.audioReactive.length > 0 ? `    // Only the patterns that listen go dark with the track; the rest keep
+    // playing. Mid-transition the factor crosses with the composite, as the
+    // preview's evalPatternShow does.
+    static const bool PATTERN_AUDIO_REACTIVE[${renderers.audioReactive.length}] = { ${renderers.audioReactive.map((on) => (on ? 'true' : 'false')).join(', ')} };
+    auto fadeFor = [&](uint8_t pid) -> float {
+      return pid < ${renderers.audioReactive.length} && PATTERN_AUDIO_REACTIVE[pid] ? audioFade : 1.0f;
+    };
+    float patternFade = tp < 1.0f
+      ? fadeFor(prevPatternId) + (fadeFor(patternId) - fadeFor(prevPatternId)) * tp
+      : fadeFor(patternId);
+` : `    float patternFade = audioFade;
+`}    for (int i = 0; i < NUM_LEDS; i++) {
+      leds[i].nscale8((uint8_t)constrain(patternFade * 255.0f, 0.0f, 255.0f));
+    }
   }
 ` : ''}
 ${physicalCopyLines.map((line) => line + '\n').join('')}

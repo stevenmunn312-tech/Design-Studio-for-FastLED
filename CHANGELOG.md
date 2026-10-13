@@ -281,6 +281,25 @@ versioning (`0.y.z`) until the first stable release.
   copied, and the warning points at Save Project File, which keeps a project
   that size without relying on a URL.
 
+### Changed
+
+- The bundled audio patterns no longer carry a Beat Flash. Twenty-seven
+  library patterns flashed white or a palette colour on every beat over the
+  pattern underneath; the flash is gone and the pattern's own frame runs
+  straight through, with the Beat Detect that only fed the flash removed too.
+  The node remains in the library for patterns of your own.
+- Opening a group tidies it: the nodes glide into columns and the view fits
+  them, so a bundled pattern opens readable rather than wherever its seed
+  left its nodes. The main graph is left as laid out.
+- Player Particles bursts are now at least a second and a half apart, in the
+  preview and on the SD player. Every beat spawned a burst, which at dance
+  tempos never let the sparks clear.
+- The Music Player fades a pattern that listens to audio to black when the
+  track goes quiet and brings it back when the music returns, in the preview
+  as the SD player already did on the device. A pattern with no audio node
+  keeps playing; the fade crosses with a transition between the two kinds.
+  The SD player now fades only those patterns, where before it faded them all.
+
 ### Fixed
 
 - A Code node whose pasted loop runs slower than one preview frame now shows

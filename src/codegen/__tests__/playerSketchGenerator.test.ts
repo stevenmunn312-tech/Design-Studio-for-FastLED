@@ -17,8 +17,25 @@ describe('playerSketchGenerator', () => {
     const renderers = { buffers: [], helpers: [], functions: ['void render_p0(uint32_t ms) { (void)ms; }'], count: 1, params: [] }
     const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true, audioEnvelope, decoderTap })
     expect(sketch.includes('float audioEnergy = constrain((_audioBass')).toBe(fades)
-    expect(sketch.includes('constrain(audioFade * 255.0f')).toBe(fades)
+    expect(sketch.includes('constrain(patternFade * 255.0f')).toBe(fades)
     expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
+  })
+
+  it('fades only the patterns that listen, crossing the factor through a transition', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+      count: 2, params: [], audioReactive: [true, false],
+    }
+    const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true, decoderTap: true })
+    expect(sketch).toContain('static const bool PATTERN_AUDIO_REACTIVE[2] = { true, false };')
+    expect(sketch).toContain('PATTERN_AUDIO_REACTIVE[pid] ? audioFade : 1.0f')
+    expect(sketch).toContain('fadeFor(prevPatternId) + (fadeFor(patternId) - fadeFor(prevPatternId)) * tp')
+    expect(sketch).toContain('leds[i].nscale8((uint8_t)constrain(patternFade * 255.0f, 0.0f, 255.0f));')
+    // The fade and the sparks use the shared numbers, not literals of their own.
+    expect(sketch).toContain('audioEnergy <= 0.025f')
+    expect(sketch).toContain('/ 0.18f')
+    expect(sketch).toContain('? 0.045f : 0.18f')
   })
 
   describe("the LED output's own fields", () => {
@@ -342,7 +359,8 @@ describe('playerSketchGenerator', () => {
           randomColor: false, randomStyle: true,
         },
       })
-      expect(sketch).toContain('if (_audioBeat) {')
+      expect(sketch).toContain('if (_audioBeat && (posMs < burstStart || posMs - burstStart >= PARTICLE_MIN_GAP_MS)) {')
+      expect(sketch).toContain('#define PARTICLE_MIN_GAP_MS 1500')
       expect(sketch).toContain('burstIntensity = 0.720f;')
       expect(sketch).toContain('burstStyle = random8(17);')
       expect(sketch).toContain('burstColor = CRGB(51, 102, 204);')
