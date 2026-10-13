@@ -22,6 +22,7 @@ export const useDecoderAudioStore = create<DecoderAudioState>()((set) => {
     mids: 0,
     treble: 0,
     beat: false,
+    beatConfidence: 0,
     bpm: 120,
     spectrum: silentSpectrum(),
     detectorSpectrum: silentSpectrum(),

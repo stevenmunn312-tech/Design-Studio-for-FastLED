@@ -33,6 +33,8 @@ export interface AudioData {
   mids: number
   treble: number
   beat: boolean
+  /** FastLED's confidence for this frame's beat, 0–1 (0 without one). */
+  beatConfidence: number
   bpm: number
   spectrum: number[]  // logarithmically spaced values, low → high
   detectorSpectrum: number[]
@@ -174,6 +176,7 @@ export class AudioEngine {
       mids: 0,
       treble: 0,
       beat: false,
+      beatConfidence: 0,
       bpm: 120,
       spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
       detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
@@ -227,6 +230,7 @@ export class AudioEngine {
       mids: result.mids,
       treble: result.treble,
       beat: result.beat,
+      beatConfidence: result.beatConfidence,
       bpm: result.bpm,
       spectrum,
       detectorSpectrum: spectrum,

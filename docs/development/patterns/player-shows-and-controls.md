@@ -422,6 +422,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Audio levels
 
+- **Beat Detect gates FastLED's beat; it does not replace it.** Every live
+  source (microphone, line-in, decoder) arrives with FastLED's beat already
+  found, so `gateNativeBeat` (`src/audio/beatDetection.ts`) lets one through
+  only when FastLED's confidence for it reaches Threshold (default 0.4) and
+  `nativeBeatCooldownMs` (0.6 of the beat period, 250–600 ms) has passed since
+  the last one let through. The cooldown sits above the half-beat, which is
+  what turns an offbeat or flam into one response rather than two — the fix
+  for stacked per-beat flashes. The preview reads the unscaled clock, because
+  FastLED's beat is real time and firmware reads `millis()`.
+  `nativeBeatGateCpp` emits the firmware twin from the same constants; every
+  host that publishes `_audioBeat` from a FastLED processor also publishes
+  `_audioBeatConfidence` (`getBeatConfidence()`), and the SD player's
+  decoder-fed control sample runs the same gate, reading Threshold from the
+  node and refusing a wire into it. A payload without `beatConfidence` (one
+  recorded before it existed) counts every beat as certain. Attack, Decay and
+  the flux/onset/contrast outputs belong to the spectral-flux detector that
+  only audio not analysed by FastLED reaches — a baked show envelope.
 - VU meter levels are gated and scaled in exactly one place per side of the
   browser/firmware split, not re-derived at each measurement site:
   `src/audio/stereoLevels.ts`'s `VU_RMS_NOISE_GATE`/`VU_RMS_REFERENCE` condition

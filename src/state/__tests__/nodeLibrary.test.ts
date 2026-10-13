@@ -259,7 +259,7 @@ describe('nodeLibrary', () => {
 
   it('BeatDetect sliders use a narrow, beat-friendly range', () => {
     expect(NODE_LIBRARY.find((n) => n.type === 'BeatDetect')?.defaultProperties).toMatchObject({
-      threshold: 0.2,
+      threshold: 0.4,
       attack: 0.55,
       decay: 0.25,
     })

@@ -9,6 +9,7 @@ import { worleyHash } from '../../state/evaluator/random'
 import { gaborCellHashes } from '../../nodes/generative/evaluate'
 import { reactionDiffusionSeedV } from '../../nodes/simulations/evaluate'
 import { fourierTable } from '../../nodes/shapes/fourierOutline'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -4103,15 +4104,30 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).not.toContain('_sum+=_audioSpectrum[_i]')
   })
 
-  it('uses FastLED native beat and BPM for a live MicInput graph', () => {
+  it('gates FastLED native beat with Threshold and a BPM cooldown for a live MicInput graph', () => {
     const mic = node('mic', 'MicInput', 'hardware', {})
     const beat = node('bd', 'BeatDetect', 'audio', { threshold: 0.08, attack: 0.3, decay: 0.05 })
     const cpp = generateCpp([micBoard, mic, beat, out], [
       edge('e1', 'mic', 'bd', 'audio', 'audio'),
       edge('e2', 'bd', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('bool n_bd_beat = _audioBeat; float n_bd_bpm = _audioBpm;')
+    expect(cpp).toContain('const float n_bd_threshold = constrain(0.08,0.0f,1.0f);')
+    expect(cpp).toContain('const float n_bd_cooldownMs = constrain(60000.0f / (_audioBpm > 0.0f ? _audioBpm : 120.0f) * 0.6f, 250.0f, 600.0f);')
+    expect(cpp).toContain('bool n_bd_beat = _audioBeat && _audioBeatConfidence >= n_bd_threshold && (n_bd_gate_lastBeat == 0 || millis() - n_bd_gate_lastBeat >= (uint32_t)n_bd_cooldownMs);')
+    expect(cpp).toContain('_audioBeatConfidence = _audioProcessor->getBeatConfidence();')
+    expect(cpp).toContain('float n_bd_bpm = _audioBpm;')
     expect(cpp).not.toContain('n_bd_detector_fast')
+  })
+
+  it('reads a float wired into a bool port as true from 0.5, as the evaluator does', () => {
+    const withPorts = (entry: StudioNode) => {
+      const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.data.nodeType)!
+      return { ...entry, data: { ...entry.data, inputs: definition.inputs, outputs: definition.outputs } } as StudioNode
+    }
+    const level = withPorts(node('lvl', 'Math', 'math', { mathOp: 'add', a: 0.3, b: 0 }))
+    const gate = withPorts(node('gt', 'Gate', 'math', { value: 1, fallback: 0 }))
+    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'gate')])
+    expect(cpp).toContain('float n_gt_result = ((n_lvl_result >= 0.5f)) ? (1) : 0;')
   })
 
   it('keeps the tunable BeatDetect envelope for external baked SD audio', () => {

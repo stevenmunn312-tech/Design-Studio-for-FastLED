@@ -97,9 +97,9 @@ const AUDIO_ARTICLES: Record<string, AudioArticleContent> = {
     overview: [
       'Beat Detect listens to the Microphone audio stream and looks for rhythmic onsets. Its Beat output is a short boolean pulse, while BPM estimates the current tempo for nodes that can follow timing.',
       'Use Beat for flashes, sample-and-hold steps, trigger utilities, pattern switches, or any patch event that should happen on impact instead of drifting continuously.',
-      'Threshold sets how strong an onset must be, Attack controls how quickly beats are accepted, and Decay controls how quickly the detector relaxes before the next hit.',
+      'On live audio the beat comes from FastLED. Threshold sets how sure FastLED must be of a beat before it fires, and a cooldown of just over half a beat lets one hit fire once, so an offbeat or a flam does not flash twice.',
     ],
-    propertyNote: 'Threshold, Attack, and Decay are normalized detector controls. Tune them against the source track before relying on the BPM output.',
+    propertyNote: 'Threshold is 0–1 beat confidence. Attack and Decay tune the detector a baked show envelope runs; live audio does not use them.',
     exampleTitle: 'Flash the frame on each beat',
     examplePath: 'Microphone.audio -> Beat Detect.beat + Random.value -> Sample & Hold -> Palette Sampler -> Solid Color',
     exampleAlt: 'Tidy graph using Microphone, Beat Detect, Sample and Hold, Palette Sampler, and Solid Color',

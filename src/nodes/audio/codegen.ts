@@ -1,4 +1,5 @@
-import { BEAT_PARAM_RANGES, FLUX_GAIN } from '../../audio/beatDetection'
+import { BEAT_DETECT_DEFAULT_THRESHOLD, BEAT_PARAM_RANGES, FLUX_GAIN } from '../../audio/beatDetection'
+import { nativeBeatGateCpp } from '../../codegen/audio/nativeBeatGateCpp'
 import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit } from '../../codegen/cppLiterals'
 import { audioHueWeight } from './evaluate'
@@ -61,8 +62,11 @@ export const AUDIO_EMITTERS: NodeEmitters = {
   BeatDetect({ node, id, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
     const audioConnected = hasExplicitAudioInput(node.id)
     if (audioConnected && nativeFastLedAudio) {
-      ln(`  bool ${v('beat')} = _audioBeat; float ${v('bpm')} = _audioBpm;`)
-      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f, ${v('threshold')} = 0.0f, ${v('cooldownMs')} = 0.0f;`)
+      // FastLED already found the beat; Threshold and the cooldown gate it.
+      const threshold = `constrain(${f('threshold', 'threshold', BEAT_DETECT_DEFAULT_THRESHOLD)},0.0f,1.0f)`
+      nativeBeatGateCpp({ beat: v('beat'), threshold: v('threshold'), cooldownMs: v('cooldownMs'), state: v('gate') }, threshold).forEach(ln)
+      ln(`  float ${v('bpm')} = _audioBpm;`)
+      ln(`  float ${v('flux')} = 0.0f, ${v('onset')} = 0.0f, ${v('contrast')} = 0.0f;`)
     } else if (audioConnected) {
       /*
        * The three knobs are 0-1 on the node and map linearly onto their
@@ -79,7 +83,7 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       const attack = `_bdAtk_${id}`
       const decay = `_bdDec_${id}`
       const beatKnobs = [
-        `  float ${threshold}=${beatKnob('threshold', 0.2)};`,
+        `  float ${threshold}=${beatKnob('threshold', BEAT_DETECT_DEFAULT_THRESHOLD)};`,
         `  float ${attack}=${beatKnob('attack', 0.55)};`,
         `  float ${decay}=${beatKnob('decay', 0.25)};`,
       ]

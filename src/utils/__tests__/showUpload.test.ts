@@ -79,7 +79,11 @@ describe('buildShowPlayer', () => {
     })
     expect(sketch.includes(`const bool beatNow = n_pulse_${sourceType === 'Compare' ? 'result' : 'beat'};`)).toBe(true)
     expect(sketch.includes('const float minHold = constrain(n_hold_result')).toBe(true)
-    if (sourceType === 'BeatDetect') expect(sketch.includes('bool n_pulse_beat = _audioBeat;')).toBe(true)
+    if (sourceType === 'BeatDetect') {
+      expect(sketch).toContain('const float n_pulse_beat_thr = 0.4f;')
+      expect(sketch).toContain('bool n_pulse_beat = _audioBeat && _audioBeatConfidence >= n_pulse_beat_thr')
+      expect(sketch).toContain('_audioBeatConfidence = _audioProcessor->getBeatConfidence();')
+    }
   })
 
   it('generates from the selected engine in a mixed graph, not the first engine in node order', () => {

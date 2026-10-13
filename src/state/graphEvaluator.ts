@@ -1,6 +1,6 @@
 import { groupSourceType } from './groupSourceType'
 import type { StudioNode, StudioEdge } from './graphStore'
-import { inputClampRange, resolveNodeNumericProperties, bypassPort, NODE_LIBRARY } from './nodeLibrary'
+import { inputClampRange, resolveNodeNumericProperties, bypassPort, NODE_LIBRARY, floatAsBool } from './nodeLibrary'
 import { type Palette, type RGB, type Frame, samplePalette } from './palettes/ledColor'
 import { getCodeError as getCodeErrorFromSandbox } from './codeSandboxRuntime'
 import { DEFAULT_W, DEFAULT_H } from './evaluator/frames'
@@ -72,20 +72,25 @@ const NODE_EVALUATORS = new Map<string, NodeEvaluator>(
 // the values bound to the current group's exposed parameters.
 interface EvalMaps {
   nodeMap: Map<string, StudioNode>
-  incoming: Map<string, { srcId: string; srcPort: string }>
+  incoming: Map<string, { srcId: string; srcPort: string; bool?: true }>
 }
 
 // The per-evaluator lookup tables: node id → node, and
-// "targetNodeId:targetPortId" → upstream {srcId, srcPort}.
+// "targetNodeId:targetPortId" → upstream {srcId, srcPort}, flagged `bool` when
+// the target port is a bool so `input` can read a wired number as a switch.
 function buildEvalMaps(nodes: StudioNode[], edges: StudioEdge[]): EvalMaps {
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
-  const incoming = new Map<string, { srcId: string; srcPort: string }>()
+  const incoming = new Map<string, { srcId: string; srcPort: string; bool?: true }>()
   for (const edge of edges) {
-    if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle)
+    if (edge.source && edge.target && edge.sourceHandle && edge.targetHandle) {
+      const ports = nodeMap.get(edge.target)?.data.inputs as { id: string; dataType?: string }[] | undefined
+      const bool = ports?.some((port) => port.id === edge.targetHandle && port.dataType === 'bool')
       incoming.set(`${edge.target}:${edge.targetHandle}`, {
         srcId: edge.source,
         srcPort: edge.sourceHandle,
+        ...(bool ? { bool: true as const } : {}),
       })
+    }
   }
   return { nodeMap, incoming }
 }
@@ -130,11 +135,14 @@ function createEvalNode(
   // Nodes currently on the evaluation stack — used to break graph cycles.
   const inProgress = new Set<string>()
 
-  // Resolve one input port: walk the edge map, fall back to `fallback`
+  // Resolve one input port: walk the edge map, fall back to `fallback`. A
+  // number wired into a bool port is a switch at FLOAT_TO_BOOL_THRESHOLD, as
+  // the firmware reads it.
   function input(nodeId: string, portId: string, fallback: PortValue): PortValue {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (!up) return fallback
-    return evalNode(up.srcId)[up.srcPort] ?? fallback
+    const value = evalNode(up.srcId)[up.srcPort] ?? fallback
+    return up.bool && typeof value === 'number' ? floatAsBool(value) : value
   }
 
   function num(nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def = 0): number {

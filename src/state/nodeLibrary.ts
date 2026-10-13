@@ -283,6 +283,18 @@ export function portsCompatible(srcType: string, dstType: string): boolean {
   return false
 }
 
+/*
+ * A float wired into a bool port reads true from this level up, in the
+ * evaluator's `input` and in the firmware's bool and float reads of that port.
+ * Any nonzero level used to count as true, so a Kick envelope wired to a
+ * pattern's Beat fired on every frame its tail was above zero.
+ */
+export const FLOAT_TO_BOOL_THRESHOLD = 0.5
+
+export function floatAsBool(value: number): boolean {
+  return value >= FLOAT_TO_BOOL_THRESHOLD
+}
+
 /** Named palettes a `palette` property can select. */
 export const PALETTES = STUDIO_PALETTES
 
@@ -1478,6 +1490,7 @@ export function propertyOptions(
 export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
+  energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
   previewPort: 'UDP port the local helper listens on for preview-side Art-Net packets.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
@@ -1783,6 +1796,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FFTAnalyzer: {
     bands: 'Resamples the raw spectrum to this many bins before averaging it into bass/mids/treble (also resizes the live meter). Higher = a sharper split between the three; lower = blurrier.',
   },
+  BeatDetect: {
+    threshold: 'How sure FastLED must be of a beat before it fires (0–1). Raise it if beats fire too often.',
+    attack: 'Onset follower speed for a baked show envelope (0–1). Live audio uses FastLED\'s own beat.',
+    decay: 'Baseline relax speed for a baked show envelope (0–1). Live audio uses FastLED\'s own beat.',
+  },
   AudioFeatures: {
     gate: 'Silence-detection threshold — how much energy is required before `silence` flips false.',
   },
@@ -1942,8 +1960,18 @@ export function propertyDescription(nodeType: string, key: string): string | und
   return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
 }
 
+/*
+ * On an audio-reactive pattern `energy` is how strongly the audio moves the
+ * picture, not a loudness level like Audio Features' Energy output, so it is
+ * shown as reactivity. Every pattern that carries the property reads it so.
+ */
+const REACTIVITY_LABELS = Object.fromEntries(AUDIO_REACTIVE_DEFINITIONS
+  .filter((definition) => definition.defaultProperties?.energy !== undefined)
+  .map((definition) => [definition.type, { energy: 'reactivity' }]))
+
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
 export const PROPERTY_LABELS: Record<string, Record<string, string>> = {
+  ...REACTIVITY_LABELS,
   PatternMaster: {
     order: 'Pattern Order',
     beatTransitions: 'Beat Transitions',

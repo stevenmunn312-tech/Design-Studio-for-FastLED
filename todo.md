@@ -379,15 +379,21 @@ library defaults.
   has the Code node's editor, its 320 px width and an inline parse error. The
   DFPlayer tooltip was already overridden; a test now holds it. Pre-1.0, no
   migration: a Math saved without A/B still evaluates the identity but shows 0.
-- [ ] **D-08.5 · Beat response that honours its controls.** On every live
-  source BeatDetect takes the FastLED-native branch, so `threshold`, `attack`,
-  `decay` and its five diagnostic outputs are dead while Help says "raise
-  Threshold". Make Threshold gate the native beat with a BPM-derived cooldown
-  and raise the default to 0.4. Coerce float-to-bool ports at 0.5 in the
-  evaluator and firmware (today any nonzero Kick fires Beat every frame). Label
-  `energy` as `reactivity` on the seventeen pattern nodes that use it that way.
-  This is the fix for stacked per-beat flashes
-  ([player, shows and controls](docs/development/patterns/player-shows-and-controls.md)).
+- [ ] **D-08.5 · Beat response that honours its controls.** Done, awaiting
+  the queued compile in `tmp/node-audit/compiles.ps1` (`d085`: the gate's
+  `getBeatConfidence()` and a float Kick into a bool Beat). On live audio
+  Threshold (default 0.4) now gates FastLED's beat on its confidence, with a
+  cooldown of 0.6 of the beat period (250–600 ms), in preview, the sketch and
+  the SD player's decoder-fed control sample, which reads Threshold from the
+  node and refuses a wire into it; the node reports Threshold and Cooldown.
+  Attack, Decay and flux/onset/contrast still act only on a baked show
+  envelope, and their tooltips say so. A float wired into a bool port is true
+  from 0.5 in the evaluator's `input` and in firmware `boolExpr`/`floatExpr`.
+  `energy` shows as `reactivity`, port label Reactivity, on the fifteen
+  audio-reactive patterns that carry it (the audit said seventeen; fifteen
+  do). Bundled patterns with a Beat Detect, authored while Threshold did
+  nothing live, now use 0.4
+  ([player, shows and controls](docs/development/patterns/player-shows-and-controls.md#audio-levels)).
 - [ ] **D-08.6 · Data-type and sanitising sweep.** Per node lists are in the
   audit reports; the classes are: free numbers that need bounds (Spiral
   `arms`, Kaleidoscope `segments`, Circle `radius`, Shape `size`, ClockDisplay

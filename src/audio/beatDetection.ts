@@ -1,3 +1,6 @@
+// Defaults of the spectral-flux detector below, which only audio that has not
+// passed through FastLED reaches (a baked show envelope); live audio takes the
+// native gate instead.
 const DEFAULT_THRESHOLD = 0.05
 const DEFAULT_ATTACK = 0.45
 const DEFAULT_DECAY = 0.13
@@ -56,6 +59,57 @@ export function createBeatDetectorState(): BeatDetectorState {
     lastThreshold: DEFAULT_THRESHOLD,
     lastCooldownMs: DEFAULT_COOLDOWN_MS,
   }
+}
+
+/** Beat Detect's Threshold slider default. */
+export const BEAT_DETECT_DEFAULT_THRESHOLD = 0.4
+
+/*
+ * Live audio arrives with FastLED's own beat already detected, so Beat Detect
+ * gates that beat instead of running its own detector. A native beat passes
+ * when FastLED's confidence for it (how far its bass flux cleared the adaptive
+ * threshold, 0–1) reaches Threshold, and when a cooldown of
+ * NATIVE_BEAT_COOLDOWN_FRACTION of the current beat period has passed since the
+ * last beat let through. The cooldown sits above the half-beat, so an offbeat or
+ * a flam cannot fire a second response inside one beat. nativeBeatGateCpp emits
+ * the firmware twin from these constants.
+ */
+export const NATIVE_BEAT_COOLDOWN_FRACTION = 0.6
+export const NATIVE_BEAT_COOLDOWN_MIN_MS = 250
+export const NATIVE_BEAT_COOLDOWN_MAX_MS = 600
+
+export function nativeBeatCooldownMs(bpm: number): number {
+  const tempo = Number.isFinite(bpm) && bpm > 0 ? bpm : 120
+  return Math.max(NATIVE_BEAT_COOLDOWN_MIN_MS,
+    Math.min(NATIVE_BEAT_COOLDOWN_MAX_MS, (60000 / tempo) * NATIVE_BEAT_COOLDOWN_FRACTION))
+}
+
+/** Threshold as both sides read it: 0–1, the default when not finite. */
+export function beatDetectThreshold(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? clamp01(n) : BEAT_DETECT_DEFAULT_THRESHOLD
+}
+
+export interface NativeBeatGateResult {
+  beat: boolean
+  cooldownMs: number
+  /** When the last beat was let through; -1 before the first. */
+  lastBeatMs: number
+}
+
+export function gateNativeBeat(
+  nativeBeat: boolean,
+  confidence: number,
+  bpm: number,
+  threshold: number,
+  nowMs: number,
+  lastBeatMs: number,
+): NativeBeatGateResult {
+  const cooldownMs = nativeBeatCooldownMs(bpm)
+  // A clock that went backward (a remount restarts it) forgets the last beat.
+  const last = lastBeatMs >= 0 && nowMs >= lastBeatMs ? lastBeatMs : -1
+  const beat = nativeBeat && confidence >= threshold && (last < 0 || nowMs - last >= cooldownMs)
+  return { beat, cooldownMs, lastBeatMs: beat ? nowMs : last }
 }
 
 export function denormalizeBeatParam(

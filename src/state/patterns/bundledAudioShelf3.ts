@@ -100,7 +100,7 @@ const fft = (y = -160) => studioNode('fft', 'FFTAnalyzer', -1200, y, {
   bands: 24, gain: 1.2, smoothing: 0.82, tilt: 0.08,
 })
 const beat = (y = 200) => studioNode('beat', 'BeatDetect', -1200, y, {
-  threshold: 0.22, attack: 0.55, decay: 0.3,
+  threshold: 0.4, attack: 0.55, decay: 0.3,
 })
 const perc = (y = 360) => studioNode('perc', 'PercussionDetect', -1200, y, {
   sensitivity: 0.64, decay: 0.76, separation: 0.5,

@@ -1269,6 +1269,7 @@ ${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
 float     _audioLeftLevel = 0, _audioRightLevel = 0;
 bool      _audioBeat = false;
+float     _audioBeatConfidence = 0.0f;  // FastLED's confidence for the latest beat
 float     _audioSpectrum[32];
 ` : ''}${bakedAudio ? `
 // Song-analysis envelope retained as a decoder startup/failure fallback.
@@ -1530,6 +1531,7 @@ ${bakedAudio ? '    // updateShowAudio() applies the baked fallback later in thi
   uint32_t beatCount = _audioBeatCount;
   _audioBeat = beatCount != _audioBeatSeen;
   _audioBeatSeen = beatCount;
+  _audioBeatConfidence = _audioProcessor->getBeatConfidence();
   // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
   // established 32-slot spectrum contract, matching the microphone engine.
   for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);

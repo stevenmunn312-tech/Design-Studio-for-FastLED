@@ -64,6 +64,9 @@ export interface AudioSignal {
   micActive: boolean
   nativeFastLed?: boolean
   beat?: boolean
+  /** FastLED's confidence for this frame's beat, 0–1. Absent on payloads
+   *  recorded before it existed: Beat Detect then treats a beat as certain. */
+  beatConfidence?: number
   bpm?: number
   bass?: number
   mids?: number

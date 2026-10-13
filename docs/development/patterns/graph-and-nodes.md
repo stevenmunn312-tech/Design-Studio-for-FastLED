@@ -48,6 +48,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Evaluation
 
+- **A float wired into a bool port is a switch at 0.5.** `portsCompatible`
+  lets float feed bool, and any nonzero level used to read true, so a Kick
+  envelope wired to a pattern's Beat fired on every frame of its tail. The
+  evaluator's `input` coerces a number arriving at a bool port (flagged in
+  `buildEvalMaps` from the target's port type) with `floatAsBool`, and
+  `cppGenerator.ts`'s `floatIntoBool` emits the same `>= 0.5f` in both
+  `boolExpr` and `floatExpr`, so a bool port read through `num()`/`f()` sees
+  0 or 1 on both sides. The threshold is `FLOAT_TO_BOOL_THRESHOLD` in
+  `nodeLibrary.ts`. The control graph needs no rule: it refuses a float into
+  a bool outright.
 - A pattern group open on the canvas is evaluated on its own, with no Group
   node to bind its inputs and no LED output to route to. The preview loop in
   `LEDPreview.tsx` therefore shows the subgraph's Group Output frame whenever

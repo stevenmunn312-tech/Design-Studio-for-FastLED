@@ -9,6 +9,7 @@ interface AudioState {
   mids: number
   treble: number
   beat: boolean
+  beatConfidence: number
   bpm: number
   spectrum: number[]
   detectorSpectrum: number[]
@@ -41,6 +42,7 @@ export const useAudioStore = create<AudioState>()((set) => {
       mids: data.mids,
       treble: data.treble,
       beat: data.beat,
+      beatConfidence: data.beatConfidence,
       bpm: data.bpm,
       spectrum: data.spectrum,
       detectorSpectrum: data.detectorSpectrum,
@@ -68,6 +70,7 @@ export const useAudioStore = create<AudioState>()((set) => {
     mids: 0,
     treble: 0,
     beat: false,
+    beatConfidence: 0,
     bpm: 120,
     spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
     detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),
@@ -99,6 +102,7 @@ export const useAudioStore = create<AudioState>()((set) => {
         mids: 0,
         treble: 0,
         beat: false,
+        beatConfidence: 0,
         bpm: 120,
         spectrum: Array(NUM_SPECTRUM_BARS).fill(0),
         detectorSpectrum: Array(NUM_SPECTRUM_BARS).fill(0),

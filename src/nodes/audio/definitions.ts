@@ -42,16 +42,17 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
     outputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'bpm', label: 'BPM', dataType: 'float' },
-      // Internal tuning diagnostics — surfaced so threshold/attack/decay can
-      // be dialed in visually instead of trial-and-error against a silent
-      // binary pulse. See graphEvaluator.ts's BeatDetect case.
+      // Tuning diagnostics. On live audio the beat is FastLED's, gated by
+      // Threshold and a BPM-derived cooldown, so only Threshold and Cooldown
+      // report; flux, onset and contrast come from the spectral-flux detector
+      // a baked show envelope runs. See src/nodes/audio/evaluate.ts.
       { id: 'flux', label: 'Flux', dataType: 'float' },
       { id: 'onset', label: 'Onset', dataType: 'float' },
       { id: 'contrast', label: 'Contrast', dataType: 'float' },
       { id: 'threshold', label: 'Threshold', dataType: 'float' },
       { id: 'cooldownMs', label: 'Cooldown (ms)', dataType: 'float' },
     ],
-    defaultProperties: { threshold: 0.2, attack: 0.55, decay: 0.25 },
+    defaultProperties: { threshold: 0.4, attack: 0.55, decay: 0.25 },
   },
   {
     type: 'PercussionDetect',

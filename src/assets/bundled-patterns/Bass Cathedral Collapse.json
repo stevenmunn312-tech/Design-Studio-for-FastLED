@@ -169,7 +169,7 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.22,
+            "threshold": 0.4,
             "attack": 0.6,
             "decay": 0.3
           },

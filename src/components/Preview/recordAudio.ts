@@ -22,6 +22,7 @@ export interface AudioSample {
   micActive: boolean
   nativeFastLed?: boolean
   beat?: boolean
+  beatConfidence?: number
   bpm?: number
   bass?: number
   mids?: number
@@ -75,6 +76,7 @@ export function snapshotAudio(audio: AudioSample): RecordedAudioFrame {
     micActive: audio.micActive,
     nativeFastLed: audio.nativeFastLed,
     beat: audio.beat === true,
+    beatConfidence: audio.beatConfidence,
     bpm: audio.bpm,
     bass: audio.bass,
     mids: audio.mids,
@@ -118,8 +120,13 @@ export function createAudioTimeline(fps: number, frameCount: number): AudioTimel
       const index = Math.floor(elapsedMs / frameMs)
       if (index < 0 || index >= total) return
       const snap = snapshotAudio(audio)
-      // Keep the newest levels, but never drop a beat an earlier sample saw.
-      if (buckets[index]?.beat) snap.beat = true
+      // Keep the newest levels, but never drop a beat an earlier sample saw,
+      // nor the confidence Beat Detect gates it on.
+      const held = buckets[index]
+      if (held?.beat && !snap.beat) {
+        snap.beat = true
+        snap.beatConfidence = held.beatConfidence
+      }
       buckets[index] = snap
     },
     complete() {

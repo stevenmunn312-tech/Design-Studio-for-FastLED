@@ -1,7 +1,10 @@
 import { useUiStore } from '../../state/uiStore'
 import {
+  BEAT_DETECT_DEFAULT_THRESHOLD,
+  beatDetectThreshold,
   createBeatDetectorState,
   denormalizeBeatParam,
+  gateNativeBeat,
   updateBeatDetectorFromSpectrum,
 } from '../../audio/beatDetection'
 import type { NodeEvaluators, PortValue } from '../../state/evaluator/types'
@@ -11,6 +14,8 @@ import { instanceState } from '../../state/evaluator/memory'
 
 const fftLevels   = instanceState('fftLevels', new Map<string, { bass: number; mids: number; treble: number }>())
 const beatLevels  = instanceState('beatLevels', new Map<string, ReturnType<typeof createBeatDetectorState>>())
+/** Per node: when the native-beat gate last let a beat through (ms). */
+const nativeBeatGates = instanceState('nativeBeatGates', new Map<string, number>())
 type AudioFeatureState = {
   prevSpectrum: number[]
   kick: number
@@ -129,27 +134,35 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     fftLevels.set(key, levels)
     return levels
   },
-  BeatDetect({ input, num, t, stateKey }, id, props) {
+  BeatDetect({ input, num, t, elapsedT, stateKey }, id, props) {
     let out: Record<string, PortValue> = {}
     const key = stateKey(id)
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
     if (audio?.active && audio.nativeFastLed === true) {
-      // Live microphone audio has already passed through FastLED's native
-      // Beat detector. Preserve the baked/SD override path below, which
-      // intentionally keeps Studio's per-node tunable detector.
+      // Live audio has already passed through FastLED's beat detector;
+      // Threshold and a BPM-derived cooldown gate that beat. FastLED's beat is
+      // real time, so the gate reads the unscaled clock, as firmware reads
+      // millis(). A payload recorded before confidence existed counts every
+      // beat as certain.
       beatLevels.delete(key)
+      const bpm = Number(audio.bpm ?? 120)
+      const threshold = beatDetectThreshold(num(id, 'threshold', props, 'threshold', BEAT_DETECT_DEFAULT_THRESHOLD))
+      const gate = gateNativeBeat(Boolean(audio.beat), audio.beatConfidence ?? 1, bpm, threshold,
+        elapsedT * 1000, nativeBeatGates.get(key) ?? -1)
+      nativeBeatGates.set(key, gate.lastBeatMs)
       out = {
-        beat: Boolean(audio.beat),
-        bpm: Number(audio.bpm ?? 120),
+        beat: gate.beat,
+        bpm,
         flux: 0,
         onset: 0,
         contrast: 0,
-        threshold: 0,
-        cooldownMs: 0,
+        threshold,
+        cooldownMs: gate.cooldownMs,
       }
     } else {
-      const threshold = denormalizeBeatParam('threshold', num(id, 'threshold', props, 'threshold', 0.2))
+      nativeBeatGates.delete(key)
+      const threshold = denormalizeBeatParam('threshold', num(id, 'threshold', props, 'threshold', BEAT_DETECT_DEFAULT_THRESHOLD))
       const attack = denormalizeBeatParam('attack', num(id, 'attack', props, 'attack', 0.55))
       const decay = denormalizeBeatParam('decay', num(id, 'decay', props, 'decay', 0.25))
       const prev = beatLevels.get(key)

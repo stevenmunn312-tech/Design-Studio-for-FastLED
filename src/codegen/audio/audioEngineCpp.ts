@@ -138,6 +138,8 @@ function audioEngineCpp(
     'float _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;',
     'float _audioLeftLevel = 0, _audioRightLevel = 0;',
     'bool  _audioBeat = false;',
+    '// Confidence of FastLED\'s latest beat (0-1); Beat Detect gates on it.',
+    'float _audioBeatConfidence = 0.0f;',
     ...(vibe ? [
       '// FastLED Vibe: levels are relative to the song average (about 1.0), unbounded above.',
       `float ${VIBE_LEVELS.map(([name]) => `_audioVibe${name} = 0.0f`).join(', ')};`,
@@ -201,6 +203,7 @@ function audioEngineCpp(
     '    _audioBass = _audioMids = _audioTreble = 0.0f;',
     '    _audioLeftLevel = _audioRightLevel = 0.0f;',
     '    _audioBeat = false;',
+    '    _audioBeatConfidence = 0.0f;',
     ...(vibe ? [
       `    ${VIBE_LEVELS.map(([name]) => `_audioVibe${name}`).join(' = ')} = 0.0f;`,
       `    ${VIBE_SPIKES.map(([name]) => `_audioVibe${name}`).join(' = ')} = false;`,
@@ -248,6 +251,7 @@ function audioEngineCpp(
     '  uint32_t beatCount = _audioBeatCount;',
     '  _audioBeat = beatCount != _audioBeatSeen;',
     '  _audioBeatSeen = beatCount;',
+    '  _audioBeatConfidence = _audioProcessor->getBeatConfidence();',
     '  // FastLED Equalizer exposes 16 normalized bins. Duplicate each into the',
     '  // established 32-slot Studio spectrum so existing generated nodes retain',
     '  // their low/mid/high index ranges without maintaining a second FFT.',

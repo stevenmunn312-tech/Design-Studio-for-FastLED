@@ -23,6 +23,7 @@ import {
   nodeDisplayLabel,
   bypassPort,
   SPI_CHIPSETS,
+  FLOAT_TO_BOOL_THRESHOLD,
 } from '../state/nodeLibrary'
 import { ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
@@ -127,7 +128,7 @@ import {
   stereoVuGlobalCpp,
 } from './audio/stereoVuMeterCpp'
 import { audioEngineForGraph } from './audio/audioEngineCpp'
-import { safeId, cppComment } from './cppLiterals'
+import { safeId, cppComment, floatLit } from './cppLiterals'
 import { hub75HardwareFromProps, hub75IncludesCpp, hub75GlobalsCpp, hub75SetupCpp } from './output/hub75Cpp'
 import {
   ledHardwareFromProps,
@@ -634,11 +635,26 @@ export function generateCpp(
   const networkSource = networkSourceIn(sorted)
   const network = networkSource ? networkSketchCpp(nodes, networkSource) : null
 
+  /*
+   * A float wired into a bool port, read as the switch the evaluator's `input`
+   * makes of it (FLOAT_TO_BOOL_THRESHOLD), or null for any other wire.
+   */
+  function floatIntoBool(nodeId: string, portId: string): string | null {
+    const up = incoming.get(`${nodeId}:${portId}`)
+    if (!up) return null
+    const portType = (id: string, side: 'inputs' | 'outputs', port: string) =>
+      (nodeMap.get(id)?.data[side] as { id: string; dataType?: string }[] | undefined)
+        ?.find((entry) => entry.id === port)?.dataType
+    if (portType(nodeId, 'inputs', portId) !== 'bool' || portType(up.srcId, 'outputs', up.srcPort) !== 'float') return null
+    return `(n_${safeId(up.srcId)}_${safeId(up.srcPort)} >= ${floatLit(FLOAT_TO_BOOL_THRESHOLD)})`
+  }
+
   // Resolve a float input to a C++ expression
   function floatExpr(nodeId: string, portId: string, nodeProps: Record<string, unknown>, propKey: string, def: number): string {
     const up = incoming.get(`${nodeId}:${portId}`)
     if (up) {
-      const expr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
+      const asBool = floatIntoBool(nodeId, portId)
+      const expr = asBool ? `(${asBool} ? 1.0f : 0.0f)` : `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
       // Mirror the evaluator's `clampInputs` toggle: clamp wired signals to the
       // control's range so the firmware matches the live preview.
       if (nodeProps.clampInputs) {
@@ -678,7 +694,7 @@ export function generateCpp(
 
   function boolExpr(nodeId: string, portId: string): string {
     const up = incoming.get(`${nodeId}:${portId}`)
-    if (up) return `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
+    if (up) return floatIntoBool(nodeId, portId) ?? `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
     return 'false'
   }
 

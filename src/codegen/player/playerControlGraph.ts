@@ -11,6 +11,9 @@ import { controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { DISPLAY_TEXT_BUFFER_BYTES } from '../../state/displays/displayText'
 import { expandGroups } from '../../state/expandGroups'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { beatDetectThreshold } from '../../audio/beatDetection'
+import { nativeBeatGateCpp } from '../audio/nativeBeatGateCpp'
+import { floatLit } from '../cppLiterals'
 
 /**
  * One player, one cursor, one collection.
@@ -112,7 +115,20 @@ export function playerControlGraph(
       : [`  ${source.type} ${variable} = ${expression};`]
   })
   const usedDecoderBeats = [...routing.graph.usedSamples.values()].filter((source) => decoderBeats.has(source.nodeId))
-  sample.push(...usedDecoderBeats.map((source) => `  bool ${controlReferenceCpp(source)} = _audioBeat;`))
+  // The same gate the node applies in a pattern and in preview. Its Threshold
+  // is read from the node: this sample runs before the control graph, so a
+  // wire into it has nothing to resolve against.
+  for (const source of usedDecoderBeats) {
+    const node = nodes.find((entry) => entry.id === source.nodeId)
+    if (edges.some((edge) => edge.target === source.nodeId && edge.targetHandle === 'threshold')) {
+      routing.errors.push(`${node?.data.label || source.nodeId}: an SD player build reads Beat Detect's Threshold from the node. Unwire Threshold and set it on the node.`)
+    }
+    const beat = controlReferenceCpp(source)
+    sample.push(...nativeBeatGateCpp(
+      { beat, threshold: `${beat}_thr`, cooldownMs: `${beat}_cool`, state: beat },
+      floatLit(beatDetectThreshold(node?.data.properties.threshold)),
+    ))
+  }
   const bundle = master ? routing.bundles.get(master.id) : undefined
   const hasPatternControls = routing.controls.some((control) => control.patternPositionExpr
     || control.buttons.some((button) => button.port.startsWith('pattern')))
