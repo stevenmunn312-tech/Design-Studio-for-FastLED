@@ -326,7 +326,7 @@ and its design notes.
 
 ## 5. Release track (in order)
 
-- [ ] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
+- [x] **HW-14 · Independent electrical review (M).** Renamed from "audit". It
   happens *after* components are in the app and appear in the Build Diagram:
   a career electronics engineering lecturer checks that the generated wiring,
   calculations, tables and wording are safe and recommended practice. It
@@ -344,8 +344,8 @@ and its design notes.
     six non-blocking cautions recorded with dispositions. One tightening
     landed: a battery cell with no usable internal-resistance figure now
     warns that the main-fuse interrupt rating was not checked.
-  - [ ] Any power family added after `5d10f5e7` needs its own pass before
-    it leaves experimental.
+  Any power family added after `5d10f5e7` reopens this item for its own pass
+  before it leaves experimental.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and
