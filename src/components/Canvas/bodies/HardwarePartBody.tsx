@@ -1,4 +1,4 @@
-import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
+import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
 import { PART_FIELDS } from '../../../build/parts/partFields'
 import {
   isGpioPinProperty,
@@ -53,10 +53,7 @@ function sliderStep(nodeType: string, key: string): number {
 export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const removeButtonBankEntry = useGraphStore((s) => s.removeButtonBankEntry)
-  const savedProps = useGraphStore((s) => {
-    const node = rootGraphNodes(s).find((n) => n.id === nodeId)
-    return (node?.data.properties ?? {}) as Record<string, unknown>
-  })
+  const savedProps = useNodeProperties(nodeId, 'root')
   const hasBatteryPack = useGraphStore((s) => rootGraphNodes(s).some((n) => n.data.nodeType === 'BatteryPack'))
   const props = { ...libraryDefaults(nodeType), ...savedProps }
   const nodeLabel = useGraphStore((s) => rootGraphNodes(s).find((n) => n.id === nodeId)?.data.label ?? nodeType)

@@ -3720,6 +3720,20 @@ export function useRootEdges(): StudioEdge[] {
   return useGraphStore(rootGraphEdges)
 }
 
+const NO_PROPERTIES: Record<string, unknown> = Object.freeze({}) as Record<string, unknown>
+
+/**
+ * One node's stored properties, from the open graph or, for hardware, the root
+ * graph. A node that is not there (mid-load, just deleted, in another graph)
+ * reads as one shared empty object: a fresh `{}` per read is a new snapshot
+ * every time the store is read, which React reports as an uncached
+ * getSnapshot and answers by rendering again.
+ */
+export function useNodeProperties(nodeId: string, graph: 'active' | 'root' = 'active'): Record<string, unknown> {
+  return useGraphStore((s) => (graph === 'root' ? rootGraphNodes(s) : s.nodes)
+    .find((node) => node.id === nodeId)?.data.properties as Record<string, unknown> | undefined ?? NO_PROPERTIES)
+}
+
 /**
  * The state slice that writes `nodes` back into whichever graph they came
  * from — the write counterpart of `rootGraphNodes`. Editing a hardware part

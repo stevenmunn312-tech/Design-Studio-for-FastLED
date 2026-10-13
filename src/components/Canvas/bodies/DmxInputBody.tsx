@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
+import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
 import { useDmxStore } from '../../../state/peripherals/dmxStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
 import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
@@ -14,9 +14,7 @@ function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, e
 }
 
 export default function DmxInputBody({ nodeId }: { nodeId: string }) {
-  const props = useGraphStore((s) =>
-    s.nodes.find((node) => node.id === nodeId)?.data.properties ?? {}
-  )
+  const props = useNodeProperties(nodeId)
   const helperOnline = useDmxStore((s) => s.helperOnline)
   const listening = useDmxStore((s) => s.listening)
   const live = useDmxStore((s) => s.live)

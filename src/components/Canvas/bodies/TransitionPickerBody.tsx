@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useGraphStore } from '../../../state/graphStore'
+import { useGraphStore, useNodeProperties } from '../../../state/graphStore'
 import { PROPERTY_META } from '../../../state/nodeLibrary'
 import { compositeTransition, type Frame } from '../../../state/graphEvaluator'
 import styles from './TransitionPickerBody.module.css'
@@ -66,9 +66,7 @@ function Thumb({ type, t, selected }: { type: string; t: number; selected: boole
 }
 
 export function TransitionBody({ nodeId }: { nodeId: string }) {
-  const props = useGraphStore(
-    (s) => (s.nodes.find((n) => n.id === nodeId)?.data.properties as Record<string, unknown> | undefined) ?? {},
-  )
+  const props = useNodeProperties(nodeId)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const selected = String(props.transitionType ?? 'crossfade')
   // The thumbnails draw at the node's own `t`, scrubbed on its property row,

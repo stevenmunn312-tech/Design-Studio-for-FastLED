@@ -1,4 +1,4 @@
-import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { useNodeProperties } from '../../state/graphStore'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
 import { relayLoadLabel } from '../../state/peripherals/relayModule'
 import styles from './PartIdentity.module.css'
@@ -23,10 +23,7 @@ import styles from './PartIdentity.module.css'
 const LEAD_NOTES = 2
 
 export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nodeType: string }) {
-  const properties = useGraphStore((s) => {
-    const node = rootGraphNodes(s).find((n) => n.id === nodeId)
-    return (node?.data.properties ?? {}) as Record<string, unknown>
-  })
+  const properties = useNodeProperties(nodeId, 'root')
 
   const identity = resolvePartIdentity(nodeType, properties)
   if (!identity) return null

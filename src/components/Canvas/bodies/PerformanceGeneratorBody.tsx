@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMusicStore } from '../../../state/player/musicStore'
-import { useGraphStore, getGroupRegistry, rootGraphNodes, rootGraphEdges } from '../../../state/graphStore'
+import { useGraphStore, useNodeProperties, getGroupRegistry, rootGraphNodes, rootGraphEdges } from '../../../state/graphStore'
 import { wiredPatternCollection } from '../../../state/patterns/patternCollectionWiring'
 import { resolveShowTarget } from '../../../state/player/showTarget'
 import { useShowPlayback } from '../../../state/player/showPlayback'
@@ -46,9 +46,7 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const entries = useMusicStore((s) => s.entries)
   const ready = useMemo(() => entries.filter((e) => e.status === 'done' && e.show), [entries])
   const bake = usePerformanceBakeStore((s) => s.byNode[nodeId])
-  const properties = useGraphStore((s) =>
-    s.nodes.find((n) => n.id === nodeId)?.data.properties ?? {}
-  )
+  const properties = useNodeProperties(nodeId)
   const options = useMemo(() => performanceOptionsFromProperties(properties), [properties])
   // Everything `regenerateShow` reads: this node's controls, plus the pattern
   // vocabulary and transition pool it resolves live from the graph.

@@ -102,6 +102,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Layout and input traps
 
+- A store selector returns something stored or a primitive, never a value it
+  builds. `?? {}`, `.filter()`, `.map()` or `new Set()` make a new snapshot on
+  every read, and React logs "The result of getSnapshot should be cached" and
+  renders again. Seven node bodies read their node's properties with
+  `?? {}`, which only bit while the node was missing, so the warning came and
+  went with load timing. Read a node's properties through
+  `useNodeProperties(nodeId, 'active' | 'root')` (`graphStore.ts`), which
+  shares one frozen empty object; join a derived list to a string, as
+  `Sidebar` and `PatternCollectionPicker` do, or select with `useShallow`.
+
 - Entering a group runs `runTidy({ scope: 'all' })` from an effect in
   `NodeGraphCanvas.tsx` keyed on `activeGraphId`, never from the store:
   `tidyGraph.ts` imports the store, so the store cannot import it back. The

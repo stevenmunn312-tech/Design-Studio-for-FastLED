@@ -1,5 +1,5 @@
 import { useRef, type CSSProperties } from 'react'
-import { useGraphStore } from '../../../state/graphStore'
+import { useGraphStore, useNodeProperties } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import {
   customPaletteStops16,
@@ -134,9 +134,7 @@ function StopHandle({
 }
 
 export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: string; topPlacement?: boolean }) {
-  const props = useGraphStore(
-    (s) => (s.nodes.find((n) => n.id === nodeId)?.data.properties as Record<string, unknown> | undefined) ?? {},
-  )
+  const props = useNodeProperties(nodeId)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const local = normalizeCustomPalette(props.colors, props.positions)
   const wired = useIncomingColors(nodeId, INPUT_PORTS)
@@ -208,9 +206,7 @@ export function CustomPaletteEditorBody({ nodeId, topPlacement }: { nodeId: stri
 }
 
 export function PolineEditorBody({ nodeId, topPlacement }: { nodeId: string; topPlacement?: boolean }) {
-  const props = useGraphStore(
-    (s) => (s.nodes.find((n) => n.id === nodeId)?.data.properties as Record<string, unknown> | undefined) ?? {},
-  )
+  const props = useNodeProperties(nodeId)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const wired = useIncomingColors(nodeId, ANCHOR_PORTS)
   const anchors = ANCHORS.map(([key], i) => {
