@@ -1,7 +1,8 @@
 import { controlGraphCpp } from './controlGraph'
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import {
-  PARTICLE_MIN_GAP_MS, SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
+  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS,
+  SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_ENERGY_RANGE, SILENCE_RELEASE_RATE,
 } from '../state/player/playerDynamics'
 import { withDeviceTelemetry } from './deviceTelemetryCpp'
 import type { PlayerControlGraph } from './player/playerControlGraph'
@@ -1205,10 +1206,11 @@ ${internalDac ? '' : `#define I2S_BCLK      ${c.i2sBclk}\n#define I2S_LRC       
 
 // Particle-burst overlay — keep in sync with showPreview.ts (PARTICLE_LIFE_MS,
 // PARTICLE_COUNT) so the device spawns the same sparks the browser preview does.
-// The gap between bursts is emitted from playerDynamics.ts, as the preview reads it.
+// The volley-then-rest cadence is emitted from playerDynamics.ts, as the preview reads it.
 #define PARTICLE_LIFE_MS   600
 #define PARTICLE_COUNT     16
-#define PARTICLE_MIN_GAP_MS ${PARTICLE_MIN_GAP_MS}
+#define PARTICLE_VOLLEY_BURSTS ${PARTICLE_VOLLEY_BURSTS}
+#define PARTICLE_REST_MS   ${PARTICLE_REST_MS}
 
 struct ShowEvent {
   uint32_t t;
@@ -2126,10 +2128,20 @@ ${!genericPlayer && hasPatternSelection ? `  // The show file schedules the patt
 ` : ''}${bakedAudio ? decoderTap
     ? '  if (!_decoderTapLive) updateShowAudio(posMs);  // startup/failure fallback\n'
     : '  updateShowAudio(posMs);   // song-synced FFT → pattern audio globals\n' : ''}
-${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst,
-  // at most one per PARTICLE_MIN_GAP_MS (a track change rewinds posMs and
-  // counts as due), the same gate the preview applies.
-  if (_audioBeat && (posMs < burstStart || posMs - burstStart >= PARTICLE_MIN_GAP_MS)) {
+${particleFx && genericPlayer && decoderTap ? `  // Player Particles turns the live decoder beat into a configured burst in
+  // volleys: PARTICLE_VOLLEY_BURSTS beats in a row each burst, then the
+  // sparks rest PARTICLE_REST_MS. A rewound posMs (a seek or a new track)
+  // starts a fresh volley. The same moves as the preview's particleVolleyFire.
+  static uint8_t burstVolleyLeft = 0;
+  bool burstDue = false;
+  if (_audioBeat) {
+    if (posMs < burstStart) { burstVolleyLeft = 0; burstStart = 0; }
+    if (burstVolleyLeft == 0 && (burstStart == 0 || posMs - burstStart >= PARTICLE_REST_MS)) {
+      burstVolleyLeft = PARTICLE_VOLLEY_BURSTS;
+    }
+    if (burstVolleyLeft > 0) { burstVolleyLeft--; burstDue = true; }
+  }
+  if (burstDue) {
     burstStart = posMs;
     burstIntensity = ${particleFx.intensity.toFixed(3)}f;
     burstStyle = ${particleFx.randomStyle ? 'random8(17)' : particleFx.style};

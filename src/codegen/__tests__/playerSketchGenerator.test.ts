@@ -359,8 +359,11 @@ describe('playerSketchGenerator', () => {
           randomColor: false, randomStyle: true,
         },
       })
-      expect(sketch).toContain('if (_audioBeat && (posMs < burstStart || posMs - burstStart >= PARTICLE_MIN_GAP_MS)) {')
-      expect(sketch).toContain('#define PARTICLE_MIN_GAP_MS 1500')
+      expect(sketch).toContain('#define PARTICLE_VOLLEY_BURSTS 3')
+      expect(sketch).toContain('#define PARTICLE_REST_MS   4000')
+      expect(sketch).toContain('if (burstVolleyLeft == 0 && (burstStart == 0 || posMs - burstStart >= PARTICLE_REST_MS)) {')
+      expect(sketch).toContain('if (burstVolleyLeft > 0) { burstVolleyLeft--; burstDue = true; }')
+      expect(sketch).toContain('if (burstDue) {')
       expect(sketch).toContain('burstIntensity = 0.720f;')
       expect(sketch).toContain('burstStyle = random8(17);')
       expect(sketch).toContain('burstColor = CRGB(51, 102, 204);')

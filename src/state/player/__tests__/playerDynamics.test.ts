@@ -1,15 +1,42 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PARTICLE_MIN_GAP_MS, SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_RELEASE_RATE,
-  silenceFadeStep, silenceFadeTarget,
+  PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, SILENCE_ATTACK_RATE, SILENCE_ENERGY_FLOOR, SILENCE_RELEASE_RATE,
+  blankParticleVolley, particleVolleyFire, silenceFadeStep, silenceFadeTarget,
 } from '../playerDynamics'
 
-describe('playerDynamics', () => {
-  it('keeps bursts apart by more than one dance-tempo beat', () => {
-    // 120 BPM is a 500 ms beat; the gap must swallow at least two of them.
-    expect(PARTICLE_MIN_GAP_MS).toBeGreaterThan(1000)
+describe('particle volleys', () => {
+  // Beats at 120 BPM.
+  const beats = (count: number, from = 0) => Array.from({ length: count }, (_, i) => from + i * 500)
+
+  it('fires a few beats in a row, then rests for seconds', () => {
+    const volley = blankParticleVolley()
+    const fired = beats(20).map((ms) => particleVolleyFire(volley, ms))
+    // The first volley fires at once, one burst per beat.
+    expect(fired.slice(0, PARTICLE_VOLLEY_BURSTS)).toEqual(Array(PARTICLE_VOLLEY_BURSTS).fill(true))
+    // Then nothing until the rest has passed since the volley's last burst.
+    const lastBurstMs = (PARTICLE_VOLLEY_BURSTS - 1) * 500
+    const restBeats = fired.slice(PARTICLE_VOLLEY_BURSTS).filter((_, i) =>
+      (PARTICLE_VOLLEY_BURSTS + i) * 500 - lastBurstMs < PARTICLE_REST_MS)
+    expect(restBeats).toEqual(Array(restBeats.length).fill(false))
+    expect(restBeats.length).toBeGreaterThanOrEqual(7)
+    // And the next volley follows.
+    expect(fired.filter(Boolean).length).toBeGreaterThanOrEqual(PARTICLE_VOLLEY_BURSTS * 2)
   })
 
+  it('rests for seconds, not beats', () => {
+    expect(PARTICLE_REST_MS).toBeGreaterThanOrEqual(3000)
+  })
+
+  it('starts a fresh volley when the clock goes backwards', () => {
+    const volley = blankParticleVolley()
+    for (const ms of beats(PARTICLE_VOLLEY_BURSTS)) particleVolleyFire(volley, ms)
+    expect(particleVolleyFire(volley, PARTICLE_VOLLEY_BURSTS * 500)).toBe(false)
+    // A new track rewinds to zero: its first beat bursts.
+    expect(particleVolleyFire(volley, 0)).toBe(true)
+  })
+})
+
+describe('silence fade', () => {
   it('targets black at and below the silence floor and full well above it', () => {
     expect(silenceFadeTarget(0)).toBe(0)
     expect(silenceFadeTarget(SILENCE_ENERGY_FLOOR)).toBe(0)
@@ -21,10 +48,8 @@ describe('playerDynamics', () => {
 
   it('releases slower than it attacks', () => {
     expect(SILENCE_RELEASE_RATE).toBeLessThan(SILENCE_ATTACK_RATE)
-    const down = 1 - silenceFadeStep(1, 0)
-    const up = silenceFadeStep(0, 1)
-    expect(down).toBeCloseTo(SILENCE_RELEASE_RATE)
-    expect(up).toBeCloseTo(SILENCE_ATTACK_RATE)
+    expect(1 - silenceFadeStep(1, 0)).toBeCloseTo(SILENCE_RELEASE_RATE)
+    expect(silenceFadeStep(0, 1)).toBeCloseTo(SILENCE_ATTACK_RATE)
   })
 
   it('settles on its target', () => {

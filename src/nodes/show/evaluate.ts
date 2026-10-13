@@ -48,7 +48,9 @@ import type {
 } from '../../state/evaluator/types'
 import { instanceState } from '../../state/evaluator/memory'
 import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
-import { PARTICLE_MIN_GAP_MS, silenceFadeStep, silenceFadeTarget } from '../../state/player/playerDynamics'
+import {
+  blankParticleVolley, particleVolleyFire, silenceFadeStep, silenceFadeTarget, type ParticleVolley,
+} from '../../state/player/playerDynamics'
 
 const patternShowState = instanceState('patternShowState', new Map<string, ShowState>())
 const patternSlideshowFadeState = instanceState('patternSlideshowFadeState', new Map<string, { level: number; lastT: number }>())
@@ -656,6 +658,8 @@ interface ShowState {
    *  rolled once when the burst starts (randomStyle/randomColor) so they stay
    *  fixed for the burst's lifetime instead of re-rolling every frame. */
   burst?: { t: number; style: number; color: RGB }
+  /** Where the sparks are in their volley-then-rest cycle (playerDynamics.ts). */
+  volley: ParticleVolley
   /** The silence fade, 0 (black) to 1, following the track's mean band energy
    *  the way the firmware's `audioFade` does. Starts where the track already
    *  is, so a show opened mid-song shows its pattern at once. */
@@ -925,6 +929,7 @@ function evalPatternShow(
     seededRngState.delete(`${key}:show`)
     st = { sel: selection ?? blankPatternSelection(), next: blankPatternCursor(), ids,
            phase: 'hold', start: t, dwell: pickDwell(), trans: 'crossfade', lastBeat: beat, seed: o.seed,
+           volley: blankParticleVolley(),
            audioFade: o.audioEnergy === null ? 1 : silenceFadeTarget(o.audioEnergy) }
     updatePatternSelection(st.sel, { ids, nowMs: t * 1000, setActive: sequential ? 0 : Math.floor(rnd() * n) })
   }
@@ -949,14 +954,13 @@ function evalPatternShow(
   const beatEdge = o.beatEnabled && beat && !st.lastBeat
   st.lastBeat = beat
   // A beat also fires a particle burst (independent of the dwell-gated
-  // pattern advance), if the node has particles enabled and the last burst
-  // is at least PARTICLE_MIN_GAP_MS old: on every beat the sparks never
-  // cleared. Style/colour are rolled once here (when randomStyle/randomColor
-  // are on) so they stay fixed for the whole burst instead of changing every
-  // frame. The firmware gates `_audioBeat` by the same gap.
-  const nowMs = t * 1000
-  const burstDue = st.burst == null || nowMs < st.burst.t || nowMs - st.burst.t >= PARTICLE_MIN_GAP_MS
-  if (beatEdge && o.particles && burstDue) {
+  // pattern advance), if the node has particles enabled and the volley says
+  // so: a few beats in a row each burst, then the sparks rest (see
+  // playerDynamics.ts); on every beat they never cleared. Style/colour are
+  // rolled once here (when randomStyle/randomColor are on) so they stay
+  // fixed for the whole burst instead of changing every frame. The firmware
+  // gates `_audioBeat` by the same volley.
+  if (beatEdge && o.particles && particleVolleyFire(st.volley, t * 1000)) {
     st.burst = {
       t: t * 1000,
       style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,

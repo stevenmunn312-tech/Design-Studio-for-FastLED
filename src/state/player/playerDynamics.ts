@@ -4,9 +4,38 @@
 // fires in the preview fires on the device and a fade that lands here lands
 // there.
 
-/** Shortest gap between two particle bursts. Every beat edge used to spawn one,
- *  which at dance tempos kept sparks on screen without a break. */
-export const PARTICLE_MIN_GAP_MS = 1500
+/** Particle bursts arrive in volleys: this many consecutive beats each spawn
+ *  a burst, then the sparks rest. Every beat used to spawn one, which at
+ *  dance tempos kept sparks on screen without a break. */
+export const PARTICLE_VOLLEY_BURSTS = 3
+/** Rest after a volley's last burst before the next volley may start. */
+export const PARTICLE_REST_MS = 4000
+
+/** Where a player is in its volley: bursts still owed to the current volley
+ *  and when the last burst fired. `lastMs` starts one rest in the past so the
+ *  first beat of a track fires. */
+export interface ParticleVolley { left: number; lastMs: number }
+
+export function blankParticleVolley(): ParticleVolley {
+  return { left: 0, lastMs: -PARTICLE_REST_MS }
+}
+
+/** Decide whether a beat at `nowMs` spawns a burst, advancing the volley. A
+ *  clock that went backwards (a seek or a new track) starts a fresh volley.
+ *  The firmware's `_audioBeat` gate makes the same moves. */
+export function particleVolleyFire(volley: ParticleVolley, nowMs: number): boolean {
+  if (nowMs < volley.lastMs) {
+    volley.left = 0
+    volley.lastMs = nowMs - PARTICLE_REST_MS
+  }
+  if (volley.left === 0) {
+    if (nowMs - volley.lastMs < PARTICLE_REST_MS) return false
+    volley.left = PARTICLE_VOLLEY_BURSTS
+  }
+  volley.left--
+  volley.lastMs = nowMs
+  return true
+}
 
 /** Mean band energy at or below which the player counts the track as silent. */
 export const SILENCE_ENERGY_FLOOR = 0.025

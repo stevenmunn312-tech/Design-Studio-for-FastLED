@@ -15,10 +15,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   after the preceding transition finishes; no beat means no automatic change.
   With the checkbox off, the same range controls timed changes. A wired Beat
   input takes precedence over preview Audio beats or the SD decoder's beats.
-  Particles remain independently beat-triggered, at most one burst per
-  `PARTICLE_MIN_GAP_MS` (`src/state/player/playerDynamics.ts`); the preview's
-  `evalPatternShow` and the generic SD player's `_audioBeat` gate read the same
-  constant, so a burst that fires in one fires in the other. `musicPlayerTiming`
+  Particles remain independently beat-triggered, in volleys:
+  `PARTICLE_VOLLEY_BURSTS` consecutive beats each burst, then the sparks rest
+  `PARTICLE_REST_MS` (`src/state/player/playerDynamics.ts`, `particleVolleyFire`);
+  the preview's `evalPatternShow` and the generic SD player's `_audioBeat` gate
+  make the same moves from the same constants, and a rewound clock (seek, new
+  track) starts a fresh volley on both. `musicPlayerTiming`
   normalizes stored timing; SD control routing also resolves wired timing and
   Beat inputs.
 - **Silence fades only the patterns that listen.** With audio wired, the Music

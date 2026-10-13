@@ -291,9 +291,10 @@ versioning (`0.y.z`) until the first stable release.
 - Opening a group tidies it: the nodes glide into columns and the view fits
   them, so a bundled pattern opens readable rather than wherever its seed
   left its nodes. The main graph is left as laid out.
-- Player Particles bursts are now at least a second and a half apart, in the
-  preview and on the SD player. Every beat spawned a burst, which at dance
-  tempos never let the sparks clear.
+- Player Particles now come in volleys: three beats in a row each spawn a
+  burst, then the sparks rest four seconds, in the preview and on the SD
+  player. Every beat spawned a burst, which at dance tempos never let the
+  sparks clear.
 - The Music Player fades a pattern that listens to audio to black when the
   track goes quiet and brings it back when the music returns, in the preview
   as the SD player already did on the device. A pattern with no audio node
