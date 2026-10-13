@@ -107,43 +107,6 @@
         }
       },
       {
-        "id": "n3",
-        "type": "studioNode",
-        "position": {
-          "x": -100,
-          "y": 500
-        },
-        "data": {
-          "label": "BeatDetect",
-          "nodeType": "BeatDetect",
-          "category": "audio",
-          "properties": {
-            "threshold": 0.24,
-            "attack": 0.62,
-            "decay": 0.34
-          },
-          "inputs": [
-            {
-              "id": "audio",
-              "label": "Audio",
-              "dataType": "audio"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "bpm",
-              "label": "BPM",
-              "dataType": "float"
-            }
-          ]
-        }
-      },
-      {
         "id": "n4",
         "type": "studioNode",
         "position": {
@@ -369,44 +332,6 @@
             }
           ]
         }
-      },
-      {
-        "id": "n9",
-        "type": "studioNode",
-        "position": {
-          "x": 800,
-          "y": 100
-        },
-        "data": {
-          "label": "BeatFlash",
-          "nodeType": "BeatFlash",
-          "category": "pattern",
-          "properties": {
-            "bypassed": true,
-            "decay": 0.88,
-            "attack": 0.08,
-            "intensity": 0.5
-          },
-          "inputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "frame",
-              "label": "Base",
-              "dataType": "frame"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            }
-          ]
-        }
       }
     ],
     "edges": [
@@ -415,13 +340,6 @@
         "source": "n0",
         "sourceHandle": "out",
         "target": "n2",
-        "targetHandle": "audio"
-      },
-      {
-        "id": "e1",
-        "source": "n0",
-        "sourceHandle": "out",
-        "target": "n3",
         "targetHandle": "audio"
       },
       {
@@ -502,22 +420,8 @@
         "targetHandle": "b"
       },
       {
-        "id": "e13",
-        "source": "n3",
-        "sourceHandle": "beat",
-        "target": "n9",
-        "targetHandle": "beat"
-      },
-      {
-        "id": "e14",
+        "id": "e14+e17",
         "source": "n8",
-        "sourceHandle": "frame",
-        "target": "n9",
-        "targetHandle": "frame"
-      },
-      {
-        "id": "e17",
-        "source": "n9",
         "sourceHandle": "frame",
         "target": "n1",
         "targetHandle": "frame"

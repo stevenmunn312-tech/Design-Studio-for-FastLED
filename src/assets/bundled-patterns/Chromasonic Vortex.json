@@ -207,43 +207,6 @@
         }
       },
       {
-        "id": "BeatDetect-1",
-        "type": "studioNode",
-        "position": {
-          "x": -180,
-          "y": 420
-        },
-        "data": {
-          "label": "BeatDetect",
-          "nodeType": "BeatDetect",
-          "category": "audio",
-          "properties": {
-            "threshold": 0.24,
-            "attack": 0.62,
-            "decay": 0.34
-          },
-          "inputs": [
-            {
-              "id": "audio",
-              "label": "Audio",
-              "dataType": "audio"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "bpm",
-              "label": "BPM",
-              "dataType": "float"
-            }
-          ]
-        }
-      },
-      {
         "id": "Poline-1",
         "type": "studioNode",
         "position": {
@@ -714,43 +677,6 @@
         }
       },
       {
-        "id": "BeatFlash-1",
-        "type": "studioNode",
-        "position": {
-          "x": 1620,
-          "y": -100
-        },
-        "data": {
-          "label": "Beat Flash",
-          "nodeType": "BeatFlash",
-          "category": "pattern",
-          "properties": {
-            "bypassed": true,
-            "decay": 0.9,
-            "attack": 0.08
-          },
-          "inputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "frame",
-              "label": "Base",
-              "dataType": "frame"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            }
-          ]
-        }
-      },
-      {
         "id": "Blur2D-1",
         "type": "studioNode",
         "position": {
@@ -902,18 +828,6 @@
         "source": "groupin-group-1783293400000-0",
         "sourceHandle": "out",
         "target": "FFTAnalyzer-1",
-        "targetHandle": "audio",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#00e0a4"
-        }
-      },
-      {
-        "id": "e-group-1783293400000-in0-beat",
-        "source": "groupin-group-1783293400000-0",
-        "sourceHandle": "out",
-        "target": "BeatDetect-1",
         "targetHandle": "audio",
         "type": "glowEdge",
         "reconnectable": "target",
@@ -1198,42 +1112,6 @@
         }
       },
       {
-        "id": "e20",
-        "source": "Transform-1",
-        "sourceHandle": "frame",
-        "target": "BeatFlash-1",
-        "targetHandle": "frame",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#5ad1ff"
-        }
-      },
-      {
-        "id": "e21",
-        "source": "BeatDetect-1",
-        "sourceHandle": "beat",
-        "target": "BeatFlash-1",
-        "targetHandle": "beat",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#9aa0a6"
-        }
-      },
-      {
-        "id": "e22",
-        "source": "BeatFlash-1",
-        "sourceHandle": "frame",
-        "target": "Blur2D-1",
-        "targetHandle": "frame",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#5ad1ff"
-        }
-      },
-      {
         "id": "edge-smooth-FFTAnalyzer-1-bass-in",
         "source": "FFTAnalyzer-1",
         "sourceHandle": "bass",
@@ -1274,6 +1152,18 @@
         "source": "Blur2D-1",
         "sourceHandle": "frame",
         "target": "groupout-group-1783293400000",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        }
+      },
+      {
+        "id": "e20+e22",
+        "source": "Transform-1",
+        "sourceHandle": "frame",
+        "target": "Blur2D-1",
         "targetHandle": "frame",
         "type": "glowEdge",
         "reconnectable": "target",

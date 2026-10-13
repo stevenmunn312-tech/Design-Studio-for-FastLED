@@ -91,47 +91,6 @@
         }
       },
       {
-        "id": "p5-beat",
-        "type": "studioNode",
-        "position": {
-          "x": -440,
-          "y": 600
-        },
-        "data": {
-          "label": "BeatDetect",
-          "nodeType": "BeatDetect",
-          "category": "audio",
-          "properties": {
-            "threshold": 0.24,
-            "attack": 0.62,
-            "decay": 0.32
-          },
-          "inputs": [
-            {
-              "id": "audio",
-              "label": "Audio",
-              "dataType": "audio"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "bpm",
-              "label": "BPM",
-              "dataType": "float"
-            }
-          ]
-        },
-        "measured": {
-          "width": 240,
-          "height": 233
-        }
-      },
-      {
         "id": "p5-hue",
         "type": "studioNode",
         "position": {
@@ -489,47 +448,6 @@
         }
       },
       {
-        "id": "p5-flash",
-        "type": "studioNode",
-        "position": {
-          "x": 1800,
-          "y": 340
-        },
-        "data": {
-          "label": "Beat Flash",
-          "nodeType": "BeatFlash",
-          "category": "pattern",
-          "properties": {
-            "bypassed": true,
-            "decay": 0.9,
-            "attack": 0.08
-          },
-          "inputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "frame",
-              "label": "Base",
-              "dataType": "frame"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            }
-          ]
-        },
-        "measured": {
-          "width": 240,
-          "height": 359
-        }
-      },
-      {
         "id": "p5-out",
         "type": "studioNode",
         "position": {
@@ -672,15 +590,6 @@
         "reconnectable": "target"
       },
       {
-        "id": "p5-e2",
-        "source": "p5-audio",
-        "sourceHandle": "out",
-        "target": "p5-beat",
-        "targetHandle": "audio",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
         "id": "p5-e3",
         "source": "smooth-p5-fft-bass",
         "sourceHandle": "result",
@@ -816,24 +725,6 @@
         "reconnectable": "target"
       },
       {
-        "id": "p5-e16",
-        "source": "p5-blur",
-        "sourceHandle": "frame",
-        "target": "p5-flash",
-        "targetHandle": "frame",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "p5-e17",
-        "source": "p5-beat",
-        "sourceHandle": "beat",
-        "target": "p5-flash",
-        "targetHandle": "beat",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
         "id": "edge-smooth-p5-fft-bass-in",
         "source": "p5-fft",
         "sourceHandle": "bass",
@@ -871,12 +762,12 @@
       },
       {
         "type": "glowEdge",
-        "source": "p5-flash",
+        "source": "p5-blur",
         "sourceHandle": "frame",
         "target": "p5-out",
         "targetHandle": "frame",
         "reconnectable": "target",
-        "id": "xy-edge__p5-flashframe-p5-outframe"
+        "id": "p5-e16+xy-edge__p5-flashframe-p5-outframe"
       }
     ]
   },

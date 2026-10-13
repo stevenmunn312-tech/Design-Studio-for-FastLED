@@ -85,43 +85,6 @@
         }
       },
       {
-        "id": "p10-beat",
-        "type": "studioNode",
-        "position": {
-          "x": -700,
-          "y": 360
-        },
-        "data": {
-          "label": "BeatDetect",
-          "nodeType": "BeatDetect",
-          "category": "audio",
-          "properties": {
-            "threshold": 0.24,
-            "attack": 0.62,
-            "decay": 0.32
-          },
-          "inputs": [
-            {
-              "id": "audio",
-              "label": "Audio",
-              "dataType": "audio"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "bpm",
-              "label": "BPM",
-              "dataType": "float"
-            }
-          ]
-        }
-      },
-      {
         "id": "p10-hue",
         "type": "studioNode",
         "position": {
@@ -510,43 +473,6 @@
         }
       },
       {
-        "id": "p10-flash",
-        "type": "studioNode",
-        "position": {
-          "x": 820,
-          "y": 160
-        },
-        "data": {
-          "label": "Beat Flash",
-          "nodeType": "BeatFlash",
-          "category": "pattern",
-          "properties": {
-            "bypassed": true,
-            "decay": 0.9,
-            "attack": 0.08
-          },
-          "inputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "frame",
-              "label": "Base",
-              "dataType": "frame"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            }
-          ]
-        }
-      },
-      {
         "id": "p10-out",
         "type": "studioNode",
         "position": {
@@ -668,15 +594,6 @@
         "source": "p10-in",
         "sourceHandle": "out",
         "target": "p10-fft",
-        "targetHandle": "audio",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "p10-e2",
-        "source": "p10-in",
-        "sourceHandle": "out",
-        "target": "p10-beat",
         "targetHandle": "audio",
         "type": "glowEdge",
         "reconnectable": "target"
@@ -871,24 +788,6 @@
         "reconnectable": "target"
       },
       {
-        "id": "p10-e24",
-        "source": "p10-blendB",
-        "sourceHandle": "frame",
-        "target": "p10-flash",
-        "targetHandle": "frame",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "p10-e25",
-        "source": "p10-beat",
-        "sourceHandle": "beat",
-        "target": "p10-flash",
-        "targetHandle": "beat",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
         "id": "edge-smooth-p10-fft-bass-in",
         "source": "p10-fft",
         "sourceHandle": "bass",
@@ -925,8 +824,8 @@
         }
       },
       {
-        "id": "p10-gamma-spliced",
-        "source": "p10-flash",
+        "id": "p10-e24+p10-gamma-spliced",
+        "source": "p10-blendB",
         "sourceHandle": "frame",
         "target": "p10-out",
         "targetHandle": "frame",

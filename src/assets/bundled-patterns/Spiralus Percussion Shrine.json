@@ -300,114 +300,6 @@
         }
       },
       {
-        "id": "flash-palette",
-        "type": "studioNode",
-        "position": {
-          "x": 700,
-          "y": 230
-        },
-        "data": {
-          "label": "Poline Palette",
-          "nodeType": "Poline",
-          "category": "color",
-          "properties": {
-            "anchorA": "#120136",
-            "anchorB": "#ff2d95",
-            "anchorC": "#ff8a00",
-            "points": 6,
-            "position": "sinusoidal"
-          },
-          "inputs": [
-            {
-              "id": "colorA",
-              "label": "Anchor A",
-              "dataType": "color"
-            },
-            {
-              "id": "colorB",
-              "label": "Anchor B",
-              "dataType": "color"
-            },
-            {
-              "id": "colorC",
-              "label": "Anchor C",
-              "dataType": "color"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "palette",
-              "label": "Palette",
-              "dataType": "palette"
-            }
-          ]
-        }
-      },
-      {
-        "id": "flash",
-        "type": "studioNode",
-        "position": {
-          "x": 1360,
-          "y": -110
-        },
-        "data": {
-          "label": "Beat Flash",
-          "nodeType": "BeatFlash",
-          "category": "pattern",
-          "properties": {
-            "bypassed": true,
-            "decay": 0.9,
-            "attack": 0.08,
-            "intensity": 0.9,
-            "blendMode": "screen",
-            "preserveBase": true,
-            "palette": "synthwave",
-            "r": 255,
-            "g": 255,
-            "b": 255
-          },
-          "inputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "frame",
-              "label": "Base",
-              "dataType": "frame"
-            },
-            {
-              "id": "attack",
-              "label": "Attack",
-              "dataType": "float"
-            },
-            {
-              "id": "decay",
-              "label": "Decay",
-              "dataType": "float"
-            },
-            {
-              "id": "intensity",
-              "label": "Intensity",
-              "dataType": "float"
-            },
-            {
-              "id": "paletteIn",
-              "label": "Palette",
-              "dataType": "palette"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            }
-          ]
-        }
-      },
-      {
         "id": "group-output",
         "type": "studioNode",
         "position": {
@@ -531,35 +423,8 @@
         "reconnectable": "target"
       },
       {
-        "id": "edge-11-feedback-flash",
+        "id": "edge-11-feedback-flash+edge-14-flash-group-output",
         "source": "feedback",
-        "sourceHandle": "frame",
-        "target": "flash",
-        "targetHandle": "frame",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "edge-12-beat-flash",
-        "source": "beat",
-        "sourceHandle": "beat",
-        "target": "flash",
-        "targetHandle": "beat",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "edge-13-flash-palette-flash",
-        "source": "flash-palette",
-        "sourceHandle": "palette",
-        "target": "flash",
-        "targetHandle": "paletteIn",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "edge-14-flash-group-output",
-        "source": "flash",
         "sourceHandle": "frame",
         "target": "group-output",
         "targetHandle": "frame",

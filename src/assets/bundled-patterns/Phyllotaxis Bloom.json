@@ -128,68 +128,6 @@
     }
    },
    {
-    "id": "beat",
-    "type": "studioNode",
-    "position": {
-     "x": -1180,
-     "y": 380
-    },
-    "data": {
-     "label": "Beat Detect",
-     "nodeType": "BeatDetect",
-     "category": "audio",
-     "properties": {
-      "threshold": 0.22,
-      "attack": 0.55,
-      "decay": 0.3
-     },
-     "inputs": [
-      {
-       "id": "audio",
-       "label": "Audio",
-       "dataType": "audio"
-      }
-     ],
-     "outputs": [
-      {
-       "id": "beat",
-       "label": "Beat",
-       "dataType": "bool"
-      },
-      {
-       "id": "bpm",
-       "label": "BPM",
-       "dataType": "float"
-      },
-      {
-       "id": "flux",
-       "label": "Flux",
-       "dataType": "float"
-      },
-      {
-       "id": "onset",
-       "label": "Onset",
-       "dataType": "float"
-      },
-      {
-       "id": "contrast",
-       "label": "Contrast",
-       "dataType": "float"
-      },
-      {
-       "id": "threshold",
-       "label": "Threshold",
-       "dataType": "float"
-      },
-      {
-       "id": "cooldownMs",
-       "label": "Cooldown (ms)",
-       "dataType": "float"
-      }
-     ]
-    }
-   },
-   {
     "id": "hue",
     "type": "studioNode",
     "position": {
@@ -572,70 +510,6 @@
     }
    },
    {
-    "id": "flash",
-    "type": "studioNode",
-    "position": {
-     "x": 640,
-     "y": -80
-    },
-    "data": {
-     "label": "Beat Flash",
-     "nodeType": "BeatFlash",
-     "category": "pattern",
-     "properties": {
-      "bypassed": true,
-      "decay": 0.9,
-      "attack": 0.12,
-      "intensity": 0.7,
-      "blendMode": "screen",
-      "preserveBase": true,
-      "palette": "citrus",
-      "r": 255,
-      "g": 255,
-      "b": 255
-     },
-     "inputs": [
-      {
-       "id": "beat",
-       "label": "Beat",
-       "dataType": "bool"
-      },
-      {
-       "id": "frame",
-       "label": "Base",
-       "dataType": "frame"
-      },
-      {
-       "id": "attack",
-       "label": "Attack",
-       "dataType": "float"
-      },
-      {
-       "id": "decay",
-       "label": "Decay",
-       "dataType": "float"
-      },
-      {
-       "id": "intensity",
-       "label": "Intensity",
-       "dataType": "float"
-      },
-      {
-       "id": "paletteIn",
-       "label": "Palette",
-       "dataType": "palette"
-      }
-     ],
-     "outputs": [
-      {
-       "id": "frame",
-       "label": "Frame",
-       "dataType": "frame"
-      }
-     ]
-    }
-   },
-   {
     "id": "sat",
     "type": "studioNode",
     "position": {
@@ -711,18 +585,6 @@
     "source": "audio",
     "sourceHandle": "out",
     "target": "feat",
-    "targetHandle": "audio",
-    "type": "glowEdge",
-    "reconnectable": "target",
-    "style": {
-     "stroke": "#00e0a4"
-    }
-   },
-   {
-    "id": "e2",
-    "source": "audio",
-    "sourceHandle": "out",
-    "target": "beat",
     "targetHandle": "audio",
     "type": "glowEdge",
     "reconnectable": "target",
@@ -839,37 +701,19 @@
     "reconnectable": "target"
    },
    {
-    "id": "e15",
-    "source": "dim",
-    "sourceHandle": "frame",
-    "target": "flash",
-    "targetHandle": "frame",
-    "type": "glowEdge",
-    "reconnectable": "target"
-   },
-   {
-    "id": "e16",
-    "source": "beat",
-    "sourceHandle": "beat",
-    "target": "flash",
-    "targetHandle": "beat",
-    "type": "glowEdge",
-    "reconnectable": "target"
-   },
-   {
-    "id": "e17",
-    "source": "flash",
-    "sourceHandle": "frame",
-    "target": "sat",
-    "targetHandle": "frame",
-    "type": "glowEdge",
-    "reconnectable": "target"
-   },
-   {
     "id": "e18",
     "source": "sat",
     "sourceHandle": "frame",
     "target": "out",
+    "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e15+e17",
+    "source": "dim",
+    "sourceHandle": "frame",
+    "target": "sat",
     "targetHandle": "frame",
     "type": "glowEdge",
     "reconnectable": "target"

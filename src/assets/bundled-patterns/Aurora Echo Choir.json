@@ -477,70 +477,6 @@
         }
       },
       {
-        "id": "flash",
-        "type": "studioNode",
-        "position": {
-          "x": 1930,
-          "y": 10
-        },
-        "data": {
-          "label": "Beat Flash",
-          "nodeType": "BeatFlash",
-          "category": "pattern",
-          "properties": {
-            "bypassed": true,
-            "decay": 0.9,
-            "attack": 0.1,
-            "intensity": 0.55,
-            "blendMode": "screen",
-            "preserveBase": true,
-            "palette": "none",
-            "r": 255,
-            "g": 255,
-            "b": 255
-          },
-          "inputs": [
-            {
-              "id": "beat",
-              "label": "Beat",
-              "dataType": "bool"
-            },
-            {
-              "id": "frame",
-              "label": "Base",
-              "dataType": "frame"
-            },
-            {
-              "id": "attack",
-              "label": "Attack",
-              "dataType": "float"
-            },
-            {
-              "id": "decay",
-              "label": "Decay",
-              "dataType": "float"
-            },
-            {
-              "id": "intensity",
-              "label": "Intensity",
-              "dataType": "float"
-            },
-            {
-              "id": "paletteIn",
-              "label": "Palette",
-              "dataType": "palette"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            }
-          ]
-        }
-      },
-      {
         "id": "group-output",
         "type": "studioNode",
         "position": {
@@ -709,26 +645,8 @@
         "reconnectable": "target"
       },
       {
-        "id": "edge-16-feedback-flash",
+        "id": "edge-16-feedback-flash+edge-18-flash-group-output",
         "source": "feedback",
-        "sourceHandle": "frame",
-        "target": "flash",
-        "targetHandle": "frame",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "edge-17-beat-flash",
-        "source": "beat",
-        "sourceHandle": "beat",
-        "target": "flash",
-        "targetHandle": "beat",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "edge-18-flash-group-output",
-        "source": "flash",
         "sourceHandle": "frame",
         "target": "group-output",
         "targetHandle": "frame",
