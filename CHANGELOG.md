@@ -9,6 +9,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- A generative show compiles as a controller sketch plus one header per
+  pattern (`pattern_0.h`, `pattern_1.h`, …) in the helper's sketch folder, for
+  uploads, capacity checks and binary exports. View Code and Export .ino show
+  the same sketch as one file, with each pattern's header marked as a block.
 - The LED Output pane now draws a ring, a corkscrew and a positioned string in
   their real shape, where the node's own preview already did, instead of as a
   straight row of LEDs.

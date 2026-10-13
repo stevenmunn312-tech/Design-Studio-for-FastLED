@@ -352,11 +352,16 @@ Today `cppGenerator` emits a single flat `loop()`. The show needs:
   reuses the 16 transition effects' existing C++ emitters to composite the
   outgoing/incoming patterns.
 
-_As shipped:_ `src/codegen/showGenerator.ts` implements this as a single
-controller file (one `render_pN()` per pattern plus the dispatch/transition
-loop) rather than emitting a separate `.h` per pattern. Multi-file
-`.h`-per-pattern output remains an
-unshipped follow-up if flash-size or build-time pressure ever calls for it.
+_As shipped:_ `src/codegen/showGenerator.ts` emits the controller with one
+`render_pN()` per pattern, each in its own header. The generator's output is
+still one string — every surface in the app (View Code, Export .ino, the
+capacity meter, the upload store) handles one string — so the headers travel
+inside it as marked blocks (`src/codegen/sketchBundle.ts`), which are comments
+in the one-file form. At the helper boundary `splitSketchBundle` turns each
+block into `pattern_N.h` with an `#include` in its place, and the helper writes
+those files beside the `.ino` in its cached sketch workspace (and the fbuild
+scaffold), so the compiled folder is the controller plus one header per
+pattern.
 Every pattern renders into `leds`, the composition canvas; a shape-mapped chain
 or a wired matrix then drives its own `ledsOut` through the same PROGMEM table
 the normal sketch bakes (`src/codegen/output/shapeMapCpp.ts`), so a ring,

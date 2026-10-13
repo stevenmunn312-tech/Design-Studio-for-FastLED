@@ -1501,7 +1501,51 @@ def _ensure_arduino_lvgl_lib():
     return 0
 
 
-def _write_fbuild_main(ino: str) -> None:
+# A header the frontend sends beside the sketch (a show's one file per pattern):
+# one plain path segment, so nothing it names can leave the sketch folder.
+_SKETCH_FILE_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]*\.h$")
+# Which sibling files the last build wrote into a sketch folder, so the next
+# one can remove the ones it no longer sends without touching anything else
+# there (lv_conf.h, the .ino, a user's stray file).
+_SKETCH_FILES_MANIFEST = ".fls-files"
+
+
+def _sketch_files_from(raw) -> dict[str, str]:
+    """Validate the request's sibling files. Raises ValueError on a name that is
+    not a plain header name or content that is not text."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("files must be an object of name to text")
+    files: dict[str, str] = {}
+    for name, text in raw.items():
+        if not isinstance(name, str) or not _SKETCH_FILE_NAME.match(name):
+            raise ValueError(f"not a sketch file name: {name!r}")
+        if not isinstance(text, str):
+            raise ValueError(f"file {name} is not text")
+        files[name] = text
+    return files
+
+
+def _write_sketch_files(folder: Path, files: dict[str, str]) -> None:
+    """Write the sibling files into `folder`, removing the ones a previous build
+    wrote there that this one does not send. Each goes through
+    `_write_if_changed`, for the same mtime reason as the sketch itself."""
+    manifest = folder / _SKETCH_FILES_MANIFEST
+    previous = manifest.read_text(encoding="utf-8").split() if manifest.exists() else []
+    for stale in previous:
+        if stale not in files and _SKETCH_FILE_NAME.match(stale):
+            (folder / stale).unlink(missing_ok=True)
+    for name, text in files.items():
+        _write_if_changed(folder / name, text)
+    names = "".join(f"{name}\n" for name in sorted(files))
+    if names:
+        _write_if_changed(manifest, names)
+    elif manifest.exists():
+        manifest.unlink()
+
+
+def _write_fbuild_main(ino: str, files: dict[str, str] | None = None) -> None:
     # fbuild <= 2.5.15 preprocessed `.ino` into `main.ino.cpp`, auto-inserting
     # function prototypes *before* any user #includes — that broke FastLED-typed
     # helpers such as `CRGB kelvinToRGB(...)` because `CRGB` was still unknown at
@@ -1516,6 +1560,7 @@ def _write_fbuild_main(ino: str) -> None:
     # identical re-upload cost a full recompile and relink of a firmware image
     # that was already sitting there.
     _write_if_changed(_FBUILD_SRC_DIR / "main.ino", ino)
+    _write_sketch_files(_FBUILD_SRC_DIR, files or {})
     old_cpp = _FBUILD_SRC_DIR / "main.cpp"
     if old_cpp.exists():
         old_cpp.unlink()

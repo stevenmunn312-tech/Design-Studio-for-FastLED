@@ -4,6 +4,7 @@
 // gracefully when the helper isn't running — callers treat a null/throw as
 // "offline" and fall back to the copy-paste arduino-cli commands.
 
+import { splitSketchBundle } from '../codegen/sketchBundle'
 import type { SavedPattern } from '../state/patterns/patternLibrary'
 import type { SavedProject } from '../state/projectStore'
 
@@ -333,7 +334,7 @@ async function pipeStream(res: Response, onLog: (chunk: string) => void): Promis
  * board id's own manifest in charge.
  */
 export async function uploadSketch(
-  ino: string,
+  code: string,
   fqbn: string,
   port: string,
   onLog: (chunk: string) => void,
@@ -345,10 +346,17 @@ export async function uploadSketch(
   const res = await fetch(`${BACKEND_URL}/api/upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, port, flashMb, usbCdcOnBoot, reuseCompiled }),
+    body: JSON.stringify({ ...sketchBody(code), fqbn, port, flashMb, usbCdcOnBoot, reuseCompiled }),
     signal,
   })
   await pipeStream(res, onLog)
+}
+
+/** The sketch as the helper takes it: the controller `.ino`, and the files
+ *  marked inside it (a show's one header per pattern) to write beside it. */
+function sketchBody(code: string): { ino: string; files?: Record<string, string> } {
+  const { ino, files } = splitSketchBundle(code)
+  return Object.keys(files).length > 0 ? { ino, files } : { ino }
 }
 
 export interface BinaryExport {
@@ -368,7 +376,7 @@ export interface BinaryExport {
  * why, so there is nothing to throw.
  */
 export async function exportBinary(
-  ino: string,
+  code: string,
   fqbn: string,
   onLog: (chunk: string) => void,
   opts: { name?: string; flashMb?: number; usbCdcOnBoot?: boolean } = {},
@@ -377,7 +385,7 @@ export async function exportBinary(
   const res = await fetch(`${BACKEND_URL}/api/compile-binary`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, ...opts }),
+    body: JSON.stringify({ ...sketchBody(code), fqbn, ...opts }),
     signal,
   })
   let tail = ''
@@ -439,12 +447,12 @@ export interface CompileCheckResult {
  * a genuine compile failure (which resolves normally with `ok: false`).
  */
 export async function compileCheck(
-  ino: string, fqbn: string, signal?: AbortSignal, flashMb?: number, usbCdcOnBoot?: boolean,
+  code: string, fqbn: string, signal?: AbortSignal, flashMb?: number, usbCdcOnBoot?: boolean,
 ): Promise<CompileCheckResult> {
   const res = await fetch(`${BACKEND_URL}/api/compile-check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ino, fqbn, flashMb, usbCdcOnBoot }),
+    body: JSON.stringify({ ...sketchBody(code), fqbn, flashMb, usbCdcOnBoot }),
     signal,
   })
   return (await res.json()) as CompileCheckResult

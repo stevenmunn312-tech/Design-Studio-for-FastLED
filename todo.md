@@ -315,11 +315,14 @@ and its design notes.
   evaluator and firmware alike), so other field nodes can mix, warp or mask
   them before colouring. The [ANIMartRIX note](docs/design/animartrix-float-field.md)
   no longer lists it as deferred.
-- [ ] **One `.h` per pattern in show output.** `showGenerator.ts` writes every
-  `render_pN()` into one controller file. Split each pattern into its own
-  header beside a small controller `.ino`
+- [x] **One `.h` per pattern in show output.** The show sketch carries each
+  `render_pN()` as a marked block (`src/codegen/sketchBundle.ts`); the helper
+  client splits the blocks into `pattern_N.h` files beside the controller
+  `.ino`, and the helper writes, caches and prunes them in the sketch
+  workspace and the fbuild scaffold for uploads, capacity checks and binary
+  exports. View Code and Export .ino keep the one-file form, which is the same
+  sketch with the blocks as comments
   ([generative show](docs/design/generative-pattern-show.md#codegen-target)).
-  The compile, sketch-cache and export paths must carry a multi-file sketch.
 
 ## 5. Release track (in order)
 

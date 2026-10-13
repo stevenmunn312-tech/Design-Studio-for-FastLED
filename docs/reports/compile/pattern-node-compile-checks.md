@@ -368,5 +368,9 @@ Generated source: 8,926 bytes (show), SHA-256
 `53aca0be45521624d17bda9a61e6583c9eb75ff19de381ab13aa332647962a8e`; 71,290
 bytes (player), SHA-256
 `cad522844bf32f634647380d959a12e34c7772feec76237969f5280fc46cbf4e`. The
-ring's 60 extra `CRGB` are the only RAM the split adds. This is compile
-evidence, not a bench run.
+ring's 60 extra `CRGB` are the only RAM the split adds. The show fixture was
+also built as the helper now lays it out — the controller `.ino` beside
+`pattern_0.h` and `pattern_1.h`, split by `splitSketchBundle` — with the same
+result, 403,779 bytes of flash and 34,664 of RAM: the header per pattern
+changes where the code sits, not what is built. This is compile evidence, not
+a bench run.

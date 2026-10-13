@@ -85,6 +85,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   patched), and `_sketch_workspace`'s `<name>.ino` all route through it.
   `backend/tests/test_scaffold_writes.py` asserts a second identical write
   leaves the file's mtime untouched while a real change still lands.
+- A sketch may bring sibling files: the show sketch's one header per pattern,
+  sent as `files: {name: text}` beside `ino` by the upload, capacity-check and
+  binary-export calls (`sketchBody` in `src/utils/backendClient.ts` splits the
+  marked blocks of `src/codegen/sketchBundle.ts`). `_sketch_files_from` accepts
+  only plain header names (`pattern_0.h`, never a path), and
+  `_write_sketch_files` writes them through `_write_if_changed` and records the
+  names in `.fls-files` so the next build removes the headers it no longer
+  sends and nothing else in the folder (`lv_conf.h`, the `.ino`). The same
+  helper serves `_sketch_workspace` and `_write_fbuild_main`, and a build's
+  reuse identity (`_compiled_uploads`) covers the `.h` files as well as the
+  `.ino`. Pass `files` only when there are any — the single-file calls keep
+  their old shape, which is what the test fakes expect.
 - arduino-cli keys its own build cache (`~/.cache/arduino/sketches/<hash>`,
   `%LOCALAPPDATA%\arduino\sketches` on Windows) on a hash of the *sketch path*,
   so `backend/firmware.py`'s `_sketch_workspace(name, ino)` compiles from one reused

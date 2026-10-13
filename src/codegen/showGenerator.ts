@@ -33,6 +33,7 @@ import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment } from './cppLiterals'
+import { sketchFileBlock } from './sketchBundle'
 import {
   SLIDESHOW_SILENCE_FADE_IN_SEC,
   SLIDESHOW_SILENCE_FADE_OUT_SEC,
@@ -1009,7 +1010,10 @@ export function generateShowSketch(
     L.push('')
   }
 
-  for (const fn of renderers.functions) { L.push(fn); L.push('') }
+  // One header per pattern beside the controller. Each block becomes
+  // `pattern_N.h` in the compiled sketch folder (src/codegen/sketchBundle.ts);
+  // as one file the blocks are comments and the sketch is the same sketch.
+  renderers.functions.forEach((fn, index) => { L.push(sketchFileBlock(`pattern_${index}.h`, fn)); L.push('') })
 
   // The bundle type belongs to every chain that builds one, not just to the
   // LED latches: a panel sampled into a bundle and a slideshow commanded by

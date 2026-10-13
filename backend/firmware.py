@@ -61,10 +61,17 @@ def _sketch_dir_lock(name: str) -> threading.Lock:
         return _sketch_dir_locks.setdefault(name, threading.Lock())
 
 
+def _files_kw(files: dict[str, str]) -> dict:
+    """The `files=` argument for a build call, only when there are any: a
+    single-file sketch takes the call it always took."""
+    return {"files": files} if files else {}
+
+
 @contextlib.contextmanager
-def _sketch_workspace(name: str, ino: str):
+def _sketch_workspace(name: str, ino: str, files: dict[str, str] | None = None):
     """Yield the <name>/<name>.ino directory to compile `ino` from (arduino-cli
-    needs the folder name to match the sketch).
+    needs the folder name to match the sketch). `files` are the sibling files
+    the sketch includes — a show's one header per pattern — written beside it.
 
     Normally that is the reused per-name directory, whose stable path is what
     lets arduino-cli hit its build cache. The sketch is written only if it
@@ -97,6 +104,7 @@ def _sketch_workspace(name: str, ino: str):
             sketch_dir = _SKETCH_DIR_ROOT / name
             sketch_dir.mkdir(parents=True, exist_ok=True)
             toolchain._write_if_changed(sketch_dir / f"{name}.ino", ino)
+            toolchain._write_sketch_files(sketch_dir, files or {})
             if toolchain._LVGL_INCLUDE_MARKER in ino:
                 toolchain._write_if_changed(sketch_dir / "lv_conf.h", toolchain._lv_conf_for_sketch(ino))
             yield sketch_dir
@@ -108,6 +116,7 @@ def _sketch_workspace(name: str, ino: str):
         sketch_dir = work / name
         sketch_dir.mkdir()
         (sketch_dir / f"{name}.ino").write_text(ino, encoding="utf-8")
+        toolchain._write_sketch_files(sketch_dir, files or {})
         if toolchain._LVGL_INCLUDE_MARKER in ino:
             (sketch_dir / "lv_conf.h").write_text(toolchain._lv_conf_for_sketch(ino), encoding="utf-8")
         yield sketch_dir
@@ -241,7 +250,7 @@ def _compile_upload(
     build_key = str(sketch_dir.resolve())
     build_identity = (fqbn, tuple(
         (path.name, path.read_text(encoding="utf-8"))
-        for path in sorted(sketch_dir.glob("*.ino"))
+        for path in sorted([*sketch_dir.glob("*.ino"), *sketch_dir.glob("*.h")])
     ))
     if reuse_compiled:
         if _compiled_uploads.get(build_key) != build_identity:
@@ -594,6 +603,7 @@ def _run_fbuild_compile(label, env, sink):
 @toolchain._reports_total_time
 def _compile_upload_fbuild(
     label, ino, fqbn, port, flash_mb=None, usb_cdc=False, reuse_compiled: bool = False,
+    files: dict[str, str] | None = None,
 ):
     """fbuild-engine counterpart to `_compile_upload` — same (rc, phase)
     contract, so callers don't need to know which engine ran.
@@ -646,7 +656,7 @@ def _compile_upload_fbuild(
             yield f"\n=== ✗ {label}: no fbuild board mapping for {fqbn} ===\n"
             return -1, "compile"
         build_key = "fbuild"
-        build_identity = (ino, fqbn, flash_mb, usb_cdc, env)
+        build_identity = (ino, tuple(sorted((files or {}).items())), fqbn, flash_mb, usb_cdc, env)
         if reuse_compiled:
             if _compiled_uploads.get(build_key) != build_identity:
                 yield "[error] Compiled firmware is no longer available. Close mapping and start again.\n"
@@ -672,7 +682,10 @@ def _compile_upload_fbuild(
             if toolchain._VL53L1X_INCLUDE in ino:
                 yield from toolchain._ensure_fbuild_vl53l1x_lib()
             compile_lines = []
-            toolchain._write_fbuild_main(ino)
+            if files:
+                toolchain._write_fbuild_main(ino, files)
+            else:
+                toolchain._write_fbuild_main(ino)
             rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
             if rc != 0 and not toolchain._build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
                 # fbuild reuses the now-current archive and completes its own
@@ -1370,6 +1383,10 @@ def upload(payload: dict = Body(...)):
     ino = payload.get("ino") or ""
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
     port = (payload.get("port") or "").strip()
+    try:
+        files = toolchain._sketch_files_from(payload.get("files"))
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     if port and streaming._stream_active() and streaming._stream_port == port:
         return JSONResponse({"ok": False, "error": "port is in use by a live stream — stop it first"}, status_code=409)
     # A serial monitor on the same port blocks esptool with a bare
@@ -1386,12 +1403,13 @@ def upload(payload: dict = Body(...)):
 
     if engine == "fbuild":
         def stream():
-            rc, phase = yield from _compile_upload_fbuild("Sketch", ino, fqbn, port, flash_mb, usb_cdc, **retry_options)
+            rc, phase = yield from _compile_upload_fbuild(
+                "Sketch", ino, fqbn, port, flash_mb, usb_cdc, **_files_kw(files), **retry_options)
             yield from _upload_result_lines(rc, phase, port)
         return StreamingResponse(stream(), media_type="text/plain")
 
     def stream():
-        with _sketch_workspace(toolchain.SKETCH, ino) as sketch_dir:
+        with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
             rc, phase = yield from _compile_upload(
                 "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc,
                 flash_mb=flash_mb, **retry_options)
@@ -1429,12 +1447,16 @@ def compile_check(payload: dict = Body(...)):
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
+    try:
+        files = toolchain._sketch_files_from(payload.get("files"))
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 
     if engine == "fbuild":
         flash_mb = toolchain._flash_mb_from(payload)
         usb_cdc = toolchain._usb_cdc_from(payload)
         lines, (rc, phase) = _drain_compile(
-            _compile_upload_fbuild("Capacity check", ino, fqbn, "", flash_mb, usb_cdc))
+            _compile_upload_fbuild("Capacity check", ino, fqbn, "", flash_mb, usb_cdc, **_files_kw(files)))
         sizes = _fbuild_size_bytes_report(lines)
         # A no-op incremental build (nothing changed since the last compile)
         # skips fbuild's own "Flash:"/"RAM:" line entirely — fall back to its
@@ -1451,7 +1473,7 @@ def compile_check(payload: dict = Body(...)):
     else:
         flash_mb = toolchain._flash_mb_from(payload)
         usb_cdc = toolchain._usb_cdc_from(payload)
-        with _sketch_workspace(toolchain.SKETCH, ino) as sketch_dir:
+        with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
             lines, (rc, phase) = _drain_compile(_compile_upload(
                 "Capacity check", sketch_dir, fqbn, "", usb_cdc=usb_cdc,
                 flash_mb=flash_mb))
@@ -1582,6 +1604,10 @@ def compile_binary(payload: dict = Body(...)):
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
+    try:
+        files = toolchain._sketch_files_from(payload.get("files"))
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     flash_mb = toolchain._flash_mb_from(payload)
     usb_cdc = toolchain._usb_cdc_from(payload)
 
@@ -1593,7 +1619,7 @@ def compile_binary(payload: dict = Body(...)):
         try:
             if engine == "fbuild":
                 rc, _phase = yield from _compile_upload_fbuild(
-                    "Export binary", ino, fqbn, "", flash_mb, usb_cdc)
+                    "Export binary", ino, fqbn, "", flash_mb, usb_cdc, **_files_kw(files))
                 # fbuild builds in place, so the artifacts have to be fetched
                 # from the env's own output directory rather than directed to
                 # one — the same env id the build itself resolved.
@@ -1603,7 +1629,7 @@ def compile_binary(payload: dict = Body(...)):
                     if env else None
                 )
             else:
-                with _sketch_workspace(toolchain.SKETCH, ino) as sketch_dir:
+                with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
                     rc, _phase = yield from _compile_upload(
                         "Export binary", sketch_dir, fqbn, "", output_dir=out_dir,
                         usb_cdc=usb_cdc, flash_mb=flash_mb)

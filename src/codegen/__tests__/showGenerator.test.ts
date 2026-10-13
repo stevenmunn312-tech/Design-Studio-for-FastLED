@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateShowSketch, isPatternShow, buildPatternRenderers } from '../showGenerator'
 import { generateCpp, PHI_DEFINE_CPP } from '../cppGenerator'
+import { flattenSketchBundle, splitSketchBundle } from '../sketchBundle'
 import { SDF_HELPER_CPP } from '../helpers/sdfHelperCpp'
 import { LATTICE_HELPER_CPP } from '../helpers/latticeHelperCpp'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
@@ -702,6 +703,34 @@ describe('showGenerator', () => {
       expect(r.functions[0]).toContain('float n_in_out = ((_audioBass + _audioMids + _audioTreble) / 3.0f);')
       expect(r.functions[0]).not.toContain('n_old_out')
     })
+  })
+})
+
+describe('show sketch pattern headers', () => {
+  const groups = {
+    g0: { nodes: [node('sc', 'SolidColor', { r: 0, g: 0, b: 255 }), node('go', 'GroupOutput')],
+          edges: [edge('e', 'sc', 'frame', 'go', 'frame')] },
+    g1: { nodes: [node('nz', 'Noise', { palette: 'ocean' }), node('go', 'GroupOutput')],
+          edges: [edge('e', 'nz', 'frame', 'go', 'frame')] },
+  }
+  const cpp = generateShowSketch(
+    [node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }), node('pm', 'PatternSlideshow', {}), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })],
+    [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')],
+    groups,
+  )
+
+  // Each pattern is its own header beside the controller: the helper writes
+  // the marked blocks as files, and as one file they are comments.
+  it('marks one header per pattern that the helper splits out of the controller', () => {
+    const { ino, files } = splitSketchBundle(cpp)
+    expect(Object.keys(files)).toEqual(['pattern_0.h', 'pattern_1.h'])
+    expect(files['pattern_0.h']).toMatch(/^void render_p0\(uint32_t ms\)/)
+    expect(files['pattern_1.h']).toMatch(/^void render_p1\(uint32_t ms\)/)
+    expect(ino).toContain('#include "pattern_0.h"\n\n#include "pattern_1.h"')
+    expect(ino).not.toContain('void render_p0(')
+    // The controller still dispatches to them after the includes.
+    expect(ino.indexOf('#include "pattern_1.h"')).toBeLessThan(ino.indexOf('void renderPattern('))
+    expect(flattenSketchBundle({ ino, files })).toBe(cpp)
   })
 })
 
