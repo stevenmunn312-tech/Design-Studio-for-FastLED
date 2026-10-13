@@ -12,33 +12,14 @@ Design Studio for FastLED is a browser-based node-graph editor for authoring LED
 <!-- AUTO-MANAGED: build-commands -->
 ## Build & Development Commands
 
-- `npm run dev` — start Vite at `http://localhost:5173`.
-- `npm run build` — TypeScript project checks plus the production/PWA build.
-- `npm run lint` — run ESLint.
-- `npm test` — run Vitest once; use `npm run test:watch` while developing.
-- `npm run test:coverage` — run Vitest with V8 coverage.
-- `npm run preview` — serve the production build.
-- `npm run helper` — start the FastAPI upload helper.
-- `npm run package:desktop` — build the desktop package for the current host.
-- One test file: `npx vitest run path/to/file.test.ts`.
-- One test name: `npx vitest run -t "name"`.
-
-The npm scripts intentionally suppress an upstream `punycode` warning; direct `npx vite` or `npx vitest` calls may still print it.
+Scripts live in `package.json`. The npm scripts intentionally suppress an upstream `punycode` warning; direct `npx vite` or `npx vitest` calls may still print it.
 
 <!-- END AUTO-MANAGED -->
 
 <!-- AUTO-MANAGED: architecture -->
 ## Architecture
 
-- `src/state/` — the graph store, evaluator, node registry and app stores, with domain folders for displays, palettes, patterns, the player (shows and controls), audio, LED output, upload and peripherals.
-- `src/build/` — the hardware home: boards, parts, pins, power and the hardware manifest.
-- `src/nodes/` — each node's preview (`<category>/evaluate.ts`) beside its firmware (`<category>/codegen.ts`) and any helper only that category uses; `shared/` holds helpers several categories use. `graphEvaluator.ts` and `cppGenerator.ts` dispatch to them.
-- `src/components/` — React UI with adjacent CSS Modules; preview rendering lives under `components/Preview/`, node bodies under `components/Canvas/bodies/`.
-- `src/codegen/` — normal sketches, generative-show controllers and SD-show players at the root; emitters grouped into `helpers/`, `displays/`, `peripherals/`, `player/`, `audio/` and `output/`; standalone diagnostic, provisioning and stream-receiver sketches in `sketches/`.
-- `src/utils/` — validation, project/share workflows, recording, layout, and upload helpers.
-- `backend/` — local FastAPI helper: `app.py` holds the app and trust middleware; routers are `toolchain.py` (build engines), `firmware.py` (compile, upload, serial), `streaming.py`, `sd_card.py` and `storage.py` (saved patterns and projects).
-- `desktop/` — PyInstaller-based desktop packaging.
-- `docs/index.md` — routing index for detailed architecture, design, release, and reference documents.
+`docs/index.md` is the routing index for detailed architecture, design, release, and reference documents. Each node's preview (`src/nodes/<category>/evaluate.ts`) sits beside its firmware (`<category>/codegen.ts`).
 
 Data flows from the React Flow graph through Zustand, graph evaluation, preview/output routing, shared validation, and the selected code-generation/upload path.
 
