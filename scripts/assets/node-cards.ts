@@ -141,6 +141,9 @@ const INPUT_ROW_H = 20      // .propInput row
 const CHECK_ROW_H = 16      // checkbox row (13px box in a 16px line)
 const COLOR_ROW_H = 18      // .colorInput row
 const CAPTION_PX = 7.2      // 12px JetBrains Mono advance
+const PROP_CONTROL_W = 112  // .propRow control column
+const PROP_PIN_W = 16       // .propRow pin column, reserved on every row
+const PROP_COL_GAP = 6      // .propRow column-gap
 const BADGE_PX = 6.12       // 9px JetBrains Mono + 0.08em tracking
 const TITLE_PX = 9.1        // 14px Audiowide average advance
 const COMMENT_EDITOR_H = 92 // .commentEditor min-height
@@ -430,7 +433,6 @@ function buildPropRows(
 // source wired in (like a user would) so effect nodes show their effect
 // instead of black.
 const PREVIEW_GRID = 16                    // the default 16×16 composition
-const BODY_CONTENT_W = NODE_W - BODY_PAD * 2
 const WARMUP_TICKS = 240                   // ~4 s so stateful sims settle
 
 // Shape-drawing nodes read best with their optional base frame left unwired;
@@ -827,9 +829,10 @@ function portRowSvg(inputs: NodePort[], outputs: NodePort[], i: number, w: numbe
 }
 
 /**
- * One .propRow: `justify-content: space-between` over [key, control, pin?],
- * so a pinnable control floats between the key and the pin rather than
- * hugging the right edge.
+ * One .propRow: a grid of `minmax(0, 1fr) 112px 16px` with a 6px column gap,
+ * so every control starts on the same x and the pin slot is reserved whether
+ * or not the row has a pin. Checkboxes and swatches sit at the control
+ * column's start.
  */
 function propRowSvg(row: PropRow, x: number, y: number, w: number): string {
   const h = rowHeight(row)
@@ -856,17 +859,9 @@ function propRowSvg(row: PropRow, x: number, y: number, w: number): string {
   const label = row.kind === 'role' ? 'role' : row.kind === 'swatch' ? 'color' : row.label
   const disabled = 'disabled' in row && row.disabled
   const pin = 'pin' in row && row.pin
-  const controlW = row.kind === 'slider' ? 112
-    : row.kind === 'select' || row.kind === 'role' ? 84
-    : row.kind === 'input' ? 72
-    : row.kind === 'checkbox' ? 13
-    : 28
-  const pinW = pin ? 19.1 : 0
-  const items = pin ? 3 : 2
-  const keyW = Math.min(label.length * CAPTION_PX, contentW - controlW - pinW - 6 * (items - 1))
-  const free = contentW - keyW - controlW - pinW
-  const gap = Math.max(6, free / (items - 1))
-  const controlX = left + keyW + gap
+  const controlW = PROP_CONTROL_W
+  const keyW = contentW - PROP_CONTROL_W - PROP_PIN_W - 2 * PROP_COL_GAP
+  const controlX = left + keyW + PROP_COL_GAP
   const keyText = truncate(label, keyW + 1, CAPTION_PX)
 
   parts.push(mono(left, cy + 4, keyText, 12, C.dim, disabled ? ' opacity="0.7"' : ''))
@@ -920,7 +915,7 @@ function propRowSvg(row: PropRow, x: number, y: number, w: number): string {
   }
   if (pin) {
     // .pinBtn: 📌 at 11px, greyscale, 60% — "pin to Control Deck".
-    parts.push(`<text x="${right - pinW / 2}" y="${cy + 4}" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>`)
+    parts.push(`<text x="${right - PROP_PIN_W / 2}" y="${cy + 4}" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>`)
   }
   return parts.join('\n')
 }
