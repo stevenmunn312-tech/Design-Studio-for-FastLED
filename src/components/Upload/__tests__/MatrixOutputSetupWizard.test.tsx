@@ -31,7 +31,6 @@ function setMatrixGraph() {
           clockPin: 6,
           brightness: 200,
           powerLimit: false,
-          volts: 5,
           milliamps: 2000,
           usePsram: false,
           psramMode: 'opi',

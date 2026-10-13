@@ -1546,12 +1546,6 @@ export function findFormulaErrors(nodes: StudioNode[]): string[] {
   return errors
 }
 
-/** Kept as a validation seam for callers; power is now a single Board setting. */
-export function findOutputResourceErrors(nodes: StudioNode[]): string[] {
-  void nodes
-  return []
-}
-
 /**
  * The graph rules that block a build, flash, or export — one list, read by both
  * the deploy UI and `validateGraph`.
@@ -1601,7 +1595,6 @@ export function findDeployBlockingErrors(
 
   return [
     ...findPinConflicts(nodes, edges, selectedFqbn),
-    ...findOutputResourceErrors(nodes),
     ...findMatrixLayoutErrors(nodes),
     ...findPixelDataExtenderErrors(nodes),
     ...findSdVideoErrors(nodes, edges, selectedFqbn),

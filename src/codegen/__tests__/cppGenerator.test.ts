@@ -4641,7 +4641,7 @@ describe('HUB75 codegen (docs/design/hub75-output.md)', () => {
   })
 
   it('skips setMaxPowerInVoltsAndMilliamps — no FastLED controller is registered to throttle', () => {
-    const board = node('board', 'Board', 'output', { powerLimit: true, volts: 5, milliamps: 2000 })
+    const board = node('board', 'Board', 'output', { powerLimit: true, milliamps: 2000 })
     const poweredOut = node('out', 'MatrixOutput', 'output', {
       width: 8, height: 8, chipset: 'HUB75',
     })

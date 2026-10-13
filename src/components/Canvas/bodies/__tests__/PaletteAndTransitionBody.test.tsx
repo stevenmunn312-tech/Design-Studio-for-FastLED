@@ -38,7 +38,7 @@ describe('palette and transition node bodies', () => {
     })
   })
 
-  it('scrubs a Transition node without a temporary signal wire', () => {
+  it('picks a Transition type from its cards', () => {
     useGraphStore.setState({
       nodes: [{
         id: 'tr',
@@ -48,11 +48,10 @@ describe('palette and transition node bodies', () => {
       }],
     })
 
-    const { getByLabelText, getByTitle } = render(<TransitionBody nodeId="tr" />)
-    fireEvent.change(getByLabelText('Scrub transition progress'), { target: { value: '0.75' } })
+    const { getByTitle } = render(<TransitionBody nodeId="tr" />)
     fireEvent.click(getByTitle('Use wipe'))
 
-    expect(useGraphStore.getState().nodes[0].data.properties.t).toBe(0.75)
+    expect(useGraphStore.getState().nodes[0].data.properties.t).toBe(0.25)
     expect(useGraphStore.getState().nodes[0].data.properties.transitionType).toBe('wipe')
   })
 

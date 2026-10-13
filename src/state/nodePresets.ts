@@ -72,7 +72,6 @@ const BLOCKED_KEYS = new Set([
   'useGroupInputs',
   'usePsram',
   'serialRoute',
-  'volts',
   'whitePoint',
 ])
 

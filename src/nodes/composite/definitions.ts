@@ -343,10 +343,10 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      aName: 'Zone A', aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5,
-      bName: 'Zone B', bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5,
-      cName: 'Zone C', cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5,
-      dName: 'Zone D', dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5,
+      aEnabled: true, aX: 0,   aY: 0,   aW: 0.5, aH: 0.5,
+      bEnabled: true, bX: 0.5, bY: 0,   bW: 0.5, bH: 0.5,
+      cEnabled: true, cX: 0,   cY: 0.5, cW: 0.5, cH: 0.5,
+      dEnabled: true, dX: 0.5, dY: 0.5, dW: 0.5, dH: 0.5,
     },
   },
 ]

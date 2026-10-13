@@ -136,7 +136,6 @@ describe('hardware validation profiles', () => {
     const recordedBoard = node('board', 'Board', {
       brightness: 200,
       powerLimit: true,
-      volts: 5,
       milliamps: 2000,
       psramPolicy: 'on',
       psramMode: 'opi',
@@ -184,7 +183,6 @@ describe('hardware validation profiles', () => {
     const recordedBoard = node('board', 'Board', {
       brightness: 200,
       powerLimit: true,
-      volts: 5,
       milliamps: 2000,
       psramPolicy: 'on',
       psramMode: 'opi',

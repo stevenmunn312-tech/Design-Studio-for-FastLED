@@ -353,14 +353,16 @@ library defaults.
   long labels such as `transitionSec` still truncate until D-08.7 gives those
   nodes their labels and widths
   ([workspace UI](docs/development/patterns/workspace-ui.md#layout-and-input-traps)).
-- [ ] **D-08.3 · Remove dead properties and stale metadata.** Zones
-  `aName`…`dName`; SegmentDisplay `decimals` and `leadingZero`; Board `volts`;
-  MatrixOutput's power and bench `PROPERTY_GROUPS` keys and the
-  `isPropertyEnabled` volts/milliamps/overclock branches left from the Board
-  split; TransportDisplay's stale `tftLayout` META options; PaletteBank's
-  `palettes` array leaking as a text row (exclude it in `editableProperties`);
-  the Transition node rendering `transitionType` and `t` twice. Pre-1.0: remove
-  the shapes cleanly, no migration.
+- [x] **D-08.3 · Remove dead properties and stale metadata.** Done: Zones
+  `aName`…`dName`, SegmentDisplay `decimals`/`leadingZero` and Board `volts`
+  are gone from the definitions, metadata and bundled patterns; the LED
+  output's Power and Bench groups, its volts/milliamps/overclock gating and the
+  empty `findOutputResourceErrors` seam left from the Board split are deleted;
+  `tftLayout`'s options derive from `TRANSPORT_DISPLAY_LAYOUTS`; PaletteBank's
+  `palettes` and Transition's `transitionType` are off the generic rows, and
+  Transition's `t` is one ungrouped row (the body's scrub slider is gone).
+  Pre-1.0, no migration: a save made before this still shows its stale keys as
+  raw rows until the node is replaced. No compile needed.
 - [ ] **D-08.4 · Definition bugs.** Line defaults `x2: 'W-1', y2: 'H-1'` are
   rejected by `supportsScalarExpression` (a fresh Line draws nothing); Math has
   no `a`/`b` defaults; Blend with B unwired blends against black in preview

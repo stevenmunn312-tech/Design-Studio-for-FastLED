@@ -21,6 +21,7 @@ import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
 import { EASE_TYPES } from '../nodes/math/easing'
 import { DATE_TIME_TEXT_MODES } from './displays/displayText'
+import { CUSTOM_DESIGN_LAYOUT, TRANSPORT_DISPLAY_LAYOUTS } from './displays/transportDisplay'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './displays/segmentDisplay'
 import { partById, partPinLabelForProperty } from '../build/parts/partCatalogue'
 import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
@@ -458,11 +459,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },
   kelvin:   { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // HeatColor input, Rainbow spread, Gamma exponent, and MatrixOutput power cap.
+  // HeatColor input, Rainbow spread, Gamma exponent, and the power cap.
   heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   deltaHue: { control: 'slider', min: 0, max: 32, step: 1 },
   gamma:    { control: 'slider', min: 1, max: 3.5, step: 0.1 },
-  volts:    { control: 'slider', min: 3, max: 24, step: 1 },
   milliamps:{ control: 'slider', min: 100, max: 20000, step: 100 },
   // Show Engine timing.
   minTime:       { control: 'slider', min: 0, max: 30, step: 0.5 },
@@ -556,7 +556,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     step: { control: 'slider', min: 0.01, max: 100, step: 0.01 },
   },
   TransportDisplay: {
-    tftLayout: { control: 'select', options: ['Now Playing', 'Fixed Transport', 'Show Status', 'Diagnostics'] },
+    // The canvas narrows this to what the wired source can show
+    // (transportLayoutChoicesForKind); this full list is what Help documents.
+    tftLayout: { control: 'select', options: [...TRANSPORT_DISPLAY_LAYOUTS, CUSTOM_DESIGN_LAYOUT] },
     tftRotation: { control: 'select', options: ['0', '90', '180', '270'] },
   },
   TouchInput: TOUCH_CALIBRATION_META,
@@ -582,7 +584,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     dinPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     csPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     brightness: { control: 'slider', min: SEGMENT_BRIGHTNESS_MIN, max: SEGMENT_BRIGHTNESS_MAX, step: 1 },
-    decimals: { control: 'slider', min: 0, max: 3, step: 1 },
   },
   DMXInput: {
     inputMode: { control: 'select', options: ['Art-Net', 'DMX512'] },
@@ -1484,7 +1485,6 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   showSign: 'Shows a + on positive values. Negatives always show their sign.',
   prefix: 'Text placed before the number, such as a label or currency mark.',
   suffix: 'Text placed after the number, such as a unit.',
-  leadingZero: 'Pads the number with zeros so it stops shifting as its width changes.',
   showColon: 'Lights the centre colon. A clock blinks it once a second; other modes hold it.',
   clkPin: 'TM1637 clock line. Not I2C — the module has no address, so it cannot share these pins.',
   oledRotation: 'Turn the picture 180 degrees to match how the panel is bolted down. It does not rotate what the screen says.',
@@ -1504,7 +1504,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
   dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
   correction: "Colour-temperature compensation for the physical LEDs (FastLED.setCorrection) — doesn't change the live preview.",
-  powerLimit: 'Caps current draw via FastLED.setMaxPowerInVoltsAndMilliamps, auto-dimming to stay under the volts/mA budget below. Preview-only — no visible effect here.',
+  powerLimit: 'Caps current draw via FastLED.setMaxPowerInVoltsAndMilliamps, auto-dimming to stay under the mA budget below at the LEDs\' supply voltage. Firmware only: the live preview is not dimmed.',
   psramPolicy: "Automatically uses PSRAM when the exact board profile identifies its interface, or lets you force it on or off.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
   serialRoute: "Chooses where Serial appears. Auto identifies native USB versus a UART bridge from the selected USB port when possible.",
@@ -2271,11 +2271,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'positionsWidth', 'positionsHeight', 'positions'] },
     { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
-    // No 'brightness' here: master brightness is the Board's, on FastLED's
-    // native 0-255. The output's own normalised runtime dimmer has the distinct
+    // No 'brightness' or power group here: master brightness, the power cap
+    // and overclock are the Board's, brightness on FastLED's native 0-255. The
+    // output's own normalised runtime dimmer has the distinct
     // `outputBrightness` property, so the two scales cannot share one name.
-    { key: 'power', label: 'Power', keys: ['overclock', 'powerLimit', 'volts', 'milliamps'] },
-    { key: 'bench', label: 'Bench', keys: ['reportTelemetry'] },
   ],
   StereoVuMeter: [
     { key: 'mounting', label: 'Mounting', keys: ['targetOutputId', 'leftDirection', 'rightDirection', 'swapChannels'] },
@@ -2380,8 +2379,9 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'flock', label: 'Flock', keys: ['speed', 'count', 'separation', 'alignment', 'cohesion', 'visualRange'] },
     { key: 'color', label: 'Color', keys: ['colorMode', 'palette'] },
   ],
+  // `t` stays ungrouped so its row, the one T socket, sits in view; the body's
+  // picker cards edit `transitionType`.
   Transition: [
-    { key: 'timing', label: 'Timing', keys: ['t'] },
     { key: 'direction', label: 'Direction', keys: ['direction', 'axis'] },
     { key: 'shape', label: 'Shape', keys: ['tileSize', 'count', 'turns'] },
   ],
@@ -2422,10 +2422,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'colorB', label: 'Color B', keys: ['rB', 'gB', 'bB'] },
   ],
   Zones: [
-    { key: 'zoneA', label: 'Zone A', keys: ['aName', 'aEnabled', 'aX', 'aY', 'aW', 'aH'] },
-    { key: 'zoneB', label: 'Zone B', keys: ['bName', 'bEnabled', 'bX', 'bY', 'bW', 'bH'] },
-    { key: 'zoneC', label: 'Zone C', keys: ['cName', 'cEnabled', 'cX', 'cY', 'cW', 'cH'] },
-    { key: 'zoneD', label: 'Zone D', keys: ['dName', 'dEnabled', 'dX', 'dY', 'dW', 'dH'] },
+    { key: 'zoneA', label: 'Zone A', keys: ['aEnabled', 'aX', 'aY', 'aW', 'aH'] },
+    { key: 'zoneB', label: 'Zone B', keys: ['bEnabled', 'bX', 'bY', 'bW', 'bH'] },
+    { key: 'zoneC', label: 'Zone C', keys: ['cEnabled', 'cX', 'cY', 'cW', 'cH'] },
+    { key: 'zoneD', label: 'Zone D', keys: ['dEnabled', 'dX', 'dY', 'dW', 'dH'] },
   ],
 }
 
@@ -3162,7 +3162,6 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'MatrixOutput') {
     if (key === 'routeX' || key === 'routeY') return properties.routeMode === 'crop'
-    if (key === 'volts' || key === 'milliamps') return properties.powerLimit === true
     // The form decides which of this node's ~40 properties are even questions.
     const form = outputForm(properties)
     const hub75 = form === 'hub75'
@@ -3177,18 +3176,16 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
     if (key === 'chipset') return !hub75
     const spi = !hub75 && SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
     // HUB75 is driven over its own pin ribbon via a DMA library, not FastLED's
-    // addLeds<>() — the single data pin, wire colour order, per-pixel
-    // serpentine, and clockless-only overclock define all stop applying.
+    // addLeds<>() — the single data pin, wire colour order and per-pixel
+    // serpentine all stop applying.
     if (key === 'dataPin' || key === 'colorOrder') return !hub75
     // Stays editable while it names an extender, so a chipset change that
     // made the choice invalid can still be undone from the field itself.
     if (key === 'dataLink') return (!hub75 && !spi) || String(properties.dataLink ?? DIRECT_PIXEL_DATA_LINK) !== DIRECT_PIXEL_DATA_LINK
     // Serpentine zig-zags alternate *rows*, which a one-row form does not have.
     if (key === 'serpentine') return !hub75 && !linear
-    // The clock pin only exists on SPI chipsets; FASTLED_OVERCLOCK only applies
-    // to clockless (non-HUB75) ones.
+    // The clock pin only exists on SPI chipsets.
     if (key === 'clockPin') return spi
-    if (key === 'overclock') return !spi && !hub75
     if (key.startsWith('hub75')) {
       if (key === 'hub75EPin') return hub75 && properties.hub75WideScan === true
       return hub75

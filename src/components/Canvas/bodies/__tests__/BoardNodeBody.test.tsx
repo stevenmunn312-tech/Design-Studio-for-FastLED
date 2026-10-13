@@ -228,7 +228,6 @@ describe('BoardNodeBody', () => {
     board.data.properties = {
       ...board.data.properties,
       powerLimit: true,
-      volts: 5,
       milliamps: 15400,
     }
     reset([board, matrixNode('out')])
@@ -245,7 +244,7 @@ describe('BoardNodeBody', () => {
     // 100 mA minimum before the next digit arrived, so 3000 could not be typed
     // at all. The clamp now runs on blur rather than mid-word.
     const board = boardNode('b1')
-    board.data.properties = { ...board.data.properties, powerLimit: true, volts: 5, milliamps: 2000 }
+    board.data.properties = { ...board.data.properties, powerLimit: true, milliamps: 2000 }
     reset([board, matrixNode('out')])
     render(<BoardNodeBody nodeId="b1" />)
 
@@ -262,7 +261,7 @@ describe('BoardNodeBody', () => {
 
   it('still clamps an out-of-range current cap once the field is left', () => {
     const board = boardNode('b1')
-    board.data.properties = { ...board.data.properties, powerLimit: true, volts: 5, milliamps: 2000 }
+    board.data.properties = { ...board.data.properties, powerLimit: true, milliamps: 2000 }
     reset([board, matrixNode('out')])
     render(<BoardNodeBody nodeId="b1" />)
 

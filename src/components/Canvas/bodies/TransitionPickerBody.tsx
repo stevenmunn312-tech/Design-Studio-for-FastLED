@@ -71,24 +71,12 @@ export function TransitionBody({ nodeId }: { nodeId: string }) {
   )
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const selected = String(props.transitionType ?? 'crossfade')
+  // The thumbnails draw at the node's own `t`, scrubbed on its property row,
+  // which also carries the T socket; a second slider here only duplicated it.
   const t = Math.max(0, Math.min(1, Number(props.t ?? 0.5)))
 
   return (
     <div className={`nodrag ${styles.wrap}`}>
-      <div className={styles.header}>
-        <span>Transition preview</span>
-        <span className={styles.readout}>{Math.round(t * 100)}%</span>
-      </div>
-      <input
-        className={`nowheel ${styles.scrub}`}
-        aria-label="Scrub transition progress"
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        value={t}
-        onChange={(e) => updateNodeProperties(nodeId, { t: Number(e.target.value) })}
-      />
       <div className={styles.grid}>
         {ALL_TRANSITIONS.map((type) => (
           <button

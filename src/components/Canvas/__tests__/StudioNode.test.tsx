@@ -459,6 +459,14 @@ describe('StudioNode', () => {
     }
   })
 
+  it('keeps the Palette Bank palette list off the generic property rows', () => {
+    // As a text row the array read `ocean,lava`, and typing into it emptied the bank.
+    const view = renderNode(makeNode('PaletteBank', { palettes: ['ocean', 'lava'], blend: 16 }))
+    const keys = [...view.container.querySelectorAll('[class*="propKey"]')].map((key) => key.textContent ?? '')
+    expect(keys).not.toContain('palettes')
+    expect(view.container.querySelector('input[value="ocean,lava"]')).toBeNull()
+  })
+
   it('draws an exposed action input while it is exposed or wired, and not otherwise', () => {
     const n = makeNode('PaletteBank', { palettes: ['ocean', 'lava'] })
     useGraphStore.setState({ nodes: [n], edges: [] })
@@ -1374,28 +1382,14 @@ describe('StudioNode', () => {
       expect(within(run.container).queryByLabelText(/matrix size/i)).toBeNull()
     })
 
-    it('groups controller power controls under Power', () => {
-      const { container } = renderNode(makeNode('MatrixOutput', {
-        form: 'matrix',
-        width: 16,
-        height: 16,
-        chipset: 'WS2812B',
-        overclock: 1,
-        powerLimit: true,
-        volts: 5,
-        milliamps: 2000,
-      }))
-
-      const powerHeader = within(container).getByRole('button', { name: /power/i })
-      fireEvent.click(powerHeader)
-      expect(powerHeader.getAttribute('aria-expanded')).toBe('true')
-
-      const keys = [...powerHeader.parentElement!.querySelectorAll('[class*="propKey"]')]
-        .map((key) => key.textContent ?? '')
-      expect(keys).toEqual(['overclock', 'powerLimit', 'volts', 'milliamps'])
-      // Master brightness is the Board's, on FastLED's 0-255. The output's own
-      // normalised runtime dimmer has the distinct `outputBrightness` key.
-      expect(keys).not.toContain('brightness')
+    it('leaves the power cap and overclock to the Board', () => {
+      // The power cap and overclock are the Board's, so the LED output has no
+      // Power group and none of those rows. Its `brightness` row is the
+      // output's own `outputBrightness` dimmer, not FastLED's master level.
+      const { container } = renderNode(makeNode('MatrixOutput', libraryDefaults('MatrixOutput')))
+      expect(within(container).queryByRole('button', { name: /^power/i })).toBeNull()
+      const keys = [...container.querySelectorAll('[class*="propKey"]')].map((key) => key.textContent ?? '')
+      for (const key of ['overclock', 'powerLimit', 'milliamps']) expect(keys).not.toContain(key)
     })
   })
 
@@ -1652,6 +1646,14 @@ describe('StudioNode', () => {
     const on = renderNode(makeNode('Transition', { transitionType: 'wipe', t: 0.5, direction: 'right' }))
     fireEvent.click(within(on.container).getByText('Direction'))
     expect(directionSelect(on.container)!.disabled).toBe(false)
+  })
+
+  it('draws one Transition progress row and leaves the type to the picker cards', () => {
+    const view = renderNode(makeNode('Transition', libraryDefaults('Transition')))
+    const keys = [...view.container.querySelectorAll('[class*="propKey"]')].map((key) => key.textContent ?? '')
+    expect(keys.filter((key) => key === 't')).toHaveLength(1)
+    expect(keys).not.toContain('transitionType')
+    expect(view.queryByLabelText('Scrub transition progress')).toBeNull()
   })
 
   it('updates a Custom Palette top preview immediately from direct stop edits', async () => {

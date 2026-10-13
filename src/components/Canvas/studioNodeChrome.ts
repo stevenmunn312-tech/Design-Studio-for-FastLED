@@ -127,6 +127,11 @@ export function editableProperties(nodeType: string, props: Record<string, unkno
     && k !== ASSIGNED_PINS_KEY && k !== ASSIGNED_BOARD_KEY && k !== USER_PINS_KEY
       && !(nodeType === 'CustomPalette' && (k === 'colors' || k === 'positions'))
       && !(nodeType === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
+      // The Palette Bank body edits its palette list; as a text row the array
+      // read `ocean,lava`, and typing into it emptied the bank.
+      && !(nodeType === 'PaletteBank' && k === 'palettes')
+      // The Transition body's picker cards are its type control.
+      && !(nodeType === 'Transition' && k === 'transitionType')
       // Comment's `text` gets its own multi-line editor in the body, not the
       // generic single-line field list.
       && !(isComment && k === 'text')

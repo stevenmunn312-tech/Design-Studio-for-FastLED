@@ -14,7 +14,7 @@ function node(id: string, nodeType: string, properties: Record<string, unknown>)
 describe('controllerSettings', () => {
   it('uses the Board as the only source when outputs contain stale global properties', () => {
     const nodes = [
-      node('board', 'Board', { brightness: 144, overclock: 1.25, powerLimit: true, volts: 5, milliamps: 6000, psramPolicy: 'on', psramMode: 'opi' }),
+      node('board', 'Board', { brightness: 144, overclock: 1.25, powerLimit: true, milliamps: 6000, psramPolicy: 'on', psramMode: 'opi' }),
       node('out-a', 'MatrixOutput', { brightness: 20, overclock: 1.7, milliamps: 1000 }),
       node('out-b', 'MatrixOutput', { brightness: 240, overclock: 1.1, milliamps: 9000 }),
     ]
@@ -36,7 +36,7 @@ describe('controllerSettings', () => {
   })
 
   it('takes the cap voltage from the LED chipset, never from a saved value', () => {
-    const board = node('board', 'Board', { powerLimit: true, volts: 10 })
+    const board = node('board', 'Board', { powerLimit: true })
     const volts = (...chipsets: string[]) => controllerSettings([
       board,
       ...chipsets.map((chipset, i) => node(`out-${i}`, 'MatrixOutput', { chipset })),
@@ -108,8 +108,8 @@ describe('controllerSettings', () => {
 
   it('uses safe defaults when no Board exists', () => {
     const settings = controllerSettings([
-      node('out-a', 'MatrixOutput', { brightness: 180, powerLimit: true, volts: 5, milliamps: 2000 }),
-      node('out-b', 'MatrixOutput', { powerLimit: true, volts: 5, milliamps: 3000 }),
+      node('out-a', 'MatrixOutput', { brightness: 180, powerLimit: true, milliamps: 2000 }),
+      node('out-b', 'MatrixOutput', { powerLimit: true, milliamps: 3000 }),
     ])
     expect(settings).toMatchObject({
       brightness: 128,

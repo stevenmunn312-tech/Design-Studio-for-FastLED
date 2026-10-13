@@ -80,7 +80,7 @@ describe('battery power planning', () => {
 
   it('plans two 60 A bucks for 32x32 and keeps the 30 A limit runtime-only', () => {
     const { plan } = planFor([
-      node('board', 'Board', { powerLimit: true, volts: 5, milliamps: 30000 }),
+      node('board', 'Board', { powerLimit: true, milliamps: 30000 }),
       pack(4, 10),
       module('bms', 'bm3451-4s-60a-active-balance-bms'),
       module('charger', 'ip2368-100w-bidirectional-charger'),

@@ -793,10 +793,6 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('MatrixOutput', 'colorOrder', hub75)).toBe(false)
     expect(isPropertyEnabled('MatrixOutput', 'serpentine', hub75)).toBe(false)
     expect(isPropertyEnabled('MatrixOutput', 'dataPin', ws2812)).toBe(true)
-    // FASTLED_OVERCLOCK doesn't apply to HUB75 (it's not driven via FastLED's
-    // clockless RMT path at all).
-    expect(isPropertyEnabled('MatrixOutput', 'overclock', hub75)).toBe(false)
-    expect(isPropertyEnabled('MatrixOutput', 'overclock', ws2812)).toBe(true)
   })
 
   it('gates MatrixOutput hub75EPin on hub75WideScan', () => {

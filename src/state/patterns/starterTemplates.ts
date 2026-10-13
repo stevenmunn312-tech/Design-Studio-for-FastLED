@@ -266,7 +266,6 @@ export function buildBoardAwareStarter(
           properties: {
             ...node.data.properties,
             powerLimit: true,
-            volts: 5,
             milliamps: power.recommendedMa,
           },
         },

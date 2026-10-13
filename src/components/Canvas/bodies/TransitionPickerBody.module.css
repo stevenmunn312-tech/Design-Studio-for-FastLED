@@ -59,23 +59,9 @@
   padding-left: 2px;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--text-secondary);
-  font-family: var(--font-code);
-  font-size: var(--fs-caption);
-}
-
 .setActions {
   display: flex;
   justify-content: flex-end;
-}
-
-.readout {
-  color: var(--accent-composite);
 }
 
 .allBtn {

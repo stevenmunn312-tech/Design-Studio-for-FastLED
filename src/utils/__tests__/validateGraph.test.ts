@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findOutputResourceErrors, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, estimatePowerLoad, estimateFirmwareRam, estimateLedRefreshTime, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/displays/infoDisplayCpp'
 import { SEGMENT_DISPLAY_RAM_BYTES } from '../../codegen/displays/segmentDisplayCpp'
 import { TFT_PANEL_RAM_BYTES } from '../../codegen/displays/tftDisplayCpp'
@@ -842,14 +842,6 @@ describe('validateGraph', () => {
     const { errors } = validateGraph(nodes, [edge('e1', 'a', 'out-a', 'frame')])
     expect(errors).toContain('LED output 2 has no Frame input connected')
     expect(errors.some((message) => message.includes('GPIO 5'))).toBe(true)
-  })
-
-  it('does not treat legacy per-output supply voltages as independent caps', () => {
-    const nodes = [
-      node('out-a', 'MatrixOutput', { powerLimit: true, volts: 5 }),
-      node('out-b', 'MatrixOutput', { powerLimit: true, volts: 12 }),
-    ]
-    expect(findOutputResourceErrors(nodes)).toEqual([])
   })
 
   it('accepts valid numeric expressions and reports invalid ones', () => {

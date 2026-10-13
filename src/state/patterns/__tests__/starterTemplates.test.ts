@@ -153,7 +153,6 @@ describe('starterTemplates', () => {
     expect(loadedBoard.id).toBe(board.id)
     expect(loadedBoard.data.properties).toMatchObject({
       powerLimit: true,
-      volts: 5,
       milliamps: 15400,
     })
     expect(findPinConflicts(nodes)).toEqual([])

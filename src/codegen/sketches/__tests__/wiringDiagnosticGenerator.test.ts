@@ -95,7 +95,6 @@ describe('generateWiringDiagnosticSketch', () => {
   it('keeps the configured power cap in the diagnostic sketch', () => {
     const board = node('board', 'Board', 'output', {
       powerLimit: true,
-      volts: 5,
       milliamps: 1500,
     })
     const capped = node('out', 'MatrixOutput', 'output', {
@@ -192,7 +191,7 @@ describe('generateWiringDiagnosticSketch', () => {
     })
 
     it('skips setMaxPowerInVoltsAndMilliamps for HUB75 (no FastLED controller to throttle)', () => {
-      const board = node('board', 'Board', 'output', { powerLimit: true, volts: 5, milliamps: 1500 })
+      const board = node('board', 'Board', 'output', { powerLimit: true, milliamps: 1500 })
       const capped = node('out', 'MatrixOutput', 'output', {
         width: 8, height: 8, chipset: 'HUB75',
       })
