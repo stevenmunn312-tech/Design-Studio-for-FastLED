@@ -1,6 +1,6 @@
 import { groupSourceType } from './groupSourceType'
 import type { StudioNode, StudioEdge } from './graphStore'
-import { inputClampRange, resolveNodeScalarExpressions, bypassPort, NODE_LIBRARY } from './nodeLibrary'
+import { inputClampRange, resolveNodeNumericProperties, bypassPort, NODE_LIBRARY } from './nodeLibrary'
 import { type Palette, type RGB, type Frame, samplePalette } from './palettes/ledColor'
 import { getCodeError as getCodeErrorFromSandbox } from './codeSandboxRuntime'
 import { DEFAULT_W, DEFAULT_H } from './evaluator/frames'
@@ -138,7 +138,11 @@ function createEvalNode(
   }
 
   function num(nodeId: string, portId: string, props: Record<string, unknown>, propKey: string, def = 0): number {
-    const v = Number(input(nodeId, portId, Number(props[propKey] ?? def)))
+    // `props` is already numeric-resolved; the check catches a key with no
+    // numeric library default. A wired NaN passes through on purpose: firmware
+    // receives the same NaN, and Format Number shows it as "no reading".
+    const own = Number(props[propKey] ?? def)
+    const v = Number(input(nodeId, portId, Number.isFinite(own) ? own : def))
     // With the node's `clampInputs` toggle on, clamp a *wired* signal to the
     // control's slider range (an unwired value already comes from a bounded
     // slider) — the inline alternative to a Clamp node on every connection.
@@ -177,7 +181,7 @@ function createEvalNode(
     inProgress.add(id)
 
     const type  = node.data.nodeType as string
-    const props = resolveNodeScalarExpressions(
+    const props = resolveNodeNumericProperties(
       type,
       node.data.properties as Record<string, unknown>,
       W,

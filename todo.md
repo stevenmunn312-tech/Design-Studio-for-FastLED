@@ -333,14 +333,19 @@ and layout so the Help node reference is written once. Do the items in order:
 the first three change every node at once, the rest narrow down to single
 nodes, and the Help rewrite is last because it documents the result.
 
-- [ ] **D-08.1 · One NaN guard for every property.** `floatExpr` in
-  `src/codegen/cppGenerator.ts` (line ~650) emits the literal `NaN` for any
-  non-numeric saved property, and the evaluator's `num()`
-  (`src/state/graphEvaluator.ts`, line ~141) passes NaN through every per-node
-  clamp. Fall back to the library default in both, add a finiteness check to
-  `num()`, and cover it with one parity test. Closes the KickShock,
-  PercussionBlobs, RainRipples, FFTAnalyzer and SpectrumVisualizer
-  `new Array(NaN)` crashes and the `const int _PN=NaN;` sketch failures.
+No firmware compiles while working through D-08. When an item needs one to
+prove a sketch builds, add the arduino-cli command to the local
+`tmp/node-audit/compiles.ps1` queue (one compile at a time, never in
+parallel) and note the item here; the queue is run unattended overnight and
+its results are checked before the item is ticked. D-08.1 needed none: its
+test holds the sketch from a corrupt save byte-identical to the one from
+library defaults.
+
+- [x] **D-08.1 · One NaN guard for every property.** Done: the shared
+  pre-pass `resolveNodeNumericProperties` gives preview, firmware and the
+  control graph a finite number for every numeric property, with `num()` and
+  `floatExpr` keeping a finiteness fallback
+  ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
 - [ ] **D-08.2 · Property row grid.** `.propRow` in
   `src/components/Canvas/StudioNode.module.css` is flex space-between with a
   different fixed width per control (slider 112 px, select 84, input 72,

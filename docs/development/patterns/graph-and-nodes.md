@@ -148,6 +148,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   subgraph goes through `ctx.evaluateGraph`. For the same reason `memory.ts`
   imports only types: state held outside its maps (a Code worker, an
   AnimARTrix instance) registers a disposer with `onInstanceDisposed`.
+- Handlers and emitters read numeric properties already sanitised.
+  `resolveNodeNumericProperties` (`nodeLibrary.ts`) runs before the evaluator,
+  `cppGenerator.ts` and the control graph, and turns every property whose
+  library default is a number into a finite number: expressions resolve,
+  numeric strings convert, and anything else from an old or hand-edited save
+  takes the library default. A node may therefore size an array or a
+  `const int` from `Number(p.count)` without its own NaN check. That holds only
+  for a key with a numeric library default, so a new numeric property needs
+  one. `num()` and `floatExpr` keep a finiteness fallback for a key without
+  one. A wired signal is not sanitised: firmware cannot intercept a NaN on a
+  wire, so the preview passes it through too, and Format Number shows it as
+  "no reading". The stored properties stay untouched for the editors and
+  validation.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateScalarExpression } from '../scalarExpression'
-import { resolveNodeScalarExpressions, supportsScalarExpression } from '../../../state/nodeLibrary'
+import { resolveNodeNumericProperties, supportsScalarExpression } from '../../../state/nodeLibrary'
 
 describe('scalar numeric expressions', () => {
   it('exposes matrix geometry and mathematical constants', () => {
@@ -31,12 +31,12 @@ describe('scalar numeric expressions', () => {
     expect(supportsScalarExpression('Noise', 'speed')).toBe(false) // bounded slider
     expect(supportsScalarExpression('MatrixOutput', 'width')).toBe(false)
 
-    expect(resolveNodeScalarExpressions('Random', { min: 'h - 2', max: 'w / 2' }, 20, 10))
+    expect(resolveNodeNumericProperties('Random', { min: 'h - 2', max: 'w / 2' }, 20, 10))
       .toEqual({ min: 8, max: 10 })
   })
 
   it('falls back to the library default while invalid source is being edited', () => {
-    expect(resolveNodeScalarExpressions('Random', { min: 0, max: 'w +' }, 20, 10))
+    expect(resolveNodeNumericProperties('Random', { min: 0, max: 'w +' }, 20, 10))
       .toEqual({ min: 0, max: 1 })
   })
 })

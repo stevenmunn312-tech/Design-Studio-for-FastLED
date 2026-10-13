@@ -2185,10 +2185,19 @@ export function supportsScalarExpression(nodeType: string, key: string): boolean
   return propertyMeta(nodeType, key)?.control !== 'slider'
 }
 
-/** Replace valid expression strings with their current matrix-relative values.
- * Invalid source falls back to that property's library default; validation and
- * the editors retain and report the original string rather than discarding it. */
-export function resolveNodeScalarExpressions(
+/**
+ * The properties preview, firmware and the control graph read: every property
+ * whose library default is a number comes back as a finite number.
+ *
+ * Valid expression strings become their current matrix-relative values, and a
+ * numeric string becomes its number. Anything else — invalid source, `NaN`, an
+ * empty string, an object or array from an old or hand-edited save — falls back
+ * to that property's library default, so a node's clamps and array sizes never
+ * see NaN and the sketch never contains a bare `NaN` literal. Validation and the
+ * editors read the stored properties, so they still show and report the
+ * original value rather than discarding it.
+ */
+export function resolveNodeNumericProperties(
   nodeType: string,
   properties: Record<string, unknown>,
   width: number,
@@ -2197,12 +2206,22 @@ export function resolveNodeScalarExpressions(
   let resolved: Record<string, unknown> | null = null
   const defaults = libraryDefaults(nodeType)
   for (const [key, value] of Object.entries(properties)) {
-    if (typeof value !== 'string' || !supportsScalarExpression(nodeType, key)) continue
-    const result = evaluateScalarExpression(value, width, height)
+    const fallback = defaults[key]
+    if (typeof fallback !== 'number') continue
+    if (typeof value === 'number' && Number.isFinite(value)) continue
+    const result = supportsScalarExpression(nodeType, key)
+      ? evaluateScalarExpression(value, width, height)
+      : finiteNumber(value)
     resolved ??= { ...properties }
-    resolved[key] = result ?? defaults[key]
+    resolved[key] = result ?? fallback
   }
   return resolved ?? properties
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (typeof value !== 'string' || value.trim() === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
 }
 
 /** A named, collapsible section of a node's inline property editors (StudioNode). */

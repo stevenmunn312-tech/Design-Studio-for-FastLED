@@ -2,7 +2,7 @@
 // Building the IR performs no I/O or evaluation of authored scripts. Template
 // generators use the same resolver for validation and emission.
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { inputClampRange, resolveNodeScalarExpressions } from '../state/nodeLibrary'
+import { inputClampRange, resolveNodeNumericProperties } from '../state/nodeLibrary'
 import { compositionDims } from '../state/output/outputRouting'
 import { controlInputCpp, type ControlInputEmission } from './controlInputCpp'
 import { i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
@@ -181,7 +181,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
         properties: node.data.properties, inputs, attackWired,
       })
     } else {
-      const properties = resolveNodeScalarExpressions(node.data.nodeType, node.data.properties, w, h)
+      const properties = resolveNodeNumericProperties(node.data.nodeType, node.data.properties, w, h)
       const inputs: Record<string, ControlOperand> = {}
       for (const [input, fallback] of Object.entries(scalarControlInputDefaults(node.data.nodeType, properties))) {
         const edge = incoming.get(`${nodeId}:${input}`)

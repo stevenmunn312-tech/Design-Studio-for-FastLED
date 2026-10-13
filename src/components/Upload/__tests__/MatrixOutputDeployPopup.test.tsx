@@ -685,7 +685,7 @@ describe('MatrixOutputDeployPopup', () => {
     // an unparseable expression an error, but this popup assembled its own
     // blocker list and omitted findScalarExpressionErrors — so Upload/Export
     // shipped a sketch in which the property had silently fallen back to its
-    // library default (resolveNodeScalarExpressions), doing something other
+    // library default (resolveNodeNumericProperties), doing something other
     // than what the node's editor says.
     vi.mocked(findDeployBlockingErrors).mockReturnValue([
       'Random max has an invalid numeric expression: unknown + 1',

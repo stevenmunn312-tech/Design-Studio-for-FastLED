@@ -1561,7 +1561,7 @@ export function findOutputResourceErrors(nodes: StudioNode[]): string[] {
  * Health flagged an unsupported HUB75 shape while Upload stayed clickable.
  * `findScalarExpressionErrors` was the same omission found again: an expression
  * the parser rejects resolves to that property's library default in
- * `resolveNodeScalarExpressions`, so the flashed sketch does something other
+ * `resolveNodeNumericProperties`, so the flashed sketch does something other
  * than what the node's own editor says — exactly the divergence
  * `findFormulaErrors` exists to stop.
  *

@@ -110,9 +110,13 @@ describe('FormatNumber', () => {
     expect(textOf([n], [], 'f')).toBe('1.2346')
   })
 
+  // A wired signal that is not a finite number reaches the firmware unchanged,
+  // so the preview must not swap it for the property. A stored property never
+  // gets here: corrupt saves resolve to the library default first.
   it('marks an unreadable value instead of showing zero', () => {
-    const n = node('f', 'FormatNumber', 'math', { value: Number.NaN })
-    expect(textOf([n], [], 'f')).toBe(DISPLAY_TEXT_NO_READING)
+    const overflow = node('m', 'Math', 'math', { mathOp: 'multiply', a: 1e308, b: 10 })
+    const n = node('f', 'FormatNumber', 'math')
+    expect(textOf([overflow, n], [edge('e', 'm', 'result', 'f', 'value')], 'f')).toBe(DISPLAY_TEXT_NO_READING)
   })
 })
 

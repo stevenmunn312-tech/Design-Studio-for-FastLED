@@ -15,7 +15,7 @@ import {
 import { networkSketchCpp, networkSourceIn } from './peripherals/networkCpp'
 import {
   NODE_LIBRARY,
-  resolveNodeScalarExpressions,
+  resolveNodeNumericProperties,
   HUB75_CHIPSET,
   oledTransportForProps,
   inputClampRange,
@@ -384,7 +384,7 @@ export function generateCpp(
   const rs = !multipleOutputs && !!outputNode && renderScaleHalf(rawProps(outputNode))
   const renderW = rs ? halfDim(width) : width * expressionScale
   const renderH = rs ? halfDim(height) : height * expressionScale
-  const props = (n: StudioNode) => resolveNodeScalarExpressions(
+  const props = (n: StudioNode) => resolveNodeNumericProperties(
     n.data.nodeType as string,
     rawProps(n),
     renderW,
@@ -647,8 +647,10 @@ export function generateCpp(
       }
       return expr
     }
-    const pv = nodeProps[propKey]
-    return pv !== undefined ? String(Number(pv)) : String(def)
+    // `nodeProps` is already numeric-resolved; the check catches a key with no
+    // numeric library default, which would otherwise emit a bare `NaN`.
+    const pv = Number(nodeProps[propKey] ?? def)
+    return String(Number.isFinite(pv) ? pv : def)
   }
 
   /*
