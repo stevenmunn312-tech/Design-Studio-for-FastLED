@@ -276,15 +276,12 @@
 <circle cx="-2" cy="308" r="9" fill="#ff8a65" opacity="0.25"/>
 <circle cx="-2" cy="308" r="6" fill="#ff8a65" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="312" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Controls</text>
-<circle cx="242" cy="308" r="9" fill="#7fd1ff" opacity="0.25"/>
-<circle cx="242" cy="308" r="6" fill="#7fd1ff" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="312" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Pattern Select</text>
+<circle cx="242" cy="308" r="9" fill="#ffe066" opacity="0.25"/>
+<circle cx="242" cy="308" r="6" fill="#ffe066" stroke="#0d0f12" stroke-width="1.5"/>
+<text x="230" y="312" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
 <circle cx="-2" cy="336" r="9" fill="#38a6ff" opacity="0.25"/>
 <circle cx="-2" cy="336" r="6" fill="#38a6ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Patterns</text>
-<circle cx="242" cy="336" r="9" fill="#ffe066" opacity="0.25"/>
-<circle cx="242" cy="336" r="6" fill="#ffe066" stroke="#0d0f12" stroke-width="1.5"/>
-<text x="230" y="340" text-anchor="end" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Display</text>
 <circle cx="-2" cy="364" r="9" fill="#b388ff" opacity="0.25"/>
 <circle cx="-2" cy="364" r="6" fill="#b388ff" stroke="#0d0f12" stroke-width="1.5"/>
 <text x="10" y="368" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Transitions</text>

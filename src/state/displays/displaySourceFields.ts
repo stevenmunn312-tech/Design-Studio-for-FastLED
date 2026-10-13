@@ -17,20 +17,29 @@
 // See `DISPLAY_SOURCE_FROM_GRAPH`.
 
 import type { DisplaySignal, DisplaySignalKind } from './displaySignal'
+import type { PatternSelectValue } from '../patterns/patternSelection'
 import { SONG_INFO_PORTS } from '../player/songInfo'
 
 /** The value a widget's `source` holds when it wants a cable instead. */
 export const DISPLAY_SOURCE_FROM_GRAPH = 'graph'
 
+/**
+ * The whole selection, for a Pattern Browser. No node publishes it on a wire:
+ * it travels only inside a player's or slideshow's `display` envelope, so the
+ * widget reading it is always bound (`displayWidgetBoundField`).
+ */
+export const DISPLAY_SELECTION_SOURCE_FIELD = 'selection'
+
 export interface DisplaySourceField {
   /** Stored on the widget. Stable: renaming a label must not move a binding. */
   id: string
   label: string
-  dataType: 'string' | 'bool' | 'float'
+  dataType: 'string' | 'bool' | 'float' | 'patternselect'
 }
 
 /** The pattern a player or a slideshow is showing, which both arms carry. */
 const SELECTION_FIELDS: readonly DisplaySourceField[] = [
+  { id: DISPLAY_SELECTION_SOURCE_FIELD, label: 'Pattern selection', dataType: 'patternselect' },
   { id: 'patternName', label: 'Pattern name', dataType: 'string' },
   { id: 'patternIndex', label: 'Pattern number', dataType: 'float' },
   { id: 'patternCount', label: 'Pattern count', dataType: 'float' },
@@ -146,7 +155,7 @@ function pad(value: number): string {
 export function readDisplaySourceField(
   signal: DisplaySignal | null | undefined,
   id: string,
-): string | number | boolean | null {
+): string | number | boolean | PatternSelectValue | null {
   if (!signal) return null
   if (signal.kind === 'clock') {
     const clock = signal.clock
@@ -186,6 +195,7 @@ export function readDisplaySourceField(
     }
   }
   switch (id) {
+    case DISPLAY_SELECTION_SOURCE_FIELD: return selection ?? null
     case 'patternName': return selection?.names[selection.activeIndex] ?? null
     // Shown to a person, so it counts from one: a panel reading "3 of 12" is
     // the third pattern, not the fourth.

@@ -253,7 +253,6 @@ export const PORT_COLORS: Record<string, string> = {
   datetime: '#d8ff63',
   music: '#ffb74d',
   patternset: '#38a6ff',
-  patternselect: '#7fd1ff',
   display: '#ffe066',
   transitionset: '#b388ff',
   playercontrols: '#ff8a65',

@@ -4,6 +4,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { createDisplayDocument, addDisplayWidget } from '../../state/displays/displayEditor'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import { customDisplayAssetRequests } from '../../state/displays/customDisplayResources'
+import { displayWidgetSources } from '../../state/displays/displayRegistry'
 import { generateShowSketch } from '../showGenerator'
 import { showControlRouting } from '../player/showControlRouting'
 import { buildGraphDiagnostics, findOutputRuntimeIssues, findDisplayGeneratorIssues } from '../../utils/validateGraph'
@@ -206,11 +207,13 @@ describe('custom displays in generative shows', () => {
     const doc = addDisplayWidget(addDisplayWidget(document(), 'Colour Swatch'), 'Pattern Browser')
     const swatch = doc.widgets.find((widget) => widget.type === 'Colour Swatch')!.id
     const browser = doc.widgets.find((widget) => widget.type === 'Pattern Browser')!.id
-    const nodes = [panel('tft'), node('temp', 'Temperature'), node('other', 'PatternSlideshow')]
+    const nodes = [panel('tft', { widgetSources: displayWidgetSources(doc) }), node('temp', 'Temperature')]
     const edges = [
       edge('temp', 'color', 'tft', `widget:${swatch}:value`),
-      edge('show', 'patternSelect', 'tft', `widget:${browser}:value`),
+      edge('show', 'display', 'tft', 'display'),
     ]
+    // The browser reads the selection inside the panel's Display wire; it has no socket.
+    expect(displayWidgetSources(doc)[browser]).toEqual({ field: 'selection', roles: ['value'] })
     const cpp = generate(nodes, edges, { screen: doc })
     expect(cpp).toContain('CRGB n_temp_color = kelvinToRGB(mapFloat(constrain(0.27, 0.0f, 1.0f), 0.0f, 1.0f, 1000.0f, 12000.0f));')
     expect(cpp).toContain('_cdSetColor(')
@@ -230,11 +233,6 @@ describe('custom displays in generative shows', () => {
       [edge('sample', 'color', 'tft', `widget:${swatch}:value`)],
       { screen: doc },
     )).toThrow('cannot evaluate this colour')
-    expect(() => generateUnchecked(
-      [...nodes],
-      [edge('other', 'patternSelect', 'tft', `widget:${browser}:value`)],
-      { screen: doc },
-    )).toThrow('cannot evaluate this pattern selection')
   })
 
 

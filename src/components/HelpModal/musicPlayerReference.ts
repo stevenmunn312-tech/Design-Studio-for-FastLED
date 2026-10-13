@@ -23,7 +23,6 @@ export const MUSIC_PLAYER_REFERENCE = {
   } as Record<string, string>,
   outputs: {
     frame: 'The current pattern, including any transition and particle overlay. Connect it to the LED output, or process it through frame effects first.',
-    patternSelect: 'Reports the active pattern and the highlighted selection. It is state, not a command input. The player owns the cursor; use pattern controls to change it. Use Pattern Slideshow for a dedicated pattern-browser workflow.',
     display: 'The player’s track, playback, and pattern information in one connection. Feed a display panel for a now-playing screen, or Song Info to expose fields such as title and artist. Missing track metadata stays blank.',
   } as Record<string, string>,
 }

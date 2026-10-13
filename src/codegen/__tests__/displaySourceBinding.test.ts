@@ -14,7 +14,7 @@ import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { addDisplayWidget, createDisplayDocument, updateDisplayWidget } from '../../state/displays/displayEditor'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../state/displays/displayDocument'
-import { displayDocumentPorts } from '../../state/displays/displayRegistry'
+import { displayDocumentPorts, displayWidgetSources } from '../../state/displays/displayRegistry'
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { generatePlayerSketch } from '../playerSketchGenerator'
@@ -151,18 +151,21 @@ describe('widgets bound to the panel source', () => {
       expect(src).toContain('_cdSetText(_cd_screen[0], _patNameStr_player(_sel_player.active));')
     })
 
-    it('names the pattern a wired Pattern Browser is browsing', () => {
+    it('names the pattern a Pattern Browser is browsing, from the panel source', () => {
       const doc = addDisplayWidget(createDisplayDocument('browser', 240, 320), 'Pattern Browser')
-      const browser = doc.widgets[0].id
+      // No wire carries a selection, so the widget is always bound and mints no socket.
+      expect(displayDocumentPorts(doc).inputs).toEqual([])
       const tft = node('browser-tft', 'TransportDisplay', {
         partId: 'st7789v-xpt2046-touch-240x320', tftRotation: '0', tftLayout: 'Custom design', displayId: 'browser',
         sckPin: 18, mosiPin: 23, misoPin: 19, csPin: 5, dcPin: 16, resetPin: 17, backlightPin: 4,
+        widgetSources: displayWidgetSources(doc),
       })
       const documents: DisplayDocumentRegistry = { browser: doc }
       const nodes = [...players, tft]
-      const wired = [...edges, edge('master', 'patternSelect', 'browser-tft', `widget:${browser}:value`)]
+      const wired = [...edges, edge('master', 'display', 'browser-tft', 'display')]
       const routing = playerControlGraph(nodes, wired, documents, 'master')
       expect(routing.errors).toEqual([])
+      expect(routing.custom.unresolvedSources).toEqual([])
       const src = generatePlayerSketch({}, undefined, {
         controlGraph: routing, patternNames: { master: ['Aurora'] },
       })

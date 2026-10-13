@@ -137,9 +137,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   at both ends, confirm-commits, and a cursor carrying both id and index so a
   reorder keeps playing the same pattern and a deletion hands its slot to the
   new occupant — do not reintroduce a bare `% count` or key show state on the
-  pattern count. The result is published once, on the engine's `patternSelect`
-  output (`patternselect` dataType, `PatternSelectValue`) and again inside its
-  `display` envelope; a panel only displays it — it does not decide, and does
+  pattern count. The result is published once, as the `selection`
+  (`PatternSelectValue`) inside the engine's `display` envelope — there is no
+  separate selection port; a panel only displays it — it does not decide, and does
   not collect its own wire to the collection. Pattern browsing belongs to
   `PatternSlideshow`, not to Music Player: a player screen is transport only.
   `src/codegen/player/patternSelectionCpp.ts` emits the firmware half

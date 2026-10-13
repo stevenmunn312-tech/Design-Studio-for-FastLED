@@ -417,12 +417,11 @@ function showSelectionPlan(
   hasArtwork: boolean,
   patternCommands: string | null,
   boundFields: ReadonlySet<string> = new Set(),
-  patternNameBindings = false,
 ): ShowSelectionPlan {
   // Naming a pattern and picturing one are different needs: a Show Status
   // panel names without picturing, so the name table follows this rather than
-  // the browser's thumbnail table. A wired Pattern Browser is the same cost.
-  const nameStrings = patternNameBindings || bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
+  // the browser's thumbnail table. A Pattern Browser widget is the same cost.
+  const nameStrings = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const names = nameStrings
     || displays.info.some((display) => display.layout === 'Pattern Browser')
     || displays.tft.some((display) => display.layout === 'Show Status')
@@ -858,7 +857,6 @@ export function generateShowSketch(
       && (Object.values(opts.artworks ?? {})[0] ?? []).length > 0,
     controls.patternCommands,
     boundDisplaySourceFields(controls.custom),
-    controls.patternNameBindings,
   )
   const selectionCpp = showSelectionCpp(
     selection, renderers.count,

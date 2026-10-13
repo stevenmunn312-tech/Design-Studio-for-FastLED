@@ -97,12 +97,14 @@ describe('the display envelope', () => {
     expect(signal.song.durationSec).toBe(outputs.get('src')?.duration)
   })
 
-  it('carries the selection a slideshow publishes on its own port', () => {
+  // The envelope is the only place a selection is published: no port beside it.
+  it('carries the selection a slideshow publishes, and nothing else does', () => {
     const outputs = run('PatternSlideshow')
     const signal = outputs.get('src')?.display as DisplaySignal
     expect(signal.kind).toBe('slideshow')
     if (signal.kind !== 'slideshow') return
-    expect(signal.selection).toEqual(outputs.get('src')?.patternSelect)
+    expect(signal.selection.ids).toEqual(expect.any(Array))
+    expect(outputs.get('src')).not.toHaveProperty('patternSelect')
   })
 })
 

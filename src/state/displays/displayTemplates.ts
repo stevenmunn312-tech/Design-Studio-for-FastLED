@@ -7,7 +7,7 @@ import type {
   PlacedDisplayWidget,
 } from './displayDocument'
 import { constrainDisplayWidgetBounds, nextDisplayWidgetId } from './displayEditor'
-import { defaultDisplayWidgetProperties } from './displayRegistry'
+import { defaultDisplayWidgetProperties, displayWidgetBoundField } from './displayRegistry'
 import { displayControlAssetId, type DisplayControlIconName } from './displayAssets'
 import { displaySourceFields } from './displaySourceFields'
 import type { DisplaySignalKind } from './displaySignal'
@@ -81,8 +81,8 @@ export interface DisplayTemplate {
  */
 export function templateSourceFields(template: DisplayTemplate): string[] {
   return [...new Set(template.widgets
-    .map((widget) => String(widget.properties?.source ?? ''))
-    .filter((field) => field.length > 0))]
+    .map((widget) => displayWidgetBoundField({ type: widget.type, properties: widget.properties ?? {} }))
+    .filter((field): field is string => field !== null))]
 }
 
 export function templateMatchesSource(template: DisplayTemplate, kind: DisplaySignalKind): boolean {
@@ -158,7 +158,6 @@ const TEMPLATE_WIDGET_SOURCES: Readonly<Record<string, string>> = {
   Position: 'progress',
   Play: 'playing',
   Volume: 'volume',
-  Collection: 'patternName',
 }
 
 const widget = (

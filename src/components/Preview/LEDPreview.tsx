@@ -294,7 +294,7 @@ export default function LEDPreview() {
   const stagePatternEngineId = useGraphStore((s) => stageMode && !playbackShow
     ? activeStagePatternEngineId(s.nodes, s.edges, activeOutputId)
     : '')
-  // The evaluator publishes `patternSelect` at the normal preview cadence.
+  // The evaluator publishes the engine's `display` selection at the normal preview cadence.
   // Subscribe to only its active group id so this component wakes when the
   // show advances, but not for every preview-store publish.
   const liveStagePatternGroupId = usePreviewStore((s) => stageMode

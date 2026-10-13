@@ -1303,7 +1303,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // the LEDs on the first frame of every collection.
     const selectionView = patternSelectionView(selection, ids)
     const graphNames = useGraphStore.getState().graphs
-    const patternSelect: PatternSelectValue = ids.length > 0
+    const selectionValue: PatternSelectValue | null = ids.length > 0
       ? {
         ids,
         names: ids.map((gid) => graphNames[gid]?.name ?? ''),
@@ -1312,23 +1312,20 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         count: selectionView.count,
         browsing: selectionView.browsing,
       }
-      : blankPatternSelectValue()
+      : null
 
-    // The per-field ports and the envelope come from one reading, so a
-    // panel and a custom UI cannot be told different things. Built after
-    // the selection for the same reason the selection is read late: the
-    // envelope carries it, so building it earlier would publish the
-    // pre-show cursor to the panel and the post-show one to the port.
+    // The per-field outputs and the envelope come from one reading, so a
+    // panel and a custom UI cannot be told different things.
     const song = {
       ...songInfoOutputs(songInfo),
       display: {
         kind: 'player',
         song: songInfo,
-        selection: ids.length > 0 ? patternSelect : null,
+        selection: selectionValue,
       } satisfies DisplaySignal,
     }
 
-    if (!runtime.ledEnabled) out = { ...song, patternSelect, frame: blankFrame(W, H) }
+    if (!runtime.ledEnabled) out = { ...song, frame: blankFrame(W, H) }
     else if (runtime.brightness < 1) {
       const dimmed = cloneFrame(frame)
       for (const row of dimmed) for (const px of row) {
@@ -1336,8 +1333,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
         px.g *= runtime.brightness
         px.b *= runtime.brightness
       }
-      out = { ...song, patternSelect, frame: dimmed }
-    } else out = { ...song, patternSelect, frame }
+      out = { ...song, frame: dimmed }
+    } else out = { ...song, frame }
     return out
   },
   PatternSlideshow({ inputSourceType, input, num, elapsedT, tick, elapsedTick, W, H, stateKey, incoming, nodeMap, groups, groupStack, instancePrefix, audioOverride, trusted, capabilityNodes, evaluateGraph }, id, props) {
@@ -1438,7 +1435,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // snapshot leaves a panel a frame behind the LEDs.
     const view = patternSelectionView(selection, ids)
     const graphNames = useGraphStore.getState().graphs
-    const patternSelect: PatternSelectValue = ids.length > 0
+    const selectionValue: PatternSelectValue = ids.length > 0
       ? {
         ids,
         names: ids.map((gid) => graphNames[gid]?.name ?? ''),
@@ -1451,8 +1448,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
 
     return {
       frame,
-      patternSelect,
-      display: { kind: 'slideshow', selection: patternSelect } satisfies DisplaySignal,
+      display: { kind: 'slideshow', selection: selectionValue } satisfies DisplaySignal,
     }
   },
   Sequencer({ input, t, W, H }, id, props) {

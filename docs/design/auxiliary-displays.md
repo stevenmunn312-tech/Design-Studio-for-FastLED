@@ -96,7 +96,7 @@ wired widget requires confirmation and removes its edges atomically.
 The freeform UI is for music, LEDs and live-show hardware. Its launch palette is
 Text (`string` in), Numeric Readout (`float` in), Timecode (`float` seconds in),
 Progress (`float` 0–1 in), Value Meter (`float` in), Status Indicator (`bool`
-in), Colour Swatch (`color` in), Pattern Browser (`patternselect` in),
+in), Colour Swatch (`color` in), Pattern Browser (always bound to the panel source's pattern selection; no port),
 Image/Icon (no port), Button (`bool` out), Toggle (`bool` out with reserved
 state input), Slider (`float` out with reserved state input), and Dial (the same
 value contract with vertical-drag touch interaction).

@@ -41,6 +41,7 @@ export const SHOW_SOURCE_EXPRESSIONS = selectionSourceExpressions({
   nameExpr: `_patNameStr_${SHOW_SELECTION_STEM}(_sel_${SHOW_SELECTION_STEM}.active)`,
   highlightNameExpr: `_patNameStr_${SHOW_SELECTION_STEM}(_sel_${SHOW_SELECTION_STEM}.highlight)`,
   browsingExpr: `_selBrowsing(_sel_${SHOW_SELECTION_STEM})`,
+  browserNameExpr: browsingPatternNameExpr(SHOW_SELECTION_STEM),
 })
 
 /**
@@ -67,11 +68,6 @@ export function showControlRouting(
     scalarOutputIds: targets.outputIds,
     scalarInputs: speedNode ? [{ nodeId: speedNode.id, port: 'speed', type: 'float' }] : [],
     sourceExpressions: SHOW_SOURCE_EXPRESSIONS,
-    patternSelection: {
-      sourceIds: new Set(targets.engineId ? [targets.engineId] : []),
-      nameExpr: browsingPatternNameExpr(SHOW_SELECTION_STEM),
-      refusal: 'Wire the Pattern Slideshow this show runs.',
-    },
     ledStatus: { drivenIds: targets.outputIds, latch: true },
   }, groups)
   return {

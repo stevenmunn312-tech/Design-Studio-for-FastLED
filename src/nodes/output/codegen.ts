@@ -374,7 +374,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       const assetStem = safeId(documentId)
       const ports = displayDocumentPorts(document)
       const widgetInputExpr = (up: { srcId: string; srcPort: string } | undefined, dataType: string | undefined): string | null => {
-        if (!up || dataType === 'patternselect') return null
+        if (!up) return null
         const varExpr = `n_${safeId(up.srcId)}_${safeId(up.srcPort)}`
         if (dataType === 'color') {
           return `(((uint32_t)(${varExpr}).r << 16) | ((uint32_t)(${varExpr}).g << 8) | (uint32_t)(${varExpr}).b)`

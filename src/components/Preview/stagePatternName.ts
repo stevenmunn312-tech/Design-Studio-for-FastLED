@@ -1,6 +1,7 @@
 import type { ShowFile } from '../../types/showFile'
 import type { GraphMeta, StudioEdge, StudioNode } from '../../state/graphStore'
 import { isPatternSelect } from '../../state/patterns/patternSelection'
+import { isDisplaySignal } from '../../state/displays/displaySignal'
 import { showStateAt } from '../../state/player/showPreview'
 
 function nodeTypeOf(node: StudioNode | undefined): string {
@@ -75,7 +76,8 @@ export function activePatternGroupIdFromPreview(
   engineId: string,
 ): string | null {
   if (!engineId) return null
-  const selection = outputs.get(engineId)?.patternSelect
+  const display = outputs.get(engineId)?.display
+  const selection = isDisplaySignal(display) && 'selection' in display ? display.selection : null
   if (!isPatternSelect(selection)) return null
   return selection.ids[selection.activeIndex] ?? null
 }

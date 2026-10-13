@@ -57,7 +57,7 @@ const run = (nodes: StudioNode[], edges: StudioEdge[], t: number) =>
   evaluateGraphFull(nodes, edges, t, 4, 4, GROUPS)
 
 const selectOf = (nodes: StudioNode[], edges: StudioEdge[], t: number) =>
-  run(nodes, edges, t).outputs.get('master')?.patternSelect as PatternSelectValue
+  (run(nodes, edges, t).outputs.get('master')?.display as { selection: PatternSelectValue | null }).selection as PatternSelectValue
 
 const turn = (counts: number) =>
   useHardwareInputStore.getState().setEncoder('enc', { position: counts })
@@ -89,7 +89,7 @@ describe('the player publishes the selection', () => {
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
       edge('e3', 'master', 'frame', 'out', 'frame'),
     ]
-    expect(selectOf(nodes, edges, 0)).toMatchObject({ count: 0, activeIndex: -1 })
+    expect(selectOf(nodes, edges, 0)).toBeNull()
   })
 })
 

@@ -15,7 +15,7 @@
 
 export const TYPE_GLYPH: Record<string, string> = {
   frame: '▦', palette: '≋', color: '●', audio: '⌁', float: '∿', bool: '◆',
-  field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', patternselect: '⊙', transitionset: '⇄', storage: '▤',
+  field: '⌖', music: '♫', image: '▥', dmx: '⎋', datetime: '◷', patternset: '◫', transitionset: '⇄', storage: '▤',
   playercontrols: '⌘', playerparticles: '✦', display: '▭',
   string: '≡',
 }
@@ -37,7 +37,6 @@ export const OUTPUT_USE_CASES: Record<string, string> = {
   frame: 'Its frame can go straight to the LED output, or pass through Blend, Blur 2D, Transform, Fade, or Transition first.',
   palette: 'Its palette is typically sampled by Noise, Spectrum Bars, Field → Frame, or Palette Sampler.',
   patternset: 'Its output is used by Music Player or Performance Generator to run a reusable multi-pattern show.',
-  patternselect: 'Which pattern the player is on and which one you are looking at. The player owns it; a panel shows it.',
   display: 'Everything a simple panel needs, in one wire. What you plug in decides what the panel shows — a clock from RTC, a transport from Music Player, pattern selection from Pattern Slideshow.',
   music: 'Its output is used by Performance Generator to create timed show events from analysed tracks.',
   transitionset: 'Its output widens the pool of transitions — for Music Player live, or Performance Generator on export.',
@@ -59,7 +58,6 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   frame: 'a complete LED matrix frame',
   palette: 'a reusable gradient of colours',
   patternset: 'a collection of saved pattern groups',
-  patternselect: 'which pattern a player is on, and which one you are looking at',
   display: 'everything a simple panel shows, in one wire — the source you plug in picks the layout',
   music: 'a library of analysed music tracks',
   transitionset: 'a curated set of transition styles',

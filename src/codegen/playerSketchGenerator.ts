@@ -891,10 +891,8 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // counted here beside the fixed layouts rather than left to reference a
   // variable no line declares.
   const boundFields = graphRouting ? boundDisplaySourceFields(graphRouting.custom) : new Set<string>()
-  const wiredPatternNames = graphRouting?.patternNameBindings === true
-  const boundNames = wiredPatternNames || bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
+  const boundNames = bindsAnyField(boundFields, DISPLAY_NAME_SOURCE_FIELDS)
   const hasPatternSelection = browserEmits.length > 0 || hasPatternControls || hasTftArtwork
-    || wiredPatternNames
     || bindsAnyField(boundFields, DISPLAY_SELECTION_SOURCE_FIELDS)
   const infoEmits = displays.info.map((display) => ({
     id: safePlayerId(display.id),

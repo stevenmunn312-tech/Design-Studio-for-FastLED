@@ -38,6 +38,7 @@ export const PLAYER_SOURCE_EXPRESSIONS = playerSourceExpressions(PLAYER_SONG_EXP
   nameExpr: `_patNameStr_${PLAYER_SELECTION_STEM}(_sel_${PLAYER_SELECTION_STEM}.active)`,
   highlightNameExpr: `_patNameStr_${PLAYER_SELECTION_STEM}(_sel_${PLAYER_SELECTION_STEM}.highlight)`,
   browsingExpr: `_selBrowsing(_sel_${PLAYER_SELECTION_STEM})`,
+  browserNameExpr: browsingPatternNameExpr(PLAYER_SELECTION_STEM),
 })
 
 /**
@@ -90,11 +91,6 @@ export function playerControlGraph(
       ...['minTime', 'maxTime', 'transitionSec'].map((port) => ({ nodeId: master.id, port, type: 'float' as const })),
     ] : [],
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
-    patternSelection: {
-      sourceIds: new Set(master ? [master.id] : []),
-      nameExpr: browsingPatternNameExpr(PLAYER_SELECTION_STEM),
-      refusal: 'Wire the Music Player or Performance Generator this player runs.',
-    },
     // The player applies the output's own fields and refuses direct wires, so
     // status does not latch and does not fold in the player's master brightness.
     ledStatus: { drivenIds: new Set(drivenOutput ? [drivenOutput.id] : []), latch: false },

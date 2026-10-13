@@ -62,7 +62,7 @@ describe('HelpModal session state', () => {
     })
     const view = render(<HelpModal />)
     expect(view.getByRole('heading', { name: 'Music Player' })).toBeTruthy()
-    expect(view.getByText(/6 main inputs · 15 optional inputs · 3 outputs/)).toBeTruthy()
+    expect(view.getByText(/6 main inputs · 15 optional inputs · 2 outputs/)).toBeTruthy()
     expect(view.getByText(/12 seconds is not a forced change deadline/)).toBeTruthy()
     expect(view.getByText(/Playback volume from 0/)).toBeTruthy()
     expect(view.getByText(/Controls random pattern, hold-time/)).toBeTruthy()

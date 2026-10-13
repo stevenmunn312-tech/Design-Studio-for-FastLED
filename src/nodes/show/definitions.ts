@@ -110,12 +110,10 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     actionInputs: playerControlActionPortsFor('player').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      // Technically I/O: commands arrive on `controls` and the resulting
-      // selection leaves here, which is what makes the round trip visible on
-      // the canvas instead of hidden in a display's private state.
-      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
       // Everything the player knows about what it is playing, in one envelope:
       // the track, and the selection identifying the pattern running under it.
+      // A panel's Pattern Browser reads the selection from here; no separate
+      // port carries it.
       // The thirteen per-field ports this replaces are minted by the Song Info
       // node instead, which appears on a canvas only when a graph genuinely
       // needs a field on a wire.
@@ -228,8 +226,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     actionInputs: playerControlActionPortsFor('engine').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      // Published for a panel to read, exactly as the player publishes its own.
-      { id: 'patternSelect', label: 'Pattern Select', dataType: 'patternselect' },
+      // Carries the selection for a panel to read, exactly as the player's does.
       { id: 'display', label: 'Display', dataType: 'display' },
     ],
     defaultProperties: {

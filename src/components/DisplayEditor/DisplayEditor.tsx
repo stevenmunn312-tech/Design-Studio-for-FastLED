@@ -18,6 +18,7 @@ import {
 import {
   DISPLAY_WIDGET_LIBRARY,
   displaySourceFieldsForWidget,
+  displayWidgetSourceOnlyField,
   displayWidgetTakesValue,
   displayWidgetGlyphId,
   displayWidgetPorts,
@@ -200,7 +201,6 @@ const DATA_TYPE_WORDS: Readonly<Record<string, string>> = {
   int: 'a number',
   string: 'text',
   color: 'a colour',
-  patternselect: 'the pattern choice',
 }
 
 /**
@@ -1294,7 +1294,12 @@ export default function DisplayEditor() {
                   ? 'This widget is only a picture: it reads nothing from the graph and sends nothing to it.'
                   : 'What it shows from the graph, or what a touch on it sends there.'}
               </p>
-              {displayWidgetTakesValue(selected.type) && (() => {
+              {displayWidgetSourceOnlyField(selected.type) && (
+                <p className={styles.hint}>
+                  Reads the pattern selection from the player or slideshow wired into the panel, so it needs no wire of its own.
+                </p>
+              )}
+              {displayWidgetTakesValue(selected.type) && !displayWidgetSourceOnlyField(selected.type) && (() => {
                 const fields = displaySourceFieldsForWidget(sourceKind, selected.type)
                 const source = typeof selected.properties.source === 'string' ? selected.properties.source : ''
                 const setSource = (next: string) => commit(updateDisplayWidget(document, selected.id, (widget) => ({

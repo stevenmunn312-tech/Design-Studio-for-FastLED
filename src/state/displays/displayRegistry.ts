@@ -9,7 +9,7 @@ import type {
 import { displayAsset, normalizeDisplayAssetId } from './displayAssets'
 import type { NodePort } from '../../types'
 import {
-  DISPLAY_SOURCE_FROM_GRAPH, displaySourceFields, normalizeDisplaySource, type DisplaySourceField,
+  DISPLAY_SELECTION_SOURCE_FIELD, DISPLAY_SOURCE_FROM_GRAPH, displaySourceFields, normalizeDisplaySource, type DisplaySourceField,
 } from './displaySourceFields'
 import type { DisplaySignalKind } from './displaySignal'
 
@@ -693,7 +693,8 @@ export function normalizeDisplayWidgetProperties(
       // catalogue of every field any source offers, the way an asset id is
       // checked against the installed pack, so a foreign or retired id is
       // dropped here rather than persisted as a dangling binding.
-      const id = normalizeDisplaySource(raw)
+      // A widget with a fixed field stores none: there is no choice to keep.
+      const id = displayWidgetSourceOnlyField(type) ? '' : normalizeDisplaySource(raw)
       if (id) result[key] = id
       continue
     }
@@ -798,15 +799,38 @@ export function displayWidgetTouchOutputPorts(widget: Pick<DisplayWidget, 'id' |
 }
 
 /**
+ * Readings no cable carries, by the widget data type that shows them.
+ *
+ * A pattern selection is published only inside a player's or slideshow's
+ * `display` envelope, so a widget showing one always reads the panel's source.
+ */
+const SOURCE_ONLY_FIELDS: Partial<Record<DisplayWidgetPortDataType, string>> = {
+  patternselect: DISPLAY_SELECTION_SOURCE_FIELD,
+}
+
+/** The one field this widget type can read, when no wire could carry it. */
+export function displayWidgetSourceOnlyField(type: DisplayWidgetType): string | null {
+  const port = DISPLAY_WIDGET_LIBRARY[type].portRoles.find((role) => role.direction === 'input')
+  return (port && SOURCE_ONLY_FIELDS[port.dataType]) ?? null
+}
+
+/** The source field this widget reads, or null when it takes a cable. */
+export function displayWidgetBoundField(widget: Pick<DisplayWidget, 'type' | 'properties'>): string | null {
+  const fixed = displayWidgetSourceOnlyField(widget.type)
+  if (fixed) return fixed
+  const source = widget.properties?.source
+  return typeof source === 'string' && source !== '' && source !== DISPLAY_SOURCE_FROM_GRAPH ? source : null
+}
+
+/**
  * Whether this widget reads its value from the source wired into the panel.
  *
  * A bound widget draws no cable, so it mints no input port. Its outputs are
  * untouched: binding is about where a reading comes from, and a control still
  * publishes what a finger did to it.
  */
-export function displayWidgetIsBound(widget: Pick<DisplayWidget, 'properties'>): boolean {
-  const source = widget.properties?.source
-  return typeof source === 'string' && source !== '' && source !== DISPLAY_SOURCE_FROM_GRAPH
+export function displayWidgetIsBound(widget: Pick<DisplayWidget, 'type' | 'properties'>): boolean {
+  return displayWidgetBoundField(widget) !== null
 }
 
 /**
@@ -866,9 +890,10 @@ export function displayWidgetSources(
 ): Record<string, { field: string; roles: string[] }> {
   const sources: Record<string, { field: string; roles: string[] }> = {}
   for (const widget of document?.widgets ?? []) {
-    if (!displayWidgetIsBound(widget)) continue
+    const field = displayWidgetBoundField(widget)
+    if (!field) continue
     sources[widget.id] = {
-      field: String(widget.properties?.source),
+      field,
       roles: displayWidgetPorts(widget)
         .filter((port) => port.direction === 'input')
         .map((port) => port.role),

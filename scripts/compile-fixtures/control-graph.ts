@@ -9,6 +9,7 @@ import { generateShowSketch } from '../../src/codegen/showGenerator'
 import { buildShowPlayer } from '../../src/utils/showUpload'
 import { findDisplayGeneratorIssues, findExactBoardPinIssues, findPinConflicts } from '../../src/utils/validateGraph'
 import { createDisplayDocument, addDisplayWidget } from '../../src/state/displays/displayEditor'
+import { displayWidgetSources } from '../../src/state/displays/displayRegistry'
 import type { DisplayDocumentRegistry } from '../../src/state/displays/displayDocument'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
@@ -40,17 +41,18 @@ function withColourAndPattern(mode: 'show' | 'player', fixture: ReturnType<typeo
 } {
   const document = addDisplayWidget(addDisplayWidget(createDisplayDocument('bindings', 240, 240), 'Colour Swatch'), 'Pattern Browser')
   const swatch = document.widgets.find((widget) => widget.type === 'Colour Swatch')!.id
-  const browser = document.widgets.find((widget) => widget.type === 'Pattern Browser')!.id
   const engine = mode === 'show' ? 'show' : 'player'
   return {
     nodes: [...fixture.nodes, node('panel', 'TransportDisplay', {
       partId: 'st7789-tft-240x240', tftRotation: '0', tftLayout: 'Custom design', displayId: 'bindings',
       sckPin: 17, mosiPin: 18, csPin: 6, dcPin: 7, resetPin: 21, backlightPin: 1,
+      // The Pattern Browser reads the selection inside the Display wire.
+      widgetSources: displayWidgetSources(document),
     }), node('temp', 'Temperature'), node('grad', 'GradientSampler', { mixMode: 'hsvLong' })],
     edges: [...fixture.edges,
       edge('temp', 'color', 'grad', 'colorA'),
       edge('grad', 'color', 'panel', `widget:${swatch}:value`),
-      edge(engine, 'patternSelect', 'panel', `widget:${browser}:value`)],
+      edge(engine, 'display', 'panel', 'display')],
     groups: fixture.groups,
     displayDocuments: { bindings: document },
   }

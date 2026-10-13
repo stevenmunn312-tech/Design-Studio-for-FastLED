@@ -15,6 +15,7 @@
 // than filled with a plausible zero.
 
 import { cppStringLiteral } from '../../state/displays/displayText'
+import { DISPLAY_SELECTION_SOURCE_FIELD } from '../../state/displays/displaySourceFields'
 
 /**
  * The readings a generator can supply, named by source field.
@@ -151,7 +152,7 @@ export function normalSketchSourceExpressions(
 /**
  * The pattern a template is showing, named by the symbols it holds it in.
  *
- * Five fields, and both templates carry all five: a show and a player each
+ * Six fields, and both templates carry all six: a show and a player each
  * have a collection and a cursor into it. Only the symbols differ, so this is
  * one table taking them as arguments rather than two tables saying the same
  * thing about `_sel_show` and `_sel_player`.
@@ -166,10 +167,13 @@ export interface SelectionSourceSymbols {
   nameExpr?: string | null
   highlightNameExpr?: string | null
   browsingExpr?: string | null
+  /** What a Pattern Browser names: the highlight while browsing, otherwise the running pattern. */
+  browserNameExpr?: string | null
 }
 
 export function selectionSourceExpressions(symbols: SelectionSourceSymbols): DisplaySourceExpressions {
   return {
+    [DISPLAY_SELECTION_SOURCE_FIELD]: symbols.browserNameExpr ?? null,
     patternName: symbols.nameExpr ?? null,
     patternIndex: symbols.indexExpr ?? null,
     patternCount: symbols.countExpr ?? null,
@@ -202,7 +206,9 @@ export function playerSourceExpressions(
  * fixed layouts again — which is how a TFT-only Show Status came to reference a
  * cursor no line declared.
  */
-export const DISPLAY_NAME_SOURCE_FIELDS: readonly string[] = ['patternName', 'highlightName']
+export const DISPLAY_NAME_SOURCE_FIELDS: readonly string[] = [
+  DISPLAY_SELECTION_SOURCE_FIELD, 'patternName', 'highlightName',
+]
 
 export const DISPLAY_SELECTION_SOURCE_FIELDS: readonly string[] = [
   ...DISPLAY_NAME_SOURCE_FIELDS, 'browsing', 'patternIndex', 'patternCount',

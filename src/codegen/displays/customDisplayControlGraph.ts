@@ -161,17 +161,7 @@ export function customDisplayControlPlan(
       resting.push({ type: port.dataType, variable: controlReferenceCpp(reference), expression: customDisplayRestCpp(port.dataType) })
     }
   }
-  const patternNameBindings: boolean = false
-  return { displays, errors, sources, unresolvedSources, resting, patternNameBindings }
-}
-
-export interface PatternSelectionBinding {
-  /** Engine nodes whose `patternSelect` output this template is actually running. */
-  sourceIds: ReadonlySet<string>
-  /** Browsing-aware pattern name. Preview shows the highlight while browsing. */
-  nameExpr: string
-  /** Said when the wire is any other pattern selection. */
-  refusal: string
+  return { displays, errors, sources, unresolvedSources, resting }
 }
 
 export function bindCustomDisplayControls(
@@ -179,7 +169,6 @@ export function bindCustomDisplayControls(
   graph: ReturnType<typeof createControlGraph>,
   edges: StudioEdge[],
   generatorLabel = 'the show',
-  patternSelection?: PatternSelectionBinding,
 ): void {
   for (const display of plan.displays) {
     for (const edge of edges.filter((edge) => edge.target === display.nodeId)) {
@@ -197,19 +186,6 @@ export function bindCustomDisplayControls(
         }
         const bindings = display.bindings[port.widgetId] ?? (display.bindings[port.widgetId] = [])
         bindings.push({ role: port.role, expression: packedColorCpp(controlReferenceCpp(reference)) })
-        continue
-      }
-      if (port?.dataType === 'patternselect') {
-        const accepted = patternSelection
-          && patternSelection.sourceIds.has(edge.source)
-          && (edge.sourceHandle ?? '') === 'patternSelect'
-        if (!accepted || !patternSelection) {
-          plan.errors.push(`${display.label}: ${generatorLabel} cannot evaluate this pattern selection. ${patternSelection?.refusal ?? 'Wire the pattern cursor this template runs.'}`)
-          continue
-        }
-        plan.patternNameBindings = true
-        const bindings = display.bindings[port.widgetId] ?? (display.bindings[port.widgetId] = [])
-        bindings.push({ role: port.role, expression: patternSelection.nameExpr })
         continue
       }
       if (!port || (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string')) {

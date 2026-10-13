@@ -134,7 +134,7 @@ display displays it.
 
 ```
 Encoder ─┐
-Buttons ─┼─► Control Map ──playercontrols──► Music Player ──patternselect──► Info Display
+Buttons ─┼─► Control Map ──playercontrols──► Music Player ──display──► Info Display
          ┘                                            │
                                                     frame
                                                       ▼
@@ -158,14 +158,16 @@ Buttons and an encoder both arriving is deliberate, not redundant: a panel
 build may have three buttons and no encoder, and the `playercontrols` bundle
 already carries both shapes for the transport (`next` beside `volumeUp`).
 
-**Music Player** grows one output, `Pattern Select`, carrying the whole
-selection — active, highlight, ordinal, count, and whether a browse is open.
-Technically it is I/O: the commands arrive on `controls` and the resulting
-selection leaves on `patternselect`, which is what makes the round trip
-visible on the canvas rather than hidden in a display's private state.
+**Music Player** publishes the whole selection — active, highlight, ordinal,
+count, and whether a browse is open — inside its `display` envelope. The
+commands arrive on `controls` and the resulting selection leaves on `display`,
+which keeps the round trip visible on the canvas rather than hidden in a
+display's private state. (It first shipped as a separate `Pattern Select`
+output; that port was folded into the envelope because every reader already
+had the `display` wire.)
 
-**Info Display** loses `Patterns`, `Select` and `Confirm` and gains one
-`Pattern Select` input. The panel stops deciding anything. It also stops
+**Info Display** loses `Patterns`, `Select` and `Confirm` and reads the
+selection from its one `display` input. The panel stops deciding anything. It also stops
 needing its own wire to the collection: the selection names the player, and the
 player already has the patterns, so the thumbnails bake against that collection
 rather than a second one the display was pointed at separately.

@@ -47,14 +47,14 @@ const library = libraryLookup([
 describe('Stage pattern name', () => {
   it('reads the active group from the published show selection', () => {
     const outputs = new Map<string, Record<string, unknown>>([
-      ['show', { patternSelect: {
+      ['show', { display: { kind: 'slideshow', selection: {
         ids: ['group-a', 'group-b'],
         names: ['Polar Bloom', 'Prism Storm'],
         activeIndex: 1,
         highlightIndex: 1,
         count: 2,
         browsing: false,
-      } }],
+      } } }],
     ])
 
     expect(activeStagePatternEngineId(nodes, edges, 'output')).toBe('show')

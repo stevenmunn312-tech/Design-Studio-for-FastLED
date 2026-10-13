@@ -13,7 +13,7 @@ import { PLAYER_CONTROL_BUTTONS, designControlBundleEmit, type PlayerControlButt
 import { designControlBundle, toggleWidgetSource } from '../../state/displays/designControlBundle'
 import { customDisplayLvglTapExpression } from './customDisplayLvglCpp'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
-import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources, type PatternSelectionBinding } from './customDisplayControlGraph'
+import { customDisplayControlPlan, bindCustomDisplayControls, bindCustomDisplaySources } from './customDisplayControlGraph'
 import { normalSketchSourceExpressions, type DisplaySourceExpressions, type LedStatusExpressions } from './displaySourceExpressions'
 import { rtcDateTimeSymbol } from '../peripherals/rtcInputCpp'
 import { drivenOutputLedStatus, ledOutputManualExprs, ledOutputRuntimeExpressions } from '../output/ledOutputRuntimeCpp'
@@ -71,11 +71,6 @@ export interface TemplateControlContext {
    */
   sourceExpressions?: DisplaySourceExpressions
   /**
-   * Pattern Browser cables. Only the engine this template runs, and only its
-   * `patternSelect` port, resolves. Every other pattern selection stays an error.
-   */
-  patternSelection?: PatternSelectionBinding
-  /**
    * LED outputs whose status this template can publish.
    *
    * `latch` is true when a Controls bundle on that output is the same latch
@@ -94,7 +89,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   const touchIds = new Set<string>()
   const custom = customDisplayControlPlan(nodes, documents, context.widgetLabel, edges)
   const graph = createControlGraph(nodes, edges, [...custom.sources, ...(context.sampledSources ?? [])])
-  bindCustomDisplayControls(custom, graph, edges, context.widgetLabel, context.patternSelection)
+  bindCustomDisplayControls(custom, graph, edges, context.widgetLabel)
   const powerSources = new Map<string, DisplaySourceExpressions>()
   for (const edge of edges) {
     if (edge.targetHandle !== 'display' || !DISPLAY_NODE_TYPES.has(byId.get(edge.target)?.data.nodeType ?? '')) continue
@@ -350,10 +345,10 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   // while a normal sketch honoured it meant the same graph meant two things.
   for (const node of nodes.filter((n) => DISPLAY_NODE_TYPES.has(n.data.nodeType))) {
     // Read the library's typed ports, including graphs loaded without copied
-    // instance metadata. Pattern selection remains the template's own cursor.
+    // instance metadata.
     const ports = NODE_LIBRARY.find((def) => def.type === node.data.nodeType)!.inputs
     for (const port of ports) {
-      if (!incoming.has(`${node.id}:${port.id}`) || port.dataType === 'patternselect') continue
+      if (!incoming.has(`${node.id}:${port.id}`)) continue
       if (port.dataType !== 'float' && port.dataType !== 'bool' && port.dataType !== 'string') continue
       const reference = graph.input(node.id, port.id, port.dataType)
       if (reference) displaySources.set(`${node.id}:${port.id}`, controlReferenceCpp(reference))
@@ -377,7 +372,7 @@ export function templateControlRouting(nodes: StudioNode[], edges: StudioEdge[],
   }
   return {
     touchIds, graph, custom, displaySources, controls, bundles, scalarOutputs, scalarInputs,
-    patternNameBindings: custom.patternNameBindings, ledStatusFor, clockFor, errors: issues,
+    ledStatusFor, clockFor, errors: issues,
   }
 }
 

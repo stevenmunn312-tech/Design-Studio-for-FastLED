@@ -26,7 +26,7 @@ describe('the Music Player reports what it is playing', () => {
   it('reports through one envelope rather than a port per field', () => {
     const def = NODE_LIBRARY.find((n) => n.type === 'PatternMaster')!
     const ids = def.outputs.map((port) => port.id)
-    expect(ids).toEqual(['frame', 'patternSelect', 'display'])
+    expect(ids).toEqual(['frame', 'display'])
     for (const port of SONG_INFO_PORTS) expect(ids, port.id).not.toContain(port.id)
   })
 
