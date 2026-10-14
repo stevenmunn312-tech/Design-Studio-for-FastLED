@@ -1008,6 +1008,17 @@ describe('evaluateGraph', () => {
     expect(run('rotate', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
     expect(run('scale', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
     expect(run('rotate', 0, 0, 60)[2][5]).toEqual({ r: 0, g: 0, b: 0 })
+    // A negative rate runs the other way. Each case starts from a fresh phase,
+    // because the rate integrates per node. Translate up by one row wraps row
+    // 0 to row 3 of four; scale shrinks to half, so the one-pixel top row
+    // falls between samples and leaves the edge dark.
+    resetEvaluatorState()
+    const up = run('translate', -1, 90, 60)
+    expect(up[3][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(up[0][5]).toEqual({ r: 0, g: 0, b: 0 })
+    resetEvaluatorState()
+    const shrunk = run('scale', -50, 0, 60)
+    expect(shrunk[0][5]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
   it('BrightnessMod scales pixel values', () => {
@@ -5657,14 +5668,10 @@ describe('ClockDisplay', () => {
   it('renders a wired RTC time/date display that changes with the upstream clock', () => {
     vi.useFakeTimers()
     try {
-      const rtc = node('rtc', 'RTCInput', 'input', {})
+      // A DS3231 reads as synced, so DateTime's health lets the time through.
+      const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' })
       const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
-      const wires = [
-        edge('e1', 'rtc', 'secondsOfDay', 'clk', 'secondsOfDay'),
-        edge('e2', 'rtc', 'valid', 'clk', 'valid'),
-        edge('e3', 'rtc', 'day', 'clk', 'day'),
-        edge('e4', 'rtc', 'month', 'clk', 'month'),
-      ]
+      const wires = [edge('e1', 'rtc', 'dateTime', 'clk', 'dateTime')]
 
       vi.setSystemTime(new Date(2026, 6, 27, 14, 5, 9, 250))
       const a = evaluateGraph([...withOutput(clock, [rtc], wires).nodes], [...withOutput(clock, [rtc], wires).edges], 0, 16, 16)

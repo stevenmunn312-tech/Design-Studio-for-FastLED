@@ -3764,13 +3764,13 @@ export function buildGraphDiagnostics(
     })
   }
 
-  // Clock modes have no implicit browser/hardware clock. DateTime is the normal
-  // one-wire source; Seconds Today remains a supported legacy/synthetic feed.
+  // Clock modes have no implicit browser/hardware clock. DateTime is the one
+  // source.
   for (const node of nodes) {
     if (node.data.nodeType !== 'ClockDisplay') continue
     const mode = String((node.data.properties as Record<string, unknown>).displayMode ?? 'Digital HH:MM')
     if (mode === 'Stopwatch' || mode === 'Timer') continue
-    if (edges.some((e) => e.target === node.id && (e.targetHandle === 'dateTime' || e.targetHandle === 'secondsOfDay'))) continue
+    if (edges.some((e) => e.target === node.id && e.targetHandle === 'dateTime')) continue
     diagnostics.push({
       id: `${node.id}-clock-no-time`,
       severity: 'warning',

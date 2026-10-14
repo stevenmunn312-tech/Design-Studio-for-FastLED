@@ -183,11 +183,10 @@ table. That table is **generated from the shared `src/nodes/shared/font.ts` data
 along with every string extent, rather than hand-transcribed, so preview and
 firmware layout cannot drift apart.
 
-The normal hookup is one `DateTime` wire. Clock modes display it only while the
-reading is valid, synced, and not stale. The old scalar hookup remains supported:
-an unwired `valid` counts as true whenever `secondsOfDay` is wired. With neither
-path wired, preview and hardware both render `--:--`; there is no implicit
-browser-clock fallback.
+The hookup is one `DateTime` wire; the old scalar ports (Seconds Today, Valid,
+Day, Month) were removed in D-08.9. Clock modes display it only while the
+reading is valid, synced, and not stale. Unwired, preview and hardware both
+render `--:--`; there is no implicit browser-clock fallback.
 
 ## Validation
 

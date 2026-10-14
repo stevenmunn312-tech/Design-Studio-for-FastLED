@@ -5386,15 +5386,12 @@ describe('ClockDisplay (codegen)', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})
     const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
     const cpp = generateCpp([rtc, clk, outputNode], [
-      edge('e1', 'rtc', 'clk', 'secondsOfDay', 'secondsOfDay'),
-      edge('e2', 'rtc', 'clk', 'valid', 'valid'),
-      edge('e3', 'rtc', 'clk', 'day', 'day'),
-      edge('e4', 'rtc', 'clk', 'month', 'month'),
+      edge('e1', 'rtc', 'clk', 'dateTime', 'dateTime'),
       edge('e5', 'clk', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toContain('auto _clkCols = [&](char _ch, uint8_t *_cols)')
-    expect(cpp).toContain('snprintf(_clkSub_clk, sizeof(_clkSub_clk), "%02d.%02d"')
-    expect(cpp).toContain('if (n_rtc_valid)')
+    expect(cpp).toContain('snprintf(_clkSub_clk, sizeof(_clkSub_clk), "%02d.%02d", (int)(n_rtc_dateTime.day), (int)(n_rtc_dateTime.month))')
+    expect(cpp).toContain('if ((n_rtc_dateTime.valid && n_rtc_dateTime.synced && !n_rtc_dateTime.stale))')
     expect(cpp).toContain('_clkText(_clkMain_clk')
   })
 
@@ -5404,7 +5401,7 @@ describe('ClockDisplay (codegen)', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})
     const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital HH:MM' })
     const cpp = generateCpp([rtc, clk, outputNode], [
-      edge('e1', 'rtc', 'clk', 'secondsOfDay', 'secondsOfDay'),
+      edge('e1', 'rtc', 'clk', 'dateTime', 'dateTime'),
       edge('e2', 'clk', 'out', 'frame', 'frame'),
     ])
     const chars = /static const char _clkChars_clk\[\] = "([^"]+)";/.exec(cpp)?.[1] ?? ''
@@ -5429,14 +5426,14 @@ describe('ClockDisplay (codegen)', () => {
 
   // Wiring the time but not the valid flag used to preview a running clock and
   // then flash permanent dashes.
-  it('treats a wired time with an unwired valid flag as valid, and an unwired time as invalid', () => {
+  it('reads health from a wired DateTime, and shows dashes with none', () => {
     const rtc = node('rtc', 'RTCInput', 'input', {})
     const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital HH:MM' })
     const wired = generateCpp([rtc, clk, outputNode], [
-      edge('e1', 'rtc', 'clk', 'secondsOfDay', 'secondsOfDay'),
+      edge('e1', 'rtc', 'clk', 'dateTime', 'dateTime'),
       edge('e2', 'clk', 'out', 'frame', 'frame'),
     ])
-    expect(wired).toContain('if (true) snprintf(_clkMain_clk')
+    expect(wired).toContain('if ((n_rtc_dateTime.valid && n_rtc_dateTime.synced && !n_rtc_dateTime.stale)) snprintf(_clkMain_clk')
     const bare = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
     expect(bare).toContain('if (false) snprintf(_clkMain_clk')
   })

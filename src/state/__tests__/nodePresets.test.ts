@@ -5,6 +5,7 @@ import {
   useNodePresets,
   variationProperties,
 } from '../nodePresets'
+import { propertyMeta } from '../nodeLibrary'
 
 describe('nodePresets', () => {
   beforeEach(() => {
@@ -37,7 +38,8 @@ describe('nodePresets', () => {
       palette: 'rainbow',
     }, 'randomize')
 
-    expect(['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine']).toContain(next.noiseType)
+    const noiseMeta = propertyMeta('Noise', 'noiseType')
+    expect(noiseMeta?.control === 'select' ? noiseMeta.options : []).toContain(next.noiseType)
     expect(typeof next.speed).toBe('number')
     expect(Number(next.speed)).toBeGreaterThanOrEqual(0)
     expect(Number(next.speed)).toBeLessThanOrEqual(1)

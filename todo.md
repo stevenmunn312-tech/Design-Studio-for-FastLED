@@ -454,7 +454,7 @@ library defaults.
   (every property described; every override names a property or input its
   node has)
   ([graph and nodes](docs/development/patterns/graph-and-nodes.md#node-authoring-and-property-inputs)).
-- [ ] **D-08.9 · Merges, renames and category moves.** First pass applied
+- [x] **D-08.9 · Merges, renames and category moves.** First pass applied
   and compiled on 2026-10-14 (`d086` builds the merged colour nodes; `d0810`
   covers the rest). Merged: Sin, Cos
   and Abs into one Function node (`fn`: sin, cos, abs, sqrt, square, floor,
@@ -486,8 +486,11 @@ library defaults.
   Sensor": it also hosts the RCWL-0516 microwave sensor, so "PIR" would
   mislabel it. Sunrise runs on time since boot (the shared clock `t`, so
   Master Speed scales it); its Start and Duration are typed seconds now, as
-  an hour-long slider moved 50 s a pixel. Still open: Transform's one-way zoom and 0–360 rate, ClockDisplay's
-  legacy scalar ports.
+  an hour-long slider moved 50 s a pixel. Transform's Rate runs −360 to 360,
+  so it turns counter-clockwise, shrinks or slides back (scale still stops
+  at 1/20× and 20×), and Angle is gated to translate. ClockDisplay's legacy
+  Seconds Today, Valid, Day and Month ports are gone: DateTime is its one
+  clock feed (`d089c` compiles both, 2026-10-14).
 - [x] **D-08.10 · Nodes the library lacks.** Both batches built and compiled
   on 2026-10-14 (`d0810` and `d0810show` for the first batch; `d0810b`, every
   second-batch node in one ESP32-S3 sketch, and `d0810ada`, an Adalight

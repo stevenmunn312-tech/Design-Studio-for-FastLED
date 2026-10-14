@@ -658,7 +658,7 @@ describe('nodeLibrary', () => {
     expect(clock?.category).toBe('pattern')
     expect(clock?.subcategory).toBe('Shapes & Text')
     expect(clock?.inputs.map((port) => port.id)).toEqual([
-      'dateTime', 'base', 'color', 'secondsOfDay', 'valid', 'day', 'month', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
+      'dateTime', 'base', 'color', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
       'r', 'g', 'b',
     ])
     expect(clock?.outputs.map((port) => port.id)).toEqual(['frame', 'seconds', 'done'])
@@ -775,6 +775,13 @@ describe('nodeLibrary', () => {
     }
     // The classic Fire2012 style runs on cooling/sparking, not intensity.
     expect(isPropertyEnabled('Fire', 'intensity', { fireStyle: 'fire2012' })).toBe(false)
+  })
+
+  it('Transform runs both ways and reads Angle only when translating', () => {
+    expect(propertyMeta('Transform', 'rate')).toMatchObject({ control: 'slider', min: -360, max: 360 })
+    expect(isPropertyEnabled('Transform', 'angle', { transform: 'translate' })).toBe(true)
+    expect(isPropertyEnabled('Transform', 'angle', { transform: 'rotate' })).toBe(false)
+    expect(isPropertyEnabled('Transform', 'angle', { transform: 'scale' })).toBe(false)
   })
 
   it('Comment has no ports and a text + color default', () => {

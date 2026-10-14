@@ -1092,7 +1092,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // attractor
     preset: { control: 'select', options: ['classic', 'swirl', 'web'] },
   },
-  Transform:         { rate:  { control: 'slider', min: 0, max: 360, step: 1 } },
+  // Negative turns counter-clockwise, shrinks, or slides the other way.
+  Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 1 } },
   Array: {
     count:     { control: 'slider', min: 1, max: 24,  step: 1 },
     offsetX:   { control: 'slider', min: -16, max: 16, step: 0.5 },
@@ -2856,7 +2857,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Transform: {
     transform: 'What moves: rotate spins, scale zooms, translate slides along Angle.',
-    rate: 'How fast it moves: degrees per second, percent per second, or pixels per second by mode.',
+    rate: 'How fast it moves: degrees, percent or pixels per second by mode. Negative turns counter-clockwise, shrinks, or slides backwards. Scale stops at 1/20× and 20×.',
     angle: 'Direction of travel for translate, in degrees. Ignored by rotate and scale.',
   },
   Array: {
@@ -4838,6 +4839,9 @@ export function isPropertyEnabled(nodeType: string, key: string, properties: Rec
   }
   if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
     return properties.outline === 'custom'
+  }
+  if (nodeType === 'Transform' && key === 'angle') {
+    return (properties.transform ?? 'rotate') === 'translate'
   }
   if (nodeType === 'Wave' && (key === 'frequency' || key === 'bpm')) {
     return (key === 'bpm') === (properties.rateUnit === 'BPM')

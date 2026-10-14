@@ -574,20 +574,15 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 220)  / 255),
       b: byte(num(id, 'b', props, 'b', 90)  / 255),
     }
-    // DateTime is the normal one-wire clock feed. It carries health as
-    // well as fields, so a stale/unsynced source cannot quietly present a
-    // questionable wall clock as correct. The scalar ports remain as a
-    // compatibility/synthetic-clock path, but there is deliberately no
-    // browser-clock fallback: unwired preview and firmware both show dashes.
+    // DateTime is the one clock feed. It carries health as well as fields,
+    // so a stale/unsynced source cannot quietly present a questionable wall
+    // clock as correct, and there is deliberately no browser-clock fallback:
+    // unwired, preview and firmware both show dashes.
     const dateTime = input(id, 'dateTime', null) as RtcPreview | null
-    const legacySeconds = input(id, 'secondsOfDay', null)
-    const legacyValid = input(id, 'valid', null)
-    const valid = dateTime
-      ? dateTime.valid && dateTime.synced && !dateTime.stale
-      : legacyValid == null ? typeof legacySeconds === 'number' : Boolean(legacyValid)
-    const secondsOfDay = Number(dateTime?.secondsOfDay ?? legacySeconds ?? 0)
-    const day = Number(dateTime?.day ?? input(id, 'day', 1))
-    const month = Number(dateTime?.month ?? input(id, 'month', 1))
+    const valid = dateTime ? dateTime.valid && dateTime.synced && !dateTime.stale : false
+    const secondsOfDay = Number(dateTime?.secondsOfDay ?? 0)
+    const day = Number(dateTime?.day ?? 1)
+    const month = Number(dateTime?.month ?? 1)
     const x = num(id, 'x', props, 'x', 0.5)
     const y = num(id, 'y', props, 'y', 0.5)
     const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1

@@ -61,6 +61,11 @@ versioning (`0.y.z`) until the first stable release.
   Ethernet, DC-DC Converter, battery and PD trigger parts to a **Hardware**
   category of their own in the Help reference. The bundled patterns, live
   examples and node cards follow; pre-1.0, no save migration.
+- Transform's Rate runs from −360 to 360, so it turns counter-clockwise,
+  shrinks or slides back; Angle shows only for translate. Clock Display
+  drops its Seconds Today, Valid, Day and Month inputs: DateTime from an RTC
+  Clock is its one clock feed. Sunrise's Start and Duration are typed
+  seconds since power-on.
 
 - A generative show compiles as a controller sketch plus one header per
   pattern (`pattern_0.h`, `pattern_1.h`, …) in the helper's sketch folder, for

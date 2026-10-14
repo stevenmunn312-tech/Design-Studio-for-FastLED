@@ -541,20 +541,14 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ? `n_${safeId(dateTimeUp.srcId)}_${safeId(dateTimeUp.srcPort)}`
       : null
     // DateTime carries source health, so clock modes reject stale or
-    // unsynced readings by default. The evaluator treats an unwired legacy
-    // `valid` as true whenever a scalar time is
-    // available, so a graph that wires the seconds but not the valid flag
-    // must not preview a running clock and then flash dashes. With neither
-    // wired there is no clock at all on hardware, so dashes are correct —
-    // buildGraphDiagnostics flags that case.
+    // unsynced readings. Unwired there is no clock at all on hardware, so
+    // dashes are correct — buildGraphDiagnostics flags that case.
     const validExpr = dateTimeExpr
       ? `(${dateTimeExpr}.valid && ${dateTimeExpr}.synced && !${dateTimeExpr}.stale)`
-      : incoming.get(`${node.id}:valid`)
-        ? boolExpr(node.id, 'valid')
-        : (incoming.get(`${node.id}:secondsOfDay`) ? 'true' : 'false')
-    const secondsExpr = dateTimeExpr ? `${dateTimeExpr}.secondsOfDay` : f('secondsOfDay', 'secondsOfDay', 0)
-    const dayExpr = dateTimeExpr ? `${dateTimeExpr}.day` : f('day', 'day', 1)
-    const monthExpr = dateTimeExpr ? `${dateTimeExpr}.month` : f('month', 'month', 1)
+      : 'false'
+    const secondsExpr = dateTimeExpr ? `${dateTimeExpr}.secondsOfDay` : '0.0f'
+    const dayExpr = dateTimeExpr ? `${dateTimeExpr}.day` : '1'
+    const monthExpr = dateTimeExpr ? `${dateTimeExpr}.month` : '1'
     const runExpr = incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true')
     const resetExpr = incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false')
     const durationExpr = `constrain(${f('durationSec', 'durationSec', 300)}, 0.0f, ${CLOCK_TIMER_MAX_SEC}.0f)`

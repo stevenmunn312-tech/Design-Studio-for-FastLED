@@ -1859,7 +1859,7 @@ describe('validateGraph', () => {
       const out = node('out', 'MatrixOutput', { width: 8, height: 8 })
       const wired = buildGraphDiagnostics(
         [node('rtc', 'RTCInput'), node('clk', 'ClockDisplay', { displayMode: 'Analog' }), out],
-        [edge('e1', 'rtc', 'clk', 'secondsOfDay'), edge('e2', 'clk', 'out', 'frame')],
+        [edge('e1', 'rtc', 'clk', 'dateTime'), edge('e2', 'clk', 'out', 'frame')],
         {},
       )
       expect(wired.some((issue) => issue.id === 'clk-clock-no-time')).toBe(false)
