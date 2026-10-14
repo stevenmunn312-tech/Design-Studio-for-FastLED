@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../playerSketchGenerator'
+import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
 
 // The show's LED target comes off a wire now — the generator's `frame` into an
 // output's `frame` — so a fixture that wants its MatrixOutput read has to say
@@ -19,6 +20,20 @@ describe('playerSketchGenerator', () => {
     expect(sketch.includes('float audioEnergy = constrain((_audioBass')).toBe(fades)
     expect(sketch.includes('constrain(patternFade * 255.0f')).toBe(fades)
     expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
+  })
+
+  // The transition dispatcher carries the frame sampler, so a Frame Warp or
+  // Symmetry pattern must not emit a second copy, and the one copy has to sit
+  // above the render functions that call it.
+  it('emits the frame sampler once, above the patterns that sample frames', () => {
+    const renderers = {
+      buffers: [], helpers: [FRAME_SAMPLE_HELPER_CPP],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }'],
+      count: 1, params: [],
+    }
+    const sketch = generatePlayerSketch({}, renderers, { genericPlayer: true })
+    expect(sketch.match(/static inline CRGB _sampleShaded\(/g)).toHaveLength(1)
+    expect(sketch.indexOf('_sampleShaded(')).toBeLessThan(sketch.indexOf('void render_p0('))
   })
 
   it('fades only the patterns that listen, crossing the factor through a transition', () => {

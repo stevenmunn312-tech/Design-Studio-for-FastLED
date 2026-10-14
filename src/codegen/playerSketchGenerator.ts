@@ -49,6 +49,7 @@ import {
 } from './displays/displaySourceExpressions'
 import { boundDisplaySourceFields } from './displays/customDisplayControlGraph'
 import { TRANSITION_HELPER_CPP } from './helpers/transitionHelperCpp'
+import { FRAME_SAMPLE_HELPER_CPP } from './helpers/frameSampleHelperCpp'
 import { PATTERN_SELECTION_CPP, PATTERN_SELECTION_CPP_FORWARD } from './player/patternSelectionCpp'
 import { RESISTIVE_TOUCH_CPP_HELPERS, TFT_TOUCH_CPP_HELPERS, tftTouchGlobalCpp, tftTouchServiceCpp, tftTouchSetupCpp, type TftTouchEmit } from './displays/tftTouchCpp'
 import type { BrowserThumbnails } from '../utils/browserThumbnails'
@@ -658,7 +659,11 @@ export function generatePlayerSketch(
     ? [
         ...renderers!.buffers.map(playerBufferDecl),
         '',
-        ...renderers!.helpers.filter((h) => !graphShared.has(h)).flatMap((h) => [h, '']),
+        // TRANSITION_HELPER_CPP, emitted just above, already carries the
+        // sampler that Frame Warp and Symmetry patterns call.
+        ...renderers!.helpers
+          .filter((h) => !graphShared.has(h) && h !== FRAME_SAMPLE_HELPER_CPP)
+          .flatMap((h) => [h, '']),
         ...renderers!.functions.flatMap((fn) => [fn, '']),
       ].join('\n')
     : ''
@@ -1338,10 +1343,10 @@ ${paletteFromIdCases}
   }
 }
 ` : ''}
+${transitionHelper}
 // ── Pattern renderers ─────────────────────────────────────────────────────────
 ${patternDecls}${renderPatternFn}
 
-${transitionHelper}
 // ── Show file loader ──────────────────────────────────────────────────────────
 bool loadShowFile(const char* path) {
   File f = SD.open(path, FILE_READ);
