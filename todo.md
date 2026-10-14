@@ -482,10 +482,9 @@ library defaults.
   Image and SD Video to a Media subcategory; Ethernet, DC-DC Converter,
   Battery Pack, Pack Electronics and USB-C PD Trigger to a `hardware`
   category (`src/nodes/hardware/`, `HARDWARE_CATEGORY`) that the Help
-  reference lists and the sidebar does not. Still open: MotionInput's
-  "PIR Motion Sensor" label was held back because the node also hosts the
-  RCWL-0516 microwave sensor, so it needs another name or none; Sunrise's
-  clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
+  reference lists and the sidebar does not. MotionInput stays "Motion
+  Sensor": it also hosts the RCWL-0516 microwave sensor, so "PIR" would
+  mislabel it. Still open: Sunrise's clock source, Transform's one-way zoom and 0–360 rate, ClockDisplay's
   legacy scalar ports.
 - [x] **D-08.10 · Nodes the library lacks.** Both batches built and compiled
   on 2026-10-14 (`d0810` and `d0810show` for the first batch; `d0810b`, every
